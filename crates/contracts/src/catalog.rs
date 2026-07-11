@@ -49,8 +49,8 @@ pub const ERROR_PARAMETER_NAMES: &[&str] = &[
     "retry-after-ms",
 ];
 
-pub const CONFIG_KEYS: &[&str] = &[];
-pub const DOMAIN_SCHEMA_IDS: &[&str] = &[];
+pub const CONFIG_KEYS: &[&str] = &["eitmad.config.locale.primary.v1"];
+pub const DOMAIN_SCHEMA_IDS: &[&str] = &["eitmad.schema.protocol.v1"];
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]

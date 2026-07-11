@@ -1,0 +1,75 @@
+{
+  "commands": [
+    "eitmad.config.update.v1",
+    "eitmad.operation.cancel.v1",
+    "eitmad.update.report-installer-outcome.v1"
+  ],
+  "queries": [
+    "eitmad.config.get.v1",
+    "eitmad.permissions.get-effective.v1",
+    "eitmad.update.get-state.v1",
+    "eitmad.sync.get-status.v1"
+  ],
+  "subscriptions": [
+    "eitmad.config.changed.subscribe.v1",
+    "eitmad.permissions.changed.subscribe.v1",
+    "eitmad.update.state.subscribe.v1",
+    "eitmad.sync.status.subscribe.v1"
+  ],
+  "events": [
+    "eitmad.config.changed.event.v1",
+    "eitmad.permissions.changed.event.v1",
+    "eitmad.update.state.event.v1",
+    "eitmad.sync.status.event.v1"
+  ],
+  "syncMessages": [
+    "eitmad.sync.negotiate.v1",
+    "eitmad.sync.pull.v1",
+    "eitmad.sync.changes.v1",
+    "eitmad.sync.acknowledge.v1",
+    "eitmad.sync.conflict.v1",
+    "eitmad.sync.backpressure.v1"
+  ],
+  "capabilities": [
+    "eitmad.capability.config.v1",
+    "eitmad.capability.permissions.v1",
+    "eitmad.capability.sync.v1",
+    "eitmad.capability.update.v1"
+  ],
+  "permissions": [
+    "eitmad.permission.config.read.v1",
+    "eitmad.permission.config.write.v1",
+    "eitmad.permission.permissions.read.v1",
+    "eitmad.permission.sync.read.v1",
+    "eitmad.permission.update.read.v1",
+    "eitmad.permission.update.report-installer.v1"
+  ],
+  "configKeys": [
+    "eitmad.config.locale.primary.v1"
+  ],
+  "schemaIds": [
+    "eitmad.schema.protocol.v1"
+  ],
+  "errorCodes": [
+    "eitmad.error.authorization-denied.v1",
+    "eitmad.error.config-revision-conflict.v1",
+    "eitmad.error.contract-invalid.v1",
+    "eitmad.error.protocol-incompatible.v1",
+    "eitmad.error.sync-backpressure.v1",
+    "eitmad.error.update-installer-failed.v1"
+  ],
+  "messageIds": [
+    "eitmad.message.authorization-denied.v1",
+    "eitmad.message.config-revision-conflict.v1",
+    "eitmad.message.contract-invalid.v1",
+    "eitmad.message.protocol-incompatible.v1",
+    "eitmad.message.sync-backpressure.v1",
+    "eitmad.message.update-installer-failed.v1"
+  ],
+  "errorParameterNames": [
+    "actual-revision",
+    "expected-revision",
+    "required-capability",
+    "retry-after-ms"
+  ]
+}
