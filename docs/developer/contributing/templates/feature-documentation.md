@@ -50,6 +50,8 @@ Describe identities, trust boundaries, relationship authorization, scopes, audit
 
 Record approved Arabic terms, RTL behavior, bidirectional values, Arabic search normalization, localization, input, accessibility, and document or report output. Include representative Arabic and mixed-direction test data.
 
+Link a completed copy or evidence record for the [Arabic-first feature checklist](../arabic-first-feature-checklist.md). Every item must be `Pass`, `Not applicable` with a reason, or `Blocked`; an applicable blocked item prevents feature completion.
+
 ## Behavior and flows
 
 Describe the normal flow and important state transitions. Link to tutorials, how-to guides, and exact reference material rather than duplicating them.
@@ -60,7 +62,7 @@ For each credible failure, state detection, preserved state, user-visible Arabic
 
 ## Tests and verification
 
-List automated tests, manual scenarios, affected platforms, Arabic/RTL cases, security cases, sync/offline cases, performance evidence, and clean build/run commands. Record known gaps.
+List automated tests, manual scenarios, affected platforms, Arabic/RTL cases, bidi interaction, locale formatting, search normalization, generated-document rendering, security cases, sync/offline cases, performance evidence, and clean build/run commands. Record known gaps and their owner.
 
 ## Tradeoffs and rejected alternatives
 

@@ -202,6 +202,8 @@ The shell MUST NOT independently decide that an update is safe. The engine MUST 
 
 Arabic is a product foundation, not a locale added after feature completion. Every contract and feature MUST support Unicode Arabic data, RTL presentation, mixed Arabic/Latin content, Arabic-aware search, localized errors, and Arabic-ready documents and reports. Detailed requirements are defined in [Arabic-first UX](arabic-first-ux.md).
 
+No production shell work may begin until the Arabic-first pre-shell gate is complete. The team MUST approve the default locale and fallback chain, calendar and time-zone behavior, input and display digits, currency and rounding policy, UI and document font strategy, search normalization profiles, localization message contract, shared bidirectional fixtures, PDF and print baseline, accessibility baseline, and shell-conformance evidence. Unresolved choices remain explicit blockers; a platform shell MUST NOT invent product policy locally.
+
 ## Performance and efficiency principles
 
 Correctness and reliability come first. Within that boundary, the system MUST remain responsive and economical on ordinary workshop and office hardware.
@@ -258,7 +260,7 @@ No production implementation is part of this foundation. Before the first produc
 3. identity, scope, relationship authorization, and audit behavior;
 4. storage mode, migrations, backup, and sync semantics;
 5. engine lifecycle and authenticated local IPC threat model;
-6. Arabic UX acceptance criteria and representative bidirectional test data;
+6. the [Arabic-first pre-shell gate and feature checklist](../developer/contributing/arabic-first-feature-checklist.md), including approved locale, typography, search, localization, report, accessibility, and representative bidirectional test policies;
 7. update compatibility assumptions;
 8. measurable performance budgets and clean-run verification.
 

@@ -51,7 +51,7 @@ List trusted inputs, untrusted inputs, required authorization, secrets, redactio
 
 ## Arabic UX boundary
 
-List owned message identifiers, terminology, normalization rules, RTL or bidirectional constraints, and shell responsibilities.
+List owned message identifiers, terminology, normalization rules, canonical locale-sensitive values, RTL or bidirectional constraints, and shell responsibilities. Link the applicable evidence from the [Arabic-first feature checklist](../arabic-first-feature-checklist.md).
 
 ## Dependencies
 

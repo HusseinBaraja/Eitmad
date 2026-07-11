@@ -22,3 +22,4 @@ Use these templates for new durable documentation. Remove instructional comments
 | [Decision log](decision-log.md) | Track smaller, local decisions that do not require an ADR. |
 
 Templates follow the [documentation standard](../documentation-standard.md), [freshness policy](../documentation-freshness-policy.md), and [review checklist](../documentation-review-checklist.md).
+Every feature and module template also uses the mandatory [Arabic-first feature checklist](../arabic-first-feature-checklist.md).

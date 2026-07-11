@@ -68,6 +68,12 @@ Cover what applies:
 
 Link to the canonical definition instead of copying it. Use synthetic Arabic UI examples when needed, and never expose secrets, customer records, or unredacted logs.
 
+## Complete the Arabic-first gate
+
+Before shell implementation and before feature completion, complete the [Arabic-first feature checklist](arabic-first-feature-checklist.md). Record every result as `Pass`, `Not applicable` with a reason, or `Blocked` with an owner. A blocked applicable item prevents the feature from advancing through that gate.
+
+The checklist evidence belongs with the owning vertical capability. Do not create a horizontal localization feature that takes authority away from Rust-owned validation, search, formatting policy, contracts, or canonical values.
+
 ## Update the knowledge graph
 
 In the same logical change:
