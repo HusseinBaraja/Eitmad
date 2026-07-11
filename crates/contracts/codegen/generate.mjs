@@ -144,7 +144,8 @@ function prependGeneratedHeader(path, header) {
 }
 
 function normalize(content) {
-  return `${content.replaceAll("\r\n", "\n").trimEnd()}\n`;
+  const lines = content.replaceAll("\r\n", "\n").split("\n");
+  return `${lines.map((line) => line.trimEnd()).join("\n").trimEnd()}\n`;
 }
 
 function protocolGroups(registry) {

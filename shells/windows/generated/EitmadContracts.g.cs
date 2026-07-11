@@ -2387,7 +2387,7 @@ namespace Eitmad.Contracts
 
         public static readonly SyncStatusKindConverter Singleton = new SyncStatusKindConverter();
     }
-    
+
     public class DateOnlyConverter : JsonConverter<DateOnly>
     {
         private readonly string serializationFormat;

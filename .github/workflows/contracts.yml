@@ -1,0 +1,68 @@
+name: Contract compatibility
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/contracts.yml"
+      - "crates/contracts/**"
+      - "shells/macos/generated/**"
+      - "shells/windows/generated/**"
+      - "tests/contract-compatibility/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/contracts.yml"
+      - "crates/contracts/**"
+      - "shells/macos/generated/**"
+      - "shells/windows/generated/**"
+      - "tests/contract-compatibility/**"
+
+permissions:
+  contents: read
+
+jobs:
+  rust-and-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.85
+        with:
+          components: clippy,rustfmt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: crates/contracts/codegen/package-lock.json
+      - run: npm ci --ignore-scripts --prefix crates/contracts/codegen
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy -p eitmad-contracts --all-targets -- -D warnings
+      - run: cargo test -p eitmad-contracts
+      - run: npm run contracts:check --prefix crates/contracts/codegen
+
+  windows-binding:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - run: >-
+          dotnet run
+          --project tests/contract-compatibility/csharp/Eitmad.ContractConformance.csproj
+          -- tests/contract-compatibility/fixtures/protocol-v1.json
+
+  macos-binding:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile Swift contract conformance
+        run: >-
+          swiftc
+          shells/macos/generated/EitmadContracts.generated.swift
+          shells/macos/generated/ProtocolIds.generated.swift
+          tests/contract-compatibility/swift/ContractFixtureTests.swift
+          -o "$RUNNER_TEMP/eitmad-contract-tests"
+      - name: Run Swift contract conformance
+        run: >-
+          "$RUNNER_TEMP/eitmad-contract-tests"
+          tests/contract-compatibility/fixtures/protocol-v1.json
