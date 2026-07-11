@@ -202,7 +202,7 @@ The shell MUST NOT independently decide that an update is safe. The engine MUST 
 
 Arabic is a product foundation, not a locale added after feature completion. Every contract and feature MUST support Unicode Arabic data, RTL presentation, mixed Arabic/Latin content, Arabic-aware search, localized errors, and Arabic-ready documents and reports. Detailed requirements are defined in [Arabic-first UX](arabic-first-ux.md).
 
-No production shell work may begin until the Arabic-first pre-shell gate is complete. The team MUST approve the default locale and fallback chain, calendar and time-zone behavior, input and display digits, currency and rounding policy, UI and document font strategy, search normalization profiles, localization message contract, shared bidirectional fixtures, PDF and print baseline, accessibility baseline, and shell-conformance evidence. Unresolved choices remain explicit blockers; a platform shell MUST NOT invent product policy locally.
+No production shell work may begin until the Arabic-first pre-shell gate is complete. The team MUST approve the default locale and fallback chain, calendar and time-zone behavior, input and display digits, currency and rounding policy, UI and document font strategy, search normalization profiles, localization message contract, shared bidirectional fixtures, PDF and print baseline, and accessibility baseline. Unresolved choices remain explicit blockers; a platform shell MUST NOT invent product policy locally.
 
 ## Performance and efficiency principles
 
@@ -225,6 +225,8 @@ Performance budgets MUST be defined with the first production vertical slice, th
 Every completed feature MUST run the documentation-maintenance workflow and document its Rust authority, contracts, invariants, failure modes, tests, and safe extension points using the [feature documentation template](../developer/contributing/templates/feature-documentation.md). The same logical change MUST update all affected canonical pages, indexes, glossary entries, decisions, and troubleshooting knowledge. See the [documentation standard](../developer/contributing/documentation-standard.md).
 
 CI MUST eventually reject contract drift, broken migrations, unsafe logging, direct shell access to config or databases, and missing required documentation. Production changes are complete only when builds and tests pass without warnings and the application has been run cleanly on the affected path.
+
+After shell implementation, feature completion also requires shell-conformance evidence for the applicable Arabic-first checklist items, including RTL and bidirectional interaction, keyboard and focus behavior, accessibility, localization fallbacks, and platform differences.
 
 ## Anti-patterns
 
