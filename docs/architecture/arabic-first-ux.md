@@ -19,7 +19,7 @@ keywords:
 
 ## Principle
 
-Arabic is the default design language of الاعتماد. Arabic-first means product flows are conceived, written, tested, and reviewed in Arabic and RTL from the beginning. English and other locales remain supported, but they do not define the layout assumptions.
+Arabic is Eitmad's default UI and UX design language. Arabic-first means product flows are conceived, written, tested, and reviewed in Arabic and RTL from the beginning. English and other locales remain supported, but they do not define the layout assumptions.
 
 These requirements apply to native shells, Rust-owned messages and contracts, search, imports and exports, documents, reports, diagnostics, and support tools.
 

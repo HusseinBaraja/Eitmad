@@ -18,7 +18,7 @@ keywords:
 
 ## Purpose and status
 
-This document defines the target architecture for the الاعتماد desktop system. It establishes authority and trust boundaries before production implementation begins. It is normative: implementations MUST conform to it or record an approved architectural decision explaining a deliberate exception.
+This document defines the target architecture for the Eitmad desktop system. It establishes authority and trust boundaries before production implementation begins. It is normative: implementations MUST conform to it or record an approved architectural decision explaining a deliberate exception.
 
 ## System shape
 
