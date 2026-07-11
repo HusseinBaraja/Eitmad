@@ -1,0 +1,38 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/authorization",
+    "crates/contracts",
+    "crates/engine-cli",
+    "crates/engine-runtime",
+    "crates/extensions",
+    "crates/external-integrations",
+    "crates/observability-audit",
+    "crates/storage",
+    "crates/sync",
+    "crates/update-policy",
+    "server/admin-plane",
+    "server/control-plane",
+    "server/relay-plane",
+    "server/sync-plane",
+    "server/update-plane",
+]
+
+[workspace.package]
+edition = "2024"
+license = "Proprietary"
+publish = false
+rust-version = "1.85"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+warnings = "deny"
+
+[workspace.lints.clippy]
+all = "deny"
+pedantic = "deny"
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
+strip = "symbols"

@@ -1,0 +1,18 @@
+[package]
+name = "eitmad-update-plane"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[[bin]]
+# Keep tests disabled for this empty process entry. Windows installer heuristics
+# treat test executables containing "update" as requiring elevation.
+name = "eitmad-update-plane"
+path = "src/main.rs"
+test = false
+

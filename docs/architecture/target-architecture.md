@@ -1,8 +1,24 @@
+---
+title: "Understand the target architecture"
+description: "Understand Rust engine authority and IPC, storage, sync, security, and update boundaries before implementing a product capability."
+audience: "architecture"
+page_type: "explanation"
+status: "active"
+owner: "architecture maintainers"
+last_verified: "2026-07-11"
+review_triggers:
+  - "an authority, process, trust, storage, sync, update, or performance boundary changes"
+keywords:
+  - "target architecture"
+  - "Rust engine authority"
+  - "Commands Queries Subscriptions"
+---
+
 # Target Architecture
 
 ## Purpose and status
 
-This document defines the target architecture for the الاعتماد desktop system. It establishes authority and trust boundaries before production implementation begins. It is normative: implementations MUST conform to it or record an approved architectural decision explaining a deliberate exception.
+This document defines the target architecture for the Eitmad desktop system. It establishes authority and trust boundaries before production implementation begins. It is normative: implementations MUST conform to it or record an approved architectural decision explaining a deliberate exception.
 
 ## System shape
 
@@ -184,7 +200,7 @@ The shell MUST NOT independently decide that an update is safe. The engine MUST 
 
 ## Arabic-first UX requirement
 
-Arabic is a product foundation, not a locale added after feature completion. Every contract and feature MUST support Unicode Arabic data, RTL presentation, mixed Arabic/Latin content, Arabic-aware search, localized errors, and Arabic-ready documents and reports. Detailed requirements are defined in [Arabic-first UX](../product/arabic-first-ux.md).
+Arabic is a product foundation, not a locale added after feature completion. Every contract and feature MUST support Unicode Arabic data, RTL presentation, mixed Arabic/Latin content, Arabic-aware search, localized errors, and Arabic-ready documents and reports. Detailed requirements are defined in [Arabic-first UX](arabic-first-ux.md).
 
 ## Performance and efficiency principles
 
@@ -204,7 +220,7 @@ Performance budgets MUST be defined with the first production vertical slice, th
 
 ## Documentation and verification
 
-Every completed feature MUST include concise engineer documentation covering purpose, design, ownership, contracts, security and privacy, Arabic behavior, tradeoffs, tests, operational concerns, and extension points. Major features also require an architectural decision record when they introduce or change a lasting boundary. See the [documentation standard](../engineering/documentation-standard.md).
+Every completed feature MUST run the documentation-maintenance workflow and document its Rust authority, contracts, invariants, failure modes, tests, and safe extension points using the [feature documentation template](../developer/contributing/templates/feature-documentation.md). The same logical change MUST update all affected canonical pages, indexes, glossary entries, decisions, and troubleshooting knowledge. See the [documentation standard](../developer/contributing/documentation-standard.md).
 
 CI MUST eventually reject contract drift, broken migrations, unsafe logging, direct shell access to config or databases, and missing required documentation. Production changes are complete only when builds and tests pass without warnings and the application has been run cleanly on the affected path.
 
