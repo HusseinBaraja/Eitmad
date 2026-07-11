@@ -1,5 +1,11 @@
 # Engineer Documentation Standard
 
+> - Category: Reference
+> - Status: Active
+> - Owner: Engineering maintainers
+> - Last verified: 2026-07-11
+> - Review trigger: Feature completion, ADR, documentation structure, or review requirements change
+
 ## Purpose
 
 Documentation is part of the product, not post-development cleanup. Every completed feature must leave enough concise, current information for another engineer to understand its purpose, authority boundary, operation, risks, verification, and safe extension.
@@ -22,6 +28,19 @@ The feature document MUST cover:
 12. **Extension points** — the intended seams for later behavior and the invariants future work must preserve.
 
 Small changes MAY use a compact document or a focused update to an existing document, but MUST address every applicable topic. Major features require a dedicated design document and any necessary architectural decision records.
+
+Use the [feature documentation template](../templates/feature-documentation.md). Every feature document MUST explicitly explain its purpose, user problem, architecture placement, contracts, storage impact, sync impact, security impact, Arabic UX impact, tests, failure modes, and tradeoffs. Write `Not applicable` only with a short reason; an omitted section is not evidence that the topic was considered.
+
+## Documentation types
+
+Documentation follows the Diátaxis categories defined in the [documentation index](../README.md#diátaxis-categories):
+
+- tutorials teach through a guided learning path;
+- how-to guides provide steps for a concrete task;
+- reference documents state exact facts and interfaces;
+- explanation documents develop understanding, rationale, and tradeoffs.
+
+Feature and ADR documents are primarily explanation. Module documents are primarily reference. Operational procedures are how-to guides. Onboarding exercises are tutorials. Keep the category visible near the top of each document.
 
 ## Architectural decision records
 
@@ -83,6 +102,8 @@ CI SHOULD progressively enforce link validity, formatting, generated contract dr
 Documentation changes are reviewed with the code they describe. Reviewers MUST reject a feature whose documentation contradicts its implementation or omits a material boundary or risk.
 
 When behavior changes, update the canonical document in the same commit or logical change. When a feature is removed, remove or archive its active documentation and repair incoming links. Periodic audits SHOULD verify that diagrams, compatibility ranges, runbooks, and extension points still reflect the product.
+
+All durable documents MUST follow the [documentation freshness policy](documentation-freshness-policy.md) and pass the [documentation review checklist](documentation-review-checklist.md). A document without an owner, review trigger, or freshness metadata is incomplete.
 
 ## Initial foundation exception
 
