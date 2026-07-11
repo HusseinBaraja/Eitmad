@@ -5,7 +5,7 @@
 - Every instruction in this file is mandatory.
 - Use `.agents/skills/caveman/SKILL.md` in lite mode.
 - Use `.agents/skills/vertical-codebase/SKILL.md` to decide how to structure the codebase.
-- Use `.agents/skills/maintain-project-documentation/SKILL.md` whenever documentation is created, rebuilt, reviewed, or changed with a feature.
+- After implementing and verifying every feature request, run `.agents/skills/maintain-project-documentation/SKILL.md` before considering the feature complete. Use its evidence map and change-impact rules to update every affected canonical page, index, glossary term, decision, and troubleshooting path in the same logical change.
 - Commit incrementally when you complete a checkpoint.
 - Follow the existing non-destructive git rules: never revert user changes unless explicitly asked.
 
@@ -26,9 +26,9 @@ The final app must be fast, efficient, low-resource, secure, sync-capable, updat
 - macOS and Linux shells use native platform UI choices.
 - UI shells must not directly own business logic, database access, config files, sync logic, permissions, external API calls, secrets, or domain validation.
 - Rust owns contracts, engine runtime, config, storage, sync, authorization, updates, observability, audit, external services, and background jobs.
-- Every completed feature must include concise engineer documentation explaining what was built, why it exists, how it works, tradeoffs, tests, and future extension points.
-- Do not finish a feature without docs.
-- Every Major feature must include concise engineer documentation covering purpose, design, tradeoffs, tests, and extension points.
+- Every completed feature must leave an unfamiliar engineer able to find its Rust authority, contracts, invariants, failure modes, tests, and safe extension points.
+- Do not finish a feature until the documentation-maintenance skill and its focused documentation audit pass. A verified no-documentation-impact result must still come from running the skill workflow.
+- Every major feature requires dedicated engineer documentation covering purpose, design, ownership, contracts, security, Arabic behavior, tradeoffs, tests, operations, failure recovery, and extension points.
 
 ## Testing Discipline
 
