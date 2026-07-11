@@ -17,7 +17,7 @@ review_triggers:
 > - Date: 2026-07-11
 > - Decision owners: Architecture maintainers
 > - Last verified: 2026-07-11
-> - Review trigger: A platform setting cannot safely be represented as an adapter-owned exception
+> - Review trigger: A platform setting requires a narrow adapter-owned exception
 > - Supersedes: None
 > - Superseded by: None
 

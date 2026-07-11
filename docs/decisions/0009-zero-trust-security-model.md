@@ -39,7 +39,7 @@ The system spans UI processes, engines, devices, peers, servers, administrators,
 
 ## Decision
 
-The product MUST use zero trust across shells, engines, devices, peers, servers, administrators, and plugins. Every command and query is authenticated, authorized in Rust, scope-bound, and validated. Access is least-privilege, deny-by-default, capability-limited, and revocable where feasible. Every state-changing command produces an immutable or tamper-evident audit outcome.
+The product MUST use zero trust across shells, engines, devices, peers, servers, administrators, and plugins. Every command and query is authenticated, authorized in Rust, scope-bound, and validated. Access is least-privilege, deny-by-default, capability-limited, and revocable where feasible. Every state-changing command produces a durable immutable or tamper-evident audit record correlated to the command and containing the authenticated principal, authorization scope, and command result.
 
 Threat models MUST precede identity, permissions, sync, updates, plugins, remote access, or sensitive exports.
 

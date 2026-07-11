@@ -1,6 +1,6 @@
 ---
-title: "صمّم تجربة عربية أولًا"
-description: "طبّق RTL والنص ثنائي الاتجاه والبحث والإدخال والمستندات وإمكانية الوصول بوصفها متطلبات نظام."
+title: "Design an Arabic-first user experience"
+description: "Treat RTL, bidirectional text, search, input, documents, and accessibility as system requirements."
 audience: "architecture"
 page_type: "reference"
 status: "active"

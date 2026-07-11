@@ -43,7 +43,7 @@ Rust MUST own observability policy, schemas, classification, redaction, sampling
 
 ## Architecture and contract impact
 
-Events use stable identifiers, severity, monotonic and wall-clock context where needed, correlation and causation identifiers, component version, and privacy classification. Support bundles are explicit, inspectable, bounded exports rather than raw directory archives.
+Events use stable identifiers, severity, monotonic and wall-clock context where needed, correlation and causation identifiers, component version, and privacy classification. Support bundles and diagnostic exports are explicit, inspectable, bounded artifacts rather than raw directory archives. Their schemas MUST use an explicit allowlist or enforce the same prohibited-field policy as telemetry and routine logs: product payloads, customer data, secrets, credentials, authorization graphs, raw database values, and unredacted errors MUST NOT be included. Inspection and redaction paths MUST enforce this policy before export.
 
 ## Storage and sync impact
 

@@ -39,11 +39,11 @@ Embedding the engine into every shell would couple authoritative state and lifec
 
 ## Decision
 
-The Rust engine MUST run as a separate process. The shell supervises an engine instance it launches: discovery, authenticated startup, compatibility negotiation, health observation, reconnection, and graceful shutdown. The engine MUST detect abandoned sessions and preserve storage, audit, migration, and sync safety without a living shell. Accidental duplicate authorities are prohibited.
+The Rust engine MUST run as a separate process. A desktop shell supervises an engine instance it launches. For CLI and service modes, the launcher or operating-system service manager is the supervisor. For server modes, the server process manager or container orchestrator is the supervisor. In every mode, that supervisor owns engine discovery and launch, authenticated channel establishment, compatibility negotiation, health observation, bounded restart and reconnection, and graceful shutdown. The engine MUST detect abandoned sessions and preserve storage, audit, migration, and sync safety without a living supervisor. Accidental duplicate authorities are prohibited.
 
 ## Architecture and contract impact
 
-Communication uses authenticated, typed local IPC with version and capability negotiation, deadlines, cancellation, backpressure, and reconnect semantics.
+Communication uses authenticated, typed IPC with version and capability negotiation, deadlines, cancellation, backpressure, and reconnect semantics. The supervision contract MUST expose the same lifecycle states and single-authority guarantees to desktop, CLI, service, and server launchers.
 
 ## Storage and sync impact
 

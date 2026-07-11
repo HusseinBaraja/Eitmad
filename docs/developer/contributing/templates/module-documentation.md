@@ -31,7 +31,7 @@ State the product capability or infrastructure boundary this module owns, why it
 
 ## Public surface
 
-List deliberate exports, commands, queries, subscriptions, events, errors, capabilities, and versioning rules. Keep internals private or `pub(crate)` unless another vertical has a legitimate dependency.
+List deliberate exports, commands, queries, subscriptions, events, errors, capabilities, and versioning rules. Keep internals private by default. Use `pub(crate)` only for APIs consumed within the same crate; a deliberate dependency from another crate requires narrowly scoped `pub` items.
 
 ## Invariants
 

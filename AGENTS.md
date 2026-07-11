@@ -118,6 +118,7 @@ Every state-changing command produces an audit record.
 # Arabic
 Arabic support is foundational.
 Every feature must account for RTL, bidirectional text, Arabic search, localization, mixed-language data, and Arabic-ready documents and reports.
+Repository documentation is written in English. Arabic is required for the app's UI and UX, including localized labels, examples, search terms, RTL behavior, and mixed-direction test cases; it is not the prose language for engineering, user, operations, API, architecture, or troubleshooting documentation.
 
 # Updates
 Rust owns update policy, compatibility, rollout, migration safety, and update state.

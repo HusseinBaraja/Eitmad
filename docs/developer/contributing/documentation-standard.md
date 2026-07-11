@@ -1,87 +1,91 @@
 ---
-title: "حدّث الوثائق مع كل ميزة"
-description: "حدّد أثر تغيير المنتج، حدّث الصفحات الكنسية، وشغّل فحوص الوثائق قبل اكتمال الميزة."
+title: "Update documentation with every feature"
+description: "Assess product-change impact, update canonical pages, and run documentation checks before completing a feature."
 audience: "developer"
 page_type: "task"
 status: "active"
 owner: "engineering maintainers"
 last_verified: "2026-07-11"
 review_triggers:
-  - "feature completion, documentation structure, or quality gates change"
+  - "feature completion, documentation structure, language policy, or quality gates change"
 keywords:
-  - "توثيق الميزة"
   - "feature documentation"
   - "maintain-project-documentation"
   - "definition of done"
+  - "English documentation"
 ---
 
-# حدّث الوثائق مع كل ميزة
+# Update documentation with every feature
 
-الميزة غير مكتملة حتى يستطيع مهندس جديد العثور على سلطتها وعقودها وفشلها واختباراتها وحدود امتدادها. شغّل `.agents/skills/maintain-project-documentation/SKILL.md` بعد اكتمال السلوك وقبل إعلان الإنجاز.
+A feature is incomplete until a new engineer can find its Rust authority, contracts, invariants, failure modes, tests, and safe extension points. Follow the instructions in `.agents/skills/maintain-project-documentation/SKILL.md` after behavior is complete and before declaring the feature done.
 
-## حدّد أثر التغيير
+## Documentation language
 
-افحص المصادر الكنسية الأضيق: سياسة المستودع، وحدة Rust المالكة، العقود، الترحيلات والإعدادات والصلاحيات والتدقيق والمزامنة والتحديث، الاختبارات، ثم محول الواجهة والنص العربي. لا تستخدم وثيقة قديمة وحدها دليلًا على السلوك.
+Write all repository documentation in English, including user help. Arabic is the app's UI/UX language requirement, not the documentation prose language. Preserve exact Arabic UI labels, approved product terms, localized symptoms, search aliases, and representative RTL or bidirectional examples where they are evidence of app behavior.
 
-حدّث الوثائق في التغيير نفسه عند تغيير أي من الآتي:
+## Assess change impact
 
-- تدفق مستخدم أو مصطلح أو نص عربي؛
-- `Command` أو `Query` أو `Subscription` أو خطأ أو إصدار أو إمكانية؛
-- صلاحية أو نطاق أو تدقيق أو خصوصية؛
-- دورة حياة سجل أو مخطط أو ترحيل أو نسخ احتياطي أو استرداد؛
-- مزامنة أو وضع عدم الاتصال أو إعادة محاولة أو تعارض؛
-- تثبيت أو تحديث أو توافق أو تشخيص أو rollback؛
-- ملكية وحدة أو ثابت معماري أو نقطة امتداد؛
-- فشل يكشف مسار تشخيص قابلًا لإعادة الاستخدام.
+Inspect the narrowest canonical sources: repository policy, the owning Rust module, contracts, migrations, configuration, authorization, audit, synchronization, updates, tests, then the shell adapter and Arabic UI copy. Never use an old document as the sole evidence of behavior.
 
-## اختر الصفحة الكنسية
+Update documentation in the same change when any of these change:
 
-| حاجة القارئ | الموضع |
+- a user workflow, Arabic UI term, or localized label;
+- a `Command`, `Query`, `Subscription`, error, version, or capability;
+- authorization, scope, audit, or privacy behavior;
+- a record lifecycle, schema, migration, backup, or recovery path;
+- synchronization, offline behavior, retry, or conflict semantics;
+- installation, update, compatibility, diagnostics, or rollback;
+- module ownership, an architectural invariant, or an extension point;
+- a failure that reveals a reusable diagnostic path.
+
+## Choose the canonical page
+
+| Reader need | Location |
 | --- | --- |
-| إكمال عمل داخل المنتج | `docs/user/`، بالعربية أولًا |
-| فهم القدرة أو تغييرها | `docs/developer/subsystems/` حسب قدرة المنتج |
-| تشغيل أو استرداد النظام | `docs/operations/` |
-| الاعتماد على عقد دقيق | `docs/api/` |
-| فهم حد أو نموذج عابر للقدرات | `docs/architecture/` |
-| تشخيص عرض أو معرّف خطأ | `docs/troubleshooting/` |
-| تسجيل اختيار دائم | `docs/decisions/` |
-| شرح توافق أو ترحيل إصدار | `docs/releases/` |
+| Complete work in the product | `docs/user/`, written in English with exact Arabic UI labels |
+| Understand or change a capability | `docs/developer/subsystems/`, organized by product capability |
+| Operate or recover the system | `docs/operations/` |
+| Depend on an exact contract | `docs/api/` |
+| Understand a cross-capability boundary or model | `docs/architecture/` |
+| Diagnose a symptom or error identifier | `docs/troubleshooting/` |
+| Record a durable choice | `docs/decisions/` |
+| Explain release compatibility or migration | `docs/releases/` |
 
-لا تنشئ مجموعة أو صفحة بلا مهمة قارئ حقيقية. حدّث صفحة موجودة عندما يكون التغيير صغيرًا، ونظّم معرفة الميزة رأسيًا عبر Rust وIPC والتخزين والخادم والواجهة.
+Do not create a collection or page without a real reader task. Update an existing page for a small change, and organize feature knowledge vertically across Rust, IPC, storage, server, and shell boundaries.
 
-## اكتب ما يحتاجه المهندس
+## Write what an engineer needs
 
-غطِّ ما ينطبق:
+Cover what applies:
 
-- الغرض والنتيجة والنطاق المستبعد؛
-- سلطة Rust والحدود والثوابت ودورة الحياة؛
-- العقود والإصدارات والإمكانات والتوافق والفشل الجزئي؛
-- الهوية وReBAC والنطاق والتدقيق والرفض والاستعادة؛
-- التخزين والمزامنة والعمل دون اتصال؛
-- العربية وRTL والنص ثنائي الاتجاه والبحث وإمكانية الوصول؛
-- الفشل والتشخيص والrollback أو الإصلاح؛
-- المفاضلات والاختبارات ونقاط الامتداد الآمنة.
+- purpose, outcome, and non-goals;
+- Rust authority, boundaries, invariants, and lifecycle;
+- contracts, versions, capabilities, compatibility, and partial failure;
+- identity, ReBAC, scope, audit, denial, and recovery;
+- storage, synchronization, and offline behavior;
+- Arabic UI/UX, RTL, bidirectional text, search, and accessibility;
+- failures, diagnostics, rollback, or repair;
+- tradeoffs, tests, and safe extension points.
 
-اربط التعريف الكنسي بدل نسخه. استخدم بيانات عربية اصطناعية، ولا تعرض أسرارًا أو سجلات عميل أو سجلات تشغيل غير منقحة.
+Link to the canonical definition instead of copying it. Use synthetic Arabic UI examples when needed, and never expose secrets, customer records, or unredacted logs.
 
-## حدّث شبكة المعرفة
+## Update the knowledge graph
 
-في التغيير المنطقي نفسه:
+In the same logical change:
 
-1. اربط الصفحة من أقرب فهرس ومن الصفحات المرتبطة.
-2. حدّث [المسرد](../../glossary.md) عند تغيير المصطلحات.
-3. أضف ADR أو اجعله superseded عند تغيير قرار دائم؛ لا تعِد كتابة القرار المقبول.
-4. أضف مسار استكشاف أخطاء عندما ينتج عن العيب معرفة تشخيص قابلة لإعادة الاستخدام.
-5. احذف المحتوى القديم أو اجعله deprecated مع رابط إلى البديل.
+1. Link the page from the nearest index and related pages.
+2. Update the [glossary](../../glossary.md) when terms change.
+3. Add or supersede an ADR when a durable decision changes; do not rewrite an accepted decision.
+4. Add troubleshooting guidance when a defect yields reusable diagnostic knowledge.
+5. Remove stale content or mark it deprecated with a link to its replacement.
 
-## تحقق
+## Verify
 
-شغّل:
+Run:
 
 ```powershell
 python .agents/skills/maintain-project-documentation/scripts/audit_docs.py --root docs
 ```
 
-ثم شغّل اختبارات المنتج والأوامر الآمنة المذكورة في الدليل. ابْنِ المعاينة إذا وُجد عارض، وتحقق من الروابط والبحث وArabic shaping وRTL/LTR والنسخ واللصق. سجّل ما تم التحقق منه فعلًا والفجوات التي تحتاج تحققًا.
+Then run focused product tests and every safe command in the guide. Build the preview when a renderer exists. Verify links, search, Arabic shaping, RTL/LTR behavior, and copy/paste where Arabic UI examples appear. Record what was actually verified and any remaining gaps.
 
-استخدم [قائمة مراجعة الوثائق](documentation-review-checklist.md) و[سياسة الحداثة](documentation-freshness-policy.md) قبل التسليم.
+Use the [documentation review checklist](documentation-review-checklist.md) and [freshness policy](documentation-freshness-policy.md) before handoff.

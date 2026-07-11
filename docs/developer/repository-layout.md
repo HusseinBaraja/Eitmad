@@ -1,6 +1,6 @@
 ---
-title: "اعثر على مالك كل جزء في المستودع"
-description: "اربط كل مساحة Rust أو واجهة أو مستوى خادم أو اختبار بسلطتها وحدود امتدادها."
+title: "Find the owner of each repository area"
+description: "Map every Rust workspace, shell, server plane, and test area to its authority and extension boundary."
 audience: "developer"
 page_type: "reference"
 status: "active"
@@ -9,47 +9,47 @@ last_verified: "2026-07-11"
 review_triggers:
   - "a workspace member, platform, server plane, test suite, or ownership boundary changes"
 keywords:
-  - "ملكية المستودع"
+  - "repository ownership"
   - "repository layout"
   - "vertical codebase"
   - "OWNERSHIP.md"
 ---
 
-# اعثر على مالك كل جزء في المستودع
+# Find the owner of each repository area
 
-استخدم أقرب قدرة منتج رأسية موضعًا للسلوك الذي يتغير معًا. المساحات الحالية حدود تأسيسية فارغة تقريبًا وليست ميزات إنتاج.
+Place behavior that changes together in the nearest vertical product capability. The current areas are mostly empty foundation boundaries, not production features.
 
-## خريطة الملكية
+## Ownership map
 
-| المساحة | السلطة الحالية | المصدر الكنسي |
+| Area | Current authority | Canonical source |
 | --- | --- | --- |
-| `crates/contracts/` | العقود الخارجية ومدخلات التوليد أو التحقق | `crates/contracts/OWNERSHIP.md` |
-| `crates/engine-runtime/` | دورة حياة المحرك وتنسيق الطلبات | `crates/engine-runtime/OWNERSHIP.md` |
-| `crates/engine-cli/` | نقطة الدخول الرأسية والتشخيصية | `crates/engine-cli/OWNERSHIP.md` |
-| `crates/storage/` | قاعدة البيانات والترحيلات والمعاملات والنسخ الاحتياطي | `crates/storage/OWNERSHIP.md` |
-| `crates/sync/` | بروتوكول المزامنة الموحد | `crates/sync/OWNERSHIP.md` |
-| `crates/authorization/` | الهوية والنطاق وتفويض ReBAC | `crates/authorization/OWNERSHIP.md` |
-| `crates/update-policy/` | أهلية التحديث والتوافق وسلامة الترحيل | `crates/update-policy/OWNERSHIP.md` |
-| `crates/observability-audit/` | التشخيص المنقح وتدقيق الطفرات | `crates/observability-audit/OWNERSHIP.md` |
-| `crates/external-integrations/` | محولات الخدمات الخارجية المسماة | `crates/external-integrations/OWNERSHIP.md` |
-| `crates/extensions/` | قدرات الامتداد وعزل المضيف | `crates/extensions/OWNERSHIP.md` |
-| `shells/` | واجهات أصلية رقيقة؛ Windows يستخدم C# | `shells/OWNERSHIP.md` |
-| `platform-adapters/` | ميكانيكيات نظام التشغيل القابلة للاستبدال | `platform-adapters/OWNERSHIP.md` |
-| `server/*-plane/` | control وsync وrelay وupdate وadmin بحدود منفصلة | `server/OWNERSHIP.md` |
-| `tests/` | اختبارات العبور بين الحدود؛ اختبارات الوحدة قرب القدرة | `tests/OWNERSHIP.md` |
-| `deploy/` | أصول الحزم والنشر القابلة للتنفيذ | `deploy/OWNERSHIP.md` |
-| `docs/` | شبكة معرفة حسب الجمهور والمهمة | [فهرس الوثائق](../index.md) |
+| `crates/contracts/` | External contracts and generation or validation inputs | `crates/contracts/OWNERSHIP.md` |
+| `crates/engine-runtime/` | Engine lifecycle and request coordination | `crates/engine-runtime/OWNERSHIP.md` |
+| `crates/engine-cli/` | Headless and diagnostic entry point | `crates/engine-cli/OWNERSHIP.md` |
+| `crates/storage/` | Database, migrations, transactions, and backups | `crates/storage/OWNERSHIP.md` |
+| `crates/sync/` | Unified synchronization protocol | `crates/sync/OWNERSHIP.md` |
+| `crates/authorization/` | Identity, scope, and ReBAC authorization | `crates/authorization/OWNERSHIP.md` |
+| `crates/update-policy/` | Update eligibility, compatibility, and migration safety | `crates/update-policy/OWNERSHIP.md` |
+| `crates/observability-audit/` | Redacted diagnostics and mutation audit | `crates/observability-audit/OWNERSHIP.md` |
+| `crates/external-integrations/` | Named external-service adapters | `crates/external-integrations/OWNERSHIP.md` |
+| `crates/extensions/` | Extension capabilities and host isolation | `crates/extensions/OWNERSHIP.md` |
+| `shells/` | Thin native shells; Windows uses C# | `shells/OWNERSHIP.md` |
+| `platform-adapters/` | Replaceable OS mechanics | `platform-adapters/OWNERSHIP.md` |
+| `server/*-plane/` | Separate control, sync, relay, update, and admin boundaries | `server/OWNERSHIP.md` |
+| `tests/` | Cross-boundary tests; unit tests remain near capabilities | `tests/OWNERSHIP.md` |
+| `deploy/` | Executable packaging and deployment assets | `deploy/OWNERSHIP.md` |
+| `docs/` | Knowledge graph organized by audience and task | [Documentation index](../index.md) |
 
-## قواعد الإضافة
+## Addition rules
 
-1. سمِّ السلوك بمصطلح منتج من [المسرد](../glossary.md).
-2. ضع أنواع المجال والتحقق والتخزين والأوامر والاختبارات مع القدرة التي تملكها.
-3. صدّر سطحًا صغيرًا فقط؛ استخدم الخاص أو `pub(crate)` افتراضيًا.
-4. اجعل البنية التحتية العامة وراء حد صريح ولا تنقل مساعد قدرة واحدة إلى `utils` أو `common` أو `shared`.
-5. وثّق السلطة والعقود والفشل والاختبارات ونقاط الامتداد في [مجموعة المطور](index.md).
+1. Name behavior with a product term from the [glossary](../glossary.md).
+2. Colocate domain types, validation, storage, commands, and tests with their owning capability.
+3. Export only a narrow surface. Use private items by default, `pub(crate)` for same-crate consumers, and narrowly scoped `pub` items only for deliberate cross-crate dependencies.
+4. Put generic infrastructure behind an explicit boundary; do not move a single capability's helper into `utils`, `common`, or `shared`.
+5. Document authority, contracts, invariants, failure modes, tests, and safe extension points in the [developer collection](index.md).
 
-## تحقق
+## Verification
 
-تطابق هذه الخريطة أعضاء `Cargo.toml` وملفات `OWNERSHIP.md` الحالية في 2026-07-11. لا تدّعي الملفات المصدرية الفارغة سلوكًا لم يُنفّذ.
+This map matches the current `Cargo.toml` members and `OWNERSHIP.md` files as of 2026-07-11. Empty source files do not imply unimplemented behavior.
 
-الخطوة التالية: [شغّل فحوص الأساس](../operations/index.md).
+Next, [run the foundation checks](../operations/index.md).

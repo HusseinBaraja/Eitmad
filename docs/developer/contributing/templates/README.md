@@ -1,6 +1,6 @@
 ---
-title: "استخدم قوالب الوثائق"
-description: "ابدأ من قالب ميزة أو وحدة أو ADR أو سجل قرار ثم خصّصه لمهمة القارئ."
+title: "Use documentation templates"
+description: "Start with a feature, module, ADR, or decision-log template, then adapt it to the reader's task."
 audience: "developer"
 page_type: "reference"
 status: "draft"

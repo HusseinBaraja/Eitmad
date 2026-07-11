@@ -1,6 +1,6 @@
 ---
-title: "شغّل فحوص أساس الاعتماد"
-description: "تحقق من تنسيق مساحة Rust وبنائها واختبارها وتشغيل المحرك الأولي وتدقيق الوثائق بأمان."
+title: "Run Eitmad foundation checks"
+description: "Safely verify Rust formatting, builds, tests, the initial engine process, and documentation."
 audience: "operations"
 page_type: "task"
 status: "active"
@@ -9,69 +9,68 @@ last_verified: "2026-07-11"
 review_triggers:
   - "workspace verification, executable behavior, deployment, backup, or recovery changes"
 keywords:
-  - "تشغيل فحوص الأساس"
   - "foundation verification"
   - "cargo clippy workspace"
   - "audit_docs.py"
 ---
 
-# شغّل فحوص أساس الاعتماد
+# Run Eitmad foundation checks
 
-تتحقق هذه الخطوات من الهيكل الحالي فقط. لا توجد بعد حزمة تثبيت أو خدمة إنتاج أو قاعدة بيانات أو نسخ احتياطي أو استرداد قابل للتشغيل.
+These steps verify only the current foundation. No installable package, production service, database, backup, or runnable recovery flow exists yet.
 
-## المتطلبات
+## Prerequisites
 
-- Rust `1.85` أو أحدث متوافق مع `rust-version` في مساحة العمل؛
-- Python 3 لتدقيق Markdown؛
-- تشغيل الأوامر من جذر المستودع دون بيانات عميل حقيقية.
+- Rust `1.85` or newer, compatible with the workspace `rust-version`;
+- Python 3 for the Markdown audit;
+- commands run from the repository root without real customer data.
 
-## الخطوات
+## Steps
 
-1. تحقق من التنسيق:
+1. Check formatting:
 
    ```powershell
    cargo fmt --all -- --check
    ```
 
-2. افحص جميع الأهداف:
+2. Check all targets:
 
    ```powershell
    cargo check --workspace --all-targets
    ```
 
-3. ارفض تحذيرات Clippy:
+3. Reject Clippy warnings:
 
    ```powershell
    cargo clippy --workspace --all-targets -- -D warnings
    ```
 
-4. شغّل اختبارات مساحة العمل:
+4. Run workspace tests:
 
    ```powershell
    cargo test --workspace
    ```
 
-5. شغّل نقطة الدخول التشخيصية الحالية:
+5. Run the current diagnostic entry point:
 
    ```powershell
    cargo run -q -p eitmad-engine-cli
    ```
 
-6. دقّق الوثائق:
+6. Audit documentation:
 
    ```powershell
    python .agents/skills/maintain-project-documentation/scripts/audit_docs.py --root docs
    ```
 
-## تحقق
+## Verify
 
-يجب أن ينتهي كل أمر برمز خروج `0` دون تحذيرات. نقطة الدخول الحالية لا تطبع ناتجًا؛ هذا متوقع لأن `crates/engine-cli/src/main.rs` أساس فارغ.
+Every command must exit with code `0` and no warnings. The current entry point prints no output; this is expected because `crates/engine-cli/src/main.rs` is an empty foundation.
 
-## الاسترداد
+## Recover
 
-إذا فشل أمر، توقف ولا تخفِ التحذير أو تتجاوز الاختبار. أصلح المصدر أو الوثيقة الكنسية ثم أعد الأمر الفاشل والمجموعة الكاملة. لا توجد حالة منتج تحتاج إلى rollback في الأساس الحالي.
+If a command fails, stop. Do not hide the warning or bypass the test. Fix the authoritative source or canonical document, then rerun the failed command and the full suite. The current foundation has no product state that requires rollback.
 
-## مهام مرتبطة
+## Related tasks
 
-- [ابدأ تطوير الاعتماد](../developer/index.md)
-- [راجع معيار التوثيق](../developer/contributing/documentation-standard.md)
+- [Start developing Eitmad](../developer/index.md)
+- [Review the documentation standard](../developer/contributing/documentation-standard.md)

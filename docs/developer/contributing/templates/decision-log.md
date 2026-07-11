@@ -13,7 +13,7 @@ review_triggers:
 # Decision Log: {feature or module}
 
 > - Category: Explanation
-> - Status: Active | Historical
+> - Status: Proposed | Active | Reversed | Superseded
 > - Owner: {team or role}
 > - Last verified: YYYY-MM-DD
 > - Review trigger: {feature/module behavior or assumptions change}

@@ -1,6 +1,6 @@
 ---
-title: "استخدم عقود الاعتماد"
-description: "اعرف حالة عقود IPC الخارجية ومصدرها وقواعد التوافق قبل إضافة عميل أو تكامل."
+title: "Use Eitmad contracts"
+description: "Understand external IPC contract status, authority, and compatibility rules before adding a client or integration."
 audience: "api"
 page_type: "reference"
 status: "active"
@@ -10,37 +10,36 @@ review_triggers:
   - "a command, query, subscription, error, version, or capability is added"
   - "contract generation or validation tooling changes"
 keywords:
-  - "عقد"
   - "IPC contract"
   - "Command Query Subscription"
   - "capability negotiation"
 ---
 
-# استخدم عقود الاعتماد
+# Use Eitmad contracts
 
-لا توجد عقود إنتاج بعد. الحزمة `crates/contracts/` هي موضع سلطة Rust المحجوز للأوامر والاستعلامات والاشتراكات والأخطاء والإصدارات والإمكانات.
+No production contracts exist yet. `crates/contracts/` is the reserved Rust authority for commands, queries, subscriptions, errors, versions, and capabilities.
 
-## ما يمكن الاعتماد عليه الآن
+## Current guarantees
 
-- Rust هو المصدر الكنسي لكل عقد خارجي.
-- يجب توليد روابط المنصات من تعريفات Rust أو التحقق منها آليًا.
-- كل حد خارجي مُصدّر ويجري تفاوضًا على الإصدار والإمكانات.
-- واجهات النظام الأصلية لا تنسخ DTOs أو قواعد التحقق يدويًا.
+- Rust is the canonical source for every external contract.
+- Platform bindings must be generated from Rust definitions or mechanically validated.
+- Every external boundary is versioned and negotiates versions and capabilities.
+- Native shells do not manually duplicate DTOs or validation rules.
 
-هذه قواعد معمارية مقبولة وليست عقدًا قابلًا للاستدعاء. راجع [ADR-0005](../decisions/0005-generated-or-validated-contracts.md) و[المعمارية المستهدفة](../architecture/target-architecture.md#ipc-model).
+These are accepted architecture rules, not callable contracts. See [ADR-0005](../decisions/0005-generated-or-validated-contracts.md) and the [target architecture](../architecture/target-architecture.md#ipc-model).
 
-## عند إضافة أول عقد
+## Add the first contract
 
-وثّق في هذه المجموعة:
+Document:
 
-- الاسم الدقيق ونوع التفاعل: `Command` أو `Query` أو `Subscription`؛
-- الإصدار والإمكانات والمدخلات والمخرجات والأخطاء والحدود؛
-- الهوية وصلاحية ReBAC والنطاق والتدقيق؛
-- مهلة الطلب والإلغاء وإعادة المحاولة والتوافق والفشل الجزئي؛
-- مصدر التوليد أو أمر التحقق مع مثال اصطناعي صالح وآخر مرفوض.
+- the exact name and interaction type: `Command`, `Query`, or `Subscription`;
+- version, capabilities, inputs, outputs, errors, and bounds;
+- identity, ReBAC permission, scope, and audit behavior;
+- deadline, cancellation, retry, compatibility, and partial-failure behavior;
+- the generation source or verification command, with one valid and one rejected synthetic example.
 
-## الملكية والتحقق
+## Ownership and verification
 
-المصدر الحالي: `crates/contracts/src/lib.rs` و`crates/contracts/OWNERSHIP.md`. الملف يحتوي حاليًا على حد تأسيسي فقط، لذلك لا توجد أوامر قابلة للتشغيل أو مراجع مولدة.
+Current authority: `crates/contracts/src/lib.rs` and `crates/contracts/OWNERSHIP.md`. The source contains only a foundation boundary, so no callable commands or generated references exist.
 
-الخطوة التالية: [ابدأ تطوير الاعتماد](../developer/index.md) قبل تنفيذ أول شريحة منتج رأسية.
+Next, [start developing Eitmad](../developer/index.md) before implementing the first vertical product slice.

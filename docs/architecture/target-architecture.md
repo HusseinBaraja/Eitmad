@@ -1,6 +1,6 @@
 ---
-title: "افهم المعمارية المستهدفة"
-description: "افهم سلطة محرك Rust وحدود IPC والتخزين والمزامنة والأمان والتحديث قبل تنفيذ قدرة منتج."
+title: "Understand the target architecture"
+description: "Understand Rust engine authority and IPC, storage, sync, security, and update boundaries before implementing a product capability."
 audience: "architecture"
 page_type: "explanation"
 status: "active"
@@ -9,7 +9,6 @@ last_verified: "2026-07-11"
 review_triggers:
   - "an authority, process, trust, storage, sync, update, or performance boundary changes"
 keywords:
-  - "المعمارية المستهدفة"
   - "target architecture"
   - "Rust engine authority"
   - "Commands Queries Subscriptions"
@@ -221,7 +220,7 @@ Performance budgets MUST be defined with the first production vertical slice, th
 
 ## Documentation and verification
 
-Every completed feature MUST run the documentation-maintenance workflow and update the affected canonical pages, indexes, glossary, decisions, and troubleshooting knowledge in the same logical change. See the [documentation standard](../developer/contributing/documentation-standard.md).
+Every completed feature MUST run the documentation-maintenance workflow and document its Rust authority, contracts, invariants, failure modes, tests, and safe extension points using the [feature documentation template](../developer/contributing/templates/feature-documentation.md). The same logical change MUST update all affected canonical pages, indexes, glossary entries, decisions, and troubleshooting knowledge. See the [documentation standard](../developer/contributing/documentation-standard.md).
 
 CI MUST eventually reject contract drift, broken migrations, unsafe logging, direct shell access to config or databases, and missing required documentation. Production changes are complete only when builds and tests pass without warnings and the application has been run cleanly on the affected path.
 

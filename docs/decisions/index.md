@@ -1,6 +1,6 @@
 ---
-title: "راجع القرارات المعمارية"
-description: "اعثر على قرارات سلطة Rust والواجهات وIPC والتخزين والمزامنة والأمان والعربية والتحديث."
+title: "Review architectural decisions"
+description: "Find decisions about Rust authority, shells, IPC, storage, synchronization, security, Arabic UX, and updates."
 audience: "architecture"
 page_type: "reference"
 status: "active"
@@ -9,7 +9,6 @@ last_verified: "2026-07-11"
 review_triggers:
   - "an ADR is proposed, accepted, rejected, or superseded"
 keywords:
-  - "القرارات المعمارية"
   - "architectural decision records"
   - "ADR"
 ---
@@ -22,7 +21,7 @@ keywords:
 > - Last verified: 2026-07-11
 > - Review trigger: ADR lifecycle or architecture governance changes
 
-This directory contains durable architectural decisions for الاعتماد.
+This directory contains Eitmad's durable architectural decisions for future reference.
 
 ## Create an ADR
 

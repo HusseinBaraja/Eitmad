@@ -1,6 +1,6 @@
 ---
-title: "ابدأ تطوير الاعتماد"
-description: "اعثر على سلطة كل جزء، شغّل فحوص مساحة العمل، ووثّق التغيير في موضعه الرأسي الصحيح."
+title: "Start developing Eitmad"
+description: "Find each component's authority, run workspace checks, and document changes in the correct vertical."
 audience: "developer"
 page_type: "tutorial"
 status: "active"
@@ -9,45 +9,45 @@ last_verified: "2026-07-11"
 review_triggers:
   - "workspace layout, contributor checks, or ownership rules change"
 keywords:
-  - "دليل المطور"
+  - "developer guide"
   - "developer onboarding"
   - "cargo check workspace"
   - "vertical capability"
 ---
 
-# ابدأ تطوير الاعتماد
+# Start developing Eitmad
 
-يوصلك هذا المسار إلى موضع التغيير الصحيح ويعطيك فحوص الأساس التي يجب أن تنجح قبل تسليم العمل.
+This path leads to the correct change location and the foundation checks that must pass before handoff.
 
-## قبل أن تبدأ
+## Before you start
 
-اقرأ سياسة المستودع في `AGENTS.md` من جذر المشروع، ثم راجع:
+Read `AGENTS.md` at the repository root, then review:
 
-- [تخطيط المستودع والملكية](repository-layout.md)؛
-- [المعمارية المستهدفة](../architecture/target-architecture.md)؛
-- [معيار توثيق الميزات](contributing/documentation-standard.md)؛
-- [مسرد المصطلحات](../glossary.md).
+- [Repository layout and ownership](repository-layout.md)
+- [Target architecture](../architecture/target-architecture.md)
+- [Feature documentation standard](contributing/documentation-standard.md)
+- [Domain glossary](../glossary.md)
 
-## 1. سمِّ قدرة المنتج
+## 1. Name the product capability
 
-ضع السلوك في وحدة أو حزمة رأسية تصف ما يفعله المنتج. لا تنشئ حاويات عامة مثل `utils` أو `services` أو `handlers`. اجعل Rust سلطة قواعد المجال والعقود والتخزين والصلاحيات والمزامنة.
+Put behavior in a vertical module or crate named for what the product does. Do not create generic containers such as `utils`, `services`, or `handlers`. Keep Rust authoritative for domain rules, contracts, storage, authorization, and synchronization.
 
-## 2. عرّف الحدود قبل التنفيذ
+## 2. Define boundaries before implementation
 
-حدّد الأوامر والاستعلامات والاشتراكات والأخطاء والإصدارات والإمكانات، ثم النطاق وصلاحيات ReBAC والتدقيق ونمط التخزين والمزامنة والسلوك العربي. واجهة النظام الأصلية تبقى محول عرض رقيقًا.
+Define commands, queries, subscriptions, errors, versions, and capabilities, followed by scope, ReBAC permissions, audit, storage and sync modes, and Arabic UI behavior. The native shell remains a thin presentation adapter.
 
-## 3. طوّر مع اختبارات مركزة
+## 3. Develop with focused tests
 
-ضع اختبارات الوحدة قرب القدرة التي تتحقق منها. استخدم `tests/` فقط للتدفقات العابرة للحدود. يجب أن تغطي الاختبارات مسارات النجاح والرفض والفشل ذات الصلة.
+Keep unit tests near the capability they verify. Use `tests/` only for cross-boundary flows. Cover relevant success, denial, and failure paths.
 
-## 4. حدّث شبكة المعرفة
+## 4. Update the knowledge graph
 
-شغّل مهارة `.agents/skills/maintain-project-documentation/SKILL.md` بعد اكتمال سلوك الميزة وقبل اعتبارها منتهية. حدّث الصفحة الكنسية والفهرس والمسرد وADR واستكشاف الأخطاء عند انطباقها.
+Follow `.agents/skills/maintain-project-documentation/SKILL.md` after feature behavior is complete and before considering the feature done. Update the canonical page, index, glossary, ADR, and troubleshooting knowledge where applicable.
 
-## 5. تحقّق
+## 5. Verify
 
-شغّل أوامر [فحوص الأساس](../operations/index.md). النتيجة المتوقعة: تنسيق وفحص وبناء واختبارات بلا تحذيرات، وتشغيل نظيف لـ `eitmad-engine-cli`، وتدقيق وثائق ناجح.
+Run the [foundation checks](../operations/index.md). Expected result: formatting, checks, builds, and tests complete without warnings; `eitmad-engine-cli` runs cleanly; and the documentation audit passes.
 
-## ما تعلمته
+## What you learned
 
-Rust يملك الحقيقة، والقدرة الرأسية تملك سلوكها واختباراتها ووثائقها. الخطوة التالية هي [اختيار الصفحة الصحيحة للتغيير](contributing/documentation-standard.md).
+Rust owns the truth, and each vertical capability owns its behavior, tests, and documentation. Next, [choose the correct page for a change](contributing/documentation-standard.md).
