@@ -43,15 +43,14 @@ Current foundation documents retain their domain-oriented locations. New documen
 
 ## Architectural decision summary
 
-- Rust is the product authority and runs as a separate engine process.
-- Native desktop shells are thin, replaceable platform adapters.
-- Typed, versioned local IPC is the only application boundary between a shell and the engine.
-- Commands, queries, and subscriptions are explicit and authorized by the engine.
-- Local-first and server-authoritative product modes share one sync protocol.
-- Arabic and RTL behavior are foundational requirements, not a later translation pass.
-- Security assumes no shell, device, peer, server, user, or plugin is trusted implicitly.
-- The Rust engine owns update policy; native adapters own platform installation mechanics.
-- Correctness and reliability take priority, followed by responsiveness and resource efficiency.
+- [Rust is the product authority](decisions/0001-rust-core-product-authority.md), while [native desktop shells](decisions/0002-native-platform-ui-shells.md) are thin, replaceable platform adapters.
+- The engine is a [separate supervised process](decisions/0003-separate-supervised-engine-process.md) with a required [headless mode](decisions/0004-headless-engine-mode.md).
+- Rust-owned contracts have [generated or mechanically validated bindings](decisions/0005-generated-or-validated-contracts.md).
+- Rust owns [product configuration](decisions/0006-rust-owned-configuration.md) and [all product database access](decisions/0007-rust-owned-database.md).
+- Local-first and server-authoritative product modes share [one required sync protocol](decisions/0008-required-unified-synchronization.md).
+- Security applies [zero trust](decisions/0009-zero-trust-security-model.md) and uses [ReBAC as its authorization foundation](decisions/0010-rebac-authorization-foundation.md).
+- [Arabic-first UX](decisions/0011-arabic-first-user-experience.md) and [privacy-preserving observability](decisions/0012-privacy-preserving-observability.md) are system requirements.
+- Rust owns update policy; [platform-native adapters own installation mechanics](decisions/0013-platform-native-update-adapters.md).
 
 ## Documentation lifecycle
 
