@@ -1,3 +1,15 @@
+---
+title: "ADR-0012: Make observability privacy-preserving by construction"
+description: "Records why Rust owns structured, redacted, bounded diagnostics that exclude product payloads and secrets."
+audience: "architecture"
+page_type: "decision"
+status: "active"
+owner: "architecture and security maintainers"
+last_verified: "2026-07-11"
+review_triggers:
+  - "data classification, support workflows, telemetry destinations, or regulatory obligations change"
+---
+
 # ADR-0012: Make observability privacy-preserving by construction
 
 > - Category: Explanation

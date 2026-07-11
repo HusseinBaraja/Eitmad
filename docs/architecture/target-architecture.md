@@ -1,3 +1,20 @@
+---
+title: "افهم المعمارية المستهدفة"
+description: "افهم سلطة محرك Rust وحدود IPC والتخزين والمزامنة والأمان والتحديث قبل تنفيذ قدرة منتج."
+audience: "architecture"
+page_type: "explanation"
+status: "active"
+owner: "architecture maintainers"
+last_verified: "2026-07-11"
+review_triggers:
+  - "an authority, process, trust, storage, sync, update, or performance boundary changes"
+keywords:
+  - "المعمارية المستهدفة"
+  - "target architecture"
+  - "Rust engine authority"
+  - "Commands Queries Subscriptions"
+---
+
 # Target Architecture
 
 ## Purpose and status
@@ -184,7 +201,7 @@ The shell MUST NOT independently decide that an update is safe. The engine MUST 
 
 ## Arabic-first UX requirement
 
-Arabic is a product foundation, not a locale added after feature completion. Every contract and feature MUST support Unicode Arabic data, RTL presentation, mixed Arabic/Latin content, Arabic-aware search, localized errors, and Arabic-ready documents and reports. Detailed requirements are defined in [Arabic-first UX](../product/arabic-first-ux.md).
+Arabic is a product foundation, not a locale added after feature completion. Every contract and feature MUST support Unicode Arabic data, RTL presentation, mixed Arabic/Latin content, Arabic-aware search, localized errors, and Arabic-ready documents and reports. Detailed requirements are defined in [Arabic-first UX](arabic-first-ux.md).
 
 ## Performance and efficiency principles
 
@@ -204,7 +221,7 @@ Performance budgets MUST be defined with the first production vertical slice, th
 
 ## Documentation and verification
 
-Every completed feature MUST include concise engineer documentation covering purpose, design, ownership, contracts, security and privacy, Arabic behavior, tradeoffs, tests, operational concerns, and extension points. Major features also require an architectural decision record when they introduce or change a lasting boundary. See the [documentation standard](../engineering/documentation-standard.md).
+Every completed feature MUST run the documentation-maintenance workflow and update the affected canonical pages, indexes, glossary, decisions, and troubleshooting knowledge in the same logical change. See the [documentation standard](../developer/contributing/documentation-standard.md).
 
 CI MUST eventually reject contract drift, broken migrations, unsafe logging, direct shell access to config or databases, and missing required documentation. Production changes are complete only when builds and tests pass without warnings and the application has been run cleanly on the affected path.
 

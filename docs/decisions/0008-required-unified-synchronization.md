@@ -1,3 +1,15 @@
+---
+title: "ADR-0008: Require one versioned synchronization protocol"
+description: "Records why local-first and server-authoritative modes share one transport-independent sync protocol."
+audience: "architecture"
+page_type: "decision"
+status: "active"
+owner: "architecture maintainers"
+last_verified: "2026-07-11"
+review_triggers:
+  - "a product mode or transport needs synchronization semantics the unified protocol cannot express"
+---
+
 # ADR-0008: Require one versioned synchronization protocol
 
 > - Category: Explanation

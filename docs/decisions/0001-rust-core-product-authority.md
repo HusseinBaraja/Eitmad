@@ -1,3 +1,15 @@
+---
+title: "ADR-0001: Rust core is the product authority"
+description: "Records why Rust defines, validates, persists, and tests all authoritative product behavior."
+audience: "architecture"
+page_type: "decision"
+status: "active"
+owner: "architecture maintainers"
+last_verified: "2026-07-11"
+review_triggers:
+  - "product authority can no longer remain behind the Rust boundary"
+---
+
 # ADR-0001: Rust core is the product authority
 
 > - Category: Explanation

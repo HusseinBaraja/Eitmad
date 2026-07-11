@@ -1,3 +1,15 @@
+---
+title: "ADR-0005: Generate or mechanically validate platform contracts"
+description: "Records how Rust-owned contracts prevent silent drift in native platform bindings."
+audience: "architecture"
+page_type: "decision"
+status: "active"
+owner: "architecture maintainers"
+last_verified: "2026-07-11"
+review_triggers:
+  - "contract tooling cannot represent a required boundary or platform language"
+---
+
 # ADR-0005: Generate or mechanically validate platform contracts
 
 > - Category: Explanation

@@ -1,3 +1,15 @@
+---
+title: "ADR-0007: Rust owns all product database access"
+description: "Records why only Rust may read, write, migrate, back up, or recover authoritative product storage."
+audience: "architecture"
+page_type: "decision"
+status: "active"
+owner: "architecture maintainers"
+last_verified: "2026-07-11"
+review_triggers:
+  - "a product data path appears to require direct non-Rust database access"
+---
+
 # ADR-0007: Rust owns all product database access
 
 > - Category: Explanation

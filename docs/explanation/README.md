@@ -1,14 +1,15 @@
-# Explanation
+---
+title: "Moved: architecture explanations"
+description: "Points old explanation links to the architecture and decision collections."
+audience: "architecture"
+page_type: "reference"
+status: "deprecated"
+owner: "architecture maintainers"
+last_verified: "2026-07-11"
+review_triggers:
+  - "legacy explanation links are no longer used"
+---
 
-> - Category: Explanation
-> - Status: Active
-> - Owner: Architecture maintainers
-> - Last verified: 2026-07-11
-> - Review trigger: Architecture, feature design, or product-concept changes
+# Architecture explanations moved
 
-Explanation documentation builds understanding of architecture, concepts, design rationale, and tradeoffs. Exact contracts belong in reference documentation; executable procedures belong in how-to guides.
-
-Current explanation material:
-
-- [Target architecture](../architecture/target-architecture.md)
-- [Architectural decisions](../decisions/README.md)
+Use [architecture](../architecture/index.md) for current system explanations and [decisions](../decisions/index.md) for durable choices.

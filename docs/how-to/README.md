@@ -1,11 +1,15 @@
-# How-to Guides
+---
+title: "Moved: task guides"
+description: "Points old how-to links to audience-specific task collections."
+audience: "developer"
+page_type: "reference"
+status: "deprecated"
+owner: "engineering maintainers"
+last_verified: "2026-07-11"
+review_triggers:
+  - "legacy how-to links are no longer used"
+---
 
-> - Category: How-to
-> - Status: Active
-> - Owner: Engineering maintainers
-> - Last verified: 2026-07-11
-> - Review trigger: Operational procedure, tooling, or recovery behavior changes
+# Task guides moved
 
-How-to guides provide goal-oriented steps for readers who already understand the relevant concepts. State prerequisites, success criteria, failure recovery, and rollback where applicable.
-
-No how-to guides exist yet. Add each new guide to this index.
+Use [developer guides](../developer/index.md) for contributor tasks and [operations](../operations/index.md) for run and recovery tasks.

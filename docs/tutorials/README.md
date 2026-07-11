@@ -1,11 +1,15 @@
-# Tutorials
+---
+title: "Moved: tutorials"
+description: "Points old tutorial links to the current developer onboarding path."
+audience: "developer"
+page_type: "reference"
+status: "deprecated"
+owner: "engineering maintainers"
+last_verified: "2026-07-11"
+review_triggers:
+  - "legacy tutorial links are no longer used"
+---
 
-> - Category: Tutorial
-> - Status: Active
-> - Owner: Engineering maintainers
-> - Last verified: 2026-07-11
-> - Review trigger: Onboarding flow or supported major release changes
+# Tutorials moved
 
-Tutorials teach a newcomer through a guided, successful learning path. They prioritize learning and confidence over exhaustive options.
-
-No tutorials exist yet. Add each new tutorial to this index and verify it by completing the full path.
+Use [developer onboarding](../developer/index.md). Arabic user tutorials will live in `docs/user/` after a runnable workflow exists.

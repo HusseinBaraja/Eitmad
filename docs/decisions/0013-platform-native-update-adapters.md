@@ -1,3 +1,15 @@
+---
+title: "ADR-0013: Use platform-native update adapters"
+description: "Records the split between Rust update policy and native platform installation mechanics."
+audience: "architecture"
+page_type: "decision"
+status: "active"
+owner: "architecture and release maintainers"
+last_verified: "2026-07-11"
+review_triggers:
+  - "a platform changes signing, distribution, sandbox, installer, or rollback requirements"
+---
+
 # ADR-0013: Use platform-native update adapters
 
 > - Category: Explanation

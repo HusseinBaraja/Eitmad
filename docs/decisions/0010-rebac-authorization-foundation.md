@@ -1,3 +1,15 @@
+---
+title: "ADR-0010: Use ReBAC as the authorization foundation"
+description: "Records why Rust derives permissions from scoped relationships and authorizes every command and query."
+audience: "architecture"
+page_type: "decision"
+status: "active"
+owner: "architecture and security maintainers"
+last_verified: "2026-07-11"
+review_triggers:
+  - "relationship authorization cannot express a required permission or scale target"
+---
+
 # ADR-0010: Use ReBAC as the authorization foundation
 
 > - Category: Explanation
@@ -74,4 +86,4 @@ Foundation review confirms ReBAC is the required authorization core. Each produc
 
 - [ADR-0009](0009-zero-trust-security-model.md)
 - [ADR-0007](0007-rust-owned-database.md)
-- [Domain glossary](../domain-glossary.md)
+- [Domain glossary](../glossary.md)

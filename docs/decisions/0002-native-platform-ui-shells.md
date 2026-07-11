@@ -1,3 +1,15 @@
+---
+title: "ADR-0002: Use native platform UI shells"
+description: "Records why each desktop platform uses a thin native shell over the authoritative Rust engine."
+audience: "architecture"
+page_type: "decision"
+status: "active"
+owner: "architecture maintainers"
+last_verified: "2026-07-11"
+review_triggers:
+  - "native shells fail platform quality, accessibility, distribution, or maintenance goals"
+---
+
 # ADR-0002: Use native platform UI shells
 
 > - Category: Explanation
@@ -73,4 +85,4 @@ Foundation review confirmed the ownership table in [target architecture](../arch
 
 - [ADR-0001](0001-rust-core-product-authority.md)
 - [ADR-0003](0003-separate-supervised-engine-process.md)
-- [Arabic-first UX](../product/arabic-first-ux.md)
+- [Arabic-first UX](../architecture/arabic-first-ux.md)

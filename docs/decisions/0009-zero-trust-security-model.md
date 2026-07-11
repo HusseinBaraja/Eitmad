@@ -1,3 +1,15 @@
+---
+title: "ADR-0009: Apply zero trust across every boundary"
+description: "Records why shells, engines, devices, peers, servers, administrators, and extensions are not implicitly trusted."
+audience: "architecture"
+page_type: "decision"
+status: "active"
+owner: "architecture and security maintainers"
+last_verified: "2026-07-11"
+review_triggers:
+  - "a new trust boundary, identity type, transport, or privileged workflow appears"
+---
+
 # ADR-0009: Apply zero trust across every boundary
 
 > - Category: Explanation

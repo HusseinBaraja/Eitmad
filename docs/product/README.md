@@ -1,12 +1,15 @@
-# Product documentation
+---
+title: "Moved: product documentation"
+description: "Points old product links to Arabic-first architecture and the bilingual glossary."
+audience: "developer"
+page_type: "reference"
+status: "deprecated"
+owner: "product maintainers"
+last_verified: "2026-07-11"
+review_triggers:
+  - "legacy product links are no longer used"
+---
 
-> - Category: Explanation
-> - Status: Active
-> - Owner: Product and domain maintainers
-> - Last verified: 2026-07-11
-> - Review trigger: Product scope, domain terminology, role workflow, Arabic UX, or product policy changes
+# Product documentation moved
 
-This area owns the product intent, role workflows, Arabic terminology, user-facing invariants, operational policies, and acceptance criteria for الاعتماد.
-
-Documents describe product truth without embedding implementation details. Durable technical decisions belong in architecture or ADRs; exact contracts belong in reference documentation.
-
+Use [Arabic-first UX](../architecture/arabic-first-ux.md) for system requirements and the [glossary](../glossary.md) for canonical product language. User workflows will live in `docs/user/` after real product flows exist.

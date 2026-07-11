@@ -1,3 +1,15 @@
+---
+title: "ADR-0003: Run the engine as a separate supervised process"
+description: "Records the lifecycle, fault-isolation, and trust reasons for a separate Rust engine process."
+audience: "architecture"
+page_type: "decision"
+status: "active"
+owner: "architecture maintainers"
+last_verified: "2026-07-11"
+review_triggers:
+  - "process isolation prevents a required lifecycle, performance, security, or deployment capability"
+---
+
 # ADR-0003: Run the engine as a separate supervised process
 
 > - Category: Explanation

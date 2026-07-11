@@ -1,3 +1,15 @@
+---
+title: "ADR-0004: Require a headless engine mode"
+description: "Records why authoritative behavior must run for diagnostics and automation without a desktop shell."
+audience: "architecture"
+page_type: "decision"
+status: "active"
+owner: "architecture maintainers"
+last_verified: "2026-07-11"
+review_triggers:
+  - "supported unattended workflows or deployment assumptions materially change"
+---
+
 # ADR-0004: Require a headless engine mode
 
 > - Category: Explanation

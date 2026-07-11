@@ -1,3 +1,15 @@
+---
+title: "ADR-0006: Rust owns product configuration"
+description: "Records why Rust owns configuration schemas, defaults, validation, persistence, and migration."
+audience: "architecture"
+page_type: "decision"
+status: "active"
+owner: "architecture maintainers"
+last_verified: "2026-07-11"
+review_triggers:
+  - "a platform setting requires a narrow adapter-owned exception"
+---
+
 # ADR-0006: Rust owns product configuration
 
 > - Category: Explanation

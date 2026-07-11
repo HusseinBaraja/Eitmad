@@ -1,3 +1,15 @@
+---
+title: "ADR-0011: Make Arabic-first UX a system requirement"
+description: "Records why Arabic, RTL, bidirectional data, search, accessibility, and documents shape every feature from design."
+audience: "architecture"
+page_type: "decision"
+status: "active"
+owner: "product and architecture maintainers"
+last_verified: "2026-07-11"
+review_triggers:
+  - "supported languages, user populations, platform text behavior, or document requirements change"
+---
+
 # ADR-0011: Make Arabic-first UX a system requirement
 
 > - Category: Explanation
@@ -43,7 +55,7 @@ Localized errors remain safe and do not expose internal keys, secrets, or policy
 
 ## Arabic UX impact
 
-This ADR establishes the complete baseline in [Arabic-first UX requirements](../product/arabic-first-ux.md), including representative mixed text, keyboard use, tables, status, documents, and accessibility.
+This ADR establishes the complete baseline in [Arabic-first UX requirements](../architecture/arabic-first-ux.md), including representative mixed text, keyboard use, tables, status, documents, and accessibility.
 
 ## Consequences and tradeoffs
 
@@ -71,6 +83,6 @@ The foundation contains normative Arabic UX acceptance criteria and synthetic re
 
 ## Related decisions and documents
 
-- [Arabic-first UX requirements](../product/arabic-first-ux.md)
-- [Domain glossary](../domain-glossary.md)
+- [Arabic-first UX requirements](../architecture/arabic-first-ux.md)
+- [Domain glossary](../glossary.md)
 - [ADR-0002](0002-native-platform-ui-shells.md)

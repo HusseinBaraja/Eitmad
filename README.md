@@ -8,8 +8,8 @@ Start with:
 
 - [Repository policy](AGENTS.md)
 - [Target architecture](docs/architecture/target-architecture.md)
-- [Repository layout and ownership](docs/reference/repository-layout.md)
-- [Documentation index](docs/README.md)
+- [Repository layout and ownership](docs/developer/repository-layout.md)
+- [Documentation index](docs/index.md)
 
 Foundation verification:
 
@@ -19,6 +19,7 @@ cargo check --workspace --all-targets
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 cargo run -q -p eitmad-engine-cli
+python .agents/skills/maintain-project-documentation/scripts/audit_docs.py --root docs
 ```
 
 Production features must be organized by bounded product capability. Do not add generic `utils`, `common`, `shared`, `handlers`, or `services` buckets.

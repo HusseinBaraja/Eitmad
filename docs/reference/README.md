@@ -1,17 +1,15 @@
-# Reference
+---
+title: "Moved: reference documentation"
+description: "Points old reference links to API contracts, developer ownership, and the glossary."
+audience: "developer"
+page_type: "reference"
+status: "deprecated"
+owner: "engineering maintainers"
+last_verified: "2026-07-11"
+review_triggers:
+  - "legacy reference links are no longer used"
+---
 
-> - Category: Reference
-> - Status: Active
-> - Owner: Engineering maintainers
-> - Last verified: 2026-07-11
-> - Review trigger: Contract, schema, configuration, error, capability, or module-interface changes
+# Reference documentation moved
 
-Reference documentation provides exact, authoritative facts for lookup. It should be structured consistently and avoid tutorial or design-rationale prose.
-
-Current reference material:
-
-- [Domain glossary](../domain-glossary.md)
-- [Arabic-first UX requirements](../product/arabic-first-ux.md)
-- [Documentation standard](../engineering/documentation-standard.md)
-- [Documentation freshness policy](../engineering/documentation-freshness-policy.md)
-- [Documentation review checklist](../engineering/documentation-review-checklist.md)
+Use [API contracts](../api/index.md), [repository ownership](../developer/repository-layout.md), or the [glossary](../glossary.md).
