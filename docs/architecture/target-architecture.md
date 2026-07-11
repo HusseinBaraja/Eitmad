@@ -202,6 +202,8 @@ The shell MUST NOT independently decide that an update is safe. The engine MUST 
 
 Arabic is a product foundation, not a locale added after feature completion. Every contract and feature MUST support Unicode Arabic data, RTL presentation, mixed Arabic/Latin content, Arabic-aware search, localized errors, and Arabic-ready documents and reports. Detailed requirements are defined in [Arabic-first UX](arabic-first-ux.md).
 
+No production shell work may begin until the Arabic-first pre-shell gate is complete. The team MUST approve the default locale and fallback chain, calendar and time-zone behavior, input and display digits, currency and rounding policy, UI and document font strategy, search normalization profiles, localization message contract, shared bidirectional fixtures, PDF and print baseline, and accessibility baseline. Unresolved choices remain explicit blockers; a platform shell MUST NOT invent product policy locally.
+
 ## Performance and efficiency principles
 
 Correctness and reliability come first. Within that boundary, the system MUST remain responsive and economical on ordinary workshop and office hardware.
@@ -223,6 +225,8 @@ Performance budgets MUST be defined with the first production vertical slice, th
 Every completed feature MUST run the documentation-maintenance workflow and document its Rust authority, contracts, invariants, failure modes, tests, and safe extension points using the [feature documentation template](../developer/contributing/templates/feature-documentation.md). The same logical change MUST update all affected canonical pages, indexes, glossary entries, decisions, and troubleshooting knowledge. See the [documentation standard](../developer/contributing/documentation-standard.md).
 
 CI MUST eventually reject contract drift, broken migrations, unsafe logging, direct shell access to config or databases, and missing required documentation. Production changes are complete only when builds and tests pass without warnings and the application has been run cleanly on the affected path.
+
+After shell implementation, feature completion also requires shell-conformance evidence for the applicable Arabic-first checklist items, including RTL and bidirectional interaction, keyboard and focus behavior, accessibility, localization fallbacks, and platform differences.
 
 ## Anti-patterns
 
@@ -258,7 +262,7 @@ No production implementation is part of this foundation. Before the first produc
 3. identity, scope, relationship authorization, and audit behavior;
 4. storage mode, migrations, backup, and sync semantics;
 5. engine lifecycle and authenticated local IPC threat model;
-6. Arabic UX acceptance criteria and representative bidirectional test data;
+6. the [Arabic-first pre-shell gate and feature checklist](../developer/contributing/arabic-first-feature-checklist.md), including approved locale, typography, search, localization, report, accessibility, and representative bidirectional test policies;
 7. update compatibility assumptions;
 8. measurable performance budgets and clean-run verification.
 

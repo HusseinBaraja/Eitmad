@@ -26,6 +26,7 @@ Read `AGENTS.md` at the repository root, then review:
 - [Repository layout and ownership](repository-layout.md)
 - [Target architecture](../architecture/target-architecture.md)
 - [Feature documentation standard](contributing/documentation-standard.md)
+- [Arabic-first feature checklist](contributing/arabic-first-feature-checklist.md)
 - [Domain glossary](../glossary.md)
 
 ## 1. Name the product capability
@@ -34,7 +35,7 @@ Put behavior in a vertical module or crate named for what the product does. Do n
 
 ## 2. Define boundaries before implementation
 
-Define commands, queries, subscriptions, errors, versions, and capabilities, followed by scope, ReBAC permissions, audit, storage and sync modes, and Arabic UI behavior. The native shell remains a thin presentation adapter.
+Define commands, queries, subscriptions, errors, versions, and capabilities, followed by scope, ReBAC permissions, audit, storage and sync modes, and Arabic UI behavior. Complete the [Arabic-first pre-shell gate](contributing/arabic-first-feature-checklist.md#pre-shell-product-decisions) before shell implementation. The native shell remains a thin presentation adapter.
 
 ## 3. Develop with focused tests
 
