@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "explanation"
 status: "active"
 owner: "architecture maintainers"
-last_verified: "2026-07-11"
+last_verified: "2026-07-12"
 review_triggers:
   - "an authority, process, trust, storage, sync, update, or performance boundary changes"
 keywords:
@@ -255,7 +255,7 @@ The following designs are prohibited unless an approved architectural decision r
 
 ## Initial implementation gates
 
-No production implementation is part of this foundation. Before the first production vertical slice, the team MUST define and review:
+The generic protocol v1 contract foundation is implemented and documented in the [contract reference](../api/index.md). No production vertical slice exists. Before the first production vertical slice, the team MUST define and review:
 
 1. the first bounded domain and its Arabic terminology;
 2. command, query, subscription, error, version, and capability contracts;

@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-07-11"
+last_verified: "2026-07-12"
 review_triggers:
   - "a documentation collection or canonical entry point changes"
 keywords:
@@ -15,7 +15,7 @@ keywords:
 
 # Eitmad documentation
 
-Choose the route that matches your task. These pages describe the current foundation only: the workspaces exist, but no production features have been implemented.
+Choose the route that matches your task. The protocol v1 contract foundation is implemented; no production business workflow exists yet.
 
 ## Use the product
 
@@ -25,7 +25,7 @@ No user workflow is ready to document. When the first product flow exists, Engli
 
 - [Start developing Eitmad](developer/index.md): contribution setup, ownership boundaries, tests, and feature documentation.
 - [Understand the target architecture](architecture/index.md): Rust authority, trust boundaries, synchronization, security, and updates.
-- [Use system contracts](api/index.md): the contract layer's status and what must be defined before adding an external boundary.
+- [Use protocol v1 contracts](api/index.md): exact Rust-owned contracts, compatibility, generation, and native bindings.
 - [Review architectural decisions](decisions/index.md): durable choices, reasons, and consequences.
 - [Use approved terminology](glossary.md): English definitions and canonical Arabic UI terms.
 
@@ -35,7 +35,7 @@ No user workflow is ready to document. When the first product flow exists, Engli
 
 ## Search by symptom or identifier
 
-No product errors or recovery procedures are documented yet. A `troubleshooting/` collection will be created with the first diagnosable symptom or stable error identifier.
+- [Troubleshoot Eitmad](troubleshooting/index.md): diagnose contract drift and future stable system failures.
 
 ## Documentation authority
 

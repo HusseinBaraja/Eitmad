@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "tutorial"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-07-11"
+last_verified: "2026-07-12"
 review_triggers:
   - "workspace layout, contributor checks, or ownership rules change"
 keywords:
@@ -28,6 +28,7 @@ Read `AGENTS.md` at the repository root, then review:
 - [Feature documentation standard](contributing/documentation-standard.md)
 - [Arabic-first feature checklist](contributing/arabic-first-feature-checklist.md)
 - [Domain glossary](../glossary.md)
+- [Authoritative contract layer](subsystems/contract-layer.md)
 
 ## 1. Name the product capability
 

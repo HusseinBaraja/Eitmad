@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "explanation"
 status: "active"
 owner: "architecture maintainers"
-last_verified: "2026-07-11"
+last_verified: "2026-07-12"
 review_triggers:
   - "an authority, process, trust, storage, sync, update, or platform boundary changes"
 keywords:
@@ -16,13 +16,14 @@ keywords:
 
 # Understand Eitmad architecture
 
-Eitmad uses thin native desktop applications connected to a separate trusted Rust engine that acts as product authority. No production capability has been implemented; these pages define the required foundation boundaries.
+Eitmad uses thin native desktop applications connected to a separate trusted Rust engine that acts as product authority. Protocol v1 contracts and native binding generation are implemented; no production business capability exists yet.
 
 ## Start here
 
 - [Target architecture](target-architecture.md): system shape, ownership, IPC, storage, synchronization, security, updates, and performance.
 - [Arabic-first UX requirements](arabic-first-ux.md): RTL, bidirectional text, search, input, documents, and accessibility.
 - [Architectural decisions](../decisions/index.md): the historical record of accepted choices.
+- [Protocol v1 contracts](../api/index.md): implemented external shapes, compatibility, and generation.
 - [Repository layout and ownership](../developer/repository-layout.md): where each current boundary lives.
 
 ## Change invariants

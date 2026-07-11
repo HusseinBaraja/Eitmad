@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-07-11"
+last_verified: "2026-07-12"
 review_triggers:
   - "workspace verification, executable behavior, deployment, backup, or recovery changes"
 keywords:
@@ -22,6 +22,8 @@ These steps verify only the current foundation. No installable package, producti
 
 - Rust `1.85` or newer, compatible with the workspace `rust-version`;
 - Python 3 for the Markdown audit;
+- Node.js and npm for pinned contract generation;
+- .NET 8 for local Windows binding conformance;
 - commands run from the repository root without real customer data.
 
 ## Steps
@@ -56,7 +58,23 @@ These steps verify only the current foundation. No installable package, producti
    cargo run -q -p eitmad-engine-cli
    ```
 
-6. Audit documentation:
+6. Install and validate generated contracts:
+
+   ```powershell
+   npm ci --ignore-scripts --prefix crates/contracts/codegen
+   ```
+
+   ```powershell
+   npm run contracts:check --prefix crates/contracts/codegen
+   ```
+
+7. Run Windows binding conformance where .NET 8 is available:
+
+   ```powershell
+   dotnet run --project tests/contract-compatibility/csharp/Eitmad.ContractConformance.csproj -- tests/contract-compatibility/fixtures/protocol-v1.json
+   ```
+
+8. Audit documentation:
 
    ```powershell
    python .agents/skills/maintain-project-documentation/scripts/audit_docs.py --root docs
@@ -64,7 +82,7 @@ These steps verify only the current foundation. No installable package, producti
 
 ## Verify
 
-Every command must exit with code `0` and no warnings. The current entry point prints no output; this is expected because `crates/engine-cli/src/main.rs` is an empty foundation.
+Every applicable command must exit with code `0` and no warnings. The current engine entry point prints no output. Swift binding conformance runs in macOS CI because Swift is not part of the Windows prerequisites.
 
 ## Recover
 

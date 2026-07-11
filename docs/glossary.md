@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "product maintainers"
-last_verified: "2026-07-11"
+last_verified: "2026-07-12"
 review_triggers:
   - "a domain term, UI label, contract concept, or workshop synonym changes"
 keywords:
@@ -109,6 +109,9 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | محلي أولًا | Local-first | A mode in which local durable work continues offline and later synchronizes under explicit conflict rules. |
 | الخادم هو المرجع | Server-authoritative | A mode in which the server determines canonical state and ordering for the domain. |
 | إمكانية | Capability | A negotiated, machine-readable statement that a peer supports defined behavior or contract features. |
+| معرّف البروتوكول | Protocol identifier | A stable Rust-registered operation, capability, permission, schema, error, message, or configuration name generated for native clients. |
+| تفاوض الإصدار | Version negotiation | The pre-request selection of a mutually supported protocol version, capabilities, and schema versions. |
+| ربط المنصة | Platform binding | Generated native-language models, serializers, and identifier constants derived from Rust contracts. |
 | تحديث | Update | A signed, policy-controlled change to engine, shell, contracts, or compatible data behavior. |
 
 ## Terms to avoid or qualify
