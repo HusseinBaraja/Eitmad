@@ -42,7 +42,7 @@ Accept a change only when each page answers a real reader task and matches curre
 
 ## Arabic UI/UX and rendering
 
-- [ ] The [Arabic-first feature checklist](arabic-first-feature-checklist.md) is complete; each item is `Pass`, reasoned `Not applicable`, or an explicit blocker that prevents acceptance.
+- [ ] The [Arabic-first feature checklist](arabic-first-feature-checklist.md) is complete; each item is `Pass`, reasoned `Not applicable`, or `Blocked` with an owner, which prevents acceptance.
 - [ ] Exact Arabic labels and terms match the [glossary](../../glossary.md) and current shell where applicable.
 - [ ] RTL, bidirectional text, numerals, identifiers, and copy/paste were rendered and checked where applicable.
 - [ ] Locale-sensitive dates, numbers, units, currencies, search results, and generated documents have evidence where applicable.
