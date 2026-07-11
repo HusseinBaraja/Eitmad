@@ -23,6 +23,9 @@ The documents in this initial foundation are normative unless they explicitly sa
 | [Architectural decisions](decisions/README.md) | Indexes ADRs and defines their lifecycle and numbering. | Foundation / normative |
 | [Documentation templates](templates/README.md) | Provides feature, module, ADR, and decision-log templates. | Foundation / normative |
 | [Domain glossary](domain-glossary.md) | Establishes shared Arabic and English product, furniture, operational, and technical terminology. | Foundation / evolving |
+| [Repository layout](reference/repository-layout.md) | Maps workspace areas to their authority, ownership, and extension boundaries. | Foundation / normative |
+| [Deployment documentation](deployment/README.md) | Owns packaging, deployment, migration, backup, restore, and recovery procedures. | Foundation / planned |
+| [Product documentation](product/README.md) | Owns product intent, workflows, terminology, policy, and acceptance criteria. | Foundation / evolving |
 
 ## Diátaxis categories
 

@@ -11,6 +11,11 @@ members = [
     "crates/storage",
     "crates/sync",
     "crates/update-policy",
+    "server/admin-plane",
+    "server/control-plane",
+    "server/relay-plane",
+    "server/sync-plane",
+    "server/update-plane",
 ]
 
 [workspace.package]
@@ -31,4 +36,3 @@ pedantic = "deny"
 codegen-units = 1
 lto = "thin"
 strip = "symbols"
-
