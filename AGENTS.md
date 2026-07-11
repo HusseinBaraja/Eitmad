@@ -5,6 +5,7 @@
 - Every instruction in this file is mandatory.
 - Use `.agents/skills/caveman/SKILL.md` in lite mode.
 - Use `.agents/skills/vertical-codebase/SKILL.md` to decide how to structure the codebase.
+- Use `.agents/skills/maintain-project-documentation/SKILL.md` whenever documentation is created, rebuilt, reviewed, or changed with a feature.
 - Commit incrementally when you complete a checkpoint.
 - Follow the existing non-destructive git rules: never revert user changes unless explicitly asked.
 
