@@ -28,7 +28,7 @@ The separate Rust engine needs typed command/query traffic without overloading t
 
 ## Decision
 
-Windows local IPC uses an engine-created named pipe with four-byte little-endian length-prefixed UTF-8 JSON frames and an 8 MiB maximum. Every connection negotiates Rust-owned `PeerHello` contracts, receives an engine-issued session, correlates concurrent calls by request ID, applies deadlines, and uses structured failures. Large domain results use pagination or a future negotiated streaming capability rather than unbounded frames or temporary files.
+Windows local IPC uses an engine-created named pipe with four-byte little-endian length-prefixed UTF-8 JSON frames and an 8 MiB maximum. Every accepted connection negotiates Rust-owned `PeerHello` contracts, receives an engine-issued session, correlates concurrent calls by request ID, applies deadlines, and uses structured failures. Large domain results use pagination or a future negotiated streaming capability rather than unbounded frames or temporary files.
 
 The temporary development handshake uses a random bearer token and asserted synthetic identity only behind an explicit insecure-development flag. It is forbidden for production. Typed shutdown is acknowledged before runtime drain; inherited stdin and Job Object containment remain abandonment and forced-recovery controls.
 
