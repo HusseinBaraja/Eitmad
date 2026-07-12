@@ -203,7 +203,9 @@ impl LocalIpcServer {
                 biased;
                 completed = pending.join_next(), if !pending.is_empty() => {
                     if let Some(Ok(response)) = completed {
-                        write_frame(&mut writer, &response).await?;
+                        if !write_frame_or_close(&mut writer, &response).await? {
+                            return Ok(());
+                        }
                     }
                 }
                 result = read_frame::<_, IpcClientMessage>(&mut reader) => {
@@ -215,7 +217,7 @@ impl LocalIpcServer {
                             request_id: None,
                             error: payload_too_large(CorrelationId::new(uuid::Uuid::new_v4())),
                         });
-                        write_frame(&mut writer, &response).await?;
+                        let _ = write_frame_or_close(&mut writer, &response).await?;
                         return Ok(());
                     }
                     Err(FrameReadError::InvalidJson) => {
@@ -229,7 +231,7 @@ impl LocalIpcServer {
                                 None,
                             ),
                         });
-                        write_frame(&mut writer, &response).await?;
+                        let _ = write_frame_or_close(&mut writer, &response).await?;
                         return Ok(());
                     }
                     };
@@ -256,7 +258,9 @@ impl LocalIpcServer {
                         IpcClientMessage::Shutdown(request) => {
                             while let Some(result) = pending.join_next().await {
                                 if let Ok(response) = result {
-                                    write_frame(&mut writer, &response).await?;
+                                    if !write_frame_or_close(&mut writer, &response).await? {
+                                        return Ok(());
+                                    }
                                 }
                             }
                             let response = IpcServerMessage::Shutdown(ShutdownResponse {
@@ -264,7 +268,9 @@ impl LocalIpcServer {
                                 correlation_id: request.correlation_id,
                                 accepted: session.is_some(),
                             });
-                            write_frame(&mut writer, &response).await?;
+                            if !write_frame_or_close(&mut writer, &response).await? {
+                                return Ok(());
+                            }
                             if session.is_some() {
                                 let _ = self.shutdown_requests.send(()).await;
                             }
@@ -272,7 +278,9 @@ impl LocalIpcServer {
                         }
                         other => {
                             let response = self.handle_message(other, &mut session).await;
-                            write_frame(&mut writer, &response).await?;
+                            if !write_frame_or_close(&mut writer, &response).await? {
+                                return Ok(());
+                            }
                         }
                     }
                 }
@@ -578,6 +586,25 @@ where
     writer.flush().await
 }
 
+async fn write_frame_or_close<W, T>(writer: &mut W, value: &T) -> io::Result<bool>
+where
+    W: AsyncWrite + Unpin,
+    T: Serialize,
+{
+    match write_frame(writer, value).await {
+        Ok(()) => Ok(true),
+        Err(error)
+            if matches!(
+                error.kind(),
+                io::ErrorKind::InvalidData | io::ErrorKind::Other
+            ) =>
+        {
+            Ok(false)
+        }
+        Err(error) => Err(error),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -827,6 +854,14 @@ mod tests {
         let decoded = read_frame::<_, ConfigReadValue>(&mut right).await.unwrap();
         write.await.unwrap().unwrap();
         assert!(matches!(decoded, ConfigReadValue::Text(text) if text.starts_with("خزانة")));
+    }
+
+    #[tokio::test]
+    async fn oversized_outbound_payload_closes_only_its_connection() {
+        let value = "x".repeat(MAX_IPC_FRAME_BYTES as usize + 1);
+        let (mut writer, _) = tokio::io::duplex(16);
+
+        assert!(!write_frame_or_close(&mut writer, &value).await.unwrap());
     }
 
     #[tokio::test]
