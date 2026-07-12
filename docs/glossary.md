@@ -112,6 +112,9 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | معرّف البروتوكول | Protocol identifier | A stable Rust-registered operation, capability, permission, schema, error, message, or configuration name generated for native clients. |
 | تفاوض الإصدار | Version negotiation | The pre-request selection of a mutually supported protocol version, capabilities, and schema versions. |
 | ربط المنصة | Platform binding | Generated native-language models, serializers, and identifier constants derived from Rust contracts. |
+| نافذة التوافق | Compatibility window | The protocol minor versions that released peers must continue to negotiate and pass conformance tests against. |
+| انحراف العقد | Contract drift | A generated schema, fixture, reference, or platform binding that no longer exactly matches the Rust contract authority. |
+| تغيير كاسر | Breaking change | A contract representation or meaning change that a peer inside the compatibility window cannot safely interpret. |
 | تحديث | Update | A signed, policy-controlled change to engine, shell, contracts, or compatible data behavior. |
 
 ## Terms to avoid or qualify

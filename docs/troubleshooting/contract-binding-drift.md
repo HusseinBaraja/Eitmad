@@ -41,10 +41,10 @@ Contract drift means a generated schema, registry, fixture, reference, or native
    npm ci --ignore-scripts --prefix crates/contracts/codegen
    ```
 
-3. Reproduce drift without writing tracked files:
+3. Reproduce drift and binding parity failures without writing tracked files:
 
    ```powershell
-   npm run contracts:check --prefix crates/contracts/codegen
+   npm run contracts:verify --prefix crates/contracts/codegen
    ```
 
 ## Causes and resolutions
@@ -56,6 +56,7 @@ Contract drift means a generated schema, registry, fixture, reference, or native
 | Handwritten protocol string found | Shell code declared an `eitmad.*` literal | Search the reported non-generated source | Replace it with generated `ProtocolIds` or a generated enum |
 | C# or Swift decoder fails on the canonical fixture | Generator output cannot represent the Rust schema or fixture | Run the platform conformance executable | Fix the Rust representation or generator; never patch only one binding |
 | Check differs immediately after generation | Generator or newline behavior is nondeterministic | Run generation twice and compare | Fix deterministic export/normalization before committing |
+| Binding identifier parity test fails | A platform generator omitted a Rust-catalog identifier | Compare the named generated binding with `protocol-v1.json` | Fix the generator and regenerate both platforms; do not hand-edit one binding |
 
 Regenerate all outputs together:
 
@@ -67,8 +68,8 @@ Review schema and identifier changes for compatibility. A generated diff is evid
 
 ## Verify recovery
 
-Run the drift check, focused Rust tests, and the available native conformance runner. Full macOS Swift verification occurs in `macos-binding` CI when Swift is unavailable locally.
+Run contract verification, focused Rust tests, and the available native conformance runner. In CI, `rust-and-drift` must pass before `windows-binding` or `macos-binding` starts. Full macOS Swift verification occurs in `macos-binding` CI when Swift is unavailable locally.
 
 Do not revert unrelated user changes, edit generated files, delete product data, or include request payloads, secrets, identities, customer records, or permission graphs in an issue report. Safe escalation evidence includes the changed Rust type, generator version, failed output path, protocol version, capability list, sanitized correlation ID, and exact compiler/decoder error.
 
-The owning capability is [the authoritative contract layer](../developer/subsystems/contract-layer.md). Exact contract behavior is in the [protocol v1 reference](../api/index.md).
+The owning capability is [the authoritative contract layer](../developer/subsystems/contract-layer.md). Exact contract behavior is in the [protocol v1 reference](../api/index.md), and compatibility decisions follow [the contract evolution process](../api/evolve-contracts-compatibly.md).

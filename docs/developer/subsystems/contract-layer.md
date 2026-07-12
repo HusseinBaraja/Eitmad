@@ -68,11 +68,11 @@ The missing local Swift toolchain does not authorize shell implementation or byp
 | Unknown required operation | Reject the tagged union | transport compatibility test |
 | Stale configuration revision | Return `eitmad.error.config-revision-conflict.v1`; do not overwrite | typed config/error contracts |
 | Oversized page or sync batch | Reject against declared bounds | transport and sync tests/schema |
-| Generated binding differs | Fail deterministic drift check | codegen check and CI |
+| Generated binding differs or omits a Rust identifier | Fail deterministic drift and identifier-parity checks | codegen verification and CI |
 
 ## Tests and observability
 
-Unit tests live beside contract behavior. Cross-language fixtures and runners live under `tests/contract-compatibility/`. CI checks Rust formatting, strict Clippy, tests, generated drift, .NET compilation/round-trip, Swift compilation/round-trip, Unicode preservation, and forbidden handwritten shell identifiers.
+Unit tests live beside contract behavior. Cross-language fixtures and runners live under `tests/contract-compatibility/`. Codegen tests prove missing/stale output detection and C#/Swift identifier parity. CI checks Rust formatting, strict Clippy, tests, generated drift, .NET compilation/round-trip, Swift compilation/round-trip, Unicode preservation, and forbidden handwritten shell identifiers. Platform jobs do not run until Rust drift validation succeeds.
 
 Contracts expose correlation identifiers and safe structured errors. They do not authorize logging payloads. Diagnostics must record only approved identifiers, versions, negotiation outcomes, bounds, and redacted failure metadata.
 
@@ -84,4 +84,4 @@ Contracts expose correlation identifiers and safe structured errors. They do not
 - Use a capability for optional behavior. Increment the protocol major when an older peer cannot interpret the new meaning safely.
 - Add Linux output only after its shell technology ADR; do not preselect a language through the generator.
 
-Next, use the [protocol v1 reference](../../api/index.md) when adding a client or [resolve generated contract drift](../../troubleshooting/contract-binding-drift.md) when outputs disagree.
+Next, use the [protocol v1 reference](../../api/index.md) when adding a client, follow the [contract evolution process](../../api/evolve-contracts-compatibly.md) when changing a boundary, or [resolve generated contract drift](../../troubleshooting/contract-binding-drift.md) when outputs disagree.
