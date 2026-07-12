@@ -27,7 +27,7 @@ keywords:
 - the engine never reaches Rust `LifecycleState.Ready`;
 - a replacement process exists but an older exit callback also arrives.
 
-No Arabic UI message exists yet. These are engineering state names, not approved user-facing copy.
+No Arabic UI message exists yet. These are engineering state names, not approved user-facing copy. A future shell message must use localized Arabic labels in an RTL layout, isolate LTR identifiers such as `RestartExhausted` and correlation IDs, and preserve mixed Arabic/English diagnostic text without reordering it. Arabic search must cover the approved label and common terms such as `تعذر تشغيل المحرك` and `توقف المحرك`. Shell tests and support-report rendering must verify Arabic shaping, bidi isolation, numerals, identifier copy/paste, and redaction before that message ships; the Rust state and error identifiers remain the diagnostic authority.
 
 ## Fast checks
 
