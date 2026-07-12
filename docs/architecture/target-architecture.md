@@ -84,6 +84,8 @@ The engine MUST remain useful without a GUI. Its public boundaries MUST be deter
 
 The lifecycle foundation is implemented in `eitmad-engine-runtime` and its [canonical subsystem guide](../developer/subsystems/engine-runtime.md). It exposes typed process identity, `Starting → Ready → Stopping → Stopped` transitions, terminal failure, readiness-aware health checks, bounded rollback/draining, exclusive runtime-directory authority, headless operation, and non-mutating diagnostics. The CLI child pipes are lifecycle adapters only; authenticated request IPC remains an implementation gate.
 
+Desktop supervision follows [ADR-0016](../decisions/0016-bounded-platform-process-supervision.md). A platform adapter groups the owned engine process tree where the operating system supports containment, rejects stale launch observations, applies a bounded restart budget that respects Rust `RetryDisposition`, and closes the control pipe before forced termination. The Windows implementation uses a kill-on-close Job Object, three replacements within 60 seconds, a five-minute healthy reset, and a 15-second graceful shutdown deadline.
+
 1. The shell locates and starts, or securely connects to, the compatible engine distributed with the application.
 2. Both sides authenticate the local channel and exchange protocol versions and capabilities.
 3. The shell refuses normal operation when mandatory compatibility or security capabilities are absent and presents an actionable, localized recovery state.

@@ -53,6 +53,8 @@ A shell must launch the child with stdin and stdout pipes, keep stdin open for t
 
 The example sends one empty pipeline record, then closes the input pipe. Expected result: `starting`, `ready`, `stopping`, and `stopped`, followed by exit code `0`. A production shell closes the pipe on requested shutdown; an unexpected shell exit produces the same EOF signal and graceful engine shutdown.
 
+The implemented Windows adapter additionally assigns the child to a kill-on-close Job Object. It restarts only unexpected retry-safe exits, stops after three replacements within 60 seconds, ignores stale generations, and waits 15 seconds after closing stdin before terminating the process group. Run its fake and real-engine checks from the [Windows supervision guide](../developer/subsystems/windows-process-supervision.md#tests-and-safe-extension-points).
+
 ## Interpret status and exit codes
 
 | Signal | Meaning | Operator action |
@@ -70,4 +72,4 @@ The example sends one empty pipeline record, then closes the input pipe. Expecte
 
 Do not delete the lock file to resolve a conflict. Confirm that the other engine process has stopped, then retry; OS lock release makes stale contents harmless. Do not include runtime paths, raw process arguments, customer records, secrets, or authorization data in support evidence.
 
-For exact failure checks, see [Resolve engine startup and authority failures](../troubleshooting/engine-startup-failures.md). For implementation ownership, see [Extend the engine runtime lifecycle safely](../developer/subsystems/engine-runtime.md).
+For exact engine failure checks, see [Resolve engine startup and authority failures](../troubleshooting/engine-startup-failures.md). For native recovery, see [Resolve Windows engine supervision failures](../troubleshooting/windows-engine-supervision-failures.md). Implementation ownership is split between the [engine lifecycle](../developer/subsystems/engine-runtime.md) and [Windows supervision](../developer/subsystems/windows-process-supervision.md).

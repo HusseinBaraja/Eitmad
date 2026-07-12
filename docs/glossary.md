@@ -121,6 +121,7 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | سلامة المحرك | Engine health | The aggregate `Healthy`, `Degraded`, or `Unhealthy` result of stable checks, evaluated separately from lifecycle state. |
 | هوية عملية المحرك | Engine process identity | A launch-specific instance UUID with PID, mode, start time, product version, and protocol version; correlation metadata, not authentication. |
 | سلطة المحرك | Engine authority | The single process allowed to own authoritative runtime work for one runtime directory, enforced by an operating-system lock. |
+| الإشراف على عملية المحرك | Engine process supervision | Platform lifecycle coordination that launches, contains, observes, restarts, and stops an owned engine without gaining product authority. |
 
 ## Terms to avoid or qualify
 

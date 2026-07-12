@@ -24,6 +24,7 @@ Use symptom and identifier pages to reach the authoritative owner and a non-dest
 ## Engine process failures
 
 - [Resolve engine startup and authority failures](engine-startup-failures.md): diagnose failed startup, invalid supervision, readiness checks, shutdown failures, and duplicate engine authorities.
+- [Resolve Windows engine supervision failures](windows-engine-supervision-failures.md): diagnose restart exhaustion, forced shutdown, stale observations, and Job Object setup failures.
 
 No product workflow or user-facing Arabic error is implemented yet. Runtime failures expose stable localization message IDs for future shells.
 
