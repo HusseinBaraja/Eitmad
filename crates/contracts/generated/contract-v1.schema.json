@@ -1,0 +1,2709 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ContractSchemaRoot",
+  "type": "object",
+  "properties": {
+    "catalog": {
+      "$ref": "#/definitions/ProtocolCatalog"
+    },
+    "command_request": {
+      "$ref": "#/definitions/CommandEnvelope"
+    },
+    "command_response": {
+      "$ref": "#/definitions/CommandResponseEnvelope"
+    },
+    "effective_permissions": {
+      "$ref": "#/definitions/EffectivePermissions"
+    },
+    "event": {
+      "$ref": "#/definitions/EventEnvelope"
+    },
+    "negotiation": {
+      "$ref": "#/definitions/NegotiationOutcome"
+    },
+    "peer_hello": {
+      "$ref": "#/definitions/PeerHello"
+    },
+    "query_request": {
+      "$ref": "#/definitions/QueryEnvelope"
+    },
+    "query_response": {
+      "$ref": "#/definitions/QueryResponseEnvelope"
+    },
+    "subscription_request": {
+      "$ref": "#/definitions/SubscriptionEnvelope"
+    },
+    "sync_message": {
+      "$ref": "#/definitions/SyncMessage"
+    },
+    "sync_status": {
+      "$ref": "#/definitions/SyncStatus"
+    },
+    "update_state": {
+      "$ref": "#/definitions/UpdateState"
+    }
+  },
+  "required": [
+    "command_request",
+    "query_request",
+    "subscription_request",
+    "command_response",
+    "query_response",
+    "event",
+    "peer_hello",
+    "negotiation",
+    "sync_message",
+    "update_state",
+    "sync_status",
+    "effective_permissions",
+    "catalog"
+  ],
+  "definitions": {
+    "AuthenticatedIdentity": {
+      "type": "object",
+      "properties": {
+        "deviceId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "principalId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "principalKind": {
+          "$ref": "#/definitions/PrincipalKind"
+        },
+        "serviceId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "principalId",
+        "principalKind"
+      ]
+    },
+    "AuthorizationContext": {
+      "type": "object",
+      "properties": {
+        "identity": {
+          "$ref": "#/definitions/AuthenticatedIdentity"
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        },
+        "sessionId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "sessionId",
+        "identity",
+        "scope"
+      ]
+    },
+    "BatchAcknowledgement": {
+      "type": "object",
+      "properties": {
+        "acceptedRecords": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "checkpoint": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "checkpoint",
+        "acceptedRecords"
+      ]
+    },
+    "CancelOperation": {
+      "type": "object",
+      "properties": {
+        "operationId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "operationId"
+      ]
+    },
+    "ChangeBatch": {
+      "type": "object",
+      "properties": {
+        "fromCheckpoint": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "hasMore": {
+          "type": "boolean"
+        },
+        "records": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ChangeRecord"
+          }
+        }
+      },
+      "required": [
+        "records",
+        "hasMore"
+      ]
+    },
+    "ChangeOperation": {
+      "type": "string",
+      "enum": [
+        "upsert",
+        "tombstone"
+      ]
+    },
+    "ChangeRecord": {
+      "type": "object",
+      "properties": {
+        "changedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "operation": {
+          "$ref": "#/definitions/ChangeOperation"
+        },
+        "payload": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/EncodedDomainPayload"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "recordId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "required": [
+        "recordId",
+        "scope",
+        "operation",
+        "revision",
+        "changedAt"
+      ]
+    },
+    "Command": {
+      "description": "Authoritative state-changing requests.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.config.update.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/UpdateConfiguration"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.operation.cancel.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/CancelOperation"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.update.report-installer-outcome.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ReportInstallerOutcome"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        }
+      ]
+    },
+    "CommandEnvelope": {
+      "type": "object",
+      "properties": {
+        "authorization": {
+          "$ref": "#/definitions/AuthorizationContext"
+        },
+        "causationId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "command": {
+          "$ref": "#/definitions/Command"
+        },
+        "correlationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "deadline": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "protocolVersion": {
+          "$ref": "#/definitions/ProtocolVersion"
+        },
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "requestId",
+        "correlationId",
+        "authorization",
+        "deadline",
+        "idempotencyKey",
+        "command"
+      ]
+    },
+    "CommandOutcome": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "payload": {
+              "$ref": "#/definitions/CommandResult"
+            },
+            "status": {
+              "type": "string",
+              "const": "succeeded"
+            }
+          },
+          "required": [
+            "status",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "payload": {
+              "$ref": "#/definitions/ContractError"
+            },
+            "status": {
+              "type": "string",
+              "const": "failed"
+            }
+          },
+          "required": [
+            "status",
+            "payload"
+          ]
+        }
+      ]
+    },
+    "CommandResponseEnvelope": {
+      "type": "object",
+      "properties": {
+        "correlationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "outcome": {
+          "$ref": "#/definitions/CommandOutcome"
+        },
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "requestId",
+        "correlationId",
+        "outcome"
+      ]
+    },
+    "CommandResult": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "configurationUpdated"
+            },
+            "payload": {
+              "$ref": "#/definitions/ConfigSnapshot"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "operationCancelled"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "operation_id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "required": [
+                "operation_id"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "installerOutcomeRecorded"
+            },
+            "payload": {
+              "$ref": "#/definitions/UpdateState"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        }
+      ]
+    },
+    "ConfigChange": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/definitions/ConfigWriteValue"
+        }
+      },
+      "required": [
+        "key",
+        "value"
+      ]
+    },
+    "ConfigEntry": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "restartRequirement": {
+          "$ref": "#/definitions/RestartRequirement"
+        },
+        "sensitivity": {
+          "$ref": "#/definitions/ConfigSensitivity"
+        },
+        "value": {
+          "$ref": "#/definitions/ConfigReadValue"
+        }
+      },
+      "required": [
+        "key",
+        "value",
+        "sensitivity",
+        "restartRequirement"
+      ]
+    },
+    "ConfigReadValue": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "boolean"
+            },
+            "value": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "integer"
+            },
+            "value": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "decimal"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "text"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "textList"
+            },
+            "value": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "secretReference"
+            },
+            "value": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "redacted"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
+      ]
+    },
+    "ConfigSensitivity": {
+      "type": "string",
+      "enum": [
+        "public",
+        "sensitive",
+        "secret"
+      ]
+    },
+    "ConfigSnapshot": {
+      "type": "object",
+      "properties": {
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ConfigEntry"
+          }
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "schemaVersion": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "revision",
+        "scope",
+        "entries"
+      ]
+    },
+    "ConfigWriteValue": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "boolean"
+            },
+            "value": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "integer"
+            },
+            "value": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "decimal"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "text"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "textList"
+            },
+            "value": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "secretReference"
+            },
+            "value": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        }
+      ]
+    },
+    "ConfigurationChanges": {
+      "type": "object"
+    },
+    "ConflictNotice": {
+      "type": "object",
+      "properties": {
+        "localRevision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "recordId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "remoteRevision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "recordId",
+        "localRevision",
+        "remoteRevision"
+      ]
+    },
+    "ContractError": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "correlationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "detail": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ErrorDetail"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "messageId": {
+          "type": "string"
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ErrorParameter"
+          }
+        },
+        "retry": {
+          "$ref": "#/definitions/RetryDisposition"
+        }
+      },
+      "required": [
+        "code",
+        "messageId",
+        "parameters",
+        "retry",
+        "correlationId"
+      ]
+    },
+    "EffectivePermission": {
+      "type": "object",
+      "properties": {
+        "decision": {
+          "$ref": "#/definitions/PermissionDecision"
+        },
+        "permission": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "permission",
+        "decision"
+      ]
+    },
+    "EffectivePermissions": {
+      "type": "object",
+      "properties": {
+        "permissions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/EffectivePermission"
+          }
+        },
+        "policyVersion": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "policyVersion",
+        "permissions"
+      ]
+    },
+    "EncodedDomainPayload": {
+      "type": "object",
+      "properties": {
+        "base64": {
+          "type": "string"
+        },
+        "schemaId": {
+          "type": "string"
+        },
+        "schemaVersion": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "schemaId",
+        "schemaVersion",
+        "base64"
+      ]
+    },
+    "ErrorDetail": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "validation"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "fields": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "fields"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "revisionConflict"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "actual": {
+                  "type": "integer",
+                  "format": "uint64",
+                  "minimum": 0
+                },
+                "expected": {
+                  "type": "integer",
+                  "format": "uint64",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "expected",
+                "actual"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "compatibility"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "reason"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        }
+      ]
+    },
+    "ErrorParameter": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/definitions/ErrorParameterValue"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ]
+    },
+    "ErrorParameterValue": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "text"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "integer"
+            },
+            "value": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "identifier"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        }
+      ]
+    },
+    "Event": {
+      "description": "Ordered values emitted by subscriptions.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.config.changed.event.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ConfigSnapshot"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.permissions.changed.event.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/EffectivePermissions"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.update.state.event.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/UpdateState"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.sync.status.event.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/SyncStatus"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        }
+      ]
+    },
+    "EventEnvelope": {
+      "type": "object",
+      "properties": {
+        "correlationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "cursor": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "event": {
+          "$ref": "#/definitions/Event"
+        },
+        "occurredAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "sequence": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "subscriptionId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "subscriptionId",
+        "correlationId",
+        "sequence",
+        "cursor",
+        "occurredAt",
+        "event"
+      ]
+    },
+    "GetConfiguration": {
+      "type": "object"
+    },
+    "GetEffectivePermissions": {
+      "type": "object"
+    },
+    "GetSyncStatus": {
+      "type": "object"
+    },
+    "GetUpdateState": {
+      "type": "object"
+    },
+    "InstallerOutcome": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "succeeded"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "installed_version": {
+                  "$ref": "#/definitions/SemVer"
+                }
+              },
+              "required": [
+                "installed_version"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "failed"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "error_code": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "error_code"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "cancelled"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
+      ]
+    },
+    "NegotiatedSchema": {
+      "type": "object",
+      "properties": {
+        "schemaId": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "schemaId",
+        "version"
+      ]
+    },
+    "NegotiatedSession": {
+      "type": "object",
+      "properties": {
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "protocol": {
+          "$ref": "#/definitions/ProtocolVersion"
+        },
+        "schemas": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/NegotiatedSchema"
+          }
+        }
+      },
+      "required": [
+        "protocol",
+        "capabilities",
+        "schemas"
+      ]
+    },
+    "NegotiationOutcome": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "payload": {
+              "$ref": "#/definitions/NegotiatedSession"
+            },
+            "status": {
+              "type": "string",
+              "const": "accepted"
+            }
+          },
+          "required": [
+            "status",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "payload": {
+              "$ref": "#/definitions/NegotiationRejection"
+            },
+            "status": {
+              "type": "string",
+              "const": "rejected"
+            }
+          },
+          "required": [
+            "status",
+            "payload"
+          ]
+        }
+      ]
+    },
+    "NegotiationRejection": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "noCommonProtocol"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "missingCapability"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "capability": {
+                  "type": "string"
+                },
+                "required_by": {
+                  "$ref": "#/definitions/RequiredBy"
+                }
+              },
+              "required": [
+                "capability",
+                "required_by"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "incompatibleSchema"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "schema_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "schema_id"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        }
+      ]
+    },
+    "PeerHello": {
+      "type": "object",
+      "properties": {
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "peerKind": {
+          "$ref": "#/definitions/PeerKind"
+        },
+        "productVersion": {
+          "$ref": "#/definitions/SemVer"
+        },
+        "protocols": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SupportedProtocol"
+          }
+        },
+        "requiredCapabilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "schemas": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SchemaSupport"
+          }
+        }
+      },
+      "required": [
+        "peerKind",
+        "productVersion",
+        "protocols",
+        "capabilities",
+        "requiredCapabilities",
+        "schemas"
+      ]
+    },
+    "PeerKind": {
+      "type": "string",
+      "enum": [
+        "engine",
+        "shell",
+        "server",
+        "diagnosticClient"
+      ]
+    },
+    "PermissionChanges": {
+      "type": "object"
+    },
+    "PermissionDecision": {
+      "type": "string",
+      "enum": [
+        "granted",
+        "denied"
+      ]
+    },
+    "PrincipalKind": {
+      "type": "string",
+      "enum": [
+        "user",
+        "device",
+        "service"
+      ]
+    },
+    "ProtocolCatalog": {
+      "type": "object",
+      "properties": {
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "commands": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "configKeys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "errorCodes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "errorParameterNames": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "messageIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "permissions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "queries": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "schemaIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "subscriptions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "syncMessages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "commands",
+        "queries",
+        "subscriptions",
+        "events",
+        "syncMessages",
+        "capabilities",
+        "permissions",
+        "configKeys",
+        "schemaIds",
+        "errorCodes",
+        "messageIds",
+        "errorParameterNames"
+      ]
+    },
+    "ProtocolVersion": {
+      "type": "object",
+      "properties": {
+        "major": {
+          "type": "integer",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0
+        },
+        "minor": {
+          "type": "integer",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0
+        }
+      },
+      "required": [
+        "major",
+        "minor"
+      ]
+    },
+    "PullRequest": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "maximumRecords": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 500,
+          "minimum": 1
+        }
+      },
+      "required": [
+        "maximumRecords"
+      ]
+    },
+    "Query": {
+      "description": "Authorized read-only requests.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.config.get.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/GetConfiguration"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.permissions.get-effective.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/GetEffectivePermissions"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.update.get-state.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/GetUpdateState"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.sync.get-status.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/GetSyncStatus"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        }
+      ]
+    },
+    "QueryEnvelope": {
+      "type": "object",
+      "properties": {
+        "authorization": {
+          "$ref": "#/definitions/AuthorizationContext"
+        },
+        "causationId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "correlationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "deadline": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "protocolVersion": {
+          "$ref": "#/definitions/ProtocolVersion"
+        },
+        "query": {
+          "$ref": "#/definitions/Query"
+        },
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "requestId",
+        "correlationId",
+        "authorization",
+        "deadline",
+        "query"
+      ]
+    },
+    "QueryOutcome": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "payload": {
+              "$ref": "#/definitions/QueryResult"
+            },
+            "status": {
+              "type": "string",
+              "const": "succeeded"
+            }
+          },
+          "required": [
+            "status",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "payload": {
+              "$ref": "#/definitions/ContractError"
+            },
+            "status": {
+              "type": "string",
+              "const": "failed"
+            }
+          },
+          "required": [
+            "status",
+            "payload"
+          ]
+        }
+      ]
+    },
+    "QueryResponseEnvelope": {
+      "type": "object",
+      "properties": {
+        "correlationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "outcome": {
+          "$ref": "#/definitions/QueryOutcome"
+        },
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "requestId",
+        "correlationId",
+        "outcome"
+      ]
+    },
+    "QueryResult": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "configuration"
+            },
+            "payload": {
+              "$ref": "#/definitions/ConfigSnapshot"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "effectivePermissions"
+            },
+            "payload": {
+              "$ref": "#/definitions/EffectivePermissions"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "updateState"
+            },
+            "payload": {
+              "$ref": "#/definitions/UpdateState"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "syncStatus"
+            },
+            "payload": {
+              "$ref": "#/definitions/SyncStatus"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        }
+      ]
+    },
+    "ReportInstallerOutcome": {
+      "type": "object",
+      "properties": {
+        "handoffId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "outcome": {
+          "$ref": "#/definitions/InstallerOutcome"
+        }
+      },
+      "required": [
+        "handoffId",
+        "outcome"
+      ]
+    },
+    "RequiredBy": {
+      "type": "string",
+      "enum": [
+        "local",
+        "remote"
+      ]
+    },
+    "RestartRequirement": {
+      "type": "string",
+      "enum": [
+        "none",
+        "engine",
+        "application"
+      ]
+    },
+    "RetryAfter": {
+      "type": "object",
+      "properties": {
+        "delayMs": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "delayMs",
+        "reason"
+      ]
+    },
+    "RetryDisposition": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "never"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "safeImmediately"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "safeAfterDelay"
+            },
+            "retryAfterMs": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "kind",
+            "retryAfterMs"
+          ]
+        }
+      ]
+    },
+    "SchemaSupport": {
+      "type": "object",
+      "properties": {
+        "maximumVersion": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "minimumVersion": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "schemaId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "schemaId",
+        "minimumVersion",
+        "maximumVersion",
+        "required"
+      ]
+    },
+    "ScopeRef": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "kind": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id"
+      ]
+    },
+    "SemVer": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
+    },
+    "Subscription": {
+      "description": "Resumable streams requested by clients.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.config.changed.subscribe.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ConfigurationChanges"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.permissions.changed.subscribe.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/PermissionChanges"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.update.state.subscribe.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/UpdateStateChanges"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.sync.status.subscribe.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/SyncStatusChanges"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        }
+      ]
+    },
+    "SubscriptionEnvelope": {
+      "type": "object",
+      "properties": {
+        "authorization": {
+          "$ref": "#/definitions/AuthorizationContext"
+        },
+        "correlationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "protocolVersion": {
+          "$ref": "#/definitions/ProtocolVersion"
+        },
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "resumeAfter": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "subscription": {
+          "$ref": "#/definitions/Subscription"
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "requestId",
+        "correlationId",
+        "authorization",
+        "subscription"
+      ]
+    },
+    "SupportedProtocol": {
+      "type": "object",
+      "properties": {
+        "major": {
+          "type": "integer",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0
+        },
+        "maximumMinor": {
+          "type": "integer",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0
+        },
+        "minimumMinor": {
+          "type": "integer",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0
+        }
+      },
+      "required": [
+        "major",
+        "minimumMinor",
+        "maximumMinor"
+      ]
+    },
+    "SyncMessage": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.sync.negotiate.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/SyncNegotiation"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.sync.pull.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/PullRequest"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.sync.changes.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ChangeBatch"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.sync.acknowledge.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/BatchAcknowledgement"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.sync.conflict.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ConflictNotice"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.sync.backpressure.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/RetryAfter"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        }
+      ]
+    },
+    "SyncMode": {
+      "type": "string",
+      "enum": [
+        "localFirst",
+        "serverAuthoritative"
+      ]
+    },
+    "SyncNegotiation": {
+      "type": "object",
+      "properties": {
+        "checkpoint": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "mode": {
+          "$ref": "#/definitions/SyncMode"
+        },
+        "schemas": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "mode",
+        "schemas"
+      ]
+    },
+    "SyncStatus": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "offline"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "current"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "checkpoint": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "required": [
+                "checkpoint"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "queued"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "records": {
+                  "type": "integer",
+                  "format": "uint64",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "records"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "syncing"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "completed": {
+                  "type": "integer",
+                  "format": "uint64",
+                  "minimum": 0
+                },
+                "total": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "format": "uint64",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "completed"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "conflicted"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "records": {
+                  "type": "integer",
+                  "format": "uint64",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "records"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "failed"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "reason"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        }
+      ]
+    },
+    "SyncStatusChanges": {
+      "type": "object"
+    },
+    "UpdateConfiguration": {
+      "type": "object",
+      "properties": {
+        "changes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ConfigChange"
+          }
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "expectedRevision",
+        "changes"
+      ]
+    },
+    "UpdateState": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "idle"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "checking"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "available"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "version": {
+                  "$ref": "#/definitions/SemVer"
+                }
+              },
+              "required": [
+                "version"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "downloading"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "progress_bps": {
+                  "type": "integer",
+                  "format": "uint16",
+                  "maximum": 10000,
+                  "minimum": 0
+                },
+                "version": {
+                  "$ref": "#/definitions/SemVer"
+                }
+              },
+              "required": [
+                "version",
+                "progress_bps"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "paused"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "progress_bps": {
+                  "type": "integer",
+                  "format": "uint16",
+                  "maximum": 10000,
+                  "minimum": 0
+                },
+                "version": {
+                  "$ref": "#/definitions/SemVer"
+                }
+              },
+              "required": [
+                "version",
+                "progress_bps"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "preflight"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "version": {
+                  "$ref": "#/definitions/SemVer"
+                }
+              },
+              "required": [
+                "version"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "ready"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "version": {
+                  "$ref": "#/definitions/SemVer"
+                }
+              },
+              "required": [
+                "version"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "installationHandoff"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "handoff_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "version": {
+                  "$ref": "#/definitions/SemVer"
+                }
+              },
+              "required": [
+                "handoff_id",
+                "version"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "installing"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "handoff_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "version": {
+                  "$ref": "#/definitions/SemVer"
+                }
+              },
+              "required": [
+                "handoff_id",
+                "version"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "verifying"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "version": {
+                  "$ref": "#/definitions/SemVer"
+                }
+              },
+              "required": [
+                "version"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "succeeded"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "version": {
+                  "$ref": "#/definitions/SemVer"
+                }
+              },
+              "required": [
+                "version"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "failed"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "error_code": {
+                  "type": "string"
+                },
+                "version": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/definitions/SemVer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "error_code"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "revoked"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "version": {
+                  "$ref": "#/definitions/SemVer"
+                }
+              },
+              "required": [
+                "version"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "recoveryRequired"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "error_code": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "error_code"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        }
+      ]
+    },
+    "UpdateStateChanges": {
+      "type": "object"
+    }
+  }
+}

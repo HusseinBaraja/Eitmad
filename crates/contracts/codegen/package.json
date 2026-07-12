@@ -1,0 +1,11 @@
+{
+  "name": "eitmad-contract-codegen",
+  "private": true,
+  "scripts": {
+    "contracts:generate": "node generate.mjs generate",
+    "contracts:check": "node generate.mjs check"
+  },
+  "dependencies": {
+    "quicktype": "24.0.2"
+  }
+}

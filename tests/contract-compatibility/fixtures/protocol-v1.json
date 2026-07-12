@@ -1,0 +1,86 @@
+{
+  "query": {
+    "protocolVersion": {
+      "major": 1,
+      "minor": 0
+    },
+    "requestId": "00000000-0000-0000-0000-000000000006",
+    "correlationId": "00000000-0000-0000-0000-000000000005",
+    "causationId": "00000000-0000-0000-0000-000000000007",
+    "authorization": {
+      "sessionId": "00000000-0000-0000-0000-000000000002",
+      "identity": {
+        "principalId": "00000000-0000-0000-0000-000000000003",
+        "principalKind": "user",
+        "deviceId": "00000000-0000-0000-0000-000000000004",
+        "serviceId": null
+      },
+      "scope": {
+        "kind": "organization",
+        "id": "00000000-0000-0000-0000-000000000001"
+      }
+    },
+    "deadline": 1800000000000,
+    "query": {
+      "kind": "eitmad.config.get.v1",
+      "payload": {}
+    }
+  },
+  "queryResponse": {
+    "requestId": "00000000-0000-0000-0000-000000000006",
+    "correlationId": "00000000-0000-0000-0000-000000000005",
+    "outcome": {
+      "status": "succeeded",
+      "payload": {
+        "kind": "configuration",
+        "payload": {
+          "schemaVersion": 1,
+          "revision": 7,
+          "scope": {
+            "kind": "organization",
+            "id": "00000000-0000-0000-0000-000000000001"
+          },
+          "entries": [
+            {
+              "key": "eitmad.config.locale.primary.v1",
+              "value": {
+                "kind": "text",
+                "value": "ar-YE"
+              },
+              "sensitivity": "public",
+              "restartRequirement": "application"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "structuredError": {
+    "code": "eitmad.error.config-revision-conflict.v1",
+    "messageId": "eitmad.message.config-revision-conflict.v1",
+    "parameters": [
+      {
+        "name": "expected-revision",
+        "value": {
+          "kind": "text",
+          "value": "ملف عرض السعر Quote-١٢.pdf"
+        }
+      }
+    ],
+    "retry": {
+      "kind": "never"
+    },
+    "correlationId": "00000000-0000-0000-0000-000000000005",
+    "detail": {
+      "kind": "revisionConflict",
+      "payload": {
+        "expected": 6,
+        "actual": 7
+      }
+    }
+  },
+  "mixedDirectionSamples": [
+    "خزانة Wardrobe 120 cm - فرع صنعاء",
+    "ملف عرض السعر Quote-١٢.pdf"
+  ]
+}

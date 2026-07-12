@@ -1,6 +1,8 @@
 /target/
+node_modules/
+/tests/contract-compatibility/csharp/bin/
+/tests/contract-compatibility/csharp/obj/
 
 # Local IDE state belongs to each developer.
 .idea/
 .vscode/
-

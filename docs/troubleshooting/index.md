@@ -1,0 +1,26 @@
+---
+title: "Troubleshoot Eitmad"
+description: "Find safe diagnostic paths for stable errors, generated contract drift, and recoverable system failures."
+audience: "support"
+page_type: "troubleshooting"
+status: "active"
+owner: "engineering maintainers"
+last_verified: "2026-07-12"
+review_triggers:
+  - "a stable diagnosable error or recovery path is added"
+keywords:
+  - "troubleshooting"
+  - "contract drift"
+---
+
+# Troubleshoot Eitmad
+
+Use symptom and identifier pages to reach the authoritative owner and a non-destructive recovery path.
+
+## Contract failures
+
+- [Resolve generated contract drift](contract-binding-drift.md): repair missing or stale schemas, registries, C#/Swift bindings, fixtures, and generated references.
+
+No product workflow or user-facing Arabic error is implemented yet. Add new pages when a stable symptom has a verified diagnostic path.
+
+Return to the [documentation index](../index.md) or review [protocol v1](../api/index.md).

@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "reference"
 status: "active"
 owner: "architecture maintainers"
-last_verified: "2026-07-11"
+last_verified: "2026-07-12"
 review_triggers:
   - "an ADR is proposed, accepted, rejected, or superseded"
 keywords:
@@ -18,7 +18,6 @@ keywords:
 > - Category: Explanation
 > - Status: Active
 > - Owner: Architecture maintainers
-> - Last verified: 2026-07-11
 > - Review trigger: ADR lifecycle or architecture governance changes
 
 This directory contains Eitmad's durable architectural decisions for future reference.
@@ -51,3 +50,4 @@ Accepted ADRs are immutable historical records except for typo fixes, link repai
 | [ADR-0011](0011-arabic-first-user-experience.md) | Make Arabic-first UX a system requirement | Accepted | 2026-07-11 | None |
 | [ADR-0012](0012-privacy-preserving-observability.md) | Make observability privacy-preserving by construction | Accepted | 2026-07-11 | None |
 | [ADR-0013](0013-platform-native-update-adapters.md) | Use platform-native update adapters | Accepted | 2026-07-11 | None |
+| [ADR-0014](0014-rust-derived-json-contracts.md) | Derive JSON contracts and native bindings from Rust | Accepted | 2026-07-12 | None |
