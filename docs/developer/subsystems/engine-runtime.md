@@ -43,7 +43,7 @@ stateDiagram-v2
     Stopping --> Failed: drain fails or times out
 ```
 
-The normal transition path is `Starting → Ready → Stopping → Stopped`. `Failed` is terminal. Startup and shutdown default to total deadlines of 30 seconds and 10 seconds respectively. Tests may configure shorter deadlines through `RuntimeBuilder`.
+The normal transition path is `Starting → Ready → Stopping → Stopped`. `Failed` is terminal. Component startup and readiness checks each receive a separate 30-second deadline by default, so a slow component cannot consume the readiness-check budget or change failure attribution. Shutdown receives one total 10-second deadline. Tests may configure shorter deadlines through `RuntimeBuilder`.
 
 Readiness is not the same as process liveness:
 
@@ -193,7 +193,7 @@ JSON lifecycle and diagnostic streams are protocol output, not localized reports
 
 ## Tests and verification
 
-Unit tests beside the runtime cover transitions, order, rollback, required and advisory health, deadlines, identity uniqueness, diagnostic isolation, and lock replacement. CLI integration tests cover process readiness, stdin-EOF shutdown, invalid supervision, diagnostics, duplicate processes, and exit codes.
+Unit tests beside the runtime cover transitions, order, rollback, required and advisory health, separate component-startup and readiness-check deadlines, shutdown deadlines, identity uniqueness, diagnostic isolation, and lock replacement. CLI integration tests cover process readiness, stdin-EOF shutdown, invalid supervision, diagnostics, duplicate processes, and exit codes.
 
 Run the focused checks:
 

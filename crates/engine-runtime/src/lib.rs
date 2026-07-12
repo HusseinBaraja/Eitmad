@@ -273,7 +273,8 @@ impl EngineRuntime {
             self.started_components += 1;
         }
 
-        let checks = self.run_checks(Some(deadline)).await;
+        let health_deadline = Instant::now() + self.startup_timeout;
+        let checks = self.run_checks(Some(health_deadline)).await;
         let status = overall_health(&checks);
         self.snapshot.checks = checks;
         self.snapshot.health = status;
@@ -660,6 +661,27 @@ mod tests {
         }
     }
 
+    struct DelayedHealthCheck {
+        delay: Duration,
+    }
+
+    impl HealthCheck for DelayedHealthCheck {
+        fn id(&self) -> HealthCheckId {
+            HealthCheckId::parse("eitmad.health.delayed.v1").expect("test health ID")
+        }
+
+        fn impact(&self) -> HealthCheckImpact {
+            HealthCheckImpact::RequiredForReadiness
+        }
+
+        fn check(&self) -> HealthCheckFuture<'_> {
+            Box::pin(async move {
+                sleep(self.delay).await;
+                HealthStatus::Healthy
+            })
+        }
+    }
+
     fn component(name: &'static str, events: &Arc<Mutex<Vec<String>>>) -> RecordingComponent {
         RecordingComponent {
             name,
@@ -855,6 +877,31 @@ mod tests {
                 .as_str(),
             "eitmad.error.engine-shutdown-failed.v1"
         );
+    }
+
+    #[tokio::test]
+    async fn readiness_checks_receive_a_separate_startup_budget() {
+        let directory = TempDir::new().expect("temp directory");
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let mut slow_start = component("slow", &events);
+        slow_start.delay = Duration::from_millis(120);
+        let mut runtime = RuntimeBuilder::new(EngineMode::Headless, directory.path())
+            .startup_timeout(Duration::from_millis(200))
+            .component(slow_start)
+            .health_check(DelayedHealthCheck {
+                delay: Duration::from_millis(120),
+            })
+            .build();
+
+        runtime
+            .start()
+            .await
+            .expect("readiness check has an independent deadline");
+        assert_eq!(runtime.snapshot().state, LifecycleState::Ready);
+        runtime
+            .shutdown(ShutdownReason::Explicit)
+            .await
+            .expect("shutdown");
     }
 
     #[tokio::test]
