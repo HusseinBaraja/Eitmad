@@ -82,7 +82,7 @@ These steps verify only the current foundation. No installable package, producti
 
 ## Verify
 
-Every applicable command must exit with code `0` and no warnings. Diagnostics print one healthy JSON report. Swift binding conformance runs in macOS CI because Swift is not part of the Windows prerequisites.
+In a healthy development environment, every applicable command should exit with code `0` and no warnings. Diagnostics should print one JSON report; an unhealthy required check may produce exit code `3`. Swift binding conformance runs in macOS CI because Swift is not part of the Windows prerequisites.
 
 ## Recover
 
