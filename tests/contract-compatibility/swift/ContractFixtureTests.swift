@@ -21,6 +21,8 @@ private struct ContractFixtureTests {
         let decodedResponse = try JSONDecoder().decode(QueryResponseEnvelope.self, from: encodedResponse)
         let encodedError = try JSONEncoder().encode(fixture.structuredError)
         let decodedError = try JSONDecoder().decode(QueryResult.self, from: encodedError)
+        let encodedSamples = try JSONEncoder().encode(fixture.mixedDirectionSamples)
+        let decodedSamples = try JSONDecoder().decode([String].self, from: encodedSamples)
 
         guard try hasSameJSON(decoded, fixture.query) else {
             throw ContractTestError.queryCorrupted
@@ -31,8 +33,7 @@ private struct ContractFixtureTests {
         guard try hasSameJSON(decodedError, fixture.structuredError) else {
             throw ContractTestError.structuredErrorCorrupted
         }
-        guard fixture.mixedDirectionSamples[0].contains("خزانة"),
-              fixture.mixedDirectionSamples[1].contains("Quote-١٢.pdf") else {
+        guard decodedSamples == fixture.mixedDirectionSamples else {
             throw ContractTestError.textCorrupted
         }
         guard OpenProtocolId(rawValue: ProtocolIds.Capabilities.eitmadCapabilitySyncV1) != nil,
