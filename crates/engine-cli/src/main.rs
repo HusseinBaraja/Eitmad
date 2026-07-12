@@ -4,6 +4,7 @@ use std::{
     io::{self, Write as _},
     path::PathBuf,
     process::ExitCode,
+    sync::Arc,
 };
 
 use clap::{Parser, Subcommand, ValueEnum};
@@ -11,13 +12,18 @@ use eitmad_contracts::runtime::{EngineMode, HealthStatus};
 use eitmad_engine_runtime::{
     RuntimeBuilder, RuntimeDirectoryHealthCheck, RuntimeFailure, ShutdownReason,
     default_runtime_directory,
+    local_ipc::{LocalIpcConfiguration, LocalIpcServer, RejectingDispatcher},
 };
 use serde::Serialize;
-use tokio::{io::AsyncReadExt as _, sync::broadcast};
+use tokio::{
+    io::AsyncReadExt as _,
+    sync::{broadcast, mpsc, watch},
+};
 
 const EXIT_SUCCESS: u8 = 0;
 const EXIT_RUNTIME_FAILURE: u8 = 1;
 const EXIT_DIAGNOSTIC_UNHEALTHY: u8 = 3;
+const DEVELOPMENT_IPC_TOKEN_ENV: &str = "EITMAD_DEVELOPMENT_IPC_TOKEN";
 
 #[derive(Debug, Parser)]
 #[command(name = "eitmad-engine-cli", version, about)]
@@ -38,6 +44,12 @@ enum Command {
         /// Override the platform runtime-data directory.
         #[arg(long, value_name = "PATH")]
         runtime_directory: Option<PathBuf>,
+        /// Windows named-pipe endpoint created by the engine.
+        #[arg(long)]
+        ipc_pipe_name: Option<String>,
+        /// Enables temporary bearer-token authentication for development only.
+        #[arg(long)]
+        allow_insecure_development_auth: bool,
     },
     /// Run non-mutating preflight and health checks once.
     Diagnose {
@@ -60,7 +72,18 @@ async fn main() -> ExitCode {
             mode,
             supervisor_pid,
             runtime_directory,
-        } => run(mode, supervisor_pid, runtime_directory).await,
+            ipc_pipe_name,
+            allow_insecure_development_auth,
+        } => {
+            run(
+                mode,
+                supervisor_pid,
+                runtime_directory,
+                ipc_pipe_name,
+                allow_insecure_development_auth,
+            )
+            .await
+        }
         Command::Diagnose { runtime_directory } => diagnose(runtime_directory).await,
     }
 }
@@ -69,6 +92,8 @@ async fn run(
     mode: RunMode,
     supervisor_pid: Option<u32>,
     runtime_directory: Option<PathBuf>,
+    ipc_pipe_name: Option<String>,
+    allow_insecure_development_auth: bool,
 ) -> ExitCode {
     let Some(directory) = resolve_or_emit_runtime_directory(runtime_directory) else {
         return ExitCode::from(EXIT_RUNTIME_FAILURE);
@@ -95,8 +120,29 @@ async fn run(
         return ExitCode::from(EXIT_RUNTIME_FAILURE);
     }
 
-    let reason = wait_for_shutdown(mode).await;
+    let (ipc_shutdown_sender, mut ipc_shutdown_receiver) = mpsc::channel(1);
+    let _ipc_shutdown_guard = ipc_shutdown_sender.clone();
+    let (ipc_cancel_sender, ipc_cancel_receiver) = watch::channel(false);
+    let ipc_task = ipc_pipe_name.map(|pipe_name| {
+        let development_token = allow_insecure_development_auth
+            .then(|| std::env::var(DEVELOPMENT_IPC_TOKEN_ENV).ok())
+            .flatten();
+        tokio::spawn(
+            LocalIpcServer::new(
+                LocalIpcConfiguration::development(pipe_name, development_token),
+                Arc::new(RejectingDispatcher),
+                ipc_shutdown_sender.clone(),
+            )
+            .run(ipc_cancel_receiver),
+        )
+    });
+
+    let reason = wait_for_shutdown(mode, &mut ipc_shutdown_receiver).await;
     let outcome = runtime.shutdown(reason).await;
+    let _ = ipc_cancel_sender.send(true);
+    if let Some(task) = ipc_task {
+        let _ = task.await;
+    }
     if let Err(failure) = &outcome {
         emit_failure(failure);
     }
@@ -144,11 +190,19 @@ fn resolve_or_emit_runtime_directory(directory: Option<PathBuf>) -> Option<PathB
     }
 }
 
-async fn wait_for_shutdown(mode: RunMode) -> ShutdownReason {
+async fn wait_for_shutdown(mode: RunMode, ipc_shutdown: &mut mpsc::Receiver<()>) -> ShutdownReason {
     match mode {
         RunMode::Headless => {
-            let _ = tokio::signal::ctrl_c().await;
-            ShutdownReason::Interrupt
+            tokio::select! {
+                result = tokio::signal::ctrl_c() => {
+                    let _ = result;
+                    ShutdownReason::Interrupt
+                }
+                value = ipc_shutdown.recv() => {
+                    let _ = value;
+                    ShutdownReason::Explicit
+                }
+            }
         }
         RunMode::Supervised => {
             tokio::select! {
@@ -157,6 +211,10 @@ async fn wait_for_shutdown(mode: RunMode) -> ShutdownReason {
                     ShutdownReason::Interrupt
                 }
                 () = wait_for_supervisor_pipe_close() => ShutdownReason::SupervisorLost,
+                value = ipc_shutdown.recv() => {
+                    let _ = value;
+                    ShutdownReason::Explicit
+                },
             }
         }
     }

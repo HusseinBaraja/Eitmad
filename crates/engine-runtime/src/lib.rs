@@ -4,6 +4,7 @@
 //! `eitmad-contracts`, and launchers remain thin adapters over this API.
 
 mod authority;
+pub mod local_ipc;
 
 use std::{
     env,
