@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Eitmad.Platform.Windows.ProcessSupervision;
 
 var tests = new SupervisionScenarios();
@@ -7,6 +8,7 @@ await tests.FourthConsecutiveFailureExhaustsRestarts();
 await tests.StaleExitCannotReplaceCurrentGeneration();
 await tests.CleanShutdownAvoidsForcedTermination();
 await tests.ShutdownTimeoutTerminatesProcessGroup();
+await tests.TerminationFailureStillCompletesCleanup();
 
 if (args is ["--engine", var enginePath])
 {
@@ -121,6 +123,22 @@ internal sealed class SupervisionScenarios
 
         Assert.True(fixture.Group.Terminated, "shutdown timeout terminates job");
         Assert.True(fixture.Supervisor.Snapshot.LastExit?.Forced ?? false, "forced shutdown outcome");
+    }
+
+    public async Task TerminationFailureStillCompletesCleanup()
+    {
+        var fixture = new SupervisorFixture();
+        await fixture.Supervisor.StartAsync(fixture.Request);
+        fixture.Group.TerminationException = new Win32Exception(5);
+        using var cancellation = new CancellationTokenSource();
+
+        var stop = fixture.Supervisor.StopAsync(cancellation.Token);
+        fixture.Clock.CompleteDelay(TimeSpan.FromSeconds(15));
+        cancellation.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(() => stop, "cancel stalled shutdown");
+
+        Assert.True(fixture.Launcher.Current.Disposed, "failed termination still disposes process");
+        Assert.Equal(EngineSupervisionState.Stopped, fixture.Supervisor.Snapshot.State, "failed termination stop state");
     }
 
     public async Task RealEngineStartsAndStopsCleanly(string enginePath)
@@ -280,12 +298,14 @@ internal sealed class FakeEngineProcess(int processId) : IEngineProcess
     public TextReader StandardError { get; } = new StringReader(string.Empty);
     public TextWriter StandardInput => input;
     public bool InputClosed => input.IsClosed;
+    public bool Disposed { get; private set; }
 
     public Task<int> WaitForExitAsync(CancellationToken cancellationToken) => exit.Task.WaitAsync(cancellationToken);
     public void Kill() => Exit(137);
     public void Exit(int code) => exit.TrySetResult(code);
     public ValueTask DisposeAsync()
     {
+        Disposed = true;
         input.Dispose();
         return ValueTask.CompletedTask;
     }
@@ -310,10 +330,16 @@ internal sealed class FakeProcessGroup : IProcessGroup
 {
     public List<FakeEngineProcess> Processes { get; set; } = [];
     public bool Terminated { get; private set; }
+    public Exception? TerminationException { get; set; }
     public void Assign(IEngineProcess process) { }
     public void Terminate()
     {
         Terminated = true;
+        if (TerminationException is { } exception)
+        {
+            throw exception;
+        }
+
         foreach (var process in Processes)
         {
             process.Exit(137);
@@ -346,5 +372,20 @@ internal static class Assert
         {
             throw new InvalidOperationException($"Assertion failed: {message}.");
         }
+    }
+
+    public static async Task ThrowsAsync<TException>(Func<Task> action, string message)
+        where TException : Exception
+    {
+        try
+        {
+            await action();
+        }
+        catch (TException)
+        {
+            return;
+        }
+
+        throw new InvalidOperationException($"Assertion failed: {message}. Expected {typeof(TException).Name}.");
     }
 }

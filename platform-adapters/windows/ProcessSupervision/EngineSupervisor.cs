@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Text.Json;
 using Eitmad.Contracts;
 
@@ -137,7 +138,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
         }
 
         process.StandardInput.Dispose();
-        var exitTask = process.WaitForExitAsync(CancellationToken.None);
+        var exitTask = process.WaitForExitAsync(cancellationToken);
         var timeoutTask = clock.DelayAsync(policy.ShutdownTimeout, CancellationToken.None);
         if (await Task.WhenAny(exitTask, timeoutTask).ConfigureAwait(false) == timeoutTask)
         {
@@ -149,17 +150,29 @@ public sealed class EngineSupervisor : IAsyncDisposable
                 }
             }
 
-            group?.Terminate();
+            try
+            {
+                group?.Terminate();
+            }
+            catch (Win32Exception)
+            {
+                // Cleanup must continue even when Windows cannot terminate the Job Object.
+            }
         }
 
-        await exitTask.ConfigureAwait(false);
-        if (monitor is not null)
+        try
         {
-            await monitor.ConfigureAwait(false);
+            await exitTask.ConfigureAwait(false);
+            if (monitor is not null)
+            {
+                await monitor.ConfigureAwait(false);
+            }
         }
-
-        await process.DisposeAsync().ConfigureAwait(false);
-        CompleteStop(group);
+        finally
+        {
+            await process.DisposeAsync().ConfigureAwait(false);
+            CompleteStop(group);
+        }
     }
 
     internal async Task ObserveExitAsync(long observedGeneration, int exitCode)
