@@ -47,6 +47,8 @@ Expected result: `starting` then `ready` lifecycle lines. Press Ctrl+C once. The
 
 A shell launches the child with stdin/stdout lifecycle pipes and a unique `--ipc-pipe-name`. The Windows adapter may add `--allow-insecure-development-auth` only for synthetic development sessions and supplies its random token through `EITMAD_DEVELOPMENT_IPC_TOKEN`; never record or reuse that value. The supervisor PID remains correlation data, not authentication.
 
+The following lifecycle-only example omits `--ipc-pipe-name`, so typed IPC is not available:
+
 ```powershell
 '' | cargo run -q -p eitmad-engine-cli -- run --mode supervised --supervisor-pid $PID
 ```
