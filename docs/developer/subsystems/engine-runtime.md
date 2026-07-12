@@ -26,6 +26,7 @@ keywords:
 | External lifecycle, identity, health, diagnostic, and error shapes | `eitmad-contracts::runtime` and `eitmad-contracts::errors` |
 | Component order, readiness, deadlines, rollback, shutdown, and authority lock | `eitmad-engine-runtime` |
 | CLI arguments, stdout/stderr adaptation, Ctrl+C, and supervisor stdin EOF | `eitmad-engine-cli` |
+| Windows process containment, restart budget, stale-event rejection, and shell-owned shutdown | [Windows process supervision](windows-process-supervision.md) |
 | Future authenticated command/query/subscription transport | Not implemented; must delegate to this lifecycle |
 
 The CLI does not own business logic, storage, authorization, or diagnostics policy. The supervisor PID and inherited stdin control pipe only coordinate process lifetime; neither proves identity or grants authorization.
@@ -193,7 +194,7 @@ JSON lifecycle and diagnostic streams are protocol output, not localized reports
 
 ## Tests and verification
 
-Unit tests beside the runtime cover transitions, order, rollback, required and advisory health, separate component-startup and readiness-check deadlines, shutdown deadlines, identity uniqueness, diagnostic isolation, and lock replacement. CLI integration tests cover process readiness, stdin-EOF shutdown, invalid supervision, diagnostics, duplicate processes, and exit codes.
+Unit tests beside the runtime cover transitions, order, rollback, required and advisory health, separate component-startup and readiness-check deadlines, shutdown deadlines, identity uniqueness, diagnostic isolation, and lock replacement. CLI integration tests cover process readiness, stdin-EOF shutdown, invalid supervision, diagnostics, duplicate processes, and exit codes. Windows adapter tests cover intentional stop, unexpected death, restart exhaustion, stale events, Job Object timeout termination, and the real engine lifecycle.
 
 Run the focused checks:
 

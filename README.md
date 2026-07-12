@@ -22,6 +22,7 @@ cargo run -q -p eitmad-engine-cli -- diagnose
 npm ci --ignore-scripts --prefix crates/contracts/codegen
 npm run contracts:check --prefix crates/contracts/codegen
 dotnet run --project tests/contract-compatibility/csharp/Eitmad.ContractConformance.csproj -- tests/contract-compatibility/fixtures/protocol-v1.json
+dotnet run --project platform-adapters/windows/tests/Eitmad.Platform.Windows.Tests.csproj -- --engine target/debug/eitmad-engine-cli.exe
 python .agents/skills/maintain-project-documentation/scripts/audit_docs.py --root docs
 ```
 

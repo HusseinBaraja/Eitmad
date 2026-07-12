@@ -57,4 +57,4 @@ These identifiers apply to Windows, macOS, and Linux; supervised desktop and hea
 
 Run diagnostics, start the intended mode, observe `state: "ready"` with `ready: true`, then request clean shutdown and observe `stopped` with exit `0`. If the same failure returns, stop retrying automatically and escalate to the Rust engine maintainers.
 
-Safe escalation evidence excludes paths, stdin contents, raw component errors, secrets, product payloads, customer data, authorization graphs, and copied lock-file contents. See [Run and diagnose the engine runtime](../operations/run-engine-runtime.md) and [engine runtime ownership](../developer/subsystems/engine-runtime.md).
+Safe escalation evidence excludes paths, stdin contents, raw component errors, secrets, product payloads, customer data, authorization graphs, and copied lock-file contents. See [Run and diagnose the engine runtime](../operations/run-engine-runtime.md), [engine runtime ownership](../developer/subsystems/engine-runtime.md), and [Windows supervision recovery](windows-engine-supervision-failures.md).

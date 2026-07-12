@@ -30,6 +30,7 @@ Read `AGENTS.md` at the repository root, then review:
 - [Domain glossary](../glossary.md)
 - [Authoritative contract layer](subsystems/contract-layer.md)
 - [Engine runtime lifecycle](subsystems/engine-runtime.md)
+- [Windows engine process supervision](subsystems/windows-process-supervision.md)
 
 ## 1. Name the product capability
 
@@ -49,7 +50,7 @@ Follow `.agents/skills/maintain-project-documentation/SKILL.md` after feature be
 
 ## 5. Verify
 
-Run the [foundation checks](../operations/index.md). Expected result: formatting, checks, builds, and tests complete without warnings; `eitmad-engine-cli` runs cleanly; and the documentation audit passes.
+Run the [foundation checks](../operations/index.md). Expected result: formatting, checks, builds, and tests complete without warnings; `eitmad-engine-cli` and the Windows supervisor run cleanly; and the documentation audit passes.
 
 ## What you learned
 

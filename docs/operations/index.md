@@ -1,6 +1,6 @@
 ---
 title: "Run Eitmad foundation checks"
-description: "Safely verify Rust formatting, builds, tests, engine diagnostics, generated contracts, and documentation."
+description: "Safely verify Rust, engine diagnostics, generated contracts, Windows supervision, and documentation."
 audience: "operations"
 page_type: "task"
 status: "active"
@@ -23,7 +23,7 @@ These steps verify only the current foundation. No installable package, producti
 - Rust `1.85` or newer, compatible with the workspace `rust-version`;
 - Python 3 for the Markdown audit;
 - Node.js and npm for pinned contract generation;
-- .NET 8 for local Windows binding conformance;
+- .NET 8 for local Windows binding and process-supervision conformance;
 - commands run from the repository root without real customer data.
 
 ## Steps
@@ -74,7 +74,17 @@ These steps verify only the current foundation. No installable package, producti
    dotnet run --project tests/contract-compatibility/csharp/Eitmad.ContractConformance.csproj -- tests/contract-compatibility/fixtures/protocol-v1.json
    ```
 
-8. Audit documentation:
+8. Build the Rust CLI and run Windows process supervision scenarios on Windows:
+
+   ```powershell
+   cargo build -p eitmad-engine-cli
+   ```
+
+   ```powershell
+   dotnet run --project platform-adapters/windows/tests/Eitmad.Platform.Windows.Tests.csproj -- --engine target/debug/eitmad-engine-cli.exe
+   ```
+
+9. Audit documentation:
 
    ```powershell
    python .agents/skills/maintain-project-documentation/scripts/audit_docs.py --root docs
@@ -82,7 +92,7 @@ These steps verify only the current foundation. No installable package, producti
 
 ## Verify
 
-In a healthy development environment, every applicable command should exit with code `0` and no warnings. Diagnostics should print one JSON report; an unhealthy required check may produce exit code `3`. Swift binding conformance runs in macOS CI because Swift is not part of the Windows prerequisites.
+In a healthy development environment, every applicable command should exit with code `0` and no warnings. Diagnostics should print one JSON report; an unhealthy required check may produce exit code `3`. Windows supervision prints `Windows process supervision scenarios passed.` after fake and real-engine checks. Swift binding conformance runs in macOS CI because Swift is not part of the Windows prerequisites.
 
 ## Recover
 
@@ -92,4 +102,5 @@ If a command fails, stop. Do not hide the warning or bypass the test. Fix the au
 
 - [Start developing Eitmad](../developer/index.md)
 - [Run and diagnose the engine runtime](run-engine-runtime.md)
+- [Extend Windows process supervision safely](../developer/subsystems/windows-process-supervision.md)
 - [Review the documentation standard](../developer/contributing/documentation-standard.md)

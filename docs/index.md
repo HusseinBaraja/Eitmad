@@ -15,7 +15,7 @@ keywords:
 
 # Eitmad documentation
 
-Choose the route that matches your task. Protocol v1 and the engine lifecycle foundation are implemented; no production business workflow exists yet.
+Choose the route that matches your task. Protocol v1, the engine lifecycle, and Windows process supervision are implemented foundations; no production business workflow exists yet.
 
 ## Use the product
 

@@ -34,7 +34,7 @@ Place behavior that changes together in the nearest vertical product capability.
 | `crates/external-integrations/` | Named external-service adapters | `crates/external-integrations/OWNERSHIP.md` |
 | `crates/extensions/` | Extension capabilities and host isolation | `crates/extensions/OWNERSHIP.md` |
 | `shells/` | Thin native shells; Windows uses C# | `shells/OWNERSHIP.md` |
-| `platform-adapters/` | Replaceable OS mechanics | `platform-adapters/OWNERSHIP.md` |
+| `platform-adapters/` | Replaceable OS mechanics; Windows engine process supervision is implemented | [Windows process supervision](subsystems/windows-process-supervision.md) |
 | `server/*-plane/` | Separate control, sync, relay, update, and admin boundaries | `server/OWNERSHIP.md` |
 | `tests/` | Cross-boundary tests; unit tests remain near capabilities | `tests/OWNERSHIP.md` |
 | `deploy/` | Executable packaging and deployment assets | `deploy/OWNERSHIP.md` |
