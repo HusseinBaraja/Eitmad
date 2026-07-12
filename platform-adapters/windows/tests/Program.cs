@@ -39,9 +39,12 @@ internal sealed class SupervisionScenarios
         await fixture.Supervisor.StartAsync(fixture.Request);
 
         fixture.Launcher.Current.Exit(9);
-        await Eventually(() => fixture.Supervisor.Snapshot.State == EngineSupervisionState.RestartDelay);
+        await Eventually(() => fixture.Supervisor.Snapshot.State == EngineSupervisionState.RestartDelay
+            && fixture.Clock.HasPendingDelay(TimeSpan.FromSeconds(1)));
         fixture.Clock.CompleteDelay(TimeSpan.FromSeconds(1));
-        await Eventually(() => fixture.Launcher.LaunchCount == 2);
+        await Eventually(() => fixture.Launcher.LaunchCount == 2
+            && fixture.Supervisor.Snapshot.Generation == 2
+            && fixture.Supervisor.Snapshot.State == EngineSupervisionState.Starting);
 
         Assert.Equal(2L, fixture.Supervisor.Snapshot.Generation, "replacement generation");
         await fixture.StopCurrent();
@@ -55,10 +58,14 @@ internal sealed class SupervisionScenarios
         for (var restart = 1; restart <= 3; restart++)
         {
             fixture.Launcher.Current.Exit(20 + restart);
-            await Eventually(() => fixture.Supervisor.Snapshot.State == EngineSupervisionState.RestartDelay);
-            fixture.Clock.CompleteDelay(TimeSpan.FromSeconds(1 << (restart - 1)));
+            var expectedDelay = TimeSpan.FromSeconds(1 << (restart - 1));
+            await Eventually(() => fixture.Supervisor.Snapshot.State == EngineSupervisionState.RestartDelay
+                && fixture.Clock.HasPendingDelay(expectedDelay));
+            fixture.Clock.CompleteDelay(expectedDelay);
             var expectedLaunches = restart + 1;
-            await Eventually(() => fixture.Launcher.LaunchCount == expectedLaunches);
+            await Eventually(() => fixture.Launcher.LaunchCount == expectedLaunches
+                && fixture.Supervisor.Snapshot.Generation == expectedLaunches
+                && fixture.Supervisor.Snapshot.State == EngineSupervisionState.Starting);
         }
 
         fixture.Launcher.Current.Exit(24);
@@ -74,9 +81,12 @@ internal sealed class SupervisionScenarios
         var fixture = new SupervisorFixture();
         await fixture.Supervisor.StartAsync(fixture.Request);
         fixture.Launcher.Current.Exit(7);
-        await Eventually(() => fixture.Supervisor.Snapshot.State == EngineSupervisionState.RestartDelay);
+        await Eventually(() => fixture.Supervisor.Snapshot.State == EngineSupervisionState.RestartDelay
+            && fixture.Clock.HasPendingDelay(TimeSpan.FromSeconds(1)));
         fixture.Clock.CompleteDelay(TimeSpan.FromSeconds(1));
-        await Eventually(() => fixture.Launcher.LaunchCount == 2);
+        await Eventually(() => fixture.Launcher.LaunchCount == 2
+            && fixture.Supervisor.Snapshot.Generation == 2
+            && fixture.Supervisor.Snapshot.State == EngineSupervisionState.Starting);
 
         await fixture.Supervisor.ObserveExitAsync(1, 99);
 
@@ -228,6 +238,14 @@ internal sealed class FakeClock : ISupervisionClock
 
         pending.Registration.Dispose();
         pending.Completion.SetResult();
+    }
+
+    public bool HasPendingDelay(TimeSpan delay)
+    {
+        lock (gate)
+        {
+            return delays.Any(item => item.Duration == delay);
+        }
     }
 
     private sealed record PendingDelay(
