@@ -22,8 +22,8 @@ private struct ContractFixtureTests {
         let encodedError = try JSONEncoder().encode(fixture.structuredError)
         let decodedError = try JSONDecoder().decode(QueryResult.self, from: encodedError)
 
-        guard decoded.query.kind == .eitmadConfigGetV1 else {
-            throw ContractTestError.wrongQuery
+        guard try hasSameJSON(decoded, fixture.query) else {
+            throw ContractTestError.queryCorrupted
         }
         guard try hasSameJSON(decodedResponse, fixture.queryResponse) else {
             throw ContractTestError.responseCorrupted
@@ -50,7 +50,7 @@ private func hasSameJSON<Value: Encodable>(_ lhs: Value, _ rhs: Value) throws ->
 
 private enum ContractTestError: Error {
     case invalidArguments
-    case wrongQuery
+    case queryCorrupted
     case responseCorrupted
     case structuredErrorCorrupted
     case textCorrupted
