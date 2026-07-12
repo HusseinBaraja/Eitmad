@@ -390,9 +390,18 @@ async fn dispatch_command(
             correlation_id: request.correlation_id,
             deadline: request.deadline,
         };
-        match dispatcher.dispatch_command(context, request.command).await {
-            Ok(result) => CommandOutcome::Succeeded(result),
-            Err(error) => CommandOutcome::Failed(error),
+        let remaining = duration_until(request.deadline);
+        match tokio::time::timeout(
+            remaining,
+            dispatcher.dispatch_command(context, request.command),
+        )
+        .await
+        {
+            Ok(Ok(result)) => CommandOutcome::Succeeded(result),
+            Ok(Err(error)) => CommandOutcome::Failed(error),
+            Err(_) => {
+                CommandOutcome::Failed(deadline_exceeded(request.correlation_id, request.deadline))
+            }
         }
     };
     CommandResponseEnvelope {
@@ -657,9 +666,15 @@ mod tests {
         async fn dispatch_command(
             &self,
             _context: DispatchContext,
-            _command: Command,
+            command: Command,
         ) -> Result<CommandResult, ContractError> {
-            unreachable!("command fixture is not used")
+            let Command::CancelOperation(request) = command else {
+                unreachable!("unexpected command fixture")
+            };
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            Ok(CommandResult::OperationCancelled {
+                operation_id: request.operation_id,
+            })
         }
     }
 
@@ -841,6 +856,41 @@ mod tests {
         let QueryOutcome::Failed(error) = service.query(Some(&session), request).await.outcome
         else {
             panic!("query should time out");
+        };
+        assert_eq!(error.code.as_str(), "eitmad.error.ipc-deadline-exceeded.v1");
+    }
+
+    #[tokio::test]
+    async fn command_dispatch_is_cancelled_at_deadline() {
+        let (shutdown, _) = mpsc::channel(1);
+        let service = LocalIpcServer::new(
+            LocalIpcConfiguration::development("test".to_owned(), Some("token".to_owned())),
+            Arc::new(SlowDispatcher),
+            shutdown,
+        );
+        let response = service.handshake(handshake(PROTOCOL_VERSION, "token"));
+        let HandshakeOutcome::Accepted(accepted) = response.outcome else {
+            panic!("handshake should succeed");
+        };
+        let session = Session {
+            negotiated: accepted.negotiated,
+            authorization: accepted.authorization.clone(),
+        };
+        let request = eitmad_contracts::transport::CommandEnvelope {
+            protocol_version: PROTOCOL_VERSION,
+            request_id: RequestId::new(uuid::Uuid::new_v4()),
+            correlation_id: CorrelationId::new(uuid::Uuid::new_v4()),
+            causation_id: None,
+            authorization: accepted.authorization,
+            deadline: UnixMillis(now().0 + 10),
+            idempotency_key: IdempotencyKey::new(uuid::Uuid::new_v4()),
+            command: Command::CancelOperation(CancelOperation {
+                operation_id: OperationId::new(uuid::Uuid::new_v4()),
+            }),
+        };
+        let CommandOutcome::Failed(error) = service.command(Some(&session), request).await.outcome
+        else {
+            panic!("command should time out");
         };
         assert_eq!(error.code.as_str(), "eitmad.error.ipc-deadline-exceeded.v1");
     }
