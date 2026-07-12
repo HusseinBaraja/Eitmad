@@ -193,6 +193,7 @@ fn render_reference(catalog: &ProtocolCatalog) -> String {
          Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.\n",
     );
     for (title, identifiers) in [
+        ("IPC messages", &catalog.ipc_messages),
         ("Commands", &catalog.commands),
         ("Queries", &catalog.queries),
         ("Subscriptions", &catalog.subscriptions),

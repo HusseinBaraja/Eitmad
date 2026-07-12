@@ -2,6 +2,18 @@
 import Foundation
 
 public enum ProtocolIds {
+    public enum IpcMessages {
+        public static let eitmadIpcCommandResponseV1 = "eitmad.ipc.command-response.v1"
+        public static let eitmadIpcCommandV1 = "eitmad.ipc.command.v1"
+        public static let eitmadIpcFailureV1 = "eitmad.ipc.failure.v1"
+        public static let eitmadIpcHandshakeResponseV1 = "eitmad.ipc.handshake-response.v1"
+        public static let eitmadIpcHandshakeV1 = "eitmad.ipc.handshake.v1"
+        public static let eitmadIpcQueryResponseV1 = "eitmad.ipc.query-response.v1"
+        public static let eitmadIpcQueryV1 = "eitmad.ipc.query.v1"
+        public static let eitmadIpcShutdownResponseV1 = "eitmad.ipc.shutdown-response.v1"
+        public static let eitmadIpcShutdownV1 = "eitmad.ipc.shutdown.v1"
+    }
+
     public enum Commands {
         public static let eitmadConfigUpdateV1 = "eitmad.config.update.v1"
         public static let eitmadOperationCancelV1 = "eitmad.operation.cancel.v1"

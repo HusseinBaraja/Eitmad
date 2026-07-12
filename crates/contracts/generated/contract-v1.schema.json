@@ -2060,6 +2060,12 @@
             "type": "string"
           }
         },
+        "ipcMessages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "messageIds": {
           "type": "array",
           "items": {
@@ -2098,6 +2104,7 @@
         }
       },
       "required": [
+        "ipcMessages",
         "commands",
         "queries",
         "subscriptions",

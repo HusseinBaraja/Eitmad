@@ -94,6 +94,9 @@ namespace Eitmad.Contracts
         [JsonPropertyName("events")]
         public string[] Events { get; set; }
 
+        [JsonPropertyName("ipcMessages")]
+        public string[] IpcMessages { get; set; }
+
         [JsonPropertyName("messageIds")]
         public string[] MessageIds { get; set; }
 

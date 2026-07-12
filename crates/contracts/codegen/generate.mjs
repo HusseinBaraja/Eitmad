@@ -136,6 +136,7 @@ function prependGeneratedHeader(path, header) {
 
 function protocolGroups(registry) {
   return [
+    ["IpcMessages", registry.ipcMessages],
     ["Commands", registry.commands],
     ["Queries", registry.queries],
     ["Subscriptions", registry.subscriptions],

@@ -137,24 +137,26 @@ public extension EitmadContractSchema {
 // MARK: - ProtocolCatalog
 public struct ProtocolCatalog: Codable, Sendable {
     public let capabilities, commands, configKeys, errorCodes: [String]
-    public let errorParameterNames, events, messageIDS, permissions: [String]
-    public let queries, schemaIDS, subscriptions, syncMessages: [String]
+    public let errorParameterNames, events, ipcMessages, messageIDS: [String]
+    public let permissions, queries, schemaIDS, subscriptions: [String]
+    public let syncMessages: [String]
 
     public enum CodingKeys: String, CodingKey {
-        case capabilities, commands, configKeys, errorCodes, errorParameterNames, events
+        case capabilities, commands, configKeys, errorCodes, errorParameterNames, events, ipcMessages
         case messageIDS = "messageIds"
         case permissions, queries
         case schemaIDS = "schemaIds"
         case subscriptions, syncMessages
     }
 
-    public init(capabilities: [String], commands: [String], configKeys: [String], errorCodes: [String], errorParameterNames: [String], events: [String], messageIDS: [String], permissions: [String], queries: [String], schemaIDS: [String], subscriptions: [String], syncMessages: [String]) {
+    public init(capabilities: [String], commands: [String], configKeys: [String], errorCodes: [String], errorParameterNames: [String], events: [String], ipcMessages: [String], messageIDS: [String], permissions: [String], queries: [String], schemaIDS: [String], subscriptions: [String], syncMessages: [String]) {
         self.capabilities = capabilities
         self.commands = commands
         self.configKeys = configKeys
         self.errorCodes = errorCodes
         self.errorParameterNames = errorParameterNames
         self.events = events
+        self.ipcMessages = ipcMessages
         self.messageIDS = messageIDS
         self.permissions = permissions
         self.queries = queries
@@ -189,6 +191,7 @@ public extension ProtocolCatalog {
         errorCodes: [String]? = nil,
         errorParameterNames: [String]? = nil,
         events: [String]? = nil,
+        ipcMessages: [String]? = nil,
         messageIDS: [String]? = nil,
         permissions: [String]? = nil,
         queries: [String]? = nil,
@@ -203,6 +206,7 @@ public extension ProtocolCatalog {
             errorCodes: errorCodes ?? self.errorCodes,
             errorParameterNames: errorParameterNames ?? self.errorParameterNames,
             events: events ?? self.events,
+            ipcMessages: ipcMessages ?? self.ipcMessages,
             messageIDS: messageIDS ?? self.messageIDS,
             permissions: permissions ?? self.permissions,
             queries: queries ?? self.queries,

@@ -19,6 +19,18 @@ keywords:
 
 Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
+## IPC messages
+
+- `eitmad.ipc.command-response.v1`
+- `eitmad.ipc.command.v1`
+- `eitmad.ipc.failure.v1`
+- `eitmad.ipc.handshake-response.v1`
+- `eitmad.ipc.handshake.v1`
+- `eitmad.ipc.query-response.v1`
+- `eitmad.ipc.query.v1`
+- `eitmad.ipc.shutdown-response.v1`
+- `eitmad.ipc.shutdown.v1`
+
 ## Commands
 
 - `eitmad.config.update.v1`

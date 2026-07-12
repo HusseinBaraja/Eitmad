@@ -17,6 +17,18 @@ pub const CAPABILITIES: &[&str] = &[
     "eitmad.capability.update.v1",
 ];
 
+pub const IPC_MESSAGES: &[&str] = &[
+    "eitmad.ipc.command-response.v1",
+    "eitmad.ipc.command.v1",
+    "eitmad.ipc.failure.v1",
+    "eitmad.ipc.handshake-response.v1",
+    "eitmad.ipc.handshake.v1",
+    "eitmad.ipc.query-response.v1",
+    "eitmad.ipc.query.v1",
+    "eitmad.ipc.shutdown-response.v1",
+    "eitmad.ipc.shutdown.v1",
+];
+
 pub const PERMISSIONS: &[&str] = &[
     "eitmad.permission.config.read.v1",
     "eitmad.permission.config.write.v1",
@@ -76,6 +88,7 @@ pub const DOMAIN_SCHEMA_IDS: &[&str] = &["eitmad.schema.protocol.v1"];
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ProtocolCatalog {
+    pub ipc_messages: Vec<String>,
     pub commands: Vec<String>,
     pub queries: Vec<String>,
     pub subscriptions: Vec<String>,
@@ -94,6 +107,7 @@ impl ProtocolCatalog {
     #[must_use]
     pub fn current() -> Self {
         Self {
+            ipc_messages: strings(IPC_MESSAGES),
             commands: strings(Command::IDS),
             queries: strings(Query::IDS),
             subscriptions: strings(Subscription::IDS),
@@ -112,8 +126,9 @@ impl ProtocolCatalog {
     #[must_use]
     pub fn duplicate_identifiers(&self) -> Vec<String> {
         let mut identifiers = self
-            .commands
+            .ipc_messages
             .iter()
+            .chain(&self.commands)
             .chain(&self.queries)
             .chain(&self.subscriptions)
             .chain(&self.events)
@@ -156,8 +171,9 @@ mod tests {
     fn identifiers_follow_the_open_identifier_grammar() {
         let catalog = ProtocolCatalog::current();
         let identifiers = catalog
-            .commands
+            .ipc_messages
             .iter()
+            .chain(&catalog.commands)
             .chain(&catalog.queries)
             .chain(&catalog.subscriptions)
             .chain(&catalog.events)

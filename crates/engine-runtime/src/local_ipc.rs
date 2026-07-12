@@ -187,16 +187,25 @@ impl LocalIpcServer {
 
     async fn serve_connection<S>(
         &self,
-        mut stream: S,
+        stream: S,
         mut cancellation: watch::Receiver<bool>,
     ) -> io::Result<()>
     where
         S: AsyncRead + AsyncWrite + Unpin,
     {
+        let (mut reader, mut writer) = tokio::io::split(stream);
         let mut session = None;
+        let mut pending = tokio::task::JoinSet::new();
         loop {
-            let message = tokio::select! {
-                result = read_frame::<_, IpcClientMessage>(&mut stream) => match result {
+            tokio::select! {
+                biased;
+                completed = pending.join_next(), if !pending.is_empty() => {
+                    if let Some(Ok(response)) = completed {
+                        write_frame(&mut writer, &response).await?;
+                    }
+                }
+                result = read_frame::<_, IpcClientMessage>(&mut reader) => {
+                    let message = match result {
                     Ok(message) => message,
                     Err(FrameReadError::Io(error)) => return Err(error),
                     Err(FrameReadError::PayloadTooLarge) => {
@@ -204,7 +213,7 @@ impl LocalIpcServer {
                             request_id: None,
                             error: payload_too_large(CorrelationId::new(uuid::Uuid::new_v4())),
                         });
-                        write_frame(&mut stream, &response).await?;
+                        write_frame(&mut writer, &response).await?;
                         return Ok(());
                     }
                     Err(FrameReadError::InvalidJson) => {
@@ -218,22 +227,57 @@ impl LocalIpcServer {
                                 None,
                             ),
                         });
-                        write_frame(&mut stream, &response).await?;
+                        write_frame(&mut writer, &response).await?;
                         return Ok(());
                     }
-                },
+                    };
+
+                    match message {
+                        IpcClientMessage::Command(request) if session.is_some() => {
+                            let dispatcher = Arc::clone(&self.dispatcher);
+                            let active_session = session.clone();
+                            pending.spawn(async move {
+                                IpcServerMessage::Command(
+                                    dispatch_command(dispatcher, active_session.as_ref(), request).await,
+                                )
+                            });
+                        }
+                        IpcClientMessage::Query(request) if session.is_some() => {
+                            let dispatcher = Arc::clone(&self.dispatcher);
+                            let active_session = session.clone();
+                            pending.spawn(async move {
+                                IpcServerMessage::Query(
+                                    dispatch_query(dispatcher, active_session.as_ref(), request).await,
+                                )
+                            });
+                        }
+                        IpcClientMessage::Shutdown(request) => {
+                            while let Some(result) = pending.join_next().await {
+                                if let Ok(response) = result {
+                                    write_frame(&mut writer, &response).await?;
+                                }
+                            }
+                            let response = IpcServerMessage::Shutdown(ShutdownResponse {
+                                request_id: request.request_id,
+                                correlation_id: request.correlation_id,
+                                accepted: session.is_some(),
+                            });
+                            write_frame(&mut writer, &response).await?;
+                            if session.is_some() {
+                                let _ = self.shutdown_requests.send(()).await;
+                            }
+                            return Ok(());
+                        }
+                        other => {
+                            let response = self.handle_message(other, &mut session).await;
+                            write_frame(&mut writer, &response).await?;
+                        }
+                    }
+                }
                 result = cancellation.changed() => {
                     let _ = result;
                     return Ok(());
                 }
-            };
-
-            let response = self.handle_message(message, &mut session).await;
-            let requested_shutdown = matches!(response, IpcServerMessage::Shutdown(_));
-            write_frame(&mut stream, &response).await?;
-            if requested_shutdown {
-                let _ = self.shutdown_requests.send(()).await;
-                return Ok(());
             }
         }
     }
@@ -304,35 +348,7 @@ impl LocalIpcServer {
         session: Option<&Session>,
         request: eitmad_contracts::transport::CommandEnvelope,
     ) -> CommandResponseEnvelope {
-        let error = validate_request(
-            session,
-            &request.authorization,
-            request.protocol_version,
-            request.deadline,
-            request.correlation_id,
-        );
-        let outcome = if let Some(error) = error {
-            CommandOutcome::Failed(error)
-        } else {
-            let context = DispatchContext {
-                authorization: request.authorization,
-                correlation_id: request.correlation_id,
-                deadline: request.deadline,
-            };
-            match self
-                .dispatcher
-                .dispatch_command(context, request.command)
-                .await
-            {
-                Ok(result) => CommandOutcome::Succeeded(result),
-                Err(error) => CommandOutcome::Failed(error),
-            }
-        };
-        CommandResponseEnvelope {
-            request_id: request.request_id,
-            correlation_id: request.correlation_id,
-            outcome,
-        }
+        dispatch_command(Arc::clone(&self.dispatcher), session, request).await
     }
 
     async fn query(
@@ -340,41 +356,77 @@ impl LocalIpcServer {
         session: Option<&Session>,
         request: eitmad_contracts::transport::QueryEnvelope,
     ) -> QueryResponseEnvelope {
-        let error = validate_request(
-            session,
-            &request.authorization,
-            request.protocol_version,
-            request.deadline,
-            request.correlation_id,
-        );
-        let outcome = if let Some(error) = error {
-            QueryOutcome::Failed(error)
-        } else {
-            let context = DispatchContext {
-                authorization: request.authorization,
-                correlation_id: request.correlation_id,
-                deadline: request.deadline,
-            };
-            let remaining = duration_until(request.deadline);
-            match tokio::time::timeout(
-                remaining,
-                self.dispatcher.dispatch_query(context, request.query),
-            )
-            .await
-            {
-                Ok(Ok(result)) => QueryOutcome::Succeeded(result),
-                Ok(Err(error)) => QueryOutcome::Failed(error),
-                Err(_) => QueryOutcome::Failed(deadline_exceeded(
-                    request.correlation_id,
-                    request.deadline,
-                )),
-            }
-        };
-        QueryResponseEnvelope {
-            request_id: request.request_id,
+        dispatch_query(Arc::clone(&self.dispatcher), session, request).await
+    }
+}
+
+async fn dispatch_command(
+    dispatcher: Arc<dyn IpcDispatcher>,
+    session: Option<&Session>,
+    request: eitmad_contracts::transport::CommandEnvelope,
+) -> CommandResponseEnvelope {
+    let error = validate_request(
+        session,
+        &request.authorization,
+        request.protocol_version,
+        request.deadline,
+        request.correlation_id,
+    );
+    let outcome = if let Some(error) = error {
+        CommandOutcome::Failed(error)
+    } else {
+        let context = DispatchContext {
+            authorization: request.authorization,
             correlation_id: request.correlation_id,
-            outcome,
+            deadline: request.deadline,
+        };
+        match dispatcher.dispatch_command(context, request.command).await {
+            Ok(result) => CommandOutcome::Succeeded(result),
+            Err(error) => CommandOutcome::Failed(error),
         }
+    };
+    CommandResponseEnvelope {
+        request_id: request.request_id,
+        correlation_id: request.correlation_id,
+        outcome,
+    }
+}
+
+async fn dispatch_query(
+    dispatcher: Arc<dyn IpcDispatcher>,
+    session: Option<&Session>,
+    request: eitmad_contracts::transport::QueryEnvelope,
+) -> QueryResponseEnvelope {
+    let error = validate_request(
+        session,
+        &request.authorization,
+        request.protocol_version,
+        request.deadline,
+        request.correlation_id,
+    );
+    let outcome = if let Some(error) = error {
+        QueryOutcome::Failed(error)
+    } else {
+        let context = DispatchContext {
+            authorization: request.authorization,
+            correlation_id: request.correlation_id,
+            deadline: request.deadline,
+        };
+        let remaining = duration_until(request.deadline);
+        match tokio::time::timeout(remaining, dispatcher.dispatch_query(context, request.query))
+            .await
+        {
+            Ok(Ok(result)) => QueryOutcome::Succeeded(result),
+            Ok(Err(error)) => QueryOutcome::Failed(error),
+            Err(_) => {
+                QueryOutcome::Failed(deadline_exceeded(request.correlation_id, request.deadline))
+            }
+        }
+    };
+    QueryResponseEnvelope {
+        request_id: request.request_id,
+        correlation_id: request.correlation_id,
+        outcome,
     }
 }
 
@@ -528,6 +580,7 @@ where
 mod tests {
     use super::*;
     use eitmad_contracts::{
+        commands::{CancelOperation, Command},
         config::ConfigReadValue,
         identity::{
             AuthenticatedIdentity, DeviceId, PrincipalId, PrincipalKind, ScopeId, ScopeKind,
@@ -536,20 +589,26 @@ mod tests {
         ipc::DevelopmentIdentityAssertion,
         queries::GetSyncStatus,
         sync::SyncStatus,
-        transport::RequestId,
+        transport::{IdempotencyKey, OperationId, RequestId},
         versioning::ProtocolVersion,
     };
 
     struct TestDispatcher;
+    struct SlowDispatcher;
 
     #[async_trait]
     impl CommandDispatcher for TestDispatcher {
         async fn dispatch_command(
             &self,
             _context: DispatchContext,
-            _command: Command,
+            command: Command,
         ) -> Result<CommandResult, ContractError> {
-            unreachable!("command fixture is not used")
+            let Command::CancelOperation(request) = command else {
+                unreachable!("unexpected command fixture")
+            };
+            Ok(CommandResult::OperationCancelled {
+                operation_id: request.operation_id,
+            })
         }
     }
 
@@ -560,6 +619,29 @@ mod tests {
             _context: DispatchContext,
             _query: Query,
         ) -> Result<QueryResult, ContractError> {
+            Ok(QueryResult::SyncStatus(SyncStatus::Offline))
+        }
+    }
+
+    #[async_trait]
+    impl CommandDispatcher for SlowDispatcher {
+        async fn dispatch_command(
+            &self,
+            _context: DispatchContext,
+            _command: Command,
+        ) -> Result<CommandResult, ContractError> {
+            unreachable!("command fixture is not used")
+        }
+    }
+
+    #[async_trait]
+    impl QueryDispatcher for SlowDispatcher {
+        async fn dispatch_query(
+            &self,
+            _context: DispatchContext,
+            _query: Query,
+        ) -> Result<QueryResult, ContractError> {
+            tokio::time::sleep(Duration::from_millis(50)).await;
             Ok(QueryResult::SyncStatus(SyncStatus::Offline))
         }
     }
@@ -651,6 +733,35 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn command_dispatches_after_session_handshake() {
+        let service = service(Some("token"));
+        let response = service.handshake(handshake(PROTOCOL_VERSION, "token"));
+        let HandshakeOutcome::Accepted(accepted) = response.outcome else {
+            panic!("handshake should succeed");
+        };
+        let session = Session {
+            negotiated: accepted.negotiated,
+            authorization: accepted.authorization.clone(),
+        };
+        let operation_id = OperationId::new(uuid::Uuid::new_v4());
+        let request = eitmad_contracts::transport::CommandEnvelope {
+            protocol_version: PROTOCOL_VERSION,
+            request_id: RequestId::new(uuid::Uuid::new_v4()),
+            correlation_id: CorrelationId::new(uuid::Uuid::new_v4()),
+            causation_id: None,
+            authorization: accepted.authorization,
+            deadline: UnixMillis(now().0 + 1_000),
+            idempotency_key: IdempotencyKey::new(uuid::Uuid::new_v4()),
+            command: Command::CancelOperation(CancelOperation { operation_id }),
+        };
+        assert!(matches!(
+            service.command(Some(&session), request).await.outcome,
+            CommandOutcome::Succeeded(CommandResult::OperationCancelled { operation_id: actual })
+                if actual == operation_id
+        ));
+    }
+
+    #[tokio::test]
     async fn pre_handshake_query_fails_structurally() {
         let authorization = AuthorizationContext {
             session_id: SessionId::new(uuid::Uuid::new_v4()),
@@ -671,6 +782,38 @@ mod tests {
             panic!("query should fail");
         };
         assert_eq!(error.code.as_str(), "eitmad.error.ipc-session-invalid.v1");
+    }
+
+    #[tokio::test]
+    async fn query_dispatch_is_cancelled_at_deadline() {
+        let (shutdown, _) = mpsc::channel(1);
+        let service = LocalIpcServer::new(
+            LocalIpcConfiguration::development("test".to_owned(), Some("token".to_owned())),
+            Arc::new(SlowDispatcher),
+            shutdown,
+        );
+        let response = service.handshake(handshake(PROTOCOL_VERSION, "token"));
+        let HandshakeOutcome::Accepted(accepted) = response.outcome else {
+            panic!("handshake should succeed");
+        };
+        let session = Session {
+            negotiated: accepted.negotiated,
+            authorization: accepted.authorization.clone(),
+        };
+        let request = eitmad_contracts::transport::QueryEnvelope {
+            protocol_version: PROTOCOL_VERSION,
+            request_id: RequestId::new(uuid::Uuid::new_v4()),
+            correlation_id: CorrelationId::new(uuid::Uuid::new_v4()),
+            causation_id: None,
+            authorization: accepted.authorization,
+            deadline: UnixMillis(now().0 + 10),
+            query: Query::SyncStatus(GetSyncStatus {}),
+        };
+        let QueryOutcome::Failed(error) = service.query(Some(&session), request).await.outcome
+        else {
+            panic!("query should time out");
+        };
+        assert_eq!(error.code.as_str(), "eitmad.error.ipc-deadline-exceeded.v1");
     }
 
     #[tokio::test]

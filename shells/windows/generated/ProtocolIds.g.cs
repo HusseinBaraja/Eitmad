@@ -6,6 +6,19 @@ namespace Eitmad.Contracts;
 
 public static class ProtocolIds
 {
+    public static class IpcMessages
+    {
+        public const string EitmadIpcCommandResponseV1 = "eitmad.ipc.command-response.v1";
+        public const string EitmadIpcCommandV1 = "eitmad.ipc.command.v1";
+        public const string EitmadIpcFailureV1 = "eitmad.ipc.failure.v1";
+        public const string EitmadIpcHandshakeResponseV1 = "eitmad.ipc.handshake-response.v1";
+        public const string EitmadIpcHandshakeV1 = "eitmad.ipc.handshake.v1";
+        public const string EitmadIpcQueryResponseV1 = "eitmad.ipc.query-response.v1";
+        public const string EitmadIpcQueryV1 = "eitmad.ipc.query.v1";
+        public const string EitmadIpcShutdownResponseV1 = "eitmad.ipc.shutdown-response.v1";
+        public const string EitmadIpcShutdownV1 = "eitmad.ipc.shutdown.v1";
+    }
+
     public static class Commands
     {
         public const string EitmadConfigUpdateV1 = "eitmad.config.update.v1";
