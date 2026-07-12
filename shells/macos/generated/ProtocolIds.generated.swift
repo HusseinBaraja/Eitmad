@@ -40,6 +40,7 @@ public enum ProtocolIds {
 
     public enum Capabilities {
         public static let eitmadCapabilityEngineLifecycleV1 = "eitmad.capability.engine-lifecycle.v1"
+        public static let eitmadCapabilityLocalIpcV1 = "eitmad.capability.local-ipc.v1"
         public static let eitmadCapabilityConfigV1 = "eitmad.capability.config.v1"
         public static let eitmadCapabilityPermissionsV1 = "eitmad.capability.permissions.v1"
         public static let eitmadCapabilitySyncV1 = "eitmad.capability.sync.v1"
@@ -72,6 +73,10 @@ public enum ProtocolIds {
         public static let eitmadErrorEngineShutdownFailedV1 = "eitmad.error.engine-shutdown-failed.v1"
         public static let eitmadErrorEngineStartupFailedV1 = "eitmad.error.engine-startup-failed.v1"
         public static let eitmadErrorEngineSupervisorInvalidV1 = "eitmad.error.engine-supervisor-invalid.v1"
+        public static let eitmadErrorIpcEngineStoppingV1 = "eitmad.error.ipc-engine-stopping.v1"
+        public static let eitmadErrorIpcPayloadTooLargeV1 = "eitmad.error.ipc-payload-too-large.v1"
+        public static let eitmadErrorIpcSessionInvalidV1 = "eitmad.error.ipc-session-invalid.v1"
+        public static let eitmadErrorIpcDeadlineExceededV1 = "eitmad.error.ipc-deadline-exceeded.v1"
         public static let eitmadErrorProtocolIncompatibleV1 = "eitmad.error.protocol-incompatible.v1"
         public static let eitmadErrorSyncBackpressureV1 = "eitmad.error.sync-backpressure.v1"
         public static let eitmadErrorUpdateInstallerFailedV1 = "eitmad.error.update-installer-failed.v1"
@@ -86,6 +91,10 @@ public enum ProtocolIds {
         public static let eitmadMessageEngineShutdownFailedV1 = "eitmad.message.engine-shutdown-failed.v1"
         public static let eitmadMessageEngineStartupFailedV1 = "eitmad.message.engine-startup-failed.v1"
         public static let eitmadMessageEngineSupervisorInvalidV1 = "eitmad.message.engine-supervisor-invalid.v1"
+        public static let eitmadMessageIpcEngineStoppingV1 = "eitmad.message.ipc-engine-stopping.v1"
+        public static let eitmadMessageIpcPayloadTooLargeV1 = "eitmad.message.ipc-payload-too-large.v1"
+        public static let eitmadMessageIpcSessionInvalidV1 = "eitmad.message.ipc-session-invalid.v1"
+        public static let eitmadMessageIpcDeadlineExceededV1 = "eitmad.message.ipc-deadline-exceeded.v1"
         public static let eitmadMessageProtocolIncompatibleV1 = "eitmad.message.protocol-incompatible.v1"
         public static let eitmadMessageSyncBackpressureV1 = "eitmad.message.sync-backpressure.v1"
         public static let eitmadMessageUpdateInstallerFailedV1 = "eitmad.message.update-installer-failed.v1"
@@ -96,6 +105,7 @@ public enum ProtocolIds {
         public static let expectedRevision = "expected-revision"
         public static let requiredCapability = "required-capability"
         public static let retryAfterMs = "retry-after-ms"
+        public static let maximumPayloadBytes = "maximum-payload-bytes"
     }
 
 }

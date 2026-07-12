@@ -10,6 +10,7 @@ use crate::{
 
 pub const CAPABILITIES: &[&str] = &[
     "eitmad.capability.engine-lifecycle.v1",
+    "eitmad.capability.local-ipc.v1",
     "eitmad.capability.config.v1",
     "eitmad.capability.permissions.v1",
     "eitmad.capability.sync.v1",
@@ -34,6 +35,10 @@ pub const ERROR_CODES: &[&str] = &[
     "eitmad.error.engine-shutdown-failed.v1",
     "eitmad.error.engine-startup-failed.v1",
     "eitmad.error.engine-supervisor-invalid.v1",
+    "eitmad.error.ipc-engine-stopping.v1",
+    "eitmad.error.ipc-payload-too-large.v1",
+    "eitmad.error.ipc-session-invalid.v1",
+    "eitmad.error.ipc-deadline-exceeded.v1",
     "eitmad.error.protocol-incompatible.v1",
     "eitmad.error.sync-backpressure.v1",
     "eitmad.error.update-installer-failed.v1",
@@ -48,6 +53,10 @@ pub const MESSAGE_IDS: &[&str] = &[
     "eitmad.message.engine-shutdown-failed.v1",
     "eitmad.message.engine-startup-failed.v1",
     "eitmad.message.engine-supervisor-invalid.v1",
+    "eitmad.message.ipc-engine-stopping.v1",
+    "eitmad.message.ipc-payload-too-large.v1",
+    "eitmad.message.ipc-session-invalid.v1",
+    "eitmad.message.ipc-deadline-exceeded.v1",
     "eitmad.message.protocol-incompatible.v1",
     "eitmad.message.sync-backpressure.v1",
     "eitmad.message.update-installer-failed.v1",
@@ -58,6 +67,7 @@ pub const ERROR_PARAMETER_NAMES: &[&str] = &[
     "expected-revision",
     "required-capability",
     "retry-after-ms",
+    "maximum-payload-bytes",
 ];
 
 pub const CONFIG_KEYS: &[&str] = &["eitmad.config.locale.primary.v1"];

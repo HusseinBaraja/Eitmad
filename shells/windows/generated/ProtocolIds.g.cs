@@ -50,6 +50,7 @@ public static class ProtocolIds
     public static class Capabilities
     {
         public const string EitmadCapabilityEngineLifecycleV1 = "eitmad.capability.engine-lifecycle.v1";
+        public const string EitmadCapabilityLocalIpcV1 = "eitmad.capability.local-ipc.v1";
         public const string EitmadCapabilityConfigV1 = "eitmad.capability.config.v1";
         public const string EitmadCapabilityPermissionsV1 = "eitmad.capability.permissions.v1";
         public const string EitmadCapabilitySyncV1 = "eitmad.capability.sync.v1";
@@ -86,6 +87,10 @@ public static class ProtocolIds
         public const string EitmadErrorEngineShutdownFailedV1 = "eitmad.error.engine-shutdown-failed.v1";
         public const string EitmadErrorEngineStartupFailedV1 = "eitmad.error.engine-startup-failed.v1";
         public const string EitmadErrorEngineSupervisorInvalidV1 = "eitmad.error.engine-supervisor-invalid.v1";
+        public const string EitmadErrorIpcEngineStoppingV1 = "eitmad.error.ipc-engine-stopping.v1";
+        public const string EitmadErrorIpcPayloadTooLargeV1 = "eitmad.error.ipc-payload-too-large.v1";
+        public const string EitmadErrorIpcSessionInvalidV1 = "eitmad.error.ipc-session-invalid.v1";
+        public const string EitmadErrorIpcDeadlineExceededV1 = "eitmad.error.ipc-deadline-exceeded.v1";
         public const string EitmadErrorProtocolIncompatibleV1 = "eitmad.error.protocol-incompatible.v1";
         public const string EitmadErrorSyncBackpressureV1 = "eitmad.error.sync-backpressure.v1";
         public const string EitmadErrorUpdateInstallerFailedV1 = "eitmad.error.update-installer-failed.v1";
@@ -101,6 +106,10 @@ public static class ProtocolIds
         public const string EitmadMessageEngineShutdownFailedV1 = "eitmad.message.engine-shutdown-failed.v1";
         public const string EitmadMessageEngineStartupFailedV1 = "eitmad.message.engine-startup-failed.v1";
         public const string EitmadMessageEngineSupervisorInvalidV1 = "eitmad.message.engine-supervisor-invalid.v1";
+        public const string EitmadMessageIpcEngineStoppingV1 = "eitmad.message.ipc-engine-stopping.v1";
+        public const string EitmadMessageIpcPayloadTooLargeV1 = "eitmad.message.ipc-payload-too-large.v1";
+        public const string EitmadMessageIpcSessionInvalidV1 = "eitmad.message.ipc-session-invalid.v1";
+        public const string EitmadMessageIpcDeadlineExceededV1 = "eitmad.message.ipc-deadline-exceeded.v1";
         public const string EitmadMessageProtocolIncompatibleV1 = "eitmad.message.protocol-incompatible.v1";
         public const string EitmadMessageSyncBackpressureV1 = "eitmad.message.sync-backpressure.v1";
         public const string EitmadMessageUpdateInstallerFailedV1 = "eitmad.message.update-installer-failed.v1";
@@ -112,6 +121,7 @@ public static class ProtocolIds
         public const string ExpectedRevision = "expected-revision";
         public const string RequiredCapability = "required-capability";
         public const string RetryAfterMs = "retry-after-ms";
+        public const string MaximumPayloadBytes = "maximum-payload-bytes";
     }
 
 }

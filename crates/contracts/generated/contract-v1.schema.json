@@ -21,6 +21,12 @@
     "event": {
       "$ref": "#/definitions/EventEnvelope"
     },
+    "ipc_client_message": {
+      "$ref": "#/definitions/IpcClientMessage"
+    },
+    "ipc_server_message": {
+      "$ref": "#/definitions/IpcServerMessage"
+    },
     "lifecycle_snapshot": {
       "$ref": "#/definitions/LifecycleSnapshot"
     },
@@ -50,6 +56,8 @@
     }
   },
   "required": [
+    "ipc_client_message",
+    "ipc_server_message",
     "command_request",
     "query_request",
     "subscription_request",
@@ -803,6 +811,21 @@
         "correlationId"
       ]
     },
+    "DevelopmentIdentityAssertion": {
+      "type": "object",
+      "properties": {
+        "identity": {
+          "$ref": "#/definitions/AuthenticatedIdentity"
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "required": [
+        "identity",
+        "scope"
+      ]
+    },
     "DiagnosticReport": {
       "type": "object",
       "properties": {
@@ -1041,6 +1064,57 @@
             "kind",
             "payload"
           ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "deadline"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "deadline": {
+                  "type": "integer",
+                  "format": "int64"
+                }
+              },
+              "required": [
+                "deadline"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "payloadLimit"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "maximum_bytes": {
+                  "type": "integer",
+                  "format": "uint32",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "maximum_bytes"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
         }
       ]
     },
@@ -1230,6 +1304,155 @@
     "GetUpdateState": {
       "type": "object"
     },
+    "HandshakeAccepted": {
+      "type": "object",
+      "properties": {
+        "authorization": {
+          "$ref": "#/definitions/AuthorizationContext"
+        },
+        "engine": {
+          "$ref": "#/definitions/PeerHello"
+        },
+        "negotiated": {
+          "$ref": "#/definitions/NegotiatedSession"
+        }
+      },
+      "required": [
+        "engine",
+        "negotiated",
+        "authorization"
+      ]
+    },
+    "HandshakeOutcome": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "payload": {
+              "$ref": "#/definitions/HandshakeAccepted"
+            },
+            "status": {
+              "type": "string",
+              "const": "accepted"
+            }
+          },
+          "required": [
+            "status",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "payload": {
+              "$ref": "#/definitions/HandshakeRejection"
+            },
+            "status": {
+              "type": "string",
+              "const": "rejected"
+            }
+          },
+          "required": [
+            "status",
+            "payload"
+          ]
+        }
+      ]
+    },
+    "HandshakeRejection": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "authenticationRequired"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "authenticationFailed"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "negotiation"
+            },
+            "payload": {
+              "$ref": "#/definitions/NegotiationRejection"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        }
+      ]
+    },
+    "HandshakeRequest": {
+      "type": "object",
+      "properties": {
+        "assertedAuthorization": {
+          "$ref": "#/definitions/DevelopmentIdentityAssertion"
+        },
+        "correlationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "developmentBearerToken": {
+          "type": "string"
+        },
+        "peer": {
+          "$ref": "#/definitions/PeerHello"
+        },
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "requestId",
+        "correlationId",
+        "peer",
+        "developmentBearerToken",
+        "assertedAuthorization"
+      ]
+    },
+    "HandshakeResponse": {
+      "type": "object",
+      "properties": {
+        "correlationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "outcome": {
+          "$ref": "#/definitions/HandshakeOutcome"
+        },
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "requestId",
+        "correlationId",
+        "outcome"
+      ]
+    },
     "HealthCheckImpact": {
       "type": "string",
       "enum": [
@@ -1339,6 +1562,176 @@
           },
           "required": [
             "kind"
+          ]
+        }
+      ]
+    },
+    "IpcClientMessage": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.ipc.handshake.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/HandshakeRequest"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.ipc.command.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/CommandEnvelope"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.ipc.query.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/QueryEnvelope"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.ipc.shutdown.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ShutdownRequest"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        }
+      ]
+    },
+    "IpcFailureResponse": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "$ref": "#/definitions/ContractError"
+        },
+        "requestId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "error"
+      ]
+    },
+    "IpcServerMessage": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.ipc.handshake-response.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/HandshakeResponse"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.ipc.command-response.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/CommandResponseEnvelope"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.ipc.query-response.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/QueryResponseEnvelope"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.ipc.shutdown-response.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ShutdownResponse"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.ipc.failure.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/IpcFailureResponse"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
           ]
         }
       ]
@@ -2136,6 +2529,44 @@
     "SemVer": {
       "type": "string",
       "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
+    },
+    "ShutdownRequest": {
+      "type": "object",
+      "properties": {
+        "correlationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "requestId",
+        "correlationId"
+      ]
+    },
+    "ShutdownResponse": {
+      "type": "object",
+      "properties": {
+        "accepted": {
+          "type": "boolean"
+        },
+        "correlationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "requestId",
+        "correlationId",
+        "accepted"
+      ]
     },
     "Subscription": {
       "description": "Resumable streams requested by clients.",

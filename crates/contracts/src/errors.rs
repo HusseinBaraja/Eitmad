@@ -34,10 +34,25 @@ pub enum RetryDisposition {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", content = "payload", rename_all = "camelCase")]
 pub enum ErrorDetail {
-    Validation { fields: Vec<ErrorParameterName> },
-    RevisionConflict { expected: u64, actual: u64 },
-    Compatibility { reason: String },
-    Lifecycle { stage: LifecycleStage },
+    Validation {
+        fields: Vec<ErrorParameterName>,
+    },
+    RevisionConflict {
+        expected: u64,
+        actual: u64,
+    },
+    Compatibility {
+        reason: String,
+    },
+    Lifecycle {
+        stage: LifecycleStage,
+    },
+    Deadline {
+        deadline: crate::transport::UnixMillis,
+    },
+    PayloadLimit {
+        maximum_bytes: u32,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
