@@ -82,12 +82,29 @@ pub(crate) fn validate_open_identifier(
 #[serde(transparent)]
 pub struct UnixMillis(pub i64);
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct PageRequest {
     pub cursor: Option<EventCursor>,
     #[schemars(range(min = 1, max = 500))]
     limit: u32,
+}
+
+impl<'de> Deserialize<'de> for PageRequest {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct RawPageRequest {
+            cursor: Option<EventCursor>,
+            limit: u32,
+        }
+
+        let raw = RawPageRequest::deserialize(deserializer)?;
+        Self::new(raw.cursor, raw.limit).map_err(serde::de::Error::custom)
+    }
 }
 
 impl PageRequest {
@@ -225,6 +242,16 @@ mod tests {
         );
         assert!(PageRequest::new(None, 0).is_err());
         assert!(PageRequest::new(None, MAX_PAGE_SIZE + 1).is_err());
+    }
+
+    #[test]
+    fn page_size_is_bounded_during_deserialization() {
+        let valid = serde_json::from_str::<PageRequest>(r#"{"cursor":null,"limit":500}"#)
+            .expect("maximum page size should deserialize");
+        assert_eq!(valid.limit(), MAX_PAGE_SIZE);
+
+        assert!(serde_json::from_str::<PageRequest>(r#"{"cursor":null,"limit":0}"#).is_err());
+        assert!(serde_json::from_str::<PageRequest>(r#"{"cursor":null,"limit":501}"#).is_err());
     }
 
     #[test]
