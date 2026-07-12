@@ -1,7 +1,11 @@
 using System.ComponentModel;
+using Eitmad.Contracts;
+using Eitmad.Platform.Windows.LocalIpc;
 using Eitmad.Platform.Windows.ProcessSupervision;
 
 var tests = new SupervisionScenarios();
+await tests.UnavailableEngineIsTyped();
+tests.FrameLimitMatchesRustContract();
 await tests.IntentionalStopNeverRestarts();
 await tests.UnexpectedDeathRestartsOnce();
 await tests.FourthConsecutiveFailureExhaustsRestarts();
@@ -19,6 +23,32 @@ Console.WriteLine("Windows process supervision scenarios passed.");
 
 internal sealed class SupervisionScenarios
 {
+    public async Task UnavailableEngineIsTyped()
+    {
+        try
+        {
+            await EngineIpcClient.ConnectAsync(
+                $"missing-{Guid.NewGuid():N}",
+                DevelopmentPeer(),
+                DevelopmentIdentity(),
+                "synthetic-token",
+                TimeSpan.FromMilliseconds(20));
+        }
+        catch (EngineIpcException error)
+        {
+            Assert.Equal(
+                EngineIpcFailureKind.EngineUnavailable,
+                error.Kind,
+                "unavailable engine failure kind");
+            return;
+        }
+
+        throw new InvalidOperationException("Expected unavailable engine failure.");
+    }
+
+    public void FrameLimitMatchesRustContract() =>
+        Assert.Equal(8_388_608, EngineIpcClient.MaximumFrameBytes, "IPC frame limit");
+
     public async Task IntentionalStopNeverRestarts()
     {
         var fixture = new SupervisorFixture();
@@ -148,7 +178,10 @@ internal sealed class SupervisionScenarios
         try
         {
             await using var supervisor = new EngineSupervisor();
-            var request = new EngineLaunchRequest(enginePath, runtimeDirectory);
+            var request = new EngineLaunchRequest(
+                enginePath,
+                runtimeDirectory,
+                DevelopmentIdentity());
             var lifecycleStates = new List<Eitmad.Contracts.LifecycleState>();
             supervisor.StateChanged += state =>
             {
@@ -160,6 +193,7 @@ internal sealed class SupervisionScenarios
             };
             await supervisor.StartAsync(request);
             await Eventually(() => supervisor.Snapshot.LastLifecycle?.Ready == true, TimeSpan.FromSeconds(10));
+            await Eventually(() => supervisor.IpcConnected, TimeSpan.FromSeconds(10));
             await supervisor.StopAsync();
 
             Assert.Equal(EngineSupervisionState.Stopped, supervisor.Snapshot.State, "real engine stopped state");
@@ -180,6 +214,27 @@ internal sealed class SupervisionScenarios
             Directory.Delete(runtimeDirectory, recursive: true);
         }
     }
+
+    private static PeerHello DevelopmentPeer() => new()
+    {
+        PeerKind = PeerKind.Shell,
+        ProductVersion = "0.0.0",
+        Protocols = [new SupportedProtocol { Major = 1, MinimumMinor = 0, MaximumMinor = 0 }],
+        Capabilities = [ProtocolIds.Capabilities.EitmadCapabilityLocalIpcV1],
+        RequiredCapabilities = [ProtocolIds.Capabilities.EitmadCapabilityLocalIpcV1],
+        Schemas = [],
+    };
+
+    private static DevelopmentIdentityAssertion DevelopmentIdentity() => new()
+    {
+        Identity = new AuthenticatedIdentity
+        {
+            PrincipalId = Guid.NewGuid(),
+            PrincipalKind = PrincipalKind.Service,
+            ServiceId = Guid.NewGuid(),
+        },
+        Scope = new ScopeRef { Kind = "organization", Id = Guid.NewGuid() },
+    };
 
     private static async Task Eventually(Func<bool> condition, TimeSpan? timeout = null)
     {
@@ -297,6 +352,8 @@ internal sealed class FakeEngineProcess(int processId) : IEngineProcess
     public TextReader StandardOutput { get; } = new StringReader(string.Empty);
     public TextReader StandardError { get; } = new StringReader(string.Empty);
     public TextWriter StandardInput => input;
+    public string IpcPipeName { get; } = $"fake-{processId}";
+    public string DevelopmentBearerToken { get; } = "fake-development-token";
     public bool InputClosed => input.IsClosed;
     public bool Disposed { get; private set; }
 
