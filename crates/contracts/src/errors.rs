@@ -1,6 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::runtime::LifecycleStage;
 use crate::transport::CorrelationId;
 
 open_id!(ErrorCode, "error code");
@@ -36,6 +37,7 @@ pub enum ErrorDetail {
     Validation { fields: Vec<ErrorParameterName> },
     RevisionConflict { expected: u64, actual: u64 },
     Compatibility { reason: String },
+    Lifecycle { stage: LifecycleStage },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]

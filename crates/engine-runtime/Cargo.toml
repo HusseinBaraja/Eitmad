@@ -9,3 +9,14 @@ rust-version.workspace = true
 [lints]
 workspace = true
 
+[dependencies]
+eitmad-contracts = { path = "../contracts" }
+fs2 = "=0.4.3"
+semver = "=1.0.27"
+serde_json = "=1.0.150"
+tokio = { version = "=1.49.0", features = ["rt", "sync", "time"] }
+uuid = { version = "=1.23.4", features = ["v4"] }
+
+[dev-dependencies]
+tempfile = "=3.24.0"
+tokio = { version = "=1.49.0", features = ["macros", "rt-multi-thread", "sync", "time"] }

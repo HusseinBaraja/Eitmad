@@ -9,6 +9,7 @@ use crate::{
 };
 
 pub const CAPABILITIES: &[&str] = &[
+    "eitmad.capability.engine-lifecycle.v1",
     "eitmad.capability.config.v1",
     "eitmad.capability.permissions.v1",
     "eitmad.capability.sync.v1",
@@ -28,6 +29,11 @@ pub const ERROR_CODES: &[&str] = &[
     "eitmad.error.authorization-denied.v1",
     "eitmad.error.config-revision-conflict.v1",
     "eitmad.error.contract-invalid.v1",
+    "eitmad.error.engine-already-running.v1",
+    "eitmad.error.engine-health-check-failed.v1",
+    "eitmad.error.engine-shutdown-failed.v1",
+    "eitmad.error.engine-startup-failed.v1",
+    "eitmad.error.engine-supervisor-invalid.v1",
     "eitmad.error.protocol-incompatible.v1",
     "eitmad.error.sync-backpressure.v1",
     "eitmad.error.update-installer-failed.v1",
@@ -37,6 +43,11 @@ pub const MESSAGE_IDS: &[&str] = &[
     "eitmad.message.authorization-denied.v1",
     "eitmad.message.config-revision-conflict.v1",
     "eitmad.message.contract-invalid.v1",
+    "eitmad.message.engine-already-running.v1",
+    "eitmad.message.engine-health-check-failed.v1",
+    "eitmad.message.engine-shutdown-failed.v1",
+    "eitmad.message.engine-startup-failed.v1",
+    "eitmad.message.engine-supervisor-invalid.v1",
     "eitmad.message.protocol-incompatible.v1",
     "eitmad.message.sync-backpressure.v1",
     "eitmad.message.update-installer-failed.v1",

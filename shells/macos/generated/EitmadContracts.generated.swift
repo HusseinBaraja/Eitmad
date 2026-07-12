@@ -11,8 +11,10 @@ public struct EitmadContractSchema: Codable, Sendable {
     public let catalog: ProtocolCatalog
     public let commandRequest: CommandEnvelope
     public let commandResponse: CommandResponseEnvelope
+    public let diagnosticReport: DiagnosticReport
     public let effectivePermissions: EffectivePermissions
     public let event: EventEnvelope
+    public let lifecycleSnapshot: LifecycleSnapshot
     public let negotiation: NegotiationOutcome
     public let peerHello: PeerHello
     public let queryRequest: QueryEnvelope
@@ -26,8 +28,11 @@ public struct EitmadContractSchema: Codable, Sendable {
         case catalog
         case commandRequest = "command_request"
         case commandResponse = "command_response"
+        case diagnosticReport = "diagnostic_report"
         case effectivePermissions = "effective_permissions"
-        case event, negotiation
+        case event
+        case lifecycleSnapshot = "lifecycle_snapshot"
+        case negotiation
         case peerHello = "peer_hello"
         case queryRequest = "query_request"
         case queryResponse = "query_response"
@@ -37,12 +42,14 @@ public struct EitmadContractSchema: Codable, Sendable {
         case updateState = "update_state"
     }
 
-    public init(catalog: ProtocolCatalog, commandRequest: CommandEnvelope, commandResponse: CommandResponseEnvelope, effectivePermissions: EffectivePermissions, event: EventEnvelope, negotiation: NegotiationOutcome, peerHello: PeerHello, queryRequest: QueryEnvelope, queryResponse: QueryResponseEnvelope, subscriptionRequest: SubscriptionEnvelope, syncMessage: SyncMessage, syncStatus: SyncStatus, updateState: UpdateState) {
+    public init(catalog: ProtocolCatalog, commandRequest: CommandEnvelope, commandResponse: CommandResponseEnvelope, diagnosticReport: DiagnosticReport, effectivePermissions: EffectivePermissions, event: EventEnvelope, lifecycleSnapshot: LifecycleSnapshot, negotiation: NegotiationOutcome, peerHello: PeerHello, queryRequest: QueryEnvelope, queryResponse: QueryResponseEnvelope, subscriptionRequest: SubscriptionEnvelope, syncMessage: SyncMessage, syncStatus: SyncStatus, updateState: UpdateState) {
         self.catalog = catalog
         self.commandRequest = commandRequest
         self.commandResponse = commandResponse
+        self.diagnosticReport = diagnosticReport
         self.effectivePermissions = effectivePermissions
         self.event = event
+        self.lifecycleSnapshot = lifecycleSnapshot
         self.negotiation = negotiation
         self.peerHello = peerHello
         self.queryRequest = queryRequest
@@ -76,8 +83,10 @@ public extension EitmadContractSchema {
         catalog: ProtocolCatalog? = nil,
         commandRequest: CommandEnvelope? = nil,
         commandResponse: CommandResponseEnvelope? = nil,
+        diagnosticReport: DiagnosticReport? = nil,
         effectivePermissions: EffectivePermissions? = nil,
         event: EventEnvelope? = nil,
+        lifecycleSnapshot: LifecycleSnapshot? = nil,
         negotiation: NegotiationOutcome? = nil,
         peerHello: PeerHello? = nil,
         queryRequest: QueryEnvelope? = nil,
@@ -91,8 +100,10 @@ public extension EitmadContractSchema {
             catalog: catalog ?? self.catalog,
             commandRequest: commandRequest ?? self.commandRequest,
             commandResponse: commandResponse ?? self.commandResponse,
+            diagnosticReport: diagnosticReport ?? self.diagnosticReport,
             effectivePermissions: effectivePermissions ?? self.effectivePermissions,
             event: event ?? self.event,
+            lifecycleSnapshot: lifecycleSnapshot ?? self.lifecycleSnapshot,
             negotiation: negotiation ?? self.negotiation,
             peerHello: peerHello ?? self.peerHello,
             queryRequest: queryRequest ?? self.queryRequest,
@@ -1111,6 +1122,7 @@ public extension ErrorDetail {
 
 public enum DetailKind: String, Codable, Sendable {
     case compatibility = "compatibility"
+    case lifecycle = "lifecycle"
     case revisionConflict = "revisionConflict"
     case validation = "validation"
 }
@@ -1120,12 +1132,14 @@ public struct DetailPayload: Codable, Sendable {
     public let fields: [String]?
     public let actual, expected: Int?
     public let reason: String?
+    public let stage: LifecycleStage?
 
-    public init(fields: [String]?, actual: Int?, expected: Int?, reason: String?) {
+    public init(fields: [String]?, actual: Int?, expected: Int?, reason: String?, stage: LifecycleStage?) {
         self.fields = fields
         self.actual = actual
         self.expected = expected
         self.reason = reason
+        self.stage = stage
     }
 }
 
@@ -1151,13 +1165,15 @@ public extension DetailPayload {
         fields: [String]?? = nil,
         actual: Int?? = nil,
         expected: Int?? = nil,
-        reason: String?? = nil
+        reason: String?? = nil,
+        stage: LifecycleStage?? = nil
     ) -> DetailPayload {
         return DetailPayload(
             fields: fields ?? self.fields,
             actual: actual ?? self.actual,
             expected: expected ?? self.expected,
-            reason: reason ?? self.reason
+            reason: reason ?? self.reason,
+            stage: stage ?? self.stage
         )
     }
 
@@ -1168,6 +1184,14 @@ public extension DetailPayload {
     func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
         return String(data: try self.jsonData(), encoding: encoding)
     }
+}
+
+public enum LifecycleStage: String, Codable, Sendable {
+    case authorityLock = "authorityLock"
+    case componentShutdown = "componentShutdown"
+    case componentStartup = "componentStartup"
+    case processIdentity = "processIdentity"
+    case readinessCheck = "readinessCheck"
 }
 
 public enum PurpleKind: String, Codable, Sendable {
@@ -1648,6 +1672,285 @@ public enum CommandOutcomeStatus: String, Codable, Sendable {
     case succeeded = "succeeded"
 }
 
+// MARK: - DiagnosticReport
+public struct DiagnosticReport: Codable, Sendable {
+    public let checks: [HealthCheckResult]
+    public let identity: EngineProcessIdentity
+    public let observedAt: Int
+    public let readyToStart: Bool
+    public let status: HealthStatus
+
+    public init(checks: [HealthCheckResult], identity: EngineProcessIdentity, observedAt: Int, readyToStart: Bool, status: HealthStatus) {
+        self.checks = checks
+        self.identity = identity
+        self.observedAt = observedAt
+        self.readyToStart = readyToStart
+        self.status = status
+    }
+}
+
+// MARK: DiagnosticReport convenience initializers and mutators
+
+public extension DiagnosticReport {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(DiagnosticReport.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        checks: [HealthCheckResult]? = nil,
+        identity: EngineProcessIdentity? = nil,
+        observedAt: Int? = nil,
+        readyToStart: Bool? = nil,
+        status: HealthStatus? = nil
+    ) -> DiagnosticReport {
+        return DiagnosticReport(
+            checks: checks ?? self.checks,
+            identity: identity ?? self.identity,
+            observedAt: observedAt ?? self.observedAt,
+            readyToStart: readyToStart ?? self.readyToStart,
+            status: status ?? self.status
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - HealthCheckResult
+public struct HealthCheckResult: Codable, Sendable {
+    public let error: ContractError?
+    public let id: String
+    public let impact: HealthCheckImpact
+    public let observedAt: Int
+    public let status: HealthStatus
+
+    public init(error: ContractError?, id: String, impact: HealthCheckImpact, observedAt: Int, status: HealthStatus) {
+        self.error = error
+        self.id = id
+        self.impact = impact
+        self.observedAt = observedAt
+        self.status = status
+    }
+}
+
+// MARK: HealthCheckResult convenience initializers and mutators
+
+public extension HealthCheckResult {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(HealthCheckResult.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        error: ContractError?? = nil,
+        id: String? = nil,
+        impact: HealthCheckImpact? = nil,
+        observedAt: Int? = nil,
+        status: HealthStatus? = nil
+    ) -> HealthCheckResult {
+        return HealthCheckResult(
+            error: error ?? self.error,
+            id: id ?? self.id,
+            impact: impact ?? self.impact,
+            observedAt: observedAt ?? self.observedAt,
+            status: status ?? self.status
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - ContractError
+public struct ContractError: Codable, Sendable {
+    public let code, correlationID: String
+    public let detail: ErrorDetail?
+    public let messageID: String
+    public let parameters: [ErrorParameter]
+    public let retry: RetryDisposition
+
+    public enum CodingKeys: String, CodingKey {
+        case code
+        case correlationID = "correlationId"
+        case detail
+        case messageID = "messageId"
+        case parameters, retry
+    }
+
+    public init(code: String, correlationID: String, detail: ErrorDetail?, messageID: String, parameters: [ErrorParameter], retry: RetryDisposition) {
+        self.code = code
+        self.correlationID = correlationID
+        self.detail = detail
+        self.messageID = messageID
+        self.parameters = parameters
+        self.retry = retry
+    }
+}
+
+// MARK: ContractError convenience initializers and mutators
+
+public extension ContractError {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(ContractError.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        code: String? = nil,
+        correlationID: String? = nil,
+        detail: ErrorDetail?? = nil,
+        messageID: String? = nil,
+        parameters: [ErrorParameter]? = nil,
+        retry: RetryDisposition? = nil
+    ) -> ContractError {
+        return ContractError(
+            code: code ?? self.code,
+            correlationID: correlationID ?? self.correlationID,
+            detail: detail ?? self.detail,
+            messageID: messageID ?? self.messageID,
+            parameters: parameters ?? self.parameters,
+            retry: retry ?? self.retry
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+public enum HealthCheckImpact: String, Codable, Sendable {
+    case advisory = "advisory"
+    case requiredForReadiness = "requiredForReadiness"
+}
+
+public enum HealthStatus: String, Codable, Sendable {
+    case degraded = "degraded"
+    case healthy = "healthy"
+    case unhealthy = "unhealthy"
+}
+
+// MARK: - EngineProcessIdentity
+public struct EngineProcessIdentity: Codable, Sendable {
+    public let instanceID: String
+    public let mode: EngineMode
+    public let processID: Int
+    public let productVersion: String
+    public let protocolVersion: ProtocolVersion
+    public let startedAt: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case instanceID = "instanceId"
+        case mode
+        case processID = "processId"
+        case productVersion, protocolVersion, startedAt
+    }
+
+    public init(instanceID: String, mode: EngineMode, processID: Int, productVersion: String, protocolVersion: ProtocolVersion, startedAt: Int) {
+        self.instanceID = instanceID
+        self.mode = mode
+        self.processID = processID
+        self.productVersion = productVersion
+        self.protocolVersion = protocolVersion
+        self.startedAt = startedAt
+    }
+}
+
+// MARK: EngineProcessIdentity convenience initializers and mutators
+
+public extension EngineProcessIdentity {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(EngineProcessIdentity.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        instanceID: String? = nil,
+        mode: EngineMode? = nil,
+        processID: Int? = nil,
+        productVersion: String? = nil,
+        protocolVersion: ProtocolVersion? = nil,
+        startedAt: Int? = nil
+    ) -> EngineProcessIdentity {
+        return EngineProcessIdentity(
+            instanceID: instanceID ?? self.instanceID,
+            mode: mode ?? self.mode,
+            processID: processID ?? self.processID,
+            productVersion: productVersion ?? self.productVersion,
+            protocolVersion: protocolVersion ?? self.protocolVersion,
+            startedAt: startedAt ?? self.startedAt
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+public enum EngineMode: String, Codable, Sendable {
+    case diagnostic = "diagnostic"
+    case headless = "headless"
+    case supervisedDesktop = "supervisedDesktop"
+}
+
 // MARK: - EffectivePermissions
 public struct EffectivePermissions: Codable, Sendable {
     public let permissions: [EffectivePermission]
@@ -2046,6 +2349,86 @@ public extension PurplePayload {
     func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
         return String(data: try self.jsonData(), encoding: encoding)
     }
+}
+
+// MARK: - LifecycleSnapshot
+public struct LifecycleSnapshot: Codable, Sendable {
+    public let checks: [HealthCheckResult]
+    public let error: ContractError?
+    public let health: HealthStatus
+    public let identity: EngineProcessIdentity
+    public let live: Bool
+    public let observedAt: Int
+    public let ready: Bool
+    public let state: LifecycleState
+
+    public init(checks: [HealthCheckResult], error: ContractError?, health: HealthStatus, identity: EngineProcessIdentity, live: Bool, observedAt: Int, ready: Bool, state: LifecycleState) {
+        self.checks = checks
+        self.error = error
+        self.health = health
+        self.identity = identity
+        self.live = live
+        self.observedAt = observedAt
+        self.ready = ready
+        self.state = state
+    }
+}
+
+// MARK: LifecycleSnapshot convenience initializers and mutators
+
+public extension LifecycleSnapshot {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(LifecycleSnapshot.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        checks: [HealthCheckResult]? = nil,
+        error: ContractError?? = nil,
+        health: HealthStatus? = nil,
+        identity: EngineProcessIdentity? = nil,
+        live: Bool? = nil,
+        observedAt: Int? = nil,
+        ready: Bool? = nil,
+        state: LifecycleState? = nil
+    ) -> LifecycleSnapshot {
+        return LifecycleSnapshot(
+            checks: checks ?? self.checks,
+            error: error ?? self.error,
+            health: health ?? self.health,
+            identity: identity ?? self.identity,
+            live: live ?? self.live,
+            observedAt: observedAt ?? self.observedAt,
+            ready: ready ?? self.ready,
+            state: state ?? self.state
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+public enum LifecycleState: String, Codable, Sendable {
+    case failed = "failed"
+    case ready = "ready"
+    case starting = "starting"
+    case stopped = "stopped"
+    case stopping = "stopping"
 }
 
 // MARK: - NegotiationOutcome

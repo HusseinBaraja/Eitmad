@@ -31,11 +31,17 @@ namespace Eitmad.Contracts
         [JsonPropertyName("command_response")]
         public CommandResponseEnvelope CommandResponse { get; set; }
 
+        [JsonPropertyName("diagnostic_report")]
+        public DiagnosticReport DiagnosticReport { get; set; }
+
         [JsonPropertyName("effective_permissions")]
         public EffectivePermissions EffectivePermissions { get; set; }
 
         [JsonPropertyName("event")]
         public EventEnvelope Event { get; set; }
+
+        [JsonPropertyName("lifecycle_snapshot")]
+        public LifecycleSnapshot LifecycleSnapshot { get; set; }
 
         [JsonPropertyName("negotiation")]
         public NegotiationOutcome Negotiation { get; set; }
@@ -328,6 +334,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("reason")]
         public string Reason { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("stage")]
+        public LifecycleStage? Stage { get; set; }
     }
 
     public partial class ErrorParameter
@@ -430,6 +440,84 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("retryAfterMs")]
         public long? RetryAfterMs { get; set; }
+    }
+
+    public partial class DiagnosticReport
+    {
+        [JsonPropertyName("checks")]
+        public HealthCheckResult[] Checks { get; set; }
+
+        [JsonPropertyName("identity")]
+        public EngineProcessIdentity Identity { get; set; }
+
+        [JsonPropertyName("observedAt")]
+        public long ObservedAt { get; set; }
+
+        [JsonPropertyName("readyToStart")]
+        public bool ReadyToStart { get; set; }
+
+        [JsonPropertyName("status")]
+        public HealthStatus Status { get; set; }
+    }
+
+    public partial class HealthCheckResult
+    {
+        [JsonPropertyName("error")]
+        public ContractError Error { get; set; }
+
+        [JsonPropertyName("id")]
+        public string Id { get; set; }
+
+        [JsonPropertyName("impact")]
+        public HealthCheckImpact Impact { get; set; }
+
+        [JsonPropertyName("observedAt")]
+        public long ObservedAt { get; set; }
+
+        [JsonPropertyName("status")]
+        public HealthStatus Status { get; set; }
+    }
+
+    public partial class ContractError
+    {
+        [JsonPropertyName("code")]
+        public string Code { get; set; }
+
+        [JsonPropertyName("correlationId")]
+        public Guid CorrelationId { get; set; }
+
+        [JsonPropertyName("detail")]
+        public ErrorDetail Detail { get; set; }
+
+        [JsonPropertyName("messageId")]
+        public string MessageId { get; set; }
+
+        [JsonPropertyName("parameters")]
+        public ErrorParameter[] Parameters { get; set; }
+
+        [JsonPropertyName("retry")]
+        public RetryDisposition Retry { get; set; }
+    }
+
+    public partial class EngineProcessIdentity
+    {
+        [JsonPropertyName("instanceId")]
+        public Guid InstanceId { get; set; }
+
+        [JsonPropertyName("mode")]
+        public EngineMode Mode { get; set; }
+
+        [JsonPropertyName("processId")]
+        public long ProcessId { get; set; }
+
+        [JsonPropertyName("productVersion")]
+        public string ProductVersion { get; set; }
+
+        [JsonPropertyName("protocolVersion")]
+        public ProtocolVersion ProtocolVersion { get; set; }
+
+        [JsonPropertyName("startedAt")]
+        public long StartedAt { get; set; }
     }
 
     public partial class EffectivePermissions
@@ -553,6 +641,33 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("reason")]
         public string Reason { get; set; }
+    }
+
+    public partial class LifecycleSnapshot
+    {
+        [JsonPropertyName("checks")]
+        public HealthCheckResult[] Checks { get; set; }
+
+        [JsonPropertyName("error")]
+        public ContractError Error { get; set; }
+
+        [JsonPropertyName("health")]
+        public HealthStatus Health { get; set; }
+
+        [JsonPropertyName("identity")]
+        public EngineProcessIdentity Identity { get; set; }
+
+        [JsonPropertyName("live")]
+        public bool Live { get; set; }
+
+        [JsonPropertyName("observedAt")]
+        public long ObservedAt { get; set; }
+
+        [JsonPropertyName("ready")]
+        public bool Ready { get; set; }
+
+        [JsonPropertyName("state")]
+        public LifecycleState State { get; set; }
     }
 
     public partial class NegotiationOutcome
@@ -931,7 +1046,9 @@ namespace Eitmad.Contracts
 
     public enum InstallerOutcomeKind { Cancelled, Failed, Succeeded };
 
-    public enum DetailKind { Compatibility, RevisionConflict, Validation };
+    public enum DetailKind { Compatibility, Lifecycle, RevisionConflict, Validation };
+
+    public enum LifecycleStage { AuthorityLock, ComponentShutdown, ComponentStartup, ProcessIdentity, ReadinessCheck };
 
     public enum PurpleKind { ConfigurationUpdated, InstallerOutcomeRecorded, OperationCancelled };
 
@@ -949,11 +1066,19 @@ namespace Eitmad.Contracts
 
     public enum CommandOutcomeStatus { Failed, Succeeded };
 
+    public enum HealthCheckImpact { Advisory, RequiredForReadiness };
+
+    public enum HealthStatus { Degraded, Healthy, Unhealthy };
+
+    public enum EngineMode { Diagnostic, Headless, SupervisedDesktop };
+
     public enum PermissionDecision { Denied, Granted };
 
     public enum EventKind { EitmadConfigChangedEventV1, EitmadPermissionsChangedEventV1, EitmadSyncStatusEventV1, EitmadUpdateStateEventV1 };
 
     public enum FluffyKind { Available, Checking, Conflicted, Current, Downloading, Failed, Idle, InstallationHandoff, Installing, Offline, Paused, Preflight, Queued, Ready, RecoveryRequired, Revoked, Succeeded, Syncing, Verifying };
+
+    public enum LifecycleState { Failed, Ready, Starting, Stopped, Stopping };
 
     public enum TentacledKind { IncompatibleSchema, MissingCapability, NoCommonProtocol };
 
@@ -1021,6 +1146,7 @@ namespace Eitmad.Contracts
                 ConfigWriteValueValueConverter.Singleton,
                 InstallerOutcomeKindConverter.Singleton,
                 DetailKindConverter.Singleton,
+                LifecycleStageConverter.Singleton,
                 PurpleKindConverter.Singleton,
                 ErrorParameterValueKindConverter.Singleton,
                 ErrorParameterValueValueConverter.Singleton,
@@ -1030,9 +1156,13 @@ namespace Eitmad.Contracts
                 UpdateStateKindConverter.Singleton,
                 RetryDispositionKindConverter.Singleton,
                 CommandOutcomeStatusConverter.Singleton,
+                HealthCheckImpactConverter.Singleton,
+                HealthStatusConverter.Singleton,
+                EngineModeConverter.Singleton,
                 PermissionDecisionConverter.Singleton,
                 EventKindConverter.Singleton,
                 FluffyKindConverter.Singleton,
+                LifecycleStateConverter.Singleton,
                 TentacledKindConverter.Singleton,
                 RequiredByConverter.Singleton,
                 NegotiationOutcomeStatusConverter.Singleton,
@@ -1286,6 +1416,8 @@ namespace Eitmad.Contracts
             {
                 case "compatibility":
                     return DetailKind.Compatibility;
+                case "lifecycle":
+                    return DetailKind.Lifecycle;
                 case "revisionConflict":
                     return DetailKind.RevisionConflict;
                 case "validation":
@@ -1301,6 +1433,9 @@ namespace Eitmad.Contracts
                 case DetailKind.Compatibility:
                     JsonSerializer.Serialize(writer, "compatibility", options);
                     return;
+                case DetailKind.Lifecycle:
+                    JsonSerializer.Serialize(writer, "lifecycle", options);
+                    return;
                 case DetailKind.RevisionConflict:
                     JsonSerializer.Serialize(writer, "revisionConflict", options);
                     return;
@@ -1312,6 +1447,55 @@ namespace Eitmad.Contracts
         }
 
         public static readonly DetailKindConverter Singleton = new DetailKindConverter();
+    }
+
+    internal class LifecycleStageConverter : JsonConverter<LifecycleStage>
+    {
+        public override bool CanConvert(Type t) => t == typeof(LifecycleStage);
+
+        public override LifecycleStage Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "authorityLock":
+                    return LifecycleStage.AuthorityLock;
+                case "componentShutdown":
+                    return LifecycleStage.ComponentShutdown;
+                case "componentStartup":
+                    return LifecycleStage.ComponentStartup;
+                case "processIdentity":
+                    return LifecycleStage.ProcessIdentity;
+                case "readinessCheck":
+                    return LifecycleStage.ReadinessCheck;
+            }
+            throw new Exception("Cannot unmarshal type LifecycleStage");
+        }
+
+        public override void Write(Utf8JsonWriter writer, LifecycleStage value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case LifecycleStage.AuthorityLock:
+                    JsonSerializer.Serialize(writer, "authorityLock", options);
+                    return;
+                case LifecycleStage.ComponentShutdown:
+                    JsonSerializer.Serialize(writer, "componentShutdown", options);
+                    return;
+                case LifecycleStage.ComponentStartup:
+                    JsonSerializer.Serialize(writer, "componentStartup", options);
+                    return;
+                case LifecycleStage.ProcessIdentity:
+                    JsonSerializer.Serialize(writer, "processIdentity", options);
+                    return;
+                case LifecycleStage.ReadinessCheck:
+                    JsonSerializer.Serialize(writer, "readinessCheck", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type LifecycleStage");
+        }
+
+        public static readonly LifecycleStageConverter Singleton = new LifecycleStageConverter();
     }
 
     internal class PurpleKindConverter : JsonConverter<PurpleKind>
@@ -1732,6 +1916,118 @@ namespace Eitmad.Contracts
         public static readonly CommandOutcomeStatusConverter Singleton = new CommandOutcomeStatusConverter();
     }
 
+    internal class HealthCheckImpactConverter : JsonConverter<HealthCheckImpact>
+    {
+        public override bool CanConvert(Type t) => t == typeof(HealthCheckImpact);
+
+        public override HealthCheckImpact Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "advisory":
+                    return HealthCheckImpact.Advisory;
+                case "requiredForReadiness":
+                    return HealthCheckImpact.RequiredForReadiness;
+            }
+            throw new Exception("Cannot unmarshal type HealthCheckImpact");
+        }
+
+        public override void Write(Utf8JsonWriter writer, HealthCheckImpact value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case HealthCheckImpact.Advisory:
+                    JsonSerializer.Serialize(writer, "advisory", options);
+                    return;
+                case HealthCheckImpact.RequiredForReadiness:
+                    JsonSerializer.Serialize(writer, "requiredForReadiness", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type HealthCheckImpact");
+        }
+
+        public static readonly HealthCheckImpactConverter Singleton = new HealthCheckImpactConverter();
+    }
+
+    internal class HealthStatusConverter : JsonConverter<HealthStatus>
+    {
+        public override bool CanConvert(Type t) => t == typeof(HealthStatus);
+
+        public override HealthStatus Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "degraded":
+                    return HealthStatus.Degraded;
+                case "healthy":
+                    return HealthStatus.Healthy;
+                case "unhealthy":
+                    return HealthStatus.Unhealthy;
+            }
+            throw new Exception("Cannot unmarshal type HealthStatus");
+        }
+
+        public override void Write(Utf8JsonWriter writer, HealthStatus value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case HealthStatus.Degraded:
+                    JsonSerializer.Serialize(writer, "degraded", options);
+                    return;
+                case HealthStatus.Healthy:
+                    JsonSerializer.Serialize(writer, "healthy", options);
+                    return;
+                case HealthStatus.Unhealthy:
+                    JsonSerializer.Serialize(writer, "unhealthy", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type HealthStatus");
+        }
+
+        public static readonly HealthStatusConverter Singleton = new HealthStatusConverter();
+    }
+
+    internal class EngineModeConverter : JsonConverter<EngineMode>
+    {
+        public override bool CanConvert(Type t) => t == typeof(EngineMode);
+
+        public override EngineMode Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "diagnostic":
+                    return EngineMode.Diagnostic;
+                case "headless":
+                    return EngineMode.Headless;
+                case "supervisedDesktop":
+                    return EngineMode.SupervisedDesktop;
+            }
+            throw new Exception("Cannot unmarshal type EngineMode");
+        }
+
+        public override void Write(Utf8JsonWriter writer, EngineMode value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case EngineMode.Diagnostic:
+                    JsonSerializer.Serialize(writer, "diagnostic", options);
+                    return;
+                case EngineMode.Headless:
+                    JsonSerializer.Serialize(writer, "headless", options);
+                    return;
+                case EngineMode.SupervisedDesktop:
+                    JsonSerializer.Serialize(writer, "supervisedDesktop", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type EngineMode");
+        }
+
+        public static readonly EngineModeConverter Singleton = new EngineModeConverter();
+    }
+
     internal class PermissionDecisionConverter : JsonConverter<PermissionDecision>
     {
         public override bool CanConvert(Type t) => t == typeof(PermissionDecision);
@@ -1927,6 +2223,55 @@ namespace Eitmad.Contracts
         }
 
         public static readonly FluffyKindConverter Singleton = new FluffyKindConverter();
+    }
+
+    internal class LifecycleStateConverter : JsonConverter<LifecycleState>
+    {
+        public override bool CanConvert(Type t) => t == typeof(LifecycleState);
+
+        public override LifecycleState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "failed":
+                    return LifecycleState.Failed;
+                case "ready":
+                    return LifecycleState.Ready;
+                case "starting":
+                    return LifecycleState.Starting;
+                case "stopped":
+                    return LifecycleState.Stopped;
+                case "stopping":
+                    return LifecycleState.Stopping;
+            }
+            throw new Exception("Cannot unmarshal type LifecycleState");
+        }
+
+        public override void Write(Utf8JsonWriter writer, LifecycleState value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case LifecycleState.Failed:
+                    JsonSerializer.Serialize(writer, "failed", options);
+                    return;
+                case LifecycleState.Ready:
+                    JsonSerializer.Serialize(writer, "ready", options);
+                    return;
+                case LifecycleState.Starting:
+                    JsonSerializer.Serialize(writer, "starting", options);
+                    return;
+                case LifecycleState.Stopped:
+                    JsonSerializer.Serialize(writer, "stopped", options);
+                    return;
+                case LifecycleState.Stopping:
+                    JsonSerializer.Serialize(writer, "stopping", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type LifecycleState");
+        }
+
+        public static readonly LifecycleStateConverter Singleton = new LifecycleStateConverter();
     }
 
     internal class TentacledKindConverter : JsonConverter<TentacledKind>
