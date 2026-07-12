@@ -5,16 +5,18 @@ on:
     paths:
       - ".github/workflows/contracts.yml"
       - "crates/contracts/**"
-      - "shells/macos/generated/**"
-      - "shells/windows/generated/**"
+      - "shells/linux/**"
+      - "shells/macos/**"
+      - "shells/windows/**"
       - "tests/contract-compatibility/**"
   push:
     branches: [main]
     paths:
       - ".github/workflows/contracts.yml"
       - "crates/contracts/**"
-      - "shells/macos/generated/**"
-      - "shells/windows/generated/**"
+      - "shells/linux/**"
+      - "shells/macos/**"
+      - "shells/windows/**"
       - "tests/contract-compatibility/**"
 
 permissions:
@@ -37,9 +39,10 @@ jobs:
       - run: cargo fmt --all -- --check
       - run: cargo clippy -p eitmad-contracts --all-targets -- -D warnings
       - run: cargo test -p eitmad-contracts
-      - run: npm run contracts:check --prefix crates/contracts/codegen
+      - run: npm run contracts:verify --prefix crates/contracts/codegen
 
   windows-binding:
+    needs: rust-and-drift
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -52,6 +55,7 @@ jobs:
           -- tests/contract-compatibility/fixtures/protocol-v1.json
 
   macos-binding:
+    needs: rust-and-drift
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4

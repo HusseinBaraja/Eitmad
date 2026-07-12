@@ -51,3 +51,4 @@ Accepted ADRs are immutable historical records except for typo fixes, link repai
 | [ADR-0012](0012-privacy-preserving-observability.md) | Make observability privacy-preserving by construction | Accepted | 2026-07-11 | None |
 | [ADR-0013](0013-platform-native-update-adapters.md) | Use platform-native update adapters | Accepted | 2026-07-11 | None |
 | [ADR-0014](0014-rust-derived-json-contracts.md) | Derive JSON contracts and native bindings from Rust | Accepted | 2026-07-12 | None |
+| [ADR-0015](0015-contract-compatibility-window.md) | Support a rolling protocol compatibility window | Accepted | 2026-07-12 | None |

@@ -12,6 +12,8 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { findGeneratedDrift, normalize } from "./contract-checks.mjs";
+
 const mode = process.argv[2];
 if (mode !== "generate" && mode !== "check") {
   throw new Error("usage: node generate.mjs <generate|check>");
@@ -91,28 +93,17 @@ try {
     ["ProtocolIds.generated.swift", "shells/macos/generated/ProtocolIds.generated.swift"],
   ]);
 
-  const drift = [];
   for (const [sourceName, targetName] of outputs) {
     const generated = normalize(readFileSync(join(temporary, sourceName), "utf8"));
     const target = join(repository, targetName);
     if (mode === "generate") {
       mkdirSync(dirname(target), { recursive: true });
       writeFileSync(target, generated);
-    } else {
-      let current;
-      try {
-        current = normalize(readFileSync(target, "utf8"));
-      } catch {
-        drift.push(`${targetName} is missing`);
-        continue;
-      }
-      if (current !== generated) {
-        drift.push(`${targetName} differs from Rust authority`);
-      }
     }
   }
 
   checkForHandwrittenProtocolStrings();
+  const drift = mode === "check" ? findGeneratedDrift(repository, temporary, outputs) : [];
   if (drift.length > 0) {
     throw new Error(`contract drift detected:\n- ${drift.join("\n- ")}`);
   }
@@ -141,11 +132,6 @@ function run(command, arguments_) {
 function prependGeneratedHeader(path, header) {
   const content = normalize(readFileSync(path, "utf8"));
   writeFileSync(path, `${header}${content}`);
-}
-
-function normalize(content) {
-  const lines = content.replaceAll("\r\n", "\n").split("\n");
-  return `${lines.map((line) => line.trimEnd()).join("\n").trimEnd()}\n`;
 }
 
 function protocolGroups(registry) {

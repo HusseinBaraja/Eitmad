@@ -73,6 +73,8 @@ Each peer sends supported protocol major/minor ranges, available and required ca
 
 Protocol `1.0` is the current version. Additive optional fields and capabilities use a minor version or capability gate. Renamed fields, changed meaning, removed variants, or incompatible identifier behavior require a new major version.
 
+The active compatibility window, capability rules, change classification, and major-version rollout process are defined in [Evolve contracts without breaking supported peers](evolve-contracts-compatibly.md).
+
 ## Structured failures
 
 `ContractError` carries a stable error code, localization message ID, typed parameters, retry disposition, correlation ID, and an optional safe detail. Shells localize the message ID and render parameters; they never parse prose. Current codes and message IDs are listed in the [generated reference](../_generated/contracts-v1.md).
@@ -94,17 +96,17 @@ npm run contracts:generate --prefix crates/contracts/codegen
 Check for drift without changing tracked files:
 
 ```powershell
-npm run contracts:check --prefix crates/contracts/codegen
+npm run contracts:verify --prefix crates/contracts/codegen
 ```
 
-The check also rejects `eitmad.*` protocol literals in non-generated shell source. Windows CI compiles and round-trips the .NET binding; macOS CI compiles and round-trips the Swift binding.
+Verification compares every generated file with a fresh Rust export, checks that C# and Swift contain every Rust-exported identifier, and rejects `eitmad.*` protocol literals in non-generated shell source. Windows CI compiles and round-trips the .NET binding; macOS CI compiles and round-trips the Swift binding.
 
 ## Extend protocol v1 safely
 
 1. Add the Rust type beside its owning contract concern and register its identifier in the Rust catalog.
 2. Add success, denial, failure, unknown-field, compatibility, and Arabic/mixed-direction tests that apply.
 3. Regenerate all outputs; never edit a generated failure directly.
-4. Review whether the change is additive, capability-gated, or major-version breaking.
+4. Follow the [contract evolution process](evolve-contracts-compatibly.md) to classify the change and preserve the supported window.
 5. Update this reference, the owning subsystem page, and troubleshooting knowledge.
 
 For ownership and failure flows, see [Maintain the authoritative contract layer](../developer/subsystems/contract-layer.md). For drift failures, see [Resolve generated contract drift](../troubleshooting/contract-binding-drift.md).

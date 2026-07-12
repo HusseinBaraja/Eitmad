@@ -3,7 +3,9 @@
   "private": true,
   "scripts": {
     "contracts:generate": "node generate.mjs generate",
-    "contracts:check": "node generate.mjs check"
+    "contracts:check": "node generate.mjs check",
+    "contracts:test": "node --test test/*.test.mjs",
+    "contracts:verify": "npm run contracts:check && npm run contracts:test"
   },
   "dependencies": {
     "quicktype": "24.0.2"
