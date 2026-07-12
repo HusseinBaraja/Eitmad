@@ -18,6 +18,8 @@ internal interface IEngineProcess : IAsyncDisposable
     TextReader StandardOutput { get; }
     TextReader StandardError { get; }
     TextWriter StandardInput { get; }
+    string IpcPipeName { get; }
+    string DevelopmentBearerToken { get; }
     Task<int> WaitForExitAsync(CancellationToken cancellationToken);
     void Kill();
 }

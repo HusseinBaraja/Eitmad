@@ -26,6 +26,7 @@ keywords:
 | Engine lifecycle, identity, structured failures, and retry safety | Rust contracts and `eitmad-engine-runtime` |
 | CLI process arguments and stdin-EOF shutdown | `eitmad-engine-cli` |
 | Launch, redirected pipes, Job Object containment, restart budget, and forced termination | Windows process supervision adapter |
+| Typed named-pipe client, handshake, and unavailable-engine mapping | `Eitmad.Platform.Windows.LocalIpc` |
 | Localized recovery UI and accessibility | Future C# Windows shell |
 
 The adapter links the generated `Eitmad.Contracts` binding. It does not handwrite DTOs, read product configuration or databases, authorize requests, perform synchronization, or treat the supervisor PID as authentication.
@@ -44,7 +45,9 @@ sequenceDiagram
     Supervisor->>Job: Assign engine process
     Engine-->>Supervisor: Starting, Ready
     Shell->>Supervisor: StopAsync()
-    Supervisor->>Engine: Close stdin
+    Supervisor->>Engine: Typed shutdown request
+    Engine-->>Supervisor: Shutdown accepted
+    Supervisor->>Engine: Close stdin lifetime pipe
     Engine-->>Supervisor: Stopping, Stopped, exit 0
     Supervisor->>Job: Close empty group
 ```
@@ -66,13 +69,13 @@ Every process launch increments `Generation`. Output is accepted only from that 
 
 ## Shutdown and containment
 
-Normal shutdown cancels pending restart, closes stdin, continues reading lifecycle output, and waits 15 seconds. A clean engine reaches `Stopped` and exits `0`; the adapter then closes the empty Job Object. If the deadline expires, `TerminateJobObject` ends the contained process tree and records `Forced: true`.
+Normal shutdown cancels pending restart, requests typed IPC shutdown when a negotiated session exists, closes stdin to preserve abandonment semantics and release the Windows reader, continues reading lifecycle output, and waits 15 seconds. A clean engine reaches `Stopped` and exits `0`; the adapter then closes the empty Job Object. If the deadline expires, `TerminateJobObject` ends the contained process tree and records `Forced: true`.
 
 `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` is the crash safety net. If the shell exits without cleanup, Windows closes its Job Object handle and terminates the engine tree. If initial assignment fails, the launcher kills the child and does not continue with an uncontained engine.
 
 ## Security, privacy, and Arabic behavior
 
-Process supervision is not authenticated IPC. Same-device peers remain untrusted, and the future transport must authenticate and negotiate capabilities separately. The adapter exposes parsed contract errors and exit metadata; it does not expose or log raw streams, paths, customer data, secrets, or authorization graphs.
+Process supervision is not authentication. The implemented named-pipe client negotiates a separate session; its bearer-token authenticator is development-only and must remain disabled in production. The adapter exposes parsed contract errors and exit metadata; it does not expose or log raw streams, paths, customer data, secrets, or authorization graphs.
 
 No UI exists in this foundation. RTL layout, Arabic copy, bidirectional input, search, formatting, documents, and accessibility are not applicable. A future shell must map typed states to reviewed Arabic messages and keep process IDs, error IDs, and correlation IDs directionally isolated.
 
@@ -92,4 +95,4 @@ dotnet run --project platform-adapters/windows/tests/Eitmad.Platform.Windows.Tes
 
 Extend `ProcessSupervision` only for Windows lifecycle mechanics. Preserve generated Rust contract use, generation and instance checks, bounded retry, kill-on-close containment, and graceful-first shutdown. Add product behavior to its Rust vertical and presentation to the future shell instead.
 
-For recovery, use [Resolve Windows engine supervision failures](../../troubleshooting/windows-engine-supervision-failures.md). Return to the [developer guide](../index.md) or review the [engine lifecycle authority](engine-runtime.md).
+For IPC authority and failures, see [typed local IPC](local-ipc.md) and [Resolve local IPC failures](../../troubleshooting/local-ipc-failures.md). For process recovery, use [Resolve Windows engine supervision failures](../../troubleshooting/windows-engine-supervision-failures.md).

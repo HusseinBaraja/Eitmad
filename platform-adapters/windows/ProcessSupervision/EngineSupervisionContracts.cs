@@ -15,15 +15,20 @@ public enum EngineSupervisionState
 
 public sealed record EngineLaunchRequest
 {
-    public EngineLaunchRequest(string engineExecutablePath, string? runtimeDirectory = null)
+    public EngineLaunchRequest(
+        string engineExecutablePath,
+        string? runtimeDirectory = null,
+        DevelopmentIdentityAssertion? developmentIdentity = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(engineExecutablePath);
         EngineExecutablePath = engineExecutablePath;
         RuntimeDirectory = runtimeDirectory;
+        DevelopmentIdentity = developmentIdentity;
     }
 
     public string EngineExecutablePath { get; }
     public string? RuntimeDirectory { get; }
+    public DevelopmentIdentityAssertion? DevelopmentIdentity { get; }
 }
 
 public sealed class RestartPolicy

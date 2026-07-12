@@ -17,6 +17,7 @@ use eitmad_contracts::{
         AuthenticatedIdentity, AuthorizationContext, DeviceId, PrincipalId, PrincipalKind, ScopeId,
         ScopeKind, ScopeRef, SessionId,
     },
+    ipc::{IpcClientMessage, IpcServerMessage},
     permissions::EffectivePermissions,
     queries::{GetConfiguration, Query, QueryResult},
     runtime::{DiagnosticReport, LifecycleSnapshot},
@@ -36,6 +37,8 @@ use uuid::Uuid;
 #[derive(JsonSchema)]
 #[allow(dead_code)]
 struct ContractSchemaRoot {
+    ipc_client_message: IpcClientMessage,
+    ipc_server_message: IpcServerMessage,
     command_request: CommandEnvelope,
     query_request: QueryEnvelope,
     subscription_request: SubscriptionEnvelope,
@@ -190,6 +193,7 @@ fn render_reference(catalog: &ProtocolCatalog) -> String {
          Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.\n",
     );
     for (title, identifiers) in [
+        ("IPC messages", &catalog.ipc_messages),
         ("Commands", &catalog.commands),
         ("Queries", &catalog.queries),
         ("Subscriptions", &catalog.subscriptions),

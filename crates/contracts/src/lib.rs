@@ -13,6 +13,7 @@ pub mod config;
 pub mod errors;
 pub mod events;
 pub mod identity;
+pub mod ipc;
 pub mod permissions;
 pub mod queries;
 pub mod runtime;

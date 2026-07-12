@@ -10,10 +10,23 @@ use crate::{
 
 pub const CAPABILITIES: &[&str] = &[
     "eitmad.capability.engine-lifecycle.v1",
+    "eitmad.capability.local-ipc.v1",
     "eitmad.capability.config.v1",
     "eitmad.capability.permissions.v1",
     "eitmad.capability.sync.v1",
     "eitmad.capability.update.v1",
+];
+
+pub const IPC_MESSAGES: &[&str] = &[
+    "eitmad.ipc.command-response.v1",
+    "eitmad.ipc.command.v1",
+    "eitmad.ipc.failure.v1",
+    "eitmad.ipc.handshake-response.v1",
+    "eitmad.ipc.handshake.v1",
+    "eitmad.ipc.query-response.v1",
+    "eitmad.ipc.query.v1",
+    "eitmad.ipc.shutdown-response.v1",
+    "eitmad.ipc.shutdown.v1",
 ];
 
 pub const PERMISSIONS: &[&str] = &[
@@ -34,6 +47,10 @@ pub const ERROR_CODES: &[&str] = &[
     "eitmad.error.engine-shutdown-failed.v1",
     "eitmad.error.engine-startup-failed.v1",
     "eitmad.error.engine-supervisor-invalid.v1",
+    "eitmad.error.ipc-engine-stopping.v1",
+    "eitmad.error.ipc-payload-too-large.v1",
+    "eitmad.error.ipc-session-invalid.v1",
+    "eitmad.error.ipc-deadline-exceeded.v1",
     "eitmad.error.protocol-incompatible.v1",
     "eitmad.error.sync-backpressure.v1",
     "eitmad.error.update-installer-failed.v1",
@@ -48,6 +65,10 @@ pub const MESSAGE_IDS: &[&str] = &[
     "eitmad.message.engine-shutdown-failed.v1",
     "eitmad.message.engine-startup-failed.v1",
     "eitmad.message.engine-supervisor-invalid.v1",
+    "eitmad.message.ipc-engine-stopping.v1",
+    "eitmad.message.ipc-payload-too-large.v1",
+    "eitmad.message.ipc-session-invalid.v1",
+    "eitmad.message.ipc-deadline-exceeded.v1",
     "eitmad.message.protocol-incompatible.v1",
     "eitmad.message.sync-backpressure.v1",
     "eitmad.message.update-installer-failed.v1",
@@ -58,6 +79,7 @@ pub const ERROR_PARAMETER_NAMES: &[&str] = &[
     "expected-revision",
     "required-capability",
     "retry-after-ms",
+    "maximum-payload-bytes",
 ];
 
 pub const CONFIG_KEYS: &[&str] = &["eitmad.config.locale.primary.v1"];
@@ -66,6 +88,7 @@ pub const DOMAIN_SCHEMA_IDS: &[&str] = &["eitmad.schema.protocol.v1"];
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ProtocolCatalog {
+    pub ipc_messages: Vec<String>,
     pub commands: Vec<String>,
     pub queries: Vec<String>,
     pub subscriptions: Vec<String>,
@@ -84,6 +107,7 @@ impl ProtocolCatalog {
     #[must_use]
     pub fn current() -> Self {
         Self {
+            ipc_messages: strings(IPC_MESSAGES),
             commands: strings(Command::IDS),
             queries: strings(Query::IDS),
             subscriptions: strings(Subscription::IDS),
@@ -102,8 +126,9 @@ impl ProtocolCatalog {
     #[must_use]
     pub fn duplicate_identifiers(&self) -> Vec<String> {
         let mut identifiers = self
-            .commands
+            .ipc_messages
             .iter()
+            .chain(&self.commands)
             .chain(&self.queries)
             .chain(&self.subscriptions)
             .chain(&self.events)
@@ -146,8 +171,9 @@ mod tests {
     fn identifiers_follow_the_open_identifier_grammar() {
         let catalog = ProtocolCatalog::current();
         let identifiers = catalog
-            .commands
+            .ipc_messages
             .iter()
+            .chain(&catalog.commands)
             .chain(&catalog.queries)
             .chain(&catalog.subscriptions)
             .chain(&catalog.events)

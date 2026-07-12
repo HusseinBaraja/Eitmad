@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Text.Json;
 using Eitmad.Contracts;
+using Eitmad.Platform.Windows.LocalIpc;
 
 namespace Eitmad.Platform.Windows.ProcessSupervision;
 
@@ -23,6 +24,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
     private bool disposed;
     private bool forcedCurrentExit;
     private Task? currentMonitor;
+    private EngineIpcClient? currentIpcClient;
     private EngineSupervisionSnapshot snapshot = EngineSupervisionSnapshot.Initial;
 
     public EngineSupervisor(RestartPolicy? policy = null)
@@ -59,6 +61,17 @@ public sealed class EngineSupervisor : IAsyncDisposable
             lock (gate)
             {
                 return snapshot;
+            }
+        }
+    }
+
+    public bool IpcConnected
+    {
+        get
+        {
+            lock (gate)
+            {
+                return currentIpcClient is not null;
             }
         }
     }
@@ -113,6 +126,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
     {
         cancellationToken.ThrowIfCancellationRequested();
         IEngineProcess? process;
+        EngineIpcClient? ipcClient;
         IProcessGroup? group;
         Task? monitor;
         lock (gate)
@@ -125,6 +139,8 @@ public sealed class EngineSupervisor : IAsyncDisposable
             stopRequested = true;
             sessionCancellation?.Cancel();
             process = currentProcess;
+            ipcClient = currentIpcClient;
+            currentIpcClient = null;
             group = processGroup;
             monitor = currentMonitor;
             snapshot = snapshot with { State = EngineSupervisionState.Stopping };
@@ -136,6 +152,26 @@ public sealed class EngineSupervisor : IAsyncDisposable
         {
             CompleteStop(group);
             return;
+        }
+
+        if (ipcClient is not null)
+        {
+            using var ipcShutdown = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            ipcShutdown.CancelAfter(TimeSpan.FromSeconds(2));
+            try
+            {
+                await ipcClient.RequestShutdownAsync(
+                    TimeSpan.FromSeconds(2),
+                    ipcShutdown.Token).ConfigureAwait(false);
+            }
+            catch (EngineIpcException)
+            {
+                // Inherited stdin remains the graceful abandonment fallback.
+            }
+            finally
+            {
+                await ipcClient.DisposeAsync().ConfigureAwait(false);
+            }
         }
 
         process.StandardInput.Dispose();
@@ -407,6 +443,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
         PublishSnapshot();
         if (scheduleStableReset)
         {
+            StartIpcConnection(observedGeneration);
             _ = ResetRestartBudgetAfterStableReadyAsync(observedGeneration, resetCancellation)
                 .ContinueWith(
                     static task => Trace.TraceError(
@@ -415,6 +452,67 @@ public sealed class EngineSupervisor : IAsyncDisposable
                     CancellationToken.None,
                     TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
                     TaskScheduler.Default);
+        }
+    }
+
+    private void StartIpcConnection(long observedGeneration)
+    {
+        IEngineProcess? process;
+        DevelopmentIdentityAssertion? identity;
+        lock (gate)
+        {
+            process = observedGeneration == generation ? currentProcess : null;
+            identity = launchRequest?.DevelopmentIdentity;
+        }
+
+        if (process is null || identity is null)
+        {
+            return;
+        }
+
+        _ = ConnectIpcAsync(process, identity, observedGeneration).ContinueWith(
+            static task => Trace.TraceError(
+                "Engine IPC connection failed: {0}",
+                task.Exception?.GetBaseException()),
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+    }
+
+    private async Task ConnectIpcAsync(
+        IEngineProcess process,
+        DevelopmentIdentityAssertion identity,
+        long observedGeneration)
+    {
+        var peer = new PeerHello
+        {
+            PeerKind = PeerKind.Shell,
+            ProductVersion = "0.0.0",
+            Protocols = [new SupportedProtocol { Major = 1, MinimumMinor = 0, MaximumMinor = 0 }],
+            Capabilities = [ProtocolIds.Capabilities.EitmadCapabilityLocalIpcV1],
+            RequiredCapabilities = [ProtocolIds.Capabilities.EitmadCapabilityLocalIpcV1],
+            Schemas = [],
+        };
+        var client = await EngineIpcClient.ConnectAsync(
+            process.IpcPipeName,
+            peer,
+            identity,
+            process.DevelopmentBearerToken).ConfigureAwait(false);
+        var keep = false;
+        lock (gate)
+        {
+            if (observedGeneration == generation
+                && ReferenceEquals(process, currentProcess)
+                && !stopRequested)
+            {
+                currentIpcClient = client;
+                keep = true;
+            }
+        }
+
+        if (!keep)
+        {
+            await client.DisposeAsync().ConfigureAwait(false);
         }
     }
 

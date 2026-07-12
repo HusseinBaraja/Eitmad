@@ -12,6 +12,7 @@ keywords:
   - "foundation verification"
   - "cargo clippy workspace"
   - "audit_docs.py"
+  - "E0658"
 ---
 
 # Run Eitmad foundation checks
@@ -20,7 +21,8 @@ These steps verify only the current foundation. No installable package, producti
 
 ## Prerequisites
 
-- Rust `1.85` or newer, compatible with the workspace `rust-version`;
+- rustup with Rust `1.85.1` installed for minimum-supported-version checks;
+- the current stable Rust toolchain for daily development;
 - Python 3 for the Markdown audit;
 - Node.js and npm for pinned contract generation;
 - .NET 8 for local Windows binding and process-supervision conformance;
@@ -34,10 +36,10 @@ These steps verify only the current foundation. No installable package, producti
    cargo fmt --all -- --check
    ```
 
-2. Check all targets:
+2. Check all targets with the minimum supported Rust version used by CI:
 
    ```powershell
-   cargo check --workspace --all-targets
+   rustup run 1.85.1 cargo check --workspace --all-targets
    ```
 
 3. Reject Clippy warnings:
@@ -96,7 +98,7 @@ In a healthy development environment, every applicable command should exit with 
 
 ## Recover
 
-If a command fails, stop. Do not hide the warning or bypass the test. Fix the authoritative source or canonical document, then rerun the failed command and the full suite. The current foundation has no product state that requires rollback.
+If a command fails, stop. Do not hide the warning or bypass the test. Fix the authoritative source or canonical document, then rerun the failed command and the full suite. If CI reports `E0658` while a local stable build passes, inspect the reported syntax for a feature unavailable in Rust `1.85.1` and reproduce with the minimum-version check above. The current foundation has no product state that requires rollback.
 
 ## Related tasks
 

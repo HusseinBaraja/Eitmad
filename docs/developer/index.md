@@ -30,6 +30,7 @@ Read `AGENTS.md` at the repository root, then review:
 - [Domain glossary](../glossary.md)
 - [Authoritative contract layer](subsystems/contract-layer.md)
 - [Engine runtime lifecycle](subsystems/engine-runtime.md)
+- [Typed local IPC](subsystems/local-ipc.md)
 - [Windows engine process supervision](subsystems/windows-process-supervision.md)
 
 ## 1. Name the product capability

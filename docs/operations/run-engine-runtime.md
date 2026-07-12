@@ -25,7 +25,7 @@ The engine CLI runs one foreground authority or performs one non-mutating diagno
 - Run commands from the repository root.
 - Do not point `--runtime-directory` at customer documents, a shared network path, or another application's data.
 - Treat the supervisor PID and lock metadata as correlation data, not credentials.
-- Authenticated IPC and product storage are not implemented in this foundation.
+- Windows typed IPC is implemented with development-only authentication; production authentication and product storage remain blocked.
 
 ## Run non-mutating diagnostics
 
@@ -45,7 +45,9 @@ Expected result: `starting` then `ready` lifecycle lines. Press Ctrl+C once. The
 
 ## Run supervised desktop mode
 
-A shell must launch the child with stdin and stdout pipes, keep stdin open for the owned lifetime, and read stdout as newline-delimited JSON. Use its real PID for `--supervisor-pid`; this value does not authenticate the shell.
+A shell launches the child with stdin/stdout lifecycle pipes and a unique `--ipc-pipe-name`. The Windows adapter may add `--allow-insecure-development-auth` only for synthetic development sessions and supplies its random token through `EITMAD_DEVELOPMENT_IPC_TOKEN`; never record or reuse that value. The supervisor PID remains correlation data, not authentication.
+
+The following lifecycle-only example omits `--ipc-pipe-name`, so typed IPC is not available:
 
 ```powershell
 '' | cargo run -q -p eitmad-engine-cli -- run --mode supervised --supervisor-pid $PID
@@ -60,7 +62,7 @@ The implemented Windows adapter additionally assigns the child to a kill-on-clos
 | Signal | Meaning | Operator action |
 | --- | --- | --- |
 | `live: true`, `ready: false` | Starting or draining; do not send work | Wait for a later lifecycle event |
-| `state: "ready"`, `ready: true` | Components and required health checks are ready | Establish authenticated IPC when that transport exists |
+| `state: "ready"`, `ready: true` | Components and required health checks are ready | Negotiate the typed local IPC session before sending work |
 | `health: "degraded"`, `ready: true` | Advisory check is non-healthy | Continue only while investigating the advisory check |
 | `state: "failed"` | Startup or shutdown failed | Use the stable error code and troubleshooting guide |
 | Exit `0` | Clean shutdown or healthy diagnostics | No recovery needed |
@@ -72,4 +74,4 @@ The implemented Windows adapter additionally assigns the child to a kill-on-clos
 
 Do not delete the lock file to resolve a conflict. Confirm that the other engine process has stopped, then retry; OS lock release makes stale contents harmless. Do not include runtime paths, raw process arguments, customer records, secrets, or authorization data in support evidence.
 
-For exact engine failure checks, see [Resolve engine startup and authority failures](../troubleshooting/engine-startup-failures.md). For native recovery, see [Resolve Windows engine supervision failures](../troubleshooting/windows-engine-supervision-failures.md). Implementation ownership is split between the [engine lifecycle](../developer/subsystems/engine-runtime.md) and [Windows supervision](../developer/subsystems/windows-process-supervision.md).
+For exact IPC checks, see [Resolve local IPC failures](../troubleshooting/local-ipc-failures.md). For engine failures, see [Resolve engine startup and authority failures](../troubleshooting/engine-startup-failures.md). Implementation ownership is split between [typed local IPC](../developer/subsystems/local-ipc.md), the [engine lifecycle](../developer/subsystems/engine-runtime.md), and [Windows supervision](../developer/subsystems/windows-process-supervision.md).

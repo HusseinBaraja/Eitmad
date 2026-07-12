@@ -19,6 +19,18 @@ keywords:
 
 Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
+## IPC messages
+
+- `eitmad.ipc.command-response.v1`
+- `eitmad.ipc.command.v1`
+- `eitmad.ipc.failure.v1`
+- `eitmad.ipc.handshake-response.v1`
+- `eitmad.ipc.handshake.v1`
+- `eitmad.ipc.query-response.v1`
+- `eitmad.ipc.query.v1`
+- `eitmad.ipc.shutdown-response.v1`
+- `eitmad.ipc.shutdown.v1`
+
 ## Commands
 
 - `eitmad.config.update.v1`
@@ -58,6 +70,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 ## Capabilities
 
 - `eitmad.capability.engine-lifecycle.v1`
+- `eitmad.capability.local-ipc.v1`
 - `eitmad.capability.config.v1`
 - `eitmad.capability.permissions.v1`
 - `eitmad.capability.sync.v1`
@@ -90,6 +103,10 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.error.engine-shutdown-failed.v1`
 - `eitmad.error.engine-startup-failed.v1`
 - `eitmad.error.engine-supervisor-invalid.v1`
+- `eitmad.error.ipc-engine-stopping.v1`
+- `eitmad.error.ipc-payload-too-large.v1`
+- `eitmad.error.ipc-session-invalid.v1`
+- `eitmad.error.ipc-deadline-exceeded.v1`
 - `eitmad.error.protocol-incompatible.v1`
 - `eitmad.error.sync-backpressure.v1`
 - `eitmad.error.update-installer-failed.v1`
@@ -104,6 +121,10 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.message.engine-shutdown-failed.v1`
 - `eitmad.message.engine-startup-failed.v1`
 - `eitmad.message.engine-supervisor-invalid.v1`
+- `eitmad.message.ipc-engine-stopping.v1`
+- `eitmad.message.ipc-payload-too-large.v1`
+- `eitmad.message.ipc-session-invalid.v1`
+- `eitmad.message.ipc-deadline-exceeded.v1`
 - `eitmad.message.protocol-incompatible.v1`
 - `eitmad.message.sync-backpressure.v1`
 - `eitmad.message.update-installer-failed.v1`
@@ -114,3 +135,4 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `expected-revision`
 - `required-capability`
 - `retry-after-ms`
+- `maximum-payload-bytes`
