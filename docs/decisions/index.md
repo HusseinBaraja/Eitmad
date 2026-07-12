@@ -18,7 +18,6 @@ keywords:
 > - Category: Explanation
 > - Status: Active
 > - Owner: Architecture maintainers
-> - Last verified: 2026-07-11
 > - Review trigger: ADR lifecycle or architecture governance changes
 
 This directory contains Eitmad's durable architectural decisions for future reference.
