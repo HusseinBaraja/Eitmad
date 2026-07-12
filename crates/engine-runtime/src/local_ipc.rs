@@ -151,8 +151,8 @@ impl LocalIpcServer {
         use tokio::net::windows::named_pipe::ServerOptions;
 
         let path = pipe_path(&self.configuration.pipe_name);
+        let mut server = ServerOptions::new().create(&path)?;
         loop {
-            let server = ServerOptions::new().create(&path)?;
             tokio::select! {
                 result = server.connect() => result?,
                 result = cancellation.changed() => {
@@ -160,7 +160,9 @@ impl LocalIpcServer {
                     return Ok(());
                 }
             }
-            let outcome = self.serve_connection(server, cancellation.clone()).await;
+            let connected = server;
+            server = ServerOptions::new().create(&path)?;
+            let outcome = self.serve_connection(connected, cancellation.clone()).await;
             if *cancellation.borrow() {
                 return Ok(());
             }
