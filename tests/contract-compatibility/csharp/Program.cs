@@ -24,11 +24,17 @@ if (roundTrip.RootElement.GetProperty("query").GetProperty("kind").GetString()
     throw new InvalidOperationException("C# binding changed the Rust protocol identifier.");
 }
 
-var samples = fixture.RootElement.GetProperty("mixedDirectionSamples");
-if (!samples[0].GetString()!.Contains("خزانة", StringComparison.Ordinal)
-    || !samples[1].GetString()!.Contains("Quote-١٢.pdf", StringComparison.Ordinal))
+var errorJson = fixture.RootElement.GetProperty("structuredError").GetRawText();
+var structuredError = JsonSerializer.Deserialize<QueryResult>(errorJson, Converter.Settings)
+    ?? throw new InvalidOperationException("C# binding did not decode the Rust structured error fixture.");
+var encodedError = JsonSerializer.Serialize(structuredError, Converter.Settings);
+var decodedError = JsonSerializer.Deserialize<QueryResult>(encodedError, Converter.Settings)
+    ?? throw new InvalidOperationException("C# binding did not round-trip the structured error fixture.");
+if (decodedError.Parameters[0].Value.Value.String != "ملف عرض السعر Quote-١٢.pdf")
 {
-    throw new InvalidOperationException("C# binding fixture lost Arabic or mixed-direction text.");
+    throw new InvalidOperationException(
+        "C# binding lost Arabic or mixed-direction text during structured error round-trip."
+    );
 }
 
 if (!OpenProtocolId.TryParse(ProtocolIds.Capabilities.EitmadCapabilitySyncV1, out _)
