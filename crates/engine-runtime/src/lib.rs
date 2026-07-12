@@ -81,6 +81,11 @@ impl RuntimeFailure {
     pub const fn contract_error(&self) -> &ContractError {
         &self.contract_error
     }
+
+    #[must_use]
+    pub fn runtime_directory_unavailable() -> Self {
+        startup_failure(LifecycleStage::AuthorityLock)
+    }
 }
 
 impl fmt::Display for RuntimeFailure {
@@ -150,7 +155,9 @@ impl RuntimeBuilder {
         EngineRuntime::from_builder(self)
     }
 
-    pub async fn diagnose(self) -> DiagnosticReport {
+    pub async fn diagnose(mut self) -> DiagnosticReport {
+        self.mode = EngineMode::Diagnostic;
+        self.supervisor_process_id = None;
         let mut runtime = EngineRuntime::from_builder(self);
         let checks = runtime.run_checks(None).await;
         let status = overall_health(&checks);
@@ -463,7 +470,7 @@ const fn valid_transition(from: LifecycleState, to: LifecycleState) -> bool {
         (from, to),
         (
             LifecycleState::Starting,
-            LifecycleState::Ready | LifecycleState::Failed
+            LifecycleState::Ready | LifecycleState::Stopping | LifecycleState::Failed
         ) | (
             LifecycleState::Ready,
             LifecycleState::Stopping | LifecycleState::Failed
@@ -721,6 +728,23 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn shutdown_before_start_is_clean_and_idempotent() {
+        let directory = TempDir::new().expect("temp directory");
+        let mut runtime = RuntimeBuilder::new(EngineMode::Headless, directory.path()).build();
+
+        runtime
+            .shutdown(ShutdownReason::Explicit)
+            .await
+            .expect("shutdown before start");
+        runtime
+            .shutdown(ShutdownReason::Explicit)
+            .await
+            .expect("idempotent shutdown");
+
+        assert_eq!(runtime.snapshot().state, LifecycleState::Stopped);
+    }
+
+    #[tokio::test]
     async fn failed_start_rolls_back_initialized_components() {
         let directory = TempDir::new().expect("temp directory");
         let events = Arc::new(Mutex::new(Vec::new()));
@@ -872,7 +896,7 @@ mod tests {
         let mut runtime = RuntimeBuilder::new(EngineMode::Headless, directory.path()).build();
         runtime.start().await.expect("authority");
 
-        let report = RuntimeBuilder::new(EngineMode::Diagnostic, directory.path())
+        let report = RuntimeBuilder::new(EngineMode::Headless, directory.path())
             .health_check(FixedHealthCheck {
                 id: "eitmad.health.diagnostic.v1",
                 impact: HealthCheckImpact::RequiredForReadiness,
@@ -883,6 +907,7 @@ mod tests {
 
         assert!(report.ready_to_start);
         assert_eq!(report.status, HealthStatus::Healthy);
+        assert_eq!(report.identity.mode, EngineMode::Diagnostic);
         runtime
             .shutdown(ShutdownReason::Explicit)
             .await

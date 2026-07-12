@@ -70,7 +70,7 @@ async fn run(
     supervisor_pid: Option<u32>,
     runtime_directory: Option<PathBuf>,
 ) -> ExitCode {
-    let Ok(directory) = resolve_runtime_directory(runtime_directory) else {
+    let Some(directory) = resolve_or_emit_runtime_directory(runtime_directory) else {
         return ExitCode::from(EXIT_RUNTIME_FAILURE);
     };
     let engine_mode = match mode {
@@ -109,7 +109,7 @@ async fn run(
 }
 
 async fn diagnose(runtime_directory: Option<PathBuf>) -> ExitCode {
-    let Ok(directory) = resolve_runtime_directory(runtime_directory) else {
+    let Some(directory) = resolve_or_emit_runtime_directory(runtime_directory) else {
         return ExitCode::from(EXIT_RUNTIME_FAILURE);
     };
     let report = RuntimeBuilder::new(EngineMode::Diagnostic, &directory)
@@ -128,16 +128,20 @@ async fn diagnose(runtime_directory: Option<PathBuf>) -> ExitCode {
     )
 }
 
-fn resolve_runtime_directory(directory: Option<PathBuf>) -> Result<PathBuf, ()> {
+fn resolve_runtime_directory(directory: Option<PathBuf>) -> Result<PathBuf, RuntimeFailure> {
     directory
         .or_else(|| default_runtime_directory().ok())
-        .ok_or_else(|| {
-            let failure = serde_json::json!({
-                "code": "eitmad.error.engine-startup-failed.v1",
-                "messageId": "eitmad.message.engine-startup-failed.v1"
-            });
-            eprintln!("{failure}");
-        })
+        .ok_or_else(RuntimeFailure::runtime_directory_unavailable)
+}
+
+fn resolve_or_emit_runtime_directory(directory: Option<PathBuf>) -> Option<PathBuf> {
+    match resolve_runtime_directory(directory) {
+        Ok(directory) => Some(directory),
+        Err(failure) => {
+            emit_failure(&failure);
+            None
+        }
+    }
 }
 
 async fn wait_for_shutdown(mode: RunMode) -> ShutdownReason {
