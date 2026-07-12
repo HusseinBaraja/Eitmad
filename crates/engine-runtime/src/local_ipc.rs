@@ -164,15 +164,15 @@ impl LocalIpcServer {
             if *cancellation.borrow() {
                 return Ok(());
             }
-            if let Err(error) = outcome
-                && !matches!(
+            if let Err(error) = outcome {
+                if !matches!(
                     error.kind(),
                     io::ErrorKind::BrokenPipe
                         | io::ErrorKind::ConnectionReset
                         | io::ErrorKind::UnexpectedEof
-                )
-            {
-                return Err(error);
+                ) {
+                    return Err(error);
+                }
             }
         }
     }
