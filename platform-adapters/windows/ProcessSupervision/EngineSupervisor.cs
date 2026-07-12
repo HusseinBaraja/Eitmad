@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Text.Json;
 using Eitmad.Contracts;
 
@@ -406,7 +407,14 @@ public sealed class EngineSupervisor : IAsyncDisposable
         PublishSnapshot();
         if (scheduleStableReset)
         {
-            _ = ResetRestartBudgetAfterStableReadyAsync(observedGeneration, resetCancellation);
+            _ = ResetRestartBudgetAfterStableReadyAsync(observedGeneration, resetCancellation)
+                .ContinueWith(
+                    static task => Trace.TraceError(
+                        "Stable-ready restart reset failed: {0}",
+                        task.Exception?.GetBaseException()),
+                    CancellationToken.None,
+                    TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+                    TaskScheduler.Default);
         }
     }
 
