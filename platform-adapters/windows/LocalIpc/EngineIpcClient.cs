@@ -103,7 +103,8 @@ public sealed class EngineIpcClient : IAsyncDisposable
                 throw new EngineIpcException(kind, "The engine rejected the local IPC handshake.");
             }
 
-            var accepted = response.Payload.Outcome.Payload;
+            var accepted = response.Payload.Outcome.Payload
+                ?? throw ProtocolViolation("The engine omitted the accepted handshake payload.");
             client.Authorization = accepted.Authorization
                 ?? throw ProtocolViolation("The engine omitted the negotiated authorization session.");
             client.NegotiatedSession = accepted.Negotiated
