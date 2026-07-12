@@ -49,6 +49,7 @@ public static class ProtocolIds
 
     public static class Capabilities
     {
+        public const string EitmadCapabilityEngineLifecycleV1 = "eitmad.capability.engine-lifecycle.v1";
         public const string EitmadCapabilityConfigV1 = "eitmad.capability.config.v1";
         public const string EitmadCapabilityPermissionsV1 = "eitmad.capability.permissions.v1";
         public const string EitmadCapabilitySyncV1 = "eitmad.capability.sync.v1";
@@ -80,6 +81,11 @@ public static class ProtocolIds
         public const string EitmadErrorAuthorizationDeniedV1 = "eitmad.error.authorization-denied.v1";
         public const string EitmadErrorConfigRevisionConflictV1 = "eitmad.error.config-revision-conflict.v1";
         public const string EitmadErrorContractInvalidV1 = "eitmad.error.contract-invalid.v1";
+        public const string EitmadErrorEngineAlreadyRunningV1 = "eitmad.error.engine-already-running.v1";
+        public const string EitmadErrorEngineHealthCheckFailedV1 = "eitmad.error.engine-health-check-failed.v1";
+        public const string EitmadErrorEngineShutdownFailedV1 = "eitmad.error.engine-shutdown-failed.v1";
+        public const string EitmadErrorEngineStartupFailedV1 = "eitmad.error.engine-startup-failed.v1";
+        public const string EitmadErrorEngineSupervisorInvalidV1 = "eitmad.error.engine-supervisor-invalid.v1";
         public const string EitmadErrorProtocolIncompatibleV1 = "eitmad.error.protocol-incompatible.v1";
         public const string EitmadErrorSyncBackpressureV1 = "eitmad.error.sync-backpressure.v1";
         public const string EitmadErrorUpdateInstallerFailedV1 = "eitmad.error.update-installer-failed.v1";
@@ -90,6 +96,11 @@ public static class ProtocolIds
         public const string EitmadMessageAuthorizationDeniedV1 = "eitmad.message.authorization-denied.v1";
         public const string EitmadMessageConfigRevisionConflictV1 = "eitmad.message.config-revision-conflict.v1";
         public const string EitmadMessageContractInvalidV1 = "eitmad.message.contract-invalid.v1";
+        public const string EitmadMessageEngineAlreadyRunningV1 = "eitmad.message.engine-already-running.v1";
+        public const string EitmadMessageEngineHealthCheckFailedV1 = "eitmad.message.engine-health-check-failed.v1";
+        public const string EitmadMessageEngineShutdownFailedV1 = "eitmad.message.engine-shutdown-failed.v1";
+        public const string EitmadMessageEngineStartupFailedV1 = "eitmad.message.engine-startup-failed.v1";
+        public const string EitmadMessageEngineSupervisorInvalidV1 = "eitmad.message.engine-supervisor-invalid.v1";
         public const string EitmadMessageProtocolIncompatibleV1 = "eitmad.message.protocol-incompatible.v1";
         public const string EitmadMessageSyncBackpressureV1 = "eitmad.message.sync-backpressure.v1";
         public const string EitmadMessageUpdateInstallerFailedV1 = "eitmad.message.update-installer-failed.v1";

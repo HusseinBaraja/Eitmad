@@ -16,7 +16,7 @@ keywords:
 
 # Understand Eitmad architecture
 
-Eitmad uses thin native desktop applications connected to a separate trusted Rust engine that acts as product authority. Protocol v1 contracts and native binding generation are implemented; no production business capability exists yet.
+Eitmad uses thin native desktop applications connected to a separate trusted Rust engine that acts as product authority. Protocol v1 contracts, native binding generation, and the engine lifecycle runtime are implemented; no production business capability exists yet.
 
 ## Start here
 
@@ -24,6 +24,7 @@ Eitmad uses thin native desktop applications connected to a separate trusted Rus
 - [Arabic-first UX requirements](arabic-first-ux.md): RTL, bidirectional text, search, input, documents, and accessibility.
 - [Architectural decisions](../decisions/index.md): the historical record of accepted choices.
 - [Protocol v1 contracts](../api/index.md): implemented external shapes, compatibility, and generation.
+- [Engine runtime lifecycle](../developer/subsystems/engine-runtime.md): implemented startup, readiness, health, process identity, diagnostics, and shutdown behavior.
 - [Repository layout and ownership](../developer/repository-layout.md): where each current boundary lives.
 
 ## Change invariants

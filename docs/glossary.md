@@ -116,6 +116,11 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | انحراف العقد | Contract drift | A generated schema, fixture, reference, or platform binding that no longer exactly matches the Rust contract authority. |
 | تغيير كاسر | Breaking change | A contract representation or meaning change that a peer inside the compatibility window cannot safely interpret. |
 | تحديث | Update | A signed, policy-controlled change to engine, shell, contracts, or compatible data behavior. |
+| دورة حياة المحرك | Engine lifecycle | The Rust-owned process states `Starting`, `Ready`, `Stopping`, `Stopped`, and `Failed` plus their permitted transitions. |
+| جاهزية المحرك | Engine readiness | An explicit signal that initialization completed and every required health check is healthy; it is not inferred from a live PID. |
+| سلامة المحرك | Engine health | The aggregate `Healthy`, `Degraded`, or `Unhealthy` result of stable checks, evaluated separately from lifecycle state. |
+| هوية عملية المحرك | Engine process identity | A launch-specific instance UUID with PID, mode, start time, product version, and protocol version; correlation metadata, not authentication. |
+| سلطة المحرك | Engine authority | The single process allowed to own authoritative runtime work for one runtime directory, enforced by an operating-system lock. |
 
 ## Terms to avoid or qualify
 

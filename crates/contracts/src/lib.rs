@@ -15,6 +15,7 @@ pub mod events;
 pub mod identity;
 pub mod permissions;
 pub mod queries;
+pub mod runtime;
 pub mod sync;
 pub mod transport;
 pub mod updates;

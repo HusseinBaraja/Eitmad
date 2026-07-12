@@ -19,6 +19,7 @@ use eitmad_contracts::{
     },
     permissions::EffectivePermissions,
     queries::{GetConfiguration, Query, QueryResult},
+    runtime::{DiagnosticReport, LifecycleSnapshot},
     sync::{SyncMessage, SyncStatus},
     transport::{
         CausationId, CommandEnvelope, CommandResponseEnvelope, CorrelationId, EventEnvelope,
@@ -47,6 +48,8 @@ struct ContractSchemaRoot {
     update_state: UpdateState,
     sync_status: SyncStatus,
     effective_permissions: EffectivePermissions,
+    lifecycle_snapshot: LifecycleSnapshot,
+    diagnostic_report: DiagnosticReport,
     catalog: ProtocolCatalog,
 }
 

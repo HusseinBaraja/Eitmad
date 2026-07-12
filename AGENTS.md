@@ -48,6 +48,7 @@ The final app must be fast, efficient, low-resource, secure, sync-capable, updat
 ## Git Workflow
 
 - Never commit to main. If the project is checked out to main and the user asks for a task, create a new branch and do the work in there.
+- Do not prefix branch names with `codex/`. Use descriptive branch names without tool or vendor namespaces.
 - If the user explicitly says no branch is needed, do not create one.
 - Commit incrementally when a logical checkpoint is complete.
 - Close all PowerShell/CMD instances you created during the session after you are done working and the codebase is clean and committed.

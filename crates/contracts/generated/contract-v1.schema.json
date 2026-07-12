@@ -12,11 +12,17 @@
     "command_response": {
       "$ref": "#/definitions/CommandResponseEnvelope"
     },
+    "diagnostic_report": {
+      "$ref": "#/definitions/DiagnosticReport"
+    },
     "effective_permissions": {
       "$ref": "#/definitions/EffectivePermissions"
     },
     "event": {
       "$ref": "#/definitions/EventEnvelope"
+    },
+    "lifecycle_snapshot": {
+      "$ref": "#/definitions/LifecycleSnapshot"
     },
     "negotiation": {
       "$ref": "#/definitions/NegotiationOutcome"
@@ -56,6 +62,8 @@
     "update_state",
     "sync_status",
     "effective_permissions",
+    "lifecycle_snapshot",
+    "diagnostic_report",
     "catalog"
   ],
   "definitions": {
@@ -795,6 +803,37 @@
         "correlationId"
       ]
     },
+    "DiagnosticReport": {
+      "type": "object",
+      "properties": {
+        "checks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/HealthCheckResult"
+          }
+        },
+        "identity": {
+          "$ref": "#/definitions/EngineProcessIdentity"
+        },
+        "observedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "readyToStart": {
+          "type": "boolean"
+        },
+        "status": {
+          "$ref": "#/definitions/HealthStatus"
+        }
+      },
+      "required": [
+        "identity",
+        "status",
+        "readyToStart",
+        "checks",
+        "observedAt"
+      ]
+    },
     "EffectivePermission": {
       "type": "object",
       "properties": {
@@ -849,6 +888,49 @@
         "schemaId",
         "schemaVersion",
         "base64"
+      ]
+    },
+    "EngineMode": {
+      "type": "string",
+      "enum": [
+        "supervisedDesktop",
+        "headless",
+        "diagnostic"
+      ]
+    },
+    "EngineProcessIdentity": {
+      "type": "object",
+      "properties": {
+        "instanceId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "mode": {
+          "$ref": "#/definitions/EngineMode"
+        },
+        "processId": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "productVersion": {
+          "$ref": "#/definitions/SemVer"
+        },
+        "protocolVersion": {
+          "$ref": "#/definitions/ProtocolVersion"
+        },
+        "startedAt": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "instanceId",
+        "processId",
+        "mode",
+        "startedAt",
+        "productVersion",
+        "protocolVersion"
       ]
     },
     "ErrorDetail": {
@@ -928,6 +1010,30 @@
               },
               "required": [
                 "reason"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "lifecycle"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "stage": {
+                  "$ref": "#/definitions/LifecycleStage"
+                }
+              },
+              "required": [
+                "stage"
               ]
             }
           },
@@ -1124,6 +1230,55 @@
     "GetUpdateState": {
       "type": "object"
     },
+    "HealthCheckImpact": {
+      "type": "string",
+      "enum": [
+        "requiredForReadiness",
+        "advisory"
+      ]
+    },
+    "HealthCheckResult": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ContractError"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "impact": {
+          "$ref": "#/definitions/HealthCheckImpact"
+        },
+        "observedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "status": {
+          "$ref": "#/definitions/HealthStatus"
+        }
+      },
+      "required": [
+        "id",
+        "status",
+        "impact",
+        "observedAt"
+      ]
+    },
+    "HealthStatus": {
+      "type": "string",
+      "enum": [
+        "healthy",
+        "degraded",
+        "unhealthy"
+      ]
+    },
     "InstallerOutcome": {
       "oneOf": [
         {
@@ -1186,6 +1341,75 @@
             "kind"
           ]
         }
+      ]
+    },
+    "LifecycleSnapshot": {
+      "type": "object",
+      "properties": {
+        "checks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/HealthCheckResult"
+          }
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ContractError"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "health": {
+          "$ref": "#/definitions/HealthStatus"
+        },
+        "identity": {
+          "$ref": "#/definitions/EngineProcessIdentity"
+        },
+        "live": {
+          "type": "boolean"
+        },
+        "observedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "ready": {
+          "type": "boolean"
+        },
+        "state": {
+          "$ref": "#/definitions/LifecycleState"
+        }
+      },
+      "required": [
+        "identity",
+        "state",
+        "live",
+        "ready",
+        "health",
+        "checks",
+        "observedAt"
+      ]
+    },
+    "LifecycleStage": {
+      "type": "string",
+      "enum": [
+        "processIdentity",
+        "authorityLock",
+        "componentStartup",
+        "readinessCheck",
+        "componentShutdown"
+      ]
+    },
+    "LifecycleState": {
+      "type": "string",
+      "enum": [
+        "starting",
+        "ready",
+        "stopping",
+        "stopped",
+        "failed"
       ]
     },
     "NegotiatedSchema": {

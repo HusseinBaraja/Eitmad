@@ -39,6 +39,7 @@ public enum ProtocolIds {
     }
 
     public enum Capabilities {
+        public static let eitmadCapabilityEngineLifecycleV1 = "eitmad.capability.engine-lifecycle.v1"
         public static let eitmadCapabilityConfigV1 = "eitmad.capability.config.v1"
         public static let eitmadCapabilityPermissionsV1 = "eitmad.capability.permissions.v1"
         public static let eitmadCapabilitySyncV1 = "eitmad.capability.sync.v1"
@@ -66,6 +67,11 @@ public enum ProtocolIds {
         public static let eitmadErrorAuthorizationDeniedV1 = "eitmad.error.authorization-denied.v1"
         public static let eitmadErrorConfigRevisionConflictV1 = "eitmad.error.config-revision-conflict.v1"
         public static let eitmadErrorContractInvalidV1 = "eitmad.error.contract-invalid.v1"
+        public static let eitmadErrorEngineAlreadyRunningV1 = "eitmad.error.engine-already-running.v1"
+        public static let eitmadErrorEngineHealthCheckFailedV1 = "eitmad.error.engine-health-check-failed.v1"
+        public static let eitmadErrorEngineShutdownFailedV1 = "eitmad.error.engine-shutdown-failed.v1"
+        public static let eitmadErrorEngineStartupFailedV1 = "eitmad.error.engine-startup-failed.v1"
+        public static let eitmadErrorEngineSupervisorInvalidV1 = "eitmad.error.engine-supervisor-invalid.v1"
         public static let eitmadErrorProtocolIncompatibleV1 = "eitmad.error.protocol-incompatible.v1"
         public static let eitmadErrorSyncBackpressureV1 = "eitmad.error.sync-backpressure.v1"
         public static let eitmadErrorUpdateInstallerFailedV1 = "eitmad.error.update-installer-failed.v1"
@@ -75,6 +81,11 @@ public enum ProtocolIds {
         public static let eitmadMessageAuthorizationDeniedV1 = "eitmad.message.authorization-denied.v1"
         public static let eitmadMessageConfigRevisionConflictV1 = "eitmad.message.config-revision-conflict.v1"
         public static let eitmadMessageContractInvalidV1 = "eitmad.message.contract-invalid.v1"
+        public static let eitmadMessageEngineAlreadyRunningV1 = "eitmad.message.engine-already-running.v1"
+        public static let eitmadMessageEngineHealthCheckFailedV1 = "eitmad.message.engine-health-check-failed.v1"
+        public static let eitmadMessageEngineShutdownFailedV1 = "eitmad.message.engine-shutdown-failed.v1"
+        public static let eitmadMessageEngineStartupFailedV1 = "eitmad.message.engine-startup-failed.v1"
+        public static let eitmadMessageEngineSupervisorInvalidV1 = "eitmad.message.engine-supervisor-invalid.v1"
         public static let eitmadMessageProtocolIncompatibleV1 = "eitmad.message.protocol-incompatible.v1"
         public static let eitmadMessageSyncBackpressureV1 = "eitmad.message.sync-backpressure.v1"
         public static let eitmadMessageUpdateInstallerFailedV1 = "eitmad.message.update-installer-failed.v1"

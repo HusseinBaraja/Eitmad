@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-07-11"
+last_verified: "2026-07-12"
 review_triggers:
   - "a workspace member, platform, server plane, test suite, or ownership boundary changes"
 keywords:
@@ -17,15 +17,15 @@ keywords:
 
 # Find the owner of each repository area
 
-Place behavior that changes together in the nearest vertical product capability. The current areas are mostly empty foundation boundaries, not production features.
+Place behavior that changes together in the nearest vertical product capability. Contracts and the engine lifecycle are implemented foundations; most product capability boundaries remain empty.
 
 ## Ownership map
 
 | Area | Current authority | Canonical source |
 | --- | --- | --- |
 | `crates/contracts/` | External contracts and generation or validation inputs | `crates/contracts/OWNERSHIP.md` |
-| `crates/engine-runtime/` | Engine lifecycle and request coordination | `crates/engine-runtime/OWNERSHIP.md` |
-| `crates/engine-cli/` | Headless and diagnostic entry point | `crates/engine-cli/OWNERSHIP.md` |
+| `crates/engine-runtime/` | Implemented engine lifecycle, readiness, health, authority lock, and component coordination | [Engine runtime guide](subsystems/engine-runtime.md) |
+| `crates/engine-cli/` | Implemented supervised, headless, and diagnostic entry point | `crates/engine-cli/OWNERSHIP.md` |
 | `crates/storage/` | Database, migrations, transactions, and backups | `crates/storage/OWNERSHIP.md` |
 | `crates/sync/` | Unified synchronization protocol | `crates/sync/OWNERSHIP.md` |
 | `crates/authorization/` | Identity, scope, and ReBAC authorization | `crates/authorization/OWNERSHIP.md` |
@@ -50,6 +50,6 @@ Place behavior that changes together in the nearest vertical product capability.
 
 ## Verification
 
-This map matches the current `Cargo.toml` members and `OWNERSHIP.md` files as of 2026-07-11. Empty source files do not imply unimplemented behavior.
+This map matches the current `Cargo.toml` members, implemented runtime boundary, and `OWNERSHIP.md` files as of 2026-07-12. Empty source files do not imply unimplemented behavior.
 
 Next, [run the foundation checks](../operations/index.md).

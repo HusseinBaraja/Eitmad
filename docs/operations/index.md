@@ -1,6 +1,6 @@
 ---
 title: "Run Eitmad foundation checks"
-description: "Safely verify Rust formatting, builds, tests, the initial engine process, and documentation."
+description: "Safely verify Rust formatting, builds, tests, engine diagnostics, generated contracts, and documentation."
 audience: "operations"
 page_type: "task"
 status: "active"
@@ -52,10 +52,10 @@ These steps verify only the current foundation. No installable package, producti
    cargo test --workspace
    ```
 
-5. Run the current diagnostic entry point:
+5. Run non-mutating engine diagnostics:
 
    ```powershell
-   cargo run -q -p eitmad-engine-cli
+   cargo run -q -p eitmad-engine-cli -- diagnose
    ```
 
 6. Install and validate generated contracts:
@@ -82,7 +82,7 @@ These steps verify only the current foundation. No installable package, producti
 
 ## Verify
 
-Every applicable command must exit with code `0` and no warnings. The current engine entry point prints no output. Swift binding conformance runs in macOS CI because Swift is not part of the Windows prerequisites.
+In a healthy development environment, every applicable command should exit with code `0` and no warnings. Diagnostics should print one JSON report; an unhealthy required check may produce exit code `3`. Swift binding conformance runs in macOS CI because Swift is not part of the Windows prerequisites.
 
 ## Recover
 
@@ -91,4 +91,5 @@ If a command fails, stop. Do not hide the warning or bypass the test. Fix the au
 ## Related tasks
 
 - [Start developing Eitmad](../developer/index.md)
+- [Run and diagnose the engine runtime](run-engine-runtime.md)
 - [Review the documentation standard](../developer/contributing/documentation-standard.md)

@@ -82,6 +82,8 @@ The engine MUST remain useful without a GUI. Its public boundaries MUST be deter
 
 ### Lifecycle
 
+The lifecycle foundation is implemented in `eitmad-engine-runtime` and its [canonical subsystem guide](../developer/subsystems/engine-runtime.md). It exposes typed process identity, `Starting → Ready → Stopping → Stopped` transitions, terminal failure, readiness-aware health checks, bounded rollback/draining, exclusive runtime-directory authority, headless operation, and non-mutating diagnostics. The CLI child pipes are lifecycle adapters only; authenticated request IPC remains an implementation gate.
+
 1. The shell locates and starts, or securely connects to, the compatible engine distributed with the application.
 2. Both sides authenticate the local channel and exchange protocol versions and capabilities.
 3. The shell refuses normal operation when mandatory compatibility or security capabilities are absent and presents an actionable, localized recovery state.
@@ -261,7 +263,7 @@ The generic protocol v1 contract foundation is implemented and documented in the
 2. command, query, subscription, error, version, and capability contracts;
 3. identity, scope, relationship authorization, and audit behavior;
 4. storage mode, migrations, backup, and sync semantics;
-5. engine lifecycle and authenticated local IPC threat model;
+5. the authenticated local IPC threat model and its integration with the implemented engine lifecycle;
 6. the [Arabic-first pre-shell gate and feature checklist](../developer/contributing/arabic-first-feature-checklist.md), including approved locale, typography, search, localization, report, accessibility, and representative bidirectional test policies;
 7. update compatibility assumptions;
 8. measurable performance budgets and clean-run verification.

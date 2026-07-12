@@ -44,6 +44,12 @@ Generated files have a `Do not edit` header. Linux bindings remain blocked on th
 
 The identity and scope fields are assertions to verify against the authenticated channel, not credentials and not proof of authorization. Rust must authorize every operation and audit every state-changing command in the runtime that executes it.
 
+## Engine supervision contracts
+
+`EngineProcessIdentity`, `LifecycleSnapshot`, health-check results, and `DiagnosticReport` are Rust-owned protocol v1 shapes under capability `eitmad.capability.engine-lifecycle.v1`. Lifecycle states are `starting`, `ready`, `stopping`, `stopped`, and `failed`. Readiness is explicit and must not be inferred from a live PID or successful process launch.
+
+The foreground CLI currently emits lifecycle snapshots as newline-delimited JSON on the child stdout pipe. That launch-status stream is not authenticated command IPC and must not carry requests, credentials, or product data. Process PID and instance metadata support correlation only. See the [engine runtime subsystem](../developer/subsystems/engine-runtime.md) for invariants and [operations guide](../operations/run-engine-runtime.md) for exit codes.
+
 ## Wire and compatibility rules
 
 - Protocol v1 uses UTF-8 JSON with camel-case fields and explicit `kind`/`payload` tags.
