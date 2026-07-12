@@ -2,6 +2,10 @@
 node_modules/
 /tests/contract-compatibility/csharp/bin/
 /tests/contract-compatibility/csharp/obj/
+/platform-adapters/windows/bin/
+/platform-adapters/windows/obj/
+/platform-adapters/windows/tests/bin/
+/platform-adapters/windows/tests/obj/
 
 # Local IDE state belongs to each developer.
 .idea/
