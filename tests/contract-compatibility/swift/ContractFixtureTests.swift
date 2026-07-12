@@ -3,6 +3,7 @@ import Foundation
 private struct Fixture: Decodable {
     let query: QueryEnvelope
     let queryResponse: QueryResponseEnvelope
+    let structuredError: QueryResult
     let mixedDirectionSamples: [String]
 }
 
@@ -16,9 +17,19 @@ private struct ContractFixtureTests {
         let fixture = try JSONDecoder().decode(Fixture.self, from: data)
         let encoded = try JSONEncoder().encode(fixture.query)
         let decoded = try JSONDecoder().decode(QueryEnvelope.self, from: encoded)
+        let encodedResponse = try JSONEncoder().encode(fixture.queryResponse)
+        let decodedResponse = try JSONDecoder().decode(QueryResponseEnvelope.self, from: encodedResponse)
+        let encodedError = try JSONEncoder().encode(fixture.structuredError)
+        let decodedError = try JSONDecoder().decode(QueryResult.self, from: encodedError)
 
         guard decoded.query.kind == .eitmadConfigGetV1 else {
             throw ContractTestError.wrongQuery
+        }
+        guard try hasSameJSON(decodedResponse, fixture.queryResponse) else {
+            throw ContractTestError.responseCorrupted
+        }
+        guard try hasSameJSON(decodedError, fixture.structuredError) else {
+            throw ContractTestError.structuredErrorCorrupted
         }
         guard fixture.mixedDirectionSamples[0].contains("خزانة"),
               fixture.mixedDirectionSamples[1].contains("Quote-١٢.pdf") else {
@@ -28,13 +39,20 @@ private struct ContractFixtureTests {
               OpenProtocolId(rawValue: "Eitmad Sync") == nil else {
             throw ContractTestError.identifierValidationDrift
         }
-        _ = fixture.queryResponse
     }
+}
+
+private func hasSameJSON<Value: Encodable>(_ lhs: Value, _ rhs: Value) throws -> Bool {
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.sortedKeys]
+    return try encoder.encode(lhs) == encoder.encode(rhs)
 }
 
 private enum ContractTestError: Error {
     case invalidArguments
     case wrongQuery
+    case responseCorrupted
+    case structuredErrorCorrupted
     case textCorrupted
     case identifierValidationDrift
 }
