@@ -140,14 +140,26 @@ async fn run(
     let reason = wait_for_shutdown(mode, &mut ipc_shutdown_receiver).await;
     let outcome = runtime.shutdown(reason).await;
     let _ = ipc_cancel_sender.send(true);
-    if let Some(task) = ipc_task {
-        let _ = task.await;
-    }
+    let ipc_stopped_cleanly = if let Some(task) = ipc_task {
+        match task.await {
+            Ok(Ok(())) => true,
+            Ok(Err(error)) => {
+                eprintln!("local IPC server failed: {error}");
+                false
+            }
+            Err(error) => {
+                eprintln!("local IPC server task failed: {error}");
+                false
+            }
+        }
+    } else {
+        true
+    };
     if let Err(failure) = &outcome {
         emit_failure(failure);
     }
     let _ = emitter.await;
-    ExitCode::from(if outcome.is_ok() {
+    ExitCode::from(if outcome.is_ok() && ipc_stopped_cleanly {
         EXIT_SUCCESS
     } else {
         EXIT_RUNTIME_FAILURE
