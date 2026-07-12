@@ -36,7 +36,9 @@ internal sealed class WindowsJobObject : IProcessGroup
             Marshal.StructureToPtr(information, pointer, false);
             if (!NativeMethods.SetInformationJobObject(handle, 9, pointer, (uint)size))
             {
-                throw new Win32Exception(Marshal.GetLastWin32Error(), "Windows could not configure engine process containment.");
+                var error = Marshal.GetLastWin32Error();
+                handle.Dispose();
+                throw new Win32Exception(error, "Windows could not configure engine process containment.");
             }
         }
         finally
