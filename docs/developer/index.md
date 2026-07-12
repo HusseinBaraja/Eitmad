@@ -29,6 +29,7 @@ Read `AGENTS.md` at the repository root, then review:
 - [Arabic-first feature checklist](contributing/arabic-first-feature-checklist.md)
 - [Domain glossary](../glossary.md)
 - [Authoritative contract layer](subsystems/contract-layer.md)
+- [Engine runtime lifecycle](subsystems/engine-runtime.md)
 
 ## 1. Name the product capability
 

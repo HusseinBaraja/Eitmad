@@ -21,6 +21,10 @@ Use symptom and identifier pages to reach the authoritative owner and a non-dest
 
 - [Resolve generated contract drift](contract-binding-drift.md): repair missing or stale schemas, registries, C#/Swift bindings, fixtures, and generated references.
 
-No product workflow or user-facing Arabic error is implemented yet. Add new pages when a stable symptom has a verified diagnostic path.
+## Engine process failures
+
+- [Resolve engine startup and authority failures](engine-startup-failures.md): diagnose failed startup, invalid supervision, readiness checks, shutdown failures, and duplicate engine authorities.
+
+No product workflow or user-facing Arabic error is implemented yet. Runtime failures expose stable localization message IDs for future shells.
 
 Return to the [documentation index](../index.md) or review [protocol v1](../api/index.md).

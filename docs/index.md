@@ -15,7 +15,7 @@ keywords:
 
 # Eitmad documentation
 
-Choose the route that matches your task. The protocol v1 contract foundation is implemented; no production business workflow exists yet.
+Choose the route that matches your task. Protocol v1 and the engine lifecycle foundation are implemented; no production business workflow exists yet.
 
 ## Use the product
 
@@ -32,6 +32,7 @@ No user workflow is ready to document. When the first product flow exists, Engli
 ## Operate or deploy the system
 
 - [Run foundation checks](operations/index.md): currently safe commands and operational-readiness limits.
+- [Run and diagnose the engine](operations/run-engine-runtime.md): headless and supervised modes, readiness JSON, exit codes, and recovery.
 
 ## Search by symptom or identifier
 

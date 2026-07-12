@@ -18,7 +18,7 @@ cargo fmt --all -- --check
 cargo check --workspace --all-targets
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
-cargo run -q -p eitmad-engine-cli
+cargo run -q -p eitmad-engine-cli -- diagnose
 npm ci --ignore-scripts --prefix crates/contracts/codegen
 npm run contracts:check --prefix crates/contracts/codegen
 dotnet run --project tests/contract-compatibility/csharp/Eitmad.ContractConformance.csproj -- tests/contract-compatibility/fixtures/protocol-v1.json
