@@ -49,7 +49,7 @@ pub enum HandshakeRejection {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "status", content = "payload", rename_all = "camelCase")]
 pub enum HandshakeOutcome {
-    Accepted(HandshakeAccepted),
+    Accepted(Box<HandshakeAccepted>),
     Rejected(HandshakeRejection),
 }
 

@@ -325,11 +325,11 @@ impl LocalIpcServer {
                         identity: request.asserted_authorization.identity,
                         scope: request.asserted_authorization.scope,
                     };
-                    HandshakeOutcome::Accepted(HandshakeAccepted {
+                    HandshakeOutcome::Accepted(Box::new(HandshakeAccepted {
                         engine: self.configuration.engine_hello.clone(),
                         negotiated,
                         authorization,
-                    })
+                    }))
                 }
                 NegotiationOutcome::Rejected(rejection) => {
                     HandshakeOutcome::Rejected(HandshakeRejection::Negotiation(rejection))
