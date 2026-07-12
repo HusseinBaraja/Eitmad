@@ -52,13 +52,13 @@ The development authenticator is not production authentication. It accepts a 256
 
 ## Framing, concurrency, and large payloads
 
-Frames contain a four-byte little-endian length followed by UTF-8 JSON. The hard limit is 8 MiB. An oversized declared input is rejected before payload allocation; oversized output fails locally. Domain APIs must page or stream data that cannot fit this bound. Temporary-file handoff and unbounded reassembly are not supported.
+Frames contain a four-byte little-endian length followed by UTF-8 JSON. The hard limit is 8 MiB. An oversized declared input is rejected before payload allocation; an oversized output closes only its connection while the accept loop remains available. Domain APIs must page or stream data that cannot fit this bound. Temporary-file handoff and unbounded reassembly are not supported.
 
-The server dispatches independent commands and queries concurrently and returns responses by `RequestId`; callers must not infer completion order. The Windows client uses one background reader and a pending-request map, so late responses are discarded after the caller deadline without corrupting later calls.
+The server creates the next named-pipe instance before serving an accepted connection, so reconnecting clients do not encounter a missing-listener gap. It dispatches independent commands and queries concurrently and returns responses by `RequestId`; callers must not infer completion order. The Windows client uses one background reader and a pending-request map, so late responses are discarded after the caller deadline without corrupting later calls.
 
 ## Deadlines, errors, and retries
 
-Connection timeout defaults to five seconds and request timeout to 30 seconds; both are configurable. Rust rejects an expired envelope before dispatch and cancels a query future when its deadline passes. It does not forcibly abort a command that has begun because a committed result could otherwise be reported falsely. A shell-side command timeout therefore means outcome unknown; retry only with the same idempotency key.
+Connection timeout defaults to five seconds and request timeout to 30 seconds; both are configurable. Rust rejects an expired envelope before dispatch and stops awaiting a command or query dispatcher future when its deadline passes. A command may have produced partial or committed effects before cancellation, so a shell-side command timeout still means outcome unknown; retry only with the same idempotency key.
 
 Stable failures include session invalid, deadline exceeded, payload too large, engine stopping, and protocol incompatible. An unavailable engine has no Rust response, so `EngineIpcClient` reports a typed local `EngineUnavailable` failure. No path logs bearer tokens, raw frames, product payloads, customer data, or authorization graphs.
 
@@ -70,6 +70,6 @@ Stable failures include session invalid, deadline exceeded, payload too large, e
 
 The transport preserves canonical Unicode and does not add bidirectional controls. Tests round-trip a multi-megabyte synthetic Arabic/Latin value such as `خزانة Wardrobe 120 cm - فرع صنعاء`. There is no UI in this capability, so RTL layout, Arabic labels, input, accessibility, and localized rendering remain the future shell's responsibility. Shells will localize `messageId` and directionally isolate machine identifiers.
 
-Focused Rust tests cover handshake denial, version mismatch, session rejection, command/query success, query deadline, large payloads, and oversized frames. Windows scenarios cover unavailable endpoints, the shared frame limit, real-engine negotiation, and graceful shutdown. Extend domain behavior behind the dispatcher traits; do not add it to transport code.
+Focused Rust tests cover handshake denial, version mismatch, session rejection, command/query success, command/query deadlines, large payloads, and oversized inbound and outbound frames. Windows scenarios cover unavailable endpoints, the shared frame limit, real-engine negotiation, and graceful shutdown. Extend domain behavior behind the dispatcher traits; do not add it to transport code.
 
 For exact contracts, see [protocol v1](../../api/index.md). For threats, see the [local IPC threat model](../../architecture/local-ipc-threat-model.md). For recovery, use [Resolve local IPC failures](../../troubleshooting/local-ipc-failures.md).

@@ -29,6 +29,8 @@ Local IPC failures do not by themselves imply lost committed data. Stop new work
 | `eitmad.error.ipc-session-invalid.v1` | Reused/stale session or changed context | Compare engine generation and request session ID | Reconnect and rebuild envelopes from the new negotiated session |
 | `eitmad.error.ipc-deadline-exceeded.v1` | Deadline passed before query completion | Compare deadline, current time, and operation type | Retry a query if still needed; retry a command only with the same idempotency key because outcome may be unknown |
 | `eitmad.error.ipc-payload-too-large.v1` | Frame exceeds 8 MiB | Measure encoded frame size without logging content | Page or stream through a domain contract; do not raise the cap ad hoc |
+| Connection closes after a large response | Encoded response exceeded 8 MiB or response serialization failed | Check the stable request type and sanitized frame-size metric | Reduce or page the response, reconnect, and retry only when the operation's retry contract permits it |
+| `local IPC server failed` or `local IPC server task failed` on stderr | The accept loop returned an I/O error or the task panicked | Preserve the sanitized message and latest lifecycle state | Stop new work, restart through the supervisor, and escalate to the Rust IPC owner if it recurs |
 | Forced shutdown | IPC and stdin drain did not exit in 15 seconds | Preserve lifecycle state and stable error IDs | Treat as crash recovery and diagnose the Rust component that failed to drain |
 
 Do not delete runtime files, expose bearer tokens, copy raw frames, or include customer records, paths, authorization graphs, or process environment values in support evidence.
