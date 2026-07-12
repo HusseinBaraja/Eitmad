@@ -27,7 +27,7 @@ keywords:
 | Component order, readiness, deadlines, rollback, shutdown, and authority lock | `eitmad-engine-runtime` |
 | CLI arguments, stdout/stderr adaptation, Ctrl+C, and supervisor stdin EOF | `eitmad-engine-cli` |
 | Windows process containment, restart budget, stale-event rejection, and shell-owned shutdown | [Windows process supervision](windows-process-supervision.md) |
-| Future authenticated command/query/subscription transport | Not implemented; must delegate to this lifecycle |
+| Typed local command/query transport | `eitmad-engine-runtime::local_ipc`; delegates shutdown to this lifecycle |
 
 The CLI does not own business logic, storage, authorization, or diagnostics policy. The supervisor PID and inherited stdin control pipe only coordinate process lifetime; neither proves identity or grants authorization.
 
@@ -75,7 +75,7 @@ Public snapshots and stderr output exclude raw I/O errors, component errors, pat
 - Add a `HealthCheck` with a stable `eitmad.health.*` ID and deliberate readiness impact.
 - Keep component-specific behavior inside its owning vertical; the runtime only coordinates it.
 - Add external lifecycle fields through the Rust contract evolution and binding-generation workflow.
-- Do not use stdout status events as authenticated IPC. Add the future transport behind capability negotiation and the existing runtime state.
+- Do not use stdout status events as authenticated IPC. Extend the [implemented local IPC boundary](local-ipc.md) behind capability negotiation and the existing runtime state.
 
 ## Arabic-first completion record
 

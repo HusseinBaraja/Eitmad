@@ -48,11 +48,12 @@ The identity and scope fields are assertions to verify against the authenticated
 
 `EngineProcessIdentity`, `LifecycleSnapshot`, health-check results, and `DiagnosticReport` are Rust-owned protocol v1 shapes under capability `eitmad.capability.engine-lifecycle.v1`. Lifecycle states are `starting`, `ready`, `stopping`, `stopped`, and `failed`. Readiness is explicit and must not be inferred from a live PID or successful process launch.
 
-The foreground CLI currently emits lifecycle snapshots as newline-delimited JSON on the child stdout pipe. That launch-status stream is not authenticated command IPC and must not carry requests, credentials, or product data. Process PID and instance metadata support correlation only. See the [engine runtime subsystem](../developer/subsystems/engine-runtime.md) for invariants and [operations guide](../operations/run-engine-runtime.md) for exit codes.
+The foreground CLI emits lifecycle snapshots as newline-delimited JSON on child stdout. That launch-status stream remains separate from typed product traffic and must not carry requests, credentials, or product data. Windows command/query traffic uses the negotiated named-pipe protocol documented in [typed local IPC](../developer/subsystems/local-ipc.md). Process PID and instance metadata support correlation only.
 
 ## Wire and compatibility rules
 
 - Protocol v1 uses UTF-8 JSON with camel-case fields and explicit `kind`/`payload` tags.
+- Local IPC frames add a four-byte little-endian length and enforce an 8 MiB maximum.
 - UUIDs are lowercase hyphenated strings. Times are Unix milliseconds. Canonical values remain locale-independent.
 - Unknown object fields are accepted for additive minor-version evolution.
 - Unknown required operation variants are rejected; they are never guessed or treated as a known command.

@@ -53,3 +53,4 @@ Accepted ADRs are immutable historical records except for typo fixes, link repai
 | [ADR-0014](0014-rust-derived-json-contracts.md) | Derive JSON contracts and native bindings from Rust | Accepted | 2026-07-12 | None |
 | [ADR-0015](0015-contract-compatibility-window.md) | Support a rolling protocol compatibility window | Accepted | 2026-07-12 | None |
 | [ADR-0016](0016-bounded-platform-process-supervision.md) | Bound platform engine process supervision | Accepted | 2026-07-12 | None |
+| [ADR-0017](0017-windows-named-pipe-local-ipc.md) | Use bounded JSON frames over Windows named pipes | Accepted | 2026-07-12 | None |

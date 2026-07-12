@@ -24,6 +24,8 @@ Eitmad uses thin native desktop applications connected to a separate trusted Rus
 - [Arabic-first UX requirements](arabic-first-ux.md): RTL, bidirectional text, search, input, documents, and accessibility.
 - [Architectural decisions](../decisions/index.md): the historical record of accepted choices.
 - [Protocol v1 contracts](../api/index.md): implemented external shapes, compatibility, and generation.
+- [Local IPC threat model](local-ipc-threat-model.md): current Windows trust boundary, controls, residual risks, and production blockers.
+- [Typed local IPC](../developer/subsystems/local-ipc.md): implemented named-pipe framing, negotiation, dispatch, deadlines, and shutdown.
 - [Engine runtime lifecycle](../developer/subsystems/engine-runtime.md): implemented startup, readiness, health, process identity, diagnostics, and shutdown behavior.
 - [Windows process supervision](../developer/subsystems/windows-process-supervision.md): implemented Job Object containment, bounded restart, stale-event rejection, and graceful shutdown.
 - [Repository layout and ownership](../developer/repository-layout.md): where each current boundary lives.
