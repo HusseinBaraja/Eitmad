@@ -1,0 +1,49 @@
+name: Windows process supervision
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/windows-supervision.yml"
+      - "crates/contracts/**"
+      - "crates/engine-cli/**"
+      - "crates/engine-runtime/**"
+      - "platform-adapters/windows/**"
+      - "shells/windows/generated/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/windows-supervision.yml"
+      - "crates/contracts/**"
+      - "crates/engine-cli/**"
+      - "crates/engine-runtime/**"
+      - "platform-adapters/windows/**"
+      - "shells/windows/generated/**"
+
+permissions:
+  contents: read
+
+jobs:
+  supervision:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.85
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Build engine CLI
+        run: cargo build -p eitmad-engine-cli
+      - name: Build Windows supervision adapter
+        run: >-
+          dotnet build
+          platform-adapters/windows/tests/Eitmad.Platform.Windows.Tests.csproj
+          --configuration Release
+          --nologo
+      - name: Run fake and real-engine supervision scenarios
+        run: >-
+          dotnet run
+          --project platform-adapters/windows/tests/Eitmad.Platform.Windows.Tests.csproj
+          --configuration Release
+          --no-build
+          --
+          --engine target/debug/eitmad-engine-cli.exe
