@@ -1,6 +1,6 @@
 ---
 title: "Resolve local IPC connection and request failures"
-description: "Diagnose unavailable engines, subscription resync, backpressure, version mismatch, deadlines, and payload limits safely."
+description: "Diagnose unavailable engines, subscription capacity, resync, backpressure, version mismatch, deadlines, and payload limits safely."
 audience: "support"
 page_type: "troubleshooting"
 status: "active"
@@ -15,6 +15,7 @@ keywords:
   - "eitmad.error.ipc-payload-too-large.v1"
   - "eitmad.error.ipc-subscription-resync-required.v1"
   - "eitmad.error.ipc-subscription-unsupported.v1"
+  - "eitmad.error.ipc-subscription-capacity-exceeded.v1"
 ---
 
 # Resolve local IPC connection and request failures
@@ -32,6 +33,7 @@ Local IPC failures do not by themselves imply lost committed data. Stop new work
 | `eitmad.error.ipc-deadline-exceeded.v1` | Deadline passed before query completion | Compare deadline, current time, and operation type | Retry a query if still needed; retry a command only with the same idempotency key because outcome may be unknown |
 | `eitmad.error.ipc-payload-too-large.v1` | Frame exceeds 8 MiB | Measure encoded frame size without logging content | Page or stream through a domain contract; do not raise the cap ad hoc |
 | `eitmad.error.ipc-subscription-unsupported.v1` | Peer negotiated `1.0` or omitted the subscription capability | Capture negotiated protocol and capability IDs | Use a compatible `1.1` engine/shell pair; do not replace subscriptions with UI polling |
+| `eitmad.error.ipc-subscription-capacity-exceeded.v1` | One client connection already owns 64 active subscriptions | Count active feature subscriptions without recording payloads or scope data | Reuse or explicitly unsubscribe obsolete streams; do not raise the ceiling without a resource review |
 | `eitmad.error.ipc-subscription-resync-required.v1` | Cursor expired, came from another generation, stream, or scope | Compare engine generation and subscription kind without exposing cursor ownership | Subscribe fresh, query the authoritative scoped projection, then apply buffered live events |
 | `SubscriptionClosed` with `backpressure` | A discrete record, notification, or error gap exceeded replay | Preserve the last processed cursor and sanitized event kind | Allow supervision to reconnect/resubscribe; if resync is required, query current state before continuing |
 | Repeated `SubscriptionBackpressure` | Shell consumer is slower than event production | Measure queue depth/event rate without recording payloads | Fix consumer work or reduce producer frequency; do not enlarge bounds without a resource review |

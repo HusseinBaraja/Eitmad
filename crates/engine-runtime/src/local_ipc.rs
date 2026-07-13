@@ -39,6 +39,8 @@ use tokio::{
     sync::{mpsc, watch},
 };
 
+const MAX_ACTIVE_SUBSCRIPTIONS_PER_CONNECTION: usize = 64;
+
 pub const DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 pub const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
@@ -456,34 +458,41 @@ impl LocalIpcServer {
                 .await
             {
                 Err(error) => SubscriptionOutcome::Failed(error),
-                Ok(()) => match self.event_broker.subscribe(
-                    request.authorization.scope,
-                    request.subscription,
-                    request.resume_after,
-                ) {
-                    Err(SubscribeError::ResyncRequired) => SubscriptionOutcome::Failed(
-                        subscription_resync_required(request.correlation_id),
-                    ),
-                    Ok((accepted, feed)) => {
-                        let subscription_id = accepted.subscription_id;
-                        let handle = tokio::spawn(pump_subscription(
-                            feed,
-                            subscription_id,
-                            request.correlation_id,
-                            deliveries.clone(),
-                        ))
-                        .abort_handle();
-                        subscriptions.insert(
-                            subscription_id,
-                            ActiveSubscription {
-                                handle,
-                                correlation_id: request.correlation_id,
-                                last_delivered_cursor: None,
-                            },
-                        );
-                        SubscriptionOutcome::Succeeded(accepted)
+                Ok(()) if subscriptions.len() >= MAX_ACTIVE_SUBSCRIPTIONS_PER_CONNECTION => {
+                    SubscriptionOutcome::Failed(subscription_capacity_exceeded(
+                        request.correlation_id,
+                    ))
+                }
+                Ok(()) => {
+                    match self.event_broker.subscribe(
+                        request.authorization.scope,
+                        request.subscription,
+                        request.resume_after,
+                    ) {
+                        Err(SubscribeError::ResyncRequired) => SubscriptionOutcome::Failed(
+                            subscription_resync_required(request.correlation_id),
+                        ),
+                        Ok((accepted, feed)) => {
+                            let subscription_id = accepted.subscription_id;
+                            let handle = tokio::spawn(pump_subscription(
+                                feed,
+                                subscription_id,
+                                request.correlation_id,
+                                deliveries.clone(),
+                            ))
+                            .abort_handle();
+                            subscriptions.insert(
+                                subscription_id,
+                                ActiveSubscription {
+                                    handle,
+                                    correlation_id: request.correlation_id,
+                                    last_delivered_cursor: None,
+                                },
+                            );
+                            SubscriptionOutcome::Succeeded(accepted)
+                        }
                     }
-                },
+                }
             }
         };
         SubscriptionResponseEnvelope {
@@ -866,6 +875,16 @@ fn subscription_resync_required(correlation_id: CorrelationId) -> ContractError 
     )
 }
 
+fn subscription_capacity_exceeded(correlation_id: CorrelationId) -> ContractError {
+    contract_error(
+        "eitmad.error.ipc-subscription-capacity-exceeded.v1",
+        "eitmad.message.ipc-subscription-capacity-exceeded.v1",
+        correlation_id,
+        RetryDisposition::Never,
+        None,
+    )
+}
+
 fn contract_error(
     code: &str,
     message_id: &str,
@@ -1242,6 +1261,55 @@ mod tests {
             assert_eq!(closed.reason, reason);
             assert!(task.await.unwrap_err().is_cancelled());
         }
+    }
+
+    #[tokio::test]
+    async fn connection_rejects_subscriptions_at_capacity() {
+        let service = service(Some("token"));
+        let response = service.handshake(handshake(PROTOCOL_VERSION, "token"));
+        let HandshakeOutcome::Accepted(accepted) = response.outcome else {
+            panic!("handshake should succeed");
+        };
+        let session = Session {
+            negotiated: accepted.negotiated,
+            authorization: accepted.authorization.clone(),
+        };
+        let request = SubscriptionEnvelope {
+            protocol_version: PROTOCOL_VERSION,
+            request_id: RequestId::new(uuid::Uuid::new_v4()),
+            correlation_id: CorrelationId::new(uuid::Uuid::new_v4()),
+            authorization: accepted.authorization,
+            subscription: Subscription::Configuration(ConfigurationChanges {}),
+            resume_after: None,
+        };
+        let task = tokio::spawn(std::future::pending::<()>());
+        let abort = task.abort_handle();
+        let mut subscriptions = (0..MAX_ACTIVE_SUBSCRIPTIONS_PER_CONNECTION)
+            .map(|_| {
+                (
+                    SubscriptionId::new(uuid::Uuid::new_v4()),
+                    ActiveSubscription {
+                        handle: abort.clone(),
+                        correlation_id: CorrelationId::new(uuid::Uuid::new_v4()),
+                        last_delivered_cursor: None,
+                    },
+                )
+            })
+            .collect::<HashMap<_, _>>();
+        let (sender, _) = mpsc::channel(1);
+
+        let response = service
+            .subscribe(Some(&session), request, &sender, &mut subscriptions)
+            .await;
+        let SubscriptionOutcome::Failed(error) = response.outcome else {
+            panic!("capacity failure expected");
+        };
+        assert_eq!(
+            error.code.as_str(),
+            "eitmad.error.ipc-subscription-capacity-exceeded.v1"
+        );
+        assert_eq!(subscriptions.len(), MAX_ACTIVE_SUBSCRIPTIONS_PER_CONNECTION);
+        task.abort();
     }
 
     #[test]
