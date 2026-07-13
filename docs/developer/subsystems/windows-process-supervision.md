@@ -84,7 +84,7 @@ No UI exists in this foundation. RTL layout, Arabic copy, bidirectional input, s
 
 ## Tests and safe extension points
 
-The dependency-free scenario harness beside the adapter covers intentional stop, unexpected death, exhaustion, stale exit, graceful shutdown, and timeout termination. Passing `--engine target/debug/eitmad-engine-cli.exe` adds the real Windows Job Object and Rust lifecycle smoke flow.
+The dependency-free scenario harness beside the adapter covers intentional stop, unexpected death, exhaustion, stale exit, subscription queue overflow and reattachment, graceful shutdown, and timeout termination. Passing `--engine target/debug/eitmad-engine-cli.exe` adds the real Windows Job Object and Rust lifecycle smoke flow.
 
 Run:
 

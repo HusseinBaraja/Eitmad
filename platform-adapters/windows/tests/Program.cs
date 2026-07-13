@@ -9,6 +9,7 @@ tests.FrameLimitMatchesRustContract();
 tests.SubscriptionQueueIsBounded();
 tests.SubscriptionAcknowledgementNeverRegresses();
 await tests.SupervisedSubscriptionSurvivesReattach();
+await tests.SupervisedSubscriptionRecoversAfterQueueOverflow();
 await tests.IntentionalStopNeverRestarts();
 await tests.UnexpectedDeathRestartsOnce();
 await tests.FourthConsecutiveFailureExhaustsRestarts();
@@ -98,6 +99,40 @@ internal sealed class SupervisionScenarios
         var replacementEvent = EventEnvelope(replacement.SubscriptionId);
         Assert.True(replacement.TryPublish(replacementEvent), "replacement attachment publishes");
         Assert.Equal(replacementEvent.Cursor, (await ReadOne(supervised)).Cursor, "replacement event");
+    }
+
+    public async Task SupervisedSubscriptionRecoversAfterQueueOverflow()
+    {
+        await using var supervised = new SupervisedEngineSubscription(new Subscription
+        {
+            Kind = SubscriptionKind.EitmadSyncStatusSubscribeV1,
+            Payload = [],
+        });
+        var overflowing = new EngineSubscription(Guid.NewGuid(), Guid.NewGuid(), resumed: false);
+        supervised.Attach(overflowing, resetCursor: false);
+        for (var index = 0; index <= EngineSubscription.Capacity; index++)
+        {
+            while (!overflowing.TryPublish(EventEnvelope(overflowing.SubscriptionId, index + 1)))
+            {
+                await Task.Yield();
+            }
+            await Task.Yield();
+        }
+        await Task.Delay(20);
+        await Assert.ThrowsAsync<EngineIpcException>(
+            async () =>
+            {
+                await foreach (var _ in supervised.ReadAllAsync())
+                {
+                }
+            },
+            "overflow completes the supervised queue");
+
+        var replacement = new EngineSubscription(Guid.NewGuid(), Guid.NewGuid(), resumed: true);
+        supervised.Attach(replacement, resetCursor: false);
+        var replacementEvent = EventEnvelope(replacement.SubscriptionId);
+        Assert.True(replacement.TryPublish(replacementEvent), "replacement publishes after overflow");
+        Assert.Equal(replacementEvent.Cursor, (await ReadOne(supervised)).Cursor, "replacement event after overflow");
     }
 
     private static EventEnvelope EventEnvelope(Guid subscriptionId, long sequence = 1) => new()
