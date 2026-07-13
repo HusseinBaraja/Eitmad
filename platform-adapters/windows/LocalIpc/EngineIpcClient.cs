@@ -386,14 +386,15 @@ public sealed class EngineIpcClient : IAsyncDisposable
                 }
                 if (message.Kind == IpcServerMessageKind.EitmadIpcSubscriptionClosedV1)
                 {
+                    var error = new EngineIpcException(
+                        EngineIpcFailureKind.SubscriptionBackpressure,
+                        "The engine closed a subscription because replay could not preserve a discrete event.");
                     if (message.Payload.SubscriptionId is { } subscriptionId
                         && subscriptions.TryRemove(subscriptionId, out var subscription))
                     {
-                        subscription.Complete(new EngineIpcException(
-                            EngineIpcFailureKind.SubscriptionBackpressure,
-                            "The engine closed the subscription because replay could not preserve a discrete event."));
+                        subscription.Complete(error);
                     }
-                    continue;
+                    throw error;
                 }
                 var requestId = message.Payload?.RequestId;
                 if (requestId is { } id && pending.TryRemove(id, out var completion))
