@@ -6,6 +6,8 @@ using Eitmad.Platform.Windows.ProcessSupervision;
 var tests = new SupervisionScenarios();
 await tests.UnavailableEngineIsTyped();
 tests.FrameLimitMatchesRustContract();
+tests.SubscriptionQueueIsBounded();
+await tests.SupervisedSubscriptionSurvivesReattach();
 await tests.IntentionalStopNeverRestarts();
 await tests.UnexpectedDeathRestartsOnce();
 await tests.FourthConsecutiveFailureExhaustsRestarts();
@@ -48,6 +50,63 @@ internal sealed class SupervisionScenarios
 
     public void FrameLimitMatchesRustContract() =>
         Assert.Equal(8_388_608, EngineIpcClient.MaximumFrameBytes, "IPC frame limit");
+
+    public void SubscriptionQueueIsBounded()
+    {
+        var subscription = new EngineSubscription(Guid.NewGuid(), Guid.NewGuid(), resumed: false);
+        for (var index = 0; index < EngineSubscription.Capacity; index++)
+        {
+            Assert.True(
+                subscription.TryPublish(EventEnvelope(subscription.SubscriptionId)),
+                "subscription queue accepts bounded item");
+        }
+        Assert.False(
+            subscription.TryPublish(EventEnvelope(subscription.SubscriptionId)),
+            "subscription queue rejects overflow");
+    }
+
+    public async Task SupervisedSubscriptionSurvivesReattach()
+    {
+        await using var supervised = new SupervisedEngineSubscription(new Subscription
+        {
+            Kind = SubscriptionKind.EitmadSyncStatusSubscribeV1,
+            Payload = [],
+        });
+        var first = new EngineSubscription(Guid.NewGuid(), Guid.NewGuid(), resumed: false);
+        supervised.Attach(first, resetCursor: false);
+        var firstEvent = EventEnvelope(first.SubscriptionId);
+        Assert.True(first.TryPublish(firstEvent), "first attachment publishes");
+        var delivered = await ReadOne(supervised);
+        supervised.Acknowledge(delivered);
+        Assert.Equal(firstEvent.Cursor, supervised.ProcessedCursor, "processed cursor");
+
+        var replacement = new EngineSubscription(Guid.NewGuid(), firstEvent.Cursor, resumed: true);
+        supervised.Attach(replacement, resetCursor: false);
+        var replacementEvent = EventEnvelope(replacement.SubscriptionId);
+        Assert.True(replacement.TryPublish(replacementEvent), "replacement attachment publishes");
+        Assert.Equal(replacementEvent.Cursor, (await ReadOne(supervised)).Cursor, "replacement event");
+    }
+
+    private static EventEnvelope EventEnvelope(Guid subscriptionId) => new()
+    {
+        SubscriptionId = subscriptionId,
+        CorrelationId = Guid.NewGuid(),
+        Cursor = Guid.NewGuid(),
+        Event = new Event
+        {
+            Kind = EventKind.EitmadSyncStatusEventV1,
+            Payload = new EventPayload(),
+        },
+        OccurredAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+        Sequence = 1,
+    };
+
+    private static async Task<EventEnvelope> ReadOne(SupervisedEngineSubscription subscription)
+    {
+        await using var enumerator = subscription.ReadAllAsync().GetAsyncEnumerator();
+        Assert.True(await enumerator.MoveNextAsync(), "subscription yields event");
+        return enumerator.Current;
+    }
 
     public async Task IntentionalStopNeverRestarts()
     {

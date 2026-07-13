@@ -13,6 +13,9 @@ public enum EngineIpcFailureKind
     VersionMismatch,
     ProtocolViolation,
     EngineStopping,
+    SubscriptionUnsupported,
+    ResyncRequired,
+    SubscriptionBackpressure,
 }
 
 public sealed class EngineIpcException : Exception

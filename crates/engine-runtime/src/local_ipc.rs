@@ -242,13 +242,8 @@ impl LocalIpcServer {
                     }
                 }
                 delivery = event_receiver.recv(), if !subscriptions.is_empty() => {
-                    if let Some(delivery) = delivery {
-                        if delivery.closed {
-                            subscriptions.remove(&delivery.subscription_id);
-                        }
-                        if !write_frame_or_close(&mut writer, &delivery.message).await? {
-                            return Ok(());
-                        }
+                    if !write_subscription_delivery(&mut writer, delivery, &mut subscriptions).await? {
+                        return Ok(());
                     }
                 }
                 result = read_client_message(&mut reader) => {
@@ -518,6 +513,26 @@ fn unsubscribe(
         subscription_id: request.subscription_id,
         accepted,
     })
+}
+
+async fn write_subscription_delivery<W>(
+    writer: &mut W,
+    delivery: Option<SubscriptionDelivery>,
+    subscriptions: &mut HashMap<SubscriptionId, tokio::task::AbortHandle>,
+) -> io::Result<bool>
+where
+    W: AsyncWrite + Unpin,
+{
+    let Some(delivery) = delivery else {
+        return Ok(true);
+    };
+    if !delivery.closed && !subscriptions.contains_key(&delivery.subscription_id) {
+        return Ok(true);
+    }
+    if delivery.closed {
+        subscriptions.remove(&delivery.subscription_id);
+    }
+    write_frame_or_close(writer, &delivery.message).await
 }
 
 struct SubscriptionDelivery {
