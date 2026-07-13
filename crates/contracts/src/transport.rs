@@ -10,7 +10,7 @@ use crate::{
     versioning::ProtocolVersion,
 };
 
-pub const PROTOCOL_VERSION: ProtocolVersion = ProtocolVersion { major: 1, minor: 0 };
+pub const PROTOCOL_VERSION: ProtocolVersion = ProtocolVersion { major: 1, minor: 1 };
 pub const MAX_PAGE_SIZE: u32 = 500;
 
 uuid_id!(RequestId);
@@ -216,6 +216,63 @@ pub struct EventEnvelope {
     pub cursor: EventCursor,
     pub occurred_at: UnixMillis,
     pub event: Event,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SubscriptionAccepted {
+    pub subscription_id: SubscriptionId,
+    pub stream_cursor: EventCursor,
+    pub resumed: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "status", content = "payload", rename_all = "camelCase")]
+pub enum SubscriptionOutcome {
+    Succeeded(SubscriptionAccepted),
+    Failed(ContractError),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SubscriptionResponseEnvelope {
+    pub request_id: RequestId,
+    pub correlation_id: CorrelationId,
+    pub outcome: SubscriptionOutcome,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct UnsubscribeRequest {
+    pub request_id: RequestId,
+    pub correlation_id: CorrelationId,
+    pub subscription_id: SubscriptionId,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct UnsubscribeResponse {
+    pub request_id: RequestId,
+    pub correlation_id: CorrelationId,
+    pub subscription_id: SubscriptionId,
+    pub accepted: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum SubscriptionCloseReason {
+    ClientRequested,
+    Backpressure,
+    EngineStopping,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SubscriptionClosedEnvelope {
+    pub subscription_id: SubscriptionId,
+    pub correlation_id: CorrelationId,
+    pub last_delivered_cursor: Option<EventCursor>,
+    pub reason: SubscriptionCloseReason,
 }
 
 #[cfg(test)]

@@ -5,8 +5,9 @@ use crate::{
     errors::ContractError,
     identity::{AuthenticatedIdentity, AuthorizationContext, ScopeRef},
     transport::{
-        CommandEnvelope, CommandResponseEnvelope, CorrelationId, QueryEnvelope,
-        QueryResponseEnvelope, RequestId,
+        CommandEnvelope, CommandResponseEnvelope, CorrelationId, EventEnvelope, QueryEnvelope,
+        QueryResponseEnvelope, RequestId, SubscriptionClosedEnvelope, SubscriptionEnvelope,
+        SubscriptionResponseEnvelope, UnsubscribeRequest, UnsubscribeResponse,
     },
     versioning::{NegotiatedSession, NegotiationRejection, PeerHello},
 };
@@ -92,6 +93,10 @@ pub enum IpcClientMessage {
     Command(CommandEnvelope),
     #[serde(rename = "eitmad.ipc.query.v1")]
     Query(QueryEnvelope),
+    #[serde(rename = "eitmad.ipc.subscribe.v1")]
+    Subscribe(SubscriptionEnvelope),
+    #[serde(rename = "eitmad.ipc.unsubscribe.v1")]
+    Unsubscribe(UnsubscribeRequest),
     #[serde(rename = "eitmad.ipc.shutdown.v1")]
     Shutdown(ShutdownRequest),
 }
@@ -105,6 +110,14 @@ pub enum IpcServerMessage {
     Command(CommandResponseEnvelope),
     #[serde(rename = "eitmad.ipc.query-response.v1")]
     Query(QueryResponseEnvelope),
+    #[serde(rename = "eitmad.ipc.subscribe-response.v1")]
+    Subscribe(SubscriptionResponseEnvelope),
+    #[serde(rename = "eitmad.ipc.unsubscribe-response.v1")]
+    Unsubscribe(UnsubscribeResponse),
+    #[serde(rename = "eitmad.ipc.event.v1")]
+    Event(EventEnvelope),
+    #[serde(rename = "eitmad.ipc.subscription-closed.v1")]
+    SubscriptionClosed(SubscriptionClosedEnvelope),
     #[serde(rename = "eitmad.ipc.shutdown-response.v1")]
     Shutdown(ShutdownResponse),
     #[serde(rename = "eitmad.ipc.failure.v1")]
