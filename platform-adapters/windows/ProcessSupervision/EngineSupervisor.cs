@@ -638,15 +638,18 @@ public sealed class EngineSupervisor : IAsyncDisposable
             resetCursor = true;
         }
 
+        bool stale;
         lock (gate)
         {
-            if (observedGeneration != generation
+            stale = observedGeneration != generation
                 || !ReferenceEquals(client, currentIpcClient)
-                || !subscriptions.ContainsKey(subscription.RegistrationId))
-            {
-                _ = client.UnsubscribeAsync(attached, cancellationToken: cancellationToken);
-                return;
-            }
+                || !subscriptions.ContainsKey(subscription.RegistrationId);
+        }
+        if (stale)
+        {
+            await client.UnsubscribeAsync(attached, cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+            return;
         }
         subscription.Attach(attached, resetCursor);
     }
