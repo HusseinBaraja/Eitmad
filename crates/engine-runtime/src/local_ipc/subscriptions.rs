@@ -57,6 +57,11 @@ pub enum SubscribeError {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PublishError {
+    ScopeMismatch,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FeedError {
     Backpressure,
     Closed,
@@ -94,11 +99,18 @@ impl EventBroker {
     /// Replay eviction never blocks the producing vertical. Slow subscribers
     /// recover from retained cursors or receive an explicit backpressure close.
     ///
+    /// # Errors
+    ///
+    /// Returns [`PublishError::ScopeMismatch`] when a scoped payload disagrees
+    /// with the publisher's authorized scope.
+    ///
     /// # Panics
     ///
     /// Panics when another broker operation poisoned the internal lock.
-    #[must_use]
-    pub fn publish(&self, scope: ScopeRef, event: Event) -> PublishedEvent {
+    pub fn publish(&self, scope: ScopeRef, event: Event) -> Result<PublishedEvent, PublishError> {
+        if event_scope(&event).is_some_and(|event_scope| event_scope != &scope) {
+            return Err(PublishError::ScopeMismatch);
+        }
         let published = PublishedEvent {
             cursor: EventCursor::new(Uuid::new_v4()),
             scope: scope.clone(),
@@ -115,7 +127,7 @@ impl EventBroker {
             event: Some(published.clone()),
         });
         let _ = self.inner.live.send(published.clone());
-        published
+        Ok(published)
     }
 
     /// Creates an atomic replay-to-live feed for one authorized scope.
@@ -275,6 +287,19 @@ fn now() -> UnixMillis {
     UnixMillis(i64::try_from(millis).unwrap_or(i64::MAX))
 }
 
+fn event_scope(event: &Event) -> Option<&ScopeRef> {
+    match event {
+        Event::ConfigurationChanged(snapshot) => Some(&snapshot.scope),
+        Event::RecordChanged(notice) => Some(&notice.scope),
+        Event::BackgroundJobChanged(status) => Some(&status.scope),
+        Event::NotificationRaised(notification) => Some(&notification.scope),
+        Event::ErrorRaised(error) => Some(&error.scope),
+        Event::PermissionsChanged(_)
+        | Event::UpdateStateChanged(_)
+        | Event::SyncStatusChanged(_) => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use eitmad_contracts::{
@@ -316,9 +341,15 @@ mod tests {
                 None,
             )
             .unwrap();
-        let first = broker.publish(first_scope.clone(), config_event(&first_scope, 1));
-        let _ = broker.publish(second_scope.clone(), config_event(&second_scope, 9));
-        let second = broker.publish(first_scope.clone(), config_event(&first_scope, 2));
+        let first = broker
+            .publish(first_scope.clone(), config_event(&first_scope, 1))
+            .unwrap();
+        broker
+            .publish(second_scope.clone(), config_event(&second_scope, 9))
+            .unwrap();
+        let second = broker
+            .publish(first_scope.clone(), config_event(&first_scope, 2))
+            .unwrap();
 
         assert_eq!(initial.recv().await.unwrap().cursor, first.cursor);
         let (_, mut resumed) = broker
@@ -351,12 +382,14 @@ mod tests {
             )
             .unwrap();
         for records in 0..=MAX_REPLAY_EVENTS {
-            let _ = broker.publish(
-                scope.clone(),
-                Event::SyncStatusChanged(SyncStatus::Queued {
-                    records: records as u64,
-                }),
-            );
+            broker
+                .publish(
+                    scope.clone(),
+                    Event::SyncStatusChanged(SyncStatus::Queued {
+                        records: records as u64,
+                    }),
+                )
+                .unwrap();
         }
         let Event::SyncStatusChanged(SyncStatus::Queued { records }) =
             feed.recv().await.unwrap().event
@@ -378,21 +411,34 @@ mod tests {
             )
             .unwrap();
         for index in 0..=MAX_REPLAY_EVENTS {
-            let _ = broker.publish(
-                scope.clone(),
-                Event::NotificationRaised(Notification {
-                    notification_id: NotificationId::new(Uuid::from_u128(index as u128 + 1)),
-                    scope: scope.clone(),
-                    severity: NotificationSeverity::Information,
-                    message_id: eitmad_contracts::errors::MessageId::parse(
-                        "eitmad.message.contract-invalid.v1",
-                    )
-                    .unwrap(),
-                    parameters: Vec::new(),
-                    correlation_id: Some(CorrelationId::new(Uuid::nil())),
-                }),
-            );
+            broker
+                .publish(
+                    scope.clone(),
+                    Event::NotificationRaised(Notification {
+                        notification_id: NotificationId::new(Uuid::from_u128(index as u128 + 1)),
+                        scope: scope.clone(),
+                        severity: NotificationSeverity::Information,
+                        message_id: eitmad_contracts::errors::MessageId::parse(
+                            "eitmad.message.contract-invalid.v1",
+                        )
+                        .unwrap(),
+                        parameters: Vec::new(),
+                        correlation_id: Some(CorrelationId::new(Uuid::nil())),
+                    }),
+                )
+                .unwrap();
         }
         assert!(matches!(feed.recv().await, Err(FeedError::Backpressure)));
+    }
+
+    #[test]
+    fn rejects_embedded_scope_mismatch() {
+        let broker = EventBroker::new();
+        let authorized = scope(1);
+        let other = scope(2);
+        assert!(matches!(
+            broker.publish(authorized, config_event(&other, 1)),
+            Err(PublishError::ScopeMismatch)
+        ));
     }
 }

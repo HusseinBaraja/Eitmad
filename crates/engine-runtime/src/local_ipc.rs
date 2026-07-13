@@ -2,7 +2,9 @@
 
 mod subscriptions;
 
-pub use subscriptions::{EventBroker, FeedError, PublishedEvent, SubscribeError, SubscriptionFeed};
+pub use subscriptions::{
+    EventBroker, FeedError, PublishError, PublishedEvent, SubscribeError, SubscriptionFeed,
+};
 
 use std::{collections::HashMap, io, sync::Arc, time::Duration};
 
@@ -1099,15 +1101,18 @@ mod tests {
             panic!("subscription should succeed");
         };
 
-        let _ = service.event_broker.publish(
-            scope.clone(),
-            eitmad_contracts::events::Event::ConfigurationChanged(ConfigSnapshot {
-                schema_version: 1,
-                revision: 1,
-                scope,
-                entries: Vec::new(),
-            }),
-        );
+        service
+            .event_broker
+            .publish(
+                scope.clone(),
+                eitmad_contracts::events::Event::ConfigurationChanged(ConfigSnapshot {
+                    schema_version: 1,
+                    revision: 1,
+                    scope,
+                    entries: Vec::new(),
+                }),
+            )
+            .unwrap();
         let delivery = receiver.recv().await.expect("event delivery");
         let IpcServerMessage::Event(event) = delivery.message else {
             panic!("event message expected");
