@@ -2,6 +2,7 @@ import Foundation
 
 private struct Fixture: Decodable {
     let query: QueryEnvelope
+    let queryProtocol10: QueryEnvelope
     let queryResponse: QueryResponseEnvelope
     let structuredError: QueryResult
     let mixedDirectionSamples: [String]
@@ -17,6 +18,8 @@ private struct ContractFixtureTests {
         let fixture = try JSONDecoder().decode(Fixture.self, from: data)
         let encoded = try JSONEncoder().encode(fixture.query)
         let decoded = try JSONDecoder().decode(QueryEnvelope.self, from: encoded)
+        let encodedProtocol10 = try JSONEncoder().encode(fixture.queryProtocol10)
+        let decodedProtocol10 = try JSONDecoder().decode(QueryEnvelope.self, from: encodedProtocol10)
         let encodedResponse = try JSONEncoder().encode(fixture.queryResponse)
         let decodedResponse = try JSONDecoder().decode(QueryResponseEnvelope.self, from: encodedResponse)
         let encodedError = try JSONEncoder().encode(fixture.structuredError)
@@ -25,6 +28,9 @@ private struct ContractFixtureTests {
         let decodedSamples = try JSONDecoder().decode([String].self, from: encodedSamples)
 
         guard try hasSameJSON(decoded, fixture.query) else {
+            throw ContractTestError.queryCorrupted
+        }
+        guard try hasSameJSON(decodedProtocol10, fixture.queryProtocol10) else {
             throw ContractTestError.queryCorrupted
         }
         guard try hasSameJSON(decodedResponse, fixture.queryResponse) else {

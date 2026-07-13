@@ -60,6 +60,7 @@ struct ContractSchemaRoot {
 #[serde(rename_all = "camelCase")]
 struct ConformanceFixture {
     query: QueryEnvelope,
+    query_protocol_1_0: QueryEnvelope,
     query_response: QueryResponseEnvelope,
     structured_error: ContractError,
     mixed_direction_samples: Vec<&'static str>,
@@ -114,6 +115,8 @@ fn fixture() -> Result<ConformanceFixture, Box<dyn std::error::Error>> {
         deadline: UnixMillis(1_800_000_000_000),
         query: Query::Configuration(GetConfiguration {}),
     };
+    let mut query_protocol_1_0 = query.clone();
+    query_protocol_1_0.protocol_version.minor = 0;
     let snapshot = ConfigSnapshot {
         schema_version: 1,
         revision: 7,
@@ -147,6 +150,7 @@ fn fixture() -> Result<ConformanceFixture, Box<dyn std::error::Error>> {
 
     Ok(ConformanceFixture {
         query,
+        query_protocol_1_0,
         query_response,
         structured_error,
         mixed_direction_samples: vec![
