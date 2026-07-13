@@ -25,7 +25,7 @@ use eitmad_contracts::{
         CommandOutcome, CommandResponseEnvelope, CorrelationId, EventCursor, EventEnvelope,
         QueryOutcome, QueryResponseEnvelope, SubscriptionCloseReason, SubscriptionClosedEnvelope,
         SubscriptionEnvelope, SubscriptionId, SubscriptionOutcome, SubscriptionResponseEnvelope,
-        UnixMillis, UnsubscribeResponse,
+        UnixMillis, UnsubscribeRequest, UnsubscribeResponse,
     },
     updates::ReleaseVersion,
     versioning::{
@@ -279,35 +279,13 @@ impl LocalIpcServer {
                             }
                         }
                         IpcClientMessage::Unsubscribe(request) if session.is_some() => {
-                            let accepted = if subscriptions.contains_key(&request.subscription_id) {
-                                if !close_subscription(
-                                    &mut writer,
-                                    request.subscription_id,
-                                    SubscriptionCloseReason::ClientRequested,
-                                    &mut subscriptions,
-                                ).await? {
-                                    return Ok(());
-                                }
-                                true
-                            } else {
-                                false
-                            };
-                            let response = unsubscribe_response(&request, accepted);
-                            if !write_frame_or_close(&mut writer, &response).await? {
+                            if !handle_unsubscribe(&mut writer, &request, &mut subscriptions).await? {
                                 return Ok(());
                             }
                         }
                         IpcClientMessage::Shutdown(request) => {
-                            let subscription_ids = subscriptions.keys().copied().collect::<Vec<_>>();
-                            for subscription_id in subscription_ids {
-                                if !close_subscription(
-                                    &mut writer,
-                                    subscription_id,
-                                    SubscriptionCloseReason::EngineStopping,
-                                    &mut subscriptions,
-                                ).await? {
-                                    return Ok(());
-                                }
+                            if !close_all_subscriptions(&mut writer, &mut subscriptions).await? {
+                                return Ok(());
                             }
                             while let Some(result) = pending.join_next().await {
                                 if let Ok(response) = result {
@@ -534,10 +512,7 @@ fn spawn_request(
     }
 }
 
-fn unsubscribe_response(
-    request: &eitmad_contracts::transport::UnsubscribeRequest,
-    accepted: bool,
-) -> IpcServerMessage {
+fn unsubscribe_response(request: &UnsubscribeRequest, accepted: bool) -> IpcServerMessage {
     IpcServerMessage::Unsubscribe(UnsubscribeResponse {
         request_id: request.request_id,
         correlation_id: request.correlation_id,
@@ -546,10 +521,65 @@ fn unsubscribe_response(
     })
 }
 
+async fn handle_unsubscribe<W>(
+    writer: &mut W,
+    request: &UnsubscribeRequest,
+    subscriptions: &mut HashMap<SubscriptionId, ActiveSubscription>,
+) -> io::Result<bool>
+where
+    W: AsyncWrite + Unpin,
+{
+    let accepted = if subscriptions.contains_key(&request.subscription_id) {
+        if !close_subscription(
+            writer,
+            request.subscription_id,
+            SubscriptionCloseReason::ClientRequested,
+            subscriptions,
+        )
+        .await?
+        {
+            return Ok(false);
+        }
+        true
+    } else {
+        false
+    };
+    write_frame_or_close(writer, &unsubscribe_response(request, accepted)).await
+}
+
+async fn close_all_subscriptions<W>(
+    writer: &mut W,
+    subscriptions: &mut HashMap<SubscriptionId, ActiveSubscription>,
+) -> io::Result<bool>
+where
+    W: AsyncWrite + Unpin,
+{
+    let subscription_ids = subscriptions.keys().copied().collect::<Vec<_>>();
+    for subscription_id in subscription_ids {
+        if !close_subscription(
+            writer,
+            subscription_id,
+            SubscriptionCloseReason::EngineStopping,
+            subscriptions,
+        )
+        .await?
+        {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
 struct ActiveSubscription {
     handle: tokio::task::AbortHandle,
     correlation_id: CorrelationId,
     last_delivered_cursor: Option<EventCursor>,
+}
+
+impl Drop for ActiveSubscription {
+    fn drop(&mut self) {
+        self.handle.abort();
+    }
 }
 
 async fn close_subscription<W>(
@@ -1261,6 +1291,36 @@ mod tests {
             assert_eq!(closed.reason, reason);
             assert!(task.await.unwrap_err().is_cancelled());
         }
+    }
+
+    #[tokio::test]
+    async fn connection_owner_aborts_blocked_subscription_pump_on_drop() {
+        let broker = EventBroker::new();
+        let scope = assertion().scope;
+        let (accepted, feed) = broker
+            .subscribe(
+                scope,
+                Subscription::Configuration(ConfigurationChanges {}),
+                None,
+            )
+            .unwrap();
+        let correlation_id = CorrelationId::new(uuid::Uuid::new_v4());
+        let (deliveries, _receiver) = mpsc::channel(1);
+        let task = tokio::spawn(pump_subscription(
+            feed,
+            accepted.subscription_id,
+            correlation_id,
+            deliveries,
+        ));
+        let active = ActiveSubscription {
+            handle: task.abort_handle(),
+            correlation_id,
+            last_delivered_cursor: None,
+        };
+
+        drop(active);
+
+        assert!(task.await.unwrap_err().is_cancelled());
     }
 
     #[tokio::test]

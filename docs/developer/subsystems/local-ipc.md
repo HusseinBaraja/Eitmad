@@ -90,7 +90,7 @@ The Windows supervisor retains subscription descriptors and processed cursors ac
 
 ## Shutdown and recovery
 
-Explicit unsubscribe receives `SubscriptionClosed` with `clientRequested` before Rust aborts the stream pump. During engine shutdown, each tracked stream receives `SubscriptionClosed` with `engineStopping` before its pump is aborted. `RequestShutdownAsync` then receives an acknowledgement before Rust begins bounded runtime draining. Windows closes inherited stdin as well: this preserves abandoned-supervisor detection and releases the blocked Windows stdin reader. If IPC is unavailable, stdin EOF remains the graceful fallback. The existing 15-second supervisor deadline and Job Object termination remain the final recovery boundary.
+Explicit unsubscribe receives `SubscriptionClosed` with `clientRequested` before Rust aborts the stream pump. During engine shutdown, each tracked stream receives `SubscriptionClosed` with `engineStopping` before its pump is aborted. EOF, connection cancellation, and write failure cannot deliver a close frame, so dropping the connection owner aborts every remaining pump, including one blocked waiting for a live event. `RequestShutdownAsync` then receives an acknowledgement before Rust begins bounded runtime draining. Windows closes inherited stdin as well: this preserves abandoned-supervisor detection and releases the blocked Windows stdin reader. If IPC is unavailable, stdin EOF remains the graceful fallback. The existing 15-second supervisor deadline and Job Object termination remain the final recovery boundary.
 
 ## Arabic-first behavior and tests
 
