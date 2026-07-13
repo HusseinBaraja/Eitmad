@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-07-12"
+last_verified: "2026-07-13"
 review_triggers:
   - "a documentation collection or canonical entry point changes"
 keywords:
@@ -27,6 +27,7 @@ No user workflow is ready to document. When the first product flow exists, Engli
 - [Understand the target architecture](architecture/index.md): Rust authority, trust boundaries, synchronization, security, and updates.
 - [Use protocol v1 contracts](api/index.md): exact Rust-owned contracts, compatibility, generation, and native bindings.
 - [Review architectural decisions](decisions/index.md): durable choices, reasons, and consequences.
+- [Review releases and compatibility](releases/index.md): protocol rollout, rollback, and migration notes.
 - [Use approved terminology](glossary.md): English definitions and canonical Arabic UI terms.
 
 ## Operate or deploy the system

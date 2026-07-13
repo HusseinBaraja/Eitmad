@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "explanation"
 status: "active"
 owner: "security and Rust engine maintainers"
-last_verified: "2026-07-12"
+last_verified: "2026-07-13"
 review_triggers:
   - "local peer authentication, pipe discovery, identity, authorization, transport, or production packaging changes"
 keywords:
@@ -16,7 +16,7 @@ keywords:
 
 # Threat-model Windows local IPC
 
-The named pipe is an untrusted process boundary. Current authentication is development-only and blocks production release until replaced; the engine still owns every command/query authorization decision.
+The named pipe is an untrusted process boundary. Current authentication is development-only and blocks production release until replaced; the engine still owns every command, query, and subscription authorization decision.
 
 ## Assets and actors
 
@@ -29,8 +29,10 @@ Protected assets are domain data, scope boundaries, session identity, command in
 | Connect to a guessed pipe | Unique random endpoint plus 256-bit bearer token | A process able to inspect the child environment may recover the token |
 | Replay a request on another connection | Engine-issued session bound to one connection and exact context | Development identity itself is asserted, not verified |
 | Protocol downgrade or drift | Mandatory `PeerHello`, highest common version, required capability checks, generated bindings | Only protocol `1.0` is currently supported |
-| Memory exhaustion | 8 MiB declared-frame cap before allocation | Repeated allowed-size frames still consume bounded work |
+| Memory exhaustion | 8 MiB frame cap, 1,024-entry/16 MiB replay cap, and 256-event delivery queues | Repeated allowed-size traffic still consumes bounded work |
 | Request starvation | Per-request deadlines, concurrent dispatch, bounded shutdown | Domain handlers must implement their own resource bounds |
+| Cross-scope replay or cursor probing | Exact session/scope authorization, embedded-scope validation, and indistinguishable invalid-cursor errors | A compromised authenticated same-scope peer can still consume authorized event volume |
+| Slow-consumer event loss | Replaceable state coalesces; discrete gaps close explicitly and require replay/resync | Repeated lag can reduce shell availability |
 | Confuse late responses | Request correlation and pending-map removal | A timed-out command may still complete; outcome is explicitly unknown |
 | Leak secrets through diagnostics | No token or payload logging; structured allowlisted errors | Debuggers and privileged local processes remain outside this control |
 | Orphan or hang the engine | stdin abandonment signal, typed shutdown, 15-second Job Object fallback | Forced exit is crash recovery and cannot guarantee unfinished work |
@@ -39,6 +41,6 @@ Protected assets are domain data, scope boundaries, session identity, command in
 
 Production must not enable `--allow-insecure-development-auth`. Before release, replace the bearer-token/asserted-identity handshake with reviewed local peer authentication, derive identity and scope from trusted Rust-owned session establishment, define token/credential rotation and revocation, test same-user hostile processes, and integrate ReBAC plus audit for every real dispatcher. Windows pipe ACL hardening is defense in depth, not a replacement for peer authentication.
 
-No Arabic customer text is interpreted during authentication. Canonical UTF-8 payloads remain opaque to the transport, and structured failures expose no policy graph or customer data.
+No Arabic customer text is interpreted during authentication. Canonical UTF-8 payloads remain opaque to the transport, presentation bidi controls are not added, and structured subscription failures expose no policy graph, cursor owner, or customer data.
 
 Review [ADR-0017](../decisions/0017-windows-named-pipe-local-ipc.md), the [local IPC subsystem](../developer/subsystems/local-ipc.md), and [zero-trust ADR-0009](../decisions/0009-zero-trust-security-model.md) before changing this boundary.

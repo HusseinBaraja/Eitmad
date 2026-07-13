@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Windows platform maintainers"
-last_verified: "2026-07-12"
+last_verified: "2026-07-13"
 review_triggers:
   - "Windows engine launch, process containment, restart, lifecycle parsing, or shutdown behavior changes"
 keywords:
@@ -66,6 +66,8 @@ An exit is intentional only after `StopAsync` marks the current generation for s
 The rolling window allows three replacements in 60 seconds at one, two, and four seconds. A fourth failure enters `RestartExhausted`. Five continuous minutes in `Ready` clears the history. Only a new `StartAsync` begins another session after exhaustion.
 
 Every process launch increments `Generation`. Output is accepted only from that generation and, after the first lifecycle snapshot, from the same `EngineInstanceId`. PID is correlation metadata and is never used as stable identity.
+
+The supervisor also owns IPC subscription continuity. It retains generated subscription descriptors and only the cursor acknowledged after UI processing. Connection loss retries after 100 ms, 500 ms, two seconds, then every five seconds while the current generation remains `Ready`. Same-generation reconnect resumes replay; engine replacement raises `ResyncRequired`, opens a fresh stream, and leaves the owning feature responsible for an authoritative query before applying buffered events.
 
 ## Shutdown and containment
 

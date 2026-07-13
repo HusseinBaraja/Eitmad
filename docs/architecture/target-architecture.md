@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "explanation"
 status: "active"
 owner: "architecture maintainers"
-last_verified: "2026-07-12"
+last_verified: "2026-07-13"
 review_triggers:
   - "an authority, process, trust, storage, sync, update, or performance boundary changes"
 keywords:
@@ -82,7 +82,7 @@ The engine MUST remain useful without a GUI. Its public boundaries MUST be deter
 
 ### Lifecycle
 
-The lifecycle foundation is implemented in `eitmad-engine-runtime` and its [canonical subsystem guide](../developer/subsystems/engine-runtime.md). It exposes typed process identity, `Starting → Ready → Stopping → Stopped` transitions, terminal failure, readiness-aware health checks, bounded rollback/draining, exclusive runtime-directory authority, headless operation, and non-mutating diagnostics. Windows typed command/query IPC is implemented over bounded named-pipe frames; see the [local IPC guide](../developer/subsystems/local-ipc.md) and [threat model](local-ipc-threat-model.md). Production peer authentication remains an implementation gate.
+The lifecycle foundation is implemented in `eitmad-engine-runtime` and its [canonical subsystem guide](../developer/subsystems/engine-runtime.md). It exposes typed process identity, `Starting → Ready → Stopping → Stopped` transitions, terminal failure, readiness-aware health checks, bounded rollback/draining, exclusive runtime-directory authority, headless operation, and non-mutating diagnostics. Windows typed command/query IPC and bounded resumable subscriptions are implemented over named-pipe frames; see the [local IPC guide](../developer/subsystems/local-ipc.md) and [threat model](local-ipc-threat-model.md). Production peer authentication remains an implementation gate.
 
 Desktop supervision follows [ADR-0016](../decisions/0016-bounded-platform-process-supervision.md). A platform adapter groups the owned engine process tree where the operating system supports containment, rejects stale launch observations, applies a bounded restart budget that respects Rust `RetryDisposition`, and closes the control pipe before forced termination. The Windows implementation uses a kill-on-close Job Object, three replacements within 60 seconds, a five-minute healthy reset, and a 15-second graceful shutdown deadline.
 

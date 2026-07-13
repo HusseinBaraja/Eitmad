@@ -5,7 +5,7 @@ audience: "api"
 page_type: "task"
 status: "active"
 owner: "Rust contract maintainers"
-last_verified: "2026-07-12"
+last_verified: "2026-07-13"
 review_triggers:
   - "the protocol version, supported release window, capability negotiation, generator, or rollout process changes"
 keywords:
@@ -21,9 +21,9 @@ Change the Rust contract authority first, then regenerate every derived artifact
 
 ## Compatibility window
 
-The released engine and native shells MUST support the current protocol minor and the immediately preceding minor within the same major for at least one coordinated release cycle. Protocol `1.0` is the only released foundation version, so the active window is currently `1.0` only.
+The released engine and native shells MUST support the current protocol minor and the immediately preceding minor within the same major for at least one coordinated release cycle. The active foundation window is `1.0–1.1`: `1.0` remains command/query-only, while subscription traffic requires negotiated protocol `1.1` and `eitmad.capability.local-ipc-subscriptions.v1`.
 
-Before releasing `1.1`, retain a frozen `1.0` conformance fixture, advertise a `1.0` through `1.1` range where the peer implements both, and test both directions: old shell to new engine and new shell to old engine. A minor may leave the window only after supported update paths no longer require it, rollout evidence is reviewed, and the release note records the removal. Product versions and protocol versions are independent.
+The engine and Windows supervisor advertise `1.0–1.1`. A peer negotiated at `1.0` receives `eitmad.error.ipc-subscription-unsupported.v1` if it attempts subscription traffic, even if it incorrectly advertises the capability. A minor may leave the window only after supported update paths no longer require it, rollout evidence is reviewed, and the release note records the removal. Product versions and protocol versions are independent.
 
 Compatibility across protocol majors is not implied. A major transition requires the breaking-change process below and an explicit bridge or coordinated upgrade plan.
 

@@ -181,7 +181,7 @@ fn render_reference(catalog: &ProtocolCatalog) -> String {
          page_type: \"reference\"\n\
          status: \"active\"\n\
          owner: \"Rust contract maintainers\"\n\
-         last_verified: \"2026-07-12\"\n\
+         last_verified: \"2026-07-13\"\n\
          review_triggers:\n\
            - \"the Rust protocol catalog or generator changes\"\n\
          keywords:\n\

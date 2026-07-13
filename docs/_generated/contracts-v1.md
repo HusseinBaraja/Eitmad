@@ -5,7 +5,7 @@ audience: "api"
 page_type: "reference"
 status: "active"
 owner: "Rust contract maintainers"
-last_verified: "2026-07-12"
+last_verified: "2026-07-13"
 review_triggers:
 - "the Rust protocol catalog or generator changes"
 keywords:

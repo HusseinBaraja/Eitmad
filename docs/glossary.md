@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "product maintainers"
-last_verified: "2026-07-12"
+last_verified: "2026-07-13"
 review_triggers:
   - "a domain term, UI label, contract concept, or workshop synonym changes"
 keywords:
@@ -101,6 +101,10 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | أمر | Command | An authorized request for an authoritative state transition. |
 | استعلام | Query | An authorized request to read a scoped projection without changing authoritative state. |
 | اشتراك | Subscription | A resumable stream of state changes or progress delivered without polling. |
+| حدث | Event | A typed engine-to-shell value delivered through a subscription; it is not automatically a durable audit or event-sourcing record. |
+| مؤشر استئناف الحدث | Event cursor | An opaque, scoped position used to resume a bounded event stream; it is not a globally ordered record identifier. |
+| نافذة إعادة التشغيل | Replay window | The bounded same-engine event history available for subscription reconnection. |
+| ضغط التدفق | Backpressure | The explicit response when a consumer cannot keep pace; replaceable state may coalesce, while unreplayable discrete gaps close and require recovery. |
 | نطاق | Scope | The explicit ownership and isolation boundary attached to every record and operation. |
 | صلاحية | Permission | An allowed action derived from authenticated identity and relationships; it is enforced by Rust. |
 | سجل التدقيق | Audit record | A durable account of a state-changing intent and outcome, including actor, scope, time, and correlation. |

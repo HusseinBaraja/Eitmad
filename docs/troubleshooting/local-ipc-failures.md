@@ -1,11 +1,11 @@
 ---
 title: "Resolve local IPC connection and request failures"
-description: "Diagnose unavailable engines, rejected handshakes, version mismatch, deadlines, payload limits, and shutdown fallback safely."
+description: "Diagnose unavailable engines, subscription resync, backpressure, version mismatch, deadlines, and payload limits safely."
 audience: "support"
 page_type: "troubleshooting"
 status: "active"
 owner: "Rust engine and Windows platform maintainers"
-last_verified: "2026-07-12"
+last_verified: "2026-07-13"
 review_triggers:
   - "local IPC errors, timeouts, payload bounds, negotiation, or recovery changes"
 keywords:
@@ -13,6 +13,8 @@ keywords:
   - "eitmad.error.ipc-session-invalid.v1"
   - "eitmad.error.ipc-deadline-exceeded.v1"
   - "eitmad.error.ipc-payload-too-large.v1"
+  - "eitmad.error.ipc-subscription-resync-required.v1"
+  - "eitmad.error.ipc-subscription-unsupported.v1"
 ---
 
 # Resolve local IPC connection and request failures
@@ -29,6 +31,10 @@ Local IPC failures do not by themselves imply lost committed data. Stop new work
 | `eitmad.error.ipc-session-invalid.v1` | Reused/stale session or changed context | Compare engine generation and request session ID | Reconnect and rebuild envelopes from the new negotiated session |
 | `eitmad.error.ipc-deadline-exceeded.v1` | Deadline passed before query completion | Compare deadline, current time, and operation type | Retry a query if still needed; retry a command only with the same idempotency key because outcome may be unknown |
 | `eitmad.error.ipc-payload-too-large.v1` | Frame exceeds 8 MiB | Measure encoded frame size without logging content | Page or stream through a domain contract; do not raise the cap ad hoc |
+| `eitmad.error.ipc-subscription-unsupported.v1` | Peer negotiated `1.0` or omitted the subscription capability | Capture negotiated protocol and capability IDs | Use a compatible `1.1` engine/shell pair; do not replace subscriptions with UI polling |
+| `eitmad.error.ipc-subscription-resync-required.v1` | Cursor expired, came from another generation, stream, or scope | Compare engine generation and subscription kind without exposing cursor ownership | Subscribe fresh, query the authoritative scoped projection, then apply buffered live events |
+| `SubscriptionClosed` with `backpressure` | A discrete record, notification, or error gap exceeded replay | Preserve the last processed cursor and sanitized event kind | Allow supervision to reconnect/resubscribe; if resync is required, query current state before continuing |
+| Repeated `SubscriptionBackpressure` | Shell consumer is slower than event production | Measure queue depth/event rate without recording payloads | Fix consumer work or reduce producer frequency; do not enlarge bounds without a resource review |
 | Connection closes after a large response | Encoded response exceeded 8 MiB or response serialization failed | Check the stable request type and sanitized frame-size metric | Reduce or page the response, reconnect, and retry only when the operation's retry contract permits it |
 | `local IPC server failed` or `local IPC server task failed` on stderr | The accept loop returned an I/O error or the task panicked | Preserve the sanitized message and latest lifecycle state | Stop new work, restart through the supervisor, and escalate to the Rust IPC owner if it recurs |
 | Forced shutdown | IPC and stdin drain did not exit in 15 seconds | Preserve lifecycle state and stable error IDs | Treat as crash recovery and diagnose the Rust component that failed to drain |
@@ -37,6 +43,6 @@ Do not delete runtime files, expose bearer tokens, copy raw frames, or include c
 
 ## Verify recovery
 
-Confirm a new engine generation reaches `Ready`, the handshake reports protocol `1.0` and `eitmad.capability.local-ipc.v1`, one synthetic scoped query returns a correlated structured outcome, and intentional shutdown reaches `Stopping → Stopped` with exit code `0`.
+Confirm a new engine generation reaches `Ready`, the handshake reports protocol `1.1`, `eitmad.capability.local-ipc.v1`, and `eitmad.capability.local-ipc-subscriptions.v1`, one synthetic scoped subscription receives an ordered event, and intentional shutdown reaches `Stopping → Stopped` with exit code `0`.
 
 Escalate with engine/shell versions, Windows version, generation, `EngineInstanceId`, stable error code, message ID, retry disposition, timestamp, and correlation ID. See [typed local IPC](../developer/subsystems/local-ipc.md), [Windows supervision](../developer/subsystems/windows-process-supervision.md), and the [threat model](../architecture/local-ipc-threat-model.md).
