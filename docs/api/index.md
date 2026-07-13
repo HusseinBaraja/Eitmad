@@ -80,7 +80,7 @@ Each peer sends supported protocol major/minor ranges, available and required ca
 
 The active window is `1.0–1.1`. Protocol `1.0` supports command/query traffic. Protocol `1.1` adds `eitmad.capability.local-ipc-subscriptions.v1`; peers must negotiate both before using subscribe, unsubscribe, event, or subscription-closed messages. Additive optional fields and capabilities use a minor version or capability gate. Renamed fields, changed meaning, removed variants, or incompatible identifier behavior require a new major version.
 
-Event cursors are opaque, scoped, and valid only in the current engine generation's bounded replay window. Per-subscription sequence numbers order delivered events but do not establish global order. See [typed local IPC](../developer/subsystems/local-ipc.md) for replay, duplicate delivery, backpressure, and resync rules.
+Event cursors are opaque, scoped, and valid only in the current engine generation's bounded replay window. Per-subscription sequence numbers order delivered events but do not establish global order. Rust sends `SubscriptionClosed` before terminating a tracked stream: `clientRequested` follows explicit unsubscribe, `engineStopping` precedes shutdown, and `backpressure` identifies an unreplayable discrete gap. See [typed local IPC](../developer/subsystems/local-ipc.md) for replay, duplicate delivery, backpressure, and resync rules.
 
 The active compatibility window, capability rules, change classification, and major-version rollout process are defined in [Evolve contracts without breaking supported peers](evolve-contracts-compatibly.md).
 

@@ -22,8 +22,8 @@ use eitmad_contracts::{
     },
     queries::{Query, QueryResult},
     transport::{
-        CommandOutcome, CommandResponseEnvelope, CorrelationId, EventEnvelope, QueryOutcome,
-        QueryResponseEnvelope, SubscriptionCloseReason, SubscriptionClosedEnvelope,
+        CommandOutcome, CommandResponseEnvelope, CorrelationId, EventCursor, EventEnvelope,
+        QueryOutcome, QueryResponseEnvelope, SubscriptionCloseReason, SubscriptionClosedEnvelope,
         SubscriptionEnvelope, SubscriptionId, SubscriptionOutcome, SubscriptionResponseEnvelope,
         UnixMillis, UnsubscribeResponse,
     },
@@ -277,14 +277,35 @@ impl LocalIpcServer {
                             }
                         }
                         IpcClientMessage::Unsubscribe(request) if session.is_some() => {
-                            let response = unsubscribe(&request, &mut subscriptions);
+                            let accepted = if subscriptions.contains_key(&request.subscription_id) {
+                                if !close_subscription(
+                                    &mut writer,
+                                    request.subscription_id,
+                                    SubscriptionCloseReason::ClientRequested,
+                                    &mut subscriptions,
+                                ).await? {
+                                    return Ok(());
+                                }
+                                true
+                            } else {
+                                false
+                            };
+                            let response = unsubscribe_response(&request, accepted);
                             if !write_frame_or_close(&mut writer, &response).await? {
                                 return Ok(());
                             }
                         }
                         IpcClientMessage::Shutdown(request) => {
-                            for (_, handle) in subscriptions.drain() {
-                                handle.abort();
+                            let subscription_ids = subscriptions.keys().copied().collect::<Vec<_>>();
+                            for subscription_id in subscription_ids {
+                                if !close_subscription(
+                                    &mut writer,
+                                    subscription_id,
+                                    SubscriptionCloseReason::EngineStopping,
+                                    &mut subscriptions,
+                                ).await? {
+                                    return Ok(());
+                                }
                             }
                             while let Some(result) = pending.join_next().await {
                                 if let Ok(response) = result {
@@ -419,7 +440,7 @@ impl LocalIpcServer {
         session: Option<&Session>,
         request: SubscriptionEnvelope,
         deliveries: &mpsc::Sender<SubscriptionDelivery>,
-        subscriptions: &mut HashMap<SubscriptionId, tokio::task::AbortHandle>,
+        subscriptions: &mut HashMap<SubscriptionId, ActiveSubscription>,
     ) -> SubscriptionResponseEnvelope {
         let failure = validate_subscription(session, &request);
         let outcome = if let Some(error) = failure {
@@ -452,7 +473,14 @@ impl LocalIpcServer {
                             deliveries.clone(),
                         ))
                         .abort_handle();
-                        subscriptions.insert(subscription_id, handle);
+                        subscriptions.insert(
+                            subscription_id,
+                            ActiveSubscription {
+                                handle,
+                                correlation_id: request.correlation_id,
+                                last_delivered_cursor: None,
+                            },
+                        );
                         SubscriptionOutcome::Succeeded(accepted)
                     }
                 },
@@ -497,16 +525,10 @@ fn spawn_request(
     }
 }
 
-fn unsubscribe(
+fn unsubscribe_response(
     request: &eitmad_contracts::transport::UnsubscribeRequest,
-    subscriptions: &mut HashMap<SubscriptionId, tokio::task::AbortHandle>,
+    accepted: bool,
 ) -> IpcServerMessage {
-    let accepted = subscriptions
-        .remove(&request.subscription_id)
-        .is_some_and(|handle| {
-            handle.abort();
-            true
-        });
     IpcServerMessage::Unsubscribe(UnsubscribeResponse {
         request_id: request.request_id,
         correlation_id: request.correlation_id,
@@ -515,10 +537,41 @@ fn unsubscribe(
     })
 }
 
+struct ActiveSubscription {
+    handle: tokio::task::AbortHandle,
+    correlation_id: CorrelationId,
+    last_delivered_cursor: Option<EventCursor>,
+}
+
+async fn close_subscription<W>(
+    writer: &mut W,
+    subscription_id: SubscriptionId,
+    reason: SubscriptionCloseReason,
+    subscriptions: &mut HashMap<SubscriptionId, ActiveSubscription>,
+) -> io::Result<bool>
+where
+    W: AsyncWrite + Unpin,
+{
+    let Some(active) = subscriptions.get(&subscription_id) else {
+        return Ok(true);
+    };
+    let message = IpcServerMessage::SubscriptionClosed(SubscriptionClosedEnvelope {
+        subscription_id,
+        correlation_id: active.correlation_id,
+        last_delivered_cursor: active.last_delivered_cursor,
+        reason,
+    });
+    let written = write_frame_or_close(writer, &message).await;
+    if let Some(active) = subscriptions.remove(&subscription_id) {
+        active.handle.abort();
+    }
+    written
+}
+
 async fn write_subscription_delivery<W>(
     writer: &mut W,
     delivery: Option<SubscriptionDelivery>,
-    subscriptions: &mut HashMap<SubscriptionId, tokio::task::AbortHandle>,
+    subscriptions: &mut HashMap<SubscriptionId, ActiveSubscription>,
 ) -> io::Result<bool>
 where
     W: AsyncWrite + Unpin,
@@ -529,16 +582,25 @@ where
     if !delivery.closed && !subscriptions.contains_key(&delivery.subscription_id) {
         return Ok(true);
     }
-    if delivery.closed {
-        subscriptions.remove(&delivery.subscription_id);
+    let written = write_frame_or_close(writer, &delivery.message).await?;
+    if written {
+        if let Some(cursor) = delivery.delivered_cursor {
+            if let Some(active) = subscriptions.get_mut(&delivery.subscription_id) {
+                active.last_delivered_cursor = Some(cursor);
+            }
+        }
+        if delivery.closed {
+            subscriptions.remove(&delivery.subscription_id);
+        }
     }
-    write_frame_or_close(writer, &delivery.message).await
+    Ok(written)
 }
 
 struct SubscriptionDelivery {
     subscription_id: SubscriptionId,
     message: IpcServerMessage,
     closed: bool,
+    delivered_cursor: Option<EventCursor>,
 }
 
 async fn pump_subscription(
@@ -565,6 +627,7 @@ async fn pump_subscription(
                         subscription_id,
                         message,
                         closed: false,
+                        delivered_cursor: Some(published.cursor),
                     })
                     .await
                     .is_err()
@@ -583,6 +646,7 @@ async fn pump_subscription(
                             reason: SubscriptionCloseReason::Backpressure,
                         }),
                         closed: true,
+                        delivered_cursor: None,
                     })
                     .await;
                 return;
@@ -1137,7 +1201,47 @@ mod tests {
         subscriptions
             .remove(&accepted.subscription_id)
             .unwrap()
+            .handle
             .abort();
+    }
+
+    #[tokio::test]
+    async fn subscription_close_reasons_are_sent_before_abort() {
+        for reason in [
+            SubscriptionCloseReason::ClientRequested,
+            SubscriptionCloseReason::EngineStopping,
+        ] {
+            let subscription_id = SubscriptionId::new(uuid::Uuid::new_v4());
+            let correlation_id = CorrelationId::new(uuid::Uuid::new_v4());
+            let cursor = EventCursor::new(uuid::Uuid::new_v4());
+            let task = tokio::spawn(std::future::pending::<()>());
+            let mut subscriptions = HashMap::from([(
+                subscription_id,
+                ActiveSubscription {
+                    handle: task.abort_handle(),
+                    correlation_id,
+                    last_delivered_cursor: Some(cursor),
+                },
+            )]);
+            let (mut writer, mut reader) = tokio::io::duplex(1_024);
+
+            assert!(
+                close_subscription(&mut writer, subscription_id, reason, &mut subscriptions,)
+                    .await
+                    .unwrap()
+            );
+            let message = read_frame::<_, IpcServerMessage>(&mut reader)
+                .await
+                .unwrap();
+            let IpcServerMessage::SubscriptionClosed(closed) = message else {
+                panic!("subscription close expected");
+            };
+            assert_eq!(closed.subscription_id, subscription_id);
+            assert_eq!(closed.correlation_id, correlation_id);
+            assert_eq!(closed.last_delivered_cursor, Some(cursor));
+            assert_eq!(closed.reason, reason);
+            assert!(task.await.unwrap_err().is_cancelled());
+        }
     }
 
     #[test]
