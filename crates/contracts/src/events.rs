@@ -80,7 +80,6 @@ impl Event {
                 | Self::PermissionsChanged(_)
                 | Self::UpdateStateChanged(_)
                 | Self::SyncStatusChanged(_)
-                | Self::BackgroundJobChanged(_)
         )
     }
 
@@ -108,7 +107,16 @@ impl Subscription {
                 | Self::Permissions(_)
                 | Self::UpdateState(_)
                 | Self::SyncStatus(_)
-                | Self::BackgroundJobs(_)
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn background_job_stream_is_discrete() {
+        assert!(!Subscription::BackgroundJobs(BackgroundJobChanges {}).is_coalescible());
     }
 }

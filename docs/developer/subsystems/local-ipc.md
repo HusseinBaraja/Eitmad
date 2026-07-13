@@ -68,7 +68,7 @@ Replay is in-memory and valid only for the current engine generation. The broker
 
 ## Backpressure and drop policy
 
-The engine live channel and each Windows consumer queue hold 256 events. Configuration, permission, sync, update, and per-job status are replaceable state: if their cursor is evicted during lag, the broker delivers the newest retained value. Record changes, notifications, and errors are discrete and are never silently dropped. If a discrete gap cannot be replayed, Rust sends `SubscriptionClosed` with reason `backpressure`; the Windows client fails the connection so supervision reconnects and resubscribes from the last processed cursor.
+The engine live channel and each Windows consumer queue hold 256 events. Configuration, permission, sync, and update status are replaceable state: if their cursor is evicted during lag, the broker delivers the newest retained value. Background-job status, record changes, notifications, and errors are discrete and are never silently dropped because one scope can contain multiple independent records or jobs. If a discrete gap cannot be replayed, Rust sends `SubscriptionClosed` with reason `backpressure`; the Windows client fails the connection so supervision reconnects and resubscribes from the last processed cursor.
 
 Slow shells never block authoritative producers. Repeated backpressure therefore reduces shell availability, not engine correctness. A vertical must reduce event frequency or add a query/page boundary instead of increasing bounds ad hoc.
 
