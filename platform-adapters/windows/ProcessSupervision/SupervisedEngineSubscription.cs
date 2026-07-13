@@ -8,13 +8,7 @@ namespace Eitmad.Platform.Windows.ProcessSupervision;
 public sealed class SupervisedEngineSubscription : IAsyncDisposable
 {
     private readonly object gate = new();
-    private readonly Channel<EventEnvelope> events = Channel.CreateBounded<EventEnvelope>(
-        new BoundedChannelOptions(EngineSubscription.Capacity)
-        {
-            FullMode = BoundedChannelFullMode.Wait,
-            SingleReader = false,
-            SingleWriter = true,
-        });
+    private Channel<EventEnvelope> events = CreateEventChannel();
     private CancellationTokenSource? attachmentCancellation;
     private EngineSubscription? attached;
     private Guid? processedCursor;
@@ -57,7 +51,12 @@ public sealed class SupervisedEngineSubscription : IAsyncDisposable
     public async IAsyncEnumerable<EventEnvelope> ReadAllAsync(
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        await foreach (var item in events.Reader.ReadAllAsync(cancellationToken).ConfigureAwait(false))
+        ChannelReader<EventEnvelope> reader;
+        lock (gate)
+        {
+            reader = events.Reader;
+        }
+        await foreach (var item in reader.ReadAllAsync(cancellationToken).ConfigureAwait(false))
         {
             yield return item;
         }
@@ -76,6 +75,7 @@ public sealed class SupervisedEngineSubscription : IAsyncDisposable
     internal void Attach(EngineSubscription subscription, bool resetCursor)
     {
         CancellationToken cancellationToken;
+        Channel<EventEnvelope> attachedEvents;
         lock (gate)
         {
             ObjectDisposedException.ThrowIf(disposed, this);
@@ -84,26 +84,34 @@ public sealed class SupervisedEngineSubscription : IAsyncDisposable
             attachmentCancellation = new CancellationTokenSource();
             cancellationToken = attachmentCancellation.Token;
             attached = subscription;
+            if (events.Reader.Completion.IsCompleted)
+            {
+                events = CreateEventChannel();
+            }
+            attachedEvents = events;
             if (resetCursor || processedCursor is null)
             {
                 processedCursor = subscription.ProcessedCursor;
             }
         }
 
-        _ = PumpAsync(subscription, cancellationToken);
+        _ = PumpAsync(subscription, attachedEvents, cancellationToken);
     }
 
     internal void SignalResyncRequired() => ResyncRequired?.Invoke();
 
-    private async Task PumpAsync(EngineSubscription subscription, CancellationToken cancellationToken)
+    private async Task PumpAsync(
+        EngineSubscription subscription,
+        Channel<EventEnvelope> attachedEvents,
+        CancellationToken cancellationToken)
     {
         try
         {
             await foreach (var delivered in subscription.ReadAllAsync(cancellationToken).ConfigureAwait(false))
             {
-                if (!events.Writer.TryWrite(delivered))
+                if (!attachedEvents.Writer.TryWrite(delivered))
                 {
-                    events.Writer.TryComplete(new EngineIpcException(
+                    attachedEvents.Writer.TryComplete(new EngineIpcException(
                         EngineIpcFailureKind.SubscriptionBackpressure,
                         "The supervised event consumer exceeded its bounded queue."));
                     return;
@@ -136,4 +144,13 @@ public sealed class SupervisedEngineSubscription : IAsyncDisposable
         }
         return ValueTask.CompletedTask;
     }
+
+    private static Channel<EventEnvelope> CreateEventChannel() =>
+        Channel.CreateBounded<EventEnvelope>(
+            new BoundedChannelOptions(EngineSubscription.Capacity)
+            {
+                FullMode = BoundedChannelFullMode.Wait,
+                SingleReader = false,
+                SingleWriter = true,
+            });
 }
