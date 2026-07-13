@@ -210,7 +210,11 @@ public sealed class EngineSupervisor : IAsyncDisposable
             currentIpcClient = null;
             group = processGroup;
             monitor = currentMonitor;
-            snapshot = snapshot with { State = EngineSupervisionState.Stopping };
+            snapshot = snapshot with
+            {
+                State = EngineSupervisionState.Stopping,
+                IpcHealth = EngineIpcHealthState.Unavailable,
+            };
         }
 
         PublishSnapshot();
@@ -537,12 +541,18 @@ public sealed class EngineSupervisor : IAsyncDisposable
         {
             process = observedGeneration == generation ? currentProcess : null;
             identity = launchRequest?.DevelopmentIdentity;
+            if (process is not null && identity is not null)
+            {
+                snapshot = snapshot with { IpcHealth = EngineIpcHealthState.Connecting };
+            }
         }
 
         if (process is null || identity is null)
         {
             return;
         }
+
+        PublishSnapshot();
 
         _ = ConnectIpcAsync(process, identity, observedGeneration).ContinueWith(
             static task => Trace.TraceError(
@@ -586,6 +596,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
             {
                 currentIpcClient = client;
                 desired = subscriptions.Values.ToArray();
+                snapshot = snapshot with { IpcHealth = EngineIpcHealthState.Connected };
                 keep = true;
             }
         }
@@ -595,6 +606,8 @@ public sealed class EngineSupervisor : IAsyncDisposable
             await client.DisposeAsync().ConfigureAwait(false);
             return;
         }
+
+        PublishSnapshot();
 
         foreach (var subscription in desired)
         {
@@ -689,6 +702,10 @@ public sealed class EngineSupervisor : IAsyncDisposable
             reconnect = observedGeneration == generation
                 && !stopRequested
                 && snapshot.LastLifecycle?.State == LifecycleState.Ready;
+            if (reconnect)
+            {
+                snapshot = snapshot with { IpcHealth = EngineIpcHealthState.Connecting };
+            }
         }
         await client.DisposeAsync().ConfigureAwait(false);
         if (!reconnect)
@@ -703,8 +720,8 @@ public sealed class EngineSupervisor : IAsyncDisposable
             TimeSpan.FromSeconds(2),
             TimeSpan.FromSeconds(5),
         };
-        var attempt = 0;
-        while (true)
+        PublishSnapshot();
+        for (var attempt = 0; attempt < policy.MaximumRestarts; attempt++)
         {
             var delay = delays[Math.Min(attempt, delays.Length - 1)];
             await Task.Delay(delay).ConfigureAwait(false);
@@ -722,9 +739,18 @@ public sealed class EngineSupervisor : IAsyncDisposable
             }
             catch (EngineIpcException)
             {
-                attempt++;
             }
         }
+
+        lock (gate)
+        {
+            if (observedGeneration != generation || stopRequested || currentIpcClient is not null)
+            {
+                return;
+            }
+            snapshot = snapshot with { IpcHealth = EngineIpcHealthState.ReconnectExhausted };
+        }
+        PublishSnapshot();
     }
 
     private async Task ResetRestartBudgetAfterStableReadyAsync(
@@ -786,7 +812,11 @@ public sealed class EngineSupervisor : IAsyncDisposable
 
             currentProcess = null;
             currentMonitor = null;
-            snapshot = snapshot with { State = EngineSupervisionState.Stopped };
+            snapshot = snapshot with
+            {
+                State = EngineSupervisionState.Stopped,
+                IpcHealth = EngineIpcHealthState.Unavailable,
+            };
         }
 
         group?.Dispose();

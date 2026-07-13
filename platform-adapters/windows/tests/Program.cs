@@ -266,9 +266,11 @@ internal sealed class SupervisionScenarios
             await supervisor.StartAsync(request);
             await Eventually(() => supervisor.Snapshot.LastLifecycle?.Ready == true, TimeSpan.FromSeconds(10));
             await Eventually(() => supervisor.IpcConnected, TimeSpan.FromSeconds(10));
+            Assert.Equal(EngineIpcHealthState.Connected, supervisor.Snapshot.IpcHealth, "real engine IPC health");
             await supervisor.StopAsync();
 
             Assert.Equal(EngineSupervisionState.Stopped, supervisor.Snapshot.State, "real engine stopped state");
+            Assert.Equal(EngineIpcHealthState.Unavailable, supervisor.Snapshot.IpcHealth, "stopped IPC health");
             Assert.Equal(0, supervisor.Snapshot.LastExit?.ExitCode, "real engine exit code");
             Assert.False(supervisor.Snapshot.LastExit?.Forced ?? true, "real engine graceful exit");
             Assert.SequenceEqual(

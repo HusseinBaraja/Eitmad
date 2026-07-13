@@ -86,7 +86,7 @@ Connection timeout defaults to five seconds and request timeout to 30 seconds; b
 
 Stable failures include session invalid, deadline exceeded, payload too large, subscription unsupported, subscription capacity exceeded, subscription resync required, engine stopping, and protocol incompatible. An unavailable engine has no Rust response, so `EngineIpcClient` reports a typed local `EngineUnavailable` failure. No path logs bearer tokens, raw frames, product payloads, customer data, or authorization graphs.
 
-The Windows supervisor retains subscription descriptors and processed cursors across engine generations. A lost connection retries after 100 ms, 500 ms, two seconds, then every five seconds while that generation remains `Ready`. Same-engine reconnect replays from the processed cursor. A new engine normally rejects the old cursor; the supervisor opens a fresh stream, raises `ResyncRequired`, and resets its watermark so the owning UI can re-query without polling.
+The Windows supervisor retains subscription descriptors and processed cursors across engine generations. A lost connection receives at most three default reconnect attempts after 100 ms, 500 ms, and two seconds while that generation remains `Ready`. The shell-local snapshot moves `IpcHealth` from `Connecting` to either `Connected` or `ReconnectExhausted`, so a ready process is not mistaken for a healthy channel. Same-engine reconnect replays from the processed cursor. A new engine normally rejects the old cursor; the supervisor opens a fresh stream, raises `ResyncRequired`, and resets its watermark so the owning UI can re-query without polling.
 
 ## Shutdown and recovery
 
