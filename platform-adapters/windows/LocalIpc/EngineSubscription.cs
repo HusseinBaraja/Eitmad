@@ -17,6 +17,7 @@ public sealed class EngineSubscription
         });
     private readonly object gate = new();
     private Guid processedCursor;
+    private long processedSequence;
 
     internal EngineSubscription(Guid subscriptionId, Guid streamCursor, bool resumed)
     {
@@ -58,7 +59,11 @@ public sealed class EngineSubscription
 
         lock (gate)
         {
-            processedCursor = delivered.Cursor;
+            if (delivered.Sequence > processedSequence)
+            {
+                processedCursor = delivered.Cursor;
+                processedSequence = delivered.Sequence;
+            }
         }
     }
 

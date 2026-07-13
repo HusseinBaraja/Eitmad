@@ -7,6 +7,7 @@ var tests = new SupervisionScenarios();
 await tests.UnavailableEngineIsTyped();
 tests.FrameLimitMatchesRustContract();
 tests.SubscriptionQueueIsBounded();
+tests.SubscriptionAcknowledgementNeverRegresses();
 await tests.SupervisedSubscriptionSurvivesReattach();
 await tests.IntentionalStopNeverRestarts();
 await tests.UnexpectedDeathRestartsOnce();
@@ -65,6 +66,18 @@ internal sealed class SupervisionScenarios
             "subscription queue rejects overflow");
     }
 
+    public void SubscriptionAcknowledgementNeverRegresses()
+    {
+        var subscription = new EngineSubscription(Guid.NewGuid(), Guid.NewGuid(), resumed: false);
+        var newer = EventEnvelope(subscription.SubscriptionId, sequence: 2);
+        var older = EventEnvelope(subscription.SubscriptionId, sequence: 1);
+
+        subscription.Acknowledge(newer);
+        subscription.Acknowledge(older);
+
+        Assert.Equal(newer.Cursor, subscription.ProcessedCursor, "processed cursor remains monotonic");
+    }
+
     public async Task SupervisedSubscriptionSurvivesReattach()
     {
         await using var supervised = new SupervisedEngineSubscription(new Subscription
@@ -87,7 +100,7 @@ internal sealed class SupervisionScenarios
         Assert.Equal(replacementEvent.Cursor, (await ReadOne(supervised)).Cursor, "replacement event");
     }
 
-    private static EventEnvelope EventEnvelope(Guid subscriptionId) => new()
+    private static EventEnvelope EventEnvelope(Guid subscriptionId, long sequence = 1) => new()
     {
         SubscriptionId = subscriptionId,
         CorrelationId = Guid.NewGuid(),
@@ -98,7 +111,7 @@ internal sealed class SupervisionScenarios
             Payload = new EventPayload(),
         },
         OccurredAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-        Sequence = 1,
+        Sequence = sequence,
     };
 
     private static async Task<EventEnvelope> ReadOne(SupervisedEngineSubscription subscription)
