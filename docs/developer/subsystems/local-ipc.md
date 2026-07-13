@@ -64,7 +64,7 @@ Subscribe and unsubscribe are read-only and do not create audit records. The com
 
 An accepted subscription receives an opaque stream cursor and a new subscription ID. Events are ordered by engine publish order within that subscription; `sequence` starts at `1` and is contiguous for delivered events. Replay is delivered before live events without a gap. No order is promised across subscriptions or between a command response and an event caused by that command.
 
-Replay is in-memory and valid only for the current engine generation. The broker retains at most 1,024 entries and 16 MiB globally. Delivery is at least once from the last cursor acknowledged after shell processing, so consumers must apply state by revision or otherwise tolerate duplicates. Engine restart, eviction, or a mismatched cursor requires subscribe-first, query-current-state, then apply buffered live events.
+Replay is in-memory and valid only for the current engine generation. The broker retains at most 1,024 entries and 16 MiB globally. Delivery is at least once from the last cursor acknowledged after shell processing, so consumers must apply state by revision or otherwise tolerate duplicates. If a coalescible cursor is evicted during live lag, the existing feed resumes with the newest retained value and does not require a fresh query. An unreplayable discrete gap closes with `backpressure`; recovery must subscribe first, buffer the new live feed, query the authoritative current state, and then apply only events buffered after that fresh subscription. Engine restart or a mismatched resume cursor follows the same subscribe-first query sequence because in-memory replay cannot prove continuity.
 
 ## Backpressure and drop policy
 
