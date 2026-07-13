@@ -694,8 +694,8 @@ fn validate_subscription(
     let Some(session) = session else {
         return Some(session_invalid(request.correlation_id));
     };
-    let capability_negotiated =
-        session.negotiated.capabilities.iter().any(|capability| {
+    let capability_negotiated = session.negotiated.protocol.minor >= 1
+        && session.negotiated.capabilities.iter().any(|capability| {
             capability.as_str() == "eitmad.capability.local-ipc-subscriptions.v1"
         });
     if session.authorization != request.authorization
@@ -1138,6 +1138,35 @@ mod tests {
             .remove(&accepted.subscription_id)
             .unwrap()
             .abort();
+    }
+
+    #[test]
+    fn protocol_1_0_negotiates_without_subscription_support() {
+        let service = service(Some("token"));
+        let response =
+            service.handshake(handshake(ProtocolVersion { major: 1, minor: 0 }, "token"));
+        let HandshakeOutcome::Accepted(accepted) = response.outcome else {
+            panic!("protocol 1.0 should remain compatible");
+        };
+        let session = Session {
+            negotiated: accepted.negotiated,
+            authorization: accepted.authorization.clone(),
+        };
+        let request = SubscriptionEnvelope {
+            protocol_version: ProtocolVersion { major: 1, minor: 0 },
+            request_id: RequestId::new(uuid::Uuid::new_v4()),
+            correlation_id: CorrelationId::new(uuid::Uuid::new_v4()),
+            authorization: accepted.authorization,
+            subscription: Subscription::Configuration(ConfigurationChanges {}),
+            resume_after: None,
+        };
+        assert_eq!(
+            validate_subscription(Some(&session), &request)
+                .unwrap()
+                .code
+                .as_str(),
+            "eitmad.error.ipc-subscription-unsupported.v1"
+        );
     }
 
     #[tokio::test]
