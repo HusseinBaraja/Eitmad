@@ -129,12 +129,18 @@ public sealed class EngineSupervisor : IAsyncDisposable
             client = currentIpcClient;
             attached = subscription.Attached;
         }
-        if (client is not null && attached is not null)
+        try
         {
-            await client.UnsubscribeAsync(attached, cancellationToken: cancellationToken)
-                .ConfigureAwait(false);
+            if (client is not null && attached is not null)
+            {
+                await client.UnsubscribeAsync(attached, cancellationToken: cancellationToken)
+                    .ConfigureAwait(false);
+            }
         }
-        await subscription.DisposeAsync().ConfigureAwait(false);
+        finally
+        {
+            await subscription.DisposeAsync().ConfigureAwait(false);
+        }
     }
 
     public Task StartAsync(EngineLaunchRequest request, CancellationToken cancellationToken = default)
