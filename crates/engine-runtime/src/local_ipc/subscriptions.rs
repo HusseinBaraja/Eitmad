@@ -203,29 +203,42 @@ impl EventBroker {
         scope: &ScopeRef,
         subscription: &Subscription,
         after: EventCursor,
-    ) -> Result<VecDeque<PublishedEvent>, FeedError> {
+    ) -> Result<
+        (
+            VecDeque<PublishedEvent>,
+            broadcast::Receiver<PublishedEvent>,
+        ),
+        FeedError,
+    > {
         let state = self.inner.state.lock().expect("event broker lock");
+        let live = self.inner.live.subscribe();
         let stream_kind = subscription.kind();
         let Some(position) = state.entries.iter().position(|entry| entry.cursor == after) else {
             if subscription.is_coalescible() {
-                return Ok(state
-                    .entries
-                    .iter()
-                    .rev()
-                    .find(|entry| entry.scope == *scope && entry.stream_kind == stream_kind)
-                    .and_then(|entry| entry.event.clone())
-                    .into_iter()
-                    .collect());
+                return Ok((
+                    state
+                        .entries
+                        .iter()
+                        .rev()
+                        .find(|entry| entry.scope == *scope && entry.stream_kind == stream_kind)
+                        .and_then(|entry| entry.event.clone())
+                        .into_iter()
+                        .collect(),
+                    live,
+                ));
             }
             return Err(FeedError::Backpressure);
         };
-        Ok(state
-            .entries
-            .iter()
-            .skip(position + 1)
-            .filter(|entry| entry.scope == *scope && entry.stream_kind == stream_kind)
-            .filter_map(|entry| entry.event.clone())
-            .collect())
+        Ok((
+            state
+                .entries
+                .iter()
+                .skip(position + 1)
+                .filter(|entry| entry.scope == *scope && entry.stream_kind == stream_kind)
+                .filter_map(|entry| entry.event.clone())
+                .collect(),
+            live,
+        ))
     }
 }
 
@@ -264,9 +277,11 @@ impl SubscriptionFeed {
                 }
                 Ok(_) => {}
                 Err(broadcast::error::RecvError::Lagged(_)) => {
-                    self.replay =
+                    let (replay, live) =
                         self.broker
                             .recover(&self.scope, &self.subscription, self.last_cursor)?;
+                    self.live = live;
+                    self.replay = replay;
                 }
                 Err(broadcast::error::RecvError::Closed) => return Err(FeedError::Closed),
             }
@@ -397,6 +412,21 @@ mod tests {
             panic!("latest sync status expected");
         };
         assert_eq!(records, MAX_REPLAY_EVENTS as u64);
+
+        broker
+            .publish(
+                scope,
+                Event::SyncStatusChanged(SyncStatus::Queued {
+                    records: MAX_REPLAY_EVENTS as u64 + 1,
+                }),
+            )
+            .unwrap();
+        let Event::SyncStatusChanged(SyncStatus::Queued { records }) =
+            feed.recv().await.unwrap().event
+        else {
+            panic!("next live sync status expected");
+        };
+        assert_eq!(records, MAX_REPLAY_EVENTS as u64 + 1);
     }
 
     #[tokio::test]
