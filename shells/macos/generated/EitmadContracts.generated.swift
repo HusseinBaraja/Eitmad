@@ -138,18 +138,18 @@ public extension EitmadContractSchema {
 public struct ProtocolCatalog: Codable, Sendable {
     public let capabilities, commands, configKeys, errorCodes: [String]
     public let errorParameterNames, events, ipcMessages, messageIDS: [String]
-    public let permissions, queries, schemaIDS, subscriptions: [String]
-    public let syncMessages: [String]
+    public let permissions, queries, relations, schemaIDS: [String]
+    public let subscriptions, syncMessages: [String]
 
     public enum CodingKeys: String, CodingKey {
         case capabilities, commands, configKeys, errorCodes, errorParameterNames, events, ipcMessages
         case messageIDS = "messageIds"
-        case permissions, queries
+        case permissions, queries, relations
         case schemaIDS = "schemaIds"
         case subscriptions, syncMessages
     }
 
-    public init(capabilities: [String], commands: [String], configKeys: [String], errorCodes: [String], errorParameterNames: [String], events: [String], ipcMessages: [String], messageIDS: [String], permissions: [String], queries: [String], schemaIDS: [String], subscriptions: [String], syncMessages: [String]) {
+    public init(capabilities: [String], commands: [String], configKeys: [String], errorCodes: [String], errorParameterNames: [String], events: [String], ipcMessages: [String], messageIDS: [String], permissions: [String], queries: [String], relations: [String], schemaIDS: [String], subscriptions: [String], syncMessages: [String]) {
         self.capabilities = capabilities
         self.commands = commands
         self.configKeys = configKeys
@@ -160,6 +160,7 @@ public struct ProtocolCatalog: Codable, Sendable {
         self.messageIDS = messageIDS
         self.permissions = permissions
         self.queries = queries
+        self.relations = relations
         self.schemaIDS = schemaIDS
         self.subscriptions = subscriptions
         self.syncMessages = syncMessages
@@ -195,6 +196,7 @@ public extension ProtocolCatalog {
         messageIDS: [String]? = nil,
         permissions: [String]? = nil,
         queries: [String]? = nil,
+        relations: [String]? = nil,
         schemaIDS: [String]? = nil,
         subscriptions: [String]? = nil,
         syncMessages: [String]? = nil
@@ -210,6 +212,7 @@ public extension ProtocolCatalog {
             messageIDS: messageIDS ?? self.messageIDS,
             permissions: permissions ?? self.permissions,
             queries: queries ?? self.queries,
+            relations: relations ?? self.relations,
             schemaIDS: schemaIDS ?? self.schemaIDS,
             subscriptions: subscriptions ?? self.subscriptions,
             syncMessages: syncMessages ?? self.syncMessages
@@ -529,6 +532,8 @@ public extension Command {
 }
 
 public enum CommandKind: String, Codable, Sendable {
+    case eitmadAuthorizationRelationshipGrantV1 = "eitmad.authorization.relationship.grant.v1"
+    case eitmadAuthorizationRelationshipRevokeV1 = "eitmad.authorization.relationship.revoke.v1"
     case eitmadConfigUpdateV1 = "eitmad.config.update.v1"
     case eitmadOperationCancelV1 = "eitmad.operation.cancel.v1"
     case eitmadUpdateReportInstallerOutcomeV1 = "eitmad.update.report-installer-outcome.v1"
@@ -537,20 +542,27 @@ public enum CommandKind: String, Codable, Sendable {
 // MARK: - UpdateConfiguration
 public struct UpdateConfiguration: Codable, Sendable {
     public let changes: [ConfigChange]?
-    public let expectedRevision: Int?
-    public let operationID, handoffID: String?
+    public let expectedRevision, expectedPolicyVersion: Int?
+    public let relation: String?
+    public let subject: RelationshipSubject?
+    public let relationshipID, operationID, handoffID: String?
     public let outcome: InstallerOutcome?
 
     public enum CodingKeys: String, CodingKey {
-        case changes, expectedRevision
+        case changes, expectedRevision, expectedPolicyVersion, relation, subject
+        case relationshipID = "relationshipId"
         case operationID = "operationId"
         case handoffID = "handoffId"
         case outcome
     }
 
-    public init(changes: [ConfigChange]?, expectedRevision: Int?, operationID: String?, handoffID: String?, outcome: InstallerOutcome?) {
+    public init(changes: [ConfigChange]?, expectedRevision: Int?, expectedPolicyVersion: Int?, relation: String?, subject: RelationshipSubject?, relationshipID: String?, operationID: String?, handoffID: String?, outcome: InstallerOutcome?) {
         self.changes = changes
         self.expectedRevision = expectedRevision
+        self.expectedPolicyVersion = expectedPolicyVersion
+        self.relation = relation
+        self.subject = subject
+        self.relationshipID = relationshipID
         self.operationID = operationID
         self.handoffID = handoffID
         self.outcome = outcome
@@ -578,6 +590,10 @@ public extension UpdateConfiguration {
     func with(
         changes: [ConfigChange]?? = nil,
         expectedRevision: Int?? = nil,
+        expectedPolicyVersion: Int?? = nil,
+        relation: String?? = nil,
+        subject: RelationshipSubject?? = nil,
+        relationshipID: String?? = nil,
         operationID: String?? = nil,
         handoffID: String?? = nil,
         outcome: InstallerOutcome?? = nil
@@ -585,6 +601,10 @@ public extension UpdateConfiguration {
         return UpdateConfiguration(
             changes: changes ?? self.changes,
             expectedRevision: expectedRevision ?? self.expectedRevision,
+            expectedPolicyVersion: expectedPolicyVersion ?? self.expectedPolicyVersion,
+            relation: relation ?? self.relation,
+            subject: subject ?? self.subject,
+            relationshipID: relationshipID ?? self.relationshipID,
             operationID: operationID ?? self.operationID,
             handoffID: handoffID ?? self.handoffID,
             outcome: outcome ?? self.outcome
@@ -842,6 +862,59 @@ public extension InstallerOutcomePayload {
         return InstallerOutcomePayload(
             installedVersion: installedVersion ?? self.installedVersion,
             errorCode: errorCode ?? self.errorCode
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - RelationshipSubject
+public struct RelationshipSubject: Codable, Sendable {
+    public let principalID: String
+    public let principalKind: PrincipalKind
+
+    public enum CodingKeys: String, CodingKey {
+        case principalID = "principalId"
+        case principalKind
+    }
+
+    public init(principalID: String, principalKind: PrincipalKind) {
+        self.principalID = principalID
+        self.principalKind = principalKind
+    }
+}
+
+// MARK: RelationshipSubject convenience initializers and mutators
+
+public extension RelationshipSubject {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(RelationshipSubject.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        principalID: String? = nil,
+        principalKind: PrincipalKind? = nil
+    ) -> RelationshipSubject {
+        return RelationshipSubject(
+            principalID: principalID ?? self.principalID,
+            principalKind: principalKind ?? self.principalKind
         )
     }
 
@@ -1227,6 +1300,8 @@ public enum PurpleKind: String, Codable, Sendable {
     case configurationUpdated = "configurationUpdated"
     case installerOutcomeRecorded = "installerOutcomeRecorded"
     case operationCancelled = "operationCancelled"
+    case relationshipGranted = "relationshipGranted"
+    case relationshipRevoked = "relationshipRevoked"
 }
 
 // MARK: - ErrorParameter
@@ -1364,21 +1439,27 @@ public struct PurpleUpdateState: Codable, Sendable {
     public let entries: [ConfigEntry]?
     public let revision, schemaVersion: Int?
     public let scope: ScopeRef?
+    public let changed: Bool?
+    public let policyVersion: Int?
+    public let relationship: ScopeRelationship?
     public let operationID: String?
     public let kind: UpdateStateKind?
     public let payload: UpdateStatePayload?
 
     public enum CodingKeys: String, CodingKey {
-        case entries, revision, schemaVersion, scope
+        case entries, revision, schemaVersion, scope, changed, policyVersion, relationship
         case operationID = "operation_id"
         case kind, payload
     }
 
-    public init(entries: [ConfigEntry]?, revision: Int?, schemaVersion: Int?, scope: ScopeRef?, operationID: String?, kind: UpdateStateKind?, payload: UpdateStatePayload?) {
+    public init(entries: [ConfigEntry]?, revision: Int?, schemaVersion: Int?, scope: ScopeRef?, changed: Bool?, policyVersion: Int?, relationship: ScopeRelationship?, operationID: String?, kind: UpdateStateKind?, payload: UpdateStatePayload?) {
         self.entries = entries
         self.revision = revision
         self.schemaVersion = schemaVersion
         self.scope = scope
+        self.changed = changed
+        self.policyVersion = policyVersion
+        self.relationship = relationship
         self.operationID = operationID
         self.kind = kind
         self.payload = payload
@@ -1408,6 +1489,9 @@ public extension PurpleUpdateState {
         revision: Int?? = nil,
         schemaVersion: Int?? = nil,
         scope: ScopeRef?? = nil,
+        changed: Bool?? = nil,
+        policyVersion: Int?? = nil,
+        relationship: ScopeRelationship?? = nil,
         operationID: String?? = nil,
         kind: UpdateStateKind?? = nil,
         payload: UpdateStatePayload?? = nil
@@ -1417,6 +1501,9 @@ public extension PurpleUpdateState {
             revision: revision ?? self.revision,
             schemaVersion: schemaVersion ?? self.schemaVersion,
             scope: scope ?? self.scope,
+            changed: changed ?? self.changed,
+            policyVersion: policyVersion ?? self.policyVersion,
+            relationship: relationship ?? self.relationship,
             operationID: operationID ?? self.operationID,
             kind: kind ?? self.kind,
             payload: payload ?? self.payload
@@ -1625,6 +1712,67 @@ public extension UpdateStatePayload {
             progressBps: progressBps ?? self.progressBps,
             handoffID: handoffID ?? self.handoffID,
             errorCode: errorCode ?? self.errorCode
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - ScopeRelationship
+public struct ScopeRelationship: Codable, Sendable {
+    public let relation, relationshipID: String
+    public let scope: ScopeRef
+    public let subject: RelationshipSubject
+
+    public enum CodingKeys: String, CodingKey {
+        case relation
+        case relationshipID = "relationshipId"
+        case scope, subject
+    }
+
+    public init(relation: String, relationshipID: String, scope: ScopeRef, subject: RelationshipSubject) {
+        self.relation = relation
+        self.relationshipID = relationshipID
+        self.scope = scope
+        self.subject = subject
+    }
+}
+
+// MARK: ScopeRelationship convenience initializers and mutators
+
+public extension ScopeRelationship {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(ScopeRelationship.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        relation: String? = nil,
+        relationshipID: String? = nil,
+        scope: ScopeRef? = nil,
+        subject: RelationshipSubject? = nil
+    ) -> ScopeRelationship {
+        return ScopeRelationship(
+            relation: relation ?? self.relation,
+            relationshipID: relationshipID ?? self.relationshipID,
+            scope: scope ?? self.scope,
+            subject: subject ?? self.subject
         )
     }
 
@@ -2200,6 +2348,7 @@ public extension Event {
 }
 
 public enum EventKind: String, Codable, Sendable {
+    case eitmadAuthorizationPolicyChangedEventV1 = "eitmad.authorization.policy.changed.event.v1"
     case eitmadBackgroundJobStatusEventV1 = "eitmad.background-job.status.event.v1"
     case eitmadConfigChangedEventV1 = "eitmad.config.changed.event.v1"
     case eitmadErrorEventV1 = "eitmad.error.event.v1"
@@ -2876,9 +3025,9 @@ public extension SchemaSupport {
 // MARK: - Query
 public struct Query: Codable, Sendable {
     public let kind: QueryKind
-    public let payload: [String: JSONAny]
+    public let payload: GetConfiguration
 
-    public init(kind: QueryKind, payload: [String: JSONAny]) {
+    public init(kind: QueryKind, payload: GetConfiguration) {
         self.kind = kind
         self.payload = payload
     }
@@ -2904,7 +3053,7 @@ public extension Query {
 
     func with(
         kind: QueryKind? = nil,
-        payload: [String: JSONAny]? = nil
+        payload: GetConfiguration? = nil
     ) -> Query {
         return Query(
             kind: kind ?? self.kind,
@@ -2922,10 +3071,59 @@ public extension Query {
 }
 
 public enum QueryKind: String, Codable, Sendable {
+    case eitmadAuthorizationRelationshipsListV1 = "eitmad.authorization.relationships.list.v1"
     case eitmadConfigGetV1 = "eitmad.config.get.v1"
     case eitmadPermissionsGetEffectiveV1 = "eitmad.permissions.get-effective.v1"
     case eitmadSyncGetStatusV1 = "eitmad.sync.get-status.v1"
     case eitmadUpdateGetStateV1 = "eitmad.update.get-state.v1"
+}
+
+// MARK: - GetConfiguration
+public struct GetConfiguration: Codable, Sendable {
+    public let after: String?
+    public let limit: Int?
+
+    public init(after: String?, limit: Int?) {
+        self.after = after
+        self.limit = limit
+    }
+}
+
+// MARK: GetConfiguration convenience initializers and mutators
+
+public extension GetConfiguration {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(GetConfiguration.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        after: String?? = nil,
+        limit: Int?? = nil
+    ) -> GetConfiguration {
+        return GetConfiguration(
+            after: after ?? self.after,
+            limit: limit ?? self.limit
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
 }
 
 /// Resumable streams requested by clients.
@@ -2978,6 +3176,7 @@ public extension Subscription {
 }
 
 public enum SubscriptionKind: String, Codable, Sendable {
+    case eitmadAuthorizationPolicyChangedSubscribeV1 = "eitmad.authorization.policy.changed.subscribe.v1"
     case eitmadBackgroundJobStatusSubscribeV1 = "eitmad.background-job.status.subscribe.v1"
     case eitmadConfigChangedSubscribeV1 = "eitmad.config.changed.subscribe.v1"
     case eitmadErrorSubscribeV1 = "eitmad.error.subscribe.v1"
@@ -3304,6 +3503,9 @@ public enum TentacledKind: String, Codable, Sendable {
     case installerOutcomeRecorded = "installerOutcomeRecorded"
     case negotiation = "negotiation"
     case operationCancelled = "operationCancelled"
+    case relationshipGranted = "relationshipGranted"
+    case relationshipRevoked = "relationshipRevoked"
+    case scopeRelationships = "scopeRelationships"
     case syncStatus = "syncStatus"
     case updateState = "updateState"
 }
@@ -3426,26 +3628,34 @@ public struct NegotiationRejection: Codable, Sendable {
     public let entries: [ConfigEntry]?
     public let revision, schemaVersion: Int?
     public let scope: ScopeRef?
+    public let changed: Bool?
+    public let policyVersion: Int?
+    public let relationship: ScopeRelationship?
     public let operationID: String?
     public let permissions: [EffectivePermission]?
-    public let policyVersion: Int?
+    public let nextAfter: String?
+    public let relationships: [ScopeRelationship]?
 
     public enum CodingKeys: String, CodingKey {
-        case kind, payload, entries, revision, schemaVersion, scope
+        case kind, payload, entries, revision, schemaVersion, scope, changed, policyVersion, relationship
         case operationID = "operation_id"
-        case permissions, policyVersion
+        case permissions, nextAfter, relationships
     }
 
-    public init(kind: StickyKind?, payload: FluffyPayload?, entries: [ConfigEntry]?, revision: Int?, schemaVersion: Int?, scope: ScopeRef?, operationID: String?, permissions: [EffectivePermission]?, policyVersion: Int?) {
+    public init(kind: StickyKind?, payload: FluffyPayload?, entries: [ConfigEntry]?, revision: Int?, schemaVersion: Int?, scope: ScopeRef?, changed: Bool?, policyVersion: Int?, relationship: ScopeRelationship?, operationID: String?, permissions: [EffectivePermission]?, nextAfter: String?, relationships: [ScopeRelationship]?) {
         self.kind = kind
         self.payload = payload
         self.entries = entries
         self.revision = revision
         self.schemaVersion = schemaVersion
         self.scope = scope
+        self.changed = changed
+        self.policyVersion = policyVersion
+        self.relationship = relationship
         self.operationID = operationID
         self.permissions = permissions
-        self.policyVersion = policyVersion
+        self.nextAfter = nextAfter
+        self.relationships = relationships
     }
 }
 
@@ -3474,9 +3684,13 @@ public extension NegotiationRejection {
         revision: Int?? = nil,
         schemaVersion: Int?? = nil,
         scope: ScopeRef?? = nil,
+        changed: Bool?? = nil,
+        policyVersion: Int?? = nil,
+        relationship: ScopeRelationship?? = nil,
         operationID: String?? = nil,
         permissions: [EffectivePermission]?? = nil,
-        policyVersion: Int?? = nil
+        nextAfter: String?? = nil,
+        relationships: [ScopeRelationship]?? = nil
     ) -> NegotiationRejection {
         return NegotiationRejection(
             kind: kind ?? self.kind,
@@ -3485,9 +3699,13 @@ public extension NegotiationRejection {
             revision: revision ?? self.revision,
             schemaVersion: schemaVersion ?? self.schemaVersion,
             scope: scope ?? self.scope,
+            changed: changed ?? self.changed,
+            policyVersion: policyVersion ?? self.policyVersion,
+            relationship: relationship ?? self.relationship,
             operationID: operationID ?? self.operationID,
             permissions: permissions ?? self.permissions,
-            policyVersion: policyVersion ?? self.policyVersion
+            nextAfter: nextAfter ?? self.nextAfter,
+            relationships: relationships ?? self.relationships
         )
     }
 
@@ -3634,6 +3852,7 @@ public enum OutcomeStatus: String, Codable, Sendable {
 }
 
 public enum SubscriptionCloseReason: String, Codable, Sendable {
+    case authorizationRevoked = "authorizationRevoked"
     case backpressure = "backpressure"
     case clientRequested = "clientRequested"
     case engineStopping = "engineStopping"
@@ -4166,6 +4385,7 @@ public extension QueryResult {
 public enum IndecentKind: String, Codable, Sendable {
     case configuration = "configuration"
     case effectivePermissions = "effectivePermissions"
+    case scopeRelationships = "scopeRelationships"
     case syncStatus = "syncStatus"
     case updateState = "updateState"
 }
@@ -4177,16 +4397,20 @@ public struct FluffyUpdateState: Codable, Sendable {
     public let scope: ScopeRef?
     public let permissions: [EffectivePermission]?
     public let policyVersion: Int?
+    public let nextAfter: String?
+    public let relationships: [ScopeRelationship]?
     public let kind: FluffyKind?
     public let payload: PurplePayload?
 
-    public init(entries: [ConfigEntry]?, revision: Int?, schemaVersion: Int?, scope: ScopeRef?, permissions: [EffectivePermission]?, policyVersion: Int?, kind: FluffyKind?, payload: PurplePayload?) {
+    public init(entries: [ConfigEntry]?, revision: Int?, schemaVersion: Int?, scope: ScopeRef?, permissions: [EffectivePermission]?, policyVersion: Int?, nextAfter: String?, relationships: [ScopeRelationship]?, kind: FluffyKind?, payload: PurplePayload?) {
         self.entries = entries
         self.revision = revision
         self.schemaVersion = schemaVersion
         self.scope = scope
         self.permissions = permissions
         self.policyVersion = policyVersion
+        self.nextAfter = nextAfter
+        self.relationships = relationships
         self.kind = kind
         self.payload = payload
     }
@@ -4217,6 +4441,8 @@ public extension FluffyUpdateState {
         scope: ScopeRef?? = nil,
         permissions: [EffectivePermission]?? = nil,
         policyVersion: Int?? = nil,
+        nextAfter: String?? = nil,
+        relationships: [ScopeRelationship]?? = nil,
         kind: FluffyKind?? = nil,
         payload: PurplePayload?? = nil
     ) -> FluffyUpdateState {
@@ -4227,6 +4453,8 @@ public extension FluffyUpdateState {
             scope: scope ?? self.scope,
             permissions: permissions ?? self.permissions,
             policyVersion: policyVersion ?? self.policyVersion,
+            nextAfter: nextAfter ?? self.nextAfter,
+            relationships: relationships ?? self.relationships,
             kind: kind ?? self.kind,
             payload: payload ?? self.payload
         )

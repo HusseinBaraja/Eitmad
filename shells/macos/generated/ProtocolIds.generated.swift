@@ -22,6 +22,8 @@ public enum ProtocolIds {
 
     public enum Commands {
         public static let eitmadConfigUpdateV1 = "eitmad.config.update.v1"
+        public static let eitmadAuthorizationRelationshipGrantV1 = "eitmad.authorization.relationship.grant.v1"
+        public static let eitmadAuthorizationRelationshipRevokeV1 = "eitmad.authorization.relationship.revoke.v1"
         public static let eitmadOperationCancelV1 = "eitmad.operation.cancel.v1"
         public static let eitmadUpdateReportInstallerOutcomeV1 = "eitmad.update.report-installer-outcome.v1"
     }
@@ -29,6 +31,7 @@ public enum ProtocolIds {
     public enum Queries {
         public static let eitmadConfigGetV1 = "eitmad.config.get.v1"
         public static let eitmadPermissionsGetEffectiveV1 = "eitmad.permissions.get-effective.v1"
+        public static let eitmadAuthorizationRelationshipsListV1 = "eitmad.authorization.relationships.list.v1"
         public static let eitmadUpdateGetStateV1 = "eitmad.update.get-state.v1"
         public static let eitmadSyncGetStatusV1 = "eitmad.sync.get-status.v1"
     }
@@ -36,6 +39,7 @@ public enum ProtocolIds {
     public enum Subscriptions {
         public static let eitmadConfigChangedSubscribeV1 = "eitmad.config.changed.subscribe.v1"
         public static let eitmadPermissionsChangedSubscribeV1 = "eitmad.permissions.changed.subscribe.v1"
+        public static let eitmadAuthorizationPolicyChangedSubscribeV1 = "eitmad.authorization.policy.changed.subscribe.v1"
         public static let eitmadUpdateStateSubscribeV1 = "eitmad.update.state.subscribe.v1"
         public static let eitmadSyncStatusSubscribeV1 = "eitmad.sync.status.subscribe.v1"
         public static let eitmadRecordChangedSubscribeV1 = "eitmad.record.changed.subscribe.v1"
@@ -47,6 +51,7 @@ public enum ProtocolIds {
     public enum Events {
         public static let eitmadConfigChangedEventV1 = "eitmad.config.changed.event.v1"
         public static let eitmadPermissionsChangedEventV1 = "eitmad.permissions.changed.event.v1"
+        public static let eitmadAuthorizationPolicyChangedEventV1 = "eitmad.authorization.policy.changed.event.v1"
         public static let eitmadUpdateStateEventV1 = "eitmad.update.state.event.v1"
         public static let eitmadSyncStatusEventV1 = "eitmad.sync.status.event.v1"
         public static let eitmadRecordChangedEventV1 = "eitmad.record.changed.event.v1"
@@ -68,6 +73,7 @@ public enum ProtocolIds {
         public static let eitmadCapabilityEngineLifecycleV1 = "eitmad.capability.engine-lifecycle.v1"
         public static let eitmadCapabilityLocalIpcV1 = "eitmad.capability.local-ipc.v1"
         public static let eitmadCapabilityLocalIpcSubscriptionsV1 = "eitmad.capability.local-ipc-subscriptions.v1"
+        public static let eitmadCapabilityAuthorizationPolicyEventsV1 = "eitmad.capability.authorization-policy-events.v1"
         public static let eitmadCapabilityConfigV1 = "eitmad.capability.config.v1"
         public static let eitmadCapabilityPermissionsV1 = "eitmad.capability.permissions.v1"
         public static let eitmadCapabilitySyncV1 = "eitmad.capability.sync.v1"
@@ -77,6 +83,9 @@ public enum ProtocolIds {
     public enum Permissions {
         public static let eitmadPermissionConfigReadV1 = "eitmad.permission.config.read.v1"
         public static let eitmadPermissionConfigWriteV1 = "eitmad.permission.config.write.v1"
+        public static let eitmadPermissionConfigImportV1 = "eitmad.permission.config.import.v1"
+        public static let eitmadPermissionConfigExportV1 = "eitmad.permission.config.export.v1"
+        public static let eitmadPermissionAuthorizationManageV1 = "eitmad.permission.authorization.manage.v1"
         public static let eitmadPermissionPermissionsReadV1 = "eitmad.permission.permissions.read.v1"
         public static let eitmadPermissionSyncReadV1 = "eitmad.permission.sync.read.v1"
         public static let eitmadPermissionUpdateReadV1 = "eitmad.permission.update.read.v1"
@@ -87,12 +96,24 @@ public enum ProtocolIds {
         public static let eitmadConfigLocalePrimaryV1 = "eitmad.config.locale.primary.v1"
     }
 
+    public enum Relations {
+        public static let eitmadRelationOrganizationConfigManagerV1 = "eitmad.relation.organization.config-manager.v1"
+        public static let eitmadRelationOrganizationMemberV1 = "eitmad.relation.organization.member.v1"
+        public static let eitmadRelationOrganizationOwnerV1 = "eitmad.relation.organization.owner.v1"
+    }
+
     public enum SchemaIds {
         public static let eitmadSchemaProtocolV1 = "eitmad.schema.protocol.v1"
     }
 
     public enum ErrorCodes {
         public static let eitmadErrorAuthorizationDeniedV1 = "eitmad.error.authorization-denied.v1"
+        public static let eitmadErrorAuthorizationLastOwnerV1 = "eitmad.error.authorization-last-owner.v1"
+        public static let eitmadErrorAuthorizationPolicyConflictV1 = "eitmad.error.authorization-policy-conflict.v1"
+        public static let eitmadErrorAuthorizationRelationInvalidV1 = "eitmad.error.authorization-relation-invalid.v1"
+        public static let eitmadErrorAuthorizationUnavailableV1 = "eitmad.error.authorization-unavailable.v1"
+        public static let eitmadErrorConfigInvalidV1 = "eitmad.error.config-invalid.v1"
+        public static let eitmadErrorConfigUnavailableV1 = "eitmad.error.config-unavailable.v1"
         public static let eitmadErrorConfigRevisionConflictV1 = "eitmad.error.config-revision-conflict.v1"
         public static let eitmadErrorContractInvalidV1 = "eitmad.error.contract-invalid.v1"
         public static let eitmadErrorEngineAlreadyRunningV1 = "eitmad.error.engine-already-running.v1"
@@ -113,6 +134,12 @@ public enum ProtocolIds {
 
     public enum MessageIds {
         public static let eitmadMessageAuthorizationDeniedV1 = "eitmad.message.authorization-denied.v1"
+        public static let eitmadMessageAuthorizationLastOwnerV1 = "eitmad.message.authorization-last-owner.v1"
+        public static let eitmadMessageAuthorizationPolicyConflictV1 = "eitmad.message.authorization-policy-conflict.v1"
+        public static let eitmadMessageAuthorizationRelationInvalidV1 = "eitmad.message.authorization-relation-invalid.v1"
+        public static let eitmadMessageAuthorizationUnavailableV1 = "eitmad.message.authorization-unavailable.v1"
+        public static let eitmadMessageConfigInvalidV1 = "eitmad.message.config-invalid.v1"
+        public static let eitmadMessageConfigUnavailableV1 = "eitmad.message.config-unavailable.v1"
         public static let eitmadMessageConfigRevisionConflictV1 = "eitmad.message.config-revision-conflict.v1"
         public static let eitmadMessageContractInvalidV1 = "eitmad.message.contract-invalid.v1"
         public static let eitmadMessageEngineAlreadyRunningV1 = "eitmad.message.engine-already-running.v1"
@@ -133,7 +160,9 @@ public enum ProtocolIds {
 
     public enum ErrorParameterNames {
         public static let actualRevision = "actual-revision"
+        public static let configurationKey = "configuration-key"
         public static let expectedRevision = "expected-revision"
+        public static let relation = "relation"
         public static let requiredCapability = "required-capability"
         public static let retryAfterMs = "retry-after-ms"
         public static let maximumPayloadBytes = "maximum-payload-bytes"

@@ -10,7 +10,7 @@ use crate::{
     versioning::ProtocolVersion,
 };
 
-pub const PROTOCOL_VERSION: ProtocolVersion = ProtocolVersion { major: 1, minor: 1 };
+pub const PROTOCOL_VERSION: ProtocolVersion = ProtocolVersion { major: 1, minor: 2 };
 pub const MAX_PAGE_SIZE: u32 = 500;
 
 uuid_id!(RequestId);
@@ -264,6 +264,7 @@ pub enum SubscriptionCloseReason {
     ClientRequested,
     Backpressure,
     EngineStopping,
+    AuthorizationRevoked,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]

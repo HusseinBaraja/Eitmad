@@ -185,7 +185,7 @@ fn render_reference(catalog: &ProtocolCatalog) -> String {
          page_type: \"reference\"\n\
          status: \"active\"\n\
          owner: \"Rust contract maintainers\"\n\
-         last_verified: \"2026-07-13\"\n\
+         last_verified: \"2026-07-18\"\n\
          review_triggers:\n\
            - \"the Rust protocol catalog or generator changes\"\n\
          keywords:\n\
@@ -206,6 +206,7 @@ fn render_reference(catalog: &ProtocolCatalog) -> String {
         ("Capabilities", &catalog.capabilities),
         ("Permissions", &catalog.permissions),
         ("Configuration keys", &catalog.config_keys),
+        ("Relationships", &catalog.relations),
         ("Schema identifiers", &catalog.schema_ids),
         ("Error codes", &catalog.error_codes),
         ("Localization message identifiers", &catalog.message_ids),

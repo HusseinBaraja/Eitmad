@@ -106,6 +106,9 @@ namespace Eitmad.Contracts
         [JsonPropertyName("queries")]
         public string[] Queries { get; set; }
 
+        [JsonPropertyName("relations")]
+        public string[] Relations { get; set; }
+
         [JsonPropertyName("schemaIds")]
         public string[] SchemaIds { get; set; }
 
@@ -202,6 +205,22 @@ namespace Eitmad.Contracts
         public long? ExpectedRevision { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("expectedPolicyVersion")]
+        public long? ExpectedPolicyVersion { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("relation")]
+        public string Relation { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("subject")]
+        public RelationshipSubject Subject { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("relationshipId")]
+        public Guid? RelationshipId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("operationId")]
         public Guid? OperationId { get; set; }
 
@@ -251,6 +270,15 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("error_code")]
         public string ErrorCode { get; set; }
+    }
+
+    public partial class RelationshipSubject
+    {
+        [JsonPropertyName("principalId")]
+        public Guid PrincipalId { get; set; }
+
+        [JsonPropertyName("principalKind")]
+        public PrincipalKind PrincipalKind { get; set; }
     }
 
     public partial class ProtocolVersion
@@ -394,6 +422,18 @@ namespace Eitmad.Contracts
         public ScopeRef Scope { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("changed")]
+        public bool? Changed { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("policyVersion")]
+        public long? PolicyVersion { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("relationship")]
+        public ScopeRelationship Relationship { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("operation_id")]
         public Guid? OperationId { get; set; }
 
@@ -447,6 +487,21 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("error_code")]
         public string ErrorCode { get; set; }
+    }
+
+    public partial class ScopeRelationship
+    {
+        [JsonPropertyName("relation")]
+        public string Relation { get; set; }
+
+        [JsonPropertyName("relationshipId")]
+        public Guid RelationshipId { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+
+        [JsonPropertyName("subject")]
+        public RelationshipSubject Subject { get; set; }
     }
 
     public partial class RetryDisposition
@@ -851,7 +906,17 @@ namespace Eitmad.Contracts
         public QueryKind Kind { get; set; }
 
         [JsonPropertyName("payload")]
-        public Dictionary<string, object> Payload { get; set; }
+        public GetConfiguration Payload { get; set; }
+    }
+
+    public partial class GetConfiguration
+    {
+        [JsonPropertyName("after")]
+        public Guid? After { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("limit")]
+        public long? Limit { get; set; }
     }
 
     /// <summary>
@@ -1039,6 +1104,18 @@ namespace Eitmad.Contracts
         public ScopeRef Scope { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("changed")]
+        public bool? Changed { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("policyVersion")]
+        public long? PolicyVersion { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("relationship")]
+        public ScopeRelationship Relationship { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("operation_id")]
         public Guid? OperationId { get; set; }
 
@@ -1046,9 +1123,12 @@ namespace Eitmad.Contracts
         [JsonPropertyName("permissions")]
         public EffectivePermission[] Permissions { get; set; }
 
+        [JsonPropertyName("nextAfter")]
+        public Guid? NextAfter { get; set; }
+
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("policyVersion")]
-        public long? PolicyVersion { get; set; }
+        [JsonPropertyName("relationships")]
+        public ScopeRelationship[] Relationships { get; set; }
     }
 
     public partial class FluffyPayload
@@ -1279,6 +1359,13 @@ namespace Eitmad.Contracts
         [JsonPropertyName("policyVersion")]
         public long? PolicyVersion { get; set; }
 
+        [JsonPropertyName("nextAfter")]
+        public Guid? NextAfter { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("relationships")]
+        public ScopeRelationship[] Relationships { get; set; }
+
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("kind")]
         public FluffyKind? Kind { get; set; }
@@ -1451,7 +1538,7 @@ namespace Eitmad.Contracts
 
     public enum PrincipalKind { Device, Service, User };
 
-    public enum CommandKind { EitmadConfigUpdateV1, EitmadOperationCancelV1, EitmadUpdateReportInstallerOutcomeV1 };
+    public enum CommandKind { EitmadAuthorizationRelationshipGrantV1, EitmadAuthorizationRelationshipRevokeV1, EitmadConfigUpdateV1, EitmadOperationCancelV1, EitmadUpdateReportInstallerOutcomeV1 };
 
     public enum ConfigWriteValueKind { Boolean, Decimal, Integer, SecretReference, Text, TextList };
 
@@ -1461,7 +1548,7 @@ namespace Eitmad.Contracts
 
     public enum LifecycleStage { AuthorityLock, ComponentShutdown, ComponentStartup, ProcessIdentity, ReadinessCheck };
 
-    public enum PurpleKind { ConfigurationUpdated, InstallerOutcomeRecorded, OperationCancelled };
+    public enum PurpleKind { ConfigurationUpdated, InstallerOutcomeRecorded, OperationCancelled, RelationshipGranted, RelationshipRevoked };
 
     public enum ErrorParameterValueKind { Identifier, Integer, Text };
 
@@ -1485,7 +1572,7 @@ namespace Eitmad.Contracts
 
     public enum PermissionDecision { Denied, Granted };
 
-    public enum EventKind { EitmadBackgroundJobStatusEventV1, EitmadConfigChangedEventV1, EitmadErrorEventV1, EitmadNotificationEventV1, EitmadPermissionsChangedEventV1, EitmadRecordChangedEventV1, EitmadSyncStatusEventV1, EitmadUpdateStateEventV1 };
+    public enum EventKind { EitmadAuthorizationPolicyChangedEventV1, EitmadBackgroundJobStatusEventV1, EitmadConfigChangedEventV1, EitmadErrorEventV1, EitmadNotificationEventV1, EitmadPermissionsChangedEventV1, EitmadRecordChangedEventV1, EitmadSyncStatusEventV1, EitmadUpdateStateEventV1 };
 
     public enum FluffyKind { Available, Checking, Conflicted, Current, Downloading, Failed, Idle, InstallationHandoff, Installing, Offline, Paused, Preflight, Queued, Ready, RecoveryRequired, Revoked, Succeeded, Syncing, Verifying };
 
@@ -1499,13 +1586,13 @@ namespace Eitmad.Contracts
 
     public enum PeerKind { DiagnosticClient, Engine, Server, Shell };
 
-    public enum QueryKind { EitmadConfigGetV1, EitmadPermissionsGetEffectiveV1, EitmadSyncGetStatusV1, EitmadUpdateGetStateV1 };
+    public enum QueryKind { EitmadAuthorizationRelationshipsListV1, EitmadConfigGetV1, EitmadPermissionsGetEffectiveV1, EitmadSyncGetStatusV1, EitmadUpdateGetStateV1 };
 
-    public enum SubscriptionKind { EitmadBackgroundJobStatusSubscribeV1, EitmadConfigChangedSubscribeV1, EitmadErrorSubscribeV1, EitmadNotificationSubscribeV1, EitmadPermissionsChangedSubscribeV1, EitmadRecordChangedSubscribeV1, EitmadSyncStatusSubscribeV1, EitmadUpdateStateSubscribeV1 };
+    public enum SubscriptionKind { EitmadAuthorizationPolicyChangedSubscribeV1, EitmadBackgroundJobStatusSubscribeV1, EitmadConfigChangedSubscribeV1, EitmadErrorSubscribeV1, EitmadNotificationSubscribeV1, EitmadPermissionsChangedSubscribeV1, EitmadRecordChangedSubscribeV1, EitmadSyncStatusSubscribeV1, EitmadUpdateStateSubscribeV1 };
 
     public enum IpcServerMessageKind { EitmadIpcCommandResponseV1, EitmadIpcEventV1, EitmadIpcFailureV1, EitmadIpcHandshakeResponseV1, EitmadIpcQueryResponseV1, EitmadIpcShutdownResponseV1, EitmadIpcSubscribeResponseV1, EitmadIpcSubscriptionClosedV1, EitmadIpcUnsubscribeResponseV1 };
 
-    public enum TentacledKind { AuthenticationFailed, AuthenticationRequired, Configuration, ConfigurationUpdated, EffectivePermissions, InstallerOutcomeRecorded, Negotiation, OperationCancelled, SyncStatus, UpdateState };
+    public enum TentacledKind { AuthenticationFailed, AuthenticationRequired, Configuration, ConfigurationUpdated, EffectivePermissions, InstallerOutcomeRecorded, Negotiation, OperationCancelled, RelationshipGranted, RelationshipRevoked, ScopeRelationships, SyncStatus, UpdateState };
 
     public enum StickyKind { Available, Checking, Conflicted, Current, Downloading, Failed, Idle, IncompatibleSchema, InstallationHandoff, Installing, MissingCapability, NoCommonProtocol, Offline, Paused, Preflight, Queued, Ready, RecoveryRequired, Revoked, Succeeded, Syncing, Verifying };
 
@@ -1513,7 +1600,7 @@ namespace Eitmad.Contracts
 
     public enum OutcomeStatus { Accepted, Failed, Rejected, Succeeded };
 
-    public enum SubscriptionCloseReason { Backpressure, ClientRequested, EngineStopping };
+    public enum SubscriptionCloseReason { AuthorizationRevoked, Backpressure, ClientRequested, EngineStopping };
 
     public enum LifecycleState { Failed, Ready, Starting, Stopped, Stopping };
 
@@ -1521,7 +1608,7 @@ namespace Eitmad.Contracts
 
     public enum NegotiationOutcomeStatus { Accepted, Rejected };
 
-    public enum IndecentKind { Configuration, EffectivePermissions, SyncStatus, UpdateState };
+    public enum IndecentKind { Configuration, EffectivePermissions, ScopeRelationships, SyncStatus, UpdateState };
 
     public enum SyncMessageKind { EitmadSyncAcknowledgeV1, EitmadSyncBackpressureV1, EitmadSyncChangesV1, EitmadSyncConflictV1, EitmadSyncNegotiateV1, EitmadSyncPullV1 };
 
@@ -1664,6 +1751,10 @@ namespace Eitmad.Contracts
             var value = reader.GetString();
             switch (value)
             {
+                case "eitmad.authorization.relationship.grant.v1":
+                    return CommandKind.EitmadAuthorizationRelationshipGrantV1;
+                case "eitmad.authorization.relationship.revoke.v1":
+                    return CommandKind.EitmadAuthorizationRelationshipRevokeV1;
                 case "eitmad.config.update.v1":
                     return CommandKind.EitmadConfigUpdateV1;
                 case "eitmad.operation.cancel.v1":
@@ -1678,6 +1769,12 @@ namespace Eitmad.Contracts
         {
             switch (value)
             {
+                case CommandKind.EitmadAuthorizationRelationshipGrantV1:
+                    JsonSerializer.Serialize(writer, "eitmad.authorization.relationship.grant.v1", options);
+                    return;
+                case CommandKind.EitmadAuthorizationRelationshipRevokeV1:
+                    JsonSerializer.Serialize(writer, "eitmad.authorization.relationship.revoke.v1", options);
+                    return;
                 case CommandKind.EitmadConfigUpdateV1:
                     JsonSerializer.Serialize(writer, "eitmad.config.update.v1", options);
                     return;
@@ -1958,6 +2055,10 @@ namespace Eitmad.Contracts
                     return PurpleKind.InstallerOutcomeRecorded;
                 case "operationCancelled":
                     return PurpleKind.OperationCancelled;
+                case "relationshipGranted":
+                    return PurpleKind.RelationshipGranted;
+                case "relationshipRevoked":
+                    return PurpleKind.RelationshipRevoked;
             }
             throw new Exception("Cannot unmarshal type PurpleKind");
         }
@@ -1974,6 +2075,12 @@ namespace Eitmad.Contracts
                     return;
                 case PurpleKind.OperationCancelled:
                     JsonSerializer.Serialize(writer, "operationCancelled", options);
+                    return;
+                case PurpleKind.RelationshipGranted:
+                    JsonSerializer.Serialize(writer, "relationshipGranted", options);
+                    return;
+                case PurpleKind.RelationshipRevoked:
+                    JsonSerializer.Serialize(writer, "relationshipRevoked", options);
                     return;
             }
             throw new Exception("Cannot marshal type PurpleKind");
@@ -2516,6 +2623,8 @@ namespace Eitmad.Contracts
             var value = reader.GetString();
             switch (value)
             {
+                case "eitmad.authorization.policy.changed.event.v1":
+                    return EventKind.EitmadAuthorizationPolicyChangedEventV1;
                 case "eitmad.background-job.status.event.v1":
                     return EventKind.EitmadBackgroundJobStatusEventV1;
                 case "eitmad.config.changed.event.v1":
@@ -2540,6 +2649,9 @@ namespace Eitmad.Contracts
         {
             switch (value)
             {
+                case EventKind.EitmadAuthorizationPolicyChangedEventV1:
+                    JsonSerializer.Serialize(writer, "eitmad.authorization.policy.changed.event.v1", options);
+                    return;
                 case EventKind.EitmadBackgroundJobStatusEventV1:
                     JsonSerializer.Serialize(writer, "eitmad.background-job.status.event.v1", options);
                     return;
@@ -2924,6 +3036,8 @@ namespace Eitmad.Contracts
             var value = reader.GetString();
             switch (value)
             {
+                case "eitmad.authorization.relationships.list.v1":
+                    return QueryKind.EitmadAuthorizationRelationshipsListV1;
                 case "eitmad.config.get.v1":
                     return QueryKind.EitmadConfigGetV1;
                 case "eitmad.permissions.get-effective.v1":
@@ -2940,6 +3054,9 @@ namespace Eitmad.Contracts
         {
             switch (value)
             {
+                case QueryKind.EitmadAuthorizationRelationshipsListV1:
+                    JsonSerializer.Serialize(writer, "eitmad.authorization.relationships.list.v1", options);
+                    return;
                 case QueryKind.EitmadConfigGetV1:
                     JsonSerializer.Serialize(writer, "eitmad.config.get.v1", options);
                     return;
@@ -2968,6 +3085,8 @@ namespace Eitmad.Contracts
             var value = reader.GetString();
             switch (value)
             {
+                case "eitmad.authorization.policy.changed.subscribe.v1":
+                    return SubscriptionKind.EitmadAuthorizationPolicyChangedSubscribeV1;
                 case "eitmad.background-job.status.subscribe.v1":
                     return SubscriptionKind.EitmadBackgroundJobStatusSubscribeV1;
                 case "eitmad.config.changed.subscribe.v1":
@@ -2992,6 +3111,9 @@ namespace Eitmad.Contracts
         {
             switch (value)
             {
+                case SubscriptionKind.EitmadAuthorizationPolicyChangedSubscribeV1:
+                    JsonSerializer.Serialize(writer, "eitmad.authorization.policy.changed.subscribe.v1", options);
+                    return;
                 case SubscriptionKind.EitmadBackgroundJobStatusSubscribeV1:
                     JsonSerializer.Serialize(writer, "eitmad.background-job.status.subscribe.v1", options);
                     return;
@@ -3117,6 +3239,12 @@ namespace Eitmad.Contracts
                     return TentacledKind.Negotiation;
                 case "operationCancelled":
                     return TentacledKind.OperationCancelled;
+                case "relationshipGranted":
+                    return TentacledKind.RelationshipGranted;
+                case "relationshipRevoked":
+                    return TentacledKind.RelationshipRevoked;
+                case "scopeRelationships":
+                    return TentacledKind.ScopeRelationships;
                 case "syncStatus":
                     return TentacledKind.SyncStatus;
                 case "updateState":
@@ -3152,6 +3280,15 @@ namespace Eitmad.Contracts
                     return;
                 case TentacledKind.OperationCancelled:
                     JsonSerializer.Serialize(writer, "operationCancelled", options);
+                    return;
+                case TentacledKind.RelationshipGranted:
+                    JsonSerializer.Serialize(writer, "relationshipGranted", options);
+                    return;
+                case TentacledKind.RelationshipRevoked:
+                    JsonSerializer.Serialize(writer, "relationshipRevoked", options);
+                    return;
+                case TentacledKind.ScopeRelationships:
+                    JsonSerializer.Serialize(writer, "scopeRelationships", options);
                     return;
                 case TentacledKind.SyncStatus:
                     JsonSerializer.Serialize(writer, "syncStatus", options);
@@ -3387,6 +3524,8 @@ namespace Eitmad.Contracts
             var value = reader.GetString();
             switch (value)
             {
+                case "authorizationRevoked":
+                    return SubscriptionCloseReason.AuthorizationRevoked;
                 case "backpressure":
                     return SubscriptionCloseReason.Backpressure;
                 case "clientRequested":
@@ -3401,6 +3540,9 @@ namespace Eitmad.Contracts
         {
             switch (value)
             {
+                case SubscriptionCloseReason.AuthorizationRevoked:
+                    JsonSerializer.Serialize(writer, "authorizationRevoked", options);
+                    return;
                 case SubscriptionCloseReason.Backpressure:
                     JsonSerializer.Serialize(writer, "backpressure", options);
                     return;
@@ -3552,6 +3694,8 @@ namespace Eitmad.Contracts
                     return IndecentKind.Configuration;
                 case "effectivePermissions":
                     return IndecentKind.EffectivePermissions;
+                case "scopeRelationships":
+                    return IndecentKind.ScopeRelationships;
                 case "syncStatus":
                     return IndecentKind.SyncStatus;
                 case "updateState":
@@ -3569,6 +3713,9 @@ namespace Eitmad.Contracts
                     return;
                 case IndecentKind.EffectivePermissions:
                     JsonSerializer.Serialize(writer, "effectivePermissions", options);
+                    return;
+                case IndecentKind.ScopeRelationships:
+                    JsonSerializer.Serialize(writer, "scopeRelationships", options);
                     return;
                 case IndecentKind.SyncStatus:
                     JsonSerializer.Serialize(writer, "syncStatus", options);

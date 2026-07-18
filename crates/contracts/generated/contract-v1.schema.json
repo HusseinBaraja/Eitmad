@@ -125,6 +125,26 @@
         "scope"
       ]
     },
+    "AuthorizationPolicyChangeNotice": {
+      "type": "object",
+      "properties": {
+        "policyVersion": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "required": [
+        "scope",
+        "policyVersion"
+      ]
+    },
+    "AuthorizationPolicyChanges": {
+      "type": "object"
+    },
     "BackgroundJobChanges": {
       "type": "object"
     },
@@ -313,6 +333,38 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "eitmad.authorization.relationship.grant.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/GrantScopeRelationship"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.authorization.relationship.revoke.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/RevokeScopeRelationship"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "eitmad.operation.cancel.v1"
             },
             "payload": {
@@ -456,6 +508,38 @@
             },
             "payload": {
               "$ref": "#/definitions/ConfigSnapshot"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "relationshipGranted"
+            },
+            "payload": {
+              "$ref": "#/definitions/RelationshipMutationResult"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "relationshipRevoked"
+            },
+            "payload": {
+              "$ref": "#/definitions/RelationshipMutationResult"
             }
           },
           "required": [
@@ -1290,6 +1374,22 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "eitmad.authorization.policy.changed.event.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/AuthorizationPolicyChangeNotice"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "eitmad.update.state.event.v1"
             },
             "payload": {
@@ -1431,6 +1531,27 @@
     },
     "GetUpdateState": {
       "type": "object"
+    },
+    "GrantScopeRelationship": {
+      "type": "object",
+      "properties": {
+        "expectedPolicyVersion": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "relation": {
+          "type": "string"
+        },
+        "subject": {
+          "$ref": "#/definitions/RelationshipSubject"
+        }
+      },
+      "required": [
+        "expectedPolicyVersion",
+        "subject",
+        "relation"
+      ]
     },
     "HandshakeAccepted": {
       "type": "object",
@@ -2029,6 +2150,27 @@
         "failed"
       ]
     },
+    "ListScopeRelationships": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "limit": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 500,
+          "minimum": 1
+        }
+      },
+      "required": [
+        "limit"
+      ]
+    },
     "NegotiatedSchema": {
       "type": "object",
       "properties": {
@@ -2358,6 +2500,12 @@
             "type": "string"
           }
         },
+        "relations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "schemaIds": {
           "type": "array",
           "items": {
@@ -2387,6 +2535,7 @@
         "capabilities",
         "permissions",
         "configKeys",
+        "relations",
         "schemaIds",
         "errorCodes",
         "messageIds",
@@ -2463,6 +2612,22 @@
             },
             "payload": {
               "$ref": "#/definitions/GetEffectivePermissions"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.authorization.relationships.list.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ListScopeRelationships"
             }
           },
           "required": [
@@ -2641,6 +2806,22 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "scopeRelationships"
+            },
+            "payload": {
+              "$ref": "#/definitions/RelationshipPage"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "updateState"
             },
             "payload": {
@@ -2707,6 +2888,70 @@
     },
     "RecordChanges": {
       "type": "object"
+    },
+    "RelationshipMutationResult": {
+      "type": "object",
+      "properties": {
+        "changed": {
+          "type": "boolean"
+        },
+        "policyVersion": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "relationship": {
+          "$ref": "#/definitions/ScopeRelationship"
+        }
+      },
+      "required": [
+        "policyVersion",
+        "relationship",
+        "changed"
+      ]
+    },
+    "RelationshipPage": {
+      "type": "object",
+      "properties": {
+        "nextAfter": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "policyVersion": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "relationships": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ScopeRelationship"
+          }
+        }
+      },
+      "required": [
+        "policyVersion",
+        "relationships"
+      ]
+    },
+    "RelationshipSubject": {
+      "type": "object",
+      "properties": {
+        "principalId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "principalKind": {
+          "$ref": "#/definitions/PrincipalKind"
+        }
+      },
+      "required": [
+        "principalId",
+        "principalKind"
+      ]
     },
     "ReportInstallerOutcome": {
       "type": "object",
@@ -2802,6 +3047,24 @@
         }
       ]
     },
+    "RevokeScopeRelationship": {
+      "type": "object",
+      "properties": {
+        "expectedPolicyVersion": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "relationshipId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "expectedPolicyVersion",
+        "relationshipId"
+      ]
+    },
     "SchemaSupport": {
       "type": "object",
       "properties": {
@@ -2843,6 +3106,30 @@
       "required": [
         "kind",
         "id"
+      ]
+    },
+    "ScopeRelationship": {
+      "type": "object",
+      "properties": {
+        "relation": {
+          "type": "string"
+        },
+        "relationshipId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        },
+        "subject": {
+          "$ref": "#/definitions/RelationshipSubject"
+        }
+      },
+      "required": [
+        "relationshipId",
+        "subject",
+        "relation",
+        "scope"
       ]
     },
     "ScopedError": {
@@ -2930,6 +3217,22 @@
             },
             "payload": {
               "$ref": "#/definitions/PermissionChanges"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.authorization.policy.changed.subscribe.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/AuthorizationPolicyChanges"
             }
           },
           "required": [
@@ -3061,7 +3364,8 @@
       "enum": [
         "clientRequested",
         "backpressure",
-        "engineStopping"
+        "engineStopping",
+        "authorizationRevoked"
       ]
     },
     "SubscriptionClosedEnvelope": {

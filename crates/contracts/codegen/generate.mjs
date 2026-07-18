@@ -145,6 +145,7 @@ function protocolGroups(registry) {
     ["Capabilities", registry.capabilities],
     ["Permissions", registry.permissions],
     ["ConfigKeys", registry.configKeys],
+    ["Relations", registry.relations],
     ["SchemaIds", registry.schemaIds],
     ["ErrorCodes", registry.errorCodes],
     ["MessageIds", registry.messageIds],
