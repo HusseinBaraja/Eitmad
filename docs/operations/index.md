@@ -17,7 +17,7 @@ keywords:
 
 # Run Eitmad foundation checks
 
-These steps verify the current foundation. Rust now owns a local SQLite authority database; packaging, automated backup, and production restore tooling are not implemented.
+These steps verify the current foundation. Rust owns the local SQLite authority database and validated backup/restore library hooks. Packaging, scheduled backup, retention, restore IPC, and production operator tooling are not implemented.
 
 ## Prerequisites
 
@@ -104,5 +104,6 @@ If a command fails, stop. Do not hide the warning or bypass the test. Fix the au
 
 - [Start developing Eitmad](../developer/index.md)
 - [Run and diagnose the engine runtime](run-engine-runtime.md)
+- [Understand local storage and recovery boundaries](../developer/subsystems/local-storage.md)
 - [Extend Windows process supervision safely](../developer/subsystems/windows-process-supervision.md)
 - [Review the documentation standard](../developer/contributing/documentation-standard.md)
