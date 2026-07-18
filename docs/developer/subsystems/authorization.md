@@ -35,7 +35,21 @@ Grant and revoke commands require an expected policy revision and durable idempo
 
 Rust refuses to revoke the final persisted owner in a scope. `AuthorizationService::bootstrap_owner` is a Rust-only audited operation that succeeds only when no persisted owner exists. It is not exposed through shell IPC. In explicitly insecure development-auth mode, the authenticated synthetic principal is an ephemeral owner without a persisted relationship. Production remains fail closed until trusted identity provisioning exists.
 
-Successful mutations commit relationship state, policy revision, idempotency outcome, and audit outcome together. Denied, invalid, conflicting, not-found, and last-owner attempts receive separate audit outcomes. Audit records contain identity, scope, correlation/causation/idempotency IDs, operation, result, revisions, and changed identifiers; they exclude configuration values, secrets, and authorization graphs.
+Successful mutations commit relationship state, policy revision, idempotency outcome, and audit outcome together. Denied, invalid, conflicting, not-found, and last-owner attempts receive separate audit outcomes. Audit records contain identity, scope, correlation/causation/idempotency IDs, operation, result, revisions, and changed identifiers. A grant records its exact relationship ID and relation plus a versioned SHA-256 subject fingerprint; it does not copy the raw subject principal ID into `changed_identifiers`. Audit records exclude configuration values, secrets, and authorization graphs.
+
+Every public authorization entry point accepts only an `organization` scope. Rust returns the wrong-scope authorization failure before reading relationships, evaluating development ownership, bootstrapping an owner, or applying a mutation. Adding another scope type requires a new documented policy instead of reusing organization relations implicitly.
+
+## Arabic, RTL, and mixed-direction behavior
+
+Authorization policy has no localized branch: the same Rust decision applies to Arabic and non-Arabic sessions. Native shells localize stable message IDs and render the relationship-management workflow RTL, but they must keep relationship IDs, permission IDs, UUIDs, policy revisions, and correlation IDs directionally isolated for reliable reading and copy/paste. This release adds no relationship-management UI; any future Arabic UI must use canonical glossary terms and test Arabic names beside LTR identifiers without inferring access from hidden or disabled controls.
+
+## Design tradeoffs
+
+Policy v1 uses direct principal-to-organization relationships. This keeps evaluation and revocation deterministic but intentionally omits nested teams, inherited record access, and stored policy expressions. Evaluation reads authoritative state without a cache, favoring immediate revocation correctness over lower read latency. The last-owner invariant protects persisted production administration, while explicitly insecure development authentication uses a non-persisted owner to avoid contaminating production relationship state.
+
+## Operations
+
+The engine opens and migrates the authority database before reporting readiness. Production operators must provision a trusted persisted owner before configuration or authorization administration can succeed; insecure development ownership is not a recovery mechanism. Monitor sanitized authorization-unavailable errors and correlation IDs, preserve the runtime directory before repair, and use the non-mutating authority-store diagnostic against that exact directory. For policy conflicts, refresh the relationship page and retry with the returned policy version. For storage, bootstrap, last-owner, or revocation failures, follow the linked recovery guide instead of editing SQLite rows directly.
 
 ## Events and revocation
 

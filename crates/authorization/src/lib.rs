@@ -1,6 +1,9 @@
 //! Direct principal-to-scope relationship authorization with Rust-owned policy.
 
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    fmt::Write as _,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use eitmad_contracts::{
     authorization::{
@@ -8,7 +11,7 @@ use eitmad_contracts::{
         RelationshipSubject,
     },
     commands::{GrantScopeRelationship, RevokeScopeRelationship},
-    identity::AuthorizationContext,
+    identity::{AuthorizationContext, PrincipalKind, ScopeRef},
     permissions::{EffectivePermission, EffectivePermissions, PermissionDecision, PermissionId},
     queries::ListScopeRelationships,
     transport::{CausationId, CorrelationId, IdempotencyKey, UnixMillis},
@@ -29,6 +32,8 @@ pub const CONFIG_IMPORT_PERMISSION: &str = "eitmad.permission.config.import.v1";
 pub const CONFIG_EXPORT_PERMISSION: &str = "eitmad.permission.config.export.v1";
 pub const AUTHORIZATION_MANAGE_PERMISSION: &str = "eitmad.permission.authorization.manage.v1";
 pub const PERMISSIONS_READ_PERMISSION: &str = "eitmad.permission.permissions.read.v1";
+
+const ORGANIZATION_SCOPE: &str = "organization";
 
 const POLICY_PERMISSIONS: &[&str] = &[
     AUTHORIZATION_MANAGE_PERMISSION,
@@ -51,6 +56,7 @@ pub struct MutationContext {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AuthorizationError {
     Denied,
+    UnsupportedScope,
     InvalidRelation,
     PolicyConflict {
         expected_version: u64,
@@ -107,6 +113,7 @@ impl AuthorizationService {
         &self,
         context: &AuthorizationContext,
     ) -> Result<EffectivePermissions, AuthorizationError> {
+        validate_scope(&context.scope)?;
         let subject = RelationshipSubject {
             principal_id: context.identity.principal_id,
             principal_kind: context.identity.principal_kind,
@@ -178,6 +185,7 @@ impl AuthorizationService {
         context: &MutationContext,
         subject: &RelationshipSubject,
     ) -> Result<RelationshipMutationResult, AuthorizationError> {
+        validate_scope(&context.authorization.scope)?;
         let relation = relation_id(OWNER_RELATION);
         let audit = audit_record(
             context,
@@ -221,16 +229,17 @@ impl AuthorizationService {
             return Err(AuthorizationError::InvalidRelation);
         }
         let idempotency = durable_idempotency(context, command)?;
+        let relationship_id = RelationshipId::new(Uuid::new_v4());
         let audit = audit_record(
             context,
             command_kind_grant(),
-            vec![command.relation.as_str().to_owned()],
+            grant_audit_targets(relationship_id, &command.subject, &command.relation),
         );
         map_relationship_outcome(
             self.store.grant_relationship(
                 &context.authorization.scope,
                 command.expected_policy_version,
-                RelationshipId::new(Uuid::new_v4()),
+                relationship_id,
                 &command.subject,
                 &command.relation,
                 command_kind_grant(),
@@ -344,6 +353,41 @@ fn registered_relation(relation: &RelationId) -> bool {
         relation.as_str(),
         OWNER_RELATION | CONFIG_MANAGER_RELATION | MEMBER_RELATION
     )
+}
+
+fn validate_scope(scope: &ScopeRef) -> Result<(), AuthorizationError> {
+    (scope.kind.as_str() == ORGANIZATION_SCOPE)
+        .then_some(())
+        .ok_or(AuthorizationError::UnsupportedScope)
+}
+
+fn grant_audit_targets(
+    relationship_id: RelationshipId,
+    subject: &RelationshipSubject,
+    relation: &RelationId,
+) -> Vec<String> {
+    vec![
+        relationship_id.value().to_string(),
+        relation.as_str().to_owned(),
+        subject_audit_identifier(subject),
+    ]
+}
+
+fn subject_audit_identifier(subject: &RelationshipSubject) -> String {
+    let principal_kind = match subject.principal_kind {
+        PrincipalKind::User => "user",
+        PrincipalKind::Device => "device",
+        PrincipalKind::Service => "service",
+    };
+    let mut hasher = Sha256::new();
+    hasher.update(b"eitmad.audit.relationship-subject.v1\0");
+    hasher.update(principal_kind.as_bytes());
+    hasher.update(subject.principal_id.value().as_bytes());
+    let mut fingerprint = String::with_capacity(64);
+    for byte in hasher.finalize() {
+        write!(&mut fingerprint, "{byte:02x}").expect("writing to a String cannot fail");
+    }
+    format!("subject:{principal_kind}:sha256:{fingerprint}")
 }
 
 fn map_relationship_outcome(
@@ -472,6 +516,12 @@ mod tests {
         }
     }
 
+    fn unsupported_scope(principal: u128, scope: u128) -> AuthorizationContext {
+        let mut context = authorization(principal, scope);
+        context.scope.kind = ScopeKind::parse("site").unwrap();
+        context
+    }
+
     fn subject(principal: u128) -> RelationshipSubject {
         RelationshipSubject {
             principal_id: PrincipalId::new(Uuid::from_u128(principal)),
@@ -557,6 +607,46 @@ mod tests {
             ),
             Err(AuthorizationError::Denied)
         );
+    }
+
+    #[test]
+    fn rejects_non_organization_permission_evaluation_and_mutation() {
+        let (_directory, service) = service();
+        let unsupported = unsupported_scope(1, 10);
+        assert_eq!(
+            service.effective_permissions(&unsupported),
+            Err(AuthorizationError::UnsupportedScope)
+        );
+
+        let mut mutation = mutation(1, 10, 101);
+        mutation.authorization = unsupported;
+        assert_eq!(
+            service.grant_relationship(
+                &mutation,
+                &GrantScopeRelationship {
+                    expected_policy_version: 0,
+                    subject: subject(2),
+                    relation: relation_id(MEMBER_RELATION),
+                }
+            ),
+            Err(AuthorizationError::UnsupportedScope)
+        );
+        assert_eq!(
+            service.bootstrap_owner(&mutation, &subject(1)),
+            Err(AuthorizationError::UnsupportedScope)
+        );
+    }
+
+    #[test]
+    fn grant_audit_targets_identify_relationship_without_raw_subject_id() {
+        let relationship_id = RelationshipId::new(Uuid::from_u128(55));
+        let subject = subject(99);
+        let targets = grant_audit_targets(relationship_id, &subject, &relation_id(MEMBER_RELATION));
+
+        assert_eq!(targets[0], relationship_id.value().to_string());
+        assert_eq!(targets[1], MEMBER_RELATION);
+        assert!(targets[2].starts_with("subject:user:sha256:"));
+        assert!(!targets[2].contains(&subject.principal_id.value().to_string()));
     }
 
     #[test]

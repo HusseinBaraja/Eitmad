@@ -286,7 +286,7 @@ fn authorization_contract_error(
     context: Option<&DispatchContext>,
 ) -> ContractError {
     match error_value {
-        AuthorizationError::Denied => contract_error(
+        AuthorizationError::Denied | AuthorizationError::UnsupportedScope => contract_error(
             "eitmad.error.authorization-denied.v1",
             "eitmad.message.authorization-denied.v1",
             correlation_id,

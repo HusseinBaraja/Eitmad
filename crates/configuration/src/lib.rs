@@ -399,6 +399,7 @@ impl ConfigurationService {
             .authorize(context, permission)
             .map_err(|error| match error {
                 AuthorizationError::Denied => ConfigurationError::Denied,
+                AuthorizationError::UnsupportedScope => ConfigurationError::UnsupportedScope,
                 _ => ConfigurationError::Unavailable,
             })
     }
