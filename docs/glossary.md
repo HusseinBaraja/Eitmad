@@ -112,7 +112,7 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | مراجعة الإعدادات | Configuration revision | A monotonic per-scope number incremented once by a real effective patch, not by a no-op or replay. |
 | صلاحية | Permission | An allowed action derived from authenticated identity and relationships; it is enforced by Rust. |
 | علاقة صلاحية | Authorization relationship | A persisted direct association between one user, device, or service principal, one exact scope, and one registered relation. |
-| مالك النطاق | Scope owner | A principal related as organization owner; owners administer relationships, and Rust preserves at least one persisted owner. |
+| مالك النطاق | Scope owner | A principal related as organization owner; owners administer relationships, and Rust preserves at least one persisted production owner. Explicit insecure development authentication may instead provide a non-persisted ephemeral owner. |
 | مدير الإعدادات | Configuration manager | A principal related to an organization with permission to patch, import, and export configuration but not administer relationships. |
 | إلغاء الصلاحية | Authorization revocation | A committed policy change that removes effective access and forces active subscriptions to reauthorize before later delivery. |
 | سجل التدقيق | Audit record | A durable account of a state-changing intent and outcome, including actor, scope, time, and correlation. |

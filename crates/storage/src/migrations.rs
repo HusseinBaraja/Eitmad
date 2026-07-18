@@ -69,6 +69,14 @@ const MIGRATIONS: &[&str] = &[
          response_json BLOB NOT NULL,
          PRIMARY KEY (scope_kind, scope_id, idempotency_key)
      );",
+    "CREATE TABLE publication_outbox (
+         scope_kind TEXT NOT NULL,
+         scope_id TEXT NOT NULL,
+         idempotency_key TEXT NOT NULL,
+         event_json BLOB NOT NULL,
+         policy_changed INTEGER NOT NULL CHECK (policy_changed IN (0, 1)),
+         PRIMARY KEY (scope_kind, scope_id, idempotency_key)
+     );",
 ];
 
 pub(crate) fn apply(connection: &mut Connection) -> Result<(), StorageError> {

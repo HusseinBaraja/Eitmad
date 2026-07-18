@@ -451,6 +451,7 @@ impl LocalIpcServer {
                 Ok(()) => {
                     let subscription = request.subscription.clone();
                     let policy_changes = self.event_broker.subscribe_policy_changes();
+                    let delivery_policy_changes = self.event_broker.subscribe_policy_changes();
                     match self.event_broker.subscribe(
                         request.authorization.scope,
                         request.subscription,
@@ -467,8 +468,8 @@ impl LocalIpcServer {
                                 correlation_id: request.correlation_id,
                                 deliveries: deliveries.clone(),
                                 dispatcher: Arc::clone(&self.dispatcher),
-                                context,
-                                subscription,
+                                context: context.clone(),
+                                subscription: subscription.clone(),
                                 policy_changes,
                             }))
                             .abort_handle();
@@ -478,6 +479,10 @@ impl LocalIpcServer {
                                     handle,
                                     correlation_id: request.correlation_id,
                                     last_delivered_cursor: None,
+                                    dispatcher: Arc::clone(&self.dispatcher),
+                                    context,
+                                    subscription,
+                                    policy_changes: delivery_policy_changes,
                                 },
                             );
                             SubscriptionOutcome::Succeeded(accepted)
@@ -587,6 +592,10 @@ struct ActiveSubscription {
     handle: tokio::task::AbortHandle,
     correlation_id: CorrelationId,
     last_delivered_cursor: Option<EventCursor>,
+    dispatcher: Arc<dyn IpcDispatcher>,
+    context: SubscriptionContext,
+    subscription: Subscription,
+    policy_changes: tokio::sync::broadcast::Receiver<eitmad_contracts::identity::ScopeRef>,
 }
 
 impl Drop for ActiveSubscription {
@@ -637,10 +646,45 @@ where
     if delivery.terminate_connection {
         return Ok(false);
     }
-    let Some(message) = delivery.message else {
+    let Some(mut message) = delivery.message else {
         return Ok(false);
     };
-    let written = write_frame_or_close(writer, &message).await?;
+    let Some(active) = subscriptions.get_mut(&delivery.subscription_id) else {
+        return Ok(true);
+    };
+    if let IpcServerMessage::SubscriptionClosed(closed) = &mut message {
+        closed.last_delivered_cursor = active.last_delivered_cursor;
+    }
+    let written = if delivery.delivered_cursor.is_some() {
+        match write_authorized_subscription_event(writer, &message, active).await? {
+            AuthorizedEventWrite::Finished(written) => written,
+            AuthorizedEventWrite::RevokedBeforeWrite => {
+                let protocol_version = active.context.protocol_version;
+                let correlation_id = active.correlation_id;
+                let last_delivered_cursor = active.last_delivered_cursor;
+                subscriptions.remove(&delivery.subscription_id);
+                if protocol_version.minor < 2 {
+                    return Ok(false);
+                }
+                return write_frame_or_close(
+                    writer,
+                    &IpcServerMessage::SubscriptionClosed(SubscriptionClosedEnvelope {
+                        subscription_id: delivery.subscription_id,
+                        correlation_id,
+                        last_delivered_cursor,
+                        reason: SubscriptionCloseReason::AuthorizationRevoked,
+                    }),
+                )
+                .await;
+            }
+            AuthorizedEventWrite::RevokedDuringWrite => {
+                subscriptions.remove(&delivery.subscription_id);
+                return Ok(false);
+            }
+        }
+    } else {
+        write_frame_or_close(writer, &message).await?
+    };
     if written {
         if let Some(cursor) = delivery.delivered_cursor {
             if let Some(active) = subscriptions.get_mut(&delivery.subscription_id) {
@@ -652,6 +696,58 @@ where
         }
     }
     Ok(written)
+}
+
+enum AuthorizedEventWrite {
+    Finished(bool),
+    RevokedBeforeWrite,
+    RevokedDuringWrite,
+}
+
+async fn write_authorized_subscription_event<W>(
+    writer: &mut W,
+    message: &IpcServerMessage,
+    active: &mut ActiveSubscription,
+) -> io::Result<AuthorizedEventWrite>
+where
+    W: AsyncWrite + Unpin,
+{
+    if active
+        .dispatcher
+        .authorize_subscription(active.context.clone(), &active.subscription)
+        .await
+        .is_err()
+    {
+        return Ok(AuthorizedEventWrite::RevokedBeforeWrite);
+    }
+
+    let write = write_frame_or_close(writer, message);
+    tokio::pin!(write);
+    let mut monitor_policy = true;
+    loop {
+        tokio::select! {
+            biased;
+            policy = active.policy_changes.recv(), if monitor_policy => {
+                let must_reauthorize = match policy {
+                    Ok(scope) => scope == active.context.authorization.scope,
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => true,
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                        monitor_policy = false;
+                        true
+                    }
+                };
+                if must_reauthorize
+                    && active.dispatcher
+                        .authorize_subscription(active.context.clone(), &active.subscription)
+                        .await
+                        .is_err()
+                {
+                    return Ok(AuthorizedEventWrite::RevokedDuringWrite);
+                }
+            }
+            written = &mut write => return written.map(AuthorizedEventWrite::Finished),
+        }
+    }
 }
 
 struct SubscriptionDelivery {
@@ -685,7 +781,7 @@ async fn pump_subscription(mut pump: SubscriptionPump) {
                     Err(tokio::sync::broadcast::error::RecvError::Closed) => return,
                 };
                 if must_reauthorize
-                    && !reauthorize_subscription(&pump, pump.feed.last_cursor()).await
+                    && !reauthorize_subscription(&pump).await
                 {
                     return;
                 }
@@ -695,7 +791,7 @@ async fn pump_subscription(mut pump: SubscriptionPump) {
         };
         match received {
             Ok(published) => {
-                if !reauthorize_subscription(&pump, pump.feed.last_cursor()).await {
+                if !reauthorize_subscription(&pump).await {
                     return;
                 }
                 sequence = sequence.saturating_add(1);
@@ -731,7 +827,7 @@ async fn pump_subscription(mut pump: SubscriptionPump) {
                             SubscriptionClosedEnvelope {
                                 subscription_id: pump.subscription_id,
                                 correlation_id: pump.correlation_id,
-                                last_delivered_cursor: Some(pump.feed.last_cursor()),
+                                last_delivered_cursor: None,
                                 reason: SubscriptionCloseReason::Backpressure,
                             },
                         )),
@@ -747,7 +843,7 @@ async fn pump_subscription(mut pump: SubscriptionPump) {
     }
 }
 
-async fn reauthorize_subscription(pump: &SubscriptionPump, last_cursor: EventCursor) -> bool {
+async fn reauthorize_subscription(pump: &SubscriptionPump) -> bool {
     if pump
         .dispatcher
         .authorize_subscription(pump.context.clone(), &pump.subscription)
@@ -760,7 +856,6 @@ async fn reauthorize_subscription(pump: &SubscriptionPump, last_cursor: EventCur
             &pump.deliveries,
             pump.subscription_id,
             pump.correlation_id,
-            last_cursor,
             pump.context.protocol_version,
         )
         .await;
@@ -772,7 +867,6 @@ async fn send_authorization_revoked(
     deliveries: &mpsc::Sender<SubscriptionDelivery>,
     subscription_id: SubscriptionId,
     correlation_id: CorrelationId,
-    last_cursor: EventCursor,
     protocol_version: ProtocolVersion,
 ) {
     let protocol_supports_reason = protocol_version.minor >= 2;
@@ -780,7 +874,7 @@ async fn send_authorization_revoked(
         IpcServerMessage::SubscriptionClosed(SubscriptionClosedEnvelope {
             subscription_id,
             correlation_id,
-            last_delivered_cursor: Some(last_cursor),
+            last_delivered_cursor: None,
             reason: SubscriptionCloseReason::AuthorizationRevoked,
         })
     });
@@ -1174,6 +1268,7 @@ mod tests {
 
     struct RevocableDispatcher {
         authorized: Arc<AtomicBool>,
+        checked: Option<Arc<tokio::sync::Notify>>,
     }
 
     #[async_trait]
@@ -1278,6 +1373,9 @@ mod tests {
             context: SubscriptionContext,
             _subscription: &Subscription,
         ) -> Result<(), ContractError> {
+            if let Some(checked) = &self.checked {
+                checked.notify_one();
+            }
             self.authorized
                 .load(Ordering::SeqCst)
                 .then_some(())
@@ -1305,6 +1403,32 @@ mod tests {
                 kind: ScopeKind::parse("organization").unwrap(),
                 id: ScopeId::new(uuid::Uuid::new_v4()),
             },
+        }
+    }
+
+    fn active_subscription_fixture(
+        handle: tokio::task::AbortHandle,
+        correlation_id: CorrelationId,
+        last_delivered_cursor: Option<EventCursor>,
+    ) -> ActiveSubscription {
+        let assertion = assertion();
+        let broker = EventBroker::new();
+        ActiveSubscription {
+            handle,
+            correlation_id,
+            last_delivered_cursor,
+            dispatcher: Arc::new(TestDispatcher),
+            context: SubscriptionContext {
+                authorization: AuthorizationContext {
+                    session_id: SessionId::new(uuid::Uuid::new_v4()),
+                    identity: assertion.identity,
+                    scope: assertion.scope,
+                },
+                correlation_id,
+                protocol_version: PROTOCOL_VERSION,
+            },
+            subscription: Subscription::Configuration(ConfigurationChanges {}),
+            policy_changes: broker.subscribe_policy_changes(),
         }
     }
 
@@ -1446,11 +1570,7 @@ mod tests {
             let task = tokio::spawn(std::future::pending::<()>());
             let mut subscriptions = HashMap::from([(
                 subscription_id,
-                ActiveSubscription {
-                    handle: task.abort_handle(),
-                    correlation_id,
-                    last_delivered_cursor: Some(cursor),
-                },
+                active_subscription_fixture(task.abort_handle(), correlation_id, Some(cursor)),
             )]);
             let (mut writer, mut reader) = tokio::io::duplex(1_024);
 
@@ -1503,11 +1623,7 @@ mod tests {
             subscription,
             policy_changes,
         }));
-        let active = ActiveSubscription {
-            handle: task.abort_handle(),
-            correlation_id,
-            last_delivered_cursor: None,
-        };
+        let active = active_subscription_fixture(task.abort_handle(), correlation_id, None);
 
         drop(active);
 
@@ -1527,6 +1643,7 @@ mod tests {
         let authorized = Arc::new(AtomicBool::new(true));
         let dispatcher = Arc::new(RevocableDispatcher {
             authorized: Arc::clone(&authorized),
+            checked: None,
         });
         let (deliveries, mut receiver) = mpsc::channel(4);
         let task = tokio::spawn(pump_subscription(SubscriptionPump {
@@ -1574,13 +1691,164 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn delivery_denial_reports_only_the_last_written_cursor() {
+        let broker = EventBroker::new();
+        let assertion = assertion();
+        let scope = assertion.scope.clone();
+        let subscription_id = SubscriptionId::new(uuid::Uuid::new_v4());
+        let correlation_id = CorrelationId::new(uuid::Uuid::new_v4());
+        let last_written = EventCursor::new(uuid::Uuid::new_v4());
+        let denied_cursor = EventCursor::new(uuid::Uuid::new_v4());
+        let task = tokio::spawn(std::future::pending::<()>());
+        let mut subscriptions = HashMap::from([(
+            subscription_id,
+            ActiveSubscription {
+                handle: task.abort_handle(),
+                correlation_id,
+                last_delivered_cursor: Some(last_written),
+                dispatcher: Arc::new(RevocableDispatcher {
+                    authorized: Arc::new(AtomicBool::new(false)),
+                    checked: None,
+                }),
+                context: SubscriptionContext {
+                    authorization: AuthorizationContext {
+                        session_id: SessionId::new(uuid::Uuid::new_v4()),
+                        identity: assertion.identity,
+                        scope: scope.clone(),
+                    },
+                    correlation_id,
+                    protocol_version: PROTOCOL_VERSION,
+                },
+                subscription: Subscription::Configuration(ConfigurationChanges {}),
+                policy_changes: broker.subscribe_policy_changes(),
+            },
+        )]);
+        let delivery = SubscriptionDelivery {
+            subscription_id,
+            message: Some(IpcServerMessage::Event(EventEnvelope {
+                subscription_id,
+                correlation_id,
+                sequence: 1,
+                cursor: denied_cursor,
+                occurred_at: UnixMillis(1),
+                event: eitmad_contracts::events::Event::ConfigurationChanged(ConfigSnapshot {
+                    schema_version: 1,
+                    revision: 1,
+                    scope,
+                    entries: Vec::new(),
+                }),
+            })),
+            closed: false,
+            delivered_cursor: Some(denied_cursor),
+            terminate_connection: false,
+        };
+        let (mut writer, mut reader) = tokio::io::duplex(1_024);
+
+        assert!(
+            write_subscription_delivery(&mut writer, Some(delivery), &mut subscriptions)
+                .await
+                .unwrap()
+        );
+        let message = read_frame::<_, IpcServerMessage>(&mut reader)
+            .await
+            .unwrap();
+        let IpcServerMessage::SubscriptionClosed(closed) = message else {
+            panic!("authorization close expected");
+        };
+        assert_eq!(closed.last_delivered_cursor, Some(last_written));
+        assert_eq!(closed.reason, SubscriptionCloseReason::AuthorizationRevoked);
+        assert!(subscriptions.is_empty());
+        assert!(task.await.unwrap_err().is_cancelled());
+    }
+
+    #[tokio::test]
+    async fn blocked_writer_terminates_when_policy_is_revoked() {
+        let broker = EventBroker::new();
+        let assertion = assertion();
+        let scope = assertion.scope.clone();
+        let subscription_id = SubscriptionId::new(uuid::Uuid::new_v4());
+        let correlation_id = CorrelationId::new(uuid::Uuid::new_v4());
+        let cursor = EventCursor::new(uuid::Uuid::new_v4());
+        let authorized = Arc::new(AtomicBool::new(true));
+        let checked = Arc::new(tokio::sync::Notify::new());
+        let pump = tokio::spawn(std::future::pending::<()>());
+        let subscriptions = HashMap::from([(
+            subscription_id,
+            ActiveSubscription {
+                handle: pump.abort_handle(),
+                correlation_id,
+                last_delivered_cursor: None,
+                dispatcher: Arc::new(RevocableDispatcher {
+                    authorized: Arc::clone(&authorized),
+                    checked: Some(Arc::clone(&checked)),
+                }),
+                context: SubscriptionContext {
+                    authorization: AuthorizationContext {
+                        session_id: SessionId::new(uuid::Uuid::new_v4()),
+                        identity: assertion.identity,
+                        scope: scope.clone(),
+                    },
+                    correlation_id,
+                    protocol_version: PROTOCOL_VERSION,
+                },
+                subscription: Subscription::Configuration(ConfigurationChanges {}),
+                policy_changes: broker.subscribe_policy_changes(),
+            },
+        )]);
+        let delivery = SubscriptionDelivery {
+            subscription_id,
+            message: Some(IpcServerMessage::Event(EventEnvelope {
+                subscription_id,
+                correlation_id,
+                sequence: 1,
+                cursor,
+                occurred_at: UnixMillis(1),
+                event: eitmad_contracts::events::Event::ConfigurationChanged(ConfigSnapshot {
+                    schema_version: 1,
+                    revision: 1,
+                    scope: scope.clone(),
+                    entries: Vec::new(),
+                }),
+            })),
+            closed: false,
+            delivered_cursor: Some(cursor),
+            terminate_connection: false,
+        };
+        let (mut writer, mut reader) = tokio::io::duplex(1);
+        let write = tokio::spawn(async move {
+            let mut subscriptions = subscriptions;
+            let outcome =
+                write_subscription_delivery(&mut writer, Some(delivery), &mut subscriptions).await;
+            (outcome, subscriptions)
+        });
+        checked.notified().await;
+        tokio::task::yield_now().await;
+        assert!(!write.is_finished());
+
+        authorized.store(false, Ordering::SeqCst);
+        broker.policy_changed(scope);
+
+        let (outcome, subscriptions) = tokio::time::timeout(Duration::from_secs(1), write)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(!outcome.unwrap());
+        assert!(subscriptions.is_empty());
+        assert!(
+            read_frame::<_, IpcServerMessage>(&mut reader)
+                .await
+                .is_err()
+        );
+        assert!(pump.await.unwrap_err().is_cancelled());
+    }
+
+    #[tokio::test]
     async fn protocol_1_1_revocation_terminates_without_unknown_close_reason() {
         let (deliveries, mut receiver) = mpsc::channel(1);
         send_authorization_revoked(
             &deliveries,
             SubscriptionId::new(uuid::Uuid::new_v4()),
             CorrelationId::new(uuid::Uuid::new_v4()),
-            EventCursor::new(uuid::Uuid::new_v4()),
             ProtocolVersion { major: 1, minor: 1 },
         )
         .await;
@@ -1614,11 +1882,11 @@ mod tests {
             .map(|_| {
                 (
                     SubscriptionId::new(uuid::Uuid::new_v4()),
-                    ActiveSubscription {
-                        handle: abort.clone(),
-                        correlation_id: CorrelationId::new(uuid::Uuid::new_v4()),
-                        last_delivered_cursor: None,
-                    },
+                    active_subscription_fixture(
+                        abort.clone(),
+                        CorrelationId::new(uuid::Uuid::new_v4()),
+                        None,
+                    ),
                 )
             })
             .collect::<HashMap<_, _>>();

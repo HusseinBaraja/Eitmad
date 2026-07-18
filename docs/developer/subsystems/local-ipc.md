@@ -58,7 +58,7 @@ Rust currently defines streams for configuration, effective permissions, authori
 
 Every publisher supplies an authorized `ScopeRef`. The broker rejects events whose embedded configuration, authorization-policy, record, job, notification, or error scope disagrees. Subscription authorization occurs after session validation and before replay lookup; an unknown, expired, wrong-stream, or wrong-scope cursor produces the same `eitmad.error.ipc-subscription-resync-required.v1` result.
 
-Policy mutations signal active pumps to reauthorize, and every event is reauthorized again immediately before delivery. A revoked protocol `1.2` stream closes with `authorizationRevoked` before any later configuration data. Protocol `1.0` and `1.1` connections terminate safely instead of receiving an unknown close-reason variant.
+Policy mutations signal active pumps to reauthorize, and every event is reauthorized again at the writer boundary. Policy-change notifications remain active while a write is blocked. If access is revoked before writing starts, a protocol `1.2` stream closes with `authorizationRevoked` and reports only its last fully written cursor. If revocation arrives during a partial or blocked write, Rust terminates the connection so the peer cannot accept a partial frame. Protocol `1.0` and `1.1` revoked connections terminate safely instead of receiving an unknown close-reason variant.
 
 Subscribe and unsubscribe are read-only and do not create audit records. The command or background process that caused a state change retains its vertical's ReBAC and audit obligations.
 
@@ -92,7 +92,7 @@ The Windows supervisor retains subscription descriptors and processed cursors ac
 
 ## Shutdown and recovery
 
-Explicit unsubscribe receives `SubscriptionClosed` with `clientRequested` before Rust aborts the stream pump. During engine shutdown, each tracked stream receives `SubscriptionClosed` with `engineStopping` before its pump is aborted. EOF, connection cancellation, and write failure cannot deliver a close frame, so dropping the connection owner aborts every remaining pump, including one blocked waiting for a live event. `RequestShutdownAsync` then receives an acknowledgement before Rust begins bounded runtime draining. Windows closes inherited stdin as well: this preserves abandoned-supervisor detection and releases the blocked Windows stdin reader. If IPC is unavailable, stdin EOF remains the graceful fallback. The existing 15-second supervisor deadline and Job Object termination remain the final recovery boundary.
+Explicit unsubscribe receives `SubscriptionClosed` with `clientRequested` before Rust aborts the stream pump. During engine shutdown, each tracked stream receives `SubscriptionClosed` with `engineStopping` before its pump is aborted. EOF, connection cancellation, and write failure cannot deliver a close frame, so dropping the connection owner aborts every remaining pump, including one blocked waiting for a live event. `RequestShutdownAsync` receives an acknowledgement, then the CLI cancels and joins the IPC server before bounded runtime draining closes the authority store. Windows closes inherited stdin as well: this preserves abandoned-supervisor detection and releases the blocked Windows stdin reader. If IPC is unavailable, stdin EOF remains the graceful fallback. The existing 15-second supervisor deadline and Job Object termination remain the final recovery boundary.
 
 ## Arabic-first behavior and tests
 

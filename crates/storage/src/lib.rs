@@ -17,12 +17,16 @@ use std::process::Command;
 
 pub use authorization::{RelationshipCommitOutcome, RelationshipPageData};
 pub use configuration::{ConfigurationCommitOutcome, StoredConfiguration};
-use eitmad_contracts::{identity::ScopeRef, transport::IdempotencyKey};
+use eitmad_contracts::{
+    events::Event,
+    identity::{ScopeId, ScopeKind, ScopeRef},
+    transport::IdempotencyKey,
+};
 use eitmad_observability_audit::MutationAuditRecord;
 use rusqlite::{Connection, OpenFlags, OptionalExtension as _};
 
 pub const DATABASE_FILE_NAME: &str = "eitmad.sqlite3";
-pub const CURRENT_STORAGE_VERSION: u32 = 3;
+pub const CURRENT_STORAGE_VERSION: u32 = 4;
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 
 #[derive(Clone, Debug)]
@@ -46,6 +50,20 @@ pub struct DurableIdempotency {
     pub key: IdempotencyKey,
     pub request_hash: [u8; 32],
     pub response_json: Vec<u8>,
+}
+
+#[derive(Clone, Debug)]
+pub struct DurablePublication {
+    pub event: Event,
+    pub policy_changed: bool,
+}
+
+#[derive(Clone, Debug)]
+pub struct PendingPublication {
+    pub scope: ScopeRef,
+    pub idempotency_key: IdempotencyKey,
+    pub event: Event,
+    pub policy_changed: bool,
 }
 
 type StoredIdempotency = ([u8; 32], Vec<u8>);
@@ -121,6 +139,110 @@ impl AuthorityStore {
         insert_audit(&connection, record)
     }
 
+    /// Loads a mutation event that has not completed in-process publication.
+    ///
+    /// # Errors
+    ///
+    /// Returns a sanitized storage error for unreadable or malformed outbox state.
+    pub fn pending_publication(
+        &self,
+        scope: &ScopeRef,
+        key: IdempotencyKey,
+    ) -> Result<Option<PendingPublication>, StorageError> {
+        let connection = self.open_connection()?;
+        let (scope_kind, scope_id) = scope_parts(scope);
+        connection
+            .query_row(
+                "SELECT event_json, policy_changed FROM publication_outbox
+                 WHERE scope_kind = ?1 AND scope_id = ?2 AND idempotency_key = ?3",
+                (scope_kind, scope_id, key.value().to_string()),
+                |row| Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, i64>(1)?)),
+            )
+            .optional()
+            .map_err(|_| StorageError)?
+            .map(|(event, policy_changed)| {
+                Ok(PendingPublication {
+                    scope: scope.clone(),
+                    idempotency_key: key,
+                    event: serde_json::from_slice(&event).map_err(|_| StorageError)?,
+                    policy_changed: match policy_changed {
+                        0 => false,
+                        1 => true,
+                        _ => return Err(StorageError),
+                    },
+                })
+            })
+            .transpose()
+    }
+
+    /// Loads every mutation event awaiting in-process publication.
+    ///
+    /// # Errors
+    ///
+    /// Returns a sanitized storage error for unreadable or malformed outbox state.
+    pub fn pending_publications(&self) -> Result<Vec<PendingPublication>, StorageError> {
+        let connection = self.open_connection()?;
+        let mut statement = connection
+            .prepare(
+                "SELECT scope_kind, scope_id, idempotency_key, event_json, policy_changed
+                 FROM publication_outbox ORDER BY rowid",
+            )
+            .map_err(|_| StorageError)?;
+        let rows = statement
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, Vec<u8>>(3)?,
+                    row.get::<_, i64>(4)?,
+                ))
+            })
+            .map_err(|_| StorageError)?;
+        rows.map(|row| {
+            let (scope_kind, scope_id, idempotency_key, event, policy_changed) =
+                row.map_err(|_| StorageError)?;
+            Ok(PendingPublication {
+                scope: ScopeRef {
+                    kind: ScopeKind::parse(scope_kind).map_err(|_| StorageError)?,
+                    id: ScopeId::new(uuid::Uuid::parse_str(&scope_id).map_err(|_| StorageError)?),
+                },
+                idempotency_key: IdempotencyKey::new(
+                    uuid::Uuid::parse_str(&idempotency_key).map_err(|_| StorageError)?,
+                ),
+                event: serde_json::from_slice(&event).map_err(|_| StorageError)?,
+                policy_changed: match policy_changed {
+                    0 => false,
+                    1 => true,
+                    _ => return Err(StorageError),
+                },
+            })
+        })
+        .collect()
+    }
+
+    /// Marks one successfully published mutation event complete.
+    ///
+    /// # Errors
+    ///
+    /// Returns a sanitized storage error if the completion cannot commit.
+    pub fn complete_publication(
+        &self,
+        scope: &ScopeRef,
+        key: IdempotencyKey,
+    ) -> Result<(), StorageError> {
+        let connection = self.open_connection()?;
+        let (scope_kind, scope_id) = scope_parts(scope);
+        connection
+            .execute(
+                "DELETE FROM publication_outbox
+                 WHERE scope_kind = ?1 AND scope_id = ?2 AND idempotency_key = ?3",
+                (scope_kind, scope_id, key.value().to_string()),
+            )
+            .map_err(|_| StorageError)?;
+        Ok(())
+    }
+
     fn open_connection(&self) -> Result<Connection, StorageError> {
         let connection = Connection::open(&self.path).map_err(|_| StorageError)?;
         connection
@@ -187,6 +309,31 @@ fn insert_idempotency(
                 operation,
                 idempotency.request_hash.as_slice(),
                 idempotency.response_json.as_slice(),
+            ),
+        )
+        .map_err(|_| StorageError)?;
+    Ok(())
+}
+
+fn insert_publication(
+    connection: &Connection,
+    scope: &ScopeRef,
+    key: IdempotencyKey,
+    publication: &DurablePublication,
+) -> Result<(), StorageError> {
+    let (scope_kind, scope_id) = scope_parts(scope);
+    let event = serde_json::to_vec(&publication.event).map_err(|_| StorageError)?;
+    connection
+        .execute(
+            "INSERT INTO publication_outbox
+             (scope_kind, scope_id, idempotency_key, event_json, policy_changed)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            (
+                scope_kind,
+                scope_id,
+                key.value().to_string(),
+                event,
+                i64::from(publication.policy_changed),
             ),
         )
         .map_err(|_| StorageError)?;

@@ -30,6 +30,8 @@ keywords:
 | Typed local command/query transport | `eitmad-engine-runtime::local_ipc`; delegates shutdown to this lifecycle |
 | SQLite authority-store startup and compatibility health | `AuthorityStoreComponent` and `AuthorityStoreHealthCheck`; storage semantics remain in `eitmad-storage` |
 
+The CLI stops and joins local IPC before calling reverse-order runtime shutdown. This prevents requests from reaching the dispatcher after the authority-store component begins draining.
+
 The CLI does not own business logic, storage, authorization, or diagnostics policy. The supervisor PID and inherited stdin control pipe only coordinate process lifetime; neither proves identity or grants authorization.
 
 ## Lifecycle and readiness

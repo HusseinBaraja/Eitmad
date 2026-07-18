@@ -29,16 +29,16 @@ Protocol `1.2` keeps all `1.0` and `1.1` identifiers and meanings. It adds direc
 
 ## Storage migration
 
-On authoritative startup, Rust creates or transactionally migrates `runtime_directory/eitmad.sqlite3` through configuration, relationship, and audit/idempotency schema versions before readiness. Diagnostics check an existing file read-only. Do not downgrade an engine after it has opened a storage version newer than the target build supports.
+On authoritative startup, Rust creates or transactionally migrates `runtime_directory/eitmad.sqlite3` through configuration, relationship, audit/idempotency, and durable publication-outbox schema versions before readiness. The engine drains committed publication rows before accepting IPC traffic. Diagnostics check an existing file read-only. Do not downgrade an engine after it has opened a storage version newer than the target build supports.
 
 ## Rollout and verification
 
 1. Back up the user-local runtime directory using an SQLite-safe process while the engine is stopped.
 2. Deploy engine and generated shell bindings together where relationship UI is introduced.
 3. Run contract drift, workspace, Windows binding, supervision, diagnostic, clean start/stop, and documentation checks from [foundation verification](../operations/index.md).
-4. Confirm defaults return `ar-YE`, policy revision and configuration revision begin independently, no-op/replay emits no event, and a revoked subscription receives no later configuration data.
+4. Confirm defaults return `ar-YE`, policy revision and configuration revision begin independently, no-op/replay creates no new event, interrupted publication resumes from the outbox, and a revoked subscription receives no later configuration data.
 
-No native settings UI or import/export IPC operation is included. Production remains fail closed without trusted identity provisioning; the insecure development authenticator is never a production bootstrap path.
+No native settings UI or import/export IPC operation is included. Production remains fail-closed without trusted identity provisioning; the insecure development authenticator is never a production bootstrap path.
 
 ## Recover
 

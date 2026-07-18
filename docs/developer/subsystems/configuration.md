@@ -35,9 +35,9 @@ The implemented organization setting is `eitmad.config.locale.primary.v1`. It is
 
 A snapshot contains every registered setting in stable key order. Rust begins with registry defaults, overlays scoped persisted values, and redacts protected entries before they cross IPC. Only the `organization` scope is supported.
 
-A patch must contain 1–64 unique registered keys, the correct typed value kind, and `expectedRevision`. Rust validates the whole patch before opening the mutation transaction. A real change commits atomically and increments the scope revision once. A same-value patch succeeds without a revision increment or event. Revision conflict, failure, and idempotent replay also publish no event.
+A patch must contain 1–64 unique registered keys, the correct typed value kind, and `expectedRevision`. Rust validates the whole patch before opening the mutation transaction. A real change commits atomically, increments the scope revision once, and stores its publication in the same transaction. A same-value patch succeeds without a revision increment or event. Revision conflict and validation failure publish no event. Idempotent replay creates no new event, but it resumes publication if the original committed attempt left an outbox row pending.
 
-Durable idempotency hashes canonical operation input. Reusing a key with the same input returns its recorded redacted snapshot without another revision, audit mutation, or event. Reusing it with different input fails as invalid contract use.
+Durable idempotency hashes canonical operation input. Reusing a key with the same input returns its recorded redacted snapshot without another revision, audit mutation, or new event. Reusing it with different input fails as invalid contract use. The engine drains committed outbox rows before accepting IPC traffic, so an interruption between commit and in-process publication does not strand a configuration revision.
 
 ## Redaction and secret rules
 

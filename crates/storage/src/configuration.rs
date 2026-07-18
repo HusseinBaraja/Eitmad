@@ -6,8 +6,8 @@ use eitmad_observability_audit::{AuditOutcome, MutationAuditRecord};
 use rusqlite::{OptionalExtension as _, params};
 
 use crate::{
-    AuthorityStore, DurableIdempotency, StorageError, insert_audit, insert_idempotency,
-    load_idempotency, scope_parts,
+    AuthorityStore, DurableIdempotency, DurablePublication, StorageError, insert_audit,
+    insert_idempotency, insert_publication, load_idempotency, scope_parts,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -96,6 +96,7 @@ impl AuthorityStore {
         operation: &str,
         idempotency: &DurableIdempotency,
         audit: &MutationAuditRecord,
+        publication: Option<&DurablePublication>,
     ) -> Result<ConfigurationCommitOutcome, StorageError> {
         let mut connection = self.open_connection()?;
         let transaction = connection.transaction().map_err(|_| StorageError)?;
@@ -178,6 +179,14 @@ impl AuthorityStore {
         success.resulting_revision = Some(resulting_revision);
         insert_audit(&transaction, &success)?;
         insert_idempotency(&transaction, scope, operation, idempotency)?;
+        if effective_change {
+            insert_publication(
+                &transaction,
+                scope,
+                idempotency.key,
+                publication.ok_or(StorageError)?,
+            )?;
+        }
         transaction.commit().map_err(|_| StorageError)?;
         Ok(ConfigurationCommitOutcome::Committed {
             revision: resulting_revision,
@@ -247,6 +256,17 @@ mod tests {
                 "eitmad.config.update.v1",
                 &idempotency,
                 &audit(),
+                Some(&DurablePublication {
+                    event: eitmad_contracts::events::Event::ConfigurationChanged(
+                        eitmad_contracts::config::ConfigSnapshot {
+                            schema_version: 1,
+                            revision: 1,
+                            scope: scope(),
+                            entries: Vec::new(),
+                        },
+                    ),
+                    policy_changed: false,
+                }),
             )
             .unwrap();
         assert_eq!(first, ConfigurationCommitOutcome::Committed { revision: 1 });
@@ -260,6 +280,7 @@ mod tests {
                 "eitmad.config.update.v1",
                 &idempotency,
                 &audit(),
+                None,
             )
             .unwrap();
         assert_eq!(
@@ -289,6 +310,7 @@ mod tests {
                     response_json: Vec::new(),
                 },
                 &audit(),
+                None,
             )
             .unwrap();
         assert_eq!(

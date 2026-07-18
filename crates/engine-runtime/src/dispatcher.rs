@@ -1,5 +1,7 @@
 //! Engine composition dispatcher for Rust-owned product verticals.
 
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use eitmad_authorization::{
     AUTHORIZATION_MANAGE_PERMISSION, AuthorizationError, AuthorizationService,
@@ -7,7 +9,6 @@ use eitmad_authorization::{
 };
 use eitmad_configuration::{ConfigurationError, ConfigurationService};
 use eitmad_contracts::{
-    authorization::AuthorizationPolicyChangeNotice,
     commands::{Command, CommandResult},
     errors::{ContractError, ErrorCode, ErrorDetail, MessageId, RetryDisposition},
     events::{Event, Subscription},
@@ -21,9 +22,37 @@ use crate::local_ipc::{
 
 #[derive(Clone)]
 pub struct ProductDispatcher {
+    store: AuthorityStore,
     authorization: AuthorizationService,
     configuration: ConfigurationService,
-    events: EventBroker,
+    events: Arc<dyn ProductEventPublisher>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PublicationRecoveryError;
+
+impl std::fmt::Display for PublicationRecoveryError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("durable event publication recovery failed")
+    }
+}
+
+impl std::error::Error for PublicationRecoveryError {}
+
+trait ProductEventPublisher: Send + Sync {
+    fn publish(&self, scope: eitmad_contracts::identity::ScopeRef, event: Event) -> Result<(), ()>;
+
+    fn policy_changed(&self, scope: eitmad_contracts::identity::ScopeRef);
+}
+
+impl ProductEventPublisher for EventBroker {
+    fn publish(&self, scope: eitmad_contracts::identity::ScopeRef, event: Event) -> Result<(), ()> {
+        self.publish(scope, event).map(|_| ()).map_err(|_| ())
+    }
+
+    fn policy_changed(&self, scope: eitmad_contracts::identity::ScopeRef) {
+        self.policy_changed(scope);
+    }
 }
 
 impl ProductDispatcher {
@@ -33,10 +62,19 @@ impl ProductDispatcher {
         events: EventBroker,
         development_ephemeral_owner: bool,
     ) -> Self {
+        Self::with_event_publisher(store, Arc::new(events), development_ephemeral_owner)
+    }
+
+    fn with_event_publisher(
+        store: AuthorityStore,
+        events: Arc<dyn ProductEventPublisher>,
+        development_ephemeral_owner: bool,
+    ) -> Self {
         let authorization = AuthorizationService::new(store.clone())
             .with_development_ephemeral_owner(development_ephemeral_owner);
-        let configuration = ConfigurationService::new(store, authorization.clone());
+        let configuration = ConfigurationService::new(store.clone(), authorization.clone());
         Self {
+            store,
             authorization,
             configuration,
             events,
@@ -67,27 +105,53 @@ impl ProductDispatcher {
         })
     }
 
-    fn publish_policy_change(
+    fn publish_pending(
         &self,
-        scope: eitmad_contracts::identity::ScopeRef,
-        policy_version: u64,
         context: &DispatchContext,
-    ) -> Result<(), Box<ContractError>> {
+        idempotency_key: eitmad_contracts::transport::IdempotencyKey,
+    ) -> Result<(), ()> {
+        let Some(publication) = self
+            .store
+            .pending_publication(&context.authorization.scope, idempotency_key)
+            .map_err(|_| ())?
+        else {
+            return Ok(());
+        };
         self.events
-            .publish(
-                scope.clone(),
-                Event::AuthorizationPolicyChanged(AuthorizationPolicyChangeNotice {
-                    scope: scope.clone(),
-                    policy_version,
-                }),
-            )
-            .map_err(|_| {
-                Box::new(authorization_error(
-                    AuthorizationError::Unavailable,
-                    context,
-                ))
-            })?;
-        self.events.policy_changed(scope);
+            .publish(publication.scope.clone(), publication.event)?;
+        if publication.policy_changed {
+            self.events.policy_changed(publication.scope.clone());
+        }
+        self.store
+            .complete_publication(&publication.scope, idempotency_key)
+            .map_err(|_| ())?;
+        Ok(())
+    }
+
+    /// Publishes and completes every event left durable by a committed mutation.
+    ///
+    /// The engine calls this before accepting IPC traffic so a crash between
+    /// commit and publication cannot strand configuration or policy state.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error while preserving the current and later outbox rows for retry.
+    pub fn drain_pending_publications(&self) -> Result<(), PublicationRecoveryError> {
+        for publication in self
+            .store
+            .pending_publications()
+            .map_err(|_| PublicationRecoveryError)?
+        {
+            self.events
+                .publish(publication.scope.clone(), publication.event)
+                .map_err(|()| PublicationRecoveryError)?;
+            if publication.policy_changed {
+                self.events.policy_changed(publication.scope.clone());
+            }
+            self.store
+                .complete_publication(&publication.scope, publication.idempotency_key)
+                .map_err(|_| PublicationRecoveryError)?;
+        }
         Ok(())
     }
 }
@@ -106,16 +170,8 @@ impl CommandDispatcher for ProductDispatcher {
                     .configuration
                     .update(&mutation, &command)
                     .map_err(|error| configuration_error(error, &context))?;
-                if outcome.changed {
-                    self.events
-                        .publish(
-                            context.authorization.scope.clone(),
-                            Event::ConfigurationChanged(outcome.snapshot.clone()),
-                        )
-                        .map_err(|_| {
-                            configuration_error(ConfigurationError::Unavailable, &context)
-                        })?;
-                }
+                self.publish_pending(&context, mutation.idempotency_key)
+                    .map_err(|()| configuration_error(ConfigurationError::Unavailable, &context))?;
                 Ok(CommandResult::ConfigurationUpdated(outcome.snapshot))
             }
             Command::GrantScopeRelationship(command) => {
@@ -124,14 +180,8 @@ impl CommandDispatcher for ProductDispatcher {
                     .authorization
                     .grant_relationship(&mutation, &command)
                     .map_err(|error| authorization_error(error, &context))?;
-                if result.changed {
-                    self.publish_policy_change(
-                        context.authorization.scope.clone(),
-                        result.policy_version,
-                        &context,
-                    )
-                    .map_err(|error| *error)?;
-                }
+                self.publish_pending(&context, mutation.idempotency_key)
+                    .map_err(|()| authorization_error(AuthorizationError::Unavailable, &context))?;
                 Ok(CommandResult::RelationshipGranted(result))
             }
             Command::RevokeScopeRelationship(command) => {
@@ -140,14 +190,8 @@ impl CommandDispatcher for ProductDispatcher {
                     .authorization
                     .revoke_relationship(&mutation, &command)
                     .map_err(|error| authorization_error(error, &context))?;
-                if result.changed {
-                    self.publish_policy_change(
-                        context.authorization.scope.clone(),
-                        result.policy_version,
-                        &context,
-                    )
-                    .map_err(|error| *error)?;
-                }
+                self.publish_pending(&context, mutation.idempotency_key)
+                    .map_err(|()| authorization_error(AuthorizationError::Unavailable, &context))?;
                 Ok(CommandResult::RelationshipRevoked(result))
             }
             Command::CancelOperation(_) | Command::ReportInstallerOutcome(_) => {
@@ -391,6 +435,8 @@ fn contract_error(
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::{AtomicBool, Ordering};
+
     use eitmad_contracts::{
         authorization::{RelationId, RelationshipSubject},
         commands::{GrantScopeRelationship, UpdateConfiguration},
@@ -407,6 +453,31 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
+
+    struct FailOncePublisher {
+        broker: EventBroker,
+        fail_next: AtomicBool,
+    }
+
+    impl ProductEventPublisher for FailOncePublisher {
+        fn publish(
+            &self,
+            scope: eitmad_contracts::identity::ScopeRef,
+            event: Event,
+        ) -> Result<(), ()> {
+            if self.fail_next.swap(false, Ordering::SeqCst) {
+                return Err(());
+            }
+            self.broker
+                .publish(scope, event)
+                .map(|_| ())
+                .map_err(|_| ())
+        }
+
+        fn policy_changed(&self, scope: eitmad_contracts::identity::ScopeRef) {
+            self.broker.policy_changed(scope);
+        }
+    }
 
     fn authorization() -> AuthorizationContext {
         AuthorizationContext {
@@ -601,6 +672,89 @@ mod tests {
             panic!("relationship result expected")
         };
         assert!(!replay.changed);
+        assert!(
+            tokio::time::timeout(std::time::Duration::from_millis(20), events.recv())
+                .await
+                .is_err()
+        );
+    }
+
+    #[tokio::test]
+    async fn runtime_drain_replays_pending_publication_after_post_commit_failure() {
+        let directory = TempDir::new().unwrap();
+        let store = AuthorityStore::open(directory.path()).unwrap();
+        let broker = EventBroker::new();
+        let publisher = Arc::new(FailOncePublisher {
+            broker: broker.clone(),
+            fail_next: AtomicBool::new(true),
+        });
+        let dispatcher = ProductDispatcher::with_event_publisher(store.clone(), publisher, false);
+        let auth = authorization();
+        dispatcher
+            .authorization()
+            .bootstrap_owner(
+                &MutationContext {
+                    authorization: auth.clone(),
+                    correlation_id: CorrelationId::new(Uuid::from_u128(8)),
+                    causation_id: None,
+                    idempotency_key: IdempotencyKey::new(Uuid::from_u128(9)),
+                    occurred_at: UnixMillis(1),
+                },
+                &RelationshipSubject {
+                    principal_id: auth.identity.principal_id,
+                    principal_kind: auth.identity.principal_kind,
+                },
+            )
+            .unwrap();
+        let (_, mut events) = broker
+            .subscribe(
+                auth.scope.clone(),
+                Subscription::Configuration(ConfigurationChanges {}),
+                None,
+            )
+            .unwrap();
+        let command = Command::UpdateConfiguration(UpdateConfiguration {
+            expected_revision: 0,
+            changes: vec![ConfigChange {
+                key: ConfigKey::parse("eitmad.config.locale.primary.v1").unwrap(),
+                value: ConfigWriteValue::Text("en-US".to_owned()),
+            }],
+        });
+        let key = context(80).idempotency_key.unwrap();
+
+        let first = dispatcher
+            .dispatch_command(context(80), command.clone())
+            .await;
+        assert!(first.is_err());
+        assert_eq!(store.read_configuration(&auth.scope).unwrap().revision, 1);
+        assert!(
+            store
+                .pending_publication(&auth.scope, key)
+                .unwrap()
+                .is_some()
+        );
+
+        dispatcher.drain_pending_publications().unwrap();
+        let retry = dispatcher
+            .dispatch_command(context(80), command.clone())
+            .await
+            .unwrap();
+        assert!(matches!(retry, CommandResult::ConfigurationUpdated(_)));
+        assert!(matches!(
+            events.recv().await.unwrap().event,
+            Event::ConfigurationChanged(_)
+        ));
+        assert!(
+            store
+                .pending_publication(&auth.scope, key)
+                .unwrap()
+                .is_none()
+        );
+
+        dispatcher
+            .dispatch_command(context(80), command)
+            .await
+            .unwrap();
         assert!(
             tokio::time::timeout(std::time::Duration::from_millis(20), events.recv())
                 .await

@@ -143,6 +143,12 @@ async fn run(
         event_broker.clone(),
         allow_insecure_development_auth,
     ));
+    if dispatcher.drain_pending_publications().is_err() {
+        eprintln!("durable event publication recovery failed");
+        let _ = runtime.shutdown(ShutdownReason::Explicit).await;
+        let _ = emitter.await;
+        return ExitCode::from(EXIT_RUNTIME_FAILURE);
+    }
     let ipc_task = ipc_pipe_name.map(|pipe_name| {
         let development_token = allow_insecure_development_auth
             .then(|| std::env::var(DEVELOPMENT_IPC_TOKEN_ENV).ok())
@@ -159,7 +165,6 @@ async fn run(
     });
 
     let reason = wait_for_shutdown(mode, &mut ipc_shutdown_receiver).await;
-    let outcome = runtime.shutdown(reason).await;
     let _ = ipc_cancel_sender.send(true);
     let ipc_stopped_cleanly = if let Some(task) = ipc_task {
         match task.await {
@@ -176,6 +181,7 @@ async fn run(
     } else {
         true
     };
+    let outcome = runtime.shutdown(reason).await;
     if let Err(failure) = &outcome {
         emit_failure(failure);
     }

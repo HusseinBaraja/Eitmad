@@ -7,17 +7,20 @@ use std::{
 
 use eitmad_contracts::{
     authorization::{
-        RelationId, RelationshipId, RelationshipMutationResult, RelationshipPage,
-        RelationshipSubject,
+        AuthorizationPolicyChangeNotice, RelationId, RelationshipId, RelationshipMutationResult,
+        RelationshipPage, RelationshipSubject,
     },
     commands::{GrantScopeRelationship, RevokeScopeRelationship},
+    events::Event,
     identity::{AuthorizationContext, PrincipalKind, ScopeRef},
     permissions::{EffectivePermission, EffectivePermissions, PermissionDecision, PermissionId},
     queries::ListScopeRelationships,
     transport::{CausationId, CorrelationId, IdempotencyKey, UnixMillis},
 };
 use eitmad_observability_audit::{AuditOutcome, MutationAuditRecord};
-use eitmad_storage::{AuthorityStore, DurableIdempotency, RelationshipCommitOutcome, StorageError};
+use eitmad_storage::{
+    AuthorityStore, DurableIdempotency, DurablePublication, RelationshipCommitOutcome, StorageError,
+};
 use serde::Serialize;
 use sha2::{Digest as _, Sha256};
 use uuid::Uuid;
@@ -230,6 +233,13 @@ impl AuthorizationService {
         }
         let idempotency = durable_idempotency(context, command)?;
         let relationship_id = RelationshipId::new(Uuid::new_v4());
+        let publication = policy_publication(
+            &context.authorization.scope,
+            command
+                .expected_policy_version
+                .checked_add(1)
+                .ok_or(AuthorizationError::Unavailable)?,
+        );
         let audit = audit_record(
             context,
             command_kind_grant(),
@@ -245,6 +255,7 @@ impl AuthorizationService {
                 command_kind_grant(),
                 &idempotency,
                 &audit,
+                Some(&publication),
             ),
             command.expected_policy_version,
         )
@@ -268,6 +279,13 @@ impl AuthorizationService {
             command_kind_revoke(),
             vec![command.relationship_id.value().to_string()],
         );
+        let publication = policy_publication(
+            &context.authorization.scope,
+            command
+                .expected_policy_version
+                .checked_add(1)
+                .ok_or(AuthorizationError::Unavailable)?,
+        );
         map_relationship_outcome(
             self.store.revoke_relationship(
                 &context.authorization.scope,
@@ -277,6 +295,7 @@ impl AuthorizationService {
                 command_kind_revoke(),
                 &idempotency,
                 &audit,
+                Some(&publication),
             ),
             command.expected_policy_version,
         )
@@ -388,6 +407,16 @@ fn subject_audit_identifier(subject: &RelationshipSubject) -> String {
         write!(&mut fingerprint, "{byte:02x}").expect("writing to a String cannot fail");
     }
     format!("subject:{principal_kind}:sha256:{fingerprint}")
+}
+
+fn policy_publication(scope: &ScopeRef, policy_version: u64) -> DurablePublication {
+    DurablePublication {
+        event: Event::AuthorizationPolicyChanged(AuthorizationPolicyChangeNotice {
+            scope: scope.clone(),
+            policy_version,
+        }),
+        policy_changed: true,
+    }
 }
 
 fn map_relationship_outcome(

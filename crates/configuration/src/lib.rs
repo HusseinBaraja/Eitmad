@@ -15,10 +15,13 @@ use eitmad_contracts::{
         ConfigChange, ConfigEntry, ConfigKey, ConfigReadValue, ConfigSensitivity, ConfigSnapshot,
         ConfigWriteValue, RestartRequirement,
     },
+    events::Event,
     identity::{AuthorizationContext, ScopeRef},
 };
 use eitmad_observability_audit::{AuditOutcome, MutationAuditRecord};
-use eitmad_storage::{AuthorityStore, ConfigurationCommitOutcome, DurableIdempotency};
+use eitmad_storage::{
+    AuthorityStore, ConfigurationCommitOutcome, DurableIdempotency, DurablePublication,
+};
 use language_tags::LanguageTag;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
@@ -350,6 +353,10 @@ impl ConfigurationService {
         context: &MutationContext,
         commit: PatchCommit<'_>,
     ) -> Result<ConfigurationMutation, ConfigurationError> {
+        let publication = DurablePublication {
+            event: Event::ConfigurationChanged(commit.expected_snapshot.clone()),
+            policy_changed: false,
+        };
         match self.store.commit_configuration(
             &context.authorization.scope,
             commit.command.expected_revision,
@@ -359,6 +366,7 @@ impl ConfigurationService {
             commit.operation,
             commit.idempotency,
             commit.audit,
+            Some(&publication),
         ) {
             Ok(ConfigurationCommitOutcome::Committed { revision }) => {
                 debug_assert_eq!(revision, commit.expected_snapshot.revision);

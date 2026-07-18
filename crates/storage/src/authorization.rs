@@ -10,8 +10,8 @@ use rusqlite::{OptionalExtension as _, params};
 use uuid::Uuid;
 
 use crate::{
-    AuthorityStore, DurableIdempotency, StorageError, insert_audit, insert_idempotency,
-    load_idempotency, scope_parts,
+    AuthorityStore, DurableIdempotency, DurablePublication, StorageError, insert_audit,
+    insert_idempotency, insert_publication, load_idempotency, scope_parts,
 };
 
 const POLICY_SCHEMA_VERSION: u32 = 1;
@@ -188,6 +188,7 @@ impl AuthorityStore {
         operation: &str,
         idempotency: &DurableIdempotency,
         audit: &MutationAuditRecord,
+        publication: Option<&DurablePublication>,
     ) -> Result<RelationshipCommitOutcome, StorageError> {
         let mut connection = self.open_connection()?;
         let transaction = connection.transaction().map_err(|_| StorageError)?;
@@ -259,11 +260,14 @@ impl AuthorityStore {
         finish_relationship_mutation(
             &transaction,
             scope,
-            operation,
-            idempotency,
-            audit,
-            actual,
-            &result,
+            &RelationshipFinish {
+                operation,
+                idempotency,
+                audit,
+                previous_version: actual,
+                result: &result,
+                publication,
+            },
         )?;
         transaction.commit().map_err(|_| StorageError)?;
         Ok(RelationshipCommitOutcome::Committed(result))
@@ -284,6 +288,7 @@ impl AuthorityStore {
         operation: &str,
         idempotency: &DurableIdempotency,
         audit: &MutationAuditRecord,
+        publication: Option<&DurablePublication>,
     ) -> Result<RelationshipCommitOutcome, StorageError> {
         let mut connection = self.open_connection()?;
         let transaction = connection.transaction().map_err(|_| StorageError)?;
@@ -345,11 +350,14 @@ impl AuthorityStore {
         finish_relationship_mutation(
             &transaction,
             scope,
-            operation,
-            idempotency,
-            audit,
-            actual,
-            &result,
+            &RelationshipFinish {
+                operation,
+                idempotency,
+                audit,
+                previous_version: actual,
+                result: &result,
+                publication,
+            },
         )?;
         transaction.commit().map_err(|_| StorageError)?;
         Ok(RelationshipCommitOutcome::Committed(result))
@@ -446,23 +454,37 @@ fn replay_relationship(
     Ok(Some(RelationshipCommitOutcome::IdempotencyMismatch))
 }
 
+struct RelationshipFinish<'a> {
+    operation: &'a str,
+    idempotency: &'a DurableIdempotency,
+    audit: &'a MutationAuditRecord,
+    previous_version: u64,
+    result: &'a RelationshipMutationResult,
+    publication: Option<&'a DurablePublication>,
+}
+
 fn finish_relationship_mutation(
     connection: &rusqlite::Connection,
     scope: &ScopeRef,
-    operation: &str,
-    idempotency: &DurableIdempotency,
-    audit: &MutationAuditRecord,
-    previous_version: u64,
-    result: &RelationshipMutationResult,
+    finish: &RelationshipFinish<'_>,
 ) -> Result<(), StorageError> {
-    let mut success = audit.clone();
+    let mut success = finish.audit.clone();
     success.outcome = AuditOutcome::Succeeded;
-    success.previous_revision = Some(previous_version);
-    success.resulting_revision = Some(result.policy_version);
+    success.previous_revision = Some(finish.previous_version);
+    success.resulting_revision = Some(finish.result.policy_version);
     insert_audit(connection, &success)?;
-    let mut durable = idempotency.clone();
-    durable.response_json = serde_json::to_vec(result).map_err(|_| StorageError)?;
-    insert_idempotency(connection, scope, operation, &durable)
+    let mut durable = finish.idempotency.clone();
+    durable.response_json = serde_json::to_vec(finish.result).map_err(|_| StorageError)?;
+    insert_idempotency(connection, scope, finish.operation, &durable)?;
+    if finish.result.changed {
+        insert_publication(
+            connection,
+            scope,
+            finish.idempotency.key,
+            finish.publication.ok_or(StorageError)?,
+        )?;
+    }
+    Ok(())
 }
 
 fn record_policy_conflict(
@@ -618,6 +640,18 @@ mod tests {
         }
     }
 
+    fn publication(policy_version: u64) -> DurablePublication {
+        DurablePublication {
+            event: eitmad_contracts::events::Event::AuthorizationPolicyChanged(
+                eitmad_contracts::authorization::AuthorizationPolicyChangeNotice {
+                    scope: scope(),
+                    policy_version,
+                },
+            ),
+            policy_changed: true,
+        }
+    }
+
     #[test]
     fn grants_pages_and_replays_relationships() {
         let directory = TempDir::new().unwrap();
@@ -639,6 +673,7 @@ mod tests {
                 "grant",
                 &durable,
                 &audit(key),
+                Some(&publication(1)),
             )
             .unwrap();
         assert!(matches!(first, RelationshipCommitOutcome::Committed(_)));
@@ -652,6 +687,7 @@ mod tests {
                 "grant",
                 &durable,
                 &audit(key),
+                None,
             )
             .unwrap();
         assert!(matches!(replay, RelationshipCommitOutcome::Replayed(_)));
@@ -697,6 +733,7 @@ mod tests {
                         response_json: Vec::new(),
                     },
                     &audit(key),
+                    Some(&publication(2)),
                 )
                 .unwrap();
             mutation_done_sender.send(()).unwrap();
@@ -744,6 +781,7 @@ mod tests {
                     response_json: Vec::new(),
                 },
                 &audit(key),
+                None,
             )
             .unwrap();
         assert_eq!(
