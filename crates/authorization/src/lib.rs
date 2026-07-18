@@ -52,7 +52,10 @@ pub struct MutationContext {
 pub enum AuthorizationError {
     Denied,
     InvalidRelation,
-    PolicyConflict { actual_version: u64 },
+    PolicyConflict {
+        expected_version: u64,
+        actual_version: u64,
+    },
     LastOwner,
     RelationshipNotFound,
     BootstrapUnavailable,
@@ -87,6 +90,20 @@ impl AuthorizationService {
     ///
     /// Returns [`AuthorizationError::Unavailable`] when relationship state cannot be read.
     pub fn effective_permissions(
+        &self,
+        context: &AuthorizationContext,
+    ) -> Result<EffectivePermissions, AuthorizationError> {
+        let effective = self.evaluate_permissions(context)?;
+        let may_read = effective.permissions.iter().any(|permission| {
+            permission.permission.as_str() == PERMISSIONS_READ_PERMISSION
+                && permission.decision == PermissionDecision::Granted
+        });
+        may_read
+            .then_some(effective)
+            .ok_or(AuthorizationError::Denied)
+    }
+
+    fn evaluate_permissions(
         &self,
         context: &AuthorizationContext,
     ) -> Result<EffectivePermissions, AuthorizationError> {
@@ -142,7 +159,7 @@ impl AuthorizationService {
         context: &AuthorizationContext,
         permission: &str,
     ) -> Result<(), AuthorizationError> {
-        let effective = self.effective_permissions(context)?;
+        let effective = self.evaluate_permissions(context)?;
         let granted = effective.permissions.iter().any(|candidate| {
             candidate.permission.as_str() == permission
                 && candidate.decision == PermissionDecision::Granted
@@ -209,16 +226,19 @@ impl AuthorizationService {
             command_kind_grant(),
             vec![command.relation.as_str().to_owned()],
         );
-        map_relationship_outcome(self.store.grant_relationship(
-            &context.authorization.scope,
+        map_relationship_outcome(
+            self.store.grant_relationship(
+                &context.authorization.scope,
+                command.expected_policy_version,
+                RelationshipId::new(Uuid::new_v4()),
+                &command.subject,
+                &command.relation,
+                command_kind_grant(),
+                &idempotency,
+                &audit,
+            ),
             command.expected_policy_version,
-            RelationshipId::new(Uuid::new_v4()),
-            &command.subject,
-            &command.relation,
-            command_kind_grant(),
-            &idempotency,
-            &audit,
-        ))
+        )
     }
 
     /// Revokes one relationship in the authenticated scope.
@@ -239,15 +259,18 @@ impl AuthorizationService {
             command_kind_revoke(),
             vec![command.relationship_id.value().to_string()],
         );
-        map_relationship_outcome(self.store.revoke_relationship(
-            &context.authorization.scope,
+        map_relationship_outcome(
+            self.store.revoke_relationship(
+                &context.authorization.scope,
+                command.expected_policy_version,
+                command.relationship_id,
+                &relation_id(OWNER_RELATION),
+                command_kind_revoke(),
+                &idempotency,
+                &audit,
+            ),
             command.expected_policy_version,
-            command.relationship_id,
-            &relation_id(OWNER_RELATION),
-            command_kind_revoke(),
-            &idempotency,
-            &audit,
-        ))
+        )
     }
 
     /// Lists a bounded page of relationships in the authenticated owner scope.
@@ -325,6 +348,7 @@ fn registered_relation(relation: &RelationId) -> bool {
 
 fn map_relationship_outcome(
     outcome: Result<RelationshipCommitOutcome, StorageError>,
+    expected_version: u64,
 ) -> Result<RelationshipMutationResult, AuthorizationError> {
     match outcome {
         Ok(
@@ -332,7 +356,10 @@ fn map_relationship_outcome(
             | RelationshipCommitOutcome::Replayed(result),
         ) => Ok(result),
         Ok(RelationshipCommitOutcome::PolicyConflict { actual_version }) => {
-            Err(AuthorizationError::PolicyConflict { actual_version })
+            Err(AuthorizationError::PolicyConflict {
+                expected_version,
+                actual_version,
+            })
         }
         Ok(RelationshipCommitOutcome::LastProtectedRelationship) => {
             Err(AuthorizationError::LastOwner)
@@ -544,7 +571,10 @@ mod tests {
         };
         let first = service.grant_relationship(&context, &command).unwrap();
         let replay = service.grant_relationship(&context, &command).unwrap();
-        assert_eq!(first, replay);
+        assert!(first.changed);
+        assert!(!replay.changed);
+        assert_eq!(first.policy_version, replay.policy_version);
+        assert_eq!(first.relationship, replay.relationship);
         assert_eq!(
             service.grant_relationship(
                 &mutation(1, 10, 102),
@@ -554,7 +584,10 @@ mod tests {
                     relation: relation_id(MEMBER_RELATION),
                 }
             ),
-            Err(AuthorizationError::PolicyConflict { actual_version: 2 })
+            Err(AuthorizationError::PolicyConflict {
+                expected_version: 1,
+                actual_version: 2
+            })
         );
         let owner = service
             .list_relationships(

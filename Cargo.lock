@@ -254,7 +254,10 @@ name = "eitmad-engine-runtime"
 version = "0.0.0"
 dependencies = [
  "async-trait",
+ "eitmad-authorization",
+ "eitmad-configuration",
  "eitmad-contracts",
+ "eitmad-storage",
  "fs2",
  "semver",
  "serde",

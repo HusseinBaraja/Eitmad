@@ -11,7 +11,10 @@ workspace = true
 
 [dependencies]
 async-trait = "=0.1.89"
+eitmad-authorization = { path = "../authorization" }
+eitmad-configuration = { path = "../configuration" }
 eitmad-contracts = { path = "../contracts" }
+eitmad-storage = { path = "../storage" }
 fs2 = "=0.4.3"
 semver = "=1.0.27"
 serde = "=1.0.228"

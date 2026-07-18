@@ -46,7 +46,10 @@ pub enum ConfigurationError {
     WrongValueKind,
     InvalidValue,
     NonCanonicalValue,
-    RevisionConflict { actual_revision: u64 },
+    RevisionConflict {
+        expected_revision: u64,
+        actual_revision: u64,
+    },
     IdempotencyMismatch,
     ImportTooLarge,
     ImportMalformed,
@@ -375,7 +378,10 @@ impl ConfigurationService {
                 })
             }
             Ok(ConfigurationCommitOutcome::RevisionConflict { actual_revision }) => {
-                Err(ConfigurationError::RevisionConflict { actual_revision })
+                Err(ConfigurationError::RevisionConflict {
+                    expected_revision: commit.command.expected_revision,
+                    actual_revision,
+                })
             }
             Ok(ConfigurationCommitOutcome::IdempotencyMismatch) => {
                 Err(ConfigurationError::IdempotencyMismatch)
@@ -864,7 +870,10 @@ mod tests {
                     changes: vec![locale("en-US")],
                 }
             ),
-            Err(ConfigurationError::RevisionConflict { actual_revision: 0 })
+            Err(ConfigurationError::RevisionConflict {
+                expected_revision: 7,
+                actual_revision: 0
+            })
         );
     }
 

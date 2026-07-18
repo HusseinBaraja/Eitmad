@@ -417,7 +417,9 @@ fn replay_relationship(
         return Ok(None);
     };
     if hash == idempotency.request_hash {
-        let result = serde_json::from_slice(&response).map_err(|_| StorageError)?;
+        let mut result: RelationshipMutationResult =
+            serde_json::from_slice(&response).map_err(|_| StorageError)?;
+        result.changed = false;
         return Ok(Some(RelationshipCommitOutcome::Replayed(result)));
     }
     let invalid = audit.clone().with_outcome(
