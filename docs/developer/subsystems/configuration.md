@@ -43,7 +43,7 @@ Durable idempotency hashes canonical operation input. Reusing a key with the sam
 
 Public values may appear in snapshots and exports. `Sensitive` and `Secret` definitions always become `ConfigReadValue::Redacted` at IPC and export boundaries. Secret definitions may persist only opaque `SecretReferenceId` values; raw secret material is never a valid configuration write. Audit rows contain changed identifiers and revisions, never configuration values.
 
-SQLite currently relies on user-private OS file protection. Do not register production sensitive plaintext until database encryption and key management have an approved design and implementation.
+SQLite currently relies on user-private OS-file protection. Do not register production sensitive plaintext until database encryption and key management have an approved design and implementation.
 
 ## Import and export
 

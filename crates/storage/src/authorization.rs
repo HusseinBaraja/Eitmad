@@ -115,47 +115,63 @@ impl AuthorityStore {
         if !(1..=500).contains(&limit) {
             return Err(StorageError);
         }
-        let connection = self.open_connection()?;
-        let policy_version = self.policy_version(scope)?;
-        let (scope_kind, scope_id) = scope_parts(scope);
-        let after = after.map(|id| id.value().to_string()).unwrap_or_default();
-        let fetch = limit.checked_add(1).ok_or(StorageError)?;
-        let mut statement = connection
-            .prepare(
-                "SELECT relationship_id, principal_id, principal_kind, relation
-                 FROM scope_relationships
-                 WHERE scope_kind = ?1 AND scope_id = ?2 AND relationship_id > ?3
-                 ORDER BY relationship_id LIMIT ?4",
-            )
-            .map_err(|_| StorageError)?;
-        let rows = statement
-            .query_map(params![scope_kind, scope_id, after, fetch], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, String>(1)?,
-                    row.get::<_, String>(2)?,
-                    row.get::<_, String>(3)?,
-                ))
-            })
-            .map_err(|_| StorageError)?;
-        let mut relationships = Vec::new();
-        for row in rows {
-            relationships.push(decode_relationship(scope, row.map_err(|_| StorageError)?)?);
-        }
-        let has_more = relationships.len() > usize::try_from(limit).map_err(|_| StorageError)?;
-        if has_more {
-            relationships.pop();
-        }
-        let next_after = has_more
-            .then(|| relationships.last().map(|value| value.relationship_id))
-            .flatten();
-        Ok(RelationshipPageData {
-            policy_version,
-            relationships,
-            next_after,
-        })
+        let mut connection = self.open_connection()?;
+        let transaction = connection.transaction().map_err(|_| StorageError)?;
+        let page = list_relationships_on(&transaction, scope, after, limit, || {})?;
+        transaction.commit().map_err(|_| StorageError)?;
+        Ok(page)
     }
+}
 
+fn list_relationships_on(
+    connection: &rusqlite::Connection,
+    scope: &ScopeRef,
+    after: Option<RelationshipId>,
+    limit: u32,
+    after_policy_version_read: impl FnOnce(),
+) -> Result<RelationshipPageData, StorageError> {
+    let policy_version = policy_version_on(connection, scope)?;
+    after_policy_version_read();
+    let (scope_kind, scope_id) = scope_parts(scope);
+    let after = after.map(|id| id.value().to_string()).unwrap_or_default();
+    let fetch = limit.checked_add(1).ok_or(StorageError)?;
+    let mut statement = connection
+        .prepare(
+            "SELECT relationship_id, principal_id, principal_kind, relation
+             FROM scope_relationships
+             WHERE scope_kind = ?1 AND scope_id = ?2 AND relationship_id > ?3
+             ORDER BY relationship_id LIMIT ?4",
+        )
+        .map_err(|_| StorageError)?;
+    let rows = statement
+        .query_map(params![scope_kind, scope_id, after, fetch], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+            ))
+        })
+        .map_err(|_| StorageError)?;
+    let mut relationships = Vec::new();
+    for row in rows {
+        relationships.push(decode_relationship(scope, row.map_err(|_| StorageError)?)?);
+    }
+    let has_more = relationships.len() > usize::try_from(limit).map_err(|_| StorageError)?;
+    if has_more {
+        relationships.pop();
+    }
+    let next_after = has_more
+        .then(|| relationships.last().map(|value| value.relationship_id))
+        .flatten();
+    Ok(RelationshipPageData {
+        policy_version,
+        relationships,
+        next_after,
+    })
+}
+
+impl AuthorityStore {
     /// Atomically grants a direct principal-to-scope relationship.
     ///
     /// # Errors
@@ -559,6 +575,8 @@ fn parse_relationship_id(value: &str) -> Result<RelationshipId, StorageError> {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::mpsc;
+
     use eitmad_contracts::{
         identity::{PrincipalKind, ScopeId, ScopeKind},
         transport::{CorrelationId, IdempotencyKey, UnixMillis},
@@ -640,6 +658,61 @@ mod tests {
         let page = store.list_relationships(&scope(), None, 10).unwrap();
         assert_eq!(page.policy_version, 1);
         assert_eq!(page.relationships.len(), 1);
+    }
+
+    #[test]
+    fn relationship_page_and_policy_version_share_one_snapshot() {
+        let directory = TempDir::new().unwrap();
+        let store = AuthorityStore::open(directory.path()).unwrap();
+        let owner = RelationId::parse("eitmad.relation.organization.owner.v1").unwrap();
+        store
+            .bootstrap_relationship(
+                &scope(),
+                RelationshipId::new(Uuid::from_u128(20)),
+                &subject(30),
+                &owner,
+                &audit(IdempotencyKey::new(Uuid::from_u128(10))),
+            )
+            .unwrap();
+
+        let mut read_connection = store.open_connection().unwrap();
+        let read_transaction = read_connection.transaction().unwrap();
+        let (version_read_sender, version_read_receiver) = mpsc::channel();
+        let (mutation_done_sender, mutation_done_receiver) = mpsc::channel();
+        let mutation_store = store.clone();
+        let mutation = std::thread::spawn(move || {
+            version_read_receiver.recv().unwrap();
+            let key = IdempotencyKey::new(Uuid::from_u128(11));
+            mutation_store
+                .grant_relationship(
+                    &scope(),
+                    1,
+                    RelationshipId::new(Uuid::from_u128(21)),
+                    &subject(31),
+                    &RelationId::parse("eitmad.relation.organization.member.v1").unwrap(),
+                    "grant",
+                    &DurableIdempotency {
+                        key,
+                        request_hash: [6; 32],
+                        response_json: Vec::new(),
+                    },
+                    &audit(key),
+                )
+                .unwrap();
+            mutation_done_sender.send(()).unwrap();
+        });
+
+        let page = list_relationships_on(&read_transaction, &scope(), None, 10, || {
+            version_read_sender.send(()).unwrap();
+            mutation_done_receiver.recv().unwrap();
+        })
+        .unwrap();
+        read_transaction.commit().unwrap();
+        mutation.join().unwrap();
+
+        assert_eq!(page.policy_version, 1);
+        assert_eq!(page.relationships.len(), 1);
+        assert_eq!(store.policy_version(&scope()).unwrap(), 2);
     }
 
     #[test]

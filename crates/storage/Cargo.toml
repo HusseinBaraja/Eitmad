@@ -12,7 +12,7 @@ workspace = true
 [dependencies]
 eitmad-contracts = { path = "../contracts" }
 eitmad-observability-audit = { path = "../observability-audit" }
-rusqlite = { version = "=0.40.1", default-features = false, features = ["bundled"] }
+rusqlite = { version = "=0.39.0", default-features = false, features = ["backup", "bundled"] }
 serde_json = "=1.0.150"
 uuid = { version = "=1.23.4", features = ["v4"] }
 

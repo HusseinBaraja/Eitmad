@@ -30,9 +30,9 @@ Configuration, direct scoped relationships, mutation audit, and durable idempote
 
 Use exact-pinned `rusqlite` with bundled SQLite. Store `eitmad.sqlite3` under the engine runtime directory. Rust exposes narrow repositories only; no shell, plugin, or other crate receives a raw database handle.
 
-Open the store as an engine runtime component after acquiring authority and before readiness. Enable foreign keys, WAL mode, a five-second busy timeout, and user-private directory/file permissions where the OS supports them. Apply ordered transactional migrations for configuration, relationships, then audit/idempotency. Roll back the entire migration or mutation on failure and expose only sanitized structured errors.
+Open the store as an engine runtime component after acquiring authority and before readiness. Enable foreign keys, WAL mode, and a five-second busy timeout. Apply Unix directory/file modes `0700`/`0600`. On Windows, remove inherited and broad DACL entries and verify one protected full-control grant for the owning user before SQLite opens the file. Failure to apply or verify private permissions fails store startup. Apply ordered transactional migrations for configuration, relationships, then audit/idempotency. Roll back the entire migration or mutation on failure and expose only sanitized structured errors.
 
-Successful state mutations and audit outcomes commit together. Idempotency records hash canonical input and store a safe response. Diagnostics open an existing database read-only, reject corruption or a newer storage version, and do not create or migrate a missing database.
+Successful state mutations and audit outcomes commit together. Idempotency records hash canonical input and store a safe response. Diagnostics open an existing database read-only, reject corruption or a newer storage version, copy the database into memory, and prove that every pending migration can apply to the copy. The check never creates or migrates the authoritative database.
 
 ## Consequences
 
@@ -48,4 +48,4 @@ Initial protection relies on OS-local permissions. Database encryption and key m
 
 ## Verification
 
-Tests cover fresh creation, ordered upgrade from seeded schemas, preserved values, migration rollback, corruption/newer-version compatibility, private paths, atomic configuration and relationship mutations, append-only audit, and idempotency. See [configuration](../developer/subsystems/configuration.md), [authorization](../developer/subsystems/authorization.md), and [startup recovery](../troubleshooting/engine-startup-failures.md).
+Tests cover fresh creation, ordered upgrade from seeded schemas, preserved values, migration rollback, corruption/newer-version and migration-prerequisite compatibility, Unix modes, Windows owner-only ACL replacement, atomic configuration and relationship mutations, snapshot-consistent relationship pages, append-only audit, and idempotency. See [configuration](../developer/subsystems/configuration.md), [authorization](../developer/subsystems/authorization.md), and [startup recovery](../troubleshooting/engine-startup-failures.md).

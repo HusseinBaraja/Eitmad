@@ -6,9 +6,14 @@ mod migrations;
 
 use std::{
     fmt, fs,
+    fs::OpenOptions,
+    io::ErrorKind,
     path::{Path, PathBuf},
     time::Duration,
 };
+
+#[cfg(windows)]
+use std::process::Command;
 
 pub use authorization::{RelationshipCommitOutcome, RelationshipPageData};
 pub use configuration::{ConfigurationCommitOutcome, StoredConfiguration};
@@ -57,6 +62,8 @@ impl AuthorityStore {
         fs::create_dir_all(directory).map_err(|_| StorageError)?;
         make_directory_private(directory)?;
         let path = directory.join(DATABASE_FILE_NAME);
+        ensure_database_file(&path)?;
+        make_file_private(&path)?;
         let store = Self { path };
         let mut connection = store.open_connection()?;
         migrations::apply(&mut connection)?;
@@ -87,7 +94,16 @@ impl AuthorityStore {
         connection
             .query_row("PRAGMA quick_check(1)", [], |row| row.get::<_, String>(0))
             .map_err(|_| StorageError)
-            .and_then(|result| (result == "ok").then_some(()).ok_or(StorageError))
+            .and_then(|result| (result == "ok").then_some(()).ok_or(StorageError))?;
+        let mut migration_copy = Connection::open_in_memory().map_err(|_| StorageError)?;
+        {
+            let backup = rusqlite::backup::Backup::new(&connection, &mut migration_copy)
+                .map_err(|_| StorageError)?;
+            backup
+                .run_to_completion(100, Duration::from_millis(5), None)
+                .map_err(|_| StorageError)?;
+        }
+        migrations::apply(&mut migration_copy)
     }
 
     #[must_use]
@@ -114,6 +130,14 @@ impl AuthorityStore {
             .execute_batch("PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;")
             .map_err(|_| StorageError)?;
         Ok(connection)
+    }
+}
+
+fn ensure_database_file(path: &Path) -> Result<(), StorageError> {
+    match OpenOptions::new().write(true).create_new(true).open(path) {
+        Ok(_) => Ok(()),
+        Err(error) if error.kind() == ErrorKind::AlreadyExists && path.is_file() => Ok(()),
+        Err(_) => Err(StorageError),
     }
 }
 
@@ -217,9 +241,14 @@ fn make_directory_private(path: &Path) -> Result<(), StorageError> {
     fs::set_permissions(path, fs::Permissions::from_mode(0o700)).map_err(|_| StorageError)
 }
 
-#[cfg(not(unix))]
+#[cfg(all(not(unix), not(windows)))]
 fn make_directory_private(path: &Path) -> Result<(), StorageError> {
     fs::metadata(path).map(|_| ()).map_err(|_| StorageError)
+}
+
+#[cfg(windows)]
+fn make_directory_private(path: &Path) -> Result<(), StorageError> {
+    make_windows_path_private(path, true)
 }
 
 #[cfg(unix)]
@@ -228,9 +257,126 @@ fn make_file_private(path: &Path) -> Result<(), StorageError> {
     fs::set_permissions(path, fs::Permissions::from_mode(0o600)).map_err(|_| StorageError)
 }
 
-#[cfg(not(unix))]
+#[cfg(all(not(unix), not(windows)))]
 fn make_file_private(path: &Path) -> Result<(), StorageError> {
     fs::metadata(path).map(|_| ()).map_err(|_| StorageError)
+}
+
+#[cfg(windows)]
+fn make_file_private(path: &Path) -> Result<(), StorageError> {
+    make_windows_path_private(path, false)
+}
+
+#[cfg(windows)]
+fn make_windows_path_private(path: &Path, directory: bool) -> Result<(), StorageError> {
+    let sid = current_windows_user_sid()?;
+    let initial_acl = read_windows_acl(path)?;
+    if windows_acl_is_private(&initial_acl) && windows_acl_contains_sid(path, &sid)? {
+        return Ok(());
+    }
+    if windows_acl_has_explicit_entries(&initial_acl) {
+        run_windows_tool(
+            "icacls.exe",
+            [path.as_os_str(), "/reset".as_ref(), "/q".as_ref()],
+        )?;
+    }
+    let grant = if directory {
+        format!("*{sid}:(OI)(CI)F")
+    } else {
+        format!("*{sid}:F")
+    };
+    run_windows_tool(
+        "icacls.exe",
+        [
+            path.as_os_str(),
+            "/inheritance:r".as_ref(),
+            "/grant:r".as_ref(),
+            grant.as_ref(),
+            "/q".as_ref(),
+        ],
+    )?;
+    let applied_acl = read_windows_acl(path)?;
+    if windows_acl_is_private(&applied_acl) && windows_acl_contains_sid(path, &sid)? {
+        Ok(())
+    } else {
+        Err(StorageError)
+    }
+}
+
+#[cfg(windows)]
+fn current_windows_user_sid() -> Result<String, StorageError> {
+    let output = Command::new(windows_system_tool("whoami.exe"))
+        .args(["/user", "/fo", "csv", "/nh"])
+        .output()
+        .map_err(|_| StorageError)?;
+    if !output.status.success() {
+        return Err(StorageError);
+    }
+    String::from_utf8_lossy(&output.stdout)
+        .split(|character: char| {
+            !(character == 'S' || character == '-' || character.is_ascii_digit())
+        })
+        .find(|value| value.starts_with("S-1-") && value.len() > 4)
+        .map(str::to_owned)
+        .ok_or(StorageError)
+}
+
+#[cfg(windows)]
+fn read_windows_acl(path: &Path) -> Result<String, StorageError> {
+    let output = Command::new(windows_system_tool("icacls.exe"))
+        .arg(path)
+        .output()
+        .map_err(|_| StorageError)?;
+    output
+        .status
+        .success()
+        .then(|| String::from_utf8_lossy(&output.stdout).into_owned())
+        .ok_or(StorageError)
+}
+
+#[cfg(windows)]
+fn windows_acl_is_private(acl: &str) -> bool {
+    acl.match_indices(":(").count() == 1 && acl.contains("(F)") && !acl.contains("(I)")
+}
+
+#[cfg(windows)]
+fn windows_acl_has_explicit_entries(acl: &str) -> bool {
+    acl.lines()
+        .filter(|line| line.contains(":("))
+        .any(|line| !line.contains("(I)"))
+}
+
+#[cfg(windows)]
+fn windows_acl_contains_sid(path: &Path, sid: &str) -> Result<bool, StorageError> {
+    let output = Command::new(windows_system_tool("icacls.exe"))
+        .arg(path)
+        .args(["/findsid", &format!("*{sid}"), "/q"])
+        .output()
+        .map_err(|_| StorageError)?;
+    Ok(output.status.success())
+}
+
+#[cfg(windows)]
+fn run_windows_tool<const N: usize>(
+    tool: &str,
+    arguments: [&std::ffi::OsStr; N],
+) -> Result<(), StorageError> {
+    Command::new(windows_system_tool(tool))
+        .args(arguments)
+        .output()
+        .map_err(|_| StorageError)?
+        .status
+        .success()
+        .then_some(())
+        .ok_or(StorageError)
+}
+
+#[cfg(windows)]
+fn windows_system_tool(name: &str) -> PathBuf {
+    std::env::var_os("SystemRoot").map_or_else(
+        || PathBuf::from(name),
+        |root| PathBuf::from(root).join("System32").join(name),
+    )
 }
 
 #[cfg(test)]
@@ -282,5 +428,57 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM mutation_audit", [], |row| row.get(0))
             .unwrap();
         assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn compatibility_check_rejects_migration_incompatible_state_without_mutation() {
+        let directory = TempDir::new().unwrap();
+        let path = directory.path().join(DATABASE_FILE_NAME);
+        let connection = Connection::open(&path).unwrap();
+        connection
+            .execute_batch(
+                "CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY);
+                 INSERT INTO schema_migrations VALUES (1);
+                 CREATE TABLE configuration_scopes (
+                     scope_kind TEXT NOT NULL, scope_id TEXT NOT NULL,
+                     schema_version INTEGER NOT NULL, revision INTEGER NOT NULL,
+                     PRIMARY KEY (scope_kind, scope_id));
+                 CREATE TABLE configuration_values (
+                     scope_kind TEXT NOT NULL, scope_id TEXT NOT NULL,
+                     config_key TEXT NOT NULL, value_json TEXT NOT NULL,
+                     PRIMARY KEY (scope_kind, scope_id, config_key));
+                 CREATE TABLE authorization_scopes (broken TEXT);",
+            )
+            .unwrap();
+        drop(connection);
+        let before = fs::read(&path).unwrap();
+
+        assert!(AuthorityStore::check_compatible(directory.path()).is_err());
+        assert_eq!(fs::read(path).unwrap(), before);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_private_acl_removes_broad_explicit_access() {
+        let directory = TempDir::new().unwrap();
+        run_windows_tool(
+            "icacls.exe",
+            [
+                directory.path().as_os_str(),
+                "/grant".as_ref(),
+                "*S-1-1-0:R".as_ref(),
+                "/q".as_ref(),
+            ],
+        )
+        .unwrap();
+
+        make_directory_private(directory.path()).unwrap();
+
+        let acl = read_windows_acl(directory.path()).unwrap();
+        assert!(windows_acl_is_private(&acl));
+        assert!(
+            windows_acl_contains_sid(directory.path(), &current_windows_user_sid().unwrap())
+                .unwrap()
+        );
     }
 }

@@ -30,15 +30,16 @@ The engine CLI runs one foreground authority or performs one non-mutating diagno
 ## Run non-mutating diagnostics
 
 ```powershell
-cargo run -q -p eitmad-engine-cli -- diagnose
+$runtimeDirectory = Join-Path $PWD ".runtime\engine"
+cargo run -q -p eitmad-engine-cli -- diagnose --runtime-directory $runtimeDirectory
 ```
 
-Expected result: one `DiagnosticReport` JSON line with `status: "healthy"`, `readyToStart: true`, and exit code `0`. Diagnostics do not acquire the authority lock, create a missing database, run migrations, or start components. If `eitmad.sqlite3` exists, the authority-store check opens it read-only and rejects corruption or a newer storage version.
+Use the exact runtime directory passed to `run`; otherwise diagnostics may inspect a different authority database. Expected result: one `DiagnosticReport` JSON line with `status: "healthy"`, `readyToStart: true`, and exit code `0`. Diagnostics do not acquire the authority lock, create a missing database, migrate authoritative state, or start components. If `eitmad.sqlite3` exists, the authority-store check opens it read-only and rejects corruption, a newer storage version, or migration-incompatible schema state by testing migrations against an in-memory copy.
 
 ## Run independent headless mode
 
 ```powershell
-cargo run -q -p eitmad-engine-cli -- run --mode headless
+cargo run -q -p eitmad-engine-cli -- run --mode headless --runtime-directory $runtimeDirectory
 ```
 
 Expected result: `starting` then `ready` lifecycle lines. Press Ctrl+C once. The engine emits `stopping` then `stopped` and exits `0` after bounded draining.

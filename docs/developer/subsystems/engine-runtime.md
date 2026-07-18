@@ -56,7 +56,7 @@ Readiness is not the same as process liveness:
 
 `RuntimeComponent` implementations start in registration order and stop in reverse order. A partial startup failure stops every component that already started before releasing the authority lock. Components return an opaque `ComponentFailure`; raw causes do not cross the public diagnostic boundary.
 
-The authority store is the first product component registered by the CLI. It opens and transactionally migrates `eitmad.sqlite3` only after the authority lock is held and before readiness. Diagnostic mode does not start that component; its read-only compatibility check accepts an absent pre-first-start database and reports an existing corrupt or newer database as unhealthy.
+The authority store is the first product component registered by the CLI. It applies and verifies private directory/file permissions, then opens and transactionally migrates `eitmad.sqlite3` only after the authority lock is held and before readiness. Diagnostic mode does not start that component; its read-only compatibility check accepts an absent pre-first-start database and reports an existing corrupt, newer, or migration-incompatible database as unhealthy after testing migrations against an in-memory copy.
 
 ## Process identity and single authority
 
