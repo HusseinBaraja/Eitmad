@@ -35,6 +35,51 @@ pub struct RelationshipPageData {
 }
 
 impl AuthorityStore {
+    /// Reads direct relationships for one principal in one exact scope.
+    ///
+    /// # Errors
+    ///
+    /// Returns a sanitized storage error for unreadable or malformed state.
+    pub fn relationships_for_subject(
+        &self,
+        scope: &ScopeRef,
+        subject: &RelationshipSubject,
+    ) -> Result<Vec<ScopeRelationship>, StorageError> {
+        let connection = self.open_connection()?;
+        let (scope_kind, scope_id) = scope_parts(scope);
+        let principal_kind =
+            serde_json::to_string(&subject.principal_kind).map_err(|_| StorageError)?;
+        let mut statement = connection
+            .prepare(
+                "SELECT relationship_id, principal_id, principal_kind, relation
+                 FROM scope_relationships
+                 WHERE scope_kind = ?1 AND scope_id = ?2 AND principal_id = ?3
+                   AND principal_kind = ?4
+                 ORDER BY relationship_id",
+            )
+            .map_err(|_| StorageError)?;
+        let rows = statement
+            .query_map(
+                params![
+                    scope_kind,
+                    scope_id,
+                    subject.principal_id.value().to_string(),
+                    principal_kind,
+                ],
+                |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, String>(2)?,
+                        row.get::<_, String>(3)?,
+                    ))
+                },
+            )
+            .map_err(|_| StorageError)?;
+        rows.map(|row| decode_relationship(scope, row.map_err(|_| StorageError)?))
+            .collect()
+    }
+
     /// Returns the current policy revision for one exact scope.
     ///
     /// # Errors
