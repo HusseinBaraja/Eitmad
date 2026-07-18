@@ -198,6 +198,7 @@ fn prepare_history(
     if legacy_version > CURRENT_STORAGE_VERSION {
         return Err(StorageError);
     }
+    validate_legacy_history(connection, legacy_version)?;
     let transaction = connection.transaction().map_err(|_| StorageError)?;
     transaction
         .execute_batch("ALTER TABLE schema_migrations RENAME TO schema_migrations_legacy;")
@@ -224,6 +225,25 @@ fn prepare_history(
         .execute_batch("DROP TABLE schema_migrations_legacy;")
         .map_err(|_| StorageError)?;
     transaction.commit().map_err(|_| StorageError)
+}
+
+fn validate_legacy_history(
+    connection: &Connection,
+    legacy_version: u32,
+) -> Result<(), StorageError> {
+    let mut statement = connection
+        .prepare("SELECT version FROM schema_migrations ORDER BY version")
+        .map_err(|_| StorageError)?;
+    let versions = statement
+        .query_map([], |row| row.get::<_, u32>(0))
+        .map_err(|_| StorageError)?
+        .map(|version| version.map_err(|_| StorageError))
+        .collect::<Result<Vec<_>, _>>()?;
+    let expected = (1..=legacy_version).collect::<Vec<_>>();
+    if versions != expected {
+        return Err(StorageError);
+    }
+    Ok(())
 }
 
 fn history_has_column(connection: &Connection, column: &str) -> Result<bool, StorageError> {
@@ -320,10 +340,48 @@ fn schema_entries(
 }
 
 fn normalize_sql(sql: &str) -> String {
-    sql.split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
-        .to_ascii_lowercase()
+    let mut normalized = String::with_capacity(sql.len());
+    let mut characters = sql.chars().peekable();
+    let mut quote_end = None;
+    let mut pending_space = false;
+
+    while let Some(character) = characters.next() {
+        if let Some(end) = quote_end {
+            normalized.push(character);
+            if character == end {
+                if end != ']' && characters.peek() == Some(&end) {
+                    normalized.push(end);
+                    let _ = characters.next();
+                } else {
+                    quote_end = None;
+                }
+            }
+            continue;
+        }
+
+        if character.is_whitespace() {
+            pending_space = true;
+            continue;
+        }
+        if pending_space && !normalized.is_empty() {
+            normalized.push(' ');
+        }
+        pending_space = false;
+
+        match character {
+            '\'' | '"' | '`' => {
+                normalized.push(character);
+                quote_end = Some(character);
+            }
+            '[' => {
+                normalized.push(character);
+                quote_end = Some(']');
+            }
+            _ => normalized.push(character.to_ascii_lowercase()),
+        }
+    }
+
+    normalized
 }
 
 pub(crate) fn read_version(connection: &Connection) -> Result<u32, StorageError> {
@@ -385,6 +443,38 @@ mod tests {
             )
             .unwrap();
         assert_eq!(feature, "configuration");
+    }
+
+    #[test]
+    fn rejects_gaps_in_legacy_history() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(
+                "CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY);
+                 INSERT INTO schema_migrations VALUES (1), (3);",
+            )
+            .unwrap();
+
+        assert!(prepare_history(&mut connection, &registry()).is_err());
+    }
+
+    #[test]
+    fn sql_normalization_preserves_quoted_values() {
+        let upper = normalize_sql(
+            "CREATE TRIGGER sample BEFORE INSERT ON records BEGIN SELECT RAISE(ABORT, 'Invalid Record'); END",
+        );
+        let lower = normalize_sql(
+            "create trigger sample before insert on records begin select raise(abort, 'invalid record'); end",
+        );
+
+        assert_ne!(upper, lower);
+        assert!(upper.contains("'Invalid Record'"));
+        assert_eq!(
+            upper,
+            normalize_sql(
+                "  create   trigger sample before insert on records begin select raise(abort, 'Invalid Record'); end  "
+            )
+        );
     }
 
     #[test]
