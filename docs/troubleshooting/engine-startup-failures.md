@@ -5,7 +5,7 @@ audience: "support"
 page_type: "troubleshooting"
 status: "active"
 owner: "Rust engine maintainers"
-last_verified: "2026-07-12"
+last_verified: "2026-07-18"
 review_triggers:
   - "engine lifecycle error IDs, authority locking, readiness checks, CLI exit codes, or recovery behavior changes"
 keywords:
@@ -18,7 +18,7 @@ keywords:
 
 # Resolve engine startup and authority failures
 
-A `failed` lifecycle snapshot means the engine did not become ready or could not drain safely. No product storage exists in this foundation, and startup rollback stops initialized components before releasing authority. Do not delete lock files or bypass health checks.
+A `failed` lifecycle snapshot means the engine did not become ready or could not drain safely. Startup rollback stops initialized components before releasing authority. Rust-owned SQLite storage may already contain durable configuration, authorization, audit, and idempotency state; do not delete lock files, databases, or WAL companions, and do not bypass health checks.
 
 ## Symptoms
 
@@ -51,6 +51,7 @@ These identifiers apply to Windows, macOS, and Linux; supervised desktop and hea
 | `eitmad.error.engine-health-check-failed.v1` with `readinessCheck` | A required check is degraded, unhealthy, or timed out | Run `diagnose` and inspect the check ID/status | Correct the environment represented by the stable check ID, then retry |
 | `eitmad.error.engine-startup-failed.v1` with `authorityLock` | Runtime directory or lock metadata cannot be created safely | Verify the selected directory is user-local and available | Correct directory availability or permissions; never redirect it into customer data |
 | `eitmad.error.engine-startup-failed.v1` with `componentStartup` | A component failed or the 30-second startup deadline elapsed | Reproduce with focused runtime tests and sanitized correlation data | Repair the owning component; startup rollback has already stopped earlier components |
+| `eitmad.error.engine-startup-failed.v1` with `componentStartup` after storage was introduced | SQLite could not open or transactionally migrate | Run read-only diagnostics; preserve the complete runtime directory and storage version | Correct permissions/environment or restore an approved stopped-engine backup; never edit schema rows manually |
 | `eitmad.error.engine-shutdown-failed.v1` | A component failed to stop or the 10-second deadline elapsed | Confirm the process exited and preserve the structured stage | Treat state as failed, investigate the owning component, and verify its cleanup before restart |
 
 ## Verify recovery

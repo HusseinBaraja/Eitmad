@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-07-12"
+last_verified: "2026-07-18"
 review_triggers:
   - "a workspace member, platform, server plane, test suite, or ownership boundary changes"
 keywords:
@@ -17,18 +17,19 @@ keywords:
 
 # Find the owner of each repository area
 
-Place behavior that changes together in the nearest vertical product capability. Contracts and the engine lifecycle are implemented foundations; most product capability boundaries remain empty.
+Place behavior that changes together in the nearest vertical product capability. Contracts, engine lifecycle, configuration, authorization, and authority storage are implemented foundations; most business capability boundaries remain empty.
 
 ## Ownership map
 
 | Area | Current authority | Canonical source |
 | --- | --- | --- |
 | `crates/contracts/` | External contracts and generation or validation inputs | `crates/contracts/OWNERSHIP.md` |
-| `crates/engine-runtime/` | Implemented engine lifecycle, readiness, health, authority lock, and component coordination | [Engine runtime guide](subsystems/engine-runtime.md) |
+| `crates/engine-runtime/` | Engine lifecycle, authority-store composition, real product dispatch, local IPC, and event reauthorization | [Engine runtime guide](subsystems/engine-runtime.md) |
 | `crates/engine-cli/` | Implemented supervised, headless, and diagnostic entry point | `crates/engine-cli/OWNERSHIP.md` |
-| `crates/storage/` | Database, migrations, transactions, and backups | `crates/storage/OWNERSHIP.md` |
+| `crates/configuration/` | Defaults, validation, revisions, redaction, import/export, and patch orchestration | [Configuration guide](subsystems/configuration.md) |
+| `crates/storage/` | SQLite connection policy, migrations, transactions, scoped repositories, audit, and idempotency | `crates/storage/OWNERSHIP.md` |
 | `crates/sync/` | Unified synchronization protocol | `crates/sync/OWNERSHIP.md` |
-| `crates/authorization/` | Identity, scope, and ReBAC authorization | `crates/authorization/OWNERSHIP.md` |
+| `crates/authorization/` | Direct principal-to-scope relationships and compiled ReBAC policy v1 | [Authorization guide](subsystems/authorization.md) |
 | `crates/update-policy/` | Update eligibility, compatibility, and migration safety | `crates/update-policy/OWNERSHIP.md` |
 | `crates/observability-audit/` | Redacted diagnostics and mutation audit | `crates/observability-audit/OWNERSHIP.md` |
 | `crates/external-integrations/` | Named external-service adapters | `crates/external-integrations/OWNERSHIP.md` |
@@ -50,6 +51,6 @@ Place behavior that changes together in the nearest vertical product capability.
 
 ## Verification
 
-This map matches the current `Cargo.toml` members, implemented runtime boundary, and `OWNERSHIP.md` files as of 2026-07-12. Empty source files do not imply unimplemented behavior.
+This map matches the current `Cargo.toml` members, runtime composition, and ownership files as of 2026-07-18. Empty source files do not imply implemented behavior.
 
 Next, [run the foundation checks](../operations/index.md).

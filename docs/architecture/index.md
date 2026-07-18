@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "explanation"
 status: "active"
 owner: "architecture maintainers"
-last_verified: "2026-07-13"
+last_verified: "2026-07-18"
 review_triggers:
   - "an authority, process, trust, storage, sync, update, or platform boundary changes"
 keywords:
@@ -16,7 +16,7 @@ keywords:
 
 # Understand Eitmad architecture
 
-Eitmad uses thin native desktop applications connected to a separate trusted Rust engine that acts as product authority. Protocol v1 contracts, native binding generation, the engine lifecycle runtime, and Windows process supervision are implemented; no production business capability exists yet.
+Eitmad uses thin native desktop applications connected to a separate trusted Rust engine that acts as product authority. Protocol `1.2`, native binding generation, engine lifecycle, SQLite authority storage, Rust-owned configuration, direct scoped ReBAC, and Windows process supervision are implemented; no native settings UI or production business workflow exists yet.
 
 ## Start here
 
@@ -27,6 +27,8 @@ Eitmad uses thin native desktop applications connected to a separate trusted Rus
 - [Local IPC threat model](local-ipc-threat-model.md): current Windows trust boundary, controls, residual risks, and production blockers.
 - [Typed local IPC](../developer/subsystems/local-ipc.md): implemented named-pipe requests, scoped event replay, ordering, backpressure, reconnect, and shutdown.
 - [Engine runtime lifecycle](../developer/subsystems/engine-runtime.md): implemented startup, readiness, health, process identity, diagnostics, and shutdown behavior.
+- [Rust-owned configuration](../developer/subsystems/configuration.md): implemented defaults, validation, persistence, redaction, import/export, and events.
+- [Scoped ReBAC authorization](../developer/subsystems/authorization.md): implemented relationships, policy, owner bootstrap/protection, and active revocation.
 - [Windows process supervision](../developer/subsystems/windows-process-supervision.md): implemented Job Object containment, bounded restart, stale-event rejection, and graceful shutdown.
 - [Repository layout and ownership](../developer/repository-layout.md): where each current boundary lives.
 

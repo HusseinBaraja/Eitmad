@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust engine maintainers"
-last_verified: "2026-07-12"
+last_verified: "2026-07-18"
 review_triggers:
   - "engine lifecycle states, health semantics, process modes, authority locking, or shutdown behavior changes"
 keywords:
@@ -28,6 +28,7 @@ keywords:
 | CLI arguments, stdout/stderr adaptation, Ctrl+C, and supervisor stdin EOF | `eitmad-engine-cli` |
 | Windows process containment, restart budget, stale-event rejection, and shell-owned shutdown | [Windows process supervision](windows-process-supervision.md) |
 | Typed local command/query transport | `eitmad-engine-runtime::local_ipc`; delegates shutdown to this lifecycle |
+| SQLite authority-store startup and compatibility health | `AuthorityStoreComponent` and `AuthorityStoreHealthCheck`; storage semantics remain in `eitmad-storage` |
 
 The CLI does not own business logic, storage, authorization, or diagnostics policy. The supervisor PID and inherited stdin control pipe only coordinate process lifetime; neither proves identity or grants authorization.
 
@@ -54,6 +55,8 @@ Readiness is not the same as process liveness:
 - a required non-healthy check blocks startup or makes a refreshed ready runtime unready.
 
 `RuntimeComponent` implementations start in registration order and stop in reverse order. A partial startup failure stops every component that already started before releasing the authority lock. Components return an opaque `ComponentFailure`; raw causes do not cross the public diagnostic boundary.
+
+The authority store is the first product component registered by the CLI. It opens and transactionally migrates `eitmad.sqlite3` only after the authority lock is held and before readiness. Diagnostic mode does not start that component; its read-only compatibility check accepts an absent pre-first-start database and reports an existing corrupt or newer database as unhealthy.
 
 ## Process identity and single authority
 

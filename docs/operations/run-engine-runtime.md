@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "Rust engine maintainers"
-last_verified: "2026-07-12"
+last_verified: "2026-07-18"
 review_triggers:
   - "engine CLI arguments, process modes, lifecycle output, exit codes, or runtime directory behavior changes"
 keywords:
@@ -25,7 +25,7 @@ The engine CLI runs one foreground authority or performs one non-mutating diagno
 - Run commands from the repository root.
 - Do not point `--runtime-directory` at customer documents, a shared network path, or another application's data.
 - Treat the supervisor PID and lock metadata as correlation data, not credentials.
-- Windows typed IPC is implemented with development-only authentication; production authentication and product storage remain blocked.
+- Windows typed IPC is implemented with development-only authentication. Rust-owned SQLite storage is active; trusted production identity provisioning remains blocked.
 
 ## Run non-mutating diagnostics
 
@@ -33,7 +33,7 @@ The engine CLI runs one foreground authority or performs one non-mutating diagno
 cargo run -q -p eitmad-engine-cli -- diagnose
 ```
 
-Expected result: one `DiagnosticReport` JSON line with `status: "healthy"`, `readyToStart: true`, and exit code `0`. Diagnostics do not acquire the authority lock or start components, so they may run while an engine is active.
+Expected result: one `DiagnosticReport` JSON line with `status: "healthy"`, `readyToStart: true`, and exit code `0`. Diagnostics do not acquire the authority lock, create a missing database, run migrations, or start components. If `eitmad.sqlite3` exists, the authority-store check opens it read-only and rejects corruption or a newer storage version.
 
 ## Run independent headless mode
 
@@ -42,6 +42,8 @@ cargo run -q -p eitmad-engine-cli -- run --mode headless
 ```
 
 Expected result: `starting` then `ready` lifecycle lines. Press Ctrl+C once. The engine emits `stopping` then `stopped` and exits `0` after bounded draining.
+
+On first authoritative start, the storage component creates and migrates `eitmad.sqlite3` under the selected runtime directory after acquiring the authority lock and before emitting `ready`. Keep the runtime directory user-private. Do not edit, move, or copy an open database as a recovery shortcut.
 
 ## Run supervised desktop mode
 
@@ -74,4 +76,4 @@ The implemented Windows adapter additionally assigns the child to a kill-on-clos
 
 Do not delete the lock file to resolve a conflict. Confirm that the other engine process has stopped, then retry; OS lock release makes stale contents harmless. Do not include runtime paths, raw process arguments, customer records, secrets, or authorization data in support evidence.
 
-For exact IPC checks, see [Resolve local IPC failures](../troubleshooting/local-ipc-failures.md). For engine failures, see [Resolve engine startup and authority failures](../troubleshooting/engine-startup-failures.md). Implementation ownership is split between [typed local IPC](../developer/subsystems/local-ipc.md), the [engine lifecycle](../developer/subsystems/engine-runtime.md), and [Windows supervision](../developer/subsystems/windows-process-supervision.md).
+For exact IPC checks, see [Resolve local IPC failures](../troubleshooting/local-ipc-failures.md). For storage/configuration/permission failures, see [configuration and authorization recovery](../troubleshooting/configuration-authorization-failures.md). For engine failures, see [Resolve engine startup and authority failures](../troubleshooting/engine-startup-failures.md). Implementation ownership is split between [typed local IPC](../developer/subsystems/local-ipc.md), the [engine lifecycle](../developer/subsystems/engine-runtime.md), and [Windows supervision](../developer/subsystems/windows-process-supervision.md).

@@ -5,7 +5,7 @@ audience: "api"
 page_type: "reference"
 status: "active"
 owner: "Rust contract maintainers"
-last_verified: "2026-07-13"
+last_verified: "2026-07-18"
 review_triggers:
   - "a command, query, subscription, error, version, capability, or generator changes"
 keywords:
@@ -37,9 +37,9 @@ Generated files have a `Do not edit` header. Linux bindings remain blocked on th
 
 | Interaction | Required context | Foundation operations |
 | --- | --- | --- |
-| Command | Version, request/correlation/causation IDs, authenticated session, scope, deadline, idempotency key | Update configuration, cancel operation, report installer outcome |
-| Query | Version, request/correlation/causation IDs, authenticated session, scope, deadline | Read configuration, effective permissions, update state, sync status |
-| Subscription | Version, request/correlation IDs, authenticated session, scope, optional resume cursor | Configuration, permission, sync, record, job, notification, update, and error streams |
+| Command | Version, request/correlation/causation IDs, authenticated session, scope, deadline, idempotency key | Update configuration; grant/revoke scoped relationships; placeholder operation/update commands |
+| Query | Version, request/correlation/causation IDs, authenticated session, scope, deadline | Read configuration/effective permissions/relationships; placeholder update and sync state |
+| Subscription | Version, request/correlation IDs, authenticated session, scope, optional resume cursor | Configuration, permission, authorization-policy, sync, record, job, notification, update, and error streams |
 | Event | Subscription/correlation IDs, sequence, cursor, occurrence time | Typed state, metadata, progress, notification, and error values |
 
 The identity and scope fields are assertions to verify against the authenticated channel, not credentials and not proof of authorization. Rust must authorize every operation and audit every state-changing command in the runtime that executes it.
@@ -52,7 +52,7 @@ The foreground CLI emits lifecycle snapshots as newline-delimited JSON on child 
 
 ## Wire and compatibility rules
 
-- Protocol v1 uses UTF-8 JSON with camel-case fields and explicit `kind`/`payload` tags. The current minor is `1.1`.
+- Protocol v1 uses UTF-8 JSON with camel-case fields and explicit `kind`/`payload` tags. The current minor is `1.2`.
 - Local IPC frames add a four-byte little-endian length and enforce an 8 MiB maximum.
 - UUIDs are lowercase hyphenated strings. Times are Unix milliseconds. Canonical values remain locale-independent.
 - Unknown object fields are accepted for additive minor-version evolution.
@@ -78,9 +78,15 @@ Each peer sends supported protocol major/minor ranges, available and required ca
 - a capability required by either peer but absent from the other;
 - a required schema with no overlapping version.
 
-The active window is `1.0–1.1`. Protocol `1.0` supports command/query traffic. Protocol `1.1` adds `eitmad.capability.local-ipc-subscriptions.v1`; peers must negotiate both before using subscribe, unsubscribe, event, or subscription-closed messages. Additive optional fields and capabilities use a minor version or capability gate. Renamed fields, changed meaning, removed variants, or incompatible identifier behavior require a new major version.
+The active window is `1.0–1.2`. Protocol `1.0` supports command/query traffic. Protocol `1.1` adds `eitmad.capability.local-ipc-subscriptions.v1`. Protocol `1.2` adds relationship mutations/listing, authorization-policy events, and `authorizationRevoked`; these operations are minor-gated and policy events also require `eitmad.capability.authorization-policy-events.v1`. Additive optional fields and capabilities use a minor version or capability gate. Renamed fields, changed meaning, removed variants, or incompatible identifier behavior require a new major version.
 
-Event cursors are opaque, scoped, and valid only in the current engine generation's bounded replay window. Per-subscription sequence numbers order delivered events but do not establish global order. Rust sends `SubscriptionClosed` before terminating a tracked stream: `clientRequested` follows explicit unsubscribe, `engineStopping` precedes shutdown, and `backpressure` identifies an unreplayable discrete gap. See [typed local IPC](../developer/subsystems/local-ipc.md) for replay, duplicate delivery, backpressure, and resync rules.
+Event cursors are opaque, scoped, and valid only in the current engine generation's bounded replay window. Per-subscription sequence numbers order delivered events but do not establish global order. Rust sends `SubscriptionClosed` before terminating a tracked stream: `clientRequested` follows explicit unsubscribe, `engineStopping` precedes shutdown, `backpressure` identifies an unreplayable discrete gap, and protocol `1.2` uses `authorizationRevoked` after policy denial. Older revoked peers close without the new reason. See [typed local IPC](../developer/subsystems/local-ipc.md) for replay, duplicate delivery, backpressure, reauthorization, and resync rules.
+
+## Implemented configuration and authorization authority
+
+The real engine dispatcher currently executes configuration query/update, effective-permission query, relationship grant/revoke/list, and configuration/authorization subscriptions. Existing unrelated placeholder operations return `eitmad.error.contract-invalid.v1` until their Rust verticals exist. Configuration import/export remain Rust service APIs and have no shell IPC operation.
+
+Configuration snapshots are revisioned, redacted, stable-key projections. Relationship mutations use a separate optimistic policy revision. Read [configuration authority](../developer/subsystems/configuration.md) and [authorization policy](../developer/subsystems/authorization.md) before consuming these contracts.
 
 The active compatibility window, capability rules, change classification, and major-version rollout process are defined in [Evolve contracts without breaking supported peers](evolve-contracts-compatibly.md).
 
