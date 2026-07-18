@@ -2200,8 +2200,12 @@ public extension Event {
 }
 
 public enum EventKind: String, Codable, Sendable {
+    case eitmadBackgroundJobStatusEventV1 = "eitmad.background-job.status.event.v1"
     case eitmadConfigChangedEventV1 = "eitmad.config.changed.event.v1"
+    case eitmadErrorEventV1 = "eitmad.error.event.v1"
+    case eitmadNotificationEventV1 = "eitmad.notification.event.v1"
     case eitmadPermissionsChangedEventV1 = "eitmad.permissions.changed.event.v1"
+    case eitmadRecordChangedEventV1 = "eitmad.record.changed.event.v1"
     case eitmadSyncStatusEventV1 = "eitmad.sync.status.event.v1"
     case eitmadUpdateStateEventV1 = "eitmad.update.state.event.v1"
 }
@@ -2215,8 +2219,33 @@ public struct EventPayload: Codable, Sendable {
     public let policyVersion: Int?
     public let kind: FluffyKind?
     public let payload: PurplePayload?
+    public let changedAt: Int?
+    public let operation: ChangeOperation?
+    public let recordID, schemaID: String?
+    public let completedUnits: Int?
+    public let error: ContractError?
+    public let jobID, jobKind: String?
+    public let state: BackgroundJobState?
+    public let totalUnits: Int?
+    public let correlationID: String?
+    public let messageID, notificationID: String?
+    public let parameters: [ErrorParameter]?
+    public let severity: NotificationSeverity?
 
-    public init(entries: [ConfigEntry]?, revision: Int?, schemaVersion: Int?, scope: ScopeRef?, permissions: [EffectivePermission]?, policyVersion: Int?, kind: FluffyKind?, payload: PurplePayload?) {
+    public enum CodingKeys: String, CodingKey {
+        case entries, revision, schemaVersion, scope, permissions, policyVersion, kind, payload, changedAt, operation
+        case recordID = "recordId"
+        case schemaID = "schemaId"
+        case completedUnits, error
+        case jobID = "jobId"
+        case jobKind, state, totalUnits
+        case correlationID = "correlationId"
+        case messageID = "messageId"
+        case notificationID = "notificationId"
+        case parameters, severity
+    }
+
+    public init(entries: [ConfigEntry]?, revision: Int?, schemaVersion: Int?, scope: ScopeRef?, permissions: [EffectivePermission]?, policyVersion: Int?, kind: FluffyKind?, payload: PurplePayload?, changedAt: Int?, operation: ChangeOperation?, recordID: String?, schemaID: String?, completedUnits: Int?, error: ContractError?, jobID: String?, jobKind: String?, state: BackgroundJobState?, totalUnits: Int?, correlationID: String?, messageID: String?, notificationID: String?, parameters: [ErrorParameter]?, severity: NotificationSeverity?) {
         self.entries = entries
         self.revision = revision
         self.schemaVersion = schemaVersion
@@ -2225,6 +2254,21 @@ public struct EventPayload: Codable, Sendable {
         self.policyVersion = policyVersion
         self.kind = kind
         self.payload = payload
+        self.changedAt = changedAt
+        self.operation = operation
+        self.recordID = recordID
+        self.schemaID = schemaID
+        self.completedUnits = completedUnits
+        self.error = error
+        self.jobID = jobID
+        self.jobKind = jobKind
+        self.state = state
+        self.totalUnits = totalUnits
+        self.correlationID = correlationID
+        self.messageID = messageID
+        self.notificationID = notificationID
+        self.parameters = parameters
+        self.severity = severity
     }
 }
 
@@ -2254,7 +2298,22 @@ public extension EventPayload {
         permissions: [EffectivePermission]?? = nil,
         policyVersion: Int?? = nil,
         kind: FluffyKind?? = nil,
-        payload: PurplePayload?? = nil
+        payload: PurplePayload?? = nil,
+        changedAt: Int?? = nil,
+        operation: ChangeOperation?? = nil,
+        recordID: String?? = nil,
+        schemaID: String?? = nil,
+        completedUnits: Int?? = nil,
+        error: ContractError?? = nil,
+        jobID: String?? = nil,
+        jobKind: String?? = nil,
+        state: BackgroundJobState?? = nil,
+        totalUnits: Int?? = nil,
+        correlationID: String?? = nil,
+        messageID: String?? = nil,
+        notificationID: String?? = nil,
+        parameters: [ErrorParameter]?? = nil,
+        severity: NotificationSeverity?? = nil
     ) -> EventPayload {
         return EventPayload(
             entries: entries ?? self.entries,
@@ -2264,7 +2323,22 @@ public extension EventPayload {
             permissions: permissions ?? self.permissions,
             policyVersion: policyVersion ?? self.policyVersion,
             kind: kind ?? self.kind,
-            payload: payload ?? self.payload
+            payload: payload ?? self.payload,
+            changedAt: changedAt ?? self.changedAt,
+            operation: operation ?? self.operation,
+            recordID: recordID ?? self.recordID,
+            schemaID: schemaID ?? self.schemaID,
+            completedUnits: completedUnits ?? self.completedUnits,
+            error: error ?? self.error,
+            jobID: jobID ?? self.jobID,
+            jobKind: jobKind ?? self.jobKind,
+            state: state ?? self.state,
+            totalUnits: totalUnits ?? self.totalUnits,
+            correlationID: correlationID ?? self.correlationID,
+            messageID: messageID ?? self.messageID,
+            notificationID: notificationID ?? self.notificationID,
+            parameters: parameters ?? self.parameters,
+            severity: severity ?? self.severity
         )
     }
 
@@ -2297,6 +2371,11 @@ public enum FluffyKind: String, Codable, Sendable {
     case succeeded = "succeeded"
     case syncing = "syncing"
     case verifying = "verifying"
+}
+
+public enum ChangeOperation: String, Codable, Sendable {
+    case tombstone = "tombstone"
+    case upsert = "upsert"
 }
 
 // MARK: - PurplePayload
@@ -2380,6 +2459,21 @@ public extension PurplePayload {
     }
 }
 
+public enum NotificationSeverity: String, Codable, Sendable {
+    case error = "error"
+    case information = "information"
+    case success = "success"
+    case warning = "warning"
+}
+
+public enum BackgroundJobState: String, Codable, Sendable {
+    case cancelled = "cancelled"
+    case failed = "failed"
+    case queued = "queued"
+    case running = "running"
+    case succeeded = "succeeded"
+}
+
 // MARK: - IPCClientMessage
 public struct IPCClientMessage: Codable, Sendable {
     public let kind: IPCClientMessageKind
@@ -2433,6 +2527,8 @@ public enum IPCClientMessageKind: String, Codable, Sendable {
     case eitmadIPCHandshakeV1 = "eitmad.ipc.handshake.v1"
     case eitmadIPCQueryV1 = "eitmad.ipc.query.v1"
     case eitmadIPCShutdownV1 = "eitmad.ipc.shutdown.v1"
+    case eitmadIPCSubscribeV1 = "eitmad.ipc.subscribe.v1"
+    case eitmadIPCUnsubscribeV1 = "eitmad.ipc.unsubscribe.v1"
 }
 
 // MARK: - HandshakeRequest
@@ -2449,6 +2545,9 @@ public struct HandshakeRequest: Codable, Sendable {
     public let idempotencyKey: String?
     public let protocolVersion: ProtocolVersion?
     public let query: Query?
+    public let resumeAfter: String?
+    public let subscription: Subscription?
+    public let subscriptionID: String?
 
     public enum CodingKeys: String, CodingKey {
         case assertedAuthorization
@@ -2457,10 +2556,11 @@ public struct HandshakeRequest: Codable, Sendable {
         case requestID = "requestId"
         case authorization
         case causationID = "causationId"
-        case command, deadline, idempotencyKey, protocolVersion, query
+        case command, deadline, idempotencyKey, protocolVersion, query, resumeAfter, subscription
+        case subscriptionID = "subscriptionId"
     }
 
-    public init(assertedAuthorization: DevelopmentIdentityAssertion?, correlationID: String, developmentBearerToken: String?, peer: PeerHello?, requestID: String, authorization: AuthorizationContext?, causationID: String?, command: Command?, deadline: Int?, idempotencyKey: String?, protocolVersion: ProtocolVersion?, query: Query?) {
+    public init(assertedAuthorization: DevelopmentIdentityAssertion?, correlationID: String, developmentBearerToken: String?, peer: PeerHello?, requestID: String, authorization: AuthorizationContext?, causationID: String?, command: Command?, deadline: Int?, idempotencyKey: String?, protocolVersion: ProtocolVersion?, query: Query?, resumeAfter: String?, subscription: Subscription?, subscriptionID: String?) {
         self.assertedAuthorization = assertedAuthorization
         self.correlationID = correlationID
         self.developmentBearerToken = developmentBearerToken
@@ -2473,6 +2573,9 @@ public struct HandshakeRequest: Codable, Sendable {
         self.idempotencyKey = idempotencyKey
         self.protocolVersion = protocolVersion
         self.query = query
+        self.resumeAfter = resumeAfter
+        self.subscription = subscription
+        self.subscriptionID = subscriptionID
     }
 }
 
@@ -2506,7 +2609,10 @@ public extension HandshakeRequest {
         deadline: Int?? = nil,
         idempotencyKey: String?? = nil,
         protocolVersion: ProtocolVersion?? = nil,
-        query: Query?? = nil
+        query: Query?? = nil,
+        resumeAfter: String?? = nil,
+        subscription: Subscription?? = nil,
+        subscriptionID: String?? = nil
     ) -> HandshakeRequest {
         return HandshakeRequest(
             assertedAuthorization: assertedAuthorization ?? self.assertedAuthorization,
@@ -2520,7 +2626,10 @@ public extension HandshakeRequest {
             deadline: deadline ?? self.deadline,
             idempotencyKey: idempotencyKey ?? self.idempotencyKey,
             protocolVersion: protocolVersion ?? self.protocolVersion,
-            query: query ?? self.query
+            query: query ?? self.query,
+            resumeAfter: resumeAfter ?? self.resumeAfter,
+            subscription: subscription ?? self.subscription,
+            subscriptionID: subscriptionID ?? self.subscriptionID
         )
     }
 
@@ -2819,6 +2928,66 @@ public enum QueryKind: String, Codable, Sendable {
     case eitmadUpdateGetStateV1 = "eitmad.update.get-state.v1"
 }
 
+/// Resumable streams requested by clients.
+// MARK: - Subscription
+public struct Subscription: Codable, Sendable {
+    public let kind: SubscriptionKind
+    public let payload: [String: JSONAny]
+
+    public init(kind: SubscriptionKind, payload: [String: JSONAny]) {
+        self.kind = kind
+        self.payload = payload
+    }
+}
+
+// MARK: Subscription convenience initializers and mutators
+
+public extension Subscription {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(Subscription.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        kind: SubscriptionKind? = nil,
+        payload: [String: JSONAny]? = nil
+    ) -> Subscription {
+        return Subscription(
+            kind: kind ?? self.kind,
+            payload: payload ?? self.payload
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+public enum SubscriptionKind: String, Codable, Sendable {
+    case eitmadBackgroundJobStatusSubscribeV1 = "eitmad.background-job.status.subscribe.v1"
+    case eitmadConfigChangedSubscribeV1 = "eitmad.config.changed.subscribe.v1"
+    case eitmadErrorSubscribeV1 = "eitmad.error.subscribe.v1"
+    case eitmadNotificationSubscribeV1 = "eitmad.notification.subscribe.v1"
+    case eitmadPermissionsChangedSubscribeV1 = "eitmad.permissions.changed.subscribe.v1"
+    case eitmadRecordChangedSubscribeV1 = "eitmad.record.changed.subscribe.v1"
+    case eitmadSyncStatusSubscribeV1 = "eitmad.sync.status.subscribe.v1"
+    case eitmadUpdateStateSubscribeV1 = "eitmad.update.state.subscribe.v1"
+}
+
 // MARK: - IPCServerMessage
 public struct IPCServerMessage: Codable, Sendable {
     public let kind: IPCServerMessageKind
@@ -2869,10 +3038,14 @@ public extension IPCServerMessage {
 
 public enum IPCServerMessageKind: String, Codable, Sendable {
     case eitmadIPCCommandResponseV1 = "eitmad.ipc.command-response.v1"
+    case eitmadIPCEventV1 = "eitmad.ipc.event.v1"
     case eitmadIPCFailureV1 = "eitmad.ipc.failure.v1"
     case eitmadIPCHandshakeResponseV1 = "eitmad.ipc.handshake-response.v1"
     case eitmadIPCQueryResponseV1 = "eitmad.ipc.query-response.v1"
     case eitmadIPCShutdownResponseV1 = "eitmad.ipc.shutdown-response.v1"
+    case eitmadIPCSubscribeResponseV1 = "eitmad.ipc.subscribe-response.v1"
+    case eitmadIPCSubscriptionClosedV1 = "eitmad.ipc.subscription-closed.v1"
+    case eitmadIPCUnsubscribeResponseV1 = "eitmad.ipc.unsubscribe-response.v1"
 }
 
 // MARK: - HandshakeResponse
@@ -2881,20 +3054,35 @@ public struct HandshakeResponse: Codable, Sendable {
     public let outcome: Outcome?
     public let requestID: String?
     public let accepted: Bool?
+    public let subscriptionID, cursor: String?
+    public let event: Event?
+    public let occurredAt: Int?
+    public let sequence: Int?
+    public let lastDeliveredCursor: String?
+    public let reason: SubscriptionCloseReason?
     public let error: ContractError?
 
     public enum CodingKeys: String, CodingKey {
         case correlationID = "correlationId"
         case outcome
         case requestID = "requestId"
-        case accepted, error
+        case accepted
+        case subscriptionID = "subscriptionId"
+        case cursor, event, occurredAt, sequence, lastDeliveredCursor, reason, error
     }
 
-    public init(correlationID: String?, outcome: Outcome?, requestID: String?, accepted: Bool?, error: ContractError?) {
+    public init(correlationID: String?, outcome: Outcome?, requestID: String?, accepted: Bool?, subscriptionID: String?, cursor: String?, event: Event?, occurredAt: Int?, sequence: Int?, lastDeliveredCursor: String?, reason: SubscriptionCloseReason?, error: ContractError?) {
         self.correlationID = correlationID
         self.outcome = outcome
         self.requestID = requestID
         self.accepted = accepted
+        self.subscriptionID = subscriptionID
+        self.cursor = cursor
+        self.event = event
+        self.occurredAt = occurredAt
+        self.sequence = sequence
+        self.lastDeliveredCursor = lastDeliveredCursor
+        self.reason = reason
         self.error = error
     }
 }
@@ -2922,6 +3110,13 @@ public extension HandshakeResponse {
         outcome: Outcome?? = nil,
         requestID: String?? = nil,
         accepted: Bool?? = nil,
+        subscriptionID: String?? = nil,
+        cursor: String?? = nil,
+        event: Event?? = nil,
+        occurredAt: Int?? = nil,
+        sequence: Int?? = nil,
+        lastDeliveredCursor: String?? = nil,
+        reason: SubscriptionCloseReason?? = nil,
         error: ContractError?? = nil
     ) -> HandshakeResponse {
         return HandshakeResponse(
@@ -2929,6 +3124,13 @@ public extension HandshakeResponse {
             outcome: outcome ?? self.outcome,
             requestID: requestID ?? self.requestID,
             accepted: accepted ?? self.accepted,
+            subscriptionID: subscriptionID ?? self.subscriptionID,
+            cursor: cursor ?? self.cursor,
+            event: event ?? self.event,
+            occurredAt: occurredAt ?? self.occurredAt,
+            sequence: sequence ?? self.sequence,
+            lastDeliveredCursor: lastDeliveredCursor ?? self.lastDeliveredCursor,
+            reason: reason ?? self.reason,
             error: error ?? self.error
         )
     }
@@ -3002,16 +3204,19 @@ public struct HandshakeRejection: Codable, Sendable {
     public let messageID: String?
     public let parameters: [ErrorParameter]?
     public let retry: RetryDisposition?
+    public let resumed: Bool?
+    public let streamCursor, subscriptionID: String?
 
     public enum CodingKeys: String, CodingKey {
         case authorization, engine, negotiated, kind, payload, code
         case correlationID = "correlationId"
         case detail
         case messageID = "messageId"
-        case parameters, retry
+        case parameters, retry, resumed, streamCursor
+        case subscriptionID = "subscriptionId"
     }
 
-    public init(authorization: AuthorizationContext?, engine: PeerHello?, negotiated: NegotiatedSession?, kind: TentacledKind?, payload: NegotiationRejection?, code: String?, correlationID: String?, detail: ErrorDetail?, messageID: String?, parameters: [ErrorParameter]?, retry: RetryDisposition?) {
+    public init(authorization: AuthorizationContext?, engine: PeerHello?, negotiated: NegotiatedSession?, kind: TentacledKind?, payload: NegotiationRejection?, code: String?, correlationID: String?, detail: ErrorDetail?, messageID: String?, parameters: [ErrorParameter]?, retry: RetryDisposition?, resumed: Bool?, streamCursor: String?, subscriptionID: String?) {
         self.authorization = authorization
         self.engine = engine
         self.negotiated = negotiated
@@ -3023,6 +3228,9 @@ public struct HandshakeRejection: Codable, Sendable {
         self.messageID = messageID
         self.parameters = parameters
         self.retry = retry
+        self.resumed = resumed
+        self.streamCursor = streamCursor
+        self.subscriptionID = subscriptionID
     }
 }
 
@@ -3055,7 +3263,10 @@ public extension HandshakeRejection {
         detail: ErrorDetail?? = nil,
         messageID: String?? = nil,
         parameters: [ErrorParameter]?? = nil,
-        retry: RetryDisposition?? = nil
+        retry: RetryDisposition?? = nil,
+        resumed: Bool?? = nil,
+        streamCursor: String?? = nil,
+        subscriptionID: String?? = nil
     ) -> HandshakeRejection {
         return HandshakeRejection(
             authorization: authorization ?? self.authorization,
@@ -3068,7 +3279,10 @@ public extension HandshakeRejection {
             detail: detail ?? self.detail,
             messageID: messageID ?? self.messageID,
             parameters: parameters ?? self.parameters,
-            retry: retry ?? self.retry
+            retry: retry ?? self.retry,
+            resumed: resumed ?? self.resumed,
+            streamCursor: streamCursor ?? self.streamCursor,
+            subscriptionID: subscriptionID ?? self.subscriptionID
         )
     }
 
@@ -3417,6 +3631,12 @@ public enum OutcomeStatus: String, Codable, Sendable {
     case failed = "failed"
     case rejected = "rejected"
     case succeeded = "succeeded"
+}
+
+public enum SubscriptionCloseReason: String, Codable, Sendable {
+    case backpressure = "backpressure"
+    case clientRequested = "clientRequested"
+    case engineStopping = "engineStopping"
 }
 
 // MARK: - LifecycleSnapshot
@@ -3867,7 +4087,7 @@ public extension QueryOutcome {
 // MARK: - QueryResult
 public struct QueryResult: Codable, Sendable {
     public let kind: IndecentKind?
-    public let payload: EventPayload?
+    public let payload: FluffyUpdateState?
     public let code, correlationID: String?
     public let detail: ErrorDetail?
     public let messageID: String?
@@ -3882,7 +4102,7 @@ public struct QueryResult: Codable, Sendable {
         case parameters, retry
     }
 
-    public init(kind: IndecentKind?, payload: EventPayload?, code: String?, correlationID: String?, detail: ErrorDetail?, messageID: String?, parameters: [ErrorParameter]?, retry: RetryDisposition?) {
+    public init(kind: IndecentKind?, payload: FluffyUpdateState?, code: String?, correlationID: String?, detail: ErrorDetail?, messageID: String?, parameters: [ErrorParameter]?, retry: RetryDisposition?) {
         self.kind = kind
         self.payload = payload
         self.code = code
@@ -3914,7 +4134,7 @@ public extension QueryResult {
 
     func with(
         kind: IndecentKind?? = nil,
-        payload: EventPayload?? = nil,
+        payload: FluffyUpdateState?? = nil,
         code: String?? = nil,
         correlationID: String?? = nil,
         detail: ErrorDetail?? = nil,
@@ -3948,6 +4168,77 @@ public enum IndecentKind: String, Codable, Sendable {
     case effectivePermissions = "effectivePermissions"
     case syncStatus = "syncStatus"
     case updateState = "updateState"
+}
+
+// MARK: - FluffyUpdateState
+public struct FluffyUpdateState: Codable, Sendable {
+    public let entries: [ConfigEntry]?
+    public let revision, schemaVersion: Int?
+    public let scope: ScopeRef?
+    public let permissions: [EffectivePermission]?
+    public let policyVersion: Int?
+    public let kind: FluffyKind?
+    public let payload: PurplePayload?
+
+    public init(entries: [ConfigEntry]?, revision: Int?, schemaVersion: Int?, scope: ScopeRef?, permissions: [EffectivePermission]?, policyVersion: Int?, kind: FluffyKind?, payload: PurplePayload?) {
+        self.entries = entries
+        self.revision = revision
+        self.schemaVersion = schemaVersion
+        self.scope = scope
+        self.permissions = permissions
+        self.policyVersion = policyVersion
+        self.kind = kind
+        self.payload = payload
+    }
+}
+
+// MARK: FluffyUpdateState convenience initializers and mutators
+
+public extension FluffyUpdateState {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(FluffyUpdateState.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        entries: [ConfigEntry]?? = nil,
+        revision: Int?? = nil,
+        schemaVersion: Int?? = nil,
+        scope: ScopeRef?? = nil,
+        permissions: [EffectivePermission]?? = nil,
+        policyVersion: Int?? = nil,
+        kind: FluffyKind?? = nil,
+        payload: PurplePayload?? = nil
+    ) -> FluffyUpdateState {
+        return FluffyUpdateState(
+            entries: entries ?? self.entries,
+            revision: revision ?? self.revision,
+            schemaVersion: schemaVersion ?? self.schemaVersion,
+            scope: scope ?? self.scope,
+            permissions: permissions ?? self.permissions,
+            policyVersion: policyVersion ?? self.policyVersion,
+            kind: kind ?? self.kind,
+            payload: payload ?? self.payload
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
 }
 
 // MARK: - SubscriptionEnvelope
@@ -4020,62 +4311,6 @@ public extension SubscriptionEnvelope {
     func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
         return String(data: try self.jsonData(), encoding: encoding)
     }
-}
-
-/// Resumable streams requested by clients.
-// MARK: - Subscription
-public struct Subscription: Codable, Sendable {
-    public let kind: SubscriptionKind
-    public let payload: [String: JSONAny]
-
-    public init(kind: SubscriptionKind, payload: [String: JSONAny]) {
-        self.kind = kind
-        self.payload = payload
-    }
-}
-
-// MARK: Subscription convenience initializers and mutators
-
-public extension Subscription {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(Subscription.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        kind: SubscriptionKind? = nil,
-        payload: [String: JSONAny]? = nil
-    ) -> Subscription {
-        return Subscription(
-            kind: kind ?? self.kind,
-            payload: payload ?? self.payload
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
-public enum SubscriptionKind: String, Codable, Sendable {
-    case eitmadConfigChangedSubscribeV1 = "eitmad.config.changed.subscribe.v1"
-    case eitmadPermissionsChangedSubscribeV1 = "eitmad.permissions.changed.subscribe.v1"
-    case eitmadSyncStatusSubscribeV1 = "eitmad.sync.status.subscribe.v1"
-    case eitmadUpdateStateSubscribeV1 = "eitmad.update.state.subscribe.v1"
 }
 
 // MARK: - SyncMessage
@@ -4310,11 +4545,6 @@ public extension ChangeRecord {
     func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
         return String(data: try self.jsonData(), encoding: encoding)
     }
-}
-
-public enum ChangeOperation: String, Codable, Sendable {
-    case tombstone = "tombstone"
-    case upsert = "upsert"
 }
 
 // MARK: - EncodedDomainPayload

@@ -46,6 +46,17 @@ pub struct ChangeRecord {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct RecordChangeNotice {
+    pub record_id: RecordId,
+    pub scope: ScopeRef,
+    pub schema_id: SchemaId,
+    pub operation: ChangeOperation,
+    pub revision: u64,
+    pub changed_at: UnixMillis,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct ChangeBatch {
     pub from_checkpoint: Option<Checkpoint>,
     pub records: Vec<ChangeRecord>,

@@ -14,6 +14,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
     private readonly ISupervisionClock clock;
     private readonly RestartPolicy policy;
     private readonly Queue<DateTimeOffset> restartHistory = new();
+    private readonly Dictionary<Guid, SupervisedEngineSubscription> subscriptions = new();
     private CancellationTokenSource? sessionCancellation;
     private IProcessGroup? processGroup;
     private IEngineProcess? currentProcess;
@@ -73,6 +74,72 @@ public sealed class EngineSupervisor : IAsyncDisposable
             {
                 return currentIpcClient is not null;
             }
+        }
+    }
+
+    public async Task<SupervisedEngineSubscription> SubscribeAsync(
+        Subscription contract,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(contract);
+        EngineIpcClient client;
+        long observedGeneration;
+        var subscription = new SupervisedEngineSubscription(contract);
+        lock (gate)
+        {
+            ObjectDisposedException.ThrowIf(disposed, this);
+            client = currentIpcClient
+                ?? throw new EngineIpcException(
+                    EngineIpcFailureKind.EngineUnavailable,
+                    "The supervised engine has no active IPC session.");
+            observedGeneration = generation;
+            subscriptions.Add(subscription.RegistrationId, subscription);
+        }
+
+        try
+        {
+            await AttachSubscriptionAsync(
+                client,
+                subscription,
+                observedGeneration,
+                cancellationToken).ConfigureAwait(false);
+            return subscription;
+        }
+        catch
+        {
+            lock (gate)
+            {
+                subscriptions.Remove(subscription.RegistrationId);
+            }
+            await subscription.DisposeAsync().ConfigureAwait(false);
+            throw;
+        }
+    }
+
+    public async Task UnsubscribeAsync(
+        SupervisedEngineSubscription subscription,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(subscription);
+        EngineIpcClient? client;
+        EngineSubscription? attached;
+        lock (gate)
+        {
+            subscriptions.Remove(subscription.RegistrationId);
+            client = currentIpcClient;
+            attached = subscription.Attached;
+        }
+        try
+        {
+            if (client is not null && attached is not null)
+            {
+                await client.UnsubscribeAsync(attached, cancellationToken: cancellationToken)
+                    .ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            await subscription.DisposeAsync().ConfigureAwait(false);
         }
     }
 
@@ -143,7 +210,11 @@ public sealed class EngineSupervisor : IAsyncDisposable
             currentIpcClient = null;
             group = processGroup;
             monitor = currentMonitor;
-            snapshot = snapshot with { State = EngineSupervisionState.Stopping };
+            snapshot = snapshot with
+            {
+                State = EngineSupervisionState.Stopping,
+                IpcHealth = EngineIpcHealthState.Unavailable,
+            };
         }
 
         PublishSnapshot();
@@ -306,11 +377,18 @@ public sealed class EngineSupervisor : IAsyncDisposable
         }
 
         await StopAsync().ConfigureAwait(false);
+        SupervisedEngineSubscription[] activeSubscriptions;
         lock (gate)
         {
             disposed = true;
             sessionCancellation?.Dispose();
             sessionCancellation = null;
+            activeSubscriptions = subscriptions.Values.ToArray();
+            subscriptions.Clear();
+        }
+        foreach (var subscription in activeSubscriptions)
+        {
+            await subscription.DisposeAsync().ConfigureAwait(false);
         }
     }
 
@@ -463,12 +541,18 @@ public sealed class EngineSupervisor : IAsyncDisposable
         {
             process = observedGeneration == generation ? currentProcess : null;
             identity = launchRequest?.DevelopmentIdentity;
+            if (process is not null && identity is not null)
+            {
+                snapshot = snapshot with { IpcHealth = EngineIpcHealthState.Connecting };
+            }
         }
 
         if (process is null || identity is null)
         {
             return;
         }
+
+        PublishSnapshot();
 
         _ = ConnectIpcAsync(process, identity, observedGeneration).ContinueWith(
             static task => Trace.TraceError(
@@ -488,8 +572,12 @@ public sealed class EngineSupervisor : IAsyncDisposable
         {
             PeerKind = PeerKind.Shell,
             ProductVersion = "0.0.0",
-            Protocols = [new SupportedProtocol { Major = 1, MinimumMinor = 0, MaximumMinor = 0 }],
-            Capabilities = [ProtocolIds.Capabilities.EitmadCapabilityLocalIpcV1],
+            Protocols = [new SupportedProtocol { Major = 1, MinimumMinor = 0, MaximumMinor = 1 }],
+            Capabilities =
+            [
+                ProtocolIds.Capabilities.EitmadCapabilityLocalIpcV1,
+                ProtocolIds.Capabilities.EitmadCapabilityLocalIpcSubscriptionsV1,
+            ],
             RequiredCapabilities = [ProtocolIds.Capabilities.EitmadCapabilityLocalIpcV1],
             Schemas = [],
         };
@@ -499,6 +587,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
             identity,
             process.DevelopmentBearerToken).ConfigureAwait(false);
         var keep = false;
+        SupervisedEngineSubscription[] desired = [];
         lock (gate)
         {
             if (observedGeneration == generation
@@ -506,6 +595,8 @@ public sealed class EngineSupervisor : IAsyncDisposable
                 && !stopRequested)
             {
                 currentIpcClient = client;
+                desired = subscriptions.Values.ToArray();
+                snapshot = snapshot with { IpcHealth = EngineIpcHealthState.Connected };
                 keep = true;
             }
         }
@@ -513,7 +604,153 @@ public sealed class EngineSupervisor : IAsyncDisposable
         if (!keep)
         {
             await client.DisposeAsync().ConfigureAwait(false);
+            return;
         }
+
+        PublishSnapshot();
+
+        foreach (var subscription in desired)
+        {
+            try
+            {
+                await AttachSubscriptionAsync(
+                    client,
+                    subscription,
+                    observedGeneration,
+                    CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (EngineIpcException error)
+            {
+                Trace.TraceError("Engine subscription restore failed: {0}", error.Kind);
+            }
+        }
+        _ = ObserveIpcCompletionAsync(client, process, identity, observedGeneration);
+    }
+
+    private async Task AttachSubscriptionAsync(
+        EngineIpcClient client,
+        SupervisedEngineSubscription subscription,
+        long observedGeneration,
+        CancellationToken cancellationToken)
+    {
+        var resumeAfter = subscription.ProcessedCursor;
+        EngineSubscription attached;
+        var resetCursor = false;
+        try
+        {
+            attached = await client.SubscribeAsync(
+                CreateSubscriptionEnvelope(client, subscription.Contract, resumeAfter),
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+        }
+        catch (EngineIpcException error) when (error.Kind == EngineIpcFailureKind.ResyncRequired)
+        {
+            subscription.SignalResyncRequired();
+            attached = await client.SubscribeAsync(
+                CreateSubscriptionEnvelope(client, subscription.Contract, null),
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+            resetCursor = true;
+        }
+
+        bool stale;
+        lock (gate)
+        {
+            stale = observedGeneration != generation
+                || !ReferenceEquals(client, currentIpcClient)
+                || !subscriptions.ContainsKey(subscription.RegistrationId);
+        }
+        if (stale)
+        {
+            await client.UnsubscribeAsync(attached, cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+            return;
+        }
+        subscription.Attach(attached, resetCursor);
+    }
+
+    private static SubscriptionEnvelope CreateSubscriptionEnvelope(
+        EngineIpcClient client,
+        Subscription contract,
+        Guid? resumeAfter) => new()
+        {
+            ProtocolVersion = new ProtocolVersion
+            {
+                Major = client.NegotiatedSession.Protocol.Major,
+                Minor = client.NegotiatedSession.Protocol.Minor,
+            },
+            RequestId = Guid.NewGuid(),
+            CorrelationId = Guid.NewGuid(),
+            Authorization = client.Authorization,
+            Subscription = contract,
+            ResumeAfter = resumeAfter,
+        };
+
+    private async Task ObserveIpcCompletionAsync(
+        EngineIpcClient client,
+        IEngineProcess process,
+        DevelopmentIdentityAssertion identity,
+        long observedGeneration)
+    {
+        await client.Completion.ConfigureAwait(false);
+        var reconnect = false;
+        lock (gate)
+        {
+            if (!ReferenceEquals(client, currentIpcClient))
+            {
+                return;
+            }
+            currentIpcClient = null;
+            reconnect = observedGeneration == generation
+                && !stopRequested
+                && snapshot.LastLifecycle?.State == LifecycleState.Ready;
+            if (reconnect)
+            {
+                snapshot = snapshot with { IpcHealth = EngineIpcHealthState.Connecting };
+            }
+        }
+        await client.DisposeAsync().ConfigureAwait(false);
+        if (!reconnect)
+        {
+            return;
+        }
+
+        var delays = new[]
+        {
+            TimeSpan.FromMilliseconds(100),
+            TimeSpan.FromMilliseconds(500),
+            TimeSpan.FromSeconds(2),
+            TimeSpan.FromSeconds(5),
+        };
+        PublishSnapshot();
+        for (var attempt = 0; attempt < policy.MaximumRestarts; attempt++)
+        {
+            var delay = delays[Math.Min(attempt, delays.Length - 1)];
+            await Task.Delay(delay).ConfigureAwait(false);
+            lock (gate)
+            {
+                if (observedGeneration != generation || stopRequested || currentIpcClient is not null)
+                {
+                    return;
+                }
+            }
+            try
+            {
+                await ConnectIpcAsync(process, identity, observedGeneration).ConfigureAwait(false);
+                return;
+            }
+            catch (EngineIpcException)
+            {
+            }
+        }
+
+        lock (gate)
+        {
+            if (observedGeneration != generation || stopRequested || currentIpcClient is not null)
+            {
+                return;
+            }
+            snapshot = snapshot with { IpcHealth = EngineIpcHealthState.ReconnectExhausted };
+        }
+        PublishSnapshot();
     }
 
     private async Task ResetRestartBudgetAfterStableReadyAsync(
@@ -575,7 +812,11 @@ public sealed class EngineSupervisor : IAsyncDisposable
 
             currentProcess = null;
             currentMonitor = null;
-            snapshot = snapshot with { State = EngineSupervisionState.Stopped };
+            snapshot = snapshot with
+            {
+                State = EngineSupervisionState.Stopped,
+                IpcHealth = EngineIpcHealthState.Unavailable,
+            };
         }
 
         group?.Dispose();

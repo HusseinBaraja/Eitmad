@@ -1,6 +1,6 @@
 ---
 title: "Resolve Windows engine supervision failures"
-description: "Diagnose restart exhaustion, forced shutdown, stale process events, and Job Object setup failures safely."
+description: "Diagnose process restart or IPC reconnect exhaustion, forced shutdown, stale events, and Job Object setup failures safely."
 audience: "support"
 page_type: "troubleshooting"
 status: "active"
@@ -11,6 +11,7 @@ review_triggers:
 keywords:
   - "RestartExhausted"
   - "EngineSupervisionState"
+  - "EngineIpcHealthState.ReconnectExhausted"
   - "Windows Job Object"
   - "forced engine shutdown"
 ---
@@ -22,6 +23,7 @@ keywords:
 ## Symptoms
 
 - `EngineSupervisionState.RestartExhausted` after four consecutive unexpected exits;
+- `EngineIpcHealthState.ReconnectExhausted` while the same process remains `Ready`;
 - `EngineSupervisionState.Faulted` when Rust reports `RetryDisposition::Never` or launch/containment setup fails;
 - `EngineExitOutcome.Forced` is `true` after shutdown;
 - the engine never reaches Rust `LifecycleState.Ready`;
@@ -42,6 +44,7 @@ No Arabic UI message exists yet. These are engineering state names, not approved
 | Evidence | Likely cause | Next safe check | Resolution |
 | --- | --- | --- | --- |
 | `RestartExhausted`, restart count `3` | The engine failed four times inside 60 seconds | Inspect the last typed Rust error and diagnostic report | Correct the named engine/environment failure, then explicitly start a new supervision session |
+| `IpcHealth: ReconnectExhausted`, lifecycle `Ready` | All three default same-generation IPC reconnect attempts failed | Confirm the generation stayed constant and capture sanitized IPC failure kinds | Stop new shell work and restart through normal supervision; escalate recurring channel failure without bypassing the retry ceiling |
 | `Faulted` with retry `Never` | Rust says repeating the same launch is unsafe | Match the stable error in [engine startup troubleshooting](engine-startup-failures.md) | Correct the non-retryable cause; do not loop or override retry metadata |
 | `Faulted` without a Rust lifecycle snapshot | Executable launch or Job Object creation/assignment failed | Verify Windows support, packaging, and executable availability | Repair packaging or platform containment; never continue with an ungrouped child |
 | `Forced: true` | Engine did not exit within 15 seconds | Preserve the last lifecycle state and component-shutdown error | Treat the exit as crash recovery and repair the Rust component that failed to drain |

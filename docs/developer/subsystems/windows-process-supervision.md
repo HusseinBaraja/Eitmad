@@ -5,12 +5,13 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Windows platform maintainers"
-last_verified: "2026-07-12"
+last_verified: "2026-07-13"
 review_triggers:
   - "Windows engine launch, process containment, restart, lifecycle parsing, or shutdown behavior changes"
 keywords:
   - "EngineSupervisor"
   - "EngineSupervisionState"
+  - "EngineIpcHealthState"
   - "Windows Job Object"
   - "RestartExhausted"
 ---
@@ -52,7 +53,7 @@ sequenceDiagram
     Supervisor->>Job: Close empty group
 ```
 
-`EngineSupervisor` serializes session state and exposes immutable `EngineSupervisionSnapshot` values. `Starting` and `Running` project the active process; `RestartDelay` and `RestartExhausted` belong only to native supervision. The Rust `LifecycleSnapshot` remains the readiness and health authority.
+`EngineSupervisor` serializes session state and exposes immutable `EngineSupervisionSnapshot` values. `Starting` and `Running` project the active process; `RestartDelay` and `RestartExhausted` belong only to native process supervision. The shell-local `IpcHealth` distinguishes `Unavailable`, `Connecting`, `Connected`, and `ReconnectExhausted`; it reports transport availability without replacing the Rust `LifecycleSnapshot` as engine readiness and health authority.
 
 ## Restart and stale-event invariants
 
@@ -66,6 +67,8 @@ An exit is intentional only after `StopAsync` marks the current generation for s
 The rolling window allows three replacements in 60 seconds at one, two, and four seconds. A fourth failure enters `RestartExhausted`. Five continuous minutes in `Ready` clears the history. Only a new `StartAsync` begins another session after exhaustion.
 
 Every process launch increments `Generation`. Output is accepted only from that generation and, after the first lifecycle snapshot, from the same `EngineInstanceId`. PID is correlation metadata and is never used as stable identity.
+
+The supervisor also owns IPC subscription continuity. It retains generated subscription descriptors and only the cursor acknowledged after UI processing. Connection loss makes `IpcHealth` `Connecting` and permits at most the restart policy's three default reconnect attempts after 100 ms, 500 ms, and two seconds while the current generation remains `Ready`. Exhaustion sets `ReconnectExhausted`, so callers can distinguish a live process from a usable IPC channel. Same-generation reconnect resumes replay; engine replacement raises `ResyncRequired`, opens a fresh stream, and leaves the owning feature responsible for an authoritative query before applying buffered events.
 
 ## Shutdown and containment
 
@@ -81,7 +84,7 @@ No UI exists in this foundation. RTL layout, Arabic copy, bidirectional input, s
 
 ## Tests and safe extension points
 
-The dependency-free scenario harness beside the adapter covers intentional stop, unexpected death, exhaustion, stale exit, graceful shutdown, and timeout termination. Passing `--engine target/debug/eitmad-engine-cli.exe` adds the real Windows Job Object and Rust lifecycle smoke flow.
+The dependency-free scenario harness beside the adapter covers intentional stop, unexpected death, exhaustion, stale exit, subscription queue overflow and reattachment, graceful shutdown, and timeout termination. Passing `--engine target/debug/eitmad-engine-cli.exe` adds the real Windows Job Object and Rust lifecycle smoke flow.
 
 Run:
 

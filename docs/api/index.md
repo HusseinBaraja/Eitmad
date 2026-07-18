@@ -5,7 +5,7 @@ audience: "api"
 page_type: "reference"
 status: "active"
 owner: "Rust contract maintainers"
-last_verified: "2026-07-12"
+last_verified: "2026-07-13"
 review_triggers:
   - "a command, query, subscription, error, version, capability, or generator changes"
 keywords:
@@ -39,8 +39,8 @@ Generated files have a `Do not edit` header. Linux bindings remain blocked on th
 | --- | --- | --- |
 | Command | Version, request/correlation/causation IDs, authenticated session, scope, deadline, idempotency key | Update configuration, cancel operation, report installer outcome |
 | Query | Version, request/correlation/causation IDs, authenticated session, scope, deadline | Read configuration, effective permissions, update state, sync status |
-| Subscription | Version, request/correlation IDs, authenticated session, scope, optional resume cursor | Configuration, permission, update, and sync state changes |
-| Event | Subscription/correlation IDs, sequence, cursor, occurrence time | Typed configuration, permission, update, and sync values |
+| Subscription | Version, request/correlation IDs, authenticated session, scope, optional resume cursor | Configuration, permission, sync, record, job, notification, update, and error streams |
+| Event | Subscription/correlation IDs, sequence, cursor, occurrence time | Typed state, metadata, progress, notification, and error values |
 
 The identity and scope fields are assertions to verify against the authenticated channel, not credentials and not proof of authorization. Rust must authorize every operation and audit every state-changing command in the runtime that executes it.
 
@@ -48,11 +48,11 @@ The identity and scope fields are assertions to verify against the authenticated
 
 `EngineProcessIdentity`, `LifecycleSnapshot`, health-check results, and `DiagnosticReport` are Rust-owned protocol v1 shapes under capability `eitmad.capability.engine-lifecycle.v1`. Lifecycle states are `starting`, `ready`, `stopping`, `stopped`, and `failed`. Readiness is explicit and must not be inferred from a live PID or successful process launch.
 
-The foreground CLI emits lifecycle snapshots as newline-delimited JSON on child stdout. That launch-status stream remains separate from typed product traffic and must not carry requests, credentials, or product data. Windows command/query traffic uses the negotiated named-pipe protocol documented in [typed local IPC](../developer/subsystems/local-ipc.md). Process PID and instance metadata support correlation only.
+The foreground CLI emits lifecycle snapshots as newline-delimited JSON on child stdout. That launch-status stream remains separate from typed product traffic and must not carry requests, credentials, or product data. Windows command, query, and subscription traffic uses the negotiated named-pipe protocol documented in [typed local IPC](../developer/subsystems/local-ipc.md). Process PID and instance metadata support correlation only.
 
 ## Wire and compatibility rules
 
-- Protocol v1 uses UTF-8 JSON with camel-case fields and explicit `kind`/`payload` tags.
+- Protocol v1 uses UTF-8 JSON with camel-case fields and explicit `kind`/`payload` tags. The current minor is `1.1`.
 - Local IPC frames add a four-byte little-endian length and enforce an 8 MiB maximum.
 - UUIDs are lowercase hyphenated strings. Times are Unix milliseconds. Canonical values remain locale-independent.
 - Unknown object fields are accepted for additive minor-version evolution.
@@ -78,7 +78,9 @@ Each peer sends supported protocol major/minor ranges, available and required ca
 - a capability required by either peer but absent from the other;
 - a required schema with no overlapping version.
 
-Protocol `1.0` is the current version. Additive optional fields and capabilities use a minor version or capability gate. Renamed fields, changed meaning, removed variants, or incompatible identifier behavior require a new major version.
+The active window is `1.0–1.1`. Protocol `1.0` supports command/query traffic. Protocol `1.1` adds `eitmad.capability.local-ipc-subscriptions.v1`; peers must negotiate both before using subscribe, unsubscribe, event, or subscription-closed messages. Additive optional fields and capabilities use a minor version or capability gate. Renamed fields, changed meaning, removed variants, or incompatible identifier behavior require a new major version.
+
+Event cursors are opaque, scoped, and valid only in the current engine generation's bounded replay window. Per-subscription sequence numbers order delivered events but do not establish global order. Rust sends `SubscriptionClosed` before terminating a tracked stream: `clientRequested` follows explicit unsubscribe, `engineStopping` precedes shutdown, and `backpressure` identifies an unreplayable discrete gap. See [typed local IPC](../developer/subsystems/local-ipc.md) for replay, duplicate delivery, backpressure, and resync rules.
 
 The active compatibility window, capability rules, change classification, and major-version rollout process are defined in [Evolve contracts without breaking supported peers](evolve-contracts-compatibly.md).
 

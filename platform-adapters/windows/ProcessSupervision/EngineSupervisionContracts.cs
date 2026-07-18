@@ -13,6 +13,14 @@ public enum EngineSupervisionState
     Faulted,
 }
 
+public enum EngineIpcHealthState
+{
+    Unavailable,
+    Connecting,
+    Connected,
+    ReconnectExhausted,
+}
+
 public sealed record EngineLaunchRequest
 {
     public EngineLaunchRequest(
@@ -81,6 +89,7 @@ public sealed record EngineSupervisionSnapshot(
     EngineSupervisionState State,
     long Generation,
     int RestartCount,
+    EngineIpcHealthState IpcHealth,
     LifecycleSnapshot? LastLifecycle,
     ContractError? LastError,
     EngineExitOutcome? LastExit)
@@ -89,6 +98,7 @@ public sealed record EngineSupervisionSnapshot(
         EngineSupervisionState.Stopped,
         0,
         0,
+        EngineIpcHealthState.Unavailable,
         null,
         null,
         null);

@@ -125,6 +125,67 @@
         "scope"
       ]
     },
+    "BackgroundJobChanges": {
+      "type": "object"
+    },
+    "BackgroundJobState": {
+      "type": "string",
+      "enum": [
+        "queued",
+        "running",
+        "succeeded",
+        "failed",
+        "cancelled"
+      ]
+    },
+    "BackgroundJobStatus": {
+      "type": "object",
+      "properties": {
+        "completedUnits": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ContractError"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "jobId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "jobKind": {
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        },
+        "state": {
+          "$ref": "#/definitions/BackgroundJobState"
+        },
+        "totalUnits": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "jobId",
+        "scope",
+        "jobKind",
+        "state",
+        "completedUnits"
+      ]
+    },
     "BatchAcknowledgement": {
       "type": "object",
       "properties": {
@@ -1186,6 +1247,9 @@
         }
       ]
     },
+    "Errors": {
+      "type": "object"
+    },
     "Event": {
       "description": "Ordered values emitted by subscriptions.",
       "oneOf": [
@@ -1246,6 +1310,70 @@
             },
             "payload": {
               "$ref": "#/definitions/SyncStatus"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.record.changed.event.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/RecordChangeNotice"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.background-job.status.event.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/BackgroundJobStatus"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.notification.event.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/Notification"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.error.event.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ScopedError"
             }
           },
           "required": [
@@ -1621,6 +1749,38 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "eitmad.ipc.subscribe.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/SubscriptionEnvelope"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.ipc.unsubscribe.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/UnsubscribeRequest"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "eitmad.ipc.shutdown.v1"
             },
             "payload": {
@@ -1695,6 +1855,70 @@
             },
             "payload": {
               "$ref": "#/definitions/QueryResponseEnvelope"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.ipc.subscribe-response.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/SubscriptionResponseEnvelope"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.ipc.unsubscribe-response.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/UnsubscribeResponse"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.ipc.event.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/EventEnvelope"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.ipc.subscription-closed.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/SubscriptionClosedEnvelope"
             }
           },
           "required": [
@@ -1950,6 +2174,56 @@
           ]
         }
       ]
+    },
+    "Notification": {
+      "type": "object",
+      "properties": {
+        "correlationId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "messageId": {
+          "type": "string"
+        },
+        "notificationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ErrorParameter"
+          }
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        },
+        "severity": {
+          "$ref": "#/definitions/NotificationSeverity"
+        }
+      },
+      "required": [
+        "notificationId",
+        "scope",
+        "severity",
+        "messageId",
+        "parameters"
+      ]
+    },
+    "NotificationSeverity": {
+      "type": "string",
+      "enum": [
+        "information",
+        "success",
+        "warning",
+        "error"
+      ]
+    },
+    "Notifications": {
+      "type": "object"
     },
     "PeerHello": {
       "type": "object",
@@ -2396,6 +2670,44 @@
         }
       ]
     },
+    "RecordChangeNotice": {
+      "type": "object",
+      "properties": {
+        "changedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "operation": {
+          "$ref": "#/definitions/ChangeOperation"
+        },
+        "recordId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "schemaId": {
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "required": [
+        "recordId",
+        "scope",
+        "schemaId",
+        "operation",
+        "revision",
+        "changedAt"
+      ]
+    },
+    "RecordChanges": {
+      "type": "object"
+    },
     "ReportInstallerOutcome": {
       "type": "object",
       "properties": {
@@ -2533,6 +2845,21 @@
         "id"
       ]
     },
+    "ScopedError": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "$ref": "#/definitions/ContractError"
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "required": [
+        "scope",
+        "error"
+      ]
+    },
     "SemVer": {
       "type": "string",
       "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
@@ -2641,7 +2968,128 @@
             "kind",
             "payload"
           ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.record.changed.subscribe.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/RecordChanges"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.background-job.status.subscribe.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/BackgroundJobChanges"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.notification.subscribe.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/Notifications"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.error.subscribe.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/Errors"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
         }
+      ]
+    },
+    "SubscriptionAccepted": {
+      "type": "object",
+      "properties": {
+        "resumed": {
+          "type": "boolean"
+        },
+        "streamCursor": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "subscriptionId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "subscriptionId",
+        "streamCursor",
+        "resumed"
+      ]
+    },
+    "SubscriptionCloseReason": {
+      "type": "string",
+      "enum": [
+        "clientRequested",
+        "backpressure",
+        "engineStopping"
+      ]
+    },
+    "SubscriptionClosedEnvelope": {
+      "type": "object",
+      "properties": {
+        "correlationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "lastDeliveredCursor": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "reason": {
+          "$ref": "#/definitions/SubscriptionCloseReason"
+        },
+        "subscriptionId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "subscriptionId",
+        "correlationId",
+        "reason"
       ]
     },
     "SubscriptionEnvelope": {
@@ -2678,6 +3126,63 @@
         "correlationId",
         "authorization",
         "subscription"
+      ]
+    },
+    "SubscriptionOutcome": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "payload": {
+              "$ref": "#/definitions/SubscriptionAccepted"
+            },
+            "status": {
+              "type": "string",
+              "const": "succeeded"
+            }
+          },
+          "required": [
+            "status",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "payload": {
+              "$ref": "#/definitions/ContractError"
+            },
+            "status": {
+              "type": "string",
+              "const": "failed"
+            }
+          },
+          "required": [
+            "status",
+            "payload"
+          ]
+        }
+      ]
+    },
+    "SubscriptionResponseEnvelope": {
+      "type": "object",
+      "properties": {
+        "correlationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "outcome": {
+          "$ref": "#/definitions/SubscriptionOutcome"
+        },
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "requestId",
+        "correlationId",
+        "outcome"
       ]
     },
     "SupportedProtocol": {
@@ -2993,6 +3498,54 @@
     },
     "SyncStatusChanges": {
       "type": "object"
+    },
+    "UnsubscribeRequest": {
+      "type": "object",
+      "properties": {
+        "correlationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "subscriptionId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "requestId",
+        "correlationId",
+        "subscriptionId"
+      ]
+    },
+    "UnsubscribeResponse": {
+      "type": "object",
+      "properties": {
+        "accepted": {
+          "type": "boolean"
+        },
+        "correlationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "subscriptionId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "requestId",
+        "correlationId",
+        "subscriptionId",
+        "accepted"
+      ]
     },
     "UpdateConfiguration": {
       "type": "object",

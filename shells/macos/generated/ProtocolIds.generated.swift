@@ -6,12 +6,18 @@ public enum ProtocolIds {
         public static let eitmadIpcCommandResponseV1 = "eitmad.ipc.command-response.v1"
         public static let eitmadIpcCommandV1 = "eitmad.ipc.command.v1"
         public static let eitmadIpcFailureV1 = "eitmad.ipc.failure.v1"
+        public static let eitmadIpcEventV1 = "eitmad.ipc.event.v1"
         public static let eitmadIpcHandshakeResponseV1 = "eitmad.ipc.handshake-response.v1"
         public static let eitmadIpcHandshakeV1 = "eitmad.ipc.handshake.v1"
         public static let eitmadIpcQueryResponseV1 = "eitmad.ipc.query-response.v1"
         public static let eitmadIpcQueryV1 = "eitmad.ipc.query.v1"
+        public static let eitmadIpcSubscribeResponseV1 = "eitmad.ipc.subscribe-response.v1"
+        public static let eitmadIpcSubscribeV1 = "eitmad.ipc.subscribe.v1"
+        public static let eitmadIpcSubscriptionClosedV1 = "eitmad.ipc.subscription-closed.v1"
         public static let eitmadIpcShutdownResponseV1 = "eitmad.ipc.shutdown-response.v1"
         public static let eitmadIpcShutdownV1 = "eitmad.ipc.shutdown.v1"
+        public static let eitmadIpcUnsubscribeResponseV1 = "eitmad.ipc.unsubscribe-response.v1"
+        public static let eitmadIpcUnsubscribeV1 = "eitmad.ipc.unsubscribe.v1"
     }
 
     public enum Commands {
@@ -32,6 +38,10 @@ public enum ProtocolIds {
         public static let eitmadPermissionsChangedSubscribeV1 = "eitmad.permissions.changed.subscribe.v1"
         public static let eitmadUpdateStateSubscribeV1 = "eitmad.update.state.subscribe.v1"
         public static let eitmadSyncStatusSubscribeV1 = "eitmad.sync.status.subscribe.v1"
+        public static let eitmadRecordChangedSubscribeV1 = "eitmad.record.changed.subscribe.v1"
+        public static let eitmadBackgroundJobStatusSubscribeV1 = "eitmad.background-job.status.subscribe.v1"
+        public static let eitmadNotificationSubscribeV1 = "eitmad.notification.subscribe.v1"
+        public static let eitmadErrorSubscribeV1 = "eitmad.error.subscribe.v1"
     }
 
     public enum Events {
@@ -39,6 +49,10 @@ public enum ProtocolIds {
         public static let eitmadPermissionsChangedEventV1 = "eitmad.permissions.changed.event.v1"
         public static let eitmadUpdateStateEventV1 = "eitmad.update.state.event.v1"
         public static let eitmadSyncStatusEventV1 = "eitmad.sync.status.event.v1"
+        public static let eitmadRecordChangedEventV1 = "eitmad.record.changed.event.v1"
+        public static let eitmadBackgroundJobStatusEventV1 = "eitmad.background-job.status.event.v1"
+        public static let eitmadNotificationEventV1 = "eitmad.notification.event.v1"
+        public static let eitmadErrorEventV1 = "eitmad.error.event.v1"
     }
 
     public enum SyncMessages {
@@ -53,6 +67,7 @@ public enum ProtocolIds {
     public enum Capabilities {
         public static let eitmadCapabilityEngineLifecycleV1 = "eitmad.capability.engine-lifecycle.v1"
         public static let eitmadCapabilityLocalIpcV1 = "eitmad.capability.local-ipc.v1"
+        public static let eitmadCapabilityLocalIpcSubscriptionsV1 = "eitmad.capability.local-ipc-subscriptions.v1"
         public static let eitmadCapabilityConfigV1 = "eitmad.capability.config.v1"
         public static let eitmadCapabilityPermissionsV1 = "eitmad.capability.permissions.v1"
         public static let eitmadCapabilitySyncV1 = "eitmad.capability.sync.v1"
@@ -88,6 +103,8 @@ public enum ProtocolIds {
         public static let eitmadErrorIpcEngineStoppingV1 = "eitmad.error.ipc-engine-stopping.v1"
         public static let eitmadErrorIpcPayloadTooLargeV1 = "eitmad.error.ipc-payload-too-large.v1"
         public static let eitmadErrorIpcSessionInvalidV1 = "eitmad.error.ipc-session-invalid.v1"
+        public static let eitmadErrorIpcSubscriptionResyncRequiredV1 = "eitmad.error.ipc-subscription-resync-required.v1"
+        public static let eitmadErrorIpcSubscriptionUnsupportedV1 = "eitmad.error.ipc-subscription-unsupported.v1"
         public static let eitmadErrorIpcDeadlineExceededV1 = "eitmad.error.ipc-deadline-exceeded.v1"
         public static let eitmadErrorProtocolIncompatibleV1 = "eitmad.error.protocol-incompatible.v1"
         public static let eitmadErrorSyncBackpressureV1 = "eitmad.error.sync-backpressure.v1"
@@ -106,6 +123,8 @@ public enum ProtocolIds {
         public static let eitmadMessageIpcEngineStoppingV1 = "eitmad.message.ipc-engine-stopping.v1"
         public static let eitmadMessageIpcPayloadTooLargeV1 = "eitmad.message.ipc-payload-too-large.v1"
         public static let eitmadMessageIpcSessionInvalidV1 = "eitmad.message.ipc-session-invalid.v1"
+        public static let eitmadMessageIpcSubscriptionResyncRequiredV1 = "eitmad.message.ipc-subscription-resync-required.v1"
+        public static let eitmadMessageIpcSubscriptionUnsupportedV1 = "eitmad.message.ipc-subscription-unsupported.v1"
         public static let eitmadMessageIpcDeadlineExceededV1 = "eitmad.message.ipc-deadline-exceeded.v1"
         public static let eitmadMessageProtocolIncompatibleV1 = "eitmad.message.protocol-incompatible.v1"
         public static let eitmadMessageSyncBackpressureV1 = "eitmad.message.sync-backpressure.v1"

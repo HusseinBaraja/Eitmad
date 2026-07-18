@@ -6,6 +6,10 @@ using Eitmad.Platform.Windows.ProcessSupervision;
 var tests = new SupervisionScenarios();
 await tests.UnavailableEngineIsTyped();
 tests.FrameLimitMatchesRustContract();
+tests.SubscriptionQueueIsBounded();
+tests.SubscriptionAcknowledgementNeverRegresses();
+await tests.SupervisedSubscriptionSurvivesReattach();
+await tests.SupervisedSubscriptionRecoversAfterQueueOverflow();
 await tests.IntentionalStopNeverRestarts();
 await tests.UnexpectedDeathRestartsOnce();
 await tests.FourthConsecutiveFailureExhaustsRestarts();
@@ -48,6 +52,109 @@ internal sealed class SupervisionScenarios
 
     public void FrameLimitMatchesRustContract() =>
         Assert.Equal(8_388_608, EngineIpcClient.MaximumFrameBytes, "IPC frame limit");
+
+    public void SubscriptionQueueIsBounded()
+    {
+        var subscription = new EngineSubscription(Guid.NewGuid(), Guid.NewGuid(), resumed: false);
+        for (var index = 0; index < EngineSubscription.Capacity; index++)
+        {
+            Assert.True(
+                subscription.TryPublish(EventEnvelope(subscription.SubscriptionId)),
+                "subscription queue accepts bounded item");
+        }
+        Assert.False(
+            subscription.TryPublish(EventEnvelope(subscription.SubscriptionId)),
+            "subscription queue rejects overflow");
+    }
+
+    public void SubscriptionAcknowledgementNeverRegresses()
+    {
+        var subscription = new EngineSubscription(Guid.NewGuid(), Guid.NewGuid(), resumed: false);
+        var newer = EventEnvelope(subscription.SubscriptionId, sequence: 2);
+        var older = EventEnvelope(subscription.SubscriptionId, sequence: 1);
+
+        subscription.Acknowledge(newer);
+        subscription.Acknowledge(older);
+
+        Assert.Equal(newer.Cursor, subscription.ProcessedCursor, "processed cursor remains monotonic");
+    }
+
+    public async Task SupervisedSubscriptionSurvivesReattach()
+    {
+        await using var supervised = new SupervisedEngineSubscription(new Subscription
+        {
+            Kind = SubscriptionKind.EitmadSyncStatusSubscribeV1,
+            Payload = [],
+        });
+        var first = new EngineSubscription(Guid.NewGuid(), Guid.NewGuid(), resumed: false);
+        supervised.Attach(first, resetCursor: false);
+        var firstEvent = EventEnvelope(first.SubscriptionId);
+        Assert.True(first.TryPublish(firstEvent), "first attachment publishes");
+        var delivered = await ReadOne(supervised);
+        supervised.Acknowledge(delivered);
+        Assert.Equal(firstEvent.Cursor, supervised.ProcessedCursor, "processed cursor");
+
+        var replacement = new EngineSubscription(Guid.NewGuid(), firstEvent.Cursor, resumed: true);
+        supervised.Attach(replacement, resetCursor: false);
+        var replacementEvent = EventEnvelope(replacement.SubscriptionId);
+        Assert.True(replacement.TryPublish(replacementEvent), "replacement attachment publishes");
+        Assert.Equal(replacementEvent.Cursor, (await ReadOne(supervised)).Cursor, "replacement event");
+    }
+
+    public async Task SupervisedSubscriptionRecoversAfterQueueOverflow()
+    {
+        await using var supervised = new SupervisedEngineSubscription(new Subscription
+        {
+            Kind = SubscriptionKind.EitmadSyncStatusSubscribeV1,
+            Payload = [],
+        });
+        var overflowing = new EngineSubscription(Guid.NewGuid(), Guid.NewGuid(), resumed: false);
+        supervised.Attach(overflowing, resetCursor: false);
+        for (var index = 0; index <= EngineSubscription.Capacity; index++)
+        {
+            while (!overflowing.TryPublish(EventEnvelope(overflowing.SubscriptionId, index + 1)))
+            {
+                await Task.Yield();
+            }
+            await Task.Yield();
+        }
+        await Task.Delay(20);
+        await Assert.ThrowsAsync<EngineIpcException>(
+            async () =>
+            {
+                await foreach (var _ in supervised.ReadAllAsync())
+                {
+                }
+            },
+            "overflow completes the supervised queue");
+
+        var replacement = new EngineSubscription(Guid.NewGuid(), Guid.NewGuid(), resumed: true);
+        supervised.Attach(replacement, resetCursor: false);
+        var replacementEvent = EventEnvelope(replacement.SubscriptionId);
+        Assert.True(replacement.TryPublish(replacementEvent), "replacement publishes after overflow");
+        Assert.Equal(replacementEvent.Cursor, (await ReadOne(supervised)).Cursor, "replacement event after overflow");
+    }
+
+    private static EventEnvelope EventEnvelope(Guid subscriptionId, long sequence = 1) => new()
+    {
+        SubscriptionId = subscriptionId,
+        CorrelationId = Guid.NewGuid(),
+        Cursor = Guid.NewGuid(),
+        Event = new Event
+        {
+            Kind = EventKind.EitmadSyncStatusEventV1,
+            Payload = new EventPayload(),
+        },
+        OccurredAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+        Sequence = sequence,
+    };
+
+    private static async Task<EventEnvelope> ReadOne(SupervisedEngineSubscription subscription)
+    {
+        await using var enumerator = subscription.ReadAllAsync().GetAsyncEnumerator();
+        Assert.True(await enumerator.MoveNextAsync(), "subscription yields event");
+        return enumerator.Current;
+    }
 
     public async Task IntentionalStopNeverRestarts()
     {
@@ -194,9 +301,11 @@ internal sealed class SupervisionScenarios
             await supervisor.StartAsync(request);
             await Eventually(() => supervisor.Snapshot.LastLifecycle?.Ready == true, TimeSpan.FromSeconds(10));
             await Eventually(() => supervisor.IpcConnected, TimeSpan.FromSeconds(10));
+            Assert.Equal(EngineIpcHealthState.Connected, supervisor.Snapshot.IpcHealth, "real engine IPC health");
             await supervisor.StopAsync();
 
             Assert.Equal(EngineSupervisionState.Stopped, supervisor.Snapshot.State, "real engine stopped state");
+            Assert.Equal(EngineIpcHealthState.Unavailable, supervisor.Snapshot.IpcHealth, "stopped IPC health");
             Assert.Equal(0, supervisor.Snapshot.LastExit?.ExitCode, "real engine exit code");
             Assert.False(supervisor.Snapshot.LastExit?.Forced ?? true, "real engine graceful exit");
             Assert.SequenceEqual(

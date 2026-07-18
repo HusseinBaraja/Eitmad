@@ -15,6 +15,8 @@ public sealed class EngineIpcClient : IAsyncDisposable
     private readonly NamedPipeClientStream pipe;
     private readonly SemaphoreSlim writeLock = new(1, 1);
     private readonly ConcurrentDictionary<Guid, TaskCompletionSource<IpcServerMessage>> pending = new();
+    private readonly ConcurrentDictionary<Guid, EngineSubscription> subscriptions = new();
+    private readonly ConcurrentDictionary<Guid, ConcurrentQueue<EventEnvelope>> earlySubscriptionEvents = new();
     private readonly CancellationTokenSource lifetime = new();
     private readonly Task reader;
     private bool disposed;
@@ -27,6 +29,7 @@ public sealed class EngineIpcClient : IAsyncDisposable
 
     public AuthorizationContext Authorization { get; private set; } = null!;
     public NegotiatedSession NegotiatedSession { get; private set; } = null!;
+    public Task Completion => reader;
 
     public static async Task<EngineIpcClient> ConnectAsync(
         string pipeName,
@@ -156,6 +159,97 @@ public sealed class EngineIpcClient : IAsyncDisposable
         return ConvertPayload<QueryResponseEnvelope>(response.Payload);
     }
 
+    public async Task<EngineSubscription> SubscribeAsync(
+        SubscriptionEnvelope request,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ApplySession(request.Authorization, request.ProtocolVersion);
+        var earlyEvents = new ConcurrentQueue<EventEnvelope>();
+        if (!earlySubscriptionEvents.TryAdd(request.CorrelationId, earlyEvents))
+        {
+            throw ProtocolViolation("A subscription with the same correlation identifier is pending.");
+        }
+        try
+        {
+            var response = await SendFrameAsync(
+                IpcClientMessageKind.EitmadIpcSubscribeV1,
+                ConvertPayload<HandshakeRequest>(request),
+                request.RequestId,
+                timeout ?? DefaultRequestTimeout,
+                cancellationToken,
+                commandOutcomeUnknown: false).ConfigureAwait(false);
+            EnsureKind(response, IpcServerMessageKind.EitmadIpcSubscribeResponseV1);
+            var outcome = response.Payload.Outcome
+                ?? throw ProtocolViolation("The engine omitted the subscription outcome.");
+            if (outcome.Status != OutcomeStatus.Succeeded)
+            {
+                var error = ConvertPayload<ContractError>(outcome.Payload);
+                var kind = error.Code == ProtocolIds.ErrorCodes.EitmadErrorIpcSubscriptionResyncRequiredV1
+                    ? EngineIpcFailureKind.ResyncRequired
+                    : EngineIpcFailureKind.SubscriptionUnsupported;
+                throw new EngineIpcException(kind, "The engine rejected the subscription.", error);
+            }
+
+            var accepted = outcome.Payload;
+            if (accepted?.SubscriptionId is not { } subscriptionId
+                || accepted.StreamCursor is not { } streamCursor
+                || accepted.Resumed is not { } resumed)
+            {
+                throw ProtocolViolation("The engine returned an incomplete subscription acknowledgement.");
+            }
+
+            var subscription = new EngineSubscription(subscriptionId, streamCursor, resumed);
+            if (!subscriptions.TryAdd(subscriptionId, subscription))
+            {
+                throw ProtocolViolation("The engine reused an active subscription identifier.");
+            }
+            while (earlyEvents.TryDequeue(out var delivered))
+            {
+                if (delivered.SubscriptionId != subscriptionId || !subscription.TryPublish(delivered))
+                {
+                    throw ProtocolViolation("The engine emitted an invalid early subscription event.");
+                }
+            }
+
+            return subscription;
+        }
+        finally
+        {
+            earlySubscriptionEvents.TryRemove(request.CorrelationId, out _);
+        }
+    }
+
+    public async Task UnsubscribeAsync(
+        EngineSubscription subscription,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(subscription);
+        var requestId = Guid.NewGuid();
+        var response = await SendFrameAsync(
+            IpcClientMessageKind.EitmadIpcUnsubscribeV1,
+            new HandshakeRequest
+            {
+                RequestId = requestId,
+                CorrelationId = Guid.NewGuid(),
+                SubscriptionId = subscription.SubscriptionId,
+            },
+            requestId,
+            timeout ?? DefaultRequestTimeout,
+            cancellationToken,
+            commandOutcomeUnknown: false).ConfigureAwait(false);
+        EnsureKind(response, IpcServerMessageKind.EitmadIpcUnsubscribeResponseV1);
+        if (response.Payload.Accepted != true)
+        {
+            throw ProtocolViolation("The engine did not recognize the active subscription.");
+        }
+
+        subscriptions.TryRemove(subscription.SubscriptionId, out _);
+        subscription.Complete();
+    }
+
     public async Task RequestShutdownAsync(
         TimeSpan? timeout = null,
         CancellationToken cancellationToken = default)
@@ -269,6 +363,39 @@ public sealed class EngineIpcClient : IAsyncDisposable
                 await pipe.ReadExactlyAsync(payload, lifetime.Token).ConfigureAwait(false);
                 var message = JsonSerializer.Deserialize<IpcServerMessage>(payload, Converter.Settings)
                     ?? throw ProtocolViolation("The engine returned an empty IPC response.");
+                if (message.Kind == IpcServerMessageKind.EitmadIpcEventV1)
+                {
+                    var delivered = ConvertPayload<EventEnvelope>(message.Payload);
+                    if (!subscriptions.TryGetValue(delivered.SubscriptionId, out var subscription))
+                    {
+                        if (earlySubscriptionEvents.TryGetValue(delivered.CorrelationId, out var earlyEvents)
+                            && earlyEvents.Count < EngineSubscription.Capacity)
+                        {
+                            earlyEvents.Enqueue(delivered);
+                            continue;
+                        }
+                        throw ProtocolViolation("The engine emitted an event for an unknown subscription.");
+                    }
+                    if (!subscription.TryPublish(delivered))
+                    {
+                        throw new EngineIpcException(
+                            EngineIpcFailureKind.SubscriptionBackpressure,
+                            "The shell event consumer exceeded its bounded subscription queue.");
+                    }
+                    continue;
+                }
+                if (message.Kind == IpcServerMessageKind.EitmadIpcSubscriptionClosedV1)
+                {
+                    var error = new EngineIpcException(
+                        EngineIpcFailureKind.SubscriptionBackpressure,
+                        "The engine closed a subscription because replay could not preserve a discrete event.");
+                    if (message.Payload.SubscriptionId is { } subscriptionId
+                        && subscriptions.TryRemove(subscriptionId, out var subscription))
+                    {
+                        subscription.Complete(error);
+                    }
+                    throw error;
+                }
                 var requestId = message.Payload?.RequestId;
                 if (requestId is { } id && pending.TryRemove(id, out var completion))
                 {
@@ -331,6 +458,13 @@ public sealed class EngineIpcClient : IAsyncDisposable
                 completion.TrySetException(error);
             }
         }
+        foreach (var pair in subscriptions)
+        {
+            if (subscriptions.TryRemove(pair.Key, out var subscription))
+            {
+                subscription.Complete(error);
+            }
+        }
     }
 
     private static EngineIpcException ProtocolViolation(string message) =>
@@ -355,5 +489,10 @@ public sealed class EngineIpcClient : IAsyncDisposable
         }
         lifetime.Dispose();
         writeLock.Dispose();
+        foreach (var subscription in subscriptions.Values)
+        {
+            subscription.Complete();
+        }
+        subscriptions.Clear();
     }
 }

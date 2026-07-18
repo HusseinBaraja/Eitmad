@@ -11,12 +11,18 @@ public static class ProtocolIds
         public const string EitmadIpcCommandResponseV1 = "eitmad.ipc.command-response.v1";
         public const string EitmadIpcCommandV1 = "eitmad.ipc.command.v1";
         public const string EitmadIpcFailureV1 = "eitmad.ipc.failure.v1";
+        public const string EitmadIpcEventV1 = "eitmad.ipc.event.v1";
         public const string EitmadIpcHandshakeResponseV1 = "eitmad.ipc.handshake-response.v1";
         public const string EitmadIpcHandshakeV1 = "eitmad.ipc.handshake.v1";
         public const string EitmadIpcQueryResponseV1 = "eitmad.ipc.query-response.v1";
         public const string EitmadIpcQueryV1 = "eitmad.ipc.query.v1";
+        public const string EitmadIpcSubscribeResponseV1 = "eitmad.ipc.subscribe-response.v1";
+        public const string EitmadIpcSubscribeV1 = "eitmad.ipc.subscribe.v1";
+        public const string EitmadIpcSubscriptionClosedV1 = "eitmad.ipc.subscription-closed.v1";
         public const string EitmadIpcShutdownResponseV1 = "eitmad.ipc.shutdown-response.v1";
         public const string EitmadIpcShutdownV1 = "eitmad.ipc.shutdown.v1";
+        public const string EitmadIpcUnsubscribeResponseV1 = "eitmad.ipc.unsubscribe-response.v1";
+        public const string EitmadIpcUnsubscribeV1 = "eitmad.ipc.unsubscribe.v1";
     }
 
     public static class Commands
@@ -40,6 +46,10 @@ public static class ProtocolIds
         public const string EitmadPermissionsChangedSubscribeV1 = "eitmad.permissions.changed.subscribe.v1";
         public const string EitmadUpdateStateSubscribeV1 = "eitmad.update.state.subscribe.v1";
         public const string EitmadSyncStatusSubscribeV1 = "eitmad.sync.status.subscribe.v1";
+        public const string EitmadRecordChangedSubscribeV1 = "eitmad.record.changed.subscribe.v1";
+        public const string EitmadBackgroundJobStatusSubscribeV1 = "eitmad.background-job.status.subscribe.v1";
+        public const string EitmadNotificationSubscribeV1 = "eitmad.notification.subscribe.v1";
+        public const string EitmadErrorSubscribeV1 = "eitmad.error.subscribe.v1";
     }
 
     public static class Events
@@ -48,6 +58,10 @@ public static class ProtocolIds
         public const string EitmadPermissionsChangedEventV1 = "eitmad.permissions.changed.event.v1";
         public const string EitmadUpdateStateEventV1 = "eitmad.update.state.event.v1";
         public const string EitmadSyncStatusEventV1 = "eitmad.sync.status.event.v1";
+        public const string EitmadRecordChangedEventV1 = "eitmad.record.changed.event.v1";
+        public const string EitmadBackgroundJobStatusEventV1 = "eitmad.background-job.status.event.v1";
+        public const string EitmadNotificationEventV1 = "eitmad.notification.event.v1";
+        public const string EitmadErrorEventV1 = "eitmad.error.event.v1";
     }
 
     public static class SyncMessages
@@ -64,6 +78,7 @@ public static class ProtocolIds
     {
         public const string EitmadCapabilityEngineLifecycleV1 = "eitmad.capability.engine-lifecycle.v1";
         public const string EitmadCapabilityLocalIpcV1 = "eitmad.capability.local-ipc.v1";
+        public const string EitmadCapabilityLocalIpcSubscriptionsV1 = "eitmad.capability.local-ipc-subscriptions.v1";
         public const string EitmadCapabilityConfigV1 = "eitmad.capability.config.v1";
         public const string EitmadCapabilityPermissionsV1 = "eitmad.capability.permissions.v1";
         public const string EitmadCapabilitySyncV1 = "eitmad.capability.sync.v1";
@@ -103,6 +118,8 @@ public static class ProtocolIds
         public const string EitmadErrorIpcEngineStoppingV1 = "eitmad.error.ipc-engine-stopping.v1";
         public const string EitmadErrorIpcPayloadTooLargeV1 = "eitmad.error.ipc-payload-too-large.v1";
         public const string EitmadErrorIpcSessionInvalidV1 = "eitmad.error.ipc-session-invalid.v1";
+        public const string EitmadErrorIpcSubscriptionResyncRequiredV1 = "eitmad.error.ipc-subscription-resync-required.v1";
+        public const string EitmadErrorIpcSubscriptionUnsupportedV1 = "eitmad.error.ipc-subscription-unsupported.v1";
         public const string EitmadErrorIpcDeadlineExceededV1 = "eitmad.error.ipc-deadline-exceeded.v1";
         public const string EitmadErrorProtocolIncompatibleV1 = "eitmad.error.protocol-incompatible.v1";
         public const string EitmadErrorSyncBackpressureV1 = "eitmad.error.sync-backpressure.v1";
@@ -122,6 +139,8 @@ public static class ProtocolIds
         public const string EitmadMessageIpcEngineStoppingV1 = "eitmad.message.ipc-engine-stopping.v1";
         public const string EitmadMessageIpcPayloadTooLargeV1 = "eitmad.message.ipc-payload-too-large.v1";
         public const string EitmadMessageIpcSessionInvalidV1 = "eitmad.message.ipc-session-invalid.v1";
+        public const string EitmadMessageIpcSubscriptionResyncRequiredV1 = "eitmad.message.ipc-subscription-resync-required.v1";
+        public const string EitmadMessageIpcSubscriptionUnsupportedV1 = "eitmad.message.ipc-subscription-unsupported.v1";
         public const string EitmadMessageIpcDeadlineExceededV1 = "eitmad.message.ipc-deadline-exceeded.v1";
         public const string EitmadMessageProtocolIncompatibleV1 = "eitmad.message.protocol-incompatible.v1";
         public const string EitmadMessageSyncBackpressureV1 = "eitmad.message.sync-backpressure.v1";
