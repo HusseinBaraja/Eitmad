@@ -9,10 +9,37 @@ use eitmad_observability_audit::{AuditOutcome, MutationAuditRecord};
 use rusqlite::{OptionalExtension as _, params};
 use uuid::Uuid;
 
+use crate::migrations::Migration;
 use crate::{
     AuthorityStore, DurableIdempotency, DurablePublication, StorageError, insert_audit,
     insert_idempotency, insert_publication, load_idempotency, scope_parts,
 };
+
+pub(crate) const MIGRATIONS: &[Migration] = &[Migration::new(
+    2,
+    "authorization.relationships.v1",
+    "authorization",
+    "CREATE TABLE authorization_scopes (
+         scope_kind TEXT NOT NULL,
+         scope_id TEXT NOT NULL,
+         policy_schema_version INTEGER NOT NULL,
+         policy_version INTEGER NOT NULL,
+         PRIMARY KEY (scope_kind, scope_id)
+     );
+     CREATE TABLE scope_relationships (
+         relationship_id TEXT PRIMARY KEY,
+         scope_kind TEXT NOT NULL,
+         scope_id TEXT NOT NULL,
+         principal_id TEXT NOT NULL,
+         principal_kind TEXT NOT NULL,
+         relation TEXT NOT NULL,
+         UNIQUE (scope_kind, scope_id, principal_id, principal_kind, relation),
+         FOREIGN KEY (scope_kind, scope_id)
+             REFERENCES authorization_scopes(scope_kind, scope_id) ON DELETE CASCADE
+     );
+     CREATE INDEX scope_relationships_page
+         ON scope_relationships(scope_kind, scope_id, relationship_id);",
+)];
 
 const POLICY_SCHEMA_VERSION: u32 = 1;
 
@@ -45,39 +72,40 @@ impl AuthorityStore {
         scope: &ScopeRef,
         subject: &RelationshipSubject,
     ) -> Result<Vec<ScopeRelationship>, StorageError> {
-        let connection = self.open_connection()?;
-        let (scope_kind, scope_id) = scope_parts(scope);
-        let principal_kind =
-            serde_json::to_string(&subject.principal_kind).map_err(|_| StorageError)?;
-        let mut statement = connection
-            .prepare(
-                "SELECT relationship_id, principal_id, principal_kind, relation
+        self.read_transaction(|connection| {
+            let (scope_kind, scope_id) = scope_parts(scope);
+            let principal_kind =
+                serde_json::to_string(&subject.principal_kind).map_err(|_| StorageError)?;
+            let mut statement = connection
+                .prepare(
+                    "SELECT relationship_id, principal_id, principal_kind, relation
                  FROM scope_relationships
                  WHERE scope_kind = ?1 AND scope_id = ?2 AND principal_id = ?3
                    AND principal_kind = ?4
                  ORDER BY relationship_id",
-            )
-            .map_err(|_| StorageError)?;
-        let rows = statement
-            .query_map(
-                params![
-                    scope_kind,
-                    scope_id,
-                    subject.principal_id.value().to_string(),
-                    principal_kind,
-                ],
-                |row| {
-                    Ok((
-                        row.get::<_, String>(0)?,
-                        row.get::<_, String>(1)?,
-                        row.get::<_, String>(2)?,
-                        row.get::<_, String>(3)?,
-                    ))
-                },
-            )
-            .map_err(|_| StorageError)?;
-        rows.map(|row| decode_relationship(scope, row.map_err(|_| StorageError)?))
-            .collect()
+                )
+                .map_err(|_| StorageError)?;
+            let rows = statement
+                .query_map(
+                    params![
+                        scope_kind,
+                        scope_id,
+                        subject.principal_id.value().to_string(),
+                        principal_kind,
+                    ],
+                    |row| {
+                        Ok((
+                            row.get::<_, String>(0)?,
+                            row.get::<_, String>(1)?,
+                            row.get::<_, String>(2)?,
+                            row.get::<_, String>(3)?,
+                        ))
+                    },
+                )
+                .map_err(|_| StorageError)?;
+            rows.map(|row| decode_relationship(scope, row.map_err(|_| StorageError)?))
+                .collect()
+        })
     }
 
     /// Returns the current policy revision for one exact scope.
@@ -86,19 +114,7 @@ impl AuthorityStore {
     ///
     /// Returns a sanitized storage error for unreadable state.
     pub fn policy_version(&self, scope: &ScopeRef) -> Result<u64, StorageError> {
-        let connection = self.open_connection()?;
-        let (scope_kind, scope_id) = scope_parts(scope);
-        let version = connection
-            .query_row(
-                "SELECT policy_version FROM authorization_scopes
-                 WHERE scope_kind = ?1 AND scope_id = ?2",
-                (scope_kind, scope_id),
-                |row| row.get::<_, i64>(0),
-            )
-            .optional()
-            .map_err(|_| StorageError)?
-            .unwrap_or_default();
-        u64::try_from(version).map_err(|_| StorageError)
+        self.read_transaction(|connection| policy_version_on(connection, scope))
     }
 
     /// Lists a stable bounded page of relationships for one exact scope.
@@ -115,11 +131,9 @@ impl AuthorityStore {
         if !(1..=500).contains(&limit) {
             return Err(StorageError);
         }
-        let mut connection = self.open_connection()?;
-        let transaction = connection.transaction().map_err(|_| StorageError)?;
-        let page = list_relationships_on(&transaction, scope, after, limit, || {})?;
-        transaction.commit().map_err(|_| StorageError)?;
-        Ok(page)
+        self.read_transaction(|connection| {
+            list_relationships_on(connection, scope, after, limit, || {})
+        })
     }
 }
 
@@ -190,87 +204,84 @@ impl AuthorityStore {
         audit: &MutationAuditRecord,
         publication: Option<&DurablePublication>,
     ) -> Result<RelationshipCommitOutcome, StorageError> {
-        let mut connection = self.open_connection()?;
-        let transaction = connection.transaction().map_err(|_| StorageError)?;
-        if let Some(outcome) = replay_relationship(&transaction, scope, idempotency, audit)? {
-            transaction.commit().map_err(|_| StorageError)?;
-            return Ok(outcome);
-        }
-        let actual = policy_version_on(&transaction, scope)?;
-        if actual != expected_policy_version {
-            record_policy_conflict(&transaction, audit, actual)?;
-            transaction.commit().map_err(|_| StorageError)?;
-            return Ok(RelationshipCommitOutcome::PolicyConflict {
-                actual_version: actual,
-            });
-        }
-        let (scope_kind, scope_id) = scope_parts(scope);
-        let principal_kind =
-            serde_json::to_string(&subject.principal_kind).map_err(|_| StorageError)?;
-        let existing = transaction
-            .query_row(
-                "SELECT relationship_id FROM scope_relationships
+        self.write_transaction(|transaction| {
+            if let Some(outcome) = replay_relationship(transaction, scope, idempotency, audit)? {
+                return Ok(outcome);
+            }
+            let actual = policy_version_on(transaction, scope)?;
+            if actual != expected_policy_version {
+                record_policy_conflict(transaction, audit, actual)?;
+                return Ok(RelationshipCommitOutcome::PolicyConflict {
+                    actual_version: actual,
+                });
+            }
+            let (scope_kind, scope_id) = scope_parts(scope);
+            let principal_kind =
+                serde_json::to_string(&subject.principal_kind).map_err(|_| StorageError)?;
+            let existing = transaction
+                .query_row(
+                    "SELECT relationship_id FROM scope_relationships
                  WHERE scope_kind = ?1 AND scope_id = ?2 AND principal_id = ?3
                    AND principal_kind = ?4 AND relation = ?5",
-                params![
-                    scope_kind,
-                    scope_id,
-                    subject.principal_id.value().to_string(),
-                    principal_kind,
-                    relation.as_str(),
-                ],
-                |row| row.get::<_, String>(0),
-            )
-            .optional()
-            .map_err(|_| StorageError)?;
-        let changed = existing.is_none();
-        let resulting_version = actual + u64::from(changed);
-        let result_relationship = ScopeRelationship {
-            relationship_id: existing
-                .map(|value| parse_relationship_id(&value))
-                .transpose()?
-                .unwrap_or(relationship_id),
-            subject: subject.clone(),
-            relation: relation.clone(),
-            scope: scope.clone(),
-        };
-        if changed {
-            ensure_authorization_scope(&transaction, scope, resulting_version)?;
-            transaction
-                .execute(
-                    "INSERT INTO scope_relationships
-                     (relationship_id, scope_kind, scope_id, principal_id, principal_kind, relation)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
                     params![
-                        relationship_id.value().to_string(),
                         scope_kind,
                         scope_id,
                         subject.principal_id.value().to_string(),
                         principal_kind,
                         relation.as_str(),
                     ],
+                    |row| row.get::<_, String>(0),
                 )
+                .optional()
                 .map_err(|_| StorageError)?;
-        }
-        let result = RelationshipMutationResult {
-            policy_version: resulting_version,
-            relationship: result_relationship,
-            changed,
-        };
-        finish_relationship_mutation(
-            &transaction,
-            scope,
-            &RelationshipFinish {
-                operation,
-                idempotency,
-                audit,
-                previous_version: actual,
-                result: &result,
-                publication,
-            },
-        )?;
-        transaction.commit().map_err(|_| StorageError)?;
-        Ok(RelationshipCommitOutcome::Committed(result))
+            let changed = existing.is_none();
+            let resulting_version = actual + u64::from(changed);
+            let result_relationship = ScopeRelationship {
+                relationship_id: existing
+                    .map(|value| parse_relationship_id(&value))
+                    .transpose()?
+                    .unwrap_or(relationship_id),
+                subject: subject.clone(),
+                relation: relation.clone(),
+                scope: scope.clone(),
+            };
+            if changed {
+                ensure_authorization_scope(transaction, scope, resulting_version)?;
+                transaction
+                    .execute(
+                        "INSERT INTO scope_relationships
+                     (relationship_id, scope_kind, scope_id, principal_id, principal_kind, relation)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                        params![
+                            relationship_id.value().to_string(),
+                            scope_kind,
+                            scope_id,
+                            subject.principal_id.value().to_string(),
+                            principal_kind,
+                            relation.as_str(),
+                        ],
+                    )
+                    .map_err(|_| StorageError)?;
+            }
+            let result = RelationshipMutationResult {
+                policy_version: resulting_version,
+                relationship: result_relationship,
+                changed,
+            };
+            finish_relationship_mutation(
+                transaction,
+                scope,
+                &RelationshipFinish {
+                    operation,
+                    idempotency,
+                    audit,
+                    previous_version: actual,
+                    result: &result,
+                    publication,
+                },
+            )?;
+            Ok(RelationshipCommitOutcome::Committed(result))
+        })
     }
 
     /// Atomically revokes a relationship while preserving a protected minimum.
@@ -290,77 +301,72 @@ impl AuthorityStore {
         audit: &MutationAuditRecord,
         publication: Option<&DurablePublication>,
     ) -> Result<RelationshipCommitOutcome, StorageError> {
-        let mut connection = self.open_connection()?;
-        let transaction = connection.transaction().map_err(|_| StorageError)?;
-        if let Some(outcome) = replay_relationship(&transaction, scope, idempotency, audit)? {
-            transaction.commit().map_err(|_| StorageError)?;
-            return Ok(outcome);
-        }
-        let actual = policy_version_on(&transaction, scope)?;
-        if actual != expected_policy_version {
-            record_policy_conflict(&transaction, audit, actual)?;
-            transaction.commit().map_err(|_| StorageError)?;
-            return Ok(RelationshipCommitOutcome::PolicyConflict {
-                actual_version: actual,
-            });
-        }
-        let relationship = find_relationship_on(&transaction, scope, relationship_id)?;
-        let Some(relationship) = relationship else {
-            let invalid = audit.clone().with_outcome(
-                AuditOutcome::Invalid,
-                Some("eitmad.error.authorization-relation-invalid.v1".to_owned()),
-            );
-            insert_audit(&transaction, &invalid)?;
-            transaction.commit().map_err(|_| StorageError)?;
-            return Ok(RelationshipCommitOutcome::RelationshipNotFound);
-        };
-        if relationship.relation == *protected_relation {
-            let (scope_kind, scope_id) = scope_parts(scope);
-            let count: i64 = transaction
-                .query_row(
-                    "SELECT COUNT(*) FROM scope_relationships
+        self.write_transaction(|transaction| {
+            if let Some(outcome) = replay_relationship(transaction, scope, idempotency, audit)? {
+                return Ok(outcome);
+            }
+            let actual = policy_version_on(transaction, scope)?;
+            if actual != expected_policy_version {
+                record_policy_conflict(transaction, audit, actual)?;
+                return Ok(RelationshipCommitOutcome::PolicyConflict {
+                    actual_version: actual,
+                });
+            }
+            let relationship = find_relationship_on(transaction, scope, relationship_id)?;
+            let Some(relationship) = relationship else {
+                let invalid = audit.clone().with_outcome(
+                    AuditOutcome::Invalid,
+                    Some("eitmad.error.authorization-relation-invalid.v1".to_owned()),
+                );
+                insert_audit(transaction, &invalid)?;
+                return Ok(RelationshipCommitOutcome::RelationshipNotFound);
+            };
+            if relationship.relation == *protected_relation {
+                let (scope_kind, scope_id) = scope_parts(scope);
+                let count: i64 = transaction
+                    .query_row(
+                        "SELECT COUNT(*) FROM scope_relationships
                      WHERE scope_kind = ?1 AND scope_id = ?2 AND relation = ?3",
-                    params![scope_kind, scope_id, protected_relation.as_str()],
-                    |row| row.get(0),
+                        params![scope_kind, scope_id, protected_relation.as_str()],
+                        |row| row.get(0),
+                    )
+                    .map_err(|_| StorageError)?;
+                if count <= 1 {
+                    let denied = audit.clone().with_outcome(
+                        AuditOutcome::Denied,
+                        Some("eitmad.error.authorization-last-owner.v1".to_owned()),
+                    );
+                    insert_audit(transaction, &denied)?;
+                    return Ok(RelationshipCommitOutcome::LastProtectedRelationship);
+                }
+            }
+            transaction
+                .execute(
+                    "DELETE FROM scope_relationships WHERE relationship_id = ?1",
+                    [relationship_id.value().to_string()],
                 )
                 .map_err(|_| StorageError)?;
-            if count <= 1 {
-                let denied = audit.clone().with_outcome(
-                    AuditOutcome::Denied,
-                    Some("eitmad.error.authorization-last-owner.v1".to_owned()),
-                );
-                insert_audit(&transaction, &denied)?;
-                transaction.commit().map_err(|_| StorageError)?;
-                return Ok(RelationshipCommitOutcome::LastProtectedRelationship);
-            }
-        }
-        transaction
-            .execute(
-                "DELETE FROM scope_relationships WHERE relationship_id = ?1",
-                [relationship_id.value().to_string()],
-            )
-            .map_err(|_| StorageError)?;
-        let resulting_version = actual.checked_add(1).ok_or(StorageError)?;
-        ensure_authorization_scope(&transaction, scope, resulting_version)?;
-        let result = RelationshipMutationResult {
-            policy_version: resulting_version,
-            relationship,
-            changed: true,
-        };
-        finish_relationship_mutation(
-            &transaction,
-            scope,
-            &RelationshipFinish {
-                operation,
-                idempotency,
-                audit,
-                previous_version: actual,
-                result: &result,
-                publication,
-            },
-        )?;
-        transaction.commit().map_err(|_| StorageError)?;
-        Ok(RelationshipCommitOutcome::Committed(result))
+            let resulting_version = actual.checked_add(1).ok_or(StorageError)?;
+            ensure_authorization_scope(transaction, scope, resulting_version)?;
+            let result = RelationshipMutationResult {
+                policy_version: resulting_version,
+                relationship,
+                changed: true,
+            };
+            finish_relationship_mutation(
+                transaction,
+                scope,
+                &RelationshipFinish {
+                    operation,
+                    idempotency,
+                    audit,
+                    previous_version: actual,
+                    result: &result,
+                    publication,
+                },
+            )?;
+            Ok(RelationshipCommitOutcome::Committed(result))
+        })
     }
 
     /// Inserts the first protected relationship for an empty scope.
@@ -376,58 +382,57 @@ impl AuthorityStore {
         relation: &RelationId,
         audit: &MutationAuditRecord,
     ) -> Result<RelationshipCommitOutcome, StorageError> {
-        let mut connection = self.open_connection()?;
-        let transaction = connection.transaction().map_err(|_| StorageError)?;
-        let (scope_kind, scope_id) = scope_parts(scope);
-        let count: i64 = transaction
-            .query_row(
-                "SELECT COUNT(*) FROM scope_relationships
+        self.write_transaction(|transaction| {
+            let (scope_kind, scope_id) = scope_parts(scope);
+            let count: i64 = transaction
+                .query_row(
+                    "SELECT COUNT(*) FROM scope_relationships
                  WHERE scope_kind = ?1 AND scope_id = ?2 AND relation = ?3",
-                params![scope_kind, scope_id, relation.as_str()],
-                |row| row.get(0),
-            )
-            .map_err(|_| StorageError)?;
-        if count != 0 {
-            return Ok(RelationshipCommitOutcome::BootstrapUnavailable);
-        }
-        let actual = policy_version_on(&transaction, scope)?;
-        let resulting_version = actual.checked_add(1).ok_or(StorageError)?;
-        ensure_authorization_scope(&transaction, scope, resulting_version)?;
-        let principal_kind =
-            serde_json::to_string(&subject.principal_kind).map_err(|_| StorageError)?;
-        transaction
-            .execute(
-                "INSERT INTO scope_relationships
+                    params![scope_kind, scope_id, relation.as_str()],
+                    |row| row.get(0),
+                )
+                .map_err(|_| StorageError)?;
+            if count != 0 {
+                return Ok(RelationshipCommitOutcome::BootstrapUnavailable);
+            }
+            let actual = policy_version_on(transaction, scope)?;
+            let resulting_version = actual.checked_add(1).ok_or(StorageError)?;
+            ensure_authorization_scope(transaction, scope, resulting_version)?;
+            let principal_kind =
+                serde_json::to_string(&subject.principal_kind).map_err(|_| StorageError)?;
+            transaction
+                .execute(
+                    "INSERT INTO scope_relationships
                  (relationship_id, scope_kind, scope_id, principal_id, principal_kind, relation)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                params![
-                    relationship_id.value().to_string(),
-                    scope_kind,
-                    scope_id,
-                    subject.principal_id.value().to_string(),
-                    principal_kind,
-                    relation.as_str(),
-                ],
-            )
-            .map_err(|_| StorageError)?;
-        let relationship = ScopeRelationship {
-            relationship_id,
-            subject: subject.clone(),
-            relation: relation.clone(),
-            scope: scope.clone(),
-        };
-        let result = RelationshipMutationResult {
-            policy_version: resulting_version,
-            relationship,
-            changed: true,
-        };
-        let mut success = audit.clone();
-        success.outcome = AuditOutcome::Succeeded;
-        success.previous_revision = Some(actual);
-        success.resulting_revision = Some(resulting_version);
-        insert_audit(&transaction, &success)?;
-        transaction.commit().map_err(|_| StorageError)?;
-        Ok(RelationshipCommitOutcome::Committed(result))
+                    params![
+                        relationship_id.value().to_string(),
+                        scope_kind,
+                        scope_id,
+                        subject.principal_id.value().to_string(),
+                        principal_kind,
+                        relation.as_str(),
+                    ],
+                )
+                .map_err(|_| StorageError)?;
+            let relationship = ScopeRelationship {
+                relationship_id,
+                subject: subject.clone(),
+                relation: relation.clone(),
+                scope: scope.clone(),
+            };
+            let result = RelationshipMutationResult {
+                policy_version: resulting_version,
+                relationship,
+                changed: true,
+            };
+            let mut success = audit.clone();
+            success.outcome = AuditOutcome::Succeeded;
+            success.previous_revision = Some(actual);
+            success.resulting_revision = Some(resulting_version);
+            insert_audit(transaction, &success)?;
+            Ok(RelationshipCommitOutcome::Committed(result))
+        })
     }
 }
 

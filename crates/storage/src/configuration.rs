@@ -5,10 +5,33 @@ use eitmad_contracts::{
 use eitmad_observability_audit::{AuditOutcome, MutationAuditRecord};
 use rusqlite::{OptionalExtension as _, params};
 
+use crate::migrations::Migration;
 use crate::{
     AuthorityStore, DurableIdempotency, DurablePublication, StorageError, insert_audit,
     insert_idempotency, insert_publication, load_idempotency, scope_parts,
 };
+
+pub(crate) const MIGRATIONS: &[Migration] = &[Migration::new(
+    1,
+    "configuration.initial.v1",
+    "configuration",
+    "CREATE TABLE configuration_scopes (
+         scope_kind TEXT NOT NULL,
+         scope_id TEXT NOT NULL,
+         schema_version INTEGER NOT NULL,
+         revision INTEGER NOT NULL,
+         PRIMARY KEY (scope_kind, scope_id)
+     );
+     CREATE TABLE configuration_values (
+         scope_kind TEXT NOT NULL,
+         scope_id TEXT NOT NULL,
+         config_key TEXT NOT NULL,
+         value_json TEXT NOT NULL,
+         PRIMARY KEY (scope_kind, scope_id, config_key),
+         FOREIGN KEY (scope_kind, scope_id)
+             REFERENCES configuration_scopes(scope_kind, scope_id) ON DELETE CASCADE
+     );",
+)];
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StoredConfiguration {
@@ -35,49 +58,7 @@ impl AuthorityStore {
         &self,
         scope: &ScopeRef,
     ) -> Result<StoredConfiguration, StorageError> {
-        let connection = self.open_connection()?;
-        let (scope_kind, scope_id) = scope_parts(scope);
-        let metadata = connection
-            .query_row(
-                "SELECT schema_version, revision FROM configuration_scopes
-                 WHERE scope_kind = ?1 AND scope_id = ?2",
-                (&scope_kind, &scope_id),
-                |row| Ok((row.get::<_, u32>(0)?, row.get::<_, i64>(1)?)),
-            )
-            .optional()
-            .map_err(|_| StorageError)?;
-        let Some((schema_version, revision)) = metadata else {
-            return Ok(StoredConfiguration {
-                schema_version: 1,
-                revision: 0,
-                values: Vec::new(),
-            });
-        };
-        let mut statement = connection
-            .prepare(
-                "SELECT config_key, value_json FROM configuration_values
-                 WHERE scope_kind = ?1 AND scope_id = ?2 ORDER BY config_key",
-            )
-            .map_err(|_| StorageError)?;
-        let rows = statement
-            .query_map((&scope_kind, &scope_id), |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-            })
-            .map_err(|_| StorageError)?;
-        let mut values = Vec::new();
-        for row in rows {
-            let (key, value) = row.map_err(|_| StorageError)?;
-            values.push(ConfigChange {
-                key: ConfigKey::parse(key).map_err(|_| StorageError)?,
-                value: serde_json::from_str::<ConfigWriteValue>(&value)
-                    .map_err(|_| StorageError)?,
-            });
-        }
-        Ok(StoredConfiguration {
-            schema_version,
-            revision: u64::try_from(revision).map_err(|_| StorageError)?,
-            values,
-        })
+        self.read_transaction(|connection| read_configuration_on(connection, scope))
     }
 
     /// Atomically applies validated configuration overrides, audit, and idempotency.
@@ -98,100 +79,169 @@ impl AuthorityStore {
         audit: &MutationAuditRecord,
         publication: Option<&DurablePublication>,
     ) -> Result<ConfigurationCommitOutcome, StorageError> {
-        let mut connection = self.open_connection()?;
-        let transaction = connection.transaction().map_err(|_| StorageError)?;
-        if let Some((stored_hash, response_json)) =
-            load_idempotency(&transaction, scope, idempotency.key)?
-        {
-            if stored_hash == idempotency.request_hash {
-                transaction.commit().map_err(|_| StorageError)?;
-                return Ok(ConfigurationCommitOutcome::Replayed { response_json });
-            }
-            let invalid = audit.clone().with_outcome(
-                AuditOutcome::Invalid,
-                Some("eitmad.error.contract-invalid.v1".to_owned()),
-            );
-            insert_audit(&transaction, &invalid)?;
-            transaction.commit().map_err(|_| StorageError)?;
-            return Ok(ConfigurationCommitOutcome::IdempotencyMismatch);
-        }
-        let (scope_kind, scope_id) = scope_parts(scope);
-        let actual = transaction
-            .query_row(
-                "SELECT revision FROM configuration_scopes
-                 WHERE scope_kind = ?1 AND scope_id = ?2",
-                (&scope_kind, &scope_id),
-                |row| row.get::<_, i64>(0),
+        self.write_transaction(|transaction| {
+            commit_configuration_on(
+                transaction,
+                scope,
+                expected_revision,
+                schema_version,
+                changes,
+                effective_change,
+                operation,
+                idempotency,
+                audit,
+                publication,
             )
-            .optional()
-            .map_err(|_| StorageError)?
-            .map(u64::try_from)
-            .transpose()
-            .map_err(|_| StorageError)?
-            .unwrap_or(0);
-        if actual != expected_revision {
-            let mut conflict = audit.clone().with_outcome(
-                AuditOutcome::Conflict,
-                Some("eitmad.error.config-revision-conflict.v1".to_owned()),
-            );
-            conflict.previous_revision = Some(actual);
-            conflict.resulting_revision = Some(actual);
-            insert_audit(&transaction, &conflict)?;
-            transaction.commit().map_err(|_| StorageError)?;
-            return Ok(ConfigurationCommitOutcome::RevisionConflict {
-                actual_revision: actual,
-            });
+        })
+    }
+}
+
+fn read_configuration_on(
+    connection: &rusqlite::Connection,
+    scope: &ScopeRef,
+) -> Result<StoredConfiguration, StorageError> {
+    let (scope_kind, scope_id) = scope_parts(scope);
+    let metadata = connection
+        .query_row(
+            "SELECT schema_version, revision FROM configuration_scopes
+                 WHERE scope_kind = ?1 AND scope_id = ?2",
+            (&scope_kind, &scope_id),
+            |row| Ok((row.get::<_, u32>(0)?, row.get::<_, i64>(1)?)),
+        )
+        .optional()
+        .map_err(|_| StorageError)?;
+    let Some((schema_version, revision)) = metadata else {
+        return Ok(StoredConfiguration {
+            schema_version: 1,
+            revision: 0,
+            values: Vec::new(),
+        });
+    };
+    let mut statement = connection
+        .prepare(
+            "SELECT config_key, value_json FROM configuration_values
+                 WHERE scope_kind = ?1 AND scope_id = ?2 ORDER BY config_key",
+        )
+        .map_err(|_| StorageError)?;
+    let rows = statement
+        .query_map((&scope_kind, &scope_id), |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(|_| StorageError)?;
+    let mut values = Vec::new();
+    for row in rows {
+        let (key, value) = row.map_err(|_| StorageError)?;
+        values.push(ConfigChange {
+            key: ConfigKey::parse(key).map_err(|_| StorageError)?,
+            value: serde_json::from_str::<ConfigWriteValue>(&value).map_err(|_| StorageError)?,
+        });
+    }
+    Ok(StoredConfiguration {
+        schema_version,
+        revision: u64::try_from(revision).map_err(|_| StorageError)?,
+        values,
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn commit_configuration_on(
+    transaction: &rusqlite::Connection,
+    scope: &ScopeRef,
+    expected_revision: u64,
+    schema_version: u32,
+    changes: &[ConfigChange],
+    effective_change: bool,
+    operation: &str,
+    idempotency: &DurableIdempotency,
+    audit: &MutationAuditRecord,
+    publication: Option<&DurablePublication>,
+) -> Result<ConfigurationCommitOutcome, StorageError> {
+    if let Some((stored_hash, response_json)) =
+        load_idempotency(transaction, scope, idempotency.key)?
+    {
+        if stored_hash == idempotency.request_hash {
+            return Ok(ConfigurationCommitOutcome::Replayed { response_json });
         }
-        let resulting_revision = if effective_change {
-            expected_revision.checked_add(1).ok_or(StorageError)?
-        } else {
-            expected_revision
-        };
-        if effective_change {
-            let resulting_revision_sql =
-                i64::try_from(resulting_revision).map_err(|_| StorageError)?;
-            transaction
-                .execute(
-                    "INSERT INTO configuration_scopes
+        let invalid = audit.clone().with_outcome(
+            AuditOutcome::Invalid,
+            Some("eitmad.error.contract-invalid.v1".to_owned()),
+        );
+        insert_audit(transaction, &invalid)?;
+        return Ok(ConfigurationCommitOutcome::IdempotencyMismatch);
+    }
+    let (scope_kind, scope_id) = scope_parts(scope);
+    let actual = transaction
+        .query_row(
+            "SELECT revision FROM configuration_scopes
+                 WHERE scope_kind = ?1 AND scope_id = ?2",
+            (&scope_kind, &scope_id),
+            |row| row.get::<_, i64>(0),
+        )
+        .optional()
+        .map_err(|_| StorageError)?
+        .map(u64::try_from)
+        .transpose()
+        .map_err(|_| StorageError)?
+        .unwrap_or(0);
+    if actual != expected_revision {
+        let mut conflict = audit.clone().with_outcome(
+            AuditOutcome::Conflict,
+            Some("eitmad.error.config-revision-conflict.v1".to_owned()),
+        );
+        conflict.previous_revision = Some(actual);
+        conflict.resulting_revision = Some(actual);
+        insert_audit(transaction, &conflict)?;
+        return Ok(ConfigurationCommitOutcome::RevisionConflict {
+            actual_revision: actual,
+        });
+    }
+    let resulting_revision = if effective_change {
+        expected_revision.checked_add(1).ok_or(StorageError)?
+    } else {
+        expected_revision
+    };
+    if effective_change {
+        let resulting_revision_sql = i64::try_from(resulting_revision).map_err(|_| StorageError)?;
+        transaction
+            .execute(
+                "INSERT INTO configuration_scopes
                      (scope_kind, scope_id, schema_version, revision) VALUES (?1, ?2, ?3, ?4)
                      ON CONFLICT(scope_kind, scope_id) DO UPDATE SET
                        schema_version = excluded.schema_version,
                        revision = excluded.revision",
-                    params![scope_kind, scope_id, schema_version, resulting_revision_sql],
-                )
-                .map_err(|_| StorageError)?;
-            for change in changes {
-                let encoded = serde_json::to_string(&change.value).map_err(|_| StorageError)?;
-                transaction
-                    .execute(
-                        "INSERT INTO configuration_values
+                params![scope_kind, scope_id, schema_version, resulting_revision_sql],
+            )
+            .map_err(|_| StorageError)?;
+        for change in changes {
+            let encoded = serde_json::to_string(&change.value).map_err(|_| StorageError)?;
+            transaction
+                .execute(
+                    "INSERT INTO configuration_values
                          (scope_kind, scope_id, config_key, value_json) VALUES (?1, ?2, ?3, ?4)
                          ON CONFLICT(scope_kind, scope_id, config_key) DO UPDATE SET
                            value_json = excluded.value_json",
-                        params![scope_kind, scope_id, change.key.as_str(), encoded],
-                    )
-                    .map_err(|_| StorageError)?;
-            }
+                    params![scope_kind, scope_id, change.key.as_str(), encoded],
+                )
+                .map_err(|_| StorageError)?;
         }
-        let mut success = audit.clone();
-        success.outcome = AuditOutcome::Succeeded;
-        success.previous_revision = Some(expected_revision);
-        success.resulting_revision = Some(resulting_revision);
-        insert_audit(&transaction, &success)?;
-        insert_idempotency(&transaction, scope, operation, idempotency)?;
-        if effective_change {
-            insert_publication(
-                &transaction,
-                scope,
-                idempotency.key,
-                publication.ok_or(StorageError)?,
-            )?;
-        }
-        transaction.commit().map_err(|_| StorageError)?;
-        Ok(ConfigurationCommitOutcome::Committed {
-            revision: resulting_revision,
-        })
     }
+    let mut success = audit.clone();
+    success.outcome = AuditOutcome::Succeeded;
+    success.previous_revision = Some(expected_revision);
+    success.resulting_revision = Some(resulting_revision);
+    insert_audit(transaction, &success)?;
+    insert_idempotency(transaction, scope, operation, idempotency)?;
+    if effective_change {
+        insert_publication(
+            transaction,
+            scope,
+            idempotency.key,
+            publication.ok_or(StorageError)?,
+        )?;
+    }
+    Ok(ConfigurationCommitOutcome::Committed {
+        revision: resulting_revision,
+    })
 }
 
 #[cfg(test)]
