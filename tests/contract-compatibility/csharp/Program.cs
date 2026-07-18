@@ -15,7 +15,7 @@ var queryProtocol10 = JsonSerializer.Deserialize<QueryEnvelope>(queryProtocol10J
     ?? throw new InvalidOperationException("C# binding did not decode the Rust protocol 1.0 fixture.");
 
 if (query.Query.Kind != QueryKind.EitmadConfigGetV1
-    || query.ProtocolVersion.Minor != 1
+    || query.ProtocolVersion.Minor != 2
     || queryProtocol10.ProtocolVersion.Minor != 0
     || queryProtocol10.Query.Kind != QueryKind.EitmadConfigGetV1)
 {
