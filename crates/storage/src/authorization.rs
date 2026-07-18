@@ -387,8 +387,8 @@ impl AuthorityStore {
             let count: i64 = transaction
                 .query_row(
                     "SELECT COUNT(*) FROM scope_relationships
-                 WHERE scope_kind = ?1 AND scope_id = ?2 AND relation = ?3",
-                    params![scope_kind, scope_id, relation.as_str()],
+                 WHERE scope_kind = ?1 AND scope_id = ?2",
+                    params![scope_kind, scope_id],
                     |row| row.get(0),
                 )
                 .map_err(|_| StorageError)?;
@@ -793,5 +793,34 @@ mod tests {
             outcome,
             RelationshipCommitOutcome::LastProtectedRelationship
         );
+    }
+
+    #[test]
+    fn bootstrap_requires_an_empty_scope() {
+        let directory = TempDir::new().unwrap();
+        let store = AuthorityStore::open(directory.path()).unwrap();
+        let member = RelationId::parse("eitmad.relation.organization.member.v1").unwrap();
+        store
+            .bootstrap_relationship(
+                &scope(),
+                RelationshipId::new(Uuid::from_u128(20)),
+                &subject(30),
+                &member,
+                &audit(IdempotencyKey::new(Uuid::from_u128(10))),
+            )
+            .unwrap();
+
+        let owner = RelationId::parse("eitmad.relation.organization.owner.v1").unwrap();
+        let outcome = store
+            .bootstrap_relationship(
+                &scope(),
+                RelationshipId::new(Uuid::from_u128(21)),
+                &subject(31),
+                &owner,
+                &audit(IdempotencyKey::new(Uuid::from_u128(11))),
+            )
+            .unwrap();
+
+        assert_eq!(outcome, RelationshipCommitOutcome::BootstrapUnavailable);
     }
 }
