@@ -126,6 +126,10 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | ربط المنصة | Platform binding | Generated native-language models, serializers, and identifier constants derived from Rust contracts. |
 | نافذة التوافق | Compatibility window | The protocol minor versions that released peers must continue to negotiate and pass conformance tests against. |
 | انحراف العقد | Contract drift | A generated schema, fixture, reference, or platform binding that no longer exactly matches the Rust contract authority. |
+| ترحيل قاعدة البيانات | Database migration | An immutable, ordered, checksummed Rust-owned schema change attributed to one storage feature. |
+| انحراف المخطط | Schema drift | A difference between the live SQLite schema and the schema produced by the registered Rust migrations. |
+| نسخة احتياطية | Backup | A validated SQLite copy that includes committed WAL state and has the same sensitivity as the live database. |
+| استعادة قاعدة البيانات | Database restore | A stopped-engine replacement flow that validates the candidate and preserves the previous database before installation. |
 | تغيير كاسر | Breaking change | A contract representation or meaning change that a peer inside the compatibility window cannot safely interpret. |
 | تحديث | Update | A signed, policy-controlled change to engine, shell, contracts, or compatible data behavior. |
 | دورة حياة المحرك | Engine lifecycle | The Rust-owned process states `Starting`, `Ready`, `Stopping`, `Stopped`, and `Failed` plus their permitted transitions. |
