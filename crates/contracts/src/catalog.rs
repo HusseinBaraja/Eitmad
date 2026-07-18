@@ -176,6 +176,7 @@ impl ProtocolCatalog {
             .chain(&self.schema_ids)
             .chain(&self.error_codes)
             .chain(&self.message_ids)
+            .chain(&self.error_parameter_names)
             .cloned()
             .collect::<Vec<_>>();
         identifiers.sort_unstable();
@@ -201,6 +202,19 @@ mod tests {
             ProtocolCatalog::current()
                 .duplicate_identifiers()
                 .is_empty()
+        );
+    }
+
+    #[test]
+    fn catalog_detects_duplicate_error_parameter_names() {
+        let mut catalog = ProtocolCatalog::current();
+        catalog
+            .error_parameter_names
+            .push(catalog.commands[0].clone());
+
+        assert_eq!(
+            catalog.duplicate_identifiers(),
+            vec![catalog.commands[0].clone()]
         );
     }
 
