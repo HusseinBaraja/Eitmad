@@ -2,6 +2,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    authorization::AuthorizationPolicyChangeNotice,
     background_jobs::BackgroundJobStatus,
     config::ConfigSnapshot,
     errors::ContractError,
@@ -17,6 +18,9 @@ pub struct ConfigurationChanges {}
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct PermissionChanges {}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct AuthorizationPolicyChanges {}
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct UpdateStateChanges {}
@@ -48,6 +52,7 @@ tagged_contract! {
     pub enum Subscription {
         Configuration(ConfigurationChanges) => "eitmad.config.changed.subscribe.v1",
         Permissions(PermissionChanges) => "eitmad.permissions.changed.subscribe.v1",
+        AuthorizationPolicy(AuthorizationPolicyChanges) => "eitmad.authorization.policy.changed.subscribe.v1",
         UpdateState(UpdateStateChanges) => "eitmad.update.state.subscribe.v1",
         SyncStatus(SyncStatusChanges) => "eitmad.sync.status.subscribe.v1",
         RecordChanges(RecordChanges) => "eitmad.record.changed.subscribe.v1",
@@ -62,6 +67,7 @@ tagged_contract! {
     pub enum Event {
         ConfigurationChanged(ConfigSnapshot) => "eitmad.config.changed.event.v1",
         PermissionsChanged(EffectivePermissions) => "eitmad.permissions.changed.event.v1",
+        AuthorizationPolicyChanged(AuthorizationPolicyChangeNotice) => "eitmad.authorization.policy.changed.event.v1",
         UpdateStateChanged(UpdateState) => "eitmad.update.state.event.v1",
         SyncStatusChanged(SyncStatus) => "eitmad.sync.status.event.v1",
         RecordChanged(RecordChangeNotice) => "eitmad.record.changed.event.v1",
@@ -78,6 +84,7 @@ impl Event {
             self,
             Self::ConfigurationChanged(_)
                 | Self::PermissionsChanged(_)
+                | Self::AuthorizationPolicyChanged(_)
                 | Self::UpdateStateChanged(_)
                 | Self::SyncStatusChanged(_)
         )
@@ -88,6 +95,9 @@ impl Event {
         match self {
             Self::ConfigurationChanged(_) => "eitmad.config.changed.subscribe.v1",
             Self::PermissionsChanged(_) => "eitmad.permissions.changed.subscribe.v1",
+            Self::AuthorizationPolicyChanged(_) => {
+                "eitmad.authorization.policy.changed.subscribe.v1"
+            }
             Self::UpdateStateChanged(_) => "eitmad.update.state.subscribe.v1",
             Self::SyncStatusChanged(_) => "eitmad.sync.status.subscribe.v1",
             Self::RecordChanged(_) => "eitmad.record.changed.subscribe.v1",
@@ -105,6 +115,7 @@ impl Subscription {
             self,
             Self::Configuration(_)
                 | Self::Permissions(_)
+                | Self::AuthorizationPolicy(_)
                 | Self::UpdateState(_)
                 | Self::SyncStatus(_)
         )
@@ -118,5 +129,13 @@ mod tests {
     #[test]
     fn background_job_stream_is_discrete() {
         assert!(!Subscription::BackgroundJobs(BackgroundJobChanges {}).is_coalescible());
+    }
+
+    #[test]
+    fn authorization_policy_stream_is_coalescible() {
+        assert!(
+            Subscription::AuthorizationPolicy(AuthorizationPolicyChanges::default())
+                .is_coalescible()
+        );
     }
 }

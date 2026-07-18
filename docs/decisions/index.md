@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "reference"
 status: "active"
 owner: "architecture maintainers"
-last_verified: "2026-07-13"
+last_verified: "2026-07-18"
 review_triggers:
   - "an ADR is proposed, accepted, rejected, or superseded"
 keywords:
@@ -55,3 +55,5 @@ Accepted ADRs are immutable historical records except for typo fixes, link repai
 | [ADR-0016](0016-bounded-platform-process-supervision.md) | Bound platform engine process supervision | Accepted | 2026-07-12 | None |
 | [ADR-0017](0017-windows-named-pipe-local-ipc.md) | Use bounded JSON frames over Windows named pipes | Accepted | 2026-07-12 | None |
 | [ADR-0018](0018-bounded-resumable-local-ipc-events.md) | Use bounded resumable local IPC event streams | Accepted | 2026-07-13 | None |
+| [ADR-0019](0019-sqlite-authority-storage.md) | Use SQLite for local authority storage | Accepted | 2026-07-18 | None |
+| [ADR-0020](0020-direct-principal-scope-rebac-policy.md) | Use direct principal-to-scope ReBAC policy v1 | Accepted | 2026-07-18 | None |

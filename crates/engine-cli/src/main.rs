@@ -10,9 +10,10 @@ use std::{
 use clap::{Parser, Subcommand, ValueEnum};
 use eitmad_contracts::runtime::{EngineMode, HealthStatus};
 use eitmad_engine_runtime::{
+    AuthorityStoreComponent, AuthorityStoreHandle, AuthorityStoreHealthCheck, ProductDispatcher,
     RuntimeBuilder, RuntimeDirectoryHealthCheck, RuntimeFailure, ShutdownReason,
     default_runtime_directory,
-    local_ipc::{LocalIpcConfiguration, LocalIpcServer, RejectingDispatcher},
+    local_ipc::{EventBroker, LocalIpcConfiguration, LocalIpcServer},
 };
 use serde::Serialize;
 use tokio::{
@@ -102,8 +103,14 @@ async fn run(
         RunMode::Headless => EngineMode::Headless,
         RunMode::Supervised => EngineMode::SupervisedDesktop,
     };
+    let store_handle = AuthorityStoreHandle::default();
     let mut builder = RuntimeBuilder::new(engine_mode, &directory)
-        .health_check(RuntimeDirectoryHealthCheck::new(&directory));
+        .component(AuthorityStoreComponent::new(
+            &directory,
+            store_handle.clone(),
+        ))
+        .health_check(RuntimeDirectoryHealthCheck::new(&directory))
+        .health_check(AuthorityStoreHealthCheck::new(&directory));
     if let Some(process_id) = supervisor_pid {
         builder = builder.supervisor_process_id(process_id);
     }
@@ -119,10 +126,29 @@ async fn run(
         let _ = emitter.await;
         return ExitCode::from(EXIT_RUNTIME_FAILURE);
     }
+    let Ok(store) = store_handle.store() else {
+        let failure = RuntimeFailure::component_unavailable();
+        emit_failure(&failure);
+        let _ = runtime.shutdown(ShutdownReason::Explicit).await;
+        let _ = emitter.await;
+        return ExitCode::from(EXIT_RUNTIME_FAILURE);
+    };
 
     let (ipc_shutdown_sender, mut ipc_shutdown_receiver) = mpsc::channel(1);
     let _ipc_shutdown_guard = ipc_shutdown_sender.clone();
     let (ipc_cancel_sender, ipc_cancel_receiver) = watch::channel(false);
+    let event_broker = EventBroker::new();
+    let dispatcher = Arc::new(ProductDispatcher::new(
+        store,
+        event_broker.clone(),
+        allow_insecure_development_auth,
+    ));
+    if dispatcher.drain_pending_publications().is_err() {
+        eprintln!("durable event publication recovery failed");
+        let _ = runtime.shutdown(ShutdownReason::Explicit).await;
+        let _ = emitter.await;
+        return ExitCode::from(EXIT_RUNTIME_FAILURE);
+    }
     let ipc_task = ipc_pipe_name.map(|pipe_name| {
         let development_token = allow_insecure_development_auth
             .then(|| std::env::var(DEVELOPMENT_IPC_TOKEN_ENV).ok())
@@ -130,15 +156,15 @@ async fn run(
         tokio::spawn(
             LocalIpcServer::new(
                 LocalIpcConfiguration::development(pipe_name, development_token),
-                Arc::new(RejectingDispatcher),
+                dispatcher,
                 ipc_shutdown_sender.clone(),
             )
+            .with_event_broker(event_broker)
             .run(ipc_cancel_receiver),
         )
     });
 
     let reason = wait_for_shutdown(mode, &mut ipc_shutdown_receiver).await;
-    let outcome = runtime.shutdown(reason).await;
     let _ = ipc_cancel_sender.send(true);
     let ipc_stopped_cleanly = if let Some(task) = ipc_task {
         match task.await {
@@ -155,6 +181,7 @@ async fn run(
     } else {
         true
     };
+    let outcome = runtime.shutdown(reason).await;
     if let Err(failure) = &outcome {
         emit_failure(failure);
     }
@@ -172,6 +199,7 @@ async fn diagnose(runtime_directory: Option<PathBuf>) -> ExitCode {
     };
     let report = RuntimeBuilder::new(EngineMode::Diagnostic, &directory)
         .health_check(RuntimeDirectoryHealthCheck::new(&directory))
+        .health_check(AuthorityStoreHealthCheck::new(&directory))
         .diagnose()
         .await;
     if emit_json(&report).is_err() {

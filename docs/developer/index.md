@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "tutorial"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-07-12"
+last_verified: "2026-07-18"
 review_triggers:
   - "workspace layout, contributor checks, or ownership rules change"
 keywords:
@@ -31,6 +31,8 @@ Read `AGENTS.md` at the repository root, then review:
 - [Authoritative contract layer](subsystems/contract-layer.md)
 - [Engine runtime lifecycle](subsystems/engine-runtime.md)
 - [Typed local IPC](subsystems/local-ipc.md)
+- [Rust-owned configuration](subsystems/configuration.md)
+- [Scoped ReBAC authorization](subsystems/authorization.md)
 - [Windows engine process supervision](subsystems/windows-process-supervision.md)
 
 ## 1. Name the product capability

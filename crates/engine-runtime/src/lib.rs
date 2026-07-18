@@ -4,7 +4,14 @@
 //! `eitmad-contracts`, and launchers remain thin adapters over this API.
 
 mod authority;
+mod authority_store;
+mod dispatcher;
 pub mod local_ipc;
+
+pub use authority_store::{
+    AuthorityStoreComponent, AuthorityStoreHandle, AuthorityStoreHealthCheck,
+};
+pub use dispatcher::ProductDispatcher;
 
 use std::{
     env,
@@ -86,6 +93,11 @@ impl RuntimeFailure {
     #[must_use]
     pub fn runtime_directory_unavailable() -> Self {
         startup_failure(LifecycleStage::AuthorityLock)
+    }
+
+    #[must_use]
+    pub fn component_unavailable() -> Self {
+        startup_failure(LifecycleStage::ComponentStartup)
     }
 }
 

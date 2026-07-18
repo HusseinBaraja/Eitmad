@@ -12,6 +12,7 @@ pub const CAPABILITIES: &[&str] = &[
     "eitmad.capability.engine-lifecycle.v1",
     "eitmad.capability.local-ipc.v1",
     "eitmad.capability.local-ipc-subscriptions.v1",
+    "eitmad.capability.authorization-policy-events.v1",
     "eitmad.capability.config.v1",
     "eitmad.capability.permissions.v1",
     "eitmad.capability.sync.v1",
@@ -39,6 +40,9 @@ pub const IPC_MESSAGES: &[&str] = &[
 pub const PERMISSIONS: &[&str] = &[
     "eitmad.permission.config.read.v1",
     "eitmad.permission.config.write.v1",
+    "eitmad.permission.config.import.v1",
+    "eitmad.permission.config.export.v1",
+    "eitmad.permission.authorization.manage.v1",
     "eitmad.permission.permissions.read.v1",
     "eitmad.permission.sync.read.v1",
     "eitmad.permission.update.read.v1",
@@ -47,6 +51,12 @@ pub const PERMISSIONS: &[&str] = &[
 
 pub const ERROR_CODES: &[&str] = &[
     "eitmad.error.authorization-denied.v1",
+    "eitmad.error.authorization-last-owner.v1",
+    "eitmad.error.authorization-policy-conflict.v1",
+    "eitmad.error.authorization-relation-invalid.v1",
+    "eitmad.error.authorization-unavailable.v1",
+    "eitmad.error.config-invalid.v1",
+    "eitmad.error.config-unavailable.v1",
     "eitmad.error.config-revision-conflict.v1",
     "eitmad.error.contract-invalid.v1",
     "eitmad.error.engine-already-running.v1",
@@ -67,6 +77,12 @@ pub const ERROR_CODES: &[&str] = &[
 
 pub const MESSAGE_IDS: &[&str] = &[
     "eitmad.message.authorization-denied.v1",
+    "eitmad.message.authorization-last-owner.v1",
+    "eitmad.message.authorization-policy-conflict.v1",
+    "eitmad.message.authorization-relation-invalid.v1",
+    "eitmad.message.authorization-unavailable.v1",
+    "eitmad.message.config-invalid.v1",
+    "eitmad.message.config-unavailable.v1",
     "eitmad.message.config-revision-conflict.v1",
     "eitmad.message.contract-invalid.v1",
     "eitmad.message.engine-already-running.v1",
@@ -87,13 +103,20 @@ pub const MESSAGE_IDS: &[&str] = &[
 
 pub const ERROR_PARAMETER_NAMES: &[&str] = &[
     "actual-revision",
+    "configuration-key",
     "expected-revision",
+    "relation",
     "required-capability",
     "retry-after-ms",
     "maximum-payload-bytes",
 ];
 
 pub const CONFIG_KEYS: &[&str] = &["eitmad.config.locale.primary.v1"];
+pub const RELATIONS: &[&str] = &[
+    "eitmad.relation.organization.config-manager.v1",
+    "eitmad.relation.organization.member.v1",
+    "eitmad.relation.organization.owner.v1",
+];
 pub const DOMAIN_SCHEMA_IDS: &[&str] = &["eitmad.schema.protocol.v1"];
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -108,6 +131,7 @@ pub struct ProtocolCatalog {
     pub capabilities: Vec<String>,
     pub permissions: Vec<String>,
     pub config_keys: Vec<String>,
+    pub relations: Vec<String>,
     pub schema_ids: Vec<String>,
     pub error_codes: Vec<String>,
     pub message_ids: Vec<String>,
@@ -127,6 +151,7 @@ impl ProtocolCatalog {
             capabilities: strings(CAPABILITIES),
             permissions: strings(PERMISSIONS),
             config_keys: strings(CONFIG_KEYS),
+            relations: strings(RELATIONS),
             schema_ids: strings(DOMAIN_SCHEMA_IDS),
             error_codes: strings(ERROR_CODES),
             message_ids: strings(MESSAGE_IDS),
@@ -147,9 +172,11 @@ impl ProtocolCatalog {
             .chain(&self.capabilities)
             .chain(&self.permissions)
             .chain(&self.config_keys)
+            .chain(&self.relations)
             .chain(&self.schema_ids)
             .chain(&self.error_codes)
             .chain(&self.message_ids)
+            .chain(&self.error_parameter_names)
             .cloned()
             .collect::<Vec<_>>();
         identifiers.sort_unstable();
@@ -175,6 +202,19 @@ mod tests {
             ProtocolCatalog::current()
                 .duplicate_identifiers()
                 .is_empty()
+        );
+    }
+
+    #[test]
+    fn catalog_detects_duplicate_error_parameter_names() {
+        let mut catalog = ProtocolCatalog::current();
+        catalog
+            .error_parameter_names
+            .push(catalog.commands[0].clone());
+
+        assert_eq!(
+            catalog.duplicate_identifiers(),
+            vec![catalog.commands[0].clone()]
         );
     }
 

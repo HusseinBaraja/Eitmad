@@ -34,6 +34,7 @@ pub struct EventBroker {
 struct BrokerInner {
     state: Mutex<BrokerState>,
     live: broadcast::Sender<PublishedEvent>,
+    policy_changes: broadcast::Sender<ScopeRef>,
 }
 
 #[derive(Default)]
@@ -86,12 +87,23 @@ impl EventBroker {
     #[must_use]
     pub fn new() -> Self {
         let (live, _) = broadcast::channel(LIVE_CHANNEL_EVENTS);
+        let (policy_changes, _) = broadcast::channel(LIVE_CHANNEL_EVENTS);
         Self {
             inner: Arc::new(BrokerInner {
                 state: Mutex::new(BrokerState::default()),
                 live,
+                policy_changes,
             }),
         }
+    }
+
+    /// Signals active subscriptions to reauthorize against committed policy.
+    pub fn policy_changed(&self, scope: ScopeRef) {
+        let _ = self.inner.policy_changes.send(scope);
+    }
+
+    pub(crate) fn subscribe_policy_changes(&self) -> broadcast::Receiver<ScopeRef> {
+        self.inner.policy_changes.subscribe()
     }
 
     /// Publishes one already-authorized, scoped engine event.
@@ -309,6 +321,7 @@ fn event_scope(event: &Event) -> Option<&ScopeRef> {
         Event::BackgroundJobChanged(status) => Some(&status.scope),
         Event::NotificationRaised(notification) => Some(&notification.scope),
         Event::ErrorRaised(error) => Some(&error.scope),
+        Event::AuthorizationPolicyChanged(notice) => Some(&notice.scope),
         Event::PermissionsChanged(_)
         | Event::UpdateStateChanged(_)
         | Event::SyncStatusChanged(_) => None,

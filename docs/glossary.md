@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "product maintainers"
-last_verified: "2026-07-13"
+last_verified: "2026-07-18"
 review_triggers:
   - "a domain term, UI label, contract concept, or workshop synonym changes"
 keywords:
@@ -106,7 +106,15 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | نافذة إعادة التشغيل | Replay window | The bounded same-engine event history available for subscription reconnection. |
 | ضغط التدفق | Backpressure | The explicit response when a consumer cannot keep pace; replaceable state may coalesce, while unreplayable discrete gaps close and require recovery. |
 | نطاق | Scope | The explicit ownership and isolation boundary attached to every record and operation. |
+| إعداد النظام | Configuration setting | A Rust-registered typed value with an authoritative default, validator, sensitivity, restart requirement, and scope. |
+| لقطة الإعدادات | Configuration snapshot | The stable, revisioned, redacted projection that a shell may read; it is not a shell-owned config file. |
+| تعديل الإعدادات | Configuration patch | A typed optimistic request containing expected revision and changed keys; Rust validates and commits it atomically. |
+| مراجعة الإعدادات | Configuration revision | A monotonic per-scope number incremented once by a real effective patch, not by a no-op or replay. |
 | صلاحية | Permission | An allowed action derived from authenticated identity and relationships; it is enforced by Rust. |
+| علاقة صلاحية | Authorization relationship | A persisted direct association between one user, device, or service principal, one exact scope, and one registered relation. |
+| مالك النطاق | Scope owner | A principal related as organization owner; owners administer relationships, and Rust preserves at least one persisted production owner. Explicit insecure development authentication may instead provide a non-persisted ephemeral owner. |
+| مدير الإعدادات | Configuration manager | A principal related to an organization with permission to patch, import, and export configuration but not administer relationships. |
+| إلغاء الصلاحية | Authorization revocation | A committed policy change that removes effective access and forces active subscriptions to reauthorize before later delivery. |
 | سجل التدقيق | Audit record | A durable account of a state-changing intent and outcome, including actor, scope, time, and correlation. |
 | المزامنة | Synchronization | The protocol-driven exchange and reconciliation of authorized state across processes, devices, or servers. |
 | تعارض | Conflict | Concurrent or incompatible state that cannot be safely combined without a defined domain rule or decision. |

@@ -1,5 +1,5 @@
 [package]
-name = "eitmad-engine-runtime"
+name = "eitmad-configuration"
 version = "0.0.0"
 edition.workspace = true
 license.workspace = true
@@ -10,19 +10,15 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies]
-async-trait = "=0.1.89"
 eitmad-authorization = { path = "../authorization" }
-eitmad-configuration = { path = "../configuration" }
 eitmad-contracts = { path = "../contracts" }
+eitmad-observability-audit = { path = "../observability-audit" }
 eitmad-storage = { path = "../storage" }
-fs2 = "=0.4.3"
-semver = "=1.0.27"
-serde = "=1.0.228"
+language-tags = "=0.3.2"
+serde = { version = "=1.0.228", features = ["derive"] }
 serde_json = "=1.0.150"
-subtle = "=2.6.1"
-tokio = { version = "=1.49.0", features = ["io-util", "net", "rt", "sync", "time"] }
+sha2 = "=0.10.9"
 uuid = { version = "=1.23.4", features = ["v4"] }
 
 [dev-dependencies]
 tempfile = "=3.24.0"
-tokio = { version = "=1.49.0", features = ["macros", "rt-multi-thread", "sync", "time"] }

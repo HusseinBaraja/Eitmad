@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-07-12"
+last_verified: "2026-07-18"
 review_triggers:
   - "workspace verification, executable behavior, deployment, backup, or recovery changes"
 keywords:
@@ -17,7 +17,7 @@ keywords:
 
 # Run Eitmad foundation checks
 
-These steps verify only the current foundation. No installable package, production service, database, backup, or runnable recovery flow exists yet.
+These steps verify the current foundation. Rust now owns a local SQLite authority database; packaging, automated backup, and production restore tooling are not implemented.
 
 ## Prerequisites
 
@@ -67,7 +67,7 @@ These steps verify only the current foundation. No installable package, producti
    ```
 
    ```powershell
-   npm run contracts:check --prefix crates/contracts/codegen
+   npm run contracts:verify --prefix crates/contracts/codegen
    ```
 
 7. Run Windows binding conformance where .NET 8 is available:
@@ -98,7 +98,7 @@ In a healthy development environment, every applicable command should exit with 
 
 ## Recover
 
-If a command fails, stop. Do not hide the warning or bypass the test. Fix the authoritative source or canonical document, then rerun the failed command and the full suite. If CI reports `E0658` while a local stable build passes, inspect the reported syntax for a feature unavailable in Rust `1.85.1` and reproduce with the minimum-version check above. The current foundation has no product state that requires rollback.
+If a command fails, stop. Do not hide the warning or bypass the test. Fix the authoritative source or canonical document, then rerun the failed command and the full suite. If CI reports `E0658` while a local stable build passes, inspect the reported syntax for a feature unavailable in Rust `1.85.1` and reproduce with the minimum-version check above. Preserve `eitmad.sqlite3` and its SQLite companion files before any recovery attempt; never edit or downgrade them manually.
 
 ## Related tasks
 
