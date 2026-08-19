@@ -1,5 +1,7 @@
 use std::{
     fs,
+    fs::OpenOptions,
+    io,
     path::{Path, PathBuf},
     time::Duration,
 };
@@ -34,9 +36,7 @@ impl AuthorityStore {
         let parent = destination.parent().ok_or(StorageError)?;
         fs::create_dir_all(parent).map_err(|_| StorageError)?;
         let temporary = parent.join(format!(".eitmad-backup-{}.sqlite3", Uuid::new_v4()));
-        let result = backup_database(&self.path, &temporary)
-            .and_then(|()| make_file_private(&temporary))
-            .and_then(|()| validate_database_file(&temporary))
+        let result = create_validated_backup(&self.path, &temporary)
             .and_then(|()| fs::rename(&temporary, destination).map_err(|_| StorageError));
         if result.is_err() {
             let _ = fs::remove_file(&temporary);
@@ -73,9 +73,7 @@ impl AuthorityStore {
         let live = directory.join(DATABASE_FILE_NAME);
         let token = Uuid::new_v4();
         let candidate = directory.join(format!("eitmad.restore-{token}.sqlite3"));
-        backup_database(source, &candidate)?;
-        make_file_private(&candidate)?;
-        validate_database_file(&candidate)?;
+        create_validated_backup(source, &candidate)?;
 
         let previous = live
             .is_file()
@@ -84,7 +82,7 @@ impl AuthorityStore {
             checkpoint(&live)?;
             move_database_family(&live, previous)?;
         }
-        if fs::rename(&candidate, &live).is_err() {
+        if move_database_family(&candidate, &live).is_err() {
             if let Some(previous) = &previous {
                 let _ = move_database_family(previous, &live);
             }
@@ -99,14 +97,43 @@ impl AuthorityStore {
             }),
             Err(error) => {
                 let failed = directory.join(format!("eitmad.failed-restore-{token}.sqlite3"));
-                let _ = move_database_family(&live, &failed);
-                if let Some(previous) = &previous {
-                    let _ = move_database_family(previous, &live);
+                if move_database_family(&live, &failed).is_ok() {
+                    if let Some(previous) = &previous {
+                        if move_database_family(previous, &live).is_err() {
+                            let _ = move_database_family(&failed, &live);
+                        }
+                    }
                 }
                 Err(error)
             }
         }
     }
+}
+
+fn create_validated_backup(source: &Path, destination: &Path) -> Result<(), StorageError> {
+    create_private_file(destination)?;
+    let result =
+        backup_database(source, destination).and_then(|()| validate_database_file(destination));
+    if result.is_err() {
+        let _ = fs::remove_file(destination);
+    }
+    result
+}
+
+fn create_private_file(path: &Path) -> Result<(), StorageError> {
+    let mut options = OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt as _;
+        options.mode(0o600);
+    }
+    options.open(path).map_err(|_| StorageError)?;
+    if make_file_private(path).is_err() {
+        let _ = fs::remove_file(path);
+        return Err(StorageError);
+    }
+    Ok(())
 }
 
 fn backup_database(source: &Path, destination: &Path) -> Result<(), StorageError> {
@@ -130,15 +157,59 @@ fn checkpoint(path: &Path) -> Result<(), StorageError> {
 }
 
 fn move_database_family(source: &Path, destination: &Path) -> Result<(), StorageError> {
-    fs::rename(source, destination).map_err(|_| StorageError)?;
-    for suffix in ["-wal", "-shm"] {
-        let source_companion = PathBuf::from(format!("{}{suffix}", source.display()));
-        if source_companion.exists() {
-            let destination_companion = PathBuf::from(format!("{}{suffix}", destination.display()));
-            fs::rename(source_companion, destination_companion).map_err(|_| StorageError)?;
+    move_database_family_with(source, destination, |from, to| fs::rename(from, to))
+}
+
+fn move_database_family_with(
+    source: &Path,
+    destination: &Path,
+    mut rename: impl FnMut(&Path, &Path) -> io::Result<()>,
+) -> Result<(), StorageError> {
+    if source == destination {
+        return Err(StorageError);
+    }
+
+    let source_paths = database_family_paths(source);
+    let destination_paths = database_family_paths(destination);
+    if !source_paths[0].is_file() {
+        return Err(StorageError);
+    }
+
+    let mut moves = Vec::new();
+    for (source_path, destination_path) in source_paths.iter().zip(&destination_paths) {
+        if destination_path.try_exists().map_err(|_| StorageError)? {
+            return Err(StorageError);
+        }
+        if source_path.try_exists().map_err(|_| StorageError)? {
+            moves.push((source_path.as_path(), destination_path.as_path()));
         }
     }
+
+    let mut completed = Vec::new();
+    for &(source_path, destination_path) in &moves {
+        if rename(source_path, destination_path).is_err() {
+            for &(moved_source, moved_destination) in completed.iter().rev() {
+                let _ = rename(moved_destination, moved_source);
+            }
+            return Err(StorageError);
+        }
+        completed.push((source_path, destination_path));
+    }
     Ok(())
+}
+
+fn database_family_paths(path: &Path) -> [PathBuf; 3] {
+    [
+        path.to_path_buf(),
+        path_with_suffix(path, "-wal"),
+        path_with_suffix(path, "-shm"),
+    ]
+}
+
+fn path_with_suffix(path: &Path, suffix: &str) -> PathBuf {
+    let mut value = path.as_os_str().to_os_string();
+    value.push(suffix);
+    PathBuf::from(value)
 }
 
 #[cfg(test)]
@@ -186,5 +257,51 @@ mod tests {
         assert!(AuthorityStore::restore_from_backup(directory.path(), &corrupt).is_err());
         assert!(AuthorityStore::check_compatible(directory.path()).is_ok());
         assert_eq!(store.path(), directory.path().join(DATABASE_FILE_NAME));
+    }
+
+    #[test]
+    fn database_family_move_rolls_back_a_partial_rename() {
+        let directory = TempDir::new().unwrap();
+        let source = directory.path().join("source.sqlite3");
+        let destination = directory.path().join("destination.sqlite3");
+        for path in database_family_paths(&source) {
+            fs::write(path, b"data").unwrap();
+        }
+        let mut calls = 0;
+
+        let result = move_database_family_with(&source, &destination, |from, to| {
+            calls += 1;
+            if calls == 2 {
+                return Err(io::Error::other("injected rename failure"));
+            }
+            fs::rename(from, to)
+        });
+
+        assert!(result.is_err());
+        assert!(
+            database_family_paths(&source)
+                .iter()
+                .all(|path| path.is_file())
+        );
+        assert!(
+            database_family_paths(&destination)
+                .iter()
+                .all(|path| !path.exists())
+        );
+    }
+
+    #[test]
+    fn database_family_move_preflights_all_destinations() {
+        let directory = TempDir::new().unwrap();
+        let source = directory.path().join("source.sqlite3");
+        let destination = directory.path().join("destination.sqlite3");
+        fs::write(&source, b"main").unwrap();
+        fs::write(path_with_suffix(&source, "-wal"), b"wal").unwrap();
+        fs::write(path_with_suffix(&destination, "-shm"), b"collision").unwrap();
+
+        assert!(move_database_family(&source, &destination).is_err());
+        assert!(source.is_file());
+        assert!(path_with_suffix(&source, "-wal").is_file());
+        assert!(!destination.exists());
     }
 }

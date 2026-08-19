@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust authorization maintainers"
-last_verified: "2026-07-18"
+last_verified: "2026-08-19"
 review_triggers:
   - "a principal, relation, permission, policy, bootstrap, or revocation rule changes"
 keywords:
@@ -33,7 +33,7 @@ The policy compiles these relationships into registered permission decisions in 
 
 Grant and revoke commands require an expected policy revision and durable idempotency key. A real mutation increments policy revision once; an existing grant is a successful no-op. Same-input replay returns `changed: false` and creates no new event, but it resumes any publication left pending by the original committed attempt. Different-input key reuse fails.
 
-Rust refuses to revoke the final persisted owner in a scope. `AuthorizationService::bootstrap_owner` is a Rust-only audited operation that succeeds only when no persisted owner exists. It is not exposed through shell IPC. In explicitly insecure development-auth mode, the authenticated synthetic principal is an ephemeral owner without a persisted relationship. Production remains fail-closed until trusted identity provisioning exists.
+Rust refuses to revoke the final persisted owner in a scope. `AuthorizationService::bootstrap_owner` is a Rust-only audited operation that succeeds only when the scope has no persisted relationship of any kind. It is not exposed through shell IPC. In explicitly insecure development-auth mode, the authenticated synthetic principal is an ephemeral owner without a persisted relationship. Production remains fail-closed until trusted identity provisioning exists.
 
 Successful mutations commit relationship state, policy revision, idempotency outcome, audit outcome, and a durable publication outbox row together. The dispatcher publishes and removes that row after commit; startup drains rows left by an interruption before accepting IPC traffic. Denied, invalid, conflicting, not-found, and last-owner attempts receive separate audit outcomes. Audit records contain identity, scope, correlation/causation/idempotency IDs, operation, result, revisions, and changed identifiers. A grant records its exact relationship ID and relation plus a versioned SHA-256 subject fingerprint; it does not copy the raw subject principal ID into `changed_identifiers`. Audit records exclude configuration values, secrets, and authorization graphs.
 
@@ -61,4 +61,4 @@ A `1.2` client receives `SubscriptionClosed` with `authorizationRevoked`. A nego
 
 Stable failures distinguish denied access, invalid relation, optimistic policy conflict, last-owner protection, and unavailable authority storage. Shells render localized message IDs and may refresh effective permissions after a safe conflict; they must not infer relationships from denials.
 
-Tests cover role mapping, principal kinds, cross-scope isolation, owner-only listing, revision conflict, idempotency, last-owner protection, bootstrap, development ownership, protocol gating, policy events, and active subscription closure. Add nested teams, record-level relations, or stored policy documents only through a new policy version and ADR; do not extend policy v1 by hidden convention. See [ADR-0020](../../decisions/0020-direct-principal-scope-rebac-policy.md) and [recovery guidance](../../troubleshooting/configuration-authorization-failures.md).
+Tests cover role mapping, principal kinds, cross-scope isolation, owner-only listing, revision conflict, idempotency, last-owner protection, empty-scope bootstrap, development ownership, protocol gating, policy events, and active subscription closure. Add nested teams, record-level relations, or stored policy documents only through a new policy version and ADR; do not extend policy v1 by hidden convention. See [ADR-0020](../../decisions/0020-direct-principal-scope-rebac-policy.md) and [recovery guidance](../../troubleshooting/configuration-authorization-failures.md).

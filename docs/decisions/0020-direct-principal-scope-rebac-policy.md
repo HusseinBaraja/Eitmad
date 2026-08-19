@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "decision"
 status: "active"
 owner: "architecture and authorization maintainers"
-last_verified: "2026-07-18"
+last_verified: "2026-08-19"
 review_triggers:
   - "policy v1 relations, permissions, principal kinds, bootstrap, or revocation semantics change"
 keywords:
@@ -30,7 +30,7 @@ Configuration cannot be safely exposed before Rust can authorize exact users, de
 
 Compile policy v1 in Rust from direct principal-to-organization relationships: owner, config manager, and member. Members read and subscribe to configuration and query their effective permissions. Config managers also patch, import, and export. Owners also grant, revoke, and list relationships.
 
-Evaluation is deny by default, exact-scope, and uncached. Mutations require expected policy revision and durable idempotency. Preserve at least one persisted owner. Expose a Rust-only audited first-owner bootstrap only for scopes without an owner. In insecure development-auth mode only, treat the authenticated synthetic principal as an ephemeral owner.
+Evaluation is deny by default, exact-scope, and uncached. Mutations require expected policy revision and durable idempotency. Preserve at least one persisted owner. Expose a Rust-only audited first-owner bootstrap only for scopes without any persisted relationship. In insecure development-auth mode only, treat the authenticated synthetic principal as an ephemeral owner.
 
 After a real policy mutation, publish one scoped policy-change event and reauthorize active subscriptions before later delivery. Protocol `1.2` clients receive `authorizationRevoked`; older clients close without the new enum value.
 
