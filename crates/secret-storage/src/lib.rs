@@ -24,7 +24,7 @@ use zeroize::Zeroizing;
 
 const FALLBACK_MAGIC: &[u8; 8] = b"EITSEC01";
 const FALLBACK_NONCE_BYTES: usize = 12;
-const MAX_SECRET_BYTES: usize = 64 * 1024;
+const MAX_SECRET_BYTES: usize = 2 * 1024;
 const NATIVE_SERVICE_PREFIX: &str = "com.eitmad.secret";
 const NATIVE_PROBE_SERVICE: &str = "com.eitmad.secret.probe";
 
@@ -61,7 +61,7 @@ impl SecretMaterial {
     ///
     /// # Errors
     ///
-    /// Rejects empty values and values larger than 64 KiB.
+    /// Rejects empty values and values larger than 2 KiB.
     pub fn new(value: impl Into<Vec<u8>>) -> Result<Self, SecretStorageError> {
         let value = Zeroizing::new(value.into());
         if value.is_empty() {
@@ -534,7 +534,43 @@ fn make_file_private(_path: &Path, file: &File) -> Result<(), SecretStorageError
 
 #[cfg(windows)]
 fn make_windows_path_private(path: &Path, directory: bool) -> Result<(), SecretStorageError> {
-    use std::{ffi::OsStr, process::Command};
+    let sid = current_windows_user_sid()?;
+    let initial_acl = read_windows_acl(path)?;
+    if windows_acl_is_private(&initial_acl) && windows_acl_contains_sid(path, &sid)? {
+        return Ok(());
+    }
+    if windows_acl_has_explicit_entries(&initial_acl) {
+        run_windows_tool(
+            "icacls.exe",
+            [path.as_os_str(), "/reset".as_ref(), "/q".as_ref()],
+        )?;
+    }
+    let grant = if directory {
+        format!("*{sid}:(OI)(CI)F")
+    } else {
+        format!("*{sid}:F")
+    };
+    run_windows_tool(
+        "icacls.exe",
+        [
+            path.as_os_str(),
+            "/inheritance:r".as_ref(),
+            "/grant:r".as_ref(),
+            grant.as_ref(),
+            "/q".as_ref(),
+        ],
+    )?;
+    let applied_acl = read_windows_acl(path)?;
+    if windows_acl_is_private(&applied_acl) && windows_acl_contains_sid(path, &sid)? {
+        Ok(())
+    } else {
+        Err(SecretStorageError::Unavailable)
+    }
+}
+
+#[cfg(windows)]
+fn current_windows_user_sid() -> Result<String, SecretStorageError> {
+    use std::process::Command;
 
     let output = Command::new(windows_system_tool("whoami.exe"))
         .args(["/user", "/fo", "csv", "/nh"])
@@ -543,29 +579,65 @@ fn make_windows_path_private(path: &Path, directory: bool) -> Result<(), SecretS
     if !output.status.success() {
         return Err(SecretStorageError::Unavailable);
     }
-    let decoded = String::from_utf8_lossy(&output.stdout);
-    let sid = decoded
+    String::from_utf8_lossy(&output.stdout)
         .split(|character: char| {
             !(character == 'S' || character == '-' || character.is_ascii_digit())
         })
         .find(|value| value.starts_with("S-1-") && value.len() > 4)
-        .ok_or(SecretStorageError::Unavailable)?;
-    let grant = if directory {
-        format!("*{sid}:(OI)(CI)F")
-    } else {
-        format!("*{sid}:F")
-    };
+        .map(str::to_owned)
+        .ok_or(SecretStorageError::Unavailable)
+}
+
+#[cfg(windows)]
+fn read_windows_acl(path: &Path) -> Result<String, SecretStorageError> {
+    use std::process::Command;
+
     let output = Command::new(windows_system_tool("icacls.exe"))
-        .args([
-            path.as_os_str(),
-            OsStr::new("/inheritance:r"),
-            OsStr::new("/grant:r"),
-            OsStr::new(&grant),
-            OsStr::new("/q"),
-        ])
+        .arg(path)
         .output()
         .map_err(|_| SecretStorageError::Unavailable)?;
     output
+        .status
+        .success()
+        .then(|| String::from_utf8_lossy(&output.stdout).into_owned())
+        .ok_or(SecretStorageError::Unavailable)
+}
+
+#[cfg(windows)]
+fn windows_acl_is_private(acl: &str) -> bool {
+    acl.match_indices(":(").count() == 1 && acl.contains("(F)") && !acl.contains("(I)")
+}
+
+#[cfg(windows)]
+fn windows_acl_has_explicit_entries(acl: &str) -> bool {
+    acl.lines()
+        .filter(|line| line.contains(":("))
+        .any(|line| !line.contains("(I)"))
+}
+
+#[cfg(windows)]
+fn windows_acl_contains_sid(path: &Path, sid: &str) -> Result<bool, SecretStorageError> {
+    use std::process::Command;
+
+    let output = Command::new(windows_system_tool("icacls.exe"))
+        .arg(path)
+        .args(["/findsid", &format!("*{sid}"), "/q"])
+        .output()
+        .map_err(|_| SecretStorageError::Unavailable)?;
+    Ok(output.status.success())
+}
+
+#[cfg(windows)]
+fn run_windows_tool<const N: usize>(
+    tool: &str,
+    arguments: [&std::ffi::OsStr; N],
+) -> Result<(), SecretStorageError> {
+    use std::process::Command;
+
+    Command::new(windows_system_tool(tool))
+        .args(arguments)
+        .output()
+        .map_err(|_| SecretStorageError::Unavailable)?
         .status
         .success()
         .then_some(())
@@ -833,5 +905,39 @@ mod tests {
             SecretMaterial::new(vec![0; MAX_SECRET_BYTES + 1]),
             Err(SecretStorageError::SecretTooLarge)
         ));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn encrypted_fallback_removes_broad_windows_access() {
+        let directory = TempDir::new().unwrap();
+        run_windows_tool(
+            "icacls.exe",
+            [
+                directory.path().as_os_str(),
+                "/grant".as_ref(),
+                "*S-1-1-0:R".as_ref(),
+                "/q".as_ref(),
+            ],
+        )
+        .unwrap();
+        let backend =
+            EncryptedFallbackBackend::open(directory.path(), FallbackEncryptionKey::new([7; 32]))
+                .unwrap();
+        let identifier = id(10);
+        backend
+            .set(
+                &identifier,
+                &SecretMaterial::new(b"acl-test".to_vec()).unwrap(),
+            )
+            .unwrap();
+        let sid = current_windows_user_sid().unwrap();
+        let directory_acl = read_windows_acl(directory.path()).unwrap();
+        let file_acl = read_windows_acl(&backend.path_for(&identifier)).unwrap();
+
+        assert!(windows_acl_is_private(&directory_acl));
+        assert!(windows_acl_contains_sid(directory.path(), &sid).unwrap());
+        assert!(windows_acl_is_private(&file_acl));
+        assert!(windows_acl_contains_sid(&backend.path_for(&identifier), &sid).unwrap());
     }
 }
