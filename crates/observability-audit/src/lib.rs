@@ -1,5 +1,14 @@
 //! Privacy-preserving diagnostics and mutation audit records.
 
+mod diagnostics;
+
+pub use diagnostics::{
+    CrashReport, MAX_SENSITIVE_DEBUG_DURATION, ObservationContract, ObservationContractError,
+    ObservationFieldContract, ObservationValue, RedactionContext, SENSITIVE_DEBUG_WARNING,
+    SensitiveDebugController, SensitiveDebugError, SensitiveDebugEvaluation,
+    SensitiveDebugStatus, StructuredError, StructuredErrorClass, StructuredLog, StructuredValue,
+};
+
 use eitmad_contracts::{
     errors::ErrorCode,
     identity::{
@@ -59,6 +68,7 @@ pub enum AuditExtensionPoint {
     SyncBoundary,
     ExternalAdapterBoundary,
     PluginCapabilityBoundary,
+    SensitiveDebugMode,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
