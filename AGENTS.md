@@ -3,8 +3,7 @@
 ## Instruction Priority
 
 - Every instruction in this file is mandatory.
-- Use `.agents/skills/caveman/SKILL.md` in lite mode.
-- Use `.agents/skills/vertical-codebase/SKILL.md` to decide how to structure the codebase.
+- Use ASD-STE100 Simplified Technical English when you communicate with the user. Keep code, identifiers, exact quotations, error text, and established domain terms unchanged.
 - After implementing and verifying every feature request, run `.agents/skills/maintain-project-documentation/SKILL.md` before considering the feature complete. Use its evidence map and change-impact rules to update every affected canonical page, index, glossary term, decision, and troubleshooting path in the same logical change.
 - Commit incrementally when you complete a checkpoint.
 - Follow the existing non-destructive git rules: never revert user changes unless explicitly asked.
@@ -44,6 +43,10 @@ The final app must be fast, efficient, low-resource, secure, sync-capable, updat
 
 - When fixing PR issues submitted by CodeRabbit, apply minimal fixes and do not go overboard.
 - Minimal change does not mean taking shortcuts; if the correct fix is more involved, make the correct fix.
+- Before editing, group actionable CodeRabbit findings into coherent issue clusters by owning behavior or vertical, such as contracts, storage/audit, reconciliation, or platform bindings.
+- Complete, verify, and commit each issue cluster separately. Include its focused tests, generated artifacts, and required documentation in the same commit as the behavior change.
+- Do not create one commit per review comment when several comments share one root cause. Do not combine unrelated CodeRabbit clusters into one giant catch-all commit.
+- Order dependent clusters so foundational contract or storage changes land before engine, adapter, or documentation consumers.
 
 ## Git Workflow
 
