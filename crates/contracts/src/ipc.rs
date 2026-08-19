@@ -176,8 +176,24 @@ mod tests {
             ErrorCode, ErrorParameter, ErrorParameterName, ErrorParameterValue, MessageId,
             RetryDisposition,
         },
-        transport::{QueryOutcome, QueryResponseEnvelope},
+        events::ScopedError,
+        identity::{ScopeId, ScopeKind},
+        transport::{EventCursor, SubscriptionId, UnixMillis},
     };
+
+    fn unsafe_error(correlation_id: CorrelationId) -> ContractError {
+        ContractError {
+            code: ErrorCode::parse("eitmad.error.synthetic.v1").unwrap(),
+            message_id: MessageId::parse("eitmad.message.synthetic.v1").unwrap(),
+            parameters: vec![ErrorParameter {
+                name: ErrorParameterName::parse("unsafe-message").unwrap(),
+                value: ErrorParameterValue::Text("secret-sentinel".to_owned()),
+            }],
+            retry: RetryDisposition::Never,
+            correlation_id,
+            detail: None,
+        }
+    }
 
     #[test]
     fn frame_limit_is_eight_mebibytes() {
@@ -185,26 +201,67 @@ mod tests {
     }
 
     #[test]
-    fn ipc_projection_removes_accidental_sensitive_error_data() {
+    fn ipc_projection_redacts_every_nested_error_path() {
         let correlation_id = CorrelationId::new(Uuid::from_u128(1));
-        let message = IpcServerMessage::Query(QueryResponseEnvelope {
-            request_id: RequestId::new(Uuid::from_u128(2)),
-            correlation_id,
-            outcome: QueryOutcome::Failed(ContractError {
-                code: ErrorCode::parse("eitmad.error.synthetic.v1").unwrap(),
-                message_id: MessageId::parse("eitmad.message.synthetic.v1").unwrap(),
-                parameters: vec![ErrorParameter {
-                    name: ErrorParameterName::parse("unsafe-message").unwrap(),
-                    value: ErrorParameterValue::Text("secret-sentinel".to_owned()),
-                }],
-                retry: RetryDisposition::Never,
-                correlation_id,
-                detail: None,
-            }),
-        });
+        let request_id = RequestId::new(Uuid::from_u128(2));
+        let messages = [
+            (
+                "command",
+                IpcServerMessage::Command(CommandResponseEnvelope {
+                    request_id,
+                    correlation_id,
+                    outcome: CommandOutcome::Failed(unsafe_error(correlation_id)),
+                }),
+            ),
+            (
+                "query",
+                IpcServerMessage::Query(QueryResponseEnvelope {
+                    request_id,
+                    correlation_id,
+                    outcome: QueryOutcome::Failed(unsafe_error(correlation_id)),
+                }),
+            ),
+            (
+                "subscription",
+                IpcServerMessage::Subscribe(SubscriptionResponseEnvelope {
+                    request_id,
+                    correlation_id,
+                    outcome: SubscriptionOutcome::Failed(unsafe_error(correlation_id)),
+                }),
+            ),
+            (
+                "event",
+                IpcServerMessage::Event(EventEnvelope {
+                    subscription_id: SubscriptionId::new(Uuid::from_u128(3)),
+                    correlation_id,
+                    sequence: 1,
+                    cursor: EventCursor::new(Uuid::from_u128(4)),
+                    occurred_at: UnixMillis(5),
+                    event: Event::ErrorRaised(ScopedError {
+                        scope: ScopeRef {
+                            kind: ScopeKind::parse("organization").unwrap(),
+                            id: ScopeId::new(Uuid::from_u128(6)),
+                        },
+                        error: unsafe_error(correlation_id),
+                    }),
+                }),
+            ),
+            (
+                "failure",
+                IpcServerMessage::Failure(IpcFailureResponse {
+                    request_id: Some(request_id),
+                    error: unsafe_error(correlation_id),
+                }),
+            ),
+        ];
 
-        let encoded = serde_json::to_string(&message.redacted_for_external_boundary()).unwrap();
-        assert!(!encoded.contains("secret-sentinel"));
-        assert!(encoded.contains(&correlation_id.value().to_string()));
+        for (name, message) in messages {
+            let encoded = serde_json::to_string(&message.redacted_for_external_boundary()).unwrap();
+            assert!(!encoded.contains("secret-sentinel"), "{name} leaked data");
+            assert!(
+                encoded.contains(&correlation_id.value().to_string()),
+                "{name} lost correlation"
+            );
+        }
     }
 }

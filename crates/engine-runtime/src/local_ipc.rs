@@ -1278,6 +1278,7 @@ mod tests {
     use eitmad_contracts::{
         commands::{CancelOperation, Command},
         config::{ConfigReadValue, ConfigSnapshot},
+        errors::{ErrorParameter, ErrorParameterName, ErrorParameterValue},
         events::{AuthorizationPolicyChanges, ConfigurationChanges, Subscription},
         identity::{
             AuthenticatedIdentity, DeviceId, PrincipalId, PrincipalKind, ScopeId, ScopeKind,
@@ -2157,6 +2158,35 @@ mod tests {
                 .await
                 .unwrap()
         );
+    }
+
+    #[tokio::test]
+    async fn outbound_frame_redacts_nested_contract_errors() {
+        let correlation_id = CorrelationId::new(uuid::Uuid::from_u128(1));
+        let message = IpcServerMessage::Failure(IpcFailureResponse {
+            request_id: None,
+            error: ContractError {
+                code: ErrorCode::parse("eitmad.error.synthetic.v1").unwrap(),
+                message_id: MessageId::parse("eitmad.message.synthetic.v1").unwrap(),
+                parameters: vec![ErrorParameter {
+                    name: ErrorParameterName::parse("unsafe-message").unwrap(),
+                    value: ErrorParameterValue::Text("secret-sentinel".to_owned()),
+                }],
+                retry: RetryDisposition::Never,
+                correlation_id,
+                detail: None,
+            },
+        });
+        let (mut writer, mut reader) = tokio::io::duplex(4096);
+
+        assert!(write_frame_or_close(&mut writer, &message).await.unwrap());
+        let decoded = read_frame::<_, IpcServerMessage>(&mut reader)
+            .await
+            .unwrap();
+        let encoded = serde_json::to_string(&decoded).unwrap();
+
+        assert!(!encoded.contains("secret-sentinel"));
+        assert!(encoded.contains(&correlation_id.value().to_string()));
     }
 
     #[tokio::test]
