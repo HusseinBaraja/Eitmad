@@ -5,15 +5,26 @@ use std::{
     path::PathBuf,
     process::ExitCode,
     sync::Arc,
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use clap::{Parser, Subcommand, ValueEnum};
-use eitmad_contracts::runtime::{EngineMode, HealthStatus};
+use eitmad_contracts::{
+    observability::{
+        ComponentId, DataClassification, ObservationEventId, ObservationFieldName,
+        ObservationSeverity, ObservationValueKind,
+    },
+    runtime::{EngineMode, HealthStatus},
+    transport::{CorrelationId, UnixMillis},
+};
 use eitmad_engine_runtime::{
     AuthorityStoreComponent, AuthorityStoreHandle, AuthorityStoreHealthCheck, ProductDispatcher,
     RuntimeBuilder, RuntimeDirectoryHealthCheck, RuntimeFailure, ShutdownReason,
     default_runtime_directory,
     local_ipc::{EventBroker, LocalIpcConfiguration, LocalIpcServer},
+};
+use eitmad_observability_audit::{
+    ObservationContract, ObservationFieldContract, ObservationValue, RedactionContext,
 };
 use serde::Serialize;
 use tokio::{
@@ -144,7 +155,10 @@ async fn run(
         allow_insecure_development_auth,
     ));
     if dispatcher.drain_pending_publications().is_err() {
-        eprintln!("durable event publication recovery failed");
+        emit_operational_failure(
+            "eitmad.observation.event-publication-recovery-failed.v1",
+            "eitmad.error.event-publication-recovery-failed.v1",
+        );
         let _ = runtime.shutdown(ShutdownReason::Explicit).await;
         let _ = emitter.await;
         return ExitCode::from(EXIT_RUNTIME_FAILURE);
@@ -169,12 +183,18 @@ async fn run(
     let ipc_stopped_cleanly = if let Some(task) = ipc_task {
         match task.await {
             Ok(Ok(())) => true,
-            Ok(Err(error)) => {
-                eprintln!("local IPC server failed: {error}");
+            Ok(Err(_)) => {
+                emit_operational_failure(
+                    "eitmad.observation.local-ipc-server-failed.v1",
+                    "eitmad.error.local-ipc-server-failed.v1",
+                );
                 false
             }
-            Err(error) => {
-                eprintln!("local IPC server task failed: {error}");
+            Err(_) => {
+                emit_operational_failure(
+                    "eitmad.observation.local-ipc-task-failed.v1",
+                    "eitmad.error.local-ipc-task-failed.v1",
+                );
                 false
             }
         }
@@ -182,10 +202,17 @@ async fn run(
         true
     };
     let outcome = runtime.shutdown(reason).await;
-    if let Err(failure) = &outcome {
+    let _ = emitter.await;
+    exit_after_shutdown(&outcome, ipc_stopped_cleanly)
+}
+
+fn exit_after_shutdown(
+    outcome: &Result<(), RuntimeFailure>,
+    ipc_stopped_cleanly: bool,
+) -> ExitCode {
+    if let Err(failure) = outcome {
         emit_failure(failure);
     }
-    let _ = emitter.await;
     ExitCode::from(if outcome.is_ok() && ipc_stopped_cleanly {
         EXIT_SUCCESS
     } else {
@@ -297,8 +324,52 @@ fn emit_json(value: &impl Serialize) -> Result<(), serde_json::Error> {
 }
 
 fn emit_failure(failure: &RuntimeFailure) {
-    match serde_json::to_string(failure.contract_error()) {
+    let safe = failure.contract_error().redacted_for_external_boundary();
+    match serde_json::to_string(&safe) {
         Ok(encoded) => eprintln!("{encoded}"),
         Err(_) => eprintln!("{{\"code\":\"eitmad.error.engine-startup-failed.v1\"}}"),
     }
+}
+
+fn emit_operational_failure(event_id: &str, error_code: &str) {
+    let correlation_id = CorrelationId::new(uuid::Uuid::new_v4());
+    let field_name = ObservationFieldName::parse("error-code")
+        .expect("static observation field name must be valid");
+    let contract = ObservationContract::new(
+        ObservationEventId::parse(event_id).expect("static observation event ID must be valid"),
+        [ObservationFieldContract {
+            name: field_name.clone(),
+            classification: DataClassification::Metadata,
+            value_kind: ObservationValueKind::Identifier,
+        }],
+    )
+    .expect("static observation contract must be valid");
+    let log = contract
+        .redact(
+            current_time(),
+            ComponentId::parse("engine-cli").expect("static component ID must be valid"),
+            ObservationSeverity::Error,
+            correlation_id,
+            [(
+                field_name,
+                ObservationValue::Identifier(error_code.to_owned()),
+            )],
+            RedactionContext::metadata_only(),
+        )
+        .expect("static metadata must match its observation contract");
+    match serde_json::to_string(&log) {
+        Ok(encoded) => eprintln!("{encoded}"),
+        Err(_) => eprintln!(
+            "{{\"eventId\":\"eitmad.observation.serialization-failed.v1\",\"correlationId\":\"{}\"}}",
+            correlation_id.value()
+        ),
+    }
+}
+
+fn current_time() -> UnixMillis {
+    let millis = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis();
+    UnixMillis(i64::try_from(millis).unwrap_or(i64::MAX))
 }

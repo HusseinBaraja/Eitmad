@@ -3,11 +3,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     errors::ContractError,
+    events::Event,
     identity::{AuthenticatedIdentity, AuthorizationContext, ScopeRef, TenantId, WorkspaceId},
     transport::{
-        CommandEnvelope, CommandResponseEnvelope, CorrelationId, EventEnvelope, QueryEnvelope,
-        QueryResponseEnvelope, RequestId, SubscriptionClosedEnvelope, SubscriptionEnvelope,
-        SubscriptionResponseEnvelope, UnsubscribeRequest, UnsubscribeResponse,
+        CommandEnvelope, CommandOutcome, CommandResponseEnvelope, CorrelationId, EventEnvelope,
+        QueryEnvelope, QueryOutcome, QueryResponseEnvelope, RequestId, SubscriptionClosedEnvelope,
+        SubscriptionEnvelope, SubscriptionOutcome, SubscriptionResponseEnvelope,
+        UnsubscribeRequest, UnsubscribeResponse,
     },
     versioning::{NegotiatedSession, NegotiationRejection, PeerHello},
 };
@@ -126,12 +128,83 @@ pub enum IpcServerMessage {
     Failure(IpcFailureResponse),
 }
 
+impl IpcServerMessage {
+    /// Returns a clone with every nested error sanitized for the IPC boundary.
+    #[must_use]
+    pub fn redacted_for_external_boundary(&self) -> Self {
+        let mut message = self.clone();
+        match &mut message {
+            Self::Command(response) => {
+                if let CommandOutcome::Failed(error) = &mut response.outcome {
+                    *error = error.redacted_for_external_boundary();
+                }
+            }
+            Self::Query(response) => {
+                if let QueryOutcome::Failed(error) = &mut response.outcome {
+                    *error = error.redacted_for_external_boundary();
+                }
+            }
+            Self::Subscribe(response) => {
+                if let SubscriptionOutcome::Failed(error) = &mut response.outcome {
+                    *error = error.redacted_for_external_boundary();
+                }
+            }
+            Self::Event(envelope) => {
+                if let Event::ErrorRaised(scoped) = &mut envelope.event {
+                    scoped.error = scoped.error.redacted_for_external_boundary();
+                }
+            }
+            Self::Failure(response) => {
+                response.error = response.error.redacted_for_external_boundary();
+            }
+            Self::Handshake(_)
+            | Self::Unsubscribe(_)
+            | Self::SubscriptionClosed(_)
+            | Self::Shutdown(_) => {}
+        }
+        message
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use uuid::Uuid;
+
     use super::*;
+    use crate::{
+        errors::{
+            ErrorCode, ErrorParameter, ErrorParameterName, ErrorParameterValue, MessageId,
+            RetryDisposition,
+        },
+        transport::{QueryOutcome, QueryResponseEnvelope},
+    };
 
     #[test]
     fn frame_limit_is_eight_mebibytes() {
         assert_eq!(MAX_IPC_FRAME_BYTES, 8_388_608);
+    }
+
+    #[test]
+    fn ipc_projection_removes_accidental_sensitive_error_data() {
+        let correlation_id = CorrelationId::new(Uuid::from_u128(1));
+        let message = IpcServerMessage::Query(QueryResponseEnvelope {
+            request_id: RequestId::new(Uuid::from_u128(2)),
+            correlation_id,
+            outcome: QueryOutcome::Failed(ContractError {
+                code: ErrorCode::parse("eitmad.error.synthetic.v1").unwrap(),
+                message_id: MessageId::parse("eitmad.message.synthetic.v1").unwrap(),
+                parameters: vec![ErrorParameter {
+                    name: ErrorParameterName::parse("unsafe-message").unwrap(),
+                    value: ErrorParameterValue::Text("secret-sentinel".to_owned()),
+                }],
+                retry: RetryDisposition::Never,
+                correlation_id,
+                detail: None,
+            }),
+        });
+
+        let encoded = serde_json::to_string(&message.redacted_for_external_boundary()).unwrap();
+        assert!(!encoded.contains("secret-sentinel"));
+        assert!(encoded.contains(&correlation_id.value().to_string()));
     }
 }

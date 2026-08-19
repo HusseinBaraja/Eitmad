@@ -93,8 +93,8 @@
       {
         "name": "expected-revision",
         "value": {
-          "kind": "text",
-          "value": "ملف عرض السعر Quote-١٢.pdf"
+          "kind": "integer",
+          "value": 6
         }
       }
     ],

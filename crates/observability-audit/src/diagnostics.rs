@@ -135,12 +135,24 @@ pub enum StructuredValue {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StructuredLog {
-    pub occurred_at: UnixMillis,
-    pub event_id: ObservationEventId,
-    pub component: ComponentId,
-    pub severity: ObservationSeverity,
-    pub correlation_id: CorrelationId,
-    pub fields: BTreeMap<ObservationFieldName, StructuredValue>,
+    occurred_at: UnixMillis,
+    event_id: ObservationEventId,
+    component: ComponentId,
+    severity: ObservationSeverity,
+    correlation_id: CorrelationId,
+    fields: BTreeMap<ObservationFieldName, StructuredValue>,
+}
+
+impl StructuredLog {
+    #[must_use]
+    pub const fn correlation_id(&self) -> CorrelationId {
+        self.correlation_id
+    }
+
+    #[must_use]
+    pub const fn fields(&self) -> &BTreeMap<ObservationFieldName, StructuredValue> {
+        &self.fields
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -155,10 +167,10 @@ pub enum StructuredErrorClass {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StructuredError {
-    pub code: ErrorCode,
-    pub class: StructuredErrorClass,
-    pub correlation_id: CorrelationId,
-    pub metadata: BTreeMap<ObservationFieldName, StructuredValue>,
+    code: ErrorCode,
+    class: StructuredErrorClass,
+    correlation_id: CorrelationId,
+    metadata: BTreeMap<ObservationFieldName, StructuredValue>,
 }
 
 impl StructuredError {
@@ -175,16 +187,39 @@ impl StructuredError {
             metadata: BTreeMap::new(),
         }
     }
+
+    #[must_use]
+    pub const fn correlation_id(&self) -> CorrelationId {
+        self.correlation_id
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CrashReport {
-    pub occurred_at: UnixMillis,
-    pub component: ComponentId,
-    pub correlation_id: CorrelationId,
-    pub error: StructuredError,
-    pub recent_metadata: Vec<StructuredLog>,
+    occurred_at: UnixMillis,
+    component: ComponentId,
+    correlation_id: CorrelationId,
+    error: StructuredError,
+    recent_metadata: Vec<StructuredLog>,
+}
+
+impl CrashReport {
+    #[must_use]
+    pub fn new(
+        occurred_at: UnixMillis,
+        component: ComponentId,
+        error: StructuredError,
+        recent_metadata: Vec<StructuredLog>,
+    ) -> Self {
+        Self {
+            occurred_at,
+            component,
+            correlation_id: error.correlation_id(),
+            error,
+            recent_metadata,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -298,7 +333,13 @@ impl SensitiveDebugController {
                 expiry_audit: None,
             };
         }
-        let activation = self.activation.take().expect("activation was present");
+        let Some(activation) = self.activation.take() else {
+            return SensitiveDebugEvaluation {
+                status: SensitiveDebugStatus::Disabled,
+                redaction: RedactionContext::metadata_only(),
+                expiry_audit: None,
+            };
+        };
         SensitiveDebugEvaluation {
             status: SensitiveDebugStatus::Expired,
             redaction: RedactionContext::metadata_only(),
@@ -437,7 +478,7 @@ mod tests {
         assert!(!encoded.contains("عميل تجريبي"));
         assert!(!encoded.contains("never-log-this-token"));
         assert_eq!(
-            log.fields[&ObservationFieldName::parse("access-token").unwrap()],
+            log.fields()[&ObservationFieldName::parse("access-token").unwrap()],
             StructuredValue::Redacted
         );
     }
@@ -542,5 +583,53 @@ mod tests {
             ),
             Err(SensitiveDebugError::InvalidDuration)
         );
+    }
+
+    #[test]
+    fn secret_sentinel_never_enters_logs_errors_crashes_or_debug_audits() {
+        let sentinel = "secret-sentinel-never-emit";
+        let correlation = CorrelationId::new(Uuid::from_u128(5));
+        let log = contract()
+            .redact(
+                UnixMillis(1),
+                ComponentId::parse("engine-runtime").unwrap(),
+                ObservationSeverity::Critical,
+                correlation,
+                [(
+                    ObservationFieldName::parse("access-token").unwrap(),
+                    ObservationValue::Text(sentinel.to_owned()),
+                )],
+                RedactionContext::metadata_only(),
+            )
+            .unwrap();
+        let error = StructuredError::new(
+            ErrorCode::parse("eitmad.error.synthetic.v1").unwrap(),
+            StructuredErrorClass::Internal,
+            correlation,
+        );
+        let crash = CrashReport::new(
+            UnixMillis(2),
+            ComponentId::parse("engine-runtime").unwrap(),
+            error.clone(),
+            vec![log.clone()],
+        );
+        let mut controller = SensitiveDebugController::default();
+        let debug_audit = controller
+            .enable(
+                &authorization(),
+                correlation,
+                UnixMillis(3),
+                Duration::from_secs(30),
+            )
+            .unwrap();
+
+        for encoded in [
+            serde_json::to_string(&log).unwrap(),
+            serde_json::to_string(&error).unwrap(),
+            serde_json::to_string(&crash).unwrap(),
+            serde_json::to_string(&debug_audit).unwrap(),
+        ] {
+            assert!(!encoded.contains(sentinel));
+        }
     }
 }

@@ -532,10 +532,12 @@ dependencies = [
  "clap",
  "eitmad-contracts",
  "eitmad-engine-runtime",
+ "eitmad-observability-audit",
  "serde",
  "serde_json",
  "tempfile",
  "tokio",
+ "uuid",
 ]
 
 [[package]]

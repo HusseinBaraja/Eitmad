@@ -1244,7 +1244,14 @@ where
     writer.flush().await
 }
 
-async fn write_frame_or_close<W, T>(writer: &mut W, value: &T) -> io::Result<bool>
+async fn write_frame_or_close<W>(writer: &mut W, value: &IpcServerMessage) -> io::Result<bool>
+where
+    W: AsyncWrite + Unpin,
+{
+    write_serialized_frame_or_close(writer, &value.redacted_for_external_boundary()).await
+}
+
+async fn write_serialized_frame_or_close<W, T>(writer: &mut W, value: &T) -> io::Result<bool>
 where
     W: AsyncWrite + Unpin,
     T: Serialize,
@@ -2145,7 +2152,11 @@ mod tests {
         let value = "x".repeat(MAX_IPC_FRAME_BYTES as usize + 1);
         let (mut writer, _) = tokio::io::duplex(16);
 
-        assert!(!write_frame_or_close(&mut writer, &value).await.unwrap());
+        assert!(
+            !write_serialized_frame_or_close(&mut writer, &value)
+                .await
+                .unwrap()
+        );
     }
 
     #[tokio::test]

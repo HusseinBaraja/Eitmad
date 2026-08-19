@@ -140,7 +140,7 @@ fn fixture() -> Result<ConformanceFixture, Box<dyn std::error::Error>> {
         message_id: MessageId::parse("eitmad.message.config-revision-conflict.v1")?,
         parameters: vec![ErrorParameter {
             name: ErrorParameterName::parse("expected-revision")?,
-            value: ErrorParameterValue::Text("ملف عرض السعر Quote-١٢.pdf".to_owned()),
+            value: ErrorParameterValue::Integer(6),
         }],
         retry: RetryDisposition::Never,
         correlation_id,
