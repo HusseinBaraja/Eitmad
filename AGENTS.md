@@ -54,6 +54,8 @@ The final app must be fast, efficient, low-resource, secure, sync-capable, updat
 - Do not prefix branch names with `codex/`. Use descriptive branch names without tool or vendor namespaces.
 - If the user explicitly says no branch is needed, do not create one.
 - Commit incrementally when a logical checkpoint is complete.
+- When publishing work, push the active feature branch to its remote before creating or updating a pull request.
+- Never create a draft pull request. Create only a regular, ready-for-review pull request.
 - Close all PowerShell/CMD instances you created during the session after you are done working and the codebase is clean and committed.
 
 
