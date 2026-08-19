@@ -11,6 +11,7 @@ review_triggers:
 keywords:
   - "troubleshooting"
   - "contract drift"
+  - "schema drift"
 ---
 
 # Troubleshoot Eitmad
@@ -24,7 +25,7 @@ Use symptom and identifier pages to reach the authoritative owner and a non-dest
 ## Engine process failures
 
 - [Resolve local IPC connection, request, and subscription failures](local-ipc-failures.md): diagnose unavailable engines, rejected sessions, resync, backpressure, version mismatch, deadlines, and payload bounds.
-- [Resolve engine startup and authority failures](engine-startup-failures.md): diagnose failed startup, invalid supervision, readiness checks, shutdown failures, and duplicate engine authorities.
+- [Resolve engine startup and authority failures](engine-startup-failures.md): diagnose failed startup, storage migration or schema drift, invalid supervision, readiness checks, shutdown failures, and duplicate engine authorities.
 - [Resolve Windows engine supervision failures](windows-engine-supervision-failures.md): diagnose restart exhaustion, forced shutdown, stale observations, and Job Object setup failures.
 
 ## Configuration and authorization failures

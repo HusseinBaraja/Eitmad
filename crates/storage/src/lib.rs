@@ -3,6 +3,7 @@
 mod authorization;
 mod configuration;
 mod migrations;
+mod recovery;
 
 use std::{
     fmt, fs,
@@ -23,7 +24,8 @@ use eitmad_contracts::{
     transport::IdempotencyKey,
 };
 use eitmad_observability_audit::MutationAuditRecord;
-use rusqlite::{Connection, OpenFlags, OptionalExtension as _};
+pub use recovery::RestoreOutcome;
+use rusqlite::{Connection, OpenFlags, OptionalExtension as _, TransactionBehavior};
 
 pub const DATABASE_FILE_NAME: &str = "eitmad.sqlite3";
 pub const CURRENT_STORAGE_VERSION: u32 = 4;
@@ -100,30 +102,70 @@ impl AuthorityStore {
         if !path.is_file() {
             return Err(StorageError);
         }
-        let connection = Connection::open_with_flags(
-            path,
-            OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
-        )
-        .map_err(|_| StorageError)?;
-        let version = migrations::read_version(&connection)?;
-        if version > CURRENT_STORAGE_VERSION {
-            return Err(StorageError);
-        }
-        connection
-            .query_row("PRAGMA quick_check(1)", [], |row| row.get::<_, String>(0))
-            .map_err(|_| StorageError)
-            .and_then(|result| (result == "ok").then_some(()).ok_or(StorageError))?;
-        let mut migration_copy = Connection::open_in_memory().map_err(|_| StorageError)?;
-        {
-            let backup = rusqlite::backup::Backup::new(&connection, &mut migration_copy)
-                .map_err(|_| StorageError)?;
-            backup
-                .run_to_completion(100, Duration::from_millis(5), None)
-                .map_err(|_| StorageError)?;
-        }
-        migrations::apply(&mut migration_copy)
+        validate_database_file(&path)
     }
 
+    fn read_transaction<T>(
+        &self,
+        operation: impl FnOnce(&Connection) -> Result<T, StorageError>,
+    ) -> Result<T, StorageError> {
+        self.transaction(TransactionBehavior::Deferred, operation)
+    }
+
+    fn write_transaction<T>(
+        &self,
+        operation: impl FnOnce(&Connection) -> Result<T, StorageError>,
+    ) -> Result<T, StorageError> {
+        self.transaction(TransactionBehavior::Immediate, operation)
+    }
+
+    fn transaction<T>(
+        &self,
+        behavior: TransactionBehavior,
+        operation: impl FnOnce(&Connection) -> Result<T, StorageError>,
+    ) -> Result<T, StorageError> {
+        let mut connection = self.open_connection()?;
+        let transaction = connection
+            .transaction_with_behavior(behavior)
+            .map_err(|_| StorageError)?;
+        let result = operation(&transaction)?;
+        transaction.commit().map_err(|_| StorageError)?;
+        Ok(result)
+    }
+
+    fn open_connection(&self) -> Result<Connection, StorageError> {
+        let connection = Connection::open(&self.path).map_err(|_| StorageError)?;
+        configure_connection(&connection)?;
+        Ok(connection)
+    }
+}
+
+fn validate_database_file(path: &Path) -> Result<(), StorageError> {
+    let connection = Connection::open_with_flags(
+        path,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .map_err(|_| StorageError)?;
+    let version = migrations::read_version(&connection)?;
+    if version > CURRENT_STORAGE_VERSION {
+        return Err(StorageError);
+    }
+    connection
+        .query_row("PRAGMA quick_check(1)", [], |row| row.get::<_, String>(0))
+        .map_err(|_| StorageError)
+        .and_then(|result| (result == "ok").then_some(()).ok_or(StorageError))?;
+    let mut migration_copy = Connection::open_in_memory().map_err(|_| StorageError)?;
+    {
+        let backup = rusqlite::backup::Backup::new(&connection, &mut migration_copy)
+            .map_err(|_| StorageError)?;
+        backup
+            .run_to_completion(100, Duration::from_millis(5), None)
+            .map_err(|_| StorageError)?;
+    }
+    migrations::apply(&mut migration_copy)
+}
+
+impl AuthorityStore {
     #[must_use]
     pub fn path(&self) -> &Path {
         &self.path
@@ -242,17 +284,15 @@ impl AuthorityStore {
             .map_err(|_| StorageError)?;
         Ok(())
     }
+}
 
-    fn open_connection(&self) -> Result<Connection, StorageError> {
-        let connection = Connection::open(&self.path).map_err(|_| StorageError)?;
-        connection
-            .busy_timeout(BUSY_TIMEOUT)
-            .map_err(|_| StorageError)?;
-        connection
-            .execute_batch("PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;")
-            .map_err(|_| StorageError)?;
-        Ok(connection)
-    }
+fn configure_connection(connection: &Connection) -> Result<(), StorageError> {
+    connection
+        .busy_timeout(BUSY_TIMEOUT)
+        .map_err(|_| StorageError)?;
+    connection
+        .execute_batch("PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;")
+        .map_err(|_| StorageError)
 }
 
 fn ensure_database_file(path: &Path) -> Result<(), StorageError> {
@@ -602,6 +642,36 @@ mod tests {
 
         assert!(AuthorityStore::check_compatible(directory.path()).is_err());
         assert_eq!(fs::read(path).unwrap(), before);
+    }
+
+    #[test]
+    fn failed_write_transaction_leaves_no_partial_rows() {
+        let directory = TempDir::new().unwrap();
+        let store = AuthorityStore::open(directory.path()).unwrap();
+        let result = store.write_transaction(|connection| {
+            connection
+                .execute(
+                    "INSERT INTO configuration_scopes
+                     (scope_kind, scope_id, schema_version, revision)
+                     VALUES ('organization', 'rolled-back', 1, 1)",
+                    [],
+                )
+                .map_err(|_| StorageError)?;
+            Err::<(), StorageError>(StorageError)
+        });
+        assert!(result.is_err());
+        let count = store
+            .read_transaction(|connection| {
+                connection
+                    .query_row(
+                        "SELECT COUNT(*) FROM configuration_scopes WHERE scope_id = 'rolled-back'",
+                        [],
+                        |row| row.get::<_, i64>(0),
+                    )
+                    .map_err(|_| StorageError)
+            })
+            .unwrap();
+        assert_eq!(count, 0);
     }
 
     #[cfg(windows)]

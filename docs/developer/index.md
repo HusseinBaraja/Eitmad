@@ -33,6 +33,7 @@ Read `AGENTS.md` at the repository root, then review:
 - [Typed local IPC](subsystems/local-ipc.md)
 - [Rust-owned configuration](subsystems/configuration.md)
 - [Scoped ReBAC authorization](subsystems/authorization.md)
+- [Rust-owned local storage](subsystems/local-storage.md)
 - [Windows engine process supervision](subsystems/windows-process-supervision.md)
 
 ## 1. Name the product capability
