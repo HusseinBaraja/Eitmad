@@ -5,7 +5,7 @@ audience: "support"
 page_type: "troubleshooting"
 status: "active"
 owner: "Rust engine maintainers"
-last_verified: "2026-07-18"
+last_verified: "2026-08-19"
 review_triggers:
   - "engine lifecycle error IDs, authority locking, readiness checks, CLI exit codes, or recovery behavior changes"
 keywords:
@@ -51,7 +51,7 @@ These identifiers apply to Windows, macOS, and Linux; supervised desktop and hea
 | `eitmad.error.engine-health-check-failed.v1` with `readinessCheck` | A required check is degraded, unhealthy, or timed out | Run `diagnose` and inspect the check ID/status | Correct the environment represented by the stable check ID, then retry |
 | `eitmad.error.engine-startup-failed.v1` with `authorityLock` | Runtime directory or lock metadata cannot be created safely | Verify the selected directory is user-local and available | Correct directory availability or permissions; never redirect it into customer data |
 | `eitmad.error.engine-startup-failed.v1` with `componentStartup` | A component failed or the 30-second startup deadline elapsed | Reproduce with focused runtime tests and sanitized correlation data | Repair the owning component; startup rollback has already stopped earlier components |
-| `eitmad.error.engine-startup-failed.v1` with `componentStartup` after storage was introduced | SQLite could not open, migration history/checksum failed, or schema drift was detected | Run read-only diagnostics; preserve the complete runtime directory and storage version | Correct permissions/environment or use an approved stopped-engine restore coordinator; never edit schema or migration rows manually |
+| `eitmad.error.engine-startup-failed.v1` with `componentStartup` after storage was introduced | SQLite could not open, pre-migration snapshot failed, version is outside 2–5, integrity/history/checksum failed, or schema drift was detected | Run read-only diagnostics; preserve the complete runtime directory and storage version | Follow [local storage recovery failures](local-storage-recovery-failures.md); never edit schema or migration rows manually |
 | `eitmad.error.engine-shutdown-failed.v1` | A component failed to stop or the 10-second deadline elapsed | Confirm the process exited and preserve the structured stage | Treat state as failed, investigate the owning component, and verify its cleanup before restart |
 
 ## Verify recovery

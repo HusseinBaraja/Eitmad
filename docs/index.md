@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-07-18"
+last_verified: "2026-08-19"
 review_triggers:
   - "a documentation collection or canonical entry point changes"
 keywords:
@@ -15,7 +15,7 @@ keywords:
 
 # Eitmad documentation
 
-Choose the route that matches your task. Protocol `1.2`, the engine lifecycle, SQLite authority storage, Rust-owned configuration, scoped ReBAC, and Windows process supervision are implemented foundations; no native settings UI or production business workflow exists yet.
+Choose the route that matches your task. Protocol `1.2`, the engine lifecycle, SQLite authority/recovery, persistent tenant identity, Rust-owned configuration, scoped ReBAC, and Windows process supervision are implemented foundations; no production identity issuer, native settings UI, or business workflow exists yet.
 
 ## Use the product
 
@@ -26,6 +26,7 @@ No user workflow is ready to document. When the first product flow exists, Engli
 - [Start developing Eitmad](developer/index.md): contribution setup, ownership boundaries, tests, and feature documentation.
 - [Extend Rust-owned configuration](developer/subsystems/configuration.md): defaults, validation, revisions, redaction, import/export, and events.
 - [Extend scoped ReBAC authorization](developer/subsystems/authorization.md): direct relationships, policy revisions, owner protection, and revocation.
+- [Extend persistent tenant identity](developer/subsystems/identity-foundation.md): device, account, session, scope topology, offline behavior, and audit attribution.
 - [Understand the target architecture](architecture/index.md): Rust authority, trust boundaries, synchronization, security, and updates.
 - [Use protocol v1 contracts](api/index.md): exact Rust-owned contracts, compatibility, generation, and native bindings.
 - [Review architectural decisions](decisions/index.md): durable choices, reasons, and consequences.
@@ -36,6 +37,7 @@ No user workflow is ready to document. When the first product flow exists, Engli
 
 - [Run foundation checks](operations/index.md): currently safe commands and operational-readiness limits.
 - [Run and diagnose the engine](operations/run-engine-runtime.md): headless and supervised modes, readiness JSON, exit codes, and recovery.
+- [Recover and export local storage](operations/recover-local-storage.md): migration snapshots, corruption checks, backup/restore, recovery artifacts, and scoped export.
 
 ## Search by symptom or identifier
 

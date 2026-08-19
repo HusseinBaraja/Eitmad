@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-07-18"
+last_verified: "2026-08-19"
 review_triggers:
   - "workspace verification, executable behavior, deployment, backup, or recovery changes"
 keywords:
@@ -17,7 +17,7 @@ keywords:
 
 # Run Eitmad foundation checks
 
-These steps verify the current foundation. Rust owns the local SQLite authority database and validated backup/restore library hooks. Packaging, scheduled backup, retention, restore IPC, and production operator tooling are not implemented.
+These steps verify the current foundation. Rust owns local SQLite authority, migration snapshots, validated backup/restore, persistent identity, corruption checks, and scoped export hooks. Packaging, scheduled backup, retention, restore/export IPC, and production operator tooling are not implemented.
 
 ## Prerequisites
 
@@ -104,6 +104,7 @@ If a command fails, stop. Do not hide the warning or bypass the test. Fix the au
 
 - [Start developing Eitmad](../developer/index.md)
 - [Run and diagnose the engine runtime](run-engine-runtime.md)
+- [Recover and export local storage](recover-local-storage.md)
 - [Understand local storage and recovery boundaries](../developer/subsystems/local-storage.md)
 - [Extend Windows process supervision safely](../developer/subsystems/windows-process-supervision.md)
 - [Review the documentation standard](../developer/contributing/documentation-standard.md)

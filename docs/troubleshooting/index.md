@@ -5,7 +5,7 @@ audience: "support"
 page_type: "troubleshooting"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-07-18"
+last_verified: "2026-08-19"
 review_triggers:
   - "a stable diagnosable error or recovery path is added"
 keywords:
@@ -27,6 +27,10 @@ Use symptom and identifier pages to reach the authoritative owner and a non-dest
 - [Resolve local IPC connection, request, and subscription failures](local-ipc-failures.md): diagnose unavailable engines, rejected sessions, resync, backpressure, version mismatch, deadlines, and payload bounds.
 - [Resolve engine startup and authority failures](engine-startup-failures.md): diagnose failed startup, storage migration or schema drift, invalid supervision, readiness checks, shutdown failures, and duplicate engine authorities.
 - [Resolve Windows engine supervision failures](windows-engine-supervision-failures.md): diagnose restart exhaustion, forced shutdown, stale observations, and Job Object setup failures.
+
+## Storage and recovery failures
+
+- [Resolve local storage migration, corruption, and restore failures](local-storage-recovery-failures.md): diagnose compatibility windows, pre-migration snapshots, integrity, schema drift, restore artifacts, and scoped export denial.
 
 ## Configuration and authorization failures
 

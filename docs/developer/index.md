@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "tutorial"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-07-18"
+last_verified: "2026-08-19"
 review_triggers:
   - "workspace layout, contributor checks, or ownership rules change"
 keywords:
@@ -34,6 +34,7 @@ Read `AGENTS.md` at the repository root, then review:
 - [Rust-owned configuration](subsystems/configuration.md)
 - [Scoped ReBAC authorization](subsystems/authorization.md)
 - [Rust-owned local storage](subsystems/local-storage.md)
+- [Persistent tenant identity](subsystems/identity-foundation.md)
 - [Windows engine process supervision](subsystems/windows-process-supervision.md)
 
 ## 1. Name the product capability

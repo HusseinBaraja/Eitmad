@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "reference"
 status: "active"
 owner: "architecture maintainers"
-last_verified: "2026-07-18"
+last_verified: "2026-08-19"
 review_triggers:
   - "an ADR is proposed, accepted, rejected, or superseded"
 keywords:
@@ -58,3 +58,4 @@ Accepted ADRs are immutable historical records except for typo fixes, link repai
 | [ADR-0019](0019-sqlite-authority-storage.md) | Use SQLite for local authority storage | Accepted | 2026-07-18 | None |
 | [ADR-0020](0020-direct-principal-scope-rebac-policy.md) | Use direct principal-to-scope ReBAC policy v1 | Accepted | 2026-07-18 | None |
 | [ADR-0021](0021-checksummed-feature-storage-migrations.md) | Use checksummed feature-owned storage migrations | Accepted | 2026-07-18 | None |
+| [ADR-0022](0022-persistent-tenant-identity-and-safe-storage-recovery.md) | Persist tenant identity and fail closed during storage recovery | Accepted | 2026-08-19 | None |

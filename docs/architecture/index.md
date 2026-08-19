@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "explanation"
 status: "active"
 owner: "architecture maintainers"
-last_verified: "2026-07-18"
+last_verified: "2026-08-19"
 review_triggers:
   - "an authority, process, trust, storage, sync, update, or platform boundary changes"
 keywords:
@@ -29,6 +29,7 @@ Eitmad uses thin native desktop applications connected to a separate trusted Rus
 - [Engine runtime lifecycle](../developer/subsystems/engine-runtime.md): implemented startup, readiness, health, process identity, diagnostics, and shutdown behavior.
 - [Rust-owned configuration](../developer/subsystems/configuration.md): implemented defaults, validation, persistence, redaction, import/export, and events.
 - [Scoped ReBAC authorization](../developer/subsystems/authorization.md): implemented relationships, policy, owner bootstrap/protection, and active revocation.
+- [Persistent tenant identity](../developer/subsystems/identity-foundation.md): implemented device, user/account, session, tenant, organization, workspace, offline, and audit-attribution primitives.
 - [Windows process supervision](../developer/subsystems/windows-process-supervision.md): implemented Job Object containment, bounded restart, stale-event rejection, and graceful shutdown.
 - [Repository layout and ownership](../developer/repository-layout.md): where each current boundary lives.
 
