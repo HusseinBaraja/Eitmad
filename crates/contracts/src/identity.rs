@@ -43,7 +43,13 @@ pub struct ScopeRef {
 pub struct AuthorizationContext {
     pub session_id: SessionId,
     pub identity: AuthenticatedIdentity,
+    #[serde(default = "unspecified_tenant_id")]
     pub tenant_id: TenantId,
     pub workspace_id: Option<WorkspaceId>,
     pub scope: ScopeRef,
+}
+
+#[must_use]
+pub(crate) fn unspecified_tenant_id() -> TenantId {
+    TenantId::new(uuid::Uuid::nil())
 }

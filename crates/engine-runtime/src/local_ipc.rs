@@ -382,6 +382,15 @@ impl LocalIpcServer {
             }
             Some(_) => match negotiate(&self.configuration.engine_hello, &request.peer) {
                 NegotiationOutcome::Accepted(negotiated) => {
+                    if request.asserted_authorization.tenant_id.value().is_nil() {
+                        return HandshakeResponse {
+                            request_id: request.request_id,
+                            correlation_id: request.correlation_id,
+                            outcome: HandshakeOutcome::Rejected(
+                                HandshakeRejection::AuthenticationFailed,
+                            ),
+                        };
+                    }
                     let authorization = AuthorizationContext {
                         session_id: SessionId::new(uuid::Uuid::new_v4()),
                         identity: request.asserted_authorization.identity,
@@ -1479,6 +1488,17 @@ mod tests {
         assert!(matches!(
             response.outcome,
             HandshakeOutcome::Rejected(HandshakeRejection::AuthenticationRequired)
+        ));
+    }
+
+    #[test]
+    fn handshake_rejects_missing_tenant_context() {
+        let mut request = handshake(PROTOCOL_VERSION, "token");
+        request.asserted_authorization.tenant_id = TenantId::new(uuid::Uuid::nil());
+        let response = service(Some("token")).handshake(request);
+        assert!(matches!(
+            response.outcome,
+            HandshakeOutcome::Rejected(HandshakeRejection::AuthenticationFailed)
         ));
     }
 
