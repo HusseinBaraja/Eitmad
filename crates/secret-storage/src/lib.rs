@@ -600,7 +600,7 @@ fn make_windows_path_private(
     sid: &str,
 ) -> Result<(), SecretStorageError> {
     let initial_acl = read_windows_acl(path)?;
-    if windows_acl_is_private(&initial_acl) && windows_acl_contains_sid(path, &sid)? {
+    if windows_acl_is_private(&initial_acl) && windows_acl_contains_sid(path, sid)? {
         return Ok(());
     }
     if windows_acl_has_explicit_entries(&initial_acl) {
@@ -625,7 +625,7 @@ fn make_windows_path_private(
         ],
     )?;
     let applied_acl = read_windows_acl(path)?;
-    if windows_acl_is_private(&applied_acl) && windows_acl_contains_sid(path, &sid)? {
+    if windows_acl_is_private(&applied_acl) && windows_acl_contains_sid(path, sid)? {
         Ok(())
     } else {
         Err(SecretStorageError::Unavailable)
