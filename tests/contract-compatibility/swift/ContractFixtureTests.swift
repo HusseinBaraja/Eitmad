@@ -5,6 +5,12 @@ private struct Fixture: Decodable {
     let queryProtocol10: QueryEnvelope
     let queryResponse: QueryResponseEnvelope
     let structuredError: QueryResult
+    let observationEventId: String
+    let observationFieldName: String
+    let observationComponentId: String
+    let observationSeverity: ObservationSeverity
+    let observationClassification: DataClassification
+    let observationValueKind: ObservationValueKind
     let mixedDirectionSamples: [String]
 }
 
@@ -39,6 +45,14 @@ private struct ContractFixtureTests {
         guard try hasSameJSON(decodedError, fixture.structuredError) else {
             throw ContractTestError.structuredErrorCorrupted
         }
+        guard fixture.observationEventId == "eitmad.observation.engine-failure.v1",
+              fixture.observationFieldName == "operation",
+              fixture.observationComponentId == "engine-runtime",
+              fixture.observationSeverity == .error,
+              fixture.observationClassification == .sensitive,
+              fixture.observationValueKind == .identifier else {
+            throw ContractTestError.observabilityContractCorrupted
+        }
         guard decodedSamples == fixture.mixedDirectionSamples else {
             throw ContractTestError.textCorrupted
         }
@@ -60,6 +74,7 @@ private enum ContractTestError: Error {
     case queryCorrupted
     case responseCorrupted
     case structuredErrorCorrupted
+    case observabilityContractCorrupted
     case textCorrupted
     case identifierValidationDrift
 }

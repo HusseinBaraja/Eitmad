@@ -52,6 +52,24 @@ namespace Eitmad.Contracts
         [JsonPropertyName("negotiation")]
         public NegotiationOutcome Negotiation { get; set; }
 
+        [JsonPropertyName("observation_classification")]
+        public DataClassification ObservationClassification { get; set; }
+
+        [JsonPropertyName("observation_component_id")]
+        public string ObservationComponentId { get; set; }
+
+        [JsonPropertyName("observation_event_id")]
+        public string ObservationEventId { get; set; }
+
+        [JsonPropertyName("observation_field_name")]
+        public string ObservationFieldName { get; set; }
+
+        [JsonPropertyName("observation_severity")]
+        public ObservationSeverity ObservationSeverity { get; set; }
+
+        [JsonPropertyName("observation_value_kind")]
+        public ObservationValueKind ObservationValueKind { get; set; }
+
         [JsonPropertyName("peer_hello")]
         public PeerHello PeerHello { get; set; }
 
@@ -1620,6 +1638,12 @@ namespace Eitmad.Contracts
 
     public enum NegotiationOutcomeStatus { Accepted, Rejected };
 
+    public enum DataClassification { Metadata, Secret, Sensitive };
+
+    public enum ObservationSeverity { Critical, Debug, Error, Info, Warning };
+
+    public enum ObservationValueKind { Boolean, Identifier, Integer, Text };
+
     public enum IndecentKind { Configuration, EffectivePermissions, ScopeRelationships, SyncStatus, UpdateState };
 
     public enum SyncMessageKind { EitmadSyncAcknowledgeV1, EitmadSyncBackpressureV1, EitmadSyncChangesV1, EitmadSyncConflictV1, EitmadSyncNegotiateV1, EitmadSyncPullV1 };
@@ -1704,6 +1728,9 @@ namespace Eitmad.Contracts
                 LifecycleStateConverter.Singleton,
                 IndigoKindConverter.Singleton,
                 NegotiationOutcomeStatusConverter.Singleton,
+                DataClassificationConverter.Singleton,
+                ObservationSeverityConverter.Singleton,
+                ObservationValueKindConverter.Singleton,
                 IndecentKindConverter.Singleton,
                 SyncMessageKindConverter.Singleton,
                 SyncModeConverter.Singleton,
@@ -3691,6 +3718,138 @@ namespace Eitmad.Contracts
         }
 
         public static readonly NegotiationOutcomeStatusConverter Singleton = new NegotiationOutcomeStatusConverter();
+    }
+
+    internal class DataClassificationConverter : JsonConverter<DataClassification>
+    {
+        public override bool CanConvert(Type t) => t == typeof(DataClassification);
+
+        public override DataClassification Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "metadata":
+                    return DataClassification.Metadata;
+                case "secret":
+                    return DataClassification.Secret;
+                case "sensitive":
+                    return DataClassification.Sensitive;
+            }
+            throw new Exception("Cannot unmarshal type DataClassification");
+        }
+
+        public override void Write(Utf8JsonWriter writer, DataClassification value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case DataClassification.Metadata:
+                    JsonSerializer.Serialize(writer, "metadata", options);
+                    return;
+                case DataClassification.Secret:
+                    JsonSerializer.Serialize(writer, "secret", options);
+                    return;
+                case DataClassification.Sensitive:
+                    JsonSerializer.Serialize(writer, "sensitive", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type DataClassification");
+        }
+
+        public static readonly DataClassificationConverter Singleton = new DataClassificationConverter();
+    }
+
+    internal class ObservationSeverityConverter : JsonConverter<ObservationSeverity>
+    {
+        public override bool CanConvert(Type t) => t == typeof(ObservationSeverity);
+
+        public override ObservationSeverity Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "critical":
+                    return ObservationSeverity.Critical;
+                case "debug":
+                    return ObservationSeverity.Debug;
+                case "error":
+                    return ObservationSeverity.Error;
+                case "info":
+                    return ObservationSeverity.Info;
+                case "warning":
+                    return ObservationSeverity.Warning;
+            }
+            throw new Exception("Cannot unmarshal type ObservationSeverity");
+        }
+
+        public override void Write(Utf8JsonWriter writer, ObservationSeverity value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case ObservationSeverity.Critical:
+                    JsonSerializer.Serialize(writer, "critical", options);
+                    return;
+                case ObservationSeverity.Debug:
+                    JsonSerializer.Serialize(writer, "debug", options);
+                    return;
+                case ObservationSeverity.Error:
+                    JsonSerializer.Serialize(writer, "error", options);
+                    return;
+                case ObservationSeverity.Info:
+                    JsonSerializer.Serialize(writer, "info", options);
+                    return;
+                case ObservationSeverity.Warning:
+                    JsonSerializer.Serialize(writer, "warning", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type ObservationSeverity");
+        }
+
+        public static readonly ObservationSeverityConverter Singleton = new ObservationSeverityConverter();
+    }
+
+    internal class ObservationValueKindConverter : JsonConverter<ObservationValueKind>
+    {
+        public override bool CanConvert(Type t) => t == typeof(ObservationValueKind);
+
+        public override ObservationValueKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "boolean":
+                    return ObservationValueKind.Boolean;
+                case "identifier":
+                    return ObservationValueKind.Identifier;
+                case "integer":
+                    return ObservationValueKind.Integer;
+                case "text":
+                    return ObservationValueKind.Text;
+            }
+            throw new Exception("Cannot unmarshal type ObservationValueKind");
+        }
+
+        public override void Write(Utf8JsonWriter writer, ObservationValueKind value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case ObservationValueKind.Boolean:
+                    JsonSerializer.Serialize(writer, "boolean", options);
+                    return;
+                case ObservationValueKind.Identifier:
+                    JsonSerializer.Serialize(writer, "identifier", options);
+                    return;
+                case ObservationValueKind.Integer:
+                    JsonSerializer.Serialize(writer, "integer", options);
+                    return;
+                case ObservationValueKind.Text:
+                    JsonSerializer.Serialize(writer, "text", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type ObservationValueKind");
+        }
+
+        public static readonly ObservationValueKindConverter Singleton = new ObservationValueKindConverter();
     }
 
     internal class IndecentKindConverter : JsonConverter<IndecentKind>

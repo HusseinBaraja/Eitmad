@@ -110,6 +110,12 @@
       }
     }
   },
+  "observationEventId": "eitmad.observation.engine-failure.v1",
+  "observationFieldName": "operation",
+  "observationComponentId": "engine-runtime",
+  "observationSeverity": "error",
+  "observationClassification": "sensitive",
+  "observationValueKind": "identifier",
   "mixedDirectionSamples": [
     "خزانة Wardrobe 120 cm - فرع صنعاء",
     "ملف عرض السعر Quote-١٢.pdf"

@@ -18,6 +18,10 @@ use eitmad_contracts::{
         ScopeKind, ScopeRef, SessionId, TenantId,
     },
     ipc::{IpcClientMessage, IpcServerMessage},
+    observability::{
+        ComponentId, DataClassification, ObservationEventId, ObservationFieldName,
+        ObservationSeverity, ObservationValueKind,
+    },
     permissions::EffectivePermissions,
     queries::{GetConfiguration, Query, QueryResult},
     runtime::{DiagnosticReport, LifecycleSnapshot},
@@ -53,6 +57,12 @@ struct ContractSchemaRoot {
     effective_permissions: EffectivePermissions,
     lifecycle_snapshot: LifecycleSnapshot,
     diagnostic_report: DiagnosticReport,
+    observation_event_id: ObservationEventId,
+    observation_field_name: ObservationFieldName,
+    observation_component_id: ComponentId,
+    observation_severity: ObservationSeverity,
+    observation_classification: DataClassification,
+    observation_value_kind: ObservationValueKind,
     catalog: ProtocolCatalog,
 }
 
@@ -63,6 +73,12 @@ struct ConformanceFixture {
     query_protocol_1_0: QueryEnvelope,
     query_response: QueryResponseEnvelope,
     structured_error: ContractError,
+    observation_event_id: ObservationEventId,
+    observation_field_name: ObservationFieldName,
+    observation_component_id: ComponentId,
+    observation_severity: ObservationSeverity,
+    observation_classification: DataClassification,
+    observation_value_kind: ObservationValueKind,
     mixed_direction_samples: Vec<&'static str>,
 }
 
@@ -155,6 +171,12 @@ fn fixture() -> Result<ConformanceFixture, Box<dyn std::error::Error>> {
         query_protocol_1_0,
         query_response,
         structured_error,
+        observation_event_id: ObservationEventId::parse("eitmad.observation.engine-failure.v1")?,
+        observation_field_name: ObservationFieldName::parse("operation")?,
+        observation_component_id: ComponentId::parse("engine-runtime")?,
+        observation_severity: ObservationSeverity::Error,
+        observation_classification: DataClassification::Sensitive,
+        observation_value_kind: ObservationValueKind::Identifier,
         mixed_direction_samples: vec![
             "خزانة Wardrobe 120 cm - فرع صنعاء",
             "ملف عرض السعر Quote-١٢.pdf",

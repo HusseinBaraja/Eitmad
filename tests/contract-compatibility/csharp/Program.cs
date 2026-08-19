@@ -45,6 +45,29 @@ if (decodedError.Parameters[0].Name != "expected-revision"
     );
 }
 
+var observationSeverity = JsonSerializer.Deserialize<ObservationSeverity>(
+    fixture.RootElement.GetProperty("observationSeverity").GetRawText(),
+    Converter.Settings
+);
+var observationClassification = JsonSerializer.Deserialize<DataClassification>(
+    fixture.RootElement.GetProperty("observationClassification").GetRawText(),
+    Converter.Settings
+);
+var observationValueKind = JsonSerializer.Deserialize<ObservationValueKind>(
+    fixture.RootElement.GetProperty("observationValueKind").GetRawText(),
+    Converter.Settings
+);
+if (fixture.RootElement.GetProperty("observationEventId").GetString()
+        != "eitmad.observation.engine-failure.v1"
+    || fixture.RootElement.GetProperty("observationFieldName").GetString() != "operation"
+    || fixture.RootElement.GetProperty("observationComponentId").GetString() != "engine-runtime"
+    || observationSeverity != ObservationSeverity.Error
+    || observationClassification != DataClassification.Sensitive
+    || observationValueKind != ObservationValueKind.Identifier)
+{
+    throw new InvalidOperationException("C# binding changed an observability contract value.");
+}
+
 var samplesJson = fixture.RootElement.GetProperty("mixedDirectionSamples").GetRawText();
 var mixedDirectionSamples = JsonSerializer.Deserialize<string[]>(samplesJson, Converter.Settings)
     ?? throw new InvalidOperationException("C# binding did not decode mixed-direction samples.");

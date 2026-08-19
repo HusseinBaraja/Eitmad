@@ -18,6 +18,10 @@ public struct EitmadContractSchema: Codable, Sendable {
     public let ipcServerMessage: IPCServerMessage
     public let lifecycleSnapshot: LifecycleSnapshot
     public let negotiation: NegotiationOutcome
+    public let observationClassification: DataClassification
+    public let observationComponentID, observationEventID, observationFieldName: String
+    public let observationSeverity: ObservationSeverity
+    public let observationValueKind: ObservationValueKind
     public let peerHello: PeerHello
     public let queryRequest: QueryEnvelope
     public let queryResponse: QueryResponseEnvelope
@@ -37,6 +41,12 @@ public struct EitmadContractSchema: Codable, Sendable {
         case ipcServerMessage = "ipc_server_message"
         case lifecycleSnapshot = "lifecycle_snapshot"
         case negotiation
+        case observationClassification = "observation_classification"
+        case observationComponentID = "observation_component_id"
+        case observationEventID = "observation_event_id"
+        case observationFieldName = "observation_field_name"
+        case observationSeverity = "observation_severity"
+        case observationValueKind = "observation_value_kind"
         case peerHello = "peer_hello"
         case queryRequest = "query_request"
         case queryResponse = "query_response"
@@ -46,7 +56,7 @@ public struct EitmadContractSchema: Codable, Sendable {
         case updateState = "update_state"
     }
 
-    public init(catalog: ProtocolCatalog, commandRequest: CommandEnvelope, commandResponse: CommandResponseEnvelope, diagnosticReport: DiagnosticReport, effectivePermissions: EffectivePermissions, event: EventEnvelope, ipcClientMessage: IPCClientMessage, ipcServerMessage: IPCServerMessage, lifecycleSnapshot: LifecycleSnapshot, negotiation: NegotiationOutcome, peerHello: PeerHello, queryRequest: QueryEnvelope, queryResponse: QueryResponseEnvelope, subscriptionRequest: SubscriptionEnvelope, syncMessage: SyncMessage, syncStatus: SyncStatus, updateState: UpdateState) {
+    public init(catalog: ProtocolCatalog, commandRequest: CommandEnvelope, commandResponse: CommandResponseEnvelope, diagnosticReport: DiagnosticReport, effectivePermissions: EffectivePermissions, event: EventEnvelope, ipcClientMessage: IPCClientMessage, ipcServerMessage: IPCServerMessage, lifecycleSnapshot: LifecycleSnapshot, negotiation: NegotiationOutcome, observationClassification: DataClassification, observationComponentID: String, observationEventID: String, observationFieldName: String, observationSeverity: ObservationSeverity, observationValueKind: ObservationValueKind, peerHello: PeerHello, queryRequest: QueryEnvelope, queryResponse: QueryResponseEnvelope, subscriptionRequest: SubscriptionEnvelope, syncMessage: SyncMessage, syncStatus: SyncStatus, updateState: UpdateState) {
         self.catalog = catalog
         self.commandRequest = commandRequest
         self.commandResponse = commandResponse
@@ -57,6 +67,12 @@ public struct EitmadContractSchema: Codable, Sendable {
         self.ipcServerMessage = ipcServerMessage
         self.lifecycleSnapshot = lifecycleSnapshot
         self.negotiation = negotiation
+        self.observationClassification = observationClassification
+        self.observationComponentID = observationComponentID
+        self.observationEventID = observationEventID
+        self.observationFieldName = observationFieldName
+        self.observationSeverity = observationSeverity
+        self.observationValueKind = observationValueKind
         self.peerHello = peerHello
         self.queryRequest = queryRequest
         self.queryResponse = queryResponse
@@ -96,6 +112,12 @@ public extension EitmadContractSchema {
         ipcServerMessage: IPCServerMessage? = nil,
         lifecycleSnapshot: LifecycleSnapshot? = nil,
         negotiation: NegotiationOutcome? = nil,
+        observationClassification: DataClassification? = nil,
+        observationComponentID: String? = nil,
+        observationEventID: String? = nil,
+        observationFieldName: String? = nil,
+        observationSeverity: ObservationSeverity? = nil,
+        observationValueKind: ObservationValueKind? = nil,
         peerHello: PeerHello? = nil,
         queryRequest: QueryEnvelope? = nil,
         queryResponse: QueryResponseEnvelope? = nil,
@@ -115,6 +137,12 @@ public extension EitmadContractSchema {
             ipcServerMessage: ipcServerMessage ?? self.ipcServerMessage,
             lifecycleSnapshot: lifecycleSnapshot ?? self.lifecycleSnapshot,
             negotiation: negotiation ?? self.negotiation,
+            observationClassification: observationClassification ?? self.observationClassification,
+            observationComponentID: observationComponentID ?? self.observationComponentID,
+            observationEventID: observationEventID ?? self.observationEventID,
+            observationFieldName: observationFieldName ?? self.observationFieldName,
+            observationSeverity: observationSeverity ?? self.observationSeverity,
+            observationValueKind: observationValueKind ?? self.observationValueKind,
             peerHello: peerHello ?? self.peerHello,
             queryRequest: queryRequest ?? self.queryRequest,
             queryResponse: queryResponse ?? self.queryResponse,
@@ -4142,6 +4170,27 @@ public extension TentacledPayload {
 public enum NegotiationOutcomeStatus: String, Codable, Sendable {
     case accepted = "accepted"
     case rejected = "rejected"
+}
+
+public enum DataClassification: String, Codable, Sendable {
+    case metadata = "metadata"
+    case secret = "secret"
+    case sensitive = "sensitive"
+}
+
+public enum ObservationSeverity: String, Codable, Sendable {
+    case critical = "critical"
+    case debug = "debug"
+    case error = "error"
+    case info = "info"
+    case warning = "warning"
+}
+
+public enum ObservationValueKind: String, Codable, Sendable {
+    case boolean = "boolean"
+    case identifier = "identifier"
+    case integer = "integer"
+    case text = "text"
 }
 
 // MARK: - QueryEnvelope
