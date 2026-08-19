@@ -69,6 +69,9 @@
     "sync_status": {
       "$ref": "#/definitions/SyncStatus"
     },
+    "sync_transport_frame": {
+      "$ref": "#/definitions/SyncTransportFrame"
+    },
     "update_state": {
       "$ref": "#/definitions/UpdateState"
     }
@@ -85,6 +88,7 @@
     "peer_hello",
     "negotiation",
     "sync_message",
+    "sync_transport_frame",
     "update_state",
     "sync_status",
     "effective_permissions",
@@ -3808,6 +3812,39 @@
         "maximumMinor"
       ]
     },
+    "SyncCancellation": {
+      "type": "object",
+      "properties": {
+        "lastAcceptedSequence": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "reason": {
+          "$ref": "#/definitions/SyncCancellationReason"
+        },
+        "streamId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "streamId",
+        "reason"
+      ]
+    },
+    "SyncCancellationReason": {
+      "type": "string",
+      "enum": [
+        "clientRequested",
+        "deadlineExceeded",
+        "superseded",
+        "shuttingDown"
+      ]
+    },
     "SyncMessage": {
       "oneOf": [
         {
@@ -4150,6 +4187,138 @@
     },
     "SyncStatusChanges": {
       "type": "object"
+    },
+    "SyncTransportFrame": {
+      "description": "One transport-independent sync frame used by simulation, LAN, and WAN links.",
+      "type": "object",
+      "properties": {
+        "correlationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "endOfStream": {
+          "type": "boolean"
+        },
+        "frameId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "payload": {
+          "$ref": "#/definitions/SyncTransportPayload"
+        },
+        "protocolVersion": {
+          "$ref": "#/definitions/ProtocolVersion"
+        },
+        "sequence": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "streamId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "frameId",
+        "idempotencyKey",
+        "protocolVersion",
+        "correlationId",
+        "streamId",
+        "sequence",
+        "endOfStream",
+        "payload"
+      ]
+    },
+    "SyncTransportPayload": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "message"
+            },
+            "payload": {
+              "$ref": "#/definitions/SyncMessage"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "cancel"
+            },
+            "payload": {
+              "$ref": "#/definitions/SyncCancellation"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "heartbeat"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "sent_at": {
+                  "type": "integer",
+                  "format": "int64"
+                }
+              },
+              "required": [
+                "sent_at"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "heartbeatAcknowledged"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "sent_at": {
+                  "type": "integer",
+                  "format": "int64"
+                }
+              },
+              "required": [
+                "sent_at"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        }
+      ]
     },
     "UnsubscribeRequest": {
       "type": "object",

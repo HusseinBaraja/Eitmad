@@ -28,6 +28,7 @@ public struct EitmadContractSchema: Codable, Sendable {
     public let subscriptionRequest: SubscriptionEnvelope
     public let syncMessage: SyncMessage
     public let syncStatus: SyncStatus
+    public let syncTransportFrame: SyncTransportFrame
     public let updateState: UpdateState
 
     public enum CodingKeys: String, CodingKey {
@@ -53,10 +54,11 @@ public struct EitmadContractSchema: Codable, Sendable {
         case subscriptionRequest = "subscription_request"
         case syncMessage = "sync_message"
         case syncStatus = "sync_status"
+        case syncTransportFrame = "sync_transport_frame"
         case updateState = "update_state"
     }
 
-    public init(catalog: ProtocolCatalog, commandRequest: CommandEnvelope, commandResponse: CommandResponseEnvelope, diagnosticReport: DiagnosticReport, effectivePermissions: EffectivePermissions, event: EventEnvelope, ipcClientMessage: IPCClientMessage, ipcServerMessage: IPCServerMessage, lifecycleSnapshot: LifecycleSnapshot, negotiation: NegotiationOutcome, observationClassification: DataClassification, observationComponentID: String, observationEventID: String, observationFieldName: String, observationSeverity: ObservationSeverity, observationValueKind: ObservationValueKind, peerHello: PeerHello, queryRequest: QueryEnvelope, queryResponse: QueryResponseEnvelope, subscriptionRequest: SubscriptionEnvelope, syncMessage: SyncMessage, syncStatus: SyncStatus, updateState: UpdateState) {
+    public init(catalog: ProtocolCatalog, commandRequest: CommandEnvelope, commandResponse: CommandResponseEnvelope, diagnosticReport: DiagnosticReport, effectivePermissions: EffectivePermissions, event: EventEnvelope, ipcClientMessage: IPCClientMessage, ipcServerMessage: IPCServerMessage, lifecycleSnapshot: LifecycleSnapshot, negotiation: NegotiationOutcome, observationClassification: DataClassification, observationComponentID: String, observationEventID: String, observationFieldName: String, observationSeverity: ObservationSeverity, observationValueKind: ObservationValueKind, peerHello: PeerHello, queryRequest: QueryEnvelope, queryResponse: QueryResponseEnvelope, subscriptionRequest: SubscriptionEnvelope, syncMessage: SyncMessage, syncStatus: SyncStatus, syncTransportFrame: SyncTransportFrame, updateState: UpdateState) {
         self.catalog = catalog
         self.commandRequest = commandRequest
         self.commandResponse = commandResponse
@@ -79,6 +81,7 @@ public struct EitmadContractSchema: Codable, Sendable {
         self.subscriptionRequest = subscriptionRequest
         self.syncMessage = syncMessage
         self.syncStatus = syncStatus
+        self.syncTransportFrame = syncTransportFrame
         self.updateState = updateState
     }
 }
@@ -124,6 +127,7 @@ public extension EitmadContractSchema {
         subscriptionRequest: SubscriptionEnvelope? = nil,
         syncMessage: SyncMessage? = nil,
         syncStatus: SyncStatus? = nil,
+        syncTransportFrame: SyncTransportFrame? = nil,
         updateState: UpdateState? = nil
     ) -> EitmadContractSchema {
         return EitmadContractSchema(
@@ -149,6 +153,7 @@ public extension EitmadContractSchema {
             subscriptionRequest: subscriptionRequest ?? self.subscriptionRequest,
             syncMessage: syncMessage ?? self.syncMessage,
             syncStatus: syncStatus ?? self.syncStatus,
+            syncTransportFrame: syncTransportFrame ?? self.syncTransportFrame,
             updateState: updateState ?? self.updateState
         )
     }
@@ -5358,6 +5363,218 @@ public extension SyncStatusPayload {
     func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
         return String(data: try self.jsonData(), encoding: encoding)
     }
+}
+
+/// One transport-independent sync frame used by simulation, LAN, and WAN links.
+// MARK: - SyncTransportFrame
+public struct SyncTransportFrame: Codable, Sendable {
+    public let correlationID: String
+    public let endOfStream: Bool
+    public let frameID, idempotencyKey: String
+    public let payload: SyncTransportPayload
+    public let protocolVersion: ProtocolVersion
+    public let sequence: Int
+    public let streamID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case correlationID = "correlationId"
+        case endOfStream
+        case frameID = "frameId"
+        case idempotencyKey, payload, protocolVersion, sequence
+        case streamID = "streamId"
+    }
+
+    public init(correlationID: String, endOfStream: Bool, frameID: String, idempotencyKey: String, payload: SyncTransportPayload, protocolVersion: ProtocolVersion, sequence: Int, streamID: String) {
+        self.correlationID = correlationID
+        self.endOfStream = endOfStream
+        self.frameID = frameID
+        self.idempotencyKey = idempotencyKey
+        self.payload = payload
+        self.protocolVersion = protocolVersion
+        self.sequence = sequence
+        self.streamID = streamID
+    }
+}
+
+// MARK: SyncTransportFrame convenience initializers and mutators
+
+public extension SyncTransportFrame {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(SyncTransportFrame.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        correlationID: String? = nil,
+        endOfStream: Bool? = nil,
+        frameID: String? = nil,
+        idempotencyKey: String? = nil,
+        payload: SyncTransportPayload? = nil,
+        protocolVersion: ProtocolVersion? = nil,
+        sequence: Int? = nil,
+        streamID: String? = nil
+    ) -> SyncTransportFrame {
+        return SyncTransportFrame(
+            correlationID: correlationID ?? self.correlationID,
+            endOfStream: endOfStream ?? self.endOfStream,
+            frameID: frameID ?? self.frameID,
+            idempotencyKey: idempotencyKey ?? self.idempotencyKey,
+            payload: payload ?? self.payload,
+            protocolVersion: protocolVersion ?? self.protocolVersion,
+            sequence: sequence ?? self.sequence,
+            streamID: streamID ?? self.streamID
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - SyncTransportPayload
+public struct SyncTransportPayload: Codable, Sendable {
+    public let kind: SyncTransportPayloadKind
+    public let payload: Sync
+
+    public init(kind: SyncTransportPayloadKind, payload: Sync) {
+        self.kind = kind
+        self.payload = payload
+    }
+}
+
+// MARK: SyncTransportPayload convenience initializers and mutators
+
+public extension SyncTransportPayload {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(SyncTransportPayload.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        kind: SyncTransportPayloadKind? = nil,
+        payload: Sync? = nil
+    ) -> SyncTransportPayload {
+        return SyncTransportPayload(
+            kind: kind ?? self.kind,
+            payload: payload ?? self.payload
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+public enum SyncTransportPayloadKind: String, Codable, Sendable {
+    case cancel = "cancel"
+    case heartbeat = "heartbeat"
+    case heartbeatAcknowledged = "heartbeatAcknowledged"
+    case message = "message"
+}
+
+// MARK: - Sync
+public struct Sync: Codable, Sendable {
+    public let kind: SyncMessageKind?
+    public let payload: SyncNegotiation?
+    public let lastAcceptedSequence: Int?
+    public let reason: SyncCancellationReason?
+    public let streamID: String?
+    public let sentAt: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case kind, payload, lastAcceptedSequence, reason
+        case streamID = "streamId"
+        case sentAt = "sent_at"
+    }
+
+    public init(kind: SyncMessageKind?, payload: SyncNegotiation?, lastAcceptedSequence: Int?, reason: SyncCancellationReason?, streamID: String?, sentAt: Int?) {
+        self.kind = kind
+        self.payload = payload
+        self.lastAcceptedSequence = lastAcceptedSequence
+        self.reason = reason
+        self.streamID = streamID
+        self.sentAt = sentAt
+    }
+}
+
+// MARK: Sync convenience initializers and mutators
+
+public extension Sync {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(Sync.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        kind: SyncMessageKind?? = nil,
+        payload: SyncNegotiation?? = nil,
+        lastAcceptedSequence: Int?? = nil,
+        reason: SyncCancellationReason?? = nil,
+        streamID: String?? = nil,
+        sentAt: Int?? = nil
+    ) -> Sync {
+        return Sync(
+            kind: kind ?? self.kind,
+            payload: payload ?? self.payload,
+            lastAcceptedSequence: lastAcceptedSequence ?? self.lastAcceptedSequence,
+            reason: reason ?? self.reason,
+            streamID: streamID ?? self.streamID,
+            sentAt: sentAt ?? self.sentAt
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+public enum SyncCancellationReason: String, Codable, Sendable {
+    case clientRequested = "clientRequested"
+    case deadlineExceeded = "deadlineExceeded"
+    case shuttingDown = "shuttingDown"
+    case superseded = "superseded"
 }
 
 // MARK: - UpdateState
