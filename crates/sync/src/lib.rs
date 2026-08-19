@@ -1,5 +1,12 @@
 //! Unified local-first and server-authoritative synchronization protocol.
 
+mod engine;
+
+pub use engine::{
+    CommandDraft, ConflictHook, ConflictResolution, DeliveryOutcome, LocalChangeDraft,
+    LocalChangeOutcome, PendingCommandOutcome, SyncEngine, SyncEngineError,
+};
+
 use eitmad_authorization::{AuthorizationGate, BoundaryAuditContext, BoundaryError, BoundaryKind};
 use eitmad_contracts::{authorization::AuthorizationRequest, identity::AuthorizationContext};
 use eitmad_observability_audit::RedactedAuditError;

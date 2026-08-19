@@ -340,7 +340,9 @@ mod tests {
         let connection = Connection::open(store.path()).unwrap();
         connection
             .execute_batch(
-                "ALTER TABLE mutation_audit DROP COLUMN extension_points;
+                "DROP TABLE sync_scopes;
+                 DELETE FROM schema_migrations WHERE version = 7;
+                 ALTER TABLE mutation_audit DROP COLUMN extension_points;
                  ALTER TABLE mutation_audit DROP COLUMN redacted_error;
                  ALTER TABLE mutation_audit DROP COLUMN target;
                  ALTER TABLE mutation_audit DROP COLUMN workspace_id;
