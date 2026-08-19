@@ -49,10 +49,12 @@ impl AuthorityStore {
         }
         let parent = self.path.parent().ok_or(StorageError)?;
         let destination = parent.join(format!(
-            "eitmad.pre-migration-v{version}-to-v{}-{}.sqlite3",
-            crate::CURRENT_STORAGE_VERSION,
-            Uuid::new_v4()
+            "eitmad.pre-migration-v{version}-to-v{}.sqlite3",
+            crate::CURRENT_STORAGE_VERSION
         ));
+        if destination.is_file() {
+            return Self::validate_backup(destination);
+        }
         self.backup_to(destination)
     }
 
@@ -351,6 +353,11 @@ mod tests {
             )
             .unwrap();
         drop(connection);
+
+        store.backup_before_pending_migration().unwrap();
+        store.backup_before_pending_migration().unwrap();
+        let pending = AuthorityStore::recovery_artifacts(directory.path()).unwrap();
+        assert_eq!(pending.len(), 1);
         drop(store);
 
         let migrated = AuthorityStore::open(directory.path()).unwrap();

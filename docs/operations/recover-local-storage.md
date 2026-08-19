@@ -31,7 +31,7 @@ Rust provides stopped-engine recovery hooks and tenant-scoped export primitives.
 
 `AuthorityStore::backup_to` uses SQLite online backup, includes committed WAL data, writes an owner-private temporary file, runs full `PRAGMA integrity_check`, proves migration/schema compatibility on an in-memory copy, then atomically publishes the requested path. Existing destinations are rejected.
 
-Before any pending migration from supported storage versions 2–4, startup creates and validates `eitmad.pre-migration-vN-to-v5-<uuid>.sqlite3`. Failure to create or validate this snapshot stops startup before migration SQL. Each migration runs in its own transaction; SQL or history failure rolls back that migration and leaves the snapshot discoverable through `AuthorityStore::recovery_artifacts`.
+Before any pending migration from supported storage versions 2–4, startup creates and validates `eitmad.pre-migration-vN-to-v5.sqlite3`. A retry for the same source and target versions validates and reuses that one artifact. Failure to create or validate it stops startup before migration SQL. Each migration runs in its own transaction; SQL or history failure rolls back that migration and leaves the snapshot discoverable through `AuthorityStore::recovery_artifacts`.
 
 ## Validate and restore
 
@@ -49,7 +49,7 @@ Readiness diagnostics use `CorruptionCheck::Quick` plus migration and schema ver
 
 ## Export one tenant
 
-`AuthorityStore::export_tenant_data` writes format `eitmad.local-data-export.v1` from one read transaction. It includes tenant identity directory IDs and organization/workspace configuration. It excludes device records, sessions, audit, idempotency, publication outbox, credentials, and secrets. The destination must not exist; Rust writes privately, flushes, and atomically renames it.
+`AuthorityStore::export_tenant_data` writes format `eitmad.local-data-export.v1` from one read transaction. It includes tenant identity directory IDs and organization/workspace configuration. It excludes device records, sessions, audit, idempotency, publication outbox, credentials, and secrets. The destination must not exist; Rust writes privately, flushes, and atomically creates the final path without replacement. If another process creates that path first, export fails and preserves the existing file.
 
 Export is not backup and cannot restore the authority database. A future caller must authorize the exact tenant, audit the request, select an approved destination, apply retention/encryption policy, and prevent cross-tenant disclosure.
 

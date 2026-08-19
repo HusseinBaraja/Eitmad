@@ -30,9 +30,9 @@ Persistent identity is a sibling vertical. Its tenant-rooted tables and public b
 
 ## Migration history and schema drift
 
-The ordered registry assigns every migration a numeric order, stable ID, owning feature, SQL body, and SHA-256 checksum. `schema_migrations` persists those values. Existing numeric version 1–4 history is transactionally rebuilt and backfilled from the known registry only when its rows are the exact contiguous sequence `1..=N`.
+The ordered registry assigns every migration a numeric order, stable ID, owning feature, SQL body, and SHA-256 checksum. `schema_migrations` persists those values. Existing numeric version 2–4 history is transactionally rebuilt and backfilled from the known registry only when its rows are the exact contiguous sequence `1..=N`.
 
-Startup requires applied history to be an exact registry prefix. Storage version 5 accepts fresh version 0 and upgrades versions 2–4; version 1, gaps, reordered/unknown migrations, changed checksums, and databases newer than the engine are rejected before history modification. Before pending supported migrations, Rust creates a validated `eitmad.pre-migration-*` online backup. Snapshot failure prevents migration SQL. After migration, Rust builds the expected schema in memory from the same registry and compares tables, indexes, and triggers. Diagnostics perform quick integrity, history, pending-migration, and schema-drift checks against an in-memory backup without mutating live state.
+Startup requires applied history to be an exact registry prefix. Storage version 5 accepts fresh version 0 and upgrades versions 2–4; version 1, gaps, reordered/unknown migrations, changed checksums, and databases newer than the engine are rejected before history modification. Before pending supported migrations, Rust creates a validated `eitmad.pre-migration-vN-to-v5.sqlite3` online backup. A retry for the same version pair validates and reuses that artifact, so failed starts cannot create unbounded snapshots. Snapshot failure prevents migration SQL. After migration, Rust builds the expected schema in memory from the same registry and compares tables, indexes, and triggers. Diagnostics perform quick integrity, history, pending-migration, and schema-drift checks against an in-memory backup without mutating live state.
 
 Never edit an applied migration. Add the next ordered migration to the owning feature, preserve upgrade behavior from supported history, and add rollback and drift tests.
 
@@ -52,7 +52,7 @@ These are Rust library hooks, not IPC, shell, scheduling, retention, or producti
 
 `AuthorityStore::recovery_artifacts` classifies preserved pre-migration, pre-restore, and failed-restore files without opening or deleting them. `CorruptionCheck::Quick` supports readiness diagnostics; `Full` is required for backup/restore validation and explicit maintenance. Follow [recover and export local storage](../../operations/recover-local-storage.md).
 
-`export_tenant_data` writes private, atomic `eitmad.local-data-export.v1` JSON from one tenant-scoped read transaction. It includes identity directory IDs and organization/workspace configuration but excludes devices, sessions, audit, idempotency, outbox, credentials, and secrets. Export cannot restore the database.
+`export_tenant_data` writes private, atomic `eitmad.local-data-export.v1` JSON from one tenant-scoped read transaction. Final publication creates the destination without replacement, so a path created concurrently remains unchanged and the export fails. It includes identity directory IDs and organization/workspace configuration but excludes devices, sessions, audit, idempotency, outbox, credentials, and secrets. `LocalDataExportPolicy` describes this fixed contract for inspection; callers cannot configure it. Export cannot restore the database.
 
 ## Security, Arabic data, and failure handling
 
@@ -62,6 +62,6 @@ Storage preserves UTF-8 Arabic and mixed-direction values without localization b
 
 ## Tests and safe extension
 
-Focused tests cover fresh creation, supported legacy upgrade with preserved Arabic locale data, out-of-window rejection before mutation, history gaps, migration rollback, schema drift, pre-migration snapshots, quick/full integrity, WAL-safe backup/restore, recovery discovery, scoped export, identity persistence, session attribution, tenant isolation, transaction rollback, and prohibited shell database access.
+Focused tests cover fresh creation, supported legacy upgrade with preserved Arabic locale data, out-of-window rejection before mutation, history gaps, migration rollback, schema drift, bounded pre-migration snapshots, quick/full integrity, WAL-safe backup/restore, recovery discovery, no-clobber scoped export, identity mapping conflicts, device timestamp monotonicity, session attribution, tenant isolation, transaction rollback, and prohibited shell database access.
 
 Run `cargo test -p eitmad-storage`, strict workspace Clippy, all workspace tests, and the real engine diagnostic/start/stop path after storage changes. For symptoms, follow [storage recovery failures](../../troubleshooting/local-storage-recovery-failures.md). Review [ADR-0019](../../decisions/0019-sqlite-authority-storage.md), [ADR-0021](../../decisions/0021-checksummed-feature-storage-migrations.md), and [ADR-0022](../../decisions/0022-persistent-tenant-identity-and-safe-storage-recovery.md).

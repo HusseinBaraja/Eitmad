@@ -42,12 +42,13 @@ No Arabic recovery UI exists. Likely future search text includes `فشل ترح�
 | --- | --- | --- | --- |
 | Version `1` or below, except fresh `0` | Database is outside the supported migration window | Confirm the last engine that successfully owned it | Upgrade first through a release supporting that version; do not force history forward |
 | Version above `5` | Engine downgrade or mismatched installation | Compare engine package and database provenance | Reinstall a compatible newer engine; do not downgrade the schema |
-| `eitmad.pre-migration-*` exists and startup failed | Snapshot succeeded; migration or post-migration verification failed | Validate the snapshot read-only and preserve the failed live family | Escalate the failing migration; restore only through the stopped-engine coordinator after deciding which writes must survive |
+| `eitmad.pre-migration-*` exists, validates, and startup failed | Snapshot succeeded; migration or post-migration verification failed | Preserve the snapshot and failed live family | Escalate the failing migration; restore only through the stopped-engine coordinator after deciding which writes must survive |
+| `eitmad.pre-migration-*` exists but fails validation | The reusable snapshot is corrupt, incompatible, or drifted | Preserve the complete runtime directory and validate an independent known backup | Stop retrying startup and escalate; do not delete or replace the only recovery artifact |
 | No pre-migration artifact for a pending supported migration | Snapshot creation, privacy permission, disk space, or validation failed | Check free space and owner-only path access without exposing paths | Correct the environment and retry; no migration SQL should have run |
 | Quick/full integrity result is not exactly `ok` | SQLite corruption | Validate an independent known backup | Restore a validated backup; never repair the only copy |
 | Checksum/history/schema mismatch | Edited migration history or schema drift | Compare against the immutable Rust registry and synthetic reproduction | Repair code/release provenance; never edit production rows to match expectations |
 | `eitmad.failed-restore-*` exists | Candidate installed but normal reopen failed | Confirm a pre-restore artifact and current live-file integrity | Keep all artifacts; use the validated pre-restore database only through the coordinator |
-| Export destination exists or tenant is unknown | Atomic overwrite/isolation policy denied export | Confirm exact authorized tenant and new private path | Select a new destination; never broaden the export query |
+| Export destination exists or tenant is unknown | No-clobber or isolation policy denied export | Confirm the existing destination is unchanged, then confirm the exact authorized tenant and a new private path | Select a new destination; never broaden the export query |
 
 ## Verify recovery
 

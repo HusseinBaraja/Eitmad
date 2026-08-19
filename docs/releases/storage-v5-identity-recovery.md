@@ -32,7 +32,7 @@ Migration `identity.foundation.v1` is additive for supported databases. It creat
 
 1. Stop the old engine cleanly and confirm private free space for a database-sized snapshot.
 2. Deploy the new Rust engine. Do not change shell authentication claims or expose identity APIs as production login.
-3. Start once. Confirm a `eitmad.pre-migration-vN-to-v5-*` artifact for an upgraded database and `ready: true`.
+3. Start once. Confirm one `eitmad.pre-migration-vN-to-v5.sqlite3` artifact for an upgraded database and `ready: true`. A retry for the same version pair must validate and reuse it.
 4. Run storage tests, full workspace tests, strict Clippy, diagnostics, clean start/stop, and documentation audit.
 5. Retain the pre-migration artifact until application verification and an approved retention decision complete.
 
