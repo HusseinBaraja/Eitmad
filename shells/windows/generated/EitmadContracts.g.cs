@@ -1445,8 +1445,8 @@ namespace Eitmad.Contracts
         public SyncMode? Mode { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("schemas")]
-        public string[] Schemas { get; set; }
+        [JsonPropertyName("peer")]
+        public PeerHello Peer { get; set; }
 
         [JsonPropertyName("after")]
         public Guid? After { get; set; }
@@ -1454,6 +1454,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("maximumRecords")]
         public long? MaximumRecords { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("deliveryId")]
+        public Guid? DeliveryId { get; set; }
 
         [JsonPropertyName("fromCheckpoint")]
         public Guid? FromCheckpoint { get; set; }
@@ -1463,12 +1467,35 @@ namespace Eitmad.Contracts
         public bool? HasMore { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("idempotencyKey")]
+        public Guid? IdempotencyKey { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("records")]
         public ChangeRecord[] Records { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("changes")]
+        public ChangeRecord[] Changes { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("commandResults")]
+        public CommandResult2[] CommandResults { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("receivedAt")]
+        public long? ReceivedAt { get; set; }
+
+        [JsonPropertyName("snapshot")]
+        public SyncSnapshot Snapshot { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("acceptedRecords")]
         public long? AcceptedRecords { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("conflictId")]
+        public Guid? ConflictId { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("localRevision")]
@@ -1493,8 +1520,20 @@ namespace Eitmad.Contracts
 
     public partial class ChangeRecord
     {
+        [JsonPropertyName("baseRevision")]
+        public long? BaseRevision { get; set; }
+
         [JsonPropertyName("changedAt")]
         public long ChangedAt { get; set; }
+
+        [JsonPropertyName("changeId")]
+        public Guid ChangeId { get; set; }
+
+        [JsonPropertyName("idempotencyKey")]
+        public Guid IdempotencyKey { get; set; }
+
+        [JsonPropertyName("merge")]
+        public MergeMetadata Merge { get; set; }
 
         [JsonPropertyName("operation")]
         public ChangeOperation Operation { get; set; }
@@ -1512,6 +1551,21 @@ namespace Eitmad.Contracts
         public ScopeRef Scope { get; set; }
     }
 
+    public partial class MergeMetadata
+    {
+        [JsonPropertyName("commonAncestorRevision")]
+        public long? CommonAncestorRevision { get; set; }
+
+        [JsonPropertyName("mergedAt")]
+        public long MergedAt { get; set; }
+
+        [JsonPropertyName("sourceChanges")]
+        public Guid[] SourceChanges { get; set; }
+
+        [JsonPropertyName("strategy")]
+        public MergeStrategy Strategy { get; set; }
+    }
+
     public partial class EncodedDomainPayload
     {
         [JsonPropertyName("base64")]
@@ -1522,6 +1576,58 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("schemaVersion")]
         public long SchemaVersion { get; set; }
+    }
+
+    public partial class CommandResult2
+    {
+        [JsonPropertyName("commandId")]
+        public Guid CommandId { get; set; }
+
+        [JsonPropertyName("disposition")]
+        public CommandDisposition Disposition { get; set; }
+    }
+
+    public partial class CommandDisposition
+    {
+        [JsonPropertyName("payload")]
+        public CommandDispositionPayload Payload { get; set; }
+
+        [JsonPropertyName("status")]
+        public CommandDispositionStatus Status { get; set; }
+    }
+
+    public partial class CommandDispositionPayload
+    {
+        [JsonPropertyName("authoritativeChange")]
+        public ChangeRecord AuthoritativeChange { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("reason")]
+        public string Reason { get; set; }
+    }
+
+    public partial class SyncSnapshot
+    {
+        [JsonPropertyName("checkpoint")]
+        public Guid Checkpoint { get; set; }
+
+        [JsonPropertyName("createdAt")]
+        public long CreatedAt { get; set; }
+
+        [JsonPropertyName("records")]
+        public ChangeRecord[] Records { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+
+        [JsonPropertyName("serverGeneration")]
+        public long ServerGeneration { get; set; }
+
+        [JsonPropertyName("snapshotId")]
+        public Guid SnapshotId { get; set; }
+
+        [JsonPropertyName("validUntil")]
+        public long ValidUntil { get; set; }
     }
 
     public partial class SyncStatus
@@ -1646,7 +1752,11 @@ namespace Eitmad.Contracts
 
     public enum IndecentKind { Configuration, EffectivePermissions, ScopeRelationships, SyncStatus, UpdateState };
 
-    public enum SyncMessageKind { EitmadSyncAcknowledgeV1, EitmadSyncBackpressureV1, EitmadSyncChangesV1, EitmadSyncConflictV1, EitmadSyncNegotiateV1, EitmadSyncPullV1 };
+    public enum SyncMessageKind { EitmadSyncAcknowledgeV1, EitmadSyncBackpressureV1, EitmadSyncChangesV1, EitmadSyncConflictV1, EitmadSyncNegotiateV1, EitmadSyncPullV1, EitmadSyncReconcileV1 };
+
+    public enum MergeStrategy { DomainMerge, KeepLocal, KeepRemote };
+
+    public enum CommandDispositionStatus { Accepted, Denied };
 
     public enum SyncMode { LocalFirst, ServerAuthoritative };
 
@@ -1733,6 +1843,8 @@ namespace Eitmad.Contracts
                 ObservationValueKindConverter.Singleton,
                 IndecentKindConverter.Singleton,
                 SyncMessageKindConverter.Singleton,
+                MergeStrategyConverter.Singleton,
+                CommandDispositionStatusConverter.Singleton,
                 SyncModeConverter.Singleton,
                 SyncStatusKindConverter.Singleton,
                 new DateOnlyConverter(),
@@ -3922,6 +4034,8 @@ namespace Eitmad.Contracts
                     return SyncMessageKind.EitmadSyncNegotiateV1;
                 case "eitmad.sync.pull.v1":
                     return SyncMessageKind.EitmadSyncPullV1;
+                case "eitmad.sync.reconcile.v1":
+                    return SyncMessageKind.EitmadSyncReconcileV1;
             }
             throw new Exception("Cannot unmarshal type SyncMessageKind");
         }
@@ -3948,11 +4062,87 @@ namespace Eitmad.Contracts
                 case SyncMessageKind.EitmadSyncPullV1:
                     JsonSerializer.Serialize(writer, "eitmad.sync.pull.v1", options);
                     return;
+                case SyncMessageKind.EitmadSyncReconcileV1:
+                    JsonSerializer.Serialize(writer, "eitmad.sync.reconcile.v1", options);
+                    return;
             }
             throw new Exception("Cannot marshal type SyncMessageKind");
         }
 
         public static readonly SyncMessageKindConverter Singleton = new SyncMessageKindConverter();
+    }
+
+    internal class MergeStrategyConverter : JsonConverter<MergeStrategy>
+    {
+        public override bool CanConvert(Type t) => t == typeof(MergeStrategy);
+
+        public override MergeStrategy Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "domainMerge":
+                    return MergeStrategy.DomainMerge;
+                case "keepLocal":
+                    return MergeStrategy.KeepLocal;
+                case "keepRemote":
+                    return MergeStrategy.KeepRemote;
+            }
+            throw new Exception("Cannot unmarshal type MergeStrategy");
+        }
+
+        public override void Write(Utf8JsonWriter writer, MergeStrategy value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case MergeStrategy.DomainMerge:
+                    JsonSerializer.Serialize(writer, "domainMerge", options);
+                    return;
+                case MergeStrategy.KeepLocal:
+                    JsonSerializer.Serialize(writer, "keepLocal", options);
+                    return;
+                case MergeStrategy.KeepRemote:
+                    JsonSerializer.Serialize(writer, "keepRemote", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type MergeStrategy");
+        }
+
+        public static readonly MergeStrategyConverter Singleton = new MergeStrategyConverter();
+    }
+
+    internal class CommandDispositionStatusConverter : JsonConverter<CommandDispositionStatus>
+    {
+        public override bool CanConvert(Type t) => t == typeof(CommandDispositionStatus);
+
+        public override CommandDispositionStatus Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "accepted":
+                    return CommandDispositionStatus.Accepted;
+                case "denied":
+                    return CommandDispositionStatus.Denied;
+            }
+            throw new Exception("Cannot unmarshal type CommandDispositionStatus");
+        }
+
+        public override void Write(Utf8JsonWriter writer, CommandDispositionStatus value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case CommandDispositionStatus.Accepted:
+                    JsonSerializer.Serialize(writer, "accepted", options);
+                    return;
+                case CommandDispositionStatus.Denied:
+                    JsonSerializer.Serialize(writer, "denied", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type CommandDispositionStatus");
+        }
+
+        public static readonly CommandDispositionStatusConverter Singleton = new CommandDispositionStatusConverter();
     }
 
     internal class SyncModeConverter : JsonConverter<SyncMode>

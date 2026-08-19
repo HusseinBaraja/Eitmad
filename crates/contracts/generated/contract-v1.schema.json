@@ -253,9 +253,14 @@
         "checkpoint": {
           "type": "string",
           "format": "uuid"
+        },
+        "deliveryId": {
+          "type": "string",
+          "format": "uuid"
         }
       },
       "required": [
+        "deliveryId",
         "checkpoint",
         "acceptedRecords"
       ]
@@ -275,6 +280,14 @@
     "ChangeBatch": {
       "type": "object",
       "properties": {
+        "checkpoint": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "deliveryId": {
+          "type": "string",
+          "format": "uuid"
+        },
         "fromCheckpoint": {
           "type": [
             "string",
@@ -285,6 +298,10 @@
         "hasMore": {
           "type": "boolean"
         },
+        "idempotencyKey": {
+          "type": "string",
+          "format": "uuid"
+        },
         "records": {
           "type": "array",
           "items": {
@@ -293,6 +310,9 @@
         }
       },
       "required": [
+        "deliveryId",
+        "idempotencyKey",
+        "checkpoint",
         "records",
         "hasMore"
       ]
@@ -307,9 +327,35 @@
     "ChangeRecord": {
       "type": "object",
       "properties": {
+        "baseRevision": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "changeId": {
+          "type": "string",
+          "format": "uuid"
+        },
         "changedAt": {
           "type": "integer",
           "format": "int64"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "merge": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/MergeMetadata"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "operation": {
           "$ref": "#/definitions/ChangeOperation"
@@ -338,11 +384,13 @@
         }
       },
       "required": [
+        "changeId",
         "recordId",
         "scope",
         "operation",
         "revision",
-        "changedAt"
+        "changedAt",
+        "idempotencyKey"
       ]
     },
     "Command": {
@@ -425,6 +473,62 @@
           },
           "required": [
             "kind",
+            "payload"
+          ]
+        }
+      ]
+    },
+    "CommandDisposition": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "payload": {
+              "type": "object",
+              "properties": {
+                "authoritativeChange": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/definitions/ChangeRecord"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            },
+            "status": {
+              "type": "string",
+              "const": "accepted"
+            }
+          },
+          "required": [
+            "status",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "payload": {
+              "type": "object",
+              "properties": {
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "reason"
+              ]
+            },
+            "status": {
+              "type": "string",
+              "const": "denied"
+            }
+          },
+          "required": [
+            "status",
             "payload"
           ]
         }
@@ -624,6 +728,22 @@
             "payload"
           ]
         }
+      ]
+    },
+    "CommandResult2": {
+      "type": "object",
+      "properties": {
+        "commandId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "disposition": {
+          "$ref": "#/definitions/CommandDisposition"
+        }
+      },
+      "required": [
+        "commandId",
+        "disposition"
       ]
     },
     "ConfigChange": {
@@ -930,6 +1050,10 @@
     "ConflictNotice": {
       "type": "object",
       "properties": {
+        "conflictId": {
+          "type": "string",
+          "format": "uuid"
+        },
         "localRevision": {
           "type": "integer",
           "format": "uint64",
@@ -946,6 +1070,7 @@
         }
       },
       "required": [
+        "conflictId",
         "recordId",
         "localRevision",
         "remoteRevision"
@@ -2227,6 +2352,46 @@
         "limit"
       ]
     },
+    "MergeMetadata": {
+      "type": "object",
+      "properties": {
+        "commonAncestorRevision": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "mergedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "sourceChanges": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "strategy": {
+          "$ref": "#/definitions/MergeStrategy"
+        }
+      },
+      "required": [
+        "strategy",
+        "sourceChanges",
+        "mergedAt"
+      ]
+    },
+    "MergeStrategy": {
+      "type": "string",
+      "enum": [
+        "keepLocal",
+        "keepRemote",
+        "domainMerge"
+      ]
+    },
     "NegotiatedSchema": {
       "type": "object",
       "properties": {
@@ -2924,6 +3089,57 @@
             "payload"
           ]
         }
+      ]
+    },
+    "ReconciliationDelivery": {
+      "type": "object",
+      "properties": {
+        "changes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ChangeRecord"
+          }
+        },
+        "checkpoint": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "commandResults": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CommandResult2"
+          }
+        },
+        "deliveryId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "receivedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "snapshot": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/SyncSnapshot"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "deliveryId",
+        "idempotencyKey",
+        "checkpoint",
+        "receivedAt",
+        "changes",
+        "commandResults"
       ]
     },
     "RecordChangeNotice": {
@@ -3647,6 +3863,22 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "eitmad.sync.reconcile.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ReconciliationDelivery"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "eitmad.sync.acknowledge.v1"
             },
             "payload": {
@@ -3712,16 +3944,57 @@
         "mode": {
           "$ref": "#/definitions/SyncMode"
         },
-        "schemas": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
+        "peer": {
+          "$ref": "#/definitions/PeerHello"
         }
       },
       "required": [
         "mode",
-        "schemas"
+        "peer"
+      ]
+    },
+    "SyncSnapshot": {
+      "type": "object",
+      "properties": {
+        "checkpoint": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "createdAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "records": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ChangeRecord"
+          }
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        },
+        "serverGeneration": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "snapshotId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "validUntil": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "snapshotId",
+        "scope",
+        "checkpoint",
+        "serverGeneration",
+        "createdAt",
+        "validUntil",
+        "records"
       ]
     },
     "SyncStatus": {

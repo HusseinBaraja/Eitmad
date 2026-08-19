@@ -1,5 +1,34 @@
 //! Unified local-first and server-authoritative synchronization protocol.
 
+mod engine;
+
+pub use engine::{
+    CommandDraft, ConflictHook, ConflictResolution, DeliveryOutcome, LocalChangeDraft,
+    LocalChangeOutcome, PendingCommandOutcome, SyncEngine, SyncEngineError,
+};
+
+impl std::fmt::Display for SyncEngineError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(match self {
+            Self::Authorization(_) => "sync authorization failed",
+            Self::StorageUnavailable => "sync storage is unavailable",
+            Self::StorageConflict => "sync storage revision conflict",
+            Self::CorruptState => "sync state is corrupt",
+            Self::UnsupportedStateVersion { .. } => "sync state version is unsupported",
+            Self::WrongMode => "sync operation is unavailable in this mode",
+            Self::ScopeMismatch => "sync scope does not match",
+            Self::InvalidChange => "sync change is invalid",
+            Self::IdempotencyMismatch => "sync idempotency key was reused",
+            Self::IncompatibleMode => "sync application modes are incompatible",
+            Self::IncompatiblePeer(_) => "sync peer is incompatible",
+            Self::Disconnected => "sync engine is offline",
+            Self::StaleCache => "sync cache is stale",
+        })
+    }
+}
+
+impl std::error::Error for SyncEngineError {}
+
 use eitmad_authorization::{AuthorizationGate, BoundaryAuditContext, BoundaryError, BoundaryKind};
 use eitmad_contracts::{authorization::AuthorizationRequest, identity::AuthorizationContext};
 use eitmad_observability_audit::RedactedAuditError;

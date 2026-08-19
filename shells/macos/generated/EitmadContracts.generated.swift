@@ -4668,41 +4668,60 @@ public enum SyncMessageKind: String, Codable, Sendable {
     case eitmadSyncConflictV1 = "eitmad.sync.conflict.v1"
     case eitmadSyncNegotiateV1 = "eitmad.sync.negotiate.v1"
     case eitmadSyncPullV1 = "eitmad.sync.pull.v1"
+    case eitmadSyncReconcileV1 = "eitmad.sync.reconcile.v1"
 }
 
 // MARK: - SyncNegotiation
 public struct SyncNegotiation: Codable, Sendable {
     public let checkpoint: String?
     public let mode: SyncMode?
-    public let schemas: [String]?
+    public let peer: PeerHello?
     public let after: String?
     public let maximumRecords: Int?
+    public let deliveryID: String?
     public let fromCheckpoint: String?
     public let hasMore: Bool?
-    public let records: [ChangeRecord]?
-    public let acceptedRecords, localRevision: Int?
+    public let idempotencyKey: String?
+    public let records, changes: [ChangeRecord]?
+    public let commandResults: [CommandResult2]?
+    public let receivedAt: Int?
+    public let snapshot: SyncSnapshot?
+    public let acceptedRecords: Int?
+    public let conflictID: String?
+    public let localRevision: Int?
     public let recordID: String?
     public let remoteRevision, delayMS: Int?
     public let reason: String?
 
     public enum CodingKeys: String, CodingKey {
-        case checkpoint, mode, schemas, after, maximumRecords, fromCheckpoint, hasMore, records, acceptedRecords, localRevision
+        case checkpoint, mode, peer, after, maximumRecords
+        case deliveryID = "deliveryId"
+        case fromCheckpoint, hasMore, idempotencyKey, records, changes, commandResults, receivedAt, snapshot, acceptedRecords
+        case conflictID = "conflictId"
+        case localRevision
         case recordID = "recordId"
         case remoteRevision
         case delayMS = "delayMs"
         case reason
     }
 
-    public init(checkpoint: String?, mode: SyncMode?, schemas: [String]?, after: String?, maximumRecords: Int?, fromCheckpoint: String?, hasMore: Bool?, records: [ChangeRecord]?, acceptedRecords: Int?, localRevision: Int?, recordID: String?, remoteRevision: Int?, delayMS: Int?, reason: String?) {
+    public init(checkpoint: String?, mode: SyncMode?, peer: PeerHello?, after: String?, maximumRecords: Int?, deliveryID: String?, fromCheckpoint: String?, hasMore: Bool?, idempotencyKey: String?, records: [ChangeRecord]?, changes: [ChangeRecord]?, commandResults: [CommandResult2]?, receivedAt: Int?, snapshot: SyncSnapshot?, acceptedRecords: Int?, conflictID: String?, localRevision: Int?, recordID: String?, remoteRevision: Int?, delayMS: Int?, reason: String?) {
         self.checkpoint = checkpoint
         self.mode = mode
-        self.schemas = schemas
+        self.peer = peer
         self.after = after
         self.maximumRecords = maximumRecords
+        self.deliveryID = deliveryID
         self.fromCheckpoint = fromCheckpoint
         self.hasMore = hasMore
+        self.idempotencyKey = idempotencyKey
         self.records = records
+        self.changes = changes
+        self.commandResults = commandResults
+        self.receivedAt = receivedAt
+        self.snapshot = snapshot
         self.acceptedRecords = acceptedRecords
+        self.conflictID = conflictID
         self.localRevision = localRevision
         self.recordID = recordID
         self.remoteRevision = remoteRevision
@@ -4732,13 +4751,20 @@ public extension SyncNegotiation {
     func with(
         checkpoint: String?? = nil,
         mode: SyncMode?? = nil,
-        schemas: [String]?? = nil,
+        peer: PeerHello?? = nil,
         after: String?? = nil,
         maximumRecords: Int?? = nil,
+        deliveryID: String?? = nil,
         fromCheckpoint: String?? = nil,
         hasMore: Bool?? = nil,
+        idempotencyKey: String?? = nil,
         records: [ChangeRecord]?? = nil,
+        changes: [ChangeRecord]?? = nil,
+        commandResults: [CommandResult2]?? = nil,
+        receivedAt: Int?? = nil,
+        snapshot: SyncSnapshot?? = nil,
         acceptedRecords: Int?? = nil,
+        conflictID: String?? = nil,
         localRevision: Int?? = nil,
         recordID: String?? = nil,
         remoteRevision: Int?? = nil,
@@ -4748,13 +4774,20 @@ public extension SyncNegotiation {
         return SyncNegotiation(
             checkpoint: checkpoint ?? self.checkpoint,
             mode: mode ?? self.mode,
-            schemas: schemas ?? self.schemas,
+            peer: peer ?? self.peer,
             after: after ?? self.after,
             maximumRecords: maximumRecords ?? self.maximumRecords,
+            deliveryID: deliveryID ?? self.deliveryID,
             fromCheckpoint: fromCheckpoint ?? self.fromCheckpoint,
             hasMore: hasMore ?? self.hasMore,
+            idempotencyKey: idempotencyKey ?? self.idempotencyKey,
             records: records ?? self.records,
+            changes: changes ?? self.changes,
+            commandResults: commandResults ?? self.commandResults,
+            receivedAt: receivedAt ?? self.receivedAt,
+            snapshot: snapshot ?? self.snapshot,
             acceptedRecords: acceptedRecords ?? self.acceptedRecords,
+            conflictID: conflictID ?? self.conflictID,
             localRevision: localRevision ?? self.localRevision,
             recordID: recordID ?? self.recordID,
             remoteRevision: remoteRevision ?? self.remoteRevision,
@@ -4772,14 +4805,12 @@ public extension SyncNegotiation {
     }
 }
 
-public enum SyncMode: String, Codable, Sendable {
-    case localFirst = "localFirst"
-    case serverAuthoritative = "serverAuthoritative"
-}
-
 // MARK: - ChangeRecord
 public struct ChangeRecord: Codable, Sendable {
+    public let baseRevision: Int?
     public let changedAt: Int
+    public let changeID, idempotencyKey: String
+    public let merge: MergeMetadata?
     public let operation: ChangeOperation
     public let payload: EncodedDomainPayload?
     public let recordID: String
@@ -4787,13 +4818,19 @@ public struct ChangeRecord: Codable, Sendable {
     public let scope: ScopeRef
 
     public enum CodingKeys: String, CodingKey {
-        case changedAt, operation, payload
+        case baseRevision, changedAt
+        case changeID = "changeId"
+        case idempotencyKey, merge, operation, payload
         case recordID = "recordId"
         case revision, scope
     }
 
-    public init(changedAt: Int, operation: ChangeOperation, payload: EncodedDomainPayload?, recordID: String, revision: Int, scope: ScopeRef) {
+    public init(baseRevision: Int?, changedAt: Int, changeID: String, idempotencyKey: String, merge: MergeMetadata?, operation: ChangeOperation, payload: EncodedDomainPayload?, recordID: String, revision: Int, scope: ScopeRef) {
+        self.baseRevision = baseRevision
         self.changedAt = changedAt
+        self.changeID = changeID
+        self.idempotencyKey = idempotencyKey
+        self.merge = merge
         self.operation = operation
         self.payload = payload
         self.recordID = recordID
@@ -4821,7 +4858,11 @@ public extension ChangeRecord {
     }
 
     func with(
+        baseRevision: Int?? = nil,
         changedAt: Int? = nil,
+        changeID: String? = nil,
+        idempotencyKey: String? = nil,
+        merge: MergeMetadata?? = nil,
         operation: ChangeOperation? = nil,
         payload: EncodedDomainPayload?? = nil,
         recordID: String? = nil,
@@ -4829,7 +4870,11 @@ public extension ChangeRecord {
         scope: ScopeRef? = nil
     ) -> ChangeRecord {
         return ChangeRecord(
+            baseRevision: baseRevision ?? self.baseRevision,
             changedAt: changedAt ?? self.changedAt,
+            changeID: changeID ?? self.changeID,
+            idempotencyKey: idempotencyKey ?? self.idempotencyKey,
+            merge: merge ?? self.merge,
             operation: operation ?? self.operation,
             payload: payload ?? self.payload,
             recordID: recordID ?? self.recordID,
@@ -4845,6 +4890,68 @@ public extension ChangeRecord {
     func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
         return String(data: try self.jsonData(), encoding: encoding)
     }
+}
+
+// MARK: - MergeMetadata
+public struct MergeMetadata: Codable, Sendable {
+    public let commonAncestorRevision: Int?
+    public let mergedAt: Int
+    public let sourceChanges: [String]
+    public let strategy: MergeStrategy
+
+    public init(commonAncestorRevision: Int?, mergedAt: Int, sourceChanges: [String], strategy: MergeStrategy) {
+        self.commonAncestorRevision = commonAncestorRevision
+        self.mergedAt = mergedAt
+        self.sourceChanges = sourceChanges
+        self.strategy = strategy
+    }
+}
+
+// MARK: MergeMetadata convenience initializers and mutators
+
+public extension MergeMetadata {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(MergeMetadata.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        commonAncestorRevision: Int?? = nil,
+        mergedAt: Int? = nil,
+        sourceChanges: [String]? = nil,
+        strategy: MergeStrategy? = nil
+    ) -> MergeMetadata {
+        return MergeMetadata(
+            commonAncestorRevision: commonAncestorRevision ?? self.commonAncestorRevision,
+            mergedAt: mergedAt ?? self.mergedAt,
+            sourceChanges: sourceChanges ?? self.sourceChanges,
+            strategy: strategy ?? self.strategy
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+public enum MergeStrategy: String, Codable, Sendable {
+    case domainMerge = "domainMerge"
+    case keepLocal = "keepLocal"
+    case keepRemote = "keepRemote"
 }
 
 // MARK: - EncodedDomainPayload
@@ -4892,6 +4999,239 @@ public extension EncodedDomainPayload {
             base64: base64 ?? self.base64,
             schemaID: schemaID ?? self.schemaID,
             schemaVersion: schemaVersion ?? self.schemaVersion
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - CommandResult2
+public struct CommandResult2: Codable, Sendable {
+    public let commandID: String
+    public let disposition: CommandDisposition
+
+    public enum CodingKeys: String, CodingKey {
+        case commandID = "commandId"
+        case disposition
+    }
+
+    public init(commandID: String, disposition: CommandDisposition) {
+        self.commandID = commandID
+        self.disposition = disposition
+    }
+}
+
+// MARK: CommandResult2 convenience initializers and mutators
+
+public extension CommandResult2 {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(CommandResult2.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        commandID: String? = nil,
+        disposition: CommandDisposition? = nil
+    ) -> CommandResult2 {
+        return CommandResult2(
+            commandID: commandID ?? self.commandID,
+            disposition: disposition ?? self.disposition
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - CommandDisposition
+public struct CommandDisposition: Codable, Sendable {
+    public let payload: CommandDispositionPayload
+    public let status: CommandDispositionStatus
+
+    public init(payload: CommandDispositionPayload, status: CommandDispositionStatus) {
+        self.payload = payload
+        self.status = status
+    }
+}
+
+// MARK: CommandDisposition convenience initializers and mutators
+
+public extension CommandDisposition {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(CommandDisposition.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        payload: CommandDispositionPayload? = nil,
+        status: CommandDispositionStatus? = nil
+    ) -> CommandDisposition {
+        return CommandDisposition(
+            payload: payload ?? self.payload,
+            status: status ?? self.status
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - CommandDispositionPayload
+public struct CommandDispositionPayload: Codable, Sendable {
+    public let authoritativeChange: ChangeRecord?
+    public let reason: String?
+
+    public init(authoritativeChange: ChangeRecord?, reason: String?) {
+        self.authoritativeChange = authoritativeChange
+        self.reason = reason
+    }
+}
+
+// MARK: CommandDispositionPayload convenience initializers and mutators
+
+public extension CommandDispositionPayload {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(CommandDispositionPayload.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        authoritativeChange: ChangeRecord?? = nil,
+        reason: String?? = nil
+    ) -> CommandDispositionPayload {
+        return CommandDispositionPayload(
+            authoritativeChange: authoritativeChange ?? self.authoritativeChange,
+            reason: reason ?? self.reason
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+public enum CommandDispositionStatus: String, Codable, Sendable {
+    case accepted = "accepted"
+    case denied = "denied"
+}
+
+public enum SyncMode: String, Codable, Sendable {
+    case localFirst = "localFirst"
+    case serverAuthoritative = "serverAuthoritative"
+}
+
+// MARK: - SyncSnapshot
+public struct SyncSnapshot: Codable, Sendable {
+    public let checkpoint: String
+    public let createdAt: Int
+    public let records: [ChangeRecord]
+    public let scope: ScopeRef
+    public let serverGeneration: Int
+    public let snapshotID: String
+    public let validUntil: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case checkpoint, createdAt, records, scope, serverGeneration
+        case snapshotID = "snapshotId"
+        case validUntil
+    }
+
+    public init(checkpoint: String, createdAt: Int, records: [ChangeRecord], scope: ScopeRef, serverGeneration: Int, snapshotID: String, validUntil: Int) {
+        self.checkpoint = checkpoint
+        self.createdAt = createdAt
+        self.records = records
+        self.scope = scope
+        self.serverGeneration = serverGeneration
+        self.snapshotID = snapshotID
+        self.validUntil = validUntil
+    }
+}
+
+// MARK: SyncSnapshot convenience initializers and mutators
+
+public extension SyncSnapshot {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(SyncSnapshot.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        checkpoint: String? = nil,
+        createdAt: Int? = nil,
+        records: [ChangeRecord]? = nil,
+        scope: ScopeRef? = nil,
+        serverGeneration: Int? = nil,
+        snapshotID: String? = nil,
+        validUntil: Int? = nil
+    ) -> SyncSnapshot {
+        return SyncSnapshot(
+            checkpoint: checkpoint ?? self.checkpoint,
+            createdAt: createdAt ?? self.createdAt,
+            records: records ?? self.records,
+            scope: scope ?? self.scope,
+            serverGeneration: serverGeneration ?? self.serverGeneration,
+            snapshotID: snapshotID ?? self.snapshotID,
+            validUntil: validUntil ?? self.validUntil
         )
     }
 

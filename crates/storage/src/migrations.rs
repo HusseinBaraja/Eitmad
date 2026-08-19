@@ -5,7 +5,7 @@ use sha2::{Digest as _, Sha256};
 
 use crate::{
     CURRENT_STORAGE_VERSION, MIN_SUPPORTED_STORAGE_VERSION, StorageError, audit, authorization,
-    configuration, identity,
+    configuration, identity, sync_state,
 };
 
 const HISTORY_SCHEMA: &str = "CREATE TABLE schema_migrations (
@@ -143,6 +143,7 @@ fn registry() -> Vec<Migration> {
         .chain(CORE_MIGRATIONS)
         .chain(identity::MIGRATIONS)
         .chain(audit::MIGRATIONS)
+        .chain(sync_state::MIGRATIONS)
         .copied()
         .collect()
 }

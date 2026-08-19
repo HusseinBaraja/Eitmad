@@ -7,6 +7,7 @@ mod export;
 mod identity;
 mod migrations;
 mod recovery;
+mod sync_state;
 
 use std::{
     fmt, fs,
@@ -31,9 +32,10 @@ pub use export::{ExportDataClass, ExportScope, LOCAL_DATA_EXPORT_FORMAT, LocalDa
 pub use identity::{DeviceIdentity, IdentityTopology, PersistentSession, SessionConnectivity};
 pub use recovery::{RecoveryArtifact, RecoveryArtifactKind, RestoreOutcome};
 use rusqlite::{Connection, OpenFlags, OptionalExtension as _, TransactionBehavior};
+pub use sync_state::{StoredSyncState, SyncStateCommitOutcome};
 
 pub const DATABASE_FILE_NAME: &str = "eitmad.sqlite3";
-pub const CURRENT_STORAGE_VERSION: u32 = 6;
+pub const CURRENT_STORAGE_VERSION: u32 = 7;
 pub const MIN_SUPPORTED_STORAGE_VERSION: u32 = 2;
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 

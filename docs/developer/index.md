@@ -36,6 +36,7 @@ Read `AGENTS.md` at the repository root, then review:
 - [Privacy-preserving observability](subsystems/privacy-preserving-observability.md)
 - [Rust-owned secret storage](subsystems/secret-storage.md)
 - [Rust-owned local storage](subsystems/local-storage.md)
+- [Dual-mode synchronization](subsystems/synchronization.md)
 - [Persistent tenant identity](subsystems/identity-foundation.md)
 - [Windows engine process supervision](subsystems/windows-process-supervision.md)
 

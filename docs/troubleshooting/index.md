@@ -32,6 +32,10 @@ Use symptom and identifier pages to reach the authoritative owner and a non-dest
 
 - [Resolve local storage migration, corruption, and restore failures](local-storage-recovery-failures.md): diagnose compatibility windows, pre-migration snapshots, integrity, schema drift, restore artifacts, and scoped export denial.
 
+## Synchronization failures
+
+- [Resolve queued, conflicted, denied, or stale synchronization](synchronization-failures.md): diagnose mode/peer incompatibility, pending work, conflicts, optimistic rollback, duplicate delivery, stale cache, scope, authorization, and durable state.
+
 ## Configuration and authorization failures
 
 - [Resolve configuration and authorization failures](configuration-authorization-failures.md): diagnose invalid patches/imports, revision conflicts, denial, last-owner protection, revocation, migration, and corruption.

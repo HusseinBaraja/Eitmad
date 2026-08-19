@@ -31,6 +31,8 @@ keywords:
 | Cross-language fixture | `tests/contract-compatibility/fixtures/protocol-v1.json` |
 | Mechanical identifier listing | [Protocol v1 identifier reference](../_generated/contracts-v1.md) |
 
+The sync contract graph has a focused [synchronization reference](synchronization-contracts.md) covering change records, snapshots, pending command queues, conflicts, delivery idempotency, cache labels, and lifecycle events.
+
 Generated files have a `Do not edit` header. Linux bindings remain blocked on the Linux UI technology decision; a future Linux shell must consume the Rust crate directly or add a generated/validated binding through a new decision.
 
 ## Interaction contracts
@@ -61,6 +63,7 @@ The foreground CLI emits lifecycle snapshots as newline-delimited JSON on child 
 - Configuration is revisioned and typed. It does not carry arbitrary JSON or secret values; secret references and redacted reads are explicit variants.
 - `SecretId` and secret lifecycle are Rust-internal authority types, not protocol-v1 operations. Shells never receive secret material or call an OS credential store for product secrets.
 - Sync domain payloads are registered schema/version identifiers plus encoded bytes. A domain vertical must define the payload schema before use.
+- Sync deliveries carry independent delivery IDs and idempotency keys. Consumers preserve record authority and cache freshness labels instead of presenting optimistic or stale data as canonical.
 - Observation event, field, component, severity, classification, and value-kind contracts are exported in the JSON schema and exercised by the C# and Swift conformance fixture. Diagnostic values still reach sinks only through the Rust-owned redaction boundary.
 
 This is a minimal valid query body; the complete scoped envelope is in `tests/contract-compatibility/fixtures/protocol-v1.json`:
