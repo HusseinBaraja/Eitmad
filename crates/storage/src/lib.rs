@@ -1,5 +1,6 @@
 //! Rust-owned `SQLite` access, migrations, transactions, and scoped repositories.
 
+mod audit;
 mod authorization;
 mod configuration;
 mod export;
@@ -32,7 +33,7 @@ pub use recovery::{RecoveryArtifact, RecoveryArtifactKind, RestoreOutcome};
 use rusqlite::{Connection, OpenFlags, OptionalExtension as _, TransactionBehavior};
 
 pub const DATABASE_FILE_NAME: &str = "eitmad.sqlite3";
-pub const CURRENT_STORAGE_VERSION: u32 = 5;
+pub const CURRENT_STORAGE_VERSION: u32 = 6;
 pub const MIN_SUPPORTED_STORAGE_VERSION: u32 = 2;
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -430,17 +431,24 @@ fn insert_publication(
 }
 
 fn insert_audit(connection: &Connection, record: &MutationAuditRecord) -> Result<(), StorageError> {
+    record.validate_complete().map_err(|_| StorageError)?;
     let (scope_kind, scope_id) = scope_parts(&record.scope);
     let principal_kind = serde_json::to_string(&record.principal_kind).map_err(|_| StorageError)?;
     let changed = serde_json::to_string(&record.changed_identifiers).map_err(|_| StorageError)?;
     let outcome = serde_json::to_string(&record.outcome).map_err(|_| StorageError)?;
+    let target = serde_json::to_string(&record.target).map_err(|_| StorageError)?;
+    let redacted_error = serde_json::to_string(&record.redacted_error).map_err(|_| StorageError)?;
+    let extension_points =
+        serde_json::to_string(&record.extension_points).map_err(|_| StorageError)?;
     connection
         .execute(
             "INSERT INTO mutation_audit
              (audit_id, occurred_at, principal_id, principal_kind, scope_kind, scope_id,
               session_id, device_id, correlation_id, causation_id, idempotency_key, operation, outcome,
-              previous_revision, resulting_revision, changed_identifiers, error_code)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
+              previous_revision, resulting_revision, changed_identifiers, error_code,
+              tenant_id, workspace_id, target, redacted_error, extension_points)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16,
+                     NULL, ?17, ?18, ?19, ?20, ?21)",
             rusqlite::params![
                 record.audit_id.to_string(),
                 record.occurred_at.0,
@@ -448,7 +456,7 @@ fn insert_audit(connection: &Connection, record: &MutationAuditRecord) -> Result
                 principal_kind,
                 scope_kind,
                 scope_id,
-                record.session_id.map(|id| id.value().to_string()),
+                record.session_id.value().to_string(),
                 record.device_id.map(|id| id.value().to_string()),
                 record.correlation_id.value().to_string(),
                 record.causation_id.map(|id| id.value().to_string()),
@@ -466,7 +474,11 @@ fn insert_audit(connection: &Connection, record: &MutationAuditRecord) -> Result
                     .transpose()
                     .map_err(|_| StorageError)?,
                 changed,
-                record.error_code,
+                record.tenant_id.value().to_string(),
+                record.workspace_id.map(|id| id.value().to_string()),
+                target,
+                redacted_error,
+                extension_points,
             ],
         )
         .map_err(|_| StorageError)?;
@@ -620,10 +632,15 @@ fn windows_system_tool(name: &str) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use eitmad_contracts::{
-        identity::{PrincipalId, PrincipalKind, ScopeId, ScopeKind, ScopeRef},
+        identity::{
+            PrincipalId, PrincipalKind, ScopeId, ScopeKind, ScopeRef, SessionId, TenantId,
+            WorkspaceId,
+        },
         transport::{CorrelationId, UnixMillis},
     };
-    use eitmad_observability_audit::{AuditOutcome, MutationAuditRecord};
+    use eitmad_observability_audit::{
+        AuditErrorClass, AuditOutcome, AuditTarget, MutationAuditRecord, RedactedAuditError,
+    };
     use rusqlite::Connection;
     use tempfile::TempDir;
     use uuid::Uuid;
@@ -634,33 +651,45 @@ mod tests {
     fn audit_rows_are_append_only() {
         let directory = TempDir::new().unwrap();
         let store = AuthorityStore::open(directory.path()).unwrap();
-        store
-            .append_audit(&MutationAuditRecord {
-                audit_id: Uuid::from_u128(1),
-                occurred_at: UnixMillis(1),
-                principal_id: PrincipalId::new(Uuid::from_u128(2)),
-                principal_kind: PrincipalKind::User,
-                session_id: Some(eitmad_contracts::identity::SessionId::new(Uuid::from_u128(
-                    5,
-                ))),
-                device_id: Some(eitmad_contracts::identity::DeviceId::new(Uuid::from_u128(
-                    6,
-                ))),
-                scope: ScopeRef {
-                    kind: ScopeKind::parse("organization").unwrap(),
-                    id: ScopeId::new(Uuid::from_u128(3)),
-                },
-                correlation_id: CorrelationId::new(Uuid::from_u128(4)),
-                causation_id: None,
-                idempotency_key: None,
-                operation: "test".to_owned(),
-                outcome: AuditOutcome::Succeeded,
-                previous_revision: None,
-                resulting_revision: None,
-                changed_identifiers: Vec::new(),
-                error_code: None,
-            })
-            .unwrap();
+        let record = MutationAuditRecord {
+            audit_id: Uuid::from_u128(1),
+            occurred_at: UnixMillis(1),
+            principal_id: PrincipalId::new(Uuid::from_u128(2)),
+            principal_kind: PrincipalKind::User,
+            session_id: SessionId::new(Uuid::from_u128(5)),
+            device_id: Some(eitmad_contracts::identity::DeviceId::new(Uuid::from_u128(
+                6,
+            ))),
+            tenant_id: TenantId::new(Uuid::from_u128(7)),
+            workspace_id: Some(WorkspaceId::new(Uuid::from_u128(8))),
+            scope: ScopeRef {
+                kind: ScopeKind::parse("organization").unwrap(),
+                id: ScopeId::new(Uuid::from_u128(3)),
+            },
+            correlation_id: CorrelationId::new(Uuid::from_u128(4)),
+            causation_id: None,
+            idempotency_key: None,
+            operation: "test".to_owned(),
+            target: AuditTarget {
+                kind: "test".to_owned(),
+                identifiers: vec!["synthetic".to_owned()],
+            },
+            outcome: AuditOutcome::Succeeded,
+            previous_revision: None,
+            resulting_revision: None,
+            changed_identifiers: Vec::new(),
+            redacted_error: None,
+            extension_points: Vec::new(),
+        };
+        let mut unsafe_record = record.clone();
+        unsafe_record.audit_id = Uuid::from_u128(9);
+        unsafe_record.outcome = AuditOutcome::Failed;
+        unsafe_record.redacted_error = Some(RedactedAuditError {
+            code: "raw provider response".to_owned(),
+            class: AuditErrorClass::Dependency,
+        });
+        assert!(store.append_audit(&unsafe_record).is_err());
+        store.append_audit(&record).unwrap();
 
         let connection = Connection::open(store.path()).unwrap();
         let attribution: (String, String) = connection
@@ -672,6 +701,27 @@ mod tests {
             .unwrap();
         assert_eq!(attribution.0, Uuid::from_u128(5).to_string());
         assert_eq!(attribution.1, Uuid::from_u128(6).to_string());
+        let envelope: (String, String, String, String, String) = connection
+            .query_row(
+                "SELECT tenant_id, workspace_id, target, redacted_error, extension_points
+                 FROM mutation_audit WHERE audit_id = ?1",
+                [Uuid::from_u128(1).to_string()],
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                    ))
+                },
+            )
+            .unwrap();
+        assert_eq!(envelope.0, Uuid::from_u128(7).to_string());
+        assert_eq!(envelope.1, Uuid::from_u128(8).to_string());
+        assert!(envelope.2.contains("synthetic"));
+        assert_eq!(envelope.3, "null");
+        assert_eq!(envelope.4, "[]");
         assert!(
             connection
                 .execute("DELETE FROM mutation_audit", [])

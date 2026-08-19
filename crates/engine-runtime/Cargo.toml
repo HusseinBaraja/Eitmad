@@ -14,6 +14,7 @@ async-trait = "=0.1.89"
 eitmad-authorization = { path = "../authorization" }
 eitmad-configuration = { path = "../configuration" }
 eitmad-contracts = { path = "../contracts" }
+eitmad-observability-audit = { path = "../observability-audit" }
 eitmad-storage = { path = "../storage" }
 fs2 = "=0.4.3"
 semver = "=1.0.27"
@@ -24,5 +25,6 @@ tokio = { version = "=1.49.0", features = ["io-util", "net", "rt", "sync", "time
 uuid = { version = "=1.23.4", features = ["v4"] }
 
 [dev-dependencies]
+rusqlite = { version = "=0.39.0", default-features = false, features = ["bundled"] }
 tempfile = "=3.24.0"
 tokio = { version = "=1.49.0", features = ["macros", "rt-multi-thread", "sync", "time"] }

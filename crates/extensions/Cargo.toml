@@ -9,3 +9,7 @@ rust-version.workspace = true
 [lints]
 workspace = true
 
+[dependencies]
+eitmad-authorization = { path = "../authorization" }
+eitmad-contracts = { path = "../contracts" }
+eitmad-observability-audit = { path = "../observability-audit" }

@@ -15,7 +15,7 @@ use eitmad_contracts::{
     },
     identity::{
         AuthenticatedIdentity, AuthorizationContext, DeviceId, PrincipalId, PrincipalKind, ScopeId,
-        ScopeKind, ScopeRef, SessionId,
+        ScopeKind, ScopeRef, SessionId, TenantId,
     },
     ipc::{IpcClientMessage, IpcServerMessage},
     permissions::EffectivePermissions,
@@ -103,6 +103,8 @@ fn fixture() -> Result<ConformanceFixture, Box<dyn std::error::Error>> {
             device_id: Some(DeviceId::new(uuid(4))),
             service_id: None,
         },
+        tenant_id: TenantId::new(uuid(8)),
+        workspace_id: None,
         scope: scope.clone(),
     };
     let correlation_id = CorrelationId::new(uuid(5));

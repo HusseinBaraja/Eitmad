@@ -572,13 +572,18 @@ public sealed class EngineSupervisor : IAsyncDisposable
         {
             PeerKind = PeerKind.Shell,
             ProductVersion = "0.0.0",
-            Protocols = [new SupportedProtocol { Major = 1, MinimumMinor = 0, MaximumMinor = 1 }],
+            Protocols = [new SupportedProtocol { Major = 1, MinimumMinor = 0, MaximumMinor = 3 }],
             Capabilities =
             [
                 ProtocolIds.Capabilities.EitmadCapabilityLocalIpcV1,
                 ProtocolIds.Capabilities.EitmadCapabilityLocalIpcSubscriptionsV1,
+                ProtocolIds.Capabilities.EitmadCapabilityAuthorizationScopesV1,
             ],
-            RequiredCapabilities = [ProtocolIds.Capabilities.EitmadCapabilityLocalIpcV1],
+            RequiredCapabilities =
+            [
+                ProtocolIds.Capabilities.EitmadCapabilityLocalIpcV1,
+                ProtocolIds.Capabilities.EitmadCapabilityAuthorizationScopesV1,
+            ],
             Schemas = [],
         };
         var client = await EngineIpcClient.ConnectAsync(

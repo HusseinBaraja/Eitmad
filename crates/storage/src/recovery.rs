@@ -340,7 +340,13 @@ mod tests {
         let connection = Connection::open(store.path()).unwrap();
         connection
             .execute_batch(
-                "DROP TABLE identity_sessions;
+                "ALTER TABLE mutation_audit DROP COLUMN extension_points;
+                 ALTER TABLE mutation_audit DROP COLUMN redacted_error;
+                 ALTER TABLE mutation_audit DROP COLUMN target;
+                 ALTER TABLE mutation_audit DROP COLUMN workspace_id;
+                 ALTER TABLE mutation_audit DROP COLUMN tenant_id;
+                 DELETE FROM schema_migrations WHERE version = 6;
+                 DROP TABLE identity_sessions;
                  DROP TABLE identity_workspaces;
                  DROP TABLE identity_organizations;
                  DROP TABLE identity_accounts;

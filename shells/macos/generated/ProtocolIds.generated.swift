@@ -74,6 +74,7 @@ public enum ProtocolIds {
         public static let eitmadCapabilityLocalIpcV1 = "eitmad.capability.local-ipc.v1"
         public static let eitmadCapabilityLocalIpcSubscriptionsV1 = "eitmad.capability.local-ipc-subscriptions.v1"
         public static let eitmadCapabilityAuthorizationPolicyEventsV1 = "eitmad.capability.authorization-policy-events.v1"
+        public static let eitmadCapabilityAuthorizationScopesV1 = "eitmad.capability.authorization-scopes.v1"
         public static let eitmadCapabilityConfigV1 = "eitmad.capability.config.v1"
         public static let eitmadCapabilityPermissionsV1 = "eitmad.capability.permissions.v1"
         public static let eitmadCapabilitySyncV1 = "eitmad.capability.sync.v1"

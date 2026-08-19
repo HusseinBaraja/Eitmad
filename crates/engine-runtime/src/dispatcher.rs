@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use eitmad_authorization::{
-    AUTHORIZATION_MANAGE_PERMISSION, AuthorizationError, AuthorizationService,
+    AUTHORIZATION_MANAGE_PERMISSION, AccessAuditContext, AuthorizationError, AuthorizationService,
     CONFIG_READ_PERMISSION, MutationContext, PERMISSIONS_READ_PERMISSION, now,
 };
 use eitmad_configuration::{ConfigurationError, ConfigurationService};
@@ -14,6 +14,7 @@ use eitmad_contracts::{
     events::{Event, Subscription},
     queries::{Query, QueryResult},
 };
+use eitmad_observability_audit::AuditOutcome;
 use eitmad_storage::AuthorityStore;
 
 use crate::local_ipc::{
@@ -163,6 +164,7 @@ impl CommandDispatcher for ProductDispatcher {
         context: DispatchContext,
         command: Command,
     ) -> Result<CommandResult, ContractError> {
+        let operation = command.kind();
         let mutation = Self::mutation_context(&context).map_err(|error| *error)?;
         match command {
             Command::UpdateConfiguration(command) => {
@@ -194,9 +196,23 @@ impl CommandDispatcher for ProductDispatcher {
                     .map_err(|()| authorization_error(AuthorizationError::Unavailable, &context))?;
                 Ok(CommandResult::RelationshipRevoked(result))
             }
-            Command::CancelOperation(_) | Command::ReportInstallerOutcome(_) => {
-                Err(unsupported(&context))
-            }
+            Command::CancelOperation(_) | Command::ReportInstallerOutcome(_) => self
+                .authorization
+                .audit_access_result(
+                    &AccessAuditContext {
+                        authorization: context.authorization.clone(),
+                        correlation_id: context.correlation_id,
+                        causation_id: context.causation_id,
+                        occurred_at: now(),
+                    },
+                    operation,
+                    "command-scope",
+                    AuditOutcome::Invalid,
+                    Some("eitmad.error.contract-invalid.v1"),
+                    Vec::new(),
+                )
+                .map_err(|error| authorization_error(error, &context))
+                .and(Err(unsupported(&context))),
         }
     }
 }
@@ -208,7 +224,8 @@ impl QueryDispatcher for ProductDispatcher {
         context: DispatchContext,
         query: Query,
     ) -> Result<QueryResult, ContractError> {
-        match query {
+        let operation = query.kind();
+        let result = match query {
             Query::Configuration(_) => self
                 .configuration
                 .snapshot(&context.authorization)
@@ -227,7 +244,30 @@ impl QueryDispatcher for ProductDispatcher {
                     .map_err(|error| authorization_error(error, &context))
             }
             Query::UpdateState(_) | Query::SyncStatus(_) => Err(unsupported(&context)),
-        }
+        };
+        let (outcome, error_code) = match &result {
+            Ok(_) => (AuditOutcome::Succeeded, None),
+            Err(error) if error.code.as_str() == "eitmad.error.authorization-denied.v1" => {
+                (AuditOutcome::Denied, Some(error.code.as_str()))
+            }
+            Err(error) => (AuditOutcome::Failed, Some(error.code.as_str())),
+        };
+        self.authorization
+            .audit_access_result(
+                &AccessAuditContext {
+                    authorization: context.authorization.clone(),
+                    correlation_id: context.correlation_id,
+                    causation_id: context.causation_id,
+                    occurred_at: now(),
+                },
+                operation,
+                "query-scope",
+                outcome,
+                error_code,
+                Vec::new(),
+            )
+            .map_err(|error| authorization_error(error, &context))?;
+        result
     }
 
     async fn authorize_subscription(
@@ -439,16 +479,17 @@ mod tests {
 
     use eitmad_contracts::{
         authorization::{RelationId, RelationshipSubject},
-        commands::{GrantScopeRelationship, UpdateConfiguration},
+        commands::{CancelOperation, GrantScopeRelationship, UpdateConfiguration},
         config::{ConfigChange, ConfigKey, ConfigWriteValue},
         events::{AuthorizationPolicyChanges, ConfigurationChanges, Subscription},
         identity::{
             AuthenticatedIdentity, AuthorizationContext, PrincipalId, PrincipalKind, ScopeId,
-            ScopeKind, ScopeRef, SessionId,
+            ScopeKind, ScopeRef, SessionId, TenantId,
         },
-        queries::{GetConfiguration, Query},
-        transport::{CorrelationId, IdempotencyKey, PROTOCOL_VERSION, UnixMillis},
+        queries::{GetConfiguration, GetSyncStatus, Query},
+        transport::{CorrelationId, IdempotencyKey, OperationId, PROTOCOL_VERSION, UnixMillis},
     };
+    use rusqlite::Connection;
     use tempfile::TempDir;
     use uuid::Uuid;
 
@@ -488,6 +529,8 @@ mod tests {
                 device_id: None,
                 service_id: None,
             },
+            tenant_id: TenantId::new(Uuid::from_u128(2)),
+            workspace_id: None,
             scope: ScopeRef {
                 kind: ScopeKind::parse("organization").unwrap(),
                 id: ScopeId::new(Uuid::from_u128(2)),
@@ -529,6 +572,87 @@ mod tests {
             )
             .unwrap();
         (directory, dispatcher, broker)
+    }
+
+    fn last_audit_outcome(dispatcher: &ProductDispatcher, operation: &str) -> AuditOutcome {
+        let connection = Connection::open(dispatcher.store.path()).unwrap();
+        let encoded = connection
+            .query_row(
+                "SELECT outcome FROM mutation_audit WHERE operation = ?1 ORDER BY rowid DESC LIMIT 1",
+                [operation],
+                |row| row.get::<_, String>(0),
+            )
+            .unwrap();
+        serde_json::from_str(&encoded).unwrap()
+    }
+
+    #[tokio::test]
+    async fn dispatcher_persists_invalid_command_and_query_outcomes() {
+        let (_directory, dispatcher, _broker) = dispatcher();
+
+        let invalid_command = dispatcher
+            .dispatch_command(
+                context(200),
+                Command::CancelOperation(CancelOperation {
+                    operation_id: OperationId::new(Uuid::from_u128(201)),
+                }),
+            )
+            .await;
+        assert!(invalid_command.is_err());
+        assert_eq!(
+            last_audit_outcome(&dispatcher, "eitmad.operation.cancel.v1"),
+            AuditOutcome::Invalid
+        );
+
+        dispatcher
+            .dispatch_query(context(202), Query::Configuration(GetConfiguration {}))
+            .await
+            .unwrap();
+        assert_eq!(
+            last_audit_outcome(&dispatcher, "eitmad.config.get.v1"),
+            AuditOutcome::Succeeded
+        );
+
+        let mut denied_context = context(203);
+        denied_context.authorization.identity.principal_id = PrincipalId::new(Uuid::from_u128(204));
+        let denied = dispatcher
+            .dispatch_query(denied_context, Query::Configuration(GetConfiguration {}))
+            .await;
+        assert_eq!(
+            denied.unwrap_err().code.as_str(),
+            "eitmad.error.authorization-denied.v1"
+        );
+        assert_eq!(
+            last_audit_outcome(&dispatcher, "eitmad.config.get.v1"),
+            AuditOutcome::Denied
+        );
+
+        let failed = dispatcher
+            .dispatch_query(context(205), Query::SyncStatus(GetSyncStatus {}))
+            .await;
+        assert!(failed.is_err());
+        assert_eq!(
+            last_audit_outcome(&dispatcher, "eitmad.sync.get-status.v1"),
+            AuditOutcome::Failed
+        );
+    }
+
+    #[tokio::test]
+    async fn audit_store_failure_withholds_the_original_query_result() {
+        let (_directory, dispatcher, _broker) = dispatcher();
+        Connection::open(dispatcher.store.path())
+            .unwrap()
+            .execute_batch("DROP TABLE mutation_audit")
+            .unwrap();
+
+        let error = dispatcher
+            .dispatch_query(context(210), Query::SyncStatus(GetSyncStatus {}))
+            .await
+            .unwrap_err();
+        assert_eq!(
+            error.code.as_str(),
+            "eitmad.error.authorization-unavailable.v1"
+        );
     }
 
     #[tokio::test]

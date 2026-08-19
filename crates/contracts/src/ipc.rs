@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     errors::ContractError,
-    identity::{AuthenticatedIdentity, AuthorizationContext, ScopeRef},
+    identity::{AuthenticatedIdentity, AuthorizationContext, ScopeRef, TenantId, WorkspaceId},
     transport::{
         CommandEnvelope, CommandResponseEnvelope, CorrelationId, EventEnvelope, QueryEnvelope,
         QueryResponseEnvelope, RequestId, SubscriptionClosedEnvelope, SubscriptionEnvelope,
@@ -18,6 +18,8 @@ pub const MAX_IPC_FRAME_BYTES: u32 = 8 * 1024 * 1024;
 #[serde(rename_all = "camelCase")]
 pub struct DevelopmentIdentityAssertion {
     pub identity: AuthenticatedIdentity,
+    pub tenant_id: TenantId,
+    pub workspace_id: Option<WorkspaceId>,
     pub scope: ScopeRef,
 }
 

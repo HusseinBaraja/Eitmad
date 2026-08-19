@@ -156,6 +156,12 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("sessionId")]
         public Guid SessionId { get; set; }
+
+        [JsonPropertyName("tenantId")]
+        public Guid TenantId { get; set; }
+
+        [JsonPropertyName("workspaceId")]
+        public Guid? WorkspaceId { get; set; }
     }
 
     public partial class AuthenticatedIdentity
@@ -847,6 +853,12 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("scope")]
         public ScopeRef Scope { get; set; }
+
+        [JsonPropertyName("tenantId")]
+        public Guid TenantId { get; set; }
+
+        [JsonPropertyName("workspaceId")]
+        public Guid? WorkspaceId { get; set; }
     }
 
     public partial class PeerHello

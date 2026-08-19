@@ -18,5 +18,6 @@ keywords:
 - [Upgrade local IPC to protocol 1.1](protocol-1-1-local-ipc-subscriptions.md): subscription capability, compatible `1.0` behavior, verification, and rollback limits.
 - [Upgrade to protocol 1.2 configuration authorization](protocol-1-2-configuration-authorization.md): SQLite migration, Rust-owned configuration, scoped relationships, policy events, revocation, and compatibility.
 - [Upgrade local storage to version 5 identity and recovery](storage-v5-identity-recovery.md): persistent tenant identity, session attribution, compatibility windows, migration snapshots, integrity, restore, and export.
+- [Upgrade to protocol 1.3 scoped authorization and audit](protocol-1-3-scoped-authorization-audit.md): tenant/workspace context, relationship graphs, boundary gates, storage version 6, rollout, and rollback.
 
 Return to the [documentation index](../index.md) or review the [contract evolution process](../api/evolve-contracts-compatibly.md).

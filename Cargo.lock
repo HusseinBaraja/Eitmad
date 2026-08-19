@@ -198,6 +198,7 @@ dependencies = [
  "eitmad-contracts",
  "eitmad-observability-audit",
  "eitmad-storage",
+ "rusqlite",
  "serde",
  "serde_json",
  "sha2",
@@ -257,8 +258,10 @@ dependencies = [
  "eitmad-authorization",
  "eitmad-configuration",
  "eitmad-contracts",
+ "eitmad-observability-audit",
  "eitmad-storage",
  "fs2",
+ "rusqlite",
  "semver",
  "serde",
  "serde_json",
@@ -271,10 +274,20 @@ dependencies = [
 [[package]]
 name = "eitmad-extensions"
 version = "0.0.0"
+dependencies = [
+ "eitmad-authorization",
+ "eitmad-contracts",
+ "eitmad-observability-audit",
+]
 
 [[package]]
 name = "eitmad-external-integrations"
 version = "0.0.0"
+dependencies = [
+ "eitmad-authorization",
+ "eitmad-contracts",
+ "eitmad-observability-audit",
+]
 
 [[package]]
 name = "eitmad-observability-audit"
@@ -282,6 +295,7 @@ version = "0.0.0"
 dependencies = [
  "eitmad-contracts",
  "serde",
+ "serde_json",
  "uuid",
 ]
 
@@ -306,6 +320,11 @@ dependencies = [
 [[package]]
 name = "eitmad-sync"
 version = "0.0.0"
+dependencies = [
+ "eitmad-authorization",
+ "eitmad-contracts",
+ "eitmad-observability-audit",
+]
 
 [[package]]
 name = "eitmad-sync-plane"

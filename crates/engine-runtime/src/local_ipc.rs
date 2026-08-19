@@ -382,9 +382,20 @@ impl LocalIpcServer {
             }
             Some(_) => match negotiate(&self.configuration.engine_hello, &request.peer) {
                 NegotiationOutcome::Accepted(negotiated) => {
+                    if request.asserted_authorization.tenant_id.value().is_nil() {
+                        return HandshakeResponse {
+                            request_id: request.request_id,
+                            correlation_id: request.correlation_id,
+                            outcome: HandshakeOutcome::Rejected(
+                                HandshakeRejection::AuthenticationFailed,
+                            ),
+                        };
+                    }
                     let authorization = AuthorizationContext {
                         session_id: SessionId::new(uuid::Uuid::new_v4()),
                         identity: request.asserted_authorization.identity,
+                        tenant_id: request.asserted_authorization.tenant_id,
+                        workspace_id: request.asserted_authorization.workspace_id,
                         scope: request.asserted_authorization.scope,
                     };
                     HandshakeOutcome::Accepted(Box::new(HandshakeAccepted {
@@ -1058,12 +1069,21 @@ fn default_engine_hello() -> PeerHello {
                 "eitmad.capability.authorization-policy-events.v1",
             )
             .expect("static capability is valid"),
+            eitmad_contracts::transport::CapabilityId::parse(
+                "eitmad.capability.authorization-scopes.v1",
+            )
+            .expect("static capability is valid"),
             eitmad_contracts::transport::CapabilityId::parse("eitmad.capability.config.v1")
                 .expect("static capability is valid"),
             eitmad_contracts::transport::CapabilityId::parse("eitmad.capability.permissions.v1")
                 .expect("static capability is valid"),
         ],
-        required_capabilities: Vec::new(),
+        required_capabilities: vec![
+            eitmad_contracts::transport::CapabilityId::parse(
+                "eitmad.capability.authorization-scopes.v1",
+            )
+            .expect("static capability is valid"),
+        ],
         schemas: Vec::new(),
     }
 }
@@ -1254,7 +1274,7 @@ mod tests {
         events::{AuthorizationPolicyChanges, ConfigurationChanges, Subscription},
         identity::{
             AuthenticatedIdentity, DeviceId, PrincipalId, PrincipalKind, ScopeId, ScopeKind,
-            ScopeRef,
+            ScopeRef, TenantId, WorkspaceId,
         },
         ipc::DevelopmentIdentityAssertion,
         queries::GetSyncStatus,
@@ -1399,6 +1419,8 @@ mod tests {
                 device_id: Some(DeviceId::new(uuid::Uuid::new_v4())),
                 service_id: None,
             },
+            tenant_id: TenantId::new(uuid::Uuid::new_v4()),
+            workspace_id: Some(WorkspaceId::new(uuid::Uuid::new_v4())),
             scope: ScopeRef {
                 kind: ScopeKind::parse("organization").unwrap(),
                 id: ScopeId::new(uuid::Uuid::new_v4()),
@@ -1422,6 +1444,8 @@ mod tests {
                 authorization: AuthorizationContext {
                     session_id: SessionId::new(uuid::Uuid::new_v4()),
                     identity: assertion.identity,
+                    tenant_id: assertion.tenant_id,
+                    workspace_id: assertion.workspace_id,
                     scope: assertion.scope,
                 },
                 correlation_id,
@@ -1464,6 +1488,17 @@ mod tests {
         assert!(matches!(
             response.outcome,
             HandshakeOutcome::Rejected(HandshakeRejection::AuthenticationRequired)
+        ));
+    }
+
+    #[test]
+    fn handshake_rejects_missing_tenant_context() {
+        let mut request = handshake(PROTOCOL_VERSION, "token");
+        request.asserted_authorization.tenant_id = TenantId::new(uuid::Uuid::nil());
+        let response = service(Some("token")).handshake(request);
+        assert!(matches!(
+            response.outcome,
+            HandshakeOutcome::Rejected(HandshakeRejection::AuthenticationFailed)
         ));
     }
 
@@ -1615,6 +1650,8 @@ mod tests {
                 authorization: AuthorizationContext {
                     session_id: SessionId::new(uuid::Uuid::new_v4()),
                     identity: assertion.identity,
+                    tenant_id: assertion.tenant_id,
+                    workspace_id: assertion.workspace_id,
                     scope,
                 },
                 correlation_id,
@@ -1656,6 +1693,8 @@ mod tests {
                 authorization: AuthorizationContext {
                     session_id: SessionId::new(uuid::Uuid::new_v4()),
                     identity: assertion.identity,
+                    tenant_id: assertion.tenant_id,
+                    workspace_id: assertion.workspace_id,
                     scope: scope.clone(),
                 },
                 correlation_id,
@@ -1714,6 +1753,8 @@ mod tests {
                     authorization: AuthorizationContext {
                         session_id: SessionId::new(uuid::Uuid::new_v4()),
                         identity: assertion.identity,
+                        tenant_id: assertion.tenant_id,
+                        workspace_id: assertion.workspace_id,
                         scope: scope.clone(),
                     },
                     correlation_id,
@@ -1786,6 +1827,8 @@ mod tests {
                     authorization: AuthorizationContext {
                         session_id: SessionId::new(uuid::Uuid::new_v4()),
                         identity: assertion.identity,
+                        tenant_id: assertion.tenant_id,
+                        workspace_id: assertion.workspace_id,
                         scope: scope.clone(),
                     },
                     correlation_id,
@@ -1995,10 +2038,13 @@ mod tests {
 
     #[tokio::test]
     async fn pre_handshake_query_fails_structurally() {
+        let assertion = assertion();
         let authorization = AuthorizationContext {
             session_id: SessionId::new(uuid::Uuid::new_v4()),
-            identity: assertion().identity,
-            scope: assertion().scope,
+            identity: assertion.identity,
+            tenant_id: assertion.tenant_id,
+            workspace_id: assertion.workspace_id,
+            scope: assertion.scope,
         };
         let request = eitmad_contracts::transport::QueryEnvelope {
             protocol_version: PROTOCOL_VERSION,

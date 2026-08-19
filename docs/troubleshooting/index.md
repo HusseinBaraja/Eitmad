@@ -35,6 +35,7 @@ Use symptom and identifier pages to reach the authoritative owner and a non-dest
 ## Configuration and authorization failures
 
 - [Resolve configuration and authorization failures](configuration-authorization-failures.md): diagnose invalid patches/imports, revision conflicts, denial, last-owner protection, revocation, migration, and corruption.
+- [Resolve scoped authorization, sync, adapter, and plugin denials](authorization-boundary-denials.md): diagnose relationship paths, inheritance, conditions, tenant/workspace isolation, boundary rejection, and mandatory audit failures.
 
 No native settings workflow or user-facing Arabic error is implemented yet. Runtime failures expose stable localization message IDs for future shells.
 
