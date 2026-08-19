@@ -74,6 +74,7 @@ public static class ProtocolIds
         public const string EitmadSyncNegotiateV1 = "eitmad.sync.negotiate.v1";
         public const string EitmadSyncPullV1 = "eitmad.sync.pull.v1";
         public const string EitmadSyncChangesV1 = "eitmad.sync.changes.v1";
+        public const string EitmadSyncReconcileV1 = "eitmad.sync.reconcile.v1";
         public const string EitmadSyncAcknowledgeV1 = "eitmad.sync.acknowledge.v1";
         public const string EitmadSyncConflictV1 = "eitmad.sync.conflict.v1";
         public const string EitmadSyncBackpressureV1 = "eitmad.sync.backpressure.v1";

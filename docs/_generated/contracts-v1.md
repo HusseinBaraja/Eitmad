@@ -82,6 +82,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.sync.negotiate.v1`
 - `eitmad.sync.pull.v1`
 - `eitmad.sync.changes.v1`
+- `eitmad.sync.reconcile.v1`
 - `eitmad.sync.acknowledge.v1`
 - `eitmad.sync.conflict.v1`
 - `eitmad.sync.backpressure.v1`

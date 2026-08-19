@@ -64,6 +64,7 @@ public enum ProtocolIds {
         public static let eitmadSyncNegotiateV1 = "eitmad.sync.negotiate.v1"
         public static let eitmadSyncPullV1 = "eitmad.sync.pull.v1"
         public static let eitmadSyncChangesV1 = "eitmad.sync.changes.v1"
+        public static let eitmadSyncReconcileV1 = "eitmad.sync.reconcile.v1"
         public static let eitmadSyncAcknowledgeV1 = "eitmad.sync.acknowledge.v1"
         public static let eitmadSyncConflictV1 = "eitmad.sync.conflict.v1"
         public static let eitmadSyncBackpressureV1 = "eitmad.sync.backpressure.v1"
