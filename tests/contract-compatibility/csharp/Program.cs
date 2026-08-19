@@ -36,10 +36,26 @@ var structuredError = JsonSerializer.Deserialize<QueryResult>(errorJson, Convert
 var encodedError = JsonSerializer.Serialize(structuredError, Converter.Settings);
 var decodedError = JsonSerializer.Deserialize<QueryResult>(encodedError, Converter.Settings)
     ?? throw new InvalidOperationException("C# binding did not round-trip the structured error fixture.");
-if (decodedError.Parameters[0].Value.Value.String != "ملف عرض السعر Quote-١٢.pdf")
+if (decodedError.Parameters[0].Name != "expected-revision"
+    || decodedError.Parameters[0].Value.Kind != ErrorParameterValueKind.Integer
+    || decodedError.Parameters[0].Value.Value.Integer != 6)
 {
     throw new InvalidOperationException(
-        "C# binding lost Arabic or mixed-direction text during structured error round-trip."
+        "C# binding changed the safe structured error parameter during round-trip."
+    );
+}
+
+var samplesJson = fixture.RootElement.GetProperty("mixedDirectionSamples").GetRawText();
+var mixedDirectionSamples = JsonSerializer.Deserialize<string[]>(samplesJson, Converter.Settings)
+    ?? throw new InvalidOperationException("C# binding did not decode mixed-direction samples.");
+var encodedSamples = JsonSerializer.Serialize(mixedDirectionSamples, Converter.Settings);
+var decodedSamples = JsonSerializer.Deserialize<string[]>(encodedSamples, Converter.Settings)
+    ?? throw new InvalidOperationException("C# binding did not round-trip mixed-direction samples.");
+if (!decodedSamples.SequenceEqual(mixedDirectionSamples)
+    || !decodedSamples.Contains("ملف عرض السعر Quote-١٢.pdf"))
+{
+    throw new InvalidOperationException(
+        "C# binding lost Arabic or mixed-direction text during sample round-trip."
     );
 }
 
