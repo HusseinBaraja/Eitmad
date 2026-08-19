@@ -17,13 +17,13 @@ keywords:
 
 # Upgrade to protocol 1.3 scoped authorization and audit
 
-Protocol `1.3` requires tenant/workspace authorization context. Rust also adds policy-v2 tuple, object, condition, rule, request, and decision types for engine-owned boundaries; these policy internals are not exposed as IPC operations. Storage version 6 adds the mandatory scoped audit envelope. Deploy the engine and regenerated native bindings together.
+Protocol `1.3` requires assigned tenant and optional workspace authorization context. Rust also adds policy-v2 tuple, object, condition, rule, request, and decision types for engine-owned boundaries; these policy internals are not exposed as IPC operations. Storage version 6 adds the mandatory scoped audit envelope. Deploy the engine and regenerated native bindings together.
 
 ## Compatibility
 
 - The engine advertises protocol `1.0–1.3` but requires `eitmad.capability.authorization-scopes.v1` for local IPC authentication. A peer missing that capability is rejected before normal traffic.
 - Protocol `1.1` subscription and `1.2` relationship/revocation behavior remain unchanged after a scoped session is accepted.
-- `AuthorizationContext` and the development identity assertion add `tenantId` and nullable `workspaceId`. Older JSON remains decodable with a nil tenant default, but the protocol `1.3` handshake rejects nil/missing tenant context before issuing a session.
+- `AuthorizationContext` and the development identity assertion require `tenantId` and retain nullable `workspaceId`. Missing or unspecified tenant context is rejected at contract decoding or handshake before a session is issued.
 - Generated JSON Schema, C#, Swift, fixture, identifier registry, and reference outputs must match the Rust contract.
 - Storage versions `2–5` upgrade to version `6`; version `1` and future versions remain rejected.
 
@@ -41,7 +41,7 @@ No native authorization UI, production identity issuer, generic tuple persistenc
 
 ## Rollback and recovery
 
-Do not run an older engine against storage version 6. If rollback is required before accepting new writes, stop the engine and restore the validated `eitmad.pre-migration-v5-to-v6.sqlite3` artifact through the stopped-engine recovery flow. If version 6 accepted writes, restoring version 5 loses those writes and requires explicit incident approval.
+Do not run an older engine against storage version 6. If rollback is required before accepting new writes, stop the engine and restore the validated `eitmad.pre-migration-vN-to-v6.sqlite3` artifact for the actual source version `N` from 2 through 5 through the stopped-engine recovery flow. If version 6 accepted writes, restoring the source version loses those writes and requires explicit incident approval.
 
 For rejected negotiation, upgrade the peer; do not remove the required scope capability. For denied operations, follow [authorization boundary troubleshooting](../troubleshooting/authorization-boundary-denials.md). For migration failure, follow [local storage recovery](../operations/recover-local-storage.md).
 

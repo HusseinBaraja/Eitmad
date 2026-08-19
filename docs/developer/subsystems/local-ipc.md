@@ -50,7 +50,7 @@ sequenceDiagram
     IPC-->>Shell: ordered EventEnvelope
 ```
 
-The handshake is mandatory. Rust advertises protocol `1.0–1.3`. Protocol `1.0` remains command/query-only; subscriptions require protocol `1.1` plus `eitmad.capability.local-ipc-subscriptions.v1`. Relationship administration and authorization-policy streams require `1.2`; policy streams also require `eitmad.capability.authorization-policy-events.v1`. Protocol `1.3` adds mandatory tenant and explicit optional workspace context. The engine requires `eitmad.capability.authorization-scopes.v1`, so an older unscoped peer is rejected before normal traffic. Each accepted connection receives a new `SessionId`; envelopes must reproduce the negotiated protocol and exact identity, tenant, workspace, and scope context.
+The handshake is mandatory. Rust advertises protocol `1.0–1.3`. Protocol `1.0` remains command/query-only; subscriptions require protocol `1.1` plus `eitmad.capability.local-ipc-subscriptions.v1`. Relationship administration and authorization-policy streams require `1.2`; policy streams also require `eitmad.capability.authorization-policy-events.v1`. Every accepted protocol version requires `eitmad.capability.authorization-scopes.v1` and an assigned tenant; workspace context remains optional across `1.0–1.3`. An unscoped peer is rejected before normal traffic. Each accepted connection receives a new `SessionId`; envelopes must reproduce the negotiated protocol and exact identity, tenant, workspace, and scope context.
 
 ## Subscription streams and payload ownership
 

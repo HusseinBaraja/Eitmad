@@ -120,8 +120,7 @@
         },
         "tenantId": {
           "type": "string",
-          "format": "uuid",
-          "default": "00000000-0000-0000-0000-000000000000"
+          "format": "uuid"
         },
         "workspaceId": {
           "type": [
@@ -134,6 +133,7 @@
       "required": [
         "sessionId",
         "identity",
+        "tenantId",
         "scope"
       ]
     },
@@ -979,8 +979,7 @@
         },
         "tenantId": {
           "type": "string",
-          "format": "uuid",
-          "default": "00000000-0000-0000-0000-000000000000"
+          "format": "uuid"
         },
         "workspaceId": {
           "type": [
@@ -992,6 +991,7 @@
       },
       "required": [
         "identity",
+        "tenantId",
         "scope"
       ]
     },

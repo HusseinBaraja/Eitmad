@@ -113,7 +113,8 @@ impl AuthorizationService {
     ///
     /// # Errors
     ///
-    /// Returns [`AuthorizationError::Unavailable`] when relationship state cannot be read.
+    /// Returns [`AuthorizationError::Denied`] for incoherent tenant/workspace
+    /// context and [`AuthorizationError::Unavailable`] when relationship state cannot be read.
     pub fn effective_permissions(
         &self,
         context: &AuthorizationContext,
@@ -132,7 +133,7 @@ impl AuthorizationService {
         &self,
         context: &AuthorizationContext,
     ) -> Result<EffectivePermissions, AuthorizationError> {
-        validate_scope(&context.scope)?;
+        validate_context_scope(context)?;
         let subject = RelationshipSubject {
             principal_id: context.identity.principal_id,
             principal_kind: context.identity.principal_kind,
@@ -432,6 +433,13 @@ fn validate_scope(scope: &ScopeRef) -> Result<(), AuthorizationError> {
         .ok_or(AuthorizationError::UnsupportedScope)
 }
 
+fn validate_context_scope(context: &AuthorizationContext) -> Result<(), AuthorizationError> {
+    validate_scope(&context.scope)?;
+    (context.tenant_id.value() == context.scope.id.value() && context.workspace_id.is_none())
+        .then_some(())
+        .ok_or(AuthorizationError::Denied)
+}
+
 fn grant_audit_targets(
     relationship_id: RelationshipId,
     subject: &RelationshipSubject,
@@ -564,7 +572,7 @@ pub fn now() -> UnixMillis {
 mod tests {
     use eitmad_contracts::identity::{
         AuthenticatedIdentity, PrincipalId, PrincipalKind, ScopeId, ScopeKind, ScopeRef, SessionId,
-        TenantId,
+        TenantId, WorkspaceId,
     };
     use tempfile::TempDir;
 
@@ -687,6 +695,26 @@ mod tests {
                     relation: relation_id(MEMBER_RELATION),
                 }
             ),
+            Err(AuthorizationError::Denied)
+        );
+    }
+
+    #[test]
+    fn denies_incoherent_tenant_or_workspace_before_relationship_lookup() {
+        let (_directory, service) = service();
+        bootstrap(&service, 1, 10);
+
+        let mut wrong_tenant = authorization(1, 10);
+        wrong_tenant.tenant_id = TenantId::new(Uuid::from_u128(99));
+        assert_eq!(
+            service.authorize(&wrong_tenant, CONFIG_READ_PERMISSION),
+            Err(AuthorizationError::Denied)
+        );
+
+        let mut unexpected_workspace = authorization(1, 10);
+        unexpected_workspace.workspace_id = Some(WorkspaceId::new(Uuid::from_u128(99)));
+        assert_eq!(
+            service.authorize(&unexpected_workspace, CONFIG_READ_PERMISSION),
             Err(AuthorizationError::Denied)
         );
     }

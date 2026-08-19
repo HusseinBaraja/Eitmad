@@ -638,7 +638,9 @@ mod tests {
         },
         transport::{CorrelationId, UnixMillis},
     };
-    use eitmad_observability_audit::{AuditOutcome, AuditTarget, MutationAuditRecord};
+    use eitmad_observability_audit::{
+        AuditErrorClass, AuditOutcome, AuditTarget, MutationAuditRecord, RedactedAuditError,
+    };
     use rusqlite::Connection;
     use tempfile::TempDir;
     use uuid::Uuid;
@@ -649,38 +651,45 @@ mod tests {
     fn audit_rows_are_append_only() {
         let directory = TempDir::new().unwrap();
         let store = AuthorityStore::open(directory.path()).unwrap();
-        store
-            .append_audit(&MutationAuditRecord {
-                audit_id: Uuid::from_u128(1),
-                occurred_at: UnixMillis(1),
-                principal_id: PrincipalId::new(Uuid::from_u128(2)),
-                principal_kind: PrincipalKind::User,
-                session_id: SessionId::new(Uuid::from_u128(5)),
-                device_id: Some(eitmad_contracts::identity::DeviceId::new(Uuid::from_u128(
-                    6,
-                ))),
-                tenant_id: TenantId::new(Uuid::from_u128(7)),
-                workspace_id: Some(WorkspaceId::new(Uuid::from_u128(8))),
-                scope: ScopeRef {
-                    kind: ScopeKind::parse("organization").unwrap(),
-                    id: ScopeId::new(Uuid::from_u128(3)),
-                },
-                correlation_id: CorrelationId::new(Uuid::from_u128(4)),
-                causation_id: None,
-                idempotency_key: None,
-                operation: "test".to_owned(),
-                target: AuditTarget {
-                    kind: "test".to_owned(),
-                    identifiers: vec!["synthetic".to_owned()],
-                },
-                outcome: AuditOutcome::Succeeded,
-                previous_revision: None,
-                resulting_revision: None,
-                changed_identifiers: Vec::new(),
-                redacted_error: None,
-                extension_points: Vec::new(),
-            })
-            .unwrap();
+        let record = MutationAuditRecord {
+            audit_id: Uuid::from_u128(1),
+            occurred_at: UnixMillis(1),
+            principal_id: PrincipalId::new(Uuid::from_u128(2)),
+            principal_kind: PrincipalKind::User,
+            session_id: SessionId::new(Uuid::from_u128(5)),
+            device_id: Some(eitmad_contracts::identity::DeviceId::new(Uuid::from_u128(
+                6,
+            ))),
+            tenant_id: TenantId::new(Uuid::from_u128(7)),
+            workspace_id: Some(WorkspaceId::new(Uuid::from_u128(8))),
+            scope: ScopeRef {
+                kind: ScopeKind::parse("organization").unwrap(),
+                id: ScopeId::new(Uuid::from_u128(3)),
+            },
+            correlation_id: CorrelationId::new(Uuid::from_u128(4)),
+            causation_id: None,
+            idempotency_key: None,
+            operation: "test".to_owned(),
+            target: AuditTarget {
+                kind: "test".to_owned(),
+                identifiers: vec!["synthetic".to_owned()],
+            },
+            outcome: AuditOutcome::Succeeded,
+            previous_revision: None,
+            resulting_revision: None,
+            changed_identifiers: Vec::new(),
+            redacted_error: None,
+            extension_points: Vec::new(),
+        };
+        let mut unsafe_record = record.clone();
+        unsafe_record.audit_id = Uuid::from_u128(9);
+        unsafe_record.outcome = AuditOutcome::Failed;
+        unsafe_record.redacted_error = Some(RedactedAuditError {
+            code: "raw provider response".to_owned(),
+            class: AuditErrorClass::Dependency,
+        });
+        assert!(store.append_audit(&unsafe_record).is_err());
+        store.append_audit(&record).unwrap();
 
         let connection = Connection::open(store.path()).unwrap();
         let attribution: (String, String) = connection

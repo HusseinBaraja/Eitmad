@@ -18,7 +18,6 @@ pub const MAX_IPC_FRAME_BYTES: u32 = 8 * 1024 * 1024;
 #[serde(rename_all = "camelCase")]
 pub struct DevelopmentIdentityAssertion {
     pub identity: AuthenticatedIdentity,
-    #[serde(default = "crate::identity::unspecified_tenant_id")]
     pub tenant_id: TenantId,
     pub workspace_id: Option<WorkspaceId>,
     pub scope: ScopeRef,

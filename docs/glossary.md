@@ -124,12 +124,12 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | دور مرتبط | Relationship role | A scoped role object whose members receive permissions only through explicit membership and object-relation tuples; it is not a client claim. |
 | صلاحية موروثة | Inherited permission | Access granted through an explicit, bounded parent relation from a protected object to an authorized ancestor. |
 | شرط الصلاحية | Authorization condition | An optional equality, `all`, or `any` predicate over canonical request attributes; a failed or absent required value denies. |
-| بوابة الصلاحية والتدقيق | Authorization and audit gate | The Rust boundary that evaluates policy, prevents denied callbacks from running, and records the complete redacted result. |
+| بوابة الصلاحية والتدقيق | Authorization and audit gate | The Rust boundary that evaluates policy, durably records denials, executes only read-only callbacks through its convenience path, and leaves state-changing audit atomicity to the owning domain transaction. |
 | مالك النطاق | Scope owner | A principal related as organization owner; owners administer relationships, and Rust preserves at least one persisted production owner. Explicit insecure development authentication may instead provide a non-persisted ephemeral owner. |
 | مدير الإعدادات | Configuration manager | A principal related to an organization with permission to patch, import, and export configuration but not administer relationships. |
 | إلغاء الصلاحية | Authorization revocation | A committed policy change that removes effective access and forces active subscriptions to reauthorize before later delivery. |
 | سجل التدقيق | Audit record | A durable result envelope containing actor, device/session, tenant/workspace, scope, operation, target, outcome, time, correlation, and only redacted error metadata. |
-| نقطة امتداد التدقيق | Audit extension point | A typed marker reserving future approval, ledger, conflict, security-event, or undo-critical linkage; the marker does not implement that workflow. |
+| نقطة امتداد التدقيق | Audit extension point | A typed durable marker that classifies a common execution boundary or reserves future approval, ledger, conflict, security-event, or undo-critical linkage; a workflow marker does not implement that workflow. |
 | المزامنة | Synchronization | The protocol-driven exchange and reconciliation of authorized state across processes, devices, or servers. |
 | تعارض | Conflict | Concurrent or incompatible state that cannot be safely combined without a defined domain rule or decision. |
 | محلي أولًا | Local-first | A mode in which local durable work continues offline and later synchronizes under explicit conflict rules. |

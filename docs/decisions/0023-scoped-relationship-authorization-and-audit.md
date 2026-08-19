@@ -33,11 +33,11 @@ Use immutable, Rust-owned relationship policy snapshots. Every object embeds ten
 
 Evaluate `can(actor, action, object)` deny-by-default. Reject cross-tenant and cross-workspace object edges during policy construction. Deny request scope mismatch, missing rules/tuples, failed optional attribute conditions, cycles, and traversal beyond the fixed depth bound.
 
-Use one `AuthorizationGate` shape for commands, queries, sync, external adapters, and plugin capabilities. Denied actions never execute. Domain mutations keep audit and state in one transaction; the convenience gate is restricted to reads, reject-only work, or callers whose transaction includes audit.
+Use one `AuthorizationGate` shape for commands, queries, sync, external adapters, and plugin capabilities. `authorize` records denials without executing product work; `execute_read` is the only callback convenience path. Domain mutations use the authorization decision but keep state, idempotency, publication, and successful or failed audit in one transaction.
 
-Require a complete audit envelope with actor, explicit device attribution, session, tenant/workspace, scope, operation, target, result, timestamp, correlation, and redacted error metadata. Persist new fields through storage version 6. Reserve typed extension markers for approvals, ledgers, conflicts, security events, and undo-critical work without treating the marker as implementation.
+Require a complete audit envelope with actor, explicit device attribution, session, tenant/workspace, scope, operation, target, result, timestamp, correlation, and validated redacted error metadata. Persist new fields through storage version 6. Store the common execution boundary as a typed marker and reserve separate typed markers for approvals, ledgers, conflicts, security events, and undo-critical work without treating a workflow marker as implementation.
 
-Protocol `1.3` carries mandatory tenant/workspace authorization context. Local IPC requires `eitmad.capability.authorization-scopes.v1`, and generated bindings deploy with the engine.
+Protocol `1.3` carries mandatory tenant and optional workspace authorization context. Local IPC requires `eitmad.capability.authorization-scopes.v1` and an assigned tenant for every accepted protocol version, and generated bindings deploy with the engine.
 
 Keep direct organization policy v1 as the persisted compatibility path for configuration administration until product verticals define policy-v2 tuple lifecycle and persistence. Do not overload its table with generic graph semantics.
 

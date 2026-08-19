@@ -313,8 +313,7 @@ public extension CommandEnvelope {
 public struct AuthorizationContext: Codable, Sendable {
     public let identity: AuthenticatedIdentity
     public let scope: ScopeRef
-    public let sessionID: String
-    public let tenantID: String?
+    public let sessionID, tenantID: String
     public let workspaceID: String?
 
     public enum CodingKeys: String, CodingKey {
@@ -324,7 +323,7 @@ public struct AuthorizationContext: Codable, Sendable {
         case workspaceID = "workspaceId"
     }
 
-    public init(identity: AuthenticatedIdentity, scope: ScopeRef, sessionID: String, tenantID: String?, workspaceID: String?) {
+    public init(identity: AuthenticatedIdentity, scope: ScopeRef, sessionID: String, tenantID: String, workspaceID: String?) {
         self.identity = identity
         self.scope = scope
         self.sessionID = sessionID
@@ -355,7 +354,7 @@ public extension AuthorizationContext {
         identity: AuthenticatedIdentity? = nil,
         scope: ScopeRef? = nil,
         sessionID: String? = nil,
-        tenantID: String?? = nil,
+        tenantID: String? = nil,
         workspaceID: String?? = nil
     ) -> AuthorizationContext {
         return AuthorizationContext(
@@ -2805,7 +2804,7 @@ public extension HandshakeRequest {
 public struct DevelopmentIdentityAssertion: Codable, Sendable {
     public let identity: AuthenticatedIdentity
     public let scope: ScopeRef
-    public let tenantID: String?
+    public let tenantID: String
     public let workspaceID: String?
 
     public enum CodingKeys: String, CodingKey {
@@ -2814,7 +2813,7 @@ public struct DevelopmentIdentityAssertion: Codable, Sendable {
         case workspaceID = "workspaceId"
     }
 
-    public init(identity: AuthenticatedIdentity, scope: ScopeRef, tenantID: String?, workspaceID: String?) {
+    public init(identity: AuthenticatedIdentity, scope: ScopeRef, tenantID: String, workspaceID: String?) {
         self.identity = identity
         self.scope = scope
         self.tenantID = tenantID
@@ -2843,7 +2842,7 @@ public extension DevelopmentIdentityAssertion {
     func with(
         identity: AuthenticatedIdentity? = nil,
         scope: ScopeRef? = nil,
-        tenantID: String?? = nil,
+        tenantID: String? = nil,
         workspaceID: String?? = nil
     ) -> DevelopmentIdentityAssertion {
         return DevelopmentIdentityAssertion(

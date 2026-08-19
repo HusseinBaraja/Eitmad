@@ -1,6 +1,7 @@
 //! Privacy-preserving diagnostics and mutation audit records.
 
 use eitmad_contracts::{
+    errors::ErrorCode,
     identity::{
         AuthorizationContext, DeviceId, PrincipalId, PrincipalKind, ScopeRef, SessionId, TenantId,
         WorkspaceId,
@@ -53,6 +54,11 @@ pub enum AuditExtensionPoint {
     Conflict,
     SecurityEvent,
     UndoCritical,
+    CommandBoundary,
+    QueryBoundary,
+    SyncBoundary,
+    ExternalAdapterBoundary,
+    PluginCapabilityBoundary,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -137,13 +143,15 @@ impl MutationAuditRecord {
     ///
     /// Returns an error for an empty command/target or an unclassified failure.
     pub fn validate_complete(&self) -> Result<(), AuditCompletenessError> {
-        let failure_has_error = self.outcome == AuditOutcome::Succeeded
-            || self
-                .redacted_error
-                .as_ref()
-                .is_some_and(|error| !error.code.trim().is_empty());
+        let error_code_is_valid = self
+            .redacted_error
+            .as_ref()
+            .is_none_or(|error| ErrorCode::parse(error.code.clone()).is_ok());
+        let failure_has_error =
+            self.outcome == AuditOutcome::Succeeded || self.redacted_error.is_some();
         (!self.operation.trim().is_empty()
             && !self.target.kind.trim().is_empty()
+            && error_code_is_valid
             && failure_has_error)
             .then_some(())
             .ok_or(AuditCompletenessError)
@@ -240,5 +248,15 @@ mod tests {
         record.operation = "eitmad.test.v1".to_owned();
         record.target.kind = "test".to_owned();
         assert_eq!(record.validate_complete(), Err(AuditCompletenessError));
+        record.redacted_error = Some(RedactedAuditError {
+            code: "raw customer error: 123".to_owned(),
+            class: AuditErrorClass::Internal,
+        });
+        assert_eq!(record.validate_complete(), Err(AuditCompletenessError));
+        record.redacted_error = Some(RedactedAuditError {
+            code: "eitmad.error.test.v1".to_owned(),
+            class: AuditErrorClass::Internal,
+        });
+        assert!(record.validate_complete().is_ok());
     }
 }

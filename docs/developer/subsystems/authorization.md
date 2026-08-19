@@ -62,6 +62,7 @@ flowchart LR
 - A workspace-scoped target requires the actor's exact workspace. A tenant-wide target may have no workspace but still requires the exact tenant.
 - A tuple whose object subject crosses a tenant or workspace is rejected when the policy snapshot is built.
 - Parent and role traversal is bounded to 16 edges and cycle-safe. Exhaustion denies rather than returning partial access.
+- Direct organization permission lookup rejects a tenant that differs from its organization scope or any unexpected workspace before reading relationships.
 - Principal UUID equality never overrides tenant/workspace checks.
 - Rules are unique per action and object kind and must name at least one grant relation.
 - Policy snapshots are immutable during one decision. Replace the whole validated snapshot after a policy update.
@@ -70,9 +71,9 @@ These controls prevent a matching UUID, role, or parent edge in one workspace fr
 
 ## Boundary enforcement
 
-`AuthorizationGate::execute` covers five explicit boundary kinds: command, query, sync, external adapter, and plugin capability. The closure never runs after denial. `SyncAuthorization`, `ExternalActionAuthorization`, and `PluginCapabilityAuthorization` force their correct boundary kind before delegation. Unsupported engine commands are rejected and audited; all query outcomes are audited, and an audit persistence failure withholds the query response.
+`AuthorizationGate::authorize` covers five explicit boundary kinds: command, query, sync, external adapter, and plugin capability, and durably records denials without invoking product work. `AuthorizationGate::execute_read` is restricted to read-only callbacks and records their result after execution. `SyncAuthorization`, `ExternalActionAuthorization`, and `PluginCapabilityAuthorization` force their correct boundary kind before delegation. Unsupported engine commands are rejected and audited; all query outcomes are audited, and an audit persistence failure withholds the query response.
 
-State-changing product code must keep mutation state, idempotency, publication, and its audit result in one domain transaction. The convenience gate is safe for reads, reject-only paths, or actions whose own transaction includes the audit write; do not use a post-action audit call to claim atomicity for an irreversible provider call. Existing configuration and direct relationship mutations already commit their audit with authoritative state.
+State-changing product code may use `authorize` for the decision but must keep mutation state, idempotency, publication, and its successful or failed audit result in one domain transaction. It must not place an irreversible provider call inside `execute_read` or use a post-action audit call to claim atomicity. Existing configuration and direct relationship mutations already commit their audit with authoritative state.
 
 Subscriptions reauthorize before delivery. Protocol `1.2` policy-change behavior remains: a revoked `1.2+` stream closes with `authorizationRevoked`, while older peers terminate without receiving an unknown close reason.
 
@@ -90,15 +91,15 @@ Every new audit record contains:
 - correlation ID plus optional causation and idempotency IDs;
 - optional revisions and changed identifiers;
 - only a stable redacted error code and coarse error class;
-- zero or more declared extension markers.
+- one durable boundary-classification marker for common gate records plus zero or more declared workflow extension markers.
 
-`validate_complete` rejects an empty operation, empty target kind, or any failed/denied/invalid/conflicting outcome without a redacted error. Storage version 6 persists tenant, workspace, target, redacted error, and extension markers in the append-only audit table. Historical pre-v6 rows keep nullable added columns; new Rust writes must pass completeness validation.
+`validate_complete` rejects an empty operation, empty target kind, any redacted error outside the validated stable identifier grammar, or any failed/denied/invalid/conflicting outcome without a redacted error. Storage version 6 persists tenant, workspace, target, redacted error, and extension markers in the append-only audit table. Historical pre-v6 rows keep nullable added columns; new Rust writes must pass completeness validation.
 
 Raw error messages, payloads, secrets, Arabic customer text, authorization graphs, and provider responses do not belong in audit. Hash or otherwise sanitize sensitive target identifiers according to the owning vertical; direct relationship grants already use a versioned SHA-256 principal fingerprint.
 
 ## Audit extension points
 
-`AuditExtensionPoint` reserves typed markers for `Approval`, `Ledger`, `Conflict`, `SecurityEvent`, and `UndoCritical`. A marker does not implement those workflows. The future owning vertical must define lifecycle, storage, authorization, retention, idempotency, recovery, and read models before using it. Ledger and undo-critical work must remain atomic with domain state; security events need separate alerting and retention policy.
+`AuditExtensionPoint` stores validated boundary markers for `CommandBoundary`, `QueryBoundary`, `SyncBoundary`, `ExternalAdapterBoundary`, and `PluginCapabilityBoundary`. It also reserves workflow markers for `Approval`, `Ledger`, `Conflict`, `SecurityEvent`, and `UndoCritical`. A workflow marker does not implement that workflow. The future owning vertical must define lifecycle, storage, authorization, retention, idempotency, recovery, and read models before using it. Ledger and undo-critical work must remain atomic with domain state; security events need separate alerting and retention policy.
 
 ## Direct organization policy compatibility
 
@@ -108,7 +109,7 @@ Do not encode product-v2 roles or inherited record access into the v1 relation t
 
 ## Protocol, Arabic, and operations
 
-Protocol `1.3` adds mandatory tenant/workspace authorization context and requires `eitmad.capability.authorization-scopes.v1` during local IPC negotiation. Deploy regenerated engine and shell bindings together. No authorization-management UI exists. Future Arabic UI must localize denial and approval states, render RTL correctly, and isolate UUIDs, relation/action identifiers, revisions, and correlation IDs for reliable mixed-direction copy/paste. Policy evaluation has no locale branch.
+Protocol `1.3` adds mandatory tenant and optional workspace authorization context. Local IPC requires `eitmad.capability.authorization-scopes.v1` for every accepted protocol version. Deploy regenerated engine and shell bindings together. No authorization-management UI exists. Future Arabic UI must localize denial and approval states, render RTL correctly, and isolate UUIDs, relation/action identifiers, revisions, and correlation IDs for reliable mixed-direction copy/paste. Policy evaluation has no locale branch.
 
 On `eitmad.error.authorization-denied.v1`, verify authenticated tenant/workspace, object scope, action rule, direct/role tuple, parent edge, and conditions without dumping the graph. On audit or policy storage failure, fail closed and follow [authorization boundary troubleshooting](../../troubleshooting/authorization-boundary-denials.md).
 

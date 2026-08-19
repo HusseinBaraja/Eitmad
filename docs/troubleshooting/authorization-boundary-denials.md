@@ -32,7 +32,7 @@ keywords:
 ## Fast checks
 
 1. Use the correlation ID to locate only the sanitized audit envelope.
-2. Confirm the authenticated session carries the expected tenant and explicit workspace. Never change scope to make a denial disappear.
+2. Confirm the authenticated session carries the expected tenant and, when the object or operation is workspace-scoped, the expected workspace. Tenant-wide work may omit workspace context. Never change scope to make a denial disappear.
 3. Confirm the requested object's embedded tenant/workspace matches the session.
 4. Confirm a rule exists for the exact action and object kind.
 5. Confirm a direct principal relation or role-membership path grants one registered rule relation.

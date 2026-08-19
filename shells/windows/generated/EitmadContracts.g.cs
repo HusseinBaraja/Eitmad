@@ -157,9 +157,8 @@ namespace Eitmad.Contracts
         [JsonPropertyName("sessionId")]
         public Guid SessionId { get; set; }
 
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("tenantId")]
-        public Guid? TenantId { get; set; }
+        public Guid TenantId { get; set; }
 
         [JsonPropertyName("workspaceId")]
         public Guid? WorkspaceId { get; set; }
@@ -855,9 +854,8 @@ namespace Eitmad.Contracts
         [JsonPropertyName("scope")]
         public ScopeRef Scope { get; set; }
 
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("tenantId")]
-        public Guid? TenantId { get; set; }
+        public Guid TenantId { get; set; }
 
         [JsonPropertyName("workspaceId")]
         public Guid? WorkspaceId { get; set; }

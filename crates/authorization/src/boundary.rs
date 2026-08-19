@@ -23,6 +23,18 @@ pub enum BoundaryKind {
     PluginCapability,
 }
 
+impl BoundaryKind {
+    const fn audit_marker(self) -> AuditExtensionPoint {
+        match self {
+            Self::Command => AuditExtensionPoint::CommandBoundary,
+            Self::Query => AuditExtensionPoint::QueryBoundary,
+            Self::Sync => AuditExtensionPoint::SyncBoundary,
+            Self::ExternalAdapter => AuditExtensionPoint::ExternalAdapterBoundary,
+            Self::PluginCapability => AuditExtensionPoint::PluginCapabilityBoundary,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct BoundaryAuditContext {
     pub kind: BoundaryKind,
@@ -44,9 +56,9 @@ pub enum BoundaryError {
 
 /// Evaluates one policy snapshot and emits one complete result record.
 ///
-/// State-changing callers must include the audit write in their domain
-/// transaction. This convenience gate is intended for reads and boundaries
-/// whose action is itself transactional or reject-only.
+/// State-changing callers use [`AuthorizationGate::authorize`] before including
+/// the state change and successful audit in one domain transaction. Only
+/// read-only actions may use [`AuthorizationGate::execute_read`].
 #[derive(Clone, Debug)]
 pub struct AuthorizationGate {
     policy: RelationshipPolicy,
@@ -59,22 +71,20 @@ impl AuthorizationGate {
         Self { policy, store }
     }
 
-    /// Runs an authorized boundary action and records its result.
+    /// Authorizes one boundary and durably records a denial.
     ///
-    /// The action never runs on denial. Audit persistence failure withholds the
-    /// response and fails closed.
+    /// Permitted state-changing callers must include their successful or failed
+    /// audit result in the same transaction as the state change.
     ///
     /// # Errors
     ///
-    /// Returns a denial, a caller-supplied redacted action error, or an audit
-    /// availability failure.
-    pub fn execute<T>(
+    /// Returns a denial or an audit availability failure.
+    pub fn authorize(
         &self,
         actor: &AuthorizationContext,
         request: &AuthorizationRequest,
         audit: &BoundaryAuditContext,
-        action: impl FnOnce() -> Result<T, RedactedAuditError>,
-    ) -> Result<T, BoundaryError> {
+    ) -> Result<(), BoundaryError> {
         let decision = self.policy.decide(actor, request);
         if decision.decision == PermissionDecision::Denied {
             self.append(
@@ -88,6 +98,26 @@ impl AuthorizationGate {
             )?;
             return Err(BoundaryError::Denied);
         }
+        Ok(())
+    }
+
+    /// Runs an authorized read-only boundary action and records its result.
+    ///
+    /// The action never runs on denial. Audit persistence failure withholds the
+    /// response and fails closed.
+    ///
+    /// # Errors
+    ///
+    /// Returns a denial, a caller-supplied redacted action error, or an audit
+    /// availability failure.
+    pub fn execute_read<T>(
+        &self,
+        actor: &AuthorizationContext,
+        request: &AuthorizationRequest,
+        audit: &BoundaryAuditContext,
+        action: impl FnOnce() -> Result<T, RedactedAuditError>,
+    ) -> Result<T, BoundaryError> {
+        self.authorize(actor, request, audit)?;
 
         match action() {
             Ok(value) => {
@@ -126,6 +156,10 @@ impl AuthorizationGate {
         record.outcome = outcome;
         record.redacted_error = error;
         record.extension_points.clone_from(&audit.extension_points);
+        let marker = audit.kind.audit_marker();
+        if !record.extension_points.contains(&marker) {
+            record.extension_points.push(marker);
+        }
         self.store
             .append_audit(&record)
             .map_err(|_| BoundaryError::AuditUnavailable)
@@ -148,6 +182,7 @@ mod tests {
             ScopeKind, ScopeRef, SessionId, TenantId, WorkspaceId,
         },
     };
+    use rusqlite::Connection;
     use tempfile::TempDir;
     use uuid::Uuid;
 
@@ -219,6 +254,7 @@ mod tests {
             }],
         )
         .unwrap();
+        let path = store.path().to_owned();
         let gate = AuthorizationGate::new(policy, store);
 
         for kind in [
@@ -229,7 +265,7 @@ mod tests {
             BoundaryKind::PluginCapability,
         ] {
             let executed = AtomicBool::new(false);
-            let result = gate.execute(
+            let result = gate.execute_read(
                 &context(),
                 &request("eitmad.action.test.v1"),
                 &audit(kind, "eitmad.test.denied.v1"),
@@ -241,5 +277,25 @@ mod tests {
             assert_eq!(result, Err(BoundaryError::Denied));
             assert!(!executed.load(Ordering::SeqCst));
         }
+
+        let connection = Connection::open(path).unwrap();
+        let mut statement = connection
+            .prepare("SELECT extension_points FROM mutation_audit ORDER BY rowid")
+            .unwrap();
+        let persisted = statement
+            .query_map([], |row| row.get::<_, String>(0))
+            .unwrap()
+            .map(|value| serde_json::from_str::<Vec<AuditExtensionPoint>>(&value.unwrap()).unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            persisted,
+            vec![
+                vec![AuditExtensionPoint::CommandBoundary],
+                vec![AuditExtensionPoint::QueryBoundary],
+                vec![AuditExtensionPoint::SyncBoundary],
+                vec![AuditExtensionPoint::ExternalAdapterBoundary],
+                vec![AuditExtensionPoint::PluginCapabilityBoundary],
+            ]
+        );
     }
 }
