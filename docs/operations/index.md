@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-08-19"
+last_verified: "2026-08-20"
 review_triggers:
   - "workspace verification, executable behavior, deployment, backup, or recovery changes"
 keywords:
@@ -17,7 +17,7 @@ keywords:
 
 # Run Eitmad foundation checks
 
-These steps verify the current foundation. Rust owns local SQLite authority through storage version 7, migration snapshots, validated backup/restore, persistent identity, scoped authorization/audit, dual-mode synchronization state, privacy-preserving diagnostics, cross-platform secret storage, corruption checks, and scoped export hooks. Packaging, scheduled backup, sync transport/scheduling, diagnostic retention, secret recovery tooling, restore/export IPC, and production operator tooling are not implemented.
+These steps verify the current foundation. Rust owns local SQLite authority through storage version 7, migration snapshots, validated backup/restore, persistent identity, scoped authorization/audit, dual-mode synchronization state, shared simulation/LAN/WAN transport policy, privacy-preserving diagnostics, cross-platform secret storage, corruption checks, and scoped export hooks. Packaging, scheduled backup, production sync discovery/network drivers and scheduling, diagnostic retention, secret recovery tooling, restore/export IPC, and production operator tooling are not implemented.
 
 ## Prerequisites
 
@@ -115,5 +115,6 @@ If a command fails, stop. Do not hide the warning or bypass the test. Fix the au
 - [Extend Windows process supervision safely](../developer/subsystems/windows-process-supervision.md)
 - [Extend privacy-preserving observability safely](../developer/subsystems/privacy-preserving-observability.md)
 - [Use Rust-owned secret storage safely](../developer/subsystems/secret-storage.md)
+- [Extend synchronization and shared transports safely](../developer/subsystems/synchronization.md)
 - [Resolve diagnostic privacy or secret-storage failures](../troubleshooting/privacy-and-secret-leakage.md)
 - [Review the documentation standard](../developer/contributing/documentation-standard.md)

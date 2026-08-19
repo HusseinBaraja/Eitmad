@@ -5,7 +5,7 @@ use eitmad_contracts::{
         SyncCancellation, SyncCancellationReason, SyncFrameId, SyncStreamId, SyncTransportFrame,
         SyncTransportPayload,
     },
-    transport::{CorrelationId, IdempotencyKey, UnixMillis},
+    transport::{CapabilityId, CorrelationId, IdempotencyKey, UnixMillis},
     versioning::{
         NegotiatedSession, NegotiationOutcome, NegotiationRejection, PeerHello, ProtocolVersion,
         negotiate,
@@ -43,11 +43,12 @@ const MAX_RETAINED_FRAMES: usize = 4_096;
 impl<D: ConnectionDriver> TransportCore<D> {
     pub(crate) fn new(
         driver: D,
-        local_hello: PeerHello,
+        mut local_hello: PeerHello,
         authentication: TransportAuthentication,
         encryption_required: bool,
         retry_policy: RetryPolicy,
     ) -> Self {
+        require_sync_capability(&mut local_hello);
         Self {
             driver,
             local_hello,
@@ -419,6 +420,17 @@ fn secure_enough(security: &SessionSecurity) -> bool {
             forward_secrecy: true
         }
     )
+}
+
+fn require_sync_capability(hello: &mut PeerHello) {
+    let capability = CapabilityId::parse("eitmad.capability.sync.v1")
+        .expect("the static sync capability identifier is valid");
+    if !hello.capabilities.contains(&capability) {
+        hello.capabilities.push(capability.clone());
+    }
+    if !hello.required_capabilities.contains(&capability) {
+        hello.required_capabilities.push(capability);
+    }
 }
 
 fn validate_protocol(

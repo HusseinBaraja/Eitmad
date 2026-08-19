@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "tutorial"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-08-19"
+last_verified: "2026-08-20"
 review_triggers:
   - "workspace layout, contributor checks, or ownership rules change"
 keywords:
@@ -36,7 +36,7 @@ Read `AGENTS.md` at the repository root, then review:
 - [Privacy-preserving observability](subsystems/privacy-preserving-observability.md)
 - [Rust-owned secret storage](subsystems/secret-storage.md)
 - [Rust-owned local storage](subsystems/local-storage.md)
-- [Dual-mode synchronization](subsystems/synchronization.md)
+- [Dual-mode synchronization and shared transports](subsystems/synchronization.md)
 - [Persistent tenant identity](subsystems/identity-foundation.md)
 - [Windows engine process supervision](subsystems/windows-process-supervision.md)
 

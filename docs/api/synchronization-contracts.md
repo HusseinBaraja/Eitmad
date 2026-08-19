@@ -1,24 +1,27 @@
 ---
-title: "Use the synchronization contracts"
-description: "Reference the Rust-owned records, snapshots, queues, conflicts, delivery identities, negotiation, cache labels, and events."
+title: "Use the synchronization and transport contracts"
+description: "Reference Rust-owned sync records, one simulation/LAN/WAN frame, streams, cancellation, delivery identities, negotiation, and cache labels."
 audience: "api"
 page_type: "reference"
 status: "active"
 owner: "Rust contract and synchronization maintainers"
-last_verified: "2026-08-19"
+last_verified: "2026-08-20"
 review_triggers:
   - "a type or identifier in crates/contracts/src/sync.rs changes"
+  - "the shared transport frame in crates/contracts/src/sync_transport.rs changes"
 keywords:
   - "ChangeRecord"
   - "SyncSnapshot"
   - "PendingCommand"
   - "ReconciliationDelivery"
+  - "SyncTransportFrame"
+  - "SyncTransportPayload"
   - "eitmad.sync.reconcile.v1"
 ---
 
-# Use the synchronization contracts
+# Use the synchronization and transport contracts
 
-`crates/contracts/src/sync.rs` is the canonical sync contract. Generated JSON, C#, Swift, identifier constants, and the [mechanical protocol listing](../_generated/contracts-v1.md) derive from it. Native clients must consume generated types and must not define a parallel record or queue schema.
+`crates/contracts/src/sync.rs` is the canonical synchronization message contract. `crates/contracts/src/sync_transport.rs` is its single streaming frame for simulation, LAN, and WAN connections. Generated JSON, C#, Swift, identifier constants, and the [mechanical protocol listing](../_generated/contracts-v1.md) derive from Rust. Native clients and network adapters must not define parallel sync records, frames, or route-specific wire protocols.
 
 ## Core types
 
@@ -33,6 +36,8 @@ keywords:
 | `ReconciliationDelivery` | Idempotent delivery envelope containing optional snapshot, incremental changes, and command results |
 | `RecordView` | Record plus `RecordAuthority` and `CacheFreshness`; consumers must preserve both labels |
 | `SyncEvent` | Connection, queue, conflict, denial, snapshot metadata, duplicate, and status lifecycle value |
+| `SyncTransportFrame` | Route-independent envelope with frame/idempotency identity, negotiated protocol, correlation, stream sequence/end, and payload |
+| `SyncTransportPayload` | Existing `SyncMessage`, cancellation, heartbeat, or heartbeat acknowledgement |
 
 An upsert without `payload` and a tombstone with `payload` are invalid. `EncodedDomainPayload.schema_id` and `schema_version` select a previously negotiated domain schema; the sync layer treats `base64` as opaque.
 
@@ -54,7 +59,17 @@ An upsert without `payload` and a tombstone with `payload` are invalid. `Encoded
 | `eitmad.sync.conflict.v1` | `ConflictNotice` | Identify a conflict and both revisions without payload disclosure |
 | `eitmad.sync.backpressure.v1` | `RetryAfter` | Request bounded retry using a stable error reference |
 
-Normal traffic starts only after `versioning::negotiate` accepts a common protocol, all required capabilities, and required schema ranges. A `SyncMode` mismatch is also incompatible. Unknown required messages fail; unknown object fields remain the additive compatibility mechanism.
+Normal traffic starts only after `versioning::negotiate` accepts a common protocol, all required capabilities, and required schema ranges. The Rust transport core always offers and requires `eitmad.capability.sync.v1`; a peer without it is incompatible. A `SyncMode` mismatch is also incompatible. Unknown required messages fail; unknown object fields remain the additive compatibility mechanism.
+
+## Shared streaming frame
+
+`SyncTransportFrame` carries the same `SyncMessage` on simulation, LAN, direct WAN, and relayed WAN routes. Route choice does not appear in the frame and cannot change message meaning. Each stream starts at sequence `0`, increments by one, and closes its direction when `endOfStream` is true.
+
+`SyncTransportPayload::Cancel` contains the stream ID, optional last accepted sequence, and one stable cancellation reason: client request, deadline, superseded work, or shutdown. Cancellation uses the same frame, ordering, correlation, version, and idempotency rules as data. Heartbeat values carry only a Unix-millisecond send time; they are connection-health signals, not reconciliation acknowledgements.
+
+`frameId` and `idempotencyKey` are independent. The Rust transport core ignores an exact retained retry when either identity repeats. It fails closed if a retained identity is reused for different logical frame content. Adapter-local retention is bounded to 4,096 accepted pairs and is not durable across adapter replacement. Domain deliveries still use `DeliveryId` plus `IdempotencyKey` and the durable engine replay rules described below.
+
+The wire frame contains no credential, authentication proof, account, device secret, endpoint, or encryption downgrade flag. Authentication and encrypted-session evidence belong to the Rust `SyncTransport` connection boundary before negotiation. A native shell must never inject a token or secret into a frame.
 
 ## Server command outcomes
 
@@ -76,7 +91,7 @@ No outcome contains raw authorization reasoning or server error prose. Shells lo
 - Every record and snapshot has an explicit `ScopeRef`.
 - Actor/tenant/workspace assertions are verified against the authenticated boundary and ReBAC policy before work.
 - Accepted mutations and `SyncBoundary` audit commit atomically in Rust-owned storage.
-- `connect`, `disconnect`, replay, record reads, and snapshot reads require the current actor/request/audit context; authorization precedes replay lookup.
+- `SyncEngine::connect`, `disconnect`, replay, record reads, and snapshot reads require the current actor/request/audit context; authorization precedes replay lookup. Transport connection establishment does not replace this ReBAC boundary.
 - Payload bytes, command bytes, tokens, customer text, and relationship graphs are forbidden in routine logs and audit identifiers.
 
 ## Generate and verify
@@ -89,4 +104,4 @@ npm run contracts:generate --prefix crates/contracts/codegen
 npm run contracts:verify --prefix crates/contracts/codegen
 ```
 
-The generated schema root exports `SyncMessage` and `SyncStatus`; referenced sync types are included transitively. See [protocol v1 contracts](index.md), [sync engine ownership](../developer/subsystems/synchronization.md), and [contract evolution](evolve-contracts-compatibly.md).
+The generated schema root exports `SyncMessage`, `SyncTransportFrame`, and `SyncStatus`; referenced sync types are included transitively. See [protocol v1 contracts](index.md), [sync engine and transport ownership](../developer/subsystems/synchronization.md), [sync failure recovery](../troubleshooting/synchronization-failures.md), and [contract evolution](evolve-contracts-compatibly.md).

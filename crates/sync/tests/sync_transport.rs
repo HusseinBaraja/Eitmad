@@ -175,6 +175,19 @@ fn version_mismatch_stops_connection_before_traffic() {
 }
 
 #[test]
+fn missing_sync_capability_stops_connection_before_traffic() {
+    let mut remote = hello(1);
+    remote.capabilities.clear();
+    let mut transport = simulation(remote);
+
+    let failure = transport.connect(UnixMillis(0)).unwrap_err();
+    assert_eq!(failure.kind, TransportFailureKind::CapabilityMismatch);
+    assert_eq!(failure.phase, FailurePhase::Negotiation);
+    assert_eq!(failure.retry, RetryAdvice::Never);
+    assert!(transport.negotiated_session().is_none());
+}
+
+#[test]
 fn lan_partial_discovery_connects_to_reachable_peer_as_degraded() {
     let device_id = DeviceId::new(Uuid::from_u128(200));
     let driver = ScriptedDriver::new(AuthenticationIdentity::Device(device_id), hello(1));

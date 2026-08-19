@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "explanation"
 status: "active"
 owner: "architecture maintainers"
-last_verified: "2026-08-19"
+last_verified: "2026-08-20"
 review_triggers:
   - "an authority, process, trust, storage, sync, update, or platform boundary changes"
 keywords:
@@ -16,7 +16,7 @@ keywords:
 
 # Understand Eitmad architecture
 
-Eitmad uses thin native desktop applications connected to a separate trusted Rust engine that acts as product authority. Protocol `1.3`, native binding generation, engine lifecycle, SQLite authority storage, Rust-owned configuration, scoped relationship authorization/audit, privacy-preserving observability, cross-platform secret storage, and Windows process supervision are implemented; no native settings UI or production business workflow exists yet.
+Eitmad uses thin native desktop applications connected to a separate trusted Rust engine that acts as product authority. Protocol `1.3`, native binding generation, engine lifecycle, SQLite authority storage, Rust-owned configuration, scoped relationship authorization/audit, privacy-preserving observability, cross-platform secret storage, shared simulation/LAN/WAN sync transport policy, and Windows process supervision are implemented; no production sync network driver, native settings UI, or business workflow exists yet.
 
 ## Start here
 

@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "explanation"
 status: "active"
 owner: "architecture maintainers"
-last_verified: "2026-08-19"
+last_verified: "2026-08-20"
 review_triggers:
   - "an authority, process, trust, storage, sync, update, or performance boundary changes"
 keywords:
@@ -40,7 +40,7 @@ The same Rust engine MUST support:
 - headless operation for supported unattended workflows;
 - diagnostic operation for health checks, compatibility inspection, and support tooling.
 
-Implemented authority foundations now include protocol `1.3`, a runtime-owned SQLite database, organization configuration with `ar-YE` default, scoped relationship policy v2 beside direct policy-v1 compatibility, mandatory redacted boundary audit, durable idempotency, and active subscription reauthorization. Native settings UI, trusted production identity provisioning, generic tuple persistence, database encryption, and the first production business vertical remain future work.
+Implemented authority foundations now include protocol `1.3`, a runtime-owned SQLite database, organization configuration with `ar-YE` default, scoped relationship policy v2 beside direct policy-v1 compatibility, mandatory redacted boundary audit, durable idempotency, active subscription reauthorization, and one shared simulation/LAN/WAN sync transport policy. Production sync network drivers, native settings UI, trusted production identity provisioning, generic tuple persistence, database encryption, and the first production business vertical remain future work.
 
 ## Ownership rules
 
@@ -148,7 +148,7 @@ The product supports two modes:
 
 Both modes MUST use one versioned sync protocol across local IPC concepts, LAN, and WAN transports. Transport differences MUST NOT produce different domain semantics.
 
-The implemented `eitmad-sync` foundation persists either mode per scope. Local-first state remains readable offline and reconciles pending changes after negotiation. Server-authoritative state separates confirmed cache from pending commands, labels optimistic projections, rolls denied commands back to confirmed state plus remaining projections, and withholds stale confirmed cache. See [dual-mode synchronization](../developer/subsystems/synchronization.md).
+The implemented `eitmad-sync` foundation persists either mode per scope. Local-first state remains readable offline and reconciles pending changes after negotiation. Server-authoritative state separates confirmed cache from pending commands, labels optimistic projections, rolls denied commands back to confirmed state plus remaining projections, and withholds stale confirmed cache. One `SyncTransport` interface and `SyncTransportFrame` now define authentication/encryption expectations, version/capability/schema negotiation, ordered streams, cancellation, duplicate safety, reconnect/backoff, health, LAN partial discovery, and WAN direct/relay routing without creating route-specific sync messages. Production discovery and encrypted network drivers are not implemented. See [synchronization and shared transports](../developer/subsystems/synchronization.md).
 
 The protocol MUST define:
 
@@ -263,7 +263,7 @@ The following designs are prohibited unless an approved architectural decision r
 
 ## Initial implementation gates
 
-Protocol `1.3`, Rust-owned configuration, scoped relationship authorization/audit, privacy-preserving observability, cross-platform secret storage, SQLite authority storage, local IPC, and the dual-mode sync engine foundation are implemented and documented in the [contract reference](../api/index.md). No production business vertical slice or server sync-plane exists. Before the first production vertical slice, the team MUST define and review:
+Protocol `1.3`, Rust-owned configuration, scoped relationship authorization/audit, privacy-preserving observability, cross-platform secret storage, SQLite authority storage, local IPC, the dual-mode sync engine, and shared sync transport policy are implemented and documented in the [contract reference](../api/index.md). No production sync network driver, business vertical slice, or server sync-plane exists. Before the first production vertical slice, the team MUST define and review:
 
 1. the first bounded domain and its Arabic terminology;
 2. command, query, subscription, error, version, and capability contracts;
