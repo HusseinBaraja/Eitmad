@@ -131,6 +131,10 @@ impl PersistentSession {
 
 impl AuthorityStore {
     /// Creates or refreshes one stable device identity.
+    ///
+    /// # Errors
+    ///
+    /// Returns a sanitized storage error for invalid timestamps or failed persistence.
     pub fn persist_device(&self, device: &DeviceIdentity) -> Result<(), StorageError> {
         if device.last_seen_at.0 < device.created_at.0 {
             return Err(StorageError);
@@ -154,6 +158,10 @@ impl AuthorityStore {
     }
 
     /// Persists a tenant-scoped user/account and optional organization/workspace atomically.
+    ///
+    /// # Errors
+    ///
+    /// Returns a sanitized storage error for conflicting or cross-tenant topology.
     pub fn persist_identity_topology(
         &self,
         identity: &IdentityTopology,
@@ -220,6 +228,11 @@ impl AuthorityStore {
     }
 
     /// Opens a durable session after every referenced identity is present in one tenant.
+    ///
+    /// # Errors
+    ///
+    /// Returns a sanitized storage error for invalid time bounds, missing identity,
+    /// cross-tenant references, duplicate sessions, or failed persistence.
     pub fn persist_session(&self, session: &PersistentSession) -> Result<(), StorageError> {
         if session.expires_at.0 <= session.issued_at.0
             || session.last_seen_at.0 < session.issued_at.0
@@ -257,6 +270,10 @@ impl AuthorityStore {
     }
 
     /// Reads one session only through its tenant isolation key.
+    ///
+    /// # Errors
+    ///
+    /// Returns a sanitized storage error for unreadable or malformed session state.
     pub fn read_session(
         &self,
         tenant_id: TenantId,
@@ -292,12 +309,16 @@ impl AuthorityStore {
                 )
                 .optional()
                 .map_err(|_| StorageError)?
-                .map(|row| decode_session(tenant_id, session_id, row))
+                .map(|row| decode_session(tenant_id, session_id, &row))
                 .transpose()
         })
     }
 
     /// Refreshes an active session and records whether the engine is currently offline.
+    ///
+    /// # Errors
+    ///
+    /// Returns a sanitized storage error when the scoped update cannot complete.
     pub fn refresh_session(
         &self,
         tenant_id: TenantId,
@@ -324,6 +345,10 @@ impl AuthorityStore {
     }
 
     /// Closes one tenant-scoped session. Repeated closure is a no-op.
+    ///
+    /// # Errors
+    ///
+    /// Returns a sanitized storage error when the scoped update cannot complete.
     pub fn close_session(
         &self,
         tenant_id: TenantId,
@@ -420,7 +445,7 @@ type StoredSessionRow = (
 fn decode_session(
     tenant_id: TenantId,
     session_id: SessionId,
-    row: StoredSessionRow,
+    row: &StoredSessionRow,
 ) -> Result<PersistentSession, StorageError> {
     let parse = |value: &str| uuid::Uuid::parse_str(value).map_err(|_| StorageError);
     Ok(PersistentSession {

@@ -89,6 +89,11 @@ impl AuthorityStore {
     }
 
     /// Lists preserved recovery artifacts without opening, deleting, or trusting them.
+    ///
+    /// # Errors
+    ///
+    /// Returns a sanitized storage error when the private runtime directory cannot
+    /// be enumerated safely.
     pub fn recovery_artifacts(
         runtime_directory: impl AsRef<Path>,
     ) -> Result<Vec<RecoveryArtifact>, StorageError> {

@@ -15,26 +15,47 @@ pub const LOCAL_DATA_EXPORT_FORMAT: &str = "eitmad.local-data-export.v1";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct LocalDataExportPolicy {
-    pub tenant_scoped: bool,
-    pub includes_identity_directory: bool,
-    pub includes_configuration: bool,
-    pub includes_sessions: bool,
-    pub includes_devices: bool,
-    pub includes_audit: bool,
-    pub includes_secrets: bool,
+    pub scope: ExportScope,
+    pub included: &'static [ExportDataClass],
+    pub excluded: &'static [ExportDataClass],
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ExportScope {
+    ExactTenant,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ExportDataClass {
+    IdentityDirectory,
+    Configuration,
+    Device,
+    Session,
+    Audit,
+    Idempotency,
+    PublicationOutbox,
+    Credential,
+    Secret,
 }
 
 impl LocalDataExportPolicy {
     #[must_use]
     pub const fn portable() -> Self {
         Self {
-            tenant_scoped: true,
-            includes_identity_directory: true,
-            includes_configuration: true,
-            includes_sessions: false,
-            includes_devices: false,
-            includes_audit: false,
-            includes_secrets: false,
+            scope: ExportScope::ExactTenant,
+            included: &[
+                ExportDataClass::IdentityDirectory,
+                ExportDataClass::Configuration,
+            ],
+            excluded: &[
+                ExportDataClass::Device,
+                ExportDataClass::Session,
+                ExportDataClass::Audit,
+                ExportDataClass::Idempotency,
+                ExportDataClass::PublicationOutbox,
+                ExportDataClass::Credential,
+                ExportDataClass::Secret,
+            ],
         }
     }
 }
@@ -88,6 +109,11 @@ impl AuthorityStore {
     ///
     /// The destination must not exist. The export is written privately and renamed
     /// atomically only after serialization and flush succeed.
+    ///
+    /// # Errors
+    ///
+    /// Returns a sanitized storage error when the tenant is unknown, scoped data
+    /// is invalid, the destination exists, or private atomic publication fails.
     pub fn export_tenant_data(
         &self,
         tenant_id: TenantId,
@@ -330,6 +356,10 @@ mod tests {
                 .export_tenant_data(first.tenant_id, &destination, UnixMillis(51))
                 .is_err()
         );
-        assert_eq!(LocalDataExportPolicy::portable().includes_secrets, false);
+        assert!(
+            LocalDataExportPolicy::portable()
+                .excluded
+                .contains(&ExportDataClass::Secret)
+        );
     }
 }

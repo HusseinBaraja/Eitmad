@@ -26,7 +26,7 @@ use eitmad_contracts::{
     transport::IdempotencyKey,
 };
 use eitmad_observability_audit::MutationAuditRecord;
-pub use export::{LOCAL_DATA_EXPORT_FORMAT, LocalDataExportPolicy};
+pub use export::{ExportDataClass, ExportScope, LOCAL_DATA_EXPORT_FORMAT, LocalDataExportPolicy};
 pub use identity::{DeviceIdentity, IdentityTopology, PersistentSession, SessionConnectivity};
 pub use recovery::{RecoveryArtifact, RecoveryArtifactKind, RestoreOutcome};
 use rusqlite::{Connection, OpenFlags, OptionalExtension as _, TransactionBehavior};
@@ -119,7 +119,12 @@ impl AuthorityStore {
         validate_database_file(&path)
     }
 
-    /// Runs a read-only SQLite corruption check against the live database.
+    /// Runs a read-only `SQLite` corruption check against the live database.
+    ///
+    /// # Errors
+    ///
+    /// Returns a sanitized storage error when the database cannot be read or the
+    /// selected integrity check reports anything other than `ok`.
     pub fn verify_integrity(&self, check: CorruptionCheck) -> Result<(), StorageError> {
         let connection = Connection::open_with_flags(
             &self.path,
