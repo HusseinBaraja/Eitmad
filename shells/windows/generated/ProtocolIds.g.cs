@@ -100,6 +100,7 @@ public static class ProtocolIds
         public const string EitmadPermissionConfigExportV1 = "eitmad.permission.config.export.v1";
         public const string EitmadPermissionAuthorizationManageV1 = "eitmad.permission.authorization.manage.v1";
         public const string EitmadPermissionPermissionsReadV1 = "eitmad.permission.permissions.read.v1";
+        public const string EitmadPermissionObservabilitySensitiveDebugV1 = "eitmad.permission.observability.sensitive-debug.v1";
         public const string EitmadPermissionSyncReadV1 = "eitmad.permission.sync.read.v1";
         public const string EitmadPermissionUpdateReadV1 = "eitmad.permission.update.read.v1";
         public const string EitmadPermissionUpdateReportInstallerV1 = "eitmad.permission.update.report-installer.v1";
@@ -171,6 +172,7 @@ public static class ProtocolIds
         public const string EitmadMessageIpcSubscriptionResyncRequiredV1 = "eitmad.message.ipc-subscription-resync-required.v1";
         public const string EitmadMessageIpcSubscriptionUnsupportedV1 = "eitmad.message.ipc-subscription-unsupported.v1";
         public const string EitmadMessageIpcDeadlineExceededV1 = "eitmad.message.ipc-deadline-exceeded.v1";
+        public const string EitmadMessageObservabilitySensitiveDebugWarningV1 = "eitmad.message.observability-sensitive-debug-warning.v1";
         public const string EitmadMessageProtocolIncompatibleV1 = "eitmad.message.protocol-incompatible.v1";
         public const string EitmadMessageSyncBackpressureV1 = "eitmad.message.sync-backpressure.v1";
         public const string EitmadMessageUpdateInstallerFailedV1 = "eitmad.message.update-installer-failed.v1";

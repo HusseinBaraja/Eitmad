@@ -59,7 +59,9 @@ The foreground CLI emits lifecycle snapshots as newline-delimited JSON on child 
 - Unknown required operation variants are rejected; they are never guessed or treated as a known command.
 - Open identifiers preserve unknown valid values so optional future capabilities and errors can be handled safely.
 - Configuration is revisioned and typed. It does not carry arbitrary JSON or secret values; secret references and redacted reads are explicit variants.
+- `SecretId` and secret lifecycle are Rust-internal authority types, not protocol-v1 operations. Shells never receive secret material or call an OS credential store for product secrets.
 - Sync domain payloads are registered schema/version identifiers plus encoded bytes. A domain vertical must define the payload schema before use.
+- Observation event, field, component, severity, classification, and value-kind contracts are exported in the JSON schema and exercised by the C# and Swift conformance fixture. Diagnostic values still reach sinks only through the Rust-owned redaction boundary.
 
 This is a minimal valid query body; the complete scoped envelope is in `tests/contract-compatibility/fixtures/protocol-v1.json`:
 
@@ -92,7 +94,7 @@ The active compatibility window, capability rules, change classification, and ma
 
 ## Structured failures
 
-`ContractError` carries a stable error code, localization message ID, typed parameters, retry disposition, correlation ID, and an optional safe detail. Shells localize the message ID and render parameters; they never parse prose. Current codes and message IDs are listed in the [generated reference](../_generated/contracts-v1.md).
+`ContractError` carries a stable error code, localization message ID, typed parameters, retry disposition, correlation ID, and an optional safe detail. Before external serialization, Rust retains only allowlisted identifier/integer metadata and removes free text, mismatched parameter kinds, and compatibility reasons. The local IPC writer repeats this projection for every nested error. Shells localize the message ID and render parameters; they never parse prose. Current codes and message IDs are listed in the [generated reference](../_generated/contracts-v1.md).
 
 ## Generate or validate bindings
 

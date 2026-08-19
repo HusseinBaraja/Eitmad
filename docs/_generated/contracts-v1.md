@@ -106,6 +106,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.permission.config.export.v1`
 - `eitmad.permission.authorization.manage.v1`
 - `eitmad.permission.permissions.read.v1`
+- `eitmad.permission.observability.sensitive-debug.v1`
 - `eitmad.permission.sync.read.v1`
 - `eitmad.permission.update.read.v1`
 - `eitmad.permission.update.report-installer.v1`
@@ -172,6 +173,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.message.ipc-subscription-resync-required.v1`
 - `eitmad.message.ipc-subscription-unsupported.v1`
 - `eitmad.message.ipc-deadline-exceeded.v1`
+- `eitmad.message.observability-sensitive-debug-warning.v1`
 - `eitmad.message.protocol-incompatible.v1`
 - `eitmad.message.sync-backpressure.v1`
 - `eitmad.message.update-installer-failed.v1`

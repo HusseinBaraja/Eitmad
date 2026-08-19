@@ -60,3 +60,4 @@ Accepted ADRs are immutable historical records except for typo fixes, link repai
 | [ADR-0021](0021-checksummed-feature-storage-migrations.md) | Use checksummed feature-owned storage migrations | Accepted | 2026-07-18 | None |
 | [ADR-0022](0022-persistent-tenant-identity-and-safe-storage-recovery.md) | Persist tenant identity and fail closed during storage recovery | Accepted | 2026-08-19 | None |
 | [ADR-0023](0023-scoped-relationship-authorization-and-audit.md) | Use scoped relationship graphs and one audited boundary gate | Accepted | 2026-08-19 | ADR-0020 |
+| [ADR-0024](0024-native-secret-storage-with-encrypted-fallback.md) | Prefer native secret stores with an encrypted Rust fallback | Accepted | 2026-08-19 | None |

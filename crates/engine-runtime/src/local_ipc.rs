@@ -1244,7 +1244,14 @@ where
     writer.flush().await
 }
 
-async fn write_frame_or_close<W, T>(writer: &mut W, value: &T) -> io::Result<bool>
+async fn write_frame_or_close<W>(writer: &mut W, value: &IpcServerMessage) -> io::Result<bool>
+where
+    W: AsyncWrite + Unpin,
+{
+    write_serialized_frame_or_close(writer, &value.redacted_for_external_boundary()).await
+}
+
+async fn write_serialized_frame_or_close<W, T>(writer: &mut W, value: &T) -> io::Result<bool>
 where
     W: AsyncWrite + Unpin,
     T: Serialize,
@@ -1271,6 +1278,7 @@ mod tests {
     use eitmad_contracts::{
         commands::{CancelOperation, Command},
         config::{ConfigReadValue, ConfigSnapshot},
+        errors::{ErrorParameter, ErrorParameterName, ErrorParameterValue},
         events::{AuthorizationPolicyChanges, ConfigurationChanges, Subscription},
         identity::{
             AuthenticatedIdentity, DeviceId, PrincipalId, PrincipalKind, ScopeId, ScopeKind,
@@ -2145,7 +2153,40 @@ mod tests {
         let value = "x".repeat(MAX_IPC_FRAME_BYTES as usize + 1);
         let (mut writer, _) = tokio::io::duplex(16);
 
-        assert!(!write_frame_or_close(&mut writer, &value).await.unwrap());
+        assert!(
+            !write_serialized_frame_or_close(&mut writer, &value)
+                .await
+                .unwrap()
+        );
+    }
+
+    #[tokio::test]
+    async fn outbound_frame_redacts_nested_contract_errors() {
+        let correlation_id = CorrelationId::new(uuid::Uuid::from_u128(1));
+        let message = IpcServerMessage::Failure(IpcFailureResponse {
+            request_id: None,
+            error: ContractError {
+                code: ErrorCode::parse("eitmad.error.synthetic.v1").unwrap(),
+                message_id: MessageId::parse("eitmad.message.synthetic.v1").unwrap(),
+                parameters: vec![ErrorParameter {
+                    name: ErrorParameterName::parse("unsafe-message").unwrap(),
+                    value: ErrorParameterValue::Text("secret-sentinel".to_owned()),
+                }],
+                retry: RetryDisposition::Never,
+                correlation_id,
+                detail: None,
+            },
+        });
+        let (mut writer, mut reader) = tokio::io::duplex(4096);
+
+        assert!(write_frame_or_close(&mut writer, &message).await.unwrap());
+        let decoded = read_frame::<_, IpcServerMessage>(&mut reader)
+            .await
+            .unwrap();
+        let encoded = serde_json::to_string(&decoded).unwrap();
+
+        assert!(!encoded.contains("secret-sentinel"));
+        assert!(encoded.contains(&correlation_id.value().to_string()));
     }
 
     #[tokio::test]

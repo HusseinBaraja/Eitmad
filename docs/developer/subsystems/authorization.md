@@ -103,7 +103,7 @@ Raw error messages, payloads, secrets, Arabic customer text, authorization graph
 
 ## Direct organization policy compatibility
 
-Policy v1 still persists direct principal-to-organization `member`, `config-manager`, and `owner` relationships. Members read configuration and effective permissions; managers also patch/import/export; owners also manage relationships. Rust preserves one persisted owner and supports a Rust-only first-owner bootstrap. Development ephemeral ownership remains explicitly insecure and non-persistent.
+Policy v1 still persists direct principal-to-organization `member`, `config-manager`, and `owner` relationships. Members read configuration and effective permissions; managers also patch/import/export; owners also manage relationships and hold `eitmad.permission.observability.sensitive-debug.v1`. `AuthorizationService` implements the diagnostic permission gate, so denied sensitive-debug requests cannot activate or disable the mode. Rust preserves one persisted owner and supports a Rust-only first-owner bootstrap. Development ephemeral ownership remains explicitly insecure and non-persistent.
 
 Do not encode product-v2 roles or inherited record access into the v1 relation table. Provision them through a versioned policy snapshot and later persistence migration once a product vertical owns the tuple lifecycle.
 
@@ -115,6 +115,6 @@ On `eitmad.error.authorization-denied.v1`, verify authenticated tenant/workspace
 
 ## Tests and safe extension
 
-Tests cover direct allow/deny, role relationships, inherited permissions, attribute conditions, tenant/workspace isolation, cross-scope tuple rejection, unauthorized commands/queries, sync rejection, external-adapter rejection, plugin rejection, audit completeness/redaction, append-only persistence, storage migration, direct policy decisions, last-owner protection, and subscription revocation.
+Tests cover direct allow/deny, the owner-only sensitive-debug permission, role relationships, inherited permissions, attribute conditions, tenant/workspace isolation, cross-scope tuple rejection, unauthorized commands/queries, sync rejection, external-adapter rejection, plugin rejection, audit completeness/redaction, append-only persistence, storage migration, direct policy decisions, last-owner protection, and subscription revocation.
 
 Run focused authorization/audit/storage/runtime tests, full workspace tests, strict Clippy, generated contract verification, C# conformance, and an engine diagnostic plus clean start/stop. Before adding a relation or condition, document its product meaning, authoritative attributes, scope, denial behavior, Arabic UX, tuple lifecycle, migration, and revocation bound. Review [ADR-0023](../../decisions/0023-scoped-relationship-authorization-and-audit.md), [protocol 1.3 release guidance](../../releases/protocol-1-3-scoped-authorization-audit.md), and the [contract reference](../../api/index.md).

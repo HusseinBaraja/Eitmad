@@ -33,6 +33,24 @@
     "negotiation": {
       "$ref": "#/definitions/NegotiationOutcome"
     },
+    "observation_classification": {
+      "$ref": "#/definitions/DataClassification"
+    },
+    "observation_component_id": {
+      "type": "string"
+    },
+    "observation_event_id": {
+      "type": "string"
+    },
+    "observation_field_name": {
+      "type": "string"
+    },
+    "observation_severity": {
+      "$ref": "#/definitions/ObservationSeverity"
+    },
+    "observation_value_kind": {
+      "$ref": "#/definitions/ObservationValueKind"
+    },
     "peer_hello": {
       "$ref": "#/definitions/PeerHello"
     },
@@ -72,6 +90,12 @@
     "effective_permissions",
     "lifecycle_snapshot",
     "diagnostic_report",
+    "observation_event_id",
+    "observation_field_name",
+    "observation_component_id",
+    "observation_severity",
+    "observation_classification",
+    "observation_value_kind",
     "catalog"
   ],
   "definitions": {
@@ -966,6 +990,14 @@
         "parameters",
         "retry",
         "correlationId"
+      ]
+    },
+    "DataClassification": {
+      "type": "string",
+      "enum": [
+        "metadata",
+        "sensitive",
+        "secret"
       ]
     },
     "DevelopmentIdentityAssertion": {
@@ -2390,6 +2422,25 @@
     },
     "Notifications": {
       "type": "object"
+    },
+    "ObservationSeverity": {
+      "type": "string",
+      "enum": [
+        "debug",
+        "info",
+        "warning",
+        "error",
+        "critical"
+      ]
+    },
+    "ObservationValueKind": {
+      "type": "string",
+      "enum": [
+        "boolean",
+        "integer",
+        "identifier",
+        "text"
+      ]
     },
     "PeerHello": {
       "type": "object",

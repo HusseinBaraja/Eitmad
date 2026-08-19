@@ -13,9 +13,11 @@ workspace = true
 clap = { version = "=4.5.54", features = ["derive"] }
 eitmad-contracts = { path = "../contracts" }
 eitmad-engine-runtime = { path = "../engine-runtime" }
+eitmad-observability-audit = { path = "../observability-audit" }
 serde = "=1.0.228"
 serde_json = "=1.0.150"
 tokio = { version = "=1.49.0", features = ["io-std", "io-util", "macros", "rt-multi-thread", "signal", "sync"] }
+uuid = { version = "=1.23.4", features = ["v4"] }
 
 [dev-dependencies]
 tempfile = "=3.24.0"

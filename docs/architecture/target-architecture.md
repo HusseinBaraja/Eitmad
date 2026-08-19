@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "explanation"
 status: "active"
 owner: "architecture maintainers"
-last_verified: "2026-07-18"
+last_verified: "2026-08-19"
 review_triggers:
   - "an authority, process, trust, storage, sync, update, or performance boundary changes"
 keywords:
@@ -261,7 +261,7 @@ The following designs are prohibited unless an approved architectural decision r
 
 ## Initial implementation gates
 
-Protocol `1.3`, Rust-owned configuration, scoped relationship authorization/audit, SQLite authority storage, and local IPC are implemented and documented in the [contract reference](../api/index.md). No production business vertical slice exists. Before the first production vertical slice, the team MUST define and review:
+Protocol `1.3`, Rust-owned configuration, scoped relationship authorization/audit, privacy-preserving observability, cross-platform secret storage, SQLite authority storage, and local IPC are implemented and documented in the [contract reference](../api/index.md). No production business vertical slice exists. Before the first production vertical slice, the team MUST define and review:
 
 1. the first bounded domain and its Arabic terminology;
 2. command, query, subscription, error, version, and capability contracts;
