@@ -5,8 +5,8 @@ mod diagnostics;
 pub use diagnostics::{
     CrashReport, MAX_SENSITIVE_DEBUG_DURATION, ObservationContract, ObservationContractError,
     ObservationFieldContract, ObservationValue, RedactionContext, SENSITIVE_DEBUG_WARNING,
-    SensitiveDebugController, SensitiveDebugError, SensitiveDebugEvaluation,
-    SensitiveDebugStatus, StructuredError, StructuredErrorClass, StructuredLog, StructuredValue,
+    SensitiveDebugController, SensitiveDebugError, SensitiveDebugEvaluation, SensitiveDebugStatus,
+    StructuredError, StructuredErrorClass, StructuredLog, StructuredValue,
 };
 
 use eitmad_contracts::{

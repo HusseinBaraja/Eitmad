@@ -14,8 +14,7 @@ use serde::{Deserialize, Serialize};
 use crate::{AuditExtensionPoint, AuditTarget, MutationAuditRecord};
 
 pub const MAX_SENSITIVE_DEBUG_DURATION: Duration = Duration::from_secs(30 * 60);
-pub const SENSITIVE_DEBUG_WARNING: &str =
-    "Sensitive diagnostic fields are temporarily enabled. Secrets remain redacted. Output requires restricted handling.";
+pub const SENSITIVE_DEBUG_WARNING: &str = "Sensitive diagnostic fields are temporarily enabled. Secrets remain redacted. Output requires restricted handling.";
 
 const DEBUG_ENABLE_OPERATION: &str = "eitmad.observability.sensitive-debug.enable.v1";
 const DEBUG_EXPIRE_OPERATION: &str = "eitmad.observability.sensitive-debug.expire.v1";
@@ -164,7 +163,11 @@ pub struct StructuredError {
 
 impl StructuredError {
     #[must_use]
-    pub fn new(code: ErrorCode, class: StructuredErrorClass, correlation_id: CorrelationId) -> Self {
+    pub fn new(
+        code: ErrorCode,
+        class: StructuredErrorClass,
+        correlation_id: CorrelationId,
+    ) -> Self {
         Self {
             code,
             class,
@@ -481,7 +484,11 @@ mod tests {
             )
             .unwrap();
         assert!(enabled.validate_complete().is_ok());
-        assert!(serde_json::to_string(&enabled).unwrap().contains("expires-at-ms:61000"));
+        assert!(
+            serde_json::to_string(&enabled)
+                .unwrap()
+                .contains("expires-at-ms:61000")
+        );
 
         let active = controller.evaluate(UnixMillis(60_999));
         assert!(matches!(active.status, SensitiveDebugStatus::Active { .. }));

@@ -6,7 +6,9 @@ use crate::config::SecretReferenceId;
 open_id!(SecretKind, "secret kind");
 
 /// Typed, non-secret reference to secret material owned by Rust.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SecretId {
     kind: SecretKind,
