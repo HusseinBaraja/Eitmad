@@ -10,8 +10,8 @@ use rusqlite::{Connection, OpenFlags, backup::Backup};
 use uuid::Uuid;
 
 use crate::{
-    AuthorityStore, DATABASE_FILE_NAME, StorageError, make_directory_private, make_file_private,
-    validate_database_file,
+    AuthorityStore, CorruptionCheck, DATABASE_FILE_NAME, StorageError, make_directory_private,
+    make_file_private, validate_database_file, validate_database_file_with,
 };
 
 #[derive(Clone, Debug)]
@@ -20,7 +20,42 @@ pub struct RestoreOutcome {
     pub previous_database: Option<PathBuf>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RecoveryArtifactKind {
+    PreMigration,
+    PreRestore,
+    FailedRestore,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RecoveryArtifact {
+    pub path: PathBuf,
+    pub kind: RecoveryArtifactKind,
+}
+
 impl AuthorityStore {
+    pub(crate) fn backup_before_pending_migration(&self) -> Result<(), StorageError> {
+        let connection = Connection::open_with_flags(
+            &self.path,
+            OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+        )
+        .map_err(|_| StorageError)?;
+        let version = crate::migrations::read_version(&connection)?;
+        if version >= crate::CURRENT_STORAGE_VERSION {
+            return Ok(());
+        }
+        if version != 0 && version < crate::MIN_SUPPORTED_STORAGE_VERSION {
+            return Err(StorageError);
+        }
+        let parent = self.path.parent().ok_or(StorageError)?;
+        let destination = parent.join(format!(
+            "eitmad.pre-migration-v{version}-to-v{}-{}.sqlite3",
+            crate::CURRENT_STORAGE_VERSION,
+            Uuid::new_v4()
+        ));
+        self.backup_to(destination)
+    }
+
     /// Creates a consistent `SQLite` backup, including committed WAL state.
     ///
     /// The destination must not already exist.
@@ -50,7 +85,39 @@ impl AuthorityStore {
     ///
     /// Returns a sanitized storage error for corrupt, drifted, or incompatible state.
     pub fn validate_backup(source: impl AsRef<Path>) -> Result<(), StorageError> {
-        validate_database_file(source.as_ref())
+        validate_database_file_with(source.as_ref(), CorruptionCheck::Full)
+    }
+
+    /// Lists preserved recovery artifacts without opening, deleting, or trusting them.
+    pub fn recovery_artifacts(
+        runtime_directory: impl AsRef<Path>,
+    ) -> Result<Vec<RecoveryArtifact>, StorageError> {
+        let mut artifacts = Vec::new();
+        for entry in fs::read_dir(runtime_directory).map_err(|_| StorageError)? {
+            let entry = entry.map_err(|_| StorageError)?;
+            if !entry.file_type().map_err(|_| StorageError)?.is_file() {
+                continue;
+            }
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            let kind = if name.starts_with("eitmad.pre-migration-") && name.ends_with(".sqlite3") {
+                Some(RecoveryArtifactKind::PreMigration)
+            } else if name.starts_with("eitmad.pre-restore-") && name.ends_with(".sqlite3") {
+                Some(RecoveryArtifactKind::PreRestore)
+            } else if name.starts_with("eitmad.failed-restore-") && name.ends_with(".sqlite3") {
+                Some(RecoveryArtifactKind::FailedRestore)
+            } else {
+                None
+            };
+            if let Some(kind) = kind {
+                artifacts.push(RecoveryArtifact {
+                    path: entry.path(),
+                    kind,
+                });
+            }
+        }
+        artifacts.sort_by(|left, right| left.path.cmp(&right.path));
+        Ok(artifacts)
     }
 
     /// Restores a validated backup while the caller holds exclusive engine authority.
@@ -112,8 +179,8 @@ impl AuthorityStore {
 
 fn create_validated_backup(source: &Path, destination: &Path) -> Result<(), StorageError> {
     create_private_file(destination)?;
-    let result =
-        backup_database(source, destination).and_then(|()| validate_database_file(destination));
+    let result = backup_database(source, destination)
+        .and_then(|()| validate_database_file_with(destination, CorruptionCheck::Full));
     if result.is_err() {
         let _ = fs::remove_file(destination);
     }
@@ -257,6 +324,36 @@ mod tests {
         assert!(AuthorityStore::restore_from_backup(directory.path(), &corrupt).is_err());
         assert!(AuthorityStore::check_compatible(directory.path()).is_ok());
         assert_eq!(store.path(), directory.path().join(DATABASE_FILE_NAME));
+    }
+
+    #[test]
+    fn pending_migration_creates_validated_recovery_artifact_first() {
+        let directory = TempDir::new().unwrap();
+        let store = AuthorityStore::open(directory.path()).unwrap();
+        let connection = Connection::open(store.path()).unwrap();
+        connection
+            .execute_batch(
+                "DROP TABLE identity_sessions;
+                 DROP TABLE identity_workspaces;
+                 DROP TABLE identity_organizations;
+                 DROP TABLE identity_accounts;
+                 DROP TABLE identity_tenants;
+                 DROP TABLE identity_users;
+                 DROP TABLE identity_devices;
+                 ALTER TABLE mutation_audit DROP COLUMN session_id;
+                 ALTER TABLE mutation_audit DROP COLUMN device_id;
+                 DELETE FROM schema_migrations WHERE version = 5;",
+            )
+            .unwrap();
+        drop(connection);
+        drop(store);
+
+        let migrated = AuthorityStore::open(directory.path()).unwrap();
+        assert!(migrated.verify_integrity(CorruptionCheck::Full).is_ok());
+        let artifacts = AuthorityStore::recovery_artifacts(directory.path()).unwrap();
+        assert_eq!(artifacts.len(), 1);
+        assert_eq!(artifacts[0].kind, RecoveryArtifactKind::PreMigration);
+        AuthorityStore::validate_backup(&artifacts[0].path).unwrap();
     }
 
     #[test]

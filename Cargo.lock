@@ -296,6 +296,7 @@ dependencies = [
  "eitmad-contracts",
  "eitmad-observability-audit",
  "rusqlite",
+ "serde",
  "serde_json",
  "sha2",
  "tempfile",

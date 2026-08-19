@@ -2,6 +2,8 @@
 
 mod authorization;
 mod configuration;
+mod export;
+mod identity;
 mod migrations;
 mod recovery;
 
@@ -24,11 +26,14 @@ use eitmad_contracts::{
     transport::IdempotencyKey,
 };
 use eitmad_observability_audit::MutationAuditRecord;
-pub use recovery::RestoreOutcome;
+pub use export::{LOCAL_DATA_EXPORT_FORMAT, LocalDataExportPolicy};
+pub use identity::{DeviceIdentity, IdentityTopology, PersistentSession, SessionConnectivity};
+pub use recovery::{RecoveryArtifact, RecoveryArtifactKind, RestoreOutcome};
 use rusqlite::{Connection, OpenFlags, OptionalExtension as _, TransactionBehavior};
 
 pub const DATABASE_FILE_NAME: &str = "eitmad.sqlite3";
-pub const CURRENT_STORAGE_VERSION: u32 = 4;
+pub const CURRENT_STORAGE_VERSION: u32 = 5;
+pub const MIN_SUPPORTED_STORAGE_VERSION: u32 = 2;
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 
 #[derive(Clone, Debug)]
@@ -60,6 +65,12 @@ pub struct DurablePublication {
     pub policy_changed: bool,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CorruptionCheck {
+    Quick,
+    Full,
+}
+
 #[derive(Clone, Debug)]
 pub struct PendingPublication {
     pub scope: ScopeRef,
@@ -82,9 +93,12 @@ impl AuthorityStore {
         fs::create_dir_all(directory).map_err(|_| StorageError)?;
         make_directory_private(directory)?;
         let path = directory.join(DATABASE_FILE_NAME);
-        ensure_database_file(&path)?;
+        let existed = ensure_database_file(&path)?;
         make_file_private(&path)?;
         let store = Self { path };
+        if existed {
+            store.backup_before_pending_migration()?;
+        }
         let mut connection = store.open_connection()?;
         migrations::apply(&mut connection)?;
         make_file_private(&store.path)?;
@@ -103,6 +117,16 @@ impl AuthorityStore {
             return Err(StorageError);
         }
         validate_database_file(&path)
+    }
+
+    /// Runs a read-only SQLite corruption check against the live database.
+    pub fn verify_integrity(&self, check: CorruptionCheck) -> Result<(), StorageError> {
+        let connection = Connection::open_with_flags(
+            &self.path,
+            OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+        )
+        .map_err(|_| StorageError)?;
+        verify_sqlite_integrity(&connection, check)
     }
 
     fn read_transaction<T>(
@@ -141,19 +165,22 @@ impl AuthorityStore {
 }
 
 fn validate_database_file(path: &Path) -> Result<(), StorageError> {
+    validate_database_file_with(path, CorruptionCheck::Quick)
+}
+
+fn validate_database_file_with(path: &Path, check: CorruptionCheck) -> Result<(), StorageError> {
     let connection = Connection::open_with_flags(
         path,
         OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
     )
     .map_err(|_| StorageError)?;
     let version = migrations::read_version(&connection)?;
-    if version > CURRENT_STORAGE_VERSION {
+    if version > CURRENT_STORAGE_VERSION
+        || (version != 0 && version < MIN_SUPPORTED_STORAGE_VERSION)
+    {
         return Err(StorageError);
     }
-    connection
-        .query_row("PRAGMA quick_check(1)", [], |row| row.get::<_, String>(0))
-        .map_err(|_| StorageError)
-        .and_then(|result| (result == "ok").then_some(()).ok_or(StorageError))?;
+    verify_sqlite_integrity(&connection, check)?;
     let mut migration_copy = Connection::open_in_memory().map_err(|_| StorageError)?;
     {
         let backup = rusqlite::backup::Backup::new(&connection, &mut migration_copy)
@@ -163,6 +190,23 @@ fn validate_database_file(path: &Path) -> Result<(), StorageError> {
             .map_err(|_| StorageError)?;
     }
     migrations::apply(&mut migration_copy)
+}
+
+fn verify_sqlite_integrity(
+    connection: &Connection,
+    check: CorruptionCheck,
+) -> Result<(), StorageError> {
+    let pragma = match check {
+        CorruptionCheck::Quick => "PRAGMA quick_check(1)",
+        CorruptionCheck::Full => "PRAGMA integrity_check",
+    };
+    let mut statement = connection.prepare(pragma).map_err(|_| StorageError)?;
+    let results = statement
+        .query_map([], |row| row.get::<_, String>(0))
+        .map_err(|_| StorageError)?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|_| StorageError)?;
+    (results == ["ok"]).then_some(()).ok_or(StorageError)
 }
 
 impl AuthorityStore {
@@ -295,10 +339,10 @@ fn configure_connection(connection: &Connection) -> Result<(), StorageError> {
         .map_err(|_| StorageError)
 }
 
-fn ensure_database_file(path: &Path) -> Result<(), StorageError> {
+fn ensure_database_file(path: &Path) -> Result<bool, StorageError> {
     match OpenOptions::new().write(true).create_new(true).open(path) {
-        Ok(_) => Ok(()),
-        Err(error) if error.kind() == ErrorKind::AlreadyExists && path.is_file() => Ok(()),
+        Ok(_) => Ok(false),
+        Err(error) if error.kind() == ErrorKind::AlreadyExists && path.is_file() => Ok(true),
         Err(_) => Err(StorageError),
     }
 }
@@ -389,9 +433,9 @@ fn insert_audit(connection: &Connection, record: &MutationAuditRecord) -> Result
         .execute(
             "INSERT INTO mutation_audit
              (audit_id, occurred_at, principal_id, principal_kind, scope_kind, scope_id,
-              correlation_id, causation_id, idempotency_key, operation, outcome,
+              session_id, device_id, correlation_id, causation_id, idempotency_key, operation, outcome,
               previous_revision, resulting_revision, changed_identifiers, error_code)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
             rusqlite::params![
                 record.audit_id.to_string(),
                 record.occurred_at.0,
@@ -399,6 +443,8 @@ fn insert_audit(connection: &Connection, record: &MutationAuditRecord) -> Result
                 principal_kind,
                 scope_kind,
                 scope_id,
+                record.session_id.map(|id| id.value().to_string()),
+                record.device_id.map(|id| id.value().to_string()),
                 record.correlation_id.value().to_string(),
                 record.causation_id.map(|id| id.value().to_string()),
                 record.idempotency_key.map(|id| id.value().to_string()),
@@ -589,6 +635,12 @@ mod tests {
                 occurred_at: UnixMillis(1),
                 principal_id: PrincipalId::new(Uuid::from_u128(2)),
                 principal_kind: PrincipalKind::User,
+                session_id: Some(eitmad_contracts::identity::SessionId::new(Uuid::from_u128(
+                    5,
+                ))),
+                device_id: Some(eitmad_contracts::identity::DeviceId::new(Uuid::from_u128(
+                    6,
+                ))),
                 scope: ScopeRef {
                     kind: ScopeKind::parse("organization").unwrap(),
                     id: ScopeId::new(Uuid::from_u128(3)),
@@ -606,6 +658,15 @@ mod tests {
             .unwrap();
 
         let connection = Connection::open(store.path()).unwrap();
+        let attribution: (String, String) = connection
+            .query_row(
+                "SELECT session_id, device_id FROM mutation_audit WHERE audit_id = ?1",
+                [Uuid::from_u128(1).to_string()],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(attribution.0, Uuid::from_u128(5).to_string());
+        assert_eq!(attribution.1, Uuid::from_u128(6).to_string());
         assert!(
             connection
                 .execute("DELETE FROM mutation_audit", [])
