@@ -37,6 +37,10 @@ Use symptom and identifier pages to reach the authoritative owner and a non-dest
 - [Resolve configuration and authorization failures](configuration-authorization-failures.md): diagnose invalid patches/imports, revision conflicts, denial, last-owner protection, revocation, migration, and corruption.
 - [Resolve scoped authorization, sync, adapter, and plugin denials](authorization-boundary-denials.md): diagnose relationship paths, inheritance, conditions, tenant/workspace isolation, boundary rejection, and mandatory audit failures.
 
+## Privacy and secret failures
+
+- [Resolve diagnostic privacy or secret-storage failures](privacy-and-secret-leakage.md): contain suspected leakage and diagnose redaction, sensitive-debug expiry, native credential-store, and encrypted-fallback failures.
+
 No native settings workflow or user-facing Arabic error is implemented yet. Runtime failures expose stable localization message IDs for future shells.
 
 Return to the [documentation index](../index.md) or review [protocol v1](../api/index.md).

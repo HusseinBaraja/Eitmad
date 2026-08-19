@@ -130,6 +130,11 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | إلغاء الصلاحية | Authorization revocation | A committed policy change that removes effective access and forces active subscriptions to reauthorize before later delivery. |
 | سجل التدقيق | Audit record | A durable result envelope containing actor, device/session, tenant/workspace, scope, operation, target, outcome, time, correlation, and only redacted error metadata. |
 | نقطة امتداد التدقيق | Audit extension point | A typed durable marker that classifies a common execution boundary or reserves future approval, ledger, conflict, security-event, or undo-critical linkage; a workflow marker does not implement that workflow. |
+| معرّف الارتباط | Correlation ID | A non-secret identifier that connects structured operational evidence across boundaries; it is not identity, authorization, or a business record key. |
+| سجل منظم | Structured log | A Rust-produced diagnostic event whose fields are allowlisted, typed, classified, correlated, and redacted before serialization. |
+| التشخيص الحساس المؤقت | Temporary sensitive debug | A warned, audited, time-bounded diagnostic mode that may reveal `Sensitive` fields until expiry while always redacting `Secret` fields. No user-facing label exists yet. |
+| مخزن الأسرار | Secret store | The Rust-owned capability that keeps typed secret material in an OS credential store or, only when necessary, an authenticated encrypted fallback. |
+| مرجع السر | Secret reference | A typed non-secret identifier that configuration or domain state may retain instead of secret material. |
 | المزامنة | Synchronization | The protocol-driven exchange and reconciliation of authorized state across processes, devices, or servers. |
 | تعارض | Conflict | Concurrent or incompatible state that cannot be safely combined without a defined domain rule or decision. |
 | محلي أولًا | Local-first | A mode in which local durable work continues offline and later synchronizes under explicit conflict rules. |

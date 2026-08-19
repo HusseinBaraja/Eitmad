@@ -17,7 +17,7 @@ keywords:
 
 # Run Eitmad foundation checks
 
-These steps verify the current foundation. Rust owns local SQLite authority through storage version 6, migration snapshots, validated backup/restore, persistent identity, scoped authorization/audit, corruption checks, and scoped export hooks. Packaging, scheduled backup, retention, restore/export IPC, and production operator tooling are not implemented.
+These steps verify the current foundation. Rust owns local SQLite authority through storage version 6, migration snapshots, validated backup/restore, persistent identity, scoped authorization/audit, privacy-preserving diagnostics, cross-platform secret storage, corruption checks, and scoped export hooks. Packaging, scheduled backup, diagnostic retention, secret recovery tooling, restore/export IPC, and production operator tooling are not implemented.
 
 ## Prerequisites
 
@@ -92,6 +92,12 @@ These steps verify the current foundation. Rust owns local SQLite authority thro
    python .agents/skills/maintain-project-documentation/scripts/audit_docs.py --root docs
    ```
 
+10. On each release platform, run the synthetic native secret lifecycle through that platform's protected credential store. This test is ignored during routine hermetic runs because it mutates OS credential state and then cleans it up:
+
+   ```powershell
+   cargo test -p eitmad-secret-storage tests::os_native_backend_supports_secret_lifecycle -- --ignored --exact
+   ```
+
 ## Verify
 
 In a healthy development environment, every applicable command should exit with code `0` and no warnings. Diagnostics should print one JSON report; an unhealthy required check may produce exit code `3`. Windows supervision prints `Windows process supervision scenarios passed.` after fake and real-engine checks. Swift binding conformance runs in macOS CI because Swift is not part of the Windows prerequisites.
@@ -107,4 +113,7 @@ If a command fails, stop. Do not hide the warning or bypass the test. Fix the au
 - [Recover and export local storage](recover-local-storage.md)
 - [Understand local storage and recovery boundaries](../developer/subsystems/local-storage.md)
 - [Extend Windows process supervision safely](../developer/subsystems/windows-process-supervision.md)
+- [Extend privacy-preserving observability safely](../developer/subsystems/privacy-preserving-observability.md)
+- [Use Rust-owned secret storage safely](../developer/subsystems/secret-storage.md)
+- [Resolve diagnostic privacy or secret-storage failures](../troubleshooting/privacy-and-secret-leakage.md)
 - [Review the documentation standard](../developer/contributing/documentation-standard.md)

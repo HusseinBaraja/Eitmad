@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust configuration maintainers"
-last_verified: "2026-07-18"
+last_verified: "2026-08-19"
 review_triggers:
   - "a configuration key, validator, sensitivity, persistence rule, import format, or event changes"
 keywords:
@@ -41,7 +41,7 @@ Durable idempotency hashes canonical operation input. Reusing a key with the sam
 
 ## Redaction and secret rules
 
-Public values may appear in snapshots and exports. `Sensitive` and `Secret` definitions always become `ConfigReadValue::Redacted` at IPC and export boundaries. Secret definitions may persist only opaque `SecretReferenceId` values; raw secret material is never a valid configuration write. Audit rows contain changed identifiers and revisions, never configuration values.
+Public values may appear in snapshots and exports. `Sensitive` and `Secret` definitions always become `ConfigReadValue::Redacted` at IPC and export boundaries. Secret definitions may persist only opaque `SecretReferenceId` values; raw secret material is never a valid configuration write. Rust stores referenced material through the separate [secret-storage authority](secret-storage.md), never in configuration tables. Audit rows contain changed identifiers and revisions, never configuration values.
 
 SQLite currently relies on user-private OS-file protection. Do not register production sensitive plaintext until database encryption and key management have an approved design and implementation.
 

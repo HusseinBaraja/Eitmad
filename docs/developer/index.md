@@ -33,6 +33,8 @@ Read `AGENTS.md` at the repository root, then review:
 - [Typed local IPC](subsystems/local-ipc.md)
 - [Rust-owned configuration](subsystems/configuration.md)
 - [Scoped authorization and audit](subsystems/authorization.md)
+- [Privacy-preserving observability](subsystems/privacy-preserving-observability.md)
+- [Rust-owned secret storage](subsystems/secret-storage.md)
 - [Rust-owned local storage](subsystems/local-storage.md)
 - [Persistent tenant identity](subsystems/identity-foundation.md)
 - [Windows engine process supervision](subsystems/windows-process-supervision.md)
