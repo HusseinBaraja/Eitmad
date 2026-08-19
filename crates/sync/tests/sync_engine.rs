@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::Arc};
 
 use eitmad_authorization::{
     AuthorizationGate, BoundaryAuditContext, BoundaryError, BoundaryKind, RelationshipPolicy,
@@ -26,8 +26,8 @@ use eitmad_contracts::{
 use eitmad_observability_audit::AuditTarget;
 use eitmad_storage::AuthorityStore;
 use eitmad_sync::{
-    CommandDraft, DeliveryOutcome, LocalChangeDraft, LocalChangeOutcome, PendingCommandOutcome,
-    SyncAuthorization, SyncEngine, SyncEngineError,
+    CommandDraft, ConflictHook, ConflictResolution, DeliveryOutcome, LocalChangeDraft,
+    LocalChangeOutcome, PendingCommandOutcome, SyncAuthorization, SyncEngine, SyncEngineError,
 };
 use tempfile::TempDir;
 use uuid::Uuid;
@@ -57,6 +57,31 @@ impl Fixture {
     }
 
     fn engine(&self, mode: SyncMode, allowed: bool) -> SyncEngine {
+        SyncEngine::open(
+            self.store.clone(),
+            self.actor.scope.clone(),
+            mode,
+            self.authorization(allowed),
+            &self.actor,
+            &audit(0),
+        )
+        .unwrap()
+    }
+
+    fn engine_with_hook(&self, resolution: ConflictResolution) -> SyncEngine {
+        SyncEngine::open_with_conflict_hook(
+            self.store.clone(),
+            self.actor.scope.clone(),
+            SyncMode::LocalFirst,
+            self.authorization(true),
+            &self.actor,
+            &audit(0),
+            Arc::new(StaticConflictHook(resolution)),
+        )
+        .unwrap()
+    }
+
+    fn authorization(&self, allowed: bool) -> SyncAuthorization {
         let tuples = allowed
             .then(|| RelationshipTuple {
                 subject: TupleSubject::Principal(RelationshipSubject {
@@ -80,13 +105,15 @@ impl Fixture {
         )
         .unwrap();
         let gate = AuthorizationGate::new(policy, self.store.clone());
-        SyncEngine::open(
-            self.store.clone(),
-            self.actor.scope.clone(),
-            mode,
-            SyncAuthorization::new(gate),
-        )
-        .unwrap()
+        SyncAuthorization::new(gate)
+    }
+}
+
+struct StaticConflictHook(ConflictResolution);
+
+impl ConflictHook for StaticConflictHook {
+    fn resolve(&self, _conflict: &eitmad_contracts::sync::ConflictRecord) -> ConflictResolution {
+        self.0.clone()
     }
 }
 
@@ -104,7 +131,13 @@ fn local_first_offline_edits_remain_usable_and_durable() {
     };
     assert_eq!(
         engine
-            .read_record(queued.record_id, UnixMillis(50))
+            .read_record(
+                &fixture.actor,
+                &fixture.request,
+                &audit(101),
+                queued.record_id,
+                UnixMillis(50),
+            )
             .unwrap()
             .unwrap()
             .record,
@@ -117,7 +150,13 @@ fn local_first_offline_edits_remain_usable_and_durable() {
     assert_eq!(reopened.pending_changes(), std::slice::from_ref(&queued));
     assert_eq!(
         reopened
-            .read_record(queued.record_id, UnixMillis(500))
+            .read_record(
+                &fixture.actor,
+                &fixture.request,
+                &audit(102),
+                queued.record_id,
+                UnixMillis(500),
+            )
             .unwrap()
             .unwrap()
             .authority,
@@ -146,7 +185,7 @@ fn reconnect_acknowledges_offline_change_and_advances_checkpoint() {
     else {
         panic!("edit must queue");
     };
-    connect(&mut engine, SyncMode::LocalFirst);
+    connect(&mut engine, &fixture, SyncMode::LocalFirst, 103);
     let delivery = delivery(20, 21, 22, vec![change], None, Vec::new(), 100);
 
     assert_eq!(
@@ -174,7 +213,7 @@ fn concurrent_local_first_edits_create_explicit_conflict() {
     else {
         panic!("edit must queue");
     };
-    connect(&mut engine, SyncMode::LocalFirst);
+    connect(&mut engine, &fixture, SyncMode::LocalFirst, 104);
     let remote = record(40, 12, 4, 1, None, "خزانة Wardrobe remote");
 
     engine
@@ -192,7 +231,13 @@ fn concurrent_local_first_edits_create_explicit_conflict() {
     assert_eq!(engine.conflicts()[0].remote, remote);
     assert_eq!(
         engine
-            .read_record(local.record_id, UnixMillis(500))
+            .read_record(
+                &fixture.actor,
+                &fixture.request,
+                &audit(105),
+                local.record_id,
+                UnixMillis(500),
+            )
             .unwrap()
             .unwrap()
             .record,
@@ -201,10 +246,222 @@ fn concurrent_local_first_edits_create_explicit_conflict() {
 }
 
 #[test]
+fn acknowledging_an_earlier_offline_edit_keeps_the_newest_edit_visible() {
+    let fixture = Fixture::new();
+    let mut engine = fixture.engine(SyncMode::LocalFirst, true);
+    let LocalChangeOutcome::Queued(first) = engine
+        .apply_local_change(
+            &fixture.actor,
+            &fixture.request,
+            &audit(116),
+            local_draft(17, 20, "كرسي Chair first"),
+        )
+        .unwrap()
+    else {
+        panic!("first edit must queue");
+    };
+    let LocalChangeOutcome::Queued(second) = engine
+        .apply_local_change(
+            &fixture.actor,
+            &fixture.request,
+            &audit(117),
+            local_draft(17, 21, "كرسي Chair second"),
+        )
+        .unwrap()
+    else {
+        panic!("second edit must queue");
+    };
+    connect(&mut engine, &fixture, SyncMode::LocalFirst, 118);
+
+    engine
+        .reconcile(
+            &fixture.actor,
+            &fixture.request,
+            &audit(119),
+            &delivery(120, 121, 122, vec![first], None, Vec::new(), 200),
+        )
+        .unwrap();
+
+    assert_eq!(engine.pending_changes(), std::slice::from_ref(&second));
+    assert_eq!(
+        engine
+            .read_record(
+                &fixture.actor,
+                &fixture.request,
+                &audit(123),
+                second.record_id,
+                UnixMillis(200),
+            )
+            .unwrap()
+            .unwrap()
+            .record,
+        second
+    );
+}
+
+#[test]
+fn replay_still_requires_current_authorization() {
+    let fixture = Fixture::new();
+    let mut engine = fixture.engine(SyncMode::LocalFirst, true);
+    let draft = local_draft(18, 22, "مكتب Desk replay");
+    engine
+        .apply_local_change(&fixture.actor, &fixture.request, &audit(124), draft.clone())
+        .unwrap();
+    let mut denied_request = fixture.request.clone();
+    denied_request.action = ActionId::parse("eitmad.action.sync.denied.v1").unwrap();
+
+    assert_eq!(
+        engine.apply_local_change(&fixture.actor, &denied_request, &audit(125), draft),
+        Err(SyncEngineError::Authorization(BoundaryError::Denied))
+    );
+    assert_eq!(
+        engine.read_record(
+            &fixture.actor,
+            &denied_request,
+            &audit(126),
+            RecordId::new(id(18)),
+            UnixMillis(20),
+        ),
+        Err(SyncEngineError::Authorization(BoundaryError::Denied))
+    );
+}
+
+#[test]
+fn keep_remote_resolves_conflict_to_authoritative_record() {
+    let fixture = Fixture::new();
+    let mut engine = fixture.engine_with_hook(ConflictResolution::KeepRemote);
+    engine
+        .apply_local_change(
+            &fixture.actor,
+            &fixture.request,
+            &audit(126),
+            local_draft(19, 23, "خزانة Wardrobe local"),
+        )
+        .unwrap();
+    connect(&mut engine, &fixture, SyncMode::LocalFirst, 127);
+    let remote = record(128, 19, 24, 3, None, "خزانة Wardrobe remote");
+    engine
+        .reconcile(
+            &fixture.actor,
+            &fixture.request,
+            &audit(129),
+            &delivery(130, 131, 132, vec![remote.clone()], None, Vec::new(), 210),
+        )
+        .unwrap();
+
+    assert!(engine.pending_changes().is_empty());
+    assert_eq!(engine.conflicts()[0].status, ConflictStatus::Resolved);
+    assert_eq!(
+        engine
+            .read_record(
+                &fixture.actor,
+                &fixture.request,
+                &audit(133),
+                remote.record_id,
+                UnixMillis(210),
+            )
+            .unwrap()
+            .unwrap()
+            .record,
+        remote
+    );
+}
+
+#[test]
+fn keep_local_rebases_one_revision_above_remote() {
+    let fixture = Fixture::new();
+    let mut engine = fixture.engine_with_hook(ConflictResolution::KeepLocal);
+    engine
+        .apply_local_change(
+            &fixture.actor,
+            &fixture.request,
+            &audit(134),
+            local_draft(20, 25, "باب Door local"),
+        )
+        .unwrap();
+    connect(&mut engine, &fixture, SyncMode::LocalFirst, 135);
+    let remote = record(136, 20, 26, 7, None, "باب Door remote");
+    engine
+        .reconcile(
+            &fixture.actor,
+            &fixture.request,
+            &audit(137),
+            &delivery(138, 139, 140, vec![remote], None, Vec::new(), 220),
+        )
+        .unwrap();
+
+    assert_eq!(engine.pending_changes()[0].base_revision, Some(7));
+    assert_eq!(engine.pending_changes()[0].revision, 8);
+}
+
+#[test]
+fn domain_merge_rebases_one_revision_above_remote() {
+    let fixture = Fixture::new();
+    let merged_payload = payload("باب Door merged");
+    let mut engine = fixture.engine_with_hook(ConflictResolution::Merge(merged_payload.clone()));
+    engine
+        .apply_local_change(
+            &fixture.actor,
+            &fixture.request,
+            &audit(141),
+            local_draft(21, 27, "باب Door local"),
+        )
+        .unwrap();
+    connect(&mut engine, &fixture, SyncMode::LocalFirst, 142);
+    let remote = record(143, 21, 28, 9, None, "باب Door remote");
+    engine
+        .reconcile(
+            &fixture.actor,
+            &fixture.request,
+            &audit(144),
+            &delivery(145, 146, 147, vec![remote], None, Vec::new(), 230),
+        )
+        .unwrap();
+
+    assert_eq!(engine.pending_changes()[0].base_revision, Some(9));
+    assert_eq!(engine.pending_changes()[0].revision, 10);
+    assert_eq!(engine.pending_changes()[0].payload, Some(merged_payload));
+}
+
+#[test]
+fn rebase_overflow_rolls_back_conflict_mutation() {
+    for resolution in [
+        ConflictResolution::KeepLocal,
+        ConflictResolution::Merge(payload("overflow merge")),
+    ] {
+        let fixture = Fixture::new();
+        let mut engine = fixture.engine_with_hook(resolution);
+        engine
+            .apply_local_change(
+                &fixture.actor,
+                &fixture.request,
+                &audit(148),
+                local_draft(22, 29, "overflow local"),
+            )
+            .unwrap();
+        let pending = engine.pending_changes()[0].clone();
+        connect(&mut engine, &fixture, SyncMode::LocalFirst, 149);
+        let remote = record(150, 22, 30, u64::MAX, None, "overflow remote");
+
+        assert_eq!(
+            engine.reconcile(
+                &fixture.actor,
+                &fixture.request,
+                &audit(151),
+                &delivery(152, 153, 154, vec![remote], None, Vec::new(), 240),
+            ),
+            Err(SyncEngineError::InvalidChange)
+        );
+        assert_eq!(engine.pending_changes(), std::slice::from_ref(&pending));
+        assert!(engine.conflicts().is_empty());
+    }
+}
+
+#[test]
 fn duplicate_delivery_is_ignored_without_reapplying_state() {
     let fixture = Fixture::new();
     let mut engine = fixture.engine(SyncMode::LocalFirst, true);
-    connect(&mut engine, SyncMode::LocalFirst);
+    connect(&mut engine, &fixture, SyncMode::LocalFirst, 106);
     let incoming = record(50, 13, 5, 1, None, "مكتب Desk-٣");
     let delivery = delivery(51, 52, 53, vec![incoming], None, Vec::new(), 120);
 
@@ -227,7 +484,7 @@ fn duplicate_delivery_is_ignored_without_reapplying_state() {
 fn denied_server_command_rolls_back_optimistic_state() {
     let fixture = Fixture::new();
     let mut engine = fixture.engine(SyncMode::ServerAuthoritative, true);
-    connect(&mut engine, SyncMode::ServerAuthoritative);
+    connect(&mut engine, &fixture, SyncMode::ServerAuthoritative, 107);
     let confirmed = record(60, 14, 6, 1, None, "كنبة Sofa confirmed");
     let initial = snapshot(61, 62, vec![confirmed.clone()], 130, 300);
     engine
@@ -253,7 +510,13 @@ fn denied_server_command_rolls_back_optimistic_state() {
     ));
     assert_eq!(
         engine
-            .read_record(optimistic.record_id, UnixMillis(140))
+            .read_record(
+                &fixture.actor,
+                &fixture.request,
+                &audit(108),
+                optimistic.record_id,
+                UnixMillis(140),
+            )
             .unwrap()
             .unwrap()
             .authority,
@@ -277,7 +540,13 @@ fn denied_server_command_rolls_back_optimistic_state() {
 
     assert!(engine.pending_commands().is_empty());
     let view = engine
-        .read_record(confirmed.record_id, UnixMillis(160))
+        .read_record(
+            &fixture.actor,
+            &fixture.request,
+            &audit(109),
+            confirmed.record_id,
+            UnixMillis(160),
+        )
         .unwrap()
         .unwrap();
     assert_eq!(view.record, confirmed);
@@ -285,10 +554,29 @@ fn denied_server_command_rolls_back_optimistic_state() {
 }
 
 #[test]
+fn command_idempotency_key_rejects_different_drafts() {
+    let fixture = Fixture::new();
+    let mut engine = fixture.engine(SyncMode::ServerAuthoritative, true);
+    let command_id = PendingCommandId::new(id(155));
+    let optimistic = record(156, 23, 31, 1, None, "كنبة Sofa optimistic");
+    let first = command_draft(command_id, 32, optimistic.clone());
+    engine
+        .queue_command(&fixture.actor, &fixture.request, &audit(157), first.clone())
+        .unwrap();
+    let mut different = first;
+    different.base64 = "ZGlmZmVyZW50".to_owned();
+
+    assert_eq!(
+        engine.queue_command(&fixture.actor, &fixture.request, &audit(158), different,),
+        Err(SyncEngineError::IdempotencyMismatch)
+    );
+}
+
+#[test]
 fn stale_server_cache_fails_closed_until_snapshot_refresh() {
     let fixture = Fixture::new();
     let mut engine = fixture.engine(SyncMode::ServerAuthoritative, true);
-    connect(&mut engine, SyncMode::ServerAuthoritative);
+    connect(&mut engine, &fixture, SyncMode::ServerAuthoritative, 110);
     let cached = record(80, 15, 8, 1, None, "سرير Bed-٤");
     engine
         .reconcile(
@@ -307,7 +595,13 @@ fn stale_server_cache_fails_closed_until_snapshot_refresh() {
         )
         .unwrap();
     assert_eq!(
-        engine.read_record(cached.record_id, UnixMillis(121)),
+        engine.read_record(
+            &fixture.actor,
+            &fixture.request,
+            &audit(111),
+            cached.record_id,
+            UnixMillis(121),
+        ),
         Err(SyncEngineError::StaleCache)
     );
     engine
@@ -327,7 +621,13 @@ fn stale_server_cache_fails_closed_until_snapshot_refresh() {
         )
         .unwrap();
     let view = engine
-        .read_record(cached.record_id, UnixMillis(150))
+        .read_record(
+            &fixture.actor,
+            &fixture.request,
+            &audit(112),
+            cached.record_id,
+            UnixMillis(150),
+        )
         .unwrap()
         .unwrap();
     assert_eq!(view.freshness, CacheFreshness::Fresh);
@@ -336,24 +636,35 @@ fn stale_server_cache_fails_closed_until_snapshot_refresh() {
 #[test]
 fn unauthorized_remote_change_never_mutates_local_state() {
     let fixture = Fixture::new();
-    let mut engine = fixture.engine(SyncMode::LocalFirst, false);
-    connect(&mut engine, SyncMode::LocalFirst);
+    let mut engine = fixture.engine(SyncMode::LocalFirst, true);
+    connect(&mut engine, &fixture, SyncMode::LocalFirst, 113);
     let incoming = record(90, 16, 9, 1, None, "باب Door-٥");
     let record_id = incoming.record_id;
+    let mut denied_request = fixture.request.clone();
+    denied_request.action = ActionId::parse("eitmad.action.sync.denied.v1").unwrap();
 
     assert_eq!(
         engine.reconcile(
             &fixture.actor,
-            &fixture.request,
+            &denied_request,
             &audit(14),
             &delivery(91, 92, 93, vec![incoming], None, Vec::new(), 160),
         ),
         Err(SyncEngineError::Authorization(BoundaryError::Denied))
     );
     assert_eq!(
-        engine.read_record(record_id, UnixMillis(200)).unwrap(),
+        engine
+            .read_record(
+                &fixture.actor,
+                &fixture.request,
+                &audit(114),
+                record_id,
+                UnixMillis(200),
+            )
+            .unwrap(),
         None
     );
+    assert!(engine.pending_changes().is_empty());
     assert_eq!(
         RelationshipPolicy::new(Vec::new(), Vec::new())
             .unwrap()
@@ -367,11 +678,18 @@ fn unauthorized_remote_change_never_mutates_local_state() {
 fn incompatible_protocol_is_rejected_before_sync_traffic() {
     let fixture = Fixture::new();
     let mut engine = fixture.engine(SyncMode::LocalFirst, true);
-    let local = hello(1, 3, SyncMode::LocalFirst);
-    let remote = hello(2, 0, SyncMode::LocalFirst);
+    let local = hello(1, 3);
+    let remote = hello(2, 0);
 
     assert!(matches!(
-        engine.connect(&local, &remote, SyncMode::LocalFirst),
+        engine.connect(
+            &fixture.actor,
+            &fixture.request,
+            &audit(115),
+            &local,
+            &remote,
+            SyncMode::LocalFirst,
+        ),
         Err(SyncEngineError::IncompatiblePeer(_))
     ));
     assert_eq!(
@@ -387,13 +705,177 @@ fn incompatible_protocol_is_rejected_before_sync_traffic() {
     );
 }
 
-fn connect(engine: &mut SyncEngine, mode: SyncMode) {
-    let local = hello(1, 3, mode);
-    let remote = hello(1, 3, mode);
-    engine.connect(&local, &remote, mode).unwrap();
+#[test]
+fn offline_reconciliation_reports_disconnected() {
+    let fixture = Fixture::new();
+    let mut engine = fixture.engine(SyncMode::LocalFirst, true);
+
+    assert_eq!(
+        engine.reconcile(
+            &fixture.actor,
+            &fixture.request,
+            &audit(159),
+            &delivery(160, 161, 162, Vec::new(), None, Vec::new(), 250),
+        ),
+        Err(SyncEngineError::Disconnected)
+    );
 }
 
-fn hello(major: u16, minor: u16, _mode: SyncMode) -> PeerHello {
+#[test]
+fn connection_changes_require_current_authorization() {
+    let fixture = Fixture::new();
+    let mut engine = fixture.engine(SyncMode::LocalFirst, true);
+    let local = hello(1, 3);
+    let remote = hello(1, 3);
+    let mut denied_request = fixture.request.clone();
+    denied_request.action = ActionId::parse("eitmad.action.sync.denied.v1").unwrap();
+
+    assert_eq!(
+        engine.connect(
+            &fixture.actor,
+            &denied_request,
+            &audit(177),
+            &local,
+            &remote,
+            SyncMode::LocalFirst,
+        ),
+        Err(SyncEngineError::Authorization(BoundaryError::Denied))
+    );
+    assert_eq!(
+        engine.metadata().connection,
+        eitmad_contracts::sync::ConnectionState::Offline
+    );
+    engine
+        .connect(
+            &fixture.actor,
+            &fixture.request,
+            &audit(178),
+            &local,
+            &remote,
+            SyncMode::LocalFirst,
+        )
+        .unwrap();
+    assert_eq!(
+        engine.disconnect(&fixture.actor, &denied_request, &audit(179)),
+        Err(SyncEngineError::Authorization(BoundaryError::Denied))
+    );
+    assert_eq!(
+        engine.metadata().connection,
+        eitmad_contracts::sync::ConnectionState::Connected
+    );
+    engine
+        .disconnect(&fixture.actor, &fixture.request, &audit(180))
+        .unwrap();
+    assert_eq!(
+        engine.metadata().connection,
+        eitmad_contracts::sync::ConnectionState::Offline
+    );
+}
+
+#[test]
+fn incompatible_status_overrides_queued_work() {
+    let fixture = Fixture::new();
+    let mut engine = fixture.engine(SyncMode::LocalFirst, true);
+    engine
+        .apply_local_change(
+            &fixture.actor,
+            &fixture.request,
+            &audit(163),
+            local_draft(24, 33, "طاولة Table queued"),
+        )
+        .unwrap();
+    let local = hello(1, 3);
+    let remote = hello(2, 0);
+    assert!(matches!(
+        engine.connect(
+            &fixture.actor,
+            &fixture.request,
+            &audit(164),
+            &local,
+            &remote,
+            SyncMode::LocalFirst,
+        ),
+        Err(SyncEngineError::IncompatiblePeer(_))
+    ));
+    assert!(matches!(
+        engine.status(),
+        eitmad_contracts::sync::SyncStatus::Failed { .. }
+    ));
+}
+
+#[test]
+fn failed_reconciliation_commit_discards_generated_events_and_state() {
+    let fixture = Fixture::new();
+    let mut initial = fixture.engine(SyncMode::ServerAuthoritative, true);
+    connect(&mut initial, &fixture, SyncMode::ServerAuthoritative, 165);
+    drop(initial);
+    let mut winner = fixture.engine(SyncMode::ServerAuthoritative, true);
+    let mut stale = fixture.engine(SyncMode::ServerAuthoritative, true);
+    winner
+        .reconcile(
+            &fixture.actor,
+            &fixture.request,
+            &audit(166),
+            &delivery(167, 168, 169, Vec::new(), None, Vec::new(), 260),
+        )
+        .unwrap();
+    let snapshot = snapshot(
+        170,
+        171,
+        vec![record(172, 25, 34, 1, None, "سرير Bed stale")],
+        261,
+        300,
+    );
+
+    assert_eq!(
+        stale.reconcile(
+            &fixture.actor,
+            &fixture.request,
+            &audit(173),
+            &delivery(174, 175, 171, Vec::new(), Some(snapshot), Vec::new(), 261),
+        ),
+        Err(SyncEngineError::StorageConflict)
+    );
+    assert!(stale.drain_events().is_empty());
+    assert_eq!(
+        stale
+            .read_last_snapshot(&fixture.actor, &fixture.request, &audit(176))
+            .unwrap(),
+        None
+    );
+}
+
+#[test]
+fn public_errors_have_stable_payload_free_messages() {
+    assert_eq!(
+        SyncEngineError::Authorization(BoundaryError::Denied).to_string(),
+        "sync authorization failed"
+    );
+    assert_eq!(
+        SyncEngineError::IncompatiblePeer(
+            eitmad_contracts::versioning::NegotiationRejection::NoCommonProtocol,
+        )
+        .to_string(),
+        "sync peer is incompatible"
+    );
+}
+
+fn connect(engine: &mut SyncEngine, fixture: &Fixture, mode: SyncMode, audit_value: u128) {
+    let local = hello(1, 3);
+    let remote = hello(1, 3);
+    engine
+        .connect(
+            &fixture.actor,
+            &fixture.request,
+            &audit(audit_value),
+            &local,
+            &remote,
+            mode,
+        )
+        .unwrap();
+}
+
+fn hello(major: u16, minor: u16) -> PeerHello {
     PeerHello {
         peer_kind: PeerKind::Engine,
         product_version: ReleaseVersion::new(semver::Version::new(1, 0, 0)),

@@ -27,12 +27,12 @@ keywords:
 | `SyncMode` | Immutable application strategy for one persisted scope: `LocalFirst` or `ServerAuthoritative` |
 | `ChangeRecord` | Scoped upsert/tombstone with change and record identity, base/result revisions, idempotency, schema/versioned bytes, and optional merge provenance |
 | `SyncSnapshot` | Scoped checkpoint projection with server generation and explicit cache validity deadline |
-| `PendingCommand` | Authenticated, idempotent server intent with typed bytes and optional optimistic projection |
+| `PendingCommand` | Idempotent server intent with principal-only attribution, typed bytes, and optional optimistic projection |
 | `SyncMetadata` | Connection, checkpoint, last success, generation, and cache deadline for the configured mode |
 | `ConflictRecord` | Local and remote inputs, open/resolved status, and optional `MergeMetadata` |
 | `ReconciliationDelivery` | Idempotent delivery envelope containing optional snapshot, incremental changes, and command results |
 | `RecordView` | Record plus `RecordAuthority` and `CacheFreshness`; consumers must preserve both labels |
-| `SyncEvent` | Connection, queue, conflict, denial, snapshot, duplicate, and status lifecycle value |
+| `SyncEvent` | Connection, queue, conflict, denial, snapshot metadata, duplicate, and status lifecycle value |
 
 An upsert without `payload` and a tombstone with `payload` are invalid. `EncodedDomainPayload.schema_id` and `schema_version` select a previously negotiated domain schema; the sync layer treats `base64` as opaque.
 
@@ -60,20 +60,23 @@ Normal traffic starts only after `versioning::negotiate` accepts a common protoc
 
 `CommandDisposition::Accepted` may include one authoritative change. `Denied` includes only an `ErrorCodeRef`. A client removes the matching pending command in both cases. It installs the authoritative result on acceptance and rebuilds optimistic state from confirmed cache plus remaining commands on denial.
 
+Adjacent enum payload fields serialize in camel case. `SyncEvent::SnapshotApplied` contains `snapshotId`, `checkpoint`, and `records`, not the complete snapshot; authorized Rust consumers use `SyncEngine::read_last_snapshot` when they need its bounded records. `PendingCommand.submittedBy` is a `PrincipalId`. Full authorization/session context remains only at the boundary and in protected audit storage.
+
 No outcome contains raw authorization reasoning or server error prose. Shells localize stable message IDs at their normal error boundary.
 
 ## Cache and status projection
 
-`RecordAuthority` distinguishes `LocalDurable`, `ServerConfirmed`, and `Optimistic`. `CacheFreshness` distinguishes `Fresh` and `Stale`. A stale optimistic value may be displayed only as provisional; a stale server-confirmed value is withheld by `SyncEngine::read_record`.
+`RecordAuthority` distinguishes `LocalDurable`, `ServerConfirmed`, and `Optimistic`. `CacheFreshness` distinguishes `Fresh` and `Stale`. A stale optimistic value may be displayed only as provisional; a stale server-confirmed value is withheld by authorized `SyncEngine::read_record`.
 
 `SyncStatus` is a coalesced projection: offline, current checkpoint, queued count, progress, conflict count, or stable failure reference. It does not replace detailed conflict, command, or delivery records.
 
 ## Bounds, authorization, and audit
 
-- `ChangeBatch` is limited to 500 records; `PullRequest.maximum_records` is `1..=500`.
+- `ChangeBatch.records`, `SyncSnapshot.records`, and `ReconciliationDelivery.changes` reject more than 500 records during deserialization; `PullRequest.maximum_records` is `1..=500`.
 - Every record and snapshot has an explicit `ScopeRef`.
 - Actor/tenant/workspace assertions are verified against the authenticated boundary and ReBAC policy before work.
 - Accepted mutations and `SyncBoundary` audit commit atomically in Rust-owned storage.
+- `connect`, `disconnect`, replay, record reads, and snapshot reads require the current actor/request/audit context; authorization precedes replay lookup.
 - Payload bytes, command bytes, tokens, customer text, and relationship graphs are forbidden in routine logs and audit identifiers.
 
 ## Generate and verify

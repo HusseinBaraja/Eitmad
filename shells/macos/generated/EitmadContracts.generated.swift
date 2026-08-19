@@ -5117,11 +5117,6 @@ public struct CommandDispositionPayload: Codable, Sendable {
     public let authoritativeChange: ChangeRecord?
     public let reason: String?
 
-    public enum CodingKeys: String, CodingKey {
-        case authoritativeChange = "authoritative_change"
-        case reason
-    }
-
     public init(authoritativeChange: ChangeRecord?, reason: String?) {
         self.authoritativeChange = authoritativeChange
         self.reason = reason

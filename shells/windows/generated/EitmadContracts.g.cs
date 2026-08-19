@@ -1598,7 +1598,7 @@ namespace Eitmad.Contracts
 
     public partial class CommandDispositionPayload
     {
-        [JsonPropertyName("authoritative_change")]
+        [JsonPropertyName("authoritativeChange")]
         public ChangeRecord AuthoritativeChange { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

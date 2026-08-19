@@ -8,21 +8,26 @@ use eitmad_contracts::{
         CacheFreshness, ChangeId, ChangeOperation, ChangeRecord, CommandDisposition, ConflictId,
         ConflictRecord, ConflictStatus, ConnectionState, DeliveryId, EncodedDomainPayload,
         ErrorCodeRef, MergeMetadata, MergeStrategy, PendingCommand, PendingCommandId,
-        ReconciliationDelivery, RecordAuthority, RecordId, RecordView, SnapshotId, SyncEvent,
-        SyncMetadata, SyncMode, SyncSnapshot, SyncStatus,
+        ReconciliationDelivery, RecordAuthority, RecordId, RecordView, SyncEvent, SyncMetadata,
+        SyncMode, SyncSnapshot, SyncStatus,
     },
     transport::{IdempotencyKey, SchemaId, UnixMillis},
     versioning::{
         NegotiatedSession, NegotiationOutcome, NegotiationRejection, PeerHello, negotiate,
     },
 };
-use eitmad_observability_audit::{AuditExtensionPoint, MutationAuditRecord};
-use eitmad_storage::{AuthorityStore, SyncStateCommitOutcome};
+use eitmad_observability_audit::{
+    AuditErrorClass, AuditExtensionPoint, MutationAuditRecord, RedactedAuditError,
+};
+use eitmad_storage::{AuthorityStore, StoredSyncState, SyncStateCommitOutcome};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
 use uuid::Uuid;
 
 use crate::SyncAuthorization;
+
+const ENGINE_STATE_VERSION: u32 = 1;
+const MAX_REPLAY_ENTRIES: usize = 2_048;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct LocalChangeDraft {
@@ -89,49 +94,54 @@ pub enum SyncEngineError {
     StorageUnavailable,
     StorageConflict,
     CorruptState,
+    UnsupportedStateVersion { found: u32 },
     WrongMode,
     ScopeMismatch,
     InvalidChange,
     IdempotencyMismatch,
     IncompatibleMode,
     IncompatiblePeer(NegotiationRejection),
+    Disconnected,
     StaleCache,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Replay<T> {
-    key: IdempotencyKey,
     fingerprint: [u8; 32],
+    retained_at: UnixMillis,
     value: T,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ProcessedDelivery {
-    delivery_id: DeliveryId,
     key: IdempotencyKey,
     fingerprint: [u8; 32],
+    retained_at: UnixMillis,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct EngineState {
+    state_version: u32,
     metadata: SyncMetadata,
     records: BTreeMap<RecordId, ChangeRecord>,
     confirmed_records: BTreeMap<RecordId, ChangeRecord>,
     pending_changes: Vec<ChangeRecord>,
     pending_commands: Vec<PendingCommand>,
     conflicts: Vec<ConflictRecord>,
-    local_replays: Vec<Replay<ChangeRecord>>,
-    command_replays: Vec<Replay<PendingCommand>>,
-    processed_deliveries: Vec<ProcessedDelivery>,
+    local_replays: BTreeMap<IdempotencyKey, Replay<ChangeRecord>>,
+    command_replays: BTreeMap<IdempotencyKey, Replay<PendingCommand>>,
+    processed_deliveries: BTreeMap<DeliveryId, ProcessedDelivery>,
+    processed_delivery_keys: BTreeMap<IdempotencyKey, DeliveryId>,
     last_snapshot: Option<SyncSnapshot>,
 }
 
 impl EngineState {
     fn new(mode: SyncMode) -> Self {
         Self {
+            state_version: ENGINE_STATE_VERSION,
             metadata: SyncMetadata {
                 mode,
                 connection: ConnectionState::Offline,
@@ -145,9 +155,10 @@ impl EngineState {
             pending_changes: Vec::new(),
             pending_commands: Vec::new(),
             conflicts: Vec::new(),
-            local_replays: Vec::new(),
-            command_replays: Vec::new(),
-            processed_deliveries: Vec::new(),
+            local_replays: BTreeMap::new(),
+            command_replays: BTreeMap::new(),
+            processed_deliveries: BTreeMap::new(),
+            processed_delivery_keys: BTreeMap::new(),
             last_snapshot: None,
         }
     }
@@ -175,8 +186,18 @@ impl SyncEngine {
         scope: ScopeRef,
         mode: SyncMode,
         authorization: SyncAuthorization,
+        bootstrap_actor: &AuthorizationContext,
+        bootstrap_audit: &BoundaryAuditContext,
     ) -> Result<Self, SyncEngineError> {
-        Self::open_with_conflict_hook(store, scope, mode, authorization, Arc::new(DeferConflicts))
+        Self::open_with_conflict_hook(
+            store,
+            scope,
+            mode,
+            authorization,
+            bootstrap_actor,
+            bootstrap_audit,
+            Arc::new(DeferConflicts),
+        )
     }
 
     /// Opens a sync engine with a domain-owned conflict hook.
@@ -189,26 +210,32 @@ impl SyncEngine {
         scope: ScopeRef,
         mode: SyncMode,
         authorization: SyncAuthorization,
+        bootstrap_actor: &AuthorizationContext,
+        bootstrap_audit: &BoundaryAuditContext,
         conflict_hook: Arc<dyn ConflictHook>,
     ) -> Result<Self, SyncEngineError> {
+        if bootstrap_actor.scope != scope {
+            return Err(SyncEngineError::ScopeMismatch);
+        }
         let stored = store
             .read_sync_state(&scope)
             .map_err(|_| SyncEngineError::StorageUnavailable)?;
         let (storage_revision, state) = if let Some(stored) = stored {
-            if stored.application_mode != mode_name(mode) {
-                return Err(SyncEngineError::IncompatibleMode);
-            }
-            let state = serde_json::from_slice::<EngineState>(&stored.state_json)
-                .map_err(|_| SyncEngineError::CorruptState)?;
-            if state.metadata.mode != mode {
-                return Err(SyncEngineError::CorruptState);
-            }
+            let state = decode_stored_state(&stored, mode)?;
             (stored.revision, state)
         } else {
             let state = EngineState::new(mode);
             let encoded = serde_json::to_vec(&state).map_err(|_| SyncEngineError::CorruptState)?;
+            let mutation_audit = audit_record(bootstrap_actor, bootstrap_audit, None);
             let revision = match store
-                .commit_sync_state(&scope, mode_name(mode), 0, &encoded, None)
+                .commit_sync_state(
+                    &scope,
+                    mode_name(mode),
+                    ENGINE_STATE_VERSION,
+                    0,
+                    &encoded,
+                    &mutation_audit,
+                )
                 .map_err(|_| SyncEngineError::StorageUnavailable)?
             {
                 SyncStateCommitOutcome::Committed { revision } => revision,
@@ -267,6 +294,12 @@ impl SyncEngine {
                 records: open_conflicts as u64,
             };
         }
+        if self.state.metadata.connection == ConnectionState::Incompatible {
+            return SyncStatus::Failed {
+                reason: ErrorCodeRef::parse("eitmad.error.protocol-incompatible.v1")
+                    .expect("static sync error is valid"),
+            };
+        }
         let queued = self.state.pending_changes.len() + self.state.pending_commands.len();
         if queued > 0 {
             return SyncStatus::Queued {
@@ -283,10 +316,7 @@ impl SyncEngine {
                 completed: 0,
                 total: None,
             },
-            (ConnectionState::Incompatible, _) => SyncStatus::Failed {
-                reason: ErrorCodeRef::parse("eitmad.error.protocol-incompatible.v1")
-                    .expect("static sync error is valid"),
-            },
+            (ConnectionState::Incompatible, _) => unreachable!("handled before queued state"),
         }
     }
 
@@ -298,27 +328,38 @@ impl SyncEngine {
     /// incompatible state.
     pub fn connect(
         &mut self,
+        actor: &AuthorizationContext,
+        request: &AuthorizationRequest,
+        audit: &BoundaryAuditContext,
         local: &PeerHello,
         remote: &PeerHello,
         remote_mode: SyncMode,
     ) -> Result<NegotiatedSession, SyncEngineError> {
+        self.validate_actor(actor)?;
+        self.authorization
+            .authorize(actor, request, audit)
+            .map_err(SyncEngineError::Authorization)?;
         let previous = self.state.clone();
+        let mutation_audit = audit_record(actor, audit, None);
         if remote_mode != self.state.metadata.mode {
             self.state.metadata.connection = ConnectionState::Incompatible;
-            self.persist(None).inspect_err(|_| self.state = previous)?;
+            self.persist(&mutation_audit)
+                .inspect_err(|_| self.state = previous)?;
             return Err(SyncEngineError::IncompatibleMode);
         }
         match negotiate(local, remote) {
             NegotiationOutcome::Accepted(session) => {
                 self.state.metadata.connection = ConnectionState::Connected;
-                self.persist(None).inspect_err(|_| self.state = previous)?;
+                self.persist(&mutation_audit)
+                    .inspect_err(|_| self.state = previous)?;
                 self.events
                     .push(SyncEvent::ConnectionChanged(ConnectionState::Connected));
                 Ok(session)
             }
             NegotiationOutcome::Rejected(rejection) => {
                 self.state.metadata.connection = ConnectionState::Incompatible;
-                self.persist(None).inspect_err(|_| self.state = previous)?;
+                self.persist(&mutation_audit)
+                    .inspect_err(|_| self.state = previous)?;
                 Err(SyncEngineError::IncompatiblePeer(rejection))
             }
         }
@@ -329,10 +370,21 @@ impl SyncEngine {
     /// # Errors
     ///
     /// Returns a storage error when the offline marker cannot be persisted.
-    pub fn disconnect(&mut self) -> Result<(), SyncEngineError> {
+    pub fn disconnect(
+        &mut self,
+        actor: &AuthorizationContext,
+        request: &AuthorizationRequest,
+        audit: &BoundaryAuditContext,
+    ) -> Result<(), SyncEngineError> {
+        self.validate_actor(actor)?;
+        self.authorization
+            .authorize(actor, request, audit)
+            .map_err(SyncEngineError::Authorization)?;
         let previous = self.state.clone();
         self.state.metadata.connection = ConnectionState::Offline;
-        self.persist(None).inspect_err(|_| self.state = previous)?;
+        let mutation_audit = audit_record(actor, audit, None);
+        self.persist(&mutation_audit)
+            .inspect_err(|_| self.state = previous)?;
         self.events
             .push(SyncEvent::ConnectionChanged(ConnectionState::Offline));
         Ok(())
@@ -356,23 +408,17 @@ impl SyncEngine {
         }
         self.validate_actor(actor)?;
         validate_operation(draft.operation, draft.payload.as_ref())?;
-        let fingerprint = fingerprint(&draft)?;
-        if let Some(replay) = self
-            .state
-            .local_replays
-            .iter()
-            .find(|replay| replay.key == draft.idempotency_key)
-        {
+        self.authorization
+            .authorize(actor, request, audit)
+            .map_err(SyncEngineError::Authorization)?;
+        let fingerprint = fingerprint_local_draft(&draft)?;
+        if let Some(replay) = self.state.local_replays.get(&draft.idempotency_key) {
             return if replay.fingerprint == fingerprint {
                 Ok(LocalChangeOutcome::Replayed(replay.value.clone()))
             } else {
                 Err(SyncEngineError::IdempotencyMismatch)
             };
         }
-        self.authorization
-            .authorize(actor, request, audit)
-            .map_err(SyncEngineError::Authorization)?;
-
         let previous = self.state.clone();
         let base_revision = self
             .state
@@ -397,13 +443,17 @@ impl SyncEngine {
         };
         self.state.records.insert(record.record_id, record.clone());
         self.state.pending_changes.push(record.clone());
-        self.state.local_replays.push(Replay {
-            key: draft.idempotency_key,
-            fingerprint,
-            value: record.clone(),
-        });
+        self.state.local_replays.insert(
+            draft.idempotency_key,
+            Replay {
+                fingerprint,
+                retained_at: draft.changed_at,
+                value: record.clone(),
+            },
+        );
+        self.prune_replay_history();
         let mutation_audit = audit_record(actor, audit, Some(draft.idempotency_key));
-        self.persist(Some(&mutation_audit))
+        self.persist(&mutation_audit)
             .inspect_err(|_| self.state = previous)?;
         self.events
             .push(SyncEvent::LocalChangeQueued(record.clone()));
@@ -432,28 +482,22 @@ impl SyncEngine {
             self.validate_record(change)?;
             validate_operation(change.operation, change.payload.as_ref())?;
         }
-        let fingerprint = fingerprint(&draft)?;
-        if let Some(replay) = self
-            .state
-            .command_replays
-            .iter()
-            .find(|replay| replay.key == draft.idempotency_key)
-        {
+        self.authorization
+            .authorize(actor, request, audit)
+            .map_err(SyncEngineError::Authorization)?;
+        let fingerprint = fingerprint_command_draft(&draft)?;
+        if let Some(replay) = self.state.command_replays.get(&draft.idempotency_key) {
             return if replay.fingerprint == fingerprint {
                 Ok(PendingCommandOutcome::Replayed(replay.value.clone()))
             } else {
                 Err(SyncEngineError::IdempotencyMismatch)
             };
         }
-        self.authorization
-            .authorize(actor, request, audit)
-            .map_err(SyncEngineError::Authorization)?;
-
         let previous = self.state.clone();
         let pending = PendingCommand {
             command_id: draft.command_id,
             scope: self.scope.clone(),
-            actor: actor.clone(),
+            submitted_by: actor.identity.principal_id,
             idempotency_key: draft.idempotency_key,
             submitted_at: draft.submitted_at,
             command_schema: draft.command_schema,
@@ -466,14 +510,18 @@ impl SyncEngine {
             optimistic_change: draft.optimistic_change,
         };
         self.state.pending_commands.push(pending.clone());
-        self.state.command_replays.push(Replay {
-            key: draft.idempotency_key,
-            fingerprint,
-            value: pending.clone(),
-        });
+        self.state.command_replays.insert(
+            draft.idempotency_key,
+            Replay {
+                fingerprint,
+                retained_at: draft.submitted_at,
+                value: pending.clone(),
+            },
+        );
+        self.prune_replay_history();
         self.rebuild_server_view();
         let mutation_audit = audit_record(actor, audit, Some(draft.idempotency_key));
-        self.persist(Some(&mutation_audit))
+        self.persist(&mutation_audit)
             .inspect_err(|_| self.state = previous)?;
         self.events.push(SyncEvent::CommandQueued(pending.clone()));
         self.events.push(SyncEvent::StatusChanged(self.status()));
@@ -493,12 +541,19 @@ impl SyncEngine {
         audit: &BoundaryAuditContext,
         delivery: &ReconciliationDelivery,
     ) -> Result<DeliveryOutcome, SyncEngineError> {
-        if self.state.metadata.connection != ConnectionState::Connected {
-            return Err(SyncEngineError::IncompatiblePeer(
-                NegotiationRejection::NoCommonProtocol,
-            ));
+        match self.state.metadata.connection {
+            ConnectionState::Connected => {}
+            ConnectionState::Offline => return Err(SyncEngineError::Disconnected),
+            ConnectionState::Incompatible => {
+                return Err(SyncEngineError::IncompatiblePeer(
+                    NegotiationRejection::NoCommonProtocol,
+                ));
+            }
         }
         self.validate_actor(actor)?;
+        if delivery.changes.len() > eitmad_contracts::sync::MAX_SYNC_BATCH_RECORDS {
+            return Err(SyncEngineError::InvalidChange);
+        }
         for change in &delivery.changes {
             self.validate_record(change)?;
             validate_operation(change.operation, change.payload.as_ref())?;
@@ -506,11 +561,30 @@ impl SyncEngine {
         if let Some(snapshot) = &delivery.snapshot {
             self.validate_snapshot(snapshot)?;
         }
-        let fingerprint = fingerprint(delivery)?;
-        if let Some(processed) = self.state.processed_deliveries.iter().find(|processed| {
-            processed.delivery_id == delivery.delivery_id
-                || processed.key == delivery.idempotency_key
-        }) {
+        for result in &delivery.command_results {
+            if let CommandDisposition::Accepted {
+                authoritative_change: Some(change),
+            } = &result.disposition
+            {
+                self.validate_record(change)?;
+                validate_operation(change.operation, change.payload.as_ref())?;
+            }
+        }
+        self.authorization
+            .authorize(actor, request, audit)
+            .map_err(SyncEngineError::Authorization)?;
+        let fingerprint = fingerprint_delivery(delivery)?;
+        let processed = self
+            .state
+            .processed_deliveries
+            .get(&delivery.delivery_id)
+            .or_else(|| {
+                self.state
+                    .processed_delivery_keys
+                    .get(&delivery.idempotency_key)
+                    .and_then(|delivery_id| self.state.processed_deliveries.get(delivery_id))
+            });
+        if let Some(processed) = processed {
             return if processed.fingerprint == fingerprint {
                 self.events
                     .push(SyncEvent::DuplicateDeliveryIgnored(delivery.delivery_id));
@@ -519,25 +593,36 @@ impl SyncEngine {
                 Err(SyncEngineError::IdempotencyMismatch)
             };
         }
-        self.authorization
-            .authorize(actor, request, audit)
-            .map_err(SyncEngineError::Authorization)?;
-
         let previous = self.state.clone();
-        match self.state.metadata.mode {
-            SyncMode::LocalFirst => self.reconcile_local_first(delivery)?,
-            SyncMode::ServerAuthoritative => self.reconcile_server_authoritative(delivery)?,
+        let mut pending_events = Vec::new();
+        let applied = match self.state.metadata.mode {
+            SyncMode::LocalFirst => self.reconcile_local_first(delivery, &mut pending_events),
+            SyncMode::ServerAuthoritative => {
+                self.reconcile_server_authoritative(delivery, &mut pending_events)
+            }
+        };
+        if let Err(error) = applied {
+            self.state = previous;
+            return Err(error);
         }
         self.state.metadata.checkpoint = Some(delivery.checkpoint);
         self.state.metadata.last_successful_sync_at = Some(delivery.received_at);
-        self.state.processed_deliveries.push(ProcessedDelivery {
-            delivery_id: delivery.delivery_id,
-            key: delivery.idempotency_key,
-            fingerprint,
-        });
+        self.state.processed_deliveries.insert(
+            delivery.delivery_id,
+            ProcessedDelivery {
+                key: delivery.idempotency_key,
+                fingerprint,
+                retained_at: delivery.received_at,
+            },
+        );
+        self.state
+            .processed_delivery_keys
+            .insert(delivery.idempotency_key, delivery.delivery_id);
+        self.prune_replay_history();
         let mutation_audit = audit_record(actor, audit, Some(delivery.idempotency_key));
-        self.persist(Some(&mutation_audit))
+        self.persist(&mutation_audit)
             .inspect_err(|_| self.state = previous)?;
+        self.events.append(&mut pending_events);
         self.events.push(SyncEvent::StatusChanged(self.status()));
         Ok(DeliveryOutcome::Applied)
     }
@@ -549,6 +634,38 @@ impl SyncEngine {
     /// Server-confirmed cache entries fail closed after their validity deadline;
     /// optimistic entries remain visible but are labeled stale and non-authoritative.
     pub fn read_record(
+        &self,
+        actor: &AuthorizationContext,
+        request: &AuthorizationRequest,
+        audit: &BoundaryAuditContext,
+        record_id: RecordId,
+        now: UnixMillis,
+    ) -> Result<Option<RecordView>, SyncEngineError> {
+        self.validate_actor(actor)?;
+        match self.authorization.execute_read(actor, request, audit, || {
+            self.read_record_unchecked(record_id, now)
+                .map_err(|error| match error {
+                    SyncEngineError::StaleCache => RedactedAuditError {
+                        code: "eitmad.error.sync-stale-cache.v1".to_owned(),
+                        class: AuditErrorClass::Validation,
+                    },
+                    _ => RedactedAuditError {
+                        code: "eitmad.error.sync-read-failed.v1".to_owned(),
+                        class: AuditErrorClass::Internal,
+                    },
+                })
+        }) {
+            Ok(view) => Ok(view),
+            Err(BoundaryError::ActionFailed(error))
+                if error.code == "eitmad.error.sync-stale-cache.v1" =>
+            {
+                Err(SyncEngineError::StaleCache)
+            }
+            Err(error) => Err(SyncEngineError::Authorization(error)),
+        }
+    }
+
+    fn read_record_unchecked(
         &self,
         record_id: RecordId,
         now: UnixMillis,
@@ -592,6 +709,25 @@ impl SyncEngine {
         }))
     }
 
+    /// Returns the most recently applied snapshot through the authorized read boundary.
+    ///
+    /// # Errors
+    ///
+    /// Fails closed when authorization or audit persistence fails.
+    pub fn read_last_snapshot(
+        &self,
+        actor: &AuthorizationContext,
+        request: &AuthorizationRequest,
+        audit: &BoundaryAuditContext,
+    ) -> Result<Option<SyncSnapshot>, SyncEngineError> {
+        self.validate_actor(actor)?;
+        self.authorization
+            .execute_read(actor, request, audit, || {
+                Ok(self.state.last_snapshot.clone())
+            })
+            .map_err(SyncEngineError::Authorization)
+    }
+
     #[must_use]
     pub fn drain_events(&mut self) -> Vec<SyncEvent> {
         std::mem::take(&mut self.events)
@@ -600,17 +736,17 @@ impl SyncEngine {
     fn reconcile_local_first(
         &mut self,
         delivery: &ReconciliationDelivery,
+        events: &mut Vec<SyncEvent>,
     ) -> Result<(), SyncEngineError> {
         if let Some(snapshot) = &delivery.snapshot {
             for remote in &snapshot.records {
-                self.merge_local_first(remote, delivery.received_at)?;
+                self.merge_local_first(remote, delivery.received_at, events)?;
             }
             self.state.last_snapshot = Some(snapshot.clone());
-            self.events
-                .push(SyncEvent::SnapshotApplied(snapshot.clone()));
+            events.push(snapshot_applied_event(snapshot));
         }
         for remote in &delivery.changes {
-            self.merge_local_first(remote, delivery.received_at)?;
+            self.merge_local_first(remote, delivery.received_at, events)?;
         }
         Ok(())
     }
@@ -619,12 +755,16 @@ impl SyncEngine {
         &mut self,
         remote: &ChangeRecord,
         detected_at: UnixMillis,
+        events: &mut Vec<SyncEvent>,
     ) -> Result<(), SyncEngineError> {
+        if self.acknowledge_local_change(remote) {
+            return Ok(());
+        }
         let pending_index = self
             .state
             .pending_changes
             .iter()
-            .position(|local| local.record_id == remote.record_id);
+            .rposition(|local| local.record_id == remote.record_id);
         let Some(pending_index) = pending_index else {
             let should_apply = self
                 .state
@@ -637,11 +777,6 @@ impl SyncEngine {
             return Ok(());
         };
         let local = self.state.pending_changes[pending_index].clone();
-        if remote.change_id == local.change_id {
-            self.state.pending_changes.remove(pending_index);
-            self.state.records.insert(remote.record_id, remote.clone());
-            return Ok(());
-        }
         if remote.revision <= local.base_revision.unwrap_or(0) {
             return Ok(());
         }
@@ -655,8 +790,7 @@ impl SyncEngine {
             status: ConflictStatus::Open,
             resolution: None,
         };
-        self.events
-            .push(SyncEvent::ConflictDetected(conflict.clone()));
+        events.push(SyncEvent::ConflictDetected(conflict.clone()));
         match self.conflict_hook.resolve(&conflict) {
             ConflictResolution::Defer => self.state.conflicts.push(conflict),
             ConflictResolution::KeepRemote => {
@@ -666,7 +800,7 @@ impl SyncEngine {
                 self.state.pending_changes.remove(pending_index);
                 self.state.records.insert(remote.record_id, remote.clone());
                 self.state.conflicts.push(conflict.clone());
-                self.events.push(SyncEvent::ConflictResolved(conflict));
+                events.push(SyncEvent::ConflictResolved(conflict));
             }
             ConflictResolution::KeepLocal => {
                 let merge = merge_metadata(MergeStrategy::KeepLocal, &local, remote, detected_at);
@@ -683,7 +817,7 @@ impl SyncEngine {
                 conflict.status = ConflictStatus::Resolved;
                 conflict.resolution = Some(merge);
                 self.state.conflicts.push(conflict.clone());
-                self.events.push(SyncEvent::ConflictResolved(conflict));
+                events.push(SyncEvent::ConflictResolved(conflict));
             }
             ConflictResolution::Merge(payload) => {
                 let merge = merge_metadata(MergeStrategy::DomainMerge, &local, remote, detected_at);
@@ -707,15 +841,38 @@ impl SyncEngine {
                 conflict.status = ConflictStatus::Resolved;
                 conflict.resolution = Some(merge);
                 self.state.conflicts.push(conflict.clone());
-                self.events.push(SyncEvent::ConflictResolved(conflict));
+                events.push(SyncEvent::ConflictResolved(conflict));
             }
         }
         Ok(())
     }
 
+    fn acknowledge_local_change(&mut self, remote: &ChangeRecord) -> bool {
+        let Some(acknowledged_index) = self
+            .state
+            .pending_changes
+            .iter()
+            .position(|local| local.change_id == remote.change_id)
+        else {
+            return false;
+        };
+        self.state.pending_changes.remove(acknowledged_index);
+        let visible = self
+            .state
+            .pending_changes
+            .iter()
+            .rev()
+            .find(|local| local.record_id == remote.record_id)
+            .cloned()
+            .unwrap_or_else(|| remote.clone());
+        self.state.records.insert(remote.record_id, visible);
+        true
+    }
+
     fn reconcile_server_authoritative(
         &mut self,
         delivery: &ReconciliationDelivery,
+        events: &mut Vec<SyncEvent>,
     ) -> Result<(), SyncEngineError> {
         if let Some(snapshot) = &delivery.snapshot {
             self.state.confirmed_records = snapshot
@@ -727,8 +884,7 @@ impl SyncEngine {
             self.state.metadata.server_generation = Some(snapshot.server_generation);
             self.state.metadata.cache_valid_until = Some(snapshot.valid_until);
             self.state.last_snapshot = Some(snapshot.clone());
-            self.events
-                .push(SyncEvent::SnapshotApplied(snapshot.clone()));
+            events.push(snapshot_applied_event(snapshot));
         }
         for change in &delivery.changes {
             let should_apply = self
@@ -764,7 +920,7 @@ impl SyncEngine {
                     }
                 }
                 CommandDisposition::Denied { reason } => {
-                    self.events.push(SyncEvent::CommandDenied {
+                    events.push(SyncEvent::CommandDenied {
                         command_id: pending.command_id,
                         reason: reason.clone(),
                     });
@@ -784,6 +940,25 @@ impl SyncEngine {
         }
     }
 
+    fn prune_replay_history(&mut self) {
+        prune_replays(&mut self.state.local_replays);
+        prune_replays(&mut self.state.command_replays);
+        while self.state.processed_deliveries.len() > MAX_REPLAY_ENTRIES {
+            let Some(oldest_id) = self
+                .state
+                .processed_deliveries
+                .iter()
+                .min_by_key(|(_, delivery)| delivery.retained_at)
+                .map(|(delivery_id, _)| *delivery_id)
+            else {
+                break;
+            };
+            if let Some(oldest) = self.state.processed_deliveries.remove(&oldest_id) {
+                self.state.processed_delivery_keys.remove(&oldest.key);
+            }
+        }
+    }
+
     fn validate_actor(&self, actor: &AuthorizationContext) -> Result<(), SyncEngineError> {
         (actor.scope == self.scope)
             .then_some(())
@@ -797,22 +972,26 @@ impl SyncEngine {
     }
 
     fn validate_snapshot(&self, snapshot: &SyncSnapshot) -> Result<(), SyncEngineError> {
-        if snapshot.scope != self.scope || snapshot.valid_until < snapshot.created_at {
+        if snapshot.scope != self.scope
+            || snapshot.valid_until < snapshot.created_at
+            || snapshot.records.len() > eitmad_contracts::sync::MAX_SYNC_BATCH_RECORDS
+        {
             return Err(SyncEngineError::InvalidChange);
         }
-        snapshot
-            .records
-            .iter()
-            .try_for_each(|record| self.validate_record(record))
+        snapshot.records.iter().try_for_each(|record| {
+            self.validate_record(record)?;
+            validate_operation(record.operation, record.payload.as_ref())
+        })
     }
 
-    fn persist(&mut self, audit: Option<&MutationAuditRecord>) -> Result<(), SyncEngineError> {
+    fn persist(&mut self, audit: &MutationAuditRecord) -> Result<(), SyncEngineError> {
         let encoded = serde_json::to_vec(&self.state).map_err(|_| SyncEngineError::CorruptState)?;
         match self
             .store
             .commit_sync_state(
                 &self.scope,
                 mode_name(self.state.metadata.mode),
+                ENGINE_STATE_VERSION,
                 self.storage_revision,
                 &encoded,
                 audit,
@@ -828,6 +1007,53 @@ impl SyncEngine {
             }
         }
     }
+}
+
+fn prune_replays<T>(replays: &mut BTreeMap<IdempotencyKey, Replay<T>>) {
+    while replays.len() > MAX_REPLAY_ENTRIES {
+        let Some(oldest_key) = replays
+            .iter()
+            .min_by_key(|(_, replay)| replay.retained_at)
+            .map(|(key, _)| *key)
+        else {
+            break;
+        };
+        replays.remove(&oldest_key);
+    }
+}
+
+fn snapshot_applied_event(snapshot: &SyncSnapshot) -> SyncEvent {
+    SyncEvent::SnapshotApplied {
+        snapshot_id: snapshot.snapshot_id,
+        checkpoint: snapshot.checkpoint,
+        records: u32::try_from(snapshot.records.len())
+            .expect("bounded sync snapshots fit in a u32"),
+    }
+}
+
+fn decode_stored_state(
+    stored: &StoredSyncState,
+    mode: SyncMode,
+) -> Result<EngineState, SyncEngineError> {
+    if stored.application_mode != mode_name(mode) {
+        return Err(SyncEngineError::IncompatibleMode);
+    }
+    if stored.state_version != ENGINE_STATE_VERSION {
+        return Err(SyncEngineError::UnsupportedStateVersion {
+            found: stored.state_version,
+        });
+    }
+    let state = serde_json::from_slice::<EngineState>(&stored.state_json)
+        .map_err(|_| SyncEngineError::CorruptState)?;
+    if state.state_version != ENGINE_STATE_VERSION {
+        return Err(SyncEngineError::UnsupportedStateVersion {
+            found: state.state_version,
+        });
+    }
+    if state.metadata.mode != mode {
+        return Err(SyncEngineError::CorruptState);
+    }
+    Ok(state)
 }
 
 fn validate_operation(
@@ -847,9 +1073,61 @@ fn mode_name(mode: SyncMode) -> &'static str {
     }
 }
 
-fn fingerprint(value: &impl Serialize) -> Result<[u8; 32], SyncEngineError> {
-    let encoded = serde_json::to_vec(value).map_err(|_| SyncEngineError::CorruptState)?;
-    Ok(Sha256::digest(encoded).into())
+struct StableFingerprint(Sha256);
+
+impl StableFingerprint {
+    fn new(domain: &str) -> Self {
+        let mut digest = Sha256::new();
+        digest.update(domain.as_bytes());
+        Self(digest)
+    }
+
+    fn field(&mut self, name: &str, value: &impl Serialize) -> Result<(), SyncEngineError> {
+        let encoded = serde_json::to_vec(value).map_err(|_| SyncEngineError::CorruptState)?;
+        self.0.update((name.len() as u64).to_be_bytes());
+        self.0.update(name.as_bytes());
+        self.0.update((encoded.len() as u64).to_be_bytes());
+        self.0.update(encoded);
+        Ok(())
+    }
+
+    fn finish(self) -> [u8; 32] {
+        self.0.finalize().into()
+    }
+}
+
+fn fingerprint_local_draft(draft: &LocalChangeDraft) -> Result<[u8; 32], SyncEngineError> {
+    let mut fingerprint = StableFingerprint::new("eitmad.sync.local-change-fingerprint.v1");
+    fingerprint.field("recordId", &draft.record_id)?;
+    fingerprint.field("operation", &draft.operation)?;
+    fingerprint.field("changedAt", &draft.changed_at)?;
+    fingerprint.field("idempotencyKey", &draft.idempotency_key)?;
+    fingerprint.field("payload", &draft.payload)?;
+    Ok(fingerprint.finish())
+}
+
+fn fingerprint_command_draft(draft: &CommandDraft) -> Result<[u8; 32], SyncEngineError> {
+    let mut fingerprint = StableFingerprint::new("eitmad.sync.command-fingerprint.v1");
+    fingerprint.field("commandId", &draft.command_id)?;
+    fingerprint.field("idempotencyKey", &draft.idempotency_key)?;
+    fingerprint.field("submittedAt", &draft.submitted_at)?;
+    fingerprint.field("commandSchema", &draft.command_schema)?;
+    fingerprint.field("commandSchemaVersion", &draft.command_schema_version)?;
+    fingerprint.field("base64", &draft.base64)?;
+    fingerprint.field("optimisticChange", &draft.optimistic_change)?;
+    Ok(fingerprint.finish())
+}
+
+fn fingerprint_delivery(delivery: &ReconciliationDelivery) -> Result<[u8; 32], SyncEngineError> {
+    let mut fingerprint = StableFingerprint::new("eitmad.sync.delivery-fingerprint.v1");
+    fingerprint.field("deliveryId", &delivery.delivery_id)?;
+    fingerprint.field("idempotencyKey", &delivery.idempotency_key)?;
+    fingerprint.field("checkpoint", &delivery.checkpoint)?;
+    fingerprint.field("receivedAt", &delivery.received_at)?;
+    fingerprint.field("snapshot", &delivery.snapshot)?;
+    fingerprint.field("changes", &delivery.changes)?;
+    fingerprint.field("commandResults", &delivery.command_results)?;
+    Ok(fingerprint.finish())
 }
 
 fn audit_record(
@@ -892,10 +1170,53 @@ fn merge_metadata(
     }
 }
 
-#[allow(dead_code)]
-fn _contract_identity_guards(
-    _snapshot: SnapshotId,
-    _delivery: DeliveryId,
-    _command: PendingCommandId,
-) {
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn replay_history_retains_only_the_newest_bounded_window() {
+        let mut replays = BTreeMap::new();
+        for value in 0..=MAX_REPLAY_ENTRIES {
+            let key = IdempotencyKey::new(Uuid::from_u128(u128::try_from(value).unwrap() + 1));
+            replays.insert(
+                key,
+                Replay {
+                    fingerprint: [0; 32],
+                    retained_at: UnixMillis(i64::try_from(value).unwrap()),
+                    value: (),
+                },
+            );
+        }
+
+        prune_replays(&mut replays);
+
+        assert_eq!(replays.len(), MAX_REPLAY_ENTRIES);
+        assert!(!replays.contains_key(&IdempotencyKey::new(Uuid::from_u128(1))));
+    }
+
+    #[test]
+    fn unknown_row_and_payload_versions_are_rejected_explicitly() {
+        let mut state = EngineState::new(SyncMode::LocalFirst);
+        let mut stored = StoredSyncState {
+            application_mode: mode_name(SyncMode::LocalFirst).to_owned(),
+            state_version: ENGINE_STATE_VERSION + 1,
+            revision: 1,
+            state_json: serde_json::to_vec(&state).unwrap(),
+        };
+        assert!(matches!(
+            decode_stored_state(&stored, SyncMode::LocalFirst),
+            Err(SyncEngineError::UnsupportedStateVersion { found })
+                if found == ENGINE_STATE_VERSION + 1
+        ));
+
+        stored.state_version = ENGINE_STATE_VERSION;
+        state.state_version = ENGINE_STATE_VERSION + 1;
+        stored.state_json = serde_json::to_vec(&state).unwrap();
+        assert!(matches!(
+            decode_stored_state(&stored, SyncMode::LocalFirst),
+            Err(SyncEngineError::UnsupportedStateVersion { found })
+                if found == ENGINE_STATE_VERSION + 1
+        ));
+    }
 }

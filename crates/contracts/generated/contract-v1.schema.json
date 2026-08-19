@@ -486,7 +486,7 @@
             "payload": {
               "type": "object",
               "properties": {
-                "authoritative_change": {
+                "authoritativeChange": {
                   "anyOf": [
                     {
                       "$ref": "#/definitions/ChangeRecord"

@@ -12,6 +12,8 @@ keywords:
   - "StaleCache"
   - "IdempotencyMismatch"
   - "IncompatiblePeer"
+  - "Disconnected"
+  - "UnsupportedStateVersion"
   - "sync queued"
   - "المزامنة معلقة"
   - "تعارض المزامنة"
@@ -27,8 +29,8 @@ The Rust sync engine preserves local-first edits offline and preserves server-au
 - A record is conflicted and local/remote values differ.
 - An optimistic server-authoritative edit disappears after a denial.
 - A read returns `SyncEngineError::StaleCache`.
-- Reconciliation returns `IdempotencyMismatch`, `ScopeMismatch`, `IncompatibleMode`, or `IncompatiblePeer`.
-- Sync state fails to open with `StorageUnavailable`, `StorageConflict`, or `CorruptState`.
+- Reconciliation returns `Disconnected`, `IdempotencyMismatch`, `ScopeMismatch`, `IncompatibleMode`, or `IncompatiblePeer`.
+- Sync state fails to open with `StorageUnavailable`, `StorageConflict`, `CorruptState`, or `UnsupportedStateVersion`.
 - Future Arabic UI may expose reviewed equivalents of `المزامنة معلقة` or `تعارض المزامنة`; no native sync workflow exists yet.
 
 ## Fast checks
@@ -39,28 +41,31 @@ The Rust sync engine preserves local-first edits offline and preserves server-au
 4. For queued local-first work, confirm the delivery echoes the original `change_id`; matching only `record_id` does not acknowledge it.
 5. For server-authoritative work, find the exact `PendingCommandId` result and whether it was accepted or denied.
 6. Compare `cache_valid_until` with the engine's Unix-millisecond input. Do not treat a stale confirmed row as authoritative.
-7. For duplicate or mismatch errors, compare delivery ID, idempotency key, and a safe fingerprint—not raw request bytes.
-8. If storage is implicated, stop duplicate engine instances and follow local-storage diagnostics before retrying.
+7. For duplicate or mismatch errors, compare delivery ID, idempotency key, and a safe fingerprint—not raw request bytes. Confirm the retry remains inside the retained 2,048-entry replay window.
+8. If state version is implicated, compare the `sync_scopes.state_version` read through diagnostics with the engine-supported version. Do not edit either the row or JSON marker.
+9. If storage is implicated, stop duplicate engine instances and follow local-storage diagnostics before retrying.
 
 ## Causes and resolutions
 
 | Evidence | Cause | Resolution | Verify |
 | --- | --- | --- | --- |
 | Offline local-first record is readable and pending | Expected disconnected operation | Restore compatible transport; keep the queue intact | Echoed `change_id` leaves the queue and checkpoint advances |
+| `Disconnected` during reconciliation | Transport is offline, not protocol-incompatible | Restore transport and run authorized `connect` before retrying | Reconciliation no longer returns `Disconnected` |
 | Remote revision advanced beyond a pending edit's base | Concurrent edit | Use the domain conflict workflow; default is defer | Conflict remains open until a truthful keep/merge decision is audited |
 | Optimistic value rolled back with denied command event | Server rejected intent | Explain denial through localized authorization UI; repair permission or input through its owner | Confirmed cache value returns and denied command is absent from queue |
 | `StaleCache` | Confirmed snapshot passed `valid_until` | Fetch an authorized fresh snapshot | Read returns `ServerConfirmed` plus `Fresh` |
 | Stale optimistic value still visible | Pending intent overlays an expired base | Label it optimistic and stale; do not use it for authoritative decisions | Acceptance installs server value, or denial rebuilds from confirmed cache |
-| `IdempotencyMismatch` | One key or delivery identity was reused for different bytes | Stop blind retry and investigate caller identity generation | Exact replay is ignored/replayed; new intent uses a new key |
+| `IdempotencyMismatch` | One retained key or delivery identity was reused for different content | Stop blind retry and investigate caller identity generation | Exact retained replay is ignored/replayed; new intent uses a new key |
 | `ScopeMismatch` or authorization denial | Cross-scope/unpermitted delivery | Reject it, validate channel identity, and follow authorization troubleshooting | Original local state is unchanged; denial audit is present when storage is available |
 | `IncompatibleMode` | Scope reopened under another strategy | Restore the configured mode; plan a data migration to change strategy | Engine opens without rewriting existing state |
 | `IncompatiblePeer` | No common protocol, capability, or required schema | Deploy compatible peers or restore supported schema range | Negotiation succeeds before any delivery |
 | `StorageConflict` | Competing writer revision | Stop duplicate authority and reopen from disk | One engine owns the scope and pending work remains |
+| `UnsupportedStateVersion` | Row or serialized state belongs to an unsupported engine schema | Deploy a compatible engine or explicit state migration | Engine opens without manual marker or JSON edits |
 | `CorruptState` or migration failure | Unreadable state/schema/history | Stop writes and use validated storage recovery | Integrity, history, migration 7, and engine reopen pass |
 
 ## Verify recovery
 
-Use synthetic Arabic/mixed text such as `خزانة Wardrobe 120 cm` in a disposable scope. Verify offline reopen, reconnect acknowledgement, one conflict, exact duplicate delivery, denied optimistic rollback, stale-cache refusal then snapshot refresh, authorization denial, and incompatible version rejection.
+Use synthetic Arabic/mixed text such as `خزانة Wardrobe 120 cm` in a disposable scope. Verify offline reopen, multiple edits to one record, reconnect acknowledgement, each conflict outcome, exact duplicate delivery, denied optimistic rollback, stale-cache refusal then snapshot refresh, replay/read authorization denial, offline/incompatible distinction, unsupported state-version rejection, and reconciliation rollback without emitted events.
 
 Run the focused suite:
 

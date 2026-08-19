@@ -16,6 +16,7 @@ pub(crate) const MIGRATIONS: &[Migration] = &[Migration::additive(
          application_mode TEXT NOT NULL CHECK (
              application_mode IN ('local-first', 'server-authoritative')
          ),
+         state_version INTEGER NOT NULL,
          revision INTEGER NOT NULL,
          state_json BLOB NOT NULL,
          PRIMARY KEY (scope_kind, scope_id)
@@ -25,6 +26,7 @@ pub(crate) const MIGRATIONS: &[Migration] = &[Migration::additive(
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StoredSyncState {
     pub application_mode: String,
+    pub state_version: u32,
     pub revision: u64,
     pub state_json: Vec<u8>,
 }
@@ -49,22 +51,24 @@ impl AuthorityStore {
             let (scope_kind, scope_id) = scope_parts(scope);
             connection
                 .query_row(
-                    "SELECT application_mode, revision, state_json FROM sync_scopes
+                    "SELECT application_mode, state_version, revision, state_json FROM sync_scopes
                      WHERE scope_kind = ?1 AND scope_id = ?2",
                     (&scope_kind, &scope_id),
                     |row| {
                         Ok((
                             row.get::<_, String>(0)?,
                             row.get::<_, i64>(1)?,
-                            row.get::<_, Vec<u8>>(2)?,
+                            row.get::<_, i64>(2)?,
+                            row.get::<_, Vec<u8>>(3)?,
                         ))
                     },
                 )
                 .optional()
                 .map_err(|_| StorageError)?
-                .map(|(application_mode, revision, state_json)| {
+                .map(|(application_mode, state_version, revision, state_json)| {
                     Ok(StoredSyncState {
                         application_mode,
+                        state_version: u32::try_from(state_version).map_err(|_| StorageError)?,
                         revision: u64::try_from(revision).map_err(|_| StorageError)?,
                         state_json,
                     })
@@ -73,7 +77,7 @@ impl AuthorityStore {
         })
     }
 
-    /// Commits one complete sync state and optional successful mutation audit.
+    /// Commits one complete sync state and its successful mutation audit.
     ///
     /// # Errors
     ///
@@ -82,9 +86,10 @@ impl AuthorityStore {
         &self,
         scope: &ScopeRef,
         application_mode: &str,
+        state_version: u32,
         expected_revision: u64,
         state_json: &[u8],
-        audit: Option<&MutationAuditRecord>,
+        audit: &MutationAuditRecord,
     ) -> Result<SyncStateCommitOutcome, StorageError> {
         self.write_transaction(|connection| {
             let (scope_kind, scope_id) = scope_parts(scope);
@@ -108,28 +113,28 @@ impl AuthorityStore {
             connection
                 .execute(
                     "INSERT INTO sync_scopes
-                         (scope_kind, scope_id, application_mode, revision, state_json)
-                     VALUES (?1, ?2, ?3, ?4, ?5)
+                         (scope_kind, scope_id, application_mode, state_version, revision, state_json)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6)
                      ON CONFLICT(scope_kind, scope_id) DO UPDATE SET
                          application_mode = excluded.application_mode,
+                         state_version = excluded.state_version,
                          revision = excluded.revision,
                          state_json = excluded.state_json",
                     params![
                         scope_kind,
                         scope_id,
                         application_mode,
+                        i64::from(state_version),
                         i64::try_from(revision).map_err(|_| StorageError)?,
                         state_json
                     ],
                 )
                 .map_err(|_| StorageError)?;
-            if let Some(audit) = audit {
-                let mut success = audit.clone();
-                success.outcome = AuditOutcome::Succeeded;
-                success.previous_revision = Some(actual_revision);
-                success.resulting_revision = Some(revision);
-                insert_audit(connection, &success)?;
-            }
+            let mut success = audit.clone();
+            success.outcome = AuditOutcome::Succeeded;
+            success.previous_revision = Some(actual_revision);
+            success.resulting_revision = Some(revision);
+            insert_audit(connection, &success)?;
             Ok(SyncStateCommitOutcome::Committed { revision })
         })
     }
@@ -137,16 +142,49 @@ impl AuthorityStore {
 
 #[cfg(test)]
 mod tests {
-    use eitmad_contracts::identity::{ScopeId, ScopeKind};
+    use eitmad_contracts::{
+        identity::{PrincipalId, PrincipalKind, ScopeId, ScopeKind, SessionId, TenantId},
+        transport::{CorrelationId, UnixMillis},
+    };
+    use eitmad_observability_audit::AuditTarget;
+    use rusqlite::Connection;
     use tempfile::TempDir;
     use uuid::Uuid;
 
     use super::*;
 
-    fn scope() -> ScopeRef {
+    fn scope(value: u128) -> ScopeRef {
         ScopeRef {
             kind: ScopeKind::parse("organization").unwrap(),
-            id: ScopeId::new(Uuid::from_u128(1)),
+            id: ScopeId::new(Uuid::from_u128(value)),
+        }
+    }
+
+    fn audit(scope: ScopeRef, value: u128) -> MutationAuditRecord {
+        MutationAuditRecord {
+            audit_id: Uuid::from_u128(value),
+            occurred_at: UnixMillis(i64::try_from(value).unwrap()),
+            principal_id: PrincipalId::new(Uuid::from_u128(value + 100)),
+            principal_kind: PrincipalKind::User,
+            session_id: SessionId::new(Uuid::from_u128(value + 200)),
+            device_id: None,
+            tenant_id: TenantId::new(Uuid::from_u128(value + 300)),
+            workspace_id: None,
+            scope,
+            correlation_id: CorrelationId::new(Uuid::from_u128(value + 400)),
+            causation_id: None,
+            idempotency_key: None,
+            operation: "eitmad.sync.test.v1".to_owned(),
+            target: AuditTarget {
+                kind: "organization".to_owned(),
+                identifiers: vec!["organization:synthetic".to_owned()],
+            },
+            outcome: AuditOutcome::Succeeded,
+            previous_revision: None,
+            resulting_revision: None,
+            changed_identifiers: Vec::new(),
+            redacted_error: None,
+            extension_points: Vec::new(),
         }
     }
 
@@ -154,22 +192,66 @@ mod tests {
     fn state_commit_is_scoped_and_revision_checked() {
         let directory = TempDir::new().unwrap();
         let store = AuthorityStore::open(directory.path()).unwrap();
-        assert_eq!(store.read_sync_state(&scope()).unwrap(), None);
+        let first_scope = scope(1);
+        let second_scope = scope(2);
+        let first_audit = audit(first_scope.clone(), 10);
+        let second_audit = audit(second_scope.clone(), 11);
+        assert_eq!(store.read_sync_state(&first_scope).unwrap(), None);
         assert_eq!(
             store
-                .commit_sync_state(&scope(), "local-first", 0, b"{}", None)
+                .commit_sync_state(&first_scope, "local-first", 1, 0, b"{}", &first_audit)
                 .unwrap(),
             SyncStateCommitOutcome::Committed { revision: 1 }
         );
         assert_eq!(
             store
-                .commit_sync_state(&scope(), "local-first", 0, b"bad", None)
+                .commit_sync_state(
+                    &second_scope,
+                    "server-authoritative",
+                    2,
+                    0,
+                    b"{\"second\":true}",
+                    &second_audit,
+                )
+                .unwrap(),
+            SyncStateCommitOutcome::Committed { revision: 1 }
+        );
+        assert_eq!(
+            store
+                .commit_sync_state(&first_scope, "local-first", 1, 0, b"bad", &first_audit)
                 .unwrap(),
             SyncStateCommitOutcome::RevisionConflict { actual_revision: 1 }
         );
-        assert_eq!(
-            store.read_sync_state(&scope()).unwrap().unwrap().state_json,
-            b"{}"
+        let first = store.read_sync_state(&first_scope).unwrap().unwrap();
+        assert_eq!(first.application_mode, "local-first");
+        assert_eq!(first.state_version, 1);
+        assert_eq!(first.revision, 1);
+        assert_eq!(first.state_json, b"{}");
+        let second = store.read_sync_state(&second_scope).unwrap().unwrap();
+        assert_eq!(second.application_mode, "server-authoritative");
+        assert_eq!(second.state_version, 2);
+        assert_eq!(second.revision, 1);
+        assert_eq!(second.state_json, b"{\"second\":true}");
+
+        let connection = Connection::open(store.path()).unwrap();
+        let revisions: (i64, i64) = connection
+            .query_row(
+                "SELECT previous_revision, resulting_revision FROM mutation_audit
+                 WHERE audit_id = ?1",
+                [first_audit.audit_id.to_string()],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(revisions, (0, 1));
+        assert!(
+            connection
+                .execute(
+                    "INSERT INTO sync_scopes
+                 (scope_kind, scope_id, application_mode, state_version, revision, state_json)
+                 VALUES ('organization', 'invalid', 'invalid', 1, 1, X'00')",
+                    [],
+                )
+                .is_err()
         );
     }
 }

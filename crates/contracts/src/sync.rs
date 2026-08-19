@@ -1,8 +1,8 @@
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::{
-    identity::{AuthorizationContext, ScopeRef},
+    identity::{PrincipalId, ScopeRef},
     transport::{IdempotencyKey, SchemaId, UnixMillis},
     versioning::PeerHello,
 };
@@ -89,6 +89,7 @@ pub struct ChangeBatch {
     pub idempotency_key: IdempotencyKey,
     pub from_checkpoint: Option<Checkpoint>,
     pub checkpoint: Checkpoint,
+    #[serde(deserialize_with = "deserialize_bounded_records")]
     pub records: Vec<ChangeRecord>,
     pub has_more: bool,
 }
@@ -100,7 +101,6 @@ impl ChangeBatch {
     ///
     /// Returns [`SyncBatchSizeError`] when the record count exceeds
     /// [`MAX_SYNC_BATCH_RECORDS`].
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         delivery_id: DeliveryId,
         idempotency_key: IdempotencyKey,
@@ -151,6 +151,7 @@ pub struct SyncSnapshot {
     pub server_generation: u64,
     pub created_at: UnixMillis,
     pub valid_until: UnixMillis,
+    #[serde(deserialize_with = "deserialize_bounded_records")]
     pub records: Vec<ChangeRecord>,
 }
 
@@ -159,7 +160,7 @@ pub struct SyncSnapshot {
 pub struct PendingCommand {
     pub command_id: PendingCommandId,
     pub scope: ScopeRef,
-    pub actor: AuthorizationContext,
+    pub submitted_by: PrincipalId,
     pub idempotency_key: IdempotencyKey,
     pub submitted_at: UnixMillis,
     pub command_schema: SchemaId,
@@ -233,7 +234,12 @@ pub struct BatchAcknowledgement {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(tag = "status", content = "payload", rename_all = "camelCase")]
+#[serde(
+    tag = "status",
+    content = "payload",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum CommandDisposition {
     Accepted {
         authoritative_change: Option<Box<ChangeRecord>>,
@@ -258,6 +264,7 @@ pub struct ReconciliationDelivery {
     pub checkpoint: Checkpoint,
     pub received_at: UnixMillis,
     pub snapshot: Option<SyncSnapshot>,
+    #[serde(deserialize_with = "deserialize_bounded_records")]
     pub changes: Vec<ChangeRecord>,
     pub command_results: Vec<CommandResult>,
 }
@@ -293,7 +300,12 @@ tagged_contract! {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(tag = "kind", content = "payload", rename_all = "camelCase")]
+#[serde(
+    tag = "kind",
+    content = "payload",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum SyncStatus {
     Offline,
     Current { checkpoint: Checkpoint },
@@ -327,7 +339,12 @@ pub struct RecordView {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(tag = "kind", content = "payload", rename_all = "camelCase")]
+#[serde(
+    tag = "kind",
+    content = "payload",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum SyncEvent {
     ConnectionChanged(ConnectionState),
     LocalChangeQueued(ChangeRecord),
@@ -338,9 +355,62 @@ pub enum SyncEvent {
         command_id: PendingCommandId,
         reason: ErrorCodeRef,
     },
-    SnapshotApplied(SyncSnapshot),
+    SnapshotApplied {
+        snapshot_id: SnapshotId,
+        checkpoint: Checkpoint,
+        records: u32,
+    },
     DuplicateDeliveryIgnored(DeliveryId),
     StatusChanged(SyncStatus),
+}
+
+fn deserialize_bounded_records<'de, D>(deserializer: D) -> Result<Vec<ChangeRecord>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct BoundedRecordsVisitor;
+
+    impl<'de> serde::de::Visitor<'de> for BoundedRecordsVisitor {
+        type Value = Vec<ChangeRecord>;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(
+                formatter,
+                "at most {MAX_SYNC_BATCH_RECORDS} synchronization records"
+            )
+        }
+
+        fn visit_seq<A>(self, mut sequence: A) -> Result<Self::Value, A::Error>
+        where
+            A: serde::de::SeqAccess<'de>,
+        {
+            if sequence
+                .size_hint()
+                .is_some_and(|records| records > MAX_SYNC_BATCH_RECORDS)
+            {
+                return Err(serde::de::Error::custom(SyncBatchSizeError {
+                    records: sequence.size_hint().unwrap_or_default(),
+                }));
+            }
+            let mut records = Vec::with_capacity(
+                sequence
+                    .size_hint()
+                    .unwrap_or_default()
+                    .min(MAX_SYNC_BATCH_RECORDS),
+            );
+            while let Some(record) = sequence.next_element()? {
+                if records.len() == MAX_SYNC_BATCH_RECORDS {
+                    return Err(serde::de::Error::custom(SyncBatchSizeError {
+                        records: MAX_SYNC_BATCH_RECORDS + 1,
+                    }));
+                }
+                records.push(record);
+            }
+            Ok(records)
+        }
+    }
+
+    deserializer.deserialize_seq(BoundedRecordsVisitor)
 }
 
 #[cfg(test)]
@@ -349,9 +419,8 @@ mod tests {
     use crate::identity::{ScopeId, ScopeKind};
     use uuid::Uuid;
 
-    #[test]
-    fn sync_batches_are_bounded() {
-        let fake_record = ChangeRecord {
+    fn fake_record() -> ChangeRecord {
+        ChangeRecord {
             change_id: ChangeId::new(Uuid::from_u128(1)),
             record_id: RecordId::new(Uuid::from_u128(2)),
             scope: ScopeRef {
@@ -365,15 +434,126 @@ mod tests {
             idempotency_key: IdempotencyKey::new(Uuid::from_u128(4)),
             payload: None,
             merge: None,
-        };
+        }
+    }
+
+    #[test]
+    fn sync_batches_are_bounded() {
+        let delivery_id = DeliveryId::new(Uuid::from_u128(5));
+        let idempotency_key = IdempotencyKey::new(Uuid::from_u128(6));
+        let checkpoint = Checkpoint::new(Uuid::from_u128(7));
+        let bounded = ChangeBatch::new(
+            delivery_id,
+            idempotency_key,
+            None,
+            checkpoint,
+            vec![fake_record(); MAX_SYNC_BATCH_RECORDS],
+            false,
+        )
+        .unwrap();
+        assert_eq!(bounded.delivery_id, delivery_id);
+        assert_eq!(bounded.idempotency_key, idempotency_key);
+        assert_eq!(bounded.checkpoint, checkpoint);
+        assert_eq!(bounded.records.len(), MAX_SYNC_BATCH_RECORDS);
+
         let result = ChangeBatch::new(
+            delivery_id,
+            idempotency_key,
+            None,
+            checkpoint,
+            vec![fake_record(); MAX_SYNC_BATCH_RECORDS + 1],
+            false,
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn record_vectors_are_bounded_during_deserialization() {
+        let batch = ChangeBatch::new(
             DeliveryId::new(Uuid::from_u128(5)),
             IdempotencyKey::new(Uuid::from_u128(6)),
             None,
             Checkpoint::new(Uuid::from_u128(7)),
-            vec![fake_record; MAX_SYNC_BATCH_RECORDS + 1],
+            vec![fake_record()],
             false,
+        )
+        .unwrap();
+        let snapshot = SyncSnapshot {
+            snapshot_id: SnapshotId::new(Uuid::from_u128(8)),
+            scope: fake_record().scope,
+            checkpoint: Checkpoint::new(Uuid::from_u128(9)),
+            server_generation: 1,
+            created_at: UnixMillis(1),
+            valid_until: UnixMillis(2),
+            records: vec![fake_record()],
+        };
+        let delivery = ReconciliationDelivery {
+            delivery_id: DeliveryId::new(Uuid::from_u128(10)),
+            idempotency_key: IdempotencyKey::new(Uuid::from_u128(11)),
+            checkpoint: Checkpoint::new(Uuid::from_u128(12)),
+            received_at: UnixMillis(2),
+            snapshot: None,
+            changes: vec![fake_record()],
+            command_results: Vec::new(),
+        };
+
+        let mut oversized_batch = serde_json::to_value(batch).unwrap();
+        oversized_batch["records"] =
+            serde_json::to_value(vec![fake_record(); MAX_SYNC_BATCH_RECORDS + 1]).unwrap();
+        assert!(serde_json::from_value::<ChangeBatch>(oversized_batch).is_err());
+
+        let mut oversized_snapshot = serde_json::to_value(&snapshot).unwrap();
+        oversized_snapshot["records"] =
+            serde_json::to_value(vec![fake_record(); MAX_SYNC_BATCH_RECORDS + 1]).unwrap();
+        assert!(serde_json::from_value::<SyncSnapshot>(oversized_snapshot).is_err());
+
+        let mut oversized_delivery = serde_json::to_value(&delivery).unwrap();
+        oversized_delivery["changes"] =
+            serde_json::to_value(vec![fake_record(); MAX_SYNC_BATCH_RECORDS + 1]).unwrap();
+        assert!(serde_json::from_value::<ReconciliationDelivery>(oversized_delivery).is_err());
+        assert_eq!(
+            serde_json::from_value::<SyncSnapshot>(serde_json::to_value(snapshot).unwrap())
+                .unwrap()
+                .records
+                .len(),
+            1
         );
-        assert!(result.is_err());
+        assert_eq!(
+            serde_json::from_value::<ReconciliationDelivery>(
+                serde_json::to_value(delivery).unwrap()
+            )
+            .unwrap()
+            .changes
+            .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn tagged_sync_contracts_round_trip_with_camel_case_payloads() {
+        let disposition = CommandDisposition::Accepted {
+            authoritative_change: Some(Box::new(fake_record())),
+        };
+        let disposition_json = serde_json::to_value(&disposition).unwrap();
+        assert_eq!(disposition_json["status"], "accepted");
+        assert!(disposition_json["payload"]["authoritativeChange"].is_object());
+        assert_eq!(
+            serde_json::from_value::<CommandDisposition>(disposition_json).unwrap(),
+            disposition
+        );
+
+        let event = SyncEvent::SnapshotApplied {
+            snapshot_id: SnapshotId::new(Uuid::from_u128(13)),
+            checkpoint: Checkpoint::new(Uuid::from_u128(14)),
+            records: 1,
+        };
+        let event_json = serde_json::to_value(&event).unwrap();
+        assert_eq!(event_json["kind"], "snapshotApplied");
+        assert!(event_json["payload"]["snapshotId"].is_string());
+        assert_eq!(event_json["payload"]["records"], 1);
+        assert_eq!(
+            serde_json::from_value::<SyncEvent>(event_json).unwrap(),
+            event
+        );
     }
 }

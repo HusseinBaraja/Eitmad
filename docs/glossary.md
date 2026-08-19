@@ -104,6 +104,7 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | حدث | Event | A typed engine-to-shell value delivered through a subscription; it is not automatically a durable audit or event-sourcing record. |
 | مؤشر استئناف الحدث | Event cursor | An opaque, scoped position used to resume a bounded event stream; it is not a globally ordered record identifier. |
 | نافذة إعادة التشغيل | Replay window | The bounded same-engine event history available for subscription reconnection. |
+| نافذة منع تكرار المزامنة | Sync idempotency window | The bounded durable history used to recognize retained local-change, command, and delivery identities; it is not indefinite retry storage. |
 | ضغط التدفق | Backpressure | The explicit response when a consumer cannot keep pace; replaceable state may coalesce, while unreplayable discrete gaps close and require recovery. |
 | نطاق | Scope | The explicit ownership and isolation boundary attached to every record and operation. |
 | المستأجر | Tenant | **Provisional UI term.** The top-level identity and data-isolation root. It is not a billing tenant or a substitute for an explicit record scope. |

@@ -40,17 +40,17 @@ The current server sync-plane executable remains an empty deployment boundary. `
 
 Every `ChangeRecord` has a stable change ID, record ID, exact scope, operation, base and resulting revisions, occurrence time, idempotency key, registered payload schema/version, and optional `MergeMetadata`. Tombstones have no payload; upserts require one. Payload bytes remain domain-owned, so the sync engine never interprets Arabic text, furniture rules, or business truth.
 
-`SyncSnapshot` names a checkpoint, server generation, creation time, cache validity deadline, and bounded scoped records. `PendingCommand` retains the authenticated actor and typed command envelope needed for safe replay plus an optional optimistic change. `ConflictRecord` preserves both inputs, resolution status, and merge provenance. `SyncMetadata` records application mode, connectivity, checkpoint, last successful exchange, generation, and cache validity.
+`SyncSnapshot` names a checkpoint, server generation, creation time, cache validity deadline, and bounded scoped records. `PendingCommand` retains only the submitting `PrincipalId`, exact scope, typed command envelope, and optional optimistic change; session, device, service, tenant, and workspace context remains in the audit record instead of durable queue or event payloads. `ConflictRecord` preserves both inputs, resolution status, and merge provenance. `SyncMetadata` records application mode, connectivity, checkpoint, last successful exchange, generation, and cache validity.
 
-SQLite migration `sync.scoped-state.v1` stores one complete serialized state per scope in `sync_scopes`. Compare-and-swap storage revisions prevent two engine instances from silently overwriting each other. Accepted mutations commit state and a `SyncBoundary` audit row in one transaction. Denials are audited by `AuthorizationGate` before state code runs.
+SQLite migration `sync.scoped-state.v1` stores one complete serialized state per scope in `sync_scopes`. Both the row and serialized `EngineState` carry schema version `1`; an unknown version returns `UnsupportedStateVersion` before decoding. Compare-and-swap storage revisions prevent two engine instances from silently overwriting each other. Every state write, including first-scope bootstrap and connection changes, requires a successful `SyncBoundary` audit in the same transaction. Denials are audited by `AuthorizationGate` before state code runs.
 
 ## Local-first flow
 
 1. `apply_local_change` checks mode, actor scope, operation shape, idempotency, and ReBAC authorization.
 2. Rust assigns the next record revision, writes the visible local record, appends the outgoing change, stores the replay result, and audits the transaction.
 3. Reads remain available from durable local state while `ConnectionState::Offline`; a shell may describe this as queued, not synchronized.
-4. `connect` negotiates protocol, capabilities, and schemas before reconciliation.
-5. `reconcile` acknowledges an echoed change by `change_id`, applies newer non-conflicting remote records, or creates an explicit conflict when a remote revision advances beyond a pending edit's base.
+4. Authorized `connect` negotiates protocol, capabilities, and schemas before reconciliation; authorized `disconnect` durably marks transport loss.
+5. `reconcile` acknowledges an echoed change by `change_id`, keeps any newer queued edit to the same record visible, applies newer non-conflicting remote records, or creates an explicit conflict when a remote revision advances beyond the newest pending edit's base.
 
 The default `ConflictHook` returns `Defer`; this preserves the local visible value and an open conflict. A domain may implement `KeepLocal`, `KeepRemote`, or `Merge(payload)` only when its invariant makes that result truthful. Keep-local and domain-merge resolutions rebase onto the remote revision and record both source change IDs in `MergeMetadata`. Never add a generic last-write-wins hook for quotation, order, ledger, permission, or other truth-sensitive data.
 
@@ -60,28 +60,28 @@ The default `ConflictHook` returns `Defer`; this preserves the local visible val
 2. `queue_command` authorizes and durably queues a typed command. An optional optimistic change is projected over confirmed state and is returned as `RecordAuthority::Optimistic`.
 3. Accepted command results remove the queue item and install any returned authoritative change.
 4. Denied results remove the item and rebuild visible records from confirmed cache plus remaining commands. This rolls back only the denied optimistic projection; it does not fabricate a server result.
-5. A confirmed cache read after `cache_valid_until` returns `SyncEngineError::StaleCache`. A pending optimistic value may remain visible, but its `CacheFreshness::Stale` and `RecordAuthority::Optimistic` labels are mandatory.
+5. `read_record` and `read_last_snapshot` require actor, request, and audit context and execute through the authorized read boundary. A confirmed cache read after `cache_valid_until` returns `SyncEngineError::StaleCache`. A pending optimistic value may remain visible, but its `CacheFreshness::Stale` and `RecordAuthority::Optimistic` labels are mandatory.
 
 Consumers must never use stale confirmed cache as proof for pricing, permission, inventory, accounting, or another authoritative decision. Fetch an authorized snapshot first. Optimistic UI must be visibly provisional and must handle denial without presenting the rejected value as saved.
 
 ## Idempotency and duplicate delivery
 
-Local changes and server commands retain a SHA-256 fingerprint beside their idempotency key. Repeating the same key and same request returns the stored result; reusing the key for different bytes returns `SyncEngineError::IdempotencyMismatch`.
+Local changes and server commands retain a versioned SHA-256 fingerprint over an explicit ordered field set beside their idempotency key. Authorization runs before replay lookup. Repeating a retained key and the same request returns the stored result; reusing it for different content returns `SyncEngineError::IdempotencyMismatch`.
 
-Each `ReconciliationDelivery` has both a delivery ID and idempotency key. Repeating either identity with the same fingerprint emits `DuplicateDeliveryIgnored` and makes no state change. Reusing either identity for different content fails closed. The checkpoint advances only after an authorized delivery and its audit commit succeed.
+Each `ReconciliationDelivery` has both a delivery ID and idempotency key. Repeating either retained identity with the same fingerprint emits `DuplicateDeliveryIgnored` and makes no state change. Reusing either identity for different content fails closed. Replay and processed-delivery maps use keyed lookup and retain at most 2,048 entries per category, pruning the oldest entries after mutations and successful reconciliation. Keys older than this explicit idempotency window are no longer replay identities; callers must not retry indefinitely. The checkpoint advances only after an authorized delivery and its audit commit succeed.
 
 ## Authorization, scope, and security invariants
 
 - The actor scope, engine scope, every change scope, and snapshot scope must match exactly.
 - `connect` must succeed before delivery processing. Mode, protocol, required capability, and required schema incompatibility stop normal traffic.
 - `SyncAuthorization` runs `AuthorizationGate` with `BoundaryKind::Sync`; missing relationships and tenant/workspace mismatch deny by default.
-- Validation and authorization complete before a mutable state copy is persisted. A failed storage commit restores the in-memory copy.
+- Validation and authorization complete before replay lookup or mutation. A reconciliation error or failed storage commit restores the in-memory copy.
 - Accepted state and audit are atomic. Audit targets contain synthetic or redacted identifiers, never payload bytes.
-- Pending actor context is identity metadata for authorized replay, not a credential. Tokens and secret material never belong in sync state or payload diagnostics.
+- Pending commands expose only principal attribution. Tokens, session/device/service identifiers, tenant/workspace context, and secret material never belong in queue events or payload diagnostics.
 
 ## Sync events and shell projection
 
-`drain_events` returns typed `SyncEvent` values for connection changes, queued edits/commands, detected/resolved conflicts, denied commands, applied snapshots, duplicate deliveries, and coalesced status. Existing IPC `SyncStatusChanged` and `RecordChanged` subscriptions are the shell-facing projection boundary; wiring the new lifecycle events into the runtime dispatcher remains future work.
+`drain_events` returns typed `SyncEvent` values for connection changes, queued edits/commands, detected/resolved conflicts, denied commands, applied snapshots, duplicate deliveries, and coalesced status. Reconciliation buffers events until the state/audit commit succeeds, so failed work cannot reach subscribers. `SnapshotApplied` carries only snapshot ID, checkpoint, and record count; authorized consumers query `read_last_snapshot` for the full payload. Existing IPC `SyncStatusChanged` and `RecordChanged` subscriptions are the shell-facing projection boundary; wiring the new lifecycle events into the runtime dispatcher remains future work.
 
 Future Arabic UI should use reviewed labels for offline, queued, optimistic, stale, conflicted, denied, and current states. Mixed text such as `خزانة Wardrobe 120 cm` remains opaque UTF-8 payload data. The engine adds no bidi controls and does not normalize or merge text.
 
@@ -93,16 +93,18 @@ Future Arabic UI should use reviewed labels for offline, queued, optimistic, sta
 | `ScopeMismatch` | No cross-scope data applied | Correct authenticated scope and reject the suspect delivery |
 | `Authorization(Denied)` | Protected callback did not mutate state; denial audit attempted | Repair the relationship through the owning workflow |
 | `IncompatiblePeer` | No normal delivery accepted | Upgrade or select compatible protocol/capability/schema ranges |
+| `Disconnected` | Offline delivery was not misclassified as protocol failure | Restore transport, reconnect, then retry the retained delivery |
 | `IdempotencyMismatch` | Original replay state remains | Stop blind retry; create a new key only for genuinely new intent |
 | `StaleCache` | Stale confirmed value is withheld | Obtain an authorized fresh snapshot |
 | `StorageConflict` | Competing writer was not overwritten | Stop duplicate engine authority and reopen from persisted state |
+| `UnsupportedStateVersion` | Unknown durable state is not decoded | Run a supported migration or compatible engine; do not edit the version marker |
 | `StorageUnavailable` or `CorruptState` | Engine fails closed | Follow local-storage recovery; do not edit `sync_scopes` manually |
 
 For symptom-led checks, use [synchronization failures](../../troubleshooting/synchronization-failures.md).
 
 ## Tests and safe extension
 
-`crates/sync/tests/sync_engine.rs` uses the real ReBAC gate and a temporary SQLite authority store. It covers offline edit durability/reopen, reconnect acknowledgement, deferred conflict creation, duplicate delivery, denied optimistic rollback, stale-cache refusal and refresh, unauthorized delivery, and incompatible protocol rejection. `crates/storage/src/sync_state.rs` tests scoped revision checks, while storage recovery tests cover migration 7 backup behavior.
+`crates/sync/tests/sync_engine.rs` uses the real ReBAC gate and a temporary SQLite authority store. It covers offline edit durability/reopen, multiple-edit acknowledgement, all conflict outcomes and rebase overflow, duplicate/mismatched replay, replay authorization, denied optimistic rollback, stale-cache refusal and refresh, authorized reads, offline/incompatible errors, reconciliation rollback, stale-event suppression, and incompatible protocol rejection. `crates/storage/src/sync_state.rs` tests scope isolation, mode/version persistence, revision checks, mandatory audit revisions, and invalid modes; storage recovery tests cover migration 7 backup behavior.
 
 Run:
 
