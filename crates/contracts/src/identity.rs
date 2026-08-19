@@ -3,8 +3,13 @@ use serde::{Deserialize, Serialize};
 
 uuid_id!(PrincipalId);
 uuid_id!(DeviceId);
+uuid_id!(UserId);
+uuid_id!(AccountId);
 uuid_id!(ServiceId);
 uuid_id!(SessionId);
+uuid_id!(TenantId);
+uuid_id!(WorkspaceId);
+uuid_id!(OrganizationId);
 uuid_id!(ScopeId);
 
 open_id!(ScopeKind, "scope kind");

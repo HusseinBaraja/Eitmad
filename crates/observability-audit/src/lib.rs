@@ -1,7 +1,7 @@
 //! Privacy-preserving diagnostics and mutation audit records.
 
 use eitmad_contracts::{
-    identity::{PrincipalId, PrincipalKind, ScopeRef},
+    identity::{DeviceId, PrincipalId, PrincipalKind, ScopeRef, SessionId},
     transport::{CausationId, CorrelationId, IdempotencyKey, UnixMillis},
 };
 use serde::{Deserialize, Serialize};
@@ -24,6 +24,8 @@ pub struct MutationAuditRecord {
     pub occurred_at: UnixMillis,
     pub principal_id: PrincipalId,
     pub principal_kind: PrincipalKind,
+    pub session_id: Option<SessionId>,
+    pub device_id: Option<DeviceId>,
     pub scope: ScopeRef,
     pub correlation_id: CorrelationId,
     pub causation_id: Option<CausationId>,

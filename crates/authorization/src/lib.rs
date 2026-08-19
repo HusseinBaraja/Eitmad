@@ -473,6 +473,8 @@ fn audit_record(
         occurred_at: context.occurred_at,
         principal_id: context.authorization.identity.principal_id,
         principal_kind: context.authorization.identity.principal_kind,
+        session_id: Some(context.authorization.session_id),
+        device_id: context.authorization.identity.device_id,
         scope: context.authorization.scope.clone(),
         correlation_id: context.correlation_id,
         causation_id: context.causation_id,

@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "product maintainers"
-last_verified: "2026-07-18"
+last_verified: "2026-08-19"
 review_triggers:
   - "a domain term, UI label, contract concept, or workshop synonym changes"
 keywords:
@@ -106,6 +106,13 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | نافذة إعادة التشغيل | Replay window | The bounded same-engine event history available for subscription reconnection. |
 | ضغط التدفق | Backpressure | The explicit response when a consumer cannot keep pace; replaceable state may coalesce, while unreplayable discrete gaps close and require recovery. |
 | نطاق | Scope | The explicit ownership and isolation boundary attached to every record and operation. |
+| المستأجر | Tenant | **Provisional UI term.** The top-level identity and data-isolation root. It is not a billing tenant or a substitute for an explicit record scope. |
+| مساحة العمل | Workspace | A tenant-owned collaboration or operational boundary, optionally associated with one organization. Exact user-visible use remains provisional. |
+| المستخدم | User | A stable person identity independent of a specific tenant account or operational role. Name the role when behavior differs. |
+| الحساب | Account | A tenant-specific binding for one user; it is not a session or authentication secret. |
+| هوية الجهاز | Device identity | A stable installation-local identifier persisted by Rust. It is attribution metadata, not authentication proof. |
+| الجلسة | Session | A persisted, expiring binding between principal, account, device, tenant, optional organization/workspace, and connectivity state. |
+| جلسة دون اتصال | Offline session | An issued, unexpired, open local session whose engine connectivity state is offline; offline state does not bypass authorization or expiry. |
 | إعداد النظام | Configuration setting | A Rust-registered typed value with an authoritative default, validator, sensitivity, restart requirement, and scope. |
 | لقطة الإعدادات | Configuration snapshot | The stable, revisioned, redacted projection that a shell may read; it is not a shell-owned config file. |
 | تعديل الإعدادات | Configuration patch | A typed optimistic request containing expected revision and changed keys; Rust validates and commits it atomically. |
@@ -130,6 +137,8 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | انحراف المخطط | Schema drift | A difference between the live SQLite schema and the schema produced by the registered Rust migrations. |
 | نسخة احتياطية | Backup | A validated SQLite copy that includes committed WAL state and has the same sensitivity as the live database. |
 | استعادة قاعدة البيانات | Database restore | A stopped-engine replacement flow that validates the candidate and preserves the previous database before installation. |
+| ملف الاسترداد | Recovery artifact | A preserved pre-migration, pre-restore, or failed-restore SQLite candidate that must be validated before use. |
+| تصدير البيانات المحلية | Local data export | A tenant-scoped portable JSON projection that excludes sessions, devices, audit, credentials, and operational storage; it is not a backup. |
 | تغيير كاسر | Breaking change | A contract representation or meaning change that a peer inside the compatibility window cannot safely interpret. |
 | تحديث | Update | A signed, policy-controlled change to engine, shell, contracts, or compatible data behavior. |
 | دورة حياة المحرك | Engine lifecycle | The Rust-owned process states `Starting`, `Ready`, `Stopping`, `Stopped`, and `Failed` plus their permitted transitions. |

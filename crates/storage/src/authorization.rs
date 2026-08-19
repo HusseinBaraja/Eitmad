@@ -632,6 +632,8 @@ mod tests {
             occurred_at: UnixMillis(1),
             principal_id: PrincipalId::new(Uuid::from_u128(2)),
             principal_kind: PrincipalKind::User,
+            session_id: None,
+            device_id: None,
             scope: scope(),
             correlation_id: CorrelationId::new(Uuid::from_u128(3)),
             causation_id: None,

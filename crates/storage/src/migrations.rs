@@ -3,7 +3,10 @@ use std::fmt::Write as _;
 use rusqlite::{Connection, OptionalExtension as _, params};
 use sha2::{Digest as _, Sha256};
 
-use crate::{CURRENT_STORAGE_VERSION, StorageError, authorization, configuration};
+use crate::{
+    CURRENT_STORAGE_VERSION, MIN_SUPPORTED_STORAGE_VERSION, StorageError, authorization,
+    configuration, identity,
+};
 
 const HISTORY_SCHEMA: &str = "CREATE TABLE schema_migrations (
     version INTEGER PRIMARY KEY,
@@ -69,6 +72,7 @@ pub(crate) struct Migration {
     pub(crate) id: &'static str,
     pub(crate) feature: &'static str,
     pub(crate) sql: &'static str,
+    pub(crate) destructive: bool,
 }
 
 impl Migration {
@@ -83,6 +87,32 @@ impl Migration {
             id,
             feature,
             sql,
+            destructive: false,
+        }
+    }
+
+    pub(crate) const fn additive(
+        version: u32,
+        id: &'static str,
+        feature: &'static str,
+        sql: &'static str,
+    ) -> Self {
+        Self::new(version, id, feature, sql)
+    }
+
+    #[cfg(test)]
+    const fn destructive(
+        version: u32,
+        id: &'static str,
+        feature: &'static str,
+        sql: &'static str,
+    ) -> Self {
+        Self {
+            version,
+            id,
+            feature,
+            sql,
+            destructive: true,
         }
     }
 
@@ -111,6 +141,7 @@ fn registry() -> Vec<Migration> {
         .iter()
         .chain(authorization::MIGRATIONS)
         .chain(CORE_MIGRATIONS)
+        .chain(identity::MIGRATIONS)
         .copied()
         .collect()
 }
@@ -131,8 +162,12 @@ fn apply_registry(
     connection
         .execute_batch("PRAGMA foreign_keys = ON;")
         .map_err(|_| StorageError)?;
+    validate_compatibility_window(
+        usize::try_from(read_version(connection)?).map_err(|_| StorageError)?,
+    )?;
     prepare_history(connection, migrations)?;
     let applied = verify_history(connection, migrations)?;
+    validate_compatibility_window(applied)?;
     for migration in migrations.iter().skip(applied) {
         let transaction = connection.transaction().map_err(|_| StorageError)?;
         transaction
@@ -154,6 +189,14 @@ fn apply_registry(
     }
     verify_history(connection, migrations)?;
     verify_schema(connection, migrations)
+}
+
+fn validate_compatibility_window(applied: usize) -> Result<(), StorageError> {
+    let applied = u32::try_from(applied).map_err(|_| StorageError)?;
+    if applied != 0 && applied < MIN_SUPPORTED_STORAGE_VERSION {
+        return Err(StorageError);
+    }
+    Ok(())
 }
 
 fn validate_registry(migrations: &[Migration]) -> Result<(), StorageError> {
@@ -416,10 +459,13 @@ mod tests {
     fn migrates_legacy_history_and_preserves_configuration() {
         let mut connection = Connection::open_in_memory().unwrap();
         connection
-            .execute_batch("CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY); INSERT INTO schema_migrations VALUES (1);")
+            .execute_batch("CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY); INSERT INTO schema_migrations VALUES (1), (2);")
             .unwrap();
         connection
             .execute_batch(configuration::MIGRATIONS[0].sql)
+            .unwrap();
+        connection
+            .execute_batch(authorization::MIGRATIONS[0].sql)
             .unwrap();
         connection.execute_batch(
             "INSERT INTO configuration_scopes VALUES ('organization', 'scope-1', 1, 7);
@@ -456,6 +502,24 @@ mod tests {
             .unwrap();
 
         assert!(prepare_history(&mut connection, &registry()).is_err());
+    }
+
+    #[test]
+    fn rejects_out_of_window_history_before_rewriting_it() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(
+                "CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY);
+                 INSERT INTO schema_migrations VALUES (1);",
+            )
+            .unwrap();
+        connection
+            .execute_batch(configuration::MIGRATIONS[0].sql)
+            .unwrap();
+
+        assert!(apply(&mut connection).is_err());
+        assert!(!history_has_column(&connection, "migration_id").unwrap());
+        assert_eq!(read_version(&connection).unwrap(), 1);
     }
 
     #[test]
@@ -523,7 +587,7 @@ mod tests {
                 "test",
                 "CREATE TABLE first(value TEXT);",
             ),
-            Migration::new(
+            Migration::destructive(
                 2,
                 "test.broken.v1",
                 "test",
