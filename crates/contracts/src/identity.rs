@@ -43,5 +43,7 @@ pub struct ScopeRef {
 pub struct AuthorizationContext {
     pub session_id: SessionId,
     pub identity: AuthenticatedIdentity,
+    pub tenant_id: TenantId,
+    pub workspace_id: Option<WorkspaceId>,
     pub scope: ScopeRef,
 }

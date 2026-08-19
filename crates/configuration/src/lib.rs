@@ -18,14 +18,13 @@ use eitmad_contracts::{
     events::Event,
     identity::{AuthorizationContext, ScopeRef},
 };
-use eitmad_observability_audit::{AuditOutcome, MutationAuditRecord};
+use eitmad_observability_audit::{AuditOutcome, AuditTarget, MutationAuditRecord};
 use eitmad_storage::{
     AuthorityStore, ConfigurationCommitOutcome, DurableIdempotency, DurablePublication,
 };
 use language_tags::LanguageTag;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
-use uuid::Uuid;
 
 pub const CONFIGURATION_SCHEMA_VERSION: u32 = 1;
 pub const CONFIGURATION_EXPORT_FORMAT_VERSION: u32 = 1;
@@ -644,24 +643,20 @@ fn audit_record(
     operation: &str,
     changed_identifiers: Vec<String>,
 ) -> MutationAuditRecord {
-    MutationAuditRecord {
-        audit_id: Uuid::new_v4(),
-        occurred_at: context.occurred_at,
-        principal_id: context.authorization.identity.principal_id,
-        principal_kind: context.authorization.identity.principal_kind,
-        session_id: Some(context.authorization.session_id),
-        device_id: context.authorization.identity.device_id,
-        scope: context.authorization.scope.clone(),
-        correlation_id: context.correlation_id,
-        causation_id: context.causation_id,
-        idempotency_key: Some(context.idempotency_key),
-        operation: operation.to_owned(),
-        outcome: AuditOutcome::Succeeded,
-        previous_revision: None,
-        resulting_revision: None,
-        changed_identifiers,
-        error_code: None,
-    }
+    let mut record = MutationAuditRecord::from_authorization(
+        &context.authorization,
+        context.occurred_at,
+        context.correlation_id,
+        operation,
+        AuditTarget {
+            kind: "configuration".to_owned(),
+            identifiers: changed_identifiers.clone(),
+        },
+    );
+    record.causation_id = context.causation_id;
+    record.idempotency_key = Some(context.idempotency_key);
+    record.changed_identifiers = changed_identifiers;
+    record
 }
 
 #[cfg(test)]
@@ -671,10 +666,12 @@ mod tests {
         config::SecretReferenceId,
         identity::{
             AuthenticatedIdentity, PrincipalId, PrincipalKind, ScopeId, ScopeKind, SessionId,
+            TenantId,
         },
         transport::{CorrelationId, IdempotencyKey, UnixMillis},
     };
     use tempfile::TempDir;
+    use uuid::Uuid;
 
     use super::*;
 
@@ -717,6 +714,8 @@ mod tests {
                 device_id: None,
                 service_id: None,
             },
+            tenant_id: TenantId::new(Uuid::from_u128(scope)),
+            workspace_id: None,
             scope: ScopeRef {
                 kind: ScopeKind::parse(ORGANIZATION_SCOPE).unwrap(),
                 id: ScopeId::new(Uuid::from_u128(scope)),

@@ -1,5 +1,11 @@
 //! Direct principal-to-scope relationship authorization with Rust-owned policy.
 
+mod boundary;
+mod policy;
+
+pub use boundary::{AuthorizationGate, BoundaryAuditContext, BoundaryError, BoundaryKind};
+pub use policy::{PolicyBuildError, RelationshipPolicy};
+
 use std::{
     fmt::Write as _,
     time::{SystemTime, UNIX_EPOCH},
@@ -17,7 +23,9 @@ use eitmad_contracts::{
     queries::ListScopeRelationships,
     transport::{CausationId, CorrelationId, IdempotencyKey, UnixMillis},
 };
-use eitmad_observability_audit::{AuditOutcome, MutationAuditRecord};
+use eitmad_observability_audit::{
+    AuditExtensionPoint, AuditOutcome, AuditTarget, MutationAuditRecord,
+};
 use eitmad_storage::{
     AuthorityStore, DurableIdempotency, DurablePublication, RelationshipCommitOutcome, StorageError,
 };
@@ -53,6 +61,14 @@ pub struct MutationContext {
     pub correlation_id: CorrelationId,
     pub causation_id: Option<CausationId>,
     pub idempotency_key: IdempotencyKey,
+    pub occurred_at: UnixMillis,
+}
+
+#[derive(Clone, Debug)]
+pub struct AccessAuditContext {
+    pub authorization: AuthorizationContext,
+    pub correlation_id: CorrelationId,
+    pub causation_id: Option<CausationId>,
     pub occurred_at: UnixMillis,
 }
 
@@ -175,6 +191,42 @@ impl AuthorizationService {
                 && candidate.decision == PermissionDecision::Granted
         });
         granted.then_some(()).ok_or(AuthorizationError::Denied)
+    }
+
+    /// Appends a complete, redacted result for an authorized read or boundary
+    /// operation that does not own a domain transaction.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Unavailable` when the mandatory audit cannot be persisted.
+    pub fn audit_access_result(
+        &self,
+        context: &AccessAuditContext,
+        operation: &str,
+        target_kind: &str,
+        outcome: AuditOutcome,
+        error_code: Option<&str>,
+        extension_points: Vec<AuditExtensionPoint>,
+    ) -> Result<(), AuthorizationError> {
+        let mut record = MutationAuditRecord::from_authorization(
+            &context.authorization,
+            context.occurred_at,
+            context.correlation_id,
+            operation,
+            AuditTarget {
+                kind: target_kind.to_owned(),
+                identifiers: vec![context.authorization.scope.id.value().to_string()],
+            },
+        );
+        record.causation_id = context.causation_id;
+        record.outcome = outcome;
+        record.extension_points = extension_points;
+        if let Some(error_code) = error_code {
+            record = record.with_outcome(outcome, Some(error_code.to_owned()));
+        }
+        self.store
+            .append_audit(&record)
+            .map_err(|_| AuthorizationError::Unavailable)
     }
 
     /// Creates the first persisted owner for an empty scope.
@@ -468,24 +520,20 @@ fn audit_record(
     operation: &str,
     changed_identifiers: Vec<String>,
 ) -> MutationAuditRecord {
-    MutationAuditRecord {
-        audit_id: Uuid::new_v4(),
-        occurred_at: context.occurred_at,
-        principal_id: context.authorization.identity.principal_id,
-        principal_kind: context.authorization.identity.principal_kind,
-        session_id: Some(context.authorization.session_id),
-        device_id: context.authorization.identity.device_id,
-        scope: context.authorization.scope.clone(),
-        correlation_id: context.correlation_id,
-        causation_id: context.causation_id,
-        idempotency_key: Some(context.idempotency_key),
-        operation: operation.to_owned(),
-        outcome: AuditOutcome::Succeeded,
-        previous_revision: None,
-        resulting_revision: None,
-        changed_identifiers,
-        error_code: None,
-    }
+    let mut record = MutationAuditRecord::from_authorization(
+        &context.authorization,
+        context.occurred_at,
+        context.correlation_id,
+        operation,
+        AuditTarget {
+            kind: "authorization-relationship".to_owned(),
+            identifiers: changed_identifiers.clone(),
+        },
+    );
+    record.causation_id = context.causation_id;
+    record.idempotency_key = Some(context.idempotency_key);
+    record.changed_identifiers = changed_identifiers;
+    record
 }
 
 fn permission_id(value: &str) -> PermissionId {
@@ -516,6 +564,7 @@ pub fn now() -> UnixMillis {
 mod tests {
     use eitmad_contracts::identity::{
         AuthenticatedIdentity, PrincipalId, PrincipalKind, ScopeId, ScopeKind, ScopeRef, SessionId,
+        TenantId,
     };
     use tempfile::TempDir;
 
@@ -530,6 +579,8 @@ mod tests {
                 device_id: None,
                 service_id: None,
             },
+            tenant_id: TenantId::new(Uuid::from_u128(scope)),
+            workspace_id: None,
             scope: ScopeRef {
                 kind: ScopeKind::parse("organization").unwrap(),
                 id: ScopeId::new(Uuid::from_u128(scope)),

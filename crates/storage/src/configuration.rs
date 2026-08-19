@@ -248,7 +248,7 @@ fn commit_configuration_on(
 mod tests {
     use eitmad_contracts::{
         config::ConfigWriteValue,
-        identity::{PrincipalId, PrincipalKind, ScopeId, ScopeKind},
+        identity::{PrincipalId, PrincipalKind, ScopeId, ScopeKind, SessionId, TenantId},
         transport::{CorrelationId, IdempotencyKey, UnixMillis},
     };
     use tempfile::TempDir;
@@ -269,18 +269,25 @@ mod tests {
             occurred_at: UnixMillis(1),
             principal_id: PrincipalId::new(Uuid::from_u128(2)),
             principal_kind: PrincipalKind::User,
-            session_id: None,
+            session_id: SessionId::new(Uuid::from_u128(20)),
             device_id: None,
+            tenant_id: TenantId::new(Uuid::from_u128(21)),
+            workspace_id: None,
             scope: scope(),
             correlation_id: CorrelationId::new(Uuid::from_u128(3)),
             causation_id: None,
             idempotency_key: Some(IdempotencyKey::new(Uuid::from_u128(4))),
             operation: "eitmad.config.update.v1".to_owned(),
+            target: eitmad_observability_audit::AuditTarget {
+                kind: "configuration".to_owned(),
+                identifiers: vec!["eitmad.config.locale.primary.v1".to_owned()],
+            },
             outcome: AuditOutcome::Succeeded,
             previous_revision: None,
             resulting_revision: None,
             changed_identifiers: vec!["eitmad.config.locale.primary.v1".to_owned()],
-            error_code: None,
+            redacted_error: None,
+            extension_points: Vec::new(),
         }
     }
 

@@ -117,11 +117,23 @@
         "sessionId": {
           "type": "string",
           "format": "uuid"
+        },
+        "tenantId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "workspaceId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
         }
       },
       "required": [
         "sessionId",
         "identity",
+        "tenantId",
         "scope"
       ]
     },
@@ -964,10 +976,22 @@
         },
         "scope": {
           "$ref": "#/definitions/ScopeRef"
+        },
+        "tenantId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "workspaceId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
         }
       },
       "required": [
         "identity",
+        "tenantId",
         "scope"
       ]
     },

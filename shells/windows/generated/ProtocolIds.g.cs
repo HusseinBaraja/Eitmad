@@ -85,6 +85,7 @@ public static class ProtocolIds
         public const string EitmadCapabilityLocalIpcV1 = "eitmad.capability.local-ipc.v1";
         public const string EitmadCapabilityLocalIpcSubscriptionsV1 = "eitmad.capability.local-ipc-subscriptions.v1";
         public const string EitmadCapabilityAuthorizationPolicyEventsV1 = "eitmad.capability.authorization-policy-events.v1";
+        public const string EitmadCapabilityAuthorizationScopesV1 = "eitmad.capability.authorization-scopes.v1";
         public const string EitmadCapabilityConfigV1 = "eitmad.capability.config.v1";
         public const string EitmadCapabilityPermissionsV1 = "eitmad.capability.permissions.v1";
         public const string EitmadCapabilitySyncV1 = "eitmad.capability.sync.v1";

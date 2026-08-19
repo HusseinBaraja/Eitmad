@@ -13,6 +13,7 @@ pub const CAPABILITIES: &[&str] = &[
     "eitmad.capability.local-ipc.v1",
     "eitmad.capability.local-ipc-subscriptions.v1",
     "eitmad.capability.authorization-policy-events.v1",
+    "eitmad.capability.authorization-scopes.v1",
     "eitmad.capability.config.v1",
     "eitmad.capability.permissions.v1",
     "eitmad.capability.sync.v1",

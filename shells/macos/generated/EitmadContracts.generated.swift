@@ -313,17 +313,22 @@ public extension CommandEnvelope {
 public struct AuthorizationContext: Codable, Sendable {
     public let identity: AuthenticatedIdentity
     public let scope: ScopeRef
-    public let sessionID: String
+    public let sessionID, tenantID: String
+    public let workspaceID: String?
 
     public enum CodingKeys: String, CodingKey {
         case identity, scope
         case sessionID = "sessionId"
+        case tenantID = "tenantId"
+        case workspaceID = "workspaceId"
     }
 
-    public init(identity: AuthenticatedIdentity, scope: ScopeRef, sessionID: String) {
+    public init(identity: AuthenticatedIdentity, scope: ScopeRef, sessionID: String, tenantID: String, workspaceID: String?) {
         self.identity = identity
         self.scope = scope
         self.sessionID = sessionID
+        self.tenantID = tenantID
+        self.workspaceID = workspaceID
     }
 }
 
@@ -348,12 +353,16 @@ public extension AuthorizationContext {
     func with(
         identity: AuthenticatedIdentity? = nil,
         scope: ScopeRef? = nil,
-        sessionID: String? = nil
+        sessionID: String? = nil,
+        tenantID: String? = nil,
+        workspaceID: String?? = nil
     ) -> AuthorizationContext {
         return AuthorizationContext(
             identity: identity ?? self.identity,
             scope: scope ?? self.scope,
-            sessionID: sessionID ?? self.sessionID
+            sessionID: sessionID ?? self.sessionID,
+            tenantID: tenantID ?? self.tenantID,
+            workspaceID: workspaceID ?? self.workspaceID
         )
     }
 
@@ -2795,10 +2804,20 @@ public extension HandshakeRequest {
 public struct DevelopmentIdentityAssertion: Codable, Sendable {
     public let identity: AuthenticatedIdentity
     public let scope: ScopeRef
+    public let tenantID: String
+    public let workspaceID: String?
 
-    public init(identity: AuthenticatedIdentity, scope: ScopeRef) {
+    public enum CodingKeys: String, CodingKey {
+        case identity, scope
+        case tenantID = "tenantId"
+        case workspaceID = "workspaceId"
+    }
+
+    public init(identity: AuthenticatedIdentity, scope: ScopeRef, tenantID: String, workspaceID: String?) {
         self.identity = identity
         self.scope = scope
+        self.tenantID = tenantID
+        self.workspaceID = workspaceID
     }
 }
 
@@ -2822,11 +2841,15 @@ public extension DevelopmentIdentityAssertion {
 
     func with(
         identity: AuthenticatedIdentity? = nil,
-        scope: ScopeRef? = nil
+        scope: ScopeRef? = nil,
+        tenantID: String? = nil,
+        workspaceID: String?? = nil
     ) -> DevelopmentIdentityAssertion {
         return DevelopmentIdentityAssertion(
             identity: identity ?? self.identity,
-            scope: scope ?? self.scope
+            scope: scope ?? self.scope,
+            tenantID: tenantID ?? self.tenantID,
+            workspaceID: workspaceID ?? self.workspaceID
         )
     }
 
