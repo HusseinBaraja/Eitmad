@@ -9,7 +9,7 @@ use std::{
     fs::{self, File, OpenOptions},
     io::{Read as _, Write as _},
     path::{Path, PathBuf},
-    sync::{Arc, Mutex, MutexGuard},
+    sync::{Arc, Mutex, MutexGuard, OnceLock},
 };
 
 use aes_gcm::{
@@ -27,6 +27,7 @@ const FALLBACK_NONCE_BYTES: usize = 12;
 const MAX_SECRET_BYTES: usize = 2 * 1024;
 const NATIVE_SERVICE_PREFIX: &str = "com.eitmad.secret";
 const NATIVE_PROBE_SERVICE: &str = "com.eitmad.secret.probe";
+static NATIVE_PROBE_AVAILABLE: OnceLock<bool> = OnceLock::new();
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SecretStorageError {
@@ -138,14 +139,26 @@ impl SecretStore {
         fallback_directory: impl AsRef<Path>,
         fallback_key: Option<FallbackEncryptionKey>,
     ) -> Result<Self, SecretStorageError> {
-        if NativeSecretBackend::probe().is_ok() {
+        Self::open_with_native_availability(
+            fallback_directory.as_ref(),
+            fallback_key,
+            NativeSecretBackend::probe().is_ok(),
+        )
+    }
+
+    fn open_with_native_availability(
+        fallback_directory: &Path,
+        fallback_key: Option<FallbackEncryptionKey>,
+        native_available: bool,
+    ) -> Result<Self, SecretStorageError> {
+        if native_available {
             return Ok(Self {
                 backend: Arc::new(NativeSecretBackend),
                 kind: SecretBackendKind::OsNative,
             });
         }
         let key = fallback_key.ok_or(SecretStorageError::FallbackKeyRequired)?;
-        let backend = EncryptedFallbackBackend::open(fallback_directory.as_ref(), key)?;
+        let backend = EncryptedFallbackBackend::open(fallback_directory, key)?;
         Ok(Self {
             backend: Arc::new(backend),
             kind: SecretBackendKind::EncryptedFallback,
@@ -191,7 +204,11 @@ struct NativeSecretBackend;
 
 impl NativeSecretBackend {
     fn probe() -> Result<(), SecretStorageError> {
-        native_probe()
+        if *NATIVE_PROBE_AVAILABLE.get_or_init(|| native_probe().is_ok()) {
+            Ok(())
+        } else {
+            Err(SecretStorageError::NativeUnavailable)
+        }
     }
 }
 
@@ -287,16 +304,30 @@ struct EncryptedFallbackBackend {
     directory: PathBuf,
     key: FallbackEncryptionKey,
     process_lock: Mutex<()>,
+    lock_file: File,
+    platform_user_sid: Option<String>,
 }
 
 impl EncryptedFallbackBackend {
     fn open(directory: &Path, key: FallbackEncryptionKey) -> Result<Self, SecretStorageError> {
         fs::create_dir_all(directory).map_err(|_| SecretStorageError::Unavailable)?;
-        make_directory_private(directory)?;
+        let platform_user_sid = platform_user_sid()?;
+        make_directory_private(directory, platform_user_sid.as_deref())?;
+        let lock_path = directory.join("secret-store.lock");
+        let lock_file = OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .read(true)
+            .write(true)
+            .open(&lock_path)
+            .map_err(|_| SecretStorageError::Unavailable)?;
+        make_file_private(&lock_path, &lock_file, platform_user_sid.as_deref())?;
         Ok(Self {
             directory: directory.to_owned(),
             key,
             process_lock: Mutex::new(()),
+            lock_file,
+            platform_user_sid,
         })
     }
 
@@ -306,23 +337,15 @@ impl EncryptedFallbackBackend {
             .join(format!("{}.secret", lowercase_hex(&digest)))
     }
 
-    fn lock(&self) -> Result<(MutexGuard<'_, ()>, LockedFile), SecretStorageError> {
+    fn lock(&self) -> Result<(MutexGuard<'_, ()>, LockedFile<'_>), SecretStorageError> {
         let guard = self
             .process_lock
             .lock()
             .map_err(|_| SecretStorageError::Unavailable)?;
-        let path = self.directory.join("secret-store.lock");
-        let file = OpenOptions::new()
-            .create(true)
-            .truncate(false)
-            .read(true)
-            .write(true)
-            .open(&path)
+        self.lock_file
+            .lock_exclusive()
             .map_err(|_| SecretStorageError::Unavailable)?;
-        make_file_private(&path, &file)?;
-        file.lock_exclusive()
-            .map_err(|_| SecretStorageError::Unavailable)?;
-        Ok((guard, LockedFile(file)))
+        Ok((guard, LockedFile(&self.lock_file)))
     }
 
     fn encrypt(
@@ -379,7 +402,7 @@ impl SecretBackend for EncryptedFallbackBackend {
         let encoded = self.encrypt(id, material)?;
         let path = self.path_for(id);
         recover_backup(&path)?;
-        replace_private_file(&path, &encoded)
+        replace_private_file(&path, &encoded, self.platform_user_sid.as_deref())
     }
 
     fn get(&self, id: &SecretId) -> Result<Option<SecretMaterial>, SecretStorageError> {
@@ -417,23 +440,32 @@ impl SecretBackend for EncryptedFallbackBackend {
     }
 }
 
-struct LockedFile(File);
+struct LockedFile<'a>(&'a File);
 
-impl Drop for LockedFile {
+impl Drop for LockedFile<'_> {
     fn drop(&mut self) {
-        let _ = fs2::FileExt::unlock(&self.0);
+        let _ = fs2::FileExt::unlock(self.0);
     }
 }
 
-fn replace_private_file(path: &Path, content: &[u8]) -> Result<(), SecretStorageError> {
+fn replace_private_file(
+    path: &Path,
+    content: &[u8],
+    platform_user_sid: Option<&str>,
+) -> Result<(), SecretStorageError> {
     let parent = path.parent().ok_or(SecretStorageError::Unavailable)?;
     let temporary = parent.join(format!(".secret-write-{}", Uuid::new_v4()));
-    let mut file = OpenOptions::new()
-        .create_new(true)
-        .write(true)
+    let mut options = OpenOptions::new();
+    options.create_new(true).write(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt as _;
+        options.mode(0o600);
+    }
+    let mut file = options
         .open(&temporary)
         .map_err(|_| SecretStorageError::Unavailable)?;
-    if make_file_private(&temporary, &file).is_err()
+    if make_file_private(&temporary, &file, platform_user_sid).is_err()
         || file.write_all(content).is_err()
         || file.sync_all().is_err()
     {
@@ -495,46 +527,78 @@ fn lowercase_hex(bytes: &[u8]) -> String {
 }
 
 #[cfg(unix)]
-fn make_directory_private(path: &Path) -> Result<(), SecretStorageError> {
+fn make_directory_private(
+    path: &Path,
+    _platform_user_sid: Option<&str>,
+) -> Result<(), SecretStorageError> {
     use std::os::unix::fs::PermissionsExt as _;
     fs::set_permissions(path, fs::Permissions::from_mode(0o700))
         .map_err(|_| SecretStorageError::Unavailable)
 }
 
 #[cfg(windows)]
-fn make_directory_private(path: &Path) -> Result<(), SecretStorageError> {
-    make_windows_path_private(path, true)
+fn make_directory_private(
+    path: &Path,
+    platform_user_sid: Option<&str>,
+) -> Result<(), SecretStorageError> {
+    make_windows_path_private(
+        path,
+        true,
+        platform_user_sid.ok_or(SecretStorageError::Unavailable)?,
+    )
 }
 
 #[cfg(all(not(unix), not(windows)))]
-fn make_directory_private(path: &Path) -> Result<(), SecretStorageError> {
+fn make_directory_private(
+    path: &Path,
+    _platform_user_sid: Option<&str>,
+) -> Result<(), SecretStorageError> {
     fs::metadata(path)
         .map(|_| ())
         .map_err(|_| SecretStorageError::Unavailable)
 }
 
 #[cfg(unix)]
-fn make_file_private(_path: &Path, file: &File) -> Result<(), SecretStorageError> {
+fn make_file_private(
+    _path: &Path,
+    file: &File,
+    _platform_user_sid: Option<&str>,
+) -> Result<(), SecretStorageError> {
     use std::os::unix::fs::PermissionsExt as _;
     file.set_permissions(fs::Permissions::from_mode(0o600))
         .map_err(|_| SecretStorageError::Unavailable)
 }
 
 #[cfg(windows)]
-fn make_file_private(path: &Path, _file: &File) -> Result<(), SecretStorageError> {
-    make_windows_path_private(path, false)
+fn make_file_private(
+    path: &Path,
+    _file: &File,
+    platform_user_sid: Option<&str>,
+) -> Result<(), SecretStorageError> {
+    make_windows_path_private(
+        path,
+        false,
+        platform_user_sid.ok_or(SecretStorageError::Unavailable)?,
+    )
 }
 
 #[cfg(all(not(unix), not(windows)))]
-fn make_file_private(_path: &Path, file: &File) -> Result<(), SecretStorageError> {
+fn make_file_private(
+    _path: &Path,
+    file: &File,
+    _platform_user_sid: Option<&str>,
+) -> Result<(), SecretStorageError> {
     file.metadata()
         .map(|_| ())
         .map_err(|_| SecretStorageError::Unavailable)
 }
 
 #[cfg(windows)]
-fn make_windows_path_private(path: &Path, directory: bool) -> Result<(), SecretStorageError> {
-    let sid = current_windows_user_sid()?;
+fn make_windows_path_private(
+    path: &Path,
+    directory: bool,
+    sid: &str,
+) -> Result<(), SecretStorageError> {
     let initial_acl = read_windows_acl(path)?;
     if windows_acl_is_private(&initial_acl) && windows_acl_contains_sid(path, &sid)? {
         return Ok(());
@@ -589,6 +653,16 @@ fn current_windows_user_sid() -> Result<String, SecretStorageError> {
 }
 
 #[cfg(windows)]
+fn platform_user_sid() -> Result<Option<String>, SecretStorageError> {
+    current_windows_user_sid().map(Some)
+}
+
+#[cfg(not(windows))]
+fn platform_user_sid() -> Result<Option<String>, SecretStorageError> {
+    Ok(None)
+}
+
+#[cfg(windows)]
 fn read_windows_acl(path: &Path) -> Result<String, SecretStorageError> {
     use std::process::Command;
 
@@ -624,7 +698,14 @@ fn windows_acl_contains_sid(path: &Path, sid: &str) -> Result<bool, SecretStorag
         .args(["/findsid", &format!("*{sid}"), "/q"])
         .output()
         .map_err(|_| SecretStorageError::Unavailable)?;
-    Ok(output.status.success())
+    Ok(output.status.success() && windows_findsid_output_contains_path(&output.stdout, path))
+}
+
+#[cfg(windows)]
+fn windows_findsid_output_contains_path(stdout: &[u8], path: &Path) -> bool {
+    let output = String::from_utf8_lossy(stdout).to_lowercase();
+    let expected_path = path.to_string_lossy().to_lowercase();
+    output.lines().any(|line| line.contains(&expected_path))
 }
 
 #[cfg(windows)]
@@ -904,6 +985,62 @@ mod tests {
         assert!(matches!(
             SecretMaterial::new(vec![0; MAX_SECRET_BYTES + 1]),
             Err(SecretStorageError::SecretTooLarge)
+        ));
+    }
+
+    #[test]
+    fn fallback_key_is_required_when_native_storage_is_unavailable() {
+        let directory = TempDir::new().unwrap();
+
+        assert!(matches!(
+            SecretStore::open_with_native_availability(directory.path(), None, false),
+            Err(SecretStorageError::FallbackKeyRequired)
+        ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn encrypted_fallback_uses_private_unix_permissions() {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        let directory = TempDir::new().unwrap();
+        let backend =
+            EncryptedFallbackBackend::open(directory.path(), FallbackEncryptionKey::new([7; 32]))
+                .unwrap();
+        let identifier = id(10);
+        backend
+            .set(
+                &identifier,
+                &SecretMaterial::new(b"permission-test".to_vec()).unwrap(),
+            )
+            .unwrap();
+
+        assert_eq!(
+            fs::metadata(directory.path()).unwrap().permissions().mode() & 0o777,
+            0o700
+        );
+        assert_eq!(
+            fs::metadata(backend.path_for(&identifier))
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o777,
+            0o600
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_findsid_output_requires_the_target_path() {
+        let path = Path::new(r"C:\synthetic\secret.bin");
+
+        assert!(windows_findsid_output_contains_path(
+            b"SID Found: C:\\synthetic\\secret.bin.\r\nSuccessfully processed 1 files",
+            path,
+        ));
+        assert!(!windows_findsid_output_contains_path(
+            b"No files with a matching SID was found\r\nSuccessfully processed 0 files",
+            path,
         ));
     }
 
