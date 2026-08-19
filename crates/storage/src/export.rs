@@ -13,6 +13,10 @@ use crate::{AuthorityStore, StorageError, make_file_private};
 
 pub const LOCAL_DATA_EXPORT_FORMAT: &str = "eitmad.local-data-export.v1";
 
+/// Describes the fixed portable export boundary for documentation and inspection.
+///
+/// This is not caller-configurable; [`AuthorityStore::export_tenant_data`] owns
+/// and enforces the portable export contract.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct LocalDataExportPolicy {
     pub scope: ExportScope,
@@ -107,7 +111,7 @@ struct ConfigurationValueExport {
 impl AuthorityStore {
     /// Writes one portable, tenant-scoped export without sessions, audit, or secrets.
     ///
-    /// The destination must not exist. The export is written privately and renamed
+    /// The destination must not exist. The export is written privately and linked
     /// atomically only after serialization and flush succeed.
     ///
     /// # Errors
@@ -132,9 +136,9 @@ impl AuthorityStore {
         fs::create_dir_all(parent).map_err(|_| StorageError)?;
         let temporary = parent.join(format!(".eitmad-export-{}.json", Uuid::new_v4()));
         let result = write_private_new(&temporary, &encoded)
-            .and_then(|()| fs::rename(&temporary, destination).map_err(|_| StorageError));
+            .and_then(|()| publish_without_clobber(&temporary, destination));
         if result.is_err() {
-            let _ = fs::remove_file(temporary);
+            let _ = fs::remove_file(&temporary);
         }
         result
     }
@@ -312,6 +316,12 @@ fn write_private_new(path: &Path, contents: &[u8]) -> Result<(), StorageError> {
     file.sync_all().map_err(|_| StorageError)
 }
 
+fn publish_without_clobber(temporary: &Path, destination: &Path) -> Result<(), StorageError> {
+    let result = fs::hard_link(temporary, destination).map_err(|_| StorageError);
+    let _ = fs::remove_file(temporary);
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use eitmad_contracts::identity::{AccountId, OrganizationId, UserId, WorkspaceId};
@@ -361,5 +371,18 @@ mod tests {
                 .excluded
                 .contains(&ExportDataClass::Secret)
         );
+    }
+
+    #[test]
+    fn publication_does_not_clobber_an_existing_destination() {
+        let directory = TempDir::new().unwrap();
+        let temporary = directory.path().join("temporary.json");
+        let destination = directory.path().join("tenant.json");
+        fs::write(&temporary, b"replacement").unwrap();
+        fs::write(&destination, b"original").unwrap();
+
+        assert!(publish_without_clobber(&temporary, &destination).is_err());
+        assert_eq!(fs::read(&destination).unwrap(), b"original");
+        assert!(!temporary.exists());
     }
 }
