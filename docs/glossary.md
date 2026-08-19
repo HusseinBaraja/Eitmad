@@ -132,7 +132,7 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | نقطة امتداد التدقيق | Audit extension point | A typed durable marker that classifies a common execution boundary or reserves future approval, ledger, conflict, security-event, or undo-critical linkage; a workflow marker does not implement that workflow. |
 | معرّف الارتباط | Correlation ID | A non-secret identifier that connects structured operational evidence across boundaries; it is not identity, authorization, or a business record key. |
 | سجل منظم | Structured log | A Rust-produced diagnostic event whose fields are allowlisted, typed, classified, correlated, and redacted before serialization. |
-| التشخيص الحساس المؤقت | Temporary sensitive debug | A warned, audited, time-bounded diagnostic mode that may reveal `Sensitive` fields until expiry while always redacting `Secret` fields. No user-facing label exists yet. |
+| التشخيص الحساس المؤقت | Temporary sensitive debug | An owner-permission-gated, localized-warning, audited mode that may reveal `Sensitive` fields until its enforced expiry, supports early disable, and always redacts `Secret` fields. No user-facing label exists yet. |
 | مخزن الأسرار | Secret store | The Rust-owned capability that keeps typed secret material in an OS credential store or, only when necessary, an authenticated encrypted fallback. |
 | مرجع السر | Secret reference | A typed non-secret identifier that configuration or domain state may retain instead of secret material. |
 | المزامنة | Synchronization | The protocol-driven exchange and reconciliation of authorized state across processes, devices, or servers. |

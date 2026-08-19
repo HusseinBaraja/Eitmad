@@ -30,7 +30,7 @@ keywords:
 | Linux desktop | Secret Service | Implemented through `keyring` with Rust crypto; native lifecycle needs Linux desktop CI verification |
 | Native store unavailable | Rust-owned encrypted files | Lifecycle, corruption, recovery, permission, and ciphertext tests passed on Windows |
 
-Backend selection occurs once in `SecretStore::open`. A mid-session native error returns a sanitized availability error; it does not silently switch stores or create split secret state.
+Backend selection occurs once in `SecretStore::open`. The write/read/delete native availability probe runs at most once per engine process, and its result is reused by later store construction. If that first probe fails, later opens in the same process remain on the encrypted fallback; restore the platform service and restart the engine before expecting a new native probe. A mid-session native error returns a sanitized availability error; it does not silently switch stores or create split secret state.
 
 Native shells never call these stores for product secrets. Rust uses `SecretId`, composed of a validated `SecretKind` and `SecretReferenceId`, while configuration may carry only the non-secret reference. Raw material has no serde implementation, prints as `[REDACTED]`, is bounded to 2 KiB for consistent desktop credential-store behavior, rejects empty values, and zeroizes owned memory on drop.
 
@@ -50,7 +50,10 @@ Each fallback record uses:
 - the canonical typed secret identifier as authenticated additional data, preventing ciphertext swaps between identifiers;
 - a SHA-256-derived filename, avoiding identifier/path injection;
 - a user-private directory and files (`0700`/`0600` on Unix and a current-user ACL on Windows);
-- a cross-process file lock and in-process mutex;
+- Unix temporary records created as `0600` before any ciphertext is written;
+- a cross-process file lock hardened once when the backend opens plus an in-process mutex;
+- a Windows user SID resolved once per fallback backend and reused for directory, lock, and temporary-file ACL hardening;
+- `/findsid` verification that requires the target path in successful command output instead of trusting process exit status alone;
 - a private temporary write, flush, recoverable deterministic backup, and replacement flow.
 
 Ciphertext, nonce, format marker, filenames, and lock metadata are not secret values, but the directory still requires restricted access. A wrong key, modified record, identifier swap, invalid format, or oversized ciphertext returns `eitmad.error.secret-storage-corrupt.v1` without exposing cryptographic details.
@@ -72,14 +75,14 @@ No secret-management UI exists. Future Arabic UI must use localized labels, RTL 
 | `eitmad.error.secret-empty.v1` | Empty material rejected | Supply a real bounded secret through the authorized flow |
 | `eitmad.error.secret-too-large.v1` | Material exceeds 2 KiB | Store the intended credential, not a document or payload |
 | `eitmad.error.secret-fallback-key-required.v1` | Native probe failed and no fallback key exists | Restore native credential-store availability or supply an approved out-of-band key |
-| `eitmad.error.secret-storage-unavailable.v1` | Selected backend operation failed | Preserve identifiers and correlation only; retry after platform recovery |
+| `eitmad.error.secret-storage-unavailable.v1` | Selected backend operation or ACL verification failed | Preserve identifiers and correlation only; retry after platform recovery; restart before retrying a process-cached failed native probe |
 | `eitmad.error.secret-storage-corrupt.v1` | Fallback authentication or format failed | Stop using the value; restore the encrypted record and matching key or rotate through the owning provider |
 
 Never repair ciphertext manually, copy secret bytes into configuration, or print a provider error for diagnosis. Use [privacy and secret leakage troubleshooting](../../troubleshooting/privacy-and-secret-leakage.md).
 
 ## Tests and safe extension
 
-Unit tests cover typed lifecycle, invalid identifiers, empty/oversized material, encrypted-at-rest bytes, wrong keys, identifier swaps, interrupted replacement recovery, idempotent deletion, and redacted debug/errors. An ignored native lifecycle test is run explicitly on supported hosts because it touches the OS credential store with a synthetic value and always attempts cleanup.
+Unit tests cover typed lifecycle, required fallback keys, empty/oversized material, encrypted-at-rest bytes, wrong keys, identifier swaps, interrupted replacement recovery, idempotent deletion, redacted debug/errors, Windows SID-result parsing, and Windows ACL enforcement. A `cfg(unix)` test verifies directory mode `0700` and record mode `0600`; run it on Unix CI. An ignored native lifecycle test is run explicitly on supported hosts because it touches the OS credential store with a synthetic value and always attempts cleanup.
 
 ```powershell
 cargo test -p eitmad-secret-storage

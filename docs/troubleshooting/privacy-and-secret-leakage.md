@@ -36,7 +36,7 @@ No Arabic user-facing error copy is implemented. These phrases are support searc
 
 1. If a real secret is visible, do not paste it into an issue, chat, or terminal. Record only the artifact type, timestamp, component, event/error ID, correlation ID, platform, and whether sensitive debug was active.
 2. Confirm whether the field's `ObservationContract` classifies it as `Metadata`, `Sensitive`, or `Secret`.
-3. Check sensitive-debug `expiresAt` against the event timestamp. At equality, the mode is expired.
+3. Check sensitive-debug `expiresAt` against the event timestamp. At equality, the mode is expired even if a caller retained an earlier redaction context.
 4. Confirm the selected secret backend from `SecretBackendKind` without listing account names or values.
 5. For fallback corruption, preserve the encrypted record and matching key through the restricted security route. Do not open, edit, or publish either.
 6. Reproduce only with a synthetic sentinel and the focused tests from the owning subsystem pages.
@@ -46,8 +46,8 @@ No Arabic user-facing error copy is implemented. These phrases are support searc
 | Evidence | Likely cause | Next safe check | Resolution |
 | --- | --- | --- | --- |
 | Undeclared field rejected | Missing or stale observation contract | Compare field name and value kind in Rust | Add a reviewed classification; do not bypass the contract |
-| Sensitive field visible before expiry, secret field redacted | Expected temporary sensitive-debug behavior | Verify enable audit, warning, access restriction, and expiry | End the session when no longer needed; persist expiry audit |
-| Sensitive field visible at or after expiry | Expiry context was not reevaluated | Run the exact-expiry unit test | Fix the caller to evaluate on every emission and fail closed |
+| Sensitive field visible before expiry, secret field redacted | Expected temporary sensitive-debug behavior | Verify permission, enable audit, localized warning message ID, access restriction, and expiry | Disable the session when no longer needed and persist the disable audit |
+| Sensitive field visible at or after expiry | Redaction bound was bypassed or event time is wrong | Run the copied-context exact-expiry unit test | Route the field through `ObservationContract::redact` with the authoritative event timestamp |
 | Free text exists internally but not on the wire | IPC external projection worked | Inspect only stable code and correlation | Replace raw internal construction with typed metadata |
 | `secret-fallback-key-required` | Native store probe failed without an approved key | Check OS credential-store availability | Restore native service or use the approved out-of-band unlock path |
 | `secret-storage-unavailable` | Selected backend is inaccessible | Check platform service and user-private directory availability | Recover the selected backend; do not silently create a second store |

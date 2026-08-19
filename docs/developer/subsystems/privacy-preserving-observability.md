@@ -13,7 +13,8 @@ keywords:
   - "metadata-only logging"
   - "correlation ID"
   - "sensitive debug expiry"
-  - "SENSITIVE_DEBUG_WARNING"
+  - "eitmad.message.observability-sensitive-debug-warning.v1"
+  - "eitmad.permission.observability.sensitive-debug.v1"
 ---
 
 # Extend privacy-preserving observability safely
@@ -27,7 +28,8 @@ flowchart LR
     Caller["Rust capability"] --> Contract["ObservationContract\nfield allowlist · type · classification"]
     Contract --> Redaction["RedactionContext\nmetadata-only by default"]
     Redaction --> Sink["Structured JSON log or crash report"]
-    Debug["SensitiveDebugController\nwarning · 30-minute cap · expiry"] --> Redaction
+    Auth["AuthorizationService\nowner-only permission"] --> Debug["SensitiveDebugController\nmessage ID · disable · 30-minute cap"]
+    Debug --> Redaction
     Debug --> Audit["Enable and expiry\nMutationAuditRecord"]
     IPC["IpcServerMessage writer"] --> ErrorProjection["ContractError\nexternal redaction"] --> Shell["Thin native shell"]
 ```
@@ -36,7 +38,7 @@ flowchart LR
 
 ## Redaction contract
 
-Every field must be declared once with a name, value kind, and classification. Unknown fields, duplicate declarations, and type mismatches fail before serialization.
+Every field must be declared once with a name, value kind, and classification. Unknown fields, duplicate declarations, duplicate emitted values, and type mismatches fail before serialization.
 
 | Classification | Routine output | Active sensitive debug | IPC errors and crash reports |
 | --- | --- | --- | --- |
@@ -44,7 +46,7 @@ Every field must be declared once with a name, value kind, and classification. U
 | `Sensitive` | `redacted` | Included until exact expiry | Never copied from raw causes; crash inclusion requires an already-redacted structured log |
 | `Secret` | `redacted` | `redacted` | Always absent |
 
-Structured output fields are private Rust state. Callers cannot construct a `StructuredLog`, `StructuredError`, or `CrashReport` by filling arbitrary public maps. `ObservationContract::redact` is the creation boundary.
+Structured output fields are private Rust state. Callers cannot construct a `StructuredLog`, `StructuredError`, or `CrashReport` by filling arbitrary public maps. `ObservationContract::redact` is the log creation boundary; `StructuredError::with_contract_metadata` uses that same contract and redaction path for error metadata.
 
 ## Correlation and structured errors
 
@@ -54,29 +56,32 @@ Correlation IDs support search and sequence reconstruction; they are not authent
 
 ## Temporary sensitive-debug lifecycle
 
-`SensitiveDebugController::enable` accepts an authorized context, correlation ID, current `UnixMillis`, and positive duration no greater than 30 minutes. It returns:
+`SensitiveDebugController::enable` requires a `SensitiveDebugPermissionGate`, authorization context, correlation ID, current `UnixMillis`, and positive duration no greater than 30 minutes. `AuthorizationService` grants `eitmad.permission.observability.sensitive-debug.v1` only to an organization owner. A denied request changes no state. An accepted request returns:
 
-- the exact warning `SENSITIVE_DEBUG_WARNING` through active status;
+- stable message ID `eitmad.message.observability-sensitive-debug-warning.v1` through active status for shell localization;
 - an enable audit record marked `SecurityEvent` and `SensitiveDebugMode`;
 - an expiry timestamp calculated without overflow.
 
-At `now >= expiresAt`, `evaluate` returns metadata-only redaction and one expiry audit record, then becomes disabled. Overlapping sessions, zero duration, over-limit duration, and timestamp overflow are rejected. Secret fields never become visible.
+`disable` uses the same permission gate, clears an active session immediately, and returns a disable audit record; disabling an inactive session is rejected. At `now >= expiresAt`, `evaluate` returns metadata-only redaction and one expiry audit record, then becomes disabled. Each active `RedactionContext` carries its exact expiry, and `ObservationContract::redact` compares the event timestamp to that bound, so a copied context cannot reveal sensitive data at or after expiry. Overlapping sessions, zero duration, over-limit duration, and timestamp overflow are rejected. Secret fields never become visible.
 
-No IPC, CLI, or shell control currently enables this mode. A future authorized boundary must durably append the returned enable record before using the active redaction context, append the expiry record, restrict access to emitted diagnostics, and fail closed if audit persistence fails. It must not turn sensitive debug into a global environment variable or permanent setting.
+No IPC, CLI, or shell control currently enables this mode. A future command boundary must use `AuthorizationService` as the permission gate, durably append each enable/disable/expiry record, restrict access to emitted diagnostics, and fail closed if authorization or audit persistence fails. It must not turn sensitive debug into a global environment variable or permanent setting.
 
 ## Security, audit, and Arabic behavior
 
 Normal logs, IPC errors, crash reports, configuration snapshots, and audit payloads exclude raw causes, customer text, product payloads, credentials, and secret material. Sensitive-debug audit targets contain only expiry metadata; they do not contain diagnostic field values.
 
-No user-facing observability UI exists. Future Arabic warnings must render the localized equivalent of the stable warning in RTL, isolate LTR correlation and error identifiers, preserve copy/paste, and never collect Arabic customer text merely for readability. Rust identifiers remain language-neutral.
+No user-facing observability UI or approved Arabic warning copy exists. Future shells must resolve `eitmad.message.observability-sensitive-debug-warning.v1`, render the Arabic warning in RTL, isolate LTR correlation and error identifiers, preserve copy/paste, and never collect Arabic customer text merely for readability. Rust identifiers remain language-neutral.
 
 ## Failure modes and recovery
 
 | Failure | Safe behavior | Recovery |
 | --- | --- | --- |
 | Unknown or wrong-kind field | Reject event construction | Fix the owning `ObservationContract`; do not weaken classification |
+| Duplicate declared or emitted field | Reject event construction | Remove the duplicate at the owning caller; do not rely on last-write-wins behavior |
+| Sensitive-debug permission denied | Keep mode disabled | Verify the authenticated owner and exact organization scope without exposing relationships |
 | Raw text in internal `ContractError` | Strip it at the external projection and IPC writer | Replace it with a stable code or allowlisted typed metadata |
 | Sensitive-debug duration invalid | Reject activation | Request a positive duration within 30 minutes |
+| Sensitive debug no longer needed | Disable it early and persist the returned audit | Continue with metadata-only diagnostics |
 | Sensitive-debug expiry reached | Return metadata-only context and one expiry audit | Persist expiry audit; start a separately authorized session only if still necessary |
 | Serialization failure | Emit only a stable fallback event and correlation ID | Diagnose the structured schema; never print the raw value |
 | Suspected sensitive output | Treat as a privacy incident | Follow [diagnostic leakage recovery](../../troubleshooting/privacy-and-secret-leakage.md) |
@@ -85,7 +90,7 @@ No persistent diagnostic sink, upload destination, retention policy, or support-
 
 ## Tests and safe extension
 
-Focused tests cover metadata-only redaction, sensitive-debug visibility, hard secret redaction, exact expiry, invalid duration, unknown fields, wrong value kinds, safe IPC error projection, crash-report construction, audit payloads, and a shared secret sentinel across outputs. Engine process tests verify structured failure behavior and clean diagnostics.
+Focused tests cover metadata-only redaction, contract-checked structured-error metadata, duplicate/unknown/wrong-kind fields, permission denial, overlapping activation, early disable, hard secret redaction, copied-context expiry, invalid duration, every IPC error projection, frame-level serialization, crash-report construction, audit payloads, and a shared secret sentinel across outputs. Engine process tests verify structured failure behavior and clean diagnostics.
 
 Before adding a field, name its operational decision, choose the narrowest value kind, classify it, and add a sentinel leak test. Before adding a sink, threat-model access, retention, and cross-scope correlation. Run:
 
