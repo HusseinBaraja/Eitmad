@@ -118,11 +118,18 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | تعديل الإعدادات | Configuration patch | A typed optimistic request containing expected revision and changed keys; Rust validates and commits it atomically. |
 | مراجعة الإعدادات | Configuration revision | A monotonic per-scope number incremented once by a real effective patch, not by a no-op or replay. |
 | صلاحية | Permission | An allowed action derived from authenticated identity and relationships; it is enforced by Rust. |
-| علاقة صلاحية | Authorization relationship | A persisted direct association between one user, device, or service principal, one exact scope, and one registered relation. |
+| علاقة صلاحية | Authorization relationship | A scoped tuple connecting a principal or object to another object through one registered relation. Direct organization relationships remain the persisted policy-v1 subset. |
+| ثلاثية علاقة الصلاحية | Relationship tuple | A policy edge with subject, relation, object, and optional condition. Subject and object edges cannot cross tenant/workspace boundaries. |
+| كائن محدد النطاق | Scoped object | An authorization object whose tenant and optional workspace are inseparable from its kind and identifier. |
+| دور مرتبط | Relationship role | A scoped role object whose members receive permissions only through explicit membership and object-relation tuples; it is not a client claim. |
+| صلاحية موروثة | Inherited permission | Access granted through an explicit, bounded parent relation from a protected object to an authorized ancestor. |
+| شرط الصلاحية | Authorization condition | An optional equality, `all`, or `any` predicate over canonical request attributes; a failed or absent required value denies. |
+| بوابة الصلاحية والتدقيق | Authorization and audit gate | The Rust boundary that evaluates policy, prevents denied callbacks from running, and records the complete redacted result. |
 | مالك النطاق | Scope owner | A principal related as organization owner; owners administer relationships, and Rust preserves at least one persisted production owner. Explicit insecure development authentication may instead provide a non-persisted ephemeral owner. |
 | مدير الإعدادات | Configuration manager | A principal related to an organization with permission to patch, import, and export configuration but not administer relationships. |
 | إلغاء الصلاحية | Authorization revocation | A committed policy change that removes effective access and forces active subscriptions to reauthorize before later delivery. |
-| سجل التدقيق | Audit record | A durable account of a state-changing intent and outcome, including actor, scope, time, and correlation. |
+| سجل التدقيق | Audit record | A durable result envelope containing actor, device/session, tenant/workspace, scope, operation, target, outcome, time, correlation, and only redacted error metadata. |
+| نقطة امتداد التدقيق | Audit extension point | A typed marker reserving future approval, ledger, conflict, security-event, or undo-critical linkage; the marker does not implement that workflow. |
 | المزامنة | Synchronization | The protocol-driven exchange and reconciliation of authorized state across processes, devices, or servers. |
 | تعارض | Conflict | Concurrent or incompatible state that cannot be safely combined without a defined domain rule or decision. |
 | محلي أولًا | Local-first | A mode in which local durable work continues offline and later synchronizes under explicit conflict rules. |

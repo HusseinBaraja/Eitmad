@@ -7,7 +7,7 @@ status: "active"
 owner: "Rust storage, identity, and release maintainers"
 last_verified: "2026-08-19"
 review_triggers:
-  - "storage version, compatibility window, identity schema, recovery, or export policy changes"
+  - "storage version 5 identity behavior, recovery, or export policy changes"
 keywords:
   - "storage version 5"
   - "identity.foundation.v1"
@@ -17,14 +17,14 @@ keywords:
 
 # Upgrade local storage to version 5 identity and recovery
 
-Storage version 5 adds persistent tenant identity topology and sessions, session/device audit attribution, automatic validated pre-migration snapshots, explicit quick/full corruption checks, recovery-artifact discovery, and tenant-scoped portable export. Protocol `1.2` wire shapes remain unchanged because these are Rust storage primitives, not new IPC operations.
+Storage version 5 added persistent tenant identity topology and sessions, session/device audit attribution, automatic validated pre-migration snapshots, explicit quick/full corruption checks, recovery-artifact discovery, and tenant-scoped portable export. Storage version 6 now supersedes it for new engines; see the [protocol 1.3 and audit release](protocol-1-3-scoped-authorization-audit.md).
 
 ## Compatibility window
 
 - Fresh storage version `0` creates version 5 directly.
 - Versions `2`, `3`, and `4` upgrade to `5` after a validated pre-migration backup.
 - Version `1` is rejected before migration-history rewrite; use an intermediate compatible engine.
-- Versions above `5` require the matching newer engine and cannot be downgraded.
+- Version `6` requires the protocol `1.3` engine and cannot be opened by the version 5 engine.
 
 Migration `identity.foundation.v1` is additive for supported databases. It creates identity tables and adds nullable session/device columns to existing audit rows. New configuration and authorization mutations populate those columns; older audit rows remain valid with no fabricated attribution.
 

@@ -15,7 +15,7 @@ keywords:
 
 # Eitmad documentation
 
-Choose the route that matches your task. Protocol `1.2`, the engine lifecycle, SQLite authority/recovery, persistent tenant identity, Rust-owned configuration, scoped ReBAC, and Windows process supervision are implemented foundations; no production identity issuer, native settings UI, or business workflow exists yet.
+Choose the route that matches your task. Protocol `1.3`, the engine lifecycle, SQLite authority/recovery, persistent tenant identity, Rust-owned configuration, scoped relationship authorization/audit, and Windows process supervision are implemented foundations; no production identity issuer, native settings UI, or business workflow exists yet.
 
 ## Use the product
 
@@ -25,7 +25,7 @@ No user workflow is ready to document. When the first product flow exists, Engli
 
 - [Start developing Eitmad](developer/index.md): contribution setup, ownership boundaries, tests, and feature documentation.
 - [Extend Rust-owned configuration](developer/subsystems/configuration.md): defaults, validation, revisions, redaction, import/export, and events.
-- [Extend scoped ReBAC authorization](developer/subsystems/authorization.md): direct relationships, policy revisions, owner protection, and revocation.
+- [Extend scoped authorization and audit](developer/subsystems/authorization.md): tuples, roles, inheritance, conditions, isolation, boundary gates, and complete redacted audit.
 - [Extend persistent tenant identity](developer/subsystems/identity-foundation.md): device, account, session, scope topology, offline behavior, and audit attribution.
 - [Understand the target architecture](architecture/index.md): Rust authority, trust boundaries, synchronization, security, and updates.
 - [Use protocol v1 contracts](api/index.md): exact Rust-owned contracts, compatibility, generation, and native bindings.

@@ -32,7 +32,7 @@ Read `AGENTS.md` at the repository root, then review:
 - [Engine runtime lifecycle](subsystems/engine-runtime.md)
 - [Typed local IPC](subsystems/local-ipc.md)
 - [Rust-owned configuration](subsystems/configuration.md)
-- [Scoped ReBAC authorization](subsystems/authorization.md)
+- [Scoped authorization and audit](subsystems/authorization.md)
 - [Rust-owned local storage](subsystems/local-storage.md)
 - [Persistent tenant identity](subsystems/identity-foundation.md)
 - [Windows engine process supervision](subsystems/windows-process-supervision.md)

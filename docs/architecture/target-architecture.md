@@ -40,7 +40,7 @@ The same Rust engine MUST support:
 - headless operation for supported unattended workflows;
 - diagnostic operation for health checks, compatibility inspection, and support tooling.
 
-Implemented authority foundations now include protocol `1.2`, a runtime-owned SQLite database, organization configuration with `ar-YE` default, direct scoped ReBAC policy v1, durable audit/idempotency, and active subscription reauthorization. Native settings UI, trusted production identity provisioning, database encryption, and the first production business vertical remain future work.
+Implemented authority foundations now include protocol `1.3`, a runtime-owned SQLite database, organization configuration with `ar-YE` default, scoped relationship policy v2 beside direct policy-v1 compatibility, mandatory redacted boundary audit, durable idempotency, and active subscription reauthorization. Native settings UI, trusted production identity provisioning, generic tuple persistence, database encryption, and the first production business vertical remain future work.
 
 ## Ownership rules
 
@@ -261,7 +261,7 @@ The following designs are prohibited unless an approved architectural decision r
 
 ## Initial implementation gates
 
-Protocol `1.2`, Rust-owned configuration, direct scoped ReBAC, SQLite authority storage, and local IPC are implemented and documented in the [contract reference](../api/index.md). No production business vertical slice exists. Before the first production vertical slice, the team MUST define and review:
+Protocol `1.3`, Rust-owned configuration, scoped relationship authorization/audit, SQLite authority storage, and local IPC are implemented and documented in the [contract reference](../api/index.md). No production business vertical slice exists. Before the first production vertical slice, the team MUST define and review:
 
 1. the first bounded domain and its Arabic terminology;
 2. command, query, subscription, error, version, and capability contracts;

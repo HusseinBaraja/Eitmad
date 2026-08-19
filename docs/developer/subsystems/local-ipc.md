@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust engine and Windows platform maintainers"
-last_verified: "2026-07-18"
+last_verified: "2026-08-19"
 review_triggers:
   - "local IPC framing, authentication, dispatch, timeout, payload, or shutdown behavior changes"
 keywords:
@@ -39,7 +39,7 @@ sequenceDiagram
     participant Shell as "Windows shell adapter"
     participant IPC as "Rust LocalIpcServer"
     participant Domain as "Rust dispatcher"
-    Shell->>IPC: PeerHello + development proof + asserted identity/scope
+    Shell->>IPC: PeerHello + development proof + asserted identity/tenant/workspace/scope
     IPC-->>Shell: negotiated protocol + engine-issued SessionId
     Shell->>IPC: typed command/query/subscription envelope
     IPC->>IPC: validate session, version, scope context, and deadline
@@ -50,7 +50,7 @@ sequenceDiagram
     IPC-->>Shell: ordered EventEnvelope
 ```
 
-The handshake is mandatory. Rust negotiates protocol `1.0`, `1.1`, or `1.2`. Protocol `1.0` remains command/query-only; subscriptions require protocol `1.1` plus `eitmad.capability.local-ipc-subscriptions.v1`. Relationship administration and authorization-policy streams require `1.2`; policy streams also require `eitmad.capability.authorization-policy-events.v1`. Each accepted connection receives a new `SessionId`; envelopes must reproduce the negotiated protocol and exact authorization context.
+The handshake is mandatory. Rust advertises protocol `1.0–1.3`. Protocol `1.0` remains command/query-only; subscriptions require protocol `1.1` plus `eitmad.capability.local-ipc-subscriptions.v1`. Relationship administration and authorization-policy streams require `1.2`; policy streams also require `eitmad.capability.authorization-policy-events.v1`. Protocol `1.3` adds mandatory tenant and explicit optional workspace context. The engine requires `eitmad.capability.authorization-scopes.v1`, so an older unscoped peer is rejected before normal traffic. Each accepted connection receives a new `SessionId`; envelopes must reproduce the negotiated protocol and exact identity, tenant, workspace, and scope context.
 
 ## Subscription streams and payload ownership
 
@@ -60,7 +60,7 @@ Every publisher supplies an authorized `ScopeRef`. The broker rejects events who
 
 Policy mutations signal active pumps to reauthorize, and every event is reauthorized again at the writer boundary. Policy-change notifications remain active while a write is blocked. If access is revoked before writing starts, a protocol `1.2` stream closes with `authorizationRevoked` and reports only its last fully written cursor. If revocation arrives during a partial or blocked write, Rust terminates the connection so the peer cannot accept a partial frame. Protocol `1.0` and `1.1` revoked connections terminate safely instead of receiving an unknown close-reason variant.
 
-Subscribe and unsubscribe are read-only and do not create audit records. The command or background process that caused a state change retains its vertical's ReBAC and audit obligations.
+Subscription authorization remains deny-by-default and is rechecked before delivery. Query outcomes now create mandatory redacted audit records. The command or background process that caused a state change retains its vertical's atomic authorization and audit obligations.
 
 ## Ordering, replay, and duplicate delivery
 

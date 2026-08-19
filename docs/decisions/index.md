@@ -56,6 +56,7 @@ Accepted ADRs are immutable historical records except for typo fixes, link repai
 | [ADR-0017](0017-windows-named-pipe-local-ipc.md) | Use bounded JSON frames over Windows named pipes | Accepted | 2026-07-12 | None |
 | [ADR-0018](0018-bounded-resumable-local-ipc-events.md) | Use bounded resumable local IPC event streams | Accepted | 2026-07-13 | None |
 | [ADR-0019](0019-sqlite-authority-storage.md) | Use SQLite for local authority storage | Accepted | 2026-07-18 | None |
-| [ADR-0020](0020-direct-principal-scope-rebac-policy.md) | Use direct principal-to-scope ReBAC policy v1 | Accepted | 2026-07-18 | None |
+| [ADR-0020](0020-direct-principal-scope-rebac-policy.md) | Use direct principal-to-scope ReBAC policy v1 | Superseded | 2026-07-18 | None |
 | [ADR-0021](0021-checksummed-feature-storage-migrations.md) | Use checksummed feature-owned storage migrations | Accepted | 2026-07-18 | None |
 | [ADR-0022](0022-persistent-tenant-identity-and-safe-storage-recovery.md) | Persist tenant identity and fail closed during storage recovery | Accepted | 2026-08-19 | None |
+| [ADR-0023](0023-scoped-relationship-authorization-and-audit.md) | Use scoped relationship graphs and one audited boundary gate | Accepted | 2026-08-19 | ADR-0020 |

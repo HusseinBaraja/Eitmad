@@ -17,7 +17,7 @@ keywords:
 
 # Run Eitmad foundation checks
 
-These steps verify the current foundation. Rust owns local SQLite authority, migration snapshots, validated backup/restore, persistent identity, corruption checks, and scoped export hooks. Packaging, scheduled backup, retention, restore/export IPC, and production operator tooling are not implemented.
+These steps verify the current foundation. Rust owns local SQLite authority through storage version 6, migration snapshots, validated backup/restore, persistent identity, scoped authorization/audit, corruption checks, and scoped export hooks. Packaging, scheduled backup, retention, restore/export IPC, and production operator tooling are not implemented.
 
 ## Prerequisites
 

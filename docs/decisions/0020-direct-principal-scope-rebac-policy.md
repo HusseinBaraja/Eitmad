@@ -3,7 +3,7 @@ title: "ADR-0020: Use direct principal-to-scope ReBAC policy v1"
 description: "Records the first compiled ReBAC policy, owner bootstrap, revision, and subscription revocation behavior."
 audience: "architecture"
 page_type: "decision"
-status: "active"
+status: "historical"
 owner: "architecture and authorization maintainers"
 last_verified: "2026-08-19"
 review_triggers:
@@ -16,11 +16,11 @@ keywords:
 
 # ADR-0020: Use direct principal-to-scope ReBAC policy v1
 
-> - Status: Accepted
+> - Status: Superseded
 > - Date: 2026-07-18
 > - Decision owners: Architecture and authorization maintainers
 > - Supersedes: None
-> - Superseded by: None
+> - Superseded by: [ADR-0023](0023-scoped-relationship-authorization-and-audit.md)
 
 ## Context
 
