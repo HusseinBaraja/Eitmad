@@ -139,6 +139,12 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | تعارض | Conflict | Concurrent or incompatible state that cannot be safely combined without a defined domain rule or decision. |
 | محلي أولًا | Local-first | A mode in which local durable work continues offline and later synchronizes under explicit conflict rules. |
 | الخادم هو المرجع | Server-authoritative | A mode in which the server determines canonical state and ordering for the domain. |
+| تغيير معلّق | Pending change | A durable local-first mutation waiting for acknowledgement or reconciliation. No user-facing label is approved yet. |
+| أمر معلّق | Pending command | A durable server-authoritative intent waiting for an accepted or denied server result. No user-facing label is approved yet. |
+| حالة متفائلة | Optimistic state | A provisional local projection of a pending server command; it is not confirmed server truth and may roll back. No user-facing label is approved yet. |
+| لقطة مزامنة | Sync snapshot | A scoped server projection with a checkpoint, generation, and explicit cache validity deadline. No user-facing label is approved yet. |
+| ذاكرة مؤقتة قديمة | Stale cache | Server-confirmed cached data whose validity deadline has passed; authoritative reads must withhold it until refresh. No user-facing label is approved yet. |
+| بيانات الدمج الوصفية | Merge metadata | Provenance recording conflict strategy, common ancestor revision, source change IDs, and merge time. No user-facing label is approved yet. |
 | إمكانية | Capability | A negotiated, machine-readable statement that a peer supports defined behavior or contract features. |
 | معرّف البروتوكول | Protocol identifier | A stable Rust-registered operation, capability, permission, schema, error, message, or configuration name generated for native clients. |
 | تفاوض الإصدار | Version negotiation | The pre-request selection of a mutually supported protocol version, capabilities, and schema versions. |

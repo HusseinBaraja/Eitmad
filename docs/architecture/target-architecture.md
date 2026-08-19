@@ -148,6 +148,8 @@ The product supports two modes:
 
 Both modes MUST use one versioned sync protocol across local IPC concepts, LAN, and WAN transports. Transport differences MUST NOT produce different domain semantics.
 
+The implemented `eitmad-sync` foundation persists either mode per scope. Local-first state remains readable offline and reconciles pending changes after negotiation. Server-authoritative state separates confirmed cache from pending commands, labels optimistic projections, rolls denied commands back to confirmed state plus remaining projections, and withholds stale confirmed cache. See [dual-mode synchronization](../developer/subsystems/synchronization.md).
+
 The protocol MUST define:
 
 - stable record identity, explicit scope, actor, device, and causation metadata;
@@ -261,7 +263,7 @@ The following designs are prohibited unless an approved architectural decision r
 
 ## Initial implementation gates
 
-Protocol `1.3`, Rust-owned configuration, scoped relationship authorization/audit, privacy-preserving observability, cross-platform secret storage, SQLite authority storage, and local IPC are implemented and documented in the [contract reference](../api/index.md). No production business vertical slice exists. Before the first production vertical slice, the team MUST define and review:
+Protocol `1.3`, Rust-owned configuration, scoped relationship authorization/audit, privacy-preserving observability, cross-platform secret storage, SQLite authority storage, local IPC, and the dual-mode sync engine foundation are implemented and documented in the [contract reference](../api/index.md). No production business vertical slice or server sync-plane exists. Before the first production vertical slice, the team MUST define and review:
 
 1. the first bounded domain and its Arabic terminology;
 2. command, query, subscription, error, version, and capability contracts;
