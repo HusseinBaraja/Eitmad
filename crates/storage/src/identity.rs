@@ -409,18 +409,18 @@ fn verify_topology(
         }
     }
     if let Some(workspace_id) = identity.workspace_id {
-        let count = connection
+        let stored_organization = connection
             .query_row(
-                "SELECT COUNT(*) FROM identity_workspaces
+                "SELECT organization_id FROM identity_workspaces
                  WHERE workspace_id = ?1 AND tenant_id = ?2",
                 params![
                     workspace_id.value().to_string(),
                     identity.tenant_id.value().to_string()
                 ],
-                |row| row.get::<_, i64>(0),
+                |row| row.get::<_, Option<String>>(0),
             )
             .map_err(|_| StorageError)?;
-        if count != 1 {
+        if stored_organization != identity.organization_id.map(|id| id.value().to_string()) {
             return Err(StorageError);
         }
     }
@@ -583,6 +583,70 @@ mod tests {
                     SessionConnectivity::Offline,
                 )
                 .unwrap()
+        );
+    }
+
+    #[test]
+    fn device_refresh_preserves_creation_and_latest_seen_times() {
+        let directory = TempDir::new().unwrap();
+        let store = AuthorityStore::open(directory.path()).unwrap();
+        let device_id = DeviceId::new(id(40));
+        store
+            .persist_device(&DeviceIdentity {
+                device_id,
+                created_at: UnixMillis(10),
+                last_seen_at: UnixMillis(30),
+            })
+            .unwrap();
+        store
+            .persist_device(&DeviceIdentity {
+                device_id,
+                created_at: UnixMillis(20),
+                last_seen_at: UnixMillis(20),
+            })
+            .unwrap();
+
+        let stored = store
+            .read_transaction(|connection| {
+                connection
+                    .query_row(
+                        "SELECT created_at, last_seen_at FROM identity_devices
+                         WHERE device_id = ?1",
+                        [device_id.value().to_string()],
+                        |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?)),
+                    )
+                    .map_err(|_| StorageError)
+            })
+            .unwrap();
+        assert_eq!(stored, (10, 30));
+    }
+
+    #[test]
+    fn workspace_cannot_change_organization() {
+        let directory = TempDir::new().unwrap();
+        let store = AuthorityStore::open(directory.path()).unwrap();
+        let original = topology(1);
+        store.persist_identity_topology(&original).unwrap();
+        let mut conflicting = original.clone();
+        conflicting.organization_id = Some(OrganizationId::new(id(99)));
+
+        assert!(store.persist_identity_topology(&conflicting).is_err());
+
+        let stored = store
+            .read_transaction(|connection| {
+                connection
+                    .query_row(
+                        "SELECT organization_id FROM identity_workspaces
+                         WHERE workspace_id = ?1",
+                        [original.workspace_id.unwrap().value().to_string()],
+                        |row| row.get::<_, Option<String>>(0),
+                    )
+                    .map_err(|_| StorageError)
+            })
+            .unwrap();
+        assert_eq!(
+            stored,
+            original.organization_id.map(|id| id.value().to_string())
         );
     }
 
