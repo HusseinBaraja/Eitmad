@@ -328,9 +328,17 @@ internal sealed class SupervisionScenarios
     {
         PeerKind = PeerKind.Shell,
         ProductVersion = "0.0.0",
-        Protocols = [new SupportedProtocol { Major = 1, MinimumMinor = 0, MaximumMinor = 0 }],
-        Capabilities = [ProtocolIds.Capabilities.EitmadCapabilityLocalIpcV1],
-        RequiredCapabilities = [ProtocolIds.Capabilities.EitmadCapabilityLocalIpcV1],
+        Protocols = [new SupportedProtocol { Major = 1, MinimumMinor = 0, MaximumMinor = 3 }],
+        Capabilities =
+        [
+            ProtocolIds.Capabilities.EitmadCapabilityLocalIpcV1,
+            ProtocolIds.Capabilities.EitmadCapabilityAuthorizationScopesV1,
+        ],
+        RequiredCapabilities =
+        [
+            ProtocolIds.Capabilities.EitmadCapabilityLocalIpcV1,
+            ProtocolIds.Capabilities.EitmadCapabilityAuthorizationScopesV1,
+        ],
         Schemas = [],
     };
 
@@ -342,6 +350,7 @@ internal sealed class SupervisionScenarios
             PrincipalKind = PrincipalKind.Service,
             ServiceId = Guid.NewGuid(),
         },
+        TenantId = Guid.NewGuid(),
         Scope = new ScopeRef { Kind = "organization", Id = Guid.NewGuid() },
     };
 
