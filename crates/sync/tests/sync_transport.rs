@@ -269,6 +269,62 @@ fn lan_partial_discovery_connects_to_reachable_peer_as_degraded() {
 }
 
 #[test]
+fn lan_selects_the_lowest_numeric_priority() {
+    let device_id = DeviceId::new(Uuid::from_u128(202));
+    let driver = ScriptedDriver::new(AuthenticationIdentity::Device(device_id), hello(1));
+    let discovery = StaticDiscovery(Ok(LanDiscoveryReport {
+        peers: vec![
+            lan_peer("secondary", "192.168.10.22:7443", 20),
+            lan_peer("primary", "192.168.10.21:7443", 10),
+        ],
+        partial_failures: 0,
+    }));
+    let mut adapter = LanAdapter::new(
+        discovery,
+        driver,
+        hello(1),
+        device_auth(device_id),
+        RetryPolicy::default(),
+    )
+    .unwrap();
+
+    adapter.connect(UnixMillis(0)).unwrap();
+
+    assert!(matches!(
+        adapter.driver_mut().targets.as_slice(),
+        [ConnectionTarget::Lan { peer_id, .. }] if peer_id == "primary"
+    ));
+}
+
+#[test]
+fn lan_breaks_equal_priority_ties_by_peer_id() {
+    let device_id = DeviceId::new(Uuid::from_u128(203));
+    let driver = ScriptedDriver::new(AuthenticationIdentity::Device(device_id), hello(1));
+    let discovery = StaticDiscovery(Ok(LanDiscoveryReport {
+        peers: vec![
+            lan_peer("z-peer", "192.168.10.23:7443", 10),
+            lan_peer("a-peer", "192.168.10.24:7443", 10),
+        ],
+        partial_failures: 0,
+    }));
+    let mut adapter = LanAdapter::new(
+        discovery,
+        driver,
+        hello(1),
+        device_auth(device_id),
+        RetryPolicy::default(),
+    )
+    .unwrap();
+
+    adapter.connect(UnixMillis(0)).unwrap();
+
+    assert!(matches!(
+        adapter.driver_mut().targets.as_slice(),
+        [ConnectionTarget::Lan { peer_id, .. }] if peer_id == "a-peer"
+    ));
+}
+
+#[test]
 fn lan_rejects_unencrypted_authenticated_connection() {
     let device_id = DeviceId::new(Uuid::from_u128(201));
     let mut driver = ScriptedDriver::new(AuthenticationIdentity::Device(device_id), hello(1));
@@ -457,6 +513,14 @@ fn wan_endpoint() -> WanEndpoint {
     }
 }
 
+fn lan_peer(peer_id: &str, endpoint: &str, priority: u16) -> LanPeer {
+    LanPeer {
+        peer_id: peer_id.to_owned(),
+        endpoint: endpoint.to_owned(),
+        priority,
+    }
+}
+
 struct StaticDiscovery(Result<LanDiscoveryReport, TransportFailure>);
 
 impl LanDiscovery for StaticDiscovery {
@@ -472,6 +536,7 @@ struct ScriptedDriver {
     connected: bool,
     server_failures: VecDeque<TransportFailure>,
     relay_failures: VecDeque<TransportFailure>,
+    targets: Vec<ConnectionTarget>,
 }
 
 impl ScriptedDriver {
@@ -483,6 +548,7 @@ impl ScriptedDriver {
             connected: false,
             server_failures: VecDeque::new(),
             relay_failures: VecDeque::new(),
+            targets: Vec::new(),
         }
     }
 }
@@ -493,6 +559,7 @@ impl ConnectionDriver for ScriptedDriver {
         target: &ConnectionTarget,
         _authentication: &TransportAuthentication,
     ) -> Result<EstablishedConnection, TransportFailure> {
+        self.targets.push(target.clone());
         let failure = match target {
             ConnectionTarget::WanServer { .. } => self.server_failures.pop_front(),
             ConnectionTarget::WanRelay { .. } => self.relay_failures.pop_front(),

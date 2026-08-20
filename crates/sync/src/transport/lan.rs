@@ -14,6 +14,7 @@ use super::{
 pub struct LanPeer {
     pub peer_id: String,
     pub endpoint: String,
+    /// Lower values are preferred. Peer IDs break equal-priority ties.
     pub priority: u16,
 }
 
@@ -78,7 +79,9 @@ impl<D: LanDiscovery, N: ConnectionDriver> SyncTransport for LanAdapter<D, N> {
             Ok(report) => report,
             Err(failure) => return Err(self.core.record_external_failure(failure, now)),
         };
-        let Some(peer) = report.peers.iter().min_by_key(|peer| peer.priority) else {
+        let Some(peer) = report.peers.iter().min_by(|left, right| {
+            (left.priority, &left.peer_id).cmp(&(right.priority, &right.peer_id))
+        }) else {
             let kind = if report.partial_failures == 0 {
                 TransportFailureKind::NoLanPeer
             } else {
