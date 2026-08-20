@@ -64,7 +64,7 @@ The foreground CLI emits lifecycle snapshots as newline-delimited JSON on child 
 - `SecretId` and secret lifecycle are Rust-internal authority types, not protocol-v1 operations. Shells never receive secret material or call an OS credential store for product secrets.
 - Sync domain payloads are registered schema/version identifiers plus encoded bytes. A domain vertical must define the payload schema before use.
 - Sync deliveries carry independent delivery IDs and idempotency keys. Consumers preserve record authority and cache freshness labels instead of presenting optimistic or stale data as canonical.
-- Simulation, LAN, direct WAN, and relay WAN carry the same `SyncTransportFrame` and nested `SyncMessage`. Route adapters cannot define another wire protocol or change reconciliation meaning.
+- Simulation, LAN, direct WAN, and relay WAN carry the same `SyncTransportFrame` and complete `SyncTransportPayload`; message payloads use the shared `SyncMessage`. Route adapters cannot define another wire protocol or change reconciliation meaning.
 - Observation event, field, component, severity, classification, and value-kind contracts are exported in the JSON schema and exercised by the C# and Swift conformance fixture. Diagnostic values still reach sinks only through the Rust-owned redaction boundary.
 
 This is a minimal valid query body; the complete scoped envelope is in `tests/contract-compatibility/fixtures/protocol-v1.json`:
