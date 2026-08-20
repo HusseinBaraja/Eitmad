@@ -165,6 +165,57 @@ fn cancellation_emits_shared_wire_frame_and_stops_stream() {
 }
 
 #[test]
+fn repeated_cancellation_does_not_send_another_frame() {
+    let mut transport = simulation(hello(1));
+    transport.connect(UnixMillis(0)).unwrap();
+    let stream_id = SyncStreamId::new(Uuid::from_u128(104));
+    let correlation_id = CorrelationId::new(Uuid::from_u128(103));
+
+    transport
+        .cancel(
+            stream_id,
+            correlation_id,
+            SyncCancellationReason::ClientRequested,
+            UnixMillis(1),
+        )
+        .unwrap();
+    transport
+        .cancel(
+            stream_id,
+            correlation_id,
+            SyncCancellationReason::ClientRequested,
+            UnixMillis(2),
+        )
+        .unwrap();
+
+    assert_eq!(transport.take_outgoing().len(), 1);
+}
+
+#[test]
+fn cancellation_cannot_target_another_stream() {
+    let mut transport = simulation(hello(1));
+    transport.connect(UnixMillis(0)).unwrap();
+    let named_stream = SyncStreamId::new(Uuid::from_u128(105));
+    let mut cancellation = frame(0, 110);
+    cancellation.end_of_stream = true;
+    cancellation.payload =
+        SyncTransportPayload::Cancel(eitmad_contracts::sync_transport::SyncCancellation {
+            stream_id: named_stream,
+            last_accepted_sequence: None,
+            reason: SyncCancellationReason::ClientRequested,
+        });
+    transport.inject_incoming(cancellation);
+
+    let failure = transport.receive(UnixMillis(1)).unwrap_err();
+    assert_eq!(failure.kind, TransportFailureKind::StreamOutOfOrder);
+    assert_eq!(failure.phase, FailurePhase::Cancellation);
+
+    let mut named_frame = frame(0, 120);
+    named_frame.stream_id = named_stream;
+    transport.send(&named_frame, UnixMillis(2)).unwrap();
+}
+
+#[test]
 fn version_mismatch_stops_connection_before_traffic() {
     let mut transport = simulation(hello(2));
 

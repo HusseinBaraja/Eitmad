@@ -36,9 +36,11 @@ pub(crate) struct TransportCore<D> {
     cancelled_streams: BTreeSet<SyncStreamId>,
     completed_incoming_streams: BTreeSet<SyncStreamId>,
     completed_outgoing_streams: BTreeSet<SyncStreamId>,
+    terminal_stream_order: VecDeque<SyncStreamId>,
 }
 
 const MAX_RETAINED_FRAMES: usize = 4_096;
+const MAX_RETAINED_STREAMS: usize = MAX_RETAINED_FRAMES * 2;
 
 impl<D: ConnectionDriver> TransportCore<D> {
     pub(crate) fn new(
@@ -73,6 +75,7 @@ impl<D: ConnectionDriver> TransportCore<D> {
             cancelled_streams: BTreeSet::new(),
             completed_incoming_streams: BTreeSet::new(),
             completed_outgoing_streams: BTreeSet::new(),
+            terminal_stream_order: VecDeque::new(),
         }
     }
 
@@ -178,6 +181,7 @@ impl<D: ConnectionDriver> TransportCore<D> {
             .insert(frame.stream_id, frame.sequence);
         if frame.end_of_stream {
             self.completed_outgoing_streams.insert(frame.stream_id);
+            self.retain_terminal_stream(frame.stream_id);
         }
         self.health.last_success_at = Some(now);
         Ok(())
@@ -233,9 +237,20 @@ impl<D: ConnectionDriver> TransportCore<D> {
             )
             .with_correlation(frame.correlation_id));
         }
-        if let SyncTransportPayload::Cancel(cancellation) = &frame.payload {
-            self.cancelled_streams.insert(cancellation.stream_id);
-        }
+        let cancellation = match &frame.payload {
+            SyncTransportPayload::Cancel(cancellation) => {
+                if cancellation.stream_id != frame.stream_id {
+                    return Err(TransportFailure::new(
+                        TransportFailureKind::StreamOutOfOrder,
+                        FailurePhase::Cancellation,
+                        RetryAdvice::Never,
+                    )
+                    .with_correlation(frame.correlation_id));
+                }
+                Some(cancellation.stream_id)
+            }
+            _ => None,
+        };
         self.received_frames.insert(frame.frame_id, fingerprint);
         self.received_keys
             .insert(frame.idempotency_key, fingerprint);
@@ -249,8 +264,14 @@ impl<D: ConnectionDriver> TransportCore<D> {
         }
         self.incoming_sequences
             .insert(frame.stream_id, frame.sequence);
+        if let Some(stream_id) = cancellation {
+            self.cancelled_streams.insert(stream_id);
+        }
         if frame.end_of_stream {
             self.completed_incoming_streams.insert(frame.stream_id);
+        }
+        if cancellation.is_some() || frame.end_of_stream {
+            self.retain_terminal_stream(frame.stream_id);
         }
         self.health.last_success_at = Some(now);
         Ok(ReceiveOutcome::Frame(Box::new(frame)))
@@ -266,6 +287,11 @@ impl<D: ConnectionDriver> TransportCore<D> {
         let protocol_version = self
             .require_connection(FailurePhase::Cancellation)?
             .protocol;
+        if self.cancelled_streams.contains(&stream_id)
+            || self.completed_outgoing_streams.contains(&stream_id)
+        {
+            return Ok(());
+        }
         let next_sequence = self
             .outgoing_sequences
             .get(&stream_id)
@@ -289,8 +315,26 @@ impl<D: ConnectionDriver> TransportCore<D> {
         }
         self.outgoing_sequences.insert(stream_id, next_sequence);
         self.cancelled_streams.insert(stream_id);
+        self.completed_outgoing_streams.insert(stream_id);
+        self.retain_terminal_stream(stream_id);
         self.health.last_success_at = Some(now);
         Ok(())
+    }
+
+    fn retain_terminal_stream(&mut self, stream_id: SyncStreamId) {
+        if self.terminal_stream_order.contains(&stream_id) {
+            return;
+        }
+        self.terminal_stream_order.push_back(stream_id);
+        while self.terminal_stream_order.len() > MAX_RETAINED_STREAMS {
+            if let Some(evicted) = self.terminal_stream_order.pop_front() {
+                self.incoming_sequences.remove(&evicted);
+                self.outgoing_sequences.remove(&evicted);
+                self.cancelled_streams.remove(&evicted);
+                self.completed_incoming_streams.remove(&evicted);
+                self.completed_outgoing_streams.remove(&evicted);
+            }
+        }
     }
 
     pub(crate) const fn health(&self) -> &ConnectionHealth {
@@ -479,4 +523,80 @@ fn frame_fingerprint(frame: &SyncTransportFrame) -> Result<[u8; 32], TransportFa
 fn add_millis(now: UnixMillis, delay_ms: u64) -> Option<UnixMillis> {
     let delay = i64::try_from(delay_ms).ok()?;
     now.0.checked_add(delay).map(UnixMillis)
+}
+
+#[cfg(test)]
+mod tests {
+    use eitmad_contracts::{
+        updates::ReleaseVersion,
+        versioning::{PeerKind, SupportedProtocol},
+    };
+
+    use super::*;
+
+    #[test]
+    fn terminal_stream_retention_evicts_oldest_state() {
+        let mut core = TransportCore::new(
+            (),
+            hello(),
+            TransportAuthentication::Simulation,
+            false,
+            RetryPolicy::default(),
+        );
+
+        for value in 1..=u128::try_from(MAX_RETAINED_STREAMS + 1).unwrap() {
+            let stream_id = SyncStreamId::new(Uuid::from_u128(value));
+            core.incoming_sequences.insert(stream_id, 0);
+            core.outgoing_sequences.insert(stream_id, 0);
+            core.cancelled_streams.insert(stream_id);
+            core.completed_incoming_streams.insert(stream_id);
+            core.completed_outgoing_streams.insert(stream_id);
+            core.retain_terminal_stream(stream_id);
+        }
+
+        assert_eq!(core.terminal_stream_order.len(), MAX_RETAINED_STREAMS);
+        assert_eq!(core.incoming_sequences.len(), MAX_RETAINED_STREAMS);
+        assert_eq!(core.outgoing_sequences.len(), MAX_RETAINED_STREAMS);
+        assert_eq!(core.cancelled_streams.len(), MAX_RETAINED_STREAMS);
+        assert_eq!(core.completed_incoming_streams.len(), MAX_RETAINED_STREAMS);
+        assert_eq!(core.completed_outgoing_streams.len(), MAX_RETAINED_STREAMS);
+        let evicted = SyncStreamId::new(Uuid::from_u128(1));
+        assert!(!core.incoming_sequences.contains_key(&evicted));
+        assert!(!core.cancelled_streams.contains(&evicted));
+    }
+
+    fn hello() -> PeerHello {
+        PeerHello {
+            peer_kind: PeerKind::Engine,
+            product_version: ReleaseVersion::new(semver::Version::new(1, 0, 0)),
+            protocols: vec![SupportedProtocol {
+                major: 1,
+                minimum_minor: 0,
+                maximum_minor: 3,
+            }],
+            capabilities: Vec::new(),
+            required_capabilities: Vec::new(),
+            schemas: Vec::new(),
+        }
+    }
+
+    impl ConnectionDriver for () {
+        fn establish(
+            &mut self,
+            _target: &ConnectionTarget,
+            _authentication: &TransportAuthentication,
+        ) -> Result<EstablishedConnection, TransportFailure> {
+            unreachable!("stream-retention tests do not connect")
+        }
+
+        fn send(&mut self, _frame: &SyncTransportFrame) -> Result<(), TransportFailure> {
+            Ok(())
+        }
+
+        fn receive(&mut self) -> Result<Option<SyncTransportFrame>, TransportFailure> {
+            Ok(None)
+        }
+
+        fn close(&mut self) {}
+    }
 }
