@@ -59,7 +59,7 @@ impl<D: LanDiscovery, N: ConnectionDriver> LanAdapter<D, N> {
         }
         Ok(Self {
             discovery,
-            core: TransportCore::new(driver, local_hello, authentication, true, retry_policy),
+            core: TransportCore::new(driver, local_hello, authentication, false, retry_policy),
         })
     }
 
@@ -106,8 +106,8 @@ impl<D: LanDiscovery, N: ConnectionDriver> SyncTransport for LanAdapter<D, N> {
         Ok(session)
     }
 
-    fn disconnect(&mut self, now: UnixMillis) {
-        self.core.disconnect(now);
+    fn disconnect(&mut self, _now: UnixMillis) {
+        self.core.disconnect();
     }
 
     fn send(

@@ -29,6 +29,7 @@ fn disconnect_stops_delivery_and_reconnect_restores_it() {
     let failure = transport.send(&frame(0, 1), UnixMillis(2)).unwrap_err();
     assert_eq!(failure.kind, TransportFailureKind::Disconnected);
     assert_eq!(transport.health().status, HealthStatus::Offline);
+    assert_eq!(transport.health().last_success_at, Some(UnixMillis(0)));
 
     transport.connect(UnixMillis(3)).unwrap();
     transport.send(&frame(0, 1), UnixMillis(4)).unwrap();

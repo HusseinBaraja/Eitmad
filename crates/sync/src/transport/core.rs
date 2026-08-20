@@ -24,7 +24,7 @@ pub(crate) struct TransportCore<D> {
     driver: D,
     local_hello: PeerHello,
     authentication: TransportAuthentication,
-    encryption_required: bool,
+    simulation_isolation_required: bool,
     retry_policy: RetryPolicy,
     health: ConnectionHealth,
     negotiated: Option<NegotiatedSession>,
@@ -47,7 +47,7 @@ impl<D: ConnectionDriver> TransportCore<D> {
         driver: D,
         mut local_hello: PeerHello,
         authentication: TransportAuthentication,
-        encryption_required: bool,
+        simulation_isolation_required: bool,
         retry_policy: RetryPolicy,
     ) -> Self {
         require_sync_capability(&mut local_hello);
@@ -55,7 +55,7 @@ impl<D: ConnectionDriver> TransportCore<D> {
             driver,
             local_hello,
             authentication,
-            encryption_required,
+            simulation_isolation_required,
             retry_policy,
             health: ConnectionHealth {
                 status: HealthStatus::Offline,
@@ -127,11 +127,10 @@ impl<D: ConnectionDriver> TransportCore<D> {
         Ok(negotiated)
     }
 
-    pub(crate) fn disconnect(&mut self, now: UnixMillis) {
+    pub(crate) fn disconnect(&mut self) {
         self.driver.close();
         self.negotiated = None;
         self.health.status = HealthStatus::Offline;
-        self.health.last_success_at = Some(now);
         self.health.next_retry_at = None;
     }
 
@@ -377,17 +376,18 @@ impl<D: ConnectionDriver> TransportCore<D> {
                 RetryAdvice::Never,
             ));
         }
-        if self.encryption_required && !secure_enough(&established.security) {
+        if !self.simulation_isolation_required && !secure_enough(&established.security) {
             return Err(TransportFailure::new(
                 TransportFailureKind::EncryptionRequired,
                 FailurePhase::Encryption,
                 RetryAdvice::Never,
             ));
         }
-        if !self.encryption_required && established.security != SessionSecurity::IsolatedSimulation
+        if self.simulation_isolation_required
+            && established.security != SessionSecurity::IsolatedSimulation
         {
             return Err(TransportFailure::new(
-                TransportFailureKind::EncryptionRequired,
+                TransportFailureKind::DriverUnavailable,
                 FailurePhase::Encryption,
                 RetryAdvice::Never,
             ));
@@ -532,6 +532,8 @@ mod tests {
         versioning::{PeerKind, SupportedProtocol},
     };
 
+    use crate::transport::AuthenticationIdentity;
+
     use super::*;
 
     #[test]
@@ -540,7 +542,7 @@ mod tests {
             (),
             hello(),
             TransportAuthentication::Simulation,
-            false,
+            true,
             RetryPolicy::default(),
         );
 
@@ -563,6 +565,27 @@ mod tests {
         let evicted = SyncStreamId::new(Uuid::from_u128(1));
         assert!(!core.incoming_sequences.contains_key(&evicted));
         assert!(!core.cancelled_streams.contains(&evicted));
+    }
+
+    #[test]
+    fn simulation_isolation_reports_driver_mismatch() {
+        let core = TransportCore::new(
+            (),
+            hello(),
+            TransportAuthentication::Simulation,
+            true,
+            RetryPolicy::default(),
+        );
+        let established = EstablishedConnection {
+            remote_hello: hello(),
+            authenticated_as: AuthenticationIdentity::Simulation,
+            security: SessionSecurity::encrypted(),
+            round_trip_ms: None,
+        };
+
+        let failure = core.validate_established(&established).unwrap_err();
+        assert_eq!(failure.kind, TransportFailureKind::DriverUnavailable);
+        assert_eq!(failure.phase, FailurePhase::Encryption);
     }
 
     fn hello() -> PeerHello {

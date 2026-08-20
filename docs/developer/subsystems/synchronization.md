@@ -62,6 +62,8 @@ Incoming duplicate safety covers both `SyncFrameId` and `IdempotencyKey`. An exa
 
 `SecretId` is a non-secret reference. The connector may resolve it only through an approved Rust secret-storage integration; the frame and failure types never carry token bytes. `EstablishedConnection.authenticated_as` must exactly match the requested device or account/device identity. A mismatch is terminal. LAN/WAN reject isolated plaintext or a connection that lacks peer authentication or forward secrecy.
 
+Simulation isolation and LAN/WAN encryption are explicit route policies, not two strengths of one optional-encryption flag. A simulation driver that returns an authenticated-encryption session is the wrong driver for that isolated route and fails as `DriverUnavailable` in the encryption phase. An isolated session remains invalid for LAN and WAN and fails as `EncryptionRequired`.
+
 Authentication, encryption, version, required-capability, and required-schema failures do not fall back to another WAN route. Transport authentication establishes a peer; it does not authorize records. `SyncEngine` still checks ReBAC, scope, and audit requirements before protected sync reads or mutations.
 
 ## Discovery, reconnect, backoff, and health
@@ -72,7 +74,7 @@ Authentication, encryption, version, required-capability, and required-schema fa
 
 The shared core closes a failed driver connection, retains stream and duplicate state, and schedules exponential retry from `RetryPolicy.initial_delay_ms` up to `maximum_delay_ms`. It stops after `maximum_attempts`. `RetryNotReady` reports the remaining delay when a caller reconnects early. Terminal security and compatibility failures have `RetryAdvice::Never`; an operator must correct credentials, session security, or peer compatibility instead of retrying.
 
-`ConnectionHealth` exposes offline, connecting, healthy, or degraded state; selected target; last success; structured last failure; consecutive failures; next retry time; and optional round-trip time. These fields are operational state, not proof that an engine reconciliation or server mutation committed.
+`ConnectionHealth` exposes offline, connecting, healthy, or degraded state; selected target; last success; structured last failure; consecutive failures; next retry time; and optional round-trip time. `last_success_at` changes only after a successful connect, send, received frame, or delivered cancellation. Disconnect changes the status to offline but preserves the last successful exchange time. These fields are operational state, not proof that an engine reconciliation or server mutation committed.
 
 ## Shared state model
 
@@ -148,7 +150,7 @@ For symptom-led checks, use [synchronization failures](../../troubleshooting/syn
 
 ## Tests and safe extension
 
-`crates/sync/tests/sync_transport.rs` uses the simulation adapter and scripted connection drivers. It covers disconnect/reconnect, retry gating, authentication failure, exact and conflicting duplicates, new-frame-ID idempotent retry, ordered/end-marked streams, cancellation idempotency and stream-ID validation, protocol mismatch, LAN partial discovery, LAN encryption rejection, WAN relay degradation, relay unavailability, and refusal to route around authentication failure. Unit tests in `crates/sync/src/transport/core.rs` verify bounded terminal-stream retirement.
+`crates/sync/tests/sync_transport.rs` uses the simulation adapter and scripted connection drivers. It covers disconnect/reconnect and last-success preservation, retry gating, authentication failure, exact and conflicting duplicates, new-frame-ID idempotent retry, ordered/end-marked streams, cancellation idempotency and stream-ID validation, protocol mismatch, LAN partial discovery, LAN encryption rejection, WAN relay degradation, relay unavailability, and refusal to route around authentication failure. Unit tests in `crates/sync/src/transport/core.rs` verify bounded terminal-stream retirement and explicit simulation isolation.
 
 `crates/sync/tests/sync_engine.rs` uses the real ReBAC gate and a temporary SQLite authority store. It covers offline edit durability/reopen, multiple-edit acknowledgement, all conflict outcomes and rebase overflow, duplicate/mismatched replay, replay authorization, denied optimistic rollback, stale-cache refusal and refresh, authorized reads, offline/incompatible errors, reconciliation rollback, stale-event suppression, and incompatible protocol rejection. `crates/storage/src/sync_state.rs` tests scope isolation, mode/version persistence, revision checks, mandatory audit revisions, and invalid modes; storage recovery tests cover migration 7 backup behavior.
 

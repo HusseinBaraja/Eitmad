@@ -46,7 +46,7 @@ impl<N: ConnectionDriver> WanAdapter<N> {
         }
         Ok(Self {
             endpoint,
-            core: TransportCore::new(driver, local_hello, authentication, true, retry_policy),
+            core: TransportCore::new(driver, local_hello, authentication, false, retry_policy),
         })
     }
 
@@ -94,8 +94,8 @@ impl<N: ConnectionDriver> SyncTransport for WanAdapter<N> {
         }
     }
 
-    fn disconnect(&mut self, now: UnixMillis) {
-        self.core.disconnect(now);
+    fn disconnect(&mut self, _now: UnixMillis) {
+        self.core.disconnect();
     }
 
     fn send(

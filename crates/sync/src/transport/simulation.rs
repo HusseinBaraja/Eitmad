@@ -25,7 +25,7 @@ impl SimulatedTransport {
                 SimulatedDriver::new(remote_hello),
                 local_hello,
                 TransportAuthentication::Simulation,
-                false,
+                true,
                 retry_policy,
             ),
         }
@@ -70,8 +70,8 @@ impl SyncTransport for SimulatedTransport {
         self.core.connect(&ConnectionTarget::Simulation, now)
     }
 
-    fn disconnect(&mut self, now: UnixMillis) {
-        self.core.disconnect(now);
+    fn disconnect(&mut self, _now: UnixMillis) {
+        self.core.disconnect();
     }
 
     fn send(
