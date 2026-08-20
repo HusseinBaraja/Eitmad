@@ -23,6 +23,7 @@ pub mod queries;
 pub mod runtime;
 pub mod secrets;
 pub mod sync;
+pub mod sync_transport;
 pub mod transport;
 pub mod updates;
 pub mod versioning;

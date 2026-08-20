@@ -5,7 +5,7 @@ audience: "support"
 page_type: "troubleshooting"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-08-19"
+last_verified: "2026-08-20"
 review_triggers:
   - "a stable diagnosable error or recovery path is added"
 keywords:
@@ -34,7 +34,7 @@ Use symptom and identifier pages to reach the authoritative owner and a non-dest
 
 ## Synchronization failures
 
-- [Resolve queued, conflicted, denied, or stale synchronization](synchronization-failures.md): diagnose mode/peer incompatibility, pending work, conflicts, optimistic rollback, duplicate delivery, stale cache, scope, authorization, and durable state.
+- [Resolve synchronization connection, queue, conflict, or cache failures](synchronization-failures.md): diagnose simulation/LAN/WAN health, authentication, encryption, backoff, partial discovery, relay failure, stream order, pending work, conflict, duplicate delivery, stale cache, scope, authorization, and durable state.
 
 ## Configuration and authorization failures
 

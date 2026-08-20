@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-08-19"
+last_verified: "2026-08-20"
 review_triggers:
   - "a documentation collection or canonical entry point changes"
 keywords:
@@ -15,7 +15,7 @@ keywords:
 
 # Eitmad documentation
 
-Choose the route that matches your task. Protocol `1.3`, the engine lifecycle, SQLite authority/recovery, persistent tenant identity, Rust-owned configuration, scoped relationship authorization/audit, and Windows process supervision are implemented foundations; no production identity issuer, native settings UI, or business workflow exists yet.
+Choose the route that matches your task. Protocol `1.3`, the engine lifecycle, SQLite authority/recovery, persistent tenant identity, Rust-owned configuration, scoped relationship authorization/audit, shared sync transport policy, and Windows process supervision are implemented foundations; no production sync network driver, identity issuer, native settings UI, or business workflow exists yet.
 
 ## Use the product
 
@@ -27,7 +27,7 @@ No user workflow is ready to document. When the first product flow exists, Engli
 - [Extend Rust-owned configuration](developer/subsystems/configuration.md): defaults, validation, revisions, redaction, import/export, and events.
 - [Extend scoped authorization and audit](developer/subsystems/authorization.md): tuples, roles, inheritance, conditions, isolation, boundary gates, and complete redacted audit.
 - [Extend persistent tenant identity](developer/subsystems/identity-foundation.md): device, account, session, scope topology, offline behavior, and audit attribution.
-- [Extend dual-mode synchronization](developer/subsystems/synchronization.md): offline edits, pending commands, conflicts, optimistic rollback, stale caches, and safe extension.
+- [Extend synchronization and shared transports](developer/subsystems/synchronization.md): offline edits, one simulation/LAN/WAN interface, authentication/encryption, reconnect/backoff, relay degradation, conflicts, and safe extension.
 - [Understand the target architecture](architecture/index.md): Rust authority, trust boundaries, synchronization, security, and updates.
 - [Use protocol v1 contracts](api/index.md): exact Rust-owned contracts, compatibility, generation, and native bindings.
 - [Review architectural decisions](decisions/index.md): durable choices, reasons, and consequences.

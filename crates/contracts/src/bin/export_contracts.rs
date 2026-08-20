@@ -26,6 +26,7 @@ use eitmad_contracts::{
     queries::{GetConfiguration, Query, QueryResult},
     runtime::{DiagnosticReport, LifecycleSnapshot},
     sync::{SyncMessage, SyncStatus},
+    sync_transport::SyncTransportFrame,
     transport::{
         CausationId, CommandEnvelope, CommandResponseEnvelope, CorrelationId, EventEnvelope,
         QueryEnvelope, QueryOutcome, QueryResponseEnvelope, RequestId, SubscriptionEnvelope,
@@ -52,6 +53,7 @@ struct ContractSchemaRoot {
     peer_hello: PeerHello,
     negotiation: NegotiationOutcome,
     sync_message: SyncMessage,
+    sync_transport_frame: SyncTransportFrame,
     update_state: UpdateState,
     sync_status: SyncStatus,
     effective_permissions: EffectivePermissions,

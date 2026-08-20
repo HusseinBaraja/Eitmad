@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "product maintainers"
-last_verified: "2026-08-19"
+last_verified: "2026-08-20"
 review_triggers:
   - "a domain term, UI label, contract concept, or workshop synonym changes"
 keywords:
@@ -136,7 +136,10 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | التشخيص الحساس المؤقت | Temporary sensitive debug | An owner-permission-gated, localized-warning, audited mode that may reveal `Sensitive` fields until its enforced expiry, supports early disable, and always redacts `Secret` fields. No user-facing label exists yet. |
 | مخزن الأسرار | Secret store | The Rust-owned capability that keeps typed secret material in an OS credential store or, only when necessary, an authenticated encrypted fallback. |
 | مرجع السر | Secret reference | A typed non-secret identifier that configuration or domain state may retain instead of secret material. |
-| المزامنة | Synchronization | The protocol-driven exchange and reconciliation of authorized state across processes, devices, or servers. |
+| المزامنة | Synchronization | The protocol-driven exchange and reconciliation of authorized state across processes, devices, or servers. Its business meaning does not change between simulation, LAN, direct WAN, or relay routes. |
+| ناقل المزامنة | Sync transport | **Provisional UI term.** The Rust-owned connection boundary that carries one sync frame and message protocol across simulation, LAN, and WAN routes. |
+| صحة اتصال المزامنة | Sync connection health | **Provisional UI term.** Operational state that reports offline, connecting, healthy, or degraded transport plus retry evidence; it does not prove reconciliation committed. |
+| مرحّل المزامنة | Sync relay | **Provisional UI term.** A configured WAN route used only when direct server connectivity fails; it does not change authentication, authorization, or sync message meaning. |
 | تعارض | Conflict | Concurrent or incompatible state that cannot be safely combined without a defined domain rule or decision. |
 | محلي أولًا | Local-first | A mode in which local durable work continues offline and later synchronizes under explicit conflict rules. |
 | الخادم هو المرجع | Server-authoritative | A mode in which the server determines canonical state and ordering for the domain. |

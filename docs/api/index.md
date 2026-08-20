@@ -5,7 +5,7 @@ audience: "api"
 page_type: "reference"
 status: "active"
 owner: "Rust contract maintainers"
-last_verified: "2026-08-19"
+last_verified: "2026-08-20"
 review_triggers:
   - "a command, query, subscription, error, version, capability, or generator changes"
 keywords:
@@ -31,7 +31,7 @@ keywords:
 | Cross-language fixture | `tests/contract-compatibility/fixtures/protocol-v1.json` |
 | Mechanical identifier listing | [Protocol v1 identifier reference](../_generated/contracts-v1.md) |
 
-The sync contract graph has a focused [synchronization reference](synchronization-contracts.md) covering change records, snapshots, pending command queues, conflicts, delivery idempotency, cache labels, and lifecycle events.
+The sync contract graph has a focused [synchronization and transport reference](synchronization-contracts.md) covering change records, one simulation/LAN/WAN streaming frame, cancellation, snapshots, pending command queues, conflicts, delivery idempotency, cache labels, and lifecycle events.
 
 Generated files have a `Do not edit` header. Linux bindings remain blocked on the Linux UI technology decision; a future Linux shell must consume the Rust crate directly or add a generated/validated binding through a new decision.
 
@@ -64,6 +64,7 @@ The foreground CLI emits lifecycle snapshots as newline-delimited JSON on child 
 - `SecretId` and secret lifecycle are Rust-internal authority types, not protocol-v1 operations. Shells never receive secret material or call an OS credential store for product secrets.
 - Sync domain payloads are registered schema/version identifiers plus encoded bytes. A domain vertical must define the payload schema before use.
 - Sync deliveries carry independent delivery IDs and idempotency keys. Consumers preserve record authority and cache freshness labels instead of presenting optimistic or stale data as canonical.
+- Simulation, LAN, direct WAN, and relay WAN carry the same `SyncTransportFrame` and complete `SyncTransportPayload`; message payloads use the shared `SyncMessage`. Route adapters cannot define another wire protocol or change reconciliation meaning.
 - Observation event, field, component, severity, classification, and value-kind contracts are exported in the JSON schema and exercised by the C# and Swift conformance fixture. Diagnostic values still reach sinks only through the Rust-owned redaction boundary.
 
 This is a minimal valid query body; the complete scoped envelope is in `tests/contract-compatibility/fixtures/protocol-v1.json`:

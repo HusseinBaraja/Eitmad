@@ -1,10 +1,18 @@
 //! Unified local-first and server-authoritative synchronization protocol.
 
 mod engine;
+mod transport;
 
 pub use engine::{
     CommandDraft, ConflictHook, ConflictResolution, DeliveryOutcome, LocalChangeDraft,
     LocalChangeOutcome, PendingCommandOutcome, SyncEngine, SyncEngineError,
+};
+pub use transport::{
+    AuthenticationIdentity, ConnectionDriver, ConnectionHealth, ConnectionTarget,
+    EstablishedConnection, FailurePhase, HealthStatus, LanAdapter, LanDiscovery,
+    LanDiscoveryReport, LanPeer, ReceiveOutcome, RetryAdvice, RetryPolicy, SessionSecurity,
+    SimulatedTransport, SyncTransport, TransportAuthentication, TransportFailure,
+    TransportFailureKind, TransportKind, WanAdapter, WanEndpoint,
 };
 
 impl std::fmt::Display for SyncEngineError {

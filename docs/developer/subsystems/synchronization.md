@@ -1,13 +1,13 @@
 ---
-title: "Extend the dual-mode synchronization engine safely"
-description: "Understand Rust ownership, local-first reconciliation, server-authoritative queues, conflicts, authorization, persistence, and extension points."
+title: "Extend synchronization and its shared transports safely"
+description: "Understand Rust ownership, dual-mode reconciliation, one simulation/LAN/WAN transport interface, connection safety, and extension points."
 audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust synchronization maintainers"
-last_verified: "2026-08-19"
+last_verified: "2026-08-20"
 review_triggers:
-  - "sync contracts, reconciliation, persistence, authorization, cache, or conflict behavior changes"
+  - "sync contracts, reconciliation, transport, persistence, authorization, cache, or conflict behavior changes"
 keywords:
   - "eitmad-sync"
   - "local-first"
@@ -15,10 +15,13 @@ keywords:
   - "pending command queue"
   - "optimistic rollback"
   - "SyncEngine"
+  - "SyncTransport"
+  - "LAN sync"
+  - "WAN relay"
   - "المزامنة"
 ---
 
-# Extend the dual-mode synchronization engine safely
+# Extend synchronization and its shared transports safely
 
 `eitmad-sync` is the single Rust authority for local-first and server-authoritative synchronization. A scope chooses one `SyncMode` when `SyncEngine::open` creates its durable state. Reopening that scope under another mode fails; changing a domain's mode requires a reviewed migration, not a runtime toggle.
 
@@ -27,14 +30,51 @@ keywords:
 | Concern | Authority |
 | --- | --- |
 | Wire records, snapshots, queues, conflicts, metadata, negotiation, and events | `crates/contracts/src/sync.rs` |
+| Shared stream frame, cancellation, and heartbeat wire shape | `crates/contracts/src/sync_transport.rs` |
 | Mode behavior, reconciliation, deduplication, cache reads, and conflict hooks | `crates/sync/src/engine.rs` |
+| Authentication/encryption policy, negotiation, ordering, cancellation, retry, health, and duplicate-frame safety | `crates/sync/src/transport/core.rs` |
+| Local simulation, LAN discovery, and WAN server/relay route policy | `crates/sync/src/transport/simulation.rs`, `lan.rs`, and `wan.rs` |
 | ReBAC decision and denied audit | `crates/authorization/src/boundary.rs` through `SyncAuthorization` |
 | Scoped durable state and accepted mutation audit transaction | `crates/storage/src/sync_state.rs` |
-| Behavior tests across contracts, authorization, and SQLite | `crates/sync/tests/sync_engine.rs` |
+| Behavior tests across contracts, transport failures, authorization, and SQLite | `crates/sync/tests/sync_transport.rs` and `sync_engine.rs` |
 
 Native shells display returned state and localized recovery choices. They must not open SQLite, alter queues, merge payloads, retry denied work, infer freshness, or reproduce these contracts. LAN and WAN transports carry the same typed records; transport choice cannot change reconciliation semantics.
 
-The current server sync-plane executable remains an empty deployment boundary. `SyncEngine` implements the device/engine state machine and contracts; server persistence, authentication, transport, scheduling, and production conflict workflows still require their own vertical work.
+The current server sync-plane executable remains an empty deployment boundary. The transport adapters implement route-independent policy over the public `ConnectionDriver` seam; production socket/TLS drivers, LAN discovery sources, server persistence, credential verification services, scheduling, and production conflict workflows still require vertical implementations. A production driver must not move authentication, secret access, authorization, or sync semantics into a native shell.
+
+## One transport interface and wire protocol
+
+`SyncTransport` is the only high-level connection interface for local simulation, LAN, and WAN routes. Every implementation exposes `connect`, `disconnect`, ordered `send`/`receive`, `cancel`, `health`, and the negotiated session. The core offers and requires `eitmad.capability.sync.v1` on every connection. `SyncTransportFrame` always carries the existing `SyncMessage`; LAN and WAN must not add route-specific message enums, acknowledgements, retry meanings, or reconciliation behavior.
+
+Each frame has a frame ID, independent idempotency key, negotiated protocol version, correlation ID, stream ID, zero-based sequence, end-of-stream marker, and one payload. Payloads are a sync message, cancellation, heartbeat, or heartbeat acknowledgement. The generated JSON schema and C#/Swift bindings contain the same frame definition.
+
+The core requires sequence `0` for a new stream and then accepts only the next sequence. An end-of-stream frame closes that direction. Cancellation is itself an end-of-stream frame and prevents later local sends on the stream. The cancellation payload stream ID must match the frame stream ID; a mismatch returns `StreamOutOfOrder` in the cancellation phase without cancelling either stream. Repeating local cancellation after the stream is cancelled or its outgoing direction is complete succeeds without sending another frame. Callers use another stream ID for new work; they must not reset sequence on an existing ID.
+
+Incoming duplicate safety covers both `SyncFrameId` and `IdempotencyKey`. An exact retained retry is ignored before sequence evaluation. Reusing either retained identity with different logical content returns `DuplicateConflict`. The in-memory transport window retains at most 4,096 accepted frame/key pairs and 8,192 terminal stream IDs in insertion order. Evicting the oldest terminal stream also removes its sequence and completion state, so callers must use a new stream ID instead of retrying beyond this adapter-local window. Both windows survive reconnect while the adapter instance lives. They complement, but do not replace, the durable 2,048-entry engine delivery/replay windows.
+
+## Authentication and encrypted-session expectations
+
+| Route | Required local authentication | Required session evidence | Allowed degraded behavior |
+| --- | --- | --- | --- |
+| Simulation | `Simulation` | Explicit `IsolatedSimulation`; never valid for LAN/WAN | Scripted disconnects and failures only |
+| LAN | Device ID plus a Rust-owned `SecretId` reference | Authenticated encryption, authenticated peer, and forward secrecy | Connect to a reachable discovered peer when other interfaces or peers fail |
+| WAN | Account ID, device ID, and a Rust-owned `SecretId` reference | Authenticated encryption, authenticated peer, and forward secrecy | Use the configured relay only when direct server connectivity fails |
+
+`SecretId` is a non-secret reference. The connector may resolve it only through an approved Rust secret-storage integration; the frame and failure types never carry token bytes. `EstablishedConnection.authenticated_as` must exactly match the requested device or account/device identity. A mismatch is terminal. LAN/WAN reject isolated plaintext or a connection that lacks peer authentication or forward secrecy.
+
+Simulation isolation and LAN/WAN encryption are explicit route policies, not two strengths of one optional-encryption flag. A simulation driver that returns an authenticated-encryption session is the wrong driver for that isolated route and fails as `DriverUnavailable` in the encryption phase. An isolated session remains invalid for LAN and WAN and fails as `EncryptionRequired`.
+
+Authentication, encryption, version, required-capability, and required-schema failures do not fall back to another WAN route. Transport authentication establishes a peer; it does not authorize records. `SyncEngine` still checks ReBAC, scope, and audit requirements before protected sync reads or mutations.
+
+## Discovery, reconnect, backoff, and health
+
+`LanAdapter` calls `LanDiscovery` on every connection attempt, selects the reachable peer with the lowest numeric priority, and breaks equal-priority ties by `peer_id`. It reports `NoLanPeer` when discovery completed without a peer. If discovery reports failed interfaces or peers but returns one reachable peer, the connection succeeds with `HealthStatus::Degraded` and `PartialNetwork`. If no peer remains during a partial discovery, the attempt fails as `PartialNetwork` and preserves pending engine work.
+
+`WanAdapter` tries the configured server first. It uses the configured relay only after `Disconnected`, `PartialNetwork`, `ServerUnavailable`, or `DriverUnavailable`. A relay connection is healthy enough to transfer frames but is reported as degraded with the direct-server failure retained. If both routes fail, the result is `RelayUnavailable`. A deployment without a relay reports `ServerUnavailable`.
+
+The shared core closes a failed driver connection, retains stream and duplicate state, and schedules exponential retry from `RetryPolicy.initial_delay_ms` up to `maximum_delay_ms`. It stops after `maximum_attempts`. `RetryNotReady` reports the remaining delay when a caller reconnects early. Terminal security and compatibility failures have `RetryAdvice::Never`; an operator must correct credentials, session security, or peer compatibility instead of retrying.
+
+`ConnectionHealth` exposes offline, connecting, healthy, or degraded state; selected target; last success; structured last failure; consecutive failures; next retry time; and optional round-trip time. `last_success_at` changes only after a successful connect, send, received frame, or delivered cancellation. Disconnect changes the status to offline but preserves the last successful exchange time. These fields are operational state, not proof that an engine reconciliation or server mutation committed.
 
 ## Shared state model
 
@@ -99,10 +139,18 @@ Future Arabic UI should use reviewed labels for offline, queued, optimistic, sta
 | `StorageConflict` | Competing writer was not overwritten | Stop duplicate engine authority and reopen from persisted state |
 | `UnsupportedStateVersion` | Unknown durable state is not decoded | Run a supported migration or compatible engine; do not edit the version marker |
 | `StorageUnavailable` or `CorruptState` | Engine fails closed | Follow local-storage recovery; do not edit `sync_scopes` manually |
+| `AuthenticationFailed` or `EncryptionRequired` | No frame traffic and no relay bypass | Repair the Rust-owned credential reference or secure connector; never downgrade encryption |
+| `VersionMismatch`, `CapabilityMismatch`, or `SchemaMismatch` | Connection closes before normal traffic | Deploy compatible peers; do not translate messages in an adapter |
+| `RetryNotReady` | Pending engine work stays intact | Wait until `next_retry_at`; do not add an independent retry loop |
+| `DuplicateConflict` or `StreamOutOfOrder` | Suspect frame is not delivered to reconciliation | Stop the stream and inspect frame/key/sequence generation without collecting payload bytes |
+| `PartialNetwork` | Reachable LAN peer may continue as degraded | Repair failed interfaces/peers and reconnect; do not clear queues |
+| `ServerUnavailable` or `RelayUnavailable` | WAN work remains offline/pending | Restore the named route; retry only under reported backoff |
 
 For symptom-led checks, use [synchronization failures](../../troubleshooting/synchronization-failures.md).
 
 ## Tests and safe extension
+
+`crates/sync/tests/sync_transport.rs` uses the simulation adapter and scripted connection drivers. It covers disconnect/reconnect and last-success preservation, retry gating, authentication failure, exact and conflicting duplicates, new-frame-ID idempotent retry, ordered/end-marked streams, cancellation idempotency and stream-ID validation, protocol mismatch, deterministic LAN priority selection, LAN partial discovery, LAN encryption rejection, WAN relay degradation, relay unavailability, and refusal to route around authentication failure. Unit tests in `crates/sync/src/transport/core.rs` verify bounded terminal-stream retirement and explicit simulation isolation.
 
 `crates/sync/tests/sync_engine.rs` uses the real ReBAC gate and a temporary SQLite authority store. It covers offline edit durability/reopen, multiple-edit acknowledgement, all conflict outcomes and rebase overflow, duplicate/mismatched replay, replay authorization, denied optimistic rollback, stale-cache refusal and refresh, authorized reads, offline/incompatible errors, reconciliation rollback, stale-event suppression, and incompatible protocol rejection. `crates/storage/src/sync_state.rs` tests scope isolation, mode/version persistence, revision checks, mandatory audit revisions, and invalid modes; storage recovery tests cover migration 7 backup behavior.
 
@@ -112,6 +160,6 @@ Run:
 cargo test -p eitmad-sync -p eitmad-storage -p eitmad-contracts
 ```
 
-Then run strict workspace Clippy, all workspace tests, contract generation/verification, engine diagnostics, and the documentation audit. A new domain must define its mode, payload schema, authorization action/object, conflict policy, stale-read tolerance, Arabic UI states, and audit target before using the engine.
+Then run strict workspace Clippy, all workspace tests, contract generation/verification, engine diagnostics, and the documentation audit. A new production connector must define credential resolution, peer verification, encrypted-session implementation, route discovery, timeouts, backpressure integration, safe diagnostics, and deployment ownership without changing `SyncTransportFrame` or `SyncMessage`. A new domain must define its mode, payload schema, authorization action/object, conflict policy, stale-read tolerance, Arabic UI states, and audit target before using the engine.
 
 Related references: [sync contracts](../../api/synchronization-contracts.md), [local storage](local-storage.md), [authorization](authorization.md), [ADR-0008](../../decisions/0008-required-unified-synchronization.md), and [storage version 7 rollout](../../releases/storage-v7-sync-state.md).
