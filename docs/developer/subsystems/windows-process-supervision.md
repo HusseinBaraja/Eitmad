@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Windows platform maintainers"
-last_verified: "2026-08-19"
+last_verified: "2026-08-22"
 review_triggers:
   - "Windows engine launch, process containment, restart, lifecycle parsing, or shutdown behavior changes"
 keywords:
@@ -68,7 +68,7 @@ The rolling window allows three replacements in 60 seconds at one, two, and four
 
 Every process launch increments `Generation`. Output is accepted only from that generation and, after the first lifecycle snapshot, from the same `EngineInstanceId`. PID is correlation metadata and is never used as stable identity.
 
-The supervisor also owns IPC subscription continuity. It advertises protocol `1.0–1.3` and offers and requires `eitmad.capability.authorization-scopes.v1`. Only explicit development/test sessions may generate `DevelopmentIdentityAssertion` with an assigned tenant and launch the engine with `--allow-insecure-development-auth`; production IPC must use the reviewed peer-authentication design instead of this development-only path. The supervisor retains generated subscription descriptors and only the cursor acknowledged after UI processing. Connection loss makes `IpcHealth` `Connecting` and permits at most the restart policy's three default reconnect attempts after 100 ms, 500 ms, and two seconds while the current generation remains `Ready`. Exhaustion sets `ReconnectExhausted`, so callers can distinguish a live process from a usable IPC channel. Same-generation reconnect resumes replay; engine replacement raises `ResyncRequired`, opens a fresh stream, and leaves the owning feature responsible for an authoritative query before applying buffered events.
+The supervisor also owns IPC subscription continuity. It advertises protocol `1.0–1.4` and offers and requires `eitmad.capability.authorization-scopes.v1`. Only explicit development/test sessions may generate `DevelopmentIdentityAssertion` with an assigned tenant and launch the engine with `--allow-insecure-development-auth`; production IPC must use the reviewed peer-authentication design instead of this development-only path. The supervisor retains generated subscription descriptors and only the cursor acknowledged after UI processing. Connection loss makes `IpcHealth` `Connecting` and permits at most the restart policy's three default reconnect attempts after 100 ms, 500 ms, and two seconds while the current generation remains `Ready`. Exhaustion sets `ReconnectExhausted`, so callers can distinguish a live process from a usable IPC channel. Same-generation reconnect resumes replay; engine replacement raises `ResyncRequired`, opens a fresh stream, and leaves the owning feature responsible for an authoritative query before applying buffered events.
 
 ## Shutdown and containment
 

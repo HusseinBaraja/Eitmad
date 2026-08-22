@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust synchronization maintainers"
-last_verified: "2026-08-20"
+last_verified: "2026-08-22"
 review_triggers:
   - "sync contracts, reconciliation, transport, persistence, authorization, cache, or conflict behavior changes"
 keywords:
@@ -40,7 +40,7 @@ keywords:
 
 Native shells display returned state and localized recovery choices. They must not open SQLite, alter queues, merge payloads, retry denied work, infer freshness, or reproduce these contracts. LAN and WAN transports carry the same typed records; transport choice cannot change reconciliation semantics.
 
-The current server sync-plane executable remains an empty deployment boundary. The transport adapters implement route-independent policy over the public `ConnectionDriver` seam; production socket/TLS drivers, LAN discovery sources, server persistence, credential verification services, scheduling, and production conflict workflows still require vertical implementations. A production driver must not move authentication, secret access, authorization, or sync semantics into a native shell.
+The PostgreSQL server sync plane now implements registered domain handlers, durable operations, idempotency, conflicts, checkpoints, snapshot-backed history, and resumable subscriptions. The combined host supplies HTTPS and one WebSocket boundary with device authentication and protocol negotiation. Its domain registry remains empty until the first production vertical registers a schema and handler. LAN discovery sources, relay deployment, scheduling, and production conflict UI still require vertical implementations. A production driver must not move authentication, secret access, authorization, or sync semantics into a native shell.
 
 ## One transport interface and wire protocol
 
@@ -162,4 +162,4 @@ cargo test -p eitmad-sync -p eitmad-storage -p eitmad-contracts
 
 Then run strict workspace Clippy, all workspace tests, contract generation/verification, engine diagnostics, and the documentation audit. A new production connector must define credential resolution, peer verification, encrypted-session implementation, route discovery, timeouts, backpressure integration, safe diagnostics, and deployment ownership without changing `SyncTransportFrame` or `SyncMessage`. A new domain must define its mode, payload schema, authorization action/object, conflict policy, stale-read tolerance, Arabic UI states, and audit target before using the engine.
 
-Related references: [sync contracts](../../api/synchronization-contracts.md), [local storage](local-storage.md), [authorization](authorization.md), [ADR-0008](../../decisions/0008-required-unified-synchronization.md), and [storage version 7 rollout](../../releases/storage-v7-sync-state.md).
+Related references: [sync contracts](../../api/synchronization-contracts.md), [server authority](server-authority.md), [local storage](local-storage.md), [authorization](authorization.md), [ADR-0008](../../decisions/0008-required-unified-synchronization.md), [storage version 7 rollout](../../releases/storage-v7-sync-state.md), and [protocol 1.4 rollout](../../releases/protocol-1-4-server-authority.md).

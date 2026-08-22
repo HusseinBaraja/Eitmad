@@ -5,7 +5,7 @@ audience: "api"
 page_type: "task"
 status: "active"
 owner: "Rust contract maintainers"
-last_verified: "2026-08-19"
+last_verified: "2026-08-22"
 review_triggers:
   - "the protocol version, supported release window, capability negotiation, generator, or rollout process changes"
 keywords:
@@ -21,9 +21,9 @@ Change the Rust contract authority first, then regenerate every derived artifact
 
 ## Compatibility window
 
-The released engine and native shells MUST support the current protocol minor and every minor explicitly retained by current release notes. The encoded foundation window is `1.0–1.3`: `1.0` remains command/query-only, subscription traffic requires negotiated protocol `1.1` and `eitmad.capability.local-ipc-subscriptions.v1`, relationship administration requires `1.2`, and authorization-policy events require both `1.2` and `eitmad.capability.authorization-policy-events.v1`. Protocol `1.3` makes tenant context mandatory and requires `eitmad.capability.authorization-scopes.v1` for local IPC.
+The released engine and native shells MUST support the current protocol minor and every minor explicitly retained by current release notes. The encoded foundation window is `1.0–1.4`: `1.0` remains command/query-only, subscription traffic requires negotiated protocol `1.1` and `eitmad.capability.local-ipc-subscriptions.v1`, relationship administration requires `1.2`, and authorization-policy events require both `1.2` and `eitmad.capability.authorization-policy-events.v1`. Protocol `1.3` makes tenant context mandatory and requires `eitmad.capability.authorization-scopes.v1` for local IPC. Protocol `1.4` adds the capability-gated remote server and snapshot boundary.
 
-The engine advertises `1.0–1.3` but rejects any local peer missing the required scope capability before normal traffic. A `1.1` peer cannot request authorization-policy events and never receives the `1.2`-only revocation reason. Protocol `1.2+` alone is insufficient for an authorization-policy subscription when the policy-event capability is absent. A minor may leave the encoded window only after supported update paths no longer require it, rollout evidence is reviewed, and the release note records the removal. Product versions and protocol versions are independent.
+The engine advertises `1.0–1.4` but rejects any local peer missing the required scope capability before normal traffic. A `1.1` peer cannot request authorization-policy events and never receives the `1.2`-only revocation reason. Protocol `1.2+` alone is insufficient for an authorization-policy subscription when the policy-event capability is absent. A server client must negotiate `1.4` and every required server capability; an older minor remains valid only for boundaries whose behavior it can preserve. A minor may leave the encoded window only after supported update paths no longer require it, rollout evidence is reviewed, and the release note records the removal. Product versions and protocol versions are independent.
 
 Compatibility across protocol majors is not implied. A major transition requires the breaking-change process below and an explicit bridge or coordinated upgrade plan.
 

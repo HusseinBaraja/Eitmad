@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "product maintainers"
-last_verified: "2026-08-20"
+last_verified: "2026-08-22"
 review_triggers:
   - "a domain term, UI label, contract concept, or workshop synonym changes"
 keywords:
@@ -112,7 +112,10 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | المستخدم | User | A stable person identity independent of a specific tenant account or operational role. Name the role when behavior differs. |
 | الحساب | Account | A tenant-specific binding for one user; it is not a session or authentication secret. |
 | هوية الجهاز | Device identity | A stable installation-local identifier persisted by Rust. It is attribution metadata, not authentication proof. |
+| جهاز مسجّل | Registered device | **Provisional UI term.** A server-known device ID bound to one public key and account. Its signed proof supports authentication; the private key never enters the server. |
+| رمز المستأجر | Tenant code | **Provisional UI term.** A lowercase ASCII routing identifier entered with a username during server sign-in; it is not a tenant display name or secret. |
 | الجلسة | Session | A persisted, expiring binding between principal, account, device, tenant, optional organization/workspace, and connectivity state. |
+| رمز التحديث | Refresh token | **Provisional UI term.** A rotating opaque credential that may issue a new access-token pair. Reuse revokes its token family. It is not an update-channel identifier. |
 | جلسة دون اتصال | Offline session | An issued, unexpired, open local session whose engine connectivity state is offline; offline state does not bypass authorization or expiry. |
 | إعداد النظام | Configuration setting | A Rust-registered typed value with an authoritative default, validator, sensitivity, restart requirement, and scope. |
 | لقطة الإعدادات | Configuration snapshot | The stable, revisioned, redacted projection that a shell may read; it is not a shell-owned config file. |
@@ -141,12 +144,14 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | صحة اتصال المزامنة | Sync connection health | **Provisional UI term.** Operational state that reports offline, connecting, healthy, or degraded transport plus retry evidence; it does not prove reconciliation committed. |
 | مرحّل المزامنة | Sync relay | **Provisional UI term.** A configured WAN route used only when direct server connectivity fails; it does not change authentication, authorization, or sync message meaning. |
 | تعارض | Conflict | Concurrent or incompatible state that cannot be safely combined without a defined domain rule or decision. |
+| سجل التعارض | Conflict record | **Provisional UI term.** The durable scoped record that preserves both competing sync inputs, revisions, status, and resolution provenance. |
 | محلي أولًا | Local-first | A mode in which local durable work continues offline and later synchronizes under explicit conflict rules. |
 | الخادم هو المرجع | Server-authoritative | A mode in which the server determines canonical state and ordering for the domain. |
 | تغيير معلّق | Pending change | A durable local-first mutation waiting for acknowledgement or reconciliation. No user-facing label is approved yet. |
 | أمر معلّق | Pending command | A durable server-authoritative intent waiting for an accepted or denied server result. No user-facing label is approved yet. |
 | حالة متفائلة | Optimistic state | A provisional local projection of a pending server command; it is not confirmed server truth and may roll back. No user-facing label is approved yet. |
 | لقطة مزامنة | Sync snapshot | A scoped server projection with a checkpoint, generation, and explicit cache validity deadline. No user-facing label is approved yet. |
+| نقطة تحقق المزامنة | Sync checkpoint | **Provisional UI term.** An opaque scoped position acknowledged after durable application and used to resume history. Its identifier bytes do not define order. |
 | ذاكرة مؤقتة قديمة | Stale cache | Server-confirmed cached data whose validity deadline has passed; authoritative reads must withhold it until refresh. No user-facing label is approved yet. |
 | بيانات الدمج الوصفية | Merge metadata | Provenance recording conflict strategy, common ancestor revision, source change IDs, and merge time. No user-facing label is approved yet. |
 | إمكانية | Capability | A negotiated, machine-readable statement that a peer supports defined behavior or contract features. |
@@ -163,6 +168,7 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | تصدير البيانات المحلية | Local data export | A tenant-scoped portable JSON projection that excludes sessions, devices, audit, credentials, and operational storage; it is not a backup. |
 | تغيير كاسر | Breaking change | A contract representation or meaning change that a peer inside the compatibility window cannot safely interpret. |
 | تحديث | Update | A signed, policy-controlled change to engine, shell, contracts, or compatible data behavior. |
+| قناة التحديث | Update channel | **Provisional UI term.** The Rust-selected rollout stream. A device override takes precedence over the tenant default, which takes precedence over global `stable`. |
 | دورة حياة المحرك | Engine lifecycle | The Rust-owned process states `Starting`, `Ready`, `Stopping`, `Stopped`, and `Failed` plus their permitted transitions. |
 | جاهزية المحرك | Engine readiness | An explicit signal that initialization completed and every required health check is healthy; it is not inferred from a live PID. |
 | سلامة المحرك | Engine health | The aggregate `Healthy`, `Degraded`, or `Unhealthy` result of stable checks, evaluated separately from lifecycle state. |
