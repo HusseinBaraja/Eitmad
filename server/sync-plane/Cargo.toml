@@ -9,6 +9,20 @@ rust-version.workspace = true
 [lints]
 workspace = true
 
+[dependencies]
+base64 = "=0.22.1"
+eitmad-contracts = { path = "../../crates/contracts" }
+serde = { version = "=1.0.228", features = ["derive"] }
+serde_json = "=1.0.150"
+sha2 = "=0.10.9"
+sqlx = { package = "eitmad-postgres-support", path = "../postgres-support" }
+thiserror = "=2.0.18"
+tokio = { version = "=1.49.0", features = ["rt", "sync"] }
+uuid = { version = "=1.23.4", features = ["serde", "v4"] }
+
+[dev-dependencies]
+tokio = { version = "=1.49.0", features = ["macros", "rt-multi-thread"] }
+
 [[bin]]
 name = "eitmad-sync-plane"
 path = "src/main.rs"

@@ -60,6 +60,12 @@
     "query_response": {
       "$ref": "#/definitions/QueryResponseEnvelope"
     },
+    "server_client_message": {
+      "$ref": "#/definitions/ServerClientMessage"
+    },
+    "server_message": {
+      "$ref": "#/definitions/ServerMessage"
+    },
     "subscription_request": {
       "$ref": "#/definitions/SubscriptionEnvelope"
     },
@@ -89,6 +95,8 @@
     "negotiation",
     "sync_message",
     "sync_transport_frame",
+    "server_client_message",
+    "server_message",
     "update_state",
     "sync_status",
     "effective_permissions",
@@ -2756,6 +2764,12 @@
             "type": "string"
           }
         },
+        "serverMessages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "subscriptions": {
           "type": "array",
           "items": {
@@ -2776,6 +2790,7 @@
         "subscriptions",
         "events",
         "syncMessages",
+        "serverMessages",
         "capabilities",
         "permissions",
         "configKeys",
@@ -3446,6 +3461,247 @@
       "type": "string",
       "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
     },
+    "ServerClientMessage": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.server.hello.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ServerConnectionHello"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.server.sync.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/SyncTransportFrame"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.server.subscribe.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ServerSubscriptionRequest"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.server.acknowledge.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ServerSubscriptionAcknowledgement"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        }
+      ]
+    },
+    "ServerConnectionHello": {
+      "type": "object",
+      "properties": {
+        "apiVersion": {
+          "type": "integer",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0
+        },
+        "peer": {
+          "$ref": "#/definitions/PeerHello"
+        },
+        "resumeAfter": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "apiVersion",
+        "peer"
+      ]
+    },
+    "ServerFailure": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "correlationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "retryAfterMs": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "code",
+        "correlationId"
+      ]
+    },
+    "ServerMessage": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.server.hello-accepted.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/PeerHello"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.server.sync-message.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/SyncMessage"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.server.event.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ServerSubscriptionEvent"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.server.failure.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ServerFailure"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        }
+      ]
+    },
+    "ServerSubscriptionAcknowledgement": {
+      "type": "object",
+      "properties": {
+        "cursor": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "cursor"
+      ]
+    },
+    "ServerSubscriptionEvent": {
+      "type": "object",
+      "properties": {
+        "change": {
+          "$ref": "#/definitions/RecordChangeNotice"
+        },
+        "cursor": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "eventId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "occurredAt": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "eventId",
+        "cursor",
+        "occurredAt",
+        "change"
+      ]
+    },
+    "ServerSubscriptionRequest": {
+      "type": "object",
+      "properties": {
+        "resumeAfter": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "schemaId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "schemaId"
+      ]
+    },
     "ShutdownRequest": {
       "type": "object",
       "properties": {
@@ -3482,6 +3738,115 @@
         "requestId",
         "correlationId",
         "accepted"
+      ]
+    },
+    "SnapshotChunk": {
+      "type": "object",
+      "properties": {
+        "checksum": {
+          "type": "string"
+        },
+        "chunkIndex": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "records": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ChangeRecord"
+          }
+        },
+        "snapshotId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "snapshotId",
+        "chunkIndex",
+        "checksum",
+        "records"
+      ]
+    },
+    "SnapshotCompletion": {
+      "type": "object",
+      "properties": {
+        "checksum": {
+          "type": "string"
+        },
+        "snapshotId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "snapshotId",
+        "checksum"
+      ]
+    },
+    "SnapshotManifest": {
+      "type": "object",
+      "properties": {
+        "checkpoint": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "checksum": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        },
+        "serverGeneration": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "snapshotId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "totalChunks": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "totalRecords": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "validUntil": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "snapshotId",
+        "scope",
+        "checkpoint",
+        "serverGeneration",
+        "createdAt",
+        "validUntil",
+        "totalRecords",
+        "totalChunks",
+        "checksum"
+      ]
+    },
+    "SnapshotRequired": {
+      "type": "object",
+      "properties": {
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "reason"
       ]
     },
     "Subscription": {
@@ -3952,6 +4317,70 @@
             },
             "payload": {
               "$ref": "#/definitions/RetryAfter"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.sync.snapshot-manifest.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/SnapshotManifest"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.sync.snapshot-chunk.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/SnapshotChunk"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.sync.snapshot-complete.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/SnapshotCompletion"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.sync.snapshot-required.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/SnapshotRequired"
             }
           },
           "required": [

@@ -142,6 +142,7 @@ function protocolGroups(registry) {
     ["Subscriptions", registry.subscriptions],
     ["Events", registry.events],
     ["SyncMessages", registry.syncMessages],
+    ["ServerMessages", registry.serverMessages],
     ["Capabilities", registry.capabilities],
     ["Permissions", registry.permissions],
     ["ConfigKeys", registry.configKeys],

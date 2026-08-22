@@ -595,7 +595,7 @@ mod tests {
             protocols: vec![SupportedProtocol {
                 major: 1,
                 minimum_minor: 0,
-                maximum_minor: 3,
+                maximum_minor: eitmad_contracts::PROTOCOL_VERSION.minor,
             }],
             capabilities: Vec::new(),
             required_capabilities: Vec::new(),

@@ -86,6 +86,21 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.sync.acknowledge.v1`
 - `eitmad.sync.conflict.v1`
 - `eitmad.sync.backpressure.v1`
+- `eitmad.sync.snapshot-manifest.v1`
+- `eitmad.sync.snapshot-chunk.v1`
+- `eitmad.sync.snapshot-complete.v1`
+- `eitmad.sync.snapshot-required.v1`
+
+## Server messages
+
+- `eitmad.server.hello.v1`
+- `eitmad.server.sync.v1`
+- `eitmad.server.subscribe.v1`
+- `eitmad.server.acknowledge.v1`
+- `eitmad.server.hello-accepted.v1`
+- `eitmad.server.sync-message.v1`
+- `eitmad.server.event.v1`
+- `eitmad.server.failure.v1`
 
 ## Capabilities
 
@@ -97,6 +112,10 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.capability.config.v1`
 - `eitmad.capability.permissions.v1`
 - `eitmad.capability.sync.v1`
+- `eitmad.capability.server-connection.v1`
+- `eitmad.capability.server-device-proof.v1`
+- `eitmad.capability.server-snapshot-chunks.v1`
+- `eitmad.capability.server-subscription-resume.v1`
 - `eitmad.capability.update.v1`
 
 ## Permissions
@@ -109,6 +128,10 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.permission.permissions.read.v1`
 - `eitmad.permission.observability.sensitive-debug.v1`
 - `eitmad.permission.sync.read.v1`
+- `eitmad.permission.server.accounts.manage.v1`
+- `eitmad.permission.server.devices.manage.v1`
+- `eitmad.permission.server.license.read.v1`
+- `eitmad.permission.server.update-channel.manage.v1`
 - `eitmad.permission.update.read.v1`
 - `eitmad.permission.update.report-installer.v1`
 
@@ -150,6 +173,19 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.error.ipc-deadline-exceeded.v1`
 - `eitmad.error.protocol-incompatible.v1`
 - `eitmad.error.sync-backpressure.v1`
+- `eitmad.error.server-authentication-failed.v1`
+- `eitmad.error.server-bootstrap-failed.v1`
+- `eitmad.error.server-client-incompatible.v1`
+- `eitmad.error.server-config-invalid.v1`
+- `eitmad.error.server-database-unavailable.v1`
+- `eitmad.error.server-device-proof-invalid.v1`
+- `eitmad.error.server-idempotency-mismatch.v1`
+- `eitmad.error.server-license-required.v1`
+- `eitmad.error.server-migration-failed.v1`
+- `eitmad.error.server-runtime-failed.v1`
+- `eitmad.error.server-snapshot-required.v1`
+- `eitmad.error.server-token-expired.v1`
+- `eitmad.error.server-token-reuse.v1`
 - `eitmad.error.update-installer-failed.v1`
 
 ## Localization message identifiers
@@ -177,6 +213,19 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.message.observability-sensitive-debug-warning.v1`
 - `eitmad.message.protocol-incompatible.v1`
 - `eitmad.message.sync-backpressure.v1`
+- `eitmad.message.server-authentication-failed.v1`
+- `eitmad.message.server-bootstrap-failed.v1`
+- `eitmad.message.server-client-incompatible.v1`
+- `eitmad.message.server-config-invalid.v1`
+- `eitmad.message.server-database-unavailable.v1`
+- `eitmad.message.server-device-proof-invalid.v1`
+- `eitmad.message.server-idempotency-mismatch.v1`
+- `eitmad.message.server-license-required.v1`
+- `eitmad.message.server-migration-failed.v1`
+- `eitmad.message.server-runtime-failed.v1`
+- `eitmad.message.server-snapshot-required.v1`
+- `eitmad.message.server-token-expired.v1`
+- `eitmad.message.server-token-reuse.v1`
 - `eitmad.message.update-installer-failed.v1`
 
 ## Error parameter names

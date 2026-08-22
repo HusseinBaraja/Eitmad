@@ -25,6 +25,8 @@ public struct EitmadContractSchema: Codable, Sendable {
     public let peerHello: PeerHello
     public let queryRequest: QueryEnvelope
     public let queryResponse: QueryResponseEnvelope
+    public let serverClientMessage: ServerClientMessage
+    public let serverMessage: ServerMessage
     public let subscriptionRequest: SubscriptionEnvelope
     public let syncMessage: SyncMessage
     public let syncStatus: SyncStatus
@@ -51,6 +53,8 @@ public struct EitmadContractSchema: Codable, Sendable {
         case peerHello = "peer_hello"
         case queryRequest = "query_request"
         case queryResponse = "query_response"
+        case serverClientMessage = "server_client_message"
+        case serverMessage = "server_message"
         case subscriptionRequest = "subscription_request"
         case syncMessage = "sync_message"
         case syncStatus = "sync_status"
@@ -58,7 +62,7 @@ public struct EitmadContractSchema: Codable, Sendable {
         case updateState = "update_state"
     }
 
-    public init(catalog: ProtocolCatalog, commandRequest: CommandEnvelope, commandResponse: CommandResponseEnvelope, diagnosticReport: DiagnosticReport, effectivePermissions: EffectivePermissions, event: EventEnvelope, ipcClientMessage: IPCClientMessage, ipcServerMessage: IPCServerMessage, lifecycleSnapshot: LifecycleSnapshot, negotiation: NegotiationOutcome, observationClassification: DataClassification, observationComponentID: String, observationEventID: String, observationFieldName: String, observationSeverity: ObservationSeverity, observationValueKind: ObservationValueKind, peerHello: PeerHello, queryRequest: QueryEnvelope, queryResponse: QueryResponseEnvelope, subscriptionRequest: SubscriptionEnvelope, syncMessage: SyncMessage, syncStatus: SyncStatus, syncTransportFrame: SyncTransportFrame, updateState: UpdateState) {
+    public init(catalog: ProtocolCatalog, commandRequest: CommandEnvelope, commandResponse: CommandResponseEnvelope, diagnosticReport: DiagnosticReport, effectivePermissions: EffectivePermissions, event: EventEnvelope, ipcClientMessage: IPCClientMessage, ipcServerMessage: IPCServerMessage, lifecycleSnapshot: LifecycleSnapshot, negotiation: NegotiationOutcome, observationClassification: DataClassification, observationComponentID: String, observationEventID: String, observationFieldName: String, observationSeverity: ObservationSeverity, observationValueKind: ObservationValueKind, peerHello: PeerHello, queryRequest: QueryEnvelope, queryResponse: QueryResponseEnvelope, serverClientMessage: ServerClientMessage, serverMessage: ServerMessage, subscriptionRequest: SubscriptionEnvelope, syncMessage: SyncMessage, syncStatus: SyncStatus, syncTransportFrame: SyncTransportFrame, updateState: UpdateState) {
         self.catalog = catalog
         self.commandRequest = commandRequest
         self.commandResponse = commandResponse
@@ -78,6 +82,8 @@ public struct EitmadContractSchema: Codable, Sendable {
         self.peerHello = peerHello
         self.queryRequest = queryRequest
         self.queryResponse = queryResponse
+        self.serverClientMessage = serverClientMessage
+        self.serverMessage = serverMessage
         self.subscriptionRequest = subscriptionRequest
         self.syncMessage = syncMessage
         self.syncStatus = syncStatus
@@ -124,6 +130,8 @@ public extension EitmadContractSchema {
         peerHello: PeerHello? = nil,
         queryRequest: QueryEnvelope? = nil,
         queryResponse: QueryResponseEnvelope? = nil,
+        serverClientMessage: ServerClientMessage? = nil,
+        serverMessage: ServerMessage? = nil,
         subscriptionRequest: SubscriptionEnvelope? = nil,
         syncMessage: SyncMessage? = nil,
         syncStatus: SyncStatus? = nil,
@@ -150,6 +158,8 @@ public extension EitmadContractSchema {
             peerHello: peerHello ?? self.peerHello,
             queryRequest: queryRequest ?? self.queryRequest,
             queryResponse: queryResponse ?? self.queryResponse,
+            serverClientMessage: serverClientMessage ?? self.serverClientMessage,
+            serverMessage: serverMessage ?? self.serverMessage,
             subscriptionRequest: subscriptionRequest ?? self.subscriptionRequest,
             syncMessage: syncMessage ?? self.syncMessage,
             syncStatus: syncStatus ?? self.syncStatus,
@@ -172,17 +182,17 @@ public struct ProtocolCatalog: Codable, Sendable {
     public let capabilities, commands, configKeys, errorCodes: [String]
     public let errorParameterNames, events, ipcMessages, messageIDS: [String]
     public let permissions, queries, relations, schemaIDS: [String]
-    public let subscriptions, syncMessages: [String]
+    public let serverMessages, subscriptions, syncMessages: [String]
 
     public enum CodingKeys: String, CodingKey {
         case capabilities, commands, configKeys, errorCodes, errorParameterNames, events, ipcMessages
         case messageIDS = "messageIds"
         case permissions, queries, relations
         case schemaIDS = "schemaIds"
-        case subscriptions, syncMessages
+        case serverMessages, subscriptions, syncMessages
     }
 
-    public init(capabilities: [String], commands: [String], configKeys: [String], errorCodes: [String], errorParameterNames: [String], events: [String], ipcMessages: [String], messageIDS: [String], permissions: [String], queries: [String], relations: [String], schemaIDS: [String], subscriptions: [String], syncMessages: [String]) {
+    public init(capabilities: [String], commands: [String], configKeys: [String], errorCodes: [String], errorParameterNames: [String], events: [String], ipcMessages: [String], messageIDS: [String], permissions: [String], queries: [String], relations: [String], schemaIDS: [String], serverMessages: [String], subscriptions: [String], syncMessages: [String]) {
         self.capabilities = capabilities
         self.commands = commands
         self.configKeys = configKeys
@@ -195,6 +205,7 @@ public struct ProtocolCatalog: Codable, Sendable {
         self.queries = queries
         self.relations = relations
         self.schemaIDS = schemaIDS
+        self.serverMessages = serverMessages
         self.subscriptions = subscriptions
         self.syncMessages = syncMessages
     }
@@ -231,6 +242,7 @@ public extension ProtocolCatalog {
         queries: [String]? = nil,
         relations: [String]? = nil,
         schemaIDS: [String]? = nil,
+        serverMessages: [String]? = nil,
         subscriptions: [String]? = nil,
         syncMessages: [String]? = nil
     ) -> ProtocolCatalog {
@@ -247,6 +259,7 @@ public extension ProtocolCatalog {
             queries: queries ?? self.queries,
             relations: relations ?? self.relations,
             schemaIDS: schemaIDS ?? self.schemaIDS,
+            serverMessages: serverMessages ?? self.serverMessages,
             subscriptions: subscriptions ?? self.subscriptions,
             syncMessages: syncMessages ?? self.syncMessages
         )
@@ -4546,38 +4559,22 @@ public extension FluffyUpdateState {
     }
 }
 
-// MARK: - SubscriptionEnvelope
-public struct SubscriptionEnvelope: Codable, Sendable {
-    public let authorization: AuthorizationContext
-    public let correlationID: String
-    public let protocolVersion: ProtocolVersion
-    public let requestID: String
-    public let resumeAfter: String?
-    public let subscription: Subscription
+// MARK: - ServerClientMessage
+public struct ServerClientMessage: Codable, Sendable {
+    public let kind: ServerClientMessageKind
+    public let payload: ServerConnectionHello
 
-    public enum CodingKeys: String, CodingKey {
-        case authorization
-        case correlationID = "correlationId"
-        case protocolVersion
-        case requestID = "requestId"
-        case resumeAfter, subscription
-    }
-
-    public init(authorization: AuthorizationContext, correlationID: String, protocolVersion: ProtocolVersion, requestID: String, resumeAfter: String?, subscription: Subscription) {
-        self.authorization = authorization
-        self.correlationID = correlationID
-        self.protocolVersion = protocolVersion
-        self.requestID = requestID
-        self.resumeAfter = resumeAfter
-        self.subscription = subscription
+    public init(kind: ServerClientMessageKind, payload: ServerConnectionHello) {
+        self.kind = kind
+        self.payload = payload
     }
 }
 
-// MARK: SubscriptionEnvelope convenience initializers and mutators
+// MARK: ServerClientMessage convenience initializers and mutators
 
-public extension SubscriptionEnvelope {
+public extension ServerClientMessage {
     init(data: Data) throws {
-        self = try newJSONDecoder().decode(SubscriptionEnvelope.self, from: data)
+        self = try newJSONDecoder().decode(ServerClientMessage.self, from: data)
     }
 
     init(_ json: String, using encoding: String.Encoding = .utf8) throws {
@@ -4592,20 +4589,12 @@ public extension SubscriptionEnvelope {
     }
 
     func with(
-        authorization: AuthorizationContext? = nil,
-        correlationID: String? = nil,
-        protocolVersion: ProtocolVersion? = nil,
-        requestID: String? = nil,
-        resumeAfter: String?? = nil,
-        subscription: Subscription? = nil
-    ) -> SubscriptionEnvelope {
-        return SubscriptionEnvelope(
-            authorization: authorization ?? self.authorization,
-            correlationID: correlationID ?? self.correlationID,
-            protocolVersion: protocolVersion ?? self.protocolVersion,
-            requestID: requestID ?? self.requestID,
-            resumeAfter: resumeAfter ?? self.resumeAfter,
-            subscription: subscription ?? self.subscription
+        kind: ServerClientMessageKind? = nil,
+        payload: ServerConnectionHello? = nil
+    ) -> ServerClientMessage {
+        return ServerClientMessage(
+            kind: kind ?? self.kind,
+            payload: payload ?? self.payload
         )
     }
 
@@ -4618,22 +4607,60 @@ public extension SubscriptionEnvelope {
     }
 }
 
-// MARK: - SyncMessage
-public struct SyncMessage: Codable, Sendable {
-    public let kind: SyncMessageKind
-    public let payload: SyncNegotiation
+public enum ServerClientMessageKind: String, Codable, Sendable {
+    case eitmadServerAcknowledgeV1 = "eitmad.server.acknowledge.v1"
+    case eitmadServerHelloV1 = "eitmad.server.hello.v1"
+    case eitmadServerSubscribeV1 = "eitmad.server.subscribe.v1"
+    case eitmadServerSyncV1 = "eitmad.server.sync.v1"
+}
 
-    public init(kind: SyncMessageKind, payload: SyncNegotiation) {
-        self.kind = kind
+/// One transport-independent sync frame used by simulation, LAN, and WAN links.
+// MARK: - ServerConnectionHello
+public struct ServerConnectionHello: Codable, Sendable {
+    public let apiVersion: Int?
+    public let peer: PeerHello?
+    public let resumeAfter: String?
+    public let correlationID: String?
+    public let endOfStream: Bool?
+    public let frameID, idempotencyKey: String?
+    public let payload: SyncTransportPayload?
+    public let protocolVersion: ProtocolVersion?
+    public let sequence: Int?
+    public let streamID, schemaID, cursor: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case apiVersion, peer, resumeAfter
+        case correlationID = "correlationId"
+        case endOfStream
+        case frameID = "frameId"
+        case idempotencyKey, payload, protocolVersion, sequence
+        case streamID = "streamId"
+        case schemaID = "schemaId"
+        case cursor
+    }
+
+    public init(apiVersion: Int?, peer: PeerHello?, resumeAfter: String?, correlationID: String?, endOfStream: Bool?, frameID: String?, idempotencyKey: String?, payload: SyncTransportPayload?, protocolVersion: ProtocolVersion?, sequence: Int?, streamID: String?, schemaID: String?, cursor: String?) {
+        self.apiVersion = apiVersion
+        self.peer = peer
+        self.resumeAfter = resumeAfter
+        self.correlationID = correlationID
+        self.endOfStream = endOfStream
+        self.frameID = frameID
+        self.idempotencyKey = idempotencyKey
         self.payload = payload
+        self.protocolVersion = protocolVersion
+        self.sequence = sequence
+        self.streamID = streamID
+        self.schemaID = schemaID
+        self.cursor = cursor
     }
 }
 
-// MARK: SyncMessage convenience initializers and mutators
+// MARK: ServerConnectionHello convenience initializers and mutators
 
-public extension SyncMessage {
+public extension ServerConnectionHello {
     init(data: Data) throws {
-        self = try newJSONDecoder().decode(SyncMessage.self, from: data)
+        self = try newJSONDecoder().decode(ServerConnectionHello.self, from: data)
     }
 
     init(_ json: String, using encoding: String.Encoding = .utf8) throws {
@@ -4648,12 +4675,159 @@ public extension SyncMessage {
     }
 
     func with(
-        kind: SyncMessageKind? = nil,
-        payload: SyncNegotiation? = nil
-    ) -> SyncMessage {
-        return SyncMessage(
+        apiVersion: Int?? = nil,
+        peer: PeerHello?? = nil,
+        resumeAfter: String?? = nil,
+        correlationID: String?? = nil,
+        endOfStream: Bool?? = nil,
+        frameID: String?? = nil,
+        idempotencyKey: String?? = nil,
+        payload: SyncTransportPayload?? = nil,
+        protocolVersion: ProtocolVersion?? = nil,
+        sequence: Int?? = nil,
+        streamID: String?? = nil,
+        schemaID: String?? = nil,
+        cursor: String?? = nil
+    ) -> ServerConnectionHello {
+        return ServerConnectionHello(
+            apiVersion: apiVersion ?? self.apiVersion,
+            peer: peer ?? self.peer,
+            resumeAfter: resumeAfter ?? self.resumeAfter,
+            correlationID: correlationID ?? self.correlationID,
+            endOfStream: endOfStream ?? self.endOfStream,
+            frameID: frameID ?? self.frameID,
+            idempotencyKey: idempotencyKey ?? self.idempotencyKey,
+            payload: payload ?? self.payload,
+            protocolVersion: protocolVersion ?? self.protocolVersion,
+            sequence: sequence ?? self.sequence,
+            streamID: streamID ?? self.streamID,
+            schemaID: schemaID ?? self.schemaID,
+            cursor: cursor ?? self.cursor
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - SyncTransportPayload
+public struct SyncTransportPayload: Codable, Sendable {
+    public let kind: SyncTransportPayloadKind
+    public let payload: Sync
+
+    public init(kind: SyncTransportPayloadKind, payload: Sync) {
+        self.kind = kind
+        self.payload = payload
+    }
+}
+
+// MARK: SyncTransportPayload convenience initializers and mutators
+
+public extension SyncTransportPayload {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(SyncTransportPayload.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        kind: SyncTransportPayloadKind? = nil,
+        payload: Sync? = nil
+    ) -> SyncTransportPayload {
+        return SyncTransportPayload(
             kind: kind ?? self.kind,
             payload: payload ?? self.payload
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+public enum SyncTransportPayloadKind: String, Codable, Sendable {
+    case cancel = "cancel"
+    case heartbeat = "heartbeat"
+    case heartbeatAcknowledged = "heartbeatAcknowledged"
+    case message = "message"
+}
+
+// MARK: - Sync
+public struct Sync: Codable, Sendable {
+    public let kind: SyncMessageKind?
+    public let payload: SyncNegotiation?
+    public let lastAcceptedSequence: Int?
+    public let reason: SyncCancellationReason?
+    public let streamID: String?
+    public let sentAt: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case kind, payload, lastAcceptedSequence, reason
+        case streamID = "streamId"
+        case sentAt = "sent_at"
+    }
+
+    public init(kind: SyncMessageKind?, payload: SyncNegotiation?, lastAcceptedSequence: Int?, reason: SyncCancellationReason?, streamID: String?, sentAt: Int?) {
+        self.kind = kind
+        self.payload = payload
+        self.lastAcceptedSequence = lastAcceptedSequence
+        self.reason = reason
+        self.streamID = streamID
+        self.sentAt = sentAt
+    }
+}
+
+// MARK: Sync convenience initializers and mutators
+
+public extension Sync {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(Sync.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        kind: SyncMessageKind?? = nil,
+        payload: SyncNegotiation?? = nil,
+        lastAcceptedSequence: Int?? = nil,
+        reason: SyncCancellationReason?? = nil,
+        streamID: String?? = nil,
+        sentAt: Int?? = nil
+    ) -> Sync {
+        return Sync(
+            kind: kind ?? self.kind,
+            payload: payload ?? self.payload,
+            lastAcceptedSequence: lastAcceptedSequence ?? self.lastAcceptedSequence,
+            reason: reason ?? self.reason,
+            streamID: streamID ?? self.streamID,
+            sentAt: sentAt ?? self.sentAt
         )
     }
 
@@ -4674,6 +4848,10 @@ public enum SyncMessageKind: String, Codable, Sendable {
     case eitmadSyncNegotiateV1 = "eitmad.sync.negotiate.v1"
     case eitmadSyncPullV1 = "eitmad.sync.pull.v1"
     case eitmadSyncReconcileV1 = "eitmad.sync.reconcile.v1"
+    case eitmadSyncSnapshotChunkV1 = "eitmad.sync.snapshot-chunk.v1"
+    case eitmadSyncSnapshotCompleteV1 = "eitmad.sync.snapshot-complete.v1"
+    case eitmadSyncSnapshotManifestV1 = "eitmad.sync.snapshot-manifest.v1"
+    case eitmadSyncSnapshotRequiredV1 = "eitmad.sync.snapshot-required.v1"
 }
 
 // MARK: - SyncNegotiation
@@ -4696,7 +4874,14 @@ public struct SyncNegotiation: Codable, Sendable {
     public let localRevision: Int?
     public let recordID: String?
     public let remoteRevision, delayMS: Int?
-    public let reason: String?
+    public let reason, checksum: String?
+    public let createdAt: Int?
+    public let scope: ScopeRef?
+    public let serverGeneration: Int?
+    public let snapshotID: String?
+    public let totalChunks, totalRecords: Int?
+    public let validUntil: Int?
+    public let chunkIndex: Int?
 
     public enum CodingKeys: String, CodingKey {
         case checkpoint, mode, peer, after, maximumRecords
@@ -4707,10 +4892,12 @@ public struct SyncNegotiation: Codable, Sendable {
         case recordID = "recordId"
         case remoteRevision
         case delayMS = "delayMs"
-        case reason
+        case reason, checksum, createdAt, scope, serverGeneration
+        case snapshotID = "snapshotId"
+        case totalChunks, totalRecords, validUntil, chunkIndex
     }
 
-    public init(checkpoint: String?, mode: SyncMode?, peer: PeerHello?, after: String?, maximumRecords: Int?, deliveryID: String?, fromCheckpoint: String?, hasMore: Bool?, idempotencyKey: String?, records: [ChangeRecord]?, changes: [ChangeRecord]?, commandResults: [CommandResult2]?, receivedAt: Int?, snapshot: SyncSnapshot?, acceptedRecords: Int?, conflictID: String?, localRevision: Int?, recordID: String?, remoteRevision: Int?, delayMS: Int?, reason: String?) {
+    public init(checkpoint: String?, mode: SyncMode?, peer: PeerHello?, after: String?, maximumRecords: Int?, deliveryID: String?, fromCheckpoint: String?, hasMore: Bool?, idempotencyKey: String?, records: [ChangeRecord]?, changes: [ChangeRecord]?, commandResults: [CommandResult2]?, receivedAt: Int?, snapshot: SyncSnapshot?, acceptedRecords: Int?, conflictID: String?, localRevision: Int?, recordID: String?, remoteRevision: Int?, delayMS: Int?, reason: String?, checksum: String?, createdAt: Int?, scope: ScopeRef?, serverGeneration: Int?, snapshotID: String?, totalChunks: Int?, totalRecords: Int?, validUntil: Int?, chunkIndex: Int?) {
         self.checkpoint = checkpoint
         self.mode = mode
         self.peer = peer
@@ -4732,6 +4919,15 @@ public struct SyncNegotiation: Codable, Sendable {
         self.remoteRevision = remoteRevision
         self.delayMS = delayMS
         self.reason = reason
+        self.checksum = checksum
+        self.createdAt = createdAt
+        self.scope = scope
+        self.serverGeneration = serverGeneration
+        self.snapshotID = snapshotID
+        self.totalChunks = totalChunks
+        self.totalRecords = totalRecords
+        self.validUntil = validUntil
+        self.chunkIndex = chunkIndex
     }
 }
 
@@ -4774,7 +4970,16 @@ public extension SyncNegotiation {
         recordID: String?? = nil,
         remoteRevision: Int?? = nil,
         delayMS: Int?? = nil,
-        reason: String?? = nil
+        reason: String?? = nil,
+        checksum: String?? = nil,
+        createdAt: Int?? = nil,
+        scope: ScopeRef?? = nil,
+        serverGeneration: Int?? = nil,
+        snapshotID: String?? = nil,
+        totalChunks: Int?? = nil,
+        totalRecords: Int?? = nil,
+        validUntil: Int?? = nil,
+        chunkIndex: Int?? = nil
     ) -> SyncNegotiation {
         return SyncNegotiation(
             checkpoint: checkpoint ?? self.checkpoint,
@@ -4797,7 +5002,16 @@ public extension SyncNegotiation {
             recordID: recordID ?? self.recordID,
             remoteRevision: remoteRevision ?? self.remoteRevision,
             delayMS: delayMS ?? self.delayMS,
-            reason: reason ?? self.reason
+            reason: reason ?? self.reason,
+            checksum: checksum ?? self.checksum,
+            createdAt: createdAt ?? self.createdAt,
+            scope: scope ?? self.scope,
+            serverGeneration: serverGeneration ?? self.serverGeneration,
+            snapshotID: snapshotID ?? self.snapshotID,
+            totalChunks: totalChunks ?? self.totalChunks,
+            totalRecords: totalRecords ?? self.totalRecords,
+            validUntil: validUntil ?? self.validUntil,
+            chunkIndex: chunkIndex ?? self.chunkIndex
         )
     }
 
@@ -5249,6 +5463,366 @@ public extension SyncSnapshot {
     }
 }
 
+public enum SyncCancellationReason: String, Codable, Sendable {
+    case clientRequested = "clientRequested"
+    case deadlineExceeded = "deadlineExceeded"
+    case shuttingDown = "shuttingDown"
+    case superseded = "superseded"
+}
+
+// MARK: - ServerMessage
+public struct ServerMessage: Codable, Sendable {
+    public let kind: ServerMessageKind
+    public let payload: PayloadClass
+
+    public init(kind: ServerMessageKind, payload: PayloadClass) {
+        self.kind = kind
+        self.payload = payload
+    }
+}
+
+// MARK: ServerMessage convenience initializers and mutators
+
+public extension ServerMessage {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(ServerMessage.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        kind: ServerMessageKind? = nil,
+        payload: PayloadClass? = nil
+    ) -> ServerMessage {
+        return ServerMessage(
+            kind: kind ?? self.kind,
+            payload: payload ?? self.payload
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+public enum ServerMessageKind: String, Codable, Sendable {
+    case eitmadServerEventV1 = "eitmad.server.event.v1"
+    case eitmadServerFailureV1 = "eitmad.server.failure.v1"
+    case eitmadServerHelloAcceptedV1 = "eitmad.server.hello-accepted.v1"
+    case eitmadServerSyncMessageV1 = "eitmad.server.sync-message.v1"
+}
+
+// MARK: - PayloadClass
+public struct PayloadClass: Codable, Sendable {
+    public let capabilities: [String]?
+    public let peerKind: PeerKind?
+    public let productVersion: String?
+    public let protocols: [SupportedProtocol]?
+    public let requiredCapabilities: [String]?
+    public let schemas: [SchemaSupport]?
+    public let kind: SyncMessageKind?
+    public let payload: SyncNegotiation?
+    public let change: RecordChangeNotice?
+    public let cursor, eventID: String?
+    public let occurredAt: Int?
+    public let code, correlationID: String?
+    public let retryAfterMS: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case capabilities, peerKind, productVersion, protocols, requiredCapabilities, schemas, kind, payload, change, cursor
+        case eventID = "eventId"
+        case occurredAt, code
+        case correlationID = "correlationId"
+        case retryAfterMS = "retryAfterMs"
+    }
+
+    public init(capabilities: [String]?, peerKind: PeerKind?, productVersion: String?, protocols: [SupportedProtocol]?, requiredCapabilities: [String]?, schemas: [SchemaSupport]?, kind: SyncMessageKind?, payload: SyncNegotiation?, change: RecordChangeNotice?, cursor: String?, eventID: String?, occurredAt: Int?, code: String?, correlationID: String?, retryAfterMS: Int?) {
+        self.capabilities = capabilities
+        self.peerKind = peerKind
+        self.productVersion = productVersion
+        self.protocols = protocols
+        self.requiredCapabilities = requiredCapabilities
+        self.schemas = schemas
+        self.kind = kind
+        self.payload = payload
+        self.change = change
+        self.cursor = cursor
+        self.eventID = eventID
+        self.occurredAt = occurredAt
+        self.code = code
+        self.correlationID = correlationID
+        self.retryAfterMS = retryAfterMS
+    }
+}
+
+// MARK: PayloadClass convenience initializers and mutators
+
+public extension PayloadClass {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(PayloadClass.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        capabilities: [String]?? = nil,
+        peerKind: PeerKind?? = nil,
+        productVersion: String?? = nil,
+        protocols: [SupportedProtocol]?? = nil,
+        requiredCapabilities: [String]?? = nil,
+        schemas: [SchemaSupport]?? = nil,
+        kind: SyncMessageKind?? = nil,
+        payload: SyncNegotiation?? = nil,
+        change: RecordChangeNotice?? = nil,
+        cursor: String?? = nil,
+        eventID: String?? = nil,
+        occurredAt: Int?? = nil,
+        code: String?? = nil,
+        correlationID: String?? = nil,
+        retryAfterMS: Int?? = nil
+    ) -> PayloadClass {
+        return PayloadClass(
+            capabilities: capabilities ?? self.capabilities,
+            peerKind: peerKind ?? self.peerKind,
+            productVersion: productVersion ?? self.productVersion,
+            protocols: protocols ?? self.protocols,
+            requiredCapabilities: requiredCapabilities ?? self.requiredCapabilities,
+            schemas: schemas ?? self.schemas,
+            kind: kind ?? self.kind,
+            payload: payload ?? self.payload,
+            change: change ?? self.change,
+            cursor: cursor ?? self.cursor,
+            eventID: eventID ?? self.eventID,
+            occurredAt: occurredAt ?? self.occurredAt,
+            code: code ?? self.code,
+            correlationID: correlationID ?? self.correlationID,
+            retryAfterMS: retryAfterMS ?? self.retryAfterMS
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - RecordChangeNotice
+public struct RecordChangeNotice: Codable, Sendable {
+    public let changedAt: Int
+    public let operation: ChangeOperation
+    public let recordID: String
+    public let revision: Int
+    public let schemaID: String
+    public let scope: ScopeRef
+
+    public enum CodingKeys: String, CodingKey {
+        case changedAt, operation
+        case recordID = "recordId"
+        case revision
+        case schemaID = "schemaId"
+        case scope
+    }
+
+    public init(changedAt: Int, operation: ChangeOperation, recordID: String, revision: Int, schemaID: String, scope: ScopeRef) {
+        self.changedAt = changedAt
+        self.operation = operation
+        self.recordID = recordID
+        self.revision = revision
+        self.schemaID = schemaID
+        self.scope = scope
+    }
+}
+
+// MARK: RecordChangeNotice convenience initializers and mutators
+
+public extension RecordChangeNotice {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(RecordChangeNotice.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        changedAt: Int? = nil,
+        operation: ChangeOperation? = nil,
+        recordID: String? = nil,
+        revision: Int? = nil,
+        schemaID: String? = nil,
+        scope: ScopeRef? = nil
+    ) -> RecordChangeNotice {
+        return RecordChangeNotice(
+            changedAt: changedAt ?? self.changedAt,
+            operation: operation ?? self.operation,
+            recordID: recordID ?? self.recordID,
+            revision: revision ?? self.revision,
+            schemaID: schemaID ?? self.schemaID,
+            scope: scope ?? self.scope
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - SubscriptionEnvelope
+public struct SubscriptionEnvelope: Codable, Sendable {
+    public let authorization: AuthorizationContext
+    public let correlationID: String
+    public let protocolVersion: ProtocolVersion
+    public let requestID: String
+    public let resumeAfter: String?
+    public let subscription: Subscription
+
+    public enum CodingKeys: String, CodingKey {
+        case authorization
+        case correlationID = "correlationId"
+        case protocolVersion
+        case requestID = "requestId"
+        case resumeAfter, subscription
+    }
+
+    public init(authorization: AuthorizationContext, correlationID: String, protocolVersion: ProtocolVersion, requestID: String, resumeAfter: String?, subscription: Subscription) {
+        self.authorization = authorization
+        self.correlationID = correlationID
+        self.protocolVersion = protocolVersion
+        self.requestID = requestID
+        self.resumeAfter = resumeAfter
+        self.subscription = subscription
+    }
+}
+
+// MARK: SubscriptionEnvelope convenience initializers and mutators
+
+public extension SubscriptionEnvelope {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(SubscriptionEnvelope.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        authorization: AuthorizationContext? = nil,
+        correlationID: String? = nil,
+        protocolVersion: ProtocolVersion? = nil,
+        requestID: String? = nil,
+        resumeAfter: String?? = nil,
+        subscription: Subscription? = nil
+    ) -> SubscriptionEnvelope {
+        return SubscriptionEnvelope(
+            authorization: authorization ?? self.authorization,
+            correlationID: correlationID ?? self.correlationID,
+            protocolVersion: protocolVersion ?? self.protocolVersion,
+            requestID: requestID ?? self.requestID,
+            resumeAfter: resumeAfter ?? self.resumeAfter,
+            subscription: subscription ?? self.subscription
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - SyncMessage
+public struct SyncMessage: Codable, Sendable {
+    public let kind: SyncMessageKind
+    public let payload: SyncNegotiation
+
+    public init(kind: SyncMessageKind, payload: SyncNegotiation) {
+        self.kind = kind
+        self.payload = payload
+    }
+}
+
+// MARK: SyncMessage convenience initializers and mutators
+
+public extension SyncMessage {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(SyncMessage.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        kind: SyncMessageKind? = nil,
+        payload: SyncNegotiation? = nil
+    ) -> SyncMessage {
+        return SyncMessage(
+            kind: kind ?? self.kind,
+            payload: payload ?? self.payload
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
 // MARK: - SyncStatus
 public struct SyncStatus: Codable, Sendable {
     public let kind: SyncStatusKind
@@ -5443,138 +6017,6 @@ public extension SyncTransportFrame {
     func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
         return String(data: try self.jsonData(), encoding: encoding)
     }
-}
-
-// MARK: - SyncTransportPayload
-public struct SyncTransportPayload: Codable, Sendable {
-    public let kind: SyncTransportPayloadKind
-    public let payload: Sync
-
-    public init(kind: SyncTransportPayloadKind, payload: Sync) {
-        self.kind = kind
-        self.payload = payload
-    }
-}
-
-// MARK: SyncTransportPayload convenience initializers and mutators
-
-public extension SyncTransportPayload {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(SyncTransportPayload.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        kind: SyncTransportPayloadKind? = nil,
-        payload: Sync? = nil
-    ) -> SyncTransportPayload {
-        return SyncTransportPayload(
-            kind: kind ?? self.kind,
-            payload: payload ?? self.payload
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
-public enum SyncTransportPayloadKind: String, Codable, Sendable {
-    case cancel = "cancel"
-    case heartbeat = "heartbeat"
-    case heartbeatAcknowledged = "heartbeatAcknowledged"
-    case message = "message"
-}
-
-// MARK: - Sync
-public struct Sync: Codable, Sendable {
-    public let kind: SyncMessageKind?
-    public let payload: SyncNegotiation?
-    public let lastAcceptedSequence: Int?
-    public let reason: SyncCancellationReason?
-    public let streamID: String?
-    public let sentAt: Int?
-
-    public enum CodingKeys: String, CodingKey {
-        case kind, payload, lastAcceptedSequence, reason
-        case streamID = "streamId"
-        case sentAt = "sent_at"
-    }
-
-    public init(kind: SyncMessageKind?, payload: SyncNegotiation?, lastAcceptedSequence: Int?, reason: SyncCancellationReason?, streamID: String?, sentAt: Int?) {
-        self.kind = kind
-        self.payload = payload
-        self.lastAcceptedSequence = lastAcceptedSequence
-        self.reason = reason
-        self.streamID = streamID
-        self.sentAt = sentAt
-    }
-}
-
-// MARK: Sync convenience initializers and mutators
-
-public extension Sync {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(Sync.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        kind: SyncMessageKind?? = nil,
-        payload: SyncNegotiation?? = nil,
-        lastAcceptedSequence: Int?? = nil,
-        reason: SyncCancellationReason?? = nil,
-        streamID: String?? = nil,
-        sentAt: Int?? = nil
-    ) -> Sync {
-        return Sync(
-            kind: kind ?? self.kind,
-            payload: payload ?? self.payload,
-            lastAcceptedSequence: lastAcceptedSequence ?? self.lastAcceptedSequence,
-            reason: reason ?? self.reason,
-            streamID: streamID ?? self.streamID,
-            sentAt: sentAt ?? self.sentAt
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
-public enum SyncCancellationReason: String, Codable, Sendable {
-    case clientRequested = "clientRequested"
-    case deadlineExceeded = "deadlineExceeded"
-    case shuttingDown = "shuttingDown"
-    case superseded = "superseded"
 }
 
 // MARK: - UpdateState

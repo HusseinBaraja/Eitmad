@@ -5,6 +5,7 @@ use crate::{
     commands::Command,
     events::{Event, Subscription},
     queries::Query,
+    server::{ServerClientMessage, ServerMessage},
     sync::SyncMessage,
 };
 
@@ -17,6 +18,10 @@ pub const CAPABILITIES: &[&str] = &[
     "eitmad.capability.config.v1",
     "eitmad.capability.permissions.v1",
     "eitmad.capability.sync.v1",
+    "eitmad.capability.server-connection.v1",
+    "eitmad.capability.server-device-proof.v1",
+    "eitmad.capability.server-snapshot-chunks.v1",
+    "eitmad.capability.server-subscription-resume.v1",
     "eitmad.capability.update.v1",
 ];
 
@@ -47,6 +52,10 @@ pub const PERMISSIONS: &[&str] = &[
     "eitmad.permission.permissions.read.v1",
     "eitmad.permission.observability.sensitive-debug.v1",
     "eitmad.permission.sync.read.v1",
+    "eitmad.permission.server.accounts.manage.v1",
+    "eitmad.permission.server.devices.manage.v1",
+    "eitmad.permission.server.license.read.v1",
+    "eitmad.permission.server.update-channel.manage.v1",
     "eitmad.permission.update.read.v1",
     "eitmad.permission.update.report-installer.v1",
 ];
@@ -74,6 +83,19 @@ pub const ERROR_CODES: &[&str] = &[
     "eitmad.error.ipc-deadline-exceeded.v1",
     "eitmad.error.protocol-incompatible.v1",
     "eitmad.error.sync-backpressure.v1",
+    "eitmad.error.server-authentication-failed.v1",
+    "eitmad.error.server-bootstrap-failed.v1",
+    "eitmad.error.server-client-incompatible.v1",
+    "eitmad.error.server-config-invalid.v1",
+    "eitmad.error.server-database-unavailable.v1",
+    "eitmad.error.server-device-proof-invalid.v1",
+    "eitmad.error.server-idempotency-mismatch.v1",
+    "eitmad.error.server-license-required.v1",
+    "eitmad.error.server-migration-failed.v1",
+    "eitmad.error.server-runtime-failed.v1",
+    "eitmad.error.server-snapshot-required.v1",
+    "eitmad.error.server-token-expired.v1",
+    "eitmad.error.server-token-reuse.v1",
     "eitmad.error.update-installer-failed.v1",
 ];
 
@@ -101,6 +123,19 @@ pub const MESSAGE_IDS: &[&str] = &[
     "eitmad.message.observability-sensitive-debug-warning.v1",
     "eitmad.message.protocol-incompatible.v1",
     "eitmad.message.sync-backpressure.v1",
+    "eitmad.message.server-authentication-failed.v1",
+    "eitmad.message.server-bootstrap-failed.v1",
+    "eitmad.message.server-client-incompatible.v1",
+    "eitmad.message.server-config-invalid.v1",
+    "eitmad.message.server-database-unavailable.v1",
+    "eitmad.message.server-device-proof-invalid.v1",
+    "eitmad.message.server-idempotency-mismatch.v1",
+    "eitmad.message.server-license-required.v1",
+    "eitmad.message.server-migration-failed.v1",
+    "eitmad.message.server-runtime-failed.v1",
+    "eitmad.message.server-snapshot-required.v1",
+    "eitmad.message.server-token-expired.v1",
+    "eitmad.message.server-token-reuse.v1",
     "eitmad.message.update-installer-failed.v1",
 ];
 
@@ -131,6 +166,7 @@ pub struct ProtocolCatalog {
     pub subscriptions: Vec<String>,
     pub events: Vec<String>,
     pub sync_messages: Vec<String>,
+    pub server_messages: Vec<String>,
     pub capabilities: Vec<String>,
     pub permissions: Vec<String>,
     pub config_keys: Vec<String>,
@@ -151,6 +187,11 @@ impl ProtocolCatalog {
             subscriptions: strings(Subscription::IDS),
             events: strings(Event::IDS),
             sync_messages: strings(SyncMessage::IDS),
+            server_messages: ServerClientMessage::IDS
+                .iter()
+                .chain(ServerMessage::IDS)
+                .map(|value| (*value).to_owned())
+                .collect(),
             capabilities: strings(CAPABILITIES),
             permissions: strings(PERMISSIONS),
             config_keys: strings(CONFIG_KEYS),
@@ -172,6 +213,7 @@ impl ProtocolCatalog {
             .chain(&self.subscriptions)
             .chain(&self.events)
             .chain(&self.sync_messages)
+            .chain(&self.server_messages)
             .chain(&self.capabilities)
             .chain(&self.permissions)
             .chain(&self.config_keys)
@@ -232,6 +274,7 @@ mod tests {
             .chain(&catalog.subscriptions)
             .chain(&catalog.events)
             .chain(&catalog.sync_messages)
+            .chain(&catalog.server_messages)
             .chain(&catalog.capabilities)
             .chain(&catalog.permissions)
             .chain(&catalog.error_codes)

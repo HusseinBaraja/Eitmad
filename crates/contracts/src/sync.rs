@@ -157,6 +157,43 @@ pub struct SyncSnapshot {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct SnapshotManifest {
+    pub snapshot_id: SnapshotId,
+    pub scope: ScopeRef,
+    pub checkpoint: Checkpoint,
+    pub server_generation: u64,
+    pub created_at: UnixMillis,
+    pub valid_until: UnixMillis,
+    pub total_records: u64,
+    pub total_chunks: u32,
+    pub checksum: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SnapshotChunk {
+    pub snapshot_id: SnapshotId,
+    pub chunk_index: u32,
+    pub checksum: String,
+    #[serde(deserialize_with = "deserialize_bounded_records")]
+    pub records: Vec<ChangeRecord>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SnapshotCompletion {
+    pub snapshot_id: SnapshotId,
+    pub checksum: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SnapshotRequired {
+    pub reason: ErrorCodeRef,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct PendingCommand {
     pub command_id: PendingCommandId,
     pub scope: ScopeRef,
@@ -295,7 +332,11 @@ tagged_contract! {
         Reconcile(ReconciliationDelivery) => "eitmad.sync.reconcile.v1",
         Acknowledge(BatchAcknowledgement) => "eitmad.sync.acknowledge.v1",
         Conflict(ConflictNotice) => "eitmad.sync.conflict.v1",
-        Backpressure(RetryAfter) => "eitmad.sync.backpressure.v1"
+        Backpressure(RetryAfter) => "eitmad.sync.backpressure.v1",
+        SnapshotManifest(SnapshotManifest) => "eitmad.sync.snapshot-manifest.v1",
+        SnapshotChunk(SnapshotChunk) => "eitmad.sync.snapshot-chunk.v1",
+        SnapshotComplete(SnapshotCompletion) => "eitmad.sync.snapshot-complete.v1",
+        SnapshotRequired(SnapshotRequired) => "eitmad.sync.snapshot-required.v1"
     }
 }
 

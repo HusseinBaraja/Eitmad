@@ -68,6 +68,21 @@ public enum ProtocolIds {
         public static let eitmadSyncAcknowledgeV1 = "eitmad.sync.acknowledge.v1"
         public static let eitmadSyncConflictV1 = "eitmad.sync.conflict.v1"
         public static let eitmadSyncBackpressureV1 = "eitmad.sync.backpressure.v1"
+        public static let eitmadSyncSnapshotManifestV1 = "eitmad.sync.snapshot-manifest.v1"
+        public static let eitmadSyncSnapshotChunkV1 = "eitmad.sync.snapshot-chunk.v1"
+        public static let eitmadSyncSnapshotCompleteV1 = "eitmad.sync.snapshot-complete.v1"
+        public static let eitmadSyncSnapshotRequiredV1 = "eitmad.sync.snapshot-required.v1"
+    }
+
+    public enum ServerMessages {
+        public static let eitmadServerHelloV1 = "eitmad.server.hello.v1"
+        public static let eitmadServerSyncV1 = "eitmad.server.sync.v1"
+        public static let eitmadServerSubscribeV1 = "eitmad.server.subscribe.v1"
+        public static let eitmadServerAcknowledgeV1 = "eitmad.server.acknowledge.v1"
+        public static let eitmadServerHelloAcceptedV1 = "eitmad.server.hello-accepted.v1"
+        public static let eitmadServerSyncMessageV1 = "eitmad.server.sync-message.v1"
+        public static let eitmadServerEventV1 = "eitmad.server.event.v1"
+        public static let eitmadServerFailureV1 = "eitmad.server.failure.v1"
     }
 
     public enum Capabilities {
@@ -79,6 +94,10 @@ public enum ProtocolIds {
         public static let eitmadCapabilityConfigV1 = "eitmad.capability.config.v1"
         public static let eitmadCapabilityPermissionsV1 = "eitmad.capability.permissions.v1"
         public static let eitmadCapabilitySyncV1 = "eitmad.capability.sync.v1"
+        public static let eitmadCapabilityServerConnectionV1 = "eitmad.capability.server-connection.v1"
+        public static let eitmadCapabilityServerDeviceProofV1 = "eitmad.capability.server-device-proof.v1"
+        public static let eitmadCapabilityServerSnapshotChunksV1 = "eitmad.capability.server-snapshot-chunks.v1"
+        public static let eitmadCapabilityServerSubscriptionResumeV1 = "eitmad.capability.server-subscription-resume.v1"
         public static let eitmadCapabilityUpdateV1 = "eitmad.capability.update.v1"
     }
 
@@ -91,6 +110,10 @@ public enum ProtocolIds {
         public static let eitmadPermissionPermissionsReadV1 = "eitmad.permission.permissions.read.v1"
         public static let eitmadPermissionObservabilitySensitiveDebugV1 = "eitmad.permission.observability.sensitive-debug.v1"
         public static let eitmadPermissionSyncReadV1 = "eitmad.permission.sync.read.v1"
+        public static let eitmadPermissionServerAccountsManageV1 = "eitmad.permission.server.accounts.manage.v1"
+        public static let eitmadPermissionServerDevicesManageV1 = "eitmad.permission.server.devices.manage.v1"
+        public static let eitmadPermissionServerLicenseReadV1 = "eitmad.permission.server.license.read.v1"
+        public static let eitmadPermissionServerUpdateChannelManageV1 = "eitmad.permission.server.update-channel.manage.v1"
         public static let eitmadPermissionUpdateReadV1 = "eitmad.permission.update.read.v1"
         public static let eitmadPermissionUpdateReportInstallerV1 = "eitmad.permission.update.report-installer.v1"
     }
@@ -132,6 +155,19 @@ public enum ProtocolIds {
         public static let eitmadErrorIpcDeadlineExceededV1 = "eitmad.error.ipc-deadline-exceeded.v1"
         public static let eitmadErrorProtocolIncompatibleV1 = "eitmad.error.protocol-incompatible.v1"
         public static let eitmadErrorSyncBackpressureV1 = "eitmad.error.sync-backpressure.v1"
+        public static let eitmadErrorServerAuthenticationFailedV1 = "eitmad.error.server-authentication-failed.v1"
+        public static let eitmadErrorServerBootstrapFailedV1 = "eitmad.error.server-bootstrap-failed.v1"
+        public static let eitmadErrorServerClientIncompatibleV1 = "eitmad.error.server-client-incompatible.v1"
+        public static let eitmadErrorServerConfigInvalidV1 = "eitmad.error.server-config-invalid.v1"
+        public static let eitmadErrorServerDatabaseUnavailableV1 = "eitmad.error.server-database-unavailable.v1"
+        public static let eitmadErrorServerDeviceProofInvalidV1 = "eitmad.error.server-device-proof-invalid.v1"
+        public static let eitmadErrorServerIdempotencyMismatchV1 = "eitmad.error.server-idempotency-mismatch.v1"
+        public static let eitmadErrorServerLicenseRequiredV1 = "eitmad.error.server-license-required.v1"
+        public static let eitmadErrorServerMigrationFailedV1 = "eitmad.error.server-migration-failed.v1"
+        public static let eitmadErrorServerRuntimeFailedV1 = "eitmad.error.server-runtime-failed.v1"
+        public static let eitmadErrorServerSnapshotRequiredV1 = "eitmad.error.server-snapshot-required.v1"
+        public static let eitmadErrorServerTokenExpiredV1 = "eitmad.error.server-token-expired.v1"
+        public static let eitmadErrorServerTokenReuseV1 = "eitmad.error.server-token-reuse.v1"
         public static let eitmadErrorUpdateInstallerFailedV1 = "eitmad.error.update-installer-failed.v1"
     }
 
@@ -159,6 +195,19 @@ public enum ProtocolIds {
         public static let eitmadMessageObservabilitySensitiveDebugWarningV1 = "eitmad.message.observability-sensitive-debug-warning.v1"
         public static let eitmadMessageProtocolIncompatibleV1 = "eitmad.message.protocol-incompatible.v1"
         public static let eitmadMessageSyncBackpressureV1 = "eitmad.message.sync-backpressure.v1"
+        public static let eitmadMessageServerAuthenticationFailedV1 = "eitmad.message.server-authentication-failed.v1"
+        public static let eitmadMessageServerBootstrapFailedV1 = "eitmad.message.server-bootstrap-failed.v1"
+        public static let eitmadMessageServerClientIncompatibleV1 = "eitmad.message.server-client-incompatible.v1"
+        public static let eitmadMessageServerConfigInvalidV1 = "eitmad.message.server-config-invalid.v1"
+        public static let eitmadMessageServerDatabaseUnavailableV1 = "eitmad.message.server-database-unavailable.v1"
+        public static let eitmadMessageServerDeviceProofInvalidV1 = "eitmad.message.server-device-proof-invalid.v1"
+        public static let eitmadMessageServerIdempotencyMismatchV1 = "eitmad.message.server-idempotency-mismatch.v1"
+        public static let eitmadMessageServerLicenseRequiredV1 = "eitmad.message.server-license-required.v1"
+        public static let eitmadMessageServerMigrationFailedV1 = "eitmad.message.server-migration-failed.v1"
+        public static let eitmadMessageServerRuntimeFailedV1 = "eitmad.message.server-runtime-failed.v1"
+        public static let eitmadMessageServerSnapshotRequiredV1 = "eitmad.message.server-snapshot-required.v1"
+        public static let eitmadMessageServerTokenExpiredV1 = "eitmad.message.server-token-expired.v1"
+        public static let eitmadMessageServerTokenReuseV1 = "eitmad.message.server-token-reuse.v1"
         public static let eitmadMessageUpdateInstallerFailedV1 = "eitmad.message.update-installer-failed.v1"
     }
 

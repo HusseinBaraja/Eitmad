@@ -79,6 +79,12 @@ namespace Eitmad.Contracts
         [JsonPropertyName("query_response")]
         public QueryResponseEnvelope QueryResponse { get; set; }
 
+        [JsonPropertyName("server_client_message")]
+        public ServerClientMessage ServerClientMessage { get; set; }
+
+        [JsonPropertyName("server_message")]
+        public ServerMessage ServerMessage { get; set; }
+
         [JsonPropertyName("subscription_request")]
         public SubscriptionEnvelope SubscriptionRequest { get; set; }
 
@@ -132,6 +138,9 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("schemaIds")]
         public string[] SchemaIds { get; set; }
+
+        [JsonPropertyName("serverMessages")]
+        public string[] ServerMessages { get; set; }
 
         [JsonPropertyName("subscriptions")]
         public string[] Subscriptions { get; set; }
@@ -1408,34 +1417,105 @@ namespace Eitmad.Contracts
         public PurplePayload Payload { get; set; }
     }
 
-    public partial class SubscriptionEnvelope
+    public partial class ServerClientMessage
     {
-        [JsonPropertyName("authorization")]
-        public AuthorizationContext Authorization { get; set; }
+        [JsonPropertyName("kind")]
+        public ServerClientMessageKind Kind { get; set; }
 
-        [JsonPropertyName("correlationId")]
-        public Guid CorrelationId { get; set; }
+        [JsonPropertyName("payload")]
+        public ServerConnectionHello Payload { get; set; }
+    }
 
-        [JsonPropertyName("protocolVersion")]
-        public ProtocolVersion ProtocolVersion { get; set; }
+    /// <summary>
+    /// One transport-independent sync frame used by simulation, LAN, and WAN links.
+    /// </summary>
+    public partial class ServerConnectionHello
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("apiVersion")]
+        public long? ApiVersion { get; set; }
 
-        [JsonPropertyName("requestId")]
-        public Guid RequestId { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("peer")]
+        public PeerHello Peer { get; set; }
 
         [JsonPropertyName("resumeAfter")]
         public Guid? ResumeAfter { get; set; }
 
-        [JsonPropertyName("subscription")]
-        public Subscription Subscription { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("correlationId")]
+        public Guid? CorrelationId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("endOfStream")]
+        public bool? EndOfStream { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("frameId")]
+        public Guid? FrameId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("idempotencyKey")]
+        public Guid? IdempotencyKey { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("payload")]
+        public SyncTransportPayload Payload { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("protocolVersion")]
+        public ProtocolVersion ProtocolVersion { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("sequence")]
+        public long? Sequence { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("streamId")]
+        public Guid? StreamId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("schemaId")]
+        public string SchemaId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("cursor")]
+        public Guid? Cursor { get; set; }
     }
 
-    public partial class SyncMessage
+    public partial class SyncTransportPayload
     {
         [JsonPropertyName("kind")]
-        public SyncMessageKind Kind { get; set; }
+        public SyncTransportPayloadKind Kind { get; set; }
 
         [JsonPropertyName("payload")]
+        public Sync Payload { get; set; }
+    }
+
+    public partial class Sync
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("kind")]
+        public SyncMessageKind? Kind { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("payload")]
         public SyncNegotiation Payload { get; set; }
+
+        [JsonPropertyName("lastAcceptedSequence")]
+        public long? LastAcceptedSequence { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("reason")]
+        public SyncCancellationReason? Reason { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("streamId")]
+        public Guid? StreamId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("sent_at")]
+        public long? SentAt { get; set; }
     }
 
     public partial class SyncNegotiation
@@ -1519,6 +1599,42 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("reason")]
         public string Reason { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("checksum")]
+        public string Checksum { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("createdAt")]
+        public long? CreatedAt { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("serverGeneration")]
+        public long? ServerGeneration { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("snapshotId")]
+        public Guid? SnapshotId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("totalChunks")]
+        public long? TotalChunks { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("totalRecords")]
+        public long? TotalRecords { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("validUntil")]
+        public long? ValidUntil { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("chunkIndex")]
+        public long? ChunkIndex { get; set; }
     }
 
     public partial class ChangeRecord
@@ -1633,6 +1749,128 @@ namespace Eitmad.Contracts
         public long ValidUntil { get; set; }
     }
 
+    public partial class ServerMessage
+    {
+        [JsonPropertyName("kind")]
+        public ServerMessageKind Kind { get; set; }
+
+        [JsonPropertyName("payload")]
+        public PayloadClass Payload { get; set; }
+    }
+
+    public partial class PayloadClass
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("capabilities")]
+        public string[] Capabilities { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("peerKind")]
+        public PeerKind? PeerKind { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("productVersion")]
+        public string ProductVersion { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("protocols")]
+        public SupportedProtocol[] Protocols { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("requiredCapabilities")]
+        public string[] RequiredCapabilities { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("schemas")]
+        public SchemaSupport[] Schemas { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("kind")]
+        public SyncMessageKind? Kind { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("payload")]
+        public SyncNegotiation Payload { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("change")]
+        public RecordChangeNotice Change { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("cursor")]
+        public Guid? Cursor { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("eventId")]
+        public Guid? EventId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("occurredAt")]
+        public long? OccurredAt { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("code")]
+        public string Code { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("correlationId")]
+        public Guid? CorrelationId { get; set; }
+
+        [JsonPropertyName("retryAfterMs")]
+        public long? RetryAfterMs { get; set; }
+    }
+
+    public partial class RecordChangeNotice
+    {
+        [JsonPropertyName("changedAt")]
+        public long ChangedAt { get; set; }
+
+        [JsonPropertyName("operation")]
+        public ChangeOperation Operation { get; set; }
+
+        [JsonPropertyName("recordId")]
+        public Guid RecordId { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("schemaId")]
+        public string SchemaId { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+    }
+
+    public partial class SubscriptionEnvelope
+    {
+        [JsonPropertyName("authorization")]
+        public AuthorizationContext Authorization { get; set; }
+
+        [JsonPropertyName("correlationId")]
+        public Guid CorrelationId { get; set; }
+
+        [JsonPropertyName("protocolVersion")]
+        public ProtocolVersion ProtocolVersion { get; set; }
+
+        [JsonPropertyName("requestId")]
+        public Guid RequestId { get; set; }
+
+        [JsonPropertyName("resumeAfter")]
+        public Guid? ResumeAfter { get; set; }
+
+        [JsonPropertyName("subscription")]
+        public Subscription Subscription { get; set; }
+    }
+
+    public partial class SyncMessage
+    {
+        [JsonPropertyName("kind")]
+        public SyncMessageKind Kind { get; set; }
+
+        [JsonPropertyName("payload")]
+        public SyncNegotiation Payload { get; set; }
+    }
+
     public partial class SyncStatus
     {
         [JsonPropertyName("kind")]
@@ -1693,41 +1931,6 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("streamId")]
         public Guid StreamId { get; set; }
-    }
-
-    public partial class SyncTransportPayload
-    {
-        [JsonPropertyName("kind")]
-        public SyncTransportPayloadKind Kind { get; set; }
-
-        [JsonPropertyName("payload")]
-        public Sync Payload { get; set; }
-    }
-
-    public partial class Sync
-    {
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("kind")]
-        public SyncMessageKind? Kind { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("payload")]
-        public SyncNegotiation Payload { get; set; }
-
-        [JsonPropertyName("lastAcceptedSequence")]
-        public long? LastAcceptedSequence { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("reason")]
-        public SyncCancellationReason? Reason { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("streamId")]
-        public Guid? StreamId { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("sent_at")]
-        public long? SentAt { get; set; }
     }
 
     public partial class UpdateState
@@ -1820,7 +2023,11 @@ namespace Eitmad.Contracts
 
     public enum IndecentKind { Configuration, EffectivePermissions, ScopeRelationships, SyncStatus, UpdateState };
 
-    public enum SyncMessageKind { EitmadSyncAcknowledgeV1, EitmadSyncBackpressureV1, EitmadSyncChangesV1, EitmadSyncConflictV1, EitmadSyncNegotiateV1, EitmadSyncPullV1, EitmadSyncReconcileV1 };
+    public enum ServerClientMessageKind { EitmadServerAcknowledgeV1, EitmadServerHelloV1, EitmadServerSubscribeV1, EitmadServerSyncV1 };
+
+    public enum SyncTransportPayloadKind { Cancel, Heartbeat, HeartbeatAcknowledged, Message };
+
+    public enum SyncMessageKind { EitmadSyncAcknowledgeV1, EitmadSyncBackpressureV1, EitmadSyncChangesV1, EitmadSyncConflictV1, EitmadSyncNegotiateV1, EitmadSyncPullV1, EitmadSyncReconcileV1, EitmadSyncSnapshotChunkV1, EitmadSyncSnapshotCompleteV1, EitmadSyncSnapshotManifestV1, EitmadSyncSnapshotRequiredV1 };
 
     public enum MergeStrategy { DomainMerge, KeepLocal, KeepRemote };
 
@@ -1828,11 +2035,11 @@ namespace Eitmad.Contracts
 
     public enum SyncMode { LocalFirst, ServerAuthoritative };
 
-    public enum SyncStatusKind { Conflicted, Current, Failed, Offline, Queued, Syncing };
-
-    public enum SyncTransportPayloadKind { Cancel, Heartbeat, HeartbeatAcknowledged, Message };
-
     public enum SyncCancellationReason { ClientRequested, DeadlineExceeded, ShuttingDown, Superseded };
+
+    public enum ServerMessageKind { EitmadServerEventV1, EitmadServerFailureV1, EitmadServerHelloAcceptedV1, EitmadServerSyncMessageV1 };
+
+    public enum SyncStatusKind { Conflicted, Current, Failed, Offline, Queued, Syncing };
 
     public partial struct ConfigWriteValueValue
     {
@@ -1914,13 +2121,15 @@ namespace Eitmad.Contracts
                 ObservationSeverityConverter.Singleton,
                 ObservationValueKindConverter.Singleton,
                 IndecentKindConverter.Singleton,
+                ServerClientMessageKindConverter.Singleton,
+                SyncTransportPayloadKindConverter.Singleton,
                 SyncMessageKindConverter.Singleton,
                 MergeStrategyConverter.Singleton,
                 CommandDispositionStatusConverter.Singleton,
                 SyncModeConverter.Singleton,
-                SyncStatusKindConverter.Singleton,
-                SyncTransportPayloadKindConverter.Singleton,
                 SyncCancellationReasonConverter.Singleton,
+                ServerMessageKindConverter.Singleton,
+                SyncStatusKindConverter.Singleton,
                 new DateOnlyConverter(),
                 new TimeOnlyConverter(),
                 IsoDateTimeOffsetConverter.Singleton
@@ -4087,6 +4296,94 @@ namespace Eitmad.Contracts
         public static readonly IndecentKindConverter Singleton = new IndecentKindConverter();
     }
 
+    internal class ServerClientMessageKindConverter : JsonConverter<ServerClientMessageKind>
+    {
+        public override bool CanConvert(Type t) => t == typeof(ServerClientMessageKind);
+
+        public override ServerClientMessageKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "eitmad.server.acknowledge.v1":
+                    return ServerClientMessageKind.EitmadServerAcknowledgeV1;
+                case "eitmad.server.hello.v1":
+                    return ServerClientMessageKind.EitmadServerHelloV1;
+                case "eitmad.server.subscribe.v1":
+                    return ServerClientMessageKind.EitmadServerSubscribeV1;
+                case "eitmad.server.sync.v1":
+                    return ServerClientMessageKind.EitmadServerSyncV1;
+            }
+            throw new Exception("Cannot unmarshal type ServerClientMessageKind");
+        }
+
+        public override void Write(Utf8JsonWriter writer, ServerClientMessageKind value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case ServerClientMessageKind.EitmadServerAcknowledgeV1:
+                    JsonSerializer.Serialize(writer, "eitmad.server.acknowledge.v1", options);
+                    return;
+                case ServerClientMessageKind.EitmadServerHelloV1:
+                    JsonSerializer.Serialize(writer, "eitmad.server.hello.v1", options);
+                    return;
+                case ServerClientMessageKind.EitmadServerSubscribeV1:
+                    JsonSerializer.Serialize(writer, "eitmad.server.subscribe.v1", options);
+                    return;
+                case ServerClientMessageKind.EitmadServerSyncV1:
+                    JsonSerializer.Serialize(writer, "eitmad.server.sync.v1", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type ServerClientMessageKind");
+        }
+
+        public static readonly ServerClientMessageKindConverter Singleton = new ServerClientMessageKindConverter();
+    }
+
+    internal class SyncTransportPayloadKindConverter : JsonConverter<SyncTransportPayloadKind>
+    {
+        public override bool CanConvert(Type t) => t == typeof(SyncTransportPayloadKind);
+
+        public override SyncTransportPayloadKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "cancel":
+                    return SyncTransportPayloadKind.Cancel;
+                case "heartbeat":
+                    return SyncTransportPayloadKind.Heartbeat;
+                case "heartbeatAcknowledged":
+                    return SyncTransportPayloadKind.HeartbeatAcknowledged;
+                case "message":
+                    return SyncTransportPayloadKind.Message;
+            }
+            throw new Exception("Cannot unmarshal type SyncTransportPayloadKind");
+        }
+
+        public override void Write(Utf8JsonWriter writer, SyncTransportPayloadKind value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case SyncTransportPayloadKind.Cancel:
+                    JsonSerializer.Serialize(writer, "cancel", options);
+                    return;
+                case SyncTransportPayloadKind.Heartbeat:
+                    JsonSerializer.Serialize(writer, "heartbeat", options);
+                    return;
+                case SyncTransportPayloadKind.HeartbeatAcknowledged:
+                    JsonSerializer.Serialize(writer, "heartbeatAcknowledged", options);
+                    return;
+                case SyncTransportPayloadKind.Message:
+                    JsonSerializer.Serialize(writer, "message", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type SyncTransportPayloadKind");
+        }
+
+        public static readonly SyncTransportPayloadKindConverter Singleton = new SyncTransportPayloadKindConverter();
+    }
+
     internal class SyncMessageKindConverter : JsonConverter<SyncMessageKind>
     {
         public override bool CanConvert(Type t) => t == typeof(SyncMessageKind);
@@ -4110,6 +4407,14 @@ namespace Eitmad.Contracts
                     return SyncMessageKind.EitmadSyncPullV1;
                 case "eitmad.sync.reconcile.v1":
                     return SyncMessageKind.EitmadSyncReconcileV1;
+                case "eitmad.sync.snapshot-chunk.v1":
+                    return SyncMessageKind.EitmadSyncSnapshotChunkV1;
+                case "eitmad.sync.snapshot-complete.v1":
+                    return SyncMessageKind.EitmadSyncSnapshotCompleteV1;
+                case "eitmad.sync.snapshot-manifest.v1":
+                    return SyncMessageKind.EitmadSyncSnapshotManifestV1;
+                case "eitmad.sync.snapshot-required.v1":
+                    return SyncMessageKind.EitmadSyncSnapshotRequiredV1;
             }
             throw new Exception("Cannot unmarshal type SyncMessageKind");
         }
@@ -4138,6 +4443,18 @@ namespace Eitmad.Contracts
                     return;
                 case SyncMessageKind.EitmadSyncReconcileV1:
                     JsonSerializer.Serialize(writer, "eitmad.sync.reconcile.v1", options);
+                    return;
+                case SyncMessageKind.EitmadSyncSnapshotChunkV1:
+                    JsonSerializer.Serialize(writer, "eitmad.sync.snapshot-chunk.v1", options);
+                    return;
+                case SyncMessageKind.EitmadSyncSnapshotCompleteV1:
+                    JsonSerializer.Serialize(writer, "eitmad.sync.snapshot-complete.v1", options);
+                    return;
+                case SyncMessageKind.EitmadSyncSnapshotManifestV1:
+                    JsonSerializer.Serialize(writer, "eitmad.sync.snapshot-manifest.v1", options);
+                    return;
+                case SyncMessageKind.EitmadSyncSnapshotRequiredV1:
+                    JsonSerializer.Serialize(writer, "eitmad.sync.snapshot-required.v1", options);
                     return;
             }
             throw new Exception("Cannot marshal type SyncMessageKind");
@@ -4253,6 +4570,94 @@ namespace Eitmad.Contracts
         public static readonly SyncModeConverter Singleton = new SyncModeConverter();
     }
 
+    internal class SyncCancellationReasonConverter : JsonConverter<SyncCancellationReason>
+    {
+        public override bool CanConvert(Type t) => t == typeof(SyncCancellationReason);
+
+        public override SyncCancellationReason Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "clientRequested":
+                    return SyncCancellationReason.ClientRequested;
+                case "deadlineExceeded":
+                    return SyncCancellationReason.DeadlineExceeded;
+                case "shuttingDown":
+                    return SyncCancellationReason.ShuttingDown;
+                case "superseded":
+                    return SyncCancellationReason.Superseded;
+            }
+            throw new Exception("Cannot unmarshal type SyncCancellationReason");
+        }
+
+        public override void Write(Utf8JsonWriter writer, SyncCancellationReason value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case SyncCancellationReason.ClientRequested:
+                    JsonSerializer.Serialize(writer, "clientRequested", options);
+                    return;
+                case SyncCancellationReason.DeadlineExceeded:
+                    JsonSerializer.Serialize(writer, "deadlineExceeded", options);
+                    return;
+                case SyncCancellationReason.ShuttingDown:
+                    JsonSerializer.Serialize(writer, "shuttingDown", options);
+                    return;
+                case SyncCancellationReason.Superseded:
+                    JsonSerializer.Serialize(writer, "superseded", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type SyncCancellationReason");
+        }
+
+        public static readonly SyncCancellationReasonConverter Singleton = new SyncCancellationReasonConverter();
+    }
+
+    internal class ServerMessageKindConverter : JsonConverter<ServerMessageKind>
+    {
+        public override bool CanConvert(Type t) => t == typeof(ServerMessageKind);
+
+        public override ServerMessageKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "eitmad.server.event.v1":
+                    return ServerMessageKind.EitmadServerEventV1;
+                case "eitmad.server.failure.v1":
+                    return ServerMessageKind.EitmadServerFailureV1;
+                case "eitmad.server.hello-accepted.v1":
+                    return ServerMessageKind.EitmadServerHelloAcceptedV1;
+                case "eitmad.server.sync-message.v1":
+                    return ServerMessageKind.EitmadServerSyncMessageV1;
+            }
+            throw new Exception("Cannot unmarshal type ServerMessageKind");
+        }
+
+        public override void Write(Utf8JsonWriter writer, ServerMessageKind value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case ServerMessageKind.EitmadServerEventV1:
+                    JsonSerializer.Serialize(writer, "eitmad.server.event.v1", options);
+                    return;
+                case ServerMessageKind.EitmadServerFailureV1:
+                    JsonSerializer.Serialize(writer, "eitmad.server.failure.v1", options);
+                    return;
+                case ServerMessageKind.EitmadServerHelloAcceptedV1:
+                    JsonSerializer.Serialize(writer, "eitmad.server.hello-accepted.v1", options);
+                    return;
+                case ServerMessageKind.EitmadServerSyncMessageV1:
+                    JsonSerializer.Serialize(writer, "eitmad.server.sync-message.v1", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type ServerMessageKind");
+        }
+
+        public static readonly ServerMessageKindConverter Singleton = new ServerMessageKindConverter();
+    }
+
     internal class SyncStatusKindConverter : JsonConverter<SyncStatusKind>
     {
         public override bool CanConvert(Type t) => t == typeof(SyncStatusKind);
@@ -4305,94 +4710,6 @@ namespace Eitmad.Contracts
         }
 
         public static readonly SyncStatusKindConverter Singleton = new SyncStatusKindConverter();
-    }
-
-    internal class SyncTransportPayloadKindConverter : JsonConverter<SyncTransportPayloadKind>
-    {
-        public override bool CanConvert(Type t) => t == typeof(SyncTransportPayloadKind);
-
-        public override SyncTransportPayloadKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        {
-            var value = reader.GetString();
-            switch (value)
-            {
-                case "cancel":
-                    return SyncTransportPayloadKind.Cancel;
-                case "heartbeat":
-                    return SyncTransportPayloadKind.Heartbeat;
-                case "heartbeatAcknowledged":
-                    return SyncTransportPayloadKind.HeartbeatAcknowledged;
-                case "message":
-                    return SyncTransportPayloadKind.Message;
-            }
-            throw new Exception("Cannot unmarshal type SyncTransportPayloadKind");
-        }
-
-        public override void Write(Utf8JsonWriter writer, SyncTransportPayloadKind value, JsonSerializerOptions options)
-        {
-            switch (value)
-            {
-                case SyncTransportPayloadKind.Cancel:
-                    JsonSerializer.Serialize(writer, "cancel", options);
-                    return;
-                case SyncTransportPayloadKind.Heartbeat:
-                    JsonSerializer.Serialize(writer, "heartbeat", options);
-                    return;
-                case SyncTransportPayloadKind.HeartbeatAcknowledged:
-                    JsonSerializer.Serialize(writer, "heartbeatAcknowledged", options);
-                    return;
-                case SyncTransportPayloadKind.Message:
-                    JsonSerializer.Serialize(writer, "message", options);
-                    return;
-            }
-            throw new Exception("Cannot marshal type SyncTransportPayloadKind");
-        }
-
-        public static readonly SyncTransportPayloadKindConverter Singleton = new SyncTransportPayloadKindConverter();
-    }
-
-    internal class SyncCancellationReasonConverter : JsonConverter<SyncCancellationReason>
-    {
-        public override bool CanConvert(Type t) => t == typeof(SyncCancellationReason);
-
-        public override SyncCancellationReason Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        {
-            var value = reader.GetString();
-            switch (value)
-            {
-                case "clientRequested":
-                    return SyncCancellationReason.ClientRequested;
-                case "deadlineExceeded":
-                    return SyncCancellationReason.DeadlineExceeded;
-                case "shuttingDown":
-                    return SyncCancellationReason.ShuttingDown;
-                case "superseded":
-                    return SyncCancellationReason.Superseded;
-            }
-            throw new Exception("Cannot unmarshal type SyncCancellationReason");
-        }
-
-        public override void Write(Utf8JsonWriter writer, SyncCancellationReason value, JsonSerializerOptions options)
-        {
-            switch (value)
-            {
-                case SyncCancellationReason.ClientRequested:
-                    JsonSerializer.Serialize(writer, "clientRequested", options);
-                    return;
-                case SyncCancellationReason.DeadlineExceeded:
-                    JsonSerializer.Serialize(writer, "deadlineExceeded", options);
-                    return;
-                case SyncCancellationReason.ShuttingDown:
-                    JsonSerializer.Serialize(writer, "shuttingDown", options);
-                    return;
-                case SyncCancellationReason.Superseded:
-                    JsonSerializer.Serialize(writer, "superseded", options);
-                    return;
-            }
-            throw new Exception("Cannot marshal type SyncCancellationReason");
-        }
-
-        public static readonly SyncCancellationReasonConverter Singleton = new SyncCancellationReasonConverter();
     }
 
     public class DateOnlyConverter : JsonConverter<DateOnly>

@@ -15,6 +15,8 @@ members = [
     "crates/update-policy",
     "server/admin-plane",
     "server/control-plane",
+    "server/host",
+    "server/postgres-support",
     "server/relay-plane",
     "server/sync-plane",
     "server/update-plane",
