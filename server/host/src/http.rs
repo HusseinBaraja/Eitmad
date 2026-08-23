@@ -340,7 +340,7 @@ async fn handle_stream_message(
                     &request.schema_id,
                     schema_version,
                     request.resume_after,
-                    500,
+                    eitmad_contracts::sync::MAX_SYNC_BATCH_RECORDS as u32,
                 )
                 .await
                 .map_err(map_subscription)?;

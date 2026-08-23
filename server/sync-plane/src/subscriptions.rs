@@ -65,7 +65,8 @@ impl SyncCoordinator {
         resume_after: Option<EventCursor>,
         maximum_events: u32,
     ) -> Result<SubscriptionPage, SubscriptionError> {
-        if maximum_events == 0 || maximum_events > 500 {
+        let limit = usize::try_from(maximum_events).map_err(|_| SubscriptionError::Invalid)?;
+        if limit == 0 || limit > eitmad_contracts::sync::MAX_SYNC_BATCH_RECORDS {
             return Err(SubscriptionError::Invalid);
         }
         let handler = self
@@ -81,9 +82,13 @@ impl SyncCoordinator {
         let cursor = if let Some(resume_after) = resume_after {
             sqlx::query_scalar::<_, i64>(
                 "SELECT cursor FROM sync.subscription_events
-                 WHERE tenant_id = $1 AND event_id = $2",
+                 WHERE tenant_id = $1 AND scope_kind = $2 AND scope_id = $3
+                   AND schema_id = $4 AND event_id = $5",
             )
             .bind(session.tenant_id.value())
+            .bind(scope.kind.as_str())
+            .bind(scope.id.value())
+            .bind(schema_id.as_str())
             .bind(resume_after.value())
             .fetch_optional(&mut *transaction)
             .await
@@ -104,7 +109,7 @@ impl SyncCoordinator {
         .bind(scope.id.value())
         .bind(schema_id.as_str())
         .bind(cursor)
-        .bind(i64::from(maximum_events) + 1)
+        .bind(i64::try_from(limit + 1).map_err(|_| SubscriptionError::Invalid)?)
         .fetch_all(&mut *transaction)
         .await
         .map_err(|_| SubscriptionError::Unavailable)?;
@@ -112,10 +117,10 @@ impl SyncCoordinator {
             .commit()
             .await
             .map_err(|_| SubscriptionError::Unavailable)?;
-        let has_more = rows.len() > usize::try_from(maximum_events).unwrap_or(500);
+        let has_more = rows.len() > limit;
         let events = rows
             .into_iter()
-            .take(usize::try_from(maximum_events).unwrap_or(500))
+            .take(limit)
             .map(|row| {
                 let event_id = row.get::<uuid::Uuid, _>("event_id");
                 let change = serde_json::from_value::<RecordChangeNotice>(row.get("event_json"))
