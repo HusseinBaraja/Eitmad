@@ -228,7 +228,8 @@ async fn connect(
     Query(query): Query<ConnectQuery>,
     upgrade: WebSocketUpgrade,
 ) -> Result<Response, ApiError> {
-    let session = authenticate_headers(&state, &headers).await?;
+    let (token, proof) = connection_credentials(&headers)?;
+    let session = authenticate_access(&state, &token, &proof).await?;
     let scope = ScopeRef {
         kind: ScopeKind::parse(query.scope_kind)
             .map_err(|_| ApiError::bad_request("eitmad.error.contract-invalid.v1"))?,
@@ -241,6 +242,8 @@ async fn connect(
             stream_session(
                 socket,
                 state,
+                token,
+                proof,
                 session,
                 scope,
                 schema_id,
@@ -250,16 +253,37 @@ async fn connect(
         .into_response())
 }
 
+const SESSION_REVALIDATION_INTERVAL: std::time::Duration = std::time::Duration::from_secs(60);
+
 async fn stream_session(
     mut socket: WebSocket,
     state: ServerState,
+    token: String,
+    proof: DeviceProof,
     session: eitmad_contracts::server::AuthenticatedServerSession,
     scope: ScopeRef,
     schema_id: SchemaId,
     schema_version: u32,
 ) {
     let mut negotiated = false;
-    while let Some(Ok(message)) = socket.recv().await {
+    let mut revalidation = tokio::time::interval(SESSION_REVALIDATION_INTERVAL);
+    revalidation.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    revalidation.reset();
+    loop {
+        let received = tokio::select! {
+            _ = revalidation.tick() => {
+                if authenticate_access(&state, &token, &proof).await.is_err() {
+                    let _ = send_failure(&mut socket, "eitmad.error.server-authentication-failed.v1")
+                        .await;
+                    break;
+                }
+                continue;
+            }
+            received = socket.recv() => received,
+        };
+        let Some(Ok(message)) = received else {
+            break;
+        };
         let Message::Text(text) = message else {
             continue;
         };
@@ -320,7 +344,6 @@ async fn stream_session(
         }
     }
 }
-
 async fn handle_stream_message(
     socket: &mut WebSocket,
     state: &ServerState,
@@ -478,10 +501,15 @@ async fn authenticate_headers(
     state: &ServerState,
     headers: &HeaderMap,
 ) -> Result<eitmad_contracts::server::AuthenticatedServerSession, ApiError> {
+    let (token, proof) = connection_credentials(headers)?;
+    authenticate_access(state, &token, &proof).await
+}
+
+fn connection_credentials(headers: &HeaderMap) -> Result<(String, DeviceProof), ApiError> {
     let token = headers
         .get("authorization")
         .and_then(|value| value.to_str().ok())
-        .and_then(|value| value.strip_prefix("Bearer "))
+        .and_then(|value| value.strip_prefix("Bearer ").map(str::to_owned))
         .ok_or_else(|| ApiError::unauthorized("eitmad.error.server-authentication-failed.v1"))?;
     let proof = headers
         .get("x-eitmad-device-proof")
@@ -489,10 +517,18 @@ async fn authenticate_headers(
         .and_then(|value| URL_SAFE_NO_PAD.decode(value).ok())
         .and_then(|value| serde_json::from_slice::<DeviceProof>(&value).ok())
         .ok_or_else(|| ApiError::unauthorized("eitmad.error.server-device-proof-invalid.v1"))?;
+    Ok((token, proof))
+}
+
+async fn authenticate_access(
+    state: &ServerState,
+    token: &str,
+    proof: &DeviceProof,
+) -> Result<eitmad_contracts::server::AuthenticatedServerSession, ApiError> {
     state
         .control
         .authentication
-        .authenticate_access(token, &proof, unix_millis_now())
+        .authenticate_access(token, proof, unix_millis_now())
         .await
         .map_err(ApiError::authentication)
 }
