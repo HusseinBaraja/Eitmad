@@ -13,6 +13,12 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { findGeneratedDrift, normalize } from "./contract-checks.mjs";
+import {
+  collectUnions,
+  reduceSchema,
+  renderCsharpUnions,
+  renderSwiftUnions,
+} from "./unions.mjs";
 
 const mode = process.argv[2];
 if (mode !== "generate" && mode !== "check") {
@@ -38,6 +44,15 @@ try {
   const schema = join(temporary, "contract-v1.schema.json");
   const csharp = join(temporary, "EitmadContracts.g.cs");
   const swift = join(temporary, "EitmadContracts.generated.swift");
+  const csharpUnions = join(temporary, "EitmadContracts.Unions.g.cs");
+  const swiftUnions = join(temporary, "EitmadContractsUnions.generated.swift");
+
+  const unions = collectUnions(readSchema(schema));
+  writeFileSync(csharpUnions, normalize(renderCsharpUnions(unions)));
+  writeFileSync(swiftUnions, normalize(renderSwiftUnions(unions)));
+
+  const reducedSchemaPath = join(temporary, "contract-v1.reduced-schema.json");
+  writeFileSync(reducedSchemaPath, JSON.stringify(reduceSchema(readSchema(schema), unions)));
 
   runQuicktype([
     "--src-lang",
@@ -57,7 +72,7 @@ try {
     "EitmadContractSchema",
     "--out",
     csharp,
-    schema,
+    reducedSchemaPath,
   ]);
   runQuicktype([
     "--src-lang",
@@ -72,7 +87,7 @@ try {
     "EitmadContractSchema",
     "--out",
     swift,
-    schema,
+    reducedSchemaPath,
   ]);
 
   prependGeneratedHeader(csharp, "// Generated from Rust contracts. Do not edit.\n");
@@ -88,8 +103,13 @@ try {
     ["protocol-v1.fixture.json", "tests/contract-compatibility/fixtures/protocol-v1.json"],
     ["contracts-v1.md", "docs/_generated/contracts-v1.md"],
     ["EitmadContracts.g.cs", "shells/windows/generated/EitmadContracts.g.cs"],
+    ["EitmadContracts.Unions.g.cs", "shells/windows/generated/EitmadContracts.Unions.g.cs"],
     ["ProtocolIds.g.cs", "shells/windows/generated/ProtocolIds.g.cs"],
     ["EitmadContracts.generated.swift", "shells/macos/generated/EitmadContracts.generated.swift"],
+    [
+      "EitmadContractsUnions.generated.swift",
+      "shells/macos/generated/EitmadContractsUnions.generated.swift",
+    ],
     ["ProtocolIds.generated.swift", "shells/macos/generated/ProtocolIds.generated.swift"],
   ]);
 
@@ -114,6 +134,10 @@ try {
 function runQuicktype(arguments_) {
   const executable = join(codegenDirectory, "node_modules", "quicktype", "dist", "index.js");
   run(process.execPath, [executable, "--telemetry", "disable", ...arguments_]);
+}
+
+function readSchema(path) {
+  return JSON.parse(readFileSync(path, "utf8"));
 }
 
 function run(command, arguments_) {

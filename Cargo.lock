@@ -932,6 +932,7 @@ dependencies = [
  "base64",
  "eitmad-contracts",
  "eitmad-control-plane",
+ "eitmad-postgres-support",
  "eitmad-sync-plane",
  "semver",
  "serde",
