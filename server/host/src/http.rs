@@ -377,7 +377,9 @@ async fn handle_stream_message(
         ServerClientMessage::Hello(_) | ServerClientMessage::Subscribe(_) => Err(
             ApiError::bad_request("eitmad.error.server-client-incompatible.v1"),
         ),
-        ServerClientMessage::Acknowledge(_) => Ok(()),
+        ServerClientMessage::Acknowledge(_) => Err(ApiError::bad_request(
+            "eitmad.error.server-subscription-ack-unsupported.v1",
+        )),
         ServerClientMessage::Sync(frame) => match frame.payload {
             SyncTransportPayload::Message(SyncMessage::Pull(request)) => match state
                 .sync
