@@ -14,11 +14,14 @@ use uuid::Uuid;
 
 use crate::{
     audit::{self, AuditEntry},
-    authentication::{AuthenticationError, TokenCodec, TokenKey, canonical_username},
+    authentication::{
+        AuthenticationError, TokenCodec, TokenKey, canonical_username, is_direction_control,
+    },
     database::tenant_transaction,
 };
 
 const OWNER_RELATION: &str = "eitmad.relation.organization.owner.v1";
+const BOOTSTRAP_LOCK_KEY: i64 = 1_163_158_102;
 
 #[derive(Clone, Debug)]
 pub struct BootstrapInput {
@@ -125,6 +128,11 @@ impl IdentityService {
         let mut transaction = self
             .pool
             .begin()
+            .await
+            .map_err(|_| IdentityError::Unavailable)?;
+        sqlx::query("SELECT pg_advisory_xact_lock($1)")
+            .bind(BOOTSTRAP_LOCK_KEY)
+            .execute(&mut *transaction)
             .await
             .map_err(|_| IdentityError::Unavailable)?;
         let tenant_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM control.tenants")
@@ -552,7 +560,9 @@ fn validate_display_name(value: &str) -> Result<(), IdentityError> {
     let trimmed = value.trim();
     (!trimmed.is_empty()
         && trimmed.chars().count() <= 256
-        && !trimmed.chars().any(char::is_control))
+        && !trimmed
+            .chars()
+            .any(|character| character.is_control() || is_direction_control(character)))
     .then_some(())
     .ok_or(IdentityError::InvalidInput)
 }
@@ -579,6 +589,21 @@ mod tests {
     fn arabic_display_names_are_valid_but_control_text_is_not() {
         assert!(validate_display_name("شركة الاعتماد للأثاث").is_ok());
         assert!(validate_display_name("bad\nname").is_err());
+    }
+
+    #[test]
+    fn display_names_reject_bidirectional_format_characters() {
+        for character in [
+            '\u{061c}',
+            '\u{200e}',
+            '\u{200f}',
+            '\u{202a}',
+            '\u{202e}',
+            '\u{2066}',
+            '\u{2069}',
+        ] {
+            assert!(validate_display_name(&format!("name{character}")).is_err());
+        }
     }
 
     #[test]

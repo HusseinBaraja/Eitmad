@@ -819,15 +819,7 @@ pub(crate) fn canonical_username(value: &str) -> Result<String, AuthenticationEr
     let invalid = trimmed.is_empty()
         || trimmed.chars().count() > 128
         || trimmed.chars().any(|character| {
-            character.is_control()
-                || matches!(
-                    character,
-                    '\u{061c}'
-                        | '\u{200e}'
-                        | '\u{200f}'
-                        | '\u{202a}'..='\u{202e}'
-                        | '\u{2066}'..='\u{2069}'
-                )
+            character.is_control() || is_direction_control(character)
         });
     if invalid {
         return Err(AuthenticationError::InvalidInput);
@@ -836,6 +828,17 @@ pub(crate) fn canonical_username(value: &str) -> Result<String, AuthenticationEr
         .nfkc()
         .flat_map(char::to_lowercase)
         .collect::<String>())
+}
+
+pub(crate) fn is_direction_control(character: char) -> bool {
+    matches!(
+        character,
+        '\u{061c}'
+            | '\u{200e}'
+            | '\u{200f}'
+            | '\u{202a}'..='\u{202e}'
+            | '\u{2066}'..='\u{2069}'
+    )
 }
 
 pub(crate) fn hash_password(password: &str) -> Result<String, AuthenticationError> {
