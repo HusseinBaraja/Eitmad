@@ -581,7 +581,7 @@ fn map_operation(error: OperationError) -> ApiError {
         OperationError::UnknownDomain => {
             ApiError::bad_request("eitmad.error.server-client-incompatible.v1")
         }
-        OperationError::SnapshotRequired => {
+        OperationError::SnapshotRequired | OperationError::UnknownRecord => {
             ApiError::bad_request("eitmad.error.server-snapshot-required.v1")
         }
         OperationError::Unavailable => ApiError::unavailable(),

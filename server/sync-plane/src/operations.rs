@@ -35,6 +35,8 @@ pub enum OperationError {
     WrongMode,
     #[error("idempotency key was reused with different intent")]
     IdempotencyMismatch,
+    #[error("the base revision refers to an unknown record")]
+    UnknownRecord,
     #[error("synchronization authority is unavailable")]
     Unavailable,
     #[error("the requested operation history is no longer retained")]
@@ -156,6 +158,9 @@ impl SyncCoordinator {
             )
             .await
             .map_err(|_| OperationError::Unavailable)?;
+            let Some(conflict_id) = conflict_id else {
+                return Err(OperationError::UnknownRecord);
+            };
             crate::audit::append(
                 &mut transaction,
                 session,
@@ -666,9 +671,9 @@ async fn record_conflict(
     current_revision: u64,
     fingerprint: &[u8],
     now: UnixMillis,
-) -> Result<ConflictId, sqlx::Error> {
+) -> Result<Option<ConflictId>, sqlx::Error> {
     let conflict_id = ConflictId::new(Uuid::new_v4());
-    let remote_json: serde_json::Value = sqlx::query_scalar(
+    let remote_json: Option<serde_json::Value> = sqlx::query_scalar(
         "SELECT change_json FROM sync.records
          WHERE tenant_id = $1 AND scope_kind = $2 AND scope_id = $3
            AND schema_id = $4 AND record_id = $5",
@@ -678,8 +683,11 @@ async fn record_conflict(
     .bind(draft.scope.id.value())
     .bind(draft.schema_id.as_str())
     .bind(draft.record_id.value())
-    .fetch_one(&mut **transaction)
+    .fetch_optional(&mut **transaction)
     .await?;
+    let Some(remote_json) = remote_json else {
+        return Ok(None);
+    };
     let remote = serde_json::from_value::<ChangeRecord>(remote_json)
         .map_err(|_| sqlx::Error::Protocol("stored projection is invalid".to_owned()))?;
     debug_assert_eq!(remote.revision, current_revision);
@@ -743,7 +751,7 @@ async fn record_conflict(
     .bind(now.0)
     .execute(&mut **transaction)
     .await?;
-    Ok(conflict_id)
+    Ok(Some(conflict_id))
 }
 
 async fn commit_change(
