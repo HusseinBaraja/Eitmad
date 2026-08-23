@@ -91,6 +91,10 @@ async fn execute() -> Result<(), MainError> {
         return Ok(());
     }
     let domains = DomainRegistry::new(std::iter::empty()).map_err(|_| MainError::Configuration)?;
+    if domains.descriptors().is_empty() {
+        tracing::error!("no sync domains are registered; refusing to report ready");
+        return Err(MainError::Configuration);
+    }
     let sync = SyncCoordinator::new(&sync_database, domains);
     let state = ServerState::new(control, sync);
     tracing::info!(listen = %config.listen, "server ready");
