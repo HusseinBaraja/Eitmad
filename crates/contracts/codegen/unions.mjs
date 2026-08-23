@@ -46,6 +46,29 @@ export function reduceSchema(schema, unions) {
   return reduced;
 }
 
+export function collectEmptyPayloads(schema, unions) {
+  const definitions = schemaDefinitions(schema);
+  const names = new Set();
+  for (const union of unions) {
+    for (const variant of union.variants) {
+      const definition = definitions[variant.type];
+      const isEmptyObject =
+        definition &&
+        definition.type === "object" &&
+        !definition.properties &&
+        !definition.oneOf &&
+        !definition.anyOf &&
+        !definition.allOf &&
+        !definition.$ref &&
+        !definition.enum;
+      if (isEmptyObject) {
+        names.add(variant.type);
+      }
+    }
+  }
+  return [...names].sort();
+}
+
 function unionFromBranches(name, branches, definitions) {
   const variants = branches.map((branch) => variantFromBranch(branch, definitions));
   const labels = new Set(variants.map((variant) => variant.label));
@@ -71,7 +94,7 @@ function variantFromBranch(branch, definitions) {
   return { kind, type, label, pascal: pascalCase(label), camel: camelCase(label) };
 }
 
-export function renderCsharpUnions(unions) {
+export function renderCsharpUnions(unions, emptyPayloads = []) {
   const lines = [
     "// Generated from Rust contracts. Do not edit.",
     "#nullable enable",
@@ -79,14 +102,12 @@ export function renderCsharpUnions(unions) {
     "using System.Text.Json.Serialization;",
     "",
     "namespace Eitmad.Contracts;",
-    "",
-    "internal static class EitmadUnionJson",
-    "{",
-    "    internal static readonly JsonSerializerOptions Options = new();",
-    "}",
   ];
   for (const union of unions) {
     lines.push("", renderCsharpUnion(union));
+  }
+  for (const name of emptyPayloads) {
+    lines.push("", `public partial class ${name}`, "{", "}");
   }
   return `${lines.join("\n")}\n`;
 }
@@ -96,7 +117,7 @@ function renderCsharpUnion(union) {
     `public partial class ${union.name}`,
     "{",
     "    [JsonPropertyName(\"kind\")]",
-    "    public string Kind { get; set; }",
+    "    public string Kind { get; set; } = string.Empty;",
     "",
     "    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]",
     "    [JsonPropertyName(\"payload\")]",
@@ -119,7 +140,7 @@ function renderCsharpUnion(union) {
     "    internal T? PayloadAs<T>() => Payload switch",
     "    {",
     "        T typed => typed,",
-    "        JsonElement element => element.Deserialize<T>(EitmadUnionJson.Options),",
+    "        JsonElement element => element.Deserialize<T>(Converter.Settings),",
     "        _ => default,",
     "    };",
     "}",
@@ -127,9 +148,12 @@ function renderCsharpUnion(union) {
   return lines.join("\n");
 }
 
-export function renderSwiftUnions(unions) {
+export function renderSwiftUnions(unions, emptyPayloads = []) {
   const blocks = unions.map(renderSwiftUnion);
-  return `// Generated from Rust contracts. Do not edit.\nimport Foundation\n\n${blocks.join("\n")}\n`;
+  const structs = emptyPayloads.map(
+    (name) => `\npublic struct ${name}: Codable, Sendable {}`,
+  );
+  return `// Generated from Rust contracts. Do not edit.\nimport Foundation\n\n${blocks.join("\n")}${structs.join("")}\n`;
 }
 
 function renderSwiftUnion(union) {

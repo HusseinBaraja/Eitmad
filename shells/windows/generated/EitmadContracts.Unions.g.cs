@@ -5,15 +5,10 @@ using System.Text.Json.Serialization;
 
 namespace Eitmad.Contracts;
 
-internal static class EitmadUnionJson
-{
-    internal static readonly JsonSerializerOptions Options = new();
-}
-
 public partial class Command
 {
     [JsonPropertyName("kind")]
-    public string Kind { get; set; }
+    public string Kind { get; set; } = string.Empty;
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("payload")]
@@ -62,7 +57,7 @@ public partial class Command
     internal T? PayloadAs<T>() => Payload switch
     {
         T typed => typed,
-        JsonElement element => element.Deserialize<T>(EitmadUnionJson.Options),
+        JsonElement element => element.Deserialize<T>(Converter.Settings),
         _ => default,
     };
 }
@@ -70,7 +65,7 @@ public partial class Command
 public partial class Event
 {
     [JsonPropertyName("kind")]
-    public string Kind { get; set; }
+    public string Kind { get; set; } = string.Empty;
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("payload")]
@@ -151,7 +146,7 @@ public partial class Event
     internal T? PayloadAs<T>() => Payload switch
     {
         T typed => typed,
-        JsonElement element => element.Deserialize<T>(EitmadUnionJson.Options),
+        JsonElement element => element.Deserialize<T>(Converter.Settings),
         _ => default,
     };
 }
@@ -159,7 +154,7 @@ public partial class Event
 public partial class IpcClientMessage
 {
     [JsonPropertyName("kind")]
-    public string Kind { get; set; }
+    public string Kind { get; set; } = string.Empty;
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("payload")]
@@ -216,7 +211,7 @@ public partial class IpcClientMessage
     internal T? PayloadAs<T>() => Payload switch
     {
         T typed => typed,
-        JsonElement element => element.Deserialize<T>(EitmadUnionJson.Options),
+        JsonElement element => element.Deserialize<T>(Converter.Settings),
         _ => default,
     };
 }
@@ -224,7 +219,7 @@ public partial class IpcClientMessage
 public partial class IpcServerMessage
 {
     [JsonPropertyName("kind")]
-    public string Kind { get; set; }
+    public string Kind { get; set; } = string.Empty;
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("payload")]
@@ -305,7 +300,7 @@ public partial class IpcServerMessage
     internal T? PayloadAs<T>() => Payload switch
     {
         T typed => typed,
-        JsonElement element => element.Deserialize<T>(EitmadUnionJson.Options),
+        JsonElement element => element.Deserialize<T>(Converter.Settings),
         _ => default,
     };
 }
@@ -313,7 +308,7 @@ public partial class IpcServerMessage
 public partial class Query
 {
     [JsonPropertyName("kind")]
-    public string Kind { get; set; }
+    public string Kind { get; set; } = string.Empty;
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("payload")]
@@ -362,7 +357,7 @@ public partial class Query
     internal T? PayloadAs<T>() => Payload switch
     {
         T typed => typed,
-        JsonElement element => element.Deserialize<T>(EitmadUnionJson.Options),
+        JsonElement element => element.Deserialize<T>(Converter.Settings),
         _ => default,
     };
 }
@@ -370,7 +365,7 @@ public partial class Query
 public partial class QueryResult
 {
     [JsonPropertyName("kind")]
-    public string Kind { get; set; }
+    public string Kind { get; set; } = string.Empty;
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("payload")]
@@ -419,7 +414,7 @@ public partial class QueryResult
     internal T? PayloadAs<T>() => Payload switch
     {
         T typed => typed,
-        JsonElement element => element.Deserialize<T>(EitmadUnionJson.Options),
+        JsonElement element => element.Deserialize<T>(Converter.Settings),
         _ => default,
     };
 }
@@ -427,7 +422,7 @@ public partial class QueryResult
 public partial class ServerClientMessage
 {
     [JsonPropertyName("kind")]
-    public string Kind { get; set; }
+    public string Kind { get; set; } = string.Empty;
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("payload")]
@@ -468,7 +463,7 @@ public partial class ServerClientMessage
     internal T? PayloadAs<T>() => Payload switch
     {
         T typed => typed,
-        JsonElement element => element.Deserialize<T>(EitmadUnionJson.Options),
+        JsonElement element => element.Deserialize<T>(Converter.Settings),
         _ => default,
     };
 }
@@ -476,7 +471,7 @@ public partial class ServerClientMessage
 public partial class ServerMessage
 {
     [JsonPropertyName("kind")]
-    public string Kind { get; set; }
+    public string Kind { get; set; } = string.Empty;
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("payload")]
@@ -517,7 +512,7 @@ public partial class ServerMessage
     internal T? PayloadAs<T>() => Payload switch
     {
         T typed => typed,
-        JsonElement element => element.Deserialize<T>(EitmadUnionJson.Options),
+        JsonElement element => element.Deserialize<T>(Converter.Settings),
         _ => default,
     };
 }
@@ -525,7 +520,7 @@ public partial class ServerMessage
 public partial class Subscription
 {
     [JsonPropertyName("kind")]
-    public string Kind { get; set; }
+    public string Kind { get; set; } = string.Empty;
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("payload")]
@@ -606,7 +601,7 @@ public partial class Subscription
     internal T? PayloadAs<T>() => Payload switch
     {
         T typed => typed,
-        JsonElement element => element.Deserialize<T>(EitmadUnionJson.Options),
+        JsonElement element => element.Deserialize<T>(Converter.Settings),
         _ => default,
     };
 }
@@ -614,7 +609,7 @@ public partial class Subscription
 public partial class SyncMessage
 {
     [JsonPropertyName("kind")]
-    public string Kind { get; set; }
+    public string Kind { get; set; } = string.Empty;
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("payload")]
@@ -711,7 +706,59 @@ public partial class SyncMessage
     internal T? PayloadAs<T>() => Payload switch
     {
         T typed => typed,
-        JsonElement element => element.Deserialize<T>(EitmadUnionJson.Options),
+        JsonElement element => element.Deserialize<T>(Converter.Settings),
         _ => default,
     };
+}
+
+public partial class AuthorizationPolicyChanges
+{
+}
+
+public partial class BackgroundJobChanges
+{
+}
+
+public partial class ConfigurationChanges
+{
+}
+
+public partial class Errors
+{
+}
+
+public partial class GetConfiguration
+{
+}
+
+public partial class GetEffectivePermissions
+{
+}
+
+public partial class GetSyncStatus
+{
+}
+
+public partial class GetUpdateState
+{
+}
+
+public partial class Notifications
+{
+}
+
+public partial class PermissionChanges
+{
+}
+
+public partial class RecordChanges
+{
+}
+
+public partial class SyncStatusChanges
+{
+}
+
+public partial class UpdateStateChanges
+{
 }

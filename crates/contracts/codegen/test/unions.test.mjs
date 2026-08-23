@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import test from "node:test";
 
 import {
+  collectEmptyPayloads,
   collectUnions,
   reduceSchema,
   renderCsharpUnions,
@@ -110,5 +111,37 @@ test("reduced schema keeps every payload type reachable for quicktype", () => {
       );
       assert.ok(!reduced.definitions[union.name].oneOf, `${union.name} still collapses`);
     }
+  }
+});
+
+test("empty-object union payloads still get rendered bindings quicktype would skip", () => {
+  const empty = collectEmptyPayloads(schema, unions);
+  assert.ok(empty.includes("ConfigurationChanges"), "ConfigurationChanges must be collected");
+  assert.ok(!empty.includes("ListScopeRelationships"), "non-empty payloads must be skipped");
+
+  const csharp = renderCsharpUnions(unions, empty);
+  const swift = renderSwiftUnions(unions, empty);
+  for (const name of empty) {
+    assert.ok(csharp.includes(`public partial class ${name}`), `${name} missing from C# shims`);
+    assert.ok(
+      swift.includes(`public struct ${name}: Codable, Sendable {}`),
+      `${name} missing from Swift shims`,
+    );
+  }
+
+  const generatedCsharp = readFileSync(
+    resolve(repository, "shells/windows/generated/EitmadContracts.Unions.g.cs"),
+    "utf8",
+  );
+  const generatedSwift = readFileSync(
+    resolve(repository, "shells/macos/generated/EitmadContractsUnions.generated.swift"),
+    "utf8",
+  );
+  for (const name of empty) {
+    assert.ok(generatedCsharp.includes(`public partial class ${name}`), `${name} missing in generated C#`);
+    assert.ok(
+      generatedSwift.includes(`public struct ${name}: Codable, Sendable {}`),
+      `${name} missing in generated Swift`,
+    );
   }
 });

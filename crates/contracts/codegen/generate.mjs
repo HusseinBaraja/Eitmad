@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 
 import { findGeneratedDrift, normalize } from "./contract-checks.mjs";
 import {
+  collectEmptyPayloads,
   collectUnions,
   reduceSchema,
   renderCsharpUnions,
@@ -48,8 +49,9 @@ try {
   const swiftUnions = join(temporary, "EitmadContractsUnions.generated.swift");
 
   const unions = collectUnions(readSchema(schema));
-  writeFileSync(csharpUnions, normalize(renderCsharpUnions(unions)));
-  writeFileSync(swiftUnions, normalize(renderSwiftUnions(unions)));
+  const emptyPayloads = collectEmptyPayloads(readSchema(schema), unions);
+  writeFileSync(csharpUnions, normalize(renderCsharpUnions(unions, emptyPayloads)));
+  writeFileSync(swiftUnions, normalize(renderSwiftUnions(unions, emptyPayloads)));
 
   const reducedSchemaPath = join(temporary, "contract-v1.reduced-schema.json");
   writeFileSync(reducedSchemaPath, JSON.stringify(reduceSchema(readSchema(schema), unions)));

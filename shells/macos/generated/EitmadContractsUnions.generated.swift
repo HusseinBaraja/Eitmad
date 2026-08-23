@@ -623,3 +623,16 @@ public enum SyncMessage: Codable, Sendable {
         }
     }
 }
+public struct AuthorizationPolicyChanges: Codable, Sendable {}
+public struct BackgroundJobChanges: Codable, Sendable {}
+public struct ConfigurationChanges: Codable, Sendable {}
+public struct Errors: Codable, Sendable {}
+public struct GetConfiguration: Codable, Sendable {}
+public struct GetEffectivePermissions: Codable, Sendable {}
+public struct GetSyncStatus: Codable, Sendable {}
+public struct GetUpdateState: Codable, Sendable {}
+public struct Notifications: Codable, Sendable {}
+public struct PermissionChanges: Codable, Sendable {}
+public struct RecordChanges: Codable, Sendable {}
+public struct SyncStatusChanges: Codable, Sendable {}
+public struct UpdateStateChanges: Codable, Sendable {}
