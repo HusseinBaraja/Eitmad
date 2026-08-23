@@ -156,7 +156,7 @@ impl UpdateAssignmentService {
                 return Err(UpdateAssignmentError::Invalid);
             }
         }
-        let revision: i64 = sqlx::query_scalar(
+        sqlx::query_scalar::<_, i64>(
             "INSERT INTO control.update_assignments
                 (tenant_id, assignment_kind, device_id, channel, revision, updated_at)
              VALUES ($1, $2, $3, $4, 1, $5)
@@ -194,15 +194,8 @@ impl UpdateAssignmentService {
             .commit()
             .await
             .map_err(|_| UpdateAssignmentError::Unavailable)?;
-        Ok(EffectiveUpdateAssignment {
-            channel: channel.clone(),
-            source: if device_id.is_some() {
-                UpdateAssignmentSource::DeviceOverride
-            } else {
-                UpdateAssignmentSource::TenantDefault
-            },
-            revision: u64::try_from(revision).map_err(|_| UpdateAssignmentError::Invalid)?,
-        })
+        self.effective(actor.tenant_id, device_id.unwrap_or(actor.device_id))
+            .await
     }
 }
 
