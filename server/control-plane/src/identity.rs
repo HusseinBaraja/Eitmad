@@ -598,13 +598,7 @@ mod tests {
     #[test]
     fn display_names_reject_bidirectional_format_characters() {
         for character in [
-            '\u{061c}',
-            '\u{200e}',
-            '\u{200f}',
-            '\u{202a}',
-            '\u{202e}',
-            '\u{2066}',
-            '\u{2069}',
+            '\u{061c}', '\u{200e}', '\u{200f}', '\u{202a}', '\u{202e}', '\u{2066}', '\u{2069}',
         ] {
             assert!(validate_display_name(&format!("name{character}")).is_err());
         }

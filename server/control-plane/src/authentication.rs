@@ -485,15 +485,15 @@ impl AuthenticationService {
         let result = self
             .rotate_refresh(
                 &mut transaction,
-            RefreshRotation {
-                row: &row,
-                tenant_id,
-                old_hash: &old_hash,
-                family_id: TokenFamilyId::new(family_id),
-                device_id,
-                correlation_id,
-                now,
-            },
+                RefreshRotation {
+                    row: &row,
+                    tenant_id,
+                    old_hash: &old_hash,
+                    family_id: TokenFamilyId::new(family_id),
+                    device_id,
+                    correlation_id,
+                    now,
+                },
             )
             .await?;
         transaction
@@ -828,9 +828,9 @@ pub(crate) fn canonical_username(value: &str) -> Result<String, AuthenticationEr
     let trimmed = value.trim();
     let invalid = trimmed.is_empty()
         || trimmed.chars().count() > 128
-        || trimmed.chars().any(|character| {
-            character.is_control() || is_direction_control(character)
-        });
+        || trimmed
+            .chars()
+            .any(|character| character.is_control() || is_direction_control(character));
     if invalid {
         return Err(AuthenticationError::InvalidInput);
     }
@@ -1010,7 +1010,11 @@ mod tests {
                 signature_base64: URL_SAFE_NO_PAD.encode(signature.to_bytes()),
             };
             assert_eq!(
-                verify_device_proof(&proof, signing.verifying_key().as_bytes(), unix_millis_now()),
+                verify_device_proof(
+                    &proof,
+                    signing.verifying_key().as_bytes(),
+                    unix_millis_now()
+                ),
                 Err(AuthenticationError::InvalidDeviceProof)
             );
         }

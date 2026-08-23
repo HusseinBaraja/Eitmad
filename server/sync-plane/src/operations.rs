@@ -1261,7 +1261,12 @@ mod tests {
         };
         assert_eq!(
             coordinator
-                .apply_local_operation(&session, &draft(), CorrelationId::new(Uuid::from_u128(15)), UnixMillis(1))
+                .apply_local_operation(
+                    &session,
+                    &draft(),
+                    CorrelationId::new(Uuid::from_u128(15)),
+                    UnixMillis(1)
+                )
                 .await,
             Err(OperationError::Denied)
         );

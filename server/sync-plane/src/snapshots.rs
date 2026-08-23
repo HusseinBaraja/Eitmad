@@ -195,7 +195,7 @@ impl SyncCoordinator {
                      AND s.scope_id = o.scope_id AND s.schema_id = o.schema_id
                      AND covered.sequence > o.sequence
                 )",
-            )
+        )
         .bind(session.tenant_id.value())
         .bind(scope.kind.as_str())
         .bind(scope.id.value())
@@ -271,7 +271,8 @@ async fn store_snapshot(
 fn build_chunks(
     snapshot_id: SnapshotId,
     records: &[ChangeRecord],
-) -> Result<Vec<SnapshotChunk>, SnapshotError> {    records
+) -> Result<Vec<SnapshotChunk>, SnapshotError> {
+    records
         .chunks(MAX_SYNC_BATCH_RECORDS)
         .enumerate()
         .map(|(index, records)| {
