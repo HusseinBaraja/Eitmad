@@ -77,8 +77,6 @@ pub enum AuthenticationError {
     TokenReuse,
     #[error("device proof is invalid")]
     InvalidDeviceProof,
-    #[error("account is not active")]
-    AccountUnavailable,
     #[error("authentication input is invalid")]
     InvalidInput,
     #[error("authentication configuration is invalid")]
@@ -327,7 +325,7 @@ impl AuthenticationService {
         let status: String = account.get("status");
         let locked_until: Option<i64> = account.get("locked_until");
         if status != "active" || locked_until.is_some_and(|value| value > now.0) {
-            return Err(AuthenticationError::AccountUnavailable);
+            return Err(AuthenticationError::Failed);
         }
         let password_hash: Option<String> = account.get("password_hash");
         verify_password(
@@ -884,9 +882,13 @@ fn verify_device_proof(
     public_key: &[u8],
     now: UnixMillis,
 ) -> Result<(), AuthenticationError> {
+    let skew = now
+        .0
+        .checked_sub(proof.issued_at.0)
+        .and_then(i64::checked_abs);
     if proof.nonce.len() < 16
         || proof.nonce.len() > 256
-        || (now.0 - proof.issued_at.0).abs() > MAX_DEVICE_PROOF_AGE_MS
+        || !skew.is_some_and(|value| value <= MAX_DEVICE_PROOF_AGE_MS)
     {
         return Err(AuthenticationError::InvalidDeviceProof);
     }
@@ -980,5 +982,26 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn extreme_proof_timestamps_reject_without_overflow() {
+        let signing = SigningKey::from_bytes(&[7; 32]);
+        let device_id = DeviceId::new(Uuid::from_u128(8));
+        let nonce = "synthetic-proof-nonce";
+        for issued_at in [UnixMillis(i64::MIN), UnixMillis(i64::MAX)] {
+            let message = format!("{}\n{}\n{}", device_id.value(), issued_at.0, nonce);
+            let signature = signing.sign(message.as_bytes());
+            let proof = DeviceProof {
+                device_id,
+                nonce: nonce.to_owned(),
+                issued_at,
+                signature_base64: URL_SAFE_NO_PAD.encode(signature.to_bytes()),
+            };
+            assert_eq!(
+                verify_device_proof(&proof, signing.verifying_key().as_bytes(), unix_millis_now()),
+                Err(AuthenticationError::InvalidDeviceProof)
+            );
+        }
     }
 }
