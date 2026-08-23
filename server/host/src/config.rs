@@ -45,6 +45,7 @@ pub enum ServerCommand {
         organization_name: String,
         owner_username: String,
     },
+    Usage,
     Help,
 }
 
@@ -116,6 +117,7 @@ impl ServerCommand {
                 organization_name: arguments[4].clone(),
                 owner_username: arguments[5].clone(),
             },
+            Some("bootstrap") => Self::Usage,
             _ => Self::Help,
         }
     }
@@ -138,6 +140,14 @@ mod tests {
         assert_eq!(
             ServerCommand::from_arguments(&["server".to_owned(), "unknown".to_owned()]),
             ServerCommand::Help
+        );
+        assert_eq!(
+            ServerCommand::from_arguments(&[
+                "server".to_owned(),
+                "bootstrap".to_owned(),
+                "al-eitmad".to_owned()
+            ]),
+            ServerCommand::Usage
         );
     }
 }

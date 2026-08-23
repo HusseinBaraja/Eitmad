@@ -32,6 +32,10 @@ async fn execute() -> Result<(), MainError> {
         print_help();
         return Ok(());
     }
+    if command == ServerCommand::Usage {
+        print_help();
+        return Err(MainError::Input);
+    }
     let config = ServerConfig::from_environment().map_err(|_| MainError::Configuration)?;
     if command == ServerCommand::CheckConfig {
         println!("server configuration is valid");
