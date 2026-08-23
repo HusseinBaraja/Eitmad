@@ -41,18 +41,17 @@ async fn execute() -> Result<(), MainError> {
         println!("server configuration is valid");
         return Ok(());
     }
-    let control_database =
-        ControlDatabase::connect(&config.database_url, config.maximum_database_connections)
-            .await
-            .map_err(|_| MainError::Database)?;
+    let pool_budget = eitmad_server::pool_connection_budget(config.maximum_database_connections);
+    let control_database = ControlDatabase::connect(&config.database_url, pool_budget)
+        .await
+        .map_err(|_| MainError::Database)?;
     control_database
         .migrate()
         .await
         .map_err(|_| MainError::Migration)?;
-    let sync_database =
-        SyncDatabase::connect(&config.database_url, config.maximum_database_connections)
-            .await
-            .map_err(|_| MainError::Database)?;
+    let sync_database = SyncDatabase::connect(&config.database_url, pool_budget)
+        .await
+        .map_err(|_| MainError::Database)?;
     sync_database
         .migrate()
         .await

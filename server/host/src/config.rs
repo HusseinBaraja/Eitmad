@@ -59,6 +59,13 @@ pub enum ServerConfigError {
     InsecureTransport,
 }
 
+/// Splits one process-wide connection budget evenly across both database
+/// pools so the process never exceeds the operator's configured total.
+#[must_use]
+pub fn pool_connection_budget(maximum_database_connections: u32) -> u32 {
+    (maximum_database_connections / 2).max(1)
+}
+
 impl ServerConfig {
     /// Reads and validates process configuration without exposing secret values.
     ///
@@ -149,5 +156,13 @@ mod tests {
             ]),
             ServerCommand::Usage
         );
+    }
+
+    #[test]
+    fn connection_budget_splits_evenly_and_stays_positive() {
+        assert_eq!(pool_connection_budget(2), 1);
+        assert_eq!(pool_connection_budget(16), 8);
+        assert_eq!(pool_connection_budget(127), 63);
+        assert_eq!(pool_connection_budget(128), 64);
     }
 }
