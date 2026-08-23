@@ -132,7 +132,7 @@ impl LicenseService {
                 crate::identity::IdentityError::Denied => LicenseError::Required,
                 _ => LicenseError::Unavailable,
             })?;
-        sqlx::query(
+        let updated = sqlx::query(
             "UPDATE control.licenses
              SET license_id = $2, provider_revision = $3, status = $4,
                  valid_until = $5, grace_until = $6, updated_at = $7
@@ -148,6 +148,9 @@ impl LicenseService {
         .execute(&mut *transaction)
         .await
         .map_err(|_| LicenseError::Unavailable)?;
+        if updated.rows_affected() != 1 {
+            return Err(LicenseError::Invalid);
+        }
         sqlx::query("DELETE FROM control.license_entitlements WHERE tenant_id = $1")
             .bind(actor.tenant_id.value())
             .execute(&mut *transaction)
