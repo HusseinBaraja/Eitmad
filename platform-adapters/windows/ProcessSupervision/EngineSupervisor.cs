@@ -685,9 +685,16 @@ public sealed class EngineSupervisor : IAsyncDisposable
             RequestId = Guid.NewGuid(),
             CorrelationId = Guid.NewGuid(),
             Authorization = client.Authorization,
-            Subscription = contract,
+            Subscription = ToPayloadDictionary(contract),
             ResumeAfter = resumeAfter,
         };
+
+    private static Dictionary<string, object> ToPayloadDictionary(Subscription contract)
+    {
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(contract);
+        return JsonSerializer.Deserialize<Dictionary<string, object>>(bytes)
+            ?? throw new InvalidOperationException("The subscription contract could not be rendered for the IPC envelope.");
+    }
 
     private async Task ObserveIpcCompletionAsync(
         EngineIpcClient client,

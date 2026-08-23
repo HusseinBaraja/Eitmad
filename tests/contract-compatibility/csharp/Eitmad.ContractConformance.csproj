@@ -8,6 +8,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\..\..\shells\windows\generated\EitmadContracts.g.cs" Link="Generated\EitmadContracts.g.cs" />
+    <Compile Include="..\..\..\shells\windows\generated\EitmadContracts.Unions.g.cs" Link="Generated\EitmadContracts.Unions.g.cs" />
     <Compile Include="..\..\..\shells\windows\generated\ProtocolIds.g.cs" Link="Generated\ProtocolIds.g.cs" />
   </ItemGroup>
 </Project>
