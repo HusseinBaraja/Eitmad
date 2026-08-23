@@ -131,7 +131,8 @@ pub struct DeviceProof {
     pub signature_base64: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+/// Secret-bearing activation request. It intentionally has no `Debug` implementation.
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ActivateAccountRequest {
     pub invite_token: String,
@@ -141,7 +142,8 @@ pub struct ActivateAccountRequest {
     pub device_public_key: DevicePublicKey,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+/// Secret-bearing login request. It intentionally has no `Debug` implementation.
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct LoginRequest {
     pub tenant_code: TenantCode,
@@ -153,7 +155,8 @@ pub struct LoginRequest {
     pub device_proof: Option<DeviceProof>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+/// Secret-bearing refresh request. It intentionally has no `Debug` implementation.
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct RefreshRequest {
     pub refresh_token: String,
@@ -349,5 +352,33 @@ mod tests {
                 .unwrap()
                 .contains("accessToken")
         );
+    }
+
+    #[test]
+    fn secret_request_schemas_round_trip() {
+        let login = LoginRequest {
+            tenant_code: TenantCode::parse("al-eitmad").unwrap(),
+            username: "owner".to_owned(),
+            password: "secret".to_owned(),
+            device_id: DeviceId::new(uuid::Uuid::new_v4()),
+            device_label: "workshop".to_owned(),
+            device_public_key: DevicePublicKey {
+                algorithm: "ed25519".to_owned(),
+                base64: "AAA=".to_owned(),
+            },
+            device_proof: None,
+        };
+        let json = serde_json::to_string(&login).unwrap();
+        assert!(json.contains("password"));
+        let parsed: LoginRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(serde_json::to_string(&parsed).unwrap(), json);
+
+        for schema in [
+            schemars::schema_for!(ActivateAccountRequest),
+            schemars::schema_for!(LoginRequest),
+            schemars::schema_for!(RefreshRequest),
+        ] {
+            assert!(serde_json::to_string(&schema).is_ok());
+        }
     }
 }
