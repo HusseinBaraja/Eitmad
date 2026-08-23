@@ -242,9 +242,11 @@ async fn connect(
             stream_session(
                 socket,
                 state,
-                token,
-                proof,
-                session,
+                StreamContext {
+                    token,
+                    proof,
+                    session,
+                },
                 scope,
                 schema_id,
                 query.schema_version,
@@ -255,16 +257,25 @@ async fn connect(
 
 const SESSION_REVALIDATION_INTERVAL: std::time::Duration = std::time::Duration::from_secs(60);
 
-async fn stream_session(
-    mut socket: WebSocket,
-    state: ServerState,
+struct StreamContext {
     token: String,
     proof: DeviceProof,
     session: eitmad_contracts::server::AuthenticatedServerSession,
+}
+
+async fn stream_session(
+    mut socket: WebSocket,
+    state: ServerState,
+    context: StreamContext,
     scope: ScopeRef,
     schema_id: SchemaId,
     schema_version: u32,
 ) {
+    let StreamContext {
+        token,
+        proof,
+        session,
+    } = context;
     let mut negotiated = false;
     let mut revalidation = tokio::time::interval(SESSION_REVALIDATION_INTERVAL);
     revalidation.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
@@ -363,7 +374,8 @@ async fn handle_stream_message(
                     &request.schema_id,
                     schema_version,
                     request.resume_after,
-                    eitmad_contracts::sync::MAX_SYNC_BATCH_RECORDS as u32,
+                    u32::try_from(eitmad_contracts::sync::MAX_SYNC_BATCH_RECORDS)
+                        .unwrap_or(u32::MAX),
                 )
                 .await
                 .map_err(map_subscription)?;
@@ -442,10 +454,12 @@ async fn send_snapshot(
     let bundle = state
         .sync
         .create_snapshot(
-            session,
-            scope,
-            schema_id,
-            schema_version,
+            eitmad_sync_plane::SnapshotRequest {
+                session,
+                scope,
+                schema_id,
+                schema_version,
+            },
             correlation_id,
             unix_millis_now(),
             SNAPSHOT_VALIDITY_MS,

@@ -24,6 +24,23 @@ pub struct SnapshotBundle {
     pub chunks: Vec<SnapshotChunk>,
 }
 
+/// One authorized snapshot or compaction target.
+#[derive(Clone, Copy, Debug)]
+pub struct SnapshotRequest<'a> {
+    pub session: &'a AuthenticatedServerSession,
+    pub scope: &'a eitmad_contracts::identity::ScopeRef,
+    pub schema_id: &'a SchemaId,
+    pub schema_version: u32,
+}
+
+struct SnapshotScope<'a> {
+    tenant_id: eitmad_contracts::identity::TenantId,
+    scope: &'a eitmad_contracts::identity::ScopeRef,
+    schema_id: &'a SchemaId,
+    checkpoint: Checkpoint,
+    generation: u64,
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum SnapshotError {
     #[error("snapshot is denied")]
@@ -44,17 +61,17 @@ impl SyncCoordinator {
     /// Returns an authorization, domain, empty-scope, or storage error.
     pub async fn create_snapshot(
         &self,
-        session: &AuthenticatedServerSession,
-        scope: &eitmad_contracts::identity::ScopeRef,
-        schema_id: &SchemaId,
-        schema_version: u32,
+        request: SnapshotRequest<'_>,
         correlation_id: CorrelationId,
         now: UnixMillis,
         valid_for_ms: i64,
     ) -> Result<SnapshotBundle, SnapshotError> {
+        let session = request.session;
+        let scope = request.scope;
+        let schema_id = request.schema_id;
         let handler = self
             .registry
-            .get(schema_id, schema_version)
+            .get(schema_id, request.schema_version)
             .map_err(|_| SnapshotError::Domain)?;
         if !handler.authorize(session, scope, SyncIntent::Read) {
             return Err(SnapshotError::Denied);
@@ -99,42 +116,20 @@ impl SyncCoordinator {
             .map(|row| serde_json::from_value(row.get("change_json")))
             .collect::<Result<Vec<ChangeRecord>, _>>()
             .map_err(|_| SnapshotError::Unavailable)?;
-        let snapshot_id = SnapshotId::new(Uuid::new_v4());
-        let chunks = build_chunks(snapshot_id, &records)?;
-        let snapshot_checksum = checksum(&records)?;
-        let manifest = SnapshotManifest {
-            snapshot_id,
-            scope: scope.clone(),
-            checkpoint,
-            server_generation: generation,
-            created_at: now,
-            valid_until: UnixMillis(now.0.saturating_add(valid_for_ms.max(1))),
-            total_records: u64::try_from(records.len()).map_err(|_| SnapshotError::Unavailable)?,
-            total_chunks: u32::try_from(chunks.len()).map_err(|_| SnapshotError::Unavailable)?,
-            checksum: snapshot_checksum.clone(),
-        };
-        sqlx::query(
-            "INSERT INTO sync.snapshots
-                (tenant_id, scope_kind, scope_id, schema_id, snapshot_id, checkpoint,
-                 server_generation, manifest_json, chunks_json, checksum,
-                 created_at, valid_until)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
+        let snapshot = store_snapshot(
+            &mut transaction,
+            &SnapshotScope {
+                tenant_id: session.tenant_id,
+                scope,
+                schema_id,
+                checkpoint,
+                generation,
+            },
+            &records,
+            now,
+            valid_for_ms,
         )
-        .bind(session.tenant_id.value())
-        .bind(scope.kind.as_str())
-        .bind(scope.id.value())
-        .bind(schema_id.as_str())
-        .bind(snapshot_id.value())
-        .bind(checkpoint.value())
-        .bind(i64::try_from(generation).map_err(|_| SnapshotError::Unavailable)?)
-        .bind(serde_json::to_value(&manifest).map_err(|_| SnapshotError::Unavailable)?)
-        .bind(serde_json::to_value(&chunks).map_err(|_| SnapshotError::Unavailable)?)
-        .bind(&snapshot_checksum)
-        .bind(now.0)
-        .bind(manifest.valid_until.0)
-        .execute(&mut *transaction)
-        .await
-        .map_err(|_| SnapshotError::Unavailable)?;
+        .await?;
         crate::audit::append(
             &mut transaction,
             session,
@@ -149,7 +144,7 @@ impl SyncCoordinator {
             .commit()
             .await
             .map_err(|_| SnapshotError::Unavailable)?;
-        Ok(SnapshotBundle { manifest, chunks })
+        Ok(snapshot)
     }
 
     /// Deletes operation history only after an authorized caller, the
@@ -161,16 +156,16 @@ impl SyncCoordinator {
     /// Returns an authorization or storage error without deleting uncovered history.
     pub async fn compact_history(
         &self,
-        session: &AuthenticatedServerSession,
-        scope: &eitmad_contracts::identity::ScopeRef,
-        schema_id: &SchemaId,
-        schema_version: u32,
+        request: SnapshotRequest<'_>,
         correlation_id: CorrelationId,
         now: UnixMillis,
     ) -> Result<u64, SnapshotError> {
+        let session = request.session;
+        let scope = request.scope;
+        let schema_id = request.schema_id;
         let handler = self
             .registry
-            .get(schema_id, schema_version)
+            .get(schema_id, request.schema_version)
             .map_err(|_| SnapshotError::Domain)?;
         if !handler.authorize(session, scope, SyncIntent::Write) {
             return Err(SnapshotError::Denied);
@@ -227,11 +222,56 @@ impl SyncCoordinator {
     }
 }
 
+async fn store_snapshot(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    context: &SnapshotScope<'_>,
+    records: &[ChangeRecord],
+    now: UnixMillis,
+    valid_for_ms: i64,
+) -> Result<SnapshotBundle, SnapshotError> {
+    let snapshot_id = SnapshotId::new(Uuid::new_v4());
+    let chunks = build_chunks(snapshot_id, records)?;
+    let snapshot_checksum = checksum(records)?;
+    let manifest = SnapshotManifest {
+        snapshot_id,
+        scope: context.scope.clone(),
+        checkpoint: context.checkpoint,
+        server_generation: context.generation,
+        created_at: now,
+        valid_until: UnixMillis(now.0.saturating_add(valid_for_ms.max(1))),
+        total_records: u64::try_from(records.len()).map_err(|_| SnapshotError::Unavailable)?,
+        total_chunks: u32::try_from(chunks.len()).map_err(|_| SnapshotError::Unavailable)?,
+        checksum: snapshot_checksum.clone(),
+    };
+    sqlx::query(
+        "INSERT INTO sync.snapshots
+            (tenant_id, scope_kind, scope_id, schema_id, snapshot_id, checkpoint,
+             server_generation, manifest_json, chunks_json, checksum,
+             created_at, valid_until)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
+    )
+    .bind(context.tenant_id.value())
+    .bind(context.scope.kind.as_str())
+    .bind(context.scope.id.value())
+    .bind(context.schema_id.as_str())
+    .bind(snapshot_id.value())
+    .bind(context.checkpoint.value())
+    .bind(i64::try_from(context.generation).map_err(|_| SnapshotError::Unavailable)?)
+    .bind(serde_json::to_value(&manifest).map_err(|_| SnapshotError::Unavailable)?)
+    .bind(serde_json::to_value(&chunks).map_err(|_| SnapshotError::Unavailable)?)
+    .bind(&snapshot_checksum)
+    .bind(now.0)
+    .bind(manifest.valid_until.0)
+    .execute(&mut **transaction)
+    .await
+    .map_err(|_| SnapshotError::Unavailable)?;
+    Ok(SnapshotBundle { manifest, chunks })
+}
+
 fn build_chunks(
     snapshot_id: SnapshotId,
     records: &[ChangeRecord],
-) -> Result<Vec<SnapshotChunk>, SnapshotError> {
-    records
+) -> Result<Vec<SnapshotChunk>, SnapshotError> {    records
         .chunks(MAX_SYNC_BATCH_RECORDS)
         .enumerate()
         .map(|(index, records)| {

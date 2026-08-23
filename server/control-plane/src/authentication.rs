@@ -898,11 +898,9 @@ fn verify_device_proof(
     let skew = now
         .0
         .checked_sub(proof.issued_at.0)
-        .and_then(i64::checked_abs);
-    if proof.nonce.len() < 16
-        || proof.nonce.len() > 256
-        || !skew.is_some_and(|value| value <= MAX_DEVICE_PROOF_AGE_MS)
-    {
+        .and_then(i64::checked_abs)
+        .is_some_and(|value| value <= MAX_DEVICE_PROOF_AGE_MS);
+    if proof.nonce.len() < 16 || proof.nonce.len() > 256 || !skew {
         return Err(AuthenticationError::InvalidDeviceProof);
     }
     let public_key: [u8; 32] = public_key

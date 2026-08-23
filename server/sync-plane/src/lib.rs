@@ -13,5 +13,5 @@ pub use domain::{
     DomainRegistryError, DomainSyncHandler, DomainValidationError, LocalOperationDraft, SyncIntent,
 };
 pub use operations::{OperationError, OperationResult, SyncCoordinator};
-pub use snapshots::{SnapshotBundle, SnapshotError};
+pub use snapshots::{SnapshotBundle, SnapshotError, SnapshotRequest};
 pub use subscriptions::{SubscriptionError, SubscriptionPage};
