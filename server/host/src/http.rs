@@ -703,4 +703,57 @@ mod tests {
             NegotiationOutcome::Rejected(_)
         ));
     }
+
+    fn test_state() -> ServerState {
+        let pool = eitmad_postgres_support::PgPoolOptions::new()
+            .connect_lazy("postgresql://unreachable.invalid/eitmad")
+            .unwrap();
+        let control = ControlPlane::new(pool.clone(), eitmad_control_plane::TokenKey::new([0; 32]));
+        let registry = eitmad_sync_plane::DomainRegistry::new(std::iter::empty()).unwrap();
+        let database = eitmad_sync_plane::SyncDatabase::from_pool(pool);
+        let sync = SyncCoordinator::new(&database, registry);
+        ServerState::new(control, sync)
+    }
+
+    #[tokio::test]
+    async fn readyz_reports_unavailable_after_readiness_is_cleared() {
+        use tower::ServiceExt as _;
+        let state = test_state();
+        let response = router(state.clone())
+            .oneshot(
+                axum::http::Request::builder()
+                    .uri("/readyz")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::NO_CONTENT);
+        state.set_ready(false);
+        let response = router(state)
+            .oneshot(
+                axum::http::Request::builder()
+                    .uri("/readyz")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    }
+
+    #[tokio::test]
+    async fn update_assignment_requires_authorization_header() {
+        use tower::ServiceExt as _;
+        let response = router(test_state())
+            .oneshot(
+                axum::http::Request::builder()
+                    .uri("/v1/update-assignment?deviceId=00000000-0000-0000-0000-000000000000")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    }
 }

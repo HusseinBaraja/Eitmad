@@ -26,6 +26,7 @@ thiserror = "=2.0.18"
 uuid = { version = "=1.23.4", features = ["serde", "v4"] }
 
 [dev-dependencies]
+eitmad-postgres-support = { path = "../postgres-support" }
 tower = { version = "=0.5.3", features = ["util"] }
 
 [[bin]]
