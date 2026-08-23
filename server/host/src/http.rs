@@ -374,7 +374,16 @@ async fn handle_stream_message(
                         .map_err(|()| ApiError::unavailable())
                 }
                 Err(OperationError::SnapshotRequired) => {
-                    send_snapshot(socket, state, session, scope, schema_id, schema_version).await
+                    send_snapshot(
+                        socket,
+                        state,
+                        session,
+                        scope,
+                        schema_id,
+                        schema_version,
+                        frame.correlation_id,
+                    )
+                    .await
                 }
                 Err(error) => Err(map_operation(error)),
             },
@@ -401,6 +410,7 @@ async fn send_snapshot(
     scope: &ScopeRef,
     schema_id: &SchemaId,
     schema_version: u32,
+    correlation_id: CorrelationId,
 ) -> Result<(), ApiError> {
     const SNAPSHOT_VALIDITY_MS: i64 = 24 * 60 * 60 * 1_000;
 
@@ -411,6 +421,7 @@ async fn send_snapshot(
             scope,
             schema_id,
             schema_version,
+            correlation_id,
             unix_millis_now(),
             SNAPSHOT_VALIDITY_MS,
         )

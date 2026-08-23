@@ -5,7 +5,7 @@ use eitmad_contracts::{
         ChangeRecord, Checkpoint, MAX_SYNC_BATCH_RECORDS, SnapshotChunk, SnapshotId,
         SnapshotManifest,
     },
-    transport::{SchemaId, UnixMillis},
+    transport::{CorrelationId, SchemaId, UnixMillis},
 };
 use serde::Serialize;
 use sha2::{Digest as _, Sha256};
@@ -48,6 +48,7 @@ impl SyncCoordinator {
         scope: &eitmad_contracts::identity::ScopeRef,
         schema_id: &SchemaId,
         schema_version: u32,
+        correlation_id: CorrelationId,
         now: UnixMillis,
         valid_for_ms: i64,
     ) -> Result<SnapshotBundle, SnapshotError> {
@@ -134,6 +135,16 @@ impl SyncCoordinator {
         .execute(&mut *transaction)
         .await
         .map_err(|_| SnapshotError::Unavailable)?;
+        crate::audit::append(
+            &mut transaction,
+            session,
+            "eitmad.server.sync.create-snapshot.v1",
+            "succeeded",
+            correlation_id,
+            now,
+        )
+        .await
+        .map_err(|_| SnapshotError::Unavailable)?;
         transaction
             .commit()
             .await
@@ -141,19 +152,29 @@ impl SyncCoordinator {
         Ok(SnapshotBundle { manifest, chunks })
     }
 
-    /// Deletes operation history only after the retention floor, a covering
-    /// snapshot, and the absence of an open conflict.
+    /// Deletes operation history only after an authorized caller, the
+    /// retention floor, a covering snapshot, and the absence of an open
+    /// conflict.
     ///
     /// # Errors
     ///
-    /// Returns a storage error without deleting uncovered history.
+    /// Returns an authorization or storage error without deleting uncovered history.
     pub async fn compact_history(
         &self,
         session: &AuthenticatedServerSession,
         scope: &eitmad_contracts::identity::ScopeRef,
         schema_id: &SchemaId,
+        schema_version: u32,
+        correlation_id: CorrelationId,
         now: UnixMillis,
     ) -> Result<u64, SnapshotError> {
+        let handler = self
+            .registry
+            .get(schema_id, schema_version)
+            .map_err(|_| SnapshotError::Domain)?;
+        if !handler.authorize(session, scope, SyncIntent::Write) {
+            return Err(SnapshotError::Denied);
+        }
         let mut transaction = tenant_transaction(&self.pool, session.tenant_id)
             .await
             .map_err(|_| SnapshotError::Unavailable)?;
@@ -177,15 +198,25 @@ impl SyncCoordinator {
                     AND covered.checkpoint = s.checkpoint
                    WHERE s.tenant_id = o.tenant_id AND s.scope_kind = o.scope_kind
                      AND s.scope_id = o.scope_id AND s.schema_id = o.schema_id
-                     AND covered.sequence >= o.sequence
-               )",
-        )
+                     AND covered.sequence > o.sequence
+                )",
+            )
         .bind(session.tenant_id.value())
         .bind(scope.kind.as_str())
         .bind(scope.id.value())
         .bind(schema_id.as_str())
         .bind(now.0)
         .execute(&mut *transaction)
+        .await
+        .map_err(|_| SnapshotError::Unavailable)?;
+        crate::audit::append(
+            &mut transaction,
+            session,
+            "eitmad.server.sync.compact-history.v1",
+            "succeeded",
+            correlation_id,
+            now,
+        )
         .await
         .map_err(|_| SnapshotError::Unavailable)?;
         transaction
