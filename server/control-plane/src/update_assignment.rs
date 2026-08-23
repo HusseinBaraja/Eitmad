@@ -4,7 +4,7 @@ use eitmad_contracts::{
         AuthenticatedServerSession, EffectiveUpdateAssignment, UpdateAssignmentSource,
         UpdateChannelId,
     },
-    transport::UnixMillis,
+    transport::{CorrelationId, UnixMillis},
 };
 use sqlx::{PgPool, Row as _};
 use uuid::Uuid;
@@ -94,9 +94,10 @@ impl UpdateAssignmentService {
         &self,
         actor: &AuthenticatedServerSession,
         channel: &UpdateChannelId,
+        correlation_id: CorrelationId,
         now: UnixMillis,
     ) -> Result<EffectiveUpdateAssignment, UpdateAssignmentError> {
-        self.assign(actor, None, channel, now).await
+        self.assign(actor, None, channel, correlation_id, now).await
     }
 
     /// Assigns an update channel override to one registered tenant device.
@@ -109,9 +110,11 @@ impl UpdateAssignmentService {
         actor: &AuthenticatedServerSession,
         device_id: DeviceId,
         channel: &UpdateChannelId,
+        correlation_id: CorrelationId,
         now: UnixMillis,
     ) -> Result<EffectiveUpdateAssignment, UpdateAssignmentError> {
-        self.assign(actor, Some(device_id), channel, now).await
+        self.assign(actor, Some(device_id), channel, correlation_id, now)
+            .await
     }
 
     async fn assign(
@@ -119,6 +122,7 @@ impl UpdateAssignmentService {
         actor: &AuthenticatedServerSession,
         device_id: Option<DeviceId>,
         channel: &UpdateChannelId,
+        correlation_id: CorrelationId,
         now: UnixMillis,
     ) -> Result<EffectiveUpdateAssignment, UpdateAssignmentError> {
         let mut transaction = tenant_transaction(&self.pool, actor.tenant_id)
@@ -180,6 +184,7 @@ impl UpdateAssignmentService {
                 operation: "eitmad.server.update-channel.assign.v1",
                 outcome: "succeeded",
                 target_kind: assignment_kind,
+                correlation_id,
                 now,
             },
         )

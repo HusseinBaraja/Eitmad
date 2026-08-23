@@ -1,6 +1,6 @@
 use eitmad_contracts::{
     identity::{DeviceId, PrincipalId, SessionId, TenantId},
-    transport::UnixMillis,
+    transport::{CorrelationId, UnixMillis},
 };
 use uuid::Uuid;
 
@@ -12,6 +12,7 @@ pub(crate) struct AuditEntry<'a> {
     pub operation: &'a str,
     pub outcome: &'a str,
     pub target_kind: &'a str,
+    pub correlation_id: CorrelationId,
     pub now: UnixMillis,
 }
 
@@ -33,7 +34,7 @@ pub(crate) async fn append(
     .bind(entry.operation)
     .bind(entry.outcome)
     .bind(entry.target_kind)
-    .bind(Uuid::new_v4())
+    .bind(entry.correlation_id.value())
     .bind(entry.now.0)
     .execute(&mut **transaction)
     .await?;

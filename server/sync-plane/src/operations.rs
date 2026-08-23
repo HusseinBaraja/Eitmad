@@ -12,7 +12,7 @@ use eitmad_contracts::sync::{
     CommandDisposition, ConflictId, ConflictRecord, ConflictStatus, DeliveryId, RecordChangeNotice,
     RecordId, SyncMode,
 };
-use eitmad_contracts::transport::{IdempotencyKey, SchemaId, UnixMillis};
+use eitmad_contracts::transport::{CorrelationId, IdempotencyKey, SchemaId, UnixMillis};
 
 use crate::database::{SyncDatabase, tenant_transaction};
 use crate::domain::{
@@ -101,6 +101,7 @@ impl SyncCoordinator {
         &self,
         session: &AuthenticatedServerSession,
         draft: &LocalOperationDraft,
+        correlation_id: CorrelationId,
         now: UnixMillis,
     ) -> Result<OperationResult, OperationError> {
         let handler = self.registry.get(&draft.schema_id, draft.schema_version)?;
@@ -160,6 +161,7 @@ impl SyncCoordinator {
                 session,
                 "eitmad.server.sync.apply-local.v1",
                 "conflict",
+                correlation_id,
                 now,
             )
             .await
@@ -186,6 +188,7 @@ impl SyncCoordinator {
             session,
             "eitmad.server.sync.apply-local.v1",
             "succeeded",
+            correlation_id,
             now,
         )
         .await
@@ -210,6 +213,7 @@ impl SyncCoordinator {
         &self,
         session: &AuthenticatedServerSession,
         command: &CommandSubmission,
+        correlation_id: CorrelationId,
         now: UnixMillis,
     ) -> Result<CommandDisposition, OperationError> {
         let handler = self
@@ -258,6 +262,7 @@ impl SyncCoordinator {
                     session,
                     "eitmad.server.sync.submit-command.v1",
                     "succeeded",
+                    correlation_id,
                     now,
                 )
                 .await
@@ -285,6 +290,7 @@ impl SyncCoordinator {
                     session,
                     "eitmad.server.sync.submit-command.v1",
                     "denied",
+                    correlation_id,
                     now,
                 )
                 .await
@@ -1247,7 +1253,7 @@ mod tests {
         };
         assert_eq!(
             coordinator
-                .apply_local_operation(&session, &draft(), UnixMillis(1))
+                .apply_local_operation(&session, &draft(), CorrelationId::new(Uuid::from_u128(15)), UnixMillis(1))
                 .await,
             Err(OperationError::Denied)
         );

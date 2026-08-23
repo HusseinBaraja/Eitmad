@@ -130,6 +130,10 @@ async fn live() -> StatusCode {
     StatusCode::NO_CONTENT
 }
 
+fn new_correlation_id() -> CorrelationId {
+    CorrelationId::new(Uuid::new_v4())
+}
+
 async fn ready(State(state): State<ServerState>) -> StatusCode {
     if state.ready.load(Ordering::Acquire) {
         StatusCode::NO_CONTENT
@@ -145,7 +149,7 @@ async fn activate(
     state
         .control
         .authentication
-        .activate(&request, unix_millis_now())
+        .activate(&request, new_correlation_id(), unix_millis_now())
         .await
         .map(Json)
         .map_err(ApiError::authentication)
@@ -158,7 +162,7 @@ async fn login(
     state
         .control
         .authentication
-        .login(&request, unix_millis_now())
+        .login(&request, new_correlation_id(), unix_millis_now())
         .await
         .map(Json)
         .map_err(ApiError::authentication)
@@ -171,7 +175,7 @@ async fn refresh(
     state
         .control
         .authentication
-        .refresh(&request, unix_millis_now())
+        .refresh(&request, new_correlation_id(), unix_millis_now())
         .await
         .map(Json)
         .map_err(ApiError::authentication)

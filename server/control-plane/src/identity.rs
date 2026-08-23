@@ -6,7 +6,7 @@ use eitmad_contracts::{
         AuthenticatedServerSession, CreateInviteRequest, InviteCreated, InviteId, LicenseId,
         TenantCode,
     },
-    transport::UnixMillis,
+    transport::{CorrelationId, UnixMillis},
 };
 use rand::RngCore as _;
 use sqlx::PgPool;
@@ -103,6 +103,7 @@ impl IdentityService {
     pub async fn bootstrap(
         &self,
         input: &BootstrapInput,
+        correlation_id: CorrelationId,
         now: UnixMillis,
     ) -> Result<BootstrapResult, IdentityError> {
         validate_display_name(&input.tenant_display_name)?;
@@ -166,6 +167,7 @@ impl IdentityService {
                 operation: "eitmad.server.identity.bootstrap.v1",
                 outcome: "succeeded",
                 target_kind: "tenant",
+                correlation_id,
                 now,
             },
         )
@@ -193,6 +195,7 @@ impl IdentityService {
         &self,
         actor: &AuthenticatedServerSession,
         request: &CreateInviteRequest,
+        correlation_id: CorrelationId,
         now: UnixMillis,
     ) -> Result<InviteCreated, IdentityError> {
         let canonical_username =
@@ -240,6 +243,7 @@ impl IdentityService {
                 operation: "eitmad.server.identity.invite.v1",
                 outcome: "succeeded",
                 target_kind: "account",
+                correlation_id,
                 now,
             },
         )

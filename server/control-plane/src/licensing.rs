@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use eitmad_contracts::{
     identity::{PrincipalId, TenantId},
     server::{AuthenticatedServerSession, EntitlementId, LicenseId, LicenseState, LicenseStatus},
-    transport::UnixMillis,
+    transport::{CorrelationId, UnixMillis},
 };
 use sqlx::{PgPool, Row as _};
 
@@ -119,6 +119,7 @@ impl LicenseService {
         &self,
         actor: &AuthenticatedServerSession,
         state: &LicenseState,
+        correlation_id: CorrelationId,
         now: UnixMillis,
     ) -> Result<(), LicenseError> {
         validate_provider_state(actor, state)?;
@@ -173,6 +174,7 @@ impl LicenseService {
                 operation: "eitmad.server.license.record-provider-state.v1",
                 outcome: "succeeded",
                 target_kind: "license",
+                correlation_id,
                 now,
             },
         )

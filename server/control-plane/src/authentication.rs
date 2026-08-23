@@ -9,7 +9,7 @@ use eitmad_contracts::{
         ActivateAccountRequest, AuthenticatedServerSession, AuthenticationResult, DeviceProof,
         DevicePublicKey, IssuedTokens, LoginRequest, RefreshRequest, SessionPolicy, TokenFamilyId,
     },
-    transport::UnixMillis,
+    transport::{CorrelationId, UnixMillis},
 };
 use hmac::{Hmac, Mac as _};
 use rand::RngCore as _;
@@ -103,6 +103,7 @@ impl AuthenticationService {
     pub async fn activate(
         &self,
         request: &ActivateAccountRequest,
+        correlation_id: CorrelationId,
         now: UnixMillis,
     ) -> Result<AuthenticationResult, AuthenticationError> {
         let token_hash = self.tokens.hash(&request.invite_token)?;
@@ -190,6 +191,7 @@ impl AuthenticationService {
             &mut transaction,
             &result.session,
             "eitmad.server.authentication.activate.v1",
+            correlation_id,
             now,
         )
         .await?;
@@ -296,6 +298,7 @@ impl AuthenticationService {
     pub async fn login(
         &self,
         request: &LoginRequest,
+        correlation_id: CorrelationId,
         now: UnixMillis,
     ) -> Result<AuthenticationResult, AuthenticationError> {
         validate_password_input(&request.password)?;
@@ -387,6 +390,7 @@ impl AuthenticationService {
             &mut transaction,
             &result.session,
             "eitmad.server.authentication.login.v1",
+            correlation_id,
             now,
         )
         .await?;
@@ -405,6 +409,7 @@ impl AuthenticationService {
     pub async fn refresh(
         &self,
         request: &RefreshRequest,
+        correlation_id: CorrelationId,
         now: UnixMillis,
     ) -> Result<AuthenticationResult, AuthenticationError> {
         let old_hash = self.tokens.hash(&request.refresh_token)?;
@@ -480,14 +485,15 @@ impl AuthenticationService {
         let result = self
             .rotate_refresh(
                 &mut transaction,
-                RefreshRotation {
-                    row: &row,
-                    tenant_id,
-                    old_hash: &old_hash,
-                    family_id: TokenFamilyId::new(family_id),
-                    device_id,
-                    now,
-                },
+            RefreshRotation {
+                row: &row,
+                tenant_id,
+                old_hash: &old_hash,
+                family_id: TokenFamilyId::new(family_id),
+                device_id,
+                correlation_id,
+                now,
+            },
             )
             .await?;
         transaction
@@ -556,6 +562,7 @@ impl AuthenticationService {
             transaction,
             &session,
             "eitmad.server.authentication.refresh.v1",
+            rotation.correlation_id,
             rotation.now,
         )
         .await?;
@@ -637,6 +644,7 @@ async fn append_session_audit(
     transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     session: &AuthenticatedServerSession,
     operation: &str,
+    correlation_id: CorrelationId,
     now: UnixMillis,
 ) -> Result<(), AuthenticationError> {
     audit::append(
@@ -649,6 +657,7 @@ async fn append_session_audit(
             operation,
             outcome: "succeeded",
             target_kind: "session",
+            correlation_id,
             now,
         },
     )
@@ -731,6 +740,7 @@ struct RefreshRotation<'a> {
     old_hash: &'a [u8; 32],
     family_id: TokenFamilyId,
     device_id: DeviceId,
+    correlation_id: CorrelationId,
     now: UnixMillis,
 }
 

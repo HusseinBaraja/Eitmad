@@ -1,5 +1,7 @@
 use eitmad_contracts::{
-    identity::PrincipalId, server::AuthenticatedServerSession, transport::UnixMillis,
+    identity::PrincipalId,
+    server::AuthenticatedServerSession,
+    transport::{CorrelationId, UnixMillis},
 };
 use uuid::Uuid;
 
@@ -8,6 +10,7 @@ pub(crate) async fn append(
     session: &AuthenticatedServerSession,
     operation: &str,
     outcome: &str,
+    correlation_id: CorrelationId,
     now: UnixMillis,
 ) -> Result<(), sqlx::Error> {
     sqlx::query(
@@ -23,7 +26,7 @@ pub(crate) async fn append(
     .bind(PrincipalId::new(session.user_id.value()).value())
     .bind(operation)
     .bind(outcome)
-    .bind(Uuid::new_v4())
+    .bind(correlation_id.value())
     .bind(now.0)
     .execute(&mut **transaction)
     .await?;

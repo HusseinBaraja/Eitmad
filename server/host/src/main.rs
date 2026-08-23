@@ -1,6 +1,7 @@
 use std::process::ExitCode;
 
 use eitmad_contracts::server::TenantCode;
+use eitmad_contracts::transport::CorrelationId;
 use eitmad_control_plane::{BootstrapInput, ControlDatabase, ControlPlane};
 use eitmad_server::{ServerCommand, ServerConfig, ServerState};
 use eitmad_sync_plane::{DomainRegistry, SyncCoordinator, SyncDatabase};
@@ -73,6 +74,7 @@ async fn execute() -> Result<(), MainError> {
                     organization_display_name: organization_name,
                     owner_username,
                 },
+                CorrelationId::new(uuid::Uuid::new_v4()),
                 eitmad_control_plane::unix_millis_now(),
             )
             .await
