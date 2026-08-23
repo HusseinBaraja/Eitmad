@@ -20,6 +20,8 @@ pub use identity::{
 pub use licensing::{LicenseDecision, LicenseError, LicenseService};
 pub use update_assignment::{UpdateAssignmentError, UpdateAssignmentService};
 
+use std::sync::Arc;
+
 use sqlx::PgPool;
 
 #[derive(Clone)]
@@ -39,5 +41,11 @@ impl ControlPlane {
             licensing: LicenseService::new(pool.clone()),
             update_assignments: UpdateAssignmentService::new(pool),
         }
+    }
+
+    #[must_use]
+    pub fn with_notification_sink(mut self, sink: Arc<dyn NotificationSink>) -> Self {
+        self.identity = self.identity.with_notification_sink(sink);
+        self
     }
 }

@@ -197,6 +197,10 @@ impl IdentityService {
     ) -> Result<InviteCreated, IdentityError> {
         let canonical_username =
             canonical_username(&request.username).map_err(map_authentication)?;
+        let sink = self
+            .notification_sink
+            .as_ref()
+            .ok_or(IdentityError::DeliveryUnavailable)?;
         let mut transaction = tenant_transaction(&self.pool, actor.tenant_id)
             .await
             .map_err(|_| IdentityError::Unavailable)?;
@@ -251,10 +255,6 @@ impl IdentityService {
             activation_token: state.token,
             expires_at: state.expires_at,
         };
-        let sink = self
-            .notification_sink
-            .as_ref()
-            .ok_or(IdentityError::DeliveryUnavailable)?;
         sink.enqueue(delivery)
             .map_err(|_| IdentityError::DeliveryUnavailable)?;
         Ok(InviteCreated {
