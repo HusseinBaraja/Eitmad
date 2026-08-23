@@ -5,7 +5,7 @@ audience: "support"
 page_type: "troubleshooting"
 status: "active"
 owner: "server platform maintainers"
-last_verified: "2026-08-22"
+last_verified: "2026-08-23"
 review_triggers:
   - "server error identifiers, authentication, tenant isolation, compatibility, or sync recovery changes"
 keywords:
@@ -13,6 +13,7 @@ keywords:
   - "server-device-proof-invalid"
   - "server-snapshot-required"
   - "server-client-incompatible"
+  - "server-subscription-ack-unsupported"
 ---
 
 # Resolve server authentication, tenant, and sync failures
@@ -38,7 +39,10 @@ Record the UTC time, stable error identifier, HTTP status, correlation ID, tenan
 | Cross-tenant request returns data | Critical isolation defect or privileged database role bypass | Stop traffic and reproduce with synthetic tenants and the normal application role | Contain the deployment, rotate exposed credentials, preserve evidence, and repair Rust checks plus RLS before restart |
 | `eitmad.error.server-client-incompatible.v1` | No protocol overlap, a required capability is missing, or schema range is absent | Compare both hello messages with protocol `1.4` requirements | Upgrade the older peer; do not translate or ignore required behavior |
 | `eitmad.error.server-idempotency-mismatch.v1` | One key was reused for changed intent | Compare safe fingerprints and operation identifiers, not payload content | Keep the first result; use a new key only for a new user intent |
-| `eitmad.error.server-snapshot-required.v1` | Requested checkpoint is older than retained history or no usable incremental range exists | Check the snapshot manifest, scope, schema, checkpoint, chunk count, and checksums | Download all chunks, verify them, replace scoped projection atomically, and resume from the snapshot checkpoint |
+| `eitmad.error.server-snapshot-required.v1` | Requested checkpoint is older than retained history, no usable incremental range exists, or a stale base revision named a record the server has never stored (or removed by compaction) | Check the snapshot manifest, scope, schema, checkpoint, chunk count, and checksums; for a stale base revision confirm the record exists server-side | Download all chunks, verify them, replace scoped projection atomically, and resume from the snapshot checkpoint |
+| `eitmad.error.server-subscription-ack-unsupported.v1` | The client sent `eitmad.server.acknowledge.v1`; the server does not persist connection-level subscription acknowledgements yet | Confirm the client uses `eitmad.sync.acknowledge.v1` for durable checkpoints instead of the rejected message | Keep event application idempotent, rely on scoped cursor resume, and track the acknowledgement support follow-up |
+| A live WebSocket closes during traffic without an error frame | Periodic session revalidation found an expired access token, ended session, or revoked device | Compare closure time with token/session lifetime and device revocation audit rows | Reauthenticate with fresh credentials; do not disable revalidation to keep sockets open |
+| `bootstrap` exits with a usage failure (`eitmad.error.contract-invalid.v1`) | Wrong argument count for `eitmad-server bootstrap` | Count arguments: command plus tenant code, tenant name, organization name, owner username | Rerun with exactly four values; quote Arabic display names that contain spaces |
 | An operation returns an open conflict | Base revision was stale and no safe domain merge exists | Inspect conflict ID, revisions, and provenance through an authorized view | Use the domain resolution workflow; keep both inputs and history |
 | A subscription repeats an event | Client acknowledgement did not commit or reconnect resumed from an older cursor | Compare durable cursor and event ID | Apply idempotently, acknowledge only after local commit, then resume |
 | License is denied | Expired beyond grace, suspended, unavailable outside allowed grace, or entitlement absent | Read effective license state through the authorized boundary | Repair provider state or entitlement; suspension must not receive grace |

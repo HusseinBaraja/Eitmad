@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "server platform maintainers"
-last_verified: "2026-08-22"
+last_verified: "2026-08-23"
 review_triggers:
   - "server identity, authorization, storage, synchronization, licensing, update assignment, or deployment boundaries change"
 keywords:
@@ -58,7 +58,7 @@ Negotiation selects an overlapping protocol and registered schema range. Missing
 
 The CLI creates the first tenant, organization, owner account, owner relationships, default license record, default update assignment, audit row, and activation invitation in one transaction. Later accounts use an owner-authorized invitation and activation flow.
 
-Login uses a tenant code and username. Usernames accept Arabic Unicode text after whitespace normalization and case folding, but reject bidirectional control characters. Passwords use Argon2 hashes. Access and refresh tokens are opaque random values; PostgreSQL stores only keyed HMAC-SHA-256 hashes. The default policy is:
+Login uses a tenant code and username. Usernames accept Arabic Unicode text after whitespace normalization and case folding, but reject bidirectional control characters. Tenant, organization, and other display names apply the same bidirectional-control rejection so mixed Arabic and Latin reports cannot be reordered by hidden format characters. Login denials are intentionally non-specific: an absent account and an inactive or locked account return the same redacted failure. Bootstrap serializes its tenant-count check through a PostgreSQL advisory lock so two concurrent bootstrap calls cannot both observe an empty `control.tenants` and both commit. Device-proof clock-skew validation uses checked arithmetic and rejects extreme client-supplied timestamps instead of overflowing. Passwords use Argon2 hashes. Access and refresh tokens are opaque random values; PostgreSQL stores only keyed HMAC-SHA-256 hashes. The default policy is:
 
 | Limit | Default |
 | --- | --- |
@@ -73,7 +73,9 @@ Every access-authenticated request must include the access token, device ID, tim
 
 Migrations `0001_control_foundation.sql` and `0002_sync_foundation.sql` own the PostgreSQL schema. Every tenant-scoped table has a `tenant_id`, enables row-level security, and forces row-level security. Rust opens a transaction and sets the tenant context before scoped access. Application credentials must not have a PostgreSQL role that can bypass RLS.
 
-Every accepted state change adds a redacted audit record in the same transaction. Denied sync operations are also recorded without payload bytes. Token plaintext, password input, device private keys, domain payloads, and customer content must not enter logs or audit metadata.
+Every accepted state change adds a redacted audit record in the same transaction. Each control-plane and sync-plane entry point receives a caller-supplied correlation identifier and writes it into every audit row it produces, so one request that creates multiple records remains joinable in the audit trail. Denied sync operations are also recorded without payload bytes. Token plaintext, password input, device private keys, domain payloads, and customer content must not enter logs or audit metadata.
+
+Invitation delivery is injected through `ControlPlane::with_notification_sink`. `create_invite` resolves the sink before it opens its transaction, so a missing provider fails with `eitmad.server.identity` delivery-unavailable semantics without committing identity, invitation, or directory state.
 
 Migration files are append-only after release. Back up PostgreSQL before migration and restore the complete cluster or database by the approved PostgreSQL recovery process. Do not edit rows, RLS policies, checkpoints, operation history, or conflict records as a repair shortcut.
 
@@ -86,13 +88,17 @@ A registered domain declares one immutable mode:
 
 An idempotency key is stored with a deterministic request fingerprint and serialized result. An exact retry returns the first result, including the same conflict ID. Reusing the key for another intent returns `eitmad.error.server-idempotency-mismatch.v1`. Scope locking prevents concurrent writers from assigning the same next position.
 
-Pull sessions return ordered history after a checkpoint. Clients acknowledge applied checkpoints separately. Subscription events use durable scoped cursors and explicit acknowledgement. Operation history has a 90-day retention floor. Compaction is safe only after a complete snapshot exists and retained client checkpoints no longer require the removed range. When a requested checkpoint is unavailable, the host sends a manifest, bounded chunks, and completion checksum instead of pretending that incremental history is complete.
+Pull sessions return ordered history after a checkpoint. Clients acknowledge applied checkpoints separately through `eitmad.sync.acknowledge.v1`, which persists durable device checkpoints. The connection-level subscription acknowledgement message `eitmad.server.acknowledge.v1` is rejected with `eitmad.error.server-subscription-ack-unsupported.v1` until a durable subscription-checkpoint store exists; the server never reports success without changing cursor state.
+
+Subscription resume cursors are scoped to their exact stream (tenant, scope kind, scope ID, schema ID, and event ID). A cursor from another stream returns `ResyncRequired` instead of silently skipping events. A stale base revision on a record the server has never stored — or removed by compaction — returns snapshot-required semantics instead of an availability error, so clients resynchronize rather than retry forever. Snapshot creation and history compaction write audit records inside their transactions, and compaction additionally requires write-level domain authorization before deleting anything.
+
+Operation history has a 90-day retention floor. Compaction is safe only after a complete snapshot exists and retained client checkpoints no longer require the removed range; the covering-snapshot check excludes the checkpoint row itself so later compactions keep resolving. When a requested checkpoint is unavailable, the host sends a manifest, bounded chunks, and completion checksum instead of pretending that incremental history is complete.
 
 ## Licensing and update assignment
 
-Licensing is a persisted enforcement seam, not billing. A provider adapter may record active, expired, suspended, or unavailable state and entitlements. An expired license receives at most seven days of grace; suspension never becomes grace. Product domains call the license boundary before licensed actions.
+Licensing is a persisted enforcement seam, not billing. A provider adapter may record active, expired, suspended, or unavailable state and entitlements. Recording provider state requires an existing license row for the tenant; the update must match exactly one row or the operation fails without deleting entitlements or recording success. An expired license receives at most seven days of grace; suspension never becomes grace. Product domains call the license boundary before licensed actions.
 
-Update assignment resolves in this order: device override, tenant default, then global `stable`. Only a tenant owner may change tenant or device assignments. Rust owns the decision. Platform adapters may install a selected update but must not calculate the channel.
+Update assignment resolves in this order: device override, tenant default, then global `stable`. Assignment commands return the resolved effective assignment for the target device — including an existing device override — rather than only the row just written. Only a tenant owner may change tenant or device assignments. Rust owns the decision. Platform adapters may install a selected update but must not calculate the channel.
 
 ## HTTP and WebSocket boundary
 
@@ -109,6 +115,10 @@ The combined host exposes:
 | `GET /v1/connect` | Authenticated WebSocket upgrade |
 
 TLS is mandatory unless the server binds to a loopback address and the operator explicitly enables insecure loopback for development. The WebSocket uses one ordered connection for negotiation, sync pull/acknowledgement, snapshot transfer, and resumable subscription traffic.
+
+The host revalidates the authenticated session every 60 seconds for the lifetime of each WebSocket. When the access token expires, the session ends, or the device or account-device link is revoked, the socket closes instead of serving further sync traffic with stale credentials.
+
+The process-wide PostgreSQL connection budget is split evenly between the control-plane and sync-plane pools (`pool_connection_budget`), so `EITMAD_SERVER_MAX_CONNECTIONS` bounds total pool connections rather than doubling them. The serve path refuses readiness when no sync domain is registered; `/readyz` never reports success for a server that cannot serve any schema. A malformed `bootstrap` invocation prints usage and exits with a failure code instead of succeeding silently.
 
 ## Arabic UX impact
 
@@ -136,7 +146,7 @@ Use [server troubleshooting](../../troubleshooting/server-authentication-and-syn
 
 ## Tests and verification
 
-Focused unit and static migration tests cover token secrecy, password hashing, Arabic username handling, device proof, session defaults, grace policy, stable update fallback, identity persistence, forced RLS, sync persistence, deterministic fingerprints, exact duplicate conflict replay, unauthorized changes before storage access, snapshot chunk bounds, and incompatible clients. Existing `eitmad-sync` tests cover complete local-first and server-authoritative flows, duplicate delivery, conflicts, sessions, unauthorized remote changes, and compatibility.
+Focused unit and static migration tests cover token secrecy, password hashing, Arabic username and display-name handling including bidirectional-control rejection, overflow-safe device proof, session defaults, grace policy, stable update fallback, identity persistence, forced RLS, sync persistence, deterministic fingerprints, exact duplicate conflict replay, unauthorized changes before storage access, snapshot chunk bounds, incompatible clients, readiness behavior through the real router with `tower::oneshot`, unauthorized update-assignment access, and the split connection budget. Existing `eitmad-sync` tests cover complete local-first and server-authoritative flows, duplicate delivery, conflicts, sessions, unauthorized remote changes, and compatibility.
 
 Run:
 

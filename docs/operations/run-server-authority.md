@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "server platform maintainers"
-last_verified: "2026-08-22"
+last_verified: "2026-08-23"
 review_triggers:
   - "server configuration, CLI, migrations, health routes, TLS, backup, or recovery changes"
 keywords:
@@ -37,7 +37,7 @@ Run the combined control and sync server only with a dedicated PostgreSQL databa
 | `EITMAD_SERVER_TLS_CERTIFICATE` | For TLS | PEM certificate path |
 | `EITMAD_SERVER_TLS_PRIVATE_KEY` | For TLS | PEM private-key path; secret path |
 | `EITMAD_SERVER_ALLOW_INSECURE_LOOPBACK` | Development only | Must be `true` to serve plaintext on loopback |
-| `EITMAD_SERVER_MAX_CONNECTIONS` | No | PostgreSQL pool size from 2 through 128; default 16 |
+| `EITMAD_SERVER_MAX_CONNECTIONS` | No | Total PostgreSQL connection budget, 2 through 128; default 16. The server splits it evenly between the control-plane and sync-plane pools. |
 
 Validate without connecting to PostgreSQL:
 
@@ -67,6 +67,8 @@ cargo run -q -p eitmad-server -- bootstrap al-eitmad "الاعتماد" "مصن�
 
 The command prints tenant, organization, and account IDs, one activation token, and its expiry. Capture the activation token through an approved secret channel. It cannot be recovered from PostgreSQL because only its keyed hash is stored. Activate the account through `POST /v1/auth/activate` before the invitation expires.
 
+A `bootstrap` invocation with a missing or extra argument prints usage and exits with a failure code (`eitmad.error.contract-invalid.v1`); it never exits successfully without creating the tenant. Concurrent bootstrap calls are serialized by a PostgreSQL advisory lock; exactly one call creates the first tenant and every other call is rejected.
+
 Do not repeat bootstrap after an uncertain result. First check the tenant and audit state through an approved administrative query or database operator under a documented incident procedure. A repeated tenant code is rejected.
 
 ## Start and verify
@@ -77,7 +79,7 @@ Start the foreground server:
 cargo run -q -p eitmad-server -- serve
 ```
 
-The process applies migrations before it starts listening. Keep migration privileges separate in a hardened deployment even though the combined development binary supports this convenience.
+The process applies migrations before it starts listening. Keep migration privileges separate in a hardened deployment even though the combined development binary supports this convenience. The serve path refuses to become ready while no sync domain is registered; a production vertical must register its domain handler before `serve` reports readiness.
 
 Verify:
 
