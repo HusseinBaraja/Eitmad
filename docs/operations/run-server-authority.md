@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "server platform maintainers"
-last_verified: "2026-08-23"
+last_verified: "2026-08-24"
 review_triggers:
   - "server configuration, CLI, migrations, health routes, TLS, backup, or recovery changes"
 keywords:
@@ -17,7 +17,7 @@ keywords:
 
 # Run and recover the modular server authority
 
-Run the combined control and sync server only with a dedicated PostgreSQL database, a protected token key, and TLS. Development plaintext is permitted only on an explicit loopback bind.
+Run the combined control, sync, relay, update, and administration server only with a dedicated PostgreSQL database, protected token key, trusted update public key, dedicated manifest directory, and TLS. Development plaintext is permitted only on an explicit loopback bind.
 
 ## Before you start
 
@@ -25,6 +25,8 @@ Run the combined control and sync server only with a dedicated PostgreSQL databa
 - Back up the database before each migration or binary rollback.
 - Generate a random 32-byte token key and encode it with URL-safe base64 without padding. Store it in the deployment secret manager. Do not rotate it without a token invalidation plan.
 - Provide a certificate and private key for every non-loopback listener.
+- Provision a dedicated update-manifest directory that only the server service account and approved release workflow can write.
+- Obtain the reviewed Ed25519 public key and key ID. Do not put the signing private key on the server.
 - Do not use customer credentials or data in command transcripts.
 
 ## Configure the process
@@ -37,7 +39,10 @@ Run the combined control and sync server only with a dedicated PostgreSQL databa
 | `EITMAD_SERVER_TLS_CERTIFICATE` | For TLS | PEM certificate path |
 | `EITMAD_SERVER_TLS_PRIVATE_KEY` | For TLS | PEM private-key path; secret path |
 | `EITMAD_SERVER_ALLOW_INSECURE_LOOPBACK` | Development only | Must be `true` to serve plaintext on loopback |
-| `EITMAD_SERVER_MAX_CONNECTIONS` | No | Total PostgreSQL connection budget, 2 through 128; default 16. The server splits it evenly between the control-plane and sync-plane pools. |
+| `EITMAD_SERVER_MAX_CONNECTIONS` | No | Total PostgreSQL connection budget, 3 through 192; default 16. The server splits it across control, sync, and administration pools. |
+| `EITMAD_SERVER_UPDATE_MANIFEST_DIRECTORY` | Yes | Dedicated durable directory for immutable signed manifest JSON files |
+| `EITMAD_SERVER_UPDATE_KEY_ID` | Yes | Trusted update signing-key identifier |
+| `EITMAD_SERVER_UPDATE_PUBLIC_KEY` | Yes | Base64-encoded 32-byte Ed25519 public key; not secret |
 
 Validate without connecting to PostgreSQL:
 
@@ -55,7 +60,7 @@ Take a PostgreSQL backup, then run:
 cargo run -q -p eitmad-server -- migrate
 ```
 
-Expected output is `server migrations are current`. The command applies both control and sync migrations before it exits. Migration files are immutable after release. Stop if the process emits `eitmad.error.server-database-unavailable.v1` or `eitmad.error.server-migration-failed.v1`; preserve the database and diagnose the PostgreSQL service, permissions, and schema history.
+Expected output is `server migrations are current`. The command applies control migration `1`, sync migration `2`, and administration migration `3` before it exits. Migration files are immutable after release. Stop if the process emits `eitmad.error.server-database-unavailable.v1` or `eitmad.error.server-migration-failed.v1`; preserve the database and diagnose the PostgreSQL service, permissions, RLS, and schema history.
 
 ## Bootstrap the first owner
 
@@ -85,28 +90,31 @@ Verify:
 
 1. `GET /livez` returns success when the process can serve requests.
 2. `GET /readyz` returns success only when PostgreSQL is reachable.
-3. A protocol `1.4` synthetic client can authenticate, send `eitmad.server.hello.v1`, negotiate every required server capability and schema, and then close cleanly.
+3. A protocol `1.4–1.5` synthetic client can authenticate, send `eitmad.server.hello.v1`, negotiate every required server capability and schema, and then close cleanly.
 4. A synthetic tenant cannot read another tenant's scoped records.
-5. Logs contain stable error identifiers and no URL credentials, token values, passwords, private keys, signatures, or domain payloads.
+5. Relay and administration routes reject unauthenticated and unauthorized requests and produce redacted audit rows.
+6. A changed manifest byte fails Ed25519 verification; the assigned channel selects only an exact compatible platform package.
+7. Backup status does not claim success when no reporter row exists, and migration status reports version `3` current.
+8. Logs contain stable error identifiers and no URL credentials, token values, passwords, private keys, proof signatures, relay frames, or domain payloads.
 
 Do not route traffic from the load balancer until readiness and tenant-isolation checks pass.
 
 ## Backup, restore, and rollback
 
-Use the approved PostgreSQL physical or logical backup procedure and verify the backup can be restored. Include both control and sync schemas in one recovery point so identity, audit, operation positions, snapshots, and checkpoints remain consistent.
+Use the approved PostgreSQL physical or logical backup procedure and verify the backup can be restored. Include control, sync, audit, publication, and operations schemas in one recovery point so identity, audit, workflows, operation positions, snapshots, and checkpoints remain consistent. Preserve the signed manifest directory with its own integrity-protected backup.
 
 For application rollback:
 
 1. Stop inbound traffic and the server process.
-2. Confirm whether the older binary supports the applied migration set and protocol `1.4` data.
+2. Confirm whether the older binary supports the applied migration set and protocol `1.5` data.
 3. If it does not, restore the complete pre-migration backup. Do not reverse migration SQL by hand.
-4. Start one server replica, wait for readiness, then verify authentication, tenant isolation, update assignment, sync pull, snapshot fallback, and subscription resume.
+4. Start one server replica, wait for readiness, then verify authentication, tenant isolation, relay authorization, signed updates, administration, update assignment, sync pull, snapshot fallback, and subscription resume.
 5. Add replicas only after the first replica is healthy.
 
 Do not delete operation history until a complete snapshot covers it and retained client checkpoints no longer need it. Keep at least the configured 90-day history floor.
 
 ## Current verification limit
 
-On 2026-08-22, `check-config` passed with synthetic loopback configuration. Rust tests, strict Clippy, minimum-version compilation, and generated contract verification passed. Live `migrate`, `bootstrap`, `serve`, RLS, and HTTP/WebSocket integration could not run because the verification workstation had no PostgreSQL, Docker, or Podman runtime. Complete those checks in the deployment environment before production approval.
+On 2026-08-24, `check-config` passed with synthetic loopback, manifest-directory, and trusted-public-key configuration. Rust tests, strict Clippy, and generated contract verification passed. Live `migrate`, `bootstrap`, `serve`, RLS, backup/restore, and HTTP/WebSocket integration still require a deployment environment with PostgreSQL.
 
-For failures, use [Resolve server authentication, tenant, and sync failures](../troubleshooting/server-authentication-and-sync.md). For design ownership, use [the modular server authority](../developer/subsystems/server-authority.md).
+For failures, use [server authentication and sync failures](../troubleshooting/server-authentication-and-sync.md) or [relay, update, and administration failures](../troubleshooting/server-plane-failures.md). For design ownership, use [the modular server authority](../developer/subsystems/server-authority.md).

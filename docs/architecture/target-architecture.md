@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "explanation"
 status: "active"
 owner: "architecture maintainers"
-last_verified: "2026-08-22"
+last_verified: "2026-08-24"
 review_triggers:
   - "an authority, process, trust, storage, sync, update, or performance boundary changes"
 keywords:
@@ -40,7 +40,7 @@ The same Rust engine MUST support:
 - headless operation for supported unattended workflows;
 - diagnostic operation for health checks, compatibility inspection, and support tooling.
 
-Implemented authority foundations now include protocol `1.4`, a runtime-owned SQLite local database, a modular PostgreSQL control and sync server, organization configuration with `ar-YE` default, scoped relationship policy, mandatory redacted audit, durable idempotency, snapshot-backed history, resumable subscriptions, and one shared sync semantic. Native settings UI, production MFA and invitation providers, relay, update artifacts, database encryption, and the first production business vertical remain future work.
+Implemented authority foundations now include protocol `1.5`, a runtime-owned SQLite local database, a modular PostgreSQL server with control, sync, relay, update, and administration planes, organization configuration with `ar-YE` default, scoped relationship policy, mandatory redacted audit, durable idempotency, snapshot-backed history, resumable subscriptions, signed manifests, and one shared sync semantic. Native settings UI, production MFA and invitation providers, package CDN, production relay payload routing, backup scheduling, database encryption, and the first production business vertical remain future work.
 
 ## Ownership rules
 

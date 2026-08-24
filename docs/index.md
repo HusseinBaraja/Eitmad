@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-08-22"
+last_verified: "2026-08-24"
 review_triggers:
   - "a documentation collection or canonical entry point changes"
 keywords:
@@ -15,7 +15,7 @@ keywords:
 
 # Eitmad documentation
 
-Choose the route that matches your task. Protocol `1.4`, the engine lifecycle, SQLite local authority/recovery, PostgreSQL server authority, persistent identity, scoped relationship authorization/audit, shared sync semantics, and Windows process supervision are implemented foundations. No production business domain, native settings UI, MFA/email provider, relay, or update artifact service exists yet.
+Choose the route that matches your task. Protocol `1.5`, the engine lifecycle, SQLite local authority/recovery, PostgreSQL server authority, persistent identity, scoped authorization/audit, shared sync semantics, WAN relay coordination, signed update manifests, least-privilege administration, and Windows process supervision are implemented foundations. No production business domain, native settings UI, MFA/email provider, package CDN, production relay payload router, or backup scheduler exists yet.
 
 ## Use the product
 
@@ -29,6 +29,9 @@ No user workflow is ready to document. When the first product flow exists, Engli
 - [Extend persistent tenant identity](developer/subsystems/identity-foundation.md): device, account, session, scope topology, offline behavior, and audit attribution.
 - [Extend synchronization and shared transports](developer/subsystems/synchronization.md): offline edits, one simulation/LAN/WAN interface, authentication/encryption, reconnect/backoff, relay degradation, conflicts, and safe extension.
 - [Extend the modular server authority](developer/subsystems/server-authority.md): accounts, tenants, devices, authentication, licensing, update assignment, PostgreSQL isolation, snapshots, and subscriptions.
+- [Extend WAN relay coordination](developer/subsystems/wan-relay-coordination.md): sessions, routes, reconnect, health, failures, authorization, and tenant isolation.
+- [Publish and evaluate signed updates](developer/subsystems/update-distribution.md): Ed25519 manifests, channels, rollout, compatibility, packages, and key configuration.
+- [Extend server administration](developer/subsystems/server-administration.md): diagnostics, backup, migration, audit, visibility, and support workflows.
 - [Understand the target architecture](architecture/index.md): Rust authority, trust boundaries, synchronization, security, and updates.
 - [Use protocol v1 contracts](api/index.md): exact Rust-owned contracts, compatibility, generation, and native bindings.
 - [Review architectural decisions](decisions/index.md): durable choices, reasons, and consequences.

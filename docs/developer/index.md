@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "tutorial"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-08-22"
+last_verified: "2026-08-24"
 review_triggers:
   - "workspace layout, contributor checks, or ownership rules change"
 keywords:
@@ -38,6 +38,9 @@ Read `AGENTS.md` at the repository root, then review:
 - [Rust-owned local storage](subsystems/local-storage.md)
 - [Dual-mode synchronization and shared transports](subsystems/synchronization.md)
 - [Modular PostgreSQL server authority](subsystems/server-authority.md)
+- [WAN relay coordination](subsystems/wan-relay-coordination.md)
+- [Signed update distribution](subsystems/update-distribution.md)
+- [Least-privilege server administration](subsystems/server-administration.md)
 - [Persistent tenant identity](subsystems/identity-foundation.md)
 - [Windows engine process supervision](subsystems/windows-process-supervision.md)
 
