@@ -48,6 +48,7 @@ Pending sync work and existing manifests remain intact for normal denials and va
 | `RetryNotDue` or reconnecting health | Backoff has not elapsed | Inspect `nextReconnectAt` and attempt count | Wait for the due time; restore peer/server route before retry |
 | Relay not found for an owner support action | Wrong, expired, restarted, or foreign session | Verify session ID and tenant without listing another tenant | Let the client open a new session; do not fabricate metadata |
 | Signature changes fail verification | Wrong key or modified manifest bytes | Verify canonical JSON with the release public key | Recreate and sign a new immutable manifest outside the server |
+| `UpdatePlaneError::ReconciliationRequired(manifest_id)` | Success audit and repository rollback both failed | Stop publication and compare the named manifest file with the correlation-scoped audit outcome | Reconcile the named file through the release procedure before retrying |
 | Stable rejects prerelease | Channel rule violation | Inspect semantic-version prerelease field | Publish to `beta` or `canary`, or sign a stable version |
 | Client `Incompatible` | Version, protocol, capability, or package mismatch | Inspect the exact `UpdateIneligibilityReason` | Publish a supported intermediate or matching package |
 | Backup `NotConfigured` | No authoritative status row | Check approved backup reporter deployment | Configure reporting and verify a real restore; do not mark success manually |

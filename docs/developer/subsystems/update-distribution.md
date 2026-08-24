@@ -39,13 +39,13 @@ The built-in channels are `stable`, `beta`, and `canary`. `stable` rejects seman
 
 ## Eligibility order
 
-The engine-side policy verifies the Ed25519 signature and trusted key first. It then checks exact channel, revocation, pause, rollout start, whether the release is newer, current-version bounds and blocks, minimum protocol, required capabilities, deterministic device cohort, and exact platform/architecture package availability.
+The engine-side policy verifies the Ed25519 signature and trusted key first. It then checks exact channel, revocation, pause, rollout start, whether the release is newer, current-version bounds and blocks, minimum protocol, required capabilities, deterministic device cohort, and exact platform/architecture package availability. The server evaluates channel manifests from newest to oldest and returns the first `Available` outcome, so a paused, incompatible, outside-rollout, or package-incomplete newer release cannot hide an eligible older release. Publication rejects manifests already marked revoked.
 
 Protocol or capability mismatch, a blocked client, version outside the compatibility range, or missing package returns `Incompatible`. Pause, future start, channel mismatch, revocation, or cohort exclusion returns `Ineligible`. An equal or newer client returns `UpToDate`. Only a valid signed and compatible release returns `Available` with the selected package metadata.
 
 ## Authorization, scope, and audit
 
-`POST /v1/updates/check` requires protocol `1.5`, the update-distribution capability, and an authenticated device proof. The profile device must match the session and its requested channel must match the Rust-owned effective device assignment. Manifest publication is limited to the configured `EITMAD_SERVER_UPDATE_OPERATOR_TENANT_ID`, a built-in channel, the publish action, and an explicit `eitmad.permission.server.update-manifest.publish.v1` relationship. It writes a redacted audit outcome. A failed publication audit removes the newly inserted manifest.
+`POST /v1/updates/check` requires protocol `1.5`, the update-distribution capability, and an authenticated device proof. The profile device must match the session and its requested channel must match the Rust-owned effective device assignment. Manifest publication is limited to the configured `EITMAD_SERVER_UPDATE_OPERATOR_TENANT_ID`, a built-in channel, the publish action, and an explicit `eitmad.permission.server.update-manifest.publish.v1` relationship. It writes a redacted audit outcome. A failed publication audit removes the newly inserted manifest. If that removal also fails, Rust returns `UpdatePlaneError::ReconciliationRequired(manifest_id)` so an operator can locate the unaudited file and reconcile it before another publication.
 
 Manifest reads do not grant product access. Package URLs are metadata, not authorization credentials. A CDN or artifact service must enforce its own bounded distribution policy without changing the signed manifest.
 
@@ -69,6 +69,7 @@ To rotate a key, deploy a trusted-key overlap before publishing with the new key
 | Incompatible client | No package is selected | Publish a compatible release or upgrade through a supported intermediate version |
 | Paused, revoked, or outside rollout | Client keeps its current release | Resume or replace policy through a newly signed manifest |
 | Repository unavailable | Existing files remain authoritative | Restore directory access; do not copy unsigned JSON into the directory |
+| `ReconciliationRequired` | The named manifest may exist without a success audit | Stop publication, inspect the named file and correlation-scoped audit outcome, then restore or remove it through the release procedure |
 | Publication denied | No release state changes; denial is audited | Grant the approved owner relationship or use the release workflow |
 
 Use [server-plane troubleshooting](../../troubleshooting/server-plane-failures.md) for exact error IDs and safe checks.
@@ -77,7 +78,7 @@ Use [server-plane troubleshooting](../../troubleshooting/server-plane-failures.m
 
 There is no update UI in this checkpoint. Manifests remain locale-independent and contain no release-note prose. Future Arabic UI must localize states such as available, paused, incompatible, and revoked, and must render versions and hashes as isolated LTR text.
 
-Signature tests reject changed content. Policy tests cover channel mismatch and incompatible protocol/version clients. Update-plane tests cover authorization denial, stable prerelease rejection, duplicate version rejection, and durable repository reload. Generated C# and Swift contracts include the protocol `1.5` types.
+Signature tests reject changed content. Policy tests cover channel mismatch, partial rollout cohorts, and incompatible protocol/version clients. Update-plane tests cover authorization denial, stable prerelease and revoked-manifest rejection, duplicate version rejection, fallback past unusable newer releases, failed rollback reconciliation, and durable repository reload. Generated C# and Swift contracts include the protocol `1.5` types.
 
 Run:
 

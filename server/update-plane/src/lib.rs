@@ -51,6 +51,8 @@ pub enum UpdatePlaneError {
     NotFound,
     #[error("update distribution is unavailable")]
     Unavailable,
+    #[error("update publication {0:?} requires audit reconciliation")]
+    ReconciliationRequired(UpdateManifestId),
 }
 
 #[async_trait]
@@ -294,7 +296,11 @@ impl UpdateCatalog {
             )
             .await
         {
-            self.repository.remove(signed)?;
+            if self.repository.remove(signed).is_err() {
+                return Err(UpdatePlaneError::ReconciliationRequired(
+                    manifest.manifest_id,
+                ));
+            }
             return Err(error);
         }
         Ok(())
@@ -318,17 +324,20 @@ impl UpdateCatalog {
                 .value()
                 .cmp(left.manifest.version.value())
         });
-        Ok(manifests
-            .first()
-            .map_or(UpdateCheckOutcome::UpToDate, |manifest| {
-                evaluate_update(manifest, &self.trusted_keys, client, now)
-            }))
+        for manifest in manifests {
+            let outcome = evaluate_update(&manifest, &self.trusted_keys, client, now);
+            if matches!(outcome, UpdateCheckOutcome::Available { .. }) {
+                return Ok(outcome);
+            }
+        }
+        Ok(UpdateCheckOutcome::UpToDate)
     }
 
     fn valid_manifest(&self, signed: &SignedUpdateManifest) -> Result<bool, UpdatePlaneError> {
         let manifest = &signed.manifest;
         if verify_manifest(signed, &self.trusted_keys).is_err()
             || manifest.schema_version != 1
+            || manifest.revoked
             || !self.channels.contains(&manifest.channel)
             || manifest.rollout.percentage_bps > 10_000
             || manifest.rollout.cohort_seed.is_empty()
@@ -403,6 +412,7 @@ mod tests {
     #[derive(Default)]
     struct TestSecurity {
         allowed: bool,
+        fail_audit: bool,
         audits: Mutex<Vec<UpdateAuditOutcome>>,
     }
 
@@ -427,7 +437,31 @@ mod tests {
             _: UnixMillis,
         ) -> Result<(), UpdatePlaneError> {
             self.audits.lock().unwrap().push(outcome);
-            Ok(())
+            (!self.fail_audit)
+                .then_some(())
+                .ok_or(UpdatePlaneError::Unavailable)
+        }
+    }
+
+    #[derive(Default)]
+    struct FailedRollbackRepository {
+        inner: MemoryManifestRepository,
+    }
+
+    impl ManifestRepository for FailedRollbackRepository {
+        fn list(
+            &self,
+            channel: &UpdateChannelId,
+        ) -> Result<Vec<SignedUpdateManifest>, UpdatePlaneError> {
+            self.inner.list(channel)
+        }
+
+        fn insert(&self, manifest: &SignedUpdateManifest) -> Result<(), UpdatePlaneError> {
+            self.inner.insert(manifest)
+        }
+
+        fn remove(&self, _: &SignedUpdateManifest) -> Result<(), UpdatePlaneError> {
+            Err(UpdatePlaneError::Unavailable)
         }
     }
 
@@ -493,6 +527,27 @@ mod tests {
         let mut trusted = TrustedUpdateKeys::new();
         trusted.insert(key_id, key.verifying_key());
         (signed, trusted)
+    }
+
+    fn resign(signed: &mut SignedUpdateManifest) {
+        let key = SigningKey::from_bytes(&[9; 32]);
+        signed.signature.signature_base64 = STANDARD.encode(
+            key.sign(&manifest_signing_bytes(&signed.manifest).unwrap())
+                .to_bytes(),
+        );
+    }
+
+    fn client() -> UpdateClientProfile {
+        UpdateClientProfile {
+            device_id: DeviceId::new(Uuid::from_u128(4)),
+            channel: UpdateChannelId::parse("stable").unwrap(),
+            current_version: ReleaseVersion::new(semver::Version::new(1, 0, 0)),
+            protocol_major: 1,
+            protocol_minor: 5,
+            capabilities: vec![CapabilityId::parse("eitmad.capability.update.v1").unwrap()],
+            platform: UpdatePlatformId::parse("windows").unwrap(),
+            architecture: UpdateArchitectureId::parse("x86-64").unwrap(),
+        }
     }
 
     #[tokio::test]
@@ -571,6 +626,79 @@ mod tests {
                     &duplicate,
                     CorrelationId::new(Uuid::new_v4()),
                     UnixMillis(21)
+                )
+                .await,
+            Err(UpdatePlaneError::Invalid)
+        );
+    }
+
+    #[tokio::test]
+    async fn failed_audit_and_rollback_returns_reconciliation_manifest_id() {
+        let (manifest, keys) = signed("stable", semver::Version::new(2, 0, 0));
+        let repository = Arc::new(FailedRollbackRepository::default());
+        let catalog = UpdateCatalog::new(
+            Arc::new(TestSecurity {
+                allowed: true,
+                fail_audit: true,
+                ..TestSecurity::default()
+            }),
+            repository.clone(),
+            keys,
+        );
+
+        assert_eq!(
+            catalog
+                .publish(
+                    &actor(),
+                    &manifest,
+                    CorrelationId::new(Uuid::new_v4()),
+                    UnixMillis(20),
+                )
+                .await,
+            Err(UpdatePlaneError::ReconciliationRequired(
+                manifest.manifest.manifest_id
+            ))
+        );
+        assert_eq!(
+            repository.list(&manifest.manifest.channel).unwrap(),
+            vec![manifest]
+        );
+    }
+
+    #[tokio::test]
+    async fn check_skips_unusable_newer_manifests_and_rejects_revoked_publication() {
+        let (older, keys) = signed("stable", semver::Version::new(2, 0, 0));
+        let (mut newer, _) = signed("stable", semver::Version::new(3, 0, 0));
+        newer.manifest.rollout.paused = true;
+        resign(&mut newer);
+        let repository = Arc::new(MemoryManifestRepository::default());
+        repository.insert(&older).unwrap();
+        repository.insert(&newer).unwrap();
+        let catalog = UpdateCatalog::new(
+            Arc::new(TestSecurity {
+                allowed: true,
+                ..TestSecurity::default()
+            }),
+            repository,
+            keys,
+        );
+
+        let outcome = catalog.check(&client(), UnixMillis(20)).unwrap();
+        let UpdateCheckOutcome::Available { manifest, .. } = outcome else {
+            panic!("older eligible manifest must remain available");
+        };
+        assert_eq!(manifest.manifest.manifest_id, older.manifest.manifest_id);
+
+        let (mut revoked, _) = signed("stable", semver::Version::new(4, 0, 0));
+        revoked.manifest.revoked = true;
+        resign(&mut revoked);
+        assert_eq!(
+            catalog
+                .publish(
+                    &actor(),
+                    &revoked,
+                    CorrelationId::new(Uuid::new_v4()),
+                    UnixMillis(20),
                 )
                 .await,
             Err(UpdatePlaneError::Invalid)

@@ -1151,10 +1151,12 @@ fn map_update_plane(error: UpdatePlaneError) -> ApiError {
             StatusCode::NOT_FOUND,
             "eitmad.error.update-manifest-not-found.v1",
         ),
-        UpdatePlaneError::Unavailable => ApiError::new(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "eitmad.error.update-distribution-unavailable.v1",
-        ),
+        UpdatePlaneError::Unavailable | UpdatePlaneError::ReconciliationRequired(_) => {
+            ApiError::new(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "eitmad.error.update-distribution-unavailable.v1",
+            )
+        }
     }
 }
 
