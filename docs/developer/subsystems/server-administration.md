@@ -30,7 +30,7 @@ The administration plane provides tenant-scoped operational evidence and approve
 | Relationship decisions and append-only audit | `server/control-plane/src/access.rs` |
 | Authenticated HTTP routes and support hooks | `server/host/src/http.rs` and `src/planes.rs` |
 
-Migration `3` creates `operations.backup_status` and `operations.support_workflows`. Both tables have explicit `tenant_id`, enable and force PostgreSQL row-level security, and use the transaction-local `eitmad.tenant_id` setting. The migration requires control migration `1` and sync migration `2` and records its checksum as `server.admin-foundation.v1`.
+Migration `3` creates `operations.backup_status` and `operations.support_workflows`. Both tables have explicit `tenant_id`, enable and force PostgreSQL row-level security, and use the transaction-local `eitmad.tenant_id` setting. Database enum values use snake_case text while contract JSON uses camelCase. The migration requires control migration `1` and sync migration `2`, reports `AdminDatabaseError::MissingPrerequisites` when either is absent, and records its checksum as `server.admin-foundation.v1`.
 
 ## Administrative interfaces
 
@@ -68,7 +68,7 @@ Use [server-plane troubleshooting](../../troubleshooting/server-plane-failures.m
 
 No operator UI is present. Stable identifiers and timestamps are locale independent. A future Arabic interface must localize status labels, render UUIDs and error IDs as isolated LTR runs, and never combine device labels from different tenants in one view.
 
-Tests cover backup status completeness, administrative denial before data access, audit outcomes, cross-tenant device and support denial, forced-RLS migration text, and unauthenticated host routes. Add a provider only through `AdministrationDataSource` or `SupportWorkflowExecutor`; keep permissions narrow, queries bounded, failures redacted, and storage tenant scoped.
+Tests cover backup status completeness, invalid audit limits, administrative denial before data access, audit outcomes, cross-tenant device and support denial, forced-RLS migration text, and unauthenticated host routes. PostgreSQL projections use fallible row decoding so schema or type drift returns `AdministrativeError::Unavailable` instead of terminating the process. Add a provider only through `AdministrationDataSource` or `SupportWorkflowExecutor`; keep permissions narrow, queries bounded, failures redacted, and storage tenant scoped.
 
 Run:
 

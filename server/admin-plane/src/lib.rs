@@ -710,6 +710,34 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn audit_record_limits_are_rejected_and_audited() {
+        for limit in [0, 501] {
+            let (service, security) = service(true);
+            let actor = actor(1);
+
+            assert_eq!(
+                service
+                    .audit_records(
+                        &actor,
+                        actor.tenant_id,
+                        limit,
+                        CorrelationId::new(Uuid::new_v4()),
+                        UnixMillis(10),
+                    )
+                    .await,
+                Err(AdministrativeError::Invalid)
+            );
+            assert_eq!(
+                security.audits.lock().unwrap().as_slice(),
+                &[(
+                    AdministrativeAction::ReadAudit,
+                    AdministrativeAuditOutcome::Invalid,
+                )]
+            );
+        }
+    }
+
+    #[tokio::test]
     async fn administrative_authorization_denies_before_data_access_and_audits() {
         let (service, security) = service(false);
         let actor = actor(1);

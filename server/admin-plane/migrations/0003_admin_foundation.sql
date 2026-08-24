@@ -1,5 +1,7 @@
 CREATE SCHEMA IF NOT EXISTS operations;
 
+-- Persist enum states as snake_case text (for example, not_configured).
+-- Contract JSON uses camelCase and is converted by the Rust authority.
 CREATE TABLE operations.backup_status (
     tenant_id uuid PRIMARY KEY REFERENCES control.tenants(tenant_id),
     state text NOT NULL,

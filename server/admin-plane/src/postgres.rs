@@ -148,21 +148,33 @@ impl AdministrationDataSource for PostgresAdministrationDataSource {
                 failure_code: None,
             });
         };
+        let state: String = row
+            .try_get("state")
+            .map_err(|_| AdministrativeError::Unavailable)?;
         Ok(BackupStatus {
-            state: parse_backup_state(&row.get::<String, _>("state"))?,
-            last_success_at: row.get::<Option<i64>, _>("last_success_at").map(UnixMillis),
+            state: parse_backup_state(&state)?,
+            last_success_at: row
+                .try_get::<Option<i64>, _>("last_success_at")
+                .map_err(|_| AdministrativeError::Unavailable)?
+                .map(UnixMillis),
             last_verified_at: row
-                .get::<Option<i64>, _>("last_verified_at")
+                .try_get::<Option<i64>, _>("last_verified_at")
+                .map_err(|_| AdministrativeError::Unavailable)?
                 .map(UnixMillis),
             next_scheduled_at: row
-                .get::<Option<i64>, _>("next_scheduled_at")
+                .try_get::<Option<i64>, _>("next_scheduled_at")
+                .map_err(|_| AdministrativeError::Unavailable)?
                 .map(UnixMillis),
             recovery_point_age_ms: row
-                .get::<Option<i64>, _>("recovery_point_age_ms")
+                .try_get::<Option<i64>, _>("recovery_point_age_ms")
+                .map_err(|_| AdministrativeError::Unavailable)?
                 .map(u64::try_from)
                 .transpose()
                 .map_err(|_| AdministrativeError::Unavailable)?,
-            failure_code: parse_failure(row.get("failure_code"))?,
+            failure_code: parse_failure(
+                row.try_get("failure_code")
+                    .map_err(|_| AdministrativeError::Unavailable)?,
+            )?,
         })
     }
 
@@ -249,10 +261,21 @@ impl AdministrationDataSource for PostgresAdministrationDataSource {
             .map_err(|_| AdministrativeError::Unavailable)?;
         Ok(TenantVisibility {
             tenant_id,
-            enabled: row.get("enabled"),
-            active_device_count: count_to_u32(row.get("active_device_count"))?,
-            active_session_count: count_to_u32(row.get("active_session_count"))?,
-            last_seen_at: row.get::<Option<i64>, _>("last_seen_at").map(UnixMillis),
+            enabled: row
+                .try_get("enabled")
+                .map_err(|_| AdministrativeError::Unavailable)?,
+            active_device_count: count_to_u32(
+                row.try_get("active_device_count")
+                    .map_err(|_| AdministrativeError::Unavailable)?,
+            )?,
+            active_session_count: count_to_u32(
+                row.try_get("active_session_count")
+                    .map_err(|_| AdministrativeError::Unavailable)?,
+            )?,
+            last_seen_at: row
+                .try_get::<Option<i64>, _>("last_seen_at")
+                .map_err(|_| AdministrativeError::Unavailable)?
+                .map(UnixMillis),
         })
     }
 
@@ -280,16 +303,27 @@ impl AdministrationDataSource for PostgresAdministrationDataSource {
             .commit()
             .await
             .map_err(|_| AdministrativeError::Unavailable)?;
-        Ok(rows
-            .into_iter()
-            .map(|row| DeviceVisibility {
-                tenant_id,
-                device_id: DeviceId::new(row.get("device_id")),
-                label: row.get("label"),
-                revoked: row.get("revoked"),
-                last_seen_at: row.get::<Option<i64>, _>("last_seen_at").map(UnixMillis),
+        rows.into_iter()
+            .map(|row| {
+                Ok(DeviceVisibility {
+                    tenant_id,
+                    device_id: DeviceId::new(
+                        row.try_get("device_id")
+                            .map_err(|_| AdministrativeError::Unavailable)?,
+                    ),
+                    label: row
+                        .try_get("label")
+                        .map_err(|_| AdministrativeError::Unavailable)?,
+                    revoked: row
+                        .try_get("revoked")
+                        .map_err(|_| AdministrativeError::Unavailable)?,
+                    last_seen_at: row
+                        .try_get::<Option<i64>, _>("last_seen_at")
+                        .map_err(|_| AdministrativeError::Unavailable)?
+                        .map(UnixMillis),
+                })
             })
-            .collect())
+            .collect()
     }
 
     async fn execute_support(
@@ -364,15 +398,39 @@ impl AdministrationDataSource for PostgresAdministrationDataSource {
 
 fn audit_record(row: &sqlx::PgRow) -> Result<AdministrativeAuditRecord, AdministrativeError> {
     Ok(AdministrativeAuditRecord {
-        audit_id: AdministrativeAuditId::new(row.get("audit_id")),
-        tenant_id: TenantId::new(row.get("tenant_id")),
-        principal_id: PrincipalId::new(row.get("principal_id")),
-        operation: row.get("operation"),
-        outcome: row.get("outcome"),
-        target_kind: row.get("target_kind"),
-        correlation_id: CorrelationId::new(row.get("correlation_id")),
-        occurred_at: UnixMillis(row.get("occurred_at")),
-        redacted_error: parse_failure(row.get("redacted_error"))?,
+        audit_id: AdministrativeAuditId::new(
+            row.try_get("audit_id")
+                .map_err(|_| AdministrativeError::Unavailable)?,
+        ),
+        tenant_id: TenantId::new(
+            row.try_get("tenant_id")
+                .map_err(|_| AdministrativeError::Unavailable)?,
+        ),
+        principal_id: PrincipalId::new(
+            row.try_get("principal_id")
+                .map_err(|_| AdministrativeError::Unavailable)?,
+        ),
+        operation: row
+            .try_get("operation")
+            .map_err(|_| AdministrativeError::Unavailable)?,
+        outcome: row
+            .try_get("outcome")
+            .map_err(|_| AdministrativeError::Unavailable)?,
+        target_kind: row
+            .try_get("target_kind")
+            .map_err(|_| AdministrativeError::Unavailable)?,
+        correlation_id: CorrelationId::new(
+            row.try_get("correlation_id")
+                .map_err(|_| AdministrativeError::Unavailable)?,
+        ),
+        occurred_at: UnixMillis(
+            row.try_get("occurred_at")
+                .map_err(|_| AdministrativeError::Unavailable)?,
+        ),
+        redacted_error: parse_failure(
+            row.try_get("redacted_error")
+                .map_err(|_| AdministrativeError::Unavailable)?,
+        )?,
     })
 }
 

@@ -12,6 +12,8 @@ pub struct AdminDatabase {
 pub enum AdminDatabaseError {
     #[error("admin database is unavailable")]
     Unavailable(#[source] sqlx::Error),
+    #[error("control and sync migrations are required before the admin migration")]
+    MissingPrerequisites,
     #[error("admin database migration checksum changed")]
     MigrationChecksum,
 }
@@ -57,9 +59,7 @@ impl AdminDatabase {
         .await
         .map_err(AdminDatabaseError::Unavailable)?;
         if prerequisites != 2 {
-            return Err(AdminDatabaseError::Unavailable(sqlx::Error::Protocol(
-                "control and sync migrations are required".to_owned(),
-            )));
+            return Err(AdminDatabaseError::MissingPrerequisites);
         }
         let existing =
             sqlx::query("SELECT checksum FROM public.eitmad_server_migrations WHERE version = 3")
