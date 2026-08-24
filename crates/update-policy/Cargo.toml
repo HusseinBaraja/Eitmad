@@ -9,8 +9,18 @@ rust-version.workspace = true
 [lints]
 workspace = true
 
+[dependencies]
+base64 = "=0.22.1"
+ed25519-dalek = "=2.2.0"
+eitmad-contracts = { path = "../contracts" }
+serde_json = "=1.0.150"
+sha2 = "=0.10.9"
+
+[dev-dependencies]
+semver = "=1.0.27"
+uuid = "=1.23.4"
+
 [lib]
 # Avoid Windows installer heuristics treating test executables containing
 # "update" as programs that require elevation.
 name = "eitmad_release_policy"
-

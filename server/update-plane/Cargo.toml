@@ -9,10 +9,27 @@ rust-version.workspace = true
 [lints]
 workspace = true
 
+[dependencies]
+async-trait = "=0.1.89"
+eitmad-contracts = { path = "../../crates/contracts" }
+eitmad-update-policy = { path = "../../crates/update-policy" }
+serde_json = "=1.0.150"
+thiserror = "=2.0.18"
+
+[dev-dependencies]
+base64 = "=0.22.1"
+ed25519-dalek = "=2.2.0"
+semver = "=1.0.27"
+tempfile = "=3.24.0"
+tokio = { version = "=1.49.0", features = ["macros", "rt-multi-thread"] }
+uuid = "=1.23.4"
+
+[lib]
+path = "src/lib.rs"
+
 [[bin]]
 # Keep tests disabled for this empty process entry. Windows installer heuristics
 # treat test executables containing "update" as requiring elevation.
 name = "eitmad-update-plane"
 path = "src/main.rs"
 test = false
-

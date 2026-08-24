@@ -1,3 +1,5 @@
-//! Update-plane process entry point.
+//! Update-plane process entry point for later independent deployment.
 
-fn main() {}
+fn main() {
+    eprintln!("eitmad-update-plane is composed by eitmad-server in this deployment");
+}

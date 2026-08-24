@@ -7,6 +7,7 @@
 #[macro_use]
 mod macros;
 
+pub mod administration;
 pub mod authorization;
 pub mod background_jobs;
 pub mod catalog;
@@ -20,6 +21,7 @@ pub mod notifications;
 pub mod observability;
 pub mod permissions;
 pub mod queries;
+pub mod relay;
 pub mod runtime;
 pub mod secrets;
 pub mod server;

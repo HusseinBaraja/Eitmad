@@ -9,8 +9,19 @@ rust-version.workspace = true
 [lints]
 workspace = true
 
+[dependencies]
+async-trait = "=0.1.89"
+eitmad-contracts = { path = "../../crates/contracts" }
+thiserror = "=2.0.18"
+uuid = { version = "=1.23.4", features = ["v4"] }
+
+[dev-dependencies]
+tokio = { version = "=1.49.0", features = ["macros", "rt-multi-thread"] }
+
+[lib]
+path = "src/lib.rs"
+
 [[bin]]
 name = "eitmad-admin-plane"
 path = "src/main.rs"
 test = false
-
