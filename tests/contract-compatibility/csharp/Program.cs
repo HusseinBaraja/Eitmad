@@ -25,7 +25,7 @@ static string? QueryKind(QueryEnvelope envelope) =>
         : null;
 
 if (QueryKind(query) != Query.ConfigGetKind
-    || query.ProtocolVersion.Minor != 4
+    || query.ProtocolVersion.Minor != 5
     || queryProtocol10.ProtocolVersion.Minor != 0
     || QueryKind(queryProtocol10) != Query.ConfigGetKind)
 {
