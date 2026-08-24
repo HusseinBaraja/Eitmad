@@ -22,6 +22,18 @@ namespace Eitmad.Contracts
 
     public partial class EitmadContractSchema
     {
+        [JsonPropertyName("administration_backup_status")]
+        public BackupStatus AdministrationBackupStatus { get; set; }
+
+        [JsonPropertyName("administration_diagnostics")]
+        public DiagnosticSummary AdministrationDiagnostics { get; set; }
+
+        [JsonPropertyName("administration_migration_status")]
+        public MigrationStatus AdministrationMigrationStatus { get; set; }
+
+        [JsonPropertyName("administration_support_workflow")]
+        public SupportWorkflow AdministrationSupportWorkflow { get; set; }
+
         [JsonPropertyName("catalog")]
         public ProtocolCatalog Catalog { get; set; }
 
@@ -79,11 +91,23 @@ namespace Eitmad.Contracts
         [JsonPropertyName("query_response")]
         public QueryResponseEnvelope QueryResponse { get; set; }
 
+        [JsonPropertyName("relay_failure")]
+        public RelayFailureReport RelayFailure { get; set; }
+
+        [JsonPropertyName("relay_health")]
+        public RelayHealth RelayHealth { get; set; }
+
+        [JsonPropertyName("relay_session")]
+        public RelaySessionMetadata RelaySession { get; set; }
+
         [JsonPropertyName("server_client_message")]
         public Dictionary<string, object> ServerClientMessage { get; set; }
 
         [JsonPropertyName("server_message")]
         public Dictionary<string, object> ServerMessage { get; set; }
+
+        [JsonPropertyName("signed_update_manifest")]
+        public SignedUpdateManifest SignedUpdateManifest { get; set; }
 
         [JsonPropertyName("subscription_request")]
         public SubscriptionEnvelope SubscriptionRequest { get; set; }
@@ -100,8 +124,136 @@ namespace Eitmad.Contracts
         [JsonPropertyName("unionPayloadKeepAlive")]
         public UnionPayloadKeepAlive UnionPayloadKeepAlive { get; set; }
 
+        [JsonPropertyName("update_check_outcome")]
+        public UpdateCheckOutcome UpdateCheckOutcome { get; set; }
+
+        [JsonPropertyName("update_client_profile")]
+        public UpdateClientProfile UpdateClientProfile { get; set; }
+
         [JsonPropertyName("update_state")]
         public UpdateState UpdateState { get; set; }
+    }
+
+    public partial class BackupStatus
+    {
+        [JsonPropertyName("failureCode")]
+        public string FailureCode { get; set; }
+
+        [JsonPropertyName("lastSuccessAt")]
+        public long? LastSuccessAt { get; set; }
+
+        [JsonPropertyName("lastVerifiedAt")]
+        public long? LastVerifiedAt { get; set; }
+
+        [JsonPropertyName("nextScheduledAt")]
+        public long? NextScheduledAt { get; set; }
+
+        [JsonPropertyName("recoveryPointAgeMs")]
+        public long? RecoveryPointAgeMs { get; set; }
+
+        [JsonPropertyName("state")]
+        public BackupState State { get; set; }
+    }
+
+    public partial class DiagnosticSummary
+    {
+        [JsonPropertyName("activeRelaySessions")]
+        public long ActiveRelaySessions { get; set; }
+
+        [JsonPropertyName("correlationId")]
+        public Guid CorrelationId { get; set; }
+
+        [JsonPropertyName("generatedAt")]
+        public long GeneratedAt { get; set; }
+
+        [JsonPropertyName("pendingSupportWorkflows")]
+        public long PendingSupportWorkflows { get; set; }
+
+        [JsonPropertyName("services")]
+        public ServiceHealth[] Services { get; set; }
+    }
+
+    public partial class ServiceHealth
+    {
+        [JsonPropertyName("checkedAt")]
+        public long CheckedAt { get; set; }
+
+        [JsonPropertyName("component")]
+        public string Component { get; set; }
+
+        [JsonPropertyName("failureCode")]
+        public string FailureCode { get; set; }
+
+        [JsonPropertyName("state")]
+        public HealthState State { get; set; }
+    }
+
+    public partial class MigrationStatus
+    {
+        [JsonPropertyName("currentVersion")]
+        public long CurrentVersion { get; set; }
+
+        [JsonPropertyName("failureCode")]
+        public string FailureCode { get; set; }
+
+        [JsonPropertyName("pendingMigrationIds")]
+        public string[] PendingMigrationIds { get; set; }
+
+        [JsonPropertyName("requiredVersion")]
+        public long RequiredVersion { get; set; }
+
+        [JsonPropertyName("state")]
+        public MigrationState State { get; set; }
+    }
+
+    public partial class SupportWorkflow
+    {
+        [JsonPropertyName("action")]
+        public SupportAction Action { get; set; }
+
+        [JsonPropertyName("completedAt")]
+        public long? CompletedAt { get; set; }
+
+        [JsonPropertyName("failureCode")]
+        public string FailureCode { get; set; }
+
+        [JsonPropertyName("reasonCode")]
+        public string ReasonCode { get; set; }
+
+        [JsonPropertyName("requestedAt")]
+        public long RequestedAt { get; set; }
+
+        [JsonPropertyName("state")]
+        public SupportWorkflowState State { get; set; }
+
+        [JsonPropertyName("tenantId")]
+        public Guid TenantId { get; set; }
+
+        [JsonPropertyName("workflowId")]
+        public Guid WorkflowId { get; set; }
+    }
+
+    public partial class SupportActionClass
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("disconnectRelaySession")]
+        public DisconnectRelaySession DisconnectRelaySession { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("revokeDeviceSessions")]
+        public RevokeDeviceSessions RevokeDeviceSessions { get; set; }
+    }
+
+    public partial class DisconnectRelaySession
+    {
+        [JsonPropertyName("relay_session_id")]
+        public Guid RelaySessionId { get; set; }
+    }
+
+    public partial class RevokeDeviceSessions
+    {
+        [JsonPropertyName("device_id")]
+        public Guid DeviceId { get; set; }
     }
 
     public partial class ProtocolCatalog
@@ -784,6 +936,221 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("retry")]
         public RetryDisposition Retry { get; set; }
+    }
+
+    public partial class RelayFailureReport
+    {
+        [JsonPropertyName("code")]
+        public string Code { get; set; }
+
+        [JsonPropertyName("correlationId")]
+        public Guid CorrelationId { get; set; }
+
+        [JsonPropertyName("failureId")]
+        public Guid FailureId { get; set; }
+
+        [JsonPropertyName("occurredAt")]
+        public long OccurredAt { get; set; }
+
+        [JsonPropertyName("phase")]
+        public RelayFailurePhase Phase { get; set; }
+
+        [JsonPropertyName("relaySessionId")]
+        public Guid? RelaySessionId { get; set; }
+
+        [JsonPropertyName("retryable")]
+        public bool Retryable { get; set; }
+
+        [JsonPropertyName("retryAfterMs")]
+        public long? RetryAfterMs { get; set; }
+
+        [JsonPropertyName("sourceDeviceId")]
+        public Guid SourceDeviceId { get; set; }
+
+        [JsonPropertyName("tenantId")]
+        public Guid TenantId { get; set; }
+    }
+
+    public partial class RelayHealth
+    {
+        [JsonPropertyName("acceptingSessions")]
+        public bool AcceptingSessions { get; set; }
+
+        [JsonPropertyName("activeSessions")]
+        public long ActiveSessions { get; set; }
+
+        [JsonPropertyName("checkedAt")]
+        public long CheckedAt { get; set; }
+
+        [JsonPropertyName("failedSessions")]
+        public long FailedSessions { get; set; }
+
+        [JsonPropertyName("reconnectingSessions")]
+        public long ReconnectingSessions { get; set; }
+
+        [JsonPropertyName("state")]
+        public HealthState State { get; set; }
+    }
+
+    public partial class RelaySessionMetadata
+    {
+        [JsonPropertyName("connectedAt")]
+        public long ConnectedAt { get; set; }
+
+        [JsonPropertyName("expiresAt")]
+        public long ExpiresAt { get; set; }
+
+        [JsonPropertyName("lastSeenAt")]
+        public long LastSeenAt { get; set; }
+
+        [JsonPropertyName("nextReconnectAt")]
+        public long? NextReconnectAt { get; set; }
+
+        [JsonPropertyName("reconnectAttempt")]
+        public long ReconnectAttempt { get; set; }
+
+        [JsonPropertyName("relaySessionId")]
+        public Guid RelaySessionId { get; set; }
+
+        [JsonPropertyName("route")]
+        public RelayRoute Route { get; set; }
+
+        [JsonPropertyName("sourceDeviceId")]
+        public Guid SourceDeviceId { get; set; }
+
+        [JsonPropertyName("state")]
+        public RelaySessionState State { get; set; }
+
+        [JsonPropertyName("tenantId")]
+        public Guid TenantId { get; set; }
+    }
+
+    public partial class RelayRoute
+    {
+        [JsonPropertyName("kind")]
+        public RelayRouteKind Kind { get; set; }
+
+        [JsonPropertyName("payload")]
+        public RelayRoutePayload Payload { get; set; }
+    }
+
+    public partial class RelayRoutePayload
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("target_device_id")]
+        public Guid? TargetDeviceId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("target_server_id")]
+        public string TargetServerId { get; set; }
+    }
+
+    public partial class SignedUpdateManifest
+    {
+        [JsonPropertyName("manifest")]
+        public UpdateManifest Manifest { get; set; }
+
+        [JsonPropertyName("signature")]
+        public UpdateManifestSignature Signature { get; set; }
+    }
+
+    public partial class UpdateManifest
+    {
+        [JsonPropertyName("channel")]
+        public string Channel { get; set; }
+
+        [JsonPropertyName("compatibility")]
+        public UpdateCompatibilityRules Compatibility { get; set; }
+
+        [JsonPropertyName("manifestId")]
+        public Guid ManifestId { get; set; }
+
+        [JsonPropertyName("packages")]
+        public UpdatePackageMetadata[] Packages { get; set; }
+
+        [JsonPropertyName("publishedAt")]
+        public long PublishedAt { get; set; }
+
+        [JsonPropertyName("revoked")]
+        public bool Revoked { get; set; }
+
+        [JsonPropertyName("rollout")]
+        public StagedRollout Rollout { get; set; }
+
+        [JsonPropertyName("schemaVersion")]
+        public long SchemaVersion { get; set; }
+
+        [JsonPropertyName("version")]
+        public string Version { get; set; }
+    }
+
+    public partial class UpdateCompatibilityRules
+    {
+        [JsonPropertyName("blockedCurrentVersions")]
+        public string[] BlockedCurrentVersions { get; set; }
+
+        [JsonPropertyName("maximumCurrentVersion")]
+        public string MaximumCurrentVersion { get; set; }
+
+        [JsonPropertyName("minimumCurrentVersion")]
+        public string MinimumCurrentVersion { get; set; }
+
+        [JsonPropertyName("minimumProtocolMajor")]
+        public long MinimumProtocolMajor { get; set; }
+
+        [JsonPropertyName("minimumProtocolMinor")]
+        public long MinimumProtocolMinor { get; set; }
+
+        [JsonPropertyName("requiredCapabilities")]
+        public string[] RequiredCapabilities { get; set; }
+    }
+
+    public partial class UpdatePackageMetadata
+    {
+        [JsonPropertyName("architecture")]
+        public string Architecture { get; set; }
+
+        [JsonPropertyName("downloadUrl")]
+        public string DownloadUrl { get; set; }
+
+        [JsonPropertyName("packageKind")]
+        public string PackageKind { get; set; }
+
+        [JsonPropertyName("platform")]
+        public string Platform { get; set; }
+
+        [JsonPropertyName("sha256Hex")]
+        public string Sha256Hex { get; set; }
+
+        [JsonPropertyName("sizeBytes")]
+        public long SizeBytes { get; set; }
+    }
+
+    public partial class StagedRollout
+    {
+        [JsonPropertyName("cohortSeed")]
+        public string CohortSeed { get; set; }
+
+        [JsonPropertyName("paused")]
+        public bool Paused { get; set; }
+
+        [JsonPropertyName("percentageBps")]
+        public long PercentageBps { get; set; }
+
+        [JsonPropertyName("startsAt")]
+        public long StartsAt { get; set; }
+    }
+
+    public partial class UpdateManifestSignature
+    {
+        [JsonPropertyName("algorithm")]
+        public string Algorithm { get; set; }
+
+        [JsonPropertyName("keyId")]
+        public string KeyId { get; set; }
+
+        [JsonPropertyName("signatureBase64")]
+        public string SignatureBase64 { get; set; }
     }
 
     public partial class SubscriptionEnvelope
@@ -1943,6 +2310,79 @@ namespace Eitmad.Contracts
         public string Reason { get; set; }
     }
 
+    public partial class UpdateCheckOutcomeClass
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("available")]
+        public Available Available { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("ineligible")]
+        public Ineligible Ineligible { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("incompatible")]
+        public Incompatible Incompatible { get; set; }
+    }
+
+    public partial class Available
+    {
+        [JsonPropertyName("manifest")]
+        public SignedUpdateManifest Manifest { get; set; }
+
+        [JsonPropertyName("package")]
+        public UpdatePackageMetadata Package { get; set; }
+    }
+
+    public partial class Incompatible
+    {
+        [JsonPropertyName("reason")]
+        public UpdateIneligibilityReason Reason { get; set; }
+    }
+
+    public partial class Ineligible
+    {
+        [JsonPropertyName("reason")]
+        public UpdateIneligibilityReason Reason { get; set; }
+    }
+
+    public partial class UpdateClientProfile
+    {
+        [JsonPropertyName("architecture")]
+        public string Architecture { get; set; }
+
+        [JsonPropertyName("capabilities")]
+        public string[] Capabilities { get; set; }
+
+        [JsonPropertyName("channel")]
+        public string Channel { get; set; }
+
+        [JsonPropertyName("currentVersion")]
+        public string CurrentVersion { get; set; }
+
+        [JsonPropertyName("deviceId")]
+        public Guid DeviceId { get; set; }
+
+        [JsonPropertyName("platform")]
+        public string Platform { get; set; }
+
+        [JsonPropertyName("protocolMajor")]
+        public long ProtocolMajor { get; set; }
+
+        [JsonPropertyName("protocolMinor")]
+        public long ProtocolMinor { get; set; }
+    }
+
+    public enum BackupState { Current, Failed, NotConfigured, Running, Stale };
+
+    public enum HealthState { Degraded, Healthy, Unavailable };
+
+    public enum MigrationState { Current, Failed, Pending, Running };
+
+    public enum SupportActionEnum { CollectDiagnostics, RetryMigration, VerifyBackup };
+
+    public enum SupportWorkflowState { Failed, Pending, Running, Succeeded };
+
     public enum PrincipalKind { Device, Service, User };
 
     public enum DetailKind { Compatibility, Deadline, Lifecycle, PayloadLimit, RevisionConflict, Validation };
@@ -1989,6 +2429,12 @@ namespace Eitmad.Contracts
 
     public enum PeerKind { DiagnosticClient, Engine, Server, Shell };
 
+    public enum RelayFailurePhase { Authorization, Close, Connect, Heartbeat, Reconnect, Route };
+
+    public enum RelayRouteKind { Peer, Server };
+
+    public enum RelaySessionState { Active, Closed, Connecting, Failed, Reconnecting };
+
     public enum SyncStatusKind { Conflicted, Current, Failed, Offline, Queued, Syncing };
 
     public enum SyncTransportPayloadKind { Cancel, Heartbeat, HeartbeatAcknowledged, Message };
@@ -2015,6 +2461,19 @@ namespace Eitmad.Contracts
 
     public enum CommandDispositionStatus { Accepted, Denied };
 
+    public enum UpdateCheckOutcomeEnum { UpToDate };
+
+    public enum UpdateIneligibilityReason { CapabilityMissing, ChannelMismatch, ClientBlocked, ClientTooNew, ClientTooOld, ManifestRevoked, OutsideRollout, PackageUnavailable, ProtocolIncompatible, RolloutNotStarted, RolloutPaused, SignatureInvalid };
+
+    public partial struct SupportAction
+    {
+        public SupportActionEnum? Enum;
+        public SupportActionClass SupportActionClass;
+
+        public static implicit operator SupportAction(SupportActionEnum Enum) => new SupportAction { Enum = Enum };
+        public static implicit operator SupportAction(SupportActionClass SupportActionClass) => new SupportAction { SupportActionClass = SupportActionClass };
+    }
+
     public partial struct ErrorParameterValueValue
     {
         public long? Integer;
@@ -2037,6 +2496,15 @@ namespace Eitmad.Contracts
         public static implicit operator ConfigReadValueValue(string[] StringArray) => new ConfigReadValueValue { StringArray = StringArray };
     }
 
+    public partial struct UpdateCheckOutcome
+    {
+        public UpdateCheckOutcomeEnum? Enum;
+        public UpdateCheckOutcomeClass UpdateCheckOutcomeClass;
+
+        public static implicit operator UpdateCheckOutcome(UpdateCheckOutcomeEnum Enum) => new UpdateCheckOutcome { Enum = Enum };
+        public static implicit operator UpdateCheckOutcome(UpdateCheckOutcomeClass UpdateCheckOutcomeClass) => new UpdateCheckOutcome { UpdateCheckOutcomeClass = UpdateCheckOutcomeClass };
+    }
+
     public partial class EitmadContractSchema
     {
         public static EitmadContractSchema FromJson(string json) => JsonSerializer.Deserialize<EitmadContractSchema>(json, Eitmad.Contracts.Converter.Settings);
@@ -2053,6 +2521,12 @@ namespace Eitmad.Contracts
         {
             Converters =
             {
+                BackupStateConverter.Singleton,
+                HealthStateConverter.Singleton,
+                MigrationStateConverter.Singleton,
+                SupportActionConverter.Singleton,
+                SupportActionEnumConverter.Singleton,
+                SupportWorkflowStateConverter.Singleton,
                 PrincipalKindConverter.Singleton,
                 DetailKindConverter.Singleton,
                 LifecycleStageConverter.Singleton,
@@ -2078,6 +2552,9 @@ namespace Eitmad.Contracts
                 ObservationSeverityConverter.Singleton,
                 ObservationValueKindConverter.Singleton,
                 PeerKindConverter.Singleton,
+                RelayFailurePhaseConverter.Singleton,
+                RelayRouteKindConverter.Singleton,
+                RelaySessionStateConverter.Singleton,
                 SyncStatusKindConverter.Singleton,
                 SyncTransportPayloadKindConverter.Singleton,
                 SyncCancellationReasonConverter.Singleton,
@@ -2091,11 +2568,284 @@ namespace Eitmad.Contracts
                 MergeStrategyConverter.Singleton,
                 SyncModeConverter.Singleton,
                 CommandDispositionStatusConverter.Singleton,
+                UpdateCheckOutcomeConverter.Singleton,
+                UpdateIneligibilityReasonConverter.Singleton,
+                UpdateCheckOutcomeEnumConverter.Singleton,
                 new DateOnlyConverter(),
                 new TimeOnlyConverter(),
                 IsoDateTimeOffsetConverter.Singleton
             },
         };
+    }
+
+    internal class BackupStateConverter : JsonConverter<BackupState>
+    {
+        public override bool CanConvert(Type t) => t == typeof(BackupState);
+
+        public override BackupState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "current":
+                    return BackupState.Current;
+                case "failed":
+                    return BackupState.Failed;
+                case "notConfigured":
+                    return BackupState.NotConfigured;
+                case "running":
+                    return BackupState.Running;
+                case "stale":
+                    return BackupState.Stale;
+            }
+            throw new Exception("Cannot unmarshal type BackupState");
+        }
+
+        public override void Write(Utf8JsonWriter writer, BackupState value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case BackupState.Current:
+                    JsonSerializer.Serialize(writer, "current", options);
+                    return;
+                case BackupState.Failed:
+                    JsonSerializer.Serialize(writer, "failed", options);
+                    return;
+                case BackupState.NotConfigured:
+                    JsonSerializer.Serialize(writer, "notConfigured", options);
+                    return;
+                case BackupState.Running:
+                    JsonSerializer.Serialize(writer, "running", options);
+                    return;
+                case BackupState.Stale:
+                    JsonSerializer.Serialize(writer, "stale", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type BackupState");
+        }
+
+        public static readonly BackupStateConverter Singleton = new BackupStateConverter();
+    }
+
+    internal class HealthStateConverter : JsonConverter<HealthState>
+    {
+        public override bool CanConvert(Type t) => t == typeof(HealthState);
+
+        public override HealthState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "degraded":
+                    return HealthState.Degraded;
+                case "healthy":
+                    return HealthState.Healthy;
+                case "unavailable":
+                    return HealthState.Unavailable;
+            }
+            throw new Exception("Cannot unmarshal type HealthState");
+        }
+
+        public override void Write(Utf8JsonWriter writer, HealthState value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case HealthState.Degraded:
+                    JsonSerializer.Serialize(writer, "degraded", options);
+                    return;
+                case HealthState.Healthy:
+                    JsonSerializer.Serialize(writer, "healthy", options);
+                    return;
+                case HealthState.Unavailable:
+                    JsonSerializer.Serialize(writer, "unavailable", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type HealthState");
+        }
+
+        public static readonly HealthStateConverter Singleton = new HealthStateConverter();
+    }
+
+    internal class MigrationStateConverter : JsonConverter<MigrationState>
+    {
+        public override bool CanConvert(Type t) => t == typeof(MigrationState);
+
+        public override MigrationState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "current":
+                    return MigrationState.Current;
+                case "failed":
+                    return MigrationState.Failed;
+                case "pending":
+                    return MigrationState.Pending;
+                case "running":
+                    return MigrationState.Running;
+            }
+            throw new Exception("Cannot unmarshal type MigrationState");
+        }
+
+        public override void Write(Utf8JsonWriter writer, MigrationState value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case MigrationState.Current:
+                    JsonSerializer.Serialize(writer, "current", options);
+                    return;
+                case MigrationState.Failed:
+                    JsonSerializer.Serialize(writer, "failed", options);
+                    return;
+                case MigrationState.Pending:
+                    JsonSerializer.Serialize(writer, "pending", options);
+                    return;
+                case MigrationState.Running:
+                    JsonSerializer.Serialize(writer, "running", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type MigrationState");
+        }
+
+        public static readonly MigrationStateConverter Singleton = new MigrationStateConverter();
+    }
+
+    internal class SupportActionConverter : JsonConverter<SupportAction>
+    {
+        public override bool CanConvert(Type t) => t == typeof(SupportAction);
+
+        public override SupportAction Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            switch (reader.TokenType)
+            {
+                case JsonTokenType.String:
+                    var stringValue = reader.GetString();
+                    switch (stringValue)
+                    {
+                        case "collectDiagnostics":
+                            return new SupportAction { Enum = SupportActionEnum.CollectDiagnostics };
+                        case "retryMigration":
+                            return new SupportAction { Enum = SupportActionEnum.RetryMigration };
+                        case "verifyBackup":
+                            return new SupportAction { Enum = SupportActionEnum.VerifyBackup };
+                    }
+                    break;
+                case JsonTokenType.StartObject:
+                    var objectValue = JsonSerializer.Deserialize<SupportActionClass>(ref reader, options);
+                    return new SupportAction { SupportActionClass = objectValue };
+            }
+            throw new Exception("Cannot unmarshal type SupportAction");
+        }
+
+        public override void Write(Utf8JsonWriter writer, SupportAction value, JsonSerializerOptions options)
+        {
+            if (value.Enum != null)
+            {
+                switch (value.Enum)
+                {
+                    case SupportActionEnum.CollectDiagnostics:
+                        JsonSerializer.Serialize(writer, "collectDiagnostics", options);
+                        return;
+                    case SupportActionEnum.RetryMigration:
+                        JsonSerializer.Serialize(writer, "retryMigration", options);
+                        return;
+                    case SupportActionEnum.VerifyBackup:
+                        JsonSerializer.Serialize(writer, "verifyBackup", options);
+                        return;
+                }
+            }
+            if (value.SupportActionClass != null)
+            {
+                JsonSerializer.Serialize(writer, value.SupportActionClass, options);
+                return;
+            }
+            throw new Exception("Cannot marshal type SupportAction");
+        }
+
+        public static readonly SupportActionConverter Singleton = new SupportActionConverter();
+    }
+
+    internal class SupportActionEnumConverter : JsonConverter<SupportActionEnum>
+    {
+        public override bool CanConvert(Type t) => t == typeof(SupportActionEnum);
+
+        public override SupportActionEnum Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "collectDiagnostics":
+                    return SupportActionEnum.CollectDiagnostics;
+                case "retryMigration":
+                    return SupportActionEnum.RetryMigration;
+                case "verifyBackup":
+                    return SupportActionEnum.VerifyBackup;
+            }
+            throw new Exception("Cannot unmarshal type SupportActionEnum");
+        }
+
+        public override void Write(Utf8JsonWriter writer, SupportActionEnum value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case SupportActionEnum.CollectDiagnostics:
+                    JsonSerializer.Serialize(writer, "collectDiagnostics", options);
+                    return;
+                case SupportActionEnum.RetryMigration:
+                    JsonSerializer.Serialize(writer, "retryMigration", options);
+                    return;
+                case SupportActionEnum.VerifyBackup:
+                    JsonSerializer.Serialize(writer, "verifyBackup", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type SupportActionEnum");
+        }
+
+        public static readonly SupportActionEnumConverter Singleton = new SupportActionEnumConverter();
+    }
+
+    internal class SupportWorkflowStateConverter : JsonConverter<SupportWorkflowState>
+    {
+        public override bool CanConvert(Type t) => t == typeof(SupportWorkflowState);
+
+        public override SupportWorkflowState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "failed":
+                    return SupportWorkflowState.Failed;
+                case "pending":
+                    return SupportWorkflowState.Pending;
+                case "running":
+                    return SupportWorkflowState.Running;
+                case "succeeded":
+                    return SupportWorkflowState.Succeeded;
+            }
+            throw new Exception("Cannot unmarshal type SupportWorkflowState");
+        }
+
+        public override void Write(Utf8JsonWriter writer, SupportWorkflowState value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case SupportWorkflowState.Failed:
+                    JsonSerializer.Serialize(writer, "failed", options);
+                    return;
+                case SupportWorkflowState.Pending:
+                    JsonSerializer.Serialize(writer, "pending", options);
+                    return;
+                case SupportWorkflowState.Running:
+                    JsonSerializer.Serialize(writer, "running", options);
+                    return;
+                case SupportWorkflowState.Succeeded:
+                    JsonSerializer.Serialize(writer, "succeeded", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type SupportWorkflowState");
+        }
+
+        public static readonly SupportWorkflowStateConverter Singleton = new SupportWorkflowStateConverter();
     }
 
     internal class PrincipalKindConverter : JsonConverter<PrincipalKind>
@@ -3199,6 +3949,143 @@ namespace Eitmad.Contracts
         public static readonly PeerKindConverter Singleton = new PeerKindConverter();
     }
 
+    internal class RelayFailurePhaseConverter : JsonConverter<RelayFailurePhase>
+    {
+        public override bool CanConvert(Type t) => t == typeof(RelayFailurePhase);
+
+        public override RelayFailurePhase Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "authorization":
+                    return RelayFailurePhase.Authorization;
+                case "close":
+                    return RelayFailurePhase.Close;
+                case "connect":
+                    return RelayFailurePhase.Connect;
+                case "heartbeat":
+                    return RelayFailurePhase.Heartbeat;
+                case "reconnect":
+                    return RelayFailurePhase.Reconnect;
+                case "route":
+                    return RelayFailurePhase.Route;
+            }
+            throw new Exception("Cannot unmarshal type RelayFailurePhase");
+        }
+
+        public override void Write(Utf8JsonWriter writer, RelayFailurePhase value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case RelayFailurePhase.Authorization:
+                    JsonSerializer.Serialize(writer, "authorization", options);
+                    return;
+                case RelayFailurePhase.Close:
+                    JsonSerializer.Serialize(writer, "close", options);
+                    return;
+                case RelayFailurePhase.Connect:
+                    JsonSerializer.Serialize(writer, "connect", options);
+                    return;
+                case RelayFailurePhase.Heartbeat:
+                    JsonSerializer.Serialize(writer, "heartbeat", options);
+                    return;
+                case RelayFailurePhase.Reconnect:
+                    JsonSerializer.Serialize(writer, "reconnect", options);
+                    return;
+                case RelayFailurePhase.Route:
+                    JsonSerializer.Serialize(writer, "route", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type RelayFailurePhase");
+        }
+
+        public static readonly RelayFailurePhaseConverter Singleton = new RelayFailurePhaseConverter();
+    }
+
+    internal class RelayRouteKindConverter : JsonConverter<RelayRouteKind>
+    {
+        public override bool CanConvert(Type t) => t == typeof(RelayRouteKind);
+
+        public override RelayRouteKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "peer":
+                    return RelayRouteKind.Peer;
+                case "server":
+                    return RelayRouteKind.Server;
+            }
+            throw new Exception("Cannot unmarshal type RelayRouteKind");
+        }
+
+        public override void Write(Utf8JsonWriter writer, RelayRouteKind value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case RelayRouteKind.Peer:
+                    JsonSerializer.Serialize(writer, "peer", options);
+                    return;
+                case RelayRouteKind.Server:
+                    JsonSerializer.Serialize(writer, "server", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type RelayRouteKind");
+        }
+
+        public static readonly RelayRouteKindConverter Singleton = new RelayRouteKindConverter();
+    }
+
+    internal class RelaySessionStateConverter : JsonConverter<RelaySessionState>
+    {
+        public override bool CanConvert(Type t) => t == typeof(RelaySessionState);
+
+        public override RelaySessionState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "active":
+                    return RelaySessionState.Active;
+                case "closed":
+                    return RelaySessionState.Closed;
+                case "connecting":
+                    return RelaySessionState.Connecting;
+                case "failed":
+                    return RelaySessionState.Failed;
+                case "reconnecting":
+                    return RelaySessionState.Reconnecting;
+            }
+            throw new Exception("Cannot unmarshal type RelaySessionState");
+        }
+
+        public override void Write(Utf8JsonWriter writer, RelaySessionState value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case RelaySessionState.Active:
+                    JsonSerializer.Serialize(writer, "active", options);
+                    return;
+                case RelaySessionState.Closed:
+                    JsonSerializer.Serialize(writer, "closed", options);
+                    return;
+                case RelaySessionState.Connecting:
+                    JsonSerializer.Serialize(writer, "connecting", options);
+                    return;
+                case RelaySessionState.Failed:
+                    JsonSerializer.Serialize(writer, "failed", options);
+                    return;
+                case RelaySessionState.Reconnecting:
+                    JsonSerializer.Serialize(writer, "reconnecting", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type RelaySessionState");
+        }
+
+        public static readonly RelaySessionStateConverter Singleton = new RelaySessionStateConverter();
+    }
+
     internal class SyncStatusKindConverter : JsonConverter<SyncStatusKind>
     {
         public override bool CanConvert(Type t) => t == typeof(SyncStatusKind);
@@ -3749,6 +4636,160 @@ namespace Eitmad.Contracts
         }
 
         public static readonly CommandDispositionStatusConverter Singleton = new CommandDispositionStatusConverter();
+    }
+
+    internal class UpdateCheckOutcomeConverter : JsonConverter<UpdateCheckOutcome>
+    {
+        public override bool CanConvert(Type t) => t == typeof(UpdateCheckOutcome);
+
+        public override UpdateCheckOutcome Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            switch (reader.TokenType)
+            {
+                case JsonTokenType.String:
+                    var stringValue = reader.GetString();
+                    if (stringValue == "upToDate")
+                    {
+                        return new UpdateCheckOutcome { Enum = UpdateCheckOutcomeEnum.UpToDate };
+                    }
+                    break;
+                case JsonTokenType.StartObject:
+                    var objectValue = JsonSerializer.Deserialize<UpdateCheckOutcomeClass>(ref reader, options);
+                    return new UpdateCheckOutcome { UpdateCheckOutcomeClass = objectValue };
+            }
+            throw new Exception("Cannot unmarshal type UpdateCheckOutcome");
+        }
+
+        public override void Write(Utf8JsonWriter writer, UpdateCheckOutcome value, JsonSerializerOptions options)
+        {
+            if (value.Enum != null)
+            {
+                if (value.Enum == UpdateCheckOutcomeEnum.UpToDate)
+                {
+                    JsonSerializer.Serialize(writer, "upToDate", options);
+                    return;
+                }
+            }
+            if (value.UpdateCheckOutcomeClass != null)
+            {
+                JsonSerializer.Serialize(writer, value.UpdateCheckOutcomeClass, options);
+                return;
+            }
+            throw new Exception("Cannot marshal type UpdateCheckOutcome");
+        }
+
+        public static readonly UpdateCheckOutcomeConverter Singleton = new UpdateCheckOutcomeConverter();
+    }
+
+    internal class UpdateIneligibilityReasonConverter : JsonConverter<UpdateIneligibilityReason>
+    {
+        public override bool CanConvert(Type t) => t == typeof(UpdateIneligibilityReason);
+
+        public override UpdateIneligibilityReason Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "capabilityMissing":
+                    return UpdateIneligibilityReason.CapabilityMissing;
+                case "channelMismatch":
+                    return UpdateIneligibilityReason.ChannelMismatch;
+                case "clientBlocked":
+                    return UpdateIneligibilityReason.ClientBlocked;
+                case "clientTooNew":
+                    return UpdateIneligibilityReason.ClientTooNew;
+                case "clientTooOld":
+                    return UpdateIneligibilityReason.ClientTooOld;
+                case "manifestRevoked":
+                    return UpdateIneligibilityReason.ManifestRevoked;
+                case "outsideRollout":
+                    return UpdateIneligibilityReason.OutsideRollout;
+                case "packageUnavailable":
+                    return UpdateIneligibilityReason.PackageUnavailable;
+                case "protocolIncompatible":
+                    return UpdateIneligibilityReason.ProtocolIncompatible;
+                case "rolloutNotStarted":
+                    return UpdateIneligibilityReason.RolloutNotStarted;
+                case "rolloutPaused":
+                    return UpdateIneligibilityReason.RolloutPaused;
+                case "signatureInvalid":
+                    return UpdateIneligibilityReason.SignatureInvalid;
+            }
+            throw new Exception("Cannot unmarshal type UpdateIneligibilityReason");
+        }
+
+        public override void Write(Utf8JsonWriter writer, UpdateIneligibilityReason value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case UpdateIneligibilityReason.CapabilityMissing:
+                    JsonSerializer.Serialize(writer, "capabilityMissing", options);
+                    return;
+                case UpdateIneligibilityReason.ChannelMismatch:
+                    JsonSerializer.Serialize(writer, "channelMismatch", options);
+                    return;
+                case UpdateIneligibilityReason.ClientBlocked:
+                    JsonSerializer.Serialize(writer, "clientBlocked", options);
+                    return;
+                case UpdateIneligibilityReason.ClientTooNew:
+                    JsonSerializer.Serialize(writer, "clientTooNew", options);
+                    return;
+                case UpdateIneligibilityReason.ClientTooOld:
+                    JsonSerializer.Serialize(writer, "clientTooOld", options);
+                    return;
+                case UpdateIneligibilityReason.ManifestRevoked:
+                    JsonSerializer.Serialize(writer, "manifestRevoked", options);
+                    return;
+                case UpdateIneligibilityReason.OutsideRollout:
+                    JsonSerializer.Serialize(writer, "outsideRollout", options);
+                    return;
+                case UpdateIneligibilityReason.PackageUnavailable:
+                    JsonSerializer.Serialize(writer, "packageUnavailable", options);
+                    return;
+                case UpdateIneligibilityReason.ProtocolIncompatible:
+                    JsonSerializer.Serialize(writer, "protocolIncompatible", options);
+                    return;
+                case UpdateIneligibilityReason.RolloutNotStarted:
+                    JsonSerializer.Serialize(writer, "rolloutNotStarted", options);
+                    return;
+                case UpdateIneligibilityReason.RolloutPaused:
+                    JsonSerializer.Serialize(writer, "rolloutPaused", options);
+                    return;
+                case UpdateIneligibilityReason.SignatureInvalid:
+                    JsonSerializer.Serialize(writer, "signatureInvalid", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type UpdateIneligibilityReason");
+        }
+
+        public static readonly UpdateIneligibilityReasonConverter Singleton = new UpdateIneligibilityReasonConverter();
+    }
+
+    internal class UpdateCheckOutcomeEnumConverter : JsonConverter<UpdateCheckOutcomeEnum>
+    {
+        public override bool CanConvert(Type t) => t == typeof(UpdateCheckOutcomeEnum);
+
+        public override UpdateCheckOutcomeEnum Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            if (value == "upToDate")
+            {
+                return UpdateCheckOutcomeEnum.UpToDate;
+            }
+            throw new Exception("Cannot unmarshal type UpdateCheckOutcomeEnum");
+        }
+
+        public override void Write(Utf8JsonWriter writer, UpdateCheckOutcomeEnum value, JsonSerializerOptions options)
+        {
+            if (value == UpdateCheckOutcomeEnum.UpToDate)
+            {
+                JsonSerializer.Serialize(writer, "upToDate", options);
+                return;
+            }
+            throw new Exception("Cannot marshal type UpdateCheckOutcomeEnum");
+        }
+
+        public static readonly UpdateCheckOutcomeEnumConverter Singleton = new UpdateCheckOutcomeEnumConverter();
     }
 
     public class DateOnlyConverter : JsonConverter<DateOnly>

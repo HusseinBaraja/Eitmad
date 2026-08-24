@@ -1,5 +1,7 @@
 use std::{net::SocketAddr, path::PathBuf};
 
+use ed25519_dalek::VerifyingKey;
+use eitmad_contracts::updates::UpdateSigningKeyId;
 use eitmad_control_plane::TokenKey;
 
 #[derive(Clone)]
@@ -11,6 +13,9 @@ pub struct ServerConfig {
     pub tls_private_key: Option<PathBuf>,
     pub allow_insecure_loopback: bool,
     pub maximum_database_connections: u32,
+    pub update_manifest_directory: PathBuf,
+    pub update_signing_key_id: UpdateSigningKeyId,
+    pub update_verifying_key: VerifyingKey,
 }
 
 impl std::fmt::Debug for ServerConfig {
@@ -30,6 +35,9 @@ impl std::fmt::Debug for ServerConfig {
                 "maximum_database_connections",
                 &self.maximum_database_connections,
             )
+            .field("update_manifest_directory", &self.update_manifest_directory)
+            .field("update_signing_key_id", &self.update_signing_key_id)
+            .field("update_verifying_key", &"[PUBLIC KEY]")
             .finish()
     }
 }
@@ -59,11 +67,11 @@ pub enum ServerConfigError {
     InsecureTransport,
 }
 
-/// Splits one process-wide connection budget evenly across both database
+/// Splits one process-wide connection budget evenly across all database
 /// pools so the process never exceeds the operator's configured total.
 #[must_use]
 pub fn pool_connection_budget(maximum_database_connections: u32) -> u32 {
-    (maximum_database_connections / 2).max(1)
+    (maximum_database_connections / 3).max(1)
 }
 
 impl ServerConfig {
@@ -96,9 +104,27 @@ impl ServerConfig {
         let maximum_database_connections = std::env::var("EITMAD_SERVER_MAX_CONNECTIONS")
             .map_or(Ok(16), |value| value.parse())
             .map_err(|_| ServerConfigError::Invalid)?;
-        if !(2..=128).contains(&maximum_database_connections) {
+        if !(3..=192).contains(&maximum_database_connections) {
             return Err(ServerConfigError::Invalid);
         }
+        let update_manifest_directory = std::env::var_os("EITMAD_SERVER_UPDATE_MANIFEST_DIRECTORY")
+            .map(PathBuf::from)
+            .ok_or(ServerConfigError::Missing)?;
+        let update_signing_key_id = UpdateSigningKeyId::parse(
+            std::env::var("EITMAD_SERVER_UPDATE_KEY_ID").map_err(|_| ServerConfigError::Missing)?,
+        )
+        .map_err(|_| ServerConfigError::Invalid)?;
+        let update_key_bytes = base64::Engine::decode(
+            &base64::engine::general_purpose::STANDARD,
+            std::env::var("EITMAD_SERVER_UPDATE_PUBLIC_KEY")
+                .map_err(|_| ServerConfigError::Missing)?,
+        )
+        .map_err(|_| ServerConfigError::Invalid)?;
+        let update_key_bytes: [u8; 32] = update_key_bytes
+            .try_into()
+            .map_err(|_| ServerConfigError::Invalid)?;
+        let update_verifying_key =
+            VerifyingKey::from_bytes(&update_key_bytes).map_err(|_| ServerConfigError::Invalid)?;
         Ok(Self {
             database_url,
             token_key,
@@ -107,6 +133,9 @@ impl ServerConfig {
             tls_private_key,
             allow_insecure_loopback,
             maximum_database_connections,
+            update_manifest_directory,
+            update_signing_key_id,
+            update_verifying_key,
         })
     }
 }
@@ -160,9 +189,9 @@ mod tests {
 
     #[test]
     fn connection_budget_splits_evenly_and_stays_positive() {
-        assert_eq!(pool_connection_budget(2), 1);
-        assert_eq!(pool_connection_budget(16), 8);
-        assert_eq!(pool_connection_budget(127), 63);
-        assert_eq!(pool_connection_budget(128), 64);
+        assert_eq!(pool_connection_budget(3), 1);
+        assert_eq!(pool_connection_budget(16), 5);
+        assert_eq!(pool_connection_budget(191), 63);
+        assert_eq!(pool_connection_budget(192), 64);
     }
 }

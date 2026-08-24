@@ -15,6 +15,12 @@ use eitmad_contracts::{
 };
 use uuid::Uuid;
 
+mod database;
+mod postgres;
+
+pub use database::{AdminDatabase, AdminDatabaseError};
+pub use postgres::{PostgresAdministrationDataSource, SupportWorkflowExecutor};
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AdministrativeAction {
     ReadDiagnostics,
@@ -112,8 +118,8 @@ pub trait AdministrationDataSource: Send + Sync {
     async fn execute_support(
         &self,
         actor: &AuthenticatedServerSession,
-        request: &StartSupportWorkflow,
-    ) -> Result<(), AdministrativeError>;
+        workflow: SupportWorkflow,
+    ) -> Result<SupportWorkflow, AdministrativeError>;
 }
 
 #[derive(Clone)]
@@ -337,7 +343,7 @@ impl AdministrationService {
             .await?;
             return Err(AdministrativeError::Invalid);
         }
-        let mut workflow = SupportWorkflow {
+        let workflow = SupportWorkflow {
             workflow_id: SupportWorkflowId::new(Uuid::new_v4()),
             tenant_id: request.tenant_id,
             action: request.action.clone(),
@@ -347,8 +353,8 @@ impl AdministrationService {
             completed_at: None,
             failure_code: None,
         };
-        match self.data.execute_support(actor, request).await {
-            Ok(()) => {
+        match self.data.execute_support(actor, workflow).await {
+            Ok(workflow) => {
                 self.audit(
                     actor,
                     action,
@@ -358,8 +364,6 @@ impl AdministrationService {
                     now,
                 )
                 .await?;
-                workflow.state = SupportWorkflowState::Succeeded;
-                workflow.completed_at = Some(now);
                 Ok(workflow)
             }
             Err(error) => {
@@ -620,9 +624,11 @@ mod tests {
         async fn execute_support(
             &self,
             _: &AuthenticatedServerSession,
-            _: &StartSupportWorkflow,
-        ) -> Result<(), AdministrativeError> {
-            Ok(())
+            mut workflow: SupportWorkflow,
+        ) -> Result<SupportWorkflow, AdministrativeError> {
+            workflow.state = SupportWorkflowState::Succeeded;
+            workflow.completed_at = Some(workflow.requested_at);
+            Ok(workflow)
         }
     }
 

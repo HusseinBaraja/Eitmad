@@ -110,6 +110,9 @@ public static class ProtocolIds
         public const string EitmadCapabilityServerDeviceProofV1 = "eitmad.capability.server-device-proof.v1";
         public const string EitmadCapabilityServerSnapshotChunksV1 = "eitmad.capability.server-snapshot-chunks.v1";
         public const string EitmadCapabilityServerSubscriptionResumeV1 = "eitmad.capability.server-subscription-resume.v1";
+        public const string EitmadCapabilityServerRelayV1 = "eitmad.capability.server-relay.v1";
+        public const string EitmadCapabilityServerUpdateDistributionV1 = "eitmad.capability.server-update-distribution.v1";
+        public const string EitmadCapabilityServerAdministrationV1 = "eitmad.capability.server-administration.v1";
         public const string EitmadCapabilityUpdateV1 = "eitmad.capability.update.v1";
     }
 
@@ -127,6 +130,19 @@ public static class ProtocolIds
         public const string EitmadPermissionServerDevicesManageV1 = "eitmad.permission.server.devices.manage.v1";
         public const string EitmadPermissionServerLicenseReadV1 = "eitmad.permission.server.license.read.v1";
         public const string EitmadPermissionServerUpdateChannelManageV1 = "eitmad.permission.server.update-channel.manage.v1";
+        public const string EitmadPermissionServerRelayConnectV1 = "eitmad.permission.server.relay.connect.v1";
+        public const string EitmadPermissionServerRelayHealthReadV1 = "eitmad.permission.server.relay.health.read.v1";
+        public const string EitmadPermissionServerRelayFailureReportV1 = "eitmad.permission.server.relay.failure.report.v1";
+        public const string EitmadPermissionServerRelayAdminCloseV1 = "eitmad.permission.server.relay.admin-close.v1";
+        public const string EitmadPermissionServerUpdateManifestPublishV1 = "eitmad.permission.server.update-manifest.publish.v1";
+        public const string EitmadPermissionServerAdminDiagnosticsReadV1 = "eitmad.permission.server.admin.diagnostics.read.v1";
+        public const string EitmadPermissionServerAdminHealthReadV1 = "eitmad.permission.server.admin.health.read.v1";
+        public const string EitmadPermissionServerAdminBackupReadV1 = "eitmad.permission.server.admin.backup.read.v1";
+        public const string EitmadPermissionServerAdminMigrationReadV1 = "eitmad.permission.server.admin.migration.read.v1";
+        public const string EitmadPermissionServerAdminAuditReadV1 = "eitmad.permission.server.admin.audit.read.v1";
+        public const string EitmadPermissionServerAdminTenantReadV1 = "eitmad.permission.server.admin.tenant.read.v1";
+        public const string EitmadPermissionServerAdminDeviceReadV1 = "eitmad.permission.server.admin.device.read.v1";
+        public const string EitmadPermissionServerAdminSupportExecuteV1 = "eitmad.permission.server.admin.support.execute.v1";
         public const string EitmadPermissionUpdateReadV1 = "eitmad.permission.update.read.v1";
         public const string EitmadPermissionUpdateReportInstallerV1 = "eitmad.permission.update.report-installer.v1";
     }
@@ -185,6 +201,12 @@ public static class ProtocolIds
         public const string EitmadErrorServerSnapshotRequiredV1 = "eitmad.error.server-snapshot-required.v1";
         public const string EitmadErrorServerTokenExpiredV1 = "eitmad.error.server-token-expired.v1";
         public const string EitmadErrorServerTokenReuseV1 = "eitmad.error.server-token-reuse.v1";
+        public const string EitmadErrorRelaySessionNotFoundV1 = "eitmad.error.relay-session-not-found.v1";
+        public const string EitmadErrorRelayUnavailableV1 = "eitmad.error.relay-unavailable.v1";
+        public const string EitmadErrorUpdateManifestInvalidV1 = "eitmad.error.update-manifest-invalid.v1";
+        public const string EitmadErrorUpdateManifestNotFoundV1 = "eitmad.error.update-manifest-not-found.v1";
+        public const string EitmadErrorUpdateDistributionUnavailableV1 = "eitmad.error.update-distribution-unavailable.v1";
+        public const string EitmadErrorAdminUnavailableV1 = "eitmad.error.admin-unavailable.v1";
         public const string EitmadErrorUpdateInstallerFailedV1 = "eitmad.error.update-installer-failed.v1";
     }
 
@@ -226,6 +248,12 @@ public static class ProtocolIds
         public const string EitmadMessageServerSnapshotRequiredV1 = "eitmad.message.server-snapshot-required.v1";
         public const string EitmadMessageServerTokenExpiredV1 = "eitmad.message.server-token-expired.v1";
         public const string EitmadMessageServerTokenReuseV1 = "eitmad.message.server-token-reuse.v1";
+        public const string EitmadMessageRelaySessionNotFoundV1 = "eitmad.message.relay-session-not-found.v1";
+        public const string EitmadMessageRelayUnavailableV1 = "eitmad.message.relay-unavailable.v1";
+        public const string EitmadMessageUpdateManifestInvalidV1 = "eitmad.message.update-manifest-invalid.v1";
+        public const string EitmadMessageUpdateManifestNotFoundV1 = "eitmad.message.update-manifest-not-found.v1";
+        public const string EitmadMessageUpdateDistributionUnavailableV1 = "eitmad.message.update-distribution-unavailable.v1";
+        public const string EitmadMessageAdminUnavailableV1 = "eitmad.message.admin-unavailable.v1";
         public const string EitmadMessageUpdateInstallerFailedV1 = "eitmad.message.update-installer-failed.v1";
     }
 

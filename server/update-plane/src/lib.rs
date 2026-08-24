@@ -301,13 +301,16 @@ impl UpdateCatalog {
     }
 
     /// Selects the newest signed manifest for one exact channel and client.
-    #[must_use]
-    pub fn check(&self, client: &UpdateClientProfile, now: UnixMillis) -> UpdateCheckOutcome {
-        let Ok(mut manifests) = self.repository.list(&client.channel) else {
-            return UpdateCheckOutcome::Ineligible {
-                reason: eitmad_contracts::updates::UpdateIneligibilityReason::SignatureInvalid,
-            };
-        };
+    ///
+    /// # Errors
+    ///
+    /// Returns a repository availability or stored-data error.
+    pub fn check(
+        &self,
+        client: &UpdateClientProfile,
+        now: UnixMillis,
+    ) -> Result<UpdateCheckOutcome, UpdatePlaneError> {
+        let mut manifests = self.repository.list(&client.channel)?;
         manifests.sort_by(|left, right| {
             right
                 .manifest
@@ -315,11 +318,11 @@ impl UpdateCatalog {
                 .value()
                 .cmp(left.manifest.version.value())
         });
-        manifests
+        Ok(manifests
             .first()
             .map_or(UpdateCheckOutcome::UpToDate, |manifest| {
                 evaluate_update(manifest, &self.trusted_keys, client, now)
-            })
+            }))
     }
 
     fn valid_manifest(&self, signed: &SignedUpdateManifest) -> Result<bool, UpdatePlaneError> {

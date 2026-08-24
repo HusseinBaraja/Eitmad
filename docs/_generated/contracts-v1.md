@@ -116,6 +116,9 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.capability.server-device-proof.v1`
 - `eitmad.capability.server-snapshot-chunks.v1`
 - `eitmad.capability.server-subscription-resume.v1`
+- `eitmad.capability.server-relay.v1`
+- `eitmad.capability.server-update-distribution.v1`
+- `eitmad.capability.server-administration.v1`
 - `eitmad.capability.update.v1`
 
 ## Permissions
@@ -132,6 +135,19 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.permission.server.devices.manage.v1`
 - `eitmad.permission.server.license.read.v1`
 - `eitmad.permission.server.update-channel.manage.v1`
+- `eitmad.permission.server.relay.connect.v1`
+- `eitmad.permission.server.relay.health.read.v1`
+- `eitmad.permission.server.relay.failure.report.v1`
+- `eitmad.permission.server.relay.admin-close.v1`
+- `eitmad.permission.server.update-manifest.publish.v1`
+- `eitmad.permission.server.admin.diagnostics.read.v1`
+- `eitmad.permission.server.admin.health.read.v1`
+- `eitmad.permission.server.admin.backup.read.v1`
+- `eitmad.permission.server.admin.migration.read.v1`
+- `eitmad.permission.server.admin.audit.read.v1`
+- `eitmad.permission.server.admin.tenant.read.v1`
+- `eitmad.permission.server.admin.device.read.v1`
+- `eitmad.permission.server.admin.support.execute.v1`
 - `eitmad.permission.update.read.v1`
 - `eitmad.permission.update.report-installer.v1`
 
@@ -186,6 +202,12 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.error.server-snapshot-required.v1`
 - `eitmad.error.server-token-expired.v1`
 - `eitmad.error.server-token-reuse.v1`
+- `eitmad.error.relay-session-not-found.v1`
+- `eitmad.error.relay-unavailable.v1`
+- `eitmad.error.update-manifest-invalid.v1`
+- `eitmad.error.update-manifest-not-found.v1`
+- `eitmad.error.update-distribution-unavailable.v1`
+- `eitmad.error.admin-unavailable.v1`
 - `eitmad.error.update-installer-failed.v1`
 
 ## Localization message identifiers
@@ -226,6 +248,12 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.message.server-snapshot-required.v1`
 - `eitmad.message.server-token-expired.v1`
 - `eitmad.message.server-token-reuse.v1`
+- `eitmad.message.relay-session-not-found.v1`
+- `eitmad.message.relay-unavailable.v1`
+- `eitmad.message.update-manifest-invalid.v1`
+- `eitmad.message.update-manifest-not-found.v1`
+- `eitmad.message.update-distribution-unavailable.v1`
+- `eitmad.message.admin-unavailable.v1`
 - `eitmad.message.update-installer-failed.v1`
 
 ## Error parameter names

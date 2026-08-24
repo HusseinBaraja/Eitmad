@@ -773,6 +773,9 @@ version = "0.0.0"
 dependencies = [
  "async-trait",
  "eitmad-contracts",
+ "eitmad-postgres-support",
+ "serde_json",
+ "sha2",
  "thiserror",
  "tokio",
  "uuid",
@@ -941,13 +944,19 @@ dependencies = [
 name = "eitmad-server"
 version = "0.0.0"
 dependencies = [
+ "async-trait",
  "axum",
  "axum-server",
  "base64",
+ "ed25519-dalek",
+ "eitmad-admin-plane",
  "eitmad-contracts",
  "eitmad-control-plane",
  "eitmad-postgres-support",
+ "eitmad-relay-plane",
  "eitmad-sync-plane",
+ "eitmad-update-plane",
+ "eitmad-update-policy",
  "semver",
  "serde",
  "serde_json",

@@ -30,6 +30,7 @@ pub enum RelayAction {
     Heartbeat,
     Reconnect,
     Close,
+    AdministrativeClose,
     ReportFailure,
     ReadHealth,
     ReadSession,
@@ -43,6 +44,7 @@ impl RelayAction {
             Self::Heartbeat => "eitmad.relay.session.heartbeat.v1",
             Self::Reconnect => "eitmad.relay.session.reconnect.v1",
             Self::Close => "eitmad.relay.session.close.v1",
+            Self::AdministrativeClose => "eitmad.relay.session.admin-close.v1",
             Self::ReportFailure => "eitmad.relay.failure.report.v1",
             Self::ReadHealth => "eitmad.relay.health.read.v1",
             Self::ReadSession => "eitmad.relay.session.read.v1",
@@ -199,8 +201,7 @@ impl RelayCoordinator {
             .await?;
             return Err(RelayError::RouteUnavailable);
         }
-        let ttl = i64::try_from(request.requested_ttl_ms).map_err(|_| RelayError::Invalid)?;
-        let expires_at = now.0.checked_add(ttl).ok_or(RelayError::Invalid)?;
+        let expires_at = session_expiry(now, request.requested_ttl_ms)?;
         let mut metadata = RelaySessionMetadata {
             relay_session_id: RelaySessionId::new(Uuid::new_v4()),
             tenant_id: request.tenant_id,
@@ -209,15 +210,11 @@ impl RelayCoordinator {
             state: RelaySessionState::Connecting,
             connected_at: now,
             last_seen_at: now,
-            expires_at: UnixMillis(expires_at),
+            expires_at,
             reconnect_attempt: 0,
             next_reconnect_at: None,
         };
-        let routed = match &metadata.route {
-            RelayRoute::Peer { .. } => self.router.connect_peer(&metadata).await,
-            RelayRoute::Server { .. } => self.router.connect_server(&metadata).await,
-        };
-        if let Err(error) = routed {
+        if let Err(error) = self.connect_route(&metadata).await {
             self.audit(
                 actor,
                 RelayAction::Open,
@@ -230,15 +227,20 @@ impl RelayCoordinator {
             return Err(error);
         }
         metadata.state = RelaySessionState::Active;
-        self.audit(
-            actor,
-            RelayAction::Open,
-            RelayAuditOutcome::Succeeded,
-            request.correlation_id,
-            Some(metadata.relay_session_id),
-            now,
-        )
-        .await?;
+        if let Err(error) = self
+            .audit(
+                actor,
+                RelayAction::Open,
+                RelayAuditOutcome::Succeeded,
+                request.correlation_id,
+                Some(metadata.relay_session_id),
+                now,
+            )
+            .await
+        {
+            let _ = self.router.disconnect(&metadata).await;
+            return Err(error);
+        }
         self.state
             .write()
             .map_err(|_| RelayError::Unavailable)?
@@ -494,6 +496,69 @@ impl RelayCoordinator {
         Ok(session)
     }
 
+    /// Closes any relay session in the actor's tenant after owner-level
+    /// authorization supplied by the server security adapter.
+    ///
+    /// # Errors
+    ///
+    /// Returns a denial, missing-session, route, or audit error.
+    pub async fn administrative_close(
+        &self,
+        actor: &AuthenticatedServerSession,
+        session_id: RelaySessionId,
+        correlation_id: CorrelationId,
+        now: UnixMillis,
+    ) -> Result<RelaySessionMetadata, RelayError> {
+        let found = {
+            let state = self.state.read().map_err(|_| RelayError::Unavailable)?;
+            state
+                .sessions
+                .get(&session_id)
+                .filter(|session| session.tenant_id == actor.tenant_id)
+                .cloned()
+        };
+        let Some(mut session) = found else {
+            self.audit(
+                actor,
+                RelayAction::AdministrativeClose,
+                RelayAuditOutcome::Failed,
+                correlation_id,
+                Some(session_id),
+                now,
+            )
+            .await?;
+            return Err(RelayError::NotFound);
+        };
+        self.authorize_for_action(
+            actor,
+            RelayAction::AdministrativeClose,
+            session.tenant_id,
+            Some(&session.route),
+            RelayActionContext {
+                correlation_id,
+                target: Some(session_id),
+                now,
+            },
+        )
+        .await?;
+        if session.state != RelaySessionState::Closed {
+            self.router.disconnect(&session).await?;
+            session.state = RelaySessionState::Closed;
+            session.next_reconnect_at = None;
+        }
+        self.audit(
+            actor,
+            RelayAction::AdministrativeClose,
+            RelayAuditOutcome::Succeeded,
+            correlation_id,
+            Some(session_id),
+            now,
+        )
+        .await?;
+        self.replace_session(session.clone())?;
+        Ok(session)
+    }
+
     /// Persists one redacted and bounded relay failure report.
     ///
     /// # Errors
@@ -612,8 +677,8 @@ impl RelayCoordinator {
         Ok(health)
     }
 
-    #[must_use]
-    pub fn failure_reports_for_tenant(
+    #[cfg(test)]
+    fn failure_reports_for_tenant(
         &self,
         tenant_id: eitmad_contracts::identity::TenantId,
     ) -> Vec<RelayFailureReport> {
@@ -630,19 +695,6 @@ impl RelayCoordinator {
         )
     }
 
-    /// Changes process readiness for new relay sessions.
-    ///
-    /// # Errors
-    ///
-    /// Returns an availability error when relay state is poisoned.
-    pub fn set_accepting_sessions(&self, accepting: bool) -> Result<(), RelayError> {
-        self.state
-            .write()
-            .map_err(|_| RelayError::Unavailable)?
-            .accepting_sessions = accepting;
-        Ok(())
-    }
-
     async fn authorize_actor(
         &self,
         actor: &AuthenticatedServerSession,
@@ -656,6 +708,13 @@ impl RelayCoordinator {
         self.security
             .authorize(actor, action, tenant_id, route)
             .await
+    }
+
+    async fn connect_route(&self, session: &RelaySessionMetadata) -> Result<(), RelayError> {
+        match &session.route {
+            RelayRoute::Peer { .. } => self.router.connect_peer(session).await,
+            RelayRoute::Server { .. } => self.router.connect_server(session).await,
+        }
     }
 
     async fn authorize_for_action(
@@ -749,6 +808,14 @@ impl RelayCoordinator {
 const fn reconnect_delay_ms(attempt: u32) -> i64 {
     let exponent = if attempt > 6 { 6 } else { attempt };
     1_000_i64 << exponent
+}
+
+fn session_expiry(now: UnixMillis, ttl_ms: u64) -> Result<UnixMillis, RelayError> {
+    let ttl = i64::try_from(ttl_ms).map_err(|_| RelayError::Invalid)?;
+    now.0
+        .checked_add(ttl)
+        .map(UnixMillis)
+        .ok_or(RelayError::Invalid)
 }
 
 const fn outcome_for(error: RelayError) -> RelayAuditOutcome {

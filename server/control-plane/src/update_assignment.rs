@@ -185,6 +185,7 @@ impl UpdateAssignmentService {
                 outcome: "succeeded",
                 target_kind: assignment_kind,
                 correlation_id,
+                redacted_error: None,
                 now,
             },
         )

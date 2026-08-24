@@ -12,6 +12,9 @@ workspace = true
 [dependencies]
 async-trait = "=0.1.89"
 eitmad-contracts = { path = "../../crates/contracts" }
+serde_json = "=1.0.150"
+sha2 = "=0.10.9"
+sqlx = { package = "eitmad-postgres-support", path = "../postgres-support" }
 thiserror = "=2.0.18"
 uuid = { version = "=1.23.4", features = ["v4"] }
 

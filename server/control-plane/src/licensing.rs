@@ -178,6 +178,7 @@ impl LicenseService {
                 outcome: "succeeded",
                 target_kind: "license",
                 correlation_id,
+                redacted_error: None,
                 now,
             },
         )

@@ -658,6 +658,7 @@ async fn append_session_audit(
             outcome: "succeeded",
             target_kind: "session",
             correlation_id,
+            redacted_error: None,
             now,
         },
     )

@@ -1,10 +1,17 @@
-use std::process::ExitCode;
+use std::{process::ExitCode, sync::Arc};
 
+use eitmad_admin_plane::{AdminDatabase, AdministrationService, PostgresAdministrationDataSource};
 use eitmad_contracts::server::TenantCode;
 use eitmad_contracts::transport::CorrelationId;
 use eitmad_control_plane::{BootstrapInput, ControlDatabase, ControlPlane};
-use eitmad_server::{ServerCommand, ServerConfig, ServerState};
+use eitmad_relay_plane::RelayCoordinator;
+use eitmad_release_policy::TrustedUpdateKeys;
+use eitmad_server::{
+    MetadataRelayRouter, ServerCommand, ServerConfig, ServerPlaneSecurity, ServerState,
+    ServerSupportExecutor,
+};
 use eitmad_sync_plane::{DomainRegistry, SyncCoordinator, SyncDatabase};
+use eitmad_update_plane::{FileManifestRepository, UpdateCatalog};
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -56,6 +63,13 @@ async fn execute() -> Result<(), MainError> {
         .migrate()
         .await
         .map_err(|_| MainError::Migration)?;
+    let admin_database = AdminDatabase::connect(&config.database_url, pool_budget)
+        .await
+        .map_err(|_| MainError::Database)?;
+    admin_database
+        .migrate()
+        .await
+        .map_err(|_| MainError::Migration)?;
     if command == ServerCommand::Migrate {
         println!("server migrations are current");
         return Ok(());
@@ -95,11 +109,41 @@ async fn execute() -> Result<(), MainError> {
         return Err(MainError::Configuration);
     }
     let sync = SyncCoordinator::new(&sync_database, domains);
-    let state = ServerState::new(control, sync);
+    let state = compose_server_state(&config, control, sync, &admin_database)?;
     tracing::info!(listen = %config.listen, "server ready");
     eitmad_server::run(&config, state)
         .await
         .map_err(|_| MainError::Runtime)
+}
+
+fn compose_server_state(
+    config: &ServerConfig,
+    control: ControlPlane,
+    sync: SyncCoordinator,
+    admin_database: &AdminDatabase,
+) -> Result<ServerState, MainError> {
+    let security = Arc::new(ServerPlaneSecurity::new(control.access.clone()));
+    let relay = RelayCoordinator::new(security.clone(), Arc::new(MetadataRelayRouter));
+    let support = Arc::new(ServerSupportExecutor::new(
+        relay.clone(),
+        control.access.clone(),
+    ));
+    let administration = AdministrationService::new(
+        security.clone(),
+        Arc::new(PostgresAdministrationDataSource::new(
+            admin_database.pool(),
+            support,
+        )),
+    );
+    let mut trusted_update_keys = TrustedUpdateKeys::new();
+    trusted_update_keys.insert(
+        config.update_signing_key_id.clone(),
+        config.update_verifying_key,
+    );
+    let repository = FileManifestRepository::open(&config.update_manifest_directory)
+        .map_err(|_| MainError::Configuration)?;
+    let updates = UpdateCatalog::new(security, Arc::new(repository), trusted_update_keys);
+    Ok(ServerState::new(control, sync).with_planes(relay, updates, administration))
 }
 
 fn print_help() {
