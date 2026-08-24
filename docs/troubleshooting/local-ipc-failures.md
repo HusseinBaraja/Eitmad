@@ -5,7 +5,7 @@ audience: "support"
 page_type: "troubleshooting"
 status: "active"
 owner: "Rust engine and Windows platform maintainers"
-last_verified: "2026-07-18"
+last_verified: "2026-08-22"
 review_triggers:
   - "local IPC errors, timeouts, payload bounds, negotiation, or recovery changes"
 keywords:
@@ -48,6 +48,6 @@ Do not delete runtime files, expose bearer tokens, copy raw frames, or include c
 
 ## Verify recovery
 
-Confirm a new engine generation reaches `Ready`, the handshake reports the expected version within `1.0–1.3`, and `eitmad.capability.authorization-scopes.v1` plus operation-specific capabilities are present. Verify one synthetic scoped subscription receives an ordered event and a revoked synthetic member receives no later configuration event. Intentional shutdown must reach `Stopping → Stopped` with exit code `0`.
+Confirm a new engine generation reaches `Ready`, the handshake reports the expected version within `1.0–1.4`, and `eitmad.capability.authorization-scopes.v1` plus operation-specific capabilities are present. Verify one synthetic scoped subscription receives an ordered event and a revoked synthetic member receives no later configuration event. Intentional shutdown must reach `Stopping → Stopped` with exit code `0`.
 
 Escalate with engine/shell versions, Windows version, generation, `EngineInstanceId`, stable error code, message ID, retry disposition, timestamp, and correlation ID. See [typed local IPC](../developer/subsystems/local-ipc.md), [Windows supervision](../developer/subsystems/windows-process-supervision.md), and the [threat model](../architecture/local-ipc-threat-model.md).

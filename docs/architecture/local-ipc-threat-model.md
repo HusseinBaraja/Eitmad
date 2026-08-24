@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "explanation"
 status: "active"
 owner: "security and Rust engine maintainers"
-last_verified: "2026-07-18"
+last_verified: "2026-08-22"
 review_triggers:
   - "local peer authentication, pipe discovery, identity, authorization, transport, or production packaging changes"
 keywords:
@@ -28,7 +28,7 @@ Protected assets are domain data, scope boundaries, session identity, command in
 | --- | --- | --- |
 | Connect to a guessed pipe | Unique random endpoint plus 256-bit bearer token | A process able to inspect the child environment may recover the token |
 | Replay a request on another connection | Engine-issued session bound to one connection and exact context | Development identity itself is asserted, not verified |
-| Protocol downgrade or drift | Mandatory `PeerHello`, highest common version across `1.0–1.3`, required authorization-scope capability, operation/capability gates, generated bindings | A malicious client may send known newer shapes under an older version; dispatcher minor gates and exact session context fail them explicitly |
+| Protocol downgrade or drift | Mandatory `PeerHello`, highest common version across `1.0–1.4`, required authorization-scope capability, operation/capability gates, generated bindings | A malicious client may send known newer shapes under an older version; dispatcher minor gates and exact session context fail them explicitly |
 | Deliver state after access revocation | Policy-change signal plus authorization immediately before every event delivery | Storage unavailability closes the stream fail-safe and may reduce availability |
 | Memory exhaustion | 8 MiB frame cap, 1,024-entry/16 MiB replay cap, and 256-event delivery queues | Repeated allowed-size traffic still consumes bounded work |
 | Request starvation | Per-request deadlines, concurrent dispatch, bounded shutdown | Domain handlers must implement their own resource bounds |

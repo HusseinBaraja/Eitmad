@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust contract maintainers"
-last_verified: "2026-08-19"
+last_verified: "2026-08-23"
 review_triggers:
   - "protocol ownership, wire format, generation, compatibility, or platform binding changes"
 keywords:
@@ -32,6 +32,16 @@ flowchart LR
 ```
 
 The generated model describes untrusted input. The engine must authenticate the channel, compare the payload session and scope with channel state, validate bounds and domain invariants, authorize with ReBAC, execute atomically, and emit the required audit outcome.
+
+## Tagged unions in generated bindings
+
+Rust tagged contracts (`tagged_contract!`) serialize as JSON objects that carry a `kind` discriminator string and a `payload` field. Quicktype collapses every `oneOf` of such envelopes into one class whose payload is typed as the first variant, which cannot represent the other kinds. The generator therefore:
+
+1. Collects every top-level discriminated union from the exported Draft-07 schema (`crates/contracts/codegen/unions.mjs`).
+2. Renders typed union bindings itself into `shells/windows/generated/EitmadContracts.Unions.g.cs` (a C# class with a `Kind` string, an untyped payload, one `For<Pascal>` factory, and one `As<Pascal>()` typed accessor per kind) and `shells/macos/generated/EitmadContractsUnions.generated.swift` (a Swift `enum` with associated values plus full `Codable` conformance).
+3. Feeds quicktype a reduced schema in which each union definition is replaced by an empty object and every payload type stays reachable through a deterministic keep-alive container.
+
+Codegen tests pin every union variant to its kind string and payload type in both languages, so adding a Rust variant without regenerating fails verification. Nested tagged enums that mix payload-less struct variants remain collapsed by quicktype; extending the renderer to them is deliberate follow-up work, not an accident.
 
 ## Invariants
 
@@ -68,6 +78,7 @@ The missing local Swift toolchain does not authorize shell implementation or byp
 | Unknown required operation | Reject the tagged union | transport compatibility test |
 | Stale configuration revision | Return `eitmad.error.config-revision-conflict.v1`; do not overwrite | typed config/error contracts |
 | Oversized page or sync batch | Reject against declared bounds | transport and sync tests/schema |
+| A tagged Rust variant is missing from rendered union bindings | Union conformance tests fail verification | `crates/contracts/codegen/test/unions.test.mjs` |
 | Generated binding differs or omits a Rust identifier | Fail deterministic drift and identifier-parity checks | codegen verification and CI |
 
 ## Tests and observability

@@ -456,7 +456,7 @@ fn hello(major: u16) -> PeerHello {
         protocols: vec![SupportedProtocol {
             major,
             minimum_minor: 0,
-            maximum_minor: 3,
+            maximum_minor: eitmad_contracts::PROTOCOL_VERSION.minor,
         }],
         capabilities: vec![CapabilityId::parse("eitmad.capability.sync.v1").unwrap()],
         required_capabilities: Vec::new(),

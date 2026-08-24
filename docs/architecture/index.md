@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "explanation"
 status: "active"
 owner: "architecture maintainers"
-last_verified: "2026-08-20"
+last_verified: "2026-08-22"
 review_triggers:
   - "an authority, process, trust, storage, sync, update, or platform boundary changes"
 keywords:
@@ -16,7 +16,7 @@ keywords:
 
 # Understand Eitmad architecture
 
-Eitmad uses thin native desktop applications connected to a separate trusted Rust engine that acts as product authority. Protocol `1.3`, native binding generation, engine lifecycle, SQLite authority storage, Rust-owned configuration, scoped relationship authorization/audit, privacy-preserving observability, cross-platform secret storage, shared simulation/LAN/WAN sync transport policy, and Windows process supervision are implemented; no production sync network driver, native settings UI, or business workflow exists yet.
+Eitmad uses thin native desktop applications connected to a separate trusted Rust engine that acts as product authority. Protocol `1.4`, native binding generation, engine lifecycle, SQLite local authority, the modular PostgreSQL server foundation, scoped relationship authorization/audit, shared sync semantics, and Windows process supervision are implemented. No production business domain, native settings UI, MFA/email provider, relay, or update artifact service exists yet.
 
 ## Start here
 
@@ -32,6 +32,7 @@ Eitmad uses thin native desktop applications connected to a separate trusted Rus
 - [Privacy-preserving observability](../developer/subsystems/privacy-preserving-observability.md): implemented structured metadata-only logs/errors, correlation, redaction, crash projections, and temporary sensitive-debug expiry/audit.
 - [Rust-owned secret storage](../developer/subsystems/secret-storage.md): implemented native credential-store lifecycle and an authenticated encrypted fallback with typed references.
 - [Persistent tenant identity](../developer/subsystems/identity-foundation.md): implemented device, user/account, session, tenant, organization, workspace, offline, and audit-attribution primitives.
+- [Modular server authority](../developer/subsystems/server-authority.md): implemented remote accounts, registered devices, authentication, licensing hooks, update assignment, PostgreSQL isolation, sync history, snapshots, and subscriptions.
 - [Windows process supervision](../developer/subsystems/windows-process-supervision.md): implemented Job Object containment, bounded restart, stale-event rejection, and graceful shutdown.
 - [Repository layout and ownership](../developer/repository-layout.md): where each current boundary lives.
 

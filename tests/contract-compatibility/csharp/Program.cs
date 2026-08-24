@@ -14,10 +14,20 @@ var queryProtocol10Json = fixture.RootElement.GetProperty("queryProtocol10").Get
 var queryProtocol10 = JsonSerializer.Deserialize<QueryEnvelope>(queryProtocol10Json, Converter.Settings)
     ?? throw new InvalidOperationException("C# binding did not decode the Rust protocol 1.0 fixture.");
 
-if (query.Query.Kind != QueryKind.EitmadConfigGetV1
-    || query.ProtocolVersion.Minor != 3
+static string? QueryKind(QueryEnvelope envelope) =>
+    envelope.Query.TryGetValue("kind", out var kind)
+        ? kind switch
+        {
+            string text => text,
+            JsonElement element => element.GetString(),
+            _ => null,
+        }
+        : null;
+
+if (QueryKind(query) != Query.ConfigGetKind
+    || query.ProtocolVersion.Minor != 4
     || queryProtocol10.ProtocolVersion.Minor != 0
-    || queryProtocol10.Query.Kind != QueryKind.EitmadConfigGetV1)
+    || QueryKind(queryProtocol10) != Query.ConfigGetKind)
 {
     throw new InvalidOperationException("C# binding decoded the wrong query version or identifier.");
 }
@@ -31,10 +41,10 @@ if (roundTrip.RootElement.GetProperty("query").GetProperty("kind").GetString()
 }
 
 var errorJson = fixture.RootElement.GetProperty("structuredError").GetRawText();
-var structuredError = JsonSerializer.Deserialize<QueryResult>(errorJson, Converter.Settings)
+var structuredError = JsonSerializer.Deserialize<ContractError>(errorJson, Converter.Settings)
     ?? throw new InvalidOperationException("C# binding did not decode the Rust structured error fixture.");
 var encodedError = JsonSerializer.Serialize(structuredError, Converter.Settings);
-var decodedError = JsonSerializer.Deserialize<QueryResult>(encodedError, Converter.Settings)
+var decodedError = JsonSerializer.Deserialize<ContractError>(encodedError, Converter.Settings)
     ?? throw new InvalidOperationException("C# binding did not round-trip the structured error fixture.");
 if (decodedError.Parameters[0].Name != "expected-revision"
     || decodedError.Parameters[0].Value.Kind != ErrorParameterValueKind.Integer

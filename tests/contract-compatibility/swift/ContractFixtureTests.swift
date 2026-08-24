@@ -4,7 +4,7 @@ private struct Fixture: Decodable {
     let query: QueryEnvelope
     let queryProtocol10: QueryEnvelope
     let queryResponse: QueryResponseEnvelope
-    let structuredError: QueryResult
+    let structuredError: ContractError
     let observationEventId: String
     let observationFieldName: String
     let observationComponentId: String
@@ -29,7 +29,7 @@ private struct ContractFixtureTests {
         let encodedResponse = try JSONEncoder().encode(fixture.queryResponse)
         let decodedResponse = try JSONDecoder().decode(QueryResponseEnvelope.self, from: encodedResponse)
         let encodedError = try JSONEncoder().encode(fixture.structuredError)
-        let decodedError = try JSONDecoder().decode(QueryResult.self, from: encodedError)
+        let decodedError = try JSONDecoder().decode(ContractError.self, from: encodedError)
         let encodedSamples = try JSONEncoder().encode(fixture.mixedDirectionSamples)
         let decodedSamples = try JSONDecoder().decode([String].self, from: encodedSamples)
 

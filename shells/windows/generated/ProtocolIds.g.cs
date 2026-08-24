@@ -78,6 +78,22 @@ public static class ProtocolIds
         public const string EitmadSyncAcknowledgeV1 = "eitmad.sync.acknowledge.v1";
         public const string EitmadSyncConflictV1 = "eitmad.sync.conflict.v1";
         public const string EitmadSyncBackpressureV1 = "eitmad.sync.backpressure.v1";
+        public const string EitmadSyncSnapshotManifestV1 = "eitmad.sync.snapshot-manifest.v1";
+        public const string EitmadSyncSnapshotChunkV1 = "eitmad.sync.snapshot-chunk.v1";
+        public const string EitmadSyncSnapshotCompleteV1 = "eitmad.sync.snapshot-complete.v1";
+        public const string EitmadSyncSnapshotRequiredV1 = "eitmad.sync.snapshot-required.v1";
+    }
+
+    public static class ServerMessages
+    {
+        public const string EitmadServerHelloV1 = "eitmad.server.hello.v1";
+        public const string EitmadServerSyncV1 = "eitmad.server.sync.v1";
+        public const string EitmadServerSubscribeV1 = "eitmad.server.subscribe.v1";
+        public const string EitmadServerAcknowledgeV1 = "eitmad.server.acknowledge.v1";
+        public const string EitmadServerHelloAcceptedV1 = "eitmad.server.hello-accepted.v1";
+        public const string EitmadServerSyncMessageV1 = "eitmad.server.sync-message.v1";
+        public const string EitmadServerEventV1 = "eitmad.server.event.v1";
+        public const string EitmadServerFailureV1 = "eitmad.server.failure.v1";
     }
 
     public static class Capabilities
@@ -90,6 +106,10 @@ public static class ProtocolIds
         public const string EitmadCapabilityConfigV1 = "eitmad.capability.config.v1";
         public const string EitmadCapabilityPermissionsV1 = "eitmad.capability.permissions.v1";
         public const string EitmadCapabilitySyncV1 = "eitmad.capability.sync.v1";
+        public const string EitmadCapabilityServerConnectionV1 = "eitmad.capability.server-connection.v1";
+        public const string EitmadCapabilityServerDeviceProofV1 = "eitmad.capability.server-device-proof.v1";
+        public const string EitmadCapabilityServerSnapshotChunksV1 = "eitmad.capability.server-snapshot-chunks.v1";
+        public const string EitmadCapabilityServerSubscriptionResumeV1 = "eitmad.capability.server-subscription-resume.v1";
         public const string EitmadCapabilityUpdateV1 = "eitmad.capability.update.v1";
     }
 
@@ -103,6 +123,10 @@ public static class ProtocolIds
         public const string EitmadPermissionPermissionsReadV1 = "eitmad.permission.permissions.read.v1";
         public const string EitmadPermissionObservabilitySensitiveDebugV1 = "eitmad.permission.observability.sensitive-debug.v1";
         public const string EitmadPermissionSyncReadV1 = "eitmad.permission.sync.read.v1";
+        public const string EitmadPermissionServerAccountsManageV1 = "eitmad.permission.server.accounts.manage.v1";
+        public const string EitmadPermissionServerDevicesManageV1 = "eitmad.permission.server.devices.manage.v1";
+        public const string EitmadPermissionServerLicenseReadV1 = "eitmad.permission.server.license.read.v1";
+        public const string EitmadPermissionServerUpdateChannelManageV1 = "eitmad.permission.server.update-channel.manage.v1";
         public const string EitmadPermissionUpdateReadV1 = "eitmad.permission.update.read.v1";
         public const string EitmadPermissionUpdateReportInstallerV1 = "eitmad.permission.update.report-installer.v1";
     }
@@ -148,6 +172,19 @@ public static class ProtocolIds
         public const string EitmadErrorIpcDeadlineExceededV1 = "eitmad.error.ipc-deadline-exceeded.v1";
         public const string EitmadErrorProtocolIncompatibleV1 = "eitmad.error.protocol-incompatible.v1";
         public const string EitmadErrorSyncBackpressureV1 = "eitmad.error.sync-backpressure.v1";
+        public const string EitmadErrorServerAuthenticationFailedV1 = "eitmad.error.server-authentication-failed.v1";
+        public const string EitmadErrorServerBootstrapFailedV1 = "eitmad.error.server-bootstrap-failed.v1";
+        public const string EitmadErrorServerClientIncompatibleV1 = "eitmad.error.server-client-incompatible.v1";
+        public const string EitmadErrorServerConfigInvalidV1 = "eitmad.error.server-config-invalid.v1";
+        public const string EitmadErrorServerDatabaseUnavailableV1 = "eitmad.error.server-database-unavailable.v1";
+        public const string EitmadErrorServerDeviceProofInvalidV1 = "eitmad.error.server-device-proof-invalid.v1";
+        public const string EitmadErrorServerIdempotencyMismatchV1 = "eitmad.error.server-idempotency-mismatch.v1";
+        public const string EitmadErrorServerLicenseRequiredV1 = "eitmad.error.server-license-required.v1";
+        public const string EitmadErrorServerMigrationFailedV1 = "eitmad.error.server-migration-failed.v1";
+        public const string EitmadErrorServerRuntimeFailedV1 = "eitmad.error.server-runtime-failed.v1";
+        public const string EitmadErrorServerSnapshotRequiredV1 = "eitmad.error.server-snapshot-required.v1";
+        public const string EitmadErrorServerTokenExpiredV1 = "eitmad.error.server-token-expired.v1";
+        public const string EitmadErrorServerTokenReuseV1 = "eitmad.error.server-token-reuse.v1";
         public const string EitmadErrorUpdateInstallerFailedV1 = "eitmad.error.update-installer-failed.v1";
     }
 
@@ -176,6 +213,19 @@ public static class ProtocolIds
         public const string EitmadMessageObservabilitySensitiveDebugWarningV1 = "eitmad.message.observability-sensitive-debug-warning.v1";
         public const string EitmadMessageProtocolIncompatibleV1 = "eitmad.message.protocol-incompatible.v1";
         public const string EitmadMessageSyncBackpressureV1 = "eitmad.message.sync-backpressure.v1";
+        public const string EitmadMessageServerAuthenticationFailedV1 = "eitmad.message.server-authentication-failed.v1";
+        public const string EitmadMessageServerBootstrapFailedV1 = "eitmad.message.server-bootstrap-failed.v1";
+        public const string EitmadMessageServerClientIncompatibleV1 = "eitmad.message.server-client-incompatible.v1";
+        public const string EitmadMessageServerConfigInvalidV1 = "eitmad.message.server-config-invalid.v1";
+        public const string EitmadMessageServerDatabaseUnavailableV1 = "eitmad.message.server-database-unavailable.v1";
+        public const string EitmadMessageServerDeviceProofInvalidV1 = "eitmad.message.server-device-proof-invalid.v1";
+        public const string EitmadMessageServerIdempotencyMismatchV1 = "eitmad.message.server-idempotency-mismatch.v1";
+        public const string EitmadMessageServerLicenseRequiredV1 = "eitmad.message.server-license-required.v1";
+        public const string EitmadMessageServerMigrationFailedV1 = "eitmad.message.server-migration-failed.v1";
+        public const string EitmadMessageServerRuntimeFailedV1 = "eitmad.message.server-runtime-failed.v1";
+        public const string EitmadMessageServerSnapshotRequiredV1 = "eitmad.message.server-snapshot-required.v1";
+        public const string EitmadMessageServerTokenExpiredV1 = "eitmad.message.server-token-expired.v1";
+        public const string EitmadMessageServerTokenReuseV1 = "eitmad.message.server-token-reuse.v1";
         public const string EitmadMessageUpdateInstallerFailedV1 = "eitmad.message.update-installer-failed.v1";
     }
 

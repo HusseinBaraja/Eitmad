@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-08-20"
+last_verified: "2026-08-22"
 review_triggers:
   - "a documentation collection or canonical entry point changes"
 keywords:
@@ -15,7 +15,7 @@ keywords:
 
 # Eitmad documentation
 
-Choose the route that matches your task. Protocol `1.3`, the engine lifecycle, SQLite authority/recovery, persistent tenant identity, Rust-owned configuration, scoped relationship authorization/audit, shared sync transport policy, and Windows process supervision are implemented foundations; no production sync network driver, identity issuer, native settings UI, or business workflow exists yet.
+Choose the route that matches your task. Protocol `1.4`, the engine lifecycle, SQLite local authority/recovery, PostgreSQL server authority, persistent identity, scoped relationship authorization/audit, shared sync semantics, and Windows process supervision are implemented foundations. No production business domain, native settings UI, MFA/email provider, relay, or update artifact service exists yet.
 
 ## Use the product
 
@@ -28,6 +28,7 @@ No user workflow is ready to document. When the first product flow exists, Engli
 - [Extend scoped authorization and audit](developer/subsystems/authorization.md): tuples, roles, inheritance, conditions, isolation, boundary gates, and complete redacted audit.
 - [Extend persistent tenant identity](developer/subsystems/identity-foundation.md): device, account, session, scope topology, offline behavior, and audit attribution.
 - [Extend synchronization and shared transports](developer/subsystems/synchronization.md): offline edits, one simulation/LAN/WAN interface, authentication/encryption, reconnect/backoff, relay degradation, conflicts, and safe extension.
+- [Extend the modular server authority](developer/subsystems/server-authority.md): accounts, tenants, devices, authentication, licensing, update assignment, PostgreSQL isolation, snapshots, and subscriptions.
 - [Understand the target architecture](architecture/index.md): Rust authority, trust boundaries, synchronization, security, and updates.
 - [Use protocol v1 contracts](api/index.md): exact Rust-owned contracts, compatibility, generation, and native bindings.
 - [Review architectural decisions](decisions/index.md): durable choices, reasons, and consequences.
@@ -39,6 +40,7 @@ No user workflow is ready to document. When the first product flow exists, Engli
 - [Run foundation checks](operations/index.md): currently safe commands and operational-readiness limits.
 - [Run and diagnose the engine](operations/run-engine-runtime.md): headless and supervised modes, readiness JSON, exit codes, and recovery.
 - [Recover and export local storage](operations/recover-local-storage.md): migration snapshots, corruption checks, backup/restore, recovery artifacts, and scoped export.
+- [Run and recover the modular server](operations/run-server-authority.md): PostgreSQL migration, first-owner bootstrap, TLS, readiness, backup, and rollback.
 
 ## Search by symptom or identifier
 

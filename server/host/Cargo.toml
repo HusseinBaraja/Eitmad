@@ -1,0 +1,35 @@
+[package]
+name = "eitmad-server"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+axum = { version = "=0.8.9", features = ["json", "ws"] }
+axum-server = { version = "=0.8.0", features = ["tls-rustls"] }
+base64 = "=0.22.1"
+eitmad-contracts = { path = "../../crates/contracts" }
+eitmad-control-plane = { path = "../control-plane" }
+eitmad-sync-plane = { path = "../sync-plane" }
+semver = "=1.0.27"
+serde = { version = "=1.0.228", features = ["derive"] }
+serde_json = "=1.0.150"
+tokio = { version = "=1.49.0", features = ["macros", "rt-multi-thread", "signal"] }
+tracing = "=0.1.44"
+tracing-subscriber = { version = "=0.3.22", features = ["env-filter", "fmt"] }
+thiserror = "=2.0.18"
+uuid = { version = "=1.23.4", features = ["serde", "v4"] }
+
+[dev-dependencies]
+eitmad-postgres-support = { path = "../postgres-support" }
+tower = { version = "=0.5.3", features = ["util"] }
+
+[[bin]]
+name = "eitmad-server"
+path = "src/main.rs"
+test = false

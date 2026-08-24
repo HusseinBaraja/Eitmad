@@ -1,11 +1,11 @@
 ---
 title: "Use the synchronization and transport contracts"
-description: "Reference Rust-owned sync records, one simulation/LAN/WAN frame, streams, cancellation, delivery identities, negotiation, and cache labels."
+description: "Reference Rust-owned sync records, shared transport frames, snapshot chunks, streams, delivery identities, negotiation, and cache labels."
 audience: "api"
 page_type: "reference"
 status: "active"
 owner: "Rust contract and synchronization maintainers"
-last_verified: "2026-08-20"
+last_verified: "2026-08-22"
 review_triggers:
   - "a type or identifier in crates/contracts/src/sync.rs changes"
   - "the shared transport frame in crates/contracts/src/sync_transport.rs changes"
@@ -30,6 +30,10 @@ keywords:
 | `SyncMode` | Immutable application strategy for one persisted scope: `LocalFirst` or `ServerAuthoritative` |
 | `ChangeRecord` | Scoped upsert/tombstone with change and record identity, base/result revisions, idempotency, schema/versioned bytes, and optional merge provenance |
 | `SyncSnapshot` | Scoped checkpoint projection with server generation and explicit cache validity deadline |
+| `SnapshotManifest` | Complete snapshot identity, scope, schema, checkpoint, generation, record/chunk counts, and checksum |
+| `SnapshotChunk` | Ordered snapshot part with at most 500 scoped records |
+| `SnapshotCompletion` | End marker that repeats snapshot identity and checksum |
+| `SnapshotRequired` | Explicit reason that retained incremental history cannot satisfy a checkpoint |
 | `PendingCommand` | Idempotent server intent with principal-only attribution, typed bytes, and optional optimistic projection |
 | `SyncMetadata` | Connection, checkpoint, last success, generation, and cache deadline for the configured mode |
 | `ConflictRecord` | Local and remote inputs, open/resolved status, and optional `MergeMetadata` |
@@ -58,6 +62,10 @@ An upsert without `payload` and a tombstone with `payload` are invalid. `Encoded
 | `eitmad.sync.acknowledge.v1` | `BatchAcknowledgement` | Acknowledge one delivery and accepted record count |
 | `eitmad.sync.conflict.v1` | `ConflictNotice` | Identify a conflict and both revisions without payload disclosure |
 | `eitmad.sync.backpressure.v1` | `RetryAfter` | Request bounded retry using a stable error reference |
+| `eitmad.sync.snapshot-manifest.v1` | `SnapshotManifest` | Start one complete scoped snapshot transfer |
+| `eitmad.sync.snapshot-chunk.v1` | `SnapshotChunk` | Carry one bounded ordered snapshot part |
+| `eitmad.sync.snapshot-complete.v1` | `SnapshotCompletion` | Finish a snapshot and permit checksum verification |
+| `eitmad.sync.snapshot-required.v1` | `SnapshotRequired` | Refuse an unsafe incremental pull and identify the retained floor |
 
 Normal traffic starts only after `versioning::negotiate` accepts a common protocol, all required capabilities, and required schema ranges. The Rust transport core always offers and requires `eitmad.capability.sync.v1`; a peer without it is incompatible. A `SyncMode` mismatch is also incompatible. Unknown required messages fail; unknown object fields remain the additive compatibility mechanism.
 
@@ -104,4 +112,4 @@ npm run contracts:generate --prefix crates/contracts/codegen
 npm run contracts:verify --prefix crates/contracts/codegen
 ```
 
-The generated schema root exports `SyncMessage`, `SyncTransportFrame`, and `SyncStatus`; referenced sync types are included transitively. See [protocol v1 contracts](index.md), [sync engine and transport ownership](../developer/subsystems/synchronization.md), [sync failure recovery](../troubleshooting/synchronization-failures.md), and [contract evolution](evolve-contracts-compatibly.md).
+The generated schema root exports `SyncMessage`, `SyncTransportFrame`, `SyncStatus`, `ServerClientMessage`, and `ServerMessage`; referenced sync types are included transitively. See [protocol v1 contracts](index.md), [sync engine and transport ownership](../developer/subsystems/synchronization.md), [server authority](../developer/subsystems/server-authority.md), [sync failure recovery](../troubleshooting/synchronization-failures.md), and [contract evolution](evolve-contracts-compatibly.md).

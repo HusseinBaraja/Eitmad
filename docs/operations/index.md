@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-08-20"
+last_verified: "2026-08-22"
 review_triggers:
   - "workspace verification, executable behavior, deployment, backup, or recovery changes"
 keywords:
@@ -17,7 +17,7 @@ keywords:
 
 # Run Eitmad foundation checks
 
-These steps verify the current foundation. Rust owns local SQLite authority through storage version 7, migration snapshots, validated backup/restore, persistent identity, scoped authorization/audit, dual-mode synchronization state, shared simulation/LAN/WAN transport policy, privacy-preserving diagnostics, cross-platform secret storage, corruption checks, and scoped export hooks. Packaging, scheduled backup, production sync discovery/network drivers and scheduling, diagnostic retention, secret recovery tooling, restore/export IPC, and production operator tooling are not implemented.
+These steps verify the current foundation. Rust owns local SQLite authority through storage version 7 and the modular PostgreSQL control and sync server under protocol `1.4`. The foundation includes persistent identity, scoped authorization/audit, dual-mode synchronization, device proof, durable server idempotency and conflicts, snapshots, resumable subscriptions, licensing hooks, update assignment, privacy-preserving diagnostics, secret storage, recovery, and export hooks. Packaging, scheduled backup, LAN discovery, relay, MFA/email providers, update artifacts, diagnostic retention, and production operator UI are not implemented.
 
 ## Prerequisites
 
@@ -98,6 +98,8 @@ These steps verify the current foundation. Rust owns local SQLite authority thro
    cargo test -p eitmad-secret-storage tests::os_native_backend_supports_secret_lifecycle -- --ignored --exact
    ```
 
+11. In an environment with PostgreSQL, follow the [server runbook](run-server-authority.md) and verify migrations, bootstrap, authentication, tenant isolation, sync pull, snapshot fallback, subscription resume, readiness, backup, and restore.
+
 ## Verify
 
 In a healthy development environment, every applicable command should exit with code `0` and no warnings. Diagnostics should print one JSON report; an unhealthy required check may produce exit code `3`. Windows supervision prints `Windows process supervision scenarios passed.` after fake and real-engine checks. Swift binding conformance runs in macOS CI because Swift is not part of the Windows prerequisites.
@@ -116,5 +118,7 @@ If a command fails, stop. Do not hide the warning or bypass the test. Fix the au
 - [Extend privacy-preserving observability safely](../developer/subsystems/privacy-preserving-observability.md)
 - [Use Rust-owned secret storage safely](../developer/subsystems/secret-storage.md)
 - [Extend synchronization and shared transports safely](../developer/subsystems/synchronization.md)
+- [Run and recover the modular server authority](run-server-authority.md)
+- [Extend the modular server authority safely](../developer/subsystems/server-authority.md)
 - [Resolve diagnostic privacy or secret-storage failures](../troubleshooting/privacy-and-secret-leakage.md)
 - [Review the documentation standard](../developer/contributing/documentation-standard.md)

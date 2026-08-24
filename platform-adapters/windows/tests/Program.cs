@@ -81,11 +81,8 @@ internal sealed class SupervisionScenarios
 
     public async Task SupervisedSubscriptionSurvivesReattach()
     {
-        await using var supervised = new SupervisedEngineSubscription(new Subscription
-        {
-            Kind = SubscriptionKind.EitmadSyncStatusSubscribeV1,
-            Payload = [],
-        });
+        await using var supervised = new SupervisedEngineSubscription(
+            Subscription.ForSyncStatusSubscribe(new SyncStatusChanges()));
         var first = new EngineSubscription(Guid.NewGuid(), Guid.NewGuid(), resumed: false);
         supervised.Attach(first, resetCursor: false);
         var firstEvent = EventEnvelope(first.SubscriptionId);
@@ -103,11 +100,8 @@ internal sealed class SupervisionScenarios
 
     public async Task SupervisedSubscriptionRecoversAfterQueueOverflow()
     {
-        await using var supervised = new SupervisedEngineSubscription(new Subscription
-        {
-            Kind = SubscriptionKind.EitmadSyncStatusSubscribeV1,
-            Payload = [],
-        });
+        await using var supervised = new SupervisedEngineSubscription(
+            Subscription.ForSyncStatusSubscribe(new SyncStatusChanges()));
         var overflowing = new EngineSubscription(Guid.NewGuid(), Guid.NewGuid(), resumed: false);
         supervised.Attach(overflowing, resetCursor: false);
         for (var index = 0; index <= EngineSubscription.Capacity; index++)
@@ -140,10 +134,10 @@ internal sealed class SupervisionScenarios
         SubscriptionId = subscriptionId,
         CorrelationId = Guid.NewGuid(),
         Cursor = Guid.NewGuid(),
-        Event = new Event
+        Event = new Dictionary<string, object>
         {
-            Kind = EventKind.EitmadSyncStatusEventV1,
-            Payload = new EventPayload(),
+            ["kind"] = Event.SyncStatusEventKind,
+            ["payload"] = new Dictionary<string, object>(),
         },
         OccurredAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
         Sequence = sequence,

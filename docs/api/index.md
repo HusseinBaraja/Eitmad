@@ -5,7 +5,7 @@ audience: "api"
 page_type: "reference"
 status: "active"
 owner: "Rust contract maintainers"
-last_verified: "2026-08-20"
+last_verified: "2026-08-22"
 review_triggers:
   - "a command, query, subscription, error, version, capability, or generator changes"
 keywords:
@@ -33,6 +33,8 @@ keywords:
 
 The sync contract graph has a focused [synchronization and transport reference](synchronization-contracts.md) covering change records, one simulation/LAN/WAN streaming frame, cancellation, snapshots, pending command queues, conflicts, delivery idempotency, cache labels, and lifecycle events.
 
+The remote server contract adds tenant/account/device authentication shapes, session policy, license state, effective update assignment, server client/server messages, chunked snapshots, and resumable subscription events. Its ownership and invariants are in [the modular server authority](../developer/subsystems/server-authority.md).
+
 Generated files have a `Do not edit` header. Linux bindings remain blocked on the Linux UI technology decision; a future Linux shell must consume the Rust crate directly or add a generated/validated binding through a new decision.
 
 ## Interaction contracts
@@ -54,7 +56,7 @@ The foreground CLI emits lifecycle snapshots as newline-delimited JSON on child 
 
 ## Wire and compatibility rules
 
-- Protocol v1 uses UTF-8 JSON with camel-case fields and explicit `kind`/`payload` tags. The current minor is `1.3`.
+- Protocol v1 uses UTF-8 JSON with camel-case fields and explicit `kind`/`payload` tags. The current minor is `1.4`.
 - Local IPC frames add a four-byte little-endian length and enforce an 8 MiB maximum.
 - UUIDs are lowercase hyphenated strings. Times are Unix milliseconds. Canonical values remain locale-independent.
 - Unknown object fields are accepted for additive minor-version evolution.
@@ -84,7 +86,7 @@ Each peer sends supported protocol major/minor ranges, available and required ca
 - a capability required by either peer but absent from the other;
 - a required schema with no overlapping version.
 
-The encoded window is `1.0–1.3`. Protocol `1.0` supports command/query traffic, `1.1` adds `eitmad.capability.local-ipc-subscriptions.v1`, `1.2` adds relationship mutations/listing, authorization-policy events, and `authorizationRevoked`, and `1.3` adds decodable tenant/workspace fields. Local IPC requires `eitmad.capability.authorization-scopes.v1` and an assigned tenant for every accepted version; workspace remains optional. Missing or unspecified tenant context and missing capability are rejected before normal traffic. Policy events still require `eitmad.capability.authorization-policy-events.v1`. See the [protocol 1.3 release](../releases/protocol-1-3-scoped-authorization-audit.md) for coordinated binding rollout.
+The encoded window is `1.0–1.4`. Protocol `1.0` supports command/query traffic, `1.1` adds local IPC subscriptions, `1.2` adds relationship administration and authorization-policy events, and `1.3` adds decodable tenant/workspace fields. Protocol `1.4` adds the remote server boundary, registered-device proof, snapshot chunks, and resumable server subscriptions. Local IPC requires `eitmad.capability.authorization-scopes.v1` and an assigned tenant for every accepted version. A remote server connection requires protocol `1.4` plus sync, server-connection, device-proof, snapshot-chunk, and subscription-resume capabilities. See the [protocol 1.4 release](../releases/protocol-1-4-server-authority.md) for coordinated binding and database rollout.
 
 Event cursors are opaque, scoped, and valid only in the current engine generation's bounded replay window. Per-subscription sequence numbers order delivered events but do not establish global order. When a close envelope can be delivered, `clientRequested` follows explicit unsubscribe, `engineStopping` precedes shutdown, and `backpressure` identifies an unreplayable discrete gap. For authorization revocation, protocol `1.2` sends `SubscriptionClosed` with `authorizationRevoked`; revoked `1.0` and `1.1` connections terminate without a close envelope. See [typed local IPC](../developer/subsystems/local-ipc.md) for replay, duplicate delivery, backpressure, reauthorization, and resync rules.
 
@@ -95,6 +97,12 @@ The real engine dispatcher currently executes configuration query/update, effect
 Configuration snapshots are revisioned, redacted, stable-key projections. Relationship mutations use a separate optimistic policy revision. Rust also defines scoped object, tuple, condition, permission-rule, request, and decision types for engine-owned boundaries, but they are not part of the current generated IPC root and no generic tuple-management operation exists. Read [configuration authority](../developer/subsystems/configuration.md) and [authorization/audit authority](../developer/subsystems/authorization.md) before consuming these contracts.
 
 The active compatibility window, capability rules, change classification, and major-version rollout process are defined in [Evolve contracts without breaking supported peers](evolve-contracts-compatibly.md).
+
+## Implemented server boundary
+
+The combined server exposes bounded JSON activation, login, refresh, and effective update-assignment routes plus one authenticated WebSocket. The socket accepts hello, sync frames, subscription requests, and cursor acknowledgements. It returns a negotiated hello, sync messages, durable events, or structured failures. A client authenticates its device and negotiates before normal traffic. The host automatically sends a snapshot manifest, chunks, and completion when retained operation history cannot satisfy the requested checkpoint.
+
+The executable has no registered production domain. Domain-specific operations remain unavailable until a vertical supplies one `DomainHandler`, schema, mode, authorization policy, validation or command execution, and conflict policy.
 
 ## Structured failures
 

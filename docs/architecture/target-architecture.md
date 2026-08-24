@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "explanation"
 status: "active"
 owner: "architecture maintainers"
-last_verified: "2026-08-20"
+last_verified: "2026-08-22"
 review_triggers:
   - "an authority, process, trust, storage, sync, update, or performance boundary changes"
 keywords:
@@ -40,7 +40,7 @@ The same Rust engine MUST support:
 - headless operation for supported unattended workflows;
 - diagnostic operation for health checks, compatibility inspection, and support tooling.
 
-Implemented authority foundations now include protocol `1.3`, a runtime-owned SQLite database, organization configuration with `ar-YE` default, scoped relationship policy v2 beside direct policy-v1 compatibility, mandatory redacted boundary audit, durable idempotency, active subscription reauthorization, and one shared simulation/LAN/WAN sync transport policy. Production sync network drivers, native settings UI, trusted production identity provisioning, generic tuple persistence, database encryption, and the first production business vertical remain future work.
+Implemented authority foundations now include protocol `1.4`, a runtime-owned SQLite local database, a modular PostgreSQL control and sync server, organization configuration with `ar-YE` default, scoped relationship policy, mandatory redacted audit, durable idempotency, snapshot-backed history, resumable subscriptions, and one shared sync semantic. Native settings UI, production MFA and invitation providers, relay, update artifacts, database encryption, and the first production business vertical remain future work.
 
 ## Ownership rules
 
@@ -263,7 +263,7 @@ The following designs are prohibited unless an approved architectural decision r
 
 ## Initial implementation gates
 
-Protocol `1.3`, Rust-owned configuration, scoped relationship authorization/audit, privacy-preserving observability, cross-platform secret storage, SQLite authority storage, local IPC, the dual-mode sync engine, and shared sync transport policy are implemented and documented in the [contract reference](../api/index.md). No production sync network driver, business vertical slice, or server sync-plane exists. Before the first production vertical slice, the team MUST define and review:
+Protocol `1.4`, Rust-owned configuration, scoped relationship authorization/audit, privacy-preserving observability, cross-platform secret storage, SQLite local authority, local IPC, the dual-mode sync engine, shared sync transport policy, and the modular PostgreSQL server foundation are implemented and documented in the [contract reference](../api/index.md). No production business vertical or registered server domain exists. Before the first production vertical slice, the team MUST define and review:
 
 1. the first bounded domain and its Arabic terminology;
 2. command, query, subscription, error, version, and capability contracts;

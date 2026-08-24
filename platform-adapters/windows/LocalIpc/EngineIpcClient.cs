@@ -77,7 +77,7 @@ public sealed class EngineIpcClient : IAsyncDisposable
         {
             var requestId = Guid.NewGuid();
             var response = await client.SendFrameAsync(
-                IpcClientMessageKind.EitmadIpcHandshakeV1,
+                IpcClientMessage.IpcHandshakeKind,
                 new HandshakeRequest
                 {
                     RequestId = requestId,
@@ -91,26 +91,23 @@ public sealed class EngineIpcClient : IAsyncDisposable
                 cancellationToken,
                 commandOutcomeUnknown: false).ConfigureAwait(false);
 
-            if (response.Kind != IpcServerMessageKind.EitmadIpcHandshakeResponseV1
-                || response.Payload.Outcome is null)
+            var handshake = response.AsIpcHandshakeResponse();
+            if (handshake?.Outcome?.Payload is null)
             {
                 throw ProtocolViolation("The engine returned an invalid handshake response.");
             }
 
-            if (response.Payload.Outcome.Status != OutcomeStatus.Accepted)
+            if (handshake.Outcome.Status != NegotiationOutcomeStatus.Accepted)
             {
-                var rejection = response.Payload.Outcome.Payload;
-                var kind = rejection?.Kind == TentacledKind.Negotiation
+                var kind = handshake.Outcome.Payload.Kind == FluffyKind.Negotiation
                     ? EngineIpcFailureKind.VersionMismatch
                     : EngineIpcFailureKind.AuthenticationRejected;
                 throw new EngineIpcException(kind, "The engine rejected the local IPC handshake.");
             }
 
-            var accepted = response.Payload.Outcome.Payload
-                ?? throw ProtocolViolation("The engine omitted the accepted handshake payload.");
-            client.Authorization = accepted.Authorization
+            client.Authorization = handshake.Outcome.Payload.Authorization
                 ?? throw ProtocolViolation("The engine omitted the negotiated authorization session.");
-            client.NegotiatedSession = accepted.Negotiated
+            client.NegotiatedSession = handshake.Outcome.Payload.Negotiated
                 ?? throw ProtocolViolation("The engine omitted protocol negotiation details.");
             return client;
         }
@@ -128,16 +125,16 @@ public sealed class EngineIpcClient : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(request);
         ApplySession(request.Authorization, request.ProtocolVersion);
-        var payload = ConvertPayload<HandshakeRequest>(request);
         var response = await SendFrameAsync(
-            IpcClientMessageKind.EitmadIpcCommandV1,
-            payload,
+            IpcClientMessage.IpcCommandKind,
+            request,
             request.RequestId,
             timeout ?? DefaultRequestTimeout,
             cancellationToken,
             commandOutcomeUnknown: true).ConfigureAwait(false);
-        EnsureKind(response, IpcServerMessageKind.EitmadIpcCommandResponseV1);
-        return ConvertPayload<CommandResponseEnvelope>(response.Payload);
+        EnsureKind(response, IpcServerMessage.IpcCommandResponseKind);
+        return response.AsIpcCommandResponse()
+            ?? throw ProtocolViolation("The engine returned an invalid command response.");
     }
 
     public async Task<QueryResponseEnvelope> SendQueryAsync(
@@ -147,16 +144,16 @@ public sealed class EngineIpcClient : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(request);
         ApplySession(request.Authorization, request.ProtocolVersion);
-        var payload = ConvertPayload<HandshakeRequest>(request);
         var response = await SendFrameAsync(
-            IpcClientMessageKind.EitmadIpcQueryV1,
-            payload,
+            IpcClientMessage.IpcQueryKind,
+            request,
             request.RequestId,
             timeout ?? DefaultRequestTimeout,
             cancellationToken,
             commandOutcomeUnknown: false).ConfigureAwait(false);
-        EnsureKind(response, IpcServerMessageKind.EitmadIpcQueryResponseV1);
-        return ConvertPayload<QueryResponseEnvelope>(response.Payload);
+        EnsureKind(response, IpcServerMessage.IpcQueryResponseKind);
+        return response.AsIpcQueryResponse()
+            ?? throw ProtocolViolation("The engine returned an invalid query response.");
     }
 
     public async Task<EngineSubscription> SubscribeAsync(
@@ -174,16 +171,17 @@ public sealed class EngineIpcClient : IAsyncDisposable
         try
         {
             var response = await SendFrameAsync(
-                IpcClientMessageKind.EitmadIpcSubscribeV1,
-                ConvertPayload<HandshakeRequest>(request),
+                IpcClientMessage.IpcSubscribeKind,
+                request,
                 request.RequestId,
                 timeout ?? DefaultRequestTimeout,
                 cancellationToken,
                 commandOutcomeUnknown: false).ConfigureAwait(false);
-            EnsureKind(response, IpcServerMessageKind.EitmadIpcSubscribeResponseV1);
-            var outcome = response.Payload.Outcome
-                ?? throw ProtocolViolation("The engine omitted the subscription outcome.");
-            if (outcome.Status != OutcomeStatus.Succeeded)
+            EnsureKind(response, IpcServerMessage.IpcSubscribeResponseKind);
+            var subscribeResponse = response.AsIpcSubscribeResponse()
+                ?? throw ProtocolViolation("The engine returned an invalid subscription response.");
+            var outcome = subscribeResponse.Outcome;
+            if (outcome.Status != CommandOutcomeStatus.Succeeded)
             {
                 var error = ConvertPayload<ContractError>(outcome.Payload);
                 var kind = error.Code == ProtocolIds.ErrorCodes.EitmadErrorIpcSubscriptionResyncRequiredV1
@@ -229,8 +227,8 @@ public sealed class EngineIpcClient : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(subscription);
         var requestId = Guid.NewGuid();
         var response = await SendFrameAsync(
-            IpcClientMessageKind.EitmadIpcUnsubscribeV1,
-            new HandshakeRequest
+            IpcClientMessage.IpcUnsubscribeKind,
+            new UnsubscribeRequest
             {
                 RequestId = requestId,
                 CorrelationId = Guid.NewGuid(),
@@ -240,8 +238,8 @@ public sealed class EngineIpcClient : IAsyncDisposable
             timeout ?? DefaultRequestTimeout,
             cancellationToken,
             commandOutcomeUnknown: false).ConfigureAwait(false);
-        EnsureKind(response, IpcServerMessageKind.EitmadIpcUnsubscribeResponseV1);
-        if (response.Payload.Accepted != true)
+        EnsureKind(response, IpcServerMessage.IpcUnsubscribeResponseKind);
+        if (response.AsIpcUnsubscribeResponse()?.Accepted != true)
         {
             throw ProtocolViolation("The engine did not recognize the active subscription.");
         }
@@ -256,8 +254,8 @@ public sealed class EngineIpcClient : IAsyncDisposable
     {
         var requestId = Guid.NewGuid();
         var response = await SendFrameAsync(
-            IpcClientMessageKind.EitmadIpcShutdownV1,
-            new HandshakeRequest
+            IpcClientMessage.IpcShutdownKind,
+            new ShutdownRequest
             {
                 RequestId = requestId,
                 CorrelationId = Guid.NewGuid(),
@@ -266,8 +264,8 @@ public sealed class EngineIpcClient : IAsyncDisposable
             timeout ?? DefaultRequestTimeout,
             cancellationToken,
             commandOutcomeUnknown: false).ConfigureAwait(false);
-        EnsureKind(response, IpcServerMessageKind.EitmadIpcShutdownResponseV1);
-        if (response.Payload.Accepted != true)
+        EnsureKind(response, IpcServerMessage.IpcShutdownResponseKind);
+        if (response.AsIpcShutdownResponse()?.Accepted != true)
         {
             throw new EngineIpcException(
                 EngineIpcFailureKind.EngineStopping,
@@ -276,8 +274,8 @@ public sealed class EngineIpcClient : IAsyncDisposable
     }
 
     private async Task<IpcServerMessage> SendFrameAsync(
-        IpcClientMessageKind kind,
-        HandshakeRequest payload,
+        string kind,
+        object payload,
         Guid requestId,
         TimeSpan timeout,
         CancellationToken cancellationToken,
@@ -363,9 +361,10 @@ public sealed class EngineIpcClient : IAsyncDisposable
                 await pipe.ReadExactlyAsync(payload, lifetime.Token).ConfigureAwait(false);
                 var message = JsonSerializer.Deserialize<IpcServerMessage>(payload, Converter.Settings)
                     ?? throw ProtocolViolation("The engine returned an empty IPC response.");
-                if (message.Kind == IpcServerMessageKind.EitmadIpcEventV1)
+                if (message.Kind == IpcServerMessage.IpcEventKind)
                 {
-                    var delivered = ConvertPayload<EventEnvelope>(message.Payload);
+                    var delivered = message.AsIpcEvent()
+                        ?? throw ProtocolViolation("The engine emitted an invalid event frame.");
                     if (!subscriptions.TryGetValue(delivered.SubscriptionId, out var subscription))
                     {
                         if (earlySubscriptionEvents.TryGetValue(delivered.CorrelationId, out var earlyEvents)
@@ -384,29 +383,30 @@ public sealed class EngineIpcClient : IAsyncDisposable
                     }
                     continue;
                 }
-                if (message.Kind == IpcServerMessageKind.EitmadIpcSubscriptionClosedV1)
+                if (message.Kind == IpcServerMessage.IpcSubscriptionClosedKind)
                 {
+                    var closed = message.AsIpcSubscriptionClosed();
                     var error = new EngineIpcException(
                         EngineIpcFailureKind.SubscriptionBackpressure,
                         "The engine closed a subscription because replay could not preserve a discrete event.");
-                    if (message.Payload.SubscriptionId is { } subscriptionId
+                    if (closed?.SubscriptionId is { } subscriptionId
                         && subscriptions.TryRemove(subscriptionId, out var subscription))
                     {
                         subscription.Complete(error);
                     }
                     throw error;
                 }
-                var requestId = message.Payload?.RequestId;
+                var requestId = RequestIdOf(message);
                 if (requestId is { } id && pending.TryRemove(id, out var completion))
                 {
                     completion.TrySetResult(message);
                 }
-                else if (message.Kind == IpcServerMessageKind.EitmadIpcFailureV1)
+                else if (message.Kind == IpcServerMessage.IpcFailureKind)
                 {
                     FailPending(new EngineIpcException(
                         EngineIpcFailureKind.ProtocolViolation,
                         "The engine returned an uncorrelated structured IPC failure.",
-                        message.Payload?.Error));
+                        message.AsIpcFailure()?.Error));
                 }
             }
         }
@@ -434,13 +434,24 @@ public sealed class EngineIpcClient : IAsyncDisposable
         protocol.Minor = NegotiatedSession.Protocol.Minor;
     }
 
-    private static void EnsureKind(IpcServerMessage response, IpcServerMessageKind expected)
+    private static void EnsureKind(IpcServerMessage response, string expected)
     {
         if (response.Kind != expected)
         {
             throw ProtocolViolation("The engine response kind did not match the request.");
         }
     }
+
+    private static Guid? RequestIdOf(IpcServerMessage message) => message.Kind switch
+    {
+        IpcServerMessage.IpcHandshakeResponseKind => message.AsIpcHandshakeResponse()?.RequestId,
+        IpcServerMessage.IpcCommandResponseKind => message.AsIpcCommandResponse()?.RequestId,
+        IpcServerMessage.IpcQueryResponseKind => message.AsIpcQueryResponse()?.RequestId,
+        IpcServerMessage.IpcSubscribeResponseKind => message.AsIpcSubscribeResponse()?.RequestId,
+        IpcServerMessage.IpcUnsubscribeResponseKind => message.AsIpcUnsubscribeResponse()?.RequestId,
+        IpcServerMessage.IpcShutdownResponseKind => message.AsIpcShutdownResponse()?.RequestId,
+        _ => null,
+    };
 
     private static T ConvertPayload<T>(object value)
     {
