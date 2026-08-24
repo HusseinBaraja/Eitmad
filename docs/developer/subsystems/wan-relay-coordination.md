@@ -35,9 +35,9 @@ The relay plane brokers authenticated WAN connection metadata when a direct serv
 
 `RelayCoordinator::open` requires the authenticated device to match `source_device_id`, a tenant member relationship, a route whose peer device belongs to the same tenant, and a TTL from `1` ms through `3,600,000` ms. The default caller TTL is `900,000` ms. A successful session moves from `Connecting` to `Active` only after routing and audit succeed.
 
-An active device may heartbeat its own session. A failed route uses `schedule_reconnect`, which increments a bounded attempt counter and sets `next_reconnect_at` with exponential delay. `reconnect_due` rejects early attempts with `RetryNotDue`, restores `Active` after a successful hook, and stops after eight attempts or session expiry. Close is idempotent. Administrative close is a distinct owner-only relay action.
+An active device may heartbeat its own session. A failed route uses `schedule_reconnect`, which increments a bounded attempt counter and sets `next_reconnect_at` with exponential delay. `reconnect_due` rejects early attempts with `RetryNotDue`, restores `Active` after a successful hook, and stops after eight attempts or session expiry. Every existing-session metadata mutation rechecks the original session under the write lock and rejects a stale concurrent clone instead of overwriting newer state. Close is idempotent. It removes active state and retains at most 1,024 expiring closed-session records per tenant for repeated close requests. Administrative close is a distinct owner-only relay action.
 
-Health is tenant scoped. It reports active, reconnecting, and failed counts plus whether the process accepts new sessions. Failure reports contain only stable phase, code, retry, time, device, tenant, session, and correlation metadata. The process retains at most 1,024 reports; it does not retain payload bytes or free-text customer content.
+Health is tenant scoped. It prunes expired active and closed state, then reports active, reconnecting, and failed counts plus whether the process accepts new sessions. Failure reports contain only stable phase, code, retry, time, device, tenant, session, and correlation metadata. The process retains at most 1,024 reports per tenant; one tenant cannot evict another tenant's evidence. It does not retain payload bytes or free-text customer content.
 
 ## Authorization, tenant isolation, and audit
 
@@ -63,7 +63,7 @@ The relay has no UI and treats sync payloads as opaque bytes. It does not normal
 
 ## Tests and safe extension
 
-`server/relay-plane/src/lib.rs` tests the complete open, heartbeat, reconnect, and close lifecycle; denied sessions; audit calls; tenant isolation; and tenant-scoped failure visibility. `server/host/src/http.rs` verifies that relay routes reject unauthenticated calls. The existing WAN transport tests verify that relay fallback never bypasses authentication, encryption, or compatibility failures.
+`server/relay-plane/src/lib.rs` tests the complete open, heartbeat, reconnect, and idempotent close lifecycle; stale-mutation rejection; denied router isolation; audit calls; tenant isolation; and independent per-tenant failure bounds. `server/host/src/http.rs` verifies negotiation before authentication. The existing WAN transport tests verify that relay fallback never bypasses authentication, encryption, or compatibility failures.
 
 Run:
 

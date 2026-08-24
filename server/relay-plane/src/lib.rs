@@ -23,6 +23,7 @@ pub const DEFAULT_RELAY_SESSION_TTL_MS: u64 = 15 * 60 * 1_000;
 pub const MAX_RELAY_SESSION_TTL_MS: u64 = 60 * 60 * 1_000;
 pub const MAX_RECONNECT_ATTEMPTS: u32 = 8;
 pub const MAX_FAILURE_REPORTS: usize = 1_024;
+pub const MAX_CLOSED_SESSIONS_PER_TENANT: usize = 1_024;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RelayAction {
@@ -107,7 +108,8 @@ pub trait RelayRouter: Send + Sync {
 #[derive(Default)]
 struct RelayState {
     sessions: BTreeMap<RelaySessionId, RelaySessionMetadata>,
-    failures: VecDeque<RelayFailureReport>,
+    closed_sessions: BTreeMap<eitmad_contracts::identity::TenantId, VecDeque<RelaySessionMetadata>>,
+    failures: BTreeMap<eitmad_contracts::identity::TenantId, VecDeque<RelayFailureReport>>,
     accepting_sessions: bool,
 }
 
@@ -184,12 +186,12 @@ impl RelayCoordinator {
             .await?;
             return Err(RelayError::Invalid);
         }
-        if !self
-            .state
-            .read()
-            .map_err(|_| RelayError::Unavailable)?
-            .accepting_sessions
-        {
+        let accepting_sessions = {
+            let mut state = self.state.write().map_err(|_| RelayError::Unavailable)?;
+            prune_expired_sessions(&mut state, now);
+            state.accepting_sessions
+        };
+        if !accepting_sessions {
             self.audit(
                 actor,
                 RelayAction::Open,
@@ -270,6 +272,7 @@ impl RelayCoordinator {
                 now,
             )
             .await?;
+        let original = session.clone();
         self.authorize_for_action(
             actor,
             RelayAction::Heartbeat,
@@ -304,7 +307,7 @@ impl RelayCoordinator {
             now,
         )
         .await?;
-        self.replace_session(session.clone())?;
+        self.replace_session_if_unchanged(&original, session.clone())?;
         Ok(session)
     }
 
@@ -329,6 +332,7 @@ impl RelayCoordinator {
                 now,
             )
             .await?;
+        let original = session.clone();
         self.authorize_for_action(
             actor,
             RelayAction::Reconnect,
@@ -356,7 +360,7 @@ impl RelayCoordinator {
                 now,
             )
             .await?;
-            self.replace_session(session)?;
+            self.replace_session_if_unchanged(&original, session)?;
             return Err(RelayError::RouteUnavailable);
         }
         session.reconnect_attempt += 1;
@@ -375,7 +379,7 @@ impl RelayCoordinator {
             now,
         )
         .await?;
-        self.replace_session(session.clone())?;
+        self.replace_session_if_unchanged(&original, session.clone())?;
         Ok(session)
     }
 
@@ -400,6 +404,7 @@ impl RelayCoordinator {
                 now,
             )
             .await?;
+        let original = session.clone();
         self.authorize_for_action(
             actor,
             RelayAction::Reconnect,
@@ -456,7 +461,7 @@ impl RelayCoordinator {
             now,
         )
         .await?;
-        self.replace_session(session.clone())?;
+        self.replace_session_if_unchanged(&original, session.clone())?;
         Ok(session)
     }
 
@@ -475,6 +480,7 @@ impl RelayCoordinator {
         let mut session = self
             .owned_session_for_action(actor, RelayAction::Close, session_id, correlation_id, now)
             .await?;
+        let original = session.clone();
         self.authorize_for_action(
             actor,
             RelayAction::Close,
@@ -512,7 +518,9 @@ impl RelayCoordinator {
             now,
         )
         .await?;
-        self.replace_session(session.clone())?;
+        if original.state != RelaySessionState::Closed {
+            self.close_session_if_unchanged(&original, session.clone())?;
+        }
         Ok(session)
     }
 
@@ -531,11 +539,7 @@ impl RelayCoordinator {
     ) -> Result<RelaySessionMetadata, RelayError> {
         let found = {
             let state = self.state.read().map_err(|_| RelayError::Unavailable)?;
-            state
-                .sessions
-                .get(&session_id)
-                .filter(|session| session.tenant_id == actor.tenant_id)
-                .cloned()
+            session_for_tenant(&state, actor.tenant_id, session_id)
         };
         let Some(mut session) = found else {
             self.audit(
@@ -549,6 +553,7 @@ impl RelayCoordinator {
             .await?;
             return Err(RelayError::NotFound);
         };
+        let original = session.clone();
         self.authorize_for_action(
             actor,
             RelayAction::AdministrativeClose,
@@ -586,7 +591,9 @@ impl RelayCoordinator {
             now,
         )
         .await?;
-        self.replace_session(session.clone())?;
+        if original.state != RelaySessionState::Closed {
+            self.close_session_if_unchanged(&original, session.clone())?;
+        }
         Ok(session)
     }
 
@@ -635,10 +642,11 @@ impl RelayCoordinator {
         )
         .await?;
         let mut state = self.state.write().map_err(|_| RelayError::Unavailable)?;
-        if state.failures.len() == MAX_FAILURE_REPORTS {
-            state.failures.pop_front();
+        let failures = state.failures.entry(report.tenant_id).or_default();
+        if failures.len() == MAX_FAILURE_REPORTS {
+            failures.pop_front();
         }
-        state.failures.push_back(report);
+        failures.push_back(report);
         Ok(())
     }
 
@@ -666,7 +674,8 @@ impl RelayCoordinator {
         )
         .await?;
         let health = {
-            let state = self.state.read().map_err(|_| RelayError::Unavailable)?;
+            let mut state = self.state.write().map_err(|_| RelayError::Unavailable)?;
+            prune_expired_sessions(&mut state, now);
             let tenant_sessions = state
                 .sessions
                 .values()
@@ -719,10 +728,8 @@ impl RelayCoordinator {
             |state| {
                 state
                     .failures
-                    .iter()
-                    .filter(|report| report.tenant_id == tenant_id)
-                    .cloned()
-                    .collect()
+                    .get(&tenant_id)
+                    .map_or_else(Vec::new, |reports| reports.iter().cloned().collect())
             },
         )
     }
@@ -795,11 +802,20 @@ impl RelayCoordinator {
         let session = state
             .sessions
             .get(&session_id)
+            .cloned()
+            .or_else(|| {
+                state
+                    .closed_sessions
+                    .values()
+                    .flat_map(|sessions| sessions.iter())
+                    .find(|session| session.relay_session_id == session_id)
+                    .cloned()
+            })
             .ok_or(RelayError::NotFound)?;
         if session.tenant_id != actor.tenant_id || session.source_device_id != actor.device_id {
             return Err(RelayError::Denied);
         }
-        Ok(session.clone())
+        Ok(session)
     }
 
     async fn owned_session_for_action(
@@ -827,14 +843,71 @@ impl RelayCoordinator {
         }
     }
 
-    fn replace_session(&self, session: RelaySessionMetadata) -> Result<(), RelayError> {
-        self.state
-            .write()
-            .map_err(|_| RelayError::Unavailable)?
+    fn replace_session_if_unchanged(
+        &self,
+        original: &RelaySessionMetadata,
+        replacement: RelaySessionMetadata,
+    ) -> Result<(), RelayError> {
+        let mut state = self.state.write().map_err(|_| RelayError::Unavailable)?;
+        if state.sessions.get(&original.relay_session_id) != Some(original) {
+            return Err(RelayError::Invalid);
+        }
+        state
             .sessions
-            .insert(session.relay_session_id, session);
+            .insert(replacement.relay_session_id, replacement);
         Ok(())
     }
+
+    fn close_session_if_unchanged(
+        &self,
+        original: &RelaySessionMetadata,
+        closed: RelaySessionMetadata,
+    ) -> Result<(), RelayError> {
+        let mut state = self.state.write().map_err(|_| RelayError::Unavailable)?;
+        if state.sessions.get(&original.relay_session_id) != Some(original) {
+            return Err(RelayError::Invalid);
+        }
+        state.sessions.remove(&original.relay_session_id);
+        let closed_sessions = state.closed_sessions.entry(closed.tenant_id).or_default();
+        if closed_sessions.len() == MAX_CLOSED_SESSIONS_PER_TENANT {
+            closed_sessions.pop_front();
+        }
+        closed_sessions.push_back(closed);
+        Ok(())
+    }
+}
+
+fn session_for_tenant(
+    state: &RelayState,
+    tenant_id: eitmad_contracts::identity::TenantId,
+    session_id: RelaySessionId,
+) -> Option<RelaySessionMetadata> {
+    state
+        .sessions
+        .get(&session_id)
+        .filter(|session| session.tenant_id == tenant_id)
+        .cloned()
+        .or_else(|| {
+            state
+                .closed_sessions
+                .get(&tenant_id)
+                .and_then(|sessions| {
+                    sessions
+                        .iter()
+                        .find(|session| session.relay_session_id == session_id)
+                })
+                .cloned()
+        })
+}
+
+fn prune_expired_sessions(state: &mut RelayState, now: UnixMillis) {
+    state
+        .sessions
+        .retain(|_, session| session.expires_at.0 >= now.0);
+    state.closed_sessions.retain(|_, sessions| {
+        sessions.retain(|session| session.expires_at.0 >= now.0);
+        !sessions.is_empty()
+    });
 }
 
 const fn reconnect_delay_ms(attempt: u32) -> i64 {
@@ -864,7 +937,7 @@ const fn outcome_for(error: RelayError) -> RelayAuditOutcome {
 mod tests {
     use std::sync::{
         Mutex,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     };
 
     use eitmad_contracts::{
@@ -914,6 +987,7 @@ mod tests {
     #[derive(Default)]
     struct TestRouter {
         fail: AtomicBool,
+        invocations: AtomicUsize,
     }
 
     #[async_trait]
@@ -931,6 +1005,7 @@ mod tests {
 
     impl TestRouter {
         fn connect(&self) -> Result<(), RelayError> {
+            self.invocations.fetch_add(1, Ordering::SeqCst);
             (!self.fail.load(Ordering::SeqCst))
                 .then_some(())
                 .ok_or(RelayError::RouteUnavailable)
@@ -1032,7 +1107,106 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(closed.state, RelaySessionState::Closed);
+        let closed_again = coordinator
+            .close(
+                &actor,
+                opened.relay_session_id,
+                request.correlation_id,
+                UnixMillis(101),
+            )
+            .await
+            .unwrap();
+        assert_eq!(closed_again, closed);
+        assert!(
+            !coordinator
+                .state
+                .read()
+                .unwrap()
+                .sessions
+                .contains_key(&opened.relay_session_id)
+        );
         assert!(security.audits.lock().unwrap().len() >= 6);
+    }
+
+    #[tokio::test]
+    async fn stale_session_mutations_are_rejected() {
+        let (coordinator, _, _) = coordinator(true);
+        let actor = actor(1, 2);
+        let opened = coordinator
+            .open(&actor, &request(&actor), UnixMillis(10))
+            .await
+            .unwrap();
+        let original = opened.clone();
+        let mut first = original.clone();
+        first.last_seen_at = UnixMillis(20);
+        coordinator
+            .replace_session_if_unchanged(&original, first)
+            .unwrap();
+        let mut stale = original.clone();
+        stale.reconnect_attempt = 1;
+
+        assert_eq!(
+            coordinator.replace_session_if_unchanged(&original, stale),
+            Err(RelayError::Invalid)
+        );
+    }
+
+    #[tokio::test]
+    async fn failure_report_limits_are_independent_per_tenant() {
+        let (coordinator, _, _) = coordinator(true);
+        let first = actor(1, 2);
+        let second = actor(3, 4);
+        for index in 0..=MAX_FAILURE_REPORTS {
+            coordinator
+                .report_failure(
+                    &first,
+                    RelayFailureReport {
+                        failure_id: RelayFailureId::new(Uuid::nil()),
+                        relay_session_id: None,
+                        tenant_id: first.tenant_id,
+                        source_device_id: first.device_id,
+                        phase: RelayFailurePhase::Route,
+                        code: RelayFailureCode::parse("eitmad.relay.route-unavailable.v1").unwrap(),
+                        retryable: true,
+                        retry_after_ms: Some(1_000),
+                        occurred_at: UnixMillis(i64::try_from(index).unwrap()),
+                        correlation_id: CorrelationId::new(Uuid::new_v4()),
+                    },
+                )
+                .await
+                .unwrap();
+        }
+        coordinator
+            .report_failure(
+                &second,
+                RelayFailureReport {
+                    failure_id: RelayFailureId::new(Uuid::nil()),
+                    relay_session_id: None,
+                    tenant_id: second.tenant_id,
+                    source_device_id: second.device_id,
+                    phase: RelayFailurePhase::Route,
+                    code: RelayFailureCode::parse("eitmad.relay.route-unavailable.v1").unwrap(),
+                    retryable: false,
+                    retry_after_ms: None,
+                    occurred_at: UnixMillis(1),
+                    correlation_id: CorrelationId::new(Uuid::new_v4()),
+                },
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(
+            coordinator
+                .failure_reports_for_tenant(first.tenant_id)
+                .len(),
+            MAX_FAILURE_REPORTS
+        );
+        assert_eq!(
+            coordinator
+                .failure_reports_for_tenant(second.tenant_id)
+                .len(),
+            1
+        );
     }
 
     #[tokio::test]
@@ -1045,7 +1219,7 @@ mod tests {
                 .await,
             Err(RelayError::Denied)
         );
-        assert!(!router.fail.load(Ordering::SeqCst));
+        assert_eq!(router.invocations.load(Ordering::SeqCst), 0);
         assert_eq!(
             security.audits.lock().unwrap().as_slice(),
             &[(RelayAction::Open, RelayAuditOutcome::Denied)]
