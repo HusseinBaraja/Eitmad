@@ -54,8 +54,11 @@ The server requires these capabilities:
 - `eitmad.capability.server-device-proof.v1`
 - `eitmad.capability.server-snapshot-chunks.v1`
 - `eitmad.capability.server-subscription-resume.v1`
+- `eitmad.capability.server-relay.v1`
+- `eitmad.capability.server-update-distribution.v1`
+- `eitmad.capability.server-administration.v1`
 
-Negotiation selects an overlapping protocol and registered schema range. Missing capabilities, an unknown required schema, or no compatible version produces `eitmad.error.server-client-incompatible.v1` before normal traffic. Protocol `1.0–1.3` remains in the encoded compatibility window for existing local IPC behavior. Server sync needs at least `1.4`; clients use the new `1.5` contract types and capabilities for relay, update distribution, and administration.
+Negotiation selects an overlapping protocol and registered schema range. Missing capabilities, an unknown required schema, or no compatible version produces `eitmad.error.server-client-incompatible.v1` before normal traffic. Protocol `1.0–1.3` remains in the encoded compatibility window for existing local IPC behavior. Server sync needs at least `1.4`. Each relay, update-distribution, or administration HTTP request must send the base64url-encoded `PeerHello` JSON in `x-eitmad-peer-hello`; Rust requires protocol `1.5` and the route capability before it authenticates or dispatches the request.
 
 ## Identity, authentication, and sessions
 
@@ -129,7 +132,7 @@ The host revalidates the authenticated session every 60 seconds for the lifetime
 
 The process-wide PostgreSQL connection budget is split evenly across control, sync, and administration pools (`pool_connection_budget`), so `EITMAD_SERVER_MAX_CONNECTIONS` bounds total pool connections. The serve path refuses readiness when no sync domain is registered; `/readyz` never reports success for a server that cannot serve any schema. A malformed `bootstrap` invocation prints usage and exits with a failure code instead of succeeding silently.
 
-Relay actions require tenant membership and source-device ownership. Administrative close, manifest publication, and all administration routes require tenant ownership. Read [WAN relay coordination](wan-relay-coordination.md) and [server administration](server-administration.md) before extending these boundaries.
+Relay actions require tenant membership and source-device ownership. Administrative close and all administration routes require tenant ownership. Manifest publication requires the configured operator tenant and its dedicated publish permission. Read [WAN relay coordination](wan-relay-coordination.md) and [server administration](server-administration.md) before extending these boundaries.
 
 ## Arabic UX impact
 

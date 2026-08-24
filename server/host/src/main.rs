@@ -7,8 +7,8 @@ use eitmad_control_plane::{BootstrapInput, ControlDatabase, ControlPlane};
 use eitmad_relay_plane::RelayCoordinator;
 use eitmad_release_policy::TrustedUpdateKeys;
 use eitmad_server::{
-    MetadataRelayRouter, ServerCommand, ServerConfig, ServerPlaneSecurity, ServerRelayMetrics,
-    ServerState, ServerSupportExecutor,
+    MetadataRelayRouter, MigrationConfig, ServerCommand, ServerConfig, ServerPlaneSecurity,
+    ServerRelayMetrics, ServerState, ServerSupportExecutor,
 };
 use eitmad_sync_plane::{DomainRegistry, SyncCoordinator, SyncDatabase};
 use eitmad_update_plane::{FileManifestRepository, UpdateCatalog};
@@ -43,37 +43,19 @@ async fn execute() -> Result<(), MainError> {
         print_help();
         return Err(MainError::Input);
     }
+    if command == ServerCommand::Migrate {
+        let config = MigrationConfig::from_environment().map_err(|_| MainError::Configuration)?;
+        migrated_databases(&config.database_url, config.maximum_database_connections).await?;
+        println!("server migrations are current");
+        return Ok(());
+    }
     let config = ServerConfig::from_environment().map_err(|_| MainError::Configuration)?;
     if command == ServerCommand::CheckConfig {
         println!("server configuration is valid");
         return Ok(());
     }
-    let pool_budget = eitmad_server::pool_connection_budget(config.maximum_database_connections);
-    let control_database = ControlDatabase::connect(&config.database_url, pool_budget)
-        .await
-        .map_err(|_| MainError::Database)?;
-    control_database
-        .migrate()
-        .await
-        .map_err(|_| MainError::Migration)?;
-    let sync_database = SyncDatabase::connect(&config.database_url, pool_budget)
-        .await
-        .map_err(|_| MainError::Database)?;
-    sync_database
-        .migrate()
-        .await
-        .map_err(|_| MainError::Migration)?;
-    let admin_database = AdminDatabase::connect(&config.database_url, pool_budget)
-        .await
-        .map_err(|_| MainError::Database)?;
-    admin_database
-        .migrate()
-        .await
-        .map_err(|_| MainError::Migration)?;
-    if command == ServerCommand::Migrate {
-        println!("server migrations are current");
-        return Ok(());
-    }
+    let (control_database, sync_database, admin_database) =
+        migrated_databases(&config.database_url, config.maximum_database_connections).await?;
     let control = ControlPlane::new(control_database.pool(), config.token_key.clone());
     if let ServerCommand::Bootstrap {
         tenant_code,
@@ -116,13 +98,45 @@ async fn execute() -> Result<(), MainError> {
         .map_err(|_| MainError::Runtime)
 }
 
+async fn migrated_databases(
+    database_url: &str,
+    maximum_database_connections: u32,
+) -> Result<(ControlDatabase, SyncDatabase, AdminDatabase), MainError> {
+    let pool_budget = eitmad_server::pool_connection_budget(maximum_database_connections);
+    let control_database = ControlDatabase::connect(database_url, pool_budget)
+        .await
+        .map_err(|_| MainError::Database)?;
+    control_database
+        .migrate()
+        .await
+        .map_err(|_| MainError::Migration)?;
+    let sync_database = SyncDatabase::connect(database_url, pool_budget)
+        .await
+        .map_err(|_| MainError::Database)?;
+    sync_database
+        .migrate()
+        .await
+        .map_err(|_| MainError::Migration)?;
+    let admin_database = AdminDatabase::connect(database_url, pool_budget)
+        .await
+        .map_err(|_| MainError::Database)?;
+    admin_database
+        .migrate()
+        .await
+        .map_err(|_| MainError::Migration)?;
+    Ok((control_database, sync_database, admin_database))
+}
+
 fn compose_server_state(
     config: &ServerConfig,
     control: ControlPlane,
     sync: SyncCoordinator,
     admin_database: &AdminDatabase,
 ) -> Result<ServerState, MainError> {
-    let security = Arc::new(ServerPlaneSecurity::new(control.access.clone()));
+    let security = Arc::new(ServerPlaneSecurity::new(
+        control.access.clone(),
+        config.update_operator_tenant_id,
+    ));
     let relay = RelayCoordinator::new(security.clone(), Arc::new(MetadataRelayRouter));
     let support = Arc::new(ServerSupportExecutor::new(
         relay.clone(),

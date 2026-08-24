@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use async_trait::async_trait;
 use eitmad_admin_plane::{
     AdministrativeAction, AdministrativeAuditOutcome, AdministrativeError, AdministrativeSecurity,
@@ -5,6 +7,7 @@ use eitmad_admin_plane::{
 };
 use eitmad_contracts::{
     administration::{SupportAction, SupportWorkflow},
+    catalog::UPDATE_MANIFEST_PUBLISH_PERMISSION,
     identity::TenantId,
     relay::{RelayRoute, RelaySessionId, RelaySessionMetadata},
     server::{AuthenticatedServerSession, UpdateChannelId},
@@ -24,12 +27,47 @@ use eitmad_update_plane::{
 #[derive(Clone)]
 pub struct ServerPlaneSecurity {
     access: ServerAccessService,
+    update_scope: UpdateDistributionScope,
 }
 
 impl ServerPlaneSecurity {
     #[must_use]
-    pub const fn new(access: ServerAccessService) -> Self {
-        Self { access }
+    pub fn new(access: ServerAccessService, update_operator_tenant_id: TenantId) -> Self {
+        Self {
+            access,
+            update_scope: UpdateDistributionScope::new(update_operator_tenant_id),
+        }
+    }
+}
+
+#[derive(Clone)]
+struct UpdateDistributionScope {
+    operator_tenant_id: TenantId,
+    channels: BTreeSet<UpdateChannelId>,
+}
+
+impl UpdateDistributionScope {
+    fn new(operator_tenant_id: TenantId) -> Self {
+        Self {
+            operator_tenant_id,
+            channels: ["stable", "beta", "canary"]
+                .into_iter()
+                .map(|channel| {
+                    UpdateChannelId::parse(channel).expect("built-in update channel must be valid")
+                })
+                .collect(),
+        }
+    }
+
+    fn allows(
+        &self,
+        actor: &AuthenticatedServerSession,
+        action: UpdatePlaneAction,
+        channel: &UpdateChannelId,
+    ) -> bool {
+        actor.tenant_id == self.operator_tenant_id
+            && action == UpdatePlaneAction::PublishManifest
+            && self.channels.contains(channel)
     }
 }
 
@@ -94,11 +132,19 @@ impl UpdatePublicationSecurity for ServerPlaneSecurity {
     async fn authorize(
         &self,
         actor: &AuthenticatedServerSession,
-        _: UpdatePlaneAction,
-        _: &UpdateChannelId,
+        action: UpdatePlaneAction,
+        channel: &UpdateChannelId,
     ) -> Result<(), UpdatePlaneError> {
+        if !self.update_scope.allows(actor, action, channel) {
+            return Err(UpdatePlaneError::Denied);
+        }
         self.access
-            .authorize(actor, actor.tenant_id, None, AccessRequirement::TenantOwner)
+            .authorize(
+                actor,
+                actor.tenant_id,
+                None,
+                AccessRequirement::TenantPermission(UPDATE_MANIFEST_PUBLISH_PERMISSION),
+            )
             .await
             .map_err(map_update_access)
     }
@@ -336,5 +382,47 @@ const fn server_outcome(outcome: RelayAuditOutcome) -> ServerAuditOutcome {
         RelayAuditOutcome::Denied => ServerAuditOutcome::Denied,
         RelayAuditOutcome::Invalid => ServerAuditOutcome::Invalid,
         RelayAuditOutcome::Failed => ServerAuditOutcome::Failed,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use eitmad_contracts::{
+        identity::{AccountId, DeviceId, SessionId, UserId},
+        server::AuthenticatedServerSession,
+    };
+    use uuid::Uuid;
+
+    use super::*;
+
+    fn actor(tenant_id: TenantId) -> AuthenticatedServerSession {
+        AuthenticatedServerSession {
+            session_id: SessionId::new(Uuid::from_u128(1)),
+            account_id: AccountId::new(Uuid::from_u128(2)),
+            user_id: UserId::new(Uuid::from_u128(3)),
+            device_id: DeviceId::new(Uuid::from_u128(4)),
+            tenant_id,
+            issued_at: UnixMillis(0),
+            expires_at: UnixMillis(i64::MAX),
+        }
+    }
+
+    #[test]
+    fn update_distribution_scope_rejects_foreign_tenants_and_actions() {
+        let operator = TenantId::new(Uuid::from_u128(5));
+        let scope = UpdateDistributionScope::new(operator);
+        let stable = UpdateChannelId::parse("stable").unwrap();
+
+        assert!(scope.allows(
+            &actor(operator),
+            UpdatePlaneAction::PublishManifest,
+            &stable
+        ));
+        assert!(!scope.allows(
+            &actor(TenantId::new(Uuid::from_u128(6))),
+            UpdatePlaneAction::PublishManifest,
+            &stable,
+        ));
+        assert!(!scope.allows(&actor(operator), UpdatePlaneAction::RevokeManifest, &stable));
     }
 }

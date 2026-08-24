@@ -45,7 +45,7 @@ Protocol or capability mismatch, a blocked client, version outside the compatibi
 
 ## Authorization, scope, and audit
 
-`POST /v1/updates/check` requires an authenticated device proof. The profile device must match the session and its requested channel must match the Rust-owned effective device assignment. Manifest publication requires tenant ownership and writes a redacted audit outcome. A failed publication audit removes the newly inserted manifest.
+`POST /v1/updates/check` requires protocol `1.5`, the update-distribution capability, and an authenticated device proof. The profile device must match the session and its requested channel must match the Rust-owned effective device assignment. Manifest publication is limited to the configured `EITMAD_SERVER_UPDATE_OPERATOR_TENANT_ID`, a built-in channel, the publish action, and an explicit `eitmad.permission.server.update-manifest.publish.v1` relationship. It writes a redacted audit outcome. A failed publication audit removes the newly inserted manifest.
 
 Manifest reads do not grant product access. Package URLs are metadata, not authorization credentials. A CDN or artifact service must enforce its own bounded distribution policy without changing the signed manifest.
 
@@ -54,6 +54,7 @@ Manifest reads do not grant product access. Package URLs are metadata, not autho
 The combined host requires:
 
 - `EITMAD_SERVER_UPDATE_MANIFEST_DIRECTORY`: dedicated durable manifest directory;
+- `EITMAD_SERVER_UPDATE_OPERATOR_TENANT_ID`: operator tenant that owns global update distribution;
 - `EITMAD_SERVER_UPDATE_KEY_ID`: open identifier for the trusted signing key;
 - `EITMAD_SERVER_UPDATE_PUBLIC_KEY`: base64-encoded 32-byte Ed25519 public key.
 

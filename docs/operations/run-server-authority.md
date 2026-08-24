@@ -41,6 +41,7 @@ Run the combined control, sync, relay, update, and administration server only wi
 | `EITMAD_SERVER_ALLOW_INSECURE_LOOPBACK` | Development only | Must be `true` to serve plaintext on loopback |
 | `EITMAD_SERVER_MAX_CONNECTIONS` | No | Total PostgreSQL connection budget, 3 through 192; default 16. The server splits it across control, sync, and administration pools. |
 | `EITMAD_SERVER_UPDATE_MANIFEST_DIRECTORY` | Yes | Dedicated durable directory for immutable signed manifest JSON files |
+| `EITMAD_SERVER_UPDATE_OPERATOR_TENANT_ID` | Yes | Tenant UUID for the operator scope allowed to publish global update channels |
 | `EITMAD_SERVER_UPDATE_KEY_ID` | Yes | Trusted update signing-key identifier |
 | `EITMAD_SERVER_UPDATE_PUBLIC_KEY` | Yes | Base64-encoded 32-byte Ed25519 public key; not secret |
 
@@ -60,7 +61,7 @@ Take a PostgreSQL backup, then run:
 cargo run -q -p eitmad-server -- migrate
 ```
 
-Expected output is `server migrations are current`. The command applies control migration `1`, sync migration `2`, and administration migration `3` before it exits. Migration files are immutable after release. Stop if the process emits `eitmad.error.server-database-unavailable.v1` or `eitmad.error.server-migration-failed.v1`; preserve the database and diagnose the PostgreSQL service, permissions, RLS, and schema history.
+Expected output is `server migrations are current`. This command reads only `EITMAD_SERVER_DATABASE_URL` and the optional `EITMAD_SERVER_MAX_CONNECTIONS`; it does not require token, listener, TLS, or update runtime settings. It applies control migration `1`, sync migration `2`, and administration migration `3` before it exits. Migration files are immutable after release. Stop if the process emits `eitmad.error.server-database-unavailable.v1` or `eitmad.error.server-migration-failed.v1`; preserve the database and diagnose the PostgreSQL service, permissions, RLS, and schema history.
 
 ## Bootstrap the first owner
 

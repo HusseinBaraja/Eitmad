@@ -1,6 +1,7 @@
 use std::{net::SocketAddr, path::PathBuf};
 
 use ed25519_dalek::VerifyingKey;
+use eitmad_contracts::identity::TenantId;
 use eitmad_contracts::updates::UpdateSigningKeyId;
 use eitmad_control_plane::TokenKey;
 
@@ -14,8 +15,15 @@ pub struct ServerConfig {
     pub allow_insecure_loopback: bool,
     pub maximum_database_connections: u32,
     pub update_manifest_directory: PathBuf,
+    pub update_operator_tenant_id: TenantId,
     pub update_signing_key_id: UpdateSigningKeyId,
     pub update_verifying_key: VerifyingKey,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MigrationConfig {
+    pub database_url: String,
+    pub maximum_database_connections: u32,
 }
 
 impl std::fmt::Debug for ServerConfig {
@@ -36,6 +44,7 @@ impl std::fmt::Debug for ServerConfig {
                 &self.maximum_database_connections,
             )
             .field("update_manifest_directory", &self.update_manifest_directory)
+            .field("update_operator_tenant_id", &self.update_operator_tenant_id)
             .field("update_signing_key_id", &self.update_signing_key_id)
             .field("update_verifying_key", &"[PUBLIC KEY]")
             .finish()
@@ -101,15 +110,17 @@ impl ServerConfig {
         if tls_certificate.is_none() && (!listen.ip().is_loopback() || !allow_insecure_loopback) {
             return Err(ServerConfigError::InsecureTransport);
         }
-        let maximum_database_connections = std::env::var("EITMAD_SERVER_MAX_CONNECTIONS")
-            .map_or(Ok(16), |value| value.parse())
-            .map_err(|_| ServerConfigError::Invalid)?;
-        if !(3..=192).contains(&maximum_database_connections) {
-            return Err(ServerConfigError::Invalid);
-        }
+        let maximum_database_connections = maximum_database_connections()?;
         let update_manifest_directory = std::env::var_os("EITMAD_SERVER_UPDATE_MANIFEST_DIRECTORY")
             .map(PathBuf::from)
             .ok_or(ServerConfigError::Missing)?;
+        let update_operator_tenant_id = std::env::var("EITMAD_SERVER_UPDATE_OPERATOR_TENANT_ID")
+            .map_err(|_| ServerConfigError::Missing)?
+            .parse::<uuid::Uuid>()
+            .map_err(|_| ServerConfigError::Invalid)?;
+        if update_operator_tenant_id.is_nil() {
+            return Err(ServerConfigError::Invalid);
+        }
         let update_signing_key_id = UpdateSigningKeyId::parse(
             std::env::var("EITMAD_SERVER_UPDATE_KEY_ID").map_err(|_| ServerConfigError::Missing)?,
         )
@@ -134,10 +145,37 @@ impl ServerConfig {
             allow_insecure_loopback,
             maximum_database_connections,
             update_manifest_directory,
+            update_operator_tenant_id: TenantId::new(update_operator_tenant_id),
             update_signing_key_id,
             update_verifying_key,
         })
     }
+}
+
+impl MigrationConfig {
+    /// Reads only the database settings required by `migrate`.
+    ///
+    /// # Errors
+    ///
+    /// Returns a stable error for missing or invalid database configuration.
+    pub fn from_environment() -> Result<Self, ServerConfigError> {
+        let database_url =
+            std::env::var("EITMAD_SERVER_DATABASE_URL").map_err(|_| ServerConfigError::Missing)?;
+        Ok(Self {
+            database_url,
+            maximum_database_connections: maximum_database_connections()?,
+        })
+    }
+}
+
+fn maximum_database_connections() -> Result<u32, ServerConfigError> {
+    let value = std::env::var("EITMAD_SERVER_MAX_CONNECTIONS")
+        .map_or(Ok(16), |value| value.parse())
+        .map_err(|_| ServerConfigError::Invalid)?;
+    if !(3..=192).contains(&value) {
+        return Err(ServerConfigError::Invalid);
+    }
+    Ok(value)
 }
 
 impl ServerCommand {

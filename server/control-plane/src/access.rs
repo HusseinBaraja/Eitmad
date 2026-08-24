@@ -17,6 +17,7 @@ const MEMBER_RELATION: &str = "eitmad.relation.organization.member.v1";
 pub enum AccessRequirement {
     TenantMember,
     TenantOwner,
+    TenantPermission(&'static str),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -87,8 +88,9 @@ impl ServerAccessService {
             .await
             .map_err(|_| AccessError::Unavailable)?;
         let relations = match requirement {
-            AccessRequirement::TenantMember => [MEMBER_RELATION, OWNER_RELATION].as_slice(),
-            AccessRequirement::TenantOwner => [OWNER_RELATION].as_slice(),
+            AccessRequirement::TenantMember => vec![MEMBER_RELATION, OWNER_RELATION],
+            AccessRequirement::TenantOwner => vec![OWNER_RELATION],
+            AccessRequirement::TenantPermission(permission) => vec![permission],
         };
         let authorized: bool = sqlx::query_scalar(
             "SELECT EXISTS (
@@ -99,7 +101,7 @@ impl ServerAccessService {
         )
         .bind(actor.tenant_id.value())
         .bind(actor.user_id.value())
-        .bind(relations)
+        .bind(&relations)
         .fetch_one(&mut *transaction)
         .await
         .map_err(|_| AccessError::Unavailable)?;

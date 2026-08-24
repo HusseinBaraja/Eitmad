@@ -46,6 +46,9 @@ pub const IPC_MESSAGES: &[&str] = &[
     "eitmad.ipc.unsubscribe.v1",
 ];
 
+pub const UPDATE_MANIFEST_PUBLISH_PERMISSION: &str =
+    "eitmad.permission.server.update-manifest.publish.v1";
+
 pub const PERMISSIONS: &[&str] = &[
     "eitmad.permission.config.read.v1",
     "eitmad.permission.config.write.v1",
@@ -63,7 +66,7 @@ pub const PERMISSIONS: &[&str] = &[
     "eitmad.permission.server.relay.health.read.v1",
     "eitmad.permission.server.relay.failure.report.v1",
     "eitmad.permission.server.relay.admin-close.v1",
-    "eitmad.permission.server.update-manifest.publish.v1",
+    UPDATE_MANIFEST_PUBLISH_PERMISSION,
     "eitmad.permission.server.admin.diagnostics.read.v1",
     "eitmad.permission.server.admin.health.read.v1",
     "eitmad.permission.server.admin.backup.read.v1",

@@ -32,7 +32,7 @@ Pending sync work and existing manifests remain intact for normal denials and va
 ## Fast checks
 
 1. Record protocol version, exact error ID, route, state, tenant-scoped correlation ID, and time. Do not record access tokens, device proofs, public-key bytes, manifest private keys, relay payloads, or customer content.
-2. Verify the caller has an active authenticated device session. Relay requires tenant membership; administration, manifest publication, and administrative relay close require tenant ownership.
+2. Verify `x-eitmad-peer-hello` contains a base64url-encoded protocol `1.5` `PeerHello` with the route capability, then verify the caller has an active authenticated device session. Relay requires tenant membership; administration requires tenant ownership. Manifest publication also requires the configured operator tenant and `eitmad.permission.server.update-manifest.publish.v1`.
 3. For peer relay, verify the target device is registered, in the same tenant, and not revoked.
 4. For reconnect, compare the current time with `nextReconnectAt` and the attempt count with the limit of eight.
 5. For update publication, verify key ID, Ed25519 signature, schema version `1`, exact channel, semantic version, HTTPS package URL, non-zero size, and lowercase SHA-256.
@@ -44,6 +44,7 @@ Pending sync work and existing manifests remain intact for normal denials and va
 | Evidence | Likely cause | Next safe check | Resolution |
 | --- | --- | --- | --- |
 | Relay denial before session creation | Missing relationship, wrong source device, or foreign peer | Compare session device and tenant-scoped relationships | Repair the approved relationship or request; never weaken the check |
+| `eitmad.error.server-client-incompatible.v1` before authentication | Missing or incompatible HTTP negotiation | Decode only the synthetic `x-eitmad-peer-hello` and compare protocol/capability identifiers | Send protocol `1.5` and the exact route capability; do not bypass negotiation |
 | `RetryNotDue` or reconnecting health | Backoff has not elapsed | Inspect `nextReconnectAt` and attempt count | Wait for the due time; restore peer/server route before retry |
 | Relay not found for an owner support action | Wrong, expired, restarted, or foreign session | Verify session ID and tenant without listing another tenant | Let the client open a new session; do not fabricate metadata |
 | Signature changes fail verification | Wrong key or modified manifest bytes | Verify canonical JSON with the release public key | Recreate and sign a new immutable manifest outside the server |

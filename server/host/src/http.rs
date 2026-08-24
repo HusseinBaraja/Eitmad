@@ -276,7 +276,12 @@ async fn check_update(
     headers: HeaderMap,
     Json(client): Json<UpdateClientProfile>,
 ) -> Result<Json<UpdateCheckOutcome>, ApiError> {
-    let session = authenticate_headers(&state, &headers).await?;
+    let session = authenticate_negotiated(
+        &state,
+        &headers,
+        "eitmad.capability.server-update-distribution.v1",
+    )
+    .await?;
     if client.device_id != session.device_id {
         return Err(ApiError::forbidden("eitmad.error.authorization-denied.v1"));
     }
@@ -308,7 +313,12 @@ async fn publish_update_manifest(
     headers: HeaderMap,
     Json(request): Json<PublishManifestRequest>,
 ) -> Result<StatusCode, ApiError> {
-    let session = authenticate_headers(&state, &headers).await?;
+    let session = authenticate_negotiated(
+        &state,
+        &headers,
+        "eitmad.capability.server-update-distribution.v1",
+    )
+    .await?;
     state
         .updates
         .as_ref()
@@ -329,7 +339,8 @@ async fn open_relay_session(
     headers: HeaderMap,
     Json(request): Json<OpenRelaySession>,
 ) -> Result<Json<RelaySessionMetadata>, ApiError> {
-    let session = authenticate_headers(&state, &headers).await?;
+    let session =
+        authenticate_negotiated(&state, &headers, "eitmad.capability.server-relay.v1").await?;
     state
         .relay
         .as_ref()
@@ -352,7 +363,8 @@ async fn relay_heartbeat(
     Path(session_id): Path<Uuid>,
     Json(request): Json<RelayActionRequest>,
 ) -> Result<Json<RelaySessionMetadata>, ApiError> {
-    let session = authenticate_headers(&state, &headers).await?;
+    let session =
+        authenticate_negotiated(&state, &headers, "eitmad.capability.server-relay.v1").await?;
     relay(&state)?
         .heartbeat(
             &session,
@@ -371,7 +383,8 @@ async fn schedule_relay_reconnect(
     Path(session_id): Path<Uuid>,
     Json(request): Json<RelayActionRequest>,
 ) -> Result<Json<RelaySessionMetadata>, ApiError> {
-    let session = authenticate_headers(&state, &headers).await?;
+    let session =
+        authenticate_negotiated(&state, &headers, "eitmad.capability.server-relay.v1").await?;
     relay(&state)?
         .schedule_reconnect(
             &session,
@@ -390,7 +403,8 @@ async fn attempt_relay_reconnect(
     Path(session_id): Path<Uuid>,
     Json(request): Json<RelayActionRequest>,
 ) -> Result<Json<RelaySessionMetadata>, ApiError> {
-    let session = authenticate_headers(&state, &headers).await?;
+    let session =
+        authenticate_negotiated(&state, &headers, "eitmad.capability.server-relay.v1").await?;
     relay(&state)?
         .reconnect_due(
             &session,
@@ -409,7 +423,8 @@ async fn close_relay_session(
     Path(session_id): Path<Uuid>,
     Json(request): Json<RelayActionRequest>,
 ) -> Result<Json<RelaySessionMetadata>, ApiError> {
-    let session = authenticate_headers(&state, &headers).await?;
+    let session =
+        authenticate_negotiated(&state, &headers, "eitmad.capability.server-relay.v1").await?;
     relay(&state)?
         .close(
             &session,
@@ -427,7 +442,8 @@ async fn report_relay_failure(
     headers: HeaderMap,
     Json(report): Json<RelayFailureReport>,
 ) -> Result<StatusCode, ApiError> {
-    let session = authenticate_headers(&state, &headers).await?;
+    let session =
+        authenticate_negotiated(&state, &headers, "eitmad.capability.server-relay.v1").await?;
     relay(&state)?
         .report_failure(&session, report)
         .await
@@ -439,7 +455,8 @@ async fn relay_health(
     State(state): State<ServerState>,
     headers: HeaderMap,
 ) -> Result<Json<RelayHealth>, ApiError> {
-    let session = authenticate_headers(&state, &headers).await?;
+    let session =
+        authenticate_negotiated(&state, &headers, "eitmad.capability.server-relay.v1").await?;
     relay(&state)?
         .health(&session, new_correlation_id(), unix_millis_now())
         .await
@@ -451,7 +468,12 @@ async fn admin_diagnostics(
     State(state): State<ServerState>,
     headers: HeaderMap,
 ) -> Result<Json<DiagnosticSummary>, ApiError> {
-    let session = authenticate_headers(&state, &headers).await?;
+    let session = authenticate_negotiated(
+        &state,
+        &headers,
+        "eitmad.capability.server-administration.v1",
+    )
+    .await?;
     administration(&state)?
         .diagnostics(
             &session,
@@ -468,7 +490,12 @@ async fn admin_health(
     State(state): State<ServerState>,
     headers: HeaderMap,
 ) -> Result<Json<Vec<ServiceHealth>>, ApiError> {
-    let session = authenticate_headers(&state, &headers).await?;
+    let session = authenticate_negotiated(
+        &state,
+        &headers,
+        "eitmad.capability.server-administration.v1",
+    )
+    .await?;
     administration(&state)?
         .health(
             &session,
@@ -485,7 +512,12 @@ async fn admin_backup_status(
     State(state): State<ServerState>,
     headers: HeaderMap,
 ) -> Result<Json<BackupStatus>, ApiError> {
-    let session = authenticate_headers(&state, &headers).await?;
+    let session = authenticate_negotiated(
+        &state,
+        &headers,
+        "eitmad.capability.server-administration.v1",
+    )
+    .await?;
     administration(&state)?
         .backup_status(
             &session,
@@ -502,7 +534,12 @@ async fn admin_migration_status(
     State(state): State<ServerState>,
     headers: HeaderMap,
 ) -> Result<Json<MigrationStatus>, ApiError> {
-    let session = authenticate_headers(&state, &headers).await?;
+    let session = authenticate_negotiated(
+        &state,
+        &headers,
+        "eitmad.capability.server-administration.v1",
+    )
+    .await?;
     administration(&state)?
         .migration_status(
             &session,
@@ -525,7 +562,12 @@ async fn admin_audit(
     headers: HeaderMap,
     Query(query): Query<AdminAuditQuery>,
 ) -> Result<Json<Vec<eitmad_contracts::administration::AdministrativeAuditRecord>>, ApiError> {
-    let session = authenticate_headers(&state, &headers).await?;
+    let session = authenticate_negotiated(
+        &state,
+        &headers,
+        "eitmad.capability.server-administration.v1",
+    )
+    .await?;
     administration(&state)?
         .audit_records(
             &session,
@@ -543,7 +585,12 @@ async fn admin_tenant(
     State(state): State<ServerState>,
     headers: HeaderMap,
 ) -> Result<Json<TenantVisibility>, ApiError> {
-    let session = authenticate_headers(&state, &headers).await?;
+    let session = authenticate_negotiated(
+        &state,
+        &headers,
+        "eitmad.capability.server-administration.v1",
+    )
+    .await?;
     administration(&state)?
         .tenant_visibility(
             &session,
@@ -560,7 +607,12 @@ async fn admin_devices(
     State(state): State<ServerState>,
     headers: HeaderMap,
 ) -> Result<Json<Vec<DeviceVisibility>>, ApiError> {
-    let session = authenticate_headers(&state, &headers).await?;
+    let session = authenticate_negotiated(
+        &state,
+        &headers,
+        "eitmad.capability.server-administration.v1",
+    )
+    .await?;
     administration(&state)?
         .device_visibility(
             &session,
@@ -578,7 +630,12 @@ async fn start_support_workflow(
     headers: HeaderMap,
     Json(request): Json<StartSupportWorkflow>,
 ) -> Result<Json<SupportWorkflow>, ApiError> {
-    let session = authenticate_headers(&state, &headers).await?;
+    let session = authenticate_negotiated(
+        &state,
+        &headers,
+        "eitmad.capability.server-administration.v1",
+    )
+    .await?;
     administration(&state)?
         .start_support_workflow(&session, &request, unix_millis_now())
         .await
@@ -905,6 +962,34 @@ async fn authenticate_headers(
     authenticate_access(state, &token, &proof).await
 }
 
+async fn authenticate_negotiated(
+    state: &ServerState,
+    headers: &HeaderMap,
+    required_capability: &'static str,
+) -> Result<eitmad_contracts::server::AuthenticatedServerSession, ApiError> {
+    let required_capability =
+        CapabilityId::parse(required_capability).expect("required server capability must be valid");
+    let peer = headers
+        .get("x-eitmad-peer-hello")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| URL_SAFE_NO_PAD.decode(value).ok())
+        .and_then(|value| serde_json::from_slice::<PeerHello>(&value).ok())
+        .ok_or_else(|| ApiError::bad_request("eitmad.error.server-client-incompatible.v1"))?;
+    let mut boundary = state.server_hello.clone();
+    boundary.required_capabilities = vec![required_capability];
+    let NegotiationOutcome::Accepted(negotiated) = negotiate(&boundary, &peer) else {
+        return Err(ApiError::bad_request(
+            "eitmad.error.server-client-incompatible.v1",
+        ));
+    };
+    if negotiated.protocol.major != 1 || negotiated.protocol.minor < 5 {
+        return Err(ApiError::bad_request(
+            "eitmad.error.server-client-incompatible.v1",
+        ));
+    }
+    authenticate_headers(state, headers).await
+}
+
 fn connection_credentials(headers: &HeaderMap) -> Result<(String, DeviceProof), ApiError> {
     let token = headers
         .get("authorization")
@@ -940,6 +1025,9 @@ fn server_hello(schemas: Vec<SchemaSupport>) -> PeerHello {
         "eitmad.capability.server-device-proof.v1",
         "eitmad.capability.server-snapshot-chunks.v1",
         "eitmad.capability.server-subscription-resume.v1",
+        "eitmad.capability.server-relay.v1",
+        "eitmad.capability.server-update-distribution.v1",
+        "eitmad.capability.server-administration.v1",
     ]
     .into_iter()
     .map(|value| CapabilityId::parse(value).expect("server capability must be valid"))
@@ -1187,6 +1275,31 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn operational_http_boundaries_negotiate_before_authentication() {
+        let state = test_state();
+        let headers = HeaderMap::new();
+        let error = authenticate_negotiated(&state, &headers, "eitmad.capability.server-relay.v1")
+            .await
+            .unwrap_err();
+        assert_eq!(error.status, StatusCode::BAD_REQUEST);
+        assert_eq!(
+            error.code.as_str(),
+            "eitmad.error.server-client-incompatible.v1"
+        );
+
+        let mut peer = server_hello(Vec::new());
+        peer.peer_kind = PeerKind::Engine;
+        peer.protocols[0].minimum_minor = 5;
+        let encoded = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&peer).unwrap());
+        let mut headers = HeaderMap::new();
+        headers.insert("x-eitmad-peer-hello", encoded.parse().unwrap());
+        let error = authenticate_negotiated(&state, &headers, "eitmad.capability.server-relay.v1")
+            .await
+            .unwrap_err();
+        assert_eq!(error.status, StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
     async fn update_assignment_requires_authorization_header() {
         use tower::ServiceExt as _;
         let response = router(test_state())
@@ -1204,11 +1317,16 @@ mod tests {
     #[tokio::test]
     async fn relay_and_administration_routes_require_authentication() {
         use tower::ServiceExt as _;
+        let mut peer = server_hello(Vec::new());
+        peer.peer_kind = PeerKind::Engine;
+        peer.protocols[0].minimum_minor = 5;
+        let encoded = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&peer).unwrap());
         for uri in ["/v1/relay/health", "/v1/admin/health", "/v1/admin/devices"] {
             let response = router(test_state())
                 .oneshot(
                     axum::http::Request::builder()
                         .uri(uri)
+                        .header("x-eitmad-peer-hello", &encoded)
                         .body(axum::body::Body::empty())
                         .unwrap(),
                 )
