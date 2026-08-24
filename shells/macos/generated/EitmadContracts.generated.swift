@@ -665,7 +665,7 @@ public struct DisconnectRelaySession: Codable, Sendable {
     public let relaySessionID: String
 
     public enum CodingKeys: String, CodingKey {
-        case relaySessionID = "relay_session_id"
+        case relaySessionID = "relaySessionId"
     }
 
     public init(relaySessionID: String) {
@@ -713,7 +713,7 @@ public struct RevokeDeviceSessions: Codable, Sendable {
     public let deviceID: String
 
     public enum CodingKeys: String, CodingKey {
-        case deviceID = "device_id"
+        case deviceID = "deviceId"
     }
 
     public init(deviceID: String) {
@@ -3479,14 +3479,21 @@ public struct RelayHealth: Codable, Sendable {
     public let checkedAt: Int
     public let failedSessions, reconnectingSessions: Int
     public let state: HealthState
+    public let tenantID: String
 
-    public init(acceptingSessions: Bool, activeSessions: Int, checkedAt: Int, failedSessions: Int, reconnectingSessions: Int, state: HealthState) {
+    public enum CodingKeys: String, CodingKey {
+        case acceptingSessions, activeSessions, checkedAt, failedSessions, reconnectingSessions, state
+        case tenantID = "tenantId"
+    }
+
+    public init(acceptingSessions: Bool, activeSessions: Int, checkedAt: Int, failedSessions: Int, reconnectingSessions: Int, state: HealthState, tenantID: String) {
         self.acceptingSessions = acceptingSessions
         self.activeSessions = activeSessions
         self.checkedAt = checkedAt
         self.failedSessions = failedSessions
         self.reconnectingSessions = reconnectingSessions
         self.state = state
+        self.tenantID = tenantID
     }
 }
 
@@ -3514,7 +3521,8 @@ public extension RelayHealth {
         checkedAt: Int? = nil,
         failedSessions: Int? = nil,
         reconnectingSessions: Int? = nil,
-        state: HealthState? = nil
+        state: HealthState? = nil,
+        tenantID: String? = nil
     ) -> RelayHealth {
         return RelayHealth(
             acceptingSessions: acceptingSessions ?? self.acceptingSessions,
@@ -3522,7 +3530,8 @@ public extension RelayHealth {
             checkedAt: checkedAt ?? self.checkedAt,
             failedSessions: failedSessions ?? self.failedSessions,
             reconnectingSessions: reconnectingSessions ?? self.reconnectingSessions,
-            state: state ?? self.state
+            state: state ?? self.state,
+            tenantID: tenantID ?? self.tenantID
         )
     }
 

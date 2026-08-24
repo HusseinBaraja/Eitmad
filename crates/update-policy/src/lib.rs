@@ -46,6 +46,10 @@ impl std::error::Error for SignatureVerificationError {}
 
 /// Produces the one canonical byte representation covered by update signatures.
 ///
+/// This representation is stable within one manifest `schema_version`. Adding,
+/// removing, or reordering an [`UpdateManifest`] field requires increasing that
+/// version so existing signatures and external signers remain compatible.
+///
 /// # Errors
 ///
 /// Returns an error only when the Rust-owned manifest cannot serialize.
@@ -169,7 +173,11 @@ fn included_in_rollout(manifest: &UpdateManifest, client: &UpdateClientProfile) 
     hasher.update(client.device_id.value().as_bytes());
     hasher.update(manifest.manifest_id.value().as_bytes());
     let digest = hasher.finalize();
-    let bucket = u16::from_be_bytes([digest[0], digest[1]]) % 10_000;
+    let sample = u64::from_be_bytes([
+        digest[0], digest[1], digest[2], digest[3], digest[4], digest[5], digest[6], digest[7],
+    ]);
+    let bucket =
+        u16::try_from(u128::from(sample) * 10_000 / (u128::from(u64::MAX) + 1)).unwrap_or(9_999);
     bucket < manifest.rollout.percentage_bps
 }
 
@@ -303,5 +311,18 @@ mod tests {
                 reason: UpdateIneligibilityReason::ChannelMismatch
             }
         );
+    }
+
+    #[test]
+    fn partial_rollout_has_stable_included_and_excluded_cohorts() {
+        let (mut signed, _) = signed_manifest();
+        signed.manifest.rollout.percentage_bps = 5_000;
+        let mut included = client();
+        included.device_id = DeviceId::new(Uuid::from_u128(3));
+        let mut excluded = client();
+        excluded.device_id = DeviceId::new(Uuid::from_u128(2));
+
+        assert!(included_in_rollout(&signed.manifest, &included));
+        assert!(!included_in_rollout(&signed.manifest, &excluded));
     }
 }

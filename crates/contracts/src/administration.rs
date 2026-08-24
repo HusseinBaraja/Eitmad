@@ -121,9 +121,11 @@ pub enum SupportAction {
     VerifyBackup,
     RetryMigration,
     DisconnectRelaySession {
+        #[serde(rename = "relaySessionId", alias = "relay_session_id")]
         relay_session_id: crate::relay::RelaySessionId,
     },
     RevokeDeviceSessions {
+        #[serde(rename = "deviceId", alias = "device_id")]
         device_id: DeviceId,
     },
 }
@@ -157,4 +159,30 @@ pub struct SupportWorkflow {
     pub requested_at: UnixMillis,
     pub completed_at: Option<UnixMillis>,
     pub failure_code: Option<AdministrativeFailureCode>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use uuid::Uuid;
+
+    #[test]
+    fn support_action_writes_camel_case_and_reads_legacy_field_names() {
+        let action = SupportAction::DisconnectRelaySession {
+            relay_session_id: crate::relay::RelaySessionId::new(Uuid::from_u128(1)),
+        };
+        let encoded = serde_json::to_value(&action).unwrap();
+        assert_eq!(
+            encoded["disconnectRelaySession"]["relaySessionId"],
+            Uuid::from_u128(1).to_string()
+        );
+
+        let legacy = serde_json::json!({
+            "disconnectRelaySession": { "relay_session_id": Uuid::from_u128(1) }
+        });
+        assert_eq!(
+            serde_json::from_value::<SupportAction>(legacy).unwrap(),
+            action
+        );
+    }
 }

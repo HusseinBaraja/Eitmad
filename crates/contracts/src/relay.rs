@@ -92,6 +92,7 @@ pub enum RelayHealthState {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct RelayHealth {
+    pub tenant_id: TenantId,
     pub state: RelayHealthState,
     pub checked_at: UnixMillis,
     pub active_sessions: u32,
@@ -125,5 +126,21 @@ mod tests {
         let encoded = serde_json::to_value(&metadata).unwrap();
         assert_eq!(encoded["tenantId"], Uuid::from_u128(2).to_string());
         assert_eq!(encoded["route"]["kind"], "peer");
+    }
+
+    #[test]
+    fn relay_health_keeps_tenant_scope_explicit() {
+        let health = RelayHealth {
+            tenant_id: TenantId::new(Uuid::from_u128(2)),
+            state: RelayHealthState::Healthy,
+            checked_at: UnixMillis(3),
+            active_sessions: 1,
+            reconnecting_sessions: 0,
+            failed_sessions: 0,
+            accepting_sessions: true,
+        };
+
+        let encoded = serde_json::to_value(health).unwrap();
+        assert_eq!(encoded["tenantId"], Uuid::from_u128(2).to_string());
     }
 }

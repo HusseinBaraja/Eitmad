@@ -688,6 +688,7 @@ impl RelayCoordinator {
                 RelayHealthState::Healthy
             };
             RelayHealth {
+                tenant_id: actor.tenant_id,
                 state: health_state,
                 checked_at: now,
                 active_sessions: active,

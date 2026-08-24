@@ -3537,9 +3537,14 @@
         },
         "state": {
           "$ref": "#/definitions/RelayHealthState"
+        },
+        "tenantId": {
+          "type": "string",
+          "format": "uuid"
         }
       },
       "required": [
+        "tenantId",
         "state",
         "checkedAt",
         "activeSessions",
@@ -4655,13 +4660,13 @@
             "disconnectRelaySession": {
               "type": "object",
               "properties": {
-                "relay_session_id": {
+                "relaySessionId": {
                   "type": "string",
                   "format": "uuid"
                 }
               },
               "required": [
-                "relay_session_id"
+                "relaySessionId"
               ]
             }
           },
@@ -4676,13 +4681,13 @@
             "revokeDeviceSessions": {
               "type": "object",
               "properties": {
-                "device_id": {
+                "deviceId": {
                   "type": "string",
                   "format": "uuid"
                 }
               },
               "required": [
-                "device_id"
+                "deviceId"
               ]
             }
           },

@@ -142,7 +142,7 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | المزامنة | Synchronization | The protocol-driven exchange and reconciliation of authorized state across processes, devices, or servers. Its business meaning does not change between simulation, LAN, direct WAN, or relay routes. |
 | ناقل المزامنة | Sync transport | **Provisional UI term.** The Rust-owned connection boundary that carries one sync frame and message protocol across simulation, LAN, and WAN routes. |
 | صحة اتصال المزامنة | Sync connection health | **Provisional UI term.** Operational state that reports offline, connecting, healthy, or degraded transport plus retry evidence; it does not prove reconciliation committed. |
-| مرحّل المزامنة | Sync relay | **Provisional UI term.** A tenant-isolated WAN coordination route used when direct server connectivity is unavailable; it cannot change sync meaning or product authorization. |
+| مرحّل المزامنة | Sync relay | **Provisional UI term.** A tenant-isolated WAN coordination route that preserves authentication and encryption when direct server connectivity is unavailable. It rejects unauthenticated or plaintext WAN sessions and cannot change sync meaning or product authorization. |
 | تعارض | Conflict | Concurrent or incompatible state that cannot be safely combined without a defined domain rule or decision. |
 | سجل التعارض | Conflict record | **Provisional UI term.** The durable scoped record that preserves both competing sync inputs, revisions, status, and resolution provenance. |
 | محلي أولًا | Local-first | A mode in which local durable work continues offline and later synchronizes under explicit conflict rules. |

@@ -246,13 +246,13 @@ namespace Eitmad.Contracts
 
     public partial class DisconnectRelaySession
     {
-        [JsonPropertyName("relay_session_id")]
+        [JsonPropertyName("relaySessionId")]
         public Guid RelaySessionId { get; set; }
     }
 
     public partial class RevokeDeviceSessions
     {
-        [JsonPropertyName("device_id")]
+        [JsonPropertyName("deviceId")]
         public Guid DeviceId { get; set; }
     }
 
@@ -990,6 +990,9 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("state")]
         public HealthState State { get; set; }
+
+        [JsonPropertyName("tenantId")]
+        public Guid TenantId { get; set; }
     }
 
     public partial class RelaySessionMetadata
