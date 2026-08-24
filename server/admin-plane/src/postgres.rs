@@ -14,7 +14,7 @@ use eitmad_contracts::{
 };
 use sqlx::{PgPool, Row as _};
 
-use crate::{AdministrationDataSource, AdministrativeError};
+use crate::{AdministrationDataSource, AdministrativeError, RelayMetricsSource};
 
 #[async_trait]
 pub trait SupportWorkflowExecutor: Send + Sync {
@@ -29,12 +29,21 @@ pub trait SupportWorkflowExecutor: Send + Sync {
 pub struct PostgresAdministrationDataSource {
     pool: PgPool,
     support: Arc<dyn SupportWorkflowExecutor>,
+    relay_metrics: Arc<dyn RelayMetricsSource>,
 }
 
 impl PostgresAdministrationDataSource {
     #[must_use]
-    pub const fn new(pool: PgPool, support: Arc<dyn SupportWorkflowExecutor>) -> Self {
-        Self { pool, support }
+    pub const fn new(
+        pool: PgPool,
+        support: Arc<dyn SupportWorkflowExecutor>,
+        relay_metrics: Arc<dyn RelayMetricsSource>,
+    ) -> Self {
+        Self {
+            pool,
+            support,
+            relay_metrics,
+        }
     }
 
     async fn transaction(
@@ -59,13 +68,17 @@ impl PostgresAdministrationDataSource {
 impl AdministrationDataSource for PostgresAdministrationDataSource {
     async fn diagnostics(
         &self,
+        actor: &AuthenticatedServerSession,
         tenant_id: TenantId,
         correlation_id: CorrelationId,
         now: UnixMillis,
     ) -> Result<DiagnosticSummary, AdministrativeError> {
         let services = self.health(tenant_id).await?;
+        let active_relay_sessions = self
+            .relay_metrics
+            .active_sessions(actor, correlation_id, now)
+            .await?;
         let mut transaction = self.transaction(tenant_id).await?;
-        let active_relay_sessions = 0;
         let pending_support_workflows: i64 = sqlx::query_scalar(
             "SELECT count(*) FROM operations.support_workflows
              WHERE tenant_id = $1 AND state IN ('pending', 'running')",

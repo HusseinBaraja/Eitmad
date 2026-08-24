@@ -431,6 +431,15 @@ impl RelayCoordinator {
             RelayRoute::Server { .. } => self.router.connect_server(&session).await,
         };
         if routed.is_err() {
+            self.audit(
+                actor,
+                RelayAction::Reconnect,
+                RelayAuditOutcome::Failed,
+                correlation_id,
+                Some(session_id),
+                now,
+            )
+            .await?;
             return self
                 .schedule_reconnect(actor, session_id, correlation_id, now)
                 .await;
@@ -479,7 +488,18 @@ impl RelayCoordinator {
         )
         .await?;
         if session.state != RelaySessionState::Closed {
-            self.router.disconnect(&session).await?;
+            if let Err(error) = self.router.disconnect(&session).await {
+                self.audit(
+                    actor,
+                    RelayAction::Close,
+                    RelayAuditOutcome::Failed,
+                    correlation_id,
+                    Some(session_id),
+                    now,
+                )
+                .await?;
+                return Err(error);
+            }
             session.state = RelaySessionState::Closed;
             session.next_reconnect_at = None;
         }
@@ -542,7 +562,18 @@ impl RelayCoordinator {
         )
         .await?;
         if session.state != RelaySessionState::Closed {
-            self.router.disconnect(&session).await?;
+            if let Err(error) = self.router.disconnect(&session).await {
+                self.audit(
+                    actor,
+                    RelayAction::AdministrativeClose,
+                    RelayAuditOutcome::Failed,
+                    correlation_id,
+                    Some(session_id),
+                    now,
+                )
+                .await?;
+                return Err(error);
+            }
             session.state = RelaySessionState::Closed;
             session.next_reconnect_at = None;
         }
@@ -893,7 +924,7 @@ mod tests {
             self.connect()
         }
         async fn disconnect(&self, _: &RelaySessionMetadata) -> Result<(), RelayError> {
-            Ok(())
+            self.connect()
         }
     }
 
@@ -1017,6 +1048,33 @@ mod tests {
         assert_eq!(
             security.audits.lock().unwrap().as_slice(),
             &[(RelayAction::Open, RelayAuditOutcome::Denied)]
+        );
+    }
+
+    #[tokio::test]
+    async fn route_close_failures_are_reported_and_audited() {
+        let (coordinator, security, router) = coordinator(true);
+        let actor = actor(1, 2);
+        let request = request(&actor);
+        let opened = coordinator
+            .open(&actor, &request, UnixMillis(10))
+            .await
+            .unwrap();
+        router.fail.store(true, Ordering::SeqCst);
+        assert_eq!(
+            coordinator
+                .close(
+                    &actor,
+                    opened.relay_session_id,
+                    request.correlation_id,
+                    UnixMillis(20)
+                )
+                .await,
+            Err(RelayError::RouteUnavailable)
+        );
+        assert_eq!(
+            security.audits.lock().unwrap().last(),
+            Some(&(RelayAction::Close, RelayAuditOutcome::Failed))
         );
     }
 

@@ -7,8 +7,8 @@ use eitmad_control_plane::{BootstrapInput, ControlDatabase, ControlPlane};
 use eitmad_relay_plane::RelayCoordinator;
 use eitmad_release_policy::TrustedUpdateKeys;
 use eitmad_server::{
-    MetadataRelayRouter, ServerCommand, ServerConfig, ServerPlaneSecurity, ServerState,
-    ServerSupportExecutor,
+    MetadataRelayRouter, ServerCommand, ServerConfig, ServerPlaneSecurity, ServerRelayMetrics,
+    ServerState, ServerSupportExecutor,
 };
 use eitmad_sync_plane::{DomainRegistry, SyncCoordinator, SyncDatabase};
 use eitmad_update_plane::{FileManifestRepository, UpdateCatalog};
@@ -133,6 +133,7 @@ fn compose_server_state(
         Arc::new(PostgresAdministrationDataSource::new(
             admin_database.pool(),
             support,
+            Arc::new(ServerRelayMetrics::new(relay.clone())),
         )),
     );
     let mut trusted_update_keys = TrustedUpdateKeys::new();

@@ -88,9 +88,20 @@ pub trait AdministrativeSecurity: Send + Sync {
 }
 
 #[async_trait]
+pub trait RelayMetricsSource: Send + Sync {
+    async fn active_sessions(
+        &self,
+        actor: &AuthenticatedServerSession,
+        correlation_id: CorrelationId,
+        now: UnixMillis,
+    ) -> Result<u32, AdministrativeError>;
+}
+
+#[async_trait]
 pub trait AdministrationDataSource: Send + Sync {
     async fn diagnostics(
         &self,
+        actor: &AuthenticatedServerSession,
         tenant_id: TenantId,
         correlation_id: CorrelationId,
         now: UnixMillis,
@@ -155,7 +166,7 @@ impl AdministrationService {
             tenant_id,
             correlation_id,
             now,
-            || self.data.diagnostics(tenant_id, correlation_id, now),
+            || self.data.diagnostics(actor, tenant_id, correlation_id, now),
         )
         .await
     }
@@ -242,10 +253,13 @@ impl AdministrationService {
         correlation_id: CorrelationId,
         now: UnixMillis,
     ) -> Result<Vec<AdministrativeAuditRecord>, AdministrativeError> {
+        let action = AdministrativeAction::ReadAudit;
+        self.authorize(actor, action, tenant_id, correlation_id, now)
+            .await?;
         if limit == 0 || limit > 500 {
             self.audit(
                 actor,
-                AdministrativeAction::ReadAudit,
+                action,
                 AdministrativeAuditOutcome::Invalid,
                 tenant_id,
                 correlation_id,
@@ -254,15 +268,32 @@ impl AdministrationService {
             .await?;
             return Err(AdministrativeError::Invalid);
         }
-        self.execute_read(
-            actor,
-            AdministrativeAction::ReadAudit,
-            tenant_id,
-            correlation_id,
-            now,
-            || self.data.audit_records(tenant_id, limit),
-        )
-        .await
+        match self.data.audit_records(tenant_id, limit).await {
+            Ok(records) => {
+                self.audit(
+                    actor,
+                    action,
+                    AdministrativeAuditOutcome::Succeeded,
+                    tenant_id,
+                    correlation_id,
+                    now,
+                )
+                .await?;
+                Ok(records)
+            }
+            Err(error) => {
+                self.audit(
+                    actor,
+                    action,
+                    outcome_for(error),
+                    tenant_id,
+                    correlation_id,
+                    now,
+                )
+                .await?;
+                Err(error)
+            }
+        }
     }
 
     /// Returns one tenant visibility summary after authorization and audit.
@@ -536,6 +567,7 @@ mod tests {
     impl AdministrationDataSource for TestData {
         async fn diagnostics(
             &self,
+            _: &AuthenticatedServerSession,
             _: TenantId,
             correlation_id: CorrelationId,
             now: UnixMillis,
@@ -696,6 +728,27 @@ mod tests {
             security.audits.lock().unwrap().as_slice(),
             &[(
                 AdministrativeAction::ReadHealth,
+                AdministrativeAuditOutcome::Denied
+            )]
+        );
+
+        security.audits.lock().unwrap().clear();
+        assert_eq!(
+            service
+                .audit_records(
+                    &actor,
+                    actor.tenant_id,
+                    0,
+                    CorrelationId::new(Uuid::new_v4()),
+                    UnixMillis(10)
+                )
+                .await,
+            Err(AdministrativeError::Denied)
+        );
+        assert_eq!(
+            security.audits.lock().unwrap().as_slice(),
+            &[(
+                AdministrativeAction::ReadAudit,
                 AdministrativeAuditOutcome::Denied
             )]
         );

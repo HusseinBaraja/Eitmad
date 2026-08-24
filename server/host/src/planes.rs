@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use eitmad_admin_plane::{
     AdministrativeAction, AdministrativeAuditOutcome, AdministrativeError, AdministrativeSecurity,
-    SupportWorkflowExecutor,
+    RelayMetricsSource, SupportWorkflowExecutor,
 };
 use eitmad_contracts::{
     administration::{SupportAction, SupportWorkflow},
@@ -214,6 +214,42 @@ impl RelayRouter for MetadataRelayRouter {
 
     async fn disconnect(&self, _: &RelaySessionMetadata) -> Result<(), RelayError> {
         Ok(())
+    }
+}
+
+#[derive(Clone)]
+pub struct ServerRelayMetrics {
+    relay: RelayCoordinator,
+}
+
+impl ServerRelayMetrics {
+    #[must_use]
+    pub const fn new(relay: RelayCoordinator) -> Self {
+        Self { relay }
+    }
+}
+
+#[async_trait]
+impl RelayMetricsSource for ServerRelayMetrics {
+    async fn active_sessions(
+        &self,
+        actor: &AuthenticatedServerSession,
+        correlation_id: CorrelationId,
+        now: UnixMillis,
+    ) -> Result<u32, AdministrativeError> {
+        self.relay
+            .health(actor, correlation_id, now)
+            .await
+            .map(|health| health.active_sessions)
+            .map_err(|error| match error {
+                RelayError::Denied => AdministrativeError::Denied,
+                RelayError::Invalid | RelayError::NotFound | RelayError::RetryNotDue => {
+                    AdministrativeError::Invalid
+                }
+                RelayError::RouteUnavailable | RelayError::Unavailable => {
+                    AdministrativeError::Unavailable
+                }
+            })
     }
 }
 
