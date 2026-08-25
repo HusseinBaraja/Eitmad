@@ -1,6 +1,7 @@
 using Eitmad.Contracts;
 using Eitmad.Platform.Windows.LocalIpc;
 using Eitmad.Platform.Windows.ProcessSupervision;
+using Eitmad.Platform.Windows.Shell;
 
 namespace Eitmad.WindowsShell.Features.Operations;
 
@@ -18,7 +19,6 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
     private readonly Dictionary<string, IEngineSubscription> subscriptions = [];
     private readonly CancellationTokenSource lifetime = new();
     private readonly SemaphoreSlim sessionRefresh = new(1, 1);
-    private EngineLaunchRequest? launchRequest;
     private bool connected;
     private bool disposed;
 
@@ -34,12 +34,11 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
         viewModel.RestartEngine = RestartAsync;
     }
 
-    public async Task StartAsync(EngineLaunchRequest request, CancellationToken cancellationToken = default)
+    public async Task StartAsync(CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
-        launchRequest = request;
         engine.StateChanged += ObserveSupervision;
-        await engine.StartAsync(request, cancellationToken);
+        await engine.StartAsync(cancellationToken);
         ObserveSupervision(engine.Snapshot);
     }
 
@@ -259,15 +258,10 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
 
     private async Task RestartAsync()
     {
-        if (launchRequest is null)
-        {
-            return;
-        }
-
         await engine.StopAsync(lifetime.Token);
         connected = false;
         eventOrder.ResetAll();
-        await engine.StartAsync(launchRequest, lifetime.Token);
+        await engine.StartAsync(lifetime.Token);
     }
 
     private static Event DecodeEvent(EventEnvelope delivered)

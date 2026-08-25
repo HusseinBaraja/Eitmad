@@ -26,7 +26,7 @@ keywords:
 | --- | --- |
 | Engine lifecycle, identity, structured failures, and retry safety | Rust contracts and `eitmad-engine-runtime` |
 | CLI process arguments and stdin-EOF shutdown | `eitmad-engine-cli` |
-| Launch, redirected pipes, Job Object containment, restart budget, and forced termination | Windows process supervision adapter |
+| Engine path, local runtime directory, development launch identity, redirected pipes, Job Object containment, restart budget, and forced termination | Windows platform adapter |
 | Typed named-pipe client, handshake, and unavailable-engine mapping | `Eitmad.Platform.Windows.LocalIpc` |
 | Localized recovery UI and accessibility | `Eitmad.WindowsShell` |
 
@@ -37,10 +37,14 @@ The adapter links the generated `Eitmad.Contracts` binding. It does not handwrit
 ```mermaid
 sequenceDiagram
     participant Shell as "Windows operations shell"
+    participant Bridge as "WindowsEngineBridge"
     participant Supervisor as "EngineSupervisor"
     participant Job as "Windows Job Object"
     participant Engine as "Rust engine CLI"
-    Shell->>Supervisor: StartAsync(packaged engine)
+    Shell->>Bridge: Create(command-line arguments)
+    Bridge->>Bridge: Select engine, runtime, launch identity
+    Shell->>Bridge: StartAsync()
+    Bridge->>Supervisor: StartAsync(authorized launch request)
     Supervisor->>Job: Create kill-on-close group
     Supervisor->>Engine: run --mode supervised
     Supervisor->>Job: Assign engine process
@@ -68,7 +72,7 @@ The rolling window allows three replacements in 60 seconds at one, two, and four
 
 Every process launch increments `Generation`. Output is accepted only from that generation and, after the first lifecycle snapshot, from the same `EngineInstanceId`. PID is correlation metadata and is never used as stable identity.
 
-The supervisor also owns IPC subscription continuity. It advertises protocol `1.0–1.5` and offers and requires `eitmad.capability.authorization-scopes.v1`. Only explicit development/test sessions may generate `DevelopmentIdentityAssertion` with an assigned tenant and launch the engine with `--allow-insecure-development-auth`; production IPC must use the reviewed peer-authentication design instead of this development-only path. The supervisor retains generated subscription descriptors and only the cursor acknowledged after UI processing. Connection loss makes `IpcHealth` `Connecting` and permits at most the restart policy's three default reconnect attempts after 100 ms, 500 ms, and two seconds while the current generation remains `Ready`. Exhaustion sets `ReconnectExhausted`, so callers can distinguish a live process from a usable IPC channel. Same-generation reconnect resumes replay; engine replacement raises `ResyncRequired`, opens a fresh stream, and leaves the owning feature responsible for an authoritative query before applying buffered events.
+The supervisor also owns IPC subscription continuity. It advertises protocol `1.0–1.5` and offers and requires `eitmad.capability.authorization-scopes.v1`. `WindowsEngineBridge` is the platform bootstrap boundary. It resolves the packaged or explicitly supplied engine path, selects the local runtime directory, and creates the assigned `DevelopmentIdentityAssertion` before the shell receives the bridge. Only explicit development/test sessions may launch the engine with `--allow-insecure-development-auth`; production IPC must use the reviewed peer-authentication design instead of this development-only path. The supervisor retains generated subscription descriptors and only the cursor acknowledged after UI processing. Connection loss makes `IpcHealth` `Connecting` and permits at most the restart policy's three default reconnect attempts after 100 ms, 500 ms, and two seconds while the current generation remains `Ready`. Exhaustion sets `ReconnectExhausted`, so callers can distinguish a live process from a usable IPC channel. Same-generation reconnect resumes replay; engine replacement raises `ResyncRequired`, opens a fresh stream, and leaves the owning feature responsible for an authoritative query before applying buffered events.
 
 ## Shutdown and containment
 
@@ -96,6 +100,6 @@ cargo build -p eitmad-engine-cli
 dotnet run --project platform-adapters/windows/tests/Eitmad.Platform.Windows.Tests.csproj -- --engine target/debug/eitmad-engine-cli.exe
 ```
 
-Extend `ProcessSupervision` only for Windows lifecycle mechanics. Preserve generated Rust contract use, generation and instance checks, bounded retry, kill-on-close containment, and graceful-first shutdown. Add product behavior to its Rust vertical and presentation to the [Windows operations shell](windows-native-shell.md) instead.
+Extend `Shell/WindowsEngineBridge.cs` for Windows launch selection and authorized bootstrap. Extend `ProcessSupervision` only for Windows lifecycle mechanics. Preserve generated Rust contract use, generation and instance checks, bounded retry, kill-on-close containment, and graceful-first shutdown. Add product behavior to its Rust vertical and presentation to the [Windows operations shell](windows-native-shell.md) instead.
 
 For IPC authority and failures, see [typed local IPC](local-ipc.md) and [Resolve local IPC failures](../../troubleshooting/local-ipc-failures.md). For process recovery, use [Resolve Windows engine supervision failures](../../troubleshooting/windows-engine-supervision-failures.md).

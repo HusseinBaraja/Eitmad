@@ -28,7 +28,7 @@ The Windows WPF application is an Arabic-first presentation adapter over the sup
 | Commands, queries, subscriptions, events, versions, and errors | Rust `crates/contracts`; generated C# types linked by `Eitmad.Platform.Windows` |
 | Domain validation, ReBAC, audit, storage, sync, update policy, jobs, notifications, and secrets | Owning Rust vertical |
 | Named-pipe framing and typed contract serialization | `platform-adapters/windows/LocalIpc` |
-| Job Object containment, engine retry, IPC reconnect, and subscription reattachment | `platform-adapters/windows/ProcessSupervision` |
+| Engine path and runtime selection, development launch identity, Job Object containment, retry, IPC reconnect, and subscription reattachment | `platform-adapters/windows/Shell` and `platform-adapters/windows/ProcessSupervision` |
 | Arabic presentation, RTL layout, view state, navigation, tray, and accessibility | `shells/windows` |
 
 The shell has no database client, configuration file writer, domain validator, permission decision, sync algorithm, update policy, secret reader, or external API client. `shells/windows/tests` scans production C# source for these ownership violations. Add new product behavior to its Rust vertical, then expose a versioned typed contract.
@@ -41,8 +41,10 @@ sequenceDiagram
     participant Coordinator as "OperationsCoordinator"
     participant Adapter as "WindowsEngineBridge"
     participant Engine as "Rust engine"
-    UI->>Coordinator: Start shell session
-    Coordinator->>Adapter: StartAsync(EngineLaunchRequest)
+    UI->>Adapter: Create(command-line arguments)
+    Adapter-->>UI: already-authorized typed bridge
+    UI->>Coordinator: Start shell session with bridge
+    Coordinator->>Adapter: StartAsync()
     Adapter->>Engine: supervised process + negotiated typed IPC
     Engine-->>Adapter: LifecycleSnapshot Ready
     Adapter-->>Coordinator: Connected supervision snapshot
@@ -94,7 +96,7 @@ The visual system uses restrained workshop colors, high-contrast status surfaces
 
 ## Security and compatibility
 
-The shell is an untrusted client. It does not grant itself permissions. Development runs use an explicit synthetic organization context where `TenantId` equals the organization `ScopeRef.Id`, a random child-process bearer token, and `--allow-insecure-development-auth`. This path is not production authentication and must not ship enabled.
+The shell is an untrusted client. It does not resolve the engine installation, select runtime storage, construct `EngineLaunchRequest`, or grant itself permissions. `platform-adapters/windows/Shell/WindowsEngineBridge.cs` owns these Windows launch concerns and gives the shell an already-authorized typed bridge. Development runs use an explicit synthetic organization context where `TenantId` equals the organization `ScopeRef.Id`, a random child-process bearer token, and `--allow-insecure-development-auth`. This path is not production authentication and must not ship enabled.
 
 The Windows adapter negotiates protocol `1.0–1.5` and uses generated current bindings. A missing required capability rejects the session. Optional operational state can return a typed error without changing engine health. Error and message identifiers are presentation inputs, not English prose to parse. Do not expose bearer tokens, raw frames, authorization graphs, runtime paths, or customer data in the UI or logs.
 
@@ -119,6 +121,6 @@ Run the shell with the built engine:
 dotnet run --project shells/windows/Eitmad.WindowsShell.csproj -- --engine target/debug/eitmad-engine-cli.exe
 ```
 
-Add Arabic copy and presentation mapping inside `Features/Operations`. Register every stable message identifier in the Rust contract catalog, regenerate `ProtocolIds`, and reference that generated constant from the mapping. Add Windows-only mechanics inside `Platform` or the platform adapter. Add contract payloads, validation, authorization, audit, persistence, sync, and update behavior to the owning Rust vertical. Keep generated files under `shells/windows/generated` mechanically derived and excluded from shell compilation because the adapter assembly already links them.
+Add Arabic copy and presentation mapping inside `Features/Operations`. Register every stable message identifier in the Rust contract catalog, regenerate `ProtocolIds`, and reference that generated constant from the mapping. Add shell-only Windows UI mechanics inside `Platform`; add launch, runtime, identity handoff, and process mechanics to the platform adapter. Add contract payloads, validation, authorization, audit, persistence, sync, and update behavior to the owning Rust vertical. Keep generated files under `shells/windows/generated` mechanically derived and excluded from shell compilation because the adapter assembly already links them.
 
 For related boundaries, see [typed local IPC](local-ipc.md), [Windows process supervision](windows-process-supervision.md), [Arabic-first UX](../../architecture/arabic-first-ux.md), and [Windows shell recovery](../../troubleshooting/windows-shell-state-recovery.md).

@@ -1,6 +1,7 @@
 using System.Threading.Channels;
 using Eitmad.Contracts;
 using Eitmad.Platform.Windows.ProcessSupervision;
+using Eitmad.Platform.Windows.Shell;
 using Eitmad.WindowsShell.Features.Operations;
 
 var tests = new ShellScenarios();
@@ -117,7 +118,7 @@ internal sealed class ShellScenarios
         var engine = new FakeEngine();
         var model = new OperationsViewModel();
         await using var coordinator = new OperationsCoordinator(engine, model, new ImmediateDispatcher());
-        await coordinator.StartAsync(Request());
+        await coordinator.StartAsync();
         engine.Connect();
         await Eventually(() => engine.QueryCount >= 3 && engine.SubscriptionCount == 6);
 
@@ -133,7 +134,7 @@ internal sealed class ShellScenarios
         var engine = new FakeEngine();
         var model = new OperationsViewModel();
         await using var coordinator = new OperationsCoordinator(engine, model, new ImmediateDispatcher());
-        await coordinator.StartAsync(Request());
+        await coordinator.StartAsync();
         engine.Connect();
         await Eventually(() => engine.QueryCount >= 3);
         engine.SignalResync(ProtocolIds.Subscriptions.EitmadSyncStatusSubscribeV1);
@@ -146,7 +147,7 @@ internal sealed class ShellScenarios
         var engine = new FakeEngine();
         var model = new OperationsViewModel();
         await using var coordinator = new OperationsCoordinator(engine, model, new ImmediateDispatcher());
-        await coordinator.StartAsync(Request());
+        await coordinator.StartAsync();
         engine.Connect();
         await Eventually(() => engine.SubscriptionCount == 6);
 
@@ -161,7 +162,7 @@ internal sealed class ShellScenarios
         var model = new OperationsViewModel();
         model.ObserveConfiguration(Configuration(4, "en-US"));
         await using var coordinator = new OperationsCoordinator(engine, model, new ImmediateDispatcher());
-        await coordinator.StartAsync(Request());
+        await coordinator.StartAsync();
 
         engine.Connect();
 
@@ -192,7 +193,7 @@ internal sealed class ShellScenarios
         var engine = new FakeEngine();
         var model = new OperationsViewModel();
         await using var coordinator = new OperationsCoordinator(engine, model, new ImmediateDispatcher());
-        await coordinator.StartAsync(Request());
+        await coordinator.StartAsync();
         await coordinator.StopAsync();
         Assert.Equal(1, engine.StopCount, "shutdown delegates one clean stop");
     }
@@ -231,19 +232,12 @@ internal sealed class ShellScenarios
         var coordinator = File.ReadAllText(Path.Combine(shell, "Features", "Operations", "OperationsCoordinator.cs"));
         Assert.Contains("SubmitConfigurationPatchAsync", coordinator, "typed configuration patch boundary");
         Assert.False(coordinator.Contains("SendCommandAsync", StringComparison.Ordinal), "shell cannot submit generic commands");
-    }
 
-    private static EngineLaunchRequest Request()
-    {
-        var scope = Scope();
-        return new EngineLaunchRequest(
-            "C:\\synthetic\\eitmad-engine-cli.exe",
-            developmentIdentity: new DevelopmentIdentityAssertion
-            {
-                TenantId = scope.Id,
-                Identity = new AuthenticatedIdentity { PrincipalId = Guid.NewGuid(), PrincipalKind = PrincipalKind.Service, ServiceId = Guid.NewGuid() },
-                Scope = scope,
-            });
+        var app = File.ReadAllText(Path.Combine(shell, "App.xaml.cs"));
+        Assert.Contains("WindowsEngineBridge.Create(e.Args)", app, "platform adapter owns engine bootstrap");
+        Assert.False(app.Contains("EngineLaunchRequest", StringComparison.Ordinal), "shell cannot own engine launch configuration");
+        Assert.False(app.Contains("DevelopmentIdentity", StringComparison.Ordinal), "shell cannot create permission assertions");
+        Assert.False(app.Contains("SpecialFolder.LocalApplicationData", StringComparison.Ordinal), "shell cannot select runtime storage");
     }
 
     private static ScopeRef Scope() => new() { Kind = "organization", Id = Guid.NewGuid() };
@@ -311,7 +305,7 @@ internal sealed class FakeEngine : IEngineShellBridge
     public int SubscriptionCount => subscriptions.Count;
     public int StopCount { get; private set; }
 
-    public Task StartAsync(EngineLaunchRequest request, CancellationToken cancellationToken = default)
+    public Task StartAsync(CancellationToken cancellationToken = default)
     {
         snapshot = snapshot with { State = EngineSupervisionState.Starting, Generation = snapshot.Generation + 1 };
         StateChanged?.Invoke(snapshot);
