@@ -125,6 +125,8 @@ pub const ERROR_CODES: &[&str] = &[
 ];
 
 pub const MESSAGE_IDS: &[&str] = &[
+    "eitmad.notification.sync-complete.v1",
+    "eitmad.notification.update-ready.v1",
     "eitmad.message.authorization-denied.v1",
     "eitmad.message.authorization-last-owner.v1",
     "eitmad.message.authorization-policy-conflict.v1",

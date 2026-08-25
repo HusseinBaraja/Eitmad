@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "product maintainers"
-last_verified: "2026-08-24"
+last_verified: "2026-08-25"
 review_triggers:
   - "a domain term, UI label, contract concept, or workshop synonym changes"
 keywords:
@@ -101,6 +101,7 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | أمر | Command | An authorized request for an authoritative state transition. |
 | استعلام | Query | An authorized request to read a scoped projection without changing authoritative state. |
 | اشتراك | Subscription | A resumable stream of state changes or progress delivered without polling. |
+| إعادة مزامنة الاشتراك | Subscription resynchronization | Shell recovery after a resume cursor cannot prove continuity. The shell opens a fresh stream and replaces query-backed view state from Rust; it does not merge or invent authority. |
 | حدث | Event | A typed engine-to-shell value delivered through a subscription; it is not automatically a durable audit or event-sourcing record. |
 | مؤشر استئناف الحدث | Event cursor | An opaque, scoped position used to resume a bounded event stream; it is not a globally ordered record identifier. |
 | نافذة إعادة التشغيل | Replay window | The bounded same-engine event history available for subscription reconnection. |
@@ -119,6 +120,8 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | جلسة دون اتصال | Offline session | An issued, unexpired, open local session whose engine connectivity state is offline; offline state does not bypass authorization or expiry. |
 | إعداد النظام | Configuration setting | A Rust-registered typed value with an authoritative default, validator, sensitivity, restart requirement, and scope. |
 | لقطة الإعدادات | Configuration snapshot | The stable, revisioned, redacted projection that a shell may read; it is not a shell-owned config file. |
+| مركز العمليات | Operations center | The Arabic-first Windows shell surface that presents Rust-owned health, readiness, sync, update, configuration, job, notification, and error state. It is not a control-plane authority. |
+| المحرك غير متاح الآن | Engine unavailable | A Windows shell availability state that means the supervised process or typed IPC channel is not usable. It does not mean authoritative data was deleted. |
 | تعديل الإعدادات | Configuration patch | A typed optimistic request containing expected revision and changed keys; Rust validates and commits it atomically. |
 | مراجعة الإعدادات | Configuration revision | A monotonic per-scope number incremented once by a real effective patch, not by a no-op or replay. |
 | صلاحية | Permission | An allowed action derived from authenticated identity and relationships; it is enforced by Rust. |

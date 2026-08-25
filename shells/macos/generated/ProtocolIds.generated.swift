@@ -194,6 +194,8 @@ public enum ProtocolIds {
     }
 
     public enum MessageIds {
+        public static let eitmadNotificationSyncCompleteV1 = "eitmad.notification.sync-complete.v1"
+        public static let eitmadNotificationUpdateReadyV1 = "eitmad.notification.update-ready.v1"
         public static let eitmadMessageAuthorizationDeniedV1 = "eitmad.message.authorization-denied.v1"
         public static let eitmadMessageAuthorizationLastOwnerV1 = "eitmad.message.authorization-last-owner.v1"
         public static let eitmadMessageAuthorizationPolicyConflictV1 = "eitmad.message.authorization-policy-conflict.v1"

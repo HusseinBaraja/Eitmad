@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust engine and Windows platform maintainers"
-last_verified: "2026-08-22"
+last_verified: "2026-08-25"
 review_triggers:
   - "local IPC framing, authentication, dispatch, timeout, payload, or shutdown behavior changes"
 keywords:
@@ -50,7 +50,7 @@ sequenceDiagram
     IPC-->>Shell: ordered EventEnvelope
 ```
 
-The handshake is mandatory. Rust advertises protocol `1.0–1.4`. Protocol `1.0` remains command/query-only; subscriptions require protocol `1.1` plus `eitmad.capability.local-ipc-subscriptions.v1`. Relationship administration and authorization-policy streams require `1.2`; policy streams also require `eitmad.capability.authorization-policy-events.v1`. Every accepted protocol version requires `eitmad.capability.authorization-scopes.v1` and an assigned tenant; workspace context remains optional across `1.0–1.4`. Protocol `1.4` adds remote server shapes but does not move local IPC authorization into the server. An unscoped peer is rejected before normal traffic. Each accepted connection receives a new `SessionId`; envelopes must reproduce the negotiated protocol and exact identity, tenant, workspace, and scope context.
+The handshake is mandatory. Rust and the Windows shell advertise protocol `1.0–1.5`. Protocol `1.0` remains command/query-only; subscriptions require protocol `1.1` plus `eitmad.capability.local-ipc-subscriptions.v1`. Relationship administration and authorization-policy streams require `1.2`; policy streams also require `eitmad.capability.authorization-policy-events.v1`. Every accepted protocol version requires `eitmad.capability.authorization-scopes.v1` and an assigned tenant; workspace context remains optional across the compatibility window. Later minor versions add server and operational contracts but do not move local IPC authorization into the server. An unscoped peer is rejected before normal traffic. Each accepted connection receives a new `SessionId`; envelopes must reproduce the negotiated protocol and exact identity, tenant, workspace, and scope context.
 
 ## Subscription streams and payload ownership
 
@@ -96,7 +96,7 @@ Explicit unsubscribe receives `SubscriptionClosed` with `clientRequested` before
 
 ## Arabic-first behavior and tests
 
-The transport preserves canonical Unicode and does not add bidirectional controls. Tests round-trip a multi-megabyte synthetic Arabic/Latin value such as `خزانة Wardrobe 120 cm - فرع صنعاء`. There is no UI in this capability, so RTL layout, Arabic labels, input, accessibility, and localized rendering remain the future shell's responsibility. Shells will localize `messageId` and directionally isolate machine identifiers.
+The transport preserves canonical Unicode and does not add bidirectional controls. Tests round-trip a multi-megabyte synthetic Arabic/Latin value such as `خزانة Wardrobe 120 cm - فرع صنعاء`. The Windows shell now owns RTL layout, Arabic labels, accessibility surfaces, localized `messageId` rendering, and directional isolation of machine identifiers. The IPC capability continues to preserve canonical values without adding presentation controls.
 
 Focused Rust tests cover protocol `1.0` fallback, subscription capability gates, scope mismatch, replay, cursor isolation, ordering, coalescing, discrete overflow, command/query behavior, and frame bounds. Windows scenarios cover bounded event queues, processed cursor acknowledgement, normal reattachment, overflow followed by usable reattachment, real-engine negotiation, and graceful shutdown. Extend event production through `EventBroker`; keep payload meaning and authoritative queries in the owning vertical.
 

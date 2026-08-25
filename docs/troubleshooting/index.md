@@ -5,7 +5,7 @@ audience: "support"
 page_type: "troubleshooting"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-08-24"
+last_verified: "2026-08-25"
 review_triggers:
   - "a stable diagnosable error or recovery path is added"
 keywords:
@@ -27,6 +27,7 @@ Use symptom and identifier pages to reach the authoritative owner and a non-dest
 - [Resolve local IPC connection, request, and subscription failures](local-ipc-failures.md): diagnose unavailable engines, rejected sessions, resync, backpressure, version mismatch, deadlines, and payload bounds.
 - [Resolve engine startup and authority failures](engine-startup-failures.md): diagnose failed startup, storage migration or schema drift, invalid supervision, readiness checks, shutdown failures, and duplicate engine authorities.
 - [Resolve Windows engine supervision failures](windows-engine-supervision-failures.md): diagnose restart exhaustion, forced shutdown, stale observations, and Job Object setup failures.
+- [Recover a disconnected or stale Windows operations shell](windows-shell-state-recovery.md): diagnose **المحرك غير متاح الآن**, reconnect or restart exhaustion, subscription resynchronization, unsupported state panels, and typed configuration patch recovery.
 
 ## Storage and recovery failures
 
@@ -47,6 +48,6 @@ Use symptom and identifier pages to reach the authoritative owner and a non-dest
 
 - [Resolve diagnostic privacy or secret-storage failures](privacy-and-secret-leakage.md): contain suspected leakage and diagnose redaction, sensitive-debug expiry, native credential-store, and encrypted-fallback failures.
 
-No native settings workflow or user-facing Arabic error is implemented yet. Runtime failures expose stable localization message IDs for future shells.
+The Windows operations shell now exposes Arabic availability and recovery copy. Rust failures still provide the stable message and error identifiers used for diagnosis and future full localization coverage.
 
 Return to the [documentation index](../index.md) or review [protocol v1](../api/index.md).

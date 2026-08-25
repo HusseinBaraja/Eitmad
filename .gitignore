@@ -6,6 +6,10 @@ node_modules/
 /platform-adapters/windows/obj/
 /platform-adapters/windows/tests/bin/
 /platform-adapters/windows/tests/obj/
+/shells/windows/bin/
+/shells/windows/obj/
+/shells/windows/tests/bin/
+/shells/windows/tests/obj/
 
 # Local IDE state belongs to each developer.
 .idea/

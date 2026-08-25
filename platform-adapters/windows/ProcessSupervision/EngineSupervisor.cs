@@ -77,6 +77,59 @@ public sealed class EngineSupervisor : IAsyncDisposable
         }
     }
 
+    public Task<QueryResponseEnvelope> QueryAsync(
+        Query query,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        var client = GetConnectedClient();
+        var requestTimeout = timeout ?? EngineIpcClient.DefaultRequestTimeout;
+        var requestId = Guid.NewGuid();
+        return client.SendQueryAsync(
+            new QueryEnvelope
+            {
+                ProtocolVersion = SessionProtocol(client),
+                RequestId = requestId,
+                CorrelationId = Guid.NewGuid(),
+                Authorization = client.Authorization,
+                Deadline = DeadlineAfter(requestTimeout),
+                Query = ToPayloadDictionary(query),
+            },
+            requestTimeout,
+            cancellationToken);
+    }
+
+    public Task<CommandResponseEnvelope> SubmitConfigurationPatchAsync(
+        UpdateConfiguration patch,
+        Guid idempotencyKey,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(patch);
+        if (idempotencyKey == Guid.Empty)
+        {
+            throw new ArgumentException("The configuration patch requires a non-empty idempotency key.", nameof(idempotencyKey));
+        }
+
+        var client = GetConnectedClient();
+        var requestTimeout = timeout ?? EngineIpcClient.DefaultRequestTimeout;
+        var requestId = Guid.NewGuid();
+        return client.SendCommandAsync(
+            new CommandEnvelope
+            {
+                ProtocolVersion = SessionProtocol(client),
+                RequestId = requestId,
+                CorrelationId = Guid.NewGuid(),
+                Authorization = client.Authorization,
+                Deadline = DeadlineAfter(requestTimeout),
+                IdempotencyKey = idempotencyKey,
+                Command = ToPayloadDictionary(Command.ForConfigUpdate(patch)),
+            },
+            requestTimeout,
+            cancellationToken);
+    }
+
     public async Task<SupervisedEngineSubscription> SubscribeAsync(
         Subscription contract,
         CancellationToken cancellationToken = default)
@@ -572,7 +625,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
         {
             PeerKind = PeerKind.Shell,
             ProductVersion = "0.0.0",
-            Protocols = [new SupportedProtocol { Major = 1, MinimumMinor = 0, MaximumMinor = 3 }],
+            Protocols = [new SupportedProtocol { Major = 1, MinimumMinor = 0, MaximumMinor = 5 }],
             Capabilities =
             [
                 ProtocolIds.Capabilities.EitmadCapabilityLocalIpcV1,
@@ -689,11 +742,33 @@ public sealed class EngineSupervisor : IAsyncDisposable
             ResumeAfter = resumeAfter,
         };
 
-    private static Dictionary<string, object> ToPayloadDictionary(Subscription contract)
+    private EngineIpcClient GetConnectedClient()
     {
-        var bytes = JsonSerializer.SerializeToUtf8Bytes(contract);
-        return JsonSerializer.Deserialize<Dictionary<string, object>>(bytes)
-            ?? throw new InvalidOperationException("The subscription contract could not be rendered for the IPC envelope.");
+        lock (gate)
+        {
+            ObjectDisposedException.ThrowIf(disposed, this);
+            return currentIpcClient
+                ?? throw new EngineIpcException(
+                    EngineIpcFailureKind.EngineUnavailable,
+                    "The supervised engine has no active IPC session.");
+        }
+    }
+
+    private static ProtocolVersion SessionProtocol(EngineIpcClient client) => new()
+    {
+        Major = client.NegotiatedSession.Protocol.Major,
+        Minor = client.NegotiatedSession.Protocol.Minor,
+    };
+
+    private static long DeadlineAfter(TimeSpan timeout) =>
+        DateTimeOffset.UtcNow.Add(timeout).ToUnixTimeMilliseconds();
+
+    private static Dictionary<string, object> ToPayloadDictionary<TContract>(TContract contract)
+        where TContract : class
+    {
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(contract, Converter.Settings);
+        return JsonSerializer.Deserialize<Dictionary<string, object>>(bytes, Converter.Settings)
+            ?? throw new InvalidOperationException("The typed contract could not be rendered for the IPC envelope.");
     }
 
     private async Task ObserveIpcCompletionAsync(

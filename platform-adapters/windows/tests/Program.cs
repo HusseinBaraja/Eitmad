@@ -5,6 +5,8 @@ using Eitmad.Platform.Windows.ProcessSupervision;
 
 var tests = new SupervisionScenarios();
 await tests.UnavailableEngineIsTyped();
+await tests.TypedRequestsRequireConnectedEngine();
+await tests.ConfigurationPatchRequiresIdempotency();
 tests.FrameLimitMatchesRustContract();
 tests.SubscriptionQueueIsBounded();
 tests.SubscriptionAcknowledgementNeverRegresses();
@@ -48,6 +50,29 @@ internal sealed class SupervisionScenarios
         }
 
         throw new InvalidOperationException("Expected unavailable engine failure.");
+    }
+
+    public async Task TypedRequestsRequireConnectedEngine()
+    {
+        var fixture = new SupervisorFixture();
+        await Assert.ThrowsAsync<EngineIpcException>(
+            () => fixture.Supervisor.QueryAsync(Query.ForConfigGet(new GetConfiguration())),
+            "typed query requires connected engine");
+        await Assert.ThrowsAsync<EngineIpcException>(
+            () => fixture.Supervisor.SubmitConfigurationPatchAsync(
+                new UpdateConfiguration { ExpectedRevision = 1, Changes = [] },
+                Guid.NewGuid()),
+            "typed configuration patch requires connected engine");
+    }
+
+    public async Task ConfigurationPatchRequiresIdempotency()
+    {
+        var fixture = new SupervisorFixture();
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => fixture.Supervisor.SubmitConfigurationPatchAsync(
+                new UpdateConfiguration { ExpectedRevision = 1, Changes = [] },
+                Guid.Empty),
+            "typed configuration patch requires idempotency");
     }
 
     public void FrameLimitMatchesRustContract() =>
@@ -296,6 +321,42 @@ internal sealed class SupervisionScenarios
             await Eventually(() => supervisor.Snapshot.LastLifecycle?.Ready == true, TimeSpan.FromSeconds(10));
             await Eventually(() => supervisor.IpcConnected, TimeSpan.FromSeconds(10));
             Assert.Equal(EngineIpcHealthState.Connected, supervisor.Snapshot.IpcHealth, "real engine IPC health");
+            Assert.Equal(5L, supervisor.Snapshot.LastLifecycle?.Identity.ProtocolVersion.Minor, "real engine protocol version");
+
+            var configurationResponse = await supervisor.QueryAsync(Query.ForConfigGet(new GetConfiguration()));
+            if (configurationResponse.Outcome.Status != CommandOutcomeStatus.Succeeded)
+            {
+                throw new InvalidOperationException(
+                    $"Real configuration query failed: {configurationResponse.Outcome.Payload.Code} / {configurationResponse.Outcome.Payload.MessageId}.");
+            }
+            var configuration = configurationResponse.Outcome.Payload.AsConfiguration()
+                ?? throw new InvalidOperationException("Real engine omitted the configuration snapshot.");
+            var syncResponse = await supervisor.QueryAsync(Query.ForSyncGetStatus(new GetSyncStatus()));
+            Assert.True(
+                syncResponse.Outcome.Status == CommandOutcomeStatus.Succeeded
+                    || !string.IsNullOrWhiteSpace(syncResponse.Outcome.Payload.Code),
+                "real sync query returns typed state or typed error");
+            var updateResponse = await supervisor.QueryAsync(Query.ForUpdateGetState(new GetUpdateState()));
+            Assert.True(
+                updateResponse.Outcome.Status == CommandOutcomeStatus.Succeeded
+                    || !string.IsNullOrWhiteSpace(updateResponse.Outcome.Payload.Code),
+                "real update query returns typed state or typed error");
+
+            var patchResponse = await supervisor.SubmitConfigurationPatchAsync(
+                new UpdateConfiguration
+                {
+                    ExpectedRevision = configuration.Revision,
+                    Changes =
+                    [
+                        new ConfigChange
+                        {
+                            Key = "eitmad.config.locale.primary.v1",
+                            Value = new ConfigWriteValue { Kind = ConfigWriteValueKind.Text, Value = "ar-YE" },
+                        },
+                    ],
+                },
+                Guid.NewGuid());
+            Assert.Equal(CommandOutcomeStatus.Succeeded, patchResponse.Outcome.Status, "real typed configuration patch");
             await supervisor.StopAsync();
 
             Assert.Equal(EngineSupervisionState.Stopped, supervisor.Snapshot.State, "real engine stopped state");
@@ -336,17 +397,21 @@ internal sealed class SupervisionScenarios
         Schemas = [],
     };
 
-    private static DevelopmentIdentityAssertion DevelopmentIdentity() => new()
+    private static DevelopmentIdentityAssertion DevelopmentIdentity()
     {
-        Identity = new AuthenticatedIdentity
+        var scopeId = Guid.NewGuid();
+        return new DevelopmentIdentityAssertion
         {
-            PrincipalId = Guid.NewGuid(),
-            PrincipalKind = PrincipalKind.Service,
-            ServiceId = Guid.NewGuid(),
-        },
-        TenantId = Guid.NewGuid(),
-        Scope = new ScopeRef { Kind = "organization", Id = Guid.NewGuid() },
-    };
+            Identity = new AuthenticatedIdentity
+            {
+                PrincipalId = Guid.NewGuid(),
+                PrincipalKind = PrincipalKind.Service,
+                ServiceId = Guid.NewGuid(),
+            },
+            TenantId = scopeId,
+            Scope = new ScopeRef { Kind = "organization", Id = scopeId },
+        };
+    }
 
     private static async Task Eventually(Func<bool> condition, TimeSpan? timeout = null)
     {

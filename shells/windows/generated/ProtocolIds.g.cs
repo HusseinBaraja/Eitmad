@@ -212,6 +212,8 @@ public static class ProtocolIds
 
     public static class MessageIds
     {
+        public const string EitmadNotificationSyncCompleteV1 = "eitmad.notification.sync-complete.v1";
+        public const string EitmadNotificationUpdateReadyV1 = "eitmad.notification.update-ready.v1";
         public const string EitmadMessageAuthorizationDeniedV1 = "eitmad.message.authorization-denied.v1";
         public const string EitmadMessageAuthorizationLastOwnerV1 = "eitmad.message.authorization-last-owner.v1";
         public const string EitmadMessageAuthorizationPolicyConflictV1 = "eitmad.message.authorization-policy-conflict.v1";
