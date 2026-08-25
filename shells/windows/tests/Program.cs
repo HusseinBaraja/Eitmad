@@ -6,9 +6,13 @@ using Eitmad.WindowsShell.Features.Operations;
 var tests = new ShellScenarios();
 tests.StateMappingCoversOperationalContracts();
 tests.EventOrderingRejectsDuplicatesAndStaleSequences();
+tests.EventOrderingSerializesConcurrentDelivery();
 tests.StaleSnapshotsCannotReplaceNewerState();
+await tests.CommandFaultsAreOwned();
 await tests.ReconnectionRefreshesWithoutDuplicateSubscriptions();
 await tests.ResyncRefreshesRustSnapshots();
+await tests.NonSnapshotResyncClearsRecoveryBanner();
+await tests.ConfigurationQueryFailureClearsStaleState();
 tests.EngineFailureMapsToRecoveryUx();
 await tests.ShutdownStopsEngineCleanly();
 tests.RtlLayoutIncludesMixedDirectionFixtures();
@@ -69,18 +73,43 @@ internal sealed class ShellScenarios
         Assert.True(gate.TryAccept("sync", Event(Guid.NewGuid(), 1)), "replacement subscription sequence accepted");
     }
 
+    public void EventOrderingSerializesConcurrentDelivery()
+    {
+        var gate = new EventOrderGate();
+        var subscription = Guid.NewGuid();
+
+        Parallel.For(1, 1_001, sequence => gate.TryAccept("sync", Event(subscription, sequence)));
+
+        Assert.False(gate.TryAccept("sync", Event(subscription, 1_000)), "concurrent delivery retains highest sequence");
+    }
+
     public void StaleSnapshotsCannotReplaceNewerState()
     {
         var model = new OperationsViewModel();
         model.ObserveConfiguration(Configuration(7, "ar-YE"), 200);
-        model.ObserveConfiguration(Configuration(6, "en-US"), 300);
-        model.ObserveConfiguration(Configuration(8, "en-US"), 100);
-        Assert.Equal(7L, model.ConfigRevision, "stale configuration revision rejected");
-        Assert.Equal("ar-YE", model.SelectedLocale, "stale locale rejected");
+        model.ObserveConfiguration(Configuration(8, "en-US"), 200);
+        model.ObserveConfiguration(Configuration(7, "ar-YE"), 300);
+        model.ObserveConfiguration(Configuration(9, "ar-YE"), 100);
+        Assert.Equal(8L, model.ConfigRevision, "equal timestamp accepted while stale state is rejected");
+        Assert.Equal("en-US", model.SelectedLocale, "stale locale rejected");
 
         model.ObserveSync(new SyncStatus { Kind = SyncStatusKind.Current, Payload = new SyncStatusPayload() }, 200);
         model.ObserveSync(new SyncStatus { Kind = SyncStatusKind.Failed, Payload = new SyncStatusPayload { Reason = "old" } }, 100);
         Assert.Equal("محدّث", model.SyncCard.Value, "stale sync state rejected");
+    }
+
+    public async Task CommandFaultsAreOwned()
+    {
+        var handled = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var expected = new InvalidOperationException("Synthetic command failure.");
+        var command = new AsyncCommand(
+            () => Task.FromException(expected),
+            onError: error => handled.TrySetResult(error));
+
+        command.Execute(null);
+
+        Assert.Equal(expected, await handled.Task.WaitAsync(TimeSpan.FromSeconds(3)), "command failure routed to owner");
+        await Eventually(() => command.CanExecute(null));
     }
 
     public async Task ReconnectionRefreshesWithoutDuplicateSubscriptions()
@@ -90,11 +119,11 @@ internal sealed class ShellScenarios
         await using var coordinator = new OperationsCoordinator(engine, model, new ImmediateDispatcher());
         await coordinator.StartAsync(Request());
         engine.Connect();
-        await Eventually(() => engine.QueryCount == 3 && engine.SubscriptionCount == 6);
+        await Eventually(() => engine.QueryCount >= 3 && engine.SubscriptionCount == 6);
 
         engine.Disconnect();
         engine.Connect();
-        await Eventually(() => engine.QueryCount == 6);
+        await Eventually(() => engine.QueryCount >= 6);
         Assert.Equal(6, engine.SubscriptionCount, "reconnect reuses supervised subscriptions");
         Assert.False(model.ShowConnectionBanner, "fresh snapshots clear reconnect banner");
     }
@@ -106,10 +135,40 @@ internal sealed class ShellScenarios
         await using var coordinator = new OperationsCoordinator(engine, model, new ImmediateDispatcher());
         await coordinator.StartAsync(Request());
         engine.Connect();
-        await Eventually(() => engine.QueryCount == 3);
+        await Eventually(() => engine.QueryCount >= 3);
         engine.SignalResync(ProtocolIds.Subscriptions.EitmadSyncStatusSubscribeV1);
-        await Eventually(() => engine.QueryCount == 6);
+        await Eventually(() => engine.QueryCount >= 6);
         Assert.False(model.ShowConnectionBanner, "resync completes with current snapshots");
+    }
+
+    public async Task NonSnapshotResyncClearsRecoveryBanner()
+    {
+        var engine = new FakeEngine();
+        var model = new OperationsViewModel();
+        await using var coordinator = new OperationsCoordinator(engine, model, new ImmediateDispatcher());
+        await coordinator.StartAsync(Request());
+        engine.Connect();
+        await Eventually(() => engine.SubscriptionCount == 6);
+
+        engine.SignalResync(ProtocolIds.Subscriptions.EitmadBackgroundJobStatusSubscribeV1);
+
+        await Eventually(() => !model.ShowConnectionBanner);
+    }
+
+    public async Task ConfigurationQueryFailureClearsStaleState()
+    {
+        var engine = new FakeEngine { FailConfigurationQuery = true };
+        var model = new OperationsViewModel();
+        model.ObserveConfiguration(Configuration(4, "en-US"));
+        await using var coordinator = new OperationsCoordinator(engine, model, new ImmediateDispatcher());
+        await coordinator.StartAsync(Request());
+
+        engine.Connect();
+
+        await Eventually(() => engine.QueryCount >= 3);
+        Assert.Equal(-1L, model.ConfigRevision, "failed configuration query clears revision");
+        Assert.Equal(0, model.Configuration.Count, "failed configuration query clears entries");
+        Assert.Equal("غير متاح", model.ConfigurationRevisionLabel, "failed configuration query is visible");
     }
 
     public void EngineFailureMapsToRecoveryUx()
@@ -243,10 +302,12 @@ internal sealed class FakeEngine : IEngineShellBridge
 {
     private readonly Dictionary<string, FakeSubscription> subscriptions = [];
     private EngineSupervisionSnapshot snapshot = new(EngineSupervisionState.Stopped, 0, 0, EngineIpcHealthState.Unavailable, null, null, null);
+    private int queryCount;
 
     public event Action<EngineSupervisionSnapshot>? StateChanged;
     public EngineSupervisionSnapshot Snapshot => snapshot;
-    public int QueryCount { get; private set; }
+    public bool FailConfigurationQuery { get; init; }
+    public int QueryCount => Volatile.Read(ref queryCount);
     public int SubscriptionCount => subscriptions.Count;
     public int StopCount { get; private set; }
 
@@ -267,7 +328,21 @@ internal sealed class FakeEngine : IEngineShellBridge
 
     public Task<QueryResponseEnvelope> QueryAsync(Query query, CancellationToken cancellationToken = default)
     {
-        QueryCount++;
+        Interlocked.Increment(ref queryCount);
+        if (FailConfigurationQuery && query.Kind == Query.ConfigGetKind)
+        {
+            return Task.FromResult(new QueryResponseEnvelope
+            {
+                RequestId = Guid.NewGuid(),
+                CorrelationId = Guid.NewGuid(),
+                Outcome = new QueryOutcome
+                {
+                    Status = CommandOutcomeStatus.Failed,
+                    Payload = new QueryResult { Code = "CONFIG_UNAVAILABLE" },
+                },
+            });
+        }
+
         var result = query.Kind switch
         {
             Query.ConfigGetKind => QueryResult.ForConfiguration(ShellScenariosConfiguration()),

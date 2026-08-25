@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
 using Eitmad.Contracts;
+using Eitmad.Platform.Windows.LocalIpc;
 using Eitmad.Platform.Windows.ProcessSupervision;
 
 namespace Eitmad.WindowsShell.Features.Operations;
@@ -24,8 +25,8 @@ public sealed class OperationsViewModel : ObservableObject
 
     public OperationsViewModel()
     {
-        SaveConfigurationCommand = new AsyncCommand(SaveConfigurationAsync, () => CanSaveConfiguration);
-        RestartCommand = new AsyncCommand(RestartAsync, () => RestartExhausted && RestartEngine is not null);
+        SaveConfigurationCommand = new AsyncCommand(SaveConfigurationAsync, () => CanSaveConfiguration, ObserveCommandFailure);
+        RestartCommand = new AsyncCommand(RestartAsync, () => RestartExhausted && RestartEngine is not null, ObserveCommandFailure);
     }
 
     public Func<UpdateConfiguration, Guid, Task>? SubmitConfigurationPatch { get; set; }
@@ -51,7 +52,7 @@ public sealed class OperationsViewModel : ObservableObject
     }
     public bool IsSavingConfiguration { get => isSavingConfiguration; private set => Set(ref isSavingConfiguration, value); }
     public long ConfigRevision => configRevision;
-    public string ConfigurationRevisionLabel => configRevision < 0 ? "—" : $"الإصدار {configRevision}";
+    public string ConfigurationRevisionLabel => configRevision < 0 ? "غير متاح" : $"الإصدار {configRevision}";
     public string CurrentDateLabel => DateTime.Now.ToString("dddd · d MMMM yyyy", CultureInfo.GetCultureInfo("ar-YE"));
     public bool CanSaveConfiguration => configRevision >= 0 && !IsSavingConfiguration;
 
@@ -156,6 +157,15 @@ public sealed class OperationsViewModel : ObservableObject
             }
         }
 
+        Raise(nameof(ConfigRevision));
+        Raise(nameof(ConfigurationRevisionLabel));
+        SaveConfigurationCommand.Refresh();
+    }
+
+    public void ObserveConfigurationUnavailable()
+    {
+        configRevision = -1;
+        Configuration.Clear();
         Raise(nameof(ConfigRevision));
         Raise(nameof(ConfigurationRevisionLabel));
         SaveConfigurationCommand.Refresh();
@@ -305,7 +315,7 @@ public sealed class OperationsViewModel : ObservableObject
                 },
                 Guid.NewGuid());
         }
-        catch (Exception error) when (error is InvalidOperationException or IOException)
+        catch (Exception error) when (error is InvalidOperationException or IOException or EngineIpcException)
         {
             ShowUnavailable("تعذر حفظ رقعة الإعدادات", "احتفظ التطبيق بالقيمة الحالية. حدّث اللقطة ثم أعد المحاولة.", "Danger");
         }
@@ -331,7 +341,7 @@ public sealed class OperationsViewModel : ObservableObject
             return false;
         }
 
-        if (lastEventTime.TryGetValue(stream, out var current) && observedAt <= current)
+        if (lastEventTime.TryGetValue(stream, out var current) && observedAt < current)
         {
             return true;
         }
@@ -365,6 +375,9 @@ public sealed class OperationsViewModel : ObservableObject
         ConnectionTone = tone;
         ShowConnectionBanner = true;
     }
+
+    private void ObserveCommandFailure(Exception _) =>
+        ShowUnavailable("تعذر تنفيذ الإجراء", "احتفظ التطبيق بالحالة الحالية. أعد المحاولة بعد استعادة اتصال المحرك.", "Danger");
 
     private void TrimActivity()
     {

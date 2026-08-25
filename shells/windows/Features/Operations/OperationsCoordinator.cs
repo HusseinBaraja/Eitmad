@@ -177,11 +177,23 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
     {
         eventOrder.Reset(stream);
         dispatcher.Invoke(() => viewModel.BeginResynchronization(stream));
-        if (stream is "configuration" or "sync" or "update")
+        try
         {
-            await RefreshSnapshotsAsync(cancellationToken);
-            dispatcher.Invoke(viewModel.MarkSnapshotsCurrent);
+            if (stream is "configuration" or "sync" or "update")
+            {
+                await RefreshSnapshotsAsync(cancellationToken);
+            }
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return;
+        }
+        catch (EngineIpcException)
+        {
+            connected = false;
+        }
+
+        dispatcher.Invoke(viewModel.MarkSnapshotsCurrent);
     }
 
     private async Task RefreshSnapshotsAsync(CancellationToken cancellationToken)
@@ -195,6 +207,10 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
                 && configuration.Outcome.Payload.AsConfiguration() is { } configSnapshot)
             {
                 viewModel.ObserveConfiguration(configSnapshot);
+            }
+            else
+            {
+                viewModel.ObserveConfigurationUnavailable();
             }
             if (sync.Outcome.Status == CommandOutcomeStatus.Succeeded
                 && sync.Outcome.Payload.AsSyncStatus() is { } syncStatus)
@@ -234,6 +250,10 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
             && response.Outcome.Payload.AsConfiguration() is { } snapshot)
         {
             dispatcher.Invoke(() => viewModel.ObserveConfiguration(snapshot));
+        }
+        else
+        {
+            dispatcher.Invoke(viewModel.ObserveConfigurationUnavailable);
         }
     }
 

@@ -18,24 +18,40 @@ public sealed record ActivityItem(Guid Id, string Title, string Detail, string T
 
 public sealed class EventOrderGate
 {
+    private readonly object gate = new();
     private readonly Dictionary<string, (Guid SubscriptionId, long Sequence)> cursors = [];
 
     public bool TryAccept(string stream, EventEnvelope delivered)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(stream);
         ArgumentNullException.ThrowIfNull(delivered);
-        if (cursors.TryGetValue(stream, out var current)
-            && current.SubscriptionId == delivered.SubscriptionId
-            && delivered.Sequence <= current.Sequence)
+        lock (gate)
         {
-            return false;
-        }
+            if (cursors.TryGetValue(stream, out var current)
+                && current.SubscriptionId == delivered.SubscriptionId
+                && delivered.Sequence <= current.Sequence)
+            {
+                return false;
+            }
 
-        cursors[stream] = (delivered.SubscriptionId, delivered.Sequence);
-        return true;
+            cursors[stream] = (delivered.SubscriptionId, delivered.Sequence);
+            return true;
+        }
     }
 
-    public void Reset(string stream) => cursors.Remove(stream);
+    public void Reset(string stream)
+    {
+        lock (gate)
+        {
+            cursors.Remove(stream);
+        }
+    }
 
-    public void ResetAll() => cursors.Clear();
+    public void ResetAll()
+    {
+        lock (gate)
+        {
+            cursors.Clear();
+        }
+    }
 }

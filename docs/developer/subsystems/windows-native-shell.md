@@ -59,7 +59,7 @@ Configuration is the only state-changing shell flow. The view model creates `Upd
 
 ## Event ordering, reconnect, and resynchronization
 
-The shell keeps one `EventOrderGate` watermark per stream. It rejects a duplicate or lower sequence from the same subscription. A replacement subscription may start again at sequence `1`; the view model then rejects semantically stale configuration revisions and older event timestamps.
+The shell keeps one `EventOrderGate` watermark per stream. A lock makes cursor acceptance and reset atomic across the six concurrent stream pumps. The gate rejects a duplicate or lower sequence from the same subscription. A replacement subscription may start again at sequence `1`; the view model then rejects semantically stale configuration revisions and older event timestamps. Equal timestamps remain valid because distinct ordered events can share the same timestamp.
 
 `EngineSupervisor` owns same-generation reconnect and reattaches every desired subscription from its last acknowledged cursor. The coordinator does not create duplicate subscriptions when `IpcHealth` returns to `Connected`. It refreshes query-backed snapshots after every connection restoration.
 
@@ -69,9 +69,9 @@ An expired or engine-generation cursor causes the supervisor to open a fresh str
 2. shows **نحدّث الحالة من المصدر…**;
 3. clears ephemeral discrete job, notification, or error rows when no authoritative list query exists;
 4. re-queries configuration, sync, and update snapshots for query-backed state;
-5. hides the banner only after the new snapshots have been applied.
+5. clears the resynchronization banner when the refresh attempt finishes, including streams with no list query and failed typed queries.
 
-This process preserves Rust authority. Notification and error history can be absent after an unreplayable discrete gap because the current contracts do not provide list queries.
+This process preserves Rust authority. A failed configuration query clears the prior entries and revision, displays **غير متاح**, and disables configuration submission instead of presenting stale values. Notification and error history can be absent after an unreplayable discrete gap because the current contracts do not provide list queries. Command failures are caught at the WPF command boundary and mapped to recovery state so they cannot escape through the dispatcher.
 
 ## Engine failure, tray, and shutdown
 

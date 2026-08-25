@@ -2,7 +2,10 @@ using System.Windows.Input;
 
 namespace Eitmad.WindowsShell.Features.Operations;
 
-public sealed class AsyncCommand(Func<Task> execute, Func<bool>? canExecute = null) : ICommand
+public sealed class AsyncCommand(
+    Func<Task> execute,
+    Func<bool>? canExecute = null,
+    Action<Exception>? onError = null) : ICommand
 {
     private bool running;
 
@@ -22,6 +25,10 @@ public sealed class AsyncCommand(Func<Task> execute, Func<bool>? canExecute = nu
         try
         {
             await execute();
+        }
+        catch (Exception error)
+        {
+            onError?.Invoke(error);
         }
         finally
         {
