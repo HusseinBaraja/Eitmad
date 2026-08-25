@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "reference"
 status: "active"
 owner: "product and architecture maintainers"
-last_verified: "2026-07-11"
+last_verified: "2026-08-25"
 review_triggers:
   - "a user workflow, Arabic term, search rule, native shell, or generated document changes"
 keywords:
@@ -22,6 +22,8 @@ keywords:
 Arabic is Eitmad's default UI and UX design language. Arabic-first means product flows are conceived, written, tested, and reviewed in Arabic and RTL from the beginning. English and other locales remain supported, but they do not define the layout assumptions.
 
 These requirements apply to native shells, Rust-owned messages and contracts, search, imports and exports, documents, reports, diagnostics, and support tools.
+
+The first Windows operations surface implements this direction at `shells/windows`: the WPF root and primary navigation are RTL, machine identifiers use local LTR isolation, status uses Arabic text and color, and mixed fixtures include `CNC-04`, `Windows / Rust`, `ar-YE`, and `en-US`. See the [Windows shell subsystem](../developer/subsystems/windows-native-shell.md) for current coverage and remaining production accessibility checks.
 
 ## Language and content
 

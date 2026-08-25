@@ -5,7 +5,7 @@ audience: "support"
 page_type: "troubleshooting"
 status: "active"
 owner: "Windows platform maintainers"
-last_verified: "2026-07-12"
+last_verified: "2026-08-25"
 review_triggers:
   - "Windows supervision states, retry bounds, process containment, or shutdown recovery changes"
 keywords:
@@ -29,7 +29,7 @@ keywords:
 - the engine never reaches Rust `LifecycleState.Ready`;
 - a replacement process exists but an older exit callback also arrives.
 
-No Arabic UI message exists yet. These are engineering state names, not approved user-facing copy. A future shell message must use localized Arabic labels in an RTL layout, isolate LTR identifiers such as `RestartExhausted` and correlation IDs, and preserve mixed Arabic/English diagnostic text without reordering it. Arabic search must cover the approved label and common terms such as `تعذر تشغيل المحرك` and `توقف المحرك`. Shell tests and support-report rendering must verify Arabic shaping, bidi isolation, numerals, identifier copy/paste, and redaction before that message ships; the Rust state and error identifiers remain the diagnostic authority.
+The Windows shell maps these states to **توقفت محاولات إعادة تشغيل المحرك**, **تعذر استعادة الاتصال بالمحرك**, and related Arabic recovery text in an RTL layout. It isolates LTR identifiers such as `RestartExhausted` and correlation IDs. The Rust state and error identifiers remain the diagnostic authority. Use the [shell-specific recovery path](windows-shell-state-recovery.md) for visible UI symptoms.
 
 ## Fast checks
 

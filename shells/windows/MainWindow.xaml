@@ -1,0 +1,261 @@
+<Window x:Class="Eitmad.WindowsShell.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="الاعتماد · مركز العمليات"
+        Width="1240" Height="820" MinWidth="1000" MinHeight="680"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None" ResizeMode="CanResizeWithGrip"
+        Background="{StaticResource CanvasBrush}"
+        FlowDirection="RightToLeft" Language="ar-YE"
+        UseLayoutRounding="True" SnapsToDevicePixels="True">
+    <Window.Resources>
+        <DataTemplate x:Key="StatusCardTemplate">
+            <Border Style="{StaticResource Card}" Margin="0,0,12,0" MinWidth="225">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <DockPanel>
+                        <Ellipse x:Name="ToneDot" Width="9" Height="9" Fill="{StaticResource MutedBrush}" Margin="8,0,0,0" />
+                        <TextBlock Text="{Binding Title}" FontSize="12" Foreground="{StaticResource MutedBrush}" />
+                    </DockPanel>
+                    <TextBlock Grid.Row="1" Text="{Binding Value}" FontSize="25" FontWeight="SemiBold" Margin="0,12,0,3" />
+                    <TextBlock Grid.Row="2" Text="{Binding Detail}" FontSize="12" Foreground="{StaticResource MutedBrush}" />
+                    <ProgressBar Grid.Row="3" Maximum="1" Value="{Binding Progress}" Margin="0,15,0,0" />
+                </Grid>
+            </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding Tone}" Value="Success"><Setter TargetName="ToneDot" Property="Fill" Value="{StaticResource SuccessBrush}" /></DataTrigger>
+                <DataTrigger Binding="{Binding Tone}" Value="Warning"><Setter TargetName="ToneDot" Property="Fill" Value="{StaticResource WarningBrush}" /></DataTrigger>
+                <DataTrigger Binding="{Binding Tone}" Value="Danger"><Setter TargetName="ToneDot" Property="Fill" Value="{StaticResource DangerBrush}" /></DataTrigger>
+                <DataTrigger Binding="{Binding Tone}" Value="Accent"><Setter TargetName="ToneDot" Property="Fill" Value="{StaticResource CopperBrush}" /></DataTrigger>
+                <DataTrigger Binding="{Binding Tone}" Value="Pending"><Setter TargetName="ToneDot" Property="Fill" Value="{StaticResource WarningBrush}" /></DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <DataTemplate x:Key="JobTemplate">
+            <Grid Margin="0,9">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="42" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="130" />
+                </Grid.ColumnDefinitions>
+                <Border Width="34" Height="34" CornerRadius="10" Background="#F0E8DD">
+                    <TextBlock Text="&#xE895;" FontFamily="Segoe Fluent Icons" Foreground="{StaticResource CopperBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <StackPanel Grid.Column="1" Margin="10,0">
+                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="13" />
+                    <TextBlock Text="{Binding Detail}" Foreground="{StaticResource MutedBrush}" FontSize="11" FlowDirection="LeftToRight" TextAlignment="Right" />
+                </StackPanel>
+                <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding State}" HorizontalAlignment="Left" FontSize="11" Foreground="{StaticResource MutedBrush}" />
+                    <ProgressBar Maximum="1" Value="{Binding Progress}" Margin="0,6,0,0" />
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="ActivityTemplate">
+            <Grid Margin="0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="46" />
+                </Grid.ColumnDefinitions>
+                <Ellipse x:Name="ActivityDot" Width="7" Height="7" Fill="{StaticResource MutedBrush}" VerticalAlignment="Top" Margin="0,6,0,0" />
+                <StackPanel Grid.Column="1" Margin="10,0">
+                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="12" />
+                    <TextBlock Text="{Binding Detail}" Foreground="{StaticResource MutedBrush}" FontSize="10" FlowDirection="LeftToRight" TextAlignment="Right" />
+                </StackPanel>
+                <TextBlock Grid.Column="2" Text="{Binding Time}" Foreground="{StaticResource MutedBrush}" FontSize="10" FlowDirection="LeftToRight" />
+            </Grid>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding Tone}" Value="Success"><Setter TargetName="ActivityDot" Property="Fill" Value="{StaticResource SuccessBrush}" /></DataTrigger>
+                <DataTrigger Binding="{Binding Tone}" Value="Warning"><Setter TargetName="ActivityDot" Property="Fill" Value="{StaticResource WarningBrush}" /></DataTrigger>
+                <DataTrigger Binding="{Binding Tone}" Value="Danger"><Setter TargetName="ActivityDot" Property="Fill" Value="{StaticResource DangerBrush}" /></DataTrigger>
+                <DataTrigger Binding="{Binding Tone}" Value="Accent"><Setter TargetName="ActivityDot" Property="Fill" Value="{StaticResource CopperBrush}" /></DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+    </Window.Resources>
+
+    <Border BorderBrush="#CEC9BE" BorderThickness="1" CornerRadius="8" Background="{StaticResource CanvasBrush}">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="52" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Background="#FAF8F2" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1" MouseLeftButtonDown="TitleBarMouseDown">
+                <Grid Margin="18,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border Width="30" Height="30" CornerRadius="9" Background="{StaticResource ForestBrush}" Margin="0,0,0,0">
+                            <TextBlock Text="ا" Foreground="White" FontSize="17" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel Margin="10,0,0,0">
+                            <TextBlock Text="الاعتماد" FontWeight="SemiBold" FontSize="13" />
+                            <TextBlock Text="مركز العمليات · Windows / Rust" FontSize="9" Foreground="{StaticResource MutedBrush}" FlowDirection="LeftToRight" TextAlignment="Right" />
+                        </StackPanel>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" FlowDirection="LeftToRight">
+                        <Button Style="{StaticResource ChromeButton}" Content="&#xE921;" Click="MinimizeClick" ToolTip="تصغير" />
+                        <Button Style="{StaticResource ChromeButton}" Content="&#xE922;" Click="MaximizeClick" ToolTip="تكبير" />
+                        <Button Style="{StaticResource ChromeButton}" Content="&#xE8BB;" Click="CloseClick" ToolTip="إخفاء في شريط النظام" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="218" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Background="{StaticResource ForestBrush}" Padding="22,30">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="غرفة التحكم" Foreground="White" FontSize="20" FontWeight="SemiBold" />
+                            <TextBlock Text="الورشة الرئيسية · CNC-04" Foreground="#AFC5BC" FontSize="10" Margin="0,4,0,0" FlowDirection="LeftToRight" TextAlignment="Right" />
+                        </StackPanel>
+                        <StackPanel Grid.Row="1" Margin="0,38,0,0">
+                            <Border Background="#214D42" CornerRadius="12" Padding="14,11" Margin="0,0,0,8">
+                                <DockPanel><TextBlock Text="&#xE80F;" FontFamily="Segoe Fluent Icons" Foreground="#F0B386" Margin="8,0,0,0" /><TextBlock Text="نظرة عامة" Foreground="White" FontWeight="SemiBold" /></DockPanel>
+                            </Border>
+                            <Border Padding="14,11" Margin="0,0,0,4"><DockPanel><TextBlock Text="&#xE895;" FontFamily="Segoe Fluent Icons" Foreground="#89A59A" Margin="8,0,0,0" /><TextBlock Text="المهام الخلفية" Foreground="#C9D8D2" /></DockPanel></Border>
+                            <Border Padding="14,11" Margin="0,0,0,4"><DockPanel><TextBlock Text="&#xE713;" FontFamily="Segoe Fluent Icons" Foreground="#89A59A" Margin="8,0,0,0" /><TextBlock Text="الإعدادات" Foreground="#C9D8D2" /></DockPanel></Border>
+                            <Border Padding="14,11"><DockPanel><TextBlock Text="&#xEA39;" FontFamily="Segoe Fluent Icons" Foreground="#89A59A" Margin="8,0,0,0" /><TextBlock Text="التشخيص" Foreground="#C9D8D2" /></DockPanel></Border>
+                        </StackPanel>
+                        <Border Grid.Row="2" Background="#0C3028" CornerRadius="14" Padding="14">
+                            <StackPanel>
+                                <TextBlock Text="حدود الملكية" Foreground="#8FB0A3" FontSize="9" />
+                                <TextBlock Text="Rust هو مصدر الحقيقة" Foreground="White" FontSize="11" FontWeight="SemiBold" Margin="0,4,0,0" />
+                                <TextBlock Text="لا تخزين · لا أسرار · لا قرارات صلاحية" Foreground="#AFC5BC" FontSize="9" Margin="0,3,0,0" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="30,25,30,35">
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource Eyebrow}" Text="مراقبة مباشرة" />
+                                <TextBlock Text="صباح الخير، هذه حالة الاعتماد الآن" FontSize="27" FontWeight="SemiBold" Margin="0,5,0,0" />
+                                <TextBlock Text="لقطات موثوقة من المحرك مع تحديثات مرتبة وقابلة للاستئناف." Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,5,0,0" />
+                            </StackPanel>
+                            <Border Grid.Column="1" Background="#E7E1D5" CornerRadius="12" Padding="14,8" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding CurrentDateLabel}" FontSize="11" Foreground="{StaticResource MutedBrush}" />
+                            </Border>
+                        </Grid>
+
+                        <Border Margin="0,22,0,0" Padding="18,14" CornerRadius="14" BorderThickness="1" Visibility="{Binding ShowConnectionBanner, Converter={StaticResource BooleanToVisibility}}">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="#FFF7E7" /><Setter Property="BorderBrush" Value="#E7C983" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ConnectionTone}" Value="Danger"><Setter Property="Background" Value="#FFF0ED" /><Setter Property="BorderBrush" Value="#E0A09B" /></DataTrigger>
+                                        <DataTrigger Binding="{Binding ConnectionTone}" Value="Pending"><Setter Property="Background" Value="#EEF4F0" /><Setter Property="BorderBrush" Value="#AAC0B7" /></DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="{Binding ConnectionBanner}" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding ConnectionDetail}" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,3,0,0" />
+                                </StackPanel>
+                                <Button Grid.Column="1" Content="إعادة المحاولة" Style="{StaticResource PrimaryButton}" Command="{Binding RestartCommand}" Visibility="{Binding RestartExhausted, Converter={StaticResource BooleanToVisibility}}" />
+                            </Grid>
+                        </Border>
+
+                        <Grid Margin="0,20,0,0">
+                            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+                            <ContentControl Grid.Column="0" Content="{Binding EngineCard}" ContentTemplate="{StaticResource StatusCardTemplate}" />
+                            <ContentControl Grid.Column="1" Content="{Binding SyncCard}" ContentTemplate="{StaticResource StatusCardTemplate}" />
+                            <ContentControl Grid.Column="2" Content="{Binding UpdateCard}" ContentTemplate="{StaticResource StatusCardTemplate}" />
+                        </Grid>
+
+                        <Grid Margin="0,20,0,0">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="1.35*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,12,0">
+                                <Grid>
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                                    <DockPanel>
+                                        <TextBlock Text="المهام الخلفية" Style="{StaticResource SectionTitle}" />
+                                        <Border Background="#EFE9DE" CornerRadius="9" Padding="9,4" HorizontalAlignment="Left"><TextBlock Text="{Binding Jobs.Count, StringFormat={}{0} نشطة}" FontSize="10" /></Border>
+                                    </DockPanel>
+                                    <Grid Grid.Row="1" Margin="0,12,0,0" MinHeight="175">
+                                        <TextBlock Text="لا توجد مهام خلفية الآن" Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding Jobs.Count}" Value="0"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                                        </TextBlock>
+                                        <ItemsControl ItemsSource="{Binding Jobs}" ItemTemplate="{StaticResource JobTemplate}" />
+                                    </Grid>
+                                </Grid>
+                            </Border>
+                            <Border Grid.Column="1" Style="{StaticResource Card}" Margin="12,0,0,0">
+                                <Grid>
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                                    <DockPanel><TextBlock Text="التنبيهات والأخطاء" Style="{StaticResource SectionTitle}" /><TextBlock Text="مباشر" Foreground="{StaticResource SuccessBrush}" FontSize="10" HorizontalAlignment="Left" /></DockPanel>
+                                    <Grid Grid.Row="1" Margin="0,12,0,0" MinHeight="175">
+                                        <TextBlock Text="لا توجد رسائل جديدة" Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding Activity.Count}" Value="0"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                                        </TextBlock>
+                                        <ItemsControl ItemsSource="{Binding Activity}" ItemTemplate="{StaticResource ActivityTemplate}" />
+                                    </Grid>
+                                </Grid>
+                            </Border>
+                        </Grid>
+
+                        <Border Style="{StaticResource Card}" Margin="0,20,0,0">
+                            <Grid>
+                                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                                <DockPanel>
+                                    <StackPanel>
+                                        <TextBlock Text="لقطة الإعدادات" Style="{StaticResource SectionTitle}" />
+                                        <TextBlock Text="يعرض الغلاف القيم الآمنة فقط، ويرسل رقعة مكتوبة إلى المحرك." Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,3,0,0" />
+                                    </StackPanel>
+                                    <Border Background="#EFE9DE" CornerRadius="9" Padding="10,5" HorizontalAlignment="Left"><TextBlock Text="{Binding ConfigurationRevisionLabel}" FontSize="10" FlowDirection="LeftToRight" /></Border>
+                                </DockPanel>
+                                <Grid Grid.Row="1" Margin="0,20,0,0">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="220" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Text="لغة الواجهة الأساسية" FontWeight="SemiBold" FontSize="12" />
+                                        <TextBlock Text="Primary locale" Foreground="{StaticResource MutedBrush}" FontSize="9" FlowDirection="LeftToRight" TextAlignment="Right" />
+                                    </StackPanel>
+                                    <ComboBox Grid.Column="1" SelectedValue="{Binding SelectedLocale}" SelectedValuePath="Tag" Margin="14,0">
+                                        <ComboBoxItem Content="العربية (اليمن) · ar-YE" Tag="ar-YE" />
+                                        <ComboBoxItem Content="English (United States) · en-US" Tag="en-US" FlowDirection="LeftToRight" />
+                                    </ComboBox>
+                                    <Button Grid.Column="2" Content="حفظ الرقعة" Style="{StaticResource PrimaryButton}" Command="{Binding SaveConfigurationCommand}" />
+                                </Grid>
+                                <ItemsControl Grid.Row="2" ItemsSource="{Binding Configuration}" Margin="0,18,0,0">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,7" FlowDirection="LeftToRight">
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="2*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="110" /></Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding Key}" FontFamily="Cascadia Mono" FontSize="10" Foreground="{StaticResource MutedBrush}" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Grid.Column="1" Text="{Binding Value}" FontSize="11" TextAlignment="Right" FlowDirection="RightToLeft" />
+                                                <TextBlock Grid.Column="2" Text="{Binding Sensitivity}" FontSize="9" Foreground="{StaticResource CopperBrush}" HorizontalAlignment="Right" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>
