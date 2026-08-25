@@ -8,7 +8,7 @@ namespace Eitmad.WindowsShell.Features.Operations;
 
 public sealed class OperationsViewModel : ObservableObject
 {
-    private const string LocaleKey = "eitmad.config.locale.primary.v1";
+    private const string LocaleKey = ProtocolIds.ConfigKeys.EitmadConfigLocalePrimaryV1;
     private readonly Dictionary<string, long> lastEventTime = [];
     private long configRevision = -1;
     private string selectedLocale = "ar-YE";
@@ -446,8 +446,8 @@ public sealed class OperationsViewModel : ObservableObject
 
     private static string LocalizeMessage(string messageId) => messageId switch
     {
-        "eitmad.notification.sync-complete.v1" => "اكتملت المزامنة",
-        "eitmad.notification.update-ready.v1" => "التحديث جاهز",
+        ProtocolIds.MessageIds.EitmadNotificationSyncCompleteV1 => "اكتملت المزامنة",
+        ProtocolIds.MessageIds.EitmadNotificationUpdateReadyV1 => "التحديث جاهز",
         _ => messageId,
     };
 

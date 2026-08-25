@@ -212,6 +212,8 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Localization message identifiers
 
+- `eitmad.notification.sync-complete.v1`
+- `eitmad.notification.update-ready.v1`
 - `eitmad.message.authorization-denied.v1`
 - `eitmad.message.authorization-last-owner.v1`
 - `eitmad.message.authorization-policy-conflict.v1`

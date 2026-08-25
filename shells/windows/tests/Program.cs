@@ -46,7 +46,7 @@ internal sealed class ShellScenarios
             NotificationId = Guid.NewGuid(),
             Scope = Scope(),
             Severity = NotificationSeverity.Success,
-            MessageId = "eitmad.notification.sync-complete.v1",
+            MessageId = ProtocolIds.MessageIds.EitmadNotificationSyncCompleteV1,
             Parameters = [],
         }, 11);
 
@@ -107,7 +107,7 @@ internal sealed class ShellScenarios
         await coordinator.StartAsync(Request());
         engine.Connect();
         await Eventually(() => engine.QueryCount == 3);
-        engine.SignalResync("eitmad.sync.status.subscribe.v1");
+        engine.SignalResync(ProtocolIds.Subscriptions.EitmadSyncStatusSubscribeV1);
         await Eventually(() => engine.QueryCount == 6);
         Assert.False(model.ShowConnectionBanner, "resync completes with current snapshots");
     }
@@ -198,7 +198,7 @@ internal sealed class ShellScenarios
         [
             new ConfigEntry
             {
-                Key = "eitmad.config.locale.primary.v1",
+                Key = ProtocolIds.ConfigKeys.EitmadConfigLocalePrimaryV1,
                 Sensitivity = ConfigSensitivity.Public,
                 RestartRequirement = RestartRequirement.None,
                 Value = new ConfigReadValue { Kind = ConfigReadValueKind.Text, Value = locale },
@@ -349,7 +349,7 @@ internal sealed class FakeEngine : IEngineShellBridge
         [
             new ConfigEntry
             {
-                Key = "eitmad.config.locale.primary.v1", Sensitivity = ConfigSensitivity.Public,
+                Key = ProtocolIds.ConfigKeys.EitmadConfigLocalePrimaryV1, Sensitivity = ConfigSensitivity.Public,
                 RestartRequirement = RestartRequirement.None,
                 Value = new ConfigReadValue { Kind = ConfigReadValueKind.Text, Value = "ar-YE" },
             },

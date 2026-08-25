@@ -88,6 +88,8 @@ Closing the main window hides it and keeps the supervised engine available throu
 
 `MainWindow.xaml` sets `FlowDirection="RightToLeft"` and `Language="ar-YE"` at the window boundary. The primary navigation starts at the RTL edge. Machine identifiers, configuration keys, protocol names, and mixed fixtures such as `CNC-04` and `Windows / Rust` use explicit LTR child containers. Status always has Arabic text in addition to color.
 
+`OperationsViewModel` maps the Rust-catalog message identifiers `eitmad.notification.sync-complete.v1` and `eitmad.notification.update-ready.v1` to Arabic notification titles. It references generated `ProtocolIds.MessageIds` constants. An unknown message identifier remains visible as its stable identifier until a cataloged translation exists; the shell must not define a new `eitmad.*` literal.
+
 The visual system uses restrained workshop colors, high-contrast status surfaces, native Windows tray behavior, scalable WPF layout, and native UI Automation names. The rendered app was checked at `1240×820` with the real Rust engine. The shell tests verify root RTL metadata, Arabic and English fixture isolation, Arabic state mapping, empty states, and ownership boundaries. Keyboard traversal, Arabic screen-reader announcements, high contrast, and 200% text scaling need verification before a production installer release.
 
 ## Security and compatibility
@@ -117,6 +119,6 @@ Run the shell with the built engine:
 dotnet run --project shells/windows/Eitmad.WindowsShell.csproj -- --engine target/debug/eitmad-engine-cli.exe
 ```
 
-Add Arabic copy and presentation mapping inside `Features/Operations`. Add Windows-only mechanics inside `Platform` or the platform adapter. Add contract payloads, validation, authorization, audit, persistence, sync, and update behavior to the owning Rust vertical. Keep generated files under `shells/windows/generated` mechanically derived and excluded from shell compilation because the adapter assembly already links them.
+Add Arabic copy and presentation mapping inside `Features/Operations`. Register every stable message identifier in the Rust contract catalog, regenerate `ProtocolIds`, and reference that generated constant from the mapping. Add Windows-only mechanics inside `Platform` or the platform adapter. Add contract payloads, validation, authorization, audit, persistence, sync, and update behavior to the owning Rust vertical. Keep generated files under `shells/windows/generated` mechanically derived and excluded from shell compilation because the adapter assembly already links them.
 
 For related boundaries, see [typed local IPC](local-ipc.md), [Windows process supervision](windows-process-supervision.md), [Arabic-first UX](../../architecture/arabic-first-ux.md), and [Windows shell recovery](../../troubleshooting/windows-shell-state-recovery.md).

@@ -5,7 +5,7 @@ audience: "support"
 page_type: "troubleshooting"
 status: "active"
 owner: "Rust contract maintainers"
-last_verified: "2026-07-12"
+last_verified: "2026-08-25"
 review_triggers:
   - "contract generation paths, commands, outputs, or drift errors change"
 keywords:
@@ -53,7 +53,7 @@ Contract drift means a generated schema, registry, fixture, reference, or native
 | --- | --- | --- | --- |
 | Generated path differs | Rust contract changed without regeneration | Inspect `git diff -- crates/contracts/src` | Run generation, review every output, then rerun conformance |
 | Generated path is missing | Output was deleted or new output was not committed | Inspect the path named by the check | Regenerate; do not recreate it manually |
-| Handwritten protocol string found | Shell code declared an `eitmad.*` literal | Search the reported non-generated source | Replace it with generated `ProtocolIds` or a generated enum |
+| Handwritten protocol string found | Shell code declared an `eitmad.*` literal | Search the reported non-generated source and then search `crates/contracts/src/catalog.rs` for the identifier | If cataloged, replace the literal with generated `ProtocolIds` or a generated enum. If it is a valid new identifier, register it in Rust, regenerate every output, and then reference the generated constant |
 | C# or Swift decoder fails on the canonical fixture | Generator output cannot represent the Rust schema or fixture | Run the platform conformance executable | Fix the Rust representation or generator; never patch only one binding |
 | Check differs immediately after generation | Generator or newline behavior is nondeterministic | Run generation twice and compare | Fix deterministic export/normalization before committing |
 | Binding identifier parity test fails | A platform generator omitted a Rust-catalog identifier | Compare the named generated binding with `protocol-v1.json` | Fix the generator and regenerate both platforms; do not hand-edit one binding |
