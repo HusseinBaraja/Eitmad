@@ -770,6 +770,16 @@ checksum = "252afb9ae5eaa683babdc6a068b3f5726eb19e05070c731f9b2a23a7c3e8ed34"
 [[package]]
 name = "eitmad-admin-plane"
 version = "0.0.0"
+dependencies = [
+ "async-trait",
+ "eitmad-contracts",
+ "eitmad-postgres-support",
+ "serde_json",
+ "sha2",
+ "thiserror",
+ "tokio",
+ "uuid",
+]
 
 [[package]]
 name = "eitmad-authorization"
@@ -908,6 +918,13 @@ dependencies = [
 [[package]]
 name = "eitmad-relay-plane"
 version = "0.0.0"
+dependencies = [
+ "async-trait",
+ "eitmad-contracts",
+ "thiserror",
+ "tokio",
+ "uuid",
+]
 
 [[package]]
 name = "eitmad-secret-storage"
@@ -927,13 +944,19 @@ dependencies = [
 name = "eitmad-server"
 version = "0.0.0"
 dependencies = [
+ "async-trait",
  "axum",
  "axum-server",
  "base64",
+ "ed25519-dalek",
+ "eitmad-admin-plane",
  "eitmad-contracts",
  "eitmad-control-plane",
  "eitmad-postgres-support",
+ "eitmad-relay-plane",
  "eitmad-sync-plane",
+ "eitmad-update-plane",
+ "eitmad-update-policy",
  "semver",
  "serde",
  "serde_json",
@@ -993,10 +1016,32 @@ dependencies = [
 [[package]]
 name = "eitmad-update-plane"
 version = "0.0.0"
+dependencies = [
+ "async-trait",
+ "base64",
+ "ed25519-dalek",
+ "eitmad-contracts",
+ "eitmad-update-policy",
+ "semver",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "uuid",
+]
 
 [[package]]
 name = "eitmad-update-policy"
 version = "0.0.0"
+dependencies = [
+ "base64",
+ "ed25519-dalek",
+ "eitmad-contracts",
+ "semver",
+ "serde_json",
+ "sha2",
+ "uuid",
+]
 
 [[package]]
 name = "endi"

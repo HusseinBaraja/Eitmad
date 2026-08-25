@@ -12,10 +12,16 @@ workspace = true
 [dependencies]
 axum = { version = "=0.8.9", features = ["json", "ws"] }
 axum-server = { version = "=0.8.0", features = ["tls-rustls"] }
+async-trait = "=0.1.89"
 base64 = "=0.22.1"
+ed25519-dalek = "=2.2.0"
+eitmad-admin-plane = { path = "../admin-plane" }
 eitmad-contracts = { path = "../../crates/contracts" }
 eitmad-control-plane = { path = "../control-plane" }
+eitmad-relay-plane = { path = "../relay-plane" }
 eitmad-sync-plane = { path = "../sync-plane" }
+eitmad-update-plane = { path = "../update-plane" }
+eitmad-update-policy = { path = "../../crates/update-policy" }
 semver = "=1.0.27"
 serde = { version = "=1.0.228", features = ["derive"] }
 serde_json = "=1.0.150"

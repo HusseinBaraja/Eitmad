@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "server platform maintainers"
-last_verified: "2026-08-23"
+last_verified: "2026-08-24"
 review_triggers:
   - "server identity, authorization, storage, synchronization, licensing, update assignment, or deployment boundaries change"
 keywords:
@@ -14,18 +14,18 @@ keywords:
   - "device proof"
   - "server sync"
   - "tenant code"
-  - "protocol 1.4"
+  - "protocol 1.5"
 ---
 
 # Extend the modular server authority safely
 
-`eitmad-server` is the initial combined deployment for the control and sync planes. The Rust crates keep explicit ownership seams so relay, update, admin, control, or sync work can move to separate services later without moving product authority into a shell.
+`eitmad-server` is the initial combined deployment for the control, sync, relay, update, and administration planes. The Rust crates keep explicit ownership seams so a plane can move to a separate service later without moving product authority into a shell.
 
 ## Purpose and current scope
 
-The foundation provides tenant and organization identity, accounts, registered devices, invitation activation, authentication tokens, session policy, relationship authorization, licensing hooks, update-channel assignment, sync coordination, snapshots, operation history, resumable subscriptions, conflict records, and client compatibility negotiation.
+The foundation provides tenant and organization identity, accounts, registered devices, invitation activation, authentication tokens, session policy, relationship authorization, licensing hooks, update-channel assignment, sync coordination, snapshots, operation history, resumable subscriptions, conflict records, WAN relay coordination, signed update distribution, operational status, fleet visibility, audit access, support workflows, and client compatibility negotiation.
 
-It does not provide a production business domain, billing provider, email provider, MFA challenge, update artifact service, relay, admin UI, or native client workflow. `DomainRegistry` is intentionally empty in the executable. A production domain must register its own handler before the server can accept its schema.
+It does not provide a production business domain, billing provider, email provider, MFA challenge, package CDN, production relay payload router, admin UI, backup scheduler, or native client workflow. `DomainRegistry` is intentionally empty in the executable. A production domain must register its own handler before the server can accept its schema.
 
 ## Ownership and module boundaries
 
@@ -35,14 +35,17 @@ It does not provide a production business domain, billing provider, email provid
 | Tenant, user, account, organization, device, invitation, session, token, relationship, license, update assignment, audit, and outbox state | `server/control-plane` |
 | Registered domain handlers, operations, idempotency, conflicts, history, snapshots, checkpoints, and subscription events | `server/sync-plane` |
 | PostgreSQL types without enabling SQLite-linked features | `server/postgres-support` |
-| Future relay, update artifact, and admin processes | `server/relay-plane`, `server/update-plane`, and `server/admin-plane` deployment boundaries |
+| Relay lifecycle, routing hooks, reconnect, health, and failures | `server/relay-plane` |
+| Signed manifest publication and durable file repository | `server/update-plane` |
+| Update signature, compatibility, and staged-rollout policy | `crates/update-policy` |
+| Diagnostics, status, visibility, audit, and support workflows | `server/admin-plane` |
 | External wire types, identifiers, versions, capabilities, and generated bindings | `crates/contracts` |
 
 Native shells and network adapters must not copy these rules, access PostgreSQL, inspect token hashes, assign update policy, interpret domain payloads, or bypass domain authorization.
 
 ## Contracts and compatibility
 
-Protocol `1.4` adds the server connection boundary and snapshot transfer messages. The WebSocket accepts `ServerClientMessage` and emits `ServerMessage`. A client must first send `eitmad.server.hello.v1`; no sync or subscription traffic is valid before negotiation.
+Protocol `1.5` adds relay, signed update, and administration contracts and generated bindings. The server WebSocket accepts protocol `1.4–1.5`, consumes `ServerClientMessage`, and emits `ServerMessage`. A client must first send `eitmad.server.hello.v1`; no sync or subscription traffic is valid before negotiation.
 
 The server requires these capabilities:
 
@@ -51,8 +54,11 @@ The server requires these capabilities:
 - `eitmad.capability.server-device-proof.v1`
 - `eitmad.capability.server-snapshot-chunks.v1`
 - `eitmad.capability.server-subscription-resume.v1`
+- `eitmad.capability.server-relay.v1`
+- `eitmad.capability.server-update-distribution.v1`
+- `eitmad.capability.server-administration.v1`
 
-Negotiation selects an overlapping protocol and registered schema range. Missing capabilities, an unknown required schema, or no compatible version produces `eitmad.error.server-client-incompatible.v1` before normal traffic. Protocol `1.0–1.3` remains in the encoded compatibility window for existing local IPC behavior; a server client uses the new boundary only when it supports `1.4` and the required capabilities.
+Negotiation selects an overlapping protocol and registered schema range. Missing capabilities, an unknown required schema, or no compatible version produces `eitmad.error.server-client-incompatible.v1` before normal traffic. Protocol `1.0–1.3` remains in the encoded compatibility window for existing local IPC behavior. Server sync needs at least `1.4`. Each relay, update-distribution, or administration HTTP request must send the base64url-encoded `PeerHello` JSON in `x-eitmad-peer-hello`; Rust requires protocol `1.5` and the route capability before it authenticates or dispatches the request.
 
 ## Identity, authentication, and sessions
 
@@ -71,7 +77,7 @@ Every access-authenticated request must include the access token, device ID, tim
 
 ## Storage, scope, and audit invariants
 
-Migrations `0001_control_foundation.sql` and `0002_sync_foundation.sql` own the PostgreSQL schema. Every tenant-scoped table has a `tenant_id`, enables row-level security, and forces row-level security. Rust opens a transaction and sets the tenant context before scoped access. Application credentials must not have a PostgreSQL role that can bypass RLS.
+Migrations `0001_control_foundation.sql`, `0002_sync_foundation.sql`, and `0003_admin_foundation.sql` own the PostgreSQL schema. Every tenant-scoped table has a `tenant_id`, enables row-level security, and forces row-level security. Rust opens a transaction and sets the tenant context before scoped access. Application credentials must not have a PostgreSQL role that can bypass RLS.
 
 Every accepted state change adds a redacted audit record in the same transaction. Each control-plane and sync-plane entry point receives a caller-supplied correlation identifier and writes it into every audit row it produces, so one request that creates multiple records remains joinable in the audit trail. Denied sync operations are also recorded without payload bytes. Token plaintext, password input, device private keys, domain payloads, and customer content must not enter logs or audit metadata.
 
@@ -98,7 +104,9 @@ Operation history has a 90-day retention floor. Compaction is safe only after a 
 
 Licensing is a persisted enforcement seam, not billing. A provider adapter may record active, expired, suspended, or unavailable state and entitlements. Recording provider state requires an existing license row for the tenant; the update must match exactly one row or the operation fails without deleting entitlements or recording success. An expired license receives at most seven days of grace; suspension never becomes grace. Product domains call the license boundary before licensed actions.
 
-Update assignment resolves in this order: device override, tenant default, then global `stable`. Assignment commands return the resolved effective assignment for the target device — including an existing device override — rather than only the row just written. Only a tenant owner may change tenant or device assignments. Rust owns the decision. Platform adapters may install a selected update but must not calculate the channel.
+Update assignment resolves in this order: device override, tenant default, then global `stable`. Assignment commands return the resolved effective assignment for the target device, including an existing device override. Only a tenant owner may change assignments or publish a signed manifest. The update check requires the authenticated device and assigned channel to match the client profile. Rust verifies Ed25519 signatures and owns compatibility, pause, revocation, staged rollout, and package selection. Platform adapters may install a selected update but must not calculate eligibility.
+
+See [signed update distribution](update-distribution.md) for the manifest contract, host configuration, and current key-rotation limit.
 
 ## HTTP and WebSocket boundary
 
@@ -112,13 +120,19 @@ The combined host exposes:
 | `POST /v1/auth/login` | Password and device-proof authentication |
 | `POST /v1/auth/refresh` | Refresh rotation with device proof |
 | `GET /v1/update-assignment` | Authorized effective channel query |
+| `POST /v1/updates/check` | Authorized signed-manifest eligibility and package selection |
+| `POST /v1/admin/update-manifests` | Owner-authorized signed-manifest publication |
+| `/v1/relay/*` | Authenticated relay lifecycle, reconnect, failure, and health routes |
+| `/v1/admin/*` | Owner-authorized diagnostics, status, audit, visibility, and support routes |
 | `GET /v1/connect` | Authenticated WebSocket upgrade |
 
 TLS is mandatory unless the server binds to a loopback address and the operator explicitly enables insecure loopback for development. The WebSocket uses one ordered connection for negotiation, sync pull/acknowledgement, snapshot transfer, and resumable subscription traffic.
 
 The host revalidates the authenticated session every 60 seconds for the lifetime of each WebSocket. When the access token expires, the session ends, or the device or account-device link is revoked, the socket closes instead of serving further sync traffic with stale credentials.
 
-The process-wide PostgreSQL connection budget is split evenly between the control-plane and sync-plane pools (`pool_connection_budget`), so `EITMAD_SERVER_MAX_CONNECTIONS` bounds total pool connections rather than doubling them. The serve path refuses readiness when no sync domain is registered; `/readyz` never reports success for a server that cannot serve any schema. A malformed `bootstrap` invocation prints usage and exits with a failure code instead of succeeding silently.
+The process-wide PostgreSQL connection budget is split evenly across control, sync, and administration pools (`pool_connection_budget`), so `EITMAD_SERVER_MAX_CONNECTIONS` bounds total pool connections. The serve path refuses readiness when no sync domain is registered; `/readyz` never reports success for a server that cannot serve any schema. A malformed `bootstrap` invocation prints usage and exits with a failure code instead of succeeding silently.
+
+Relay actions require tenant membership and source-device ownership. Administrative close and all administration routes require tenant ownership. Manifest publication requires the configured operator tenant and its dedicated publish permission. Read [WAN relay coordination](wan-relay-coordination.md) and [server administration](server-administration.md) before extending these boundaries.
 
 ## Arabic UX impact
 
@@ -146,22 +160,22 @@ Use [server troubleshooting](../../troubleshooting/server-authentication-and-syn
 
 ## Tests and verification
 
-Focused unit and static migration tests cover token secrecy, password hashing, Arabic username and display-name handling including bidirectional-control rejection, overflow-safe device proof, session defaults, grace policy, stable update fallback, identity persistence, forced RLS, sync persistence, deterministic fingerprints, exact duplicate conflict replay, unauthorized changes before storage access, snapshot chunk bounds, incompatible clients, readiness behavior through the real router with `tower::oneshot`, unauthorized update-assignment access, and the split connection budget. Existing `eitmad-sync` tests cover complete local-first and server-authoritative flows, duplicate delivery, conflicts, sessions, unauthorized remote changes, and compatibility.
+Focused unit and static migration tests cover token secrecy, password hashing, Arabic identifiers, overflow-safe device proof, forced RLS, durable sync, relay lifecycle and denial, signed manifest changes, channels, incompatible clients, backup status, administration authorization, router authentication, generated bindings, and the three-pool connection budget. Existing `eitmad-sync` tests cover complete local-first and server-authoritative flows, duplicate delivery, conflicts, unauthorized remote changes, compatibility, and WAN relay fallback.
 
 Run:
 
 ```powershell
-cargo test -p eitmad-control-plane -p eitmad-sync-plane -p eitmad-server
+cargo test -p eitmad-control-plane -p eitmad-sync-plane -p eitmad-relay-plane -p eitmad-update-plane -p eitmad-admin-plane -p eitmad-server
 cargo clippy --workspace --all-targets -- -D warnings
 npm run contracts:verify --prefix crates/contracts/codegen
 ```
 
-`eitmad-server check-config` has been run successfully with synthetic values and explicit loopback transport. A live PostgreSQL migration, bootstrap, login, RLS, snapshot, and readiness exercise remains blocked on a machine with no PostgreSQL-compatible runtime. The server platform maintainers own that deployment verification before production use.
+`eitmad-server check-config` requires synthetic loopback transport plus the manifest directory and trusted Ed25519 public-key configuration. A live PostgreSQL migration, bootstrap, login, RLS, snapshot, relay, administration, backup, restore, and readiness exercise remains a deployment-environment requirement.
 
 ## Tradeoffs and extension points
 
 One process reduces initial deployment and operational cost. Separate crates, migrations, contracts, and ownership files preserve later service seams. PostgreSQL gives durable transactions, row locking, and defense-in-depth tenant RLS, but it adds an external operational dependency and does not remove the need for Rust scope checks.
 
-To add a domain, implement `DomainHandler`, register one immutable `DomainDescriptor`, define its sync mode and schema range, authorize every action, define conflict and stale-data behavior, add Arabic/mixed-direction evidence, and add live PostgreSQL tests. Keep licensing, invitation delivery, MFA, update artifacts, relay, and admin work behind their named seams rather than adding provider logic to HTTP handlers.
+To add a domain, implement `DomainHandler`, register one immutable `DomainDescriptor`, define its sync mode and schema range, authorize every action, define conflict and stale-data behavior, add Arabic/mixed-direction evidence, and add live PostgreSQL tests. Keep licensing, invitation delivery, MFA, relay routers, manifest repositories, and administration providers behind their named seams rather than adding product logic to HTTP handlers.
 
-Related documents: [ADR-0025](../../decisions/0025-modular-server-authority-foundation.md), [server operations](../../operations/run-server-authority.md), [protocol 1.4 rollout](../../releases/protocol-1-4-server-authority.md), [synchronization](synchronization.md), and [protocol contracts](../../api/index.md).
+Related documents: [ADR-0025](../../decisions/0025-modular-server-authority-foundation.md), [ADR-0026](../../decisions/0026-compose-authorized-operational-server-planes.md), [server operations](../../operations/run-server-authority.md), [protocol 1.5 rollout](../../releases/protocol-1-5-operational-server-planes.md), [synchronization](synchronization.md), and [protocol contracts](../../api/index.md).

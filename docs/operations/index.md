@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-08-22"
+last_verified: "2026-08-24"
 review_triggers:
   - "workspace verification, executable behavior, deployment, backup, or recovery changes"
 keywords:
@@ -17,7 +17,7 @@ keywords:
 
 # Run Eitmad foundation checks
 
-These steps verify the current foundation. Rust owns local SQLite authority through storage version 7 and the modular PostgreSQL control and sync server under protocol `1.4`. The foundation includes persistent identity, scoped authorization/audit, dual-mode synchronization, device proof, durable server idempotency and conflicts, snapshots, resumable subscriptions, licensing hooks, update assignment, privacy-preserving diagnostics, secret storage, recovery, and export hooks. Packaging, scheduled backup, LAN discovery, relay, MFA/email providers, update artifacts, diagnostic retention, and production operator UI are not implemented.
+These steps verify the current foundation. Rust owns local SQLite authority through storage version 7 and the modular PostgreSQL server under protocol `1.5`. The foundation includes identity, scoped authorization/audit, dual-mode synchronization, WAN relay coordination, signed update manifests, administration status and workflows, device proof, durable idempotency and conflicts, snapshots, licensing hooks, secret storage, recovery, and export hooks. Package CDN delivery, scheduled backup execution, LAN discovery, production relay payload routing, MFA/email providers, diagnostic retention, and production operator UI are not implemented.
 
 ## Prerequisites
 
@@ -98,7 +98,7 @@ These steps verify the current foundation. Rust owns local SQLite authority thro
    cargo test -p eitmad-secret-storage tests::os_native_backend_supports_secret_lifecycle -- --ignored --exact
    ```
 
-11. In an environment with PostgreSQL, follow the [server runbook](run-server-authority.md) and verify migrations, bootstrap, authentication, tenant isolation, sync pull, snapshot fallback, subscription resume, readiness, backup, and restore.
+11. In an environment with PostgreSQL, follow the [server runbook](run-server-authority.md) and verify migrations `1–3`, bootstrap, authentication, tenant isolation, relay denial/lifecycle, signed update selection, administration, sync pull, snapshot fallback, subscription resume, readiness, backup, and restore.
 
 ## Verify
 
@@ -120,5 +120,9 @@ If a command fails, stop. Do not hide the warning or bypass the test. Fix the au
 - [Extend synchronization and shared transports safely](../developer/subsystems/synchronization.md)
 - [Run and recover the modular server authority](run-server-authority.md)
 - [Extend the modular server authority safely](../developer/subsystems/server-authority.md)
+- [Extend WAN relay coordination safely](../developer/subsystems/wan-relay-coordination.md)
+- [Publish and evaluate signed updates safely](../developer/subsystems/update-distribution.md)
+- [Extend server administration safely](../developer/subsystems/server-administration.md)
+- [Resolve relay, update distribution, and administration failures](../troubleshooting/server-plane-failures.md)
 - [Resolve diagnostic privacy or secret-storage failures](../troubleshooting/privacy-and-secret-leakage.md)
 - [Review the documentation standard](../developer/contributing/documentation-standard.md)

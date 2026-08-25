@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "reference"
 status: "active"
 owner: "architecture maintainers"
-last_verified: "2026-08-22"
+last_verified: "2026-08-24"
 review_triggers:
   - "an ADR is proposed, accepted, rejected, or superseded"
 keywords:
@@ -62,3 +62,4 @@ Accepted ADRs are immutable historical records except for typo fixes, link repai
 | [ADR-0023](0023-scoped-relationship-authorization-and-audit.md) | Use scoped relationship graphs and one audited boundary gate | Accepted | 2026-08-19 | ADR-0020 |
 | [ADR-0024](0024-native-secret-storage-with-encrypted-fallback.md) | Prefer native secret stores with an encrypted Rust fallback | Accepted | 2026-08-19 | None |
 | [ADR-0025](0025-modular-server-authority-foundation.md) | Deploy modular server authority as one process first | Accepted | 2026-08-22 | None |
+| [ADR-0026](0026-compose-authorized-operational-server-planes.md) | Compose authorized relay, update, and administration planes | Accepted | 2026-08-24 | None |

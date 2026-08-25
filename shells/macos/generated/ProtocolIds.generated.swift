@@ -98,6 +98,9 @@ public enum ProtocolIds {
         public static let eitmadCapabilityServerDeviceProofV1 = "eitmad.capability.server-device-proof.v1"
         public static let eitmadCapabilityServerSnapshotChunksV1 = "eitmad.capability.server-snapshot-chunks.v1"
         public static let eitmadCapabilityServerSubscriptionResumeV1 = "eitmad.capability.server-subscription-resume.v1"
+        public static let eitmadCapabilityServerRelayV1 = "eitmad.capability.server-relay.v1"
+        public static let eitmadCapabilityServerUpdateDistributionV1 = "eitmad.capability.server-update-distribution.v1"
+        public static let eitmadCapabilityServerAdministrationV1 = "eitmad.capability.server-administration.v1"
         public static let eitmadCapabilityUpdateV1 = "eitmad.capability.update.v1"
     }
 
@@ -114,6 +117,19 @@ public enum ProtocolIds {
         public static let eitmadPermissionServerDevicesManageV1 = "eitmad.permission.server.devices.manage.v1"
         public static let eitmadPermissionServerLicenseReadV1 = "eitmad.permission.server.license.read.v1"
         public static let eitmadPermissionServerUpdateChannelManageV1 = "eitmad.permission.server.update-channel.manage.v1"
+        public static let eitmadPermissionServerRelayConnectV1 = "eitmad.permission.server.relay.connect.v1"
+        public static let eitmadPermissionServerRelayHealthReadV1 = "eitmad.permission.server.relay.health.read.v1"
+        public static let eitmadPermissionServerRelayFailureReportV1 = "eitmad.permission.server.relay.failure.report.v1"
+        public static let eitmadPermissionServerRelayAdminCloseV1 = "eitmad.permission.server.relay.admin-close.v1"
+        public static let eitmadPermissionServerUpdateManifestPublishV1 = "eitmad.permission.server.update-manifest.publish.v1"
+        public static let eitmadPermissionServerAdminDiagnosticsReadV1 = "eitmad.permission.server.admin.diagnostics.read.v1"
+        public static let eitmadPermissionServerAdminHealthReadV1 = "eitmad.permission.server.admin.health.read.v1"
+        public static let eitmadPermissionServerAdminBackupReadV1 = "eitmad.permission.server.admin.backup.read.v1"
+        public static let eitmadPermissionServerAdminMigrationReadV1 = "eitmad.permission.server.admin.migration.read.v1"
+        public static let eitmadPermissionServerAdminAuditReadV1 = "eitmad.permission.server.admin.audit.read.v1"
+        public static let eitmadPermissionServerAdminTenantReadV1 = "eitmad.permission.server.admin.tenant.read.v1"
+        public static let eitmadPermissionServerAdminDeviceReadV1 = "eitmad.permission.server.admin.device.read.v1"
+        public static let eitmadPermissionServerAdminSupportExecuteV1 = "eitmad.permission.server.admin.support.execute.v1"
         public static let eitmadPermissionUpdateReadV1 = "eitmad.permission.update.read.v1"
         public static let eitmadPermissionUpdateReportInstallerV1 = "eitmad.permission.update.report-installer.v1"
     }
@@ -168,6 +184,12 @@ public enum ProtocolIds {
         public static let eitmadErrorServerSnapshotRequiredV1 = "eitmad.error.server-snapshot-required.v1"
         public static let eitmadErrorServerTokenExpiredV1 = "eitmad.error.server-token-expired.v1"
         public static let eitmadErrorServerTokenReuseV1 = "eitmad.error.server-token-reuse.v1"
+        public static let eitmadErrorRelaySessionNotFoundV1 = "eitmad.error.relay-session-not-found.v1"
+        public static let eitmadErrorRelayUnavailableV1 = "eitmad.error.relay-unavailable.v1"
+        public static let eitmadErrorUpdateManifestInvalidV1 = "eitmad.error.update-manifest-invalid.v1"
+        public static let eitmadErrorUpdateManifestNotFoundV1 = "eitmad.error.update-manifest-not-found.v1"
+        public static let eitmadErrorUpdateDistributionUnavailableV1 = "eitmad.error.update-distribution-unavailable.v1"
+        public static let eitmadErrorAdminUnavailableV1 = "eitmad.error.admin-unavailable.v1"
         public static let eitmadErrorUpdateInstallerFailedV1 = "eitmad.error.update-installer-failed.v1"
     }
 
@@ -208,6 +230,12 @@ public enum ProtocolIds {
         public static let eitmadMessageServerSnapshotRequiredV1 = "eitmad.message.server-snapshot-required.v1"
         public static let eitmadMessageServerTokenExpiredV1 = "eitmad.message.server-token-expired.v1"
         public static let eitmadMessageServerTokenReuseV1 = "eitmad.message.server-token-reuse.v1"
+        public static let eitmadMessageRelaySessionNotFoundV1 = "eitmad.message.relay-session-not-found.v1"
+        public static let eitmadMessageRelayUnavailableV1 = "eitmad.message.relay-unavailable.v1"
+        public static let eitmadMessageUpdateManifestInvalidV1 = "eitmad.message.update-manifest-invalid.v1"
+        public static let eitmadMessageUpdateManifestNotFoundV1 = "eitmad.message.update-manifest-not-found.v1"
+        public static let eitmadMessageUpdateDistributionUnavailableV1 = "eitmad.message.update-distribution-unavailable.v1"
+        public static let eitmadMessageAdminUnavailableV1 = "eitmad.message.admin-unavailable.v1"
         public static let eitmadMessageUpdateInstallerFailedV1 = "eitmad.message.update-installer-failed.v1"
     }
 

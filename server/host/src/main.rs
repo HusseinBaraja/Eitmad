@@ -1,10 +1,17 @@
-use std::process::ExitCode;
+use std::{process::ExitCode, sync::Arc};
 
+use eitmad_admin_plane::{AdminDatabase, AdministrationService, PostgresAdministrationDataSource};
 use eitmad_contracts::server::TenantCode;
 use eitmad_contracts::transport::CorrelationId;
 use eitmad_control_plane::{BootstrapInput, ControlDatabase, ControlPlane};
-use eitmad_server::{ServerCommand, ServerConfig, ServerState};
+use eitmad_relay_plane::RelayCoordinator;
+use eitmad_release_policy::TrustedUpdateKeys;
+use eitmad_server::{
+    MetadataRelayRouter, MigrationConfig, ServerCommand, ServerConfig, ServerPlaneSecurity,
+    ServerRelayMetrics, ServerState, ServerSupportExecutor,
+};
 use eitmad_sync_plane::{DomainRegistry, SyncCoordinator, SyncDatabase};
+use eitmad_update_plane::{FileManifestRepository, UpdateCatalog};
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -36,30 +43,19 @@ async fn execute() -> Result<(), MainError> {
         print_help();
         return Err(MainError::Input);
     }
+    if command == ServerCommand::Migrate {
+        let config = MigrationConfig::from_environment().map_err(|_| MainError::Configuration)?;
+        migrated_databases(&config.database_url, config.maximum_database_connections).await?;
+        println!("server migrations are current");
+        return Ok(());
+    }
     let config = ServerConfig::from_environment().map_err(|_| MainError::Configuration)?;
     if command == ServerCommand::CheckConfig {
         println!("server configuration is valid");
         return Ok(());
     }
-    let pool_budget = eitmad_server::pool_connection_budget(config.maximum_database_connections);
-    let control_database = ControlDatabase::connect(&config.database_url, pool_budget)
-        .await
-        .map_err(|_| MainError::Database)?;
-    control_database
-        .migrate()
-        .await
-        .map_err(|_| MainError::Migration)?;
-    let sync_database = SyncDatabase::connect(&config.database_url, pool_budget)
-        .await
-        .map_err(|_| MainError::Database)?;
-    sync_database
-        .migrate()
-        .await
-        .map_err(|_| MainError::Migration)?;
-    if command == ServerCommand::Migrate {
-        println!("server migrations are current");
-        return Ok(());
-    }
+    let (control_database, sync_database, admin_database) =
+        migrated_databases(&config.database_url, config.maximum_database_connections).await?;
     let control = ControlPlane::new(control_database.pool(), config.token_key.clone());
     if let ServerCommand::Bootstrap {
         tenant_code,
@@ -95,11 +91,74 @@ async fn execute() -> Result<(), MainError> {
         return Err(MainError::Configuration);
     }
     let sync = SyncCoordinator::new(&sync_database, domains);
-    let state = ServerState::new(control, sync);
+    let state = compose_server_state(&config, control, sync, &admin_database)?;
     tracing::info!(listen = %config.listen, "server ready");
     eitmad_server::run(&config, state)
         .await
         .map_err(|_| MainError::Runtime)
+}
+
+async fn migrated_databases(
+    database_url: &str,
+    maximum_database_connections: u32,
+) -> Result<(ControlDatabase, SyncDatabase, AdminDatabase), MainError> {
+    let pool_budget = eitmad_server::pool_connection_budget(maximum_database_connections);
+    let control_database = ControlDatabase::connect(database_url, pool_budget)
+        .await
+        .map_err(|_| MainError::Database)?;
+    control_database
+        .migrate()
+        .await
+        .map_err(|_| MainError::Migration)?;
+    let sync_database = SyncDatabase::connect(database_url, pool_budget)
+        .await
+        .map_err(|_| MainError::Database)?;
+    sync_database
+        .migrate()
+        .await
+        .map_err(|_| MainError::Migration)?;
+    let admin_database = AdminDatabase::connect(database_url, pool_budget)
+        .await
+        .map_err(|_| MainError::Database)?;
+    admin_database
+        .migrate()
+        .await
+        .map_err(|_| MainError::Migration)?;
+    Ok((control_database, sync_database, admin_database))
+}
+
+fn compose_server_state(
+    config: &ServerConfig,
+    control: ControlPlane,
+    sync: SyncCoordinator,
+    admin_database: &AdminDatabase,
+) -> Result<ServerState, MainError> {
+    let security = Arc::new(ServerPlaneSecurity::new(
+        control.access.clone(),
+        config.update_operator_tenant_id,
+    ));
+    let relay = RelayCoordinator::new(security.clone(), Arc::new(MetadataRelayRouter));
+    let support = Arc::new(ServerSupportExecutor::new(
+        relay.clone(),
+        control.access.clone(),
+    ));
+    let administration = AdministrationService::new(
+        security.clone(),
+        Arc::new(PostgresAdministrationDataSource::new(
+            admin_database.pool(),
+            support,
+            Arc::new(ServerRelayMetrics::new(relay.clone())),
+        )),
+    );
+    let mut trusted_update_keys = TrustedUpdateKeys::new();
+    trusted_update_keys.insert(
+        config.update_signing_key_id.clone(),
+        config.update_verifying_key,
+    );
+    let repository = FileManifestRepository::open(&config.update_manifest_directory)
+        .map_err(|_| MainError::Configuration)?;
+    let updates = UpdateCatalog::new(security, Arc::new(repository), trusted_update_keys);
+    Ok(ServerState::new(control, sync).with_planes(relay, updates, administration))
 }
 
 fn print_help() {

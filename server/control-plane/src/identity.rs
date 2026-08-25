@@ -168,6 +168,7 @@ impl IdentityService {
                 outcome: "succeeded",
                 target_kind: "tenant",
                 correlation_id,
+                redacted_error: None,
                 now,
             },
         )
@@ -244,6 +245,7 @@ impl IdentityService {
                 outcome: "succeeded",
                 target_kind: "account",
                 correlation_id,
+                redacted_error: None,
                 now,
             },
         )

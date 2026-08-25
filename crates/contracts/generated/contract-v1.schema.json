@@ -3,6 +3,18 @@
   "title": "ContractSchemaRoot",
   "type": "object",
   "properties": {
+    "administration_backup_status": {
+      "$ref": "#/definitions/BackupStatus"
+    },
+    "administration_diagnostics": {
+      "$ref": "#/definitions/DiagnosticSummary"
+    },
+    "administration_migration_status": {
+      "$ref": "#/definitions/MigrationStatus"
+    },
+    "administration_support_workflow": {
+      "$ref": "#/definitions/SupportWorkflow"
+    },
     "catalog": {
       "$ref": "#/definitions/ProtocolCatalog"
     },
@@ -60,11 +72,23 @@
     "query_response": {
       "$ref": "#/definitions/QueryResponseEnvelope"
     },
+    "relay_failure": {
+      "$ref": "#/definitions/RelayFailureReport"
+    },
+    "relay_health": {
+      "$ref": "#/definitions/RelayHealth"
+    },
+    "relay_session": {
+      "$ref": "#/definitions/RelaySessionMetadata"
+    },
     "server_client_message": {
       "$ref": "#/definitions/ServerClientMessage"
     },
     "server_message": {
       "$ref": "#/definitions/ServerMessage"
+    },
+    "signed_update_manifest": {
+      "$ref": "#/definitions/SignedUpdateManifest"
     },
     "subscription_request": {
       "$ref": "#/definitions/SubscriptionEnvelope"
@@ -77,6 +101,12 @@
     },
     "sync_transport_frame": {
       "$ref": "#/definitions/SyncTransportFrame"
+    },
+    "update_check_outcome": {
+      "$ref": "#/definitions/UpdateCheckOutcome"
+    },
+    "update_client_profile": {
+      "$ref": "#/definitions/UpdateClientProfile"
     },
     "update_state": {
       "$ref": "#/definitions/UpdateState"
@@ -97,6 +127,16 @@
     "sync_transport_frame",
     "server_client_message",
     "server_message",
+    "relay_session",
+    "relay_failure",
+    "relay_health",
+    "signed_update_manifest",
+    "update_client_profile",
+    "update_check_outcome",
+    "administration_diagnostics",
+    "administration_backup_status",
+    "administration_migration_status",
+    "administration_support_workflow",
     "update_state",
     "sync_status",
     "effective_permissions",
@@ -252,6 +292,62 @@
         "jobKind",
         "state",
         "completedUnits"
+      ]
+    },
+    "BackupState": {
+      "type": "string",
+      "enum": [
+        "current",
+        "stale",
+        "running",
+        "failed",
+        "notConfigured"
+      ]
+    },
+    "BackupStatus": {
+      "type": "object",
+      "properties": {
+        "failureCode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "lastSuccessAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "lastVerifiedAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "nextScheduledAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "recoveryPointAgeMs": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "state": {
+          "$ref": "#/definitions/BackupState"
+        }
+      },
+      "required": [
+        "state"
       ]
     },
     "BatchAcknowledgement": {
@@ -1193,6 +1289,42 @@
         "readyToStart",
         "checks",
         "observedAt"
+      ]
+    },
+    "DiagnosticSummary": {
+      "type": "object",
+      "properties": {
+        "activeRelaySessions": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "correlationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "generatedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "pendingSupportWorkflows": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "services": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ServiceHealth"
+          }
+        }
+      },
+      "required": [
+        "generatedAt",
+        "correlationId",
+        "services",
+        "activeRelaySessions",
+        "pendingSupportWorkflows"
       ]
     },
     "EffectivePermission": {
@@ -2404,6 +2536,51 @@
         "domainMerge"
       ]
     },
+    "MigrationState": {
+      "type": "string",
+      "enum": [
+        "current",
+        "pending",
+        "running",
+        "failed"
+      ]
+    },
+    "MigrationStatus": {
+      "type": "object",
+      "properties": {
+        "currentVersion": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "failureCode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "pendingMigrationIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "requiredVersion": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "state": {
+          "$ref": "#/definitions/MigrationState"
+        }
+      },
+      "required": [
+        "state",
+        "currentVersion",
+        "requiredVersion",
+        "pendingMigrationIds"
+      ]
+    },
     "NegotiatedSchema": {
       "type": "object",
       "properties": {
@@ -3263,6 +3440,248 @@
         "principalKind"
       ]
     },
+    "RelayFailurePhase": {
+      "type": "string",
+      "enum": [
+        "authorization",
+        "connect",
+        "route",
+        "heartbeat",
+        "reconnect",
+        "close"
+      ]
+    },
+    "RelayFailureReport": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "correlationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "failureId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "occurredAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "phase": {
+          "$ref": "#/definitions/RelayFailurePhase"
+        },
+        "relaySessionId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "retryAfterMs": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "retryable": {
+          "type": "boolean"
+        },
+        "sourceDeviceId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "tenantId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "failureId",
+        "tenantId",
+        "sourceDeviceId",
+        "phase",
+        "code",
+        "retryable",
+        "occurredAt",
+        "correlationId"
+      ]
+    },
+    "RelayHealth": {
+      "type": "object",
+      "properties": {
+        "acceptingSessions": {
+          "type": "boolean"
+        },
+        "activeSessions": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "checkedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "failedSessions": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "reconnectingSessions": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "state": {
+          "$ref": "#/definitions/RelayHealthState"
+        },
+        "tenantId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "tenantId",
+        "state",
+        "checkedAt",
+        "activeSessions",
+        "reconnectingSessions",
+        "failedSessions",
+        "acceptingSessions"
+      ]
+    },
+    "RelayHealthState": {
+      "type": "string",
+      "enum": [
+        "healthy",
+        "degraded",
+        "unavailable"
+      ]
+    },
+    "RelayRoute": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "peer"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "target_device_id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "required": [
+                "target_device_id"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "server"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "target_server_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "target_server_id"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        }
+      ]
+    },
+    "RelaySessionMetadata": {
+      "type": "object",
+      "properties": {
+        "connectedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "expiresAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "lastSeenAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "nextReconnectAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "reconnectAttempt": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "relaySessionId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "route": {
+          "$ref": "#/definitions/RelayRoute"
+        },
+        "sourceDeviceId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "state": {
+          "$ref": "#/definitions/RelaySessionState"
+        },
+        "tenantId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "relaySessionId",
+        "tenantId",
+        "sourceDeviceId",
+        "route",
+        "state",
+        "connectedAt",
+        "lastSeenAt",
+        "expiresAt",
+        "reconnectAttempt"
+      ]
+    },
+    "RelaySessionState": {
+      "type": "string",
+      "enum": [
+        "connecting",
+        "active",
+        "reconnecting",
+        "closed",
+        "failed"
+      ]
+    },
     "ReportInstallerOutcome": {
       "type": "object",
       "properties": {
@@ -3702,6 +4121,40 @@
         "schemaId"
       ]
     },
+    "ServiceHealth": {
+      "type": "object",
+      "properties": {
+        "checkedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "component": {
+          "type": "string"
+        },
+        "failureCode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "state": {
+          "$ref": "#/definitions/ServiceHealthState"
+        }
+      },
+      "required": [
+        "component",
+        "state",
+        "checkedAt"
+      ]
+    },
+    "ServiceHealthState": {
+      "type": "string",
+      "enum": [
+        "healthy",
+        "degraded",
+        "unavailable"
+      ]
+    },
     "ShutdownRequest": {
       "type": "object",
       "properties": {
@@ -3738,6 +4191,21 @@
         "requestId",
         "correlationId",
         "accepted"
+      ]
+    },
+    "SignedUpdateManifest": {
+      "type": "object",
+      "properties": {
+        "manifest": {
+          "$ref": "#/definitions/UpdateManifest"
+        },
+        "signature": {
+          "$ref": "#/definitions/UpdateManifestSignature"
+        }
+      },
+      "required": [
+        "manifest",
+        "signature"
       ]
     },
     "SnapshotChunk": {
@@ -3847,6 +4315,33 @@
       },
       "required": [
         "reason"
+      ]
+    },
+    "StagedRollout": {
+      "type": "object",
+      "properties": {
+        "cohortSeed": {
+          "type": "string"
+        },
+        "paused": {
+          "type": "boolean"
+        },
+        "percentageBps": {
+          "type": "integer",
+          "format": "uint16",
+          "maximum": 10000,
+          "minimum": 0
+        },
+        "startsAt": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "percentageBps",
+        "cohortSeed",
+        "startsAt",
+        "paused"
       ]
     },
     "Subscription": {
@@ -4147,6 +4642,116 @@
         "requestId",
         "correlationId",
         "outcome"
+      ]
+    },
+    "SupportAction": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "collectDiagnostics",
+            "verifyBackup",
+            "retryMigration"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "disconnectRelaySession": {
+              "type": "object",
+              "properties": {
+                "relaySessionId": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "required": [
+                "relaySessionId"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "disconnectRelaySession"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "revokeDeviceSessions": {
+              "type": "object",
+              "properties": {
+                "deviceId": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "required": [
+                "deviceId"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "revokeDeviceSessions"
+          ]
+        }
+      ]
+    },
+    "SupportWorkflow": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "$ref": "#/definitions/SupportAction"
+        },
+        "completedAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "failureCode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reasonCode": {
+          "type": "string"
+        },
+        "requestedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "state": {
+          "$ref": "#/definitions/SupportWorkflowState"
+        },
+        "tenantId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "workflowId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "workflowId",
+        "tenantId",
+        "action",
+        "reasonCode",
+        "state",
+        "requestedAt"
+      ]
+    },
+    "SupportWorkflowState": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "running",
+        "succeeded",
+        "failed"
       ]
     },
     "SupportedProtocol": {
@@ -4797,6 +5402,184 @@
         "accepted"
       ]
     },
+    "UpdateCheckOutcome": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "upToDate"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "available": {
+              "type": "object",
+              "properties": {
+                "manifest": {
+                  "$ref": "#/definitions/SignedUpdateManifest"
+                },
+                "package": {
+                  "$ref": "#/definitions/UpdatePackageMetadata"
+                }
+              },
+              "required": [
+                "manifest",
+                "package"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "available"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "ineligible": {
+              "type": "object",
+              "properties": {
+                "reason": {
+                  "$ref": "#/definitions/UpdateIneligibilityReason"
+                }
+              },
+              "required": [
+                "reason"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "ineligible"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "incompatible": {
+              "type": "object",
+              "properties": {
+                "reason": {
+                  "$ref": "#/definitions/UpdateIneligibilityReason"
+                }
+              },
+              "required": [
+                "reason"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "incompatible"
+          ]
+        }
+      ]
+    },
+    "UpdateClientProfile": {
+      "type": "object",
+      "properties": {
+        "architecture": {
+          "type": "string"
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "channel": {
+          "type": "string"
+        },
+        "currentVersion": {
+          "$ref": "#/definitions/SemVer"
+        },
+        "deviceId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "protocolMajor": {
+          "type": "integer",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0
+        },
+        "protocolMinor": {
+          "type": "integer",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0
+        }
+      },
+      "required": [
+        "deviceId",
+        "channel",
+        "currentVersion",
+        "protocolMajor",
+        "protocolMinor",
+        "capabilities",
+        "platform",
+        "architecture"
+      ]
+    },
+    "UpdateCompatibilityRules": {
+      "type": "object",
+      "properties": {
+        "blockedCurrentVersions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SemVer"
+          }
+        },
+        "maximumCurrentVersion": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/SemVer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "minimumCurrentVersion": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/SemVer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "minimumProtocolMajor": {
+          "type": "integer",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0
+        },
+        "minimumProtocolMinor": {
+          "type": "integer",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0
+        },
+        "requiredCapabilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "blockedCurrentVersions",
+        "minimumProtocolMajor",
+        "minimumProtocolMinor",
+        "requiredCapabilities"
+      ]
+    },
     "UpdateConfiguration": {
       "type": "object",
       "properties": {
@@ -4815,6 +5598,126 @@
       "required": [
         "expectedRevision",
         "changes"
+      ]
+    },
+    "UpdateIneligibilityReason": {
+      "type": "string",
+      "enum": [
+        "channelMismatch",
+        "manifestRevoked",
+        "rolloutPaused",
+        "rolloutNotStarted",
+        "outsideRollout",
+        "clientTooOld",
+        "clientTooNew",
+        "clientBlocked",
+        "protocolIncompatible",
+        "capabilityMissing",
+        "packageUnavailable",
+        "signatureInvalid"
+      ]
+    },
+    "UpdateManifest": {
+      "type": "object",
+      "properties": {
+        "channel": {
+          "type": "string"
+        },
+        "compatibility": {
+          "$ref": "#/definitions/UpdateCompatibilityRules"
+        },
+        "manifestId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "packages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/UpdatePackageMetadata"
+          }
+        },
+        "publishedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "revoked": {
+          "type": "boolean"
+        },
+        "rollout": {
+          "$ref": "#/definitions/StagedRollout"
+        },
+        "schemaVersion": {
+          "type": "integer",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0
+        },
+        "version": {
+          "$ref": "#/definitions/SemVer"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "manifestId",
+        "channel",
+        "version",
+        "publishedAt",
+        "rollout",
+        "compatibility",
+        "packages",
+        "revoked"
+      ]
+    },
+    "UpdateManifestSignature": {
+      "type": "object",
+      "properties": {
+        "algorithm": {
+          "type": "string"
+        },
+        "keyId": {
+          "type": "string"
+        },
+        "signatureBase64": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "algorithm",
+        "keyId",
+        "signatureBase64"
+      ]
+    },
+    "UpdatePackageMetadata": {
+      "type": "object",
+      "properties": {
+        "architecture": {
+          "type": "string"
+        },
+        "downloadUrl": {
+          "type": "string"
+        },
+        "packageKind": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "sha256Hex": {
+          "type": "string"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "platform",
+        "architecture",
+        "packageKind",
+        "downloadUrl",
+        "sizeBytes",
+        "sha256Hex"
       ]
     },
     "UpdateState": {

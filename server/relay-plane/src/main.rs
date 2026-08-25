@@ -1,3 +1,5 @@
-//! Relay-plane process entry point.
+//! Relay-plane process entry point for later independent deployment.
 
-fn main() {}
+fn main() {
+    eprintln!("eitmad-relay-plane is composed by eitmad-server in this deployment");
+}

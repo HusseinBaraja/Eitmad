@@ -6,7 +6,7 @@ use std::sync::{
 use axum::{
     Json, Router,
     extract::{
-        Query, State, WebSocketUpgrade,
+        Path, Query, State, WebSocketUpgrade,
         ws::{Message, WebSocket},
     },
     http::{HeaderMap, StatusCode},
@@ -14,8 +14,16 @@ use axum::{
     routing::{get, post},
 };
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
+use eitmad_admin_plane::{AdministrationService, AdministrativeError};
 use eitmad_contracts::{
+    administration::{
+        BackupStatus, DeviceVisibility, DiagnosticSummary, MigrationStatus, ServiceHealth,
+        StartSupportWorkflow, SupportWorkflow, TenantVisibility,
+    },
     identity::{ScopeId, ScopeKind, ScopeRef},
+    relay::{
+        OpenRelaySession, RelayFailureReport, RelayHealth, RelaySessionId, RelaySessionMetadata,
+    },
     server::{
         ActivateAccountRequest, AuthenticationResult, DeviceProof, EffectiveUpdateAssignment,
         LoginRequest, RefreshRequest, ServerClientMessage, ServerErrorCode, ServerFailure,
@@ -24,7 +32,7 @@ use eitmad_contracts::{
     sync::{SnapshotCompletion, SyncMessage},
     sync_transport::SyncTransportPayload,
     transport::{CapabilityId, CorrelationId, SchemaId},
-    updates::ReleaseVersion,
+    updates::{ReleaseVersion, SignedUpdateManifest, UpdateCheckOutcome, UpdateClientProfile},
     versioning::{
         NegotiationOutcome, PeerHello, PeerKind, SchemaSupport, SupportedProtocol, negotiate,
     },
@@ -32,7 +40,9 @@ use eitmad_contracts::{
 use eitmad_control_plane::{
     AuthenticationError, ControlPlane, UpdateAssignmentError, unix_millis_now,
 };
+use eitmad_relay_plane::{RelayCoordinator, RelayError};
 use eitmad_sync_plane::{OperationError, SnapshotError, SubscriptionError, SyncCoordinator};
+use eitmad_update_plane::{UpdateCatalog, UpdatePlaneError};
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -44,6 +54,9 @@ pub struct ServerState {
     sync: SyncCoordinator,
     server_hello: PeerHello,
     ready: Arc<AtomicBool>,
+    relay: Option<RelayCoordinator>,
+    updates: Option<UpdateCatalog>,
+    administration: Option<AdministrationService>,
 }
 
 impl ServerState {
@@ -65,7 +78,23 @@ impl ServerState {
             sync,
             server_hello: server_hello(schemas),
             ready: Arc::new(AtomicBool::new(true)),
+            relay: None,
+            updates: None,
+            administration: None,
         }
+    }
+
+    #[must_use]
+    pub fn with_planes(
+        mut self,
+        relay: RelayCoordinator,
+        updates: UpdateCatalog,
+        administration: AdministrationService,
+    ) -> Self {
+        self.relay = Some(relay);
+        self.updates = Some(updates);
+        self.administration = Some(administration);
+        self
     }
 
     pub fn set_ready(&self, value: bool) {
@@ -81,6 +110,35 @@ pub fn router(state: ServerState) -> Router {
         .route("/v1/auth/login", post(login))
         .route("/v1/auth/refresh", post(refresh))
         .route("/v1/update-assignment", get(update_assignment))
+        .route("/v1/updates/check", post(check_update))
+        .route("/v1/admin/update-manifests", post(publish_update_manifest))
+        .route("/v1/relay/sessions", post(open_relay_session))
+        .route(
+            "/v1/relay/sessions/{session_id}/heartbeat",
+            post(relay_heartbeat),
+        )
+        .route(
+            "/v1/relay/sessions/{session_id}/reconnect",
+            post(schedule_relay_reconnect),
+        )
+        .route(
+            "/v1/relay/sessions/{session_id}/reconnect/attempt",
+            post(attempt_relay_reconnect),
+        )
+        .route(
+            "/v1/relay/sessions/{session_id}/close",
+            post(close_relay_session),
+        )
+        .route("/v1/relay/failures", post(report_relay_failure))
+        .route("/v1/relay/health", get(relay_health))
+        .route("/v1/admin/diagnostics", get(admin_diagnostics))
+        .route("/v1/admin/health", get(admin_health))
+        .route("/v1/admin/backup-status", get(admin_backup_status))
+        .route("/v1/admin/migration-status", get(admin_migration_status))
+        .route("/v1/admin/audit", get(admin_audit))
+        .route("/v1/admin/tenant", get(admin_tenant))
+        .route("/v1/admin/devices", get(admin_devices))
+        .route("/v1/admin/support-workflows", post(start_support_workflow))
         .route("/v1/connect", get(connect))
         .with_state(state)
 }
@@ -211,6 +269,389 @@ async fn update_assignment(
             }
             UpdateAssignmentError::Unavailable => ApiError::unavailable(),
         })
+}
+
+async fn check_update(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(client): Json<UpdateClientProfile>,
+) -> Result<Json<UpdateCheckOutcome>, ApiError> {
+    let session = authenticate_negotiated(
+        &state,
+        &headers,
+        "eitmad.capability.server-update-distribution.v1",
+    )
+    .await?;
+    if client.device_id != session.device_id {
+        return Err(ApiError::forbidden("eitmad.error.authorization-denied.v1"));
+    }
+    let assignment = state
+        .control
+        .update_assignments
+        .effective(session.tenant_id, session.device_id)
+        .await
+        .map_err(|_| ApiError::unavailable())?;
+    if assignment.channel != client.channel {
+        return Err(ApiError::forbidden("eitmad.error.authorization-denied.v1"));
+    }
+    let updates = state.updates.as_ref().ok_or_else(ApiError::unavailable)?;
+    updates
+        .check(&client, unix_millis_now())
+        .map(Json)
+        .map_err(map_update_plane)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PublishManifestRequest {
+    manifest: SignedUpdateManifest,
+    correlation_id: CorrelationId,
+}
+
+async fn publish_update_manifest(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(request): Json<PublishManifestRequest>,
+) -> Result<StatusCode, ApiError> {
+    let session = authenticate_negotiated(
+        &state,
+        &headers,
+        "eitmad.capability.server-update-distribution.v1",
+    )
+    .await?;
+    state
+        .updates
+        .as_ref()
+        .ok_or_else(ApiError::unavailable)?
+        .publish(
+            &session,
+            &request.manifest,
+            request.correlation_id,
+            unix_millis_now(),
+        )
+        .await
+        .map_err(map_update_plane)?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn open_relay_session(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(request): Json<OpenRelaySession>,
+) -> Result<Json<RelaySessionMetadata>, ApiError> {
+    let session =
+        authenticate_negotiated(&state, &headers, "eitmad.capability.server-relay.v1").await?;
+    state
+        .relay
+        .as_ref()
+        .ok_or_else(ApiError::unavailable)?
+        .open(&session, &request, unix_millis_now())
+        .await
+        .map(Json)
+        .map_err(map_relay)
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RelayActionRequest {
+    correlation_id: CorrelationId,
+}
+
+async fn relay_heartbeat(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Path(session_id): Path<Uuid>,
+    Json(request): Json<RelayActionRequest>,
+) -> Result<Json<RelaySessionMetadata>, ApiError> {
+    let session =
+        authenticate_negotiated(&state, &headers, "eitmad.capability.server-relay.v1").await?;
+    relay(&state)?
+        .heartbeat(
+            &session,
+            RelaySessionId::new(session_id),
+            request.correlation_id,
+            unix_millis_now(),
+        )
+        .await
+        .map(Json)
+        .map_err(map_relay)
+}
+
+async fn schedule_relay_reconnect(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Path(session_id): Path<Uuid>,
+    Json(request): Json<RelayActionRequest>,
+) -> Result<Json<RelaySessionMetadata>, ApiError> {
+    let session =
+        authenticate_negotiated(&state, &headers, "eitmad.capability.server-relay.v1").await?;
+    relay(&state)?
+        .schedule_reconnect(
+            &session,
+            RelaySessionId::new(session_id),
+            request.correlation_id,
+            unix_millis_now(),
+        )
+        .await
+        .map(Json)
+        .map_err(map_relay)
+}
+
+async fn attempt_relay_reconnect(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Path(session_id): Path<Uuid>,
+    Json(request): Json<RelayActionRequest>,
+) -> Result<Json<RelaySessionMetadata>, ApiError> {
+    let session =
+        authenticate_negotiated(&state, &headers, "eitmad.capability.server-relay.v1").await?;
+    relay(&state)?
+        .reconnect_due(
+            &session,
+            RelaySessionId::new(session_id),
+            request.correlation_id,
+            unix_millis_now(),
+        )
+        .await
+        .map(Json)
+        .map_err(map_relay)
+}
+
+async fn close_relay_session(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Path(session_id): Path<Uuid>,
+    Json(request): Json<RelayActionRequest>,
+) -> Result<Json<RelaySessionMetadata>, ApiError> {
+    let session =
+        authenticate_negotiated(&state, &headers, "eitmad.capability.server-relay.v1").await?;
+    relay(&state)?
+        .close(
+            &session,
+            RelaySessionId::new(session_id),
+            request.correlation_id,
+            unix_millis_now(),
+        )
+        .await
+        .map(Json)
+        .map_err(map_relay)
+}
+
+async fn report_relay_failure(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(report): Json<RelayFailureReport>,
+) -> Result<StatusCode, ApiError> {
+    let session =
+        authenticate_negotiated(&state, &headers, "eitmad.capability.server-relay.v1").await?;
+    relay(&state)?
+        .report_failure(&session, report)
+        .await
+        .map_err(map_relay)?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn relay_health(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+) -> Result<Json<RelayHealth>, ApiError> {
+    let session =
+        authenticate_negotiated(&state, &headers, "eitmad.capability.server-relay.v1").await?;
+    relay(&state)?
+        .health(&session, new_correlation_id(), unix_millis_now())
+        .await
+        .map(Json)
+        .map_err(map_relay)
+}
+
+async fn admin_diagnostics(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+) -> Result<Json<DiagnosticSummary>, ApiError> {
+    let session = authenticate_negotiated(
+        &state,
+        &headers,
+        "eitmad.capability.server-administration.v1",
+    )
+    .await?;
+    administration(&state)?
+        .diagnostics(
+            &session,
+            session.tenant_id,
+            new_correlation_id(),
+            unix_millis_now(),
+        )
+        .await
+        .map(Json)
+        .map_err(map_admin)
+}
+
+async fn admin_health(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+) -> Result<Json<Vec<ServiceHealth>>, ApiError> {
+    let session = authenticate_negotiated(
+        &state,
+        &headers,
+        "eitmad.capability.server-administration.v1",
+    )
+    .await?;
+    administration(&state)?
+        .health(
+            &session,
+            session.tenant_id,
+            new_correlation_id(),
+            unix_millis_now(),
+        )
+        .await
+        .map(Json)
+        .map_err(map_admin)
+}
+
+async fn admin_backup_status(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+) -> Result<Json<BackupStatus>, ApiError> {
+    let session = authenticate_negotiated(
+        &state,
+        &headers,
+        "eitmad.capability.server-administration.v1",
+    )
+    .await?;
+    administration(&state)?
+        .backup_status(
+            &session,
+            session.tenant_id,
+            new_correlation_id(),
+            unix_millis_now(),
+        )
+        .await
+        .map(Json)
+        .map_err(map_admin)
+}
+
+async fn admin_migration_status(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+) -> Result<Json<MigrationStatus>, ApiError> {
+    let session = authenticate_negotiated(
+        &state,
+        &headers,
+        "eitmad.capability.server-administration.v1",
+    )
+    .await?;
+    administration(&state)?
+        .migration_status(
+            &session,
+            session.tenant_id,
+            new_correlation_id(),
+            unix_millis_now(),
+        )
+        .await
+        .map(Json)
+        .map_err(map_admin)
+}
+
+#[derive(Deserialize)]
+struct AdminAuditQuery {
+    limit: Option<u32>,
+}
+
+async fn admin_audit(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Query(query): Query<AdminAuditQuery>,
+) -> Result<Json<Vec<eitmad_contracts::administration::AdministrativeAuditRecord>>, ApiError> {
+    let session = authenticate_negotiated(
+        &state,
+        &headers,
+        "eitmad.capability.server-administration.v1",
+    )
+    .await?;
+    administration(&state)?
+        .audit_records(
+            &session,
+            session.tenant_id,
+            query.limit.unwrap_or(100),
+            new_correlation_id(),
+            unix_millis_now(),
+        )
+        .await
+        .map(Json)
+        .map_err(map_admin)
+}
+
+async fn admin_tenant(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+) -> Result<Json<TenantVisibility>, ApiError> {
+    let session = authenticate_negotiated(
+        &state,
+        &headers,
+        "eitmad.capability.server-administration.v1",
+    )
+    .await?;
+    administration(&state)?
+        .tenant_visibility(
+            &session,
+            session.tenant_id,
+            new_correlation_id(),
+            unix_millis_now(),
+        )
+        .await
+        .map(Json)
+        .map_err(map_admin)
+}
+
+async fn admin_devices(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+) -> Result<Json<Vec<DeviceVisibility>>, ApiError> {
+    let session = authenticate_negotiated(
+        &state,
+        &headers,
+        "eitmad.capability.server-administration.v1",
+    )
+    .await?;
+    administration(&state)?
+        .device_visibility(
+            &session,
+            session.tenant_id,
+            new_correlation_id(),
+            unix_millis_now(),
+        )
+        .await
+        .map(Json)
+        .map_err(map_admin)
+}
+
+async fn start_support_workflow(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(request): Json<StartSupportWorkflow>,
+) -> Result<Json<SupportWorkflow>, ApiError> {
+    let session = authenticate_negotiated(
+        &state,
+        &headers,
+        "eitmad.capability.server-administration.v1",
+    )
+    .await?;
+    administration(&state)?
+        .start_support_workflow(&session, &request, unix_millis_now())
+        .await
+        .map(Json)
+        .map_err(map_admin)
+}
+
+fn relay(state: &ServerState) -> Result<&RelayCoordinator, ApiError> {
+    state.relay.as_ref().ok_or_else(ApiError::unavailable)
+}
+
+fn administration(state: &ServerState) -> Result<&AdministrationService, ApiError> {
+    state
+        .administration
+        .as_ref()
+        .ok_or_else(ApiError::unavailable)
 }
 
 #[derive(Clone, Deserialize)]
@@ -521,6 +962,34 @@ async fn authenticate_headers(
     authenticate_access(state, &token, &proof).await
 }
 
+async fn authenticate_negotiated(
+    state: &ServerState,
+    headers: &HeaderMap,
+    required_capability: &'static str,
+) -> Result<eitmad_contracts::server::AuthenticatedServerSession, ApiError> {
+    let required_capability =
+        CapabilityId::parse(required_capability).expect("required server capability must be valid");
+    let peer = headers
+        .get("x-eitmad-peer-hello")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| URL_SAFE_NO_PAD.decode(value).ok())
+        .and_then(|value| serde_json::from_slice::<PeerHello>(&value).ok())
+        .ok_or_else(|| ApiError::bad_request("eitmad.error.server-client-incompatible.v1"))?;
+    let mut boundary = state.server_hello.clone();
+    boundary.required_capabilities = vec![required_capability];
+    let NegotiationOutcome::Accepted(negotiated) = negotiate(&boundary, &peer) else {
+        return Err(ApiError::bad_request(
+            "eitmad.error.server-client-incompatible.v1",
+        ));
+    };
+    if negotiated.protocol.major != 1 || negotiated.protocol.minor < 5 {
+        return Err(ApiError::bad_request(
+            "eitmad.error.server-client-incompatible.v1",
+        ));
+    }
+    authenticate_headers(state, headers).await
+}
+
 fn connection_credentials(headers: &HeaderMap) -> Result<(String, DeviceProof), ApiError> {
     let token = headers
         .get("authorization")
@@ -556,6 +1025,9 @@ fn server_hello(schemas: Vec<SchemaSupport>) -> PeerHello {
         "eitmad.capability.server-device-proof.v1",
         "eitmad.capability.server-snapshot-chunks.v1",
         "eitmad.capability.server-subscription-resume.v1",
+        "eitmad.capability.server-relay.v1",
+        "eitmad.capability.server-update-distribution.v1",
+        "eitmad.capability.server-administration.v1",
     ]
     .into_iter()
     .map(|value| CapabilityId::parse(value).expect("server capability must be valid"))
@@ -566,7 +1038,7 @@ fn server_hello(schemas: Vec<SchemaSupport>) -> PeerHello {
         protocols: vec![SupportedProtocol {
             major: 1,
             minimum_minor: 4,
-            maximum_minor: 4,
+            maximum_minor: 5,
         }],
         required_capabilities: capabilities.clone(),
         capabilities,
@@ -652,6 +1124,53 @@ fn map_operation(error: OperationError) -> ApiError {
     }
 }
 
+fn map_relay(error: RelayError) -> ApiError {
+    match error {
+        RelayError::Denied => ApiError::forbidden("eitmad.error.authorization-denied.v1"),
+        RelayError::Invalid | RelayError::RetryNotDue => {
+            ApiError::bad_request("eitmad.error.contract-invalid.v1")
+        }
+        RelayError::NotFound => ApiError::new(
+            StatusCode::NOT_FOUND,
+            "eitmad.error.relay-session-not-found.v1",
+        ),
+        RelayError::RouteUnavailable | RelayError::Unavailable => ApiError::new(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "eitmad.error.relay-unavailable.v1",
+        ),
+    }
+}
+
+fn map_update_plane(error: UpdatePlaneError) -> ApiError {
+    match error {
+        UpdatePlaneError::Denied => ApiError::forbidden("eitmad.error.authorization-denied.v1"),
+        UpdatePlaneError::Invalid | UpdatePlaneError::Conflict => {
+            ApiError::bad_request("eitmad.error.update-manifest-invalid.v1")
+        }
+        UpdatePlaneError::NotFound => ApiError::new(
+            StatusCode::NOT_FOUND,
+            "eitmad.error.update-manifest-not-found.v1",
+        ),
+        UpdatePlaneError::Unavailable | UpdatePlaneError::ReconciliationRequired(_) => {
+            ApiError::new(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "eitmad.error.update-distribution-unavailable.v1",
+            )
+        }
+    }
+}
+
+fn map_admin(error: AdministrativeError) -> ApiError {
+    match error {
+        AdministrativeError::Denied => ApiError::forbidden("eitmad.error.authorization-denied.v1"),
+        AdministrativeError::Invalid => ApiError::bad_request("eitmad.error.contract-invalid.v1"),
+        AdministrativeError::Unavailable => ApiError::new(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "eitmad.error.admin-unavailable.v1",
+        ),
+    }
+}
+
 fn map_subscription(error: SubscriptionError) -> ApiError {
     match error {
         SubscriptionError::Denied => ApiError::forbidden("eitmad.error.authorization-denied.v1"),
@@ -682,6 +1201,7 @@ mod tests {
     fn server_requires_all_remote_boundary_capabilities() {
         let hello = server_hello(Vec::new());
         assert_eq!(hello.protocols[0].minimum_minor, 4);
+        assert_eq!(hello.protocols[0].maximum_minor, 5);
         assert!(hello.required_capabilities.iter().any(|capability| {
             capability.as_str() == "eitmad.capability.server-device-proof.v1"
         }));
@@ -757,6 +1277,31 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn operational_http_boundaries_negotiate_before_authentication() {
+        let state = test_state();
+        let headers = HeaderMap::new();
+        let error = authenticate_negotiated(&state, &headers, "eitmad.capability.server-relay.v1")
+            .await
+            .unwrap_err();
+        assert_eq!(error.status, StatusCode::BAD_REQUEST);
+        assert_eq!(
+            error.code.as_str(),
+            "eitmad.error.server-client-incompatible.v1"
+        );
+
+        let mut peer = server_hello(Vec::new());
+        peer.peer_kind = PeerKind::Engine;
+        peer.protocols[0].minimum_minor = 5;
+        let encoded = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&peer).unwrap());
+        let mut headers = HeaderMap::new();
+        headers.insert("x-eitmad-peer-hello", encoded.parse().unwrap());
+        let error = authenticate_negotiated(&state, &headers, "eitmad.capability.server-relay.v1")
+            .await
+            .unwrap_err();
+        assert_eq!(error.status, StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
     async fn update_assignment_requires_authorization_header() {
         use tower::ServiceExt as _;
         let response = router(test_state())
@@ -769,5 +1314,27 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn relay_and_administration_routes_require_authentication() {
+        use tower::ServiceExt as _;
+        let mut peer = server_hello(Vec::new());
+        peer.peer_kind = PeerKind::Engine;
+        peer.protocols[0].minimum_minor = 5;
+        let encoded = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&peer).unwrap());
+        for uri in ["/v1/relay/health", "/v1/admin/health", "/v1/admin/devices"] {
+            let response = router(test_state())
+                .oneshot(
+                    axum::http::Request::builder()
+                        .uri(uri)
+                        .header("x-eitmad-peer-hello", &encoded)
+                        .body(axum::body::Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::UNAUTHORIZED, "{uri}");
+        }
     }
 }

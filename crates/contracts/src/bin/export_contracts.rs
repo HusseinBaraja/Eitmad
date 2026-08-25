@@ -7,6 +7,7 @@ use std::{
 
 use eitmad_contracts::{
     PROTOCOL_VERSION,
+    administration::{BackupStatus, DiagnosticSummary, MigrationStatus, SupportWorkflow},
     catalog::ProtocolCatalog,
     config::{ConfigReadValue, ConfigSnapshot},
     errors::{
@@ -24,6 +25,7 @@ use eitmad_contracts::{
     },
     permissions::EffectivePermissions,
     queries::{GetConfiguration, Query, QueryResult},
+    relay::{RelayFailureReport, RelayHealth, RelaySessionMetadata},
     runtime::{DiagnosticReport, LifecycleSnapshot},
     server::{ServerClientMessage, ServerMessage},
     sync::{SyncMessage, SyncStatus},
@@ -33,7 +35,7 @@ use eitmad_contracts::{
         QueryEnvelope, QueryOutcome, QueryResponseEnvelope, RequestId, SubscriptionEnvelope,
         UnixMillis,
     },
-    updates::UpdateState,
+    updates::{SignedUpdateManifest, UpdateCheckOutcome, UpdateClientProfile, UpdateState},
     versioning::{NegotiationOutcome, PeerHello},
 };
 use schemars::{JsonSchema, generate::SchemaSettings};
@@ -57,6 +59,16 @@ struct ContractSchemaRoot {
     sync_transport_frame: SyncTransportFrame,
     server_client_message: ServerClientMessage,
     server_message: ServerMessage,
+    relay_session: RelaySessionMetadata,
+    relay_failure: RelayFailureReport,
+    relay_health: RelayHealth,
+    signed_update_manifest: SignedUpdateManifest,
+    update_client_profile: UpdateClientProfile,
+    update_check_outcome: UpdateCheckOutcome,
+    administration_diagnostics: DiagnosticSummary,
+    administration_backup_status: BackupStatus,
+    administration_migration_status: MigrationStatus,
+    administration_support_workflow: SupportWorkflow,
     update_state: UpdateState,
     sync_status: SyncStatus,
     effective_permissions: EffectivePermissions,

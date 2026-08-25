@@ -5,7 +5,7 @@ audience: "support"
 page_type: "troubleshooting"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-08-22"
+last_verified: "2026-08-24"
 review_triggers:
   - "a stable diagnosable error or recovery path is added"
 keywords:
@@ -36,6 +36,7 @@ Use symptom and identifier pages to reach the authoritative owner and a non-dest
 
 - [Resolve synchronization connection, queue, conflict, or cache failures](synchronization-failures.md): diagnose simulation/LAN/WAN health, authentication, encryption, backoff, partial discovery, relay failure, stream order, pending work, conflict, duplicate delivery, stale cache, scope, authorization, and durable state.
 - [Resolve server authentication, tenant, and sync failures](server-authentication-and-sync.md): diagnose PostgreSQL, tokens, device proof, tenant isolation, compatibility, idempotency, snapshots, conflicts, and subscription resume.
+- [Resolve relay, update distribution, and administration failures](server-plane-failures.md): diagnose relay lifecycle, signed manifests, channels, incompatible clients, backup, migration, audit, visibility, and support workflows.
 
 ## Configuration and authorization failures
 

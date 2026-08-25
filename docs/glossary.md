@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "product maintainers"
-last_verified: "2026-08-22"
+last_verified: "2026-08-24"
 review_triggers:
   - "a domain term, UI label, contract concept, or workshop synonym changes"
 keywords:
@@ -142,7 +142,7 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | المزامنة | Synchronization | The protocol-driven exchange and reconciliation of authorized state across processes, devices, or servers. Its business meaning does not change between simulation, LAN, direct WAN, or relay routes. |
 | ناقل المزامنة | Sync transport | **Provisional UI term.** The Rust-owned connection boundary that carries one sync frame and message protocol across simulation, LAN, and WAN routes. |
 | صحة اتصال المزامنة | Sync connection health | **Provisional UI term.** Operational state that reports offline, connecting, healthy, or degraded transport plus retry evidence; it does not prove reconciliation committed. |
-| مرحّل المزامنة | Sync relay | **Provisional UI term.** A configured WAN route used only when direct server connectivity fails; it does not change authentication, authorization, or sync message meaning. |
+| مرحّل المزامنة | Sync relay | **Provisional UI term.** A tenant-isolated WAN coordination route that preserves authentication and encryption when direct server connectivity is unavailable. It rejects unauthenticated or plaintext WAN sessions and cannot change sync meaning or product authorization. |
 | تعارض | Conflict | Concurrent or incompatible state that cannot be safely combined without a defined domain rule or decision. |
 | سجل التعارض | Conflict record | **Provisional UI term.** The durable scoped record that preserves both competing sync inputs, revisions, status, and resolution provenance. |
 | محلي أولًا | Local-first | A mode in which local durable work continues offline and later synchronizes under explicit conflict rules. |
@@ -169,6 +169,10 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | تغيير كاسر | Breaking change | A contract representation or meaning change that a peer inside the compatibility window cannot safely interpret. |
 | تحديث | Update | A signed, policy-controlled change to engine, shell, contracts, or compatible data behavior. |
 | قناة التحديث | Update channel | **Provisional UI term.** The Rust-selected rollout stream. A device override takes precedence over the tenant default, which takes precedence over global `stable`. |
+| بيان تحديث موقّع | Signed update manifest | **Provisional UI term.** Immutable release, rollout, compatibility, and package metadata covered by an Ed25519 signature and verified by Rust before use. |
+| طرح مرحلي | Staged rollout | **Provisional UI term.** A signed start time, pause state, deterministic device cohort, and basis-point percentage that gates update availability. |
+| حالة النسخ الاحتياطي | Backup status | **Provisional UI term.** Tenant-scoped operational evidence such as current, stale, running, failed, or not configured; it is not proof of restore until restore verification succeeds. |
+| سير عمل الدعم | Support workflow | **Provisional UI term.** A reason-coded, owner-authorized, audited operational action with durable running, succeeded, or failed state. |
 | دورة حياة المحرك | Engine lifecycle | The Rust-owned process states `Starting`, `Ready`, `Stopping`, `Stopped`, and `Failed` plus their permitted transitions. |
 | جاهزية المحرك | Engine readiness | An explicit signal that initialization completed and every required health check is healthy; it is not inferred from a live PID. |
 | سلامة المحرك | Engine health | The aggregate `Healthy`, `Degraded`, or `Unhealthy` result of stable checks, evaluated separately from lifecycle state. |
