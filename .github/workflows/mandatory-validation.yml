@@ -53,6 +53,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.85
         with:
           components: clippy,rustfmt
+      - name: Install Linux workspace build dependencies
+        run: sudo apt-get update && sudo apt-get install --yes libdbus-1-dev pkg-config
       - name: Check Rust formatting
         run: cargo fmt --all -- --check
       - name: Check minimum-version compilation
