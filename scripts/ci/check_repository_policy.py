@@ -23,7 +23,13 @@ def tracked_files() -> list[Path]:
 
 
 def text_files() -> list[Path]:
-    return [path for path in tracked_files() if path.suffix.lower() in TEXT_SUFFIXES and not SKIP_PARTS.intersection(path.parts)]
+    return [
+        path
+        for path in tracked_files()
+        if path.is_file()
+        and path.suffix.lower() in TEXT_SUFFIXES
+        and not SKIP_PARTS.intersection(path.parts)
+    ]
 
 
 def migration_entries() -> list[tuple[str, str]]:
