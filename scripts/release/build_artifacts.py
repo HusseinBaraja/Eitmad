@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tarfile
 import tempfile
 import tomllib
@@ -84,9 +85,9 @@ def build_windows(output: Path, version: str) -> Path:
 
 
 def build_server(output: Path, version: str) -> Path:
-    plan = load_plan()["artifacts"]["server"]
-    if os.name == "nt":
+    if sys.platform != "linux":
         raise SystemExit("server packaging requires the declared Linux build host")
+    plan = load_plan()["artifacts"]["server"]
     run("cargo", "build", "--locked", "--release", "-p", plan["rust_package"])
     executable = ROOT / "target" / "release" / ("eitmad-server.exe" if os.name == "nt" else "eitmad-server")
     destination = output / f"eitmad-server-{version}-{plan['runtime']}.tar.gz"

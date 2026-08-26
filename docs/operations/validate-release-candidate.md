@@ -32,7 +32,7 @@ A release candidate can advance only after every mandatory check succeeds on the
 | Documentation impact, metadata, links, ownership | `repository-policy` and documentation audit |
 | Desktop build, shell lifecycle, real-engine supervision | `windows-desktop` |
 | Server CLI and safe configuration | `server-smoke` |
-| Repeatable Windows and server artifacts | `package-windows`, `package-server` |
+| Repeatable Windows and Linux-hosted server artifacts | `package-windows`, `package-server` |
 
 The workflow runs for every pull request and every push to `main` without path filters. Existing focused workflows can give faster feedback, but they do not replace mandatory validation. The repository-policy job compares pull requests with their base SHA and pushes with their prior SHA. A manual run requires the operator to supply a base SHA.
 
