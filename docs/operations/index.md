@@ -1,11 +1,11 @@
 ---
-title: "Run Eitmad foundation checks"
-description: "Safely verify Rust, engine diagnostics, generated contracts, Windows supervision, and documentation."
+title: "Operate and release Eitmad"
+description: "Verify, package, deploy, update, back up, restore, and roll back Eitmad desktop and server foundations."
 audience: "operations"
 page_type: "task"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-08-24"
+last_verified: "2026-08-26"
 review_triggers:
   - "workspace verification, executable behavior, deployment, backup, or recovery changes"
 keywords:
@@ -15,9 +15,22 @@ keywords:
   - "E0658"
 ---
 
-# Run Eitmad foundation checks
+# Operate and release Eitmad
 
-These steps verify the current foundation. Rust owns local SQLite authority through storage version 7 and the modular PostgreSQL server under protocol `1.5`. The foundation includes identity, scoped authorization/audit, dual-mode synchronization, WAN relay coordination, signed update manifests, administration status and workflows, device proof, durable idempotency and conflicts, snapshots, licensing hooks, secret storage, recovery, and export hooks. Package CDN delivery, scheduled backup execution, LAN discovery, production relay payload routing, MFA/email providers, diagnostic retention, and production operator UI are not implemented.
+Use this collection to verify the current foundation and prepare controlled releases. Rust owns local SQLite authority through storage version 7 and the modular PostgreSQL server under protocol `1.5`. Package CDN delivery, production signing, native desktop updater adapters, scheduled backup execution, LAN discovery, production relay payload routing, MFA/email providers, diagnostic retention, and production operator UI are not implemented.
+
+## Release and deployment tasks
+
+- [Validate a release candidate](validate-release-candidate.md): run mandatory code, contract, security, Arabic/RTL, packaging, desktop, server, restore, and rollback gates.
+- [Package, sign, update, and roll back Windows desktop](package-windows-desktop.md): build the unsigned validation ZIP and prepare the future MSIX path.
+- [Prepare future macOS signing and notarization](prepare-macos-distribution.md): keep packaging blocked until the native shell and updater exist.
+- [Prepare future Linux packages and updates](prepare-linux-distribution.md): choose managed formats and preserve package-manager authority.
+- [Deploy staging and production server environments](deploy-server-environments.md): isolate profiles, terminate TLS, migrate, restore, promote, and roll back.
+- [Run and recover the modular server authority](run-server-authority.md): configure and exercise the current combined binary.
+- [Run and diagnose the engine runtime](run-engine-runtime.md): start headless or supervised modes and interpret readiness.
+- [Recover and export local storage](recover-local-storage.md): preserve and validate SQLite authority.
+
+## Run the local foundation checks
 
 ## Prerequisites
 
@@ -98,11 +111,27 @@ These steps verify the current foundation. Rust owns local SQLite authority thro
    cargo test -p eitmad-secret-storage tests::os_native_backend_supports_secret_lifecycle -- --ignored --exact
    ```
 
-11. In an environment with PostgreSQL, follow the [server runbook](run-server-authority.md) and verify migrations `1–3`, bootstrap, authentication, tenant isolation, relay denial/lifecycle, signed update selection, administration, sync pull, snapshot fallback, subscription resume, readiness, backup, and restore.
+11. Enforce repository ownership, migration checksum, secret/logging, direct shell authority, release plan, and Arabic root-direction rules:
+
+   ```powershell
+   python scripts/ci/check_repository_policy.py
+   ```
+
+12. Build unsigned validation artifacts on their supported build hosts:
+
+   ```powershell
+   python scripts/release/build_artifacts.py windows-desktop --version 0.0.0-ci --output dist
+   ```
+
+   ```powershell
+   python scripts/release/build_artifacts.py server --version 0.0.0-ci --output dist
+   ```
+
+13. In an environment with PostgreSQL, follow the [server runbook](run-server-authority.md) and verify migrations `1–3`, bootstrap, authentication, tenant isolation, relay denial/lifecycle, signed update selection, administration, sync pull, snapshot fallback, subscription resume, readiness, backup, and restore.
 
 ## Verify
 
-In a healthy development environment, every applicable command should exit with code `0` and no warnings. Diagnostics should print one JSON report; an unhealthy required check may produce exit code `3`. Windows supervision prints `Windows process supervision scenarios passed.` after fake and real-engine checks. Swift binding conformance runs in macOS CI because Swift is not part of the Windows prerequisites.
+In a healthy development environment, every applicable command should exit with code `0` and no warnings. Diagnostics should print one JSON report; an unhealthy required check may produce exit code `3`. Windows supervision prints `Windows process supervision scenarios passed.` after fake and real-engine checks. Artifact builders print the artifact and manifest paths. These artifacts stay unsigned and not production-eligible. Swift binding conformance runs in macOS CI because Swift is not part of the Windows prerequisites.
 
 ## Recover
 

@@ -172,6 +172,9 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | تغيير كاسر | Breaking change | A contract representation or meaning change that a peer inside the compatibility window cannot safely interpret. |
 | تحديث | Update | A signed, policy-controlled change to engine, shell, contracts, or compatible data behavior. |
 | قناة التحديث | Update channel | **Provisional UI term.** The Rust-selected rollout stream. A device override takes precedence over the tenant default, which takes precedence over global `stable`. |
+| مرشح الإصدار | Release candidate | **Provisional UI term.** One immutable artifact digest proposed for promotion after mandatory code, contract, security, Arabic, deployment, and recovery evidence passes. |
+| ملف النشر | Deployment profile | **Provisional UI term.** A development, staging, or production set of isolated data, trust, credentials, network, update channel, and availability requirements. |
+| التراجع عن الإصدار | Release rollback | **Provisional UI term.** A controlled return to compatible prior code or a complete verified pre-migration recovery point; it never means hand-editing schema history. |
 | بيان تحديث موقّع | Signed update manifest | **Provisional UI term.** Immutable release, rollout, compatibility, and package metadata covered by an Ed25519 signature and verified by Rust before use. |
 | طرح مرحلي | Staged rollout | **Provisional UI term.** A signed start time, pause state, deterministic device cohort, and basis-point percentage that gates update availability. |
 | حالة النسخ الاحتياطي | Backup status | **Provisional UI term.** Tenant-scoped operational evidence such as current, stale, running, failed, or not configured; it is not proof of restore until restore verification succeeds. |

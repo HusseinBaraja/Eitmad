@@ -1,0 +1,215 @@
+name: Mandatory validation
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      base_sha:
+        description: Base revision used for policy comparisons
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mandatory-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  repository-policy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Enforce ownership, safety, migrations, Arabic, and documentation impact
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event_name == 'push' && github.event.before || inputs.base_sha }}
+        run: |
+          test -n "$BASE_SHA"
+          python scripts/ci/check_repository_policy.py --base "$BASE_SHA"
+      - name: Test repository policy rules
+        run: python -m unittest discover -s scripts/ci/tests -v
+      - name: Audit documentation metadata, links, safety, and reachability
+        run: python .agents/skills/maintain-project-documentation/scripts/audit_docs.py --root docs
+
+  rust-quality:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@1.85
+        with:
+          components: clippy,rustfmt
+      - name: Check Rust formatting
+        run: cargo fmt --all -- --check
+      - name: Check minimum-version compilation
+        run: cargo check --locked --workspace --all-targets
+      - name: Reject Rust warnings
+        run: cargo clippy --locked --workspace --all-targets -- -D warnings
+      - name: Test contracts, IPC, migrations, authorization, isolation, redaction, secrets, sync, and updates
+        run: cargo test --locked --workspace
+      - name: Smoke-test engine diagnostics
+        run: cargo run --locked -q -p eitmad-engine-cli -- diagnose
+
+  contracts-and-ipc:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@1.85
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: crates/contracts/codegen/package-lock.json
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - run: npm ci --ignore-scripts --prefix crates/contracts/codegen
+      - name: Reject contract, fixture, reference, and generated-binding drift
+        run: npm run contracts:verify --prefix crates/contracts/codegen
+      - name: Validate C# binding compatibility and Arabic round trips
+        run: >-
+          dotnet run
+          --project tests/contract-compatibility/csharp/Eitmad.ContractConformance.csproj
+          --configuration Release
+          -- tests/contract-compatibility/fixtures/protocol-v1.json
+      - name: Validate local IPC and engine lifecycle
+        run: cargo test --locked -p eitmad-engine-runtime -p eitmad-engine-cli
+
+  windows-desktop:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@1.85
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Build engine
+        run: cargo build --locked -p eitmad-engine-cli
+      - name: Build Windows shell with warnings rejected
+        run: dotnet build shells/windows/Eitmad.WindowsShell.csproj --configuration Release --nologo
+      - name: Test Arabic, RTL, shell ownership, and presentation lifecycle
+        run: dotnet run --project shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --configuration Release --nologo
+      - name: Test fake and real-engine process supervision
+        run: >-
+          dotnet run
+          --project platform-adapters/windows/tests/Eitmad.Platform.Windows.Tests.csproj
+          --configuration Release
+          --nologo
+          --
+          --engine target/debug/eitmad-engine-cli.exe
+
+  macos-bindings:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Compile Swift binding conformance
+        run: >-
+          swiftc
+          shells/macos/generated/EitmadContracts.generated.swift
+          shells/macos/generated/ProtocolIds.generated.swift
+          tests/contract-compatibility/swift/ContractFixtureTests.swift
+          -o "$RUNNER_TEMP/eitmad-contract-tests"
+      - name: Validate Swift compatibility and Arabic round trips
+        run: >-
+          "$RUNNER_TEMP/eitmad-contract-tests"
+          tests/contract-compatibility/fixtures/protocol-v1.json
+
+  server-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@1.85
+      - name: Build server with locked dependencies
+        run: cargo build --locked -p eitmad-server
+      - name: Check server CLI
+        run: cargo run --locked -q -p eitmad-server -- --help
+      - name: Check redacted loopback configuration
+        env:
+          EITMAD_SERVER_DATABASE_URL: postgresql://synthetic:synthetic@127.0.0.1/eitmad_ci
+          EITMAD_SERVER_TOKEN_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          EITMAD_SERVER_LISTEN: 127.0.0.1:8443
+          EITMAD_SERVER_ALLOW_INSECURE_LOOPBACK: "true"
+          EITMAD_SERVER_UPDATE_MANIFEST_DIRECTORY: ${{ runner.temp }}/manifests
+          EITMAD_SERVER_UPDATE_OPERATOR_TENANT_ID: 00000000-0000-0000-0000-000000000001
+          EITMAD_SERVER_UPDATE_KEY_ID: synthetic-ci-key
+          EITMAD_SERVER_UPDATE_PUBLIC_KEY: 11qYAYKxCrfVS/7TyWQHOg7hcvPpapC1HApkqfJcGgE=
+        run: |
+          mkdir -p "$EITMAD_SERVER_UPDATE_MANIFEST_DIRECTORY"
+          cargo run --locked -q -p eitmad-server -- check-config
+
+  package-windows:
+    needs: [repository-policy, contracts-and-ipc, windows-desktop]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@1.85
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Build repeatable unsigned Windows validation bundle
+        run: python scripts/release/build_artifacts.py windows-desktop --version 0.0.0-ci --output dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-validation-package
+          path: dist/*
+          if-no-files-found: error
+
+  package-server:
+    needs: [repository-policy, rust-quality, server-smoke]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@1.85
+      - name: Build repeatable unsigned server validation bundle
+        env:
+          SOURCE_DATE_EPOCH: 1577836800
+        run: python scripts/release/build_artifacts.py server --version 0.0.0-ci --output dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: server-validation-package
+          path: dist/*
+          if-no-files-found: error
+
+  validation-complete:
+    if: always()
+    needs:
+      - repository-policy
+      - rust-quality
+      - contracts-and-ipc
+      - windows-desktop
+      - macos-bindings
+      - server-smoke
+      - package-windows
+      - package-server
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every validation gate
+        env:
+          RESULTS: ${{ join(needs.*.result, ',') }}
+        run: test "$RESULTS" = "success,success,success,success,success,success,success,success"

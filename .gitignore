@@ -1,4 +1,6 @@
 /target/
+/dist/
+__pycache__/
 node_modules/
 /tests/contract-compatibility/csharp/bin/
 /tests/contract-compatibility/csharp/obj/
