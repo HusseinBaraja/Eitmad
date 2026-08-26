@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "server platform maintainers"
-last_verified: "2026-08-24"
+last_verified: "2026-08-27"
 review_triggers:
   - "server identity, authorization, storage, synchronization, licensing, update assignment, or deployment boundaries change"
 keywords:
@@ -25,7 +25,7 @@ keywords:
 
 The foundation provides tenant and organization identity, accounts, registered devices, invitation activation, authentication tokens, session policy, relationship authorization, licensing hooks, update-channel assignment, sync coordination, snapshots, operation history, resumable subscriptions, conflict records, WAN relay coordination, signed update distribution, operational status, fleet visibility, audit access, support workflows, and client compatibility negotiation.
 
-It does not provide a production business domain, billing provider, email provider, MFA challenge, package CDN, production relay payload router, admin UI, backup scheduler, or native client workflow. `DomainRegistry` is intentionally empty in the executable. A production domain must register its own handler before the server can accept its schema.
+It does not provide a production business domain, billing provider, email provider, MFA challenge, package CDN, production relay payload router, admin UI, backup scheduler, or native client workflow. `DomainRegistry` is intentionally empty in the base executable. The server advertises no domain schemas and rejects domain sync traffic until a product registers a handler. Control, relay, update, and administration planes can still start and report their own readiness.
 
 ## Ownership and module boundaries
 
@@ -130,7 +130,7 @@ TLS is mandatory unless the server binds to a loopback address and the operator 
 
 The host revalidates the authenticated session every 60 seconds for the lifetime of each WebSocket. When the access token expires, the session ends, or the device or account-device link is revoked, the socket closes instead of serving further sync traffic with stale credentials.
 
-The process-wide PostgreSQL connection budget is split evenly across control, sync, and administration pools (`pool_connection_budget`), so `EITMAD_SERVER_MAX_CONNECTIONS` bounds total pool connections. The serve path refuses readiness when no sync domain is registered; `/readyz` never reports success for a server that cannot serve any schema. A malformed `bootstrap` invocation prints usage and exits with a failure code instead of succeeding silently.
+The process-wide PostgreSQL connection budget is split evenly across control, sync, and administration pools (`pool_connection_budget`), so `EITMAD_SERVER_MAX_CONNECTIONS` bounds total pool connections. An empty domain registry is a valid base-server state: the negotiated schema list is empty, and every unknown domain request fails closed. `/readyz` reports process readiness, not product-domain readiness. A product deployment must verify that its required schema appears in negotiation before it routes product sync traffic. A malformed `bootstrap` invocation prints usage and exits with a failure code instead of succeeding silently.
 
 Relay actions require tenant membership and source-device ownership. Administrative close and all administration routes require tenant ownership. Manifest publication requires the configured operator tenant and its dedicated publish permission. Read [WAN relay coordination](wan-relay-coordination.md) and [server administration](server-administration.md) before extending these boundaries.
 

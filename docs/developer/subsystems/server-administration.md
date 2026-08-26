@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "operations tooling maintainers"
-last_verified: "2026-08-24"
+last_verified: "2026-08-27"
 review_triggers:
   - "administrative permissions, diagnostics, backup, migration, audit, visibility, support, or operational storage changes"
 keywords:
@@ -44,7 +44,7 @@ Tenant visibility reports enabled state, active-device count, active-session cou
 
 Support actions are reason coded with lowercase ASCII identifiers from 3 through 64 characters. The service creates a typed `SupportWorkflow`, the PostgreSQL provider persists `running`, the approved hook executes, and the provider commits `succeeded` or `failed` with a redacted error.
 
-Implemented hooks collect diagnostics, acknowledge backup verification workflow execution, close a tenant relay session through the owner-only relay action, and revoke all active sessions for a tenant device. Device-session revocation rechecks ownership and device scope and commits the session mutation plus audit in one control-plane transaction. `RetryMigration` fails as invalid because migrations remain an operator startup procedure, not a remote repair button.
+Implemented hooks close a tenant relay session through the owner-only relay action and revoke all active sessions for a tenant device. Device-session revocation rechecks ownership and device scope and commits the session mutation plus audit in one control-plane transaction. `CollectDiagnostics`, `VerifyBackup`, and `RetryMigration` fail as invalid until an executor performs and verifies those operations. The server never marks these placeholder actions as succeeded.
 
 ## Authorization, audit, and partial failure
 

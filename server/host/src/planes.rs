@@ -320,8 +320,9 @@ impl SupportWorkflowExecutor for ServerSupportExecutor {
         workflow: &SupportWorkflow,
     ) -> Result<(), AdministrativeError> {
         match workflow.action {
-            SupportAction::CollectDiagnostics | SupportAction::VerifyBackup => Ok(()),
-            SupportAction::RetryMigration => Err(AdministrativeError::Invalid),
+            SupportAction::CollectDiagnostics
+            | SupportAction::VerifyBackup
+            | SupportAction::RetryMigration => Err(AdministrativeError::Invalid),
             SupportAction::DisconnectRelaySession { relay_session_id } => self
                 .relay
                 .administrative_close(
@@ -387,6 +388,8 @@ const fn server_outcome(outcome: RelayAuditOutcome) -> ServerAuditOutcome {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use eitmad_contracts::{
         identity::{AccountId, DeviceId, SessionId, UserId},
         server::AuthenticatedServerSession,
@@ -424,5 +427,45 @@ mod tests {
             &stable,
         ));
         assert!(!scope.allows(&actor(operator), UpdatePlaneAction::RevokeManifest, &stable));
+    }
+
+    #[tokio::test]
+    async fn unimplemented_support_actions_fail_instead_of_reporting_success() {
+        let pool = eitmad_postgres_support::PgPoolOptions::new()
+            .connect_lazy("postgresql://unreachable.invalid/eitmad")
+            .unwrap();
+        let access = ServerAccessService::new(pool);
+        let security = Arc::new(ServerPlaneSecurity::new(
+            access.clone(),
+            TenantId::new(Uuid::from_u128(9)),
+        ));
+        let executor = ServerSupportExecutor::new(
+            RelayCoordinator::new(security, Arc::new(MetadataRelayRouter)),
+            access,
+        );
+        let actor = actor(TenantId::new(Uuid::from_u128(5)));
+
+        for action in [
+            SupportAction::CollectDiagnostics,
+            SupportAction::VerifyBackup,
+            SupportAction::RetryMigration,
+        ] {
+            let workflow = SupportWorkflow {
+                workflow_id: eitmad_contracts::administration::SupportWorkflowId::new(
+                    Uuid::new_v4(),
+                ),
+                tenant_id: actor.tenant_id,
+                action,
+                reason_code: "synthetic.readiness-audit".to_owned(),
+                state: eitmad_contracts::administration::SupportWorkflowState::Running,
+                requested_at: UnixMillis(1),
+                completed_at: None,
+                failure_code: None,
+            };
+            assert_eq!(
+                executor.execute(&actor, &workflow).await,
+                Err(AdministrativeError::Invalid)
+            );
+        }
     }
 }
