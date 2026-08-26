@@ -222,8 +222,25 @@ public sealed class OperationsViewModel : ObservableObject
         SaveReferenceMarkerCommand.Refresh();
     }
 
-    public void ObserveReferenceMarker(ReferenceMarker marker) =>
-        ObserveReferenceMarkers(new ReferenceMarkerPage { Items = [marker] });
+    public void ObserveReferenceMarker(ReferenceMarker marker)
+    {
+        ReplaceById(
+            ReferenceMarkers,
+            new ReferenceMarkerItem(
+                marker.Id,
+                marker.Label,
+                marker.Revision,
+                marker.SyncState == ReferenceMarkerSyncState.Confirmed ? "متزامن" : "بانتظار المزامنة",
+                DateTimeOffset.FromUnixTimeMilliseconds(marker.UpdatedAt).ToString("HH:mm", CultureInfo.GetCultureInfo("ar-YE"))),
+            value => value.Id);
+        if (marker.Id == ReferenceMarkerId)
+        {
+            referenceMarkerRevision = marker.Revision;
+            ReferenceMarkerLabel = marker.Label;
+        }
+        ReferenceMarkerStatus = "تم تحديث العلامة";
+        SaveReferenceMarkerCommand.Refresh();
+    }
 
     public void ObserveReferenceMarkerChanged(ReferenceMarkerChangeNotice notice)
     {

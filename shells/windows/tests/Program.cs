@@ -7,6 +7,7 @@ using Eitmad.WindowsShell.Features.Operations;
 var tests = new ShellScenarios();
 tests.StateMappingCoversOperationalContracts();
 tests.ReferenceMarkerMapsArabicAndSyncState();
+await tests.SaveReferenceMarkerUpdatesOnlyReturnedItem();
 tests.EventOrderingRejectsDuplicatesAndStaleSequences();
 tests.EventOrderingSerializesConcurrentDelivery();
 tests.StaleSnapshotsCannotReplaceNewerState();
@@ -86,6 +87,45 @@ internal sealed class ShellScenarios
         Assert.Equal("مرجع REF-١٢", model.ReferenceMarkers.Single().Label, "mixed-direction label preserved");
         Assert.Equal("بانتظار المزامنة", model.ReferenceMarkers.Single().SyncState, "pending sync state localized");
         Assert.Equal("اللقطة محدّثة", model.ReferenceMarkerStatus, "marker snapshot status");
+    }
+
+    public async Task SaveReferenceMarkerUpdatesOnlyReturnedItem()
+    {
+        var engine = new FakeEngine();
+        var model = new OperationsViewModel();
+        var otherMarkerId = Guid.Parse("9c9bc2bc-842c-57f6-a37b-4c6c3f9f7421");
+        model.ObserveReferenceMarkers(new ReferenceMarkerPage
+        {
+            Items =
+            [
+                new ReferenceMarker
+                {
+                    Id = Guid.Parse("8b8ab1ab-731b-46f5-926a-3b5b2f8f6310"),
+                    Label = "مرجع قديم",
+                    Revision = 1,
+                    Scope = Scope(),
+                    SyncState = ReferenceMarkerSyncState.Confirmed,
+                    UpdatedAt = 1_800_000_000_000,
+                },
+                new ReferenceMarker
+                {
+                    Id = otherMarkerId,
+                    Label = "مرجع محفوظ",
+                    Revision = 3,
+                    Scope = Scope(),
+                    SyncState = ReferenceMarkerSyncState.Confirmed,
+                    UpdatedAt = 1_800_000_000_000,
+                },
+            ],
+        });
+        await using var coordinator = new OperationsCoordinator(engine, model, new ImmediateDispatcher());
+        model.ReferenceMarkerLabel = "مرجع محدّث";
+
+        model.SaveReferenceMarkerCommand.Execute(null);
+
+        await Eventually(() => model.ReferenceMarkers.Any(marker => marker.Label == "مرجع محدّث"));
+        Assert.Equal(2, model.ReferenceMarkers.Count, "upsert preserves other marker items");
+        Assert.Equal("مرجع محفوظ", model.ReferenceMarkers.Single(marker => marker.Id == otherMarkerId).Label, "unrelated marker preserved");
     }
 
     public void EventOrderingRejectsDuplicatesAndStaleSequences()
@@ -393,7 +433,23 @@ internal sealed class FakeEngine : IEngineShellBridge
         {
             RequestId = Guid.NewGuid(),
             CorrelationId = Guid.NewGuid(),
-            Outcome = new CommandOutcome { Status = CommandOutcomeStatus.Succeeded, Payload = new CommandResult() },
+            Outcome = new CommandOutcome
+            {
+                Status = CommandOutcomeStatus.Succeeded,
+                Payload = new CommandResult
+                {
+                    Kind = PurpleKind.ReferenceMarkerUpserted,
+                    Payload = new PayloadClass
+                    {
+                        Id = marker.MarkerId,
+                        Label = marker.Label,
+                        Revision = (marker.ExpectedRevision ?? 0) + 1,
+                        Scope = new ScopeRef { Kind = "organization", Id = Guid.Parse("2ef36635-1d9d-4bd5-b0e4-fc4a67dfac90") },
+                        SyncState = ReferenceMarkerSyncState.Pending,
+                        UpdatedAt = 1_800_000_000_001,
+                    },
+                },
+            },
         });
 
     public Task<IEngineSubscription> SubscribeAsync(Subscription subscription, CancellationToken cancellationToken = default)
