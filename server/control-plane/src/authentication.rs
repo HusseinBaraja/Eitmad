@@ -4,12 +4,15 @@ use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier, password_ha
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use ed25519_dalek::{Signature, Verifier as _, VerifyingKey};
 use eitmad_contracts::{
-    identity::{AccountId, DeviceId, PrincipalId, SessionId, TenantId, UserId},
+    identity::{AccountId, DeviceId, SessionId, TenantId, UserId},
     server::{
         ActivateAccountRequest, AuthenticatedServerSession, AuthenticationResult, DeviceProof,
         DevicePublicKey, IssuedTokens, LoginRequest, RefreshRequest, SessionPolicy, TokenFamilyId,
     },
     transport::{CorrelationId, UnixMillis},
+};
+use eitmad_server_audit::{
+    ServerAuditEnvelope, ServerAuditEvent, ServerAuditOutcome, append as append_audit,
 };
 use hmac::{Hmac, Mac as _};
 use rand::RngCore as _;
@@ -17,10 +20,7 @@ use sha2::{Digest as _, Sha256};
 use sqlx::{PgPool, Row as _};
 use uuid::Uuid;
 
-use crate::{
-    audit::{self, AuditEntry},
-    database::tenant_transaction,
-};
+use crate::database::tenant_transaction;
 
 const MAX_DEVICE_PROOF_AGE_MS: i64 = 5 * 60 * 1_000;
 
@@ -647,20 +647,22 @@ async fn append_session_audit(
     correlation_id: CorrelationId,
     now: UnixMillis,
 ) -> Result<(), AuthenticationError> {
-    audit::append(
+    append_audit(
         transaction,
-        AuditEntry {
-            tenant_id: session.tenant_id,
-            session_id: session.session_id,
-            device_id: Some(session.device_id),
-            principal_id: PrincipalId::new(session.user_id.value()),
-            operation,
-            outcome: "succeeded",
-            target_kind: "session",
-            correlation_id,
-            redacted_error: None,
-            now,
-        },
+        &ServerAuditEnvelope::for_tenant_session(
+            session,
+            ServerAuditEvent {
+                operation,
+                outcome: ServerAuditOutcome::Succeeded,
+                target_kind: "session",
+                target_id: Some(session.session_id.value()),
+                correlation_id,
+                causation_id: None,
+                idempotency_key: None,
+                redacted_error: None,
+                occurred_at: now,
+            },
+        ),
     )
     .await
     .map_err(|_| AuthenticationError::Unavailable)

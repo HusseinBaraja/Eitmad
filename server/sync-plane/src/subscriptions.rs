@@ -73,7 +73,7 @@ impl SyncCoordinator {
             .registry
             .get(schema_id, schema_version)
             .map_err(|_| SubscriptionError::Invalid)?;
-        if !handler.authorize(session, scope, SyncIntent::Read) {
+        if !handler.authorize(session, scope, SyncIntent::Read).await {
             return Err(SubscriptionError::Denied);
         }
         let mut transaction = tenant_transaction(&self.pool, session.tenant_id)

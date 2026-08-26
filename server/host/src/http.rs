@@ -836,14 +836,16 @@ async fn handle_stream_message(
         ServerClientMessage::Sync(frame) => match frame.payload {
             SyncTransportPayload::Message(SyncMessage::Pull(request)) => match state
                 .sync
-                .pull(
+                .pull(eitmad_sync_plane::PullPageRequest {
                     session,
                     scope,
                     schema_id,
                     schema_version,
-                    request.after,
-                    request.maximum_records,
-                )
+                    after: request.after,
+                    maximum_records: request.maximum_records,
+                    correlation_id: frame.correlation_id,
+                    now: unix_millis_now(),
+                })
                 .await
             {
                 Ok(batch) => {
@@ -867,13 +869,15 @@ async fn handle_stream_message(
             },
             SyncTransportPayload::Message(SyncMessage::Acknowledge(acknowledgement)) => state
                 .sync
-                .acknowledge(
+                .acknowledge(eitmad_sync_plane::AcknowledgeRequest {
                     session,
                     scope,
                     schema_id,
-                    &acknowledgement,
-                    unix_millis_now(),
-                )
+                    schema_version,
+                    acknowledgement: &acknowledgement,
+                    correlation_id: frame.correlation_id,
+                    now: unix_millis_now(),
+                })
                 .await
                 .map_err(map_operation),
             _ => Err(ApiError::bad_request("eitmad.error.contract-invalid.v1")),

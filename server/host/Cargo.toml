@@ -19,6 +19,7 @@ eitmad-admin-plane = { path = "../admin-plane" }
 eitmad-contracts = { path = "../../crates/contracts" }
 eitmad-control-plane = { path = "../control-plane" }
 eitmad-relay-plane = { path = "../relay-plane" }
+eitmad-server-audit = { path = "../audit" }
 eitmad-sync-plane = { path = "../sync-plane" }
 eitmad-update-plane = { path = "../update-plane" }
 eitmad-update-policy = { path = "../../crates/update-policy" }

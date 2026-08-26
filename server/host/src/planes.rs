@@ -14,12 +14,11 @@ use eitmad_contracts::{
     transport::{CorrelationId, UnixMillis},
     updates::UpdateManifestId,
 };
-use eitmad_control_plane::{
-    AccessError, AccessRequirement, ServerAccessService, ServerAuditEntry, ServerAuditOutcome,
-};
+use eitmad_control_plane::{AccessError, AccessRequirement, ServerAccessService};
 use eitmad_relay_plane::{
     RelayAction, RelayAuditOutcome, RelayCoordinator, RelayError, RelayRouter, RelaySecurity,
 };
+use eitmad_server_audit::{ServerAuditEnvelope, ServerAuditEvent, ServerAuditOutcome};
 use eitmad_update_plane::{
     UpdateAuditOutcome, UpdatePlaneAction, UpdatePlaneError, UpdatePublicationSecurity,
 };
@@ -101,7 +100,7 @@ impl RelaySecurity for ServerPlaneSecurity {
         action: RelayAction,
         outcome: RelayAuditOutcome,
         correlation_id: CorrelationId,
-        _: Option<RelaySessionId>,
+        relay_session_id: Option<RelaySessionId>,
         now: UnixMillis,
     ) -> Result<(), RelayError> {
         let redacted_error = match outcome {
@@ -110,20 +109,21 @@ impl RelaySecurity for ServerPlaneSecurity {
             RelayAuditOutcome::Failed => Some("eitmad.error.relay-unavailable.v1"),
             RelayAuditOutcome::Succeeded => None,
         };
-        self.access
-            .audit(
-                actor,
-                &ServerAuditEntry {
-                    operation: action.operation(),
-                    outcome: server_outcome(outcome),
-                    target_kind: "relay_session",
-                    redacted_error,
-                    correlation_id,
-                    now,
-                },
-            )
-            .await
-            .map_err(map_relay_access)
+        let envelope = ServerAuditEnvelope::for_tenant_session(
+            actor,
+            ServerAuditEvent {
+                operation: action.operation(),
+                outcome: server_outcome(outcome),
+                target_kind: "relay_session",
+                target_id: relay_session_id.map(RelaySessionId::value),
+                correlation_id,
+                causation_id: None,
+                idempotency_key: None,
+                redacted_error,
+                occurred_at: now,
+            },
+        );
+        self.access.audit(&envelope).await.map_err(map_relay_access)
     }
 }
 
@@ -155,7 +155,7 @@ impl UpdatePublicationSecurity for ServerPlaneSecurity {
         action: UpdatePlaneAction,
         outcome: UpdateAuditOutcome,
         correlation_id: CorrelationId,
-        _: UpdateManifestId,
+        manifest_id: UpdateManifestId,
         now: UnixMillis,
     ) -> Result<(), UpdatePlaneError> {
         let (server_outcome, error) = match outcome {
@@ -173,18 +173,22 @@ impl UpdatePublicationSecurity for ServerPlaneSecurity {
                 Some("eitmad.error.update-distribution-unavailable.v1"),
             ),
         };
+        let envelope = ServerAuditEnvelope::for_tenant_session(
+            actor,
+            ServerAuditEvent {
+                operation: action.operation(),
+                outcome: server_outcome,
+                target_kind: "update_manifest",
+                target_id: Some(manifest_id.value()),
+                correlation_id,
+                causation_id: None,
+                idempotency_key: None,
+                redacted_error: error,
+                occurred_at: now,
+            },
+        );
         self.access
-            .audit(
-                actor,
-                &ServerAuditEntry {
-                    operation: action.operation(),
-                    outcome: server_outcome,
-                    target_kind: "update_manifest",
-                    redacted_error: error,
-                    correlation_id,
-                    now,
-                },
-            )
+            .audit(&envelope)
             .await
             .map_err(map_update_access)
     }
@@ -209,7 +213,7 @@ impl AdministrativeSecurity for ServerPlaneSecurity {
         actor: &AuthenticatedServerSession,
         action: AdministrativeAction,
         outcome: AdministrativeAuditOutcome,
-        _: TenantId,
+        tenant_id: TenantId,
         correlation_id: CorrelationId,
         now: UnixMillis,
     ) -> Result<(), AdministrativeError> {
@@ -228,20 +232,21 @@ impl AdministrativeSecurity for ServerPlaneSecurity {
                 Some("eitmad.error.admin-unavailable.v1"),
             ),
         };
-        self.access
-            .audit(
-                actor,
-                &ServerAuditEntry {
-                    operation: action.operation(),
-                    outcome: server_outcome,
-                    target_kind: "administrative_operation",
-                    redacted_error: error,
-                    correlation_id,
-                    now,
-                },
-            )
-            .await
-            .map_err(map_admin_access)
+        let envelope = ServerAuditEnvelope::for_tenant_session(
+            actor,
+            ServerAuditEvent {
+                operation: action.operation(),
+                outcome: server_outcome,
+                target_kind: "administrative_operation",
+                target_id: Some(tenant_id.value()),
+                correlation_id,
+                causation_id: None,
+                idempotency_key: None,
+                redacted_error: error,
+                occurred_at: now,
+            },
+        );
+        self.access.audit(&envelope).await.map_err(map_admin_access)
     }
 }
 

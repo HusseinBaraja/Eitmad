@@ -61,7 +61,7 @@ Take a PostgreSQL backup, then run:
 cargo run -q -p eitmad-server -- migrate
 ```
 
-Expected output is `server migrations are current`. This command reads only `EITMAD_SERVER_DATABASE_URL` and the optional `EITMAD_SERVER_MAX_CONNECTIONS`; it does not require token, listener, TLS, or update runtime settings. It applies control migration `1`, sync migration `2`, and administration migration `3` before it exits. Migration files are immutable after release. Stop if the process emits `eitmad.error.server-database-unavailable.v1` or `eitmad.error.server-migration-failed.v1`; preserve the database and diagnose the PostgreSQL service, permissions, RLS, and schema history.
+Expected output is `server migrations are current`. This command reads only `EITMAD_SERVER_DATABASE_URL` and the optional `EITMAD_SERVER_MAX_CONNECTIONS`; it does not require token, listener, TLS, or update runtime settings. It applies control migration `1`, sync migration `2`, administration migration `3`, and canonical audit migration `4` before it exits. Migration files are immutable after release. Stop if the process emits `eitmad.error.server-database-unavailable.v1` or `eitmad.error.server-migration-failed.v1`; preserve the database and diagnose the PostgreSQL service, permissions, RLS, and schema history.
 
 ## Bootstrap the first owner
 
@@ -95,7 +95,7 @@ Verify:
 4. A synthetic tenant cannot read another tenant's scoped records.
 5. Relay and administration routes reject unauthenticated and unauthorized requests and produce redacted audit rows.
 6. A changed manifest byte fails Ed25519 verification; the assigned channel selects only an exact compatible platform package.
-7. Backup status does not claim success when no reporter row exists, unimplemented support actions fail as invalid, and migration status reports version `3` current.
+7. Backup status does not claim success when no reporter row exists, unimplemented support actions fail as invalid, and migration status reports version `4` current.
 8. Logs contain stable error identifiers and no URL credentials, token values, passwords, private keys, proof signatures, relay frames, or domain payloads.
 
 Do not route traffic from the load balancer until readiness and tenant-isolation checks pass.

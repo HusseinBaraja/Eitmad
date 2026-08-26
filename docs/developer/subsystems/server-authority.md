@@ -32,7 +32,8 @@ It does not provide a production business domain, billing provider, email provid
 | Concern | Rust authority |
 | --- | --- |
 | External server, configuration, HTTPS routes, and WebSocket session | `server/host` (`eitmad-server`) |
-| Tenant, user, account, organization, device, invitation, session, token, relationship, license, update assignment, audit, and outbox state | `server/control-plane` |
+| Tenant, user, account, organization, device, invitation, session, token, relationship, license, update assignment, and outbox state | `server/control-plane` |
+| Canonical server audit envelope, append operation, and migration | `server/audit` |
 | Registered domain handlers, operations, idempotency, conflicts, history, snapshots, checkpoints, and subscription events | `server/sync-plane` |
 | PostgreSQL types without enabling SQLite-linked features | `server/postgres-support` |
 | Relay lifecycle, routing hooks, reconnect, health, and failures | `server/relay-plane` |
@@ -77,9 +78,9 @@ Every access-authenticated request must include the access token, device ID, tim
 
 ## Storage, scope, and audit invariants
 
-Migrations `0001_control_foundation.sql`, `0002_sync_foundation.sql`, and `0003_admin_foundation.sql` own the PostgreSQL schema. Every tenant-scoped table has a `tenant_id`, enables row-level security, and forces row-level security. Rust opens a transaction and sets the tenant context before scoped access. Application credentials must not have a PostgreSQL role that can bypass RLS.
+Migrations `0001_control_foundation.sql`, `0002_sync_foundation.sql`, `0003_admin_foundation.sql`, and `0004_server_audit_envelope.sql` own the PostgreSQL schema. Every tenant-scoped table has a `tenant_id`, enables row-level security, and forces row-level security. Rust opens a transaction and sets the tenant context before scoped access. Application credentials must not have a PostgreSQL role that can bypass RLS.
 
-Every accepted state change adds a redacted audit record in the same transaction. Each control-plane and sync-plane entry point receives a caller-supplied correlation identifier and writes it into every audit row it produces, so one request that creates multiple records remains joinable in the audit trail. Denied sync operations are also recorded without payload bytes. Token plaintext, password input, device private keys, domain payloads, and customer content must not enter logs or audit metadata.
+Every accepted state change adds a redacted audit record in the same transaction. `server/audit` is the only PostgreSQL audit contract. It records actor kind, optional session and principal, tenant and optional workspace, exact scope, target kind and target ID, operation, outcome, correlation, optional causation and idempotency, stable redacted failure ID, and time. Each control-plane and sync-plane entry point receives a caller-supplied correlation identifier, so records from one request remain joinable. Invalid and denied sync boundaries are recorded in a separate mandatory transaction before the operation returns; if that append fails, the boundary fails closed as unavailable. Successful mutations, conflicts, snapshots, compaction, and acknowledgements append in the authoritative state transaction. Token plaintext, password input, device private keys, domain payloads, and customer content must not enter logs or audit metadata.
 
 Invitation delivery is injected through `ControlPlane::with_notification_sink`. `create_invite` resolves the sink before it opens its transaction, so a missing provider fails with `eitmad.server.identity` delivery-unavailable semantics without committing identity, invitation, or directory state.
 
@@ -160,12 +161,12 @@ Use [server troubleshooting](../../troubleshooting/server-authentication-and-syn
 
 ## Tests and verification
 
-Focused unit and static migration tests cover token secrecy, password hashing, Arabic identifiers, overflow-safe device proof, forced RLS, durable sync, relay lifecycle and denial, signed manifest changes, channels, incompatible clients, backup status, administration authorization, router authentication, generated bindings, and the three-pool connection budget. Existing `eitmad-sync` tests cover complete local-first and server-authoritative flows, duplicate delivery, conflicts, unauthorized remote changes, compatibility, and WAN relay fallback.
+Focused unit and static migration tests cover token secrecy, password hashing, Arabic identifiers, overflow-safe device proof, forced RLS, the complete append-only server audit envelope, durable sync, relay lifecycle and denial, signed manifest changes, channels, incompatible clients, backup status, administration authorization, router authentication, generated bindings, and the three-pool connection budget. Existing `eitmad-sync` tests cover complete local-first and server-authoritative flows, duplicate delivery, conflicts, unauthorized remote changes, compatibility, and WAN relay fallback.
 
 Run:
 
 ```powershell
-cargo test -p eitmad-control-plane -p eitmad-sync-plane -p eitmad-relay-plane -p eitmad-update-plane -p eitmad-admin-plane -p eitmad-server
+cargo test -p eitmad-server-audit -p eitmad-control-plane -p eitmad-sync-plane -p eitmad-relay-plane -p eitmad-update-plane -p eitmad-admin-plane -p eitmad-server
 cargo clippy --workspace --all-targets -- -D warnings
 npm run contracts:verify --prefix crates/contracts/codegen
 ```

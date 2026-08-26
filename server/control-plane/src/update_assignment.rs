@@ -1,16 +1,18 @@
 use eitmad_contracts::{
-    identity::{DeviceId, PrincipalId, TenantId},
+    identity::{DeviceId, TenantId},
     server::{
         AuthenticatedServerSession, EffectiveUpdateAssignment, UpdateAssignmentSource,
         UpdateChannelId,
     },
     transport::{CorrelationId, UnixMillis},
 };
+use eitmad_server_audit::{
+    ServerAuditEnvelope, ServerAuditEvent, ServerAuditOutcome, append as append_audit,
+};
 use sqlx::{PgPool, Row as _};
 use uuid::Uuid;
 
 use crate::{
-    audit::{self, AuditEntry},
     database::tenant_transaction,
     identity::{IdentityError, require_tenant_owner},
 };
@@ -174,20 +176,22 @@ impl UpdateAssignmentService {
         .fetch_one(&mut *transaction)
         .await
         .map_err(|_| UpdateAssignmentError::Unavailable)?;
-        audit::append(
+        append_audit(
             &mut transaction,
-            AuditEntry {
-                tenant_id: actor.tenant_id,
-                session_id: actor.session_id,
-                device_id: Some(actor.device_id),
-                principal_id: PrincipalId::new(actor.user_id.value()),
-                operation: "eitmad.server.update-channel.assign.v1",
-                outcome: "succeeded",
-                target_kind: assignment_kind,
-                correlation_id,
-                redacted_error: None,
-                now,
-            },
+            &ServerAuditEnvelope::for_tenant_session(
+                actor,
+                ServerAuditEvent {
+                    operation: "eitmad.server.update-channel.assign.v1",
+                    outcome: ServerAuditOutcome::Succeeded,
+                    target_kind: assignment_kind,
+                    target_id: Some(device_id.map_or(actor.tenant_id.value(), DeviceId::value)),
+                    correlation_id,
+                    causation_id: None,
+                    idempotency_key: None,
+                    redacted_error: None,
+                    occurred_at: now,
+                },
+            ),
         )
         .await
         .map_err(|_| UpdateAssignmentError::Unavailable)?;

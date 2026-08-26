@@ -1,0 +1,17 @@
+[package]
+name = "eitmad-server-audit"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+eitmad-contracts = { path = "../../crates/contracts" }
+sha2 = "=0.10.9"
+sqlx = { package = "eitmad-postgres-support", path = "../postgres-support" }
+thiserror = "=2.0.18"
+uuid = { version = "=1.23.4", features = ["serde", "v4"] }

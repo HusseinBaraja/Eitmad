@@ -5,7 +5,7 @@ audience: "support"
 page_type: "reference"
 status: "active"
 owner: "release maintainers"
-last_verified: "2026-08-26"
+last_verified: "2026-08-27"
 review_triggers:
   - "a release changes compatibility, migration, rollout, or rollback behavior"
 keywords:
@@ -23,6 +23,7 @@ keywords:
 - [Upgrade local storage to version 8 reference markers](storage-v8-reference-marker.md): bounded reference-marker state, atomic audit and publication outboxes, local-first sync, compatibility, and rollback limits.
 - [Upgrade to protocol 1.4 modular server authority](protocol-1-4-server-authority.md): PostgreSQL migrations, remote authentication, device proof, sync snapshots, resumable subscriptions, compatibility, and rollback.
 - [Upgrade to protocol 1.5 operational server planes](protocol-1-5-operational-server-planes.md): relay coordination, signed manifests, administration migration 3, generated bindings, compatibility, and rollback.
+- [Upgrade the server audit envelope to migration 4](server-audit-envelope-v4.md): complete actor, scope, target, correlation, causation, and idempotency evidence with safe rollout and rollback.
 - [Validate a release candidate](../operations/validate-release-candidate.md): mandatory CI, repeatable artifacts, signing evidence, staging promotion, restore, and rollback.
 
 Return to the [documentation index](../index.md) or review the [contract evolution process](../api/evolve-contracts-compatibly.md).

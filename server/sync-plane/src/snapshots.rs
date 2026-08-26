@@ -7,6 +7,9 @@ use eitmad_contracts::{
     },
     transport::{CorrelationId, SchemaId, UnixMillis},
 };
+use eitmad_server_audit::{
+    ServerAuditEnvelope, ServerAuditEvent, ServerAuditOutcome, append as append_audit,
+};
 use serde::Serialize;
 use sha2::{Digest as _, Sha256};
 use sqlx::Row as _;
@@ -54,6 +57,52 @@ pub enum SnapshotError {
 }
 
 impl SyncCoordinator {
+    async fn authorize_snapshot(
+        &self,
+        request: SnapshotRequest<'_>,
+        intent: SyncIntent,
+        operation: &'static str,
+        correlation_id: CorrelationId,
+        now: UnixMillis,
+    ) -> Result<(), SnapshotError> {
+        let Ok(handler) = self.registry.get(request.schema_id, request.schema_version) else {
+            crate::boundary_audit::record(
+                &self.pool,
+                &snapshot_audit(
+                    request,
+                    operation,
+                    ServerAuditOutcome::Invalid,
+                    correlation_id,
+                    now,
+                    Some("eitmad.error.server-client-incompatible.v1"),
+                ),
+            )
+            .await
+            .map_err(|_| SnapshotError::Unavailable)?;
+            return Err(SnapshotError::Domain);
+        };
+        if handler
+            .authorize(request.session, request.scope, intent)
+            .await
+        {
+            return Ok(());
+        }
+        crate::boundary_audit::record(
+            &self.pool,
+            &snapshot_audit(
+                request,
+                operation,
+                ServerAuditOutcome::Denied,
+                correlation_id,
+                now,
+                Some("eitmad.error.authorization-denied.v1"),
+            ),
+        )
+        .await
+        .map_err(|_| SnapshotError::Unavailable)?;
+        Err(SnapshotError::Denied)
+    }
+
     /// Builds and stores a consistent, chunked snapshot at the current checkpoint.
     ///
     /// # Errors
@@ -69,13 +118,14 @@ impl SyncCoordinator {
         let session = request.session;
         let scope = request.scope;
         let schema_id = request.schema_id;
-        let handler = self
-            .registry
-            .get(schema_id, request.schema_version)
-            .map_err(|_| SnapshotError::Domain)?;
-        if !handler.authorize(session, scope, SyncIntent::Read) {
-            return Err(SnapshotError::Denied);
-        }
+        self.authorize_snapshot(
+            request,
+            SyncIntent::Read,
+            "eitmad.server.sync.create-snapshot.v1",
+            correlation_id,
+            now,
+        )
+        .await?;
         let mut transaction = tenant_transaction(&self.pool, session.tenant_id)
             .await
             .map_err(|_| SnapshotError::Unavailable)?;
@@ -130,13 +180,16 @@ impl SyncCoordinator {
             valid_for_ms,
         )
         .await?;
-        crate::audit::append(
+        append_audit(
             &mut transaction,
-            session,
-            "eitmad.server.sync.create-snapshot.v1",
-            "succeeded",
-            correlation_id,
-            now,
+            &snapshot_audit(
+                request,
+                "eitmad.server.sync.create-snapshot.v1",
+                ServerAuditOutcome::Succeeded,
+                correlation_id,
+                now,
+                None,
+            ),
         )
         .await
         .map_err(|_| SnapshotError::Unavailable)?;
@@ -163,13 +216,14 @@ impl SyncCoordinator {
         let session = request.session;
         let scope = request.scope;
         let schema_id = request.schema_id;
-        let handler = self
-            .registry
-            .get(schema_id, request.schema_version)
-            .map_err(|_| SnapshotError::Domain)?;
-        if !handler.authorize(session, scope, SyncIntent::Write) {
-            return Err(SnapshotError::Denied);
-        }
+        self.authorize_snapshot(
+            request,
+            SyncIntent::Write,
+            "eitmad.server.sync.compact-history.v1",
+            correlation_id,
+            now,
+        )
+        .await?;
         let mut transaction = tenant_transaction(&self.pool, session.tenant_id)
             .await
             .map_err(|_| SnapshotError::Unavailable)?;
@@ -204,13 +258,16 @@ impl SyncCoordinator {
         .execute(&mut *transaction)
         .await
         .map_err(|_| SnapshotError::Unavailable)?;
-        crate::audit::append(
+        append_audit(
             &mut transaction,
-            session,
-            "eitmad.server.sync.compact-history.v1",
-            "succeeded",
-            correlation_id,
-            now,
+            &snapshot_audit(
+                request,
+                "eitmad.server.sync.compact-history.v1",
+                ServerAuditOutcome::Succeeded,
+                correlation_id,
+                now,
+                None,
+            ),
         )
         .await
         .map_err(|_| SnapshotError::Unavailable)?;
@@ -220,6 +277,31 @@ impl SyncCoordinator {
             .map_err(|_| SnapshotError::Unavailable)?;
         Ok(deleted.rows_affected())
     }
+}
+
+fn snapshot_audit<'a>(
+    request: SnapshotRequest<'_>,
+    operation: &'a str,
+    outcome: ServerAuditOutcome,
+    correlation_id: CorrelationId,
+    now: UnixMillis,
+    redacted_error: Option<&'a str>,
+) -> ServerAuditEnvelope<'a> {
+    ServerAuditEnvelope::from_session(
+        request.session,
+        request.scope.clone(),
+        ServerAuditEvent {
+            operation,
+            outcome,
+            target_kind: "sync-snapshot",
+            target_id: Some(request.scope.id.value()),
+            correlation_id,
+            causation_id: None,
+            idempotency_key: None,
+            redacted_error,
+            occurred_at: now,
+        },
+    )
 }
 
 async fn store_snapshot(

@@ -1,17 +1,16 @@
 use std::collections::BTreeSet;
 
 use eitmad_contracts::{
-    identity::{PrincipalId, TenantId},
+    identity::TenantId,
     server::{AuthenticatedServerSession, EntitlementId, LicenseId, LicenseState, LicenseStatus},
     transport::{CorrelationId, UnixMillis},
 };
+use eitmad_server_audit::{
+    ServerAuditEnvelope, ServerAuditEvent, ServerAuditOutcome, append as append_audit,
+};
 use sqlx::{PgPool, Row as _};
 
-use crate::{
-    audit::{self, AuditEntry},
-    database::tenant_transaction,
-    identity::require_tenant_owner,
-};
+use crate::{database::tenant_transaction, identity::require_tenant_owner};
 
 #[derive(Clone)]
 pub struct LicenseService {
@@ -167,20 +166,22 @@ impl LicenseService {
             .await
             .map_err(|_| LicenseError::Unavailable)?;
         }
-        audit::append(
+        append_audit(
             &mut transaction,
-            AuditEntry {
-                tenant_id: actor.tenant_id,
-                session_id: actor.session_id,
-                device_id: Some(actor.device_id),
-                principal_id: PrincipalId::new(actor.user_id.value()),
-                operation: "eitmad.server.license.record-provider-state.v1",
-                outcome: "succeeded",
-                target_kind: "license",
-                correlation_id,
-                redacted_error: None,
-                now,
-            },
+            &ServerAuditEnvelope::for_tenant_session(
+                actor,
+                ServerAuditEvent {
+                    operation: "eitmad.server.license.record-provider-state.v1",
+                    outcome: ServerAuditOutcome::Succeeded,
+                    target_kind: "license",
+                    target_id: Some(state.license_id.value()),
+                    correlation_id,
+                    causation_id: None,
+                    idempotency_key: None,
+                    redacted_error: None,
+                    occurred_at: now,
+                },
+            ),
         )
         .await
         .map_err(|_| LicenseError::Unavailable)?;

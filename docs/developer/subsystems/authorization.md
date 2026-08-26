@@ -33,6 +33,7 @@ Rust now provides a deny-by-default policy-v2 evaluator and one audit gate for c
 | Sync, provider, and plugin boundary adapters | `crates/sync`, `crates/external-integrations`, and `crates/extensions` |
 | Audit envelope, redaction, completeness, and extension markers | `crates/observability-audit/src/lib.rs` |
 | Append-only audit persistence and migration | `crates/storage/src/audit.rs` and `crates/storage/src/lib.rs` |
+| Canonical remote-server audit persistence and migration | `server/audit` |
 
 Native shells may display projected permissions. They never evaluate tuples, assert roles, add conditions, authorize plugins, call providers directly, or write audit rows.
 
@@ -96,6 +97,8 @@ Every new audit record contains:
 `validate_complete` rejects an empty operation, empty target kind, any redacted error outside the validated stable identifier grammar, or any failed/denied/invalid/conflicting outcome without a redacted error. Storage version 6 persists tenant, workspace, target, redacted error, and extension markers in the append-only audit table. Historical pre-v6 rows keep nullable added columns; new Rust writes must pass completeness validation.
 
 Raw error messages, payloads, secrets, Arabic customer text, authorization graphs, and provider responses do not belong in audit. Hash or otherwise sanitize sensitive target identifiers according to the owning vertical; direct relationship grants already use a versioned SHA-256 principal fingerprint.
+
+The local engine and remote server use separate storage implementations but the same completeness rule. `server/audit` owns the remote PostgreSQL envelope. Control, sync, relay, update, and administration planes must call that authority instead of defining a smaller audit struct. Invalid and denied remote sync requests must be durably audited before the server returns the result. A failed mandatory append withholds the result and fails closed.
 
 ## Audit extension points
 

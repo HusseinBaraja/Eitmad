@@ -1,6 +1,8 @@
 //! Operation ingestion: local-first operations and server-authoritative
 //! commands with idempotency, conflict durability, and event publication.
 
+use std::sync::Arc;
+
 use sha2::{Digest as _, Sha256};
 use sqlx::{PgPool, Row as _};
 use uuid::Uuid;
@@ -13,11 +15,14 @@ use eitmad_contracts::sync::{
     RecordId, SyncMode,
 };
 use eitmad_contracts::transport::{CorrelationId, IdempotencyKey, SchemaId, UnixMillis};
+use eitmad_server_audit::{
+    ServerAuditEnvelope, ServerAuditEvent, ServerAuditOutcome, append as append_audit,
+};
 
 use crate::database::{SyncDatabase, tenant_transaction};
 use crate::domain::{
     AuthoritativeChangeDraft, CommandSubmission, DomainRegistry, DomainRegistryError,
-    DomainValidationError, LocalOperationDraft, SyncIntent,
+    DomainSyncHandler, DomainValidationError, LocalOperationDraft, SyncIntent,
 };
 
 /// History floor applied to every stored operation.
@@ -72,10 +77,147 @@ pub enum OperationResult {
     ConflictRecorded { conflict_id: ConflictId },
 }
 
+/// One authorized request for a page of retained synchronization history.
+pub struct PullPageRequest<'a> {
+    pub session: &'a AuthenticatedServerSession,
+    pub scope: &'a ScopeRef,
+    pub schema_id: &'a SchemaId,
+    pub schema_version: u32,
+    pub after: Option<Checkpoint>,
+    pub maximum_records: u32,
+    pub correlation_id: CorrelationId,
+    pub now: UnixMillis,
+}
+
+/// One authorized device-checkpoint acknowledgement.
+pub struct AcknowledgeRequest<'a> {
+    pub session: &'a AuthenticatedServerSession,
+    pub scope: &'a ScopeRef,
+    pub schema_id: &'a SchemaId,
+    pub schema_version: u32,
+    pub acknowledgement: &'a BatchAcknowledgement,
+    pub correlation_id: CorrelationId,
+    pub now: UnixMillis,
+}
+
 #[derive(Clone)]
 pub struct SyncCoordinator {
     pub(crate) pool: PgPool,
     pub(crate) registry: DomainRegistry,
+}
+
+struct SyncAuditContext<'a> {
+    session: &'a AuthenticatedServerSession,
+    scope: &'a ScopeRef,
+    operation: &'static str,
+    target_kind: &'static str,
+    target_id: Uuid,
+    correlation_id: CorrelationId,
+    idempotency_key: Option<IdempotencyKey>,
+    now: UnixMillis,
+}
+
+impl<'a> SyncAuditContext<'a> {
+    fn envelope(
+        &self,
+        outcome: ServerAuditOutcome,
+        redacted_error: Option<&'static str>,
+    ) -> ServerAuditEnvelope<'a> {
+        ServerAuditEnvelope::from_session(
+            self.session,
+            self.scope.clone(),
+            ServerAuditEvent {
+                operation: self.operation,
+                outcome,
+                target_kind: self.target_kind,
+                target_id: Some(self.target_id),
+                correlation_id: self.correlation_id,
+                causation_id: None,
+                idempotency_key: self.idempotency_key,
+                redacted_error,
+                occurred_at: self.now,
+            },
+        )
+    }
+}
+
+fn local_operation_audit<'a>(
+    session: &'a AuthenticatedServerSession,
+    draft: &'a LocalOperationDraft,
+    correlation_id: CorrelationId,
+    now: UnixMillis,
+) -> SyncAuditContext<'a> {
+    SyncAuditContext {
+        session,
+        scope: &draft.scope,
+        operation: "eitmad.server.sync.apply-local.v1",
+        target_kind: "sync-record",
+        target_id: draft.record_id.value(),
+        correlation_id,
+        idempotency_key: Some(draft.idempotency_key),
+        now,
+    }
+}
+
+fn command_audit<'a>(
+    session: &'a AuthenticatedServerSession,
+    command: &'a CommandSubmission,
+    correlation_id: CorrelationId,
+    now: UnixMillis,
+) -> SyncAuditContext<'a> {
+    SyncAuditContext {
+        session,
+        scope: &command.scope,
+        operation: "eitmad.server.sync.submit-command.v1",
+        target_kind: "sync-record",
+        target_id: command.record_id.value(),
+        correlation_id,
+        idempotency_key: Some(command.idempotency_key),
+        now,
+    }
+}
+
+fn pull_audit<'a>(request: &PullPageRequest<'a>) -> SyncAuditContext<'a> {
+    SyncAuditContext {
+        session: request.session,
+        scope: request.scope,
+        operation: "eitmad.server.sync.pull.v1",
+        target_kind: "sync-history",
+        target_id: request.scope.id.value(),
+        correlation_id: request.correlation_id,
+        idempotency_key: None,
+        now: request.now,
+    }
+}
+
+fn acknowledge_audit<'a>(request: &AcknowledgeRequest<'a>) -> SyncAuditContext<'a> {
+    SyncAuditContext {
+        session: request.session,
+        scope: request.scope,
+        operation: "eitmad.server.sync.acknowledge.v1",
+        target_kind: "sync-checkpoint",
+        target_id: request.scope.id.value(),
+        correlation_id: request.correlation_id,
+        idempotency_key: None,
+        now: request.now,
+    }
+}
+
+const fn validation_audit(error: DomainValidationError) -> (ServerAuditOutcome, &'static str) {
+    match error {
+        DomainValidationError::Denied => (
+            ServerAuditOutcome::Denied,
+            "eitmad.error.authorization-denied.v1",
+        ),
+        DomainValidationError::Invalid => (
+            ServerAuditOutcome::Invalid,
+            "eitmad.error.contract-invalid.v1",
+        ),
+        DomainValidationError::Conflict => (
+            ServerAuditOutcome::Conflict,
+            "eitmad.error.contract-invalid.v1",
+        ),
+    }
 }
 
 impl SyncCoordinator {
@@ -92,6 +234,123 @@ impl SyncCoordinator {
         &self.registry
     }
 
+    async fn local_handler(
+        &self,
+        session: &AuthenticatedServerSession,
+        draft: &LocalOperationDraft,
+        audit: &SyncAuditContext<'_>,
+    ) -> Result<Arc<dyn DomainSyncHandler>, OperationError> {
+        let handler = match self.registry.get(&draft.schema_id, draft.schema_version) {
+            Ok(handler) => handler,
+            Err(error) => {
+                self.record_boundary_outcome(audit.envelope(
+                    ServerAuditOutcome::Invalid,
+                    Some("eitmad.error.server-client-incompatible.v1"),
+                ))
+                .await?;
+                return Err(error.into());
+            }
+        };
+        if handler.descriptor().mode != SyncMode::LocalFirst {
+            self.record_boundary_outcome(audit.envelope(
+                ServerAuditOutcome::Invalid,
+                Some("eitmad.error.contract-invalid.v1"),
+            ))
+            .await?;
+            return Err(OperationError::WrongMode);
+        }
+        if !handler
+            .authorize(session, &draft.scope, SyncIntent::Write)
+            .await
+        {
+            self.record_boundary_outcome(audit.envelope(
+                ServerAuditOutcome::Denied,
+                Some("eitmad.error.authorization-denied.v1"),
+            ))
+            .await?;
+            return Err(OperationError::Denied);
+        }
+        if let Err(error) = handler.validate_local(draft) {
+            let (outcome, code) = validation_audit(error);
+            self.record_boundary_outcome(audit.envelope(outcome, Some(code)))
+                .await?;
+            return Err(error.into());
+        }
+        Ok(handler)
+    }
+
+    async fn command_handler(
+        &self,
+        session: &AuthenticatedServerSession,
+        command: &CommandSubmission,
+        audit: &SyncAuditContext<'_>,
+    ) -> Result<Arc<dyn DomainSyncHandler>, OperationError> {
+        let handler = match self
+            .registry
+            .get(&command.schema_id, command.schema_version)
+        {
+            Ok(handler) => handler,
+            Err(error) => {
+                self.record_boundary_outcome(audit.envelope(
+                    ServerAuditOutcome::Invalid,
+                    Some("eitmad.error.server-client-incompatible.v1"),
+                ))
+                .await?;
+                return Err(error.into());
+            }
+        };
+        if handler.descriptor().mode != SyncMode::ServerAuthoritative {
+            self.record_boundary_outcome(audit.envelope(
+                ServerAuditOutcome::Invalid,
+                Some("eitmad.error.contract-invalid.v1"),
+            ))
+            .await?;
+            return Err(OperationError::WrongMode);
+        }
+        if !handler
+            .authorize(session, &command.scope, SyncIntent::Write)
+            .await
+        {
+            self.record_boundary_outcome(audit.envelope(
+                ServerAuditOutcome::Denied,
+                Some("eitmad.error.authorization-denied.v1"),
+            ))
+            .await?;
+            return Err(OperationError::Denied);
+        }
+        Ok(handler)
+    }
+
+    async fn read_handler(
+        &self,
+        session: &AuthenticatedServerSession,
+        scope: &ScopeRef,
+        schema_id: &SchemaId,
+        schema_version: u32,
+        audit: &SyncAuditContext<'_>,
+    ) -> Result<Arc<dyn DomainSyncHandler>, OperationError> {
+        let handler = match self.registry.get(schema_id, schema_version) {
+            Ok(handler) => handler,
+            Err(error) => {
+                self.record_boundary_outcome(audit.envelope(
+                    ServerAuditOutcome::Invalid,
+                    Some("eitmad.error.server-client-incompatible.v1"),
+                ))
+                .await?;
+                return Err(error.into());
+            }
+        };
+        if !handler.authorize(session, scope, SyncIntent::Read).await {
+            self.record_boundary_outcome(audit.envelope(
+                ServerAuditOutcome::Denied,
+                Some("eitmad.error.authorization-denied.v1"),
+            ))
+            .await?;
+            return Err(OperationError::Denied);
+        }
+        Ok(handler)
+    }
+
     /// Accepts one handler-validated local-first operation and assigns the
     /// authoritative revision and checkpoint on the server.
     ///
@@ -106,14 +365,8 @@ impl SyncCoordinator {
         correlation_id: CorrelationId,
         now: UnixMillis,
     ) -> Result<OperationResult, OperationError> {
-        let handler = self.registry.get(&draft.schema_id, draft.schema_version)?;
-        if handler.descriptor().mode != SyncMode::LocalFirst {
-            return Err(OperationError::WrongMode);
-        }
-        if !handler.authorize(session, &draft.scope, SyncIntent::Write) {
-            return Err(OperationError::Denied);
-        }
-        handler.validate_local(draft)?;
+        let audit = local_operation_audit(session, draft, correlation_id, now);
+        let handler = self.local_handler(session, draft, &audit).await?;
 
         let fingerprint = fingerprint_draft(draft);
         let mut transaction = tenant_transaction(&self.pool, session.tenant_id)
@@ -161,13 +414,9 @@ impl SyncCoordinator {
             let Some(conflict_id) = conflict_id else {
                 return Err(OperationError::UnknownRecord);
             };
-            crate::audit::append(
+            append_audit(
                 &mut transaction,
-                session,
-                "eitmad.server.sync.apply-local.v1",
-                "conflict",
-                correlation_id,
-                now,
+                &audit.envelope(ServerAuditOutcome::Conflict, None),
             )
             .await
             .map_err(|_| OperationError::Unavailable)?;
@@ -188,13 +437,9 @@ impl SyncCoordinator {
         )
         .await
         .map_err(|_| OperationError::Unavailable)?;
-        crate::audit::append(
+        append_audit(
             &mut transaction,
-            session,
-            "eitmad.server.sync.apply-local.v1",
-            "succeeded",
-            correlation_id,
-            now,
+            &audit.envelope(ServerAuditOutcome::Succeeded, None),
         )
         .await
         .map_err(|_| OperationError::Unavailable)?;
@@ -221,15 +466,8 @@ impl SyncCoordinator {
         correlation_id: CorrelationId,
         now: UnixMillis,
     ) -> Result<CommandDisposition, OperationError> {
-        let handler = self
-            .registry
-            .get(&command.schema_id, command.schema_version)?;
-        if handler.descriptor().mode != SyncMode::ServerAuthoritative {
-            return Err(OperationError::WrongMode);
-        }
-        if !handler.authorize(session, &command.scope, SyncIntent::Write) {
-            return Err(OperationError::Denied);
-        }
+        let audit = command_audit(session, command, correlation_id, now);
+        let handler = self.command_handler(session, command, &audit).await?;
 
         let fingerprint = fingerprint_command(command);
         let mut transaction = tenant_transaction(&self.pool, session.tenant_id)
@@ -251,7 +489,7 @@ impl SyncCoordinator {
             return Ok(stored);
         }
 
-        match handler.execute_command(command) {
+        match handler.execute_command(session, command) {
             Ok(draft) => {
                 let change = commit_authoritative_change(
                     &mut transaction,
@@ -262,13 +500,9 @@ impl SyncCoordinator {
                     now,
                 )
                 .await?;
-                crate::audit::append(
+                append_audit(
                     &mut transaction,
-                    session,
-                    "eitmad.server.sync.submit-command.v1",
-                    "succeeded",
-                    correlation_id,
-                    now,
+                    &audit.envelope(ServerAuditOutcome::Succeeded, None),
                 )
                 .await
                 .map_err(|_| OperationError::Unavailable)?;
@@ -290,13 +524,12 @@ impl SyncCoordinator {
                 )
                 .await
                 .map_err(|_| OperationError::Unavailable)?;
-                crate::audit::append(
+                append_audit(
                     &mut transaction,
-                    session,
-                    "eitmad.server.sync.submit-command.v1",
-                    "denied",
-                    correlation_id,
-                    now,
+                    &audit.envelope(
+                        ServerAuditOutcome::Denied,
+                        Some("eitmad.error.authorization-denied.v1"),
+                    ),
                 )
                 .await
                 .map_err(|_| OperationError::Unavailable)?;
@@ -311,7 +544,24 @@ impl SyncCoordinator {
                     .map_err(|_| OperationError::Invalid)?,
                 })
             }
-            Err(error) => Err(error.into()),
+            Err(error) => {
+                let outcome = match error {
+                    DomainValidationError::Denied => ServerAuditOutcome::Denied,
+                    DomainValidationError::Invalid => ServerAuditOutcome::Invalid,
+                    DomainValidationError::Conflict => ServerAuditOutcome::Conflict,
+                };
+                append_audit(
+                    &mut transaction,
+                    &audit.envelope(outcome, Some("eitmad.error.contract-invalid.v1")),
+                )
+                .await
+                .map_err(|_| OperationError::Unavailable)?;
+                transaction
+                    .commit()
+                    .await
+                    .map_err(|_| OperationError::Unavailable)?;
+                Err(error.into())
+            }
         }
     }
 }
@@ -323,25 +573,31 @@ impl SyncCoordinator {
     ///
     /// Returns [`OperationError::SnapshotRequired`] when the requested
     /// checkpoint is not retained. Other failures do not expose storage data.
-    pub async fn pull(
-        &self,
-        session: &AuthenticatedServerSession,
-        scope: &ScopeRef,
-        schema_id: &SchemaId,
-        schema_version: u32,
-        after: Option<Checkpoint>,
-        maximum_records: u32,
-    ) -> Result<ChangeBatch, OperationError> {
+    pub async fn pull(&self, request: PullPageRequest<'_>) -> Result<ChangeBatch, OperationError> {
+        let audit = pull_audit(&request);
+        let PullPageRequest {
+            session,
+            scope,
+            schema_id,
+            schema_version,
+            after,
+            maximum_records,
+            correlation_id: _,
+            now: _,
+        } = request;
         if maximum_records == 0
             || usize::try_from(maximum_records).unwrap_or(usize::MAX)
                 > eitmad_contracts::sync::MAX_SYNC_BATCH_RECORDS
         {
+            self.record_boundary_outcome(audit.envelope(
+                ServerAuditOutcome::Invalid,
+                Some("eitmad.error.contract-invalid.v1"),
+            ))
+            .await?;
             return Err(OperationError::Invalid);
         }
-        let handler = self.registry.get(schema_id, schema_version)?;
-        if !handler.authorize(session, scope, SyncIntent::Read) {
-            return Err(OperationError::Denied);
-        }
+        self.read_handler(session, scope, schema_id, schema_version, &audit)
+            .await?;
 
         let mut transaction = tenant_transaction(&self.pool, session.tenant_id)
             .await
@@ -415,19 +671,29 @@ impl SyncCoordinator {
     /// # Errors
     ///
     /// Rejects an unknown checkpoint or a count larger than the protocol batch.
-    pub async fn acknowledge(
-        &self,
-        session: &AuthenticatedServerSession,
-        scope: &ScopeRef,
-        schema_id: &SchemaId,
-        acknowledgement: &BatchAcknowledgement,
-        now: UnixMillis,
-    ) -> Result<(), OperationError> {
+    pub async fn acknowledge(&self, request: AcknowledgeRequest<'_>) -> Result<(), OperationError> {
+        let audit = acknowledge_audit(&request);
+        let AcknowledgeRequest {
+            session,
+            scope,
+            schema_id,
+            schema_version,
+            acknowledgement,
+            correlation_id: _,
+            now,
+        } = request;
         if usize::try_from(acknowledgement.accepted_records).unwrap_or(usize::MAX)
             > eitmad_contracts::sync::MAX_SYNC_BATCH_RECORDS
         {
+            self.record_boundary_outcome(audit.envelope(
+                ServerAuditOutcome::Invalid,
+                Some("eitmad.error.contract-invalid.v1"),
+            ))
+            .await?;
             return Err(OperationError::Invalid);
         }
+        self.read_handler(session, scope, schema_id, schema_version, &audit)
+            .await?;
         let mut transaction = tenant_transaction(&self.pool, session.tenant_id)
             .await
             .map_err(|_| OperationError::Unavailable)?;
@@ -473,8 +739,23 @@ impl SyncCoordinator {
         .execute(&mut *transaction)
         .await
         .map_err(|_| OperationError::Unavailable)?;
+        append_audit(
+            &mut transaction,
+            &audit.envelope(ServerAuditOutcome::Succeeded, None),
+        )
+        .await
+        .map_err(|_| OperationError::Unavailable)?;
         transaction
             .commit()
+            .await
+            .map_err(|_| OperationError::Unavailable)
+    }
+
+    async fn record_boundary_outcome(
+        &self,
+        envelope: ServerAuditEnvelope<'_>,
+    ) -> Result<(), OperationError> {
+        crate::boundary_audit::record(&self.pool, &envelope)
             .await
             .map_err(|_| OperationError::Unavailable)
     }
@@ -1168,6 +1449,7 @@ mod tests {
 
     struct DenyingHandler;
 
+    #[async_trait::async_trait]
     impl crate::domain::DomainSyncHandler for DenyingHandler {
         fn descriptor(&self) -> crate::domain::DomainDescriptor {
             crate::domain::DomainDescriptor {
@@ -1178,7 +1460,7 @@ mod tests {
             }
         }
 
-        fn authorize(
+        async fn authorize(
             &self,
             _session: &AuthenticatedServerSession,
             _scope: &ScopeRef,
@@ -1196,6 +1478,7 @@ mod tests {
 
         fn execute_command(
             &self,
+            _session: &AuthenticatedServerSession,
             _command: &CommandSubmission,
         ) -> Result<AuthoritativeChangeDraft, DomainValidationError> {
             panic!("authorization must run before command execution")
@@ -1241,7 +1524,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn unauthorized_local_changes_fail_before_storage_access() {
+    async fn unauthorized_local_changes_fail_closed_when_mandatory_audit_is_unavailable() {
         let pool = sqlx::postgres::PgPoolOptions::new()
             .connect_lazy("postgresql://unreachable.invalid/eitmad")
             .unwrap();
@@ -1268,7 +1551,7 @@ mod tests {
                     UnixMillis(1)
                 )
                 .await,
-            Err(OperationError::Denied)
+            Err(OperationError::Unavailable)
         );
     }
 }
