@@ -6,7 +6,7 @@ use std::{
 };
 
 use eitmad_contracts::runtime::{HealthCheckId, HealthCheckImpact, HealthStatus};
-use eitmad_storage::{AuthorityStore, DATABASE_FILE_NAME};
+use eitmad_storage::{AuthorityStore, CorruptionCheck, DATABASE_FILE_NAME};
 
 use crate::{ComponentFailure, ComponentFuture, HealthCheck, HealthCheckFuture, RuntimeComponent};
 
@@ -72,14 +72,26 @@ impl RuntimeComponent for AuthorityStoreComponent {
 }
 
 pub struct AuthorityStoreHealthCheck {
-    runtime_directory: PathBuf,
+    source: AuthorityStoreHealthSource,
+}
+
+enum AuthorityStoreHealthSource {
+    Diagnostic(PathBuf),
+    Started(AuthorityStoreHandle),
 }
 
 impl AuthorityStoreHealthCheck {
     #[must_use]
     pub fn new(runtime_directory: impl Into<PathBuf>) -> Self {
         Self {
-            runtime_directory: runtime_directory.into(),
+            source: AuthorityStoreHealthSource::Diagnostic(runtime_directory.into()),
+        }
+    }
+
+    #[must_use]
+    pub const fn started(handle: AuthorityStoreHandle) -> Self {
+        Self {
+            source: AuthorityStoreHealthSource::Started(handle),
         }
     }
 }
@@ -96,13 +108,25 @@ impl HealthCheck for AuthorityStoreHealthCheck {
 
     fn check(&self) -> HealthCheckFuture<'_> {
         Box::pin(async move {
-            let database = self.runtime_directory.join(DATABASE_FILE_NAME);
-            if !database.exists()
-                || AuthorityStore::check_compatible(&self.runtime_directory).is_ok()
-            {
-                HealthStatus::Healthy
-            } else {
-                HealthStatus::Unhealthy
+            match &self.source {
+                AuthorityStoreHealthSource::Diagnostic(runtime_directory) => {
+                    let database = runtime_directory.join(DATABASE_FILE_NAME);
+                    if !database.exists()
+                        || AuthorityStore::check_compatible(runtime_directory).is_ok()
+                    {
+                        HealthStatus::Healthy
+                    } else {
+                        HealthStatus::Unhealthy
+                    }
+                }
+                AuthorityStoreHealthSource::Started(handle) => handle
+                    .store()
+                    .and_then(|store| {
+                        store
+                            .verify_integrity(CorruptionCheck::Quick)
+                            .map_err(|_| ComponentFailure::new())
+                    })
+                    .map_or(HealthStatus::Unhealthy, |()| HealthStatus::Healthy),
             }
         })
     }
@@ -132,5 +156,16 @@ mod tests {
         let check = AuthorityStoreHealthCheck::new(directory.path());
         assert_eq!(check.check().await, HealthStatus::Healthy);
         assert!(!directory.path().join(DATABASE_FILE_NAME).exists());
+    }
+
+    #[tokio::test]
+    async fn started_check_reuses_the_open_store_without_migration_preflight() {
+        let directory = TempDir::new().unwrap();
+        let handle = AuthorityStoreHandle::default();
+        let mut component = AuthorityStoreComponent::new(directory.path(), handle.clone());
+        component.start().await.unwrap();
+        let check = AuthorityStoreHealthCheck::started(handle);
+
+        assert_eq!(check.check().await, HealthStatus::Healthy);
     }
 }

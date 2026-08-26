@@ -18,6 +18,7 @@ public interface IEngineShellBridge : IAsyncDisposable
     Task StopAsync(CancellationToken cancellationToken = default);
     Task<QueryResponseEnvelope> QueryAsync(Query query, CancellationToken cancellationToken = default);
     Task<CommandResponseEnvelope> SubmitConfigurationPatchAsync(UpdateConfiguration patch, Guid idempotencyKey, CancellationToken cancellationToken = default);
+    Task<CommandResponseEnvelope> SubmitReferenceMarkerAsync(UpsertReferenceMarker marker, Guid idempotencyKey, CancellationToken cancellationToken = default);
     Task<IEngineSubscription> SubscribeAsync(Subscription subscription, CancellationToken cancellationToken = default);
 }
 
@@ -67,6 +68,12 @@ public sealed class WindowsEngineBridge : IEngineShellBridge
         Guid idempotencyKey,
         CancellationToken cancellationToken = default) =>
         supervisor.SubmitConfigurationPatchAsync(patch, idempotencyKey, cancellationToken: cancellationToken);
+
+    public Task<CommandResponseEnvelope> SubmitReferenceMarkerAsync(
+        UpsertReferenceMarker marker,
+        Guid idempotencyKey,
+        CancellationToken cancellationToken = default) =>
+        supervisor.SubmitReferenceMarkerAsync(marker, idempotencyKey, cancellationToken: cancellationToken);
 
     public async Task<IEngineSubscription> SubscribeAsync(
         Subscription subscription,

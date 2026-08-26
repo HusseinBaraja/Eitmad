@@ -21,6 +21,7 @@ pub mod notifications;
 pub mod observability;
 pub mod permissions;
 pub mod queries;
+pub mod reference_marker;
 pub mod relay;
 pub mod runtime;
 pub mod secrets;

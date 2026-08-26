@@ -121,7 +121,7 @@ async fn run(
             store_handle.clone(),
         ))
         .health_check(RuntimeDirectoryHealthCheck::new(&directory))
-        .health_check(AuthorityStoreHealthCheck::new(&directory));
+        .health_check(AuthorityStoreHealthCheck::started(store_handle.clone()));
     if let Some(process_id) = supervisor_pid {
         builder = builder.supervisor_process_id(process_id);
     }

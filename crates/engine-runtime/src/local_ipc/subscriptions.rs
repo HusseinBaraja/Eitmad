@@ -322,6 +322,7 @@ fn event_scope(event: &Event) -> Option<&ScopeRef> {
         Event::NotificationRaised(notification) => Some(&notification.scope),
         Event::ErrorRaised(error) => Some(&error.scope),
         Event::AuthorizationPolicyChanged(notice) => Some(&notice.scope),
+        Event::ReferenceMarkerChanged(notice) => Some(&notice.scope),
         Event::PermissionsChanged(_)
         | Event::UpdateStateChanged(_)
         | Event::SyncStatusChanged(_) => None,

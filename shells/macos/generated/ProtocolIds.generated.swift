@@ -26,6 +26,7 @@ public enum ProtocolIds {
         public static let eitmadAuthorizationRelationshipRevokeV1 = "eitmad.authorization.relationship.revoke.v1"
         public static let eitmadOperationCancelV1 = "eitmad.operation.cancel.v1"
         public static let eitmadUpdateReportInstallerOutcomeV1 = "eitmad.update.report-installer-outcome.v1"
+        public static let eitmadReferenceMarkerUpsertV1 = "eitmad.reference-marker.upsert.v1"
     }
 
     public enum Queries {
@@ -34,6 +35,7 @@ public enum ProtocolIds {
         public static let eitmadAuthorizationRelationshipsListV1 = "eitmad.authorization.relationships.list.v1"
         public static let eitmadUpdateGetStateV1 = "eitmad.update.get-state.v1"
         public static let eitmadSyncGetStatusV1 = "eitmad.sync.get-status.v1"
+        public static let eitmadReferenceMarkerListV1 = "eitmad.reference-marker.list.v1"
     }
 
     public enum Subscriptions {
@@ -46,6 +48,7 @@ public enum ProtocolIds {
         public static let eitmadBackgroundJobStatusSubscribeV1 = "eitmad.background-job.status.subscribe.v1"
         public static let eitmadNotificationSubscribeV1 = "eitmad.notification.subscribe.v1"
         public static let eitmadErrorSubscribeV1 = "eitmad.error.subscribe.v1"
+        public static let eitmadReferenceMarkerChangedSubscribeV1 = "eitmad.reference-marker.changed.subscribe.v1"
     }
 
     public enum Events {
@@ -58,6 +61,7 @@ public enum ProtocolIds {
         public static let eitmadBackgroundJobStatusEventV1 = "eitmad.background-job.status.event.v1"
         public static let eitmadNotificationEventV1 = "eitmad.notification.event.v1"
         public static let eitmadErrorEventV1 = "eitmad.error.event.v1"
+        public static let eitmadReferenceMarkerChangedEventV1 = "eitmad.reference-marker.changed.event.v1"
     }
 
     public enum SyncMessages {
@@ -102,6 +106,7 @@ public enum ProtocolIds {
         public static let eitmadCapabilityServerUpdateDistributionV1 = "eitmad.capability.server-update-distribution.v1"
         public static let eitmadCapabilityServerAdministrationV1 = "eitmad.capability.server-administration.v1"
         public static let eitmadCapabilityUpdateV1 = "eitmad.capability.update.v1"
+        public static let eitmadCapabilityReferenceMarkerV1 = "eitmad.capability.reference-marker.v1"
     }
 
     public enum Permissions {
@@ -132,6 +137,8 @@ public enum ProtocolIds {
         public static let eitmadPermissionServerAdminSupportExecuteV1 = "eitmad.permission.server.admin.support.execute.v1"
         public static let eitmadPermissionUpdateReadV1 = "eitmad.permission.update.read.v1"
         public static let eitmadPermissionUpdateReportInstallerV1 = "eitmad.permission.update.report-installer.v1"
+        public static let eitmadPermissionReferenceMarkerReadV1 = "eitmad.permission.reference-marker.read.v1"
+        public static let eitmadPermissionReferenceMarkerWriteV1 = "eitmad.permission.reference-marker.write.v1"
     }
 
     public enum ConfigKeys {
@@ -146,6 +153,7 @@ public enum ProtocolIds {
 
     public enum SchemaIds {
         public static let eitmadSchemaProtocolV1 = "eitmad.schema.protocol.v1"
+        public static let eitmadSchemaReferenceMarkerV1 = "eitmad.schema.reference-marker.v1"
     }
 
     public enum ErrorCodes {
@@ -191,6 +199,8 @@ public enum ProtocolIds {
         public static let eitmadErrorUpdateDistributionUnavailableV1 = "eitmad.error.update-distribution-unavailable.v1"
         public static let eitmadErrorAdminUnavailableV1 = "eitmad.error.admin-unavailable.v1"
         public static let eitmadErrorUpdateInstallerFailedV1 = "eitmad.error.update-installer-failed.v1"
+        public static let eitmadErrorReferenceMarkerRevisionConflictV1 = "eitmad.error.reference-marker-revision-conflict.v1"
+        public static let eitmadErrorReferenceMarkerUnavailableV1 = "eitmad.error.reference-marker-unavailable.v1"
     }
 
     public enum MessageIds {
@@ -239,6 +249,8 @@ public enum ProtocolIds {
         public static let eitmadMessageUpdateDistributionUnavailableV1 = "eitmad.message.update-distribution-unavailable.v1"
         public static let eitmadMessageAdminUnavailableV1 = "eitmad.message.admin-unavailable.v1"
         public static let eitmadMessageUpdateInstallerFailedV1 = "eitmad.message.update-installer-failed.v1"
+        public static let eitmadMessageReferenceMarkerRevisionConflictV1 = "eitmad.message.reference-marker-revision-conflict.v1"
+        public static let eitmadMessageReferenceMarkerUnavailableV1 = "eitmad.message.reference-marker-unavailable.v1"
     }
 
     public enum ErrorParameterNames {

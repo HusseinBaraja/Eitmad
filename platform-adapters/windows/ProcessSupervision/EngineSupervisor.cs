@@ -130,6 +130,36 @@ public sealed class EngineSupervisor : IAsyncDisposable
             cancellationToken);
     }
 
+    public Task<CommandResponseEnvelope> SubmitReferenceMarkerAsync(
+        UpsertReferenceMarker marker,
+        Guid idempotencyKey,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(marker);
+        if (idempotencyKey == Guid.Empty)
+        {
+            throw new ArgumentException("The reference marker requires a non-empty idempotency key.", nameof(idempotencyKey));
+        }
+
+        var client = GetConnectedClient();
+        var requestTimeout = timeout ?? EngineIpcClient.DefaultRequestTimeout;
+        var requestId = Guid.NewGuid();
+        return client.SendCommandAsync(
+            new CommandEnvelope
+            {
+                ProtocolVersion = SessionProtocol(client),
+                RequestId = requestId,
+                CorrelationId = Guid.NewGuid(),
+                Authorization = client.Authorization,
+                Deadline = DeadlineAfter(requestTimeout),
+                IdempotencyKey = idempotencyKey,
+                Command = ToPayloadDictionary(Command.ForReferenceMarkerUpsert(marker)),
+            },
+            requestTimeout,
+            cancellationToken);
+    }
+
     public async Task<SupervisedEngineSubscription> SubscribeAsync(
         Subscription contract,
         CancellationToken cancellationToken = default)
@@ -590,10 +620,12 @@ public sealed class EngineSupervisor : IAsyncDisposable
     {
         IEngineProcess? process;
         DevelopmentIdentityAssertion? identity;
+        CancellationToken cancellationToken;
         lock (gate)
         {
             process = observedGeneration == generation ? currentProcess : null;
             identity = launchRequest?.DevelopmentIdentity;
+            cancellationToken = sessionCancellation?.Token ?? CancellationToken.None;
             if (process is not null && identity is not null)
             {
                 snapshot = snapshot with { IpcHealth = EngineIpcHealthState.Connecting };
@@ -607,7 +639,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
 
         PublishSnapshot();
 
-        _ = ConnectIpcAsync(process, identity, observedGeneration).ContinueWith(
+        _ = ConnectIpcAsync(process, identity, observedGeneration, cancellationToken).ContinueWith(
             static task => Trace.TraceError(
                 "Engine IPC connection failed: {0}",
                 task.Exception?.GetBaseException()),
@@ -619,7 +651,8 @@ public sealed class EngineSupervisor : IAsyncDisposable
     private async Task ConnectIpcAsync(
         IEngineProcess process,
         DevelopmentIdentityAssertion identity,
-        long observedGeneration)
+        long observedGeneration,
+        CancellationToken cancellationToken)
     {
         var peer = new PeerHello
         {
@@ -631,19 +664,30 @@ public sealed class EngineSupervisor : IAsyncDisposable
                 ProtocolIds.Capabilities.EitmadCapabilityLocalIpcV1,
                 ProtocolIds.Capabilities.EitmadCapabilityLocalIpcSubscriptionsV1,
                 ProtocolIds.Capabilities.EitmadCapabilityAuthorizationScopesV1,
+                ProtocolIds.Capabilities.EitmadCapabilityReferenceMarkerV1,
             ],
             RequiredCapabilities =
             [
                 ProtocolIds.Capabilities.EitmadCapabilityLocalIpcV1,
                 ProtocolIds.Capabilities.EitmadCapabilityAuthorizationScopesV1,
             ],
-            Schemas = [],
+            Schemas =
+            [
+                new SchemaSupport
+                {
+                    SchemaId = ProtocolIds.SchemaIds.EitmadSchemaReferenceMarkerV1,
+                    MinimumVersion = 1,
+                    MaximumVersion = 1,
+                    SchemaSupportRequired = false,
+                },
+            ],
         };
         var client = await EngineIpcClient.ConnectAsync(
             process.IpcPipeName,
             peer,
             identity,
-            process.DevelopmentBearerToken).ConfigureAwait(false);
+            process.DevelopmentBearerToken,
+            cancellationToken: cancellationToken).ConfigureAwait(false);
         var keep = false;
         SupervisedEngineSubscription[] desired = [];
         lock (gate)
@@ -675,7 +719,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
                     client,
                     subscription,
                     observedGeneration,
-                    CancellationToken.None).ConfigureAwait(false);
+                    cancellationToken).ConfigureAwait(false);
             }
             catch (EngineIpcException error)
             {
@@ -766,9 +810,15 @@ public sealed class EngineSupervisor : IAsyncDisposable
     private static Dictionary<string, object> ToPayloadDictionary<TContract>(TContract contract)
         where TContract : class
     {
-        var bytes = JsonSerializer.SerializeToUtf8Bytes(contract, Converter.Settings);
-        return JsonSerializer.Deserialize<Dictionary<string, object>>(bytes, Converter.Settings)
-            ?? throw new InvalidOperationException("The typed contract could not be rendered for the IPC envelope.");
+        var element = JsonSerializer.SerializeToElement(contract, Converter.Settings);
+        if (element.ValueKind != JsonValueKind.Object)
+        {
+            throw new InvalidOperationException("The typed contract could not be rendered for the IPC envelope.");
+        }
+        return element.EnumerateObject().ToDictionary(
+            property => property.Name,
+            property => (object)property.Value.Clone(),
+            StringComparer.Ordinal);
     }
 
     private async Task ObserveIpcCompletionAsync(
@@ -800,6 +850,12 @@ public sealed class EngineSupervisor : IAsyncDisposable
             return;
         }
 
+        CancellationToken reconnectCancellation;
+        lock (gate)
+        {
+            reconnectCancellation = sessionCancellation?.Token ?? CancellationToken.None;
+        }
+
         var delays = new[]
         {
             TimeSpan.FromMilliseconds(100),
@@ -811,7 +867,14 @@ public sealed class EngineSupervisor : IAsyncDisposable
         for (var attempt = 0; attempt < policy.MaximumRestarts; attempt++)
         {
             var delay = delays[Math.Min(attempt, delays.Length - 1)];
-            await Task.Delay(delay).ConfigureAwait(false);
+            try
+            {
+                await clock.DelayAsync(delay, reconnectCancellation).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (reconnectCancellation.IsCancellationRequested)
+            {
+                return;
+            }
             lock (gate)
             {
                 if (observedGeneration != generation || stopRequested || currentIpcClient is not null)
@@ -821,7 +884,15 @@ public sealed class EngineSupervisor : IAsyncDisposable
             }
             try
             {
-                await ConnectIpcAsync(process, identity, observedGeneration).ConfigureAwait(false);
+                await ConnectIpcAsync(
+                    process,
+                    identity,
+                    observedGeneration,
+                    reconnectCancellation).ConfigureAwait(false);
+                return;
+            }
+            catch (OperationCanceledException) when (reconnectCancellation.IsCancellationRequested)
+            {
                 return;
             }
             catch (EngineIpcException)

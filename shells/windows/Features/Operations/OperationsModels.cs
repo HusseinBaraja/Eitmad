@@ -16,6 +16,8 @@ public sealed record JobItem(Guid Id, string Title, string State, string Detail,
 
 public sealed record ActivityItem(Guid Id, string Title, string Detail, string Time, string Tone, string Kind);
 
+public sealed record ReferenceMarkerItem(Guid Id, string Label, long Revision, string SyncState, string UpdatedAt);
+
 public sealed class EventOrderGate
 {
     private readonly object gate = new();

@@ -5,7 +5,8 @@ mod transport;
 
 pub use engine::{
     CommandDraft, ConflictHook, ConflictResolution, DeliveryOutcome, LocalChangeDraft,
-    LocalChangeOutcome, PendingCommandOutcome, SyncEngine, SyncEngineError,
+    LocalChangeOutcome, MAX_PENDING_SYNC_CHANGES, MAX_PENDING_SYNC_COMMANDS, PendingCommandOutcome,
+    SyncEngine, SyncEngineError,
 };
 pub use transport::{
     AuthenticationIdentity, ConnectionDriver, ConnectionHealth, ConnectionTarget,
@@ -31,6 +32,7 @@ impl std::fmt::Display for SyncEngineError {
             Self::IncompatiblePeer(_) => "sync peer is incompatible",
             Self::Disconnected => "sync engine is offline",
             Self::StaleCache => "sync cache is stale",
+            Self::QueueFull => "sync queue reached its bounded capacity",
         })
     }
 }

@@ -21,14 +21,16 @@
     "eitmad.authorization.relationship.grant.v1",
     "eitmad.authorization.relationship.revoke.v1",
     "eitmad.operation.cancel.v1",
-    "eitmad.update.report-installer-outcome.v1"
+    "eitmad.update.report-installer-outcome.v1",
+    "eitmad.reference-marker.upsert.v1"
   ],
   "queries": [
     "eitmad.config.get.v1",
     "eitmad.permissions.get-effective.v1",
     "eitmad.authorization.relationships.list.v1",
     "eitmad.update.get-state.v1",
-    "eitmad.sync.get-status.v1"
+    "eitmad.sync.get-status.v1",
+    "eitmad.reference-marker.list.v1"
   ],
   "subscriptions": [
     "eitmad.config.changed.subscribe.v1",
@@ -39,7 +41,8 @@
     "eitmad.record.changed.subscribe.v1",
     "eitmad.background-job.status.subscribe.v1",
     "eitmad.notification.subscribe.v1",
-    "eitmad.error.subscribe.v1"
+    "eitmad.error.subscribe.v1",
+    "eitmad.reference-marker.changed.subscribe.v1"
   ],
   "events": [
     "eitmad.config.changed.event.v1",
@@ -50,7 +53,8 @@
     "eitmad.record.changed.event.v1",
     "eitmad.background-job.status.event.v1",
     "eitmad.notification.event.v1",
-    "eitmad.error.event.v1"
+    "eitmad.error.event.v1",
+    "eitmad.reference-marker.changed.event.v1"
   ],
   "syncMessages": [
     "eitmad.sync.negotiate.v1",
@@ -91,7 +95,8 @@
     "eitmad.capability.server-relay.v1",
     "eitmad.capability.server-update-distribution.v1",
     "eitmad.capability.server-administration.v1",
-    "eitmad.capability.update.v1"
+    "eitmad.capability.update.v1",
+    "eitmad.capability.reference-marker.v1"
   ],
   "permissions": [
     "eitmad.permission.config.read.v1",
@@ -120,7 +125,9 @@
     "eitmad.permission.server.admin.device.read.v1",
     "eitmad.permission.server.admin.support.execute.v1",
     "eitmad.permission.update.read.v1",
-    "eitmad.permission.update.report-installer.v1"
+    "eitmad.permission.update.report-installer.v1",
+    "eitmad.permission.reference-marker.read.v1",
+    "eitmad.permission.reference-marker.write.v1"
   ],
   "configKeys": [
     "eitmad.config.locale.primary.v1"
@@ -131,7 +138,8 @@
     "eitmad.relation.organization.owner.v1"
   ],
   "schemaIds": [
-    "eitmad.schema.protocol.v1"
+    "eitmad.schema.protocol.v1",
+    "eitmad.schema.reference-marker.v1"
   ],
   "errorCodes": [
     "eitmad.error.authorization-denied.v1",
@@ -175,7 +183,9 @@
     "eitmad.error.update-manifest-not-found.v1",
     "eitmad.error.update-distribution-unavailable.v1",
     "eitmad.error.admin-unavailable.v1",
-    "eitmad.error.update-installer-failed.v1"
+    "eitmad.error.update-installer-failed.v1",
+    "eitmad.error.reference-marker-revision-conflict.v1",
+    "eitmad.error.reference-marker-unavailable.v1"
   ],
   "messageIds": [
     "eitmad.notification.sync-complete.v1",
@@ -222,7 +232,9 @@
     "eitmad.message.update-manifest-not-found.v1",
     "eitmad.message.update-distribution-unavailable.v1",
     "eitmad.message.admin-unavailable.v1",
-    "eitmad.message.update-installer-failed.v1"
+    "eitmad.message.update-installer-failed.v1",
+    "eitmad.message.reference-marker-revision-conflict.v1",
+    "eitmad.message.reference-marker-unavailable.v1"
   ],
   "errorParameterNames": [
     "actual-revision",

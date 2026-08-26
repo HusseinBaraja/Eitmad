@@ -31,6 +31,7 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
         this.viewModel = viewModel;
         this.dispatcher = dispatcher;
         viewModel.SubmitConfigurationPatch = SubmitConfigurationPatchAsync;
+        viewModel.SubmitReferenceMarker = SubmitReferenceMarkerAsync;
         viewModel.RestartEngine = RestartAsync;
     }
 
@@ -114,6 +115,7 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
             ("jobs", Subscription.ForBackgroundJobStatusSubscribe(new BackgroundJobChanges())),
             ("notifications", Subscription.ForNotificationSubscribe(new Notifications())),
             ("errors", Subscription.ForErrorSubscribe(new Errors())),
+            ("reference-markers", Subscription.ForReferenceMarkerChangedSubscribe(new ReferenceMarkerChanges())),
         };
         foreach (var item in desired)
         {
@@ -161,6 +163,10 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
                 var contract = DecodeEvent(delivered);
                 dispatcher.Invoke(() => ApplyEvent(contract, delivered.OccurredAt));
                 subscription.Acknowledge(delivered);
+                if (contract.AsReferenceMarkerChangedEvent() is not null)
+                {
+                    await RefreshReferenceMarkersAsync(cancellationToken);
+                }
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -178,7 +184,7 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
         dispatcher.Invoke(() => viewModel.BeginResynchronization(stream));
         try
         {
-            if (stream is "configuration" or "sync" or "update")
+            if (stream is "configuration" or "sync" or "update" or "reference-markers")
             {
                 await RefreshSnapshotsAsync(cancellationToken);
             }
@@ -197,9 +203,17 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
 
     private async Task RefreshSnapshotsAsync(CancellationToken cancellationToken)
     {
-        var configuration = await engine.QueryAsync(Query.ForConfigGet(new GetConfiguration()), cancellationToken);
-        var sync = await engine.QueryAsync(Query.ForSyncGetStatus(new GetSyncStatus()), cancellationToken);
-        var update = await engine.QueryAsync(Query.ForUpdateGetState(new GetUpdateState()), cancellationToken);
+        var configurationTask = engine.QueryAsync(Query.ForConfigGet(new GetConfiguration()), cancellationToken);
+        var syncTask = engine.QueryAsync(Query.ForSyncGetStatus(new GetSyncStatus()), cancellationToken);
+        var updateTask = engine.QueryAsync(Query.ForUpdateGetState(new GetUpdateState()), cancellationToken);
+        var referenceMarkersTask = engine.QueryAsync(
+            Query.ForReferenceMarkerList(new ListReferenceMarkers { Limit = 20 }),
+            cancellationToken);
+        await Task.WhenAll(configurationTask, syncTask, updateTask, referenceMarkersTask);
+        var configuration = await configurationTask;
+        var sync = await syncTask;
+        var update = await updateTask;
+        var referenceMarkers = await referenceMarkersTask;
         dispatcher.Invoke(() =>
         {
             if (configuration.Outcome.Status == CommandOutcomeStatus.Succeeded
@@ -229,6 +243,15 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
             {
                 viewModel.ObserveUpdateUnavailable(update.Outcome.Payload.Code);
             }
+            if (referenceMarkers.Outcome.Status == CommandOutcomeStatus.Succeeded
+                && referenceMarkers.Outcome.Payload.AsReferenceMarkers() is { } page)
+            {
+                viewModel.ObserveReferenceMarkers(page);
+            }
+            else
+            {
+                viewModel.ObserveReferenceMarkersUnavailable();
+            }
         });
     }
 
@@ -239,20 +262,58 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
         {
             throw new InvalidOperationException("The Rust engine rejected the typed configuration patch.");
         }
-        await RefreshConfigurationAsync(lifetime.Token);
+        if (response.Outcome.Payload.Kind == PurpleKind.ConfigurationUpdated
+            && response.Outcome.Payload.Payload is { } payload)
+        {
+            dispatcher.Invoke(() => viewModel.ObserveConfiguration(new ConfigSnapshot
+            {
+                SchemaVersion = payload.SchemaVersion ?? 0,
+                Revision = payload.Revision ?? 0,
+                Scope = payload.Scope,
+                Entries = payload.Entries ?? [],
+            }));
+        }
     }
 
-    private async Task RefreshConfigurationAsync(CancellationToken cancellationToken)
+    private async Task SubmitReferenceMarkerAsync(UpsertReferenceMarker marker, Guid idempotencyKey)
     {
-        var response = await engine.QueryAsync(Query.ForConfigGet(new GetConfiguration()), cancellationToken);
-        if (response.Outcome.Status == CommandOutcomeStatus.Succeeded
-            && response.Outcome.Payload.AsConfiguration() is { } snapshot)
+        var response = await engine.SubmitReferenceMarkerAsync(marker, idempotencyKey, lifetime.Token);
+        if (response.Outcome.Status == CommandOutcomeStatus.Failed)
         {
-            dispatcher.Invoke(() => viewModel.ObserveConfiguration(snapshot));
+            throw new InvalidOperationException("The Rust engine rejected the typed reference marker.");
+        }
+        if (response.Outcome.Payload.Kind == PurpleKind.ReferenceMarkerUpserted
+            && response.Outcome.Payload.Payload is { } payload
+            && payload.Id is { } id
+            && payload.Revision is { } revision
+            && payload.UpdatedAt is { } updatedAt
+            && payload.SyncState is { } syncState)
+        {
+            dispatcher.Invoke(() => viewModel.ObserveReferenceMarker(new ReferenceMarker
+            {
+                Id = id,
+                Label = payload.Label,
+                Revision = revision,
+                Scope = payload.Scope,
+                SyncState = syncState,
+                UpdatedAt = updatedAt,
+            }));
+        }
+    }
+
+    private async Task RefreshReferenceMarkersAsync(CancellationToken cancellationToken)
+    {
+        var response = await engine.QueryAsync(
+            Query.ForReferenceMarkerList(new ListReferenceMarkers { Limit = 20 }),
+            cancellationToken);
+        if (response.Outcome.Status == CommandOutcomeStatus.Succeeded
+            && response.Outcome.Payload.AsReferenceMarkers() is { } page)
+        {
+            dispatcher.Invoke(() => viewModel.ObserveReferenceMarkers(page));
         }
         else
         {
-            dispatcher.Invoke(viewModel.ObserveConfigurationUnavailable);
+            dispatcher.Invoke(viewModel.ObserveReferenceMarkersUnavailable);
         }
     }
 
@@ -277,5 +338,6 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
         else if (contract.AsBackgroundJobStatusEvent() is { } job) viewModel.ObserveJob(job, occurredAt);
         else if (contract.AsNotificationEvent() is { } notification) viewModel.ObserveNotification(notification, occurredAt);
         else if (contract.AsErrorEvent() is { } error) viewModel.ObserveError(error, occurredAt);
+        else if (contract.AsReferenceMarkerChangedEvent() is { } marker) viewModel.ObserveReferenceMarkerChanged(marker);
     }
 }

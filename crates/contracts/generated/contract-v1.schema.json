@@ -583,6 +583,22 @@
             "kind",
             "payload"
           ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.reference-marker.upsert.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/UpsertReferenceMarker"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
         }
       ]
     },
@@ -829,6 +845,22 @@
             },
             "payload": {
               "$ref": "#/definitions/UpdateState"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "referenceMarkerUpserted"
+            },
+            "payload": {
+              "$ref": "#/definitions/ReferenceMarker"
             }
           },
           "required": [
@@ -1269,12 +1301,20 @@
             "$ref": "#/definitions/HealthCheckResult"
           }
         },
+        "elapsedMicros": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
         "identity": {
           "$ref": "#/definitions/EngineProcessIdentity"
         },
         "observedAt": {
           "type": "integer",
           "format": "int64"
+        },
+        "performanceExpectations": {
+          "$ref": "#/definitions/PerformanceExpectations"
         },
         "readyToStart": {
           "type": "boolean"
@@ -1288,7 +1328,9 @@
         "status",
         "readyToStart",
         "checks",
-        "observedAt"
+        "observedAt",
+        "elapsedMicros",
+        "performanceExpectations"
       ]
     },
     "DiagnosticSummary": {
@@ -1805,6 +1847,22 @@
             "kind",
             "payload"
           ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.reference-marker.changed.event.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ReferenceMarkerChangeNotice"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
         }
       ]
     },
@@ -2037,6 +2095,11 @@
     "HealthCheckResult": {
       "type": "object",
       "properties": {
+        "elapsedMicros": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
         "error": {
           "anyOf": [
             {
@@ -2065,7 +2128,8 @@
         "id",
         "status",
         "impact",
-        "observedAt"
+        "observedAt",
+        "elapsedMicros"
       ]
     },
     "HealthStatus": {
@@ -2475,6 +2539,27 @@
         "failed"
       ]
     },
+    "ListReferenceMarkers": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "limit": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 100,
+          "minimum": 1
+        }
+      },
+      "required": [
+        "limit"
+      ]
+    },
     "ListScopeRelationships": {
       "type": "object",
       "properties": {
@@ -2848,6 +2933,55 @@
         "diagnosticClient"
       ]
     },
+    "PerformanceExpectations": {
+      "type": "object",
+      "properties": {
+        "backgroundSyncBatchRecords": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "backgroundSyncCycleMillis": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "commonCommandP95Millis": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "commonQueryP95Millis": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "idleCpuBasisPoints": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "idleWorkingSetMib": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "startupReadyMillis": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "startupReadyMillis",
+        "idleCpuBasisPoints",
+        "idleWorkingSetMib",
+        "commonQueryP95Millis",
+        "commonCommandP95Millis",
+        "backgroundSyncBatchRecords",
+        "backgroundSyncCycleMillis"
+      ]
+    },
     "PermissionChanges": {
       "type": "object"
     },
@@ -3102,6 +3236,22 @@
             "kind",
             "payload"
           ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.reference-marker.list.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ListReferenceMarkers"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
         }
       ]
     },
@@ -3284,6 +3434,22 @@
             "kind",
             "payload"
           ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "referenceMarkers"
+            },
+            "payload": {
+              "$ref": "#/definitions/ReferenceMarkerPage"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
         }
       ]
     },
@@ -3375,6 +3541,104 @@
     },
     "RecordChanges": {
       "type": "object"
+    },
+    "ReferenceMarker": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "label": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        },
+        "syncState": {
+          "$ref": "#/definitions/ReferenceMarkerSyncState"
+        },
+        "updatedAt": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "id",
+        "scope",
+        "label",
+        "revision",
+        "updatedAt",
+        "syncState"
+      ]
+    },
+    "ReferenceMarkerChangeNotice": {
+      "type": "object",
+      "properties": {
+        "changeId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "changedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "markerId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "required": [
+        "markerId",
+        "scope",
+        "revision",
+        "changedAt",
+        "changeId"
+      ]
+    },
+    "ReferenceMarkerChanges": {
+      "type": "object"
+    },
+    "ReferenceMarkerPage": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ReferenceMarker"
+          }
+        },
+        "next": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "items"
+      ]
+    },
+    "ReferenceMarkerSyncState": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "confirmed"
+      ]
     },
     "RelationshipMutationResult": {
       "type": "object",
@@ -4484,6 +4748,22 @@
             },
             "payload": {
               "$ref": "#/definitions/Errors"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.reference-marker.changed.subscribe.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ReferenceMarkerChanges"
             }
           },
           "required": [
@@ -6072,6 +6352,30 @@
     },
     "UpdateStateChanges": {
       "type": "object"
+    },
+    "UpsertReferenceMarker": {
+      "type": "object",
+      "properties": {
+        "expectedRevision": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "label": {
+          "type": "string"
+        },
+        "markerId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "markerId",
+        "label"
+      ]
     }
   }
 }

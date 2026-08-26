@@ -7,6 +7,7 @@ public enum Command: Codable, Sendable {
     case authorizationRelationshipRevoke(RevokeScopeRelationship)
     case operationCancel(CancelOperation)
     case updateReportInstallerOutcome(ReportInstallerOutcome)
+    case referenceMarkerUpsert(UpsertReferenceMarker)
 
     private enum Kind: String, Codable, Sendable {
         case configUpdate = "eitmad.config.update.v1"
@@ -14,6 +15,7 @@ public enum Command: Codable, Sendable {
         case authorizationRelationshipRevoke = "eitmad.authorization.relationship.revoke.v1"
         case operationCancel = "eitmad.operation.cancel.v1"
         case updateReportInstallerOutcome = "eitmad.update.report-installer-outcome.v1"
+        case referenceMarkerUpsert = "eitmad.reference-marker.upsert.v1"
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -29,6 +31,7 @@ public enum Command: Codable, Sendable {
         case .authorizationRelationshipRevoke: self = .authorizationRelationshipRevoke(try container.decode(RevokeScopeRelationship.self, forKey: .payload))
         case .operationCancel: self = .operationCancel(try container.decode(CancelOperation.self, forKey: .payload))
         case .updateReportInstallerOutcome: self = .updateReportInstallerOutcome(try container.decode(ReportInstallerOutcome.self, forKey: .payload))
+        case .referenceMarkerUpsert: self = .referenceMarkerUpsert(try container.decode(UpsertReferenceMarker.self, forKey: .payload))
         }
     }
 
@@ -50,6 +53,9 @@ public enum Command: Codable, Sendable {
         case .updateReportInstallerOutcome(let payload):
             try container.encode(Kind.updateReportInstallerOutcome, forKey: .kind)
             try container.encode(payload, forKey: .payload)
+        case .referenceMarkerUpsert(let payload):
+            try container.encode(Kind.referenceMarkerUpsert, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
         }
     }
 }
@@ -63,6 +69,7 @@ public enum Event: Codable, Sendable {
     case backgroundJobStatusEvent(BackgroundJobStatus)
     case notificationEvent(Notification)
     case errorEvent(ScopedError)
+    case referenceMarkerChangedEvent(ReferenceMarkerChangeNotice)
 
     private enum Kind: String, Codable, Sendable {
         case configChangedEvent = "eitmad.config.changed.event.v1"
@@ -74,6 +81,7 @@ public enum Event: Codable, Sendable {
         case backgroundJobStatusEvent = "eitmad.background-job.status.event.v1"
         case notificationEvent = "eitmad.notification.event.v1"
         case errorEvent = "eitmad.error.event.v1"
+        case referenceMarkerChangedEvent = "eitmad.reference-marker.changed.event.v1"
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -93,6 +101,7 @@ public enum Event: Codable, Sendable {
         case .backgroundJobStatusEvent: self = .backgroundJobStatusEvent(try container.decode(BackgroundJobStatus.self, forKey: .payload))
         case .notificationEvent: self = .notificationEvent(try container.decode(Notification.self, forKey: .payload))
         case .errorEvent: self = .errorEvent(try container.decode(ScopedError.self, forKey: .payload))
+        case .referenceMarkerChangedEvent: self = .referenceMarkerChangedEvent(try container.decode(ReferenceMarkerChangeNotice.self, forKey: .payload))
         }
     }
 
@@ -125,6 +134,9 @@ public enum Event: Codable, Sendable {
             try container.encode(payload, forKey: .payload)
         case .errorEvent(let payload):
             try container.encode(Kind.errorEvent, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .referenceMarkerChangedEvent(let payload):
+            try container.encode(Kind.referenceMarkerChangedEvent, forKey: .kind)
             try container.encode(payload, forKey: .payload)
         }
     }
@@ -269,6 +281,7 @@ public enum Query: Codable, Sendable {
     case authorizationRelationshipsList(ListScopeRelationships)
     case updateGetState(GetUpdateState)
     case syncGetStatus(GetSyncStatus)
+    case referenceMarkerList(ListReferenceMarkers)
 
     private enum Kind: String, Codable, Sendable {
         case configGet = "eitmad.config.get.v1"
@@ -276,6 +289,7 @@ public enum Query: Codable, Sendable {
         case authorizationRelationshipsList = "eitmad.authorization.relationships.list.v1"
         case updateGetState = "eitmad.update.get-state.v1"
         case syncGetStatus = "eitmad.sync.get-status.v1"
+        case referenceMarkerList = "eitmad.reference-marker.list.v1"
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -291,6 +305,7 @@ public enum Query: Codable, Sendable {
         case .authorizationRelationshipsList: self = .authorizationRelationshipsList(try container.decode(ListScopeRelationships.self, forKey: .payload))
         case .updateGetState: self = .updateGetState(try container.decode(GetUpdateState.self, forKey: .payload))
         case .syncGetStatus: self = .syncGetStatus(try container.decode(GetSyncStatus.self, forKey: .payload))
+        case .referenceMarkerList: self = .referenceMarkerList(try container.decode(ListReferenceMarkers.self, forKey: .payload))
         }
     }
 
@@ -312,6 +327,9 @@ public enum Query: Codable, Sendable {
         case .syncGetStatus(let payload):
             try container.encode(Kind.syncGetStatus, forKey: .kind)
             try container.encode(payload, forKey: .payload)
+        case .referenceMarkerList(let payload):
+            try container.encode(Kind.referenceMarkerList, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
         }
     }
 }
@@ -321,6 +339,7 @@ public enum QueryResult: Codable, Sendable {
     case scopeRelationships(RelationshipPage)
     case updateState(UpdateState)
     case syncStatus(SyncStatus)
+    case referenceMarkers(ReferenceMarkerPage)
 
     private enum Kind: String, Codable, Sendable {
         case configuration = "configuration"
@@ -328,6 +347,7 @@ public enum QueryResult: Codable, Sendable {
         case scopeRelationships = "scopeRelationships"
         case updateState = "updateState"
         case syncStatus = "syncStatus"
+        case referenceMarkers = "referenceMarkers"
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -343,6 +363,7 @@ public enum QueryResult: Codable, Sendable {
         case .scopeRelationships: self = .scopeRelationships(try container.decode(RelationshipPage.self, forKey: .payload))
         case .updateState: self = .updateState(try container.decode(UpdateState.self, forKey: .payload))
         case .syncStatus: self = .syncStatus(try container.decode(SyncStatus.self, forKey: .payload))
+        case .referenceMarkers: self = .referenceMarkers(try container.decode(ReferenceMarkerPage.self, forKey: .payload))
         }
     }
 
@@ -363,6 +384,9 @@ public enum QueryResult: Codable, Sendable {
             try container.encode(payload, forKey: .payload)
         case .syncStatus(let payload):
             try container.encode(Kind.syncStatus, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .referenceMarkers(let payload):
+            try container.encode(Kind.referenceMarkers, forKey: .kind)
             try container.encode(payload, forKey: .payload)
         }
     }
@@ -469,6 +493,7 @@ public enum Subscription: Codable, Sendable {
     case backgroundJobStatusSubscribe(BackgroundJobChanges)
     case notificationSubscribe(Notifications)
     case errorSubscribe(Errors)
+    case referenceMarkerChangedSubscribe(ReferenceMarkerChanges)
 
     private enum Kind: String, Codable, Sendable {
         case configChangedSubscribe = "eitmad.config.changed.subscribe.v1"
@@ -480,6 +505,7 @@ public enum Subscription: Codable, Sendable {
         case backgroundJobStatusSubscribe = "eitmad.background-job.status.subscribe.v1"
         case notificationSubscribe = "eitmad.notification.subscribe.v1"
         case errorSubscribe = "eitmad.error.subscribe.v1"
+        case referenceMarkerChangedSubscribe = "eitmad.reference-marker.changed.subscribe.v1"
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -499,6 +525,7 @@ public enum Subscription: Codable, Sendable {
         case .backgroundJobStatusSubscribe: self = .backgroundJobStatusSubscribe(try container.decode(BackgroundJobChanges.self, forKey: .payload))
         case .notificationSubscribe: self = .notificationSubscribe(try container.decode(Notifications.self, forKey: .payload))
         case .errorSubscribe: self = .errorSubscribe(try container.decode(Errors.self, forKey: .payload))
+        case .referenceMarkerChangedSubscribe: self = .referenceMarkerChangedSubscribe(try container.decode(ReferenceMarkerChanges.self, forKey: .payload))
         }
     }
 
@@ -531,6 +558,9 @@ public enum Subscription: Codable, Sendable {
             try container.encode(payload, forKey: .payload)
         case .errorSubscribe(let payload):
             try container.encode(Kind.errorSubscribe, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .referenceMarkerChangedSubscribe(let payload):
+            try container.encode(Kind.referenceMarkerChangedSubscribe, forKey: .kind)
             try container.encode(payload, forKey: .payload)
         }
     }
@@ -634,5 +664,6 @@ public struct GetUpdateState: Codable, Sendable {}
 public struct Notifications: Codable, Sendable {}
 public struct PermissionChanges: Codable, Sendable {}
 public struct RecordChanges: Codable, Sendable {}
+public struct ReferenceMarkerChanges: Codable, Sendable {}
 public struct SyncStatusChanges: Codable, Sendable {}
 public struct UpdateStateChanges: Codable, Sendable {}

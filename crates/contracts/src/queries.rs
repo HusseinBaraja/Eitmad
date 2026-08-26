@@ -5,6 +5,7 @@ use crate::{
     authorization::{RelationshipId, RelationshipPage},
     config::ConfigSnapshot,
     permissions::EffectivePermissions,
+    reference_marker::{ListReferenceMarkers, ReferenceMarkerPage},
     sync::SyncStatus,
     updates::UpdateState,
 };
@@ -73,7 +74,8 @@ tagged_contract! {
         EffectivePermissions(GetEffectivePermissions) => "eitmad.permissions.get-effective.v1",
         ScopeRelationships(ListScopeRelationships) => "eitmad.authorization.relationships.list.v1",
         UpdateState(GetUpdateState) => "eitmad.update.get-state.v1",
-        SyncStatus(GetSyncStatus) => "eitmad.sync.get-status.v1"
+        SyncStatus(GetSyncStatus) => "eitmad.sync.get-status.v1",
+        ReferenceMarkers(ListReferenceMarkers) => "eitmad.reference-marker.list.v1"
     }
 }
 
@@ -85,6 +87,7 @@ pub enum QueryResult {
     ScopeRelationships(RelationshipPage),
     UpdateState(UpdateState),
     SyncStatus(SyncStatus),
+    ReferenceMarkers(ReferenceMarkerPage),
 }
 
 #[cfg(test)]

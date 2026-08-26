@@ -44,6 +44,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.authorization.relationship.revoke.v1`
 - `eitmad.operation.cancel.v1`
 - `eitmad.update.report-installer-outcome.v1`
+- `eitmad.reference-marker.upsert.v1`
 
 ## Queries
 
@@ -52,6 +53,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.authorization.relationships.list.v1`
 - `eitmad.update.get-state.v1`
 - `eitmad.sync.get-status.v1`
+- `eitmad.reference-marker.list.v1`
 
 ## Subscriptions
 
@@ -64,6 +66,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.background-job.status.subscribe.v1`
 - `eitmad.notification.subscribe.v1`
 - `eitmad.error.subscribe.v1`
+- `eitmad.reference-marker.changed.subscribe.v1`
 
 ## Events
 
@@ -76,6 +79,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.background-job.status.event.v1`
 - `eitmad.notification.event.v1`
 - `eitmad.error.event.v1`
+- `eitmad.reference-marker.changed.event.v1`
 
 ## Sync messages
 
@@ -120,6 +124,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.capability.server-update-distribution.v1`
 - `eitmad.capability.server-administration.v1`
 - `eitmad.capability.update.v1`
+- `eitmad.capability.reference-marker.v1`
 
 ## Permissions
 
@@ -150,6 +155,8 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.permission.server.admin.support.execute.v1`
 - `eitmad.permission.update.read.v1`
 - `eitmad.permission.update.report-installer.v1`
+- `eitmad.permission.reference-marker.read.v1`
+- `eitmad.permission.reference-marker.write.v1`
 
 ## Configuration keys
 
@@ -164,6 +171,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 ## Schema identifiers
 
 - `eitmad.schema.protocol.v1`
+- `eitmad.schema.reference-marker.v1`
 
 ## Error codes
 
@@ -209,6 +217,8 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.error.update-distribution-unavailable.v1`
 - `eitmad.error.admin-unavailable.v1`
 - `eitmad.error.update-installer-failed.v1`
+- `eitmad.error.reference-marker-revision-conflict.v1`
+- `eitmad.error.reference-marker-unavailable.v1`
 
 ## Localization message identifiers
 
@@ -257,6 +267,8 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.message.update-distribution-unavailable.v1`
 - `eitmad.message.admin-unavailable.v1`
 - `eitmad.message.update-installer-failed.v1`
+- `eitmad.message.reference-marker-revision-conflict.v1`
+- `eitmad.message.reference-marker-unavailable.v1`
 
 ## Error parameter names
 

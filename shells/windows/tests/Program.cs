@@ -6,6 +6,8 @@ using Eitmad.WindowsShell.Features.Operations;
 
 var tests = new ShellScenarios();
 tests.StateMappingCoversOperationalContracts();
+tests.ReferenceMarkerMapsArabicAndSyncState();
+await tests.SaveReferenceMarkerUpdatesOnlyReturnedItem();
 tests.EventOrderingRejectsDuplicatesAndStaleSequences();
 tests.EventOrderingSerializesConcurrentDelivery();
 tests.StaleSnapshotsCannotReplaceNewerState();
@@ -61,6 +63,69 @@ internal sealed class ShellScenarios
         Assert.Equal(0.625d, model.UpdateCard.Progress, "update progress mapping");
         Assert.Equal("تصدير البيانات", model.Jobs.Single().Title, "job mapping");
         Assert.Equal("اكتملت المزامنة", model.Activity.Single().Title, "notification mapping");
+    }
+
+    public void ReferenceMarkerMapsArabicAndSyncState()
+    {
+        var model = new OperationsViewModel();
+        model.ObserveReferenceMarkers(new ReferenceMarkerPage
+        {
+            Items =
+            [
+                new ReferenceMarker
+                {
+                    Id = Guid.Parse("8b8ab1ab-731b-46f5-926a-3b5b2f8f6310"),
+                    Label = "مرجع REF-١٢",
+                    Revision = 4,
+                    Scope = Scope(),
+                    SyncState = ReferenceMarkerSyncState.Pending,
+                    UpdatedAt = 1_800_000_000_000,
+                },
+            ],
+        });
+
+        Assert.Equal("مرجع REF-١٢", model.ReferenceMarkers.Single().Label, "mixed-direction label preserved");
+        Assert.Equal("بانتظار المزامنة", model.ReferenceMarkers.Single().SyncState, "pending sync state localized");
+        Assert.Equal("اللقطة محدّثة", model.ReferenceMarkerStatus, "marker snapshot status");
+    }
+
+    public async Task SaveReferenceMarkerUpdatesOnlyReturnedItem()
+    {
+        var engine = new FakeEngine();
+        var model = new OperationsViewModel();
+        var otherMarkerId = Guid.Parse("9c9bc2bc-842c-57f6-a37b-4c6c3f9f7421");
+        model.ObserveReferenceMarkers(new ReferenceMarkerPage
+        {
+            Items =
+            [
+                new ReferenceMarker
+                {
+                    Id = Guid.Parse("8b8ab1ab-731b-46f5-926a-3b5b2f8f6310"),
+                    Label = "مرجع قديم",
+                    Revision = 1,
+                    Scope = Scope(),
+                    SyncState = ReferenceMarkerSyncState.Confirmed,
+                    UpdatedAt = 1_800_000_000_000,
+                },
+                new ReferenceMarker
+                {
+                    Id = otherMarkerId,
+                    Label = "مرجع محفوظ",
+                    Revision = 3,
+                    Scope = Scope(),
+                    SyncState = ReferenceMarkerSyncState.Confirmed,
+                    UpdatedAt = 1_800_000_000_000,
+                },
+            ],
+        });
+        await using var coordinator = new OperationsCoordinator(engine, model, new ImmediateDispatcher());
+        model.ReferenceMarkerLabel = "مرجع محدّث";
+
+        model.SaveReferenceMarkerCommand.Execute(null);
+
+        await Eventually(() => model.ReferenceMarkers.Any(marker => marker.Label == "مرجع محدّث"));
+        Assert.Equal(2, model.ReferenceMarkers.Count, "upsert preserves other marker items");
+        Assert.Equal("مرجع محفوظ", model.ReferenceMarkers.Single(marker => marker.Id == otherMarkerId).Label, "unrelated marker preserved");
     }
 
     public void EventOrderingRejectsDuplicatesAndStaleSequences()
@@ -120,12 +185,12 @@ internal sealed class ShellScenarios
         await using var coordinator = new OperationsCoordinator(engine, model, new ImmediateDispatcher());
         await coordinator.StartAsync();
         engine.Connect();
-        await Eventually(() => engine.QueryCount >= 3 && engine.SubscriptionCount == 6);
+        await Eventually(() => engine.QueryCount >= 4 && engine.SubscriptionCount == 7);
 
         engine.Disconnect();
         engine.Connect();
-        await Eventually(() => engine.QueryCount >= 6);
-        Assert.Equal(6, engine.SubscriptionCount, "reconnect reuses supervised subscriptions");
+        await Eventually(() => engine.QueryCount >= 8);
+        Assert.Equal(7, engine.SubscriptionCount, "reconnect reuses supervised subscriptions");
         Assert.False(model.ShowConnectionBanner, "fresh snapshots clear reconnect banner");
     }
 
@@ -136,9 +201,9 @@ internal sealed class ShellScenarios
         await using var coordinator = new OperationsCoordinator(engine, model, new ImmediateDispatcher());
         await coordinator.StartAsync();
         engine.Connect();
-        await Eventually(() => engine.QueryCount >= 3);
+        await Eventually(() => engine.QueryCount >= 4);
         engine.SignalResync(ProtocolIds.Subscriptions.EitmadSyncStatusSubscribeV1);
-        await Eventually(() => engine.QueryCount >= 6);
+        await Eventually(() => engine.QueryCount >= 8);
         Assert.False(model.ShowConnectionBanner, "resync completes with current snapshots");
     }
 
@@ -149,7 +214,7 @@ internal sealed class ShellScenarios
         await using var coordinator = new OperationsCoordinator(engine, model, new ImmediateDispatcher());
         await coordinator.StartAsync();
         engine.Connect();
-        await Eventually(() => engine.SubscriptionCount == 6);
+        await Eventually(() => engine.SubscriptionCount == 7);
 
         engine.SignalResync(ProtocolIds.Subscriptions.EitmadBackgroundJobStatusSubscribeV1);
 
@@ -166,7 +231,7 @@ internal sealed class ShellScenarios
 
         engine.Connect();
 
-        await Eventually(() => engine.QueryCount >= 3);
+        await Eventually(() => engine.QueryCount >= 4);
         Assert.Equal(-1L, model.ConfigRevision, "failed configuration query clears revision");
         Assert.Equal(0, model.Configuration.Count, "failed configuration query clears entries");
         Assert.Equal("غير متاح", model.ConfigurationRevisionLabel, "failed configuration query is visible");
@@ -206,6 +271,7 @@ internal sealed class ShellScenarios
         Assert.Contains("FlowDirection=\"LeftToRight\"", xaml, "mixed-direction isolation");
         Assert.Contains("CNC-04", xaml, "Arabic and English workshop fixture");
         Assert.Contains("Windows / Rust", xaml, "mixed product fixture");
+        Assert.Contains("مرجع REF-١٢", xaml, "mixed reference marker fixture");
     }
 
     public void ShellOwnershipRulesAreEnforced()
@@ -231,6 +297,7 @@ internal sealed class ShellScenarios
 
         var coordinator = File.ReadAllText(Path.Combine(shell, "Features", "Operations", "OperationsCoordinator.cs"));
         Assert.Contains("SubmitConfigurationPatchAsync", coordinator, "typed configuration patch boundary");
+        Assert.Contains("SubmitReferenceMarkerAsync", coordinator, "typed reference marker boundary");
         Assert.False(coordinator.Contains("SendCommandAsync", StringComparison.Ordinal), "shell cannot submit generic commands");
 
         var app = File.ReadAllText(Path.Combine(shell, "App.xaml.cs"));
@@ -342,6 +409,7 @@ internal sealed class FakeEngine : IEngineShellBridge
             Query.ConfigGetKind => QueryResult.ForConfiguration(ShellScenariosConfiguration()),
             Query.SyncGetStatusKind => QueryResult.ForSyncStatus(new SyncStatus { Kind = SyncStatusKind.Current, Payload = new SyncStatusPayload() }),
             Query.UpdateGetStateKind => QueryResult.ForUpdateState(new UpdateState { Kind = UpdateStateKind.Idle, Payload = new UpdateStatePayload() }),
+            Query.ReferenceMarkerListKind => QueryResult.ForReferenceMarkers(new ReferenceMarkerPage { Items = [] }),
             _ => throw new InvalidOperationException("Unexpected fake query."),
         };
         return Task.FromResult(new QueryResponseEnvelope
@@ -358,6 +426,30 @@ internal sealed class FakeEngine : IEngineShellBridge
             RequestId = Guid.NewGuid(),
             CorrelationId = Guid.NewGuid(),
             Outcome = new CommandOutcome { Status = CommandOutcomeStatus.Succeeded, Payload = new CommandResult() },
+        });
+
+    public Task<CommandResponseEnvelope> SubmitReferenceMarkerAsync(UpsertReferenceMarker marker, Guid idempotencyKey, CancellationToken cancellationToken = default) =>
+        Task.FromResult(new CommandResponseEnvelope
+        {
+            RequestId = Guid.NewGuid(),
+            CorrelationId = Guid.NewGuid(),
+            Outcome = new CommandOutcome
+            {
+                Status = CommandOutcomeStatus.Succeeded,
+                Payload = new CommandResult
+                {
+                    Kind = PurpleKind.ReferenceMarkerUpserted,
+                    Payload = new PayloadClass
+                    {
+                        Id = marker.MarkerId,
+                        Label = marker.Label,
+                        Revision = (marker.ExpectedRevision ?? 0) + 1,
+                        Scope = new ScopeRef { Kind = "organization", Id = Guid.Parse("2ef36635-1d9d-4bd5-b0e4-fc4a67dfac90") },
+                        SyncState = ReferenceMarkerSyncState.Pending,
+                        UpdatedAt = 1_800_000_000_001,
+                    },
+                },
+            },
         });
 
     public Task<IEngineSubscription> SubscribeAsync(Subscription subscription, CancellationToken cancellationToken = default)
