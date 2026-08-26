@@ -22,7 +22,7 @@ A release candidate can advance only after every mandatory check succeeds on the
 
 | Required evidence | CI enforcement |
 | --- | --- |
-| Rust format, minimum version, warnings, tests | `rust-quality` |
+| Rust format, minimum version, warnings, full workspace tests on the supported Windows engine host | `rust-quality` |
 | Contract freshness and generated C#/Swift compatibility | `contracts-and-ipc`, `macos-bindings` |
 | IPC and engine lifecycle | `contracts-and-ipc`, `windows-desktop` |
 | Migrations and missing migration detection | Rust migration tests plus immutable `deploy/migrations.sha256` in `repository-policy` |
@@ -31,7 +31,7 @@ A release candidate can advance only after every mandatory check succeeds on the
 | Arabic/RTL, mixed-direction contracts, Windows shell behavior | `contracts-and-ipc`, `windows-desktop`, `macos-bindings`, `repository-policy` |
 | Documentation impact, metadata, links, ownership | `repository-policy` and documentation audit |
 | Desktop build, shell lifecycle, real-engine supervision | `windows-desktop` |
-| Server CLI and safe configuration | `server-smoke` |
+| Linux server build, CLI, and safe configuration | `server-smoke` |
 | Repeatable Windows and Linux-hosted server artifacts | `package-windows`, `package-server` |
 
 The workflow runs for every pull request and every push to `main` without path filters. Existing focused workflows can give faster feedback, but they do not replace mandatory validation. The repository-policy job compares pull requests with their base SHA and pushes with their prior SHA. A manual run requires the operator to supply a base SHA.
