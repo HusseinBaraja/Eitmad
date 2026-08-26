@@ -43,7 +43,24 @@ def write_migration_manifest() -> None:
     MIGRATION_MANIFEST.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def check_migrations(errors: list[str]) -> None:
+def migration_paths_at_revision(revision: str) -> list[str]:
+    output = subprocess.check_output(
+        ["git", "ls-tree", "-r", "--name-only", revision, "--", "server"],
+        cwd=ROOT,
+        text=True,
+    )
+    return sorted(
+        path
+        for path in output.splitlines()
+        if re.fullmatch(r"server/[^/]+/migrations/[^/]+\.sql", path)
+    )
+
+
+def migration_bytes_at_revision(revision: str, path: str) -> bytes:
+    return subprocess.check_output(["git", "show", f"{revision}:{path}"], cwd=ROOT)
+
+
+def check_migrations(errors: list[str], base: str | None = None) -> None:
     actual = [f"{digest}  {path}" for digest, path in migration_entries()]
     recorded = [line for line in MIGRATION_MANIFEST.read_text(encoding="utf-8").splitlines() if line and not line.startswith("#")]
     if actual != recorded:
@@ -51,6 +68,12 @@ def check_migrations(errors: list[str]) -> None:
     numbers = sorted(int(Path(path).name.split("_", 1)[0]) for _, path in migration_entries())
     if numbers != list(range(1, len(numbers) + 1)):
         errors.append("server migration numbers must be globally unique and contiguous")
+    if base:
+        current = {path: digest for digest, path in migration_entries()}
+        for path in migration_paths_at_revision(base):
+            digest = hashlib.sha256(migration_bytes_at_revision(base, path)).hexdigest()
+            if current.get(path) != digest:
+                errors.append(f"released migration changed or was deleted: {path}")
 
 
 def check_shell_authority(errors: list[str]) -> None:
@@ -158,7 +181,7 @@ def main() -> int:
         write_migration_manifest()
         return 0
     errors: list[str] = []
-    check_migrations(errors)
+    check_migrations(errors, arguments.base)
     check_shell_authority(errors)
     check_unsafe_logging(errors)
     check_secret_literals(errors)

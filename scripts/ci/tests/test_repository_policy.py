@@ -33,6 +33,34 @@ class RepositoryPolicyTests(unittest.TestCase):
                 policy.check_migrations(errors)
                 self.assertTrue(any("checksum drifted" in error for error in errors))
 
+    def test_migration_inventory_rejects_base_changes_and_allows_new_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_value:
+            root = Path(temp_value)
+            existing = root / "server" / "control-plane" / "migrations" / "0001_initial.sql"
+            added = root / "server" / "control-plane" / "migrations" / "0002_added.sql"
+            existing.parent.mkdir(parents=True)
+            existing.write_text("changed\n", encoding="utf-8")
+            added.write_text("new\n", encoding="utf-8")
+            manifest = root / "deploy" / "migrations.sha256"
+            manifest.parent.mkdir()
+            manifest.write_text(
+                "\n".join(
+                    f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.relative_to(root).as_posix()}"
+                    for path in (existing, added)
+                ) + "\n",
+                encoding="utf-8",
+            )
+            base_path = "server/control-plane/migrations/0001_initial.sql"
+            with (
+                patch.object(policy, "ROOT", root),
+                patch.object(policy, "MIGRATION_MANIFEST", manifest),
+                patch.object(policy, "migration_paths_at_revision", return_value=[base_path]),
+                patch.object(policy, "migration_bytes_at_revision", return_value=b"original\n"),
+            ):
+                errors: list[str] = []
+                policy.check_migrations(errors, "base")
+            self.assertEqual([f"released migration changed or was deleted: {base_path}"], errors)
+
     def test_shell_authority_rejects_direct_config_but_ignores_negative_tests(self) -> None:
         with tempfile.TemporaryDirectory() as temp_value:
             root = Path(temp_value)

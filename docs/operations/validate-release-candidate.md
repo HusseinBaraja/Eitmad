@@ -34,7 +34,9 @@ A release candidate can advance only after every mandatory check succeeds on the
 | Server CLI and safe configuration | `server-smoke` |
 | Repeatable Windows and server artifacts | `package-windows`, `package-server` |
 
-The workflow runs for every pull request and every push to `main` without path filters. Existing focused workflows can give faster feedback, but they do not replace mandatory validation.
+The workflow runs for every pull request and every push to `main` without path filters. Existing focused workflows can give faster feedback, but they do not replace mandatory validation. The repository-policy job compares pull requests with their base SHA and pushes with their prior SHA. A manual run requires the operator to supply a base SHA.
+
+That base comparison makes existing server migration paths and bytes immutable. A schema change must add a new numbered migration and refresh `deploy/migrations.sha256`; changing or deleting a migration present at the base revision fails policy validation even if the manifest was refreshed.
 
 ## Promotion checks outside hermetic CI
 
