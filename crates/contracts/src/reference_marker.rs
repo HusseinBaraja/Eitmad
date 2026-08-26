@@ -23,14 +23,17 @@ impl ReferenceMarkerLabel {
     ///
     /// # Errors
     ///
-    /// Returns an error for surrounding whitespace, control characters, or a
-    /// UTF-8 representation larger than [`MAX_REFERENCE_MARKER_LABEL_BYTES`].
+    /// Returns an error for surrounding whitespace, control or bidirectional
+    /// formatting characters, or a UTF-8 representation larger than
+    /// [`MAX_REFERENCE_MARKER_LABEL_BYTES`].
     pub fn parse(value: impl Into<String>) -> Result<Self, ReferenceMarkerLabelError> {
         let value = value.into();
         let valid = !value.is_empty()
             && value.len() <= MAX_REFERENCE_MARKER_LABEL_BYTES
             && value.trim() == value
-            && !value.chars().any(char::is_control);
+            && !value
+                .chars()
+                .any(|character| character.is_control() || is_bidi_format_control(character));
         valid
             .then_some(Self(value))
             .ok_or(ReferenceMarkerLabelError)
@@ -40,6 +43,13 @@ impl ReferenceMarkerLabel {
     pub fn as_str(&self) -> &str {
         &self.0
     }
+}
+
+fn is_bidi_format_control(character: char) -> bool {
+    matches!(
+        character,
+        '\u{061c}' | '\u{200e}'..='\u{200f}' | '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}'
+    )
 }
 
 impl<'de> Deserialize<'de> for ReferenceMarkerLabel {
@@ -150,8 +160,10 @@ mod tests {
     fn labels_preserve_arabic_and_mixed_direction_text() {
         let label = ReferenceMarkerLabel::parse("مرجع REF-١٢").unwrap();
         assert_eq!(label.as_str(), "مرجع REF-١٢");
+        assert!(ReferenceMarkerLabel::parse("مر\u{200d}جع").is_ok());
         assert!(ReferenceMarkerLabel::parse(" مرجع").is_err());
         assert!(ReferenceMarkerLabel::parse("x\n").is_err());
+        assert!(ReferenceMarkerLabel::parse("REF-12\u{202e}txt").is_err());
         assert!(ReferenceMarkerLabel::parse("أ".repeat(129)).is_err());
     }
 

@@ -47,7 +47,7 @@ Capability `eitmad.capability.reference-marker.v1` and schema `eitmad.schema.ref
 | Subscription | `eitmad.reference-marker.changed.subscribe.v1` | resumable discrete stream |
 | Event | `eitmad.reference-marker.changed.event.v1` | compact ID, scope, revision, time, and change ID |
 
-`ReferenceMarkerLabel` preserves Unicode bytes and mixed direction. It rejects an empty value, surrounding whitespace, control characters, and UTF-8 data above 256 bytes. `ListReferenceMarkers` requires `limit` from `1` through `100`; the repository reads `limit + 1` to produce `next`. The event omits the label so subscription traffic cannot become a large inline state copy. The shell queries the bounded page after a change notice.
+`ReferenceMarkerLabel` preserves Unicode bytes and mixed direction. It rejects an empty value, surrounding whitespace, control characters, bidirectional formatting controls, and UTF-8 data above 256 bytes. Arabic letters and join controls remain valid. `ListReferenceMarkers` requires `limit` from `1` through `100`; the repository reads `limit + 1` to produce `next`. The event omits the label so subscription traffic cannot become a large inline state copy. The shell queries the bounded page after a change notice.
 
 Representative accepted text is `مرجع REF-١٢`. Rust does not insert bidi controls or normalize this value.
 
