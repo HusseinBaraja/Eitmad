@@ -1305,6 +1305,11 @@ mod tests {
     struct TestDispatcher;
     struct SlowDispatcher;
 
+    struct BlockingDispatcher {
+        entered: mpsc::UnboundedSender<()>,
+        permits: Arc<tokio::sync::Semaphore>,
+    }
+
     struct RevocableDispatcher {
         authorized: Arc<AtomicBool>,
         checked: Option<Arc<tokio::sync::Notify>>,
@@ -1370,6 +1375,30 @@ mod tests {
             _query: Query,
         ) -> Result<QueryResult, ContractError> {
             tokio::time::sleep(Duration::from_millis(50)).await;
+            Ok(QueryResult::SyncStatus(SyncStatus::Offline))
+        }
+    }
+
+    #[async_trait]
+    impl CommandDispatcher for BlockingDispatcher {
+        async fn dispatch_command(
+            &self,
+            _context: DispatchContext,
+            _command: Command,
+        ) -> Result<CommandResult, ContractError> {
+            unreachable!("unexpected command fixture")
+        }
+    }
+
+    #[async_trait]
+    impl QueryDispatcher for BlockingDispatcher {
+        async fn dispatch_query(
+            &self,
+            _context: DispatchContext,
+            _query: Query,
+        ) -> Result<QueryResult, ContractError> {
+            self.entered.send(()).unwrap();
+            self.permits.acquire().await.unwrap().forget();
             Ok(QueryResult::SyncStatus(SyncStatus::Offline))
         }
     }
@@ -2210,9 +2239,83 @@ mod tests {
         ));
     }
 
+    #[tokio::test]
+    async fn each_connection_enforces_the_in_flight_request_limit() {
+        let (entered_sender, mut entered_receiver) = mpsc::unbounded_channel();
+        let permits = Arc::new(tokio::sync::Semaphore::new(0));
+        let (shutdown, _) = mpsc::channel(1);
+        let service = LocalIpcServer::new(
+            LocalIpcConfiguration::development("test".to_owned(), Some("token".to_owned())),
+            Arc::new(BlockingDispatcher {
+                entered: entered_sender,
+                permits: Arc::clone(&permits),
+            }),
+            shutdown,
+        );
+        let (mut client, server) = tokio::io::duplex(1024 * 1024);
+        let (cancel_sender, cancel_receiver) = watch::channel(false);
+        let connection = tokio::spawn(async move {
+            service
+                .serve_connection(server, cancel_receiver)
+                .await
+                .unwrap();
+        });
+
+        write_frame(
+            &mut client,
+            &IpcClientMessage::Handshake(handshake(PROTOCOL_VERSION, "token")),
+        )
+        .await
+        .unwrap();
+        let IpcServerMessage::Handshake(response) = read_frame(&mut client).await.unwrap() else {
+            panic!("handshake response expected");
+        };
+        let HandshakeOutcome::Accepted(accepted) = response.outcome else {
+            panic!("handshake should succeed");
+        };
+
+        for _ in 0..=MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION {
+            write_frame(
+                &mut client,
+                &IpcClientMessage::Query(eitmad_contracts::transport::QueryEnvelope {
+                    protocol_version: PROTOCOL_VERSION,
+                    request_id: RequestId::new(uuid::Uuid::new_v4()),
+                    correlation_id: CorrelationId::new(uuid::Uuid::new_v4()),
+                    causation_id: None,
+                    authorization: accepted.authorization.clone(),
+                    deadline: UnixMillis(now().0 + 10_000),
+                    query: Query::SyncStatus(GetSyncStatus {}),
+                }),
+            )
+            .await
+            .unwrap();
+        }
+
+        for _ in 0..MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION {
+            tokio::time::timeout(Duration::from_secs(1), entered_receiver.recv())
+                .await
+                .expect("the first 64 requests should enter the dispatcher")
+                .expect("dispatcher entry channel should stay open");
+        }
+        assert!(
+            tokio::time::timeout(Duration::from_millis(50), entered_receiver.recv())
+                .await
+                .is_err(),
+            "request 65 must wait for in-flight capacity"
+        );
+
+        permits.add_permits(1);
+        tokio::time::timeout(Duration::from_secs(1), entered_receiver.recv())
+            .await
+            .expect("request 65 should enter after capacity is released")
+            .expect("dispatcher entry channel should stay open");
+
+        cancel_sender.send(true).unwrap();
+        connection.await.unwrap();
+    }
+
     #[test]
-    fn each_connection_has_bounded_concurrent_work() {
-        assert_eq!(MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 64);
+    fn each_connection_has_bounded_active_subscriptions() {
         assert_eq!(MAX_ACTIVE_SUBSCRIPTIONS_PER_CONNECTION, 64);
     }
 }
