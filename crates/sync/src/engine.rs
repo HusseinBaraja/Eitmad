@@ -26,7 +26,8 @@ use uuid::Uuid;
 
 use crate::SyncAuthorization;
 
-const ENGINE_STATE_VERSION: u32 = 1;
+const LEGACY_ENGINE_STATE_VERSION: u32 = 1;
+const ENGINE_STATE_VERSION: u32 = 2;
 const MAX_REPLAY_ENTRIES: usize = 2_048;
 pub const MAX_PENDING_SYNC_CHANGES: usize = 2_048;
 pub const MAX_PENDING_SYNC_COMMANDS: usize = 2_048;
@@ -128,6 +129,8 @@ struct ProcessedDelivery {
 #[serde(rename_all = "camelCase")]
 struct EngineState {
     state_version: u32,
+    #[serde(default)]
+    legacy_oversized_queues: bool,
     metadata: SyncMetadata,
     records: BTreeMap<RecordId, ChangeRecord>,
     confirmed_records: BTreeMap<RecordId, ChangeRecord>,
@@ -145,6 +148,7 @@ impl EngineState {
     fn new(mode: SyncMode) -> Self {
         Self {
             state_version: ENGINE_STATE_VERSION,
+            legacy_oversized_queues: false,
             metadata: SyncMetadata {
                 mode,
                 connection: ConnectionState::Offline,
@@ -994,6 +998,11 @@ impl SyncEngine {
     }
 
     fn persist(&mut self, audit: &MutationAuditRecord) -> Result<(), SyncEngineError> {
+        if self.state.pending_changes.len() <= MAX_PENDING_SYNC_CHANGES
+            && self.state.pending_commands.len() <= MAX_PENDING_SYNC_COMMANDS
+        {
+            self.state.legacy_oversized_queues = false;
+        }
         let encoded = serde_json::to_vec(&self.state).map_err(|_| SyncEngineError::CorruptState)?;
         match self
             .store
@@ -1047,14 +1056,17 @@ fn decode_stored_state(
     if stored.application_mode != mode_name(mode) {
         return Err(SyncEngineError::IncompatibleMode);
     }
-    if stored.state_version != ENGINE_STATE_VERSION {
+    if !matches!(
+        stored.state_version,
+        LEGACY_ENGINE_STATE_VERSION | ENGINE_STATE_VERSION
+    ) {
         return Err(SyncEngineError::UnsupportedStateVersion {
             found: stored.state_version,
         });
     }
-    let state = serde_json::from_slice::<EngineState>(&stored.state_json)
+    let mut state = serde_json::from_slice::<EngineState>(&stored.state_json)
         .map_err(|_| SyncEngineError::CorruptState)?;
-    if state.state_version != ENGINE_STATE_VERSION {
+    if state.state_version != stored.state_version {
         return Err(SyncEngineError::UnsupportedStateVersion {
             found: state.state_version,
         });
@@ -1062,9 +1074,12 @@ fn decode_stored_state(
     if state.metadata.mode != mode {
         return Err(SyncEngineError::CorruptState);
     }
-    if state.pending_changes.len() > MAX_PENDING_SYNC_CHANGES
-        || state.pending_commands.len() > MAX_PENDING_SYNC_COMMANDS
-    {
+    let queues_are_oversized = state.pending_changes.len() > MAX_PENDING_SYNC_CHANGES
+        || state.pending_commands.len() > MAX_PENDING_SYNC_COMMANDS;
+    if stored.state_version == LEGACY_ENGINE_STATE_VERSION {
+        state.state_version = ENGINE_STATE_VERSION;
+        state.legacy_oversized_queues = queues_are_oversized;
+    } else if queues_are_oversized && !state.legacy_oversized_queues {
         return Err(SyncEngineError::CorruptState);
     }
     Ok(state)
@@ -1267,5 +1282,40 @@ mod tests {
             decode_stored_state(&stored, SyncMode::LocalFirst),
             Err(SyncEngineError::CorruptState)
         ));
+    }
+
+    #[test]
+    fn legacy_oversized_pending_work_is_preserved_for_drain() {
+        let scope = ScopeRef {
+            kind: ScopeKind::parse("organization").unwrap(),
+            id: ScopeId::new(Uuid::from_u128(1)),
+        };
+        let record = ChangeRecord {
+            change_id: ChangeId::new(Uuid::from_u128(2)),
+            record_id: RecordId::new(Uuid::from_u128(3)),
+            scope,
+            operation: ChangeOperation::Tombstone,
+            base_revision: None,
+            revision: 1,
+            changed_at: UnixMillis(1),
+            idempotency_key: IdempotencyKey::new(Uuid::from_u128(4)),
+            payload: None,
+            merge: None,
+        };
+        let mut state = EngineState::new(SyncMode::LocalFirst);
+        state.state_version = LEGACY_ENGINE_STATE_VERSION;
+        state.pending_changes = vec![record; MAX_PENDING_SYNC_CHANGES + 1];
+        let stored = StoredSyncState {
+            application_mode: mode_name(SyncMode::LocalFirst).to_owned(),
+            state_version: LEGACY_ENGINE_STATE_VERSION,
+            revision: 1,
+            state_json: serde_json::to_vec(&state).unwrap(),
+        };
+
+        let migrated = decode_stored_state(&stored, SyncMode::LocalFirst).unwrap();
+
+        assert_eq!(migrated.state_version, ENGINE_STATE_VERSION);
+        assert!(migrated.legacy_oversized_queues);
+        assert_eq!(migrated.pending_changes.len(), MAX_PENDING_SYNC_CHANGES + 1);
     }
 }

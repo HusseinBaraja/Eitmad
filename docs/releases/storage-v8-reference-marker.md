@@ -25,7 +25,7 @@ Storage version `8` adds checksummed migration `reference-marker.initial.v1`, th
 - Supported versions `2` through `7` upgrade after a validated `eitmad.pre-migration-vN-to-v8.sqlite3` backup.
 - Version `1`, incomplete or changed history, schema drift, and versions newer than `8` fail closed.
 - Older engines cannot open version `8`. Do not use an in-place binary rollback after version `8` accepts writes.
-- Peers advertise `eitmad.capability.reference-marker.v1` and optional `eitmad.schema.reference-marker.v1` version `1` before using the feature.
+- Peers advertise `eitmad.capability.reference-marker.v1` and `eitmad.schema.reference-marker.v1` version `1` before using the feature.
 
 ## Rollout and verification
 
