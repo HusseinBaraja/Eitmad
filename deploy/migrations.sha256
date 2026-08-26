@@ -1,0 +1,5 @@
+# Update with: python scripts/ci/check_repository_policy.py --write-migration-manifest
+# Paths use forward slashes and are sorted. Released migration bytes are immutable.
+2baee60055cb0b156f13459733c7555ad757531bd8657cbb40fd3948e162c101  server/admin-plane/migrations/0003_admin_foundation.sql
+720736109ed26906abb106d2b277dd9e1b89bb3a8d5821ae6a5ed5a4fa6446b2  server/control-plane/migrations/0001_control_foundation.sql
+1c5675c784a08a8d56da2ffd472c59011caf8799be3c89f3f94d137dc70039af  server/sync-plane/migrations/0002_sync_foundation.sql

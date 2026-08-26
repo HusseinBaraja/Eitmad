@@ -1,0 +1,39 @@
+schema_version = 1
+
+[channels]
+production = "stable"
+staging = "beta"
+development = "canary"
+
+[artifacts.windows_desktop]
+enabled = true
+format = "zip"
+runtime = "win-x64"
+engine_package = "eitmad-engine-cli"
+shell_project = "shells/windows/Eitmad.WindowsShell.csproj"
+production_installer = "msix"
+update_adapter_status = "not-implemented"
+
+[artifacts.macos_desktop]
+enabled = false
+format = "pkg"
+production_installer = "pkg"
+update_adapter_status = "not-implemented"
+
+[artifacts.linux_desktop]
+enabled = false
+format = "deb"
+additional_formats = ["rpm", "appimage"]
+update_adapter_status = "not-implemented"
+
+[artifacts.server]
+enabled = true
+format = "tar.gz"
+runtime = "linux-x64"
+rust_package = "eitmad-server"
+
+[integrity]
+digest = "sha256"
+manifest_signature = "ed25519"
+require_immutable_urls = true
+
