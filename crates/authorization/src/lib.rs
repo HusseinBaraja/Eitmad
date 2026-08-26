@@ -693,7 +693,17 @@ mod tests {
         );
         assert!(
             service
+                .authorize(&authorization(2, 10), REFERENCE_MARKER_WRITE_PERMISSION)
+                .is_ok()
+        );
+        assert!(
+            service
                 .authorize(&authorization(3, 10), CONFIG_READ_PERMISSION)
+                .is_ok()
+        );
+        assert!(
+            service
+                .authorize(&authorization(3, 10), REFERENCE_MARKER_READ_PERMISSION)
                 .is_ok()
         );
         assert_eq!(
@@ -702,6 +712,10 @@ mod tests {
         );
         assert_eq!(
             service.authorize(&authorization(3, 10), SENSITIVE_DEBUG_PERMISSION),
+            Err(AuthorizationError::Denied)
+        );
+        assert_eq!(
+            service.authorize(&authorization(3, 10), REFERENCE_MARKER_WRITE_PERMISSION),
             Err(AuthorizationError::Denied)
         );
     }

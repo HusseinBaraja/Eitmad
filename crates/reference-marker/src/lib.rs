@@ -392,6 +392,66 @@ mod tests {
     }
 
     #[test]
+    fn upsert_reports_the_stored_revision_on_conflict() {
+        let directory = TempDir::new().unwrap();
+        let store = AuthorityStore::open(directory.path()).unwrap();
+        let authorization_service =
+            AuthorizationService::new(store.clone()).with_development_ephemeral_owner(true);
+        let service = ReferenceMarkerService::new(store, authorization_service);
+        let authorization = authorization(1);
+        let marker_id = ReferenceMarkerId::new(Uuid::from_u128(41));
+        let command = UpsertReferenceMarker {
+            marker_id,
+            expected_revision: None,
+            label: ReferenceMarkerLabel::parse("مرجع أول").unwrap(),
+        };
+        service
+            .upsert(&mutation(authorization.clone(), 3), &command)
+            .unwrap();
+
+        let error = service
+            .upsert(
+                &mutation(authorization, 4),
+                &UpsertReferenceMarker {
+                    marker_id,
+                    expected_revision: None,
+                    label: ReferenceMarkerLabel::parse("مرجع ثان").unwrap(),
+                },
+            )
+            .unwrap_err();
+
+        assert_eq!(
+            error,
+            ReferenceMarkerError::RevisionConflict {
+                expected_revision: None,
+                actual_revision: Some(1),
+            }
+        );
+    }
+
+    #[test]
+    fn upsert_replays_the_original_marker() {
+        let directory = TempDir::new().unwrap();
+        let store = AuthorityStore::open(directory.path()).unwrap();
+        let authorization_service =
+            AuthorizationService::new(store.clone()).with_development_ephemeral_owner(true);
+        let service = ReferenceMarkerService::new(store, authorization_service);
+        let context = mutation(authorization(1), 5);
+        let command = UpsertReferenceMarker {
+            marker_id: ReferenceMarkerId::new(Uuid::from_u128(42)),
+            expected_revision: None,
+            label: ReferenceMarkerLabel::parse("مرجع مكرر").unwrap(),
+        };
+        let original = service.upsert(&context, &command).unwrap();
+
+        let replay = service.upsert(&context, &command).unwrap();
+
+        assert_eq!(replay.marker, original.marker);
+        assert!(!replay.changed);
+        assert!(replay.replayed);
+    }
+
+    #[test]
     fn denied_mutation_is_audited_without_storing_the_label() {
         let directory = TempDir::new().unwrap();
         let store = AuthorityStore::open(directory.path()).unwrap();
