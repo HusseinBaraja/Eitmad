@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust engine maintainers"
-last_verified: "2026-07-18"
+last_verified: "2026-08-26"
 review_triggers:
   - "engine lifecycle states, health semantics, process modes, authority locking, or shutdown behavior changes"
 keywords:
@@ -58,7 +58,13 @@ Readiness is not the same as process liveness:
 
 `RuntimeComponent` implementations start in registration order and stop in reverse order. A partial startup failure stops every component that already started before releasing the authority lock. Components return an opaque `ComponentFailure`; raw causes do not cross the public diagnostic boundary.
 
-The authority store is the first product component registered by the CLI. It applies and verifies private directory/file permissions, then opens and transactionally migrates `eitmad.sqlite3` only after the authority lock is held and before readiness. Diagnostic mode does not start that component; its read-only compatibility check accepts an absent pre-first-start database and reports an existing corrupt, newer, or migration-incompatible database as unhealthy after testing migrations against an in-memory copy.
+The authority store is the first product component registered by the CLI. It applies and verifies private directory/file permissions, then opens and transactionally migrates `eitmad.sqlite3` only after the authority lock is held and before readiness. Normal readiness runs quick integrity against that already-open handle. It does not reopen or copy the database. Diagnostic mode does not start the component; its read-only compatibility check accepts an absent pre-first-start database and reports an existing corrupt, newer, or migration-incompatible database as unhealthy after testing migrations against an in-memory copy.
+
+## Performance diagnostics and bounds
+
+Every `HealthCheckResult` and `DiagnosticReport` includes measured elapsed microseconds. The report also returns `PerformanceExpectations` for startup, idle CPU and working set, common query and command latency, background-sync batch size, and background-sync cycle time. These fields are stable diagnostic evidence, not a promise that one development machine will meet a release-build budget.
+
+Startup publication recovery reads at most 64 rows per storage page and stops after 1,024 rows. Local IPC accepts at most 64 in-flight requests per connection. These bounds prevent a large backlog or chatty client from creating unbounded startup or task work. Use [Diagnose runtime performance](../../troubleshooting/runtime-performance.md) for the measurement procedure and escalation evidence.
 
 ## Process identity and single authority
 

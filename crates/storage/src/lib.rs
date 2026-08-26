@@ -7,6 +7,7 @@ mod export;
 mod identity;
 mod migrations;
 mod recovery;
+mod reference_marker;
 mod sync_state;
 
 use std::{
@@ -31,13 +32,17 @@ use eitmad_observability_audit::MutationAuditRecord;
 pub use export::{ExportDataClass, ExportScope, LOCAL_DATA_EXPORT_FORMAT, LocalDataExportPolicy};
 pub use identity::{DeviceIdentity, IdentityTopology, PersistentSession, SessionConnectivity};
 pub use recovery::{RecoveryArtifact, RecoveryArtifactKind, RestoreOutcome};
+pub use reference_marker::{
+    MAX_REFERENCE_MARKER_SYNC_BATCH, ReferenceMarkerCommit, ReferenceMarkerCommitOutcome,
+};
 use rusqlite::{Connection, OpenFlags, OptionalExtension as _, TransactionBehavior};
 pub use sync_state::{StoredSyncState, SyncStateCommitOutcome};
 
 pub const DATABASE_FILE_NAME: &str = "eitmad.sqlite3";
-pub const CURRENT_STORAGE_VERSION: u32 = 7;
+pub const CURRENT_STORAGE_VERSION: u32 = 8;
 pub const MIN_SUPPORTED_STORAGE_VERSION: u32 = 2;
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
+pub const MAX_PUBLICATION_RECOVERY_PAGE: u32 = 64;
 
 #[derive(Clone, Debug)]
 pub struct AuthorityStore {
@@ -269,21 +274,27 @@ impl AuthorityStore {
             .transpose()
     }
 
-    /// Loads every mutation event awaiting in-process publication.
+    /// Loads one bounded page of mutation events awaiting in-process publication.
     ///
     /// # Errors
     ///
     /// Returns a sanitized storage error for unreadable or malformed outbox state.
-    pub fn pending_publications(&self) -> Result<Vec<PendingPublication>, StorageError> {
+    pub fn pending_publications(
+        &self,
+        limit: u32,
+    ) -> Result<Vec<PendingPublication>, StorageError> {
+        if !(1..=MAX_PUBLICATION_RECOVERY_PAGE).contains(&limit) {
+            return Err(StorageError);
+        }
         let connection = self.open_connection()?;
         let mut statement = connection
             .prepare(
                 "SELECT scope_kind, scope_id, idempotency_key, event_json, policy_changed
-                 FROM publication_outbox ORDER BY rowid",
+                 FROM publication_outbox ORDER BY rowid LIMIT ?1",
             )
             .map_err(|_| StorageError)?;
         let rows = statement
-            .query_map([], |row| {
+            .query_map([limit], |row| {
                 Ok((
                     row.get::<_, String>(0)?,
                     row.get::<_, String>(1)?,
@@ -313,6 +324,42 @@ impl AuthorityStore {
             })
         })
         .collect()
+    }
+
+    /// Completes one bounded page of publications in one disk transaction.
+    ///
+    /// # Errors
+    ///
+    /// Returns a sanitized error if any exact publication cannot be removed.
+    pub fn complete_publications(
+        &self,
+        publications: &[PendingPublication],
+    ) -> Result<(), StorageError> {
+        if publications.len()
+            > usize::try_from(MAX_PUBLICATION_RECOVERY_PAGE).map_err(|_| StorageError)?
+        {
+            return Err(StorageError);
+        }
+        self.write_transaction(|transaction| {
+            for publication in publications {
+                let (scope_kind, scope_id) = scope_parts(&publication.scope);
+                let changed = transaction
+                    .execute(
+                        "DELETE FROM publication_outbox
+                         WHERE scope_kind = ?1 AND scope_id = ?2 AND idempotency_key = ?3",
+                        (
+                            scope_kind,
+                            scope_id,
+                            publication.idempotency_key.value().to_string(),
+                        ),
+                    )
+                    .map_err(|_| StorageError)?;
+                if changed != 1 {
+                    return Err(StorageError);
+                }
+            }
+            Ok(())
+        })
     }
 
     /// Marks one successfully published mutation event complete.

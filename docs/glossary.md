@@ -121,6 +121,7 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | إعداد النظام | Configuration setting | A Rust-registered typed value with an authoritative default, validator, sensitivity, restart requirement, and scope. |
 | لقطة الإعدادات | Configuration snapshot | The stable, revisioned, redacted projection that a shell may read; it is not a shell-owned config file. |
 | مركز العمليات | Operations center | The Arabic-first Windows shell surface that presents Rust-owned health, readiness, sync, update, configuration, job, notification, and error state. It is not a control-plane authority. |
+| العلامة المرجعية | Reference marker | A product-neutral, scoped, bounded text value used to prove the complete architecture path. Rust owns validation, authorization, storage, audit, sync, and contracts. The Windows UI calls it **الميزة المرجعية**. |
 | المحرك غير متاح الآن | Engine unavailable | A Windows shell availability state that means the supervised process or typed IPC channel is not usable. It does not mean authoritative data was deleted. |
 | تعديل الإعدادات | Configuration patch | A typed optimistic request containing expected revision and changed keys; Rust validates and commits it atomically. |
 | مراجعة الإعدادات | Configuration revision | A monotonic per-scope number incremented once by a real effective patch, not by a no-op or replay. |

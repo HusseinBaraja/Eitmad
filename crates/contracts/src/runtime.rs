@@ -105,6 +105,33 @@ pub struct HealthCheckResult {
     pub impact: HealthCheckImpact,
     pub observed_at: UnixMillis,
     pub error: Option<ContractError>,
+    pub elapsed_micros: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PerformanceExpectations {
+    pub startup_ready_millis: u64,
+    pub idle_cpu_basis_points: u32,
+    pub idle_working_set_mib: u32,
+    pub common_query_p95_millis: u64,
+    pub common_command_p95_millis: u64,
+    pub background_sync_batch_records: u32,
+    pub background_sync_cycle_millis: u64,
+}
+
+impl Default for PerformanceExpectations {
+    fn default() -> Self {
+        Self {
+            startup_ready_millis: 3_000,
+            idle_cpu_basis_points: 50,
+            idle_working_set_mib: 150,
+            common_query_p95_millis: 50,
+            common_command_p95_millis: 100,
+            background_sync_batch_records: 50,
+            background_sync_cycle_millis: 1_000,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -128,6 +155,8 @@ pub struct DiagnosticReport {
     pub ready_to_start: bool,
     pub checks: Vec<HealthCheckResult>,
     pub observed_at: UnixMillis,
+    pub elapsed_micros: u64,
+    pub performance_expectations: PerformanceExpectations,
 }
 
 #[cfg(test)]
@@ -141,5 +170,14 @@ mod tests {
         assert!(LifecycleState::Stopping.is_live());
         assert!(!LifecycleState::Stopped.is_live());
         assert!(!LifecycleState::Failed.is_live());
+    }
+
+    #[test]
+    fn performance_expectations_cover_runtime_hot_paths() {
+        let expectations = PerformanceExpectations::default();
+        assert!(expectations.startup_ready_millis <= 3_000);
+        assert!(expectations.idle_cpu_basis_points <= 50);
+        assert!(expectations.common_query_p95_millis < expectations.startup_ready_millis);
+        assert_eq!(expectations.background_sync_batch_records, 50);
     }
 }

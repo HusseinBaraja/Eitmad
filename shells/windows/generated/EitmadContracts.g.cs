@@ -536,6 +536,22 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("payload")]
         public UpdateStatePayload Payload { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("id")]
+        public Guid? Id { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("label")]
+        public string Label { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("syncState")]
+        public ReferenceMarkerSyncState? SyncState { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("updatedAt")]
+        public long? UpdatedAt { get; set; }
     }
 
     public partial class ConfigEntry
@@ -620,11 +636,17 @@ namespace Eitmad.Contracts
         [JsonPropertyName("checks")]
         public HealthCheckResult[] Checks { get; set; }
 
+        [JsonPropertyName("elapsedMicros")]
+        public long ElapsedMicros { get; set; }
+
         [JsonPropertyName("identity")]
         public EngineProcessIdentity Identity { get; set; }
 
         [JsonPropertyName("observedAt")]
         public long ObservedAt { get; set; }
+
+        [JsonPropertyName("performanceExpectations")]
+        public PerformanceExpectations PerformanceExpectations { get; set; }
 
         [JsonPropertyName("readyToStart")]
         public bool ReadyToStart { get; set; }
@@ -635,6 +657,9 @@ namespace Eitmad.Contracts
 
     public partial class HealthCheckResult
     {
+        [JsonPropertyName("elapsedMicros")]
+        public long ElapsedMicros { get; set; }
+
         [JsonPropertyName("error")]
         public ContractError Error { get; set; }
 
@@ -691,6 +716,30 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("startedAt")]
         public long StartedAt { get; set; }
+    }
+
+    public partial class PerformanceExpectations
+    {
+        [JsonPropertyName("backgroundSyncBatchRecords")]
+        public long BackgroundSyncBatchRecords { get; set; }
+
+        [JsonPropertyName("backgroundSyncCycleMillis")]
+        public long BackgroundSyncCycleMillis { get; set; }
+
+        [JsonPropertyName("commonCommandP95Millis")]
+        public long CommonCommandP95Millis { get; set; }
+
+        [JsonPropertyName("commonQueryP95Millis")]
+        public long CommonQueryP95Millis { get; set; }
+
+        [JsonPropertyName("idleCpuBasisPoints")]
+        public long IdleCpuBasisPoints { get; set; }
+
+        [JsonPropertyName("idleWorkingSetMib")]
+        public long IdleWorkingSetMib { get; set; }
+
+        [JsonPropertyName("startupReadyMillis")]
+        public long StartupReadyMillis { get; set; }
     }
 
     public partial class EffectivePermissions
@@ -1289,6 +1338,10 @@ namespace Eitmad.Contracts
         public CancelOperation CommandOperationCancel { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Command_ReferenceMarkerUpsert")]
+        public UpsertReferenceMarker CommandReferenceMarkerUpsert { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Command_UpdateReportInstallerOutcome")]
         public ReportInstallerOutcome CommandUpdateReportInstallerOutcome { get; set; }
 
@@ -1319,6 +1372,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Event_RecordChangedEvent")]
         public RecordChangeNotice EventRecordChangedEvent { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Event_ReferenceMarkerChangedEvent")]
+        public ReferenceMarkerChangeNotice EventReferenceMarkerChangedEvent { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Event_SyncStatusEvent")]
@@ -1401,6 +1458,10 @@ namespace Eitmad.Contracts
         public Dictionary<string, object> QueryPermissionsGetEffective { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Query_ReferenceMarkerList")]
+        public ListReferenceMarkers QueryReferenceMarkerList { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Query_SyncGetStatus")]
         public Dictionary<string, object> QuerySyncGetStatus { get; set; }
 
@@ -1415,6 +1476,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_EffectivePermissions")]
         public EffectivePermissions QueryResultEffectivePermissions { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("QueryResult_ReferenceMarkers")]
+        public ReferenceMarkerPage QueryResultReferenceMarkers { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_ScopeRelationships")]
@@ -1487,6 +1552,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Subscription_RecordChangedSubscribe")]
         public Dictionary<string, object> SubscriptionRecordChangedSubscribe { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Subscription_ReferenceMarkerChangedSubscribe")]
+        public Dictionary<string, object> SubscriptionReferenceMarkerChangedSubscribe { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Subscription_SyncStatusSubscribe")]
@@ -1593,6 +1662,18 @@ namespace Eitmad.Contracts
     {
         [JsonPropertyName("operationId")]
         public Guid OperationId { get; set; }
+    }
+
+    public partial class UpsertReferenceMarker
+    {
+        [JsonPropertyName("expectedRevision")]
+        public long? ExpectedRevision { get; set; }
+
+        [JsonPropertyName("label")]
+        public string Label { get; set; }
+
+        [JsonPropertyName("markerId")]
+        public Guid MarkerId { get; set; }
     }
 
     public partial class ReportInstallerOutcome
@@ -1719,6 +1800,24 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("schemaId")]
         public string SchemaId { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+    }
+
+    public partial class ReferenceMarkerChangeNotice
+    {
+        [JsonPropertyName("changedAt")]
+        public long ChangedAt { get; set; }
+
+        [JsonPropertyName("changeId")]
+        public Guid ChangeId { get; set; }
+
+        [JsonPropertyName("markerId")]
+        public Guid MarkerId { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
 
         [JsonPropertyName("scope")]
         public ScopeRef Scope { get; set; }
@@ -1971,6 +2070,45 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("limit")]
         public long Limit { get; set; }
+    }
+
+    public partial class ListReferenceMarkers
+    {
+        [JsonPropertyName("after")]
+        public Guid? After { get; set; }
+
+        [JsonPropertyName("limit")]
+        public long Limit { get; set; }
+    }
+
+    public partial class ReferenceMarkerPage
+    {
+        [JsonPropertyName("items")]
+        public ReferenceMarker[] Items { get; set; }
+
+        [JsonPropertyName("next")]
+        public Guid? Next { get; set; }
+    }
+
+    public partial class ReferenceMarker
+    {
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("label")]
+        public string Label { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+
+        [JsonPropertyName("syncState")]
+        public ReferenceMarkerSyncState SyncState { get; set; }
+
+        [JsonPropertyName("updatedAt")]
+        public long UpdatedAt { get; set; }
     }
 
     public partial class RelationshipPage
@@ -2392,7 +2530,7 @@ namespace Eitmad.Contracts
 
     public enum LifecycleStage { AuthorityLock, ComponentShutdown, ComponentStartup, ProcessIdentity, ReadinessCheck };
 
-    public enum PurpleKind { ConfigurationUpdated, InstallerOutcomeRecorded, OperationCancelled, RelationshipGranted, RelationshipRevoked };
+    public enum PurpleKind { ConfigurationUpdated, InstallerOutcomeRecorded, OperationCancelled, ReferenceMarkerUpserted, RelationshipGranted, RelationshipRevoked };
 
     public enum ErrorParameterValueKind { Identifier, Integer, Text };
 
@@ -2403,6 +2541,8 @@ namespace Eitmad.Contracts
     public enum ConfigReadValueKind { Boolean, Decimal, Integer, Redacted, SecretReference, Text, TextList };
 
     public enum UpdateStateKind { Available, Checking, Downloading, Failed, Idle, InstallationHandoff, Installing, Paused, Preflight, Ready, RecoveryRequired, Revoked, Succeeded, Verifying };
+
+    public enum ReferenceMarkerSyncState { Confirmed, Pending };
 
     public enum RetryDispositionKind { Never, SafeAfterDelay, SafeImmediately };
 
@@ -2541,6 +2681,7 @@ namespace Eitmad.Contracts
                 ConfigReadValueKindConverter.Singleton,
                 ConfigReadValueValueConverter.Singleton,
                 UpdateStateKindConverter.Singleton,
+                ReferenceMarkerSyncStateConverter.Singleton,
                 RetryDispositionKindConverter.Singleton,
                 CommandOutcomeStatusConverter.Singleton,
                 HealthCheckImpactConverter.Singleton,
@@ -3008,6 +3149,8 @@ namespace Eitmad.Contracts
                     return PurpleKind.InstallerOutcomeRecorded;
                 case "operationCancelled":
                     return PurpleKind.OperationCancelled;
+                case "referenceMarkerUpserted":
+                    return PurpleKind.ReferenceMarkerUpserted;
                 case "relationshipGranted":
                     return PurpleKind.RelationshipGranted;
                 case "relationshipRevoked":
@@ -3028,6 +3171,9 @@ namespace Eitmad.Contracts
                     return;
                 case PurpleKind.OperationCancelled:
                     JsonSerializer.Serialize(writer, "operationCancelled", options);
+                    return;
+                case PurpleKind.ReferenceMarkerUpserted:
+                    JsonSerializer.Serialize(writer, "referenceMarkerUpserted", options);
                     return;
                 case PurpleKind.RelationshipGranted:
                     JsonSerializer.Serialize(writer, "relationshipGranted", options);
@@ -3399,6 +3545,40 @@ namespace Eitmad.Contracts
         }
 
         public static readonly UpdateStateKindConverter Singleton = new UpdateStateKindConverter();
+    }
+
+    internal class ReferenceMarkerSyncStateConverter : JsonConverter<ReferenceMarkerSyncState>
+    {
+        public override bool CanConvert(Type t) => t == typeof(ReferenceMarkerSyncState);
+
+        public override ReferenceMarkerSyncState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "confirmed":
+                    return ReferenceMarkerSyncState.Confirmed;
+                case "pending":
+                    return ReferenceMarkerSyncState.Pending;
+            }
+            throw new Exception("Cannot unmarshal type ReferenceMarkerSyncState");
+        }
+
+        public override void Write(Utf8JsonWriter writer, ReferenceMarkerSyncState value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case ReferenceMarkerSyncState.Confirmed:
+                    JsonSerializer.Serialize(writer, "confirmed", options);
+                    return;
+                case ReferenceMarkerSyncState.Pending:
+                    JsonSerializer.Serialize(writer, "pending", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type ReferenceMarkerSyncState");
+        }
+
+        public static readonly ReferenceMarkerSyncStateConverter Singleton = new ReferenceMarkerSyncStateConverter();
     }
 
     internal class RetryDispositionKindConverter : JsonConverter<RetryDispositionKind>

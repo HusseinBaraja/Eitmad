@@ -30,7 +30,7 @@ use eitmad_contracts::{
     runtime::{
         DiagnosticReport, EngineInstanceId, EngineMode, EngineProcessIdentity, HealthCheckId,
         HealthCheckImpact, HealthCheckResult, HealthStatus, LifecycleSnapshot, LifecycleStage,
-        LifecycleState,
+        LifecycleState, PerformanceExpectations,
     },
     transport::{CorrelationId, UnixMillis},
     updates::ReleaseVersion,
@@ -169,6 +169,7 @@ impl RuntimeBuilder {
     }
 
     pub async fn diagnose(mut self) -> DiagnosticReport {
+        let started = Instant::now();
         self.mode = EngineMode::Diagnostic;
         self.supervisor_process_id = None;
         let mut runtime = EngineRuntime::from_builder(self);
@@ -180,6 +181,8 @@ impl RuntimeBuilder {
             ready_to_start: required_checks_pass(&checks),
             checks,
             observed_at: now(),
+            elapsed_micros: micros(started.elapsed()),
+            performance_expectations: PerformanceExpectations::default(),
         }
     }
 }
@@ -383,6 +386,7 @@ impl EngineRuntime {
     async fn run_checks(&mut self, deadline: Option<Instant>) -> Vec<HealthCheckResult> {
         let mut results = Vec::with_capacity(self.checks.len());
         for check in &self.checks {
+            let started = Instant::now();
             let status = if let Some(deadline) = deadline {
                 tokio::time::timeout_at(deadline, check.check())
                     .await
@@ -407,6 +411,7 @@ impl EngineRuntime {
                 impact: check.impact(),
                 observed_at: now(),
                 error,
+                elapsed_micros: micros(started.elapsed()),
             });
         }
         results
@@ -528,6 +533,10 @@ fn now() -> UnixMillis {
         .unwrap_or_default();
     let millis = i64::try_from(duration.as_millis()).unwrap_or(i64::MAX);
     UnixMillis(millis)
+}
+
+fn micros(duration: Duration) -> u64 {
+    u64::try_from(duration.as_micros()).unwrap_or(u64::MAX)
 }
 
 /// Returns the platform-specific engine runtime-data directory.

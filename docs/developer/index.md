@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "tutorial"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-08-25"
+last_verified: "2026-08-26"
 review_triggers:
   - "workspace layout, contributor checks, or ownership rules change"
 keywords:
@@ -44,6 +44,7 @@ Read `AGENTS.md` at the repository root, then review:
 - [Persistent tenant identity](subsystems/identity-foundation.md)
 - [Windows engine process supervision](subsystems/windows-process-supervision.md)
 - [Arabic-first Windows operations shell](subsystems/windows-native-shell.md)
+- [Reference marker complete vertical](subsystems/reference-marker.md)
 
 ## 1. Name the product capability
 

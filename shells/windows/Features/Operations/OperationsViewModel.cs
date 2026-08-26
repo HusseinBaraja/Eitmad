@@ -10,6 +10,7 @@ namespace Eitmad.WindowsShell.Features.Operations;
 public sealed class OperationsViewModel : ObservableObject
 {
     private const string LocaleKey = ProtocolIds.ConfigKeys.EitmadConfigLocalePrimaryV1;
+    private static readonly Guid ReferenceMarkerId = new("8b8ab1ab-731b-46f5-926a-3b5b2f8f6310");
     private readonly Dictionary<string, long> lastEventTime = [];
     private long configRevision = -1;
     private string selectedLocale = "ar-YE";
@@ -19,6 +20,10 @@ public sealed class OperationsViewModel : ObservableObject
     private bool showConnectionBanner = true;
     private bool restartExhausted;
     private bool isSavingConfiguration;
+    private bool isSavingReferenceMarker;
+    private long referenceMarkerRevision = -1;
+    private string referenceMarkerLabel = "مرجع REF-١٢";
+    private string referenceMarkerStatus = "بانتظار لقطة المحرك";
     private StatusCard engineCard = new("المحرك", "قيد التشغيل", "بانتظار الجاهزية", "Pending");
     private StatusCard syncCard = new("المزامنة", "بانتظار المحرك", "لا توجد حالة حالية", "Muted");
     private StatusCard updateCard = new("التحديثات", "بانتظار المحرك", "السياسة يملكها محرك Rust", "Muted");
@@ -27,9 +32,11 @@ public sealed class OperationsViewModel : ObservableObject
     {
         SaveConfigurationCommand = new AsyncCommand(SaveConfigurationAsync, () => CanSaveConfiguration, ObserveCommandFailure);
         RestartCommand = new AsyncCommand(RestartAsync, () => RestartExhausted && RestartEngine is not null, ObserveCommandFailure);
+        SaveReferenceMarkerCommand = new AsyncCommand(SaveReferenceMarkerAsync, () => CanSaveReferenceMarker, ObserveCommandFailure);
     }
 
     public Func<UpdateConfiguration, Guid, Task>? SubmitConfigurationPatch { get; set; }
+    public Func<UpsertReferenceMarker, Guid, Task>? SubmitReferenceMarker { get; set; }
     public Func<Task>? RestartEngine { get; set; }
 
     public StatusCard EngineCard { get => engineCard; private set => Set(ref engineCard, value); }
@@ -55,6 +62,27 @@ public sealed class OperationsViewModel : ObservableObject
     public string ConfigurationRevisionLabel => configRevision < 0 ? "غير متاح" : $"الإصدار {configRevision}";
     public string CurrentDateLabel => DateTime.Now.ToString("dddd · d MMMM yyyy", CultureInfo.GetCultureInfo("ar-YE"));
     public bool CanSaveConfiguration => configRevision >= 0 && !IsSavingConfiguration;
+    public bool CanSaveReferenceMarker => SubmitReferenceMarker is not null
+        && !IsSavingReferenceMarker
+        && !string.IsNullOrWhiteSpace(ReferenceMarkerLabel);
+    public bool IsSavingReferenceMarker
+    {
+        get => isSavingReferenceMarker;
+        private set
+        {
+            if (Set(ref isSavingReferenceMarker, value)) SaveReferenceMarkerCommand.Refresh();
+        }
+    }
+    public string ReferenceMarkerStatus { get => referenceMarkerStatus; private set => Set(ref referenceMarkerStatus, value); }
+
+    public string ReferenceMarkerLabel
+    {
+        get => referenceMarkerLabel;
+        set
+        {
+            if (Set(ref referenceMarkerLabel, value)) SaveReferenceMarkerCommand.Refresh();
+        }
+    }
 
     public string SelectedLocale
     {
@@ -71,8 +99,10 @@ public sealed class OperationsViewModel : ObservableObject
     public ObservableCollection<ConfigItem> Configuration { get; } = [];
     public ObservableCollection<JobItem> Jobs { get; } = [];
     public ObservableCollection<ActivityItem> Activity { get; } = [];
+    public ObservableCollection<ReferenceMarkerItem> ReferenceMarkers { get; } = [];
     public AsyncCommand SaveConfigurationCommand { get; }
     public AsyncCommand RestartCommand { get; }
+    public AsyncCommand SaveReferenceMarkerCommand { get; }
 
     public void ObserveSupervision(EngineSupervisionSnapshot snapshot)
     {
@@ -169,6 +199,44 @@ public sealed class OperationsViewModel : ObservableObject
         Raise(nameof(ConfigRevision));
         Raise(nameof(ConfigurationRevisionLabel));
         SaveConfigurationCommand.Refresh();
+    }
+
+    public void ObserveReferenceMarkers(ReferenceMarkerPage page)
+    {
+        ReferenceMarkers.Clear();
+        foreach (var marker in page.Items ?? [])
+        {
+            ReferenceMarkers.Add(new ReferenceMarkerItem(
+                marker.Id,
+                marker.Label,
+                marker.Revision,
+                marker.SyncState == ReferenceMarkerSyncState.Confirmed ? "متزامن" : "بانتظار المزامنة",
+                DateTimeOffset.FromUnixTimeMilliseconds(marker.UpdatedAt).ToString("HH:mm", CultureInfo.GetCultureInfo("ar-YE"))));
+            if (marker.Id == ReferenceMarkerId)
+            {
+                referenceMarkerRevision = marker.Revision;
+                ReferenceMarkerLabel = marker.Label;
+            }
+        }
+        ReferenceMarkerStatus = ReferenceMarkers.Count == 0 ? "لا توجد علامة محفوظة" : "اللقطة محدّثة";
+        SaveReferenceMarkerCommand.Refresh();
+    }
+
+    public void ObserveReferenceMarker(ReferenceMarker marker) =>
+        ObserveReferenceMarkers(new ReferenceMarkerPage { Items = [marker] });
+
+    public void ObserveReferenceMarkerChanged(ReferenceMarkerChangeNotice notice)
+    {
+        if (notice.MarkerId == ReferenceMarkerId)
+        {
+            ReferenceMarkerStatus = $"وصل التغيير {notice.Revision} · نحدّث اللقطة";
+        }
+    }
+
+    public void ObserveReferenceMarkersUnavailable()
+    {
+        ReferenceMarkers.Clear();
+        ReferenceMarkerStatus = "الميزة المرجعية غير متاحة";
     }
 
     public void ObserveSync(SyncStatus status, long observedAt = long.MaxValue)
@@ -331,6 +399,35 @@ public sealed class OperationsViewModel : ObservableObject
         if (RestartEngine is not null)
         {
             await RestartEngine();
+        }
+    }
+
+    private async Task SaveReferenceMarkerAsync()
+    {
+        if (SubmitReferenceMarker is null || !CanSaveReferenceMarker)
+        {
+            return;
+        }
+
+        IsSavingReferenceMarker = true;
+        try
+        {
+            await SubmitReferenceMarker(
+                new UpsertReferenceMarker
+                {
+                    MarkerId = ReferenceMarkerId,
+                    ExpectedRevision = referenceMarkerRevision < 0 ? null : referenceMarkerRevision,
+                    Label = ReferenceMarkerLabel,
+                },
+                Guid.NewGuid());
+        }
+        catch (Exception error) when (error is InvalidOperationException or IOException or EngineIpcException)
+        {
+            ReferenceMarkerStatus = "تعذر الحفظ. حدّث اللقطة ثم أعد المحاولة.";
+        }
+        finally
+        {
+            IsSavingReferenceMarker = false;
         }
     }
 

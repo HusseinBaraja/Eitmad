@@ -867,6 +867,7 @@ dependencies = [
  "eitmad-configuration",
  "eitmad-contracts",
  "eitmad-observability-audit",
+ "eitmad-reference-marker",
  "eitmad-storage",
  "fs2",
  "rusqlite",
@@ -913,6 +914,23 @@ version = "0.0.0"
 dependencies = [
  "sqlx-core",
  "sqlx-postgres",
+]
+
+[[package]]
+name = "eitmad-reference-marker"
+version = "0.0.0"
+dependencies = [
+ "base64",
+ "eitmad-authorization",
+ "eitmad-contracts",
+ "eitmad-observability-audit",
+ "eitmad-storage",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "uuid",
 ]
 
 [[package]]

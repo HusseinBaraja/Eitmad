@@ -9,6 +9,7 @@ members = [
     "crates/extensions",
     "crates/external-integrations",
     "crates/observability-audit",
+    "crates/reference-marker",
     "crates/secret-storage",
     "crates/storage",
     "crates/sync",

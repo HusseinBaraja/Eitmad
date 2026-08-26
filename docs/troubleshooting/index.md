@@ -5,7 +5,7 @@ audience: "support"
 page_type: "troubleshooting"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-08-25"
+last_verified: "2026-08-26"
 review_triggers:
   - "a stable diagnosable error or recovery path is added"
 keywords:
@@ -26,6 +26,7 @@ Use symptom and identifier pages to reach the authoritative owner and a non-dest
 
 - [Resolve local IPC connection, request, and subscription failures](local-ipc-failures.md): diagnose unavailable engines, rejected sessions, resync, backpressure, version mismatch, deadlines, and payload bounds.
 - [Resolve engine startup and authority failures](engine-startup-failures.md): diagnose failed startup, storage migration or schema drift, invalid supervision, readiness checks, shutdown failures, and duplicate engine authorities.
+- [Diagnose runtime performance](runtime-performance.md): measure startup, idle cost, common IPC calls, and background synchronization against explicit expectations.
 - [Resolve Windows engine supervision failures](windows-engine-supervision-failures.md): diagnose restart exhaustion, forced shutdown, stale observations, and Job Object setup failures.
 - [Recover a disconnected or stale Windows operations shell](windows-shell-state-recovery.md): diagnose **المحرك غير متاح الآن**, reconnect or restart exhaustion, subscription resynchronization, unsupported state panels, and typed configuration patch recovery.
 

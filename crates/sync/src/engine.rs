@@ -28,6 +28,8 @@ use crate::SyncAuthorization;
 
 const ENGINE_STATE_VERSION: u32 = 1;
 const MAX_REPLAY_ENTRIES: usize = 2_048;
+pub const MAX_PENDING_SYNC_CHANGES: usize = 2_048;
+pub const MAX_PENDING_SYNC_COMMANDS: usize = 2_048;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct LocalChangeDraft {
@@ -103,6 +105,7 @@ pub enum SyncEngineError {
     IncompatiblePeer(NegotiationRejection),
     Disconnected,
     StaleCache,
+    QueueFull,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -419,6 +422,9 @@ impl SyncEngine {
                 Err(SyncEngineError::IdempotencyMismatch)
             };
         }
+        if self.state.pending_changes.len() >= MAX_PENDING_SYNC_CHANGES {
+            return Err(SyncEngineError::QueueFull);
+        }
         let previous = self.state.clone();
         let base_revision = self
             .state
@@ -492,6 +498,9 @@ impl SyncEngine {
             } else {
                 Err(SyncEngineError::IdempotencyMismatch)
             };
+        }
+        if self.state.pending_commands.len() >= MAX_PENDING_SYNC_COMMANDS {
+            return Err(SyncEngineError::QueueFull);
         }
         let previous = self.state.clone();
         let pending = PendingCommand {
@@ -1053,6 +1062,11 @@ fn decode_stored_state(
     if state.metadata.mode != mode {
         return Err(SyncEngineError::CorruptState);
     }
+    if state.pending_changes.len() > MAX_PENDING_SYNC_CHANGES
+        || state.pending_commands.len() > MAX_PENDING_SYNC_COMMANDS
+    {
+        return Err(SyncEngineError::CorruptState);
+    }
     Ok(state)
 }
 
@@ -1172,6 +1186,8 @@ fn merge_metadata(
 
 #[cfg(test)]
 mod tests {
+    use eitmad_contracts::identity::{ScopeId, ScopeKind};
+
     use super::*;
 
     #[test]
@@ -1217,6 +1233,39 @@ mod tests {
             decode_stored_state(&stored, SyncMode::LocalFirst),
             Err(SyncEngineError::UnsupportedStateVersion { found })
                 if found == ENGINE_STATE_VERSION + 1
+        ));
+    }
+
+    #[test]
+    fn persisted_pending_work_cannot_exceed_memory_bounds() {
+        let scope = ScopeRef {
+            kind: ScopeKind::parse("organization").unwrap(),
+            id: ScopeId::new(Uuid::from_u128(1)),
+        };
+        let record = ChangeRecord {
+            change_id: ChangeId::new(Uuid::from_u128(2)),
+            record_id: RecordId::new(Uuid::from_u128(3)),
+            scope,
+            operation: ChangeOperation::Tombstone,
+            base_revision: None,
+            revision: 1,
+            changed_at: UnixMillis(1),
+            idempotency_key: IdempotencyKey::new(Uuid::from_u128(4)),
+            payload: None,
+            merge: None,
+        };
+        let mut state = EngineState::new(SyncMode::LocalFirst);
+        state.pending_changes = vec![record; MAX_PENDING_SYNC_CHANGES + 1];
+        let stored = StoredSyncState {
+            application_mode: mode_name(SyncMode::LocalFirst).to_owned(),
+            state_version: ENGINE_STATE_VERSION,
+            revision: 1,
+            state_json: serde_json::to_vec(&state).unwrap(),
+        };
+
+        assert!(matches!(
+            decode_stored_state(&stored, SyncMode::LocalFirst),
+            Err(SyncEngineError::CorruptState)
         ));
     }
 }

@@ -9,6 +9,7 @@ use crate::{
     identity::ScopeRef,
     notifications::Notification,
     permissions::EffectivePermissions,
+    reference_marker::ReferenceMarkerChangeNotice,
     sync::{RecordChangeNotice, SyncStatus},
     updates::UpdateState,
 };
@@ -40,6 +41,9 @@ pub struct Notifications {}
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Errors {}
 
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct ReferenceMarkerChanges {}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ScopedError {
@@ -58,7 +62,8 @@ tagged_contract! {
         RecordChanges(RecordChanges) => "eitmad.record.changed.subscribe.v1",
         BackgroundJobs(BackgroundJobChanges) => "eitmad.background-job.status.subscribe.v1",
         Notifications(Notifications) => "eitmad.notification.subscribe.v1",
-        Errors(Errors) => "eitmad.error.subscribe.v1"
+        Errors(Errors) => "eitmad.error.subscribe.v1",
+        ReferenceMarkers(ReferenceMarkerChanges) => "eitmad.reference-marker.changed.subscribe.v1"
     }
 }
 
@@ -73,7 +78,8 @@ tagged_contract! {
         RecordChanged(RecordChangeNotice) => "eitmad.record.changed.event.v1",
         BackgroundJobChanged(BackgroundJobStatus) => "eitmad.background-job.status.event.v1",
         NotificationRaised(Notification) => "eitmad.notification.event.v1",
-        ErrorRaised(ScopedError) => "eitmad.error.event.v1"
+        ErrorRaised(ScopedError) => "eitmad.error.event.v1",
+        ReferenceMarkerChanged(ReferenceMarkerChangeNotice) => "eitmad.reference-marker.changed.event.v1"
     }
 }
 
@@ -104,6 +110,7 @@ impl Event {
             Self::BackgroundJobChanged(_) => "eitmad.background-job.status.subscribe.v1",
             Self::NotificationRaised(_) => "eitmad.notification.subscribe.v1",
             Self::ErrorRaised(_) => "eitmad.error.subscribe.v1",
+            Self::ReferenceMarkerChanged(_) => "eitmad.reference-marker.changed.subscribe.v1",
         }
     }
 }

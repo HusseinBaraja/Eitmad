@@ -32,6 +32,7 @@ public static class ProtocolIds
         public const string EitmadAuthorizationRelationshipRevokeV1 = "eitmad.authorization.relationship.revoke.v1";
         public const string EitmadOperationCancelV1 = "eitmad.operation.cancel.v1";
         public const string EitmadUpdateReportInstallerOutcomeV1 = "eitmad.update.report-installer-outcome.v1";
+        public const string EitmadReferenceMarkerUpsertV1 = "eitmad.reference-marker.upsert.v1";
     }
 
     public static class Queries
@@ -41,6 +42,7 @@ public static class ProtocolIds
         public const string EitmadAuthorizationRelationshipsListV1 = "eitmad.authorization.relationships.list.v1";
         public const string EitmadUpdateGetStateV1 = "eitmad.update.get-state.v1";
         public const string EitmadSyncGetStatusV1 = "eitmad.sync.get-status.v1";
+        public const string EitmadReferenceMarkerListV1 = "eitmad.reference-marker.list.v1";
     }
 
     public static class Subscriptions
@@ -54,6 +56,7 @@ public static class ProtocolIds
         public const string EitmadBackgroundJobStatusSubscribeV1 = "eitmad.background-job.status.subscribe.v1";
         public const string EitmadNotificationSubscribeV1 = "eitmad.notification.subscribe.v1";
         public const string EitmadErrorSubscribeV1 = "eitmad.error.subscribe.v1";
+        public const string EitmadReferenceMarkerChangedSubscribeV1 = "eitmad.reference-marker.changed.subscribe.v1";
     }
 
     public static class Events
@@ -67,6 +70,7 @@ public static class ProtocolIds
         public const string EitmadBackgroundJobStatusEventV1 = "eitmad.background-job.status.event.v1";
         public const string EitmadNotificationEventV1 = "eitmad.notification.event.v1";
         public const string EitmadErrorEventV1 = "eitmad.error.event.v1";
+        public const string EitmadReferenceMarkerChangedEventV1 = "eitmad.reference-marker.changed.event.v1";
     }
 
     public static class SyncMessages
@@ -114,6 +118,7 @@ public static class ProtocolIds
         public const string EitmadCapabilityServerUpdateDistributionV1 = "eitmad.capability.server-update-distribution.v1";
         public const string EitmadCapabilityServerAdministrationV1 = "eitmad.capability.server-administration.v1";
         public const string EitmadCapabilityUpdateV1 = "eitmad.capability.update.v1";
+        public const string EitmadCapabilityReferenceMarkerV1 = "eitmad.capability.reference-marker.v1";
     }
 
     public static class Permissions
@@ -145,6 +150,8 @@ public static class ProtocolIds
         public const string EitmadPermissionServerAdminSupportExecuteV1 = "eitmad.permission.server.admin.support.execute.v1";
         public const string EitmadPermissionUpdateReadV1 = "eitmad.permission.update.read.v1";
         public const string EitmadPermissionUpdateReportInstallerV1 = "eitmad.permission.update.report-installer.v1";
+        public const string EitmadPermissionReferenceMarkerReadV1 = "eitmad.permission.reference-marker.read.v1";
+        public const string EitmadPermissionReferenceMarkerWriteV1 = "eitmad.permission.reference-marker.write.v1";
     }
 
     public static class ConfigKeys
@@ -162,6 +169,7 @@ public static class ProtocolIds
     public static class SchemaIds
     {
         public const string EitmadSchemaProtocolV1 = "eitmad.schema.protocol.v1";
+        public const string EitmadSchemaReferenceMarkerV1 = "eitmad.schema.reference-marker.v1";
     }
 
     public static class ErrorCodes
@@ -208,6 +216,8 @@ public static class ProtocolIds
         public const string EitmadErrorUpdateDistributionUnavailableV1 = "eitmad.error.update-distribution-unavailable.v1";
         public const string EitmadErrorAdminUnavailableV1 = "eitmad.error.admin-unavailable.v1";
         public const string EitmadErrorUpdateInstallerFailedV1 = "eitmad.error.update-installer-failed.v1";
+        public const string EitmadErrorReferenceMarkerRevisionConflictV1 = "eitmad.error.reference-marker-revision-conflict.v1";
+        public const string EitmadErrorReferenceMarkerUnavailableV1 = "eitmad.error.reference-marker-unavailable.v1";
     }
 
     public static class MessageIds
@@ -257,6 +267,8 @@ public static class ProtocolIds
         public const string EitmadMessageUpdateDistributionUnavailableV1 = "eitmad.message.update-distribution-unavailable.v1";
         public const string EitmadMessageAdminUnavailableV1 = "eitmad.message.admin-unavailable.v1";
         public const string EitmadMessageUpdateInstallerFailedV1 = "eitmad.message.update-installer-failed.v1";
+        public const string EitmadMessageReferenceMarkerRevisionConflictV1 = "eitmad.message.reference-marker-revision-conflict.v1";
+        public const string EitmadMessageReferenceMarkerUnavailableV1 = "eitmad.message.reference-marker-unavailable.v1";
     }
 
     public static class ErrorParameterNames

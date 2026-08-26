@@ -26,6 +26,7 @@ pub const CAPABILITIES: &[&str] = &[
     "eitmad.capability.server-update-distribution.v1",
     "eitmad.capability.server-administration.v1",
     "eitmad.capability.update.v1",
+    "eitmad.capability.reference-marker.v1",
 ];
 
 pub const IPC_MESSAGES: &[&str] = &[
@@ -77,6 +78,8 @@ pub const PERMISSIONS: &[&str] = &[
     "eitmad.permission.server.admin.support.execute.v1",
     "eitmad.permission.update.read.v1",
     "eitmad.permission.update.report-installer.v1",
+    "eitmad.permission.reference-marker.read.v1",
+    "eitmad.permission.reference-marker.write.v1",
 ];
 
 pub const ERROR_CODES: &[&str] = &[
@@ -122,6 +125,8 @@ pub const ERROR_CODES: &[&str] = &[
     "eitmad.error.update-distribution-unavailable.v1",
     "eitmad.error.admin-unavailable.v1",
     "eitmad.error.update-installer-failed.v1",
+    "eitmad.error.reference-marker-revision-conflict.v1",
+    "eitmad.error.reference-marker-unavailable.v1",
 ];
 
 pub const MESSAGE_IDS: &[&str] = &[
@@ -170,6 +175,8 @@ pub const MESSAGE_IDS: &[&str] = &[
     "eitmad.message.update-distribution-unavailable.v1",
     "eitmad.message.admin-unavailable.v1",
     "eitmad.message.update-installer-failed.v1",
+    "eitmad.message.reference-marker-revision-conflict.v1",
+    "eitmad.message.reference-marker-unavailable.v1",
 ];
 
 pub const ERROR_PARAMETER_NAMES: &[&str] = &[
@@ -188,7 +195,10 @@ pub const RELATIONS: &[&str] = &[
     "eitmad.relation.organization.member.v1",
     "eitmad.relation.organization.owner.v1",
 ];
-pub const DOMAIN_SCHEMA_IDS: &[&str] = &["eitmad.schema.protocol.v1"];
+pub const DOMAIN_SCHEMA_IDS: &[&str] = &[
+    "eitmad.schema.protocol.v1",
+    "eitmad.schema.reference-marker.v1",
+];
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]

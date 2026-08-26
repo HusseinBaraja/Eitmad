@@ -23,14 +23,14 @@ use eitmad_contracts::{
     queries::{Query, QueryResult},
     transport::{
         CausationId, CommandOutcome, CommandResponseEnvelope, CorrelationId, EventCursor,
-        EventEnvelope, IdempotencyKey, QueryOutcome, QueryResponseEnvelope,
+        EventEnvelope, IdempotencyKey, QueryOutcome, QueryResponseEnvelope, SchemaId,
         SubscriptionCloseReason, SubscriptionClosedEnvelope, SubscriptionEnvelope, SubscriptionId,
         SubscriptionOutcome, SubscriptionResponseEnvelope, UnixMillis, UnsubscribeRequest,
         UnsubscribeResponse,
     },
     updates::ReleaseVersion,
     versioning::{
-        NegotiatedSession, NegotiationOutcome, PeerHello, PeerKind, ProtocolVersion,
+        NegotiatedSession, NegotiationOutcome, PeerHello, PeerKind, ProtocolVersion, SchemaSupport,
         SupportedProtocol, negotiate,
     },
 };
@@ -42,6 +42,7 @@ use tokio::{
 };
 
 const MAX_ACTIVE_SUBSCRIPTIONS_PER_CONNECTION: usize = 64;
+pub const MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION: usize = 64;
 
 pub const DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 pub const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
@@ -254,7 +255,7 @@ impl LocalIpcServer {
                         return Ok(());
                     }
                 }
-                result = read_client_message(&mut reader) => {
+                result = read_client_message(&mut reader), if pending.len() < MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION => {
                     let message = match result? {
                         ClientRead::Message(message) => message,
                         ClientRead::CloseWith(response) => {
@@ -1077,6 +1078,10 @@ fn default_engine_hello() -> PeerHello {
                 .expect("static capability is valid"),
             eitmad_contracts::transport::CapabilityId::parse("eitmad.capability.permissions.v1")
                 .expect("static capability is valid"),
+            eitmad_contracts::transport::CapabilityId::parse(
+                "eitmad.capability.reference-marker.v1",
+            )
+            .expect("static capability is valid"),
         ],
         required_capabilities: vec![
             eitmad_contracts::transport::CapabilityId::parse(
@@ -1084,7 +1089,13 @@ fn default_engine_hello() -> PeerHello {
             )
             .expect("static capability is valid"),
         ],
-        schemas: Vec::new(),
+        schemas: vec![SchemaSupport {
+            schema_id: SchemaId::parse("eitmad.schema.reference-marker.v1")
+                .expect("static schema ID is valid"),
+            minimum_version: 1,
+            maximum_version: 1,
+            required: false,
+        }],
     }
 }
 
@@ -2197,5 +2208,11 @@ mod tests {
             read_frame::<_, IpcClientMessage>(&mut right).await,
             Err(FrameReadError::PayloadTooLarge)
         ));
+    }
+
+    #[test]
+    fn each_connection_has_bounded_concurrent_work() {
+        assert_eq!(MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 64);
+        assert_eq!(MAX_ACTIVE_SUBSCRIPTIONS_PER_CONNECTION, 64);
     }
 }

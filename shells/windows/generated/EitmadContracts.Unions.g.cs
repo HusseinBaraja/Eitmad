@@ -54,6 +54,14 @@ public partial class Command
     public ReportInstallerOutcome? AsUpdateReportInstallerOutcome() =>
         Kind == UpdateReportInstallerOutcomeKind ? PayloadAs<ReportInstallerOutcome>() : null;
 
+    public const string ReferenceMarkerUpsertKind = "eitmad.reference-marker.upsert.v1";
+
+    public static Command ForReferenceMarkerUpsert(UpsertReferenceMarker payload) =>
+        new() { Kind = ReferenceMarkerUpsertKind, Payload = payload };
+
+    public UpsertReferenceMarker? AsReferenceMarkerUpsert() =>
+        Kind == ReferenceMarkerUpsertKind ? PayloadAs<UpsertReferenceMarker>() : null;
+
     internal T? PayloadAs<T>() => Payload switch
     {
         T typed => typed,
@@ -142,6 +150,14 @@ public partial class Event
 
     public ScopedError? AsErrorEvent() =>
         Kind == ErrorEventKind ? PayloadAs<ScopedError>() : null;
+
+    public const string ReferenceMarkerChangedEventKind = "eitmad.reference-marker.changed.event.v1";
+
+    public static Event ForReferenceMarkerChangedEvent(ReferenceMarkerChangeNotice payload) =>
+        new() { Kind = ReferenceMarkerChangedEventKind, Payload = payload };
+
+    public ReferenceMarkerChangeNotice? AsReferenceMarkerChangedEvent() =>
+        Kind == ReferenceMarkerChangedEventKind ? PayloadAs<ReferenceMarkerChangeNotice>() : null;
 
     internal T? PayloadAs<T>() => Payload switch
     {
@@ -354,6 +370,14 @@ public partial class Query
     public GetSyncStatus? AsSyncGetStatus() =>
         Kind == SyncGetStatusKind ? PayloadAs<GetSyncStatus>() : null;
 
+    public const string ReferenceMarkerListKind = "eitmad.reference-marker.list.v1";
+
+    public static Query ForReferenceMarkerList(ListReferenceMarkers payload) =>
+        new() { Kind = ReferenceMarkerListKind, Payload = payload };
+
+    public ListReferenceMarkers? AsReferenceMarkerList() =>
+        Kind == ReferenceMarkerListKind ? PayloadAs<ListReferenceMarkers>() : null;
+
     internal T? PayloadAs<T>() => Payload switch
     {
         T typed => typed,
@@ -410,6 +434,14 @@ public partial class QueryResult
 
     public SyncStatus? AsSyncStatus() =>
         Kind == SyncStatusKind ? PayloadAs<SyncStatus>() : null;
+
+    public const string ReferenceMarkersKind = "referenceMarkers";
+
+    public static QueryResult ForReferenceMarkers(ReferenceMarkerPage payload) =>
+        new() { Kind = ReferenceMarkersKind, Payload = payload };
+
+    public ReferenceMarkerPage? AsReferenceMarkers() =>
+        Kind == ReferenceMarkersKind ? PayloadAs<ReferenceMarkerPage>() : null;
 
     internal T? PayloadAs<T>() => Payload switch
     {
@@ -598,6 +630,14 @@ public partial class Subscription
     public Errors? AsErrorSubscribe() =>
         Kind == ErrorSubscribeKind ? PayloadAs<Errors>() : null;
 
+    public const string ReferenceMarkerChangedSubscribeKind = "eitmad.reference-marker.changed.subscribe.v1";
+
+    public static Subscription ForReferenceMarkerChangedSubscribe(ReferenceMarkerChanges payload) =>
+        new() { Kind = ReferenceMarkerChangedSubscribeKind, Payload = payload };
+
+    public ReferenceMarkerChanges? AsReferenceMarkerChangedSubscribe() =>
+        Kind == ReferenceMarkerChangedSubscribeKind ? PayloadAs<ReferenceMarkerChanges>() : null;
+
     internal T? PayloadAs<T>() => Payload switch
     {
         T typed => typed,
@@ -752,6 +792,10 @@ public partial class PermissionChanges
 }
 
 public partial class RecordChanges
+{
+}
+
+public partial class ReferenceMarkerChanges
 {
 }
 

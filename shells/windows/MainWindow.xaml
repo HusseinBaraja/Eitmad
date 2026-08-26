@@ -217,6 +217,44 @@
                             </Border>
                         </Grid>
 
+                        <Border Style="{StaticResource Card}" Margin="0,20,0,0" BorderBrush="#D3B08D" BorderThickness="1">
+                            <Grid>
+                                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                                <DockPanel>
+                                    <StackPanel>
+                                        <TextBlock Text="الميزة المرجعية" Style="{StaticResource SectionTitle}" />
+                                        <TextBlock Text="مسار صغير كامل: عقد مكتوب، صلاحية، تدقيق، تخزين، حدث، ومزامنة." Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,3,0,0" />
+                                    </StackPanel>
+                                    <Border Background="#F5E6D8" CornerRadius="9" Padding="10,5" HorizontalAlignment="Left">
+                                        <TextBlock Text="{Binding ReferenceMarkerStatus}" FontSize="10" Foreground="{StaticResource CopperBrush}" />
+                                    </Border>
+                                </DockPanel>
+                                <Grid Grid.Row="1" Margin="0,18,0,0">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="180" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Text="علامة نصية محايدة" FontWeight="SemiBold" FontSize="12" />
+                                        <TextBlock Text="Arabic + LTR · UTF-8 ≤ 256 B" Foreground="{StaticResource MutedBrush}" FontSize="9" FlowDirection="LeftToRight" TextAlignment="Right" />
+                                    </StackPanel>
+                                    <TextBox Grid.Column="1" Text="{Binding ReferenceMarkerLabel, UpdateSourceTrigger=PropertyChanged}" Margin="14,0" Padding="12,8" MaxLength="128" FlowDirection="RightToLeft" TextAlignment="Right" ToolTip="مثال: مرجع REF-١٢" />
+                                    <Button Grid.Column="2" Content="حفظ العلامة" Style="{StaticResource PrimaryButton}" Command="{Binding SaveReferenceMarkerCommand}" />
+                                </Grid>
+                                <ItemsControl Grid.Row="2" ItemsSource="{Binding ReferenceMarkers}" Margin="0,16,0,0">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="#FAF6EF" CornerRadius="10" Padding="12,9" Margin="0,4">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="120" /><ColumnDefinition Width="70" /></Grid.ColumnDefinitions>
+                                                    <TextBlock Text="{Binding Label}" FontSize="12" FontWeight="SemiBold" FlowDirection="RightToLeft" TextAlignment="Right" />
+                                                    <TextBlock Grid.Column="1" Text="{Binding SyncState}" Foreground="{StaticResource CopperBrush}" FontSize="10" />
+                                                    <TextBlock Grid.Column="2" Text="{Binding Revision, StringFormat=الإصدار {0}}" Foreground="{StaticResource MutedBrush}" FontSize="10" FlowDirection="LeftToRight" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Grid>
+                        </Border>
+
                         <Border Style="{StaticResource Card}" Margin="0,20,0,0">
                             <Grid>
                                 <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>

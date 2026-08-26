@@ -15,7 +15,11 @@ use eitmad_contracts::{
     queries::{Query, QueryResult},
 };
 use eitmad_observability_audit::AuditOutcome;
+use eitmad_reference_marker::{
+    REFERENCE_MARKER_READ_PERMISSION, ReferenceMarkerError, ReferenceMarkerService,
+};
 use eitmad_storage::AuthorityStore;
+use eitmad_storage::MAX_PUBLICATION_RECOVERY_PAGE;
 
 use crate::local_ipc::{
     CommandDispatcher, DispatchContext, EventBroker, QueryDispatcher, SubscriptionContext,
@@ -26,11 +30,14 @@ pub struct ProductDispatcher {
     store: AuthorityStore,
     authorization: AuthorizationService,
     configuration: ConfigurationService,
+    reference_markers: ReferenceMarkerService,
     events: Arc<dyn ProductEventPublisher>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PublicationRecoveryError;
+
+pub const MAX_STARTUP_PUBLICATION_RECOVERY: usize = 1_024;
 
 impl std::fmt::Display for PublicationRecoveryError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -74,10 +81,12 @@ impl ProductDispatcher {
         let authorization = AuthorizationService::new(store.clone())
             .with_development_ephemeral_owner(development_ephemeral_owner);
         let configuration = ConfigurationService::new(store.clone(), authorization.clone());
+        let reference_markers = ReferenceMarkerService::new(store.clone(), authorization.clone());
         Self {
             store,
             authorization,
             configuration,
+            reference_markers,
             events,
         }
     }
@@ -138,22 +147,31 @@ impl ProductDispatcher {
     ///
     /// Returns an error while preserving the current and later outbox rows for retry.
     pub fn drain_pending_publications(&self) -> Result<(), PublicationRecoveryError> {
-        for publication in self
-            .store
-            .pending_publications()
-            .map_err(|_| PublicationRecoveryError)?
-        {
-            self.events
-                .publish(publication.scope.clone(), publication.event)
-                .map_err(|()| PublicationRecoveryError)?;
-            if publication.policy_changed {
-                self.events.policy_changed(publication.scope.clone());
+        let mut recovered = 0_usize;
+        loop {
+            let publications = self
+                .store
+                .pending_publications(MAX_PUBLICATION_RECOVERY_PAGE)
+                .map_err(|_| PublicationRecoveryError)?;
+            if publications.is_empty() {
+                return Ok(());
             }
+            if recovered + publications.len() > MAX_STARTUP_PUBLICATION_RECOVERY {
+                return Err(PublicationRecoveryError);
+            }
+            for publication in &publications {
+                self.events
+                    .publish(publication.scope.clone(), publication.event.clone())
+                    .map_err(|()| PublicationRecoveryError)?;
+                if publication.policy_changed {
+                    self.events.policy_changed(publication.scope.clone());
+                }
+            }
+            recovered += publications.len();
             self.store
-                .complete_publication(&publication.scope, publication.idempotency_key)
+                .complete_publications(&publications)
                 .map_err(|_| PublicationRecoveryError)?;
         }
-        Ok(())
     }
 }
 
@@ -195,6 +213,17 @@ impl CommandDispatcher for ProductDispatcher {
                 self.publish_pending(&context, mutation.idempotency_key)
                     .map_err(|()| authorization_error(AuthorizationError::Unavailable, &context))?;
                 Ok(CommandResult::RelationshipRevoked(result))
+            }
+            Command::UpsertReferenceMarker(command) => {
+                let outcome = self
+                    .reference_markers
+                    .upsert(&mutation, &command)
+                    .map_err(|error| reference_marker_error(error, &context))?;
+                self.publish_pending(&context, mutation.idempotency_key)
+                    .map_err(|()| {
+                        reference_marker_error(ReferenceMarkerError::Unavailable, &context)
+                    })?;
+                Ok(CommandResult::ReferenceMarkerUpserted(outcome.marker))
             }
             Command::CancelOperation(_) | Command::ReportInstallerOutcome(_) => self
                 .authorization
@@ -243,6 +272,11 @@ impl QueryDispatcher for ProductDispatcher {
                     .map(QueryResult::ScopeRelationships)
                     .map_err(|error| authorization_error(error, &context))
             }
+            Query::ReferenceMarkers(query) => self
+                .reference_markers
+                .list(&context.authorization, &query)
+                .map(QueryResult::ReferenceMarkers)
+                .map_err(|error| reference_marker_error(error, &context)),
             Query::UpdateState(_) | Query::SyncStatus(_) => Err(unsupported(&context)),
         };
         let (outcome, error_code) = match &result {
@@ -278,6 +312,7 @@ impl QueryDispatcher for ProductDispatcher {
         let permission = match subscription {
             Subscription::Configuration(_) => CONFIG_READ_PERMISSION,
             Subscription::Permissions(_) => PERMISSIONS_READ_PERMISSION,
+            Subscription::ReferenceMarkers(_) => REFERENCE_MARKER_READ_PERMISSION,
             Subscription::AuthorizationPolicy(_) if context.protocol_version.minor >= 2 => {
                 AUTHORIZATION_MANAGE_PERMISSION
             }
@@ -300,6 +335,44 @@ impl QueryDispatcher for ProductDispatcher {
         self.authorization
             .authorize(&context.authorization, permission)
             .map_err(|error| authorization_contract_error(error, context.correlation_id, None))
+    }
+}
+
+fn reference_marker_error(
+    error_value: ReferenceMarkerError,
+    context: &DispatchContext,
+) -> ContractError {
+    match error_value {
+        ReferenceMarkerError::Denied => contract_error(
+            "eitmad.error.authorization-denied.v1",
+            "eitmad.message.authorization-denied.v1",
+            context.correlation_id,
+            RetryDisposition::Never,
+            None,
+        ),
+        ReferenceMarkerError::RevisionConflict {
+            expected_revision,
+            actual_revision,
+        } => contract_error(
+            "eitmad.error.reference-marker-revision-conflict.v1",
+            "eitmad.message.reference-marker-revision-conflict.v1",
+            context.correlation_id,
+            RetryDisposition::SafeImmediately,
+            Some(ErrorDetail::RevisionConflict {
+                expected: expected_revision.unwrap_or(0),
+                actual: actual_revision.unwrap_or(0),
+            }),
+        ),
+        ReferenceMarkerError::Unavailable => contract_error(
+            "eitmad.error.reference-marker-unavailable.v1",
+            "eitmad.message.reference-marker-unavailable.v1",
+            context.correlation_id,
+            RetryDisposition::SafeAfterDelay(1_000),
+            None,
+        ),
+        ReferenceMarkerError::UnsupportedScope | ReferenceMarkerError::IdempotencyMismatch => {
+            unsupported(context)
+        }
     }
 }
 
@@ -479,14 +552,19 @@ mod tests {
 
     use eitmad_contracts::{
         authorization::{RelationId, RelationshipSubject},
-        commands::{CancelOperation, GrantScopeRelationship, UpdateConfiguration},
+        commands::{
+            CancelOperation, GrantScopeRelationship, UpdateConfiguration, UpsertReferenceMarker,
+        },
         config::{ConfigChange, ConfigKey, ConfigWriteValue},
-        events::{AuthorizationPolicyChanges, ConfigurationChanges, Subscription},
+        events::{
+            AuthorizationPolicyChanges, ConfigurationChanges, ReferenceMarkerChanges, Subscription,
+        },
         identity::{
             AuthenticatedIdentity, AuthorizationContext, PrincipalId, PrincipalKind, ScopeId,
             ScopeKind, ScopeRef, SessionId, TenantId,
         },
         queries::{GetConfiguration, GetSyncStatus, Query},
+        reference_marker::{ListReferenceMarkers, ReferenceMarkerId, ReferenceMarkerLabel},
         transport::{CorrelationId, IdempotencyKey, OperationId, PROTOCOL_VERSION, UnixMillis},
     };
     use rusqlite::Connection;
@@ -691,6 +769,56 @@ mod tests {
             events.recv().await.unwrap().event,
             Event::ConfigurationChanged(_)
         ));
+    }
+
+    #[tokio::test]
+    async fn routes_reference_marker_command_paged_query_and_compact_event() {
+        let (_directory, dispatcher, broker) = dispatcher();
+        let (_, mut events) = broker
+            .subscribe(
+                authorization().scope,
+                Subscription::ReferenceMarkers(ReferenceMarkerChanges {}),
+                None,
+            )
+            .unwrap();
+        let marker_id = ReferenceMarkerId::new(Uuid::from_u128(90));
+        let result = dispatcher
+            .dispatch_command(
+                context(91),
+                Command::UpsertReferenceMarker(UpsertReferenceMarker {
+                    marker_id,
+                    expected_revision: None,
+                    label: ReferenceMarkerLabel::parse("مرجع REF-١٢").unwrap(),
+                }),
+            )
+            .await
+            .unwrap();
+        let CommandResult::ReferenceMarkerUpserted(marker) = result else {
+            panic!("reference marker result expected")
+        };
+        assert_eq!(marker.label.as_str(), "مرجع REF-١٢");
+        let published = events.recv().await.unwrap();
+        let Event::ReferenceMarkerChanged(notice) = published.event else {
+            panic!("reference marker event expected")
+        };
+        assert_eq!(notice.marker_id, marker_id);
+        assert_eq!(notice.revision, 1);
+
+        let page = dispatcher
+            .dispatch_query(
+                context(92),
+                Query::ReferenceMarkers(ListReferenceMarkers::new(None, 10).unwrap()),
+            )
+            .await
+            .unwrap();
+        let QueryResult::ReferenceMarkers(page) = page else {
+            panic!("reference marker page expected")
+        };
+        assert_eq!(page.items, vec![marker]);
+        assert_eq!(
+            last_audit_outcome(&dispatcher, "eitmad.reference-marker.list.v1"),
+            AuditOutcome::Succeeded
+        );
     }
 
     #[tokio::test]

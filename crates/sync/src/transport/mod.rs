@@ -238,7 +238,7 @@ impl Default for RetryPolicy {
         Self {
             initial_delay_ms: 250,
             maximum_delay_ms: 30_000,
-            maximum_attempts: 8,
+            maximum_attempts: 5,
         }
     }
 }
