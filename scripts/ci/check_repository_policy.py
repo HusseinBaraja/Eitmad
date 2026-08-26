@@ -82,6 +82,8 @@ def check_shell_authority(errors: list[str]) -> None:
         "System.Data.SqlClient": "database client",
         "Npgsql": "database client",
         "Environment.GetEnvironmentVariable": "direct configuration access",
+        "std::env::var": "direct configuration access",
+        "ProcessInfo.processInfo.environment": "direct configuration access",
         "ConfigurationManager": "direct configuration access",
         "IConfiguration": "direct configuration access",
         "PasswordVault": "direct secret access",
@@ -103,7 +105,10 @@ def check_shell_authority(errors: list[str]) -> None:
 
 def check_unsafe_logging(errors: list[str]) -> None:
     secret_name = re.compile(r"(?i)(password|private[_-]?key|secret|token|database_url|connection_string)")
-    log_call = re.compile(r"(?s)(tracing::(?:trace|debug|info|warn|error)!|Console\.WriteLine)\s*\((.*?)\)")
+    log_call = re.compile(
+        r"(?s)(tracing::(?:trace|debug|info|warn|error)!|Console\.WriteLine|"
+        r"\bLog(?:Trace|Debug|Information|Warning|Error|Critical))\s*\((.*?)\)"
+    )
     for path in text_files():
         if path.suffix.lower() not in {".cs", ".rs"} or "tests" in path.parts:
             continue

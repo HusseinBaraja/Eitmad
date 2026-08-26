@@ -27,7 +27,7 @@ A release candidate can advance only after every mandatory check succeeds on the
 | IPC and engine lifecycle | `contracts-and-ipc`, `windows-desktop` |
 | Migrations and missing migration detection | Rust migration tests plus immutable `deploy/migrations.sha256` in `repository-policy` |
 | Authorization, tenant isolation, audit redaction, secret storage, sync, updates | Focused workspace tests in `rust-quality` |
-| Unsafe logs, possible secret literals, direct shell database/config/secret access | `repository-policy` |
+| Unsafe Rust, console, or C# `ILogger` calls; possible secret literals; direct shell database/config/secret access, including Rust and Swift environment APIs | `repository-policy` |
 | Arabic/RTL, mixed-direction contracts, Windows shell behavior | `contracts-and-ipc`, `windows-desktop`, `macos-bindings`, `repository-policy` |
 | Documentation impact, metadata, links, ownership | `repository-policy` and documentation audit |
 | Desktop build, shell lifecycle, real-engine supervision | `windows-desktop` |

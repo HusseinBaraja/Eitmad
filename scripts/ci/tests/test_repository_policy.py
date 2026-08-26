@@ -76,11 +76,39 @@ class RepositoryPolicyTests(unittest.TestCase):
             self.assertEqual(1, len(errors))
             self.assertIn("direct configuration access", errors[0])
 
+    def test_shell_authority_rejects_config_access_in_each_shell_language(self) -> None:
+        cases = {
+            "windows/App.cs": 'Environment.GetEnvironmentVariable("SECRET")',
+            "linux/main.rs": 'std::env::var("SECRET")',
+            "macos/App.swift": "ProcessInfo.processInfo.environment",
+        }
+        with tempfile.TemporaryDirectory() as temp_value:
+            root = Path(temp_value)
+            for relative, content in cases.items():
+                source = root / "shells" / relative
+                source.parent.mkdir(parents=True)
+                source.write_text(content, encoding="utf-8")
+            with patch.object(policy, "ROOT", root):
+                errors: list[str] = []
+                policy.check_shell_authority(errors)
+            self.assertEqual(3, len(errors))
+            self.assertTrue(all("direct configuration access" in error for error in errors))
+
     def test_unsafe_logging_rejects_secret_field_without_redaction(self) -> None:
         with tempfile.TemporaryDirectory() as temp_value:
             root = Path(temp_value)
             source = root / "service.rs"
             source.write_text('tracing::info!(token = token, "issued");', encoding="utf-8")
+            with patch.object(policy, "ROOT", root), patch.object(policy, "text_files", return_value=[source]):
+                errors: list[str] = []
+                policy.check_unsafe_logging(errors)
+            self.assertEqual(1, len(errors))
+
+    def test_unsafe_logging_rejects_csharp_structured_token(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_value:
+            root = Path(temp_value)
+            source = root / "Service.cs"
+            source.write_text('logger.LogInformation("Issued {Token}", token);', encoding="utf-8")
             with patch.object(policy, "ROOT", root), patch.object(policy, "text_files", return_value=[source]):
                 errors: list[str] = []
                 policy.check_unsafe_logging(errors)
