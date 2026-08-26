@@ -55,4 +55,3 @@ Treat a missing, cancelled, or skipped check as a failure. Do not edit a generat
 For a release failure after promotion, pause the channel, preserve evidence, follow the platform or server rollback guide, and add reusable symptoms to troubleshooting documentation.
 
 Related pages: [Windows packaging](package-windows-desktop.md), [macOS expectations](prepare-macos-distribution.md), [Linux expectations](prepare-linux-distribution.md), and [server deployment](deploy-server-environments.md).
-

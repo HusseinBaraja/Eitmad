@@ -41,4 +41,3 @@ Host immutable artifacts over HTTPS and promote the same digest through `canary`
 Pause or revoke the signed manifest, then publish a higher-version recovery build. Do not overwrite an artifact URL. Preserve Rust-owned data and follow migration compatibility notes. A future updater must prove recovery after interrupted download, interrupted installation, failed first launch, and failed IPC negotiation before production enablement.
 
 Related pages: [validate a release candidate](validate-release-candidate.md), [signed updates](../developer/subsystems/update-distribution.md), and [ADR-0013](../decisions/0013-platform-native-update-adapters.md).
-

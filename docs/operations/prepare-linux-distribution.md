@@ -35,4 +35,3 @@ Test Arabic RTL and mixed text on the selected native toolkit, supported display
 Pause or revoke the manifest and repository publication, then ship a higher-version recovery package when package-manager downgrade rules are uncertain. Keep the previous repository snapshot until the recovery window closes. Never reverse schema SQL by hand. Restore a compatible pre-migration backup only under the release-specific recovery procedure.
 
 Related pages: [validate a release candidate](validate-release-candidate.md), [signed updates](../developer/subsystems/update-distribution.md), and [ADR-0013](../decisions/0013-platform-native-update-adapters.md).
-

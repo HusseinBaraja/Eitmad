@@ -63,4 +63,3 @@ If the release changed a storage schema, follow its release note. Restore a pre-
 MSIX authoring, production certificate integration, and the Windows native update adapter are not implemented. This gap blocks production desktop distribution. The unsigned ZIP is for CI and engineering validation only.
 
 Related pages: [signed update authority](../developer/subsystems/update-distribution.md), [Windows process supervision](../developer/subsystems/windows-process-supervision.md), and [ADR-0013](../decisions/0013-platform-native-update-adapters.md).
-

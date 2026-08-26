@@ -67,4 +67,3 @@ Stop rollout when readiness, isolation, authorization, redaction, migration, or 
 Start one prior-version instance and repeat the full smoke suite before adding replicas. Preserve the failed artifact, database recovery point, migration inventory, correlation IDs, and redacted logs. Update the release incident record and troubleshooting path before another attempt.
 
 Related pages: [run the server](run-server-authority.md), [validate a release](validate-release-candidate.md), [server authority](../developer/subsystems/server-authority.md), and [server failures](../troubleshooting/server-plane-failures.md).
-

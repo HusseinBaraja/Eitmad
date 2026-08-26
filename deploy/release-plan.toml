@@ -36,4 +36,3 @@ rust_package = "eitmad-server"
 digest = "sha256"
 manifest_signature = "ed25519"
 require_immutable_urls = true
-
