@@ -41,12 +41,12 @@ internal sealed class WindowsEngineProcessLauncher : IEngineProcessLauncher
 
         var process = Process.Start(startInfo)
             ?? throw new InvalidOperationException("Windows did not start the engine process.");
-        process.StandardInput.Write(ipcBootstrapToken);
-        process.StandardInput.Write('\n');
-        process.StandardInput.Flush();
         var engineProcess = new WindowsEngineProcess(process, pipeName, ipcBootstrapToken);
         try
         {
+            process.StandardInput.Write(ipcBootstrapToken);
+            process.StandardInput.Write('\n');
+            process.StandardInput.Flush();
             group.Assign(engineProcess);
             return engineProcess;
         }

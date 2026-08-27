@@ -32,6 +32,8 @@ keywords:
 
 The adapter links the generated `Eitmad.Contracts` binding. It does not handwrite DTOs, read product configuration or databases, authorize requests, perform synchronization, or treat the supervisor PID as authentication.
 
+The launcher writes the private bootstrap token through inherited standard input before it assigns the process to the Job Object. If the token write, flush, or Job Object assignment fails, the launcher kills and disposes the started process before it returns the launch failure. This prevents an unsupervised engine from retaining the local authority database lock.
+
 ## Supervision flow
 
 ```mermaid

@@ -19,6 +19,7 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
     private readonly Dictionary<string, IEngineSubscription> subscriptions = [];
     private readonly CancellationTokenSource lifetime = new();
     private readonly SemaphoreSlim sessionRefresh = new(1, 1);
+    private readonly object subscriptionStateLock = new();
     private readonly HashSet<string> unsupportedStreams = [];
     private long observedGeneration = -1;
     private bool connected;
@@ -69,10 +70,13 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
 
     private void ObserveSupervision(EngineSupervisionSnapshot snapshot)
     {
-        if (snapshot.Generation != observedGeneration)
+        lock (subscriptionStateLock)
         {
-            observedGeneration = snapshot.Generation;
-            unsupportedStreams.Clear();
+            if (snapshot.Generation != observedGeneration)
+            {
+                observedGeneration = snapshot.Generation;
+                unsupportedStreams.Clear();
+            }
         }
         dispatcher.Invoke(() => viewModel.ObserveSupervision(snapshot));
         var nowConnected = snapshot.IpcHealth == EngineIpcHealthState.Connected
@@ -121,17 +125,27 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
             ("update", ProtocolIds.Capabilities.EitmadCapabilityUpdateV1, Subscription.ForUpdateStateSubscribe(new UpdateStateChanges())),
             ("reference-markers", ProtocolIds.Capabilities.EitmadCapabilityReferenceMarkerV1, Subscription.ForReferenceMarkerChangedSubscribe(new ReferenceMarkerChanges())),
         };
-        foreach (var item in desired.Where(item =>
-                     engine.SupportsCapability(item.Capability)
-                     && !unsupportedStreams.Contains(item.Stream)))
+        foreach (var item in desired)
         {
+            bool unsupported;
+            lock (subscriptionStateLock)
+            {
+                unsupported = unsupportedStreams.Contains(item.Stream);
+            }
+            if (!engine.SupportsCapability(item.Capability) || unsupported)
+            {
+                continue;
+            }
             try
             {
                 await EnsureSubscriptionAsync(item.Stream, item.Contract, cancellationToken);
             }
             catch (EngineIpcException error) when (error.Kind == EngineIpcFailureKind.SubscriptionUnsupported)
             {
-                unsupportedStreams.Add(item.Stream);
+                lock (subscriptionStateLock)
+                {
+                    unsupportedStreams.Add(item.Stream);
+                }
             }
         }
     }
