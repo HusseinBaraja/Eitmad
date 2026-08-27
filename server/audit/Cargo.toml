@@ -15,3 +15,6 @@ sha2 = "=0.10.9"
 sqlx = { package = "eitmad-postgres-support", path = "../postgres-support" }
 thiserror = "=2.0.18"
 uuid = { version = "=1.23.4", features = ["serde", "v4"] }
+
+[dev-dependencies]
+tokio = { version = "=1.49.0", features = ["macros", "rt-multi-thread"] }

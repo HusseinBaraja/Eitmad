@@ -16,7 +16,7 @@ keywords:
 
 # Upgrade the server audit envelope to migration 4
 
-Migration `4` replaces the duplicated control-plane and sync-plane audit writers with the Rust-owned `server/audit` authority. It adds actor kind, optional workspace, exact scope, target ID, optional causation, and optional idempotency fields to `control.audit_log`. Existing rows are backfilled as user actors in their tenant scope. The migration drops and recreates the append-only triggers only while it changes the table.
+Migration `4` replaces the duplicated control-plane and sync-plane audit writers with the Rust-owned `server/audit` authority. It adds actor kind, optional workspace, exact scope, target ID, optional causation, and optional idempotency fields to `audit.server_records`. Existing rows are backfilled as user actors in their tenant scope. The migration keeps append-only triggers active for normal sessions, backfills in bounded batches, validates constraints separately, and applies final nullability metadata in a short stage.
 
 ## Compatibility and rollout
 
@@ -29,7 +29,7 @@ After rollout, verify these conditions:
 3. A successful control or sync mutation stores tenant, scope, target, actor, correlation, outcome, and time.
 4. A denied or invalid sync request stores a redacted row and does not run product work.
 5. An audit storage failure withholds the denied result and returns unavailable.
-6. `UPDATE` and `DELETE` on `control.audit_log` remain rejected.
+6. `UPDATE` and `DELETE` on `audit.server_records` remain rejected.
 
 ## Recovery and rollback
 

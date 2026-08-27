@@ -8,10 +8,14 @@ use eitmad_contracts::{
     transport::{CausationId, CorrelationId, IdempotencyKey, UnixMillis},
 };
 use sha2::{Digest as _, Sha256};
-use sqlx::{PgPool, Row as _};
+use sqlx::{PgConnection, PgPool, Row as _};
 use uuid::Uuid;
 
 const MIGRATION_SQL: &str = include_str!("../migrations/0004_server_audit_envelope.sql");
+const PREPARE_MARKER: &str = "-- eitmad:phase:prepare";
+const VALIDATE_MARKER: &str = "-- eitmad:phase:validate";
+const FINALIZE_MARKER: &str = "-- eitmad:phase:finalize";
+const BACKFILL_BATCH_SIZE: i64 = 1_000;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ServerAuditOutcome {
@@ -230,53 +234,120 @@ impl AuditDatabase {
     /// Returns an error for missing prerequisites, changed history, or `PostgreSQL` failure.
     pub async fn migrate(&self) -> Result<(), AuditDatabaseError> {
         let checksum = format!("{:x}", Sha256::digest(MIGRATION_SQL.as_bytes()));
-        let mut transaction = self
+        let mut connection = self
             .pool
-            .begin()
+            .acquire()
             .await
             .map_err(AuditDatabaseError::Unavailable)?;
-        sqlx::query("SELECT pg_advisory_xact_lock(1163158101)")
-            .execute(&mut *transaction)
+        sqlx::query("SELECT pg_advisory_lock(1163158101)")
+            .execute(&mut *connection)
             .await
             .map_err(AuditDatabaseError::Unavailable)?;
-        let prerequisites: i64 = sqlx::query_scalar(
-            "SELECT count(*) FROM public.eitmad_server_migrations WHERE version IN (1, 2, 3)",
-        )
-        .fetch_one(&mut *transaction)
-        .await
-        .map_err(AuditDatabaseError::Unavailable)?;
-        if prerequisites != 3 {
-            return Err(AuditDatabaseError::MissingPrerequisites);
-        }
-        let existing =
-            sqlx::query("SELECT checksum FROM public.eitmad_server_migrations WHERE version = 4")
-                .fetch_optional(&mut *transaction)
-                .await
-                .map_err(AuditDatabaseError::Unavailable)?;
-        if let Some(existing) = existing {
-            if existing.get::<String, _>("checksum") != checksum {
-                return Err(AuditDatabaseError::MigrationChecksum);
+        let result = migrate_locked(&mut connection, &checksum).await;
+        let reset = sqlx::query("SELECT set_config('eitmad.audit_migration', '', false)")
+            .execute(&mut *connection)
+            .await;
+        let unlock = sqlx::query("SELECT pg_advisory_unlock(1163158101)")
+            .execute(&mut *connection)
+            .await;
+        match (result, reset, unlock) {
+            (Err(error), _, _) => Err(error),
+            (Ok(()), Err(error), _) | (Ok(()), Ok(_), Err(error)) => {
+                Err(AuditDatabaseError::Unavailable(error))
             }
-        } else {
-            sqlx::raw_sql(MIGRATION_SQL)
-                .execute(&mut *transaction)
-                .await
-                .map_err(AuditDatabaseError::Unavailable)?;
-            sqlx::query(
-                "INSERT INTO public.eitmad_server_migrations
+            (Ok(()), Ok(_), Ok(_)) => Ok(()),
+        }
+    }
+}
+
+async fn migrate_locked(
+    connection: &mut PgConnection,
+    checksum: &str,
+) -> Result<(), AuditDatabaseError> {
+    let prerequisites: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM public.eitmad_server_migrations WHERE version IN (1, 2, 3)",
+    )
+    .fetch_one(&mut *connection)
+    .await
+    .map_err(AuditDatabaseError::Unavailable)?;
+    if prerequisites != 3 {
+        return Err(AuditDatabaseError::MissingPrerequisites);
+    }
+    let existing =
+        sqlx::query("SELECT checksum FROM public.eitmad_server_migrations WHERE version = 4")
+            .fetch_optional(&mut *connection)
+            .await
+            .map_err(AuditDatabaseError::Unavailable)?;
+    if let Some(existing) = existing {
+        if existing.get::<String, _>("checksum") != checksum {
+            return Err(AuditDatabaseError::MigrationChecksum);
+        }
+    } else {
+        let (prepare, validate, finalize) = migration_phases()?;
+        sqlx::raw_sql(prepare)
+            .execute(&mut *connection)
+            .await
+            .map_err(AuditDatabaseError::Unavailable)?;
+        sqlx::query("SELECT set_config('eitmad.audit_migration', 'backfill-v4', false)")
+            .execute(&mut *connection)
+            .await
+            .map_err(AuditDatabaseError::Unavailable)?;
+        loop {
+            let rows = sqlx::query(
+                "WITH batch AS (
+                         SELECT ctid FROM audit.server_records
+                         WHERE actor_kind IS NULL OR scope_kind IS NULL OR scope_id IS NULL
+                         LIMIT $1
+                     )
+                     UPDATE audit.server_records AS records
+                     SET actor_kind = 'user', scope_kind = 'tenant', scope_id = tenant_id
+                     FROM batch WHERE records.ctid = batch.ctid
+                     RETURNING records.audit_id",
+            )
+            .bind(BACKFILL_BATCH_SIZE)
+            .fetch_all(&mut *connection)
+            .await
+            .map_err(AuditDatabaseError::Unavailable)?;
+            if rows.len() < usize::try_from(BACKFILL_BATCH_SIZE).unwrap_or(usize::MAX) {
+                break;
+            }
+        }
+        sqlx::query("SELECT set_config('eitmad.audit_migration', '', false)")
+            .execute(&mut *connection)
+            .await
+            .map_err(AuditDatabaseError::Unavailable)?;
+        sqlx::raw_sql(validate)
+            .execute(&mut *connection)
+            .await
+            .map_err(AuditDatabaseError::Unavailable)?;
+        sqlx::raw_sql(finalize)
+            .execute(&mut *connection)
+            .await
+            .map_err(AuditDatabaseError::Unavailable)?;
+        sqlx::query(
+            "INSERT INTO public.eitmad_server_migrations
                     (version, migration_id, checksum)
                  VALUES (4, 'server.audit-envelope.v1', $1)",
-            )
-            .bind(checksum)
-            .execute(&mut *transaction)
-            .await
-            .map_err(AuditDatabaseError::Unavailable)?;
-        }
-        transaction
-            .commit()
-            .await
-            .map_err(AuditDatabaseError::Unavailable)
+        )
+        .bind(checksum)
+        .execute(&mut *connection)
+        .await
+        .map_err(AuditDatabaseError::Unavailable)?;
     }
+    Ok(())
+}
+
+fn migration_phases() -> Result<(&'static str, &'static str, &'static str), AuditDatabaseError> {
+    let (_, after_prepare) = MIGRATION_SQL
+        .split_once(PREPARE_MARKER)
+        .ok_or(AuditDatabaseError::MigrationChecksum)?;
+    let (prepare, after_validate) = after_prepare
+        .split_once(VALIDATE_MARKER)
+        .ok_or(AuditDatabaseError::MigrationChecksum)?;
+    let (validate, finalize) = after_validate
+        .split_once(FINALIZE_MARKER)
+        .ok_or(AuditDatabaseError::MigrationChecksum)?;
+    Ok((prepare, validate, finalize))
 }
 
 #[cfg(test)]
@@ -284,24 +355,179 @@ mod tests {
     use super::*;
 
     #[test]
-    fn migration_backfills_complete_scope_and_restores_append_only_triggers() {
-        for column in [
-            "workspace_id",
-            "actor_kind",
-            "scope_kind",
-            "scope_id",
-            "target_id",
-            "causation_id",
-            "idempotency_key",
+    fn migration_declares_each_staged_phase() {
+        let (prepare, validate, finalize) = migration_phases().unwrap();
+        assert!(!prepare.trim().is_empty());
+        assert!(!validate.trim().is_empty());
+        assert!(!finalize.trim().is_empty());
+    }
+
+    #[tokio::test]
+    #[ignore = "requires a dedicated EITMAD_TEST_DATABASE_URL PostgreSQL database"]
+    async fn migration_executes_and_preserves_append_only_records() {
+        let database_url = std::env::var("EITMAD_TEST_DATABASE_URL")
+            .expect("EITMAD_TEST_DATABASE_URL must name a dedicated test database");
+        let pool = sqlx::PgPoolOptions::new()
+            .max_connections(1)
+            .connect(&database_url)
+            .await
+            .unwrap();
+        let database_name: String = sqlx::query_scalar("SELECT current_database()")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert!(
+            database_name.contains("test"),
+            "refusing to reset a database without 'test' in its name"
+        );
+
+        sqlx::raw_sql(
+            "DROP SCHEMA IF EXISTS administration CASCADE;
+             DROP SCHEMA IF EXISTS sync CASCADE;
+             DROP SCHEMA IF EXISTS publication CASCADE;
+             DROP SCHEMA IF EXISTS audit CASCADE;
+             DROP SCHEMA IF EXISTS control CASCADE;
+             DROP TABLE IF EXISTS public.eitmad_server_migrations;",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        sqlx::query(
+            "CREATE TABLE public.eitmad_server_migrations (
+                 version bigint PRIMARY KEY,
+                 migration_id text NOT NULL UNIQUE,
+                 checksum text NOT NULL
+             )",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        for (version, migration_id, sql) in [
+            (
+                1_i64,
+                "control.foundation.v1",
+                include_str!("../../control-plane/migrations/0001_control_foundation.sql"),
+            ),
+            (
+                2_i64,
+                "sync.foundation.v1",
+                include_str!("../../sync-plane/migrations/0002_sync_foundation.sql"),
+            ),
+            (
+                3_i64,
+                "admin.foundation.v1",
+                include_str!("../../admin-plane/migrations/0003_admin_foundation.sql"),
+            ),
         ] {
-            assert!(
-                MIGRATION_SQL.contains(column),
-                "missing audit column {column}"
-            );
+            sqlx::raw_sql(sql).execute(&pool).await.unwrap();
+            sqlx::query(
+                "INSERT INTO public.eitmad_server_migrations (version, migration_id, checksum)
+                 VALUES ($1, $2, 'integration-fixture')",
+            )
+            .bind(version)
+            .bind(migration_id)
+            .execute(&pool)
+            .await
+            .unwrap();
         }
-        assert!(MIGRATION_SQL.contains("scope_kind = 'tenant', scope_id = tenant_id"));
-        assert!(MIGRATION_SQL.contains("ALTER COLUMN scope_kind SET NOT NULL"));
-        assert!(MIGRATION_SQL.contains("CREATE TRIGGER server_audit_no_update"));
-        assert!(MIGRATION_SQL.contains("CREATE TRIGGER server_audit_no_delete"));
+
+        let tenant_id = TenantId::new(Uuid::new_v4());
+        let legacy_audit_id = Uuid::new_v4();
+        sqlx::query("SELECT set_config('eitmad.tenant_id', $1, false)")
+            .bind(tenant_id.value().to_string())
+            .execute(&pool)
+            .await
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO audit.server_records
+                (audit_id, tenant_id, session_id, principal_id, operation, outcome,
+                 target_kind, correlation_id, occurred_at)
+             VALUES ($1, $2, $3, $4, 'legacy', 'succeeded', 'test', $5, 1)",
+        )
+        .bind(legacy_audit_id)
+        .bind(tenant_id.value())
+        .bind(Uuid::new_v4())
+        .bind(Uuid::new_v4())
+        .bind(Uuid::new_v4())
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        let database = AuditDatabase::from_pool(pool.clone());
+        database.migrate().await.unwrap();
+        let backfill = sqlx::query(
+            "SELECT actor_kind, scope_kind, scope_id FROM audit.server_records
+             WHERE audit_id = $1",
+        )
+        .bind(legacy_audit_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(backfill.get::<String, _>("actor_kind"), "user");
+        assert_eq!(backfill.get::<String, _>("scope_kind"), "tenant");
+        assert_eq!(backfill.get::<Uuid, _>("scope_id"), tenant_id.value());
+
+        for kind in [
+            ServerAuditActorKind::User,
+            ServerAuditActorKind::Service,
+            ServerAuditActorKind::Device,
+            ServerAuditActorKind::System,
+        ] {
+            let mut transaction = pool.begin().await.unwrap();
+            sqlx::query("SELECT set_config('eitmad.tenant_id', $1, true)")
+                .bind(tenant_id.value().to_string())
+                .execute(&mut *transaction)
+                .await
+                .unwrap();
+            append(
+                &mut transaction,
+                &ServerAuditEnvelope {
+                    actor: ServerAuditActor {
+                        tenant_id,
+                        workspace_id: None,
+                        kind,
+                        session_id: None,
+                        device_id: None,
+                        principal_id: None,
+                    },
+                    scope: tenant_scope(tenant_id),
+                    operation: "integration-test",
+                    outcome: ServerAuditOutcome::Succeeded,
+                    target_kind: "test",
+                    target_id: None,
+                    correlation_id: CorrelationId::new(Uuid::new_v4()),
+                    causation_id: None,
+                    idempotency_key: None,
+                    redacted_error: None,
+                    occurred_at: UnixMillis(2),
+                },
+            )
+            .await
+            .unwrap();
+            transaction.commit().await.unwrap();
+        }
+
+        assert!(
+            sqlx::query("UPDATE audit.server_records SET operation = 'changed'")
+                .execute(&pool)
+                .await
+                .is_err()
+        );
+        assert!(
+            sqlx::query("DELETE FROM audit.server_records")
+                .execute(&pool)
+                .await
+                .is_err()
+        );
+        sqlx::query(
+            "UPDATE public.eitmad_server_migrations SET checksum = 'changed' WHERE version = 4",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        assert!(matches!(
+            database.migrate().await,
+            Err(AuditDatabaseError::MigrationChecksum)
+        ));
     }
 }
