@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "release infrastructure maintainers"
-last_verified: "2026-08-26"
+last_verified: "2026-08-27"
 review_triggers:
   - "Windows packaging, certificate, installer, update adapter, or rollback behavior changes"
 keywords:
@@ -27,7 +27,7 @@ Use a clean Windows runner with Rust `1.85`, .NET 8, and locked repository depen
 python scripts/release/build_artifacts.py windows-desktop --version 0.0.0-ci --output dist
 ```
 
-The command builds release binaries and writes the ZIP plus a JSON manifest with its byte count and SHA-256 digest. The builder uses fixed ZIP timestamps and sorted paths. The manifest contains `signed: false` and `productionEligible: false` by design.
+The command builds release binaries and writes the ZIP plus a JSON manifest with its byte count and SHA-256 digest. The builder uses fixed ZIP timestamps and sorted paths and excludes PDB debug symbols from the distributable bundle. The manifest contains `signed: false` and `productionEligible: false` by design.
 
 ## Prepare a production MSIX
 

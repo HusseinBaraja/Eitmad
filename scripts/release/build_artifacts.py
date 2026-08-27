@@ -56,9 +56,17 @@ def write_manifest(output: Path, artifact: Path, version: str, target: str) -> P
     return manifest
 
 
-def deterministic_zip(source: Path, destination: Path) -> None:
+def deterministic_zip(
+    source: Path,
+    destination: Path,
+    excluded_suffixes: frozenset[str] = frozenset(),
+) -> None:
     with zipfile.ZipFile(destination, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
-        for path in sorted(item for item in source.rglob("*") if item.is_file()):
+        for path in sorted(
+            item
+            for item in source.rglob("*")
+            if item.is_file() and item.suffix.lower() not in excluded_suffixes
+        ):
             relative = path.relative_to(source).as_posix()
             info = zipfile.ZipInfo(relative, FIXED_ZIP_TIME)
             info.compress_type = zipfile.ZIP_DEFLATED
@@ -80,7 +88,7 @@ def build_windows(output: Path, version: str) -> Path:
         )
         shutil.copy2(ROOT / "target" / "release" / "eitmad-engine-cli.exe", stage)
         destination = output / f"eitmad-desktop-{version}-win-x64-unsigned.zip"
-        deterministic_zip(stage, destination)
+        deterministic_zip(stage, destination, frozenset({".pdb"}))
     return destination
 
 
