@@ -196,7 +196,7 @@ fn acknowledge_audit<'a>(request: &AcknowledgeRequest<'a>) -> SyncAuditContext<'
         scope: request.scope,
         operation: "eitmad.server.sync.acknowledge.v1",
         target_kind: "sync-checkpoint",
-        target_id: request.scope.id.value(),
+        target_id: request.acknowledgement.checkpoint.value(),
         correlation_id: request.correlation_id,
         idempotency_key: None,
         now: request.now,
@@ -1547,6 +1547,41 @@ mod tests {
             decoded,
             StoredLocalResult::Conflict(value) if value == conflict_id
         ));
+    }
+
+    #[test]
+    fn acknowledgement_audit_targets_the_checkpoint() {
+        let session = AuthenticatedServerSession {
+            session_id: SessionId::new(Uuid::from_u128(10)),
+            account_id: AccountId::new(Uuid::from_u128(11)),
+            user_id: UserId::new(Uuid::from_u128(12)),
+            device_id: DeviceId::new(Uuid::from_u128(13)),
+            tenant_id: TenantId::new(Uuid::from_u128(14)),
+            issued_at: UnixMillis(1),
+            expires_at: UnixMillis(2),
+        };
+        let scope = draft().scope;
+        let schema_id = SchemaId::parse("eitmad.schema.test.notes.v1").unwrap();
+        let acknowledgement = BatchAcknowledgement {
+            delivery_id: DeliveryId::new(Uuid::from_u128(15)),
+            checkpoint: Checkpoint::new(Uuid::from_u128(16)),
+            accepted_records: 1,
+        };
+        let request = AcknowledgeRequest {
+            session: &session,
+            scope: &scope,
+            schema_id: &schema_id,
+            schema_version: 1,
+            acknowledgement: &acknowledgement,
+            correlation_id: CorrelationId::new(Uuid::from_u128(17)),
+            now: UnixMillis(3),
+        };
+
+        let audit = acknowledge_audit(&request);
+
+        assert_eq!(audit.target_kind, "sync-checkpoint");
+        assert_eq!(audit.target_id, acknowledgement.checkpoint.value());
+        assert_ne!(audit.target_id, scope.id.value());
     }
 
     #[tokio::test]
