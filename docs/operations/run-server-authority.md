@@ -91,7 +91,7 @@ Verify:
 
 1. `GET /livez` returns success when the process can serve requests.
 2. `GET /readyz` returns success after startup and migration checks. It does not prove that a product domain is registered.
-3. A protocol `1.4–1.5` synthetic client can authenticate, send `eitmad.server.hello.v1`, negotiate every required server capability, verify the product's required schema list, and then close cleanly.
+3. Protocol `1.4`, `1.5`, and current-minor `1.6` synthetic clients can authenticate, send `eitmad.server.hello.v1`, negotiate every required server capability, verify the product's required schema list, and then close cleanly.
 4. A synthetic tenant cannot read another tenant's scoped records.
 5. Relay and administration routes reject unauthenticated and unauthorized requests and produce redacted audit rows.
 6. A changed manifest byte fails Ed25519 verification; the assigned channel selects only an exact compatible platform package.

@@ -56,7 +56,7 @@ The foreground CLI emits lifecycle snapshots as newline-delimited JSON on child 
 
 ## Wire and compatibility rules
 
-- Protocol v1 uses UTF-8 JSON with camel-case fields and explicit `kind`/`payload` tags. The current minor is `1.5`.
+- Protocol v1 uses UTF-8 JSON with camel-case fields and explicit `kind`/`payload` tags. The current minor is `1.6`.
 - Local IPC frames add a four-byte little-endian length and enforce an 8 MiB maximum.
 - UUIDs are lowercase hyphenated strings. Times are Unix milliseconds. Canonical values remain locale-independent.
 - Unknown object fields are accepted for additive minor-version evolution.
