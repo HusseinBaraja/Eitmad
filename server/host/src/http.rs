@@ -817,6 +817,8 @@ async fn handle_stream_message(
                     request.resume_after,
                     u32::try_from(eitmad_contracts::sync::MAX_SYNC_BATCH_RECORDS)
                         .unwrap_or(u32::MAX),
+                    new_correlation_id(),
+                    unix_millis_now(),
                 )
                 .await
                 .map_err(map_subscription)?;

@@ -98,7 +98,7 @@ Every new audit record contains:
 
 Raw error messages, payloads, secrets, Arabic customer text, authorization graphs, and provider responses do not belong in audit. Hash or otherwise sanitize sensitive target identifiers according to the owning vertical; direct relationship grants already use a versioned SHA-256 principal fingerprint.
 
-The local engine and remote server use separate storage implementations but the same completeness rule. `server/audit` owns the remote PostgreSQL envelope. Control, sync, relay, update, and administration planes must call that authority instead of defining a smaller audit struct. Invalid and denied remote sync requests must be durably audited before the server returns the result. A failed mandatory append withholds the result and fails closed.
+The local engine and remote server use separate storage implementations but the same completeness rule. `server/audit` owns the remote PostgreSQL envelope. Control, sync, relay, update, and administration planes must call that authority instead of defining a smaller audit struct. Successful pull and subscription reads are audited in their tenant transaction before commit. Invalid and denied remote sync requests are durably audited before the server returns the result, including stale `base_revision` rejection during authoritative command commit. A failed mandatory append withholds the result and fails closed.
 
 ## Audit extension points
 

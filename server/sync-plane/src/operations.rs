@@ -491,7 +491,7 @@ impl SyncCoordinator {
 
         match handler.execute_command(session, command) {
             Ok(draft) => {
-                let change = commit_authoritative_change(
+                let change = match commit_authoritative_change(
                     &mut transaction,
                     session.tenant_id,
                     command,
@@ -499,7 +499,27 @@ impl SyncCoordinator {
                     draft,
                     now,
                 )
-                .await?;
+                .await
+                {
+                    Ok(change) => change,
+                    Err(OperationError::Invalid) => {
+                        append_audit(
+                            &mut transaction,
+                            &audit.envelope(
+                                ServerAuditOutcome::Invalid,
+                                Some("eitmad.error.contract-invalid.v1"),
+                            ),
+                        )
+                        .await
+                        .map_err(|_| OperationError::Unavailable)?;
+                        transaction
+                            .commit()
+                            .await
+                            .map_err(|_| OperationError::Unavailable)?;
+                        return Err(OperationError::Invalid);
+                    }
+                    Err(error) => return Err(error),
+                };
                 append_audit(
                     &mut transaction,
                     &audit.envelope(ServerAuditOutcome::Succeeded, None),
@@ -637,11 +657,6 @@ impl SyncCoordinator {
         .fetch_all(&mut *transaction)
         .await
         .map_err(|_| OperationError::Unavailable)?;
-        transaction
-            .commit()
-            .await
-            .map_err(|_| OperationError::Unavailable)?;
-
         let limit = usize::try_from(maximum_records).map_err(|_| OperationError::Invalid)?;
         let has_more = rows.len() > limit;
         let retained = rows.into_iter().take(limit).collect::<Vec<_>>();
@@ -655,7 +670,7 @@ impl SyncCoordinator {
             .map(|row| serde_json::from_value::<ChangeRecord>(row.get("change_json")))
             .collect::<Result<Vec<_>, _>>()
             .map_err(|_| OperationError::Unavailable)?;
-        ChangeBatch::new(
+        let batch = ChangeBatch::new(
             DeliveryId::new(Uuid::new_v4()),
             IdempotencyKey::new(Uuid::new_v4()),
             after,
@@ -663,7 +678,18 @@ impl SyncCoordinator {
             records,
             has_more,
         )
-        .map_err(|_| OperationError::Invalid)
+        .map_err(|_| OperationError::Invalid)?;
+        append_audit(
+            &mut transaction,
+            &audit.envelope(ServerAuditOutcome::Succeeded, None),
+        )
+        .await
+        .map_err(|_| OperationError::Unavailable)?;
+        transaction
+            .commit()
+            .await
+            .map_err(|_| OperationError::Unavailable)?;
+        Ok(batch)
     }
 
     /// Stores the authenticated device checkpoint for one delivered batch.
