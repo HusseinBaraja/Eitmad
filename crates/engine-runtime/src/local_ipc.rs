@@ -14,7 +14,7 @@ use eitmad_contracts::{
     commands::{Command, CommandResult},
     errors::{ContractError, ErrorCode, ErrorDetail, MessageId, RetryDisposition},
     events::Subscription,
-    identity::AuthorizationContext,
+    identity::{AuthorizationContext, SessionId},
     ipc::{
         HandshakeAccepted, HandshakeOutcome, HandshakeRejection, HandshakeRequest,
         HandshakeResponse, IpcClientMessage, IpcFailureResponse, IpcServerMessage,
@@ -395,10 +395,12 @@ impl LocalIpcServer {
             }
             Some(_) => match negotiate(&self.configuration.engine_hello, &peer) {
                 NegotiationOutcome::Accepted(negotiated) => {
+                    let mut authorization = self.configuration.authorization.clone();
+                    authorization.session_id = SessionId::new(uuid::Uuid::new_v4());
                     HandshakeOutcome::Accepted(Box::new(HandshakeAccepted {
                         engine: self.configuration.engine_hello.clone(),
                         negotiated,
-                        authorization: self.configuration.authorization.clone(),
+                        authorization,
                     }))
                 }
                 NegotiationOutcome::Rejected(rejection) => {
@@ -1564,7 +1566,39 @@ mod tests {
         let HandshakeOutcome::Accepted(accepted) = response.outcome else {
             panic!("handshake should succeed");
         };
-        assert_eq!(accepted.authorization, expected);
+        assert_ne!(accepted.authorization.session_id, expected.session_id);
+        assert_eq!(accepted.authorization.identity, expected.identity);
+        assert_eq!(accepted.authorization.tenant_id, expected.tenant_id);
+        assert_eq!(accepted.authorization.workspace_id, expected.workspace_id);
+        assert_eq!(accepted.authorization.scope, expected.scope);
+    }
+
+    #[test]
+    fn handshake_assigns_a_distinct_session_to_each_connection() {
+        let service = service(Some("token"));
+        let first = service.handshake(handshake(PROTOCOL_VERSION, "token"));
+        let second = service.handshake(handshake(PROTOCOL_VERSION, "token"));
+        let HandshakeOutcome::Accepted(first) = first.outcome else {
+            panic!("first handshake should succeed");
+        };
+        let HandshakeOutcome::Accepted(second) = second.outcome else {
+            panic!("second handshake should succeed");
+        };
+
+        assert_ne!(
+            first.authorization.session_id,
+            second.authorization.session_id
+        );
+        assert_eq!(first.authorization.identity, second.authorization.identity);
+        assert_eq!(
+            first.authorization.tenant_id,
+            second.authorization.tenant_id
+        );
+        assert_eq!(
+            first.authorization.workspace_id,
+            second.authorization.workspace_id
+        );
+        assert_eq!(first.authorization.scope, second.authorization.scope);
     }
 
     #[test]
