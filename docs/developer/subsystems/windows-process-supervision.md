@@ -26,7 +26,7 @@ keywords:
 | --- | --- |
 | Engine lifecycle, identity, structured failures, and retry safety | Rust contracts and `eitmad-engine-runtime` |
 | CLI process arguments and stdin-EOF shutdown | `eitmad-engine-cli` |
-| Engine path, local runtime directory, development launch identity, redirected pipes, Job Object containment, restart budget, and forced termination | Windows platform adapter |
+| Engine path, local runtime directory, private launch bootstrap, redirected pipes, Job Object containment, restart budget, and forced termination | Windows platform adapter |
 | Typed named-pipe client, handshake, and unavailable-engine mapping | `Eitmad.Platform.Windows.LocalIpc` |
 | Localized recovery UI and accessibility | `Eitmad.WindowsShell` |
 
@@ -44,7 +44,7 @@ sequenceDiagram
     participant Job as "Windows Job Object"
     participant Engine as "Rust engine CLI"
     Shell->>Bridge: Create(command-line arguments)
-    Bridge->>Bridge: Select engine, runtime, launch identity
+    Bridge->>Bridge: Select engine, runtime, private bootstrap
     Shell->>Bridge: StartAsync()
     Bridge->>Supervisor: StartAsync(authorized launch request)
     Supervisor->>Job: Create kill-on-close group

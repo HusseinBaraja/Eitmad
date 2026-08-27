@@ -20,7 +20,7 @@ Priority describes the first release that needs the item. It does not authorize 
 
 ## P0: before the first production Windows product
 
-1. Define the first furniture domain, user roles, human authentication boundary, scope topology, Arabic terms, and product mode.
+1. Define the first product domain, user roles, human authentication boundary, scope topology, Arabic terms, and product mode.
 2. Connect that vertical to the shared sync engine and implement the required secure LAN or WAN connector, background reconciliation, status events, conflict UX, and recovery.
 3. Implement Rust-owned client update coordination: manifest retrieval, eligibility, preflight, durable state, package digest policy, installation handoff, restart verification, audit, and crash reconciliation.
 4. Implement the native Windows update adapter and production MSIX signing, timestamping, install, repair, upgrade, uninstall, interruption, and recovery paths.
