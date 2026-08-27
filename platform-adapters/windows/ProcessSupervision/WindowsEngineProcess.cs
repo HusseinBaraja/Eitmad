@@ -8,7 +8,7 @@ internal sealed class WindowsEngineProcessLauncher : IEngineProcessLauncher
     public IEngineProcess Launch(EngineLaunchRequest request, long generation, IProcessGroup group)
     {
         var pipeName = $"eitmad-{Environment.ProcessId}-{generation}-{Guid.NewGuid():N}";
-        var developmentBearerToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+        var ipcBootstrapToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
         var executable = Path.GetFullPath(request.EngineExecutablePath);
         if (!File.Exists(executable))
         {
@@ -32,11 +32,7 @@ internal sealed class WindowsEngineProcessLauncher : IEngineProcessLauncher
         startInfo.ArgumentList.Add(Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture));
         startInfo.ArgumentList.Add("--ipc-pipe-name");
         startInfo.ArgumentList.Add(pipeName);
-        if (request.DevelopmentIdentity is not null)
-        {
-            startInfo.ArgumentList.Add("--allow-insecure-development-auth");
-            startInfo.Environment["EITMAD_DEVELOPMENT_IPC_TOKEN"] = developmentBearerToken;
-        }
+        startInfo.ArgumentList.Add("--ipc-bootstrap-stdin");
         if (request.RuntimeDirectory is not null)
         {
             startInfo.ArgumentList.Add("--runtime-directory");
@@ -45,9 +41,12 @@ internal sealed class WindowsEngineProcessLauncher : IEngineProcessLauncher
 
         var process = Process.Start(startInfo)
             ?? throw new InvalidOperationException("Windows did not start the engine process.");
-        var engineProcess = new WindowsEngineProcess(process, pipeName, developmentBearerToken);
+        var engineProcess = new WindowsEngineProcess(process, pipeName, ipcBootstrapToken);
         try
         {
+            process.StandardInput.Write(ipcBootstrapToken);
+            process.StandardInput.Write('\n');
+            process.StandardInput.Flush();
             group.Assign(engineProcess);
             return engineProcess;
         }
@@ -63,7 +62,7 @@ internal sealed class WindowsEngineProcessLauncher : IEngineProcessLauncher
 internal sealed class WindowsEngineProcess(
     Process process,
     string ipcPipeName,
-    string developmentBearerToken) : IEngineProcess
+    string ipcBootstrapToken) : IEngineProcess
 {
     public int ProcessId => process.Id;
     public nint NativeHandle => process.Handle;
@@ -71,7 +70,7 @@ internal sealed class WindowsEngineProcess(
     public TextReader StandardError => process.StandardError;
     public TextWriter StandardInput => process.StandardInput;
     public string IpcPipeName => ipcPipeName;
-    public string DevelopmentBearerToken => developmentBearerToken;
+    public string IpcBootstrapToken => ipcBootstrapToken;
 
     public async Task<int> WaitForExitAsync(CancellationToken cancellationToken)
     {

@@ -1,19 +1,22 @@
 use std::sync::Arc;
 
 use eitmad_contracts::{
-    identity::{AccountId, OrganizationId, PrincipalId, SessionId, TenantId, UserId},
+    identity::{AccountId, OrganizationId, TenantId, UserId},
     server::{
         AuthenticatedServerSession, CreateInviteRequest, InviteCreated, InviteId, LicenseId,
         TenantCode,
     },
     transport::{CorrelationId, UnixMillis},
 };
+use eitmad_server_audit::{
+    ServerAuditActor, ServerAuditEnvelope, ServerAuditEvent, ServerAuditOutcome,
+    append as append_audit, tenant_scope,
+};
 use rand::RngCore as _;
 use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
-    audit::{self, AuditEntry},
     authentication::{
         AuthenticationError, TokenCodec, TokenKey, canonical_username, is_direction_control,
     },
@@ -157,19 +160,20 @@ impl IdentityService {
             now,
         )
         .await?;
-        audit::append(
+        append_audit(
             &mut transaction,
-            AuditEntry {
-                tenant_id: state.tenant_id,
-                session_id: SessionId::new(Uuid::nil()),
-                device_id: None,
-                principal_id: PrincipalId::new(state.user_id.value()),
+            &ServerAuditEnvelope {
+                actor: ServerAuditActor::system(state.tenant_id),
+                scope: tenant_scope(state.tenant_id),
                 operation: "eitmad.server.identity.bootstrap.v1",
-                outcome: "succeeded",
+                outcome: ServerAuditOutcome::Succeeded,
                 target_kind: "tenant",
+                target_id: Some(state.tenant_id.value()),
                 correlation_id,
+                causation_id: None,
+                idempotency_key: None,
                 redacted_error: None,
-                now,
+                occurred_at: now,
             },
         )
         .await
@@ -234,20 +238,22 @@ impl IdentityService {
             now,
         )
         .await?;
-        audit::append(
+        append_audit(
             &mut transaction,
-            AuditEntry {
-                tenant_id: actor.tenant_id,
-                session_id: actor.session_id,
-                device_id: Some(actor.device_id),
-                principal_id: PrincipalId::new(actor.user_id.value()),
-                operation: "eitmad.server.identity.invite.v1",
-                outcome: "succeeded",
-                target_kind: "account",
-                correlation_id,
-                redacted_error: None,
-                now,
-            },
+            &ServerAuditEnvelope::for_tenant_session(
+                actor,
+                ServerAuditEvent {
+                    operation: "eitmad.server.identity.invite.v1",
+                    outcome: ServerAuditOutcome::Succeeded,
+                    target_kind: "account",
+                    target_id: Some(state.account_id.value()),
+                    correlation_id,
+                    causation_id: None,
+                    idempotency_key: None,
+                    redacted_error: None,
+                    occurred_at: now,
+                },
+            ),
         )
         .await
         .map_err(|_| IdentityError::Unavailable)?;

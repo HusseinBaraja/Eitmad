@@ -80,6 +80,8 @@ jobs:
         with:
           dotnet-version: 8.0.x
       - run: npm ci --ignore-scripts --prefix crates/contracts/codegen
+      - name: Reject high-severity contract tool vulnerabilities
+        run: npm audit --audit-level=high --prefix crates/contracts/codegen
       - name: Reject contract, fixture, reference, and generated-binding drift
         run: npm run contracts:verify --prefix crates/contracts/codegen
       - name: Validate C# binding compatibility and Arabic round trips

@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Windows UI maintainers"
-last_verified: "2026-08-26"
+last_verified: "2026-08-27"
 review_triggers:
   - "Windows shell UI, state mapping, configuration patches, subscriptions, tray behavior, or ownership boundaries change"
 keywords:
@@ -28,7 +28,7 @@ The Windows WPF application is an Arabic-first presentation adapter over the sup
 | Commands, queries, subscriptions, events, versions, and errors | Rust `crates/contracts`; generated C# types linked by `Eitmad.Platform.Windows` |
 | Domain validation, ReBAC, audit, storage, sync, update policy, jobs, notifications, and secrets | Owning Rust vertical |
 | Named-pipe framing and typed contract serialization | `platform-adapters/windows/LocalIpc` |
-| Engine path and runtime selection, development launch identity, Job Object containment, retry, IPC reconnect, and subscription reattachment | `platform-adapters/windows/Shell` and `platform-adapters/windows/ProcessSupervision` |
+| Engine path and runtime selection, private launch bootstrap, Job Object containment, retry, IPC reconnect, and subscription reattachment | `platform-adapters/windows/Shell` and `platform-adapters/windows/ProcessSupervision` |
 | Arabic presentation, RTL layout, view state, navigation, tray, and accessibility | `shells/windows` |
 
 The shell has no database client, configuration file writer, domain validator, permission decision, sync algorithm, update policy, secret reader, or external API client. `shells/windows/tests` scans production C# source for these ownership violations. Add new product behavior to its Rust vertical, then expose a versioned typed contract.
@@ -48,20 +48,21 @@ sequenceDiagram
     Adapter->>Engine: supervised process + negotiated typed IPC
     Engine-->>Adapter: LifecycleSnapshot Ready
     Adapter-->>Coordinator: Connected supervision snapshot
-    Coordinator->>Engine: GetConfiguration, GetSyncStatus, GetUpdateState, ListReferenceMarkers
-    Engine-->>Coordinator: typed snapshots or typed errors
-    Coordinator->>Engine: typed subscription requests
+    Coordinator->>Adapter: check negotiated capabilities
+    Coordinator->>Engine: supported typed snapshot queries
+    Engine-->>Coordinator: typed snapshots
+    Coordinator->>Engine: supported typed subscription requests
     Engine-->>Coordinator: ordered EventEnvelope values
     Coordinator-->>UI: localized ephemeral view state
 ```
 
-`OperationsCoordinator` starts the four independent bounded snapshot queries concurrently on every new usable IPC session. Optional subscription failure cannot hide available snapshots. The current engine implements configuration and paged reference-marker queries plus both change subscriptions. It returns typed unavailable or unsupported failures for operational state that has no Rust implementation. The UI shows **غير متاحة** for these failures. It does not invent state.
+`OperationsCoordinator` starts only the bounded snapshot queries whose capabilities were negotiated. The current engine implements configuration and paged reference-marker queries plus both change subscriptions. It does not advertise sync or update capability until their runtime coordinators exist. The UI shows **غير متاحة** for those absent capabilities without sending unsupported query or subscription traffic. An optional stream that is still rejected is remembered for the current engine generation, so reconnect does not repeat the rejected request. The UI does not invent state.
 
 Configuration and reference-marker commands are the two state-changing shell flows. The view model creates typed bodies and non-empty idempotency keys. `EngineSupervisor` creates the authorized command envelope. Rust validates scope, ReBAC permission, domain values, audit, storage, and sync behavior. The coordinator applies each successful typed command result directly instead of sending a redundant query. A change event performs one bounded refresh when another writer changes the projection. A timeout does not authorize a new idempotency key because the original command outcome can be unknown.
 
 ## Event ordering, reconnect, and resynchronization
 
-The shell keeps one `EventOrderGate` watermark per stream. A lock makes cursor acceptance and reset atomic across the seven concurrent stream pumps. The gate rejects a duplicate or lower sequence from the same subscription. A replacement subscription may start again at sequence `1`; the view model then rejects semantically stale configuration revisions and older event timestamps. Equal timestamps remain valid because distinct ordered events can share the same timestamp.
+The shell keeps one `EventOrderGate` watermark per negotiated stream. A lock makes cursor acceptance and reset atomic across the concurrent stream pumps. The gate rejects a duplicate or lower sequence from the same subscription. A replacement subscription may start again at sequence `1`; the view model then rejects semantically stale configuration revisions and older event timestamps. Equal timestamps remain valid because distinct ordered events can share the same timestamp.
 
 `EngineSupervisor` owns same-generation reconnect and reattaches every desired subscription from its last acknowledged cursor. The coordinator does not create duplicate subscriptions when `IpcHealth` returns to `Connected`. It refreshes query-backed snapshots after every connection restoration.
 
@@ -69,11 +70,10 @@ An expired or engine-generation cursor causes the supervisor to open a fresh str
 
 1. resets only that stream's shell ordering watermark;
 2. shows **نحدّث الحالة من المصدر…**;
-3. clears ephemeral discrete job, notification, or error rows when no authoritative list query exists;
-4. re-queries configuration, reference markers, sync, and update snapshots for query-backed state;
-5. clears the resynchronization banner when the refresh attempt finishes, including streams with no list query and failed typed queries.
+3. re-queries each negotiated query-backed projection;
+4. clears the resynchronization banner when the refresh attempt finishes.
 
-This process preserves Rust authority. A failed configuration query clears the prior entries and revision, displays **غير متاح**, and disables configuration submission instead of presenting stale values. Notification and error history can be absent after an unreplayable discrete gap because the current contracts do not provide list queries. Command failures are caught at the WPF command boundary and mapped to recovery state so they cannot escape through the dispatcher.
+This process preserves Rust authority. A failed configuration query clears the prior entries and revision, displays **غير متاح**, and disables configuration submission instead of presenting stale values. Command failures are caught at the WPF command boundary and mapped to recovery state so they cannot escape through the dispatcher.
 
 ## Engine failure, tray, and shutdown
 
@@ -96,9 +96,9 @@ The visual system uses restrained workshop colors, high-contrast status surfaces
 
 ## Security and compatibility
 
-The shell is an untrusted client. It does not resolve the engine installation, select runtime storage, construct `EngineLaunchRequest`, or grant itself permissions. `platform-adapters/windows/Shell/WindowsEngineBridge.cs` owns these Windows launch concerns and gives the shell an already-authorized typed bridge. Development runs use an explicit synthetic organization context where `TenantId` equals the organization `ScopeRef.Id`, a random child-process bearer token, and `--allow-insecure-development-auth`. This path is not production authentication and must not ship enabled.
+The shell is an untrusted client. It does not resolve the engine installation, select runtime storage, construct `EngineLaunchRequest`, or grant itself permissions. `platform-adapters/windows/Shell/WindowsEngineBridge.cs` owns these Windows launch concerns and gives the shell a typed bridge. The adapter supplies only an ephemeral process bootstrap token. Rust loads and verifies the stable installation principal, tenant, scope, and owner relationship, then returns the authorization context.
 
-The Windows adapter negotiates protocol `1.0–1.5` and uses generated current bindings. It advertises `eitmad.capability.reference-marker.v1` and schema `eitmad.schema.reference-marker.v1`. A missing required capability or schema range rejects the affected session. Optional operational state can return a typed error without changing engine health. Error and message identifiers are presentation inputs, not English prose to parse. Do not expose bearer tokens, raw frames, authorization graphs, runtime paths, or customer data in the UI or logs.
+The Windows adapter negotiates protocol `1.0–1.6` and uses generated current bindings. It advertises local IPC, authorization scope, config, permissions, and reference-marker capabilities plus schema `eitmad.schema.reference-marker.v1`. The supervisor exposes only the negotiated capability intersection to the shell. A missing required capability or schema range rejects the affected session. An absent optional capability changes only its panel to **غير متاحة**; it does not change engine health. Error and message identifiers are presentation inputs, not English prose to parse. Do not expose bootstrap tokens, raw frames, authorization graphs, runtime paths, or customer data in the UI or logs.
 
 ## Tests and safe extension points
 

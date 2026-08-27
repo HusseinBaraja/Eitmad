@@ -34,15 +34,13 @@ public sealed class EngineIpcClient : IAsyncDisposable
     public static async Task<EngineIpcClient> ConnectAsync(
         string pipeName,
         PeerHello peer,
-        DevelopmentIdentityAssertion assertedAuthorization,
-        string developmentBearerToken,
+        string bootstrapToken,
         TimeSpan? timeout = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(pipeName);
         ArgumentNullException.ThrowIfNull(peer);
-        ArgumentNullException.ThrowIfNull(assertedAuthorization);
-        ArgumentException.ThrowIfNullOrWhiteSpace(developmentBearerToken);
+        ArgumentException.ThrowIfNullOrWhiteSpace(bootstrapToken);
 
         var pipe = new NamedPipeClientStream(
             ".",
@@ -83,8 +81,7 @@ public sealed class EngineIpcClient : IAsyncDisposable
                     RequestId = requestId,
                     CorrelationId = Guid.NewGuid(),
                     Peer = peer,
-                    DevelopmentBearerToken = developmentBearerToken,
-                    AssertedAuthorization = assertedAuthorization,
+                    BootstrapToken = bootstrapToken,
                 },
                 requestId,
                 DefaultRequestTimeout,

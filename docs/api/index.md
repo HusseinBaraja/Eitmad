@@ -5,7 +5,7 @@ audience: "api"
 page_type: "reference"
 status: "active"
 owner: "Rust contract maintainers"
-last_verified: "2026-08-26"
+last_verified: "2026-08-27"
 review_triggers:
   - "a command, query, subscription, error, version, capability, or generator changes"
 keywords:
@@ -56,7 +56,7 @@ The foreground CLI emits lifecycle snapshots as newline-delimited JSON on child 
 
 ## Wire and compatibility rules
 
-- Protocol v1 uses UTF-8 JSON with camel-case fields and explicit `kind`/`payload` tags. The current minor is `1.5`.
+- Protocol v1 uses UTF-8 JSON with camel-case fields and explicit `kind`/`payload` tags. The current minor is `1.6`.
 - Local IPC frames add a four-byte little-endian length and enforce an 8 MiB maximum.
 - UUIDs are lowercase hyphenated strings. Times are Unix milliseconds. Canonical values remain locale-independent.
 - Unknown object fields are accepted for additive minor-version evolution.
@@ -87,7 +87,7 @@ Each peer sends supported protocol major/minor ranges, available and required ca
 - a capability required by either peer but absent from the other;
 - a required schema with no overlapping version.
 
-The encoded window is `1.0–1.5`. Protocol `1.0` supports command/query traffic, `1.1` adds local IPC subscriptions, `1.2` adds relationship administration and authorization-policy events, `1.3` adds decodable tenant/workspace fields, and `1.4` adds the remote server boundary, device proof, snapshots, and resumable server subscriptions. Protocol `1.5` adds relay, signed update, and administration types and capabilities. Local IPC requires `eitmad.capability.authorization-scopes.v1` and an assigned tenant for every accepted version. A remote sync connection requires at least `1.4`; new operational planes consume the `1.5` generated types. See the [protocol 1.5 release](../releases/protocol-1-5-operational-server-planes.md).
+The encoded window is `1.0–1.6`. Protocol `1.0` supports command/query traffic, `1.1` adds local IPC subscriptions, `1.2` adds relationship administration and authorization-policy events, `1.3` adds decodable tenant/workspace fields, and `1.4` adds the remote server boundary, device proof, snapshots, and resumable server subscriptions. Protocol `1.5` adds relay, signed update, and administration types and capabilities. Protocol `1.6` removes shell-supplied authorization from the local handshake and carries only the bootstrap token plus peer negotiation. Local IPC requires `eitmad.capability.authorization-scopes.v1` and a Rust-assigned tenant for every accepted version. A remote sync connection requires at least `1.4`; operational planes consume the `1.5` types and accept protocol `1.6`. The local 1.6 handshake requires a coordinated engine and adapter rollout. See the [protocol 1.6 release](../releases/protocol-1-6-local-authority.md).
 
 Event cursors are opaque, scoped, and valid only in the current engine generation's bounded replay window. Per-subscription sequence numbers order delivered events but do not establish global order. When a close envelope can be delivered, `clientRequested` follows explicit unsubscribe, `engineStopping` precedes shutdown, and `backpressure` identifies an unreplayable discrete gap. For authorization revocation, protocol `1.2` sends `SubscriptionClosed` with `authorizationRevoked`; revoked `1.0` and `1.1` connections terminate without a close envelope. See [typed local IPC](../developer/subsystems/local-ipc.md) for replay, duplicate delivery, backpressure, reauthorization, and resync rules.
 

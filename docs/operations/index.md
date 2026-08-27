@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-08-26"
+last_verified: "2026-08-27"
 review_triggers:
   - "workspace verification, executable behavior, deployment, backup, or recovery changes"
 keywords:
@@ -17,11 +17,12 @@ keywords:
 
 # Operate and release Eitmad
 
-Use this collection to verify the current foundation and prepare controlled releases. Rust owns local SQLite authority through storage version 8 and the modular PostgreSQL server under protocol `1.5`. Package CDN delivery, production signing, native desktop updater adapters, scheduled backup execution, LAN discovery, production relay payload routing, MFA/email providers, diagnostic retention, and production operator UI are not implemented.
+Use this collection to verify the current foundation and prepare controlled releases. Rust owns local SQLite authority through storage version 9 and the local installation handshake under protocol `1.6`. The modular PostgreSQL server accepts protocol `1.4–1.6`. Package CDN delivery, production signing, native desktop updater adapters, scheduled backup execution, LAN discovery, production relay payload routing, MFA/email providers, diagnostic retention, and production operator UI are not implemented.
 
 ## Release and deployment tasks
 
 - [Validate a release candidate](validate-release-candidate.md): run mandatory code, contract, security, Arabic/RTL, packaging, desktop, server, restore, and rollback gates.
+- [Base application readiness checklist](base-application-readiness-checklist.md): separate passed first-product gates from blocking production and cross-platform evidence.
 - [Package, sign, update, and roll back Windows desktop](package-windows-desktop.md): build the unsigned validation ZIP and prepare the future MSIX path.
 - [Prepare future macOS signing and notarization](prepare-macos-distribution.md): keep packaging blocked until the native shell and updater exist.
 - [Prepare future Linux packages and updates](prepare-linux-distribution.md): choose managed formats and preserve package-manager authority.

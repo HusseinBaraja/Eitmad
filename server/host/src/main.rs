@@ -10,6 +10,7 @@ use eitmad_server::{
     MetadataRelayRouter, MigrationConfig, ServerCommand, ServerConfig, ServerPlaneSecurity,
     ServerRelayMetrics, ServerState, ServerSupportExecutor,
 };
+use eitmad_server_audit::AuditDatabase;
 use eitmad_sync_plane::{DomainRegistry, SyncCoordinator, SyncDatabase};
 use eitmad_update_plane::{FileManifestRepository, UpdateCatalog};
 
@@ -86,10 +87,6 @@ async fn execute() -> Result<(), MainError> {
         return Ok(());
     }
     let domains = DomainRegistry::new(std::iter::empty()).map_err(|_| MainError::Configuration)?;
-    if domains.descriptors().is_empty() {
-        tracing::error!("no sync domains are registered; refusing to report ready");
-        return Err(MainError::Configuration);
-    }
     let sync = SyncCoordinator::new(&sync_database, domains);
     let state = compose_server_state(&config, control, sync, &admin_database)?;
     tracing::info!(listen = %config.listen, "server ready");
@@ -121,6 +118,10 @@ async fn migrated_databases(
         .await
         .map_err(|_| MainError::Database)?;
     admin_database
+        .migrate()
+        .await
+        .map_err(|_| MainError::Migration)?;
+    AuditDatabase::from_pool(control_database.pool())
         .migrate()
         .await
         .map_err(|_| MainError::Migration)?;

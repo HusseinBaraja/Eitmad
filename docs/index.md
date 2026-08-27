@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-08-26"
+last_verified: "2026-08-27"
 review_triggers:
   - "a documentation collection or canonical entry point changes"
 keywords:
@@ -15,7 +15,7 @@ keywords:
 
 # Eitmad documentation
 
-Choose the route that matches your task. Protocol `1.5`, the engine lifecycle, SQLite local authority/recovery, PostgreSQL server authority, persistent identity, scoped authorization/audit, shared sync semantics, WAN relay coordination, signed update manifests, least-privilege administration, Windows process supervision, mandatory CI, and unsigned Windows/server validation packaging are implemented foundations. No production business domain, native settings UI, MFA/email provider, package CDN, production signing service, native desktop updater, production relay payload router, or backup scheduler exists yet.
+Choose the route that matches your task. Protocol `1.6`, the engine lifecycle, SQLite local authority/recovery, PostgreSQL server authority, persistent identity, scoped authorization/audit, shared sync semantics, WAN relay coordination, signed update manifests, least-privilege administration, Windows process supervision, mandatory CI, and unsigned Windows/server validation packaging are implemented foundations. No production business domain, native settings UI, MFA/email provider, package CDN, production signing service, native desktop updater, production relay payload router, or backup scheduler exists yet.
 
 ## Use the product
 
@@ -24,6 +24,7 @@ No user workflow is ready to document. When the first product flow exists, Engli
 ## Develop the system
 
 - [Start developing Eitmad](developer/index.md): contribution setup, ownership boundaries, tests, and feature documentation.
+- [Build the first real product](developer/build-first-product.md): required domain, scope, authorization, contract, storage, sync, Arabic, shell, test, and documentation sequence.
 - [Extend Rust-owned configuration](developer/subsystems/configuration.md): defaults, validation, revisions, redaction, import/export, and events.
 - [Extend scoped authorization and audit](developer/subsystems/authorization.md): tuples, roles, inheritance, conditions, isolation, boundary gates, and complete redacted audit.
 - [Extend persistent tenant identity](developer/subsystems/identity-foundation.md): device, account, session, scope topology, offline behavior, and audit attribution.
@@ -33,6 +34,7 @@ No user workflow is ready to document. When the first product flow exists, Engli
 - [Publish and evaluate signed updates](developer/subsystems/update-distribution.md): Ed25519 manifests, channels, rollout, compatibility, packages, and key configuration.
 - [Extend server administration](developer/subsystems/server-administration.md): diagnostics, backup, migration, audit, visibility, and support workflows.
 - [Understand the target architecture](architecture/index.md): Rust authority, trust boundaries, synchronization, security, and updates.
+- [Review base readiness](architecture/base-application-readiness-audit.md): audit evidence, closed critical defects, current limitations, and production blockers.
 - [Use protocol v1 contracts](api/index.md): exact Rust-owned contracts, compatibility, generation, and native bindings.
 - [Review architectural decisions](decisions/index.md): durable choices, reasons, and consequences.
 - [Review releases and compatibility](releases/index.md): protocol rollout, rollback, and migration notes.

@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "server platform maintainers"
-last_verified: "2026-08-24"
+last_verified: "2026-08-27"
 review_triggers:
   - "server configuration, CLI, migrations, health routes, TLS, backup, or recovery changes"
 keywords:
@@ -61,7 +61,7 @@ Take a PostgreSQL backup, then run:
 cargo run -q -p eitmad-server -- migrate
 ```
 
-Expected output is `server migrations are current`. This command reads only `EITMAD_SERVER_DATABASE_URL` and the optional `EITMAD_SERVER_MAX_CONNECTIONS`; it does not require token, listener, TLS, or update runtime settings. It applies control migration `1`, sync migration `2`, and administration migration `3` before it exits. Migration files are immutable after release. Stop if the process emits `eitmad.error.server-database-unavailable.v1` or `eitmad.error.server-migration-failed.v1`; preserve the database and diagnose the PostgreSQL service, permissions, RLS, and schema history.
+Expected output is `server migrations are current`. This command reads only `EITMAD_SERVER_DATABASE_URL` and the optional `EITMAD_SERVER_MAX_CONNECTIONS`; it does not require token, listener, TLS, or update runtime settings. It applies control migration `1`, sync migration `2`, administration migration `3`, and canonical audit migration `4` before it exits. Migration files are immutable after release. Stop if the process emits `eitmad.error.server-database-unavailable.v1` or `eitmad.error.server-migration-failed.v1`; preserve the database and diagnose the PostgreSQL service, permissions, RLS, and schema history.
 
 ## Bootstrap the first owner
 
@@ -85,17 +85,17 @@ Start the foreground server:
 cargo run -q -p eitmad-server -- serve
 ```
 
-The process applies migrations before it starts listening. Keep migration privileges separate in a hardened deployment even though the combined development binary supports this convenience. The serve path refuses to become ready while no sync domain is registered; a production vertical must register its domain handler before `serve` reports readiness.
+The process applies migrations before it starts listening. Keep migration privileges separate in a hardened deployment even though the combined development binary supports this convenience. The base server can start with no registered sync domain. In that state, negotiation advertises an empty schema list and domain traffic fails closed. A product deployment must register its domain handler and verify its required schema before it accepts product traffic.
 
 Verify:
 
 1. `GET /livez` returns success when the process can serve requests.
-2. `GET /readyz` returns success only when PostgreSQL is reachable.
-3. A protocol `1.4–1.5` synthetic client can authenticate, send `eitmad.server.hello.v1`, negotiate every required server capability and schema, and then close cleanly.
+2. `GET /readyz` returns success after startup and migration checks. It does not prove that a product domain is registered.
+3. Protocol `1.4`, `1.5`, and current-minor `1.6` synthetic clients can authenticate, send `eitmad.server.hello.v1`, negotiate every required server capability, verify the product's required schema list, and then close cleanly.
 4. A synthetic tenant cannot read another tenant's scoped records.
 5. Relay and administration routes reject unauthenticated and unauthorized requests and produce redacted audit rows.
 6. A changed manifest byte fails Ed25519 verification; the assigned channel selects only an exact compatible platform package.
-7. Backup status does not claim success when no reporter row exists, and migration status reports version `3` current.
+7. Backup status does not claim success when no reporter row exists, unimplemented support actions fail as invalid, and migration status reports version `4` current.
 8. Logs contain stable error identifiers and no URL credentials, token values, passwords, private keys, proof signatures, relay frames, or domain payloads.
 
 Do not route traffic from the load balancer until readiness and tenant-isolation checks pass.

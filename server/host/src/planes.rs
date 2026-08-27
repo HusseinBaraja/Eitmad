@@ -14,12 +14,11 @@ use eitmad_contracts::{
     transport::{CorrelationId, UnixMillis},
     updates::UpdateManifestId,
 };
-use eitmad_control_plane::{
-    AccessError, AccessRequirement, ServerAccessService, ServerAuditEntry, ServerAuditOutcome,
-};
+use eitmad_control_plane::{AccessError, AccessRequirement, ServerAccessService};
 use eitmad_relay_plane::{
     RelayAction, RelayAuditOutcome, RelayCoordinator, RelayError, RelayRouter, RelaySecurity,
 };
+use eitmad_server_audit::{ServerAuditEnvelope, ServerAuditEvent, ServerAuditOutcome};
 use eitmad_update_plane::{
     UpdateAuditOutcome, UpdatePlaneAction, UpdatePlaneError, UpdatePublicationSecurity,
 };
@@ -101,7 +100,7 @@ impl RelaySecurity for ServerPlaneSecurity {
         action: RelayAction,
         outcome: RelayAuditOutcome,
         correlation_id: CorrelationId,
-        _: Option<RelaySessionId>,
+        relay_session_id: Option<RelaySessionId>,
         now: UnixMillis,
     ) -> Result<(), RelayError> {
         let redacted_error = match outcome {
@@ -110,20 +109,21 @@ impl RelaySecurity for ServerPlaneSecurity {
             RelayAuditOutcome::Failed => Some("eitmad.error.relay-unavailable.v1"),
             RelayAuditOutcome::Succeeded => None,
         };
-        self.access
-            .audit(
-                actor,
-                &ServerAuditEntry {
-                    operation: action.operation(),
-                    outcome: server_outcome(outcome),
-                    target_kind: "relay_session",
-                    redacted_error,
-                    correlation_id,
-                    now,
-                },
-            )
-            .await
-            .map_err(map_relay_access)
+        let envelope = ServerAuditEnvelope::for_tenant_session(
+            actor,
+            ServerAuditEvent {
+                operation: action.operation(),
+                outcome: server_outcome(outcome),
+                target_kind: "relay_session",
+                target_id: relay_session_id.map(RelaySessionId::value),
+                correlation_id,
+                causation_id: None,
+                idempotency_key: None,
+                redacted_error,
+                occurred_at: now,
+            },
+        );
+        self.access.audit(&envelope).await.map_err(map_relay_access)
     }
 }
 
@@ -155,7 +155,7 @@ impl UpdatePublicationSecurity for ServerPlaneSecurity {
         action: UpdatePlaneAction,
         outcome: UpdateAuditOutcome,
         correlation_id: CorrelationId,
-        _: UpdateManifestId,
+        manifest_id: UpdateManifestId,
         now: UnixMillis,
     ) -> Result<(), UpdatePlaneError> {
         let (server_outcome, error) = match outcome {
@@ -173,18 +173,22 @@ impl UpdatePublicationSecurity for ServerPlaneSecurity {
                 Some("eitmad.error.update-distribution-unavailable.v1"),
             ),
         };
+        let envelope = ServerAuditEnvelope::for_tenant_session(
+            actor,
+            ServerAuditEvent {
+                operation: action.operation(),
+                outcome: server_outcome,
+                target_kind: "update_manifest",
+                target_id: Some(manifest_id.value()),
+                correlation_id,
+                causation_id: None,
+                idempotency_key: None,
+                redacted_error: error,
+                occurred_at: now,
+            },
+        );
         self.access
-            .audit(
-                actor,
-                &ServerAuditEntry {
-                    operation: action.operation(),
-                    outcome: server_outcome,
-                    target_kind: "update_manifest",
-                    redacted_error: error,
-                    correlation_id,
-                    now,
-                },
-            )
+            .audit(&envelope)
             .await
             .map_err(map_update_access)
     }
@@ -209,7 +213,7 @@ impl AdministrativeSecurity for ServerPlaneSecurity {
         actor: &AuthenticatedServerSession,
         action: AdministrativeAction,
         outcome: AdministrativeAuditOutcome,
-        _: TenantId,
+        tenant_id: TenantId,
         correlation_id: CorrelationId,
         now: UnixMillis,
     ) -> Result<(), AdministrativeError> {
@@ -228,20 +232,21 @@ impl AdministrativeSecurity for ServerPlaneSecurity {
                 Some("eitmad.error.admin-unavailable.v1"),
             ),
         };
-        self.access
-            .audit(
-                actor,
-                &ServerAuditEntry {
-                    operation: action.operation(),
-                    outcome: server_outcome,
-                    target_kind: "administrative_operation",
-                    redacted_error: error,
-                    correlation_id,
-                    now,
-                },
-            )
-            .await
-            .map_err(map_admin_access)
+        let envelope = ServerAuditEnvelope::for_tenant_session(
+            actor,
+            ServerAuditEvent {
+                operation: action.operation(),
+                outcome: server_outcome,
+                target_kind: "administrative_operation",
+                target_id: Some(tenant_id.value()),
+                correlation_id,
+                causation_id: None,
+                idempotency_key: None,
+                redacted_error: error,
+                occurred_at: now,
+            },
+        );
+        self.access.audit(&envelope).await.map_err(map_admin_access)
     }
 }
 
@@ -320,8 +325,9 @@ impl SupportWorkflowExecutor for ServerSupportExecutor {
         workflow: &SupportWorkflow,
     ) -> Result<(), AdministrativeError> {
         match workflow.action {
-            SupportAction::CollectDiagnostics | SupportAction::VerifyBackup => Ok(()),
-            SupportAction::RetryMigration => Err(AdministrativeError::Invalid),
+            SupportAction::CollectDiagnostics
+            | SupportAction::VerifyBackup
+            | SupportAction::RetryMigration => Err(AdministrativeError::Invalid),
             SupportAction::DisconnectRelaySession { relay_session_id } => self
                 .relay
                 .administrative_close(
@@ -387,6 +393,8 @@ const fn server_outcome(outcome: RelayAuditOutcome) -> ServerAuditOutcome {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use eitmad_contracts::{
         identity::{AccountId, DeviceId, SessionId, UserId},
         server::AuthenticatedServerSession,
@@ -424,5 +432,45 @@ mod tests {
             &stable,
         ));
         assert!(!scope.allows(&actor(operator), UpdatePlaneAction::RevokeManifest, &stable));
+    }
+
+    #[tokio::test]
+    async fn unimplemented_support_actions_fail_instead_of_reporting_success() {
+        let pool = eitmad_postgres_support::PgPoolOptions::new()
+            .connect_lazy("postgresql://unreachable.invalid/eitmad")
+            .unwrap();
+        let access = ServerAccessService::new(pool);
+        let security = Arc::new(ServerPlaneSecurity::new(
+            access.clone(),
+            TenantId::new(Uuid::from_u128(9)),
+        ));
+        let executor = ServerSupportExecutor::new(
+            RelayCoordinator::new(security, Arc::new(MetadataRelayRouter)),
+            access,
+        );
+        let actor = actor(TenantId::new(Uuid::from_u128(5)));
+
+        for action in [
+            SupportAction::CollectDiagnostics,
+            SupportAction::VerifyBackup,
+            SupportAction::RetryMigration,
+        ] {
+            let workflow = SupportWorkflow {
+                workflow_id: eitmad_contracts::administration::SupportWorkflowId::new(
+                    Uuid::new_v4(),
+                ),
+                tenant_id: actor.tenant_id,
+                action,
+                reason_code: "synthetic.readiness-audit".to_owned(),
+                state: eitmad_contracts::administration::SupportWorkflowState::Running,
+                requested_at: UnixMillis(1),
+                completed_at: None,
+                failure_code: None,
+            };
+            assert_eq!(
+                executor.execute(&actor, &workflow).await,
+                Err(AdministrativeError::Invalid)
+            );
+        }
     }
 }

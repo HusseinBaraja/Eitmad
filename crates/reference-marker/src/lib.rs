@@ -338,10 +338,9 @@ mod tests {
     fn complete_local_first_flow_preserves_arabic_and_confirms_sync() {
         let directory = TempDir::new().unwrap();
         let store = AuthorityStore::open(directory.path()).unwrap();
-        let authorization_service =
-            AuthorizationService::new(store.clone()).with_development_ephemeral_owner(true);
+        let authorization_service = AuthorizationService::new(store.clone());
         let service = ReferenceMarkerService::new(store.clone(), authorization_service);
-        let authorization = authorization(1);
+        let authorization = store.local_authorization_context(UnixMillis(1)).unwrap();
         let marker_id = ReferenceMarkerId::new(Uuid::from_u128(40));
         let result = service
             .upsert(
@@ -395,10 +394,9 @@ mod tests {
     fn upsert_reports_the_stored_revision_on_conflict() {
         let directory = TempDir::new().unwrap();
         let store = AuthorityStore::open(directory.path()).unwrap();
-        let authorization_service =
-            AuthorizationService::new(store.clone()).with_development_ephemeral_owner(true);
+        let authorization_service = AuthorizationService::new(store.clone());
+        let authorization = store.local_authorization_context(UnixMillis(1)).unwrap();
         let service = ReferenceMarkerService::new(store, authorization_service);
-        let authorization = authorization(1);
         let marker_id = ReferenceMarkerId::new(Uuid::from_u128(41));
         let command = UpsertReferenceMarker {
             marker_id,
@@ -433,10 +431,10 @@ mod tests {
     fn upsert_replays_the_original_marker() {
         let directory = TempDir::new().unwrap();
         let store = AuthorityStore::open(directory.path()).unwrap();
-        let authorization_service =
-            AuthorizationService::new(store.clone()).with_development_ephemeral_owner(true);
+        let authorization_service = AuthorizationService::new(store.clone());
+        let authorization = store.local_authorization_context(UnixMillis(1)).unwrap();
         let service = ReferenceMarkerService::new(store, authorization_service);
-        let context = mutation(authorization(1), 5);
+        let context = mutation(authorization, 5);
         let command = UpsertReferenceMarker {
             marker_id: ReferenceMarkerId::new(Uuid::from_u128(42)),
             expected_revision: None,

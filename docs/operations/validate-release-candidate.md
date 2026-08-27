@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "release infrastructure maintainers"
-last_verified: "2026-08-26"
+last_verified: "2026-08-27"
 review_triggers:
   - "CI jobs, release artifacts, supported platforms, migrations, or promotion policy changes"
 keywords:
@@ -24,6 +24,7 @@ A release candidate can advance only after every mandatory check succeeds on the
 | --- | --- |
 | Rust format, minimum version, warnings, full workspace tests on the supported Windows engine host | `rust-quality` |
 | Contract freshness and generated C#/Swift compatibility | `contracts-and-ipc`, `macos-bindings` |
+| Contract generator dependency vulnerabilities | `contracts-and-ipc` (`npm audit --audit-level=high`) |
 | IPC and engine lifecycle | `contracts-and-ipc`, `windows-desktop` |
 | Migrations and missing migration detection | Rust migration tests plus immutable `deploy/migrations.sha256` in `repository-policy` |
 | Authorization, tenant isolation, audit redaction, secret storage, sync, updates | Focused workspace tests in `rust-quality` |

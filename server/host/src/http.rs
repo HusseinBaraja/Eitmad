@@ -809,15 +809,17 @@ async fn handle_stream_message(
         ServerClientMessage::Subscribe(request) if request.schema_id == *schema_id => {
             let page = state
                 .sync
-                .subscription_page(
+                .subscription_page(eitmad_sync_plane::SubscriptionPageRequest {
                     session,
                     scope,
-                    &request.schema_id,
+                    schema_id: &request.schema_id,
                     schema_version,
-                    request.resume_after,
-                    u32::try_from(eitmad_contracts::sync::MAX_SYNC_BATCH_RECORDS)
+                    resume_after: request.resume_after,
+                    maximum_events: u32::try_from(eitmad_contracts::sync::MAX_SYNC_BATCH_RECORDS)
                         .unwrap_or(u32::MAX),
-                )
+                    correlation_id: new_correlation_id(),
+                    now: unix_millis_now(),
+                })
                 .await
                 .map_err(map_subscription)?;
             for event in page.events {
@@ -836,14 +838,16 @@ async fn handle_stream_message(
         ServerClientMessage::Sync(frame) => match frame.payload {
             SyncTransportPayload::Message(SyncMessage::Pull(request)) => match state
                 .sync
-                .pull(
+                .pull(eitmad_sync_plane::PullPageRequest {
                     session,
                     scope,
                     schema_id,
                     schema_version,
-                    request.after,
-                    request.maximum_records,
-                )
+                    after: request.after,
+                    maximum_records: request.maximum_records,
+                    correlation_id: frame.correlation_id,
+                    now: unix_millis_now(),
+                })
                 .await
             {
                 Ok(batch) => {
@@ -867,13 +871,15 @@ async fn handle_stream_message(
             },
             SyncTransportPayload::Message(SyncMessage::Acknowledge(acknowledgement)) => state
                 .sync
-                .acknowledge(
+                .acknowledge(eitmad_sync_plane::AcknowledgeRequest {
                     session,
                     scope,
                     schema_id,
-                    &acknowledgement,
-                    unix_millis_now(),
-                )
+                    schema_version,
+                    acknowledgement: &acknowledgement,
+                    correlation_id: frame.correlation_id,
+                    now: unix_millis_now(),
+                })
                 .await
                 .map_err(map_operation),
             _ => Err(ApiError::bad_request("eitmad.error.contract-invalid.v1")),
@@ -1038,7 +1044,7 @@ fn server_hello(schemas: Vec<SchemaSupport>) -> PeerHello {
         protocols: vec![SupportedProtocol {
             major: 1,
             minimum_minor: 4,
-            maximum_minor: 5,
+            maximum_minor: 6,
         }],
         required_capabilities: capabilities.clone(),
         capabilities,
@@ -1201,7 +1207,7 @@ mod tests {
     fn server_requires_all_remote_boundary_capabilities() {
         let hello = server_hello(Vec::new());
         assert_eq!(hello.protocols[0].minimum_minor, 4);
-        assert_eq!(hello.protocols[0].maximum_minor, 5);
+        assert_eq!(hello.protocols[0].maximum_minor, 6);
         assert!(hello.required_capabilities.iter().any(|capability| {
             capability.as_str() == "eitmad.capability.server-device-proof.v1"
         }));

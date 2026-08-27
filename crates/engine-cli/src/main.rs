@@ -26,6 +26,7 @@ use eitmad_engine_runtime::{
 use eitmad_observability_audit::{
     ObservationContract, ObservationFieldContract, ObservationValue, RedactionContext,
 };
+use eitmad_storage::AuthorityStore;
 use serde::Serialize;
 use tokio::{
     io::AsyncReadExt as _,
@@ -35,7 +36,12 @@ use tokio::{
 const EXIT_SUCCESS: u8 = 0;
 const EXIT_RUNTIME_FAILURE: u8 = 1;
 const EXIT_DIAGNOSTIC_UNHEALTHY: u8 = 3;
-const DEVELOPMENT_IPC_TOKEN_ENV: &str = "EITMAD_DEVELOPMENT_IPC_TOKEN";
+const IPC_BOOTSTRAP_TOKEN_BYTES: usize = 64;
+
+enum LocalIpcStartupError {
+    Authentication,
+    Identity,
+}
 
 #[derive(Debug, Parser)]
 #[command(name = "eitmad-engine-cli", version, about)]
@@ -59,9 +65,9 @@ enum Command {
         /// Windows named-pipe endpoint created by the engine.
         #[arg(long)]
         ipc_pipe_name: Option<String>,
-        /// Enables temporary bearer-token authentication for development only.
+        /// Reads the process-lifetime local IPC bootstrap token from standard input.
         #[arg(long)]
-        allow_insecure_development_auth: bool,
+        ipc_bootstrap_stdin: bool,
     },
     /// Run non-mutating preflight and health checks once.
     Diagnose {
@@ -85,14 +91,14 @@ async fn main() -> ExitCode {
             supervisor_pid,
             runtime_directory,
             ipc_pipe_name,
-            allow_insecure_development_auth,
+            ipc_bootstrap_stdin,
         } => {
             run(
                 mode,
                 supervisor_pid,
                 runtime_directory,
                 ipc_pipe_name,
-                allow_insecure_development_auth,
+                ipc_bootstrap_stdin,
             )
             .await
         }
@@ -105,7 +111,7 @@ async fn run(
     supervisor_pid: Option<u32>,
     runtime_directory: Option<PathBuf>,
     ipc_pipe_name: Option<String>,
-    allow_insecure_development_auth: bool,
+    ipc_bootstrap_stdin: bool,
 ) -> ExitCode {
     let Some(directory) = resolve_or_emit_runtime_directory(runtime_directory) else {
         return ExitCode::from(EXIT_RUNTIME_FAILURE);
@@ -149,11 +155,7 @@ async fn run(
     let _ipc_shutdown_guard = ipc_shutdown_sender.clone();
     let (ipc_cancel_sender, ipc_cancel_receiver) = watch::channel(false);
     let event_broker = EventBroker::new();
-    let dispatcher = Arc::new(ProductDispatcher::new(
-        store,
-        event_broker.clone(),
-        allow_insecure_development_auth,
-    ));
+    let dispatcher = Arc::new(ProductDispatcher::new(store.clone(), event_broker.clone()));
     if dispatcher.drain_pending_publications().is_err() {
         emit_operational_failure(
             "eitmad.observation.event-publication-recovery-failed.v1",
@@ -163,47 +165,107 @@ async fn run(
         let _ = emitter.await;
         return ExitCode::from(EXIT_RUNTIME_FAILURE);
     }
-    let ipc_task = ipc_pipe_name.map(|pipe_name| {
-        let development_token = allow_insecure_development_auth
-            .then(|| std::env::var(DEVELOPMENT_IPC_TOKEN_ENV).ok())
-            .flatten();
+    let ipc_configuration =
+        match prepare_local_ipc(&store, ipc_pipe_name, ipc_bootstrap_stdin).await {
+            Ok(configuration) => configuration,
+            Err(error) => {
+                match error {
+                    LocalIpcStartupError::Authentication => emit_operational_failure(
+                        "eitmad.observation.local-ipc-authentication-failed.v1",
+                        "eitmad.error.local-ipc-authentication-failed.v1",
+                    ),
+                    LocalIpcStartupError::Identity => emit_operational_failure(
+                        "eitmad.observation.local-identity-unavailable.v1",
+                        "eitmad.error.local-identity-unavailable.v1",
+                    ),
+                }
+                let _ = runtime.shutdown(ShutdownReason::Explicit).await;
+                let _ = emitter.await;
+                return ExitCode::from(EXIT_RUNTIME_FAILURE);
+            }
+        };
+    let ipc_task = ipc_configuration.map(|configuration| {
         tokio::spawn(
-            LocalIpcServer::new(
-                LocalIpcConfiguration::development(pipe_name, development_token),
-                dispatcher,
-                ipc_shutdown_sender.clone(),
-            )
-            .with_event_broker(event_broker)
-            .run(ipc_cancel_receiver),
+            LocalIpcServer::new(configuration, dispatcher, ipc_shutdown_sender.clone())
+                .with_event_broker(event_broker)
+                .run(ipc_cancel_receiver),
         )
     });
 
     let reason = wait_for_shutdown(mode, &mut ipc_shutdown_receiver).await;
     let _ = ipc_cancel_sender.send(true);
-    let ipc_stopped_cleanly = if let Some(task) = ipc_task {
-        match task.await {
-            Ok(Ok(())) => true,
-            Ok(Err(_)) => {
-                emit_operational_failure(
-                    "eitmad.observation.local-ipc-server-failed.v1",
-                    "eitmad.error.local-ipc-server-failed.v1",
-                );
-                false
-            }
-            Err(_) => {
-                emit_operational_failure(
-                    "eitmad.observation.local-ipc-task-failed.v1",
-                    "eitmad.error.local-ipc-task-failed.v1",
-                );
-                false
-            }
-        }
-    } else {
-        true
-    };
+    let ipc_stopped_cleanly = await_local_ipc(ipc_task).await;
     let outcome = runtime.shutdown(reason).await;
     let _ = emitter.await;
     exit_after_shutdown(&outcome, ipc_stopped_cleanly)
+}
+
+async fn await_local_ipc(task: Option<tokio::task::JoinHandle<io::Result<()>>>) -> bool {
+    let Some(task) = task else {
+        return true;
+    };
+    match task.await {
+        Ok(Ok(())) => true,
+        Ok(Err(_)) => {
+            emit_operational_failure(
+                "eitmad.observation.local-ipc-server-failed.v1",
+                "eitmad.error.local-ipc-server-failed.v1",
+            );
+            false
+        }
+        Err(_) => {
+            emit_operational_failure(
+                "eitmad.observation.local-ipc-task-failed.v1",
+                "eitmad.error.local-ipc-task-failed.v1",
+            );
+            false
+        }
+    }
+}
+
+async fn prepare_local_ipc(
+    store: &AuthorityStore,
+    pipe_name: Option<String>,
+    read_token_from_stdin: bool,
+) -> Result<Option<LocalIpcConfiguration>, LocalIpcStartupError> {
+    let Some(pipe_name) = pipe_name else {
+        return Ok(None);
+    };
+    if !read_token_from_stdin {
+        return Err(LocalIpcStartupError::Authentication);
+    }
+    let bootstrap_token = read_ipc_bootstrap_token()
+        .await
+        .map_err(|_| LocalIpcStartupError::Authentication)?;
+    let authorization = store
+        .local_authorization_context(current_time())
+        .map_err(|_| LocalIpcStartupError::Identity)?;
+    Ok(Some(LocalIpcConfiguration::authenticated(
+        pipe_name,
+        bootstrap_token,
+        authorization,
+    )))
+}
+
+async fn read_ipc_bootstrap_token() -> io::Result<String> {
+    let mut bytes = [0_u8; IPC_BOOTSTRAP_TOKEN_BYTES + 1];
+    tokio::io::stdin().read_exact(&mut bytes).await?;
+    if bytes[IPC_BOOTSTRAP_TOKEN_BYTES] != b'\n'
+        || !bytes[..IPC_BOOTSTRAP_TOKEN_BYTES]
+            .iter()
+            .all(u8::is_ascii_hexdigit)
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "invalid local IPC bootstrap token",
+        ));
+    }
+    String::from_utf8(bytes[..IPC_BOOTSTRAP_TOKEN_BYTES].to_vec()).map_err(|_| {
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            "invalid local IPC bootstrap token",
+        )
+    })
 }
 
 fn exit_after_shutdown(

@@ -132,16 +132,22 @@ impl QueryDispatcher for RejectingDispatcher {
 #[derive(Clone)]
 pub struct LocalIpcConfiguration {
     pub pipe_name: String,
-    pub development_bearer_token: Option<String>,
+    pub bootstrap_token: Option<String>,
+    pub authorization: AuthorizationContext,
     pub engine_hello: PeerHello,
 }
 
 impl LocalIpcConfiguration {
     #[must_use]
-    pub fn development(pipe_name: String, development_bearer_token: Option<String>) -> Self {
+    pub fn authenticated(
+        pipe_name: String,
+        bootstrap_token: String,
+        authorization: AuthorizationContext,
+    ) -> Self {
         Self {
             pipe_name,
-            development_bearer_token,
+            bootstrap_token: Some(bootstrap_token),
+            authorization,
             engine_hello: default_engine_hello(),
         }
     }
@@ -376,29 +382,21 @@ impl LocalIpcServer {
     }
 
     fn handshake(&self, request: HandshakeRequest) -> HandshakeResponse {
-        let outcome = match &self.configuration.development_bearer_token {
+        let HandshakeRequest {
+            request_id,
+            correlation_id,
+            peer,
+            bootstrap_token,
+        } = request;
+        let outcome = match &self.configuration.bootstrap_token {
             None => HandshakeOutcome::Rejected(HandshakeRejection::AuthenticationRequired),
-            Some(expected) if !tokens_equal(expected, &request.development_bearer_token) => {
+            Some(expected) if !tokens_equal(expected, &bootstrap_token) => {
                 HandshakeOutcome::Rejected(HandshakeRejection::AuthenticationFailed)
             }
-            Some(_) => match negotiate(&self.configuration.engine_hello, &request.peer) {
+            Some(_) => match negotiate(&self.configuration.engine_hello, &peer) {
                 NegotiationOutcome::Accepted(negotiated) => {
-                    if request.asserted_authorization.tenant_id.value().is_nil() {
-                        return HandshakeResponse {
-                            request_id: request.request_id,
-                            correlation_id: request.correlation_id,
-                            outcome: HandshakeOutcome::Rejected(
-                                HandshakeRejection::AuthenticationFailed,
-                            ),
-                        };
-                    }
-                    let authorization = AuthorizationContext {
-                        session_id: SessionId::new(uuid::Uuid::new_v4()),
-                        identity: request.asserted_authorization.identity,
-                        tenant_id: request.asserted_authorization.tenant_id,
-                        workspace_id: request.asserted_authorization.workspace_id,
-                        scope: request.asserted_authorization.scope,
-                    };
+                    let mut authorization = self.configuration.authorization.clone();
+                    authorization.session_id = SessionId::new(uuid::Uuid::new_v4());
                     HandshakeOutcome::Accepted(Box::new(HandshakeAccepted {
                         engine: self.configuration.engine_hello.clone(),
                         negotiated,
@@ -411,8 +409,8 @@ impl LocalIpcServer {
             },
         };
         HandshakeResponse {
-            request_id: request.request_id,
-            correlation_id: request.correlation_id,
+            request_id,
+            correlation_id,
             outcome,
         }
     }
@@ -1293,9 +1291,8 @@ mod tests {
         events::{AuthorizationPolicyChanges, ConfigurationChanges, Subscription},
         identity::{
             AuthenticatedIdentity, DeviceId, PrincipalId, PrincipalKind, ScopeId, ScopeKind,
-            ScopeRef, TenantId, WorkspaceId,
+            ScopeRef, SessionId, TenantId, WorkspaceId,
         },
-        ipc::DevelopmentIdentityAssertion,
         queries::GetSyncStatus,
         sync::SyncStatus,
         transport::{IdempotencyKey, OperationId, RequestId, SubscriptionEnvelope},
@@ -1459,8 +1456,15 @@ mod tests {
         }
     }
 
-    fn assertion() -> DevelopmentIdentityAssertion {
-        DevelopmentIdentityAssertion {
+    struct TestIdentityAssertion {
+        identity: AuthenticatedIdentity,
+        tenant_id: TenantId,
+        workspace_id: Option<WorkspaceId>,
+        scope: ScopeRef,
+    }
+
+    fn assertion() -> TestIdentityAssertion {
+        TestIdentityAssertion {
             identity: AuthenticatedIdentity {
                 principal_id: PrincipalId::new(uuid::Uuid::new_v4()),
                 principal_kind: PrincipalKind::User,
@@ -1473,6 +1477,26 @@ mod tests {
                 kind: ScopeKind::parse("organization").unwrap(),
                 id: ScopeId::new(uuid::Uuid::new_v4()),
             },
+        }
+    }
+
+    fn test_authorization() -> AuthorizationContext {
+        let assertion = assertion();
+        AuthorizationContext {
+            session_id: SessionId::new(uuid::Uuid::new_v4()),
+            identity: assertion.identity,
+            tenant_id: assertion.tenant_id,
+            workspace_id: assertion.workspace_id,
+            scope: assertion.scope,
+        }
+    }
+
+    fn configuration(token: Option<&str>) -> LocalIpcConfiguration {
+        LocalIpcConfiguration {
+            pipe_name: "test".to_owned(),
+            bootstrap_token: token.map(ToOwned::to_owned),
+            authorization: test_authorization(),
+            engine_hello: default_engine_hello(),
         }
     }
 
@@ -1516,22 +1540,17 @@ mod tests {
             request_id: RequestId::new(uuid::Uuid::new_v4()),
             correlation_id: CorrelationId::new(uuid::Uuid::new_v4()),
             peer,
-            development_bearer_token: token.to_owned(),
-            asserted_authorization: assertion(),
+            bootstrap_token: token.to_owned(),
         }
     }
 
     fn service(token: Option<&str>) -> LocalIpcServer {
         let (shutdown, _) = mpsc::channel(1);
-        LocalIpcServer::new(
-            LocalIpcConfiguration::development("test".to_owned(), token.map(ToOwned::to_owned)),
-            Arc::new(TestDispatcher),
-            shutdown,
-        )
+        LocalIpcServer::new(configuration(token), Arc::new(TestDispatcher), shutdown)
     }
 
     #[test]
-    fn handshake_requires_explicit_development_authentication() {
+    fn handshake_requires_explicit_bootstrap_authentication() {
         let response = service(None).handshake(handshake(PROTOCOL_VERSION, "token"));
         assert!(matches!(
             response.outcome,
@@ -1540,14 +1559,46 @@ mod tests {
     }
 
     #[test]
-    fn handshake_rejects_missing_tenant_context() {
-        let mut request = handshake(PROTOCOL_VERSION, "token");
-        request.asserted_authorization.tenant_id = TenantId::new(uuid::Uuid::nil());
-        let response = service(Some("token")).handshake(request);
-        assert!(matches!(
-            response.outcome,
-            HandshakeOutcome::Rejected(HandshakeRejection::AuthenticationFailed)
-        ));
+    fn handshake_returns_only_the_engine_owned_authorization() {
+        let service = service(Some("token"));
+        let expected = service.configuration.authorization.clone();
+        let response = service.handshake(handshake(PROTOCOL_VERSION, "token"));
+        let HandshakeOutcome::Accepted(accepted) = response.outcome else {
+            panic!("handshake should succeed");
+        };
+        assert_ne!(accepted.authorization.session_id, expected.session_id);
+        assert_eq!(accepted.authorization.identity, expected.identity);
+        assert_eq!(accepted.authorization.tenant_id, expected.tenant_id);
+        assert_eq!(accepted.authorization.workspace_id, expected.workspace_id);
+        assert_eq!(accepted.authorization.scope, expected.scope);
+    }
+
+    #[test]
+    fn handshake_assigns_a_distinct_session_to_each_connection() {
+        let service = service(Some("token"));
+        let first = service.handshake(handshake(PROTOCOL_VERSION, "token"));
+        let second = service.handshake(handshake(PROTOCOL_VERSION, "token"));
+        let HandshakeOutcome::Accepted(first) = first.outcome else {
+            panic!("first handshake should succeed");
+        };
+        let HandshakeOutcome::Accepted(second) = second.outcome else {
+            panic!("second handshake should succeed");
+        };
+
+        assert_ne!(
+            first.authorization.session_id,
+            second.authorization.session_id
+        );
+        assert_eq!(first.authorization.identity, second.authorization.identity);
+        assert_eq!(
+            first.authorization.tenant_id,
+            second.authorization.tenant_id
+        );
+        assert_eq!(
+            first.authorization.workspace_id,
+            second.authorization.workspace_id
+        );
+        assert_eq!(first.authorization.scope, second.authorization.scope);
     }
 
     #[test]
@@ -2114,7 +2165,7 @@ mod tests {
     async fn query_dispatch_is_cancelled_at_deadline() {
         let (shutdown, _) = mpsc::channel(1);
         let service = LocalIpcServer::new(
-            LocalIpcConfiguration::development("test".to_owned(), Some("token".to_owned())),
+            configuration(Some("token")),
             Arc::new(SlowDispatcher),
             shutdown,
         );
@@ -2146,7 +2197,7 @@ mod tests {
     async fn command_dispatch_is_cancelled_at_deadline() {
         let (shutdown, _) = mpsc::channel(1);
         let service = LocalIpcServer::new(
-            LocalIpcConfiguration::development("test".to_owned(), Some("token".to_owned())),
+            configuration(Some("token")),
             Arc::new(SlowDispatcher),
             shutdown,
         );
@@ -2245,7 +2296,7 @@ mod tests {
         let permits = Arc::new(tokio::sync::Semaphore::new(0));
         let (shutdown, _) = mpsc::channel(1);
         let service = LocalIpcServer::new(
-            LocalIpcConfiguration::development("test".to_owned(), Some("token".to_owned())),
+            configuration(Some("token")),
             Arc::new(BlockingDispatcher {
                 entered: entered_sender,
                 permits: Arc::clone(&permits),

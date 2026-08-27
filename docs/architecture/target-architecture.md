@@ -263,7 +263,7 @@ The following designs are prohibited unless an approved architectural decision r
 
 ## Initial implementation gates
 
-Protocol `1.5`, Rust-owned configuration, scoped relationship authorization/audit, privacy-preserving observability, cross-platform secret storage, SQLite local authority, local IPC, the dual-mode sync engine, shared sync transport policy, and the modular PostgreSQL server foundation are implemented and documented in the [contract reference](../api/index.md). No production business vertical or registered server domain exists. Before the first production vertical slice, the team MUST define and review:
+Protocol `1.6`, Rust-owned configuration, scoped relationship authorization/audit, privacy-preserving observability, cross-platform secret storage, SQLite local authority, local IPC, the dual-mode sync engine, shared sync transport policy, and the modular PostgreSQL server foundation are implemented and documented in the [contract reference](../api/index.md). No production business vertical or registered server domain exists. Before the first production vertical slice, the team MUST define and review:
 
 1. the first bounded domain and its Arabic terminology;
 2. command, query, subscription, error, version, and capability contracts;

@@ -1,14 +1,14 @@
 use eitmad_contracts::{
-    identity::{DeviceId, PrincipalId, TenantId},
+    identity::{DeviceId, TenantId},
     server::AuthenticatedServerSession,
     transport::{CorrelationId, UnixMillis},
 };
+use eitmad_server_audit::{
+    ServerAuditEnvelope, ServerAuditEvent, ServerAuditOutcome, append as append_audit,
+};
 use sqlx::PgPool;
 
-use crate::{
-    audit::{self, AuditEntry},
-    database::tenant_transaction,
-};
+use crate::database::tenant_transaction;
 
 const OWNER_RELATION: &str = "eitmad.relation.organization.owner.v1";
 const MEMBER_RELATION: &str = "eitmad.relation.organization.member.v1";
@@ -20,41 +20,12 @@ pub enum AccessRequirement {
     TenantPermission(&'static str),
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ServerAuditOutcome {
-    Succeeded,
-    Denied,
-    Invalid,
-    Failed,
-}
-
-impl ServerAuditOutcome {
-    const fn as_str(self) -> &'static str {
-        match self {
-            Self::Succeeded => "succeeded",
-            Self::Denied => "denied",
-            Self::Invalid => "invalid",
-            Self::Failed => "failed",
-        }
-    }
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum AccessError {
     #[error("server access is denied")]
     Denied,
     #[error("server access authority is unavailable")]
     Unavailable,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct ServerAuditEntry<'a> {
-    pub operation: &'a str,
-    pub outcome: ServerAuditOutcome,
-    pub target_kind: &'a str,
-    pub redacted_error: Option<&'a str>,
-    pub correlation_id: CorrelationId,
-    pub now: UnixMillis,
 }
 
 #[derive(Clone)]
@@ -135,31 +106,13 @@ impl ServerAccessService {
     /// # Errors
     ///
     /// Returns unavailable when the append-only audit store cannot commit.
-    pub async fn audit(
-        &self,
-        actor: &AuthenticatedServerSession,
-        entry: &ServerAuditEntry<'_>,
-    ) -> Result<(), AccessError> {
-        let mut transaction = tenant_transaction(&self.pool, actor.tenant_id)
+    pub async fn audit(&self, entry: &ServerAuditEnvelope<'_>) -> Result<(), AccessError> {
+        let mut transaction = tenant_transaction(&self.pool, entry.actor.tenant_id)
             .await
             .map_err(|_| AccessError::Unavailable)?;
-        audit::append(
-            &mut transaction,
-            AuditEntry {
-                tenant_id: actor.tenant_id,
-                session_id: actor.session_id,
-                device_id: Some(actor.device_id),
-                principal_id: PrincipalId::new(actor.user_id.value()),
-                operation: entry.operation,
-                outcome: entry.outcome.as_str(),
-                target_kind: entry.target_kind,
-                correlation_id: entry.correlation_id,
-                redacted_error: entry.redacted_error,
-                now: entry.now,
-            },
-        )
-        .await
-        .map_err(|_| AccessError::Unavailable)?;
+        append_audit(&mut transaction, entry)
+            .await
+            .map_err(|_| AccessError::Unavailable)?;
         transaction
             .commit()
             .await
@@ -220,20 +173,22 @@ impl ServerAccessService {
         .execute(&mut *transaction)
         .await
         .map_err(|_| AccessError::Unavailable)?;
-        audit::append(
+        append_audit(
             &mut transaction,
-            AuditEntry {
-                tenant_id: actor.tenant_id,
-                session_id: actor.session_id,
-                device_id: Some(actor.device_id),
-                principal_id: PrincipalId::new(actor.user_id.value()),
-                operation: "eitmad.admin.device-sessions.revoke.v1",
-                outcome: "succeeded",
-                target_kind: "device_sessions",
-                correlation_id,
-                redacted_error: None,
-                now,
-            },
+            &ServerAuditEnvelope::for_tenant_session(
+                actor,
+                ServerAuditEvent {
+                    operation: "eitmad.admin.device-sessions.revoke.v1",
+                    outcome: ServerAuditOutcome::Succeeded,
+                    target_kind: "device_sessions",
+                    target_id: Some(device_id.value()),
+                    correlation_id,
+                    causation_id: None,
+                    idempotency_key: None,
+                    redacted_error: None,
+                    occurred_at: now,
+                },
+            ),
         )
         .await
         .map_err(|_| AccessError::Unavailable)?;

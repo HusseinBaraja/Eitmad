@@ -1265,33 +1265,6 @@
         "secret"
       ]
     },
-    "DevelopmentIdentityAssertion": {
-      "type": "object",
-      "properties": {
-        "identity": {
-          "$ref": "#/definitions/AuthenticatedIdentity"
-        },
-        "scope": {
-          "$ref": "#/definitions/ScopeRef"
-        },
-        "tenantId": {
-          "type": "string",
-          "format": "uuid"
-        },
-        "workspaceId": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "format": "uuid"
-        }
-      },
-      "required": [
-        "identity",
-        "tenantId",
-        "scope"
-      ]
-    },
     "DiagnosticReport": {
       "type": "object",
       "properties": {
@@ -2038,15 +2011,12 @@
     "HandshakeRequest": {
       "type": "object",
       "properties": {
-        "assertedAuthorization": {
-          "$ref": "#/definitions/DevelopmentIdentityAssertion"
+        "bootstrapToken": {
+          "type": "string"
         },
         "correlationId": {
           "type": "string",
           "format": "uuid"
-        },
-        "developmentBearerToken": {
-          "type": "string"
         },
         "peer": {
           "$ref": "#/definitions/PeerHello"
@@ -2060,8 +2030,7 @@
         "requestId",
         "correlationId",
         "peer",
-        "developmentBearerToken",
-        "assertedAuthorization"
+        "bootstrapToken"
       ]
     },
     "HandshakeResponse": {

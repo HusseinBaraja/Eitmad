@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "Rust engine maintainers"
-last_verified: "2026-07-18"
+last_verified: "2026-08-27"
 review_triggers:
   - "engine CLI arguments, process modes, lifecycle output, exit codes, or runtime directory behavior changes"
 keywords:
@@ -25,7 +25,7 @@ The engine CLI runs one foreground authority or performs one non-mutating diagno
 - Run commands from the repository root.
 - Do not point `--runtime-directory` at customer documents, a shared network path, or another application's data.
 - Treat the supervisor PID and lock metadata as correlation data, not credentials.
-- Windows typed IPC is implemented with development-only authentication. Rust-owned SQLite storage is active; trusted production identity provisioning remains blocked.
+- Windows typed IPC uses an ephemeral parent-child bootstrap token. Rust owns the persistent installation identity and relationship authorization.
 
 ## Run non-mutating diagnostics
 
@@ -48,7 +48,7 @@ On first authoritative start, the storage component creates and migrates `eitmad
 
 ## Run supervised desktop mode
 
-A shell launches the child with stdin/stdout lifecycle pipes and a unique `--ipc-pipe-name`. The Windows adapter may add `--allow-insecure-development-auth` only for synthetic development sessions and supplies its random token through `EITMAD_DEVELOPMENT_IPC_TOKEN`; never record or reuse that value. The supervisor PID remains correlation data, not authentication.
+A shell launches the child with stdin/stdout lifecycle pipes, a unique `--ipc-pipe-name`, and `--ipc-bootstrap-stdin`. The Windows adapter writes one 64-character random hexadecimal bootstrap token followed by a newline before it waits for readiness. Never place that value in arguments, environment variables, logs, or persisted configuration. The supervisor retains it only for same-generation reconnect. The supervisor PID remains correlation data, not authentication.
 
 The following lifecycle-only example omits `--ipc-pipe-name`, so typed IPC is not available:
 

@@ -6029,22 +6029,20 @@ public extension UpdateState {
 
 // MARK: - HandshakeRequest
 public struct HandshakeRequest: Codable, Sendable {
-    public let assertedAuthorization: DevelopmentIdentityAssertion
-    public let correlationID, developmentBearerToken: String
+    public let bootstrapToken, correlationID: String
     public let peer: PeerHello
     public let requestID: String
 
     public enum CodingKeys: String, CodingKey {
-        case assertedAuthorization
+        case bootstrapToken
         case correlationID = "correlationId"
-        case developmentBearerToken, peer
+        case peer
         case requestID = "requestId"
     }
 
-    public init(assertedAuthorization: DevelopmentIdentityAssertion, correlationID: String, developmentBearerToken: String, peer: PeerHello, requestID: String) {
-        self.assertedAuthorization = assertedAuthorization
+    public init(bootstrapToken: String, correlationID: String, peer: PeerHello, requestID: String) {
+        self.bootstrapToken = bootstrapToken
         self.correlationID = correlationID
-        self.developmentBearerToken = developmentBearerToken
         self.peer = peer
         self.requestID = requestID
     }
@@ -6069,80 +6067,16 @@ public extension HandshakeRequest {
     }
 
     func with(
-        assertedAuthorization: DevelopmentIdentityAssertion? = nil,
+        bootstrapToken: String? = nil,
         correlationID: String? = nil,
-        developmentBearerToken: String? = nil,
         peer: PeerHello? = nil,
         requestID: String? = nil
     ) -> HandshakeRequest {
         return HandshakeRequest(
-            assertedAuthorization: assertedAuthorization ?? self.assertedAuthorization,
+            bootstrapToken: bootstrapToken ?? self.bootstrapToken,
             correlationID: correlationID ?? self.correlationID,
-            developmentBearerToken: developmentBearerToken ?? self.developmentBearerToken,
             peer: peer ?? self.peer,
             requestID: requestID ?? self.requestID
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
-// MARK: - DevelopmentIdentityAssertion
-public struct DevelopmentIdentityAssertion: Codable, Sendable {
-    public let identity: AuthenticatedIdentity
-    public let scope: ScopeRef
-    public let tenantID: String
-    public let workspaceID: String?
-
-    public enum CodingKeys: String, CodingKey {
-        case identity, scope
-        case tenantID = "tenantId"
-        case workspaceID = "workspaceId"
-    }
-
-    public init(identity: AuthenticatedIdentity, scope: ScopeRef, tenantID: String, workspaceID: String?) {
-        self.identity = identity
-        self.scope = scope
-        self.tenantID = tenantID
-        self.workspaceID = workspaceID
-    }
-}
-
-// MARK: DevelopmentIdentityAssertion convenience initializers and mutators
-
-public extension DevelopmentIdentityAssertion {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(DevelopmentIdentityAssertion.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        identity: AuthenticatedIdentity? = nil,
-        scope: ScopeRef? = nil,
-        tenantID: String? = nil,
-        workspaceID: String?? = nil
-    ) -> DevelopmentIdentityAssertion {
-        return DevelopmentIdentityAssertion(
-            identity: identity ?? self.identity,
-            scope: scope ?? self.scope,
-            tenantID: tenantID ?? self.tenantID,
-            workspaceID: workspaceID ?? self.workspaceID
         )
     }
 

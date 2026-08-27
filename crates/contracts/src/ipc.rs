@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     errors::ContractError,
     events::Event,
-    identity::{AuthenticatedIdentity, AuthorizationContext, ScopeRef, TenantId, WorkspaceId},
+    identity::AuthorizationContext,
     transport::{
         CommandEnvelope, CommandOutcome, CommandResponseEnvelope, CorrelationId, EventEnvelope,
         QueryEnvelope, QueryOutcome, QueryResponseEnvelope, RequestId, SubscriptionClosedEnvelope,
@@ -18,21 +18,11 @@ pub const MAX_IPC_FRAME_BYTES: u32 = 8 * 1024 * 1024;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct DevelopmentIdentityAssertion {
-    pub identity: AuthenticatedIdentity,
-    pub tenant_id: TenantId,
-    pub workspace_id: Option<WorkspaceId>,
-    pub scope: ScopeRef,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
 pub struct HandshakeRequest {
     pub request_id: RequestId,
     pub correlation_id: CorrelationId,
     pub peer: PeerHello,
-    pub development_bearer_token: String,
-    pub asserted_authorization: DevelopmentIdentityAssertion,
+    pub bootstrap_token: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -177,7 +167,7 @@ mod tests {
             RetryDisposition,
         },
         events::ScopedError,
-        identity::{ScopeId, ScopeKind},
+        identity::{ScopeId, ScopeKind, ScopeRef},
         transport::{EventCursor, SubscriptionId, UnixMillis},
     };
 

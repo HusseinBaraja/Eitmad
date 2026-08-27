@@ -15,6 +15,15 @@ SPEC.loader.exec_module(policy)
 
 
 class RepositoryPolicyTests(unittest.TestCase):
+    def test_text_files_ignores_tracked_paths_deleted_by_the_change(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_value:
+            root = Path(temp_value)
+            existing = root / "current.rs"
+            missing = root / "deleted.rs"
+            existing.write_text("fn current() {}\n", encoding="utf-8")
+            with patch.object(policy, "tracked_files", return_value=[existing, missing]):
+                self.assertEqual([existing], policy.text_files())
+
     def test_migration_inventory_rejects_changed_released_bytes(self) -> None:
         with tempfile.TemporaryDirectory() as temp_value:
             root = Path(temp_value)

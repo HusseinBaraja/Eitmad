@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust contract maintainers"
-last_verified: "2026-08-23"
+last_verified: "2026-08-27"
 review_triggers:
   - "protocol ownership, wire format, generation, compatibility, or platform binding changes"
 keywords:
@@ -83,7 +83,7 @@ The missing local Swift toolchain does not authorize shell implementation or byp
 
 ## Tests and observability
 
-Unit tests live beside contract behavior. Cross-language fixtures and runners live under `tests/contract-compatibility/`. Codegen tests prove missing/stale output detection and C#/Swift identifier parity. CI checks Rust formatting, strict Clippy, tests, generated drift, .NET compilation/round-trip, Swift compilation/round-trip, Unicode preservation, and forbidden handwritten shell identifiers. Platform jobs do not run until Rust drift validation succeeds.
+Unit tests live beside contract behavior. Cross-language fixtures and runners live under `tests/contract-compatibility/`. Codegen tests prove missing/stale output detection and C#/Swift identifier parity. CI checks the pinned generator for high and critical dependency advisories before generation. It also checks Rust formatting, strict Clippy, tests, generated drift, .NET compilation/round-trip, Swift compilation/round-trip, Unicode preservation, and forbidden handwritten shell identifiers. Platform jobs do not run until Rust drift validation succeeds.
 
 Contracts expose correlation identifiers and safe structured errors. `ContractError::redacted_for_external_boundary` removes free text and undeclared metadata, and the IPC writer reapplies it to every nested error before serialization. Contracts do not authorize logging payloads. Diagnostics must use the [observation field contract](privacy-preserving-observability.md) and record only approved identifiers, versions, negotiation outcomes, bounds, and redacted failure metadata.
 

@@ -1,5 +1,6 @@
 use std::{collections::BTreeMap, sync::Arc};
 
+use async_trait::async_trait;
 use eitmad_contracts::{
     identity::ScopeRef,
     server::AuthenticatedServerSession,
@@ -65,9 +66,10 @@ pub enum DomainValidationError {
     Conflict,
 }
 
+#[async_trait]
 pub trait DomainSyncHandler: Send + Sync {
     fn descriptor(&self) -> DomainDescriptor;
-    fn authorize(
+    async fn authorize(
         &self,
         session: &AuthenticatedServerSession,
         scope: &ScopeRef,
@@ -86,6 +88,7 @@ pub trait DomainSyncHandler: Send + Sync {
     /// Returns a denial, invalid-payload, or conflict result.
     fn execute_command(
         &self,
+        session: &AuthenticatedServerSession,
         command: &CommandSubmission,
     ) -> Result<AuthoritativeChangeDraft, DomainValidationError>;
     /// Produces an optional authoritative conflict resolution.
@@ -173,6 +176,7 @@ mod tests {
 
     struct Handler;
 
+    #[async_trait]
     impl DomainSyncHandler for Handler {
         fn descriptor(&self) -> DomainDescriptor {
             DomainDescriptor {
@@ -183,7 +187,7 @@ mod tests {
             }
         }
 
-        fn authorize(
+        async fn authorize(
             &self,
             _session: &AuthenticatedServerSession,
             _scope: &ScopeRef,
@@ -201,6 +205,7 @@ mod tests {
 
         fn execute_command(
             &self,
+            _session: &AuthenticatedServerSession,
             _command: &CommandSubmission,
         ) -> Result<AuthoritativeChangeDraft, DomainValidationError> {
             Err(DomainValidationError::Denied)

@@ -5,7 +5,7 @@ audience: "support"
 page_type: "troubleshooting"
 status: "active"
 owner: "Windows UI and platform maintainers"
-last_verified: "2026-08-25"
+last_verified: "2026-08-27"
 review_triggers:
   - "Windows shell availability copy, reconnect, resync, query support, or shutdown behavior changes"
 keywords:
@@ -28,10 +28,10 @@ The Windows shell can become temporarily unavailable without losing Rust-owned d
 - **تعذر استعادة الاتصال بالمحرك** maps `EngineIpcHealthState.ReconnectExhausted`;
 - **توقفت محاولات إعادة تشغيل المحرك** maps `EngineSupervisionState.RestartExhausted`;
 - **نحدّث الحالة من المصدر…** remains visible after subscription resynchronization;
-- a sync or update card says **غير متاحة** with `eitmad.error.contract-invalid.v1`;
+- a sync or update card says **غير متاحة** with `eitmad.error.ipc-subscription-unsupported.v1`;
 - a configuration revision says **غير متاح** or the patch action remains disabled.
 
-Sync and update **غير متاحة** currently means the running Rust dispatcher does not implement those state queries. It does not mean that the shell calculated an offline, current, or failed state. Configuration remains usable when its typed query succeeds.
+Sync and update **غير متاحة** currently means that the engine did not advertise those optional runtime capabilities. The shell sends no query or subscription for them. It does not mean that the shell calculated an offline, current, or failed state. Configuration remains usable when its typed query succeeds.
 
 ## Fast checks
 
@@ -48,8 +48,8 @@ Sync and update **غير متاحة** currently means the running Rust dispatche
 | **نعيد الاتصال بالمحرك…**, same generation | Named-pipe session ended while the engine stayed ready | Observe whether `IpcHealth` returns to `Connected` inside the bounded attempts | Wait for automatic reconnect; if it exhausts, exit through the tray and start one new normal session |
 | `ReconnectExhausted`, lifecycle still `Ready` | Three same-generation reconnect attempts failed | Run the real-engine boundary suite and capture only typed failure kinds | Restart through normal supervision; escalate recurring failures to Windows platform maintainers |
 | `RestartExhausted`, restart count `3` | Four unexpected engine exits occurred inside 60 seconds | Match the last typed Rust error with engine diagnostics | Correct the engine failure, then use **إعادة المحاولة** once to start a new supervision session |
-| **نحدّث الحالة من المصدر…** after engine replacement | The old in-memory cursor cannot prove continuity | Check whether configuration, sync, and update queries return | Wait for the refresh attempt; unsupported discrete streams clear because no history query exists, and failed typed queries leave their panel unavailable |
-| Sync/update **غير متاحة**, `eitmad.error.contract-invalid.v1` | The current dispatcher does not implement the query | Confirm engine health is still **سليم** and configuration has a revision | No recovery is needed; do not infer product state. Implement the Rust vertical and typed query before enabling the panel |
+| **نحدّث الحالة من المصدر…** after engine replacement | The old in-memory cursor cannot prove continuity | Check whether each negotiated query returns | Wait for the bounded refresh attempt; an absent optional capability remains unavailable without request traffic |
+| Sync/update **غير متاحة**, `eitmad.error.ipc-subscription-unsupported.v1` | The current engine did not negotiate that optional capability | Confirm engine health is still **سليم** and configuration has a revision | No recovery is needed; do not infer product state. Implement and advertise the Rust vertical before enabling the panel |
 | Configuration revision says **غير متاح** | Configuration query was denied, unavailable, or the IPC session is unusable | Verify synthetic development scope coherence or production identity and ReBAC without copying the relationship graph | Correct identity/scope provisioning or Rust authority; never add a shell-side permission decision |
 | Patch rejected after another client changed configuration | `ExpectedRevision` is stale | Read the newest configuration snapshot | Review the new value and submit a new typed patch with the new revision and a new user intent |
 

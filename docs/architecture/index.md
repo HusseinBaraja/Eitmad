@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "explanation"
 status: "active"
 owner: "architecture maintainers"
-last_verified: "2026-08-24"
+last_verified: "2026-08-27"
 review_triggers:
   - "an authority, process, trust, storage, sync, update, or platform boundary changes"
 keywords:
@@ -16,11 +16,14 @@ keywords:
 
 # Understand Eitmad architecture
 
-Eitmad uses thin native desktop applications connected to a separate trusted Rust engine that acts as product authority. Protocol `1.5`, native binding generation, engine lifecycle, SQLite local authority, the modular PostgreSQL server, scoped authorization/audit, shared sync semantics, WAN relay coordination, signed update manifests, least-privilege administration, and Windows process supervision are implemented. No production business domain, native settings UI, MFA/email provider, package CDN, production relay payload router, or backup scheduler exists yet.
+Eitmad uses thin native desktop applications connected to a separate trusted Rust engine that acts as product authority. Protocol `1.6`, native binding generation, engine lifecycle, SQLite local authority, the modular PostgreSQL server, scoped authorization/audit, shared sync semantics, WAN relay coordination, signed update manifests, least-privilege administration, and Windows process supervision are implemented. No production business domain, native settings UI, MFA/email provider, package CDN, production relay payload router, or backup scheduler exists yet.
 
 ## Start here
 
 - [Target architecture](target-architecture.md): system shape, ownership, IPC, storage, synchronization, security, updates, and performance.
+- [Base application readiness audit](base-application-readiness-audit.md): evidence, closed critical defects, category findings, and the engineering-versus-production verdict.
+- [Known limitations](known-limitations.md): current product, sync, update, platform, recovery, Arabic, and performance limits.
+- [Deferred foundation work](deferred-foundation-work.md): ordered production blockers and later platform work.
 - [Arabic-first UX requirements](arabic-first-ux.md): RTL, bidirectional text, search, input, documents, and accessibility.
 - [Architectural decisions](../decisions/index.md): the historical record of accepted choices.
 - [Protocol v1 contracts](../api/index.md): implemented external shapes, compatibility, and generation.
