@@ -16,4 +16,4 @@ pub use operations::{
     AcknowledgeRequest, OperationError, OperationResult, PullPageRequest, SyncCoordinator,
 };
 pub use snapshots::{SnapshotBundle, SnapshotError, SnapshotRequest};
-pub use subscriptions::{SubscriptionError, SubscriptionPage};
+pub use subscriptions::{SubscriptionError, SubscriptionPage, SubscriptionPageRequest};

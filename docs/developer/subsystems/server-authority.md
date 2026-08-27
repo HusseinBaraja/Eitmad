@@ -99,6 +99,8 @@ Pull sessions return ordered history after a checkpoint. Clients acknowledge app
 
 Subscription resume cursors are scoped to their exact stream (tenant, scope kind, scope ID, schema ID, and event ID). A cursor from another stream returns `ResyncRequired` instead of silently skipping events. A stale base revision on a record the server has never stored — or removed by compaction — returns snapshot-required semantics instead of an availability error, so clients resynchronize rather than retry forever. Snapshot creation and history compaction write audit records inside their transactions, and compaction additionally requires write-level domain authorization before deleting anything.
 
+`server/host` constructs `SubscriptionPageRequest` and passes it to `SyncCoordinator::subscription_page`. Keep authenticated session, exact scope, negotiated schema version, resume cursor, page limit, correlation ID, and request time together in this request boundary when adding another transport. Do not split these values into an untyped adapter API or authorize them outside `server/sync-plane`.
+
 Operation history has a 90-day retention floor. Compaction is safe only after a complete snapshot exists and retained client checkpoints no longer require the removed range; the covering-snapshot check excludes the checkpoint row itself so later compactions keep resolving. When a requested checkpoint is unavailable, the host sends a manifest, bounded chunks, and completion checksum instead of pretending that incremental history is complete.
 
 ## Licensing and update assignment

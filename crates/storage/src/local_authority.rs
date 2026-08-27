@@ -114,63 +114,7 @@ fn create(
         organization: OrganizationId::new(Uuid::new_v4()),
         device: DeviceId::new(Uuid::new_v4()),
     };
-    connection
-        .execute(
-            "INSERT INTO identity_tenants(tenant_id, created_at) VALUES (?1, ?2)",
-            params![authority.tenant.value().to_string(), now.0],
-        )
-        .and_then(|_| {
-            connection.execute(
-                "INSERT INTO identity_users(user_id, created_at) VALUES (?1, ?2)",
-                params![authority.user.value().to_string(), now.0],
-            )
-        })
-        .and_then(|_| {
-            connection.execute(
-                "INSERT INTO identity_accounts
-                 (account_id, user_id, tenant_id, created_at) VALUES (?1, ?2, ?3, ?4)",
-                params![
-                    authority.account.value().to_string(),
-                    authority.user.value().to_string(),
-                    authority.tenant.value().to_string(),
-                    now.0,
-                ],
-            )
-        })
-        .and_then(|_| {
-            connection.execute(
-                "INSERT INTO identity_organizations
-                 (organization_id, tenant_id, created_at) VALUES (?1, ?2, ?3)",
-                params![
-                    authority.organization.value().to_string(),
-                    authority.tenant.value().to_string(),
-                    now.0,
-                ],
-            )
-        })
-        .and_then(|_| {
-            connection.execute(
-                "INSERT INTO identity_devices(device_id, created_at, last_seen_at)
-                 VALUES (?1, ?2, ?2)",
-                params![authority.device.value().to_string(), now.0],
-            )
-        })
-        .and_then(|_| {
-            connection.execute(
-                "INSERT INTO local_installation_authority
-                 (singleton, tenant_id, user_id, account_id, organization_id, device_id, created_at)
-                 VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6)",
-                params![
-                    authority.tenant.value().to_string(),
-                    authority.user.value().to_string(),
-                    authority.account.value().to_string(),
-                    authority.organization.value().to_string(),
-                    authority.device.value().to_string(),
-                    now.0,
-                ],
-            )
-        })
-        .map_err(|_| StorageError)?;
+    insert_identity_rows(connection, &authority, now)?;
 
     let scope_id = authority.tenant.value().to_string();
     let relationship_id = Uuid::new_v4();
@@ -229,6 +173,71 @@ fn create(
         })
         .map_err(|_| StorageError)?;
     Ok(authority)
+}
+
+fn insert_identity_rows(
+    connection: &rusqlite::Connection,
+    authority: &StoredLocalAuthority,
+    now: UnixMillis,
+) -> Result<(), StorageError> {
+    connection
+        .execute(
+            "INSERT INTO identity_tenants(tenant_id, created_at) VALUES (?1, ?2)",
+            params![authority.tenant.value().to_string(), now.0],
+        )
+        .and_then(|_| {
+            connection.execute(
+                "INSERT INTO identity_users(user_id, created_at) VALUES (?1, ?2)",
+                params![authority.user.value().to_string(), now.0],
+            )
+        })
+        .and_then(|_| {
+            connection.execute(
+                "INSERT INTO identity_accounts
+             (account_id, user_id, tenant_id, created_at) VALUES (?1, ?2, ?3, ?4)",
+                params![
+                    authority.account.value().to_string(),
+                    authority.user.value().to_string(),
+                    authority.tenant.value().to_string(),
+                    now.0
+                ],
+            )
+        })
+        .and_then(|_| {
+            connection.execute(
+                "INSERT INTO identity_organizations
+             (organization_id, tenant_id, created_at) VALUES (?1, ?2, ?3)",
+                params![
+                    authority.organization.value().to_string(),
+                    authority.tenant.value().to_string(),
+                    now.0
+                ],
+            )
+        })
+        .and_then(|_| {
+            connection.execute(
+                "INSERT INTO identity_devices(device_id, created_at, last_seen_at)
+             VALUES (?1, ?2, ?2)",
+                params![authority.device.value().to_string(), now.0],
+            )
+        })
+        .and_then(|_| {
+            connection.execute(
+                "INSERT INTO local_installation_authority
+             (singleton, tenant_id, user_id, account_id, organization_id, device_id, created_at)
+             VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6)",
+                params![
+                    authority.tenant.value().to_string(),
+                    authority.user.value().to_string(),
+                    authority.account.value().to_string(),
+                    authority.organization.value().to_string(),
+                    authority.device.value().to_string(),
+                    now.0
+                ],
+            )
+        })
+        .map(|_| ())
+        .map_err(|_| StorageError)
 }
 
 fn verify(

@@ -42,6 +42,42 @@ pub struct SubscriptionPage {
     pub has_more: bool,
 }
 
+/// One authorized request for a page of durable subscription events.
+pub struct SubscriptionPageRequest<'a> {
+    pub session: &'a AuthenticatedServerSession,
+    pub scope: &'a ScopeRef,
+    pub schema_id: &'a SchemaId,
+    pub schema_version: u32,
+    pub resume_after: Option<EventCursor>,
+    pub maximum_events: u32,
+    pub correlation_id: CorrelationId,
+    pub now: UnixMillis,
+}
+
+impl SubscriptionPageRequest<'_> {
+    fn audit(
+        &self,
+        outcome: ServerAuditOutcome,
+        redacted_error: Option<&'static str>,
+    ) -> ServerAuditEnvelope<'_> {
+        ServerAuditEnvelope::from_session(
+            self.session,
+            self.scope.clone(),
+            ServerAuditEvent {
+                operation: "eitmad.server.sync.subscription-page.v1",
+                outcome,
+                target_kind: "sync-subscription",
+                target_id: Some(self.scope.id.value()),
+                correlation_id: self.correlation_id,
+                causation_id: None,
+                idempotency_key: None,
+                redacted_error,
+                occurred_at: self.now,
+            },
+        )
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum SubscriptionError {
     #[error("subscription is denied")]
@@ -62,93 +98,54 @@ impl SyncCoordinator {
     /// Denies unauthorized delivery and rejects unknown resume cursors.
     pub async fn subscription_page(
         &self,
-        session: &AuthenticatedServerSession,
-        scope: &ScopeRef,
-        schema_id: &SchemaId,
-        schema_version: u32,
-        resume_after: Option<EventCursor>,
-        maximum_events: u32,
-        correlation_id: CorrelationId,
-        now: UnixMillis,
+        request: SubscriptionPageRequest<'_>,
     ) -> Result<SubscriptionPage, SubscriptionError> {
-        let audit = |outcome, redacted_error| {
-            ServerAuditEnvelope::from_session(
-                session,
-                scope.clone(),
-                ServerAuditEvent {
-                    operation: "eitmad.server.sync.subscription-page.v1",
-                    outcome,
-                    target_kind: "sync-subscription",
-                    target_id: Some(scope.id.value()),
-                    correlation_id,
-                    causation_id: None,
-                    idempotency_key: None,
-                    redacted_error,
-                    occurred_at: now,
-                },
-            )
-        };
+        let invalid_audit = request.audit(
+            ServerAuditOutcome::Invalid,
+            Some("eitmad.error.contract-invalid.v1"),
+        );
+        let SubscriptionPageRequest {
+            session,
+            scope,
+            schema_id,
+            schema_version,
+            resume_after,
+            maximum_events,
+            correlation_id: _,
+            now: _,
+        } = request;
         let limit = usize::try_from(maximum_events).map_err(|_| SubscriptionError::Invalid)?;
         if limit == 0 || limit > eitmad_contracts::sync::MAX_SYNC_BATCH_RECORDS {
-            crate::boundary_audit::record(
-                &self.pool,
-                &audit(
-                    ServerAuditOutcome::Invalid,
-                    Some("eitmad.error.contract-invalid.v1"),
-                ),
-            )
-            .await
-            .map_err(|_| SubscriptionError::Unavailable)?;
-            return Err(SubscriptionError::Invalid);
-        }
-        let handler = match self.registry.get(schema_id, schema_version) {
-            Ok(handler) => handler,
-            Err(_) => {
-                crate::boundary_audit::record(
-                    &self.pool,
-                    &audit(
-                        ServerAuditOutcome::Invalid,
-                        Some("eitmad.error.server-client-incompatible.v1"),
-                    ),
-                )
+            crate::boundary_audit::record(&self.pool, &invalid_audit)
                 .await
                 .map_err(|_| SubscriptionError::Unavailable)?;
-                return Err(SubscriptionError::Invalid);
-            }
+            return Err(SubscriptionError::Invalid);
+        }
+        let Ok(handler) = self.registry.get(schema_id, schema_version) else {
+            let audit = request.audit(
+                ServerAuditOutcome::Invalid,
+                Some("eitmad.error.server-client-incompatible.v1"),
+            );
+            crate::boundary_audit::record(&self.pool, &audit)
+                .await
+                .map_err(|_| SubscriptionError::Unavailable)?;
+            return Err(SubscriptionError::Invalid);
         };
         if !handler.authorize(session, scope, SyncIntent::Read).await {
-            crate::boundary_audit::record(
-                &self.pool,
-                &audit(
-                    ServerAuditOutcome::Denied,
-                    Some("eitmad.error.authorization-denied.v1"),
-                ),
-            )
-            .await
-            .map_err(|_| SubscriptionError::Unavailable)?;
+            let audit = request.audit(
+                ServerAuditOutcome::Denied,
+                Some("eitmad.error.authorization-denied.v1"),
+            );
+            crate::boundary_audit::record(&self.pool, &audit)
+                .await
+                .map_err(|_| SubscriptionError::Unavailable)?;
             return Err(SubscriptionError::Denied);
         }
         let mut transaction = tenant_transaction(&self.pool, session.tenant_id)
             .await
             .map_err(|_| SubscriptionError::Unavailable)?;
-        let cursor = if let Some(resume_after) = resume_after {
-            sqlx::query_scalar::<_, i64>(
-                "SELECT cursor FROM sync.subscription_events
-                 WHERE tenant_id = $1 AND scope_kind = $2 AND scope_id = $3
-                   AND schema_id = $4 AND event_id = $5",
-            )
-            .bind(session.tenant_id.value())
-            .bind(scope.kind.as_str())
-            .bind(scope.id.value())
-            .bind(schema_id.as_str())
-            .bind(resume_after.value())
-            .fetch_optional(&mut *transaction)
-            .await
-            .map_err(|_| SubscriptionError::Unavailable)?
-            .ok_or(SubscriptionError::ResyncRequired)?
-        } else {
-            0
-        };
+        let cursor =
+            resolve_cursor(&mut transaction, session, scope, schema_id, resume_after).await?;
         let rows = sqlx::query(
             "SELECT cursor, event_id, event_json, occurred_at
              FROM sync.subscription_events
@@ -183,7 +180,7 @@ impl SyncCoordinator {
             .collect::<Result<Vec<_>, SubscriptionError>>()?;
         append_audit(
             &mut transaction,
-            &audit(ServerAuditOutcome::Succeeded, None),
+            &request.audit(ServerAuditOutcome::Succeeded, None),
         )
         .await
         .map_err(|_| SubscriptionError::Unavailable)?;
@@ -193,6 +190,32 @@ impl SyncCoordinator {
             .map_err(|_| SubscriptionError::Unavailable)?;
         Ok(SubscriptionPage { events, has_more })
     }
+}
+
+async fn resolve_cursor(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    session: &AuthenticatedServerSession,
+    scope: &ScopeRef,
+    schema_id: &SchemaId,
+    resume_after: Option<EventCursor>,
+) -> Result<i64, SubscriptionError> {
+    let Some(resume_after) = resume_after else {
+        return Ok(0);
+    };
+    sqlx::query_scalar::<_, i64>(
+        "SELECT cursor FROM sync.subscription_events
+         WHERE tenant_id = $1 AND scope_kind = $2 AND scope_id = $3
+           AND schema_id = $4 AND event_id = $5",
+    )
+    .bind(session.tenant_id.value())
+    .bind(scope.kind.as_str())
+    .bind(scope.id.value())
+    .bind(schema_id.as_str())
+    .bind(resume_after.value())
+    .fetch_optional(&mut **transaction)
+    .await
+    .map_err(|_| SubscriptionError::Unavailable)?
+    .ok_or(SubscriptionError::ResyncRequired)
 }
 
 #[cfg(test)]
@@ -285,16 +308,16 @@ mod tests {
     async fn denied_subscription_fails_closed_when_audit_is_unavailable() {
         assert_eq!(
             coordinator()
-                .subscription_page(
-                    &session(),
-                    &scope(),
-                    &schema_id(),
-                    1,
-                    None,
-                    1,
-                    CorrelationId::new(Uuid::from_u128(7)),
-                    UnixMillis(1),
-                )
+                .subscription_page(SubscriptionPageRequest {
+                    session: &session(),
+                    scope: &scope(),
+                    schema_id: &schema_id(),
+                    schema_version: 1,
+                    resume_after: None,
+                    maximum_events: 1,
+                    correlation_id: CorrelationId::new(Uuid::from_u128(7)),
+                    now: UnixMillis(1),
+                })
                 .await,
             Err(SubscriptionError::Unavailable)
         );
@@ -304,16 +327,16 @@ mod tests {
     async fn invalid_subscription_fails_closed_when_audit_is_unavailable() {
         assert_eq!(
             coordinator()
-                .subscription_page(
-                    &session(),
-                    &scope(),
-                    &schema_id(),
-                    1,
-                    None,
-                    0,
-                    CorrelationId::new(Uuid::from_u128(7)),
-                    UnixMillis(1),
-                )
+                .subscription_page(SubscriptionPageRequest {
+                    session: &session(),
+                    scope: &scope(),
+                    schema_id: &schema_id(),
+                    schema_version: 1,
+                    resume_after: None,
+                    maximum_events: 0,
+                    correlation_id: CorrelationId::new(Uuid::from_u128(7)),
+                    now: UnixMillis(1),
+                })
                 .await,
             Err(SubscriptionError::Unavailable)
         );

@@ -365,6 +365,70 @@ mod tests {
     #[tokio::test]
     #[ignore = "requires a dedicated EITMAD_TEST_DATABASE_URL PostgreSQL database"]
     async fn migration_executes_and_preserves_append_only_records() {
+        let pool = reset_dedicated_test_database().await;
+        let tenant_id = TenantId::new(Uuid::new_v4());
+        let legacy_audit_id = Uuid::new_v4();
+        sqlx::query("SELECT set_config('eitmad.tenant_id', $1, false)")
+            .bind(tenant_id.value().to_string())
+            .execute(&pool)
+            .await
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO audit.server_records
+                (audit_id, tenant_id, session_id, principal_id, operation, outcome,
+                 target_kind, correlation_id, occurred_at)
+             VALUES ($1, $2, $3, $4, 'legacy', 'succeeded', 'test', $5, 1)",
+        )
+        .bind(legacy_audit_id)
+        .bind(tenant_id.value())
+        .bind(Uuid::new_v4())
+        .bind(Uuid::new_v4())
+        .bind(Uuid::new_v4())
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        let database = AuditDatabase::from_pool(pool.clone());
+        database.migrate().await.unwrap();
+        let backfill = sqlx::query(
+            "SELECT actor_kind, scope_kind, scope_id FROM audit.server_records
+             WHERE audit_id = $1",
+        )
+        .bind(legacy_audit_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(backfill.get::<String, _>("actor_kind"), "user");
+        assert_eq!(backfill.get::<String, _>("scope_kind"), "tenant");
+        assert_eq!(backfill.get::<Uuid, _>("scope_id"), tenant_id.value());
+
+        append_each_actor_kind(&pool, tenant_id).await;
+
+        assert!(
+            sqlx::query("UPDATE audit.server_records SET operation = 'changed'")
+                .execute(&pool)
+                .await
+                .is_err()
+        );
+        assert!(
+            sqlx::query("DELETE FROM audit.server_records")
+                .execute(&pool)
+                .await
+                .is_err()
+        );
+        sqlx::query(
+            "UPDATE public.eitmad_server_migrations SET checksum = 'changed' WHERE version = 4",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        assert!(matches!(
+            database.migrate().await,
+            Err(AuditDatabaseError::MigrationChecksum)
+        ));
+    }
+
+    async fn reset_dedicated_test_database() -> PgPool {
         let database_url = std::env::var("EITMAD_TEST_DATABASE_URL")
             .expect("EITMAD_TEST_DATABASE_URL must name a dedicated test database");
         let pool = sqlx::PgPoolOptions::new()
@@ -430,43 +494,10 @@ mod tests {
             .await
             .unwrap();
         }
+        pool
+    }
 
-        let tenant_id = TenantId::new(Uuid::new_v4());
-        let legacy_audit_id = Uuid::new_v4();
-        sqlx::query("SELECT set_config('eitmad.tenant_id', $1, false)")
-            .bind(tenant_id.value().to_string())
-            .execute(&pool)
-            .await
-            .unwrap();
-        sqlx::query(
-            "INSERT INTO audit.server_records
-                (audit_id, tenant_id, session_id, principal_id, operation, outcome,
-                 target_kind, correlation_id, occurred_at)
-             VALUES ($1, $2, $3, $4, 'legacy', 'succeeded', 'test', $5, 1)",
-        )
-        .bind(legacy_audit_id)
-        .bind(tenant_id.value())
-        .bind(Uuid::new_v4())
-        .bind(Uuid::new_v4())
-        .bind(Uuid::new_v4())
-        .execute(&pool)
-        .await
-        .unwrap();
-
-        let database = AuditDatabase::from_pool(pool.clone());
-        database.migrate().await.unwrap();
-        let backfill = sqlx::query(
-            "SELECT actor_kind, scope_kind, scope_id FROM audit.server_records
-             WHERE audit_id = $1",
-        )
-        .bind(legacy_audit_id)
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-        assert_eq!(backfill.get::<String, _>("actor_kind"), "user");
-        assert_eq!(backfill.get::<String, _>("scope_kind"), "tenant");
-        assert_eq!(backfill.get::<Uuid, _>("scope_id"), tenant_id.value());
-
+    async fn append_each_actor_kind(pool: &PgPool, tenant_id: TenantId) {
         for kind in [
             ServerAuditActorKind::User,
             ServerAuditActorKind::Service,
@@ -506,28 +537,5 @@ mod tests {
             .unwrap();
             transaction.commit().await.unwrap();
         }
-
-        assert!(
-            sqlx::query("UPDATE audit.server_records SET operation = 'changed'")
-                .execute(&pool)
-                .await
-                .is_err()
-        );
-        assert!(
-            sqlx::query("DELETE FROM audit.server_records")
-                .execute(&pool)
-                .await
-                .is_err()
-        );
-        sqlx::query(
-            "UPDATE public.eitmad_server_migrations SET checksum = 'changed' WHERE version = 4",
-        )
-        .execute(&pool)
-        .await
-        .unwrap();
-        assert!(matches!(
-            database.migrate().await,
-            Err(AuditDatabaseError::MigrationChecksum)
-        ));
     }
 }

@@ -535,34 +535,15 @@ impl SyncCoordinator {
                 })
             }
             Err(DomainValidationError::Denied) => {
-                store_denial(
-                    &mut transaction,
+                commit_command_denial(
+                    transaction,
                     session.tenant_id,
                     command,
                     &fingerprint,
+                    &audit,
                     now,
                 )
                 .await
-                .map_err(|_| OperationError::Unavailable)?;
-                append_audit(
-                    &mut transaction,
-                    &audit.envelope(
-                        ServerAuditOutcome::Denied,
-                        Some("eitmad.error.authorization-denied.v1"),
-                    ),
-                )
-                .await
-                .map_err(|_| OperationError::Unavailable)?;
-                transaction
-                    .commit()
-                    .await
-                    .map_err(|_| OperationError::Unavailable)?;
-                Ok(CommandDisposition::Denied {
-                    reason: eitmad_contracts::sync::ErrorCodeRef::parse(
-                        "eitmad.error.authorization-denied.v1",
-                    )
-                    .map_err(|_| OperationError::Invalid)?,
-                })
             }
             Err(error) => {
                 let outcome = match error {
@@ -584,6 +565,36 @@ impl SyncCoordinator {
             }
         }
     }
+}
+
+async fn commit_command_denial(
+    mut transaction: sqlx::Transaction<'_, sqlx::Postgres>,
+    tenant_id: eitmad_contracts::identity::TenantId,
+    command: &CommandSubmission,
+    fingerprint: &[u8],
+    audit: &SyncAuditContext<'_>,
+    now: UnixMillis,
+) -> Result<CommandDisposition, OperationError> {
+    store_denial(&mut transaction, tenant_id, command, fingerprint, now)
+        .await
+        .map_err(|_| OperationError::Unavailable)?;
+    append_audit(
+        &mut transaction,
+        &audit.envelope(
+            ServerAuditOutcome::Denied,
+            Some("eitmad.error.authorization-denied.v1"),
+        ),
+    )
+    .await
+    .map_err(|_| OperationError::Unavailable)?;
+    transaction
+        .commit()
+        .await
+        .map_err(|_| OperationError::Unavailable)?;
+    Ok(CommandDisposition::Denied {
+        reason: eitmad_contracts::sync::ErrorCodeRef::parse("eitmad.error.authorization-denied.v1")
+            .map_err(|_| OperationError::Invalid)?,
+    })
 }
 
 impl SyncCoordinator {

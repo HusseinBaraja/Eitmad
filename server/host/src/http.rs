@@ -809,17 +809,17 @@ async fn handle_stream_message(
         ServerClientMessage::Subscribe(request) if request.schema_id == *schema_id => {
             let page = state
                 .sync
-                .subscription_page(
+                .subscription_page(eitmad_sync_plane::SubscriptionPageRequest {
                     session,
                     scope,
-                    &request.schema_id,
+                    schema_id: &request.schema_id,
                     schema_version,
-                    request.resume_after,
-                    u32::try_from(eitmad_contracts::sync::MAX_SYNC_BATCH_RECORDS)
+                    resume_after: request.resume_after,
+                    maximum_events: u32::try_from(eitmad_contracts::sync::MAX_SYNC_BATCH_RECORDS)
                         .unwrap_or(u32::MAX),
-                    new_correlation_id(),
-                    unix_millis_now(),
-                )
+                    correlation_id: new_correlation_id(),
+                    now: unix_millis_now(),
+                })
                 .await
                 .map_err(map_subscription)?;
             for event in page.events {
