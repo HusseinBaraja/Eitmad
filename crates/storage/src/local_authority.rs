@@ -2,7 +2,8 @@ use eitmad_contracts::identity::{
     AccountId, AuthenticatedIdentity, AuthorizationContext, DeviceId, OrganizationId, PrincipalId,
     PrincipalKind, ScopeId, ScopeKind, ScopeRef, SessionId, TenantId, UserId,
 };
-use eitmad_contracts::transport::UnixMillis;
+use eitmad_contracts::transport::{CorrelationId, UnixMillis};
+use eitmad_observability_audit::{AuditOutcome, AuditTarget, MutationAuditRecord};
 use rusqlite::{OptionalExtension as _, params};
 use uuid::Uuid;
 
@@ -172,6 +173,7 @@ fn create(
         .map_err(|_| StorageError)?;
 
     let scope_id = authority.tenant.value().to_string();
+    let relationship_id = Uuid::new_v4();
     connection
         .execute(
             "INSERT INTO authorization_scopes
@@ -185,7 +187,7 @@ fn create(
                  (relationship_id, scope_kind, scope_id, principal_id, principal_kind, relation)
                  VALUES (?1, 'organization', ?2, ?3, ?4, ?5)",
                 params![
-                    Uuid::new_v4().to_string(),
+                    relationship_id.to_string(),
                     scope_id,
                     authority.user.value().to_string(),
                     serde_json::to_string(&PrincipalKind::User)
@@ -193,6 +195,37 @@ fn create(
                     "eitmad.relation.organization.owner.v1",
                 ],
             )
+        })
+        .and_then(|_| {
+            let authorization = authority
+                .authorization_context()
+                .map_err(|_| rusqlite::Error::InvalidQuery)?;
+            let audit = MutationAuditRecord {
+                audit_id: Uuid::new_v4(),
+                occurred_at: now,
+                principal_id: authorization.identity.principal_id,
+                principal_kind: authorization.identity.principal_kind,
+                session_id: authorization.session_id,
+                device_id: authorization.identity.device_id,
+                tenant_id: authorization.tenant_id,
+                workspace_id: authorization.workspace_id,
+                scope: authorization.scope,
+                correlation_id: CorrelationId::new(Uuid::new_v4()),
+                causation_id: None,
+                idempotency_key: None,
+                operation: "eitmad.authorization.relationship.bootstrap.v1".to_owned(),
+                target: AuditTarget {
+                    kind: "authorization-relationship".to_owned(),
+                    identifiers: vec![relationship_id.to_string()],
+                },
+                outcome: AuditOutcome::Succeeded,
+                previous_revision: Some(0),
+                resulting_revision: Some(1),
+                changed_identifiers: vec![relationship_id.to_string()],
+                redacted_error: None,
+                extension_points: Vec::new(),
+            };
+            crate::insert_audit(connection, &audit).map_err(|_| rusqlite::Error::InvalidQuery)
         })
         .map_err(|_| StorageError)?;
     Ok(authority)
@@ -281,6 +314,21 @@ mod tests {
             relationships[0].relation.as_str(),
             "eitmad.relation.organization.owner.v1"
         );
+        let audit_count = rusqlite::Connection::open(first_store.path())
+            .unwrap()
+            .query_row(
+                "SELECT COUNT(*) FROM mutation_audit
+                 WHERE operation = 'eitmad.authorization.relationship.bootstrap.v1'
+                   AND outcome = '\"succeeded\"' AND scope_id = ?1
+                   AND target LIKE '%' || ?2 || '%'",
+                params![
+                    first.scope.id.value().to_string(),
+                    relationships[0].relationship_id.value().to_string(),
+                ],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap();
+        assert_eq!(audit_count, 1);
 
         let reopened = AuthorityStore::open(directory.path()).unwrap();
         let recovered = reopened
