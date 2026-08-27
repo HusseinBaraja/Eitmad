@@ -19,6 +19,8 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
     private readonly Dictionary<string, IEngineSubscription> subscriptions = [];
     private readonly CancellationTokenSource lifetime = new();
     private readonly SemaphoreSlim sessionRefresh = new(1, 1);
+    private readonly HashSet<string> unsupportedStreams = [];
+    private long observedGeneration = -1;
     private bool connected;
     private bool disposed;
 
@@ -67,6 +69,11 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
 
     private void ObserveSupervision(EngineSupervisionSnapshot snapshot)
     {
+        if (snapshot.Generation != observedGeneration)
+        {
+            observedGeneration = snapshot.Generation;
+            unsupportedStreams.Clear();
+        }
         dispatcher.Invoke(() => viewModel.ObserveSupervision(snapshot));
         var nowConnected = snapshot.IpcHealth == EngineIpcHealthState.Connected
             && snapshot.LastLifecycle?.Ready == true;
@@ -107,17 +114,16 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
 
     private async Task EnsureSubscriptionsAsync(CancellationToken cancellationToken)
     {
-        var desired = new (string Stream, Subscription Contract)[]
+        var desired = new (string Stream, string Capability, Subscription Contract)[]
         {
-            ("configuration", Subscription.ForConfigChangedSubscribe(new ConfigurationChanges())),
-            ("sync", Subscription.ForSyncStatusSubscribe(new SyncStatusChanges())),
-            ("update", Subscription.ForUpdateStateSubscribe(new UpdateStateChanges())),
-            ("jobs", Subscription.ForBackgroundJobStatusSubscribe(new BackgroundJobChanges())),
-            ("notifications", Subscription.ForNotificationSubscribe(new Notifications())),
-            ("errors", Subscription.ForErrorSubscribe(new Errors())),
-            ("reference-markers", Subscription.ForReferenceMarkerChangedSubscribe(new ReferenceMarkerChanges())),
+            ("configuration", ProtocolIds.Capabilities.EitmadCapabilityConfigV1, Subscription.ForConfigChangedSubscribe(new ConfigurationChanges())),
+            ("sync", ProtocolIds.Capabilities.EitmadCapabilitySyncV1, Subscription.ForSyncStatusSubscribe(new SyncStatusChanges())),
+            ("update", ProtocolIds.Capabilities.EitmadCapabilityUpdateV1, Subscription.ForUpdateStateSubscribe(new UpdateStateChanges())),
+            ("reference-markers", ProtocolIds.Capabilities.EitmadCapabilityReferenceMarkerV1, Subscription.ForReferenceMarkerChangedSubscribe(new ReferenceMarkerChanges())),
         };
-        foreach (var item in desired)
+        foreach (var item in desired.Where(item =>
+                     engine.SupportsCapability(item.Capability)
+                     && !unsupportedStreams.Contains(item.Stream)))
         {
             try
             {
@@ -125,7 +131,7 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
             }
             catch (EngineIpcException error) when (error.Kind == EngineIpcFailureKind.SubscriptionUnsupported)
             {
-                // Snapshot-backed panels remain available when an older engine omits an optional stream.
+                unsupportedStreams.Add(item.Stream);
             }
         }
     }
@@ -204,15 +210,20 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
     private async Task RefreshSnapshotsAsync(CancellationToken cancellationToken)
     {
         var configurationTask = engine.QueryAsync(Query.ForConfigGet(new GetConfiguration()), cancellationToken);
-        var syncTask = engine.QueryAsync(Query.ForSyncGetStatus(new GetSyncStatus()), cancellationToken);
-        var updateTask = engine.QueryAsync(Query.ForUpdateGetState(new GetUpdateState()), cancellationToken);
+        var syncTask = engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilitySyncV1)
+            ? engine.QueryAsync(Query.ForSyncGetStatus(new GetSyncStatus()), cancellationToken)
+            : null;
+        var updateTask = engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityUpdateV1)
+            ? engine.QueryAsync(Query.ForUpdateGetState(new GetUpdateState()), cancellationToken)
+            : null;
         var referenceMarkersTask = engine.QueryAsync(
             Query.ForReferenceMarkerList(new ListReferenceMarkers { Limit = 20 }),
             cancellationToken);
-        await Task.WhenAll(configurationTask, syncTask, updateTask, referenceMarkersTask);
+        var pending = new List<Task> { configurationTask, referenceMarkersTask };
+        if (syncTask is not null) pending.Add(syncTask);
+        if (updateTask is not null) pending.Add(updateTask);
+        await Task.WhenAll(pending);
         var configuration = await configurationTask;
-        var sync = await syncTask;
-        var update = await updateTask;
         var referenceMarkers = await referenceMarkersTask;
         dispatcher.Invoke(() =>
         {
@@ -225,23 +236,29 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
             {
                 viewModel.ObserveConfigurationUnavailable();
             }
-            if (sync.Outcome.Status == CommandOutcomeStatus.Succeeded
-                && sync.Outcome.Payload.AsSyncStatus() is { } syncStatus)
+            if (syncTask is not null
+                && syncTask.Result.Outcome.Status == CommandOutcomeStatus.Succeeded
+                && syncTask.Result.Outcome.Payload.AsSyncStatus() is { } syncStatus)
             {
                 viewModel.ObserveSync(syncStatus);
             }
             else
             {
-                viewModel.ObserveSyncUnavailable(sync.Outcome.Payload.Code);
+                viewModel.ObserveSyncUnavailable(
+                    syncTask?.Result.Outcome.Payload.Code
+                    ?? ProtocolIds.ErrorCodes.EitmadErrorIpcSubscriptionUnsupportedV1);
             }
-            if (update.Outcome.Status == CommandOutcomeStatus.Succeeded
-                && update.Outcome.Payload.AsUpdateState() is { } updateState)
+            if (updateTask is not null
+                && updateTask.Result.Outcome.Status == CommandOutcomeStatus.Succeeded
+                && updateTask.Result.Outcome.Payload.AsUpdateState() is { } updateState)
             {
                 viewModel.ObserveUpdate(updateState);
             }
             else
             {
-                viewModel.ObserveUpdateUnavailable(update.Outcome.Payload.Code);
+                viewModel.ObserveUpdateUnavailable(
+                    updateTask?.Result.Outcome.Payload.Code
+                    ?? ProtocolIds.ErrorCodes.EitmadErrorIpcSubscriptionUnsupportedV1);
             }
             if (referenceMarkers.Outcome.Status == CommandOutcomeStatus.Succeeded
                 && referenceMarkers.Outcome.Payload.AsReferenceMarkers() is { } page)

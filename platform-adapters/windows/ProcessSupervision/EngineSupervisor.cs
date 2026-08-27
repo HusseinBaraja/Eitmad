@@ -77,6 +77,17 @@ public sealed class EngineSupervisor : IAsyncDisposable
         }
     }
 
+    public bool SupportsCapability(string capability)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(capability);
+        lock (gate)
+        {
+            return currentIpcClient?.NegotiatedSession.Capabilities?.Contains(
+                capability,
+                StringComparer.Ordinal) == true;
+        }
+    }
+
     public Task<QueryResponseEnvelope> QueryAsync(
         Query query,
         TimeSpan? timeout = null,
@@ -661,6 +672,8 @@ public sealed class EngineSupervisor : IAsyncDisposable
                 ProtocolIds.Capabilities.EitmadCapabilityLocalIpcV1,
                 ProtocolIds.Capabilities.EitmadCapabilityLocalIpcSubscriptionsV1,
                 ProtocolIds.Capabilities.EitmadCapabilityAuthorizationScopesV1,
+                ProtocolIds.Capabilities.EitmadCapabilityConfigV1,
+                ProtocolIds.Capabilities.EitmadCapabilityPermissionsV1,
                 ProtocolIds.Capabilities.EitmadCapabilityReferenceMarkerV1,
             ],
             RequiredCapabilities =

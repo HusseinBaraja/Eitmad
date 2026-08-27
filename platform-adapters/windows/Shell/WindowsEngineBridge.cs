@@ -14,6 +14,7 @@ public interface IEngineShellBridge : IAsyncDisposable
 {
     event Action<EngineSupervisionSnapshot>? StateChanged;
     EngineSupervisionSnapshot Snapshot { get; }
+    bool SupportsCapability(string capability);
     Task StartAsync(CancellationToken cancellationToken = default);
     Task StopAsync(CancellationToken cancellationToken = default);
     Task<QueryResponseEnvelope> QueryAsync(Query query, CancellationToken cancellationToken = default);
@@ -40,6 +41,8 @@ public sealed class WindowsEngineBridge : IEngineShellBridge
     }
 
     public EngineSupervisionSnapshot Snapshot => supervisor.Snapshot;
+
+    public bool SupportsCapability(string capability) => supervisor.SupportsCapability(capability);
 
     public static WindowsEngineBridge Create(IReadOnlyList<string> arguments)
     {

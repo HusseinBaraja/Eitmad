@@ -14,7 +14,7 @@ tests.StaleSnapshotsCannotReplaceNewerState();
 await tests.CommandFaultsAreOwned();
 await tests.ReconnectionRefreshesWithoutDuplicateSubscriptions();
 await tests.ResyncRefreshesRustSnapshots();
-await tests.NonSnapshotResyncClearsRecoveryBanner();
+await tests.UnsupportedCapabilitiesAvoidRequestTraffic();
 await tests.ConfigurationQueryFailureClearsStaleState();
 tests.EngineFailureMapsToRecoveryUx();
 await tests.ShutdownStopsEngineCleanly();
@@ -185,12 +185,12 @@ internal sealed class ShellScenarios
         await using var coordinator = new OperationsCoordinator(engine, model, new ImmediateDispatcher());
         await coordinator.StartAsync();
         engine.Connect();
-        await Eventually(() => engine.QueryCount >= 4 && engine.SubscriptionCount == 7);
+        await Eventually(() => engine.QueryCount >= 4 && engine.SubscriptionCount == 4);
 
         engine.Disconnect();
         engine.Connect();
         await Eventually(() => engine.QueryCount >= 8);
-        Assert.Equal(7, engine.SubscriptionCount, "reconnect reuses supervised subscriptions");
+        Assert.Equal(4, engine.SubscriptionCount, "reconnect reuses supervised subscriptions");
         Assert.False(model.ShowConnectionBanner, "fresh snapshots clear reconnect banner");
     }
 
@@ -207,18 +207,25 @@ internal sealed class ShellScenarios
         Assert.False(model.ShowConnectionBanner, "resync completes with current snapshots");
     }
 
-    public async Task NonSnapshotResyncClearsRecoveryBanner()
+    public async Task UnsupportedCapabilitiesAvoidRequestTraffic()
     {
-        var engine = new FakeEngine();
+        var engine = new FakeEngine
+        {
+            SupportedCapabilities = new HashSet<string>
+            {
+                ProtocolIds.Capabilities.EitmadCapabilityConfigV1,
+                ProtocolIds.Capabilities.EitmadCapabilityReferenceMarkerV1,
+            },
+        };
         var model = new OperationsViewModel();
         await using var coordinator = new OperationsCoordinator(engine, model, new ImmediateDispatcher());
         await coordinator.StartAsync();
         engine.Connect();
-        await Eventually(() => engine.SubscriptionCount == 7);
-
-        engine.SignalResync(ProtocolIds.Subscriptions.EitmadBackgroundJobStatusSubscribeV1);
-
-        await Eventually(() => !model.ShowConnectionBanner);
+        await Eventually(() => engine.QueryCount == 2 && engine.SubscriptionCount == 2);
+        Assert.False(engine.WasQueried(Query.SyncGetStatusKind), "unsupported sync query omitted");
+        Assert.False(engine.WasQueried(Query.UpdateGetStateKind), "unsupported update query omitted");
+        Assert.Equal("غير متاحة", model.SyncCard.Value, "unsupported sync is explicit");
+        Assert.Equal("غير متاحة", model.UpdateCard.Value, "unsupported update is explicit");
     }
 
     public async Task ConfigurationQueryFailureClearsStaleState()
@@ -371,6 +378,21 @@ internal sealed class FakeEngine : IEngineShellBridge
     public int QueryCount => Volatile.Read(ref queryCount);
     public int SubscriptionCount => subscriptions.Count;
     public int StopCount { get; private set; }
+    public IReadOnlySet<string> SupportedCapabilities { get; init; } = new HashSet<string>
+    {
+        ProtocolIds.Capabilities.EitmadCapabilityConfigV1,
+        ProtocolIds.Capabilities.EitmadCapabilitySyncV1,
+        ProtocolIds.Capabilities.EitmadCapabilityUpdateV1,
+        ProtocolIds.Capabilities.EitmadCapabilityReferenceMarkerV1,
+    };
+    private HashSet<string> QueriedKinds { get; } = [];
+
+    public bool SupportsCapability(string capability) => SupportedCapabilities.Contains(capability);
+
+    public bool WasQueried(string kind)
+    {
+        lock (QueriedKinds) return QueriedKinds.Contains(kind);
+    }
 
     public Task StartAsync(CancellationToken cancellationToken = default)
     {
@@ -390,6 +412,7 @@ internal sealed class FakeEngine : IEngineShellBridge
     public Task<QueryResponseEnvelope> QueryAsync(Query query, CancellationToken cancellationToken = default)
     {
         Interlocked.Increment(ref queryCount);
+        lock (QueriedKinds) QueriedKinds.Add(query.Kind);
         if (FailConfigurationQuery && query.Kind == Query.ConfigGetKind)
         {
             return Task.FromResult(new QueryResponseEnvelope

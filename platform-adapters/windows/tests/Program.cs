@@ -318,6 +318,15 @@ internal sealed class SupervisionScenarios
             await Eventually(() => supervisor.IpcConnected, TimeSpan.FromSeconds(10));
             Assert.Equal(EngineIpcHealthState.Connected, supervisor.Snapshot.IpcHealth, "real engine IPC health");
             Assert.Equal(6L, supervisor.Snapshot.LastLifecycle?.Identity.ProtocolVersion.Minor, "real engine protocol version");
+            Assert.True(
+                supervisor.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityConfigV1),
+                "real config capability negotiated");
+            Assert.False(
+                supervisor.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilitySyncV1),
+                "unwired sync capability is not negotiated");
+            Assert.False(
+                supervisor.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityUpdateV1),
+                "unwired update capability is not negotiated");
 
             var configurationResponse = await supervisor.QueryAsync(Query.ForConfigGet(new GetConfiguration()));
             if (configurationResponse.Outcome.Status != CommandOutcomeStatus.Succeeded)
@@ -327,6 +336,8 @@ internal sealed class SupervisionScenarios
             }
             var configuration = configurationResponse.Outcome.Payload.AsConfiguration()
                 ?? throw new InvalidOperationException("Real engine omitted the configuration snapshot.");
+            await using var configurationSubscription = await supervisor.SubscribeAsync(
+                Subscription.ForConfigChangedSubscribe(new ConfigurationChanges()));
             var syncResponse = await supervisor.QueryAsync(Query.ForSyncGetStatus(new GetSyncStatus()));
             Assert.True(
                 syncResponse.Outcome.Status == CommandOutcomeStatus.Succeeded
