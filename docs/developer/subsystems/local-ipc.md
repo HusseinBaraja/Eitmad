@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust engine and Windows platform maintainers"
-last_verified: "2026-08-25"
+last_verified: "2026-08-27"
 review_triggers:
   - "local IPC framing, authentication, dispatch, timeout, payload, or shutdown behavior changes"
 keywords:
@@ -39,8 +39,9 @@ sequenceDiagram
     participant Shell as "Windows shell adapter"
     participant IPC as "Rust LocalIpcServer"
     participant Domain as "Rust dispatcher"
-    Shell->>IPC: PeerHello + development proof + asserted identity/tenant/workspace/scope
-    IPC-->>Shell: negotiated protocol + engine-issued SessionId
+    Shell->>IPC: PeerHello + ephemeral bootstrap token
+    IPC->>IPC: load and verify Rust-owned installation identity and owner relation
+    IPC-->>Shell: negotiated protocol + Rust-owned authorization context
     Shell->>IPC: typed command/query/subscription envelope
     IPC->>IPC: validate session, version, scope context, and deadline
     IPC->>Domain: dispatch with authorization context
@@ -50,7 +51,7 @@ sequenceDiagram
     IPC-->>Shell: ordered EventEnvelope
 ```
 
-The handshake is mandatory. Rust and the Windows shell advertise protocol `1.0–1.5`. Protocol `1.0` remains command/query-only; subscriptions require protocol `1.1` plus `eitmad.capability.local-ipc-subscriptions.v1`. Relationship administration and authorization-policy streams require `1.2`; policy streams also require `eitmad.capability.authorization-policy-events.v1`. Every accepted protocol version requires `eitmad.capability.authorization-scopes.v1` and an assigned tenant; workspace context remains optional across the compatibility window. Later minor versions add server and operational contracts but do not move local IPC authorization into the server. An unscoped peer is rejected before normal traffic. Each accepted connection receives a new `SessionId`; envelopes must reproduce the negotiated protocol and exact identity, tenant, workspace, and scope context.
+The handshake is mandatory. Rust and the Windows shell advertise protocol `1.0–1.6`. Protocol `1.0` remains command/query-only; subscriptions require protocol `1.1` plus `eitmad.capability.local-ipc-subscriptions.v1`. Relationship administration and authorization-policy streams require `1.2`; policy streams also require `eitmad.capability.authorization-policy-events.v1`. Protocol `1.6` removes shell-supplied identity fields from the handshake. Every accepted protocol version requires `eitmad.capability.authorization-scopes.v1` and a Rust-assigned tenant. Workspace context remains optional across the compatibility window. An unscoped peer is rejected before normal traffic. The engine returns its current `SessionId`, identity, tenant, workspace, and scope. Later envelopes must reproduce that exact context.
 
 ## Subscription streams and payload ownership
 
@@ -74,7 +75,9 @@ The engine live channel and each Windows consumer queue hold 256 events. Configu
 
 Slow shells never block authoritative producers. Repeated backpressure therefore reduces shell availability, not engine correctness. A vertical must reduce event frequency or add a query/page boundary instead of increasing bounds ad hoc.
 
-The development authenticator is not production authentication. It accepts a 256-bit random bearer token passed through the child environment only when `--allow-insecure-development-auth` is explicit. It then accepts the synthetic asserted identity and scope. Production packaging must keep this flag disabled until a reviewed peer and user authentication design replaces it.
+The Windows launcher creates a 256-bit ephemeral bootstrap token and writes it through inherited standard input. The token is absent from command arguments, environment variables, logs, and persisted configuration. The engine rejects a missing or incorrect token with constant-time comparison. It then loads or atomically creates storage migration 9's stable installation identity and durable owner relationship. The handshake request has no principal, tenant, workspace, scope, role, or permission assertion.
+
+This proves possession of the supervised launch channel; it is not human-user authentication. A privileged debugger or malware in the same Windows account can still inspect process memory or handles. A shared-machine or multi-user product must add reviewed sign-in, session rotation, revocation, and OS-account policy before release. It must not restore shell-supplied authorization fields.
 
 ## Framing, concurrency, and large payloads
 
@@ -86,7 +89,7 @@ The server creates the next named-pipe instance before serving an accepted conne
 
 Connection timeout defaults to five seconds and request timeout to 30 seconds; both are configurable. Rust rejects an expired envelope before dispatch and stops awaiting a command or query dispatcher future when its deadline passes. A command may have produced partial or committed effects before cancellation, so a shell-side command timeout still means outcome unknown; retry only with the same idempotency key.
 
-Stable failures include session invalid, deadline exceeded, payload too large, subscription unsupported, subscription capacity exceeded, subscription resync required, engine stopping, and protocol incompatible. An unavailable engine has no Rust response, so `EngineIpcClient` reports a typed local `EngineUnavailable` failure. No path logs bearer tokens, raw frames, product payloads, customer data, or authorization graphs.
+Stable failures include session invalid, deadline exceeded, payload too large, subscription unsupported, subscription capacity exceeded, subscription resync required, engine stopping, and protocol incompatible. An unavailable engine has no Rust response, so `EngineIpcClient` reports a typed local `EngineUnavailable` failure. No path logs bootstrap tokens, raw frames, product payloads, customer data, or authorization graphs.
 
 The Windows supervisor retains subscription descriptors and processed cursors across engine generations. A lost connection receives at most three default reconnect attempts after 100 ms, 500 ms, and two seconds while that generation remains `Ready`. Connection, resubscription, and retry delays all use the current supervision cancellation token. Shutdown therefore stops pending connection and retry work. The shell-local snapshot moves `IpcHealth` from `Connecting` to either `Connected` or `ReconnectExhausted`, so a ready process is not mistaken for a healthy channel. Same-engine reconnect replays from the processed cursor. A new engine normally rejects the old cursor; the supervisor opens a fresh stream, raises `ResyncRequired`, and resets its watermark so the owning UI can re-query without polling.
 

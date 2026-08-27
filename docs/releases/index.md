@@ -23,6 +23,7 @@ keywords:
 - [Upgrade local storage to version 8 reference markers](storage-v8-reference-marker.md): bounded reference-marker state, atomic audit and publication outboxes, local-first sync, compatibility, and rollback limits.
 - [Upgrade to protocol 1.4 modular server authority](protocol-1-4-server-authority.md): PostgreSQL migrations, remote authentication, device proof, sync snapshots, resumable subscriptions, compatibility, and rollback.
 - [Upgrade to protocol 1.5 operational server planes](protocol-1-5-operational-server-planes.md): relay coordination, signed manifests, administration migration 3, generated bindings, compatibility, and rollback.
+- [Upgrade to protocol 1.6 local installation authority](protocol-1-6-local-authority.md): engine-owned identity, storage migration 9, private bootstrap transport, generated bindings, recovery, and rollback.
 - [Upgrade the server audit envelope to migration 4](server-audit-envelope-v4.md): complete actor, scope, target, correlation, causation, and idempotency evidence with safe rollout and rollback.
 - [Validate a release candidate](../operations/validate-release-candidate.md): mandatory CI, repeatable artifacts, signing evidence, staging promotion, restore, and rollback.
 

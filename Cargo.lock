@@ -852,6 +852,7 @@ dependencies = [
  "eitmad-contracts",
  "eitmad-engine-runtime",
  "eitmad-observability-audit",
+ "eitmad-storage",
  "serde",
  "serde_json",
  "tempfile",

@@ -36,7 +36,6 @@ internal sealed class SupervisionScenarios
             await EngineIpcClient.ConnectAsync(
                 $"missing-{Guid.NewGuid():N}",
                 DevelopmentPeer(),
-                DevelopmentIdentity(),
                 "synthetic-token",
                 TimeSpan.FromMilliseconds(20));
         }
@@ -304,10 +303,7 @@ internal sealed class SupervisionScenarios
         try
         {
             await using var supervisor = new EngineSupervisor();
-            var request = new EngineLaunchRequest(
-                enginePath,
-                runtimeDirectory,
-                DevelopmentIdentity());
+            var request = new EngineLaunchRequest(enginePath, runtimeDirectory);
             var lifecycleStates = new List<Eitmad.Contracts.LifecycleState>();
             supervisor.StateChanged += state =>
             {
@@ -321,7 +317,7 @@ internal sealed class SupervisionScenarios
             await Eventually(() => supervisor.Snapshot.LastLifecycle?.Ready == true, TimeSpan.FromSeconds(10));
             await Eventually(() => supervisor.IpcConnected, TimeSpan.FromSeconds(10));
             Assert.Equal(EngineIpcHealthState.Connected, supervisor.Snapshot.IpcHealth, "real engine IPC health");
-            Assert.Equal(5L, supervisor.Snapshot.LastLifecycle?.Identity.ProtocolVersion.Minor, "real engine protocol version");
+            Assert.Equal(6L, supervisor.Snapshot.LastLifecycle?.Identity.ProtocolVersion.Minor, "real engine protocol version");
 
             var configurationResponse = await supervisor.QueryAsync(Query.ForConfigGet(new GetConfiguration()));
             if (configurationResponse.Outcome.Status != CommandOutcomeStatus.Succeeded)
@@ -396,22 +392,6 @@ internal sealed class SupervisionScenarios
         ],
         Schemas = [],
     };
-
-    private static DevelopmentIdentityAssertion DevelopmentIdentity()
-    {
-        var scopeId = Guid.NewGuid();
-        return new DevelopmentIdentityAssertion
-        {
-            Identity = new AuthenticatedIdentity
-            {
-                PrincipalId = Guid.NewGuid(),
-                PrincipalKind = PrincipalKind.Service,
-                ServiceId = Guid.NewGuid(),
-            },
-            TenantId = scopeId,
-            Scope = new ScopeRef { Kind = "organization", Id = scopeId },
-        };
-    }
 
     private static async Task Eventually(Func<bool> condition, TimeSpan? timeout = null)
     {
@@ -530,7 +510,7 @@ internal sealed class FakeEngineProcess(int processId) : IEngineProcess
     public TextReader StandardError { get; } = new StringReader(string.Empty);
     public TextWriter StandardInput => input;
     public string IpcPipeName { get; } = $"fake-{processId}";
-    public string DevelopmentBearerToken { get; } = "fake-development-token";
+    public string IpcBootstrapToken { get; } = "fake-bootstrap-token";
     public bool InputClosed => input.IsClosed;
     public bool Disposed { get; private set; }
 

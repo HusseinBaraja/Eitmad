@@ -98,22 +98,12 @@ pub enum AuthorizationError {
 #[derive(Clone, Debug)]
 pub struct AuthorizationService {
     store: AuthorityStore,
-    development_ephemeral_owner: bool,
 }
 
 impl AuthorizationService {
     #[must_use]
     pub const fn new(store: AuthorityStore) -> Self {
-        Self {
-            store,
-            development_ephemeral_owner: false,
-        }
-    }
-
-    #[must_use]
-    pub const fn with_development_ephemeral_owner(mut self, enabled: bool) -> Self {
-        self.development_ephemeral_owner = enabled;
-        self
+        Self { store }
     }
 
     /// Evaluates the Rust policy for the authenticated principal and exact scope.
@@ -149,11 +139,9 @@ impl AuthorizationService {
             .store
             .relationships_for_subject(&context.scope, &subject)
             .map_err(|_| AuthorizationError::Unavailable)?;
-        let ephemeral_owner = self.development_ephemeral_owner;
-        let owner = ephemeral_owner
-            || relationships
-                .iter()
-                .any(|relationship| relationship.relation.as_str() == OWNER_RELATION);
+        let owner = relationships
+            .iter()
+            .any(|relationship| relationship.relation.as_str() == OWNER_RELATION);
         let manager = owner
             || relationships
                 .iter()
@@ -850,25 +838,6 @@ mod tests {
                 }
             ),
             Err(AuthorizationError::LastOwner)
-        );
-    }
-
-    #[test]
-    fn development_owner_is_ephemeral_and_explicit() {
-        let directory = TempDir::new().unwrap();
-        let service = AuthorizationService::new(AuthorityStore::open(directory.path()).unwrap())
-            .with_development_ephemeral_owner(true);
-        assert!(
-            service
-                .authorize(&authorization(99, 42), AUTHORIZATION_MANAGE_PERMISSION)
-                .is_ok()
-        );
-        assert_eq!(
-            service
-                .effective_permissions(&authorization(99, 42))
-                .unwrap()
-                .policy_version,
-            0
         );
     }
 }

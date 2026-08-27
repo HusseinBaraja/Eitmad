@@ -14,7 +14,7 @@ keywords:
   - "device proof"
   - "server sync"
   - "tenant code"
-  - "protocol 1.5"
+  - "protocol 1.6"
 ---
 
 # Extend the modular server authority safely
@@ -46,7 +46,7 @@ Native shells and network adapters must not copy these rules, access PostgreSQL,
 
 ## Contracts and compatibility
 
-Protocol `1.5` adds relay, signed update, and administration contracts and generated bindings. The server WebSocket accepts protocol `1.4–1.5`, consumes `ServerClientMessage`, and emits `ServerMessage`. A client must first send `eitmad.server.hello.v1`; no sync or subscription traffic is valid before negotiation.
+Protocol `1.5` adds relay, signed update, and administration contracts and generated bindings. Protocol `1.6` changes only the local IPC handshake. The server WebSocket accepts protocol `1.4–1.6`, consumes `ServerClientMessage`, and emits `ServerMessage`. A client must first send `eitmad.server.hello.v1`; no sync or subscription traffic is valid before negotiation.
 
 The server requires these capabilities:
 
@@ -59,7 +59,7 @@ The server requires these capabilities:
 - `eitmad.capability.server-update-distribution.v1`
 - `eitmad.capability.server-administration.v1`
 
-Negotiation selects an overlapping protocol and registered schema range. Missing capabilities, an unknown required schema, or no compatible version produces `eitmad.error.server-client-incompatible.v1` before normal traffic. Protocol `1.0–1.3` remains in the encoded compatibility window for existing local IPC behavior. Server sync needs at least `1.4`. Each relay, update-distribution, or administration HTTP request must send the base64url-encoded `PeerHello` JSON in `x-eitmad-peer-hello`; Rust requires protocol `1.5` and the route capability before it authenticates or dispatches the request.
+Negotiation selects an overlapping protocol and registered schema range. Missing capabilities, an unknown required schema, or no compatible version produces `eitmad.error.server-client-incompatible.v1` before normal traffic. Protocol `1.0–1.3` remains in the encoded compatibility window for existing local IPC behavior. Server sync needs at least `1.4`. Each relay, update-distribution, or administration HTTP request must send the base64url-encoded `PeerHello` JSON in `x-eitmad-peer-hello`; Rust requires protocol `1.5` or newer and the route capability before it authenticates or dispatches the request.
 
 ## Identity, authentication, and sessions
 

@@ -1835,35 +1835,17 @@ namespace Eitmad.Contracts
 
     public partial class HandshakeRequest
     {
-        [JsonPropertyName("assertedAuthorization")]
-        public DevelopmentIdentityAssertion AssertedAuthorization { get; set; }
+        [JsonPropertyName("bootstrapToken")]
+        public string BootstrapToken { get; set; }
 
         [JsonPropertyName("correlationId")]
         public Guid CorrelationId { get; set; }
-
-        [JsonPropertyName("developmentBearerToken")]
-        public string DevelopmentBearerToken { get; set; }
 
         [JsonPropertyName("peer")]
         public PeerHello Peer { get; set; }
 
         [JsonPropertyName("requestId")]
         public Guid RequestId { get; set; }
-    }
-
-    public partial class DevelopmentIdentityAssertion
-    {
-        [JsonPropertyName("identity")]
-        public AuthenticatedIdentity Identity { get; set; }
-
-        [JsonPropertyName("scope")]
-        public ScopeRef Scope { get; set; }
-
-        [JsonPropertyName("tenantId")]
-        public Guid TenantId { get; set; }
-
-        [JsonPropertyName("workspaceId")]
-        public Guid? WorkspaceId { get; set; }
     }
 
     public partial class ShutdownRequest

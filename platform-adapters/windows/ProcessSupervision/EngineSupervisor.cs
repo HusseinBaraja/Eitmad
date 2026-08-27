@@ -619,27 +619,25 @@ public sealed class EngineSupervisor : IAsyncDisposable
     private void StartIpcConnection(long observedGeneration)
     {
         IEngineProcess? process;
-        DevelopmentIdentityAssertion? identity;
         CancellationToken cancellationToken;
         lock (gate)
         {
             process = observedGeneration == generation ? currentProcess : null;
-            identity = launchRequest?.DevelopmentIdentity;
             cancellationToken = sessionCancellation?.Token ?? CancellationToken.None;
-            if (process is not null && identity is not null)
+            if (process is not null)
             {
                 snapshot = snapshot with { IpcHealth = EngineIpcHealthState.Connecting };
             }
         }
 
-        if (process is null || identity is null)
+        if (process is null)
         {
             return;
         }
 
         PublishSnapshot();
 
-        _ = ConnectIpcAsync(process, identity, observedGeneration, cancellationToken).ContinueWith(
+        _ = ConnectIpcAsync(process, observedGeneration, cancellationToken).ContinueWith(
             static task => Trace.TraceError(
                 "Engine IPC connection failed: {0}",
                 task.Exception?.GetBaseException()),
@@ -650,7 +648,6 @@ public sealed class EngineSupervisor : IAsyncDisposable
 
     private async Task ConnectIpcAsync(
         IEngineProcess process,
-        DevelopmentIdentityAssertion identity,
         long observedGeneration,
         CancellationToken cancellationToken)
     {
@@ -658,7 +655,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
         {
             PeerKind = PeerKind.Shell,
             ProductVersion = "0.0.0",
-            Protocols = [new SupportedProtocol { Major = 1, MinimumMinor = 0, MaximumMinor = 5 }],
+            Protocols = [new SupportedProtocol { Major = 1, MinimumMinor = 0, MaximumMinor = 6 }],
             Capabilities =
             [
                 ProtocolIds.Capabilities.EitmadCapabilityLocalIpcV1,
@@ -685,8 +682,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
         var client = await EngineIpcClient.ConnectAsync(
             process.IpcPipeName,
             peer,
-            identity,
-            process.DevelopmentBearerToken,
+            process.IpcBootstrapToken,
             cancellationToken: cancellationToken).ConfigureAwait(false);
         var keep = false;
         SupervisedEngineSubscription[] desired = [];
@@ -726,7 +722,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
                 Trace.TraceError("Engine subscription restore failed: {0}", error.Kind);
             }
         }
-        _ = ObserveIpcCompletionAsync(client, process, identity, observedGeneration);
+        _ = ObserveIpcCompletionAsync(client, process, observedGeneration);
     }
 
     private async Task AttachSubscriptionAsync(
@@ -824,7 +820,6 @@ public sealed class EngineSupervisor : IAsyncDisposable
     private async Task ObserveIpcCompletionAsync(
         EngineIpcClient client,
         IEngineProcess process,
-        DevelopmentIdentityAssertion identity,
         long observedGeneration)
     {
         await client.Completion.ConfigureAwait(false);
@@ -886,7 +881,6 @@ public sealed class EngineSupervisor : IAsyncDisposable
             {
                 await ConnectIpcAsync(
                     process,
-                    identity,
                     observedGeneration,
                     reconnectCancellation).ConfigureAwait(false);
                 return;

@@ -19,7 +19,7 @@ internal interface IEngineProcess : IAsyncDisposable
     TextReader StandardError { get; }
     TextWriter StandardInput { get; }
     string IpcPipeName { get; }
-    string DevelopmentBearerToken { get; }
+    string IpcBootstrapToken { get; }
     Task<int> WaitForExitAsync(CancellationToken cancellationToken);
     void Kill();
 }

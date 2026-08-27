@@ -24,9 +24,6 @@ public interface IEngineShellBridge : IAsyncDisposable
 
 public sealed class WindowsEngineBridge : IEngineShellBridge
 {
-    private static readonly Guid DevelopmentPrincipal = new("a0a8e326-d0ba-4e96-bc91-e486b53da9c2");
-    private static readonly Guid DevelopmentService = new("2df1c605-133c-4a3f-b80a-b3333db18198");
-    private static readonly Guid DevelopmentScope = new("a1588e27-2f73-4ff4-a316-0eb0ad7145c7");
     private readonly EngineSupervisor supervisor;
     private readonly EngineLaunchRequest launchRequest;
 
@@ -52,7 +49,7 @@ public sealed class WindowsEngineBridge : IEngineShellBridge
             "engine");
         return new WindowsEngineBridge(
             new EngineSupervisor(),
-            new EngineLaunchRequest(ResolveEnginePath(arguments), runtimeDirectory, CreateDevelopmentIdentity()));
+            new EngineLaunchRequest(ResolveEnginePath(arguments), runtimeDirectory));
     }
 
     public Task StartAsync(CancellationToken cancellationToken = default) =>
@@ -92,23 +89,8 @@ public sealed class WindowsEngineBridge : IEngineShellBridge
             return Path.GetFullPath(arguments[engineArgument.index + 1]);
         }
 
-        var environmentPath = Environment.GetEnvironmentVariable("EITMAD_ENGINE_PATH");
-        return string.IsNullOrWhiteSpace(environmentPath)
-            ? Path.Combine(AppContext.BaseDirectory, "eitmad-engine-cli.exe")
-            : Path.GetFullPath(environmentPath);
+        return Path.Combine(AppContext.BaseDirectory, "eitmad-engine-cli.exe");
     }
-
-    private static DevelopmentIdentityAssertion CreateDevelopmentIdentity() => new()
-    {
-        TenantId = DevelopmentScope,
-        Identity = new AuthenticatedIdentity
-        {
-            PrincipalId = DevelopmentPrincipal,
-            PrincipalKind = PrincipalKind.Service,
-            ServiceId = DevelopmentService,
-        },
-        Scope = new ScopeRef { Kind = "organization", Id = DevelopmentScope },
-    };
 
     private sealed class WindowsEngineSubscription(SupervisedEngineSubscription subscription) : IEngineSubscription
     {

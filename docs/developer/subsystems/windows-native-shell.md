@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Windows UI maintainers"
-last_verified: "2026-08-26"
+last_verified: "2026-08-27"
 review_triggers:
   - "Windows shell UI, state mapping, configuration patches, subscriptions, tray behavior, or ownership boundaries change"
 keywords:
@@ -96,9 +96,9 @@ The visual system uses restrained workshop colors, high-contrast status surfaces
 
 ## Security and compatibility
 
-The shell is an untrusted client. It does not resolve the engine installation, select runtime storage, construct `EngineLaunchRequest`, or grant itself permissions. `platform-adapters/windows/Shell/WindowsEngineBridge.cs` owns these Windows launch concerns and gives the shell an already-authorized typed bridge. Development runs use an explicit synthetic organization context where `TenantId` equals the organization `ScopeRef.Id`, a random child-process bearer token, and `--allow-insecure-development-auth`. This path is not production authentication and must not ship enabled.
+The shell is an untrusted client. It does not resolve the engine installation, select runtime storage, construct `EngineLaunchRequest`, or grant itself permissions. `platform-adapters/windows/Shell/WindowsEngineBridge.cs` owns these Windows launch concerns and gives the shell a typed bridge. The adapter supplies only an ephemeral process bootstrap token. Rust loads and verifies the stable installation principal, tenant, scope, and owner relationship, then returns the authorization context.
 
-The Windows adapter negotiates protocol `1.0–1.5` and uses generated current bindings. It advertises `eitmad.capability.reference-marker.v1` and schema `eitmad.schema.reference-marker.v1`. A missing required capability or schema range rejects the affected session. Optional operational state can return a typed error without changing engine health. Error and message identifiers are presentation inputs, not English prose to parse. Do not expose bearer tokens, raw frames, authorization graphs, runtime paths, or customer data in the UI or logs.
+The Windows adapter negotiates protocol `1.0–1.6` and uses generated current bindings. It advertises `eitmad.capability.reference-marker.v1` and schema `eitmad.schema.reference-marker.v1`. A missing required capability or schema range rejects the affected session. Optional operational state can return a typed error without changing engine health. Error and message identifiers are presentation inputs, not English prose to parse. Do not expose bootstrap tokens, raw frames, authorization graphs, runtime paths, or customer data in the UI or logs.
 
 ## Tests and safe extension points
 

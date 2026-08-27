@@ -65,21 +65,12 @@ impl ProductEventPublisher for EventBroker {
 
 impl ProductDispatcher {
     #[must_use]
-    pub fn new(
-        store: AuthorityStore,
-        events: EventBroker,
-        development_ephemeral_owner: bool,
-    ) -> Self {
-        Self::with_event_publisher(store, Arc::new(events), development_ephemeral_owner)
+    pub fn new(store: AuthorityStore, events: EventBroker) -> Self {
+        Self::with_event_publisher(store, Arc::new(events))
     }
 
-    fn with_event_publisher(
-        store: AuthorityStore,
-        events: Arc<dyn ProductEventPublisher>,
-        development_ephemeral_owner: bool,
-    ) -> Self {
-        let authorization = AuthorizationService::new(store.clone())
-            .with_development_ephemeral_owner(development_ephemeral_owner);
+    fn with_event_publisher(store: AuthorityStore, events: Arc<dyn ProductEventPublisher>) -> Self {
+        let authorization = AuthorizationService::new(store.clone());
         let configuration = ConfigurationService::new(store.clone(), authorization.clone());
         let reference_markers = ReferenceMarkerService::new(store.clone(), authorization.clone());
         Self {
@@ -631,7 +622,7 @@ mod tests {
         let directory = TempDir::new().unwrap();
         let store = AuthorityStore::open(directory.path()).unwrap();
         let broker = EventBroker::new();
-        let dispatcher = ProductDispatcher::new(store, broker.clone(), false);
+        let dispatcher = ProductDispatcher::new(store, broker.clone());
         let auth = authorization();
         dispatcher
             .authorization()
@@ -865,26 +856,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn development_dispatcher_treats_asserted_principal_as_ephemeral_owner() {
-        let directory = TempDir::new().unwrap();
-        let store = AuthorityStore::open(directory.path()).unwrap();
-        let dispatcher = ProductDispatcher::new(store, EventBroker::new(), true);
-        assert!(
-            dispatcher
-                .authorize_subscription(
-                    SubscriptionContext {
-                        authorization: authorization(),
-                        correlation_id: CorrelationId::new(Uuid::from_u128(30)),
-                        protocol_version: PROTOCOL_VERSION,
-                    },
-                    &Subscription::Configuration(ConfigurationChanges {})
-                )
-                .await
-                .is_ok()
-        );
-    }
-
-    #[tokio::test]
     async fn relationship_mutation_publishes_one_policy_event_not_on_replay() {
         let (_directory, dispatcher, broker) = dispatcher();
         let (_, mut events) = broker
@@ -940,7 +911,7 @@ mod tests {
             broker: broker.clone(),
             fail_next: AtomicBool::new(true),
         });
-        let dispatcher = ProductDispatcher::with_event_publisher(store.clone(), publisher, false);
+        let dispatcher = ProductDispatcher::with_event_publisher(store.clone(), publisher);
         let auth = authorization();
         dispatcher
             .authorization()

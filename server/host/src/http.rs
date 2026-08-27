@@ -1042,7 +1042,7 @@ fn server_hello(schemas: Vec<SchemaSupport>) -> PeerHello {
         protocols: vec![SupportedProtocol {
             major: 1,
             minimum_minor: 4,
-            maximum_minor: 5,
+            maximum_minor: 6,
         }],
         required_capabilities: capabilities.clone(),
         capabilities,
@@ -1205,7 +1205,7 @@ mod tests {
     fn server_requires_all_remote_boundary_capabilities() {
         let hello = server_hello(Vec::new());
         assert_eq!(hello.protocols[0].minimum_minor, 4);
-        assert_eq!(hello.protocols[0].maximum_minor, 5);
+        assert_eq!(hello.protocols[0].maximum_minor, 6);
         assert!(hello.required_capabilities.iter().any(|capability| {
             capability.as_str() == "eitmad.capability.server-device-proof.v1"
         }));

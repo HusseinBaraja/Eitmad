@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-08-26"
+last_verified: "2026-08-27"
 review_triggers:
   - "workspace verification, executable behavior, deployment, backup, or recovery changes"
 keywords:
@@ -17,7 +17,7 @@ keywords:
 
 # Operate and release Eitmad
 
-Use this collection to verify the current foundation and prepare controlled releases. Rust owns local SQLite authority through storage version 8 and the modular PostgreSQL server under protocol `1.5`. Package CDN delivery, production signing, native desktop updater adapters, scheduled backup execution, LAN discovery, production relay payload routing, MFA/email providers, diagnostic retention, and production operator UI are not implemented.
+Use this collection to verify the current foundation and prepare controlled releases. Rust owns local SQLite authority through storage version 9 and the local installation handshake under protocol `1.6`. The modular PostgreSQL server accepts protocol `1.4–1.6`. Package CDN delivery, production signing, native desktop updater adapters, scheduled backup execution, LAN discovery, production relay payload routing, MFA/email providers, diagnostic retention, and production operator UI are not implemented.
 
 ## Release and deployment tasks
 
