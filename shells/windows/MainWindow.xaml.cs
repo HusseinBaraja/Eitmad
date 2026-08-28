@@ -23,6 +23,11 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = viewModel;
         selectedNavButton = HomeNavButton;
+        foreach (var button in VisualDescendants<Button>(SidebarNavigation))
+        {
+            button.MouseEnter += NavigationMouseEnter;
+            button.MouseLeave += NavigationMouseLeave;
+        }
         toastTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
         toastTimer.Tick += (_, _) =>
         {
@@ -43,6 +48,22 @@ public partial class MainWindow : Window
         SetNavigationTone(button, true);
         DashboardTitle.Text = destination == "الرئيسية" ? "لوحة التحكم" : destination;
         ShowToast($"تم فتح {destination} في وضع المعاينة");
+    }
+
+    private void NavigationMouseEnter(object sender, System.Windows.Input.MouseEventArgs eventArgs)
+    {
+        if (sender is Button button && ReferenceEquals(button, selectedNavButton))
+        {
+            SetNavigationContentTone(button, Brushes.Black);
+        }
+    }
+
+    private void NavigationMouseLeave(object sender, System.Windows.Input.MouseEventArgs eventArgs)
+    {
+        if (sender is Button button && ReferenceEquals(button, selectedNavButton))
+        {
+            SetNavigationContentTone(button, Brushes.White);
+        }
     }
 
     private void PreviewActionClick(object sender, RoutedEventArgs eventArgs)
@@ -118,21 +139,33 @@ public partial class MainWindow : Window
         button.Background = selected
             ? new LinearGradientBrush(Color.FromRgb(0xB6, 0x76, 0x34), Color.FromRgb(0x7C, 0x41, 0x0C), 35)
             : Brushes.Transparent;
+        if (selected)
+        {
+            SetNavigationContentTone(button, button.IsMouseOver ? Brushes.Black : Brushes.White);
+            return;
+        }
+
         foreach (var text in VisualDescendants<TextBlock>(button))
         {
-            text.Foreground = selected ? Brushes.White : new SolidColorBrush(Color.FromRgb(0x20, 0x1A, 0x17));
+            text.Foreground = new SolidColorBrush(Color.FromRgb(0x20, 0x1A, 0x17));
         }
 
         foreach (var icon in VisualDescendants<System.Windows.Shapes.Path>(button))
         {
-            if (selected)
-            {
-                icon.Fill = Brushes.White;
-            }
-            else
-            {
-                icon.ClearValue(System.Windows.Shapes.Shape.FillProperty);
-            }
+            icon.ClearValue(System.Windows.Shapes.Shape.FillProperty);
+        }
+    }
+
+    private static void SetNavigationContentTone(Button button, Brush tone)
+    {
+        foreach (var text in VisualDescendants<TextBlock>(button))
+        {
+            text.Foreground = tone;
+        }
+
+        foreach (var icon in VisualDescendants<System.Windows.Shapes.Path>(button))
+        {
+            icon.Fill = tone;
         }
     }
 

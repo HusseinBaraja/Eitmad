@@ -23,7 +23,7 @@ tests.NativeWindowChromeIsDelegatedToWindows();
 tests.DashboardUsesNativeInteractiveControls();
 tests.DashboardVisualSystemIsConsistentAndRtlSafe();
 tests.SidebarNavigationKeepsArabicLabelsAtTheRtlEdge();
-tests.SelectedSidebarNavigationUsesWhiteIcons();
+tests.SelectedSidebarNavigationUsesBlackHoverContent();
 tests.ShellOwnershipRulesAreEnforced();
 Console.WriteLine("Windows shell scenarios passed.");
 
@@ -340,12 +340,16 @@ internal sealed class ShellScenarios
         Assert.Contains(sharedArabicLabelAlignment, xaml, "sidebar Arabic alignment is owned by the shared label style");
     }
 
-    public void SelectedSidebarNavigationUsesWhiteIcons()
+    public void SelectedSidebarNavigationUsesBlackHoverContent()
     {
         var codeBehind = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml.cs"));
 
+        Assert.Contains("VisualDescendants<Button>(SidebarNavigation)", codeBehind, "hover handling is limited to sidebar navigation");
+        Assert.Contains("button.MouseEnter += NavigationMouseEnter", codeBehind, "sidebar buttons report hover entry");
+        Assert.Contains("button.MouseLeave += NavigationMouseLeave", codeBehind, "sidebar buttons report hover exit");
         Assert.Contains("VisualDescendants<System.Windows.Shapes.Path>(button)", codeBehind, "navigation updates each vector icon");
-        Assert.Contains("icon.Fill = Brushes.White", codeBehind, "selected navigation icon is white");
+        Assert.Contains("SetNavigationContentTone(button, Brushes.Black)", codeBehind, "selected navigation content becomes black while hovered");
+        Assert.Contains("SetNavigationContentTone(button, Brushes.White)", codeBehind, "selected navigation content returns to white after hover");
         Assert.Contains("icon.ClearValue(System.Windows.Shapes.Shape.FillProperty)", codeBehind, "unselected navigation icon restores its themed brush");
     }
 
