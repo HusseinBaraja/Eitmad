@@ -1,14 +1,16 @@
 ---
 title: "Recover a disconnected or stale Windows operations shell"
-description: "Diagnose Arabic unavailable-engine, restart-exhaustion, unsupported-state, and subscription-resync symptoms without bypassing Rust authority."
+description: "Diagnose Windows caption, Arabic unavailable-engine, restart-exhaustion, unsupported-state, and subscription-resync symptoms without bypassing Rust authority."
 audience: "support"
 page_type: "troubleshooting"
 status: "active"
 owner: "Windows UI and platform maintainers"
-last_verified: "2026-08-27"
+last_verified: "2026-08-28"
 review_triggers:
-  - "Windows shell availability copy, reconnect, resync, query support, or shutdown behavior changes"
+  - "Windows shell frame, availability copy, reconnect, resync, query support, or shutdown behavior changes"
 keywords:
+  - "missing close minimize maximize icons"
+  - "Windows caption buttons"
   - "المحرك غير متاح الآن"
   - "نعيد الاتصال بالمحرك"
   - "نحدّث الحالة من المصدر"
@@ -30,6 +32,7 @@ The Windows shell can become temporarily unavailable without losing Rust-owned d
 - **نحدّث الحالة من المصدر…** remains visible after subscription resynchronization;
 - a sync or update card says **غير متاحة** with `eitmad.error.ipc-subscription-unsupported.v1`;
 - a configuration revision says **غير متاح** or the patch action remains disabled.
+- minimize, maximize, or close icons are missing, use custom colors, or appear on the wrong RTL/LTR side.
 
 Sync and update **غير متاحة** currently means that the engine did not advertise those optional runtime capabilities. The shell sends no query or subscription for them. It does not mean that the shell calculated an offline, current, or failed state. Configuration remains usable when its typed query succeeds.
 
@@ -52,10 +55,11 @@ Sync and update **غير متاحة** currently means that the engine did not ad
 | Sync/update **غير متاحة**, `eitmad.error.ipc-subscription-unsupported.v1` | The current engine did not negotiate that optional capability | Confirm engine health is still **سليم** and configuration has a revision | No recovery is needed; do not infer product state. Implement and advertise the Rust vertical before enabling the panel |
 | Configuration revision says **غير متاح** | Configuration query was denied, unavailable, or the IPC session is unusable | Verify synthetic development scope coherence or production identity and ReBAC without copying the relationship graph | Correct identity/scope provisioning or Rust authority; never add a shell-side permission decision |
 | Patch rejected after another client changed configuration | `ExpectedRevision` is stale | Read the newest configuration snapshot | Review the new value and submit a new typed patch with the new revision and a new user intent |
+| Caption icons are missing or do not follow RTL/LTR placement | The shell replaced the Windows non-client frame with custom controls | Check `MainWindow.xaml` for `WindowStyle="None"`, `WindowChrome`, or a custom caption-button style | Restore `WindowStyle="SingleBorderWindow"` with `ResizeMode="CanResize"`; remove custom caption controls and handlers, then run the shell tests |
 
 ## Verify recovery
 
-The engine card must show **سليم** and **جاهز لاستقبال الطلبات**. The resynchronization banner must disappear after the refresh attempt finishes. A successful configuration query must show a non-negative revision; a failed query must clear old entries, show **غير متاح**, and keep patch submission disabled. A clean tray exit must produce `Stopping → Stopped`, exit `0`, and `Forced: false` in the real-engine test.
+The title bar must expose native **Minimize**, **Maximize**, and **Close** buttons to Windows UI Automation. The buttons must appear on the left for the Arabic RTL window and on the right for an LTR localized window. The engine card must show **سليم** and **جاهز لاستقبال الطلبات**. The resynchronization banner must disappear after the refresh attempt finishes. A successful configuration query must show a non-negative revision; a failed query must clear old entries, show **غير متاح**, and keep patch submission disabled. A clean tray exit must produce `Stopping → Stopped`, exit `0`, and `Forced: false` in the real-engine test.
 
 ## Escalate safely
 

@@ -19,6 +19,7 @@ await tests.ConfigurationQueryFailureClearsStaleState();
 tests.EngineFailureMapsToRecoveryUx();
 await tests.ShutdownStopsEngineCleanly();
 tests.RtlLayoutIncludesMixedDirectionFixtures();
+tests.NativeWindowChromeIsDelegatedToWindows();
 tests.DashboardUsesNativeInteractiveControls();
 tests.ShellOwnershipRulesAreEnforced();
 Console.WriteLine("Windows shell scenarios passed.");
@@ -280,6 +281,20 @@ internal sealed class ShellScenarios
         Assert.Contains("CNC-04", xaml, "Arabic and English workshop fixture");
         Assert.Contains("Windows / Rust", xaml, "mixed product fixture");
         Assert.Contains("مرجع REF-١٢", xaml, "mixed reference marker fixture");
+    }
+
+    public void NativeWindowChromeIsDelegatedToWindows()
+    {
+        var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
+        var codeBehind = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml.cs"));
+        var theme = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "Resources", "OperationsTheme.xaml"));
+
+        Assert.Contains("WindowStyle=\"SingleBorderWindow\"", xaml, "Windows owns the non-client frame");
+        Assert.Contains("ResizeMode=\"CanResize\"", xaml, "Windows owns standard resize behavior");
+        Assert.False(xaml.Contains("ChromeButton", StringComparison.Ordinal), "custom caption buttons are absent");
+        Assert.False(theme.Contains("ChromeButton", StringComparison.Ordinal), "custom caption style is absent");
+        Assert.False(codeBehind.Contains("TitleBarMouseDown", StringComparison.Ordinal), "custom title-bar dragging is absent");
+        Assert.False(codeBehind.Contains("MinimizeClick", StringComparison.Ordinal), "custom caption handlers are absent");
     }
 
     public void DashboardUsesNativeInteractiveControls()
