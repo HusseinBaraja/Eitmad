@@ -30,7 +30,7 @@ tests.SidebarNavigationKeepsArabicLabelsAtTheRtlEdge();
 tests.NotificationRowsKeepArabicTextBesideIcons();
 tests.WorkDistributionRowsKeepProgressBesideIcons();
 tests.WorkDistributionFooterAlignsToTheLeft();
-tests.SelectedSidebarNavigationUsesBlackHoverContent();
+tests.SelectedSidebarNavigationKeepsWhiteHoverContent();
 tests.ShellOwnershipRulesAreEnforced();
 Console.WriteLine("Windows shell scenarios passed.");
 
@@ -379,7 +379,7 @@ internal sealed class ShellScenarios
     {
         var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
         const string physicalNavigationColumns = "<Grid FlowDirection=\"LeftToRight\"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width=\"12\" /><ColumnDefinition Width=\"34\" /></Grid.ColumnDefinitions>";
-        const string sharedArabicLabelAlignment = "<Style x:Key=\"NavText\" TargetType=\"TextBlock\"><Setter Property=\"FontSize\" Value=\"17\" /><Setter Property=\"VerticalAlignment\" Value=\"Center\" /><Setter Property=\"FlowDirection\" Value=\"RightToLeft\" /><Setter Property=\"TextAlignment\" Value=\"Left\" /><Setter Property=\"HorizontalAlignment\" Value=\"Stretch\" /></Style>";
+        const string sharedArabicLabelAlignment = "<Style x:Key=\"NavText\" TargetType=\"TextBlock\"><Setter Property=\"FontSize\" Value=\"17\" /><Setter Property=\"VerticalAlignment\" Value=\"Center\" /><Setter Property=\"FlowDirection\" Value=\"RightToLeft\" /><Setter Property=\"TextAlignment\" Value=\"Right\" /><Setter Property=\"HorizontalAlignment\" Value=\"Stretch\" /></Style>";
 
         Assert.Equal(12, xaml.Split(physicalNavigationColumns, StringSplitOptions.None).Length - 1, "every sidebar row keeps a fixed label-to-icon gap");
         Assert.Contains(sharedArabicLabelAlignment, xaml, "sidebar Arabic alignment is owned by the shared label style");
@@ -420,7 +420,7 @@ internal sealed class ShellScenarios
         Assert.Contains("<Button Grid.Row=\"5\" Content=\"عرض تفاصيل سير العمل  ←\" Style=\"{StaticResource LinkButton}\" Tag=\"تفاصيل سير العمل\" Click=\"PreviewActionClick\" HorizontalContentAlignment=\"Left\"", xaml, "work distribution footer aligns with the notification footer");
     }
 
-    public void SelectedSidebarNavigationUsesBlackHoverContent()
+    public void SelectedSidebarNavigationKeepsWhiteHoverContent()
     {
         var codeBehind = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml.cs"));
 
@@ -428,8 +428,8 @@ internal sealed class ShellScenarios
         Assert.Contains("button.MouseEnter += NavigationMouseEnter", codeBehind, "sidebar buttons report hover entry");
         Assert.Contains("button.MouseLeave += NavigationMouseLeave", codeBehind, "sidebar buttons report hover exit");
         Assert.Contains("VisualDescendants<System.Windows.Shapes.Path>(button)", codeBehind, "navigation updates each vector icon");
-        Assert.Contains("SetNavigationContentTone(button, Brushes.Black)", codeBehind, "selected navigation content becomes black while hovered");
-        Assert.Contains("SetNavigationContentTone(button, Brushes.White)", codeBehind, "selected navigation content returns to white after hover");
+        Assert.False(codeBehind.Contains("SetNavigationContentTone(button, Brushes.Black)", StringComparison.Ordinal), "selected navigation content never becomes black while hovered");
+        Assert.Contains("SetNavigationContentTone(button, Brushes.White)", codeBehind, "selected navigation content stays white during hover changes");
         Assert.Contains("icon.ClearValue(System.Windows.Shapes.Shape.FillProperty)", codeBehind, "unselected navigation icon restores its themed brush");
     }
 

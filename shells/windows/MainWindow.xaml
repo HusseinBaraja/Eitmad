@@ -9,7 +9,7 @@
         <Style x:Key="MetricLabel" TargetType="TextBlock"><Setter Property="FontSize" Value="15" /><Setter Property="FontWeight" Value="SemiBold" /></Style>
         <Style x:Key="MetricValue" TargetType="TextBlock"><Setter Property="FontSize" Value="27" /><Setter Property="FontWeight" Value="SemiBold" /><Setter Property="Margin" Value="0,5,0,0" /></Style>
         <Style x:Key="SmallMuted" TargetType="TextBlock"><Setter Property="FontSize" Value="11" /><Setter Property="Foreground" Value="{StaticResource MutedBrush}" /></Style>
-        <Style x:Key="NavText" TargetType="TextBlock"><Setter Property="FontSize" Value="17" /><Setter Property="VerticalAlignment" Value="Center" /><Setter Property="FlowDirection" Value="RightToLeft" /><Setter Property="TextAlignment" Value="Left" /><Setter Property="HorizontalAlignment" Value="Stretch" /></Style>
+        <Style x:Key="NavText" TargetType="TextBlock"><Setter Property="FontSize" Value="17" /><Setter Property="VerticalAlignment" Value="Center" /><Setter Property="FlowDirection" Value="RightToLeft" /><Setter Property="TextAlignment" Value="Right" /><Setter Property="HorizontalAlignment" Value="Stretch" /></Style>
         <Style x:Key="TableCell" TargetType="TextBlock"><Setter Property="FontSize" Value="11" /><Setter Property="VerticalAlignment" Value="Center" /><Setter Property="TextAlignment" Value="Center" /><Setter Property="TextWrapping" Value="NoWrap" /></Style>
     </Window.Resources>
 

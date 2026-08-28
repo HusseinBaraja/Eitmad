@@ -54,7 +54,7 @@ public partial class MainWindow : Window
     {
         if (sender is Button button && ReferenceEquals(button, selectedNavButton))
         {
-            SetNavigationContentTone(button, Brushes.Black);
+            SetNavigationContentTone(button, Brushes.White);
         }
     }
 
@@ -141,7 +141,7 @@ public partial class MainWindow : Window
             : Brushes.Transparent;
         if (selected)
         {
-            SetNavigationContentTone(button, button.IsMouseOver ? Brushes.Black : Brushes.White);
+            SetNavigationContentTone(button, Brushes.White);
             return;
         }
 
