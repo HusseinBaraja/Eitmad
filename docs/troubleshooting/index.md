@@ -28,7 +28,7 @@ Use symptom and identifier pages to reach the authoritative owner and a non-dest
 - [Resolve engine startup and authority failures](engine-startup-failures.md): diagnose failed startup, storage migration or schema drift, invalid supervision, readiness checks, shutdown failures, and duplicate engine authorities.
 - [Diagnose runtime performance](runtime-performance.md): measure startup, idle cost, common IPC calls, and background synchronization against explicit expectations.
 - [Resolve Windows engine supervision failures](windows-engine-supervision-failures.md): diagnose restart exhaustion, forced shutdown, stale observations, and Job Object setup failures.
-- [Recover a disconnected or stale Windows operations shell](windows-shell-state-recovery.md): diagnose blank dashboard icons, Arabic RTL alignment and spacing defects, missing or misplaced Windows caption icons, **المحرك غير متاح الآن**, reconnect or restart exhaustion, subscription resynchronization, unsupported state panels, and typed configuration patch recovery.
+- [Recover a disconnected or stale Windows operations shell](windows-shell-state-recovery.md): diagnose blank dashboard icons, dark selected sidebar icons, Arabic RTL alignment and spacing defects, missing or misplaced Windows caption icons, **المحرك غير متاح الآن**, reconnect or restart exhaustion, subscription resynchronization, unsupported state panels, and typed configuration patch recovery.
 
 ## Storage and recovery failures
 

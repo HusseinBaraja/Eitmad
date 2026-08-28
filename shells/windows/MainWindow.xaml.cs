@@ -122,6 +122,18 @@ public partial class MainWindow : Window
         {
             text.Foreground = selected ? Brushes.White : new SolidColorBrush(Color.FromRgb(0x20, 0x1A, 0x17));
         }
+
+        foreach (var icon in VisualDescendants<System.Windows.Shapes.Path>(button))
+        {
+            if (selected)
+            {
+                icon.Fill = Brushes.White;
+            }
+            else
+            {
+                icon.ClearValue(System.Windows.Shapes.Shape.FillProperty);
+            }
+        }
     }
 
     private static IEnumerable<T> VisualDescendants<T>(DependencyObject parent) where T : DependencyObject

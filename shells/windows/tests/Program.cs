@@ -23,6 +23,7 @@ tests.NativeWindowChromeIsDelegatedToWindows();
 tests.DashboardUsesNativeInteractiveControls();
 tests.DashboardVisualSystemIsConsistentAndRtlSafe();
 tests.SidebarNavigationKeepsArabicLabelsAtTheRtlEdge();
+tests.SelectedSidebarNavigationUsesWhiteIcons();
 tests.ShellOwnershipRulesAreEnforced();
 Console.WriteLine("Windows shell scenarios passed.");
 
@@ -337,6 +338,15 @@ internal sealed class ShellScenarios
 
         Assert.Equal(12, xaml.Split(physicalNavigationColumns, StringSplitOptions.None).Length - 1, "every sidebar row keeps a fixed label-to-icon gap");
         Assert.Contains(sharedArabicLabelAlignment, xaml, "sidebar Arabic alignment is owned by the shared label style");
+    }
+
+    public void SelectedSidebarNavigationUsesWhiteIcons()
+    {
+        var codeBehind = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml.cs"));
+
+        Assert.Contains("VisualDescendants<System.Windows.Shapes.Path>(button)", codeBehind, "navigation updates each vector icon");
+        Assert.Contains("icon.Fill = Brushes.White", codeBehind, "selected navigation icon is white");
+        Assert.Contains("icon.ClearValue(System.Windows.Shapes.Shape.FillProperty)", codeBehind, "unselected navigation icon restores its themed brush");
     }
 
     public void ShellOwnershipRulesAreEnforced()

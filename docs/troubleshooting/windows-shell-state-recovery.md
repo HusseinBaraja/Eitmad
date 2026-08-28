@@ -20,6 +20,7 @@ keywords:
   - "eitmad.error.contract-invalid.v1"
   - "blank square dashboard icons"
   - "Arabic sidebar text alignment"
+  - "selected sidebar icon stays dark"
 ---
 
 # Recover a disconnected or stale Windows operations shell
@@ -35,7 +36,7 @@ The Windows shell can become temporarily unavailable without losing Rust-owned d
 - a sync or update card says **غير متاحة** with `eitmad.error.ipc-subscription-unsupported.v1`;
 - a configuration revision says **غير متاح** or the patch action remains disabled.
 - minimize, maximize, or close icons are missing, use custom colors, or appear on the wrong RTL/LTR side.
-- dashboard, toolbar, or sidebar icons appear as blank squares; Arabic labels drift away from their icons; **آخر عروض الأسعار** overlaps **عرض الكل**; or the toolbar and footer controls touch adjacent edges.
+- dashboard, toolbar, or sidebar icons appear as blank squares; a selected sidebar icon stays dark on the walnut background; Arabic labels drift away from their icons; **آخر عروض الأسعار** overlaps **عرض الكل**; or the toolbar and footer controls touch adjacent edges.
 
 Sync and update **غير متاحة** currently means that the engine did not advertise those optional runtime capabilities. The shell sends no query or subscription for them. It does not mean that the shell calculated an offline, current, or failed state. Configuration remains usable when its typed query succeeds.
 
@@ -60,13 +61,14 @@ Sync and update **غير متاحة** currently means that the engine did not ad
 | Patch rejected after another client changed configuration | `ExpectedRevision` is stale | Read the newest configuration snapshot | Review the new value and submit a new typed patch with the new revision and a new user intent |
 | Caption icons are missing or do not follow RTL/LTR placement | The shell replaced the Windows non-client frame with custom controls | Check `MainWindow.xaml` for `WindowStyle="None"`, `WindowChrome`, or a custom caption-button style | Restore `WindowStyle="SingleBorderWindow"` with `ResizeMode="CanResize"`; remove custom caption controls and handlers, then run the shell tests |
 | Dashboard icons are blank squares or use inconsistent shapes and colors | The dashboard uses private-use font code points or per-card raw colors | Search `MainWindow.xaml` for `Segoe Fluent Icons`, `&#xE`, and raw icon foreground values | Use geometry from `Resources/OperationsIcons.xaml` and semantic brushes from `OperationsTheme.xaml`; then run the shell tests and inspect the rendered window |
+| A selected sidebar label is white but its icon stays dark | `SetNavigationTone` updates only `TextBlock.Foreground`, or deselection leaves a local `Path.Fill` value | Check `MainWindow.xaml.cs` for the `VisualDescendants<System.Windows.Shapes.Path>` update and `Shape.FillProperty` reset | Set the selected icon fill to white and clear the local fill on deselection so `NavVectorIcon` restores the ink theme brush; then run the shell tests and select **عروض الأسعار** in the rendered app |
 | Arabic sidebar labels sit at the left edge of their cell or touch the right-edge icon | The RTL `NavText` style uses logical `TextAlignment="Right"`, or the fixed label-to-icon spacer is missing | Check for an LTR row with a flexible label column, a fixed `12`-unit spacer, and a fixed `34`-unit icon column; confirm that shared `NavText` owns `FlowDirection="RightToLeft"` plus logical `TextAlignment="Left"` | Restore the physical LTR three-column row and the shared logical-left RTL label style; do not use per-label margins or physical alignment guesses |
 | Arabic notification labels are not beside their icons, or **آخر عروض الأسعار** overlaps **عرض الكل** | The component lost its explicit local direction boundary or named columns | Inspect the affected component for its fixed icon and label columns and inspect `LatestQuotesHeader` for separate title and action columns | Restore the component-specific direction boundary and named columns; do not use margins as a direction substitute |
 | **عرض سعر جديد** touches the search field, or the sidebar footer touches the window edge | The fixed design surface lost its explicit separator or bottom inset | Check `ToolbarGap` and `SidebarFooterCard` in `MainWindow.xaml` | Restore the `16`-unit toolbar separator and `20`-unit footer bottom margin, then inspect at `1326×746` logical pixels |
 
 ## Verify recovery
 
-The title bar must expose native **Minimize**, **Maximize**, and **Close** buttons to Windows UI Automation. The buttons must appear on the left for the Arabic RTL window and on the right for an LTR localized window. Dashboard icons must render as vectors in the shared walnut and ink theme, and Arabic labels must remain right-aligned beside their icon columns. The **آخر عروض الأسعار** title and **عرض الكل** control must occupy separate columns. The toolbar and footer insets must remain visible. The engine card must show **سليم** and **جاهز لاستقبال الطلبات**. The resynchronization banner must disappear after the refresh attempt finishes. A successful configuration query must show a non-negative revision; a failed query must clear old entries, show **غير متاح**, and keep patch submission disabled. A clean tray exit must produce `Stopping → Stopped`, exit `0`, and `Forced: false` in the real-engine test.
+The title bar must expose native **Minimize**, **Maximize**, and **Close** buttons to Windows UI Automation. The buttons must appear on the left for the Arabic RTL window and on the right for an LTR localized window. Dashboard icons must render as vectors in the shared walnut and ink theme, and Arabic labels must remain right-aligned beside their icon columns. Select **عروض الأسعار**: its label and icon must be white, and the old **الرئيسية** icon must use the ink theme color. The **آخر عروض الأسعار** title and **عرض الكل** control must occupy separate columns. The toolbar and footer insets must remain visible. The engine card must show **سليم** and **جاهز لاستقبال الطلبات**. The resynchronization banner must disappear after the refresh attempt finishes. A successful configuration query must show a non-negative revision; a failed query must clear old entries, show **غير متاح**, and keep patch submission disabled. A clean tray exit must produce `Stopping → Stopped`, exit `0`, and `Forced: false` in the real-engine test.
 
 ## Escalate safely
 
