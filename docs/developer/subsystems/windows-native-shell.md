@@ -113,6 +113,8 @@ The work-distribution header uses a local RTL stack with logical-left text align
 
 The search field keeps its local RTL direction with logical-left text alignment so Arabic placeholder and query text end beside the search icon.
 
+The latest quotations header keeps its title in the RTL text boundary with logical-left alignment, so **آخر عروض الأسعار** ends at the card’s physical right edge while **عرض الكل** remains in its separate action column.
+
 ## Security and compatibility
 
 The shell is an untrusted client. It does not resolve the engine installation, select runtime storage, construct `EngineLaunchRequest`, or grant itself permissions. `platform-adapters/windows/Shell/WindowsEngineBridge.cs` owns these Windows launch concerns and gives the shell a typed bridge. The adapter supplies only an ephemeral process bootstrap token. Rust loads and verifies the stable installation principal, tenant, scope, and owner relationship, then returns the authorization context.
