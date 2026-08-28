@@ -27,6 +27,7 @@ tests.LatestQuotesTitleAlignsToTheRtlEdge();
 tests.SidebarNavigationKeepsArabicLabelsAtTheRtlEdge();
 tests.NotificationRowsKeepArabicTextBesideIcons();
 tests.WorkDistributionRowsKeepProgressBesideIcons();
+tests.WorkDistributionFooterAlignsToTheLeft();
 tests.SelectedSidebarNavigationUsesBlackHoverContent();
 tests.ShellOwnershipRulesAreEnforced();
 Console.WriteLine("Windows shell scenarios passed.");
@@ -385,6 +386,13 @@ internal sealed class ShellScenarios
         Assert.Contains("<Path Grid.Column=\"3\" Data=\"{StaticResource IconMaterials}\"", xaml, "work distribution second icon stays on the right");
         Assert.Contains("<Path Grid.Column=\"3\" Data=\"{StaticResource IconWorkOrder}\"", xaml, "work distribution third icon stays on the right");
         Assert.Contains("<Path Grid.Column=\"3\" Data=\"{StaticResource IconFurniture}\"", xaml, "work distribution fourth icon stays on the right");
+    }
+
+    public void WorkDistributionFooterAlignsToTheLeft()
+    {
+        var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
+
+        Assert.Contains("<Button Grid.Row=\"5\" Content=\"عرض تفاصيل سير العمل  ←\" Style=\"{StaticResource LinkButton}\" Tag=\"تفاصيل سير العمل\" Click=\"PreviewActionClick\" HorizontalContentAlignment=\"Left\"", xaml, "work distribution footer aligns with the notification footer");
     }
 
     public void SelectedSidebarNavigationUsesBlackHoverContent()
