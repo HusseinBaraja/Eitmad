@@ -22,6 +22,7 @@ tests.RtlLayoutIncludesMixedDirectionFixtures();
 tests.NativeWindowChromeIsDelegatedToWindows();
 tests.DashboardUsesNativeInteractiveControls();
 tests.DashboardVisualSystemIsConsistentAndRtlSafe();
+tests.ToolbarExpandsSearchAfterActionButtons();
 tests.SearchBoxArabicTextAlignsToTheRtlEdge();
 tests.LatestQuotesTitleAlignsToTheRtlEdge();
 tests.SidebarNavigationKeepsArabicLabelsAtTheRtlEdge();
@@ -333,6 +334,19 @@ internal sealed class ShellScenarios
         Assert.Contains("x:Name=\"NotificationsCard\"", xaml, "notification card has an explicit RTL layout");
         Assert.Contains("x:Name=\"ToolbarGap\"", xaml, "search and new quotation action have a fixed gap");
         Assert.Contains("x:Name=\"SidebarFooterCard\"", xaml, "sidebar footer spacing is explicit");
+    }
+
+    public void ToolbarExpandsSearchAfterActionButtons()
+    {
+        var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
+        const string toolbarGrid = "<Grid Grid.Column=\"1\" FlowDirection=\"LeftToRight\" VerticalAlignment=\"Center\" HorizontalAlignment=\"Stretch\">";
+        const string toolbarColumns = "<Grid.ColumnDefinitions><ColumnDefinition Width=\"178\" /><ColumnDefinition Width=\"*\" /></Grid.ColumnDefinitions>";
+
+        Assert.Contains(toolbarGrid, xaml, "toolbar keeps a stable mixed-direction boundary");
+        Assert.Contains(toolbarColumns, xaml, "toolbar reserves actions before the flexible search field");
+        Assert.Contains("<StackPanel Grid.Column=\"0\" Orientation=\"Horizontal\" Margin=\"0,0,20,0\">", xaml, "toolbar actions occupy the left slot before search");
+        Assert.Contains("<Border Grid.Column=\"1\" Height=\"43\"", xaml, "search field expands in the slot beside the dashboard title");
+        Assert.Contains("<Border Grid.Column=\"1\" Height=\"43\" HorizontalAlignment=\"Stretch\"", xaml, "search border stretches across the flexible slot");
     }
 
     public void SearchBoxArabicTextAlignsToTheRtlEdge()

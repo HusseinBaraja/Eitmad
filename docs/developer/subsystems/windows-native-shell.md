@@ -115,6 +115,8 @@ The search field keeps its local RTL direction with logical-left text alignment 
 
 The latest quotations header keeps its title in the RTL text boundary with logical-left alignment, so **آخر عروض الأسعار** ends at the card’s physical right edge while **عرض الكل** remains in its separate action column.
 
+The top toolbar reserves the notification, message, and profile buttons in a fixed `178`-unit left slot. The search border occupies the following flexible slot and stretches to the dashboard-title column; its local RTL text boundary remains independent from this physical LTR toolbar arrangement.
+
 The work-distribution footer link sets `HorizontalContentAlignment="Left"` locally so it starts at the same physical left edge as the notification footer link, despite the shared `LinkButton` style defaulting to right-aligned content.
 
 ## Security and compatibility
