@@ -11,6 +11,22 @@ Start with:
 - [Repository layout and ownership](docs/developer/repository-layout.md)
 - [Documentation index](docs/index.md)
 
+## Run the admin dashboard on Windows
+
+Install the .NET 8 SDK and the stable Rust toolchain. From the repository root, build the Rust engine:
+
+```powershell
+cargo build -p eitmad-engine-cli
+```
+
+Then start the native Windows dashboard with that engine:
+
+```powershell
+dotnet run --project shells/windows/Eitmad.WindowsShell.csproj -- --engine target/debug/eitmad-engine-cli.exe
+```
+
+The **لوحة التحكم** window opens in **وضع المعاينة**. Closing the window keeps the app in the system tray. Use **إنهاء الاعتماد** in the tray menu to stop the shell and engine. For design and ownership details, see the [Windows operations shell guide](docs/developer/subsystems/windows-native-shell.md).
+
 Foundation verification:
 
 ```text
