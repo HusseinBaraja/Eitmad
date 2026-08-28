@@ -18,6 +18,8 @@ keywords:
   - "ReconnectExhausted"
   - "RestartExhausted"
   - "eitmad.error.contract-invalid.v1"
+  - "blank square dashboard icons"
+  - "Arabic sidebar text alignment"
 ---
 
 # Recover a disconnected or stale Windows operations shell
@@ -33,6 +35,7 @@ The Windows shell can become temporarily unavailable without losing Rust-owned d
 - a sync or update card says **غير متاحة** with `eitmad.error.ipc-subscription-unsupported.v1`;
 - a configuration revision says **غير متاح** or the patch action remains disabled.
 - minimize, maximize, or close icons are missing, use custom colors, or appear on the wrong RTL/LTR side.
+- dashboard, toolbar, or sidebar icons appear as blank squares; Arabic labels drift away from their icons; **آخر عروض الأسعار** overlaps **عرض الكل**; or the toolbar and footer controls touch adjacent edges.
 
 Sync and update **غير متاحة** currently means that the engine did not advertise those optional runtime capabilities. The shell sends no query or subscription for them. It does not mean that the shell calculated an offline, current, or failed state. Configuration remains usable when its typed query succeeds.
 
@@ -56,10 +59,13 @@ Sync and update **غير متاحة** currently means that the engine did not ad
 | Configuration revision says **غير متاح** | Configuration query was denied, unavailable, or the IPC session is unusable | Verify synthetic development scope coherence or production identity and ReBAC without copying the relationship graph | Correct identity/scope provisioning or Rust authority; never add a shell-side permission decision |
 | Patch rejected after another client changed configuration | `ExpectedRevision` is stale | Read the newest configuration snapshot | Review the new value and submit a new typed patch with the new revision and a new user intent |
 | Caption icons are missing or do not follow RTL/LTR placement | The shell replaced the Windows non-client frame with custom controls | Check `MainWindow.xaml` for `WindowStyle="None"`, `WindowChrome`, or a custom caption-button style | Restore `WindowStyle="SingleBorderWindow"` with `ResizeMode="CanResize"`; remove custom caption controls and handlers, then run the shell tests |
+| Dashboard icons are blank squares or use inconsistent shapes and colors | The dashboard uses private-use font code points or per-card raw colors | Search `MainWindow.xaml` for `Segoe Fluent Icons`, `&#xE`, and raw icon foreground values | Use geometry from `Resources/OperationsIcons.xaml` and semantic brushes from `OperationsTheme.xaml`; then run the shell tests and inspect the rendered window |
+| Arabic sidebar or notification labels are not beside their icons, or **آخر عروض الأسعار** overlaps **عرض الكل** | An inherited LTR grid or implicit column placement controls the Arabic row | Inspect the affected grid for explicit `FlowDirection="RightToLeft"`, icon and label columns, and `TextAlignment="Right"` | Restore the explicit RTL column layout and the named header grid; do not use margins as a direction substitute |
+| **عرض سعر جديد** touches the search field, or the sidebar footer touches the window edge | The fixed design surface lost its explicit separator or bottom inset | Check `ToolbarGap` and `SidebarFooterCard` in `MainWindow.xaml` | Restore the `16`-unit toolbar separator and `20`-unit footer bottom margin, then inspect at `1326×746` logical pixels |
 
 ## Verify recovery
 
-The title bar must expose native **Minimize**, **Maximize**, and **Close** buttons to Windows UI Automation. The buttons must appear on the left for the Arabic RTL window and on the right for an LTR localized window. The engine card must show **سليم** and **جاهز لاستقبال الطلبات**. The resynchronization banner must disappear after the refresh attempt finishes. A successful configuration query must show a non-negative revision; a failed query must clear old entries, show **غير متاح**, and keep patch submission disabled. A clean tray exit must produce `Stopping → Stopped`, exit `0`, and `Forced: false` in the real-engine test.
+The title bar must expose native **Minimize**, **Maximize**, and **Close** buttons to Windows UI Automation. The buttons must appear on the left for the Arabic RTL window and on the right for an LTR localized window. Dashboard icons must render as vectors in the shared walnut and ink theme, and Arabic labels must remain right-aligned beside their icon columns. The **آخر عروض الأسعار** title and **عرض الكل** control must occupy separate columns. The toolbar and footer insets must remain visible. The engine card must show **سليم** and **جاهز لاستقبال الطلبات**. The resynchronization banner must disappear after the refresh attempt finishes. A successful configuration query must show a non-negative revision; a failed query must clear old entries, show **غير متاح**, and keep patch submission disabled. A clean tray exit must produce `Stopping → Stopped`, exit `0`, and `Forced: false` in the real-engine test.
 
 ## Escalate safely
 

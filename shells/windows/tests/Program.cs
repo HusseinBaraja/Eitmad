@@ -21,6 +21,7 @@ await tests.ShutdownStopsEngineCleanly();
 tests.RtlLayoutIncludesMixedDirectionFixtures();
 tests.NativeWindowChromeIsDelegatedToWindows();
 tests.DashboardUsesNativeInteractiveControls();
+tests.DashboardVisualSystemIsConsistentAndRtlSafe();
 tests.ShellOwnershipRulesAreEnforced();
 Console.WriteLine("Windows shell scenarios passed.");
 
@@ -309,6 +310,22 @@ internal sealed class ShellScenarios
         Assert.Contains("KeyDown=\"SearchKeyDown\"", xaml, "search keyboard interaction");
         Assert.Contains("PreviewSubmitClick", codeBehind, "preview form validation");
         Assert.Contains("الحفظ معطل في وضع المعاينة", codeBehind, "preview cannot claim durable storage");
+    }
+
+    public void DashboardVisualSystemIsConsistentAndRtlSafe()
+    {
+        var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
+        var app = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "App.xaml"));
+        var icons = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "Resources", "OperationsIcons.xaml"));
+
+        Assert.Contains("Resources/OperationsIcons.xaml", app, "vector icon resources are loaded");
+        Assert.Contains("x:Key=\"IconHome\"", icons, "sidebar uses repository-owned vector geometry");
+        Assert.Contains("x:Key=\"IconSearch\"", icons, "toolbar search icon is available");
+        Assert.False(xaml.Contains("FontFamily=\"Segoe Fluent Icons\"", StringComparison.Ordinal), "dashboard does not depend on font-code glyphs");
+        Assert.Contains("x:Name=\"LatestQuotesHeader\"", xaml, "latest quotations header has an explicit RTL layout");
+        Assert.Contains("x:Name=\"NotificationsCard\"", xaml, "notification card has an explicit RTL layout");
+        Assert.Contains("x:Name=\"ToolbarGap\"", xaml, "search and new quotation action have a fixed gap");
+        Assert.Contains("x:Name=\"SidebarFooterCard\"", xaml, "sidebar footer spacing is explicit");
     }
 
     public void ShellOwnershipRulesAreEnforced()
