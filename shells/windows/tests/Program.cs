@@ -22,6 +22,7 @@ tests.RtlLayoutIncludesMixedDirectionFixtures();
 tests.NativeWindowChromeIsDelegatedToWindows();
 tests.DashboardUsesNativeInteractiveControls();
 tests.DashboardVisualSystemIsConsistentAndRtlSafe();
+tests.SidebarNavigationKeepsArabicLabelsAtTheRtlEdge();
 tests.ShellOwnershipRulesAreEnforced();
 Console.WriteLine("Windows shell scenarios passed.");
 
@@ -326,6 +327,16 @@ internal sealed class ShellScenarios
         Assert.Contains("x:Name=\"NotificationsCard\"", xaml, "notification card has an explicit RTL layout");
         Assert.Contains("x:Name=\"ToolbarGap\"", xaml, "search and new quotation action have a fixed gap");
         Assert.Contains("x:Name=\"SidebarFooterCard\"", xaml, "sidebar footer spacing is explicit");
+    }
+
+    public void SidebarNavigationKeepsArabicLabelsAtTheRtlEdge()
+    {
+        var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
+        const string physicalNavigationColumns = "<Grid FlowDirection=\"LeftToRight\"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width=\"12\" /><ColumnDefinition Width=\"34\" /></Grid.ColumnDefinitions>";
+        const string sharedArabicLabelAlignment = "<Style x:Key=\"NavText\" TargetType=\"TextBlock\"><Setter Property=\"FontSize\" Value=\"17\" /><Setter Property=\"VerticalAlignment\" Value=\"Center\" /><Setter Property=\"FlowDirection\" Value=\"RightToLeft\" /><Setter Property=\"TextAlignment\" Value=\"Left\" /><Setter Property=\"HorizontalAlignment\" Value=\"Stretch\" /></Style>";
+
+        Assert.Equal(12, xaml.Split(physicalNavigationColumns, StringSplitOptions.None).Length - 1, "every sidebar row keeps a fixed label-to-icon gap");
+        Assert.Contains(sharedArabicLabelAlignment, xaml, "sidebar Arabic alignment is owned by the shared label style");
     }
 
     public void ShellOwnershipRulesAreEnforced()
