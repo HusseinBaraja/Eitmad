@@ -22,11 +22,11 @@
                     <Grid.RowDefinitions><RowDefinition Height="108" /><RowDefinition Height="831" /></Grid.RowDefinitions>
                     <Border Grid.Row="0" Background="#FEFDFC" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
                         <Grid Margin="32,0">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="285" /><ColumnDefinition Width="*" /><ColumnDefinition Width="196" /></Grid.ColumnDefinitions>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="196" /></Grid.ColumnDefinitions>
                             <TextBlock x:Name="DashboardTitle" Grid.Column="0" Text="لوحة التحكم" FontSize="27" FontWeight="Bold" VerticalAlignment="Center" />
                             <Grid Grid.Column="1" FlowDirection="LeftToRight" VerticalAlignment="Center" HorizontalAlignment="Stretch">
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="178" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                                <Border Grid.Column="1" Height="43" HorizontalAlignment="Stretch" CornerRadius="8" Background="#FEFDFC" BorderBrush="#E9E4DF" BorderThickness="1">
+                                <Border Grid.Column="1" Height="43" HorizontalAlignment="Stretch" Margin="0,0,16,0" CornerRadius="8" Background="#FEFDFC" BorderBrush="#E9E4DF" BorderThickness="1">
                                     <Grid FlowDirection="RightToLeft"><Grid.ColumnDefinitions><ColumnDefinition Width="44" /><ColumnDefinition /></Grid.ColumnDefinitions><Path Grid.Column="0" Data="{StaticResource IconSearch}" Style="{StaticResource ToolbarVectorIcon}" /><TextBox Grid.Column="1" x:Name="SearchBox" Background="Transparent" BorderThickness="0" FontFamily="Noto Kufi Arabic, Segoe UI" FontSize="13" Foreground="#8D8781" Padding="10,11,0,8" TextAlignment="Left" FlowDirection="RightToLeft" Text="ابحث عن عروض أسعار، عملاء، منتجات، أو أوامر عمل..." GotKeyboardFocus="SearchGotFocus" LostKeyboardFocus="SearchLostFocus" KeyDown="SearchKeyDown" /></Grid>
                                 </Border>
                                 <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,0,20,0">
@@ -129,7 +129,7 @@
 
                 <!-- Right navigation -->
                 <Border Grid.Column="1" Background="#FEFDFC" BorderBrush="{StaticResource LineBrush}" BorderThickness="1,0,0,0" FlowDirection="RightToLeft">
-                    <Grid><Grid.RowDefinitions><RowDefinition Height="77" /><RowDefinition Height="*" /><RowDefinition Height="132" /></Grid.RowDefinitions>
+                    <Grid><Grid.RowDefinitions><RowDefinition Height="77" /><RowDefinition Height="*" /></Grid.RowDefinitions>
                         <Grid Grid.Row="0" Margin="31,0,23,7" FlowDirection="LeftToRight">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="72" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                             <Viewbox Grid.Column="0" Width="64" Height="51" VerticalAlignment="Center" Stretch="Uniform">
@@ -161,7 +161,6 @@
                             <Button Style="{StaticResource NavButton}" Tag="المستخدمون" Click="NavigationClick"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="المستخدمون" Style="{StaticResource NavText}" /><Path Grid.Column="2" Data="{StaticResource IconUsers}" Style="{StaticResource NavVectorIcon}" /></Grid></Button>
                             <Button Style="{StaticResource NavButton}" Tag="الإعدادات" Click="NavigationClick"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="الإعدادات" Style="{StaticResource NavText}" /><Path Grid.Column="2" Data="{StaticResource IconSettings}" Style="{StaticResource NavVectorIcon}" /></Grid></Button>
                         </StackPanel>
-                        <Border x:Name="SidebarFooterCard" Grid.Row="2" Margin="12,0,12,20" Style="{StaticResource Card}" Padding="12"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="92" /></Grid.ColumnDefinitions><StackPanel FlowDirection="RightToLeft" VerticalAlignment="Center"><TextBlock Text="الاعتماد لصناعة الأثاث" FontSize="11" TextAlignment="Right" /><TextBlock Text="نسخة 2.1.0" FontSize="10" Foreground="{StaticResource MutedBrush}" Margin="0,8,0,0" TextAlignment="Right" /><StackPanel Orientation="Horizontal" FlowDirection="RightToLeft" Margin="0,8,0,0"><Ellipse Width="8" Height="8" Fill="{StaticResource StatusDotBrush}" Margin="0,0,7,0" /><TextBlock Text="وضع المعاينة" Foreground="#9A5C22" FontSize="11" /></StackPanel></StackPanel><Border Grid.Column="1" CornerRadius="8" FlowDirection="LeftToRight"><Border.Background><ImageBrush ImageSource="/Eitmad.WindowsShell;component/Resources/ShowroomHero.png" Stretch="UniformToFill" AlignmentX="Left" AlignmentY="Center" /></Border.Background></Border></Grid></Border>
                     </Grid>
                 </Border>
                 <TextBlock Visibility="Collapsed" Text="CNC-04 · Windows / Rust · مرجع REF-١٢" />

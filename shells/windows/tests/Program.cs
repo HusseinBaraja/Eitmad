@@ -22,6 +22,7 @@ tests.RtlLayoutIncludesMixedDirectionFixtures();
 tests.NativeWindowChromeIsDelegatedToWindows();
 tests.DashboardUsesNativeInteractiveControls();
 tests.DashboardVisualSystemIsConsistentAndRtlSafe();
+tests.SidebarFooterCardIsRemoved();
 tests.ToolbarExpandsSearchAfterActionButtons();
 tests.SearchBoxArabicTextAlignsToTheRtlEdge();
 tests.LatestQuotesTitleAlignsToTheRtlEdge();
@@ -333,7 +334,14 @@ internal sealed class ShellScenarios
         Assert.Contains("x:Name=\"LatestQuotesHeader\"", xaml, "latest quotations header has an explicit RTL layout");
         Assert.Contains("x:Name=\"NotificationsCard\"", xaml, "notification card has an explicit RTL layout");
         Assert.Contains("x:Name=\"ToolbarGap\"", xaml, "search and new quotation action have a fixed gap");
-        Assert.Contains("x:Name=\"SidebarFooterCard\"", xaml, "sidebar footer spacing is explicit");
+    }
+
+    public void SidebarFooterCardIsRemoved()
+    {
+        var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
+
+        Assert.False(xaml.Contains("SidebarFooterCard", StringComparison.Ordinal), "sidebar footer card is removed");
+        Assert.Contains("<Grid><Grid.RowDefinitions><RowDefinition Height=\"77\" /><RowDefinition Height=\"*\" /></Grid.RowDefinitions>", xaml, "sidebar no longer reserves a footer row");
     }
 
     public void ToolbarExpandsSearchAfterActionButtons()
@@ -341,12 +349,15 @@ internal sealed class ShellScenarios
         var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
         const string toolbarGrid = "<Grid Grid.Column=\"1\" FlowDirection=\"LeftToRight\" VerticalAlignment=\"Center\" HorizontalAlignment=\"Stretch\">";
         const string toolbarColumns = "<Grid.ColumnDefinitions><ColumnDefinition Width=\"178\" /><ColumnDefinition Width=\"*\" /></Grid.ColumnDefinitions>";
+        const string titleSizedColumns = "<Grid.ColumnDefinitions><ColumnDefinition Width=\"Auto\" /><ColumnDefinition Width=\"*\" /><ColumnDefinition Width=\"196\" /></Grid.ColumnDefinitions>";
 
+        Assert.Contains(titleSizedColumns, xaml, "toolbar sizes the dashboard title to its content");
         Assert.Contains(toolbarGrid, xaml, "toolbar keeps a stable mixed-direction boundary");
         Assert.Contains(toolbarColumns, xaml, "toolbar reserves actions before the flexible search field");
         Assert.Contains("<StackPanel Grid.Column=\"0\" Orientation=\"Horizontal\" Margin=\"0,0,20,0\">", xaml, "toolbar actions occupy the left slot before search");
         Assert.Contains("<Border Grid.Column=\"1\" Height=\"43\"", xaml, "search field expands in the slot beside the dashboard title");
         Assert.Contains("<Border Grid.Column=\"1\" Height=\"43\" HorizontalAlignment=\"Stretch\"", xaml, "search border stretches across the flexible slot");
+        Assert.Contains("<Border Grid.Column=\"1\" Height=\"43\" HorizontalAlignment=\"Stretch\" Margin=\"0,0,16,0\"", xaml, "search border keeps a margin before the dashboard title");
     }
 
     public void SearchBoxArabicTextAlignsToTheRtlEdge()
