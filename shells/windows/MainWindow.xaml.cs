@@ -18,6 +18,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer toastTimer;
     private Button selectedNavButton;
 
+    /// <summary>Initializes the dashboard preview and its transient interactions.</summary>
     public MainWindow(OperationsViewModel viewModel)
     {
         InitializeComponent();
@@ -36,6 +37,7 @@ public partial class MainWindow : Window
         };
     }
 
+    /// <summary>Selects a preview destination and updates the dashboard heading.</summary>
     private void NavigationClick(object sender, RoutedEventArgs eventArgs)
     {
         if (sender is not Button button || button.Tag is not string destination)
@@ -50,6 +52,7 @@ public partial class MainWindow : Window
         ShowToast($"تم فتح {destination} في وضع المعاينة");
     }
 
+    /// <summary>Preserves readable content on the selected navigation item during hover.</summary>
     private void NavigationMouseEnter(object sender, System.Windows.Input.MouseEventArgs eventArgs)
     {
         if (sender is Button button && ReferenceEquals(button, selectedNavButton))
@@ -58,6 +61,7 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>Restores the selected navigation content after hover.</summary>
     private void NavigationMouseLeave(object sender, System.Windows.Input.MouseEventArgs eventArgs)
     {
         if (sender is Button button && ReferenceEquals(button, selectedNavButton))
@@ -66,6 +70,7 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>Reports a bounded preview response for a dashboard action.</summary>
     private void PreviewActionClick(object sender, RoutedEventArgs eventArgs)
     {
         if (sender is Button { Tag: string action })
@@ -74,6 +79,7 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>Opens the non-persistent quotation preview panel.</summary>
     private void OpenPreviewPanelClick(object sender, RoutedEventArgs eventArgs)
     {
         PreviewPanelTitle.Text = sender is Button { Tag: string title } ? title : "عرض سعر جديد";
@@ -81,9 +87,11 @@ public partial class MainWindow : Window
         CustomerNameBox.Focus();
     }
 
+    /// <summary>Closes the quotation preview panel without saving state.</summary>
     private void ClosePreviewPanelClick(object sender, RoutedEventArgs eventArgs) =>
         InteractionPanel.Visibility = Visibility.Collapsed;
 
+    /// <summary>Validates the preview customer name without creating a quotation.</summary>
     private void PreviewSubmitClick(object sender, RoutedEventArgs eventArgs)
     {
         if (string.IsNullOrWhiteSpace(CustomerNameBox.Text))
@@ -97,6 +105,7 @@ public partial class MainWindow : Window
         ShowToast("تم فحص المسودة محلياً؛ الحفظ معطل في وضع المعاينة");
     }
 
+    /// <summary>Removes the Arabic search placeholder when input starts.</summary>
     private void SearchGotFocus(object sender, KeyboardFocusChangedEventArgs eventArgs)
     {
         if (SearchBox.Text == SearchPlaceholder)
@@ -106,6 +115,7 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>Restores the Arabic search placeholder when input is empty.</summary>
     private void SearchLostFocus(object sender, KeyboardFocusChangedEventArgs eventArgs)
     {
         if (string.IsNullOrWhiteSpace(SearchBox.Text))
@@ -115,6 +125,7 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>Reports a local preview response for a submitted search term.</summary>
     private void SearchKeyDown(object sender, KeyEventArgs eventArgs)
     {
         if (eventArgs.Key != Key.Enter || string.IsNullOrWhiteSpace(SearchBox.Text) || SearchBox.Text == SearchPlaceholder)
@@ -126,6 +137,7 @@ public partial class MainWindow : Window
         eventArgs.Handled = true;
     }
 
+    /// <summary>Shows transient preview feedback.</summary>
     private void ShowToast(string message)
     {
         InteractionToastText.Text = message;
@@ -134,6 +146,7 @@ public partial class MainWindow : Window
         toastTimer.Start();
     }
 
+    /// <summary>Applies selected or unselected navigation colors.</summary>
     private static void SetNavigationTone(Button button, bool selected)
     {
         button.Background = selected
@@ -156,6 +169,7 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>Applies one tone to navigation text and vector icons.</summary>
     private static void SetNavigationContentTone(Button button, Brush tone)
     {
         foreach (var text in VisualDescendants<TextBlock>(button))
@@ -169,6 +183,7 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>Enumerates matching descendants in a WPF visual tree.</summary>
     private static IEnumerable<T> VisualDescendants<T>(DependencyObject parent) where T : DependencyObject
     {
         for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)

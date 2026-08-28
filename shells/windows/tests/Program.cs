@@ -282,6 +282,7 @@ internal sealed class ShellScenarios
         Assert.Equal(1, engine.StopCount, "shutdown delegates one clean stop");
     }
 
+    /// <summary>Verifies the root RTL metadata and mixed-direction fixtures.</summary>
     public void RtlLayoutIncludesMixedDirectionFixtures()
     {
         var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
@@ -294,6 +295,7 @@ internal sealed class ShellScenarios
         Assert.Contains("مرجع REF-١٢", xaml, "mixed reference marker fixture");
     }
 
+    /// <summary>Verifies that Windows owns the native window frame.</summary>
     public void NativeWindowChromeIsDelegatedToWindows()
     {
         var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
@@ -308,6 +310,7 @@ internal sealed class ShellScenarios
         Assert.False(codeBehind.Contains("MinimizeClick", StringComparison.Ordinal), "custom caption handlers are absent");
     }
 
+    /// <summary>Verifies that dashboard preview actions use native controls.</summary>
     public void DashboardUsesNativeInteractiveControls()
     {
         var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
@@ -322,6 +325,7 @@ internal sealed class ShellScenarios
         Assert.Contains("الحفظ معطل في وضع المعاينة", codeBehind, "preview cannot claim durable storage");
     }
 
+    /// <summary>Verifies shared icons and explicit RTL layout boundaries.</summary>
     public void DashboardVisualSystemIsConsistentAndRtlSafe()
     {
         var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
@@ -337,6 +341,7 @@ internal sealed class ShellScenarios
         Assert.Contains("x:Name=\"ToolbarGap\"", xaml, "search and new quotation action have a fixed gap");
     }
 
+    /// <summary>Verifies that the sidebar does not reserve a footer card.</summary>
     public void SidebarFooterCardIsRemoved()
     {
         var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
@@ -345,6 +350,7 @@ internal sealed class ShellScenarios
         Assert.Contains("<Grid><Grid.RowDefinitions><RowDefinition Height=\"77\" /><RowDefinition Height=\"*\" /></Grid.RowDefinitions>", xaml, "sidebar no longer reserves a footer row");
     }
 
+    /// <summary>Verifies the physical order and flexible width of toolbar controls.</summary>
     public void ToolbarExpandsSearchAfterActionButtons()
     {
         var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
@@ -361,6 +367,7 @@ internal sealed class ShellScenarios
         Assert.Contains("<Border Grid.Column=\"1\" Height=\"43\" HorizontalAlignment=\"Stretch\" Margin=\"0,0,16,0\"", xaml, "search border keeps a margin before the dashboard title");
     }
 
+    /// <summary>Verifies Arabic search text alignment at the RTL edge.</summary>
     public void SearchBoxArabicTextAlignsToTheRtlEdge()
     {
         var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
@@ -369,6 +376,7 @@ internal sealed class ShellScenarios
         Assert.Contains("x:Name=\"SearchBox\" Background=\"Transparent\" BorderThickness=\"0\" FontFamily=\"Noto Kufi Arabic, Segoe UI\" FontSize=\"13\" Foreground=\"#8D8781\" Padding=\"10,11,0,8\" TextAlignment=\"Left\" FlowDirection=\"RightToLeft\"", xaml, "search Arabic text aligns to the physical right edge");
     }
 
+    /// <summary>Verifies the latest quotations title alignment.</summary>
     public void LatestQuotesTitleAlignsToTheRtlEdge()
     {
         var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
@@ -376,6 +384,7 @@ internal sealed class ShellScenarios
         Assert.Contains("<TextBlock Grid.Column=\"0\" Text=\"آخر عروض الأسعار\" Style=\"{StaticResource SectionTitle}\" TextAlignment=\"Left\" HorizontalAlignment=\"Stretch\"", xaml, "latest quotations title aligns to the physical right edge");
     }
 
+    /// <summary>Verifies shared Arabic navigation alignment and icon spacing.</summary>
     public void SidebarNavigationKeepsArabicLabelsAtTheRtlEdge()
     {
         var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
@@ -386,6 +395,7 @@ internal sealed class ShellScenarios
         Assert.Contains(sharedArabicLabelAlignment, xaml, "sidebar Arabic alignment is owned by the shared label style");
     }
 
+    /// <summary>Verifies notification text alignment and icon spacing.</summary>
     public void NotificationRowsKeepArabicTextBesideIcons()
     {
         var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
@@ -398,6 +408,7 @@ internal sealed class ShellScenarios
         Assert.Equal(4, xaml.Split(itemTextAlignment, StringSplitOptions.None).Length - 1, "notification rows preserve physical-right Arabic alignment");
     }
 
+    /// <summary>Verifies work-distribution labels, progress, and icon placement.</summary>
     public void WorkDistributionRowsKeepProgressBesideIcons()
     {
         var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
@@ -414,6 +425,7 @@ internal sealed class ShellScenarios
         Assert.Contains("<Path Grid.Column=\"3\" Data=\"{StaticResource IconFurniture}\"", xaml, "work distribution fourth icon stays on the right");
     }
 
+    /// <summary>Verifies the work-distribution footer action alignment.</summary>
     public void WorkDistributionFooterAlignsToTheLeft()
     {
         var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
@@ -421,6 +433,7 @@ internal sealed class ShellScenarios
         Assert.Contains("<Button Grid.Row=\"5\" Content=\"عرض تفاصيل سير العمل  ←\" Style=\"{StaticResource LinkButton}\" Tag=\"تفاصيل سير العمل\" Click=\"PreviewActionClick\" HorizontalContentAlignment=\"Left\"", xaml, "work distribution footer aligns with the notification footer");
     }
 
+    /// <summary>Verifies readable selected navigation content during hover.</summary>
     public void SelectedSidebarNavigationKeepsWhiteHoverContent()
     {
         var codeBehind = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml.cs"));
