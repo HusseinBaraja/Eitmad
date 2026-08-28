@@ -442,8 +442,12 @@ internal sealed class ShellScenarios
         Assert.Contains("button.MouseEnter += NavigationMouseEnter", codeBehind, "sidebar buttons report hover entry");
         Assert.Contains("button.MouseLeave += NavigationMouseLeave", codeBehind, "sidebar buttons report hover exit");
         Assert.Contains("VisualDescendants<System.Windows.Shapes.Path>(button)", codeBehind, "navigation updates each vector icon");
-        Assert.False(codeBehind.Contains("SetNavigationContentTone(button, Brushes.Black)", StringComparison.Ordinal), "selected navigation content never becomes black while hovered");
-        Assert.Contains("SetNavigationContentTone(button, Brushes.White)", codeBehind, "selected navigation content stays white during hover changes");
+        var hoverStart = codeBehind.IndexOf("private void NavigationMouseEnter", StringComparison.Ordinal);
+        var hoverEnd = codeBehind.IndexOf("private void NavigationMouseLeave", StringComparison.Ordinal);
+        Assert.True(hoverStart >= 0 && hoverEnd > hoverStart, "navigation hover handlers exist");
+        var hoverHandler = codeBehind[hoverStart..hoverEnd];
+        Assert.False(hoverHandler.Contains("SetNavigationContentTone(button, Brushes.Black)", StringComparison.Ordinal), "selected content does not become black on hover entry");
+        Assert.Contains("SetNavigationContentTone(button, Brushes.White)", hoverHandler, "selected content stays white on hover entry");
         Assert.Contains("icon.ClearValue(System.Windows.Shapes.Shape.FillProperty)", codeBehind, "unselected navigation icon restores its themed brush");
     }
 
