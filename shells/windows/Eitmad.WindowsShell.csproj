@@ -18,6 +18,6 @@
     <ProjectReference Include="..\..\platform-adapters\windows\Eitmad.Platform.Windows.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <Resource Include="Resources\DashboardReference.png" />
+    <Resource Include="Resources\ShowroomHero.png" />
   </ItemGroup>
 </Project>

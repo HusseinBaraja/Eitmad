@@ -19,6 +19,7 @@ await tests.ConfigurationQueryFailureClearsStaleState();
 tests.EngineFailureMapsToRecoveryUx();
 await tests.ShutdownStopsEngineCleanly();
 tests.RtlLayoutIncludesMixedDirectionFixtures();
+tests.DashboardUsesNativeInteractiveControls();
 tests.ShellOwnershipRulesAreEnforced();
 Console.WriteLine("Windows shell scenarios passed.");
 
@@ -279,6 +280,20 @@ internal sealed class ShellScenarios
         Assert.Contains("CNC-04", xaml, "Arabic and English workshop fixture");
         Assert.Contains("Windows / Rust", xaml, "mixed product fixture");
         Assert.Contains("مرجع REF-١٢", xaml, "mixed reference marker fixture");
+    }
+
+    public void DashboardUsesNativeInteractiveControls()
+    {
+        var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
+        var codeBehind = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml.cs"));
+
+        Assert.Contains("Resources/ShowroomHero.png", xaml, "standalone showroom asset");
+        Assert.False(xaml.Contains("DashboardReference.png", StringComparison.Ordinal), "reference screenshot is not rendered");
+        Assert.Contains("Click=\"NavigationClick\"", xaml, "sidebar navigation buttons");
+        Assert.Contains("Click=\"OpenPreviewPanelClick\"", xaml, "new quotation preview action");
+        Assert.Contains("KeyDown=\"SearchKeyDown\"", xaml, "search keyboard interaction");
+        Assert.Contains("PreviewSubmitClick", codeBehind, "preview form validation");
+        Assert.Contains("الحفظ معطل في وضع المعاينة", codeBehind, "preview cannot claim durable storage");
     }
 
     public void ShellOwnershipRulesAreEnforced()
