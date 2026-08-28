@@ -5,7 +5,7 @@ audience: "support"
 page_type: "troubleshooting"
 status: "active"
 owner: "Windows UI and platform maintainers"
-last_verified: "2026-08-29"
+last_verified: "2026-08-28"
 review_triggers:
   - "Windows shell frame, availability copy, reconnect, resync, query support, or shutdown behavior changes"
 keywords:

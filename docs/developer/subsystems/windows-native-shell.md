@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Windows UI maintainers"
-last_verified: "2026-08-29"
+last_verified: "2026-08-28"
 review_triggers:
   - "Windows shell UI, state mapping, configuration patches, subscriptions, tray behavior, or ownership boundaries change"
 keywords:
