@@ -145,6 +145,7 @@
                             <StackPanel Grid.Column="1" FlowDirection="RightToLeft" VerticalAlignment="Center">
                                 <TextBlock Text="الاعتماد" FontSize="28" FontWeight="Bold" Foreground="#704019" TextAlignment="Right" />
                                 <TextBlock Text="لصناعة الأثاث" FontSize="12" Foreground="#704019" TextAlignment="Right" Margin="0,-2,2,0" />
+                                <TextBlock Text="العربية (اليمن) · ar-YE" FontSize="9" Foreground="#8D8781" TextAlignment="Right" Margin="0,1,2,0" />
                             </StackPanel>
                         </Grid>
                         <StackPanel x:Name="SidebarNavigation" Grid.Row="1" Margin="0,16,0,0">

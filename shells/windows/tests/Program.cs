@@ -287,6 +287,7 @@ internal sealed class ShellScenarios
         var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
         Assert.Contains("FlowDirection=\"RightToLeft\"", xaml, "root RTL layout");
         Assert.Contains("Language=\"ar-YE\"", xaml, "Arabic language metadata");
+        Assert.Contains("Text=\"العربية (اليمن) · ar-YE\"", xaml, "visible primary locale marker");
         Assert.Contains("FlowDirection=\"LeftToRight\"", xaml, "mixed-direction isolation");
         Assert.Contains("CNC-04", xaml, "Arabic and English workshop fixture");
         Assert.Contains("Windows / Rust", xaml, "mixed product fixture");
