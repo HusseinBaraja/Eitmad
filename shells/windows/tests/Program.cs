@@ -22,6 +22,7 @@ tests.RtlLayoutIncludesMixedDirectionFixtures();
 tests.NativeWindowChromeIsDelegatedToWindows();
 tests.DashboardUsesNativeInteractiveControls();
 tests.DashboardVisualSystemIsConsistentAndRtlSafe();
+tests.SearchBoxArabicTextAlignsToTheRtlEdge();
 tests.SidebarNavigationKeepsArabicLabelsAtTheRtlEdge();
 tests.NotificationRowsKeepArabicTextBesideIcons();
 tests.WorkDistributionRowsKeepProgressBesideIcons();
@@ -330,6 +331,14 @@ internal sealed class ShellScenarios
         Assert.Contains("x:Name=\"NotificationsCard\"", xaml, "notification card has an explicit RTL layout");
         Assert.Contains("x:Name=\"ToolbarGap\"", xaml, "search and new quotation action have a fixed gap");
         Assert.Contains("x:Name=\"SidebarFooterCard\"", xaml, "sidebar footer spacing is explicit");
+    }
+
+    public void SearchBoxArabicTextAlignsToTheRtlEdge()
+    {
+        var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
+
+        Assert.Contains("x:Name=\"SearchBox\"", xaml, "search box has a stable automation name");
+        Assert.Contains("x:Name=\"SearchBox\" Background=\"Transparent\" BorderThickness=\"0\" FontFamily=\"Noto Kufi Arabic, Segoe UI\" FontSize=\"13\" Foreground=\"#8D8781\" Padding=\"10,11,0,8\" TextAlignment=\"Left\" FlowDirection=\"RightToLeft\"", xaml, "search Arabic text aligns to the physical right edge");
     }
 
     public void SidebarNavigationKeepsArabicLabelsAtTheRtlEdge()
