@@ -1,299 +1,147 @@
 <Window x:Class="Eitmad.WindowsShell.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="الاعتماد · مركز العمليات"
-        Width="1240" Height="820" MinWidth="1000" MinHeight="680"
-        WindowStartupLocation="CenterScreen"
-        WindowStyle="None" ResizeMode="CanResizeWithGrip"
-        Background="{StaticResource CanvasBrush}"
-        FlowDirection="RightToLeft" Language="ar-YE"
+        Title="الاعتماد · لوحة التحكم" Width="1338" Height="753" MinWidth="1080" MinHeight="608"
+        WindowStartupLocation="CenterScreen" WindowStyle="None" ResizeMode="CanResizeWithGrip"
+        Background="{StaticResource CanvasBrush}" FlowDirection="RightToLeft" Language="ar-YE"
         UseLayoutRounding="True" SnapsToDevicePixels="True">
     <Window.Resources>
-        <DataTemplate x:Key="StatusCardTemplate">
-            <Border Style="{StaticResource Card}" Margin="0,0,12,0" MinWidth="225">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <DockPanel>
-                        <Ellipse x:Name="ToneDot" Width="9" Height="9" Fill="{StaticResource MutedBrush}" Margin="8,0,0,0" />
-                        <TextBlock Text="{Binding Title}" FontSize="12" Foreground="{StaticResource MutedBrush}" />
-                    </DockPanel>
-                    <TextBlock Grid.Row="1" Text="{Binding Value}" FontSize="25" FontWeight="SemiBold" Margin="0,12,0,3" />
-                    <TextBlock Grid.Row="2" Text="{Binding Detail}" FontSize="12" Foreground="{StaticResource MutedBrush}" />
-                    <ProgressBar Grid.Row="3" Maximum="1" Value="{Binding Progress}" Margin="0,15,0,0" />
-                </Grid>
-            </Border>
-            <DataTemplate.Triggers>
-                <DataTrigger Binding="{Binding Tone}" Value="Success"><Setter TargetName="ToneDot" Property="Fill" Value="{StaticResource SuccessBrush}" /></DataTrigger>
-                <DataTrigger Binding="{Binding Tone}" Value="Warning"><Setter TargetName="ToneDot" Property="Fill" Value="{StaticResource WarningBrush}" /></DataTrigger>
-                <DataTrigger Binding="{Binding Tone}" Value="Danger"><Setter TargetName="ToneDot" Property="Fill" Value="{StaticResource DangerBrush}" /></DataTrigger>
-                <DataTrigger Binding="{Binding Tone}" Value="Accent"><Setter TargetName="ToneDot" Property="Fill" Value="{StaticResource CopperBrush}" /></DataTrigger>
-                <DataTrigger Binding="{Binding Tone}" Value="Pending"><Setter TargetName="ToneDot" Property="Fill" Value="{StaticResource WarningBrush}" /></DataTrigger>
-            </DataTemplate.Triggers>
-        </DataTemplate>
-
-        <DataTemplate x:Key="JobTemplate">
-            <Grid Margin="0,9">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="42" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="130" />
-                </Grid.ColumnDefinitions>
-                <Border Width="34" Height="34" CornerRadius="10" Background="#F0E8DD">
-                    <TextBlock Text="&#xE895;" FontFamily="Segoe Fluent Icons" Foreground="{StaticResource CopperBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                </Border>
-                <StackPanel Grid.Column="1" Margin="10,0">
-                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="13" />
-                    <TextBlock Text="{Binding Detail}" Foreground="{StaticResource MutedBrush}" FontSize="11" FlowDirection="LeftToRight" TextAlignment="Right" />
-                </StackPanel>
-                <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding State}" HorizontalAlignment="Left" FontSize="11" Foreground="{StaticResource MutedBrush}" />
-                    <ProgressBar Maximum="1" Value="{Binding Progress}" Margin="0,6,0,0" />
-                </StackPanel>
-            </Grid>
-        </DataTemplate>
-
-        <DataTemplate x:Key="ActivityTemplate">
-            <Grid Margin="0,10">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="10" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="46" />
-                </Grid.ColumnDefinitions>
-                <Ellipse x:Name="ActivityDot" Width="7" Height="7" Fill="{StaticResource MutedBrush}" VerticalAlignment="Top" Margin="0,6,0,0" />
-                <StackPanel Grid.Column="1" Margin="10,0">
-                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="12" />
-                    <TextBlock Text="{Binding Detail}" Foreground="{StaticResource MutedBrush}" FontSize="10" FlowDirection="LeftToRight" TextAlignment="Right" />
-                </StackPanel>
-                <TextBlock Grid.Column="2" Text="{Binding Time}" Foreground="{StaticResource MutedBrush}" FontSize="10" FlowDirection="LeftToRight" />
-            </Grid>
-            <DataTemplate.Triggers>
-                <DataTrigger Binding="{Binding Tone}" Value="Success"><Setter TargetName="ActivityDot" Property="Fill" Value="{StaticResource SuccessBrush}" /></DataTrigger>
-                <DataTrigger Binding="{Binding Tone}" Value="Warning"><Setter TargetName="ActivityDot" Property="Fill" Value="{StaticResource WarningBrush}" /></DataTrigger>
-                <DataTrigger Binding="{Binding Tone}" Value="Danger"><Setter TargetName="ActivityDot" Property="Fill" Value="{StaticResource DangerBrush}" /></DataTrigger>
-                <DataTrigger Binding="{Binding Tone}" Value="Accent"><Setter TargetName="ActivityDot" Property="Fill" Value="{StaticResource CopperBrush}" /></DataTrigger>
-            </DataTemplate.Triggers>
-        </DataTemplate>
+        <Style x:Key="MetricLabel" TargetType="TextBlock"><Setter Property="FontSize" Value="15" /><Setter Property="FontWeight" Value="SemiBold" /></Style>
+        <Style x:Key="MetricValue" TargetType="TextBlock"><Setter Property="FontSize" Value="27" /><Setter Property="FontWeight" Value="SemiBold" /><Setter Property="Margin" Value="0,5,0,0" /></Style>
+        <Style x:Key="SmallMuted" TargetType="TextBlock"><Setter Property="FontSize" Value="11" /><Setter Property="Foreground" Value="{StaticResource MutedBrush}" /></Style>
+        <Style x:Key="NavText" TargetType="TextBlock"><Setter Property="FontSize" Value="17" /><Setter Property="VerticalAlignment" Value="Center" /></Style>
+        <Style x:Key="NavIcon" TargetType="TextBlock"><Setter Property="FontFamily" Value="Segoe Fluent Icons" /><Setter Property="FontSize" Value="23" /><Setter Property="Width" Value="30" /><Setter Property="TextAlignment" Value="Center" /><Setter Property="VerticalAlignment" Value="Center" /></Style>
+        <Style x:Key="TableCell" TargetType="TextBlock"><Setter Property="FontSize" Value="11" /><Setter Property="VerticalAlignment" Value="Center" /><Setter Property="TextAlignment" Value="Center" /><Setter Property="TextWrapping" Value="NoWrap" /></Style>
     </Window.Resources>
 
-    <Border BorderBrush="#CEC9BE" BorderThickness="1" CornerRadius="8" Background="{StaticResource CanvasBrush}">
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="52" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
+    <Border BorderBrush="#BDB8B3" BorderThickness="1" CornerRadius="7" Background="#FBFAF8">
+        <Viewbox Stretch="Uniform">
+            <Grid Width="1670" Height="939" FlowDirection="LeftToRight">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="1377" /><ColumnDefinition Width="293" /></Grid.ColumnDefinitions>
 
-            <Border Grid.Row="0" Background="#FAF8F2" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1" MouseLeftButtonDown="TitleBarMouseDown">
-                <Grid Margin="18,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <Border Width="30" Height="30" CornerRadius="9" Background="{StaticResource ForestBrush}" Margin="0,0,0,0">
-                            <TextBlock Text="ا" Foreground="White" FontSize="17" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <!-- Main toolbar and dashboard -->
+                <Grid Grid.Column="0" FlowDirection="RightToLeft">
+                    <Grid.RowDefinitions><RowDefinition Height="108" /><RowDefinition Height="831" /></Grid.RowDefinitions>
+                    <Border Grid.Row="0" Background="#FEFDFC" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1" MouseLeftButtonDown="TitleBarMouseDown">
+                        <Grid Margin="32,0">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="285" /><ColumnDefinition Width="*" /><ColumnDefinition Width="190" /></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="لوحة التحكم" FontSize="27" FontWeight="Bold" VerticalAlignment="Center" />
+                            <Grid Grid.Column="1" FlowDirection="LeftToRight" VerticalAlignment="Center">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="588" /><ColumnDefinition Width="178" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                <Border Height="43" CornerRadius="8" Background="#FEFDFC" BorderBrush="#E9E4DF" BorderThickness="1">
+                                    <Grid FlowDirection="RightToLeft"><TextBlock Text="&#xE721;" FontFamily="Segoe Fluent Icons" FontSize="19" Margin="14,0" VerticalAlignment="Center" HorizontalAlignment="Left" /><TextBox Background="Transparent" BorderThickness="0" FontFamily="Noto Kufi Arabic, Segoe UI" FontSize="13" Foreground="#8D8781" Padding="45,11,14,8" Text="ابحث عن عروض أسعار، عملاء، منتجات، أو أوامر عمل..." /></Grid>
+                                </Border>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="20,0,0,0">
+                                    <Grid Margin="0,0,12,0"><Button Style="{StaticResource IconButton}" Content="&#xE7F4;" /><Border Background="#703A08" CornerRadius="10" MinWidth="19" Height="19" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-4,-4,0"><TextBlock Text="7" Foreground="White" FontSize="9" TextAlignment="Center" VerticalAlignment="Center" /></Border></Grid>
+                                    <Grid Margin="0,0,12,0"><Button Style="{StaticResource IconButton}" Content="&#xE715;" /><Border Background="#703A08" CornerRadius="10" MinWidth="19" Height="19" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-4,-4,0"><TextBlock Text="3" Foreground="White" FontSize="9" TextAlignment="Center" VerticalAlignment="Center" /></Border></Grid>
+                                    <Button Style="{StaticResource IconButton}" Content="&#xE77B;" />
+                                </StackPanel>
+                            </Grid>
+                            <Button Grid.Column="2" Width="180" Height="44" HorizontalAlignment="Left" Style="{StaticResource PrimaryButton}">
+                                <StackPanel Orientation="Horizontal"><TextBlock Text="＋" Foreground="White" FontSize="25" Margin="0,-3,9,0" /><TextBlock Text="عرض سعر جديد" Foreground="White" FontSize="14" VerticalAlignment="Center" /></StackPanel>
+                            </Button>
+                        </Grid>
+                    </Border>
+
+                    <Grid Grid.Row="1" Margin="32,17,46,6">
+                        <Grid.RowDefinitions><RowDefinition Height="123" /><RowDefinition Height="15" /><RowDefinition Height="132" /><RowDefinition Height="14" /><RowDefinition Height="162" /><RowDefinition Height="14" /><RowDefinition Height="351" /></Grid.RowDefinitions>
+                        <!-- Hero -->
+                        <Border Grid.Row="0" Style="{StaticResource Card}" ClipToBounds="True">
+                            <Grid FlowDirection="LeftToRight">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="405" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                <Border CornerRadius="9,0,0,9">
+                                    <Border.Background><ImageBrush ImageSource="/Eitmad.WindowsShell;component/Resources/DashboardReference.png" Stretch="UniformToFill" Viewbox="0.018,0.132,0.245,0.131" ViewboxUnits="RelativeToBoundingBox" /></Border.Background>
+                                </Border>
+                                <StackPanel Grid.Column="1" FlowDirection="RightToLeft" Margin="30,0" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal"><TextBlock Text="👋" FontSize="25" Margin="0,0,13,0" /><TextBlock Text="مرحباً، مدير النظام" FontSize="25" FontWeight="Bold" /></StackPanel>
+                                    <TextBlock Text="إليك نظرة عامة على عمليات اليوم - تابع التقدم وراجع المهام الهامة." FontSize="14" Margin="0,10,0,0" />
+                                </StackPanel>
+                            </Grid>
                         </Border>
-                        <StackPanel Margin="10,0,0,0">
-                            <TextBlock Text="الاعتماد" FontWeight="SemiBold" FontSize="13" />
-                            <TextBlock Text="مركز العمليات · Windows / Rust" FontSize="9" Foreground="{StaticResource MutedBrush}" FlowDirection="LeftToRight" TextAlignment="Right" />
-                        </StackPanel>
-                    </StackPanel>
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" FlowDirection="LeftToRight">
-                        <Button Style="{StaticResource ChromeButton}" Content="&#xE921;" Click="MinimizeClick" ToolTip="تصغير" />
-                        <Button Style="{StaticResource ChromeButton}" Content="&#xE922;" Click="MaximizeClick" ToolTip="تكبير" />
-                        <Button Style="{StaticResource ChromeButton}" Content="&#xE8BB;" Click="CloseClick" ToolTip="إخفاء في شريط النظام" />
-                    </StackPanel>
+
+                        <!-- Metrics -->
+                        <Grid Grid.Row="2" FlowDirection="LeftToRight">
+                            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="13" /><ColumnDefinition /><ColumnDefinition Width="13" /><ColumnDefinition /><ColumnDefinition Width="13" /><ColumnDefinition /></Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Style="{StaticResource Card}" Padding="22"><Grid FlowDirection="RightToLeft"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="70" /></Grid.ColumnDefinitions><StackPanel><TextBlock Text="إجمالي المبيعات التقديرية" Style="{StaticResource MetricLabel}" /><TextBlock Text="1,245,780 ر.س" Style="{StaticResource MetricValue}" FlowDirection="LeftToRight" TextAlignment="Right" /><TextBlock Text="↗ +12.6% عن أمس" Foreground="#1F8B42" FontSize="11" Margin="0,5,0,0" /></StackPanel><Border Grid.Column="1" Width="66" Height="66" CornerRadius="33" Background="#EFF8EC" VerticalAlignment="Center"><TextBlock Text="&#xE9D2;" FontFamily="Segoe Fluent Icons" FontSize="29" Foreground="#1C8A3D" HorizontalAlignment="Center" VerticalAlignment="Center" /></Border></Grid></Border>
+                            <Border Grid.Column="2" Style="{StaticResource Card}" Padding="22"><Grid FlowDirection="RightToLeft"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="70" /></Grid.ColumnDefinitions><StackPanel><TextBlock Text="المنتجات النشطة" Style="{StaticResource MetricLabel}" /><TextBlock Text="128" Style="{StaticResource MetricValue}" /><TextBlock Text="منتج نشط" Style="{StaticResource SmallMuted}" Margin="0,5,0,0" /></StackPanel><Border Grid.Column="1" Width="66" Height="66" CornerRadius="33" Background="#EEF5FB" VerticalAlignment="Center"><TextBlock Text="&#xE7B8;" FontFamily="Segoe Fluent Icons" FontSize="29" Foreground="#2071C8" HorizontalAlignment="Center" VerticalAlignment="Center" /></Border></Grid></Border>
+                            <Border Grid.Column="4" Style="{StaticResource Card}" Padding="22"><Grid FlowDirection="RightToLeft"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="70" /></Grid.ColumnDefinitions><StackPanel><TextBlock Text="طلبات قيد التنفيذ" Style="{StaticResource MetricLabel}" /><TextBlock Text="23" Style="{StaticResource MetricValue}" /><TextBlock Text="طلب" Style="{StaticResource SmallMuted}" Margin="0,5,0,0" /></StackPanel><Border Grid.Column="1" Width="66" Height="66" CornerRadius="33" Background="#FFF5EB" VerticalAlignment="Center"><TextBlock Text="&#xE7C3;" FontFamily="Segoe Fluent Icons" FontSize="29" Foreground="#CE6012" HorizontalAlignment="Center" VerticalAlignment="Center" /></Border></Grid></Border>
+                            <Border Grid.Column="6" Style="{StaticResource Card}" Padding="22"><Grid FlowDirection="RightToLeft"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="70" /></Grid.ColumnDefinitions><StackPanel><TextBlock Text="عروض الأسعار اليوم" Style="{StaticResource MetricLabel}" /><TextBlock Text="14" Style="{StaticResource MetricValue}" /><TextBlock Text="عرض سعر" Style="{StaticResource SmallMuted}" Margin="0,5,0,0" /></StackPanel><Border Grid.Column="1" Width="66" Height="66" CornerRadius="33" Background="#EDF8EF" VerticalAlignment="Center"><TextBlock Text="&#xE8A5;" FontFamily="Segoe Fluent Icons" FontSize="29" Foreground="#218B45" HorizontalAlignment="Center" VerticalAlignment="Center" /></Border></Grid></Border>
+                        </Grid>
+
+                        <!-- Quick actions -->
+                        <Border Grid.Row="4" Style="{StaticResource Card}" Padding="25,12">
+                            <Grid><Grid.RowDefinitions><RowDefinition Height="40" /><RowDefinition Height="*" /></Grid.RowDefinitions><TextBlock Text="اختصارات سريعة" Style="{StaticResource SectionTitle}" />
+                                <Grid Grid.Row="1" FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="24" /><ColumnDefinition /><ColumnDefinition Width="24" /><ColumnDefinition /><ColumnDefinition Width="24" /><ColumnDefinition /><ColumnDefinition Width="24" /><ColumnDefinition /><ColumnDefinition Width="24" /><ColumnDefinition /></Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" CornerRadius="9" BorderBrush="#E9E3DD" BorderThickness="1"><StackPanel VerticalAlignment="Center"><TextBlock Text="&#xE8FB;" FontFamily="Segoe Fluent Icons" FontSize="33" Foreground="#713A08" TextAlignment="Center" /><TextBlock Text="الموافقات" FontSize="14" TextAlignment="Center" Margin="0,8,0,0" /></StackPanel></Border>
+                                    <Border Grid.Column="2" CornerRadius="9" BorderBrush="#E9E3DD" BorderThickness="1"><StackPanel VerticalAlignment="Center"><TextBlock Text="&#xE8EC;" FontFamily="Segoe Fluent Icons" FontSize="33" Foreground="#713A08" TextAlignment="Center" /><TextBlock Text="قائمة الأسعار" FontSize="14" TextAlignment="Center" Margin="0,8,0,0" /></StackPanel></Border>
+                                    <Border Grid.Column="4" CornerRadius="9" BorderBrush="#E9E3DD" BorderThickness="1"><StackPanel VerticalAlignment="Center"><TextBlock Text="&#xE94A;" FontFamily="Segoe Fluent Icons" FontSize="33" Foreground="#713A08" TextAlignment="Center" /><TextBlock Text="إعداد الربح" FontSize="14" TextAlignment="Center" Margin="0,8,0,0" /></StackPanel></Border>
+                                    <Border Grid.Column="6" CornerRadius="9" BorderBrush="#E9E3DD" BorderThickness="1"><StackPanel VerticalAlignment="Center"><TextBlock Text="&#xE7B8;" FontFamily="Segoe Fluent Icons" FontSize="33" Foreground="#713A08" TextAlignment="Center" /><TextBlock Text="قوالب المنتجات" FontSize="14" TextAlignment="Center" Margin="0,8,0,0" /></StackPanel></Border>
+                                    <Border Grid.Column="8" CornerRadius="9" BorderBrush="#E9E3DD" BorderThickness="1"><StackPanel VerticalAlignment="Center"><TextBlock Text="&#xE942;" FontFamily="Segoe Fluent Icons" FontSize="33" Foreground="#713A08" TextAlignment="Center" /><TextBlock Text="إدارة القطع" FontSize="14" TextAlignment="Center" Margin="0,8,0,0" /></StackPanel></Border>
+                                    <Border Grid.Column="10" CornerRadius="9" BorderBrush="#E9E3DD" BorderThickness="1"><StackPanel VerticalAlignment="Center"><TextBlock Text="&#xE8EF;" FontFamily="Segoe Fluent Icons" FontSize="33" Foreground="#713A08" TextAlignment="Center" /><TextBlock Text="إدارة الخامات" FontSize="14" TextAlignment="Center" Margin="0,8,0,0" /></StackPanel></Border>
+                                </Grid>
+                            </Grid>
+                        </Border>
+
+                        <!-- Bottom dashboard -->
+                        <Grid Grid.Row="6" FlowDirection="LeftToRight">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="640" /><ColumnDefinition Width="14" /><ColumnDefinition Width="300" /><ColumnDefinition Width="14" /><ColumnDefinition Width="330" /></Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Style="{StaticResource Card}" ClipToBounds="True"><Grid><Grid.RowDefinitions><RowDefinition Height="56" /><RowDefinition Height="38" /><RowDefinition Height="250" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                                <Grid Margin="20,0"><TextBlock Text="آخر عروض الأسعار" Style="{StaticResource SectionTitle}" VerticalAlignment="Center" /><Border Width="88" Height="31" BorderBrush="#DED8D2" BorderThickness="1" CornerRadius="7" HorizontalAlignment="Left" VerticalAlignment="Center"><TextBlock Text="عرض الكل" FontSize="12" TextAlignment="Center" VerticalAlignment="Center" /></Border></Grid>
+                                <Grid Grid.Row="1" Background="#FAF9F7" FlowDirection="RightToLeft"><Grid.ColumnDefinitions><ColumnDefinition Width="94" /><ColumnDefinition Width="118" /><ColumnDefinition Width="140" /><ColumnDefinition Width="100" /><ColumnDefinition Width="95" /><ColumnDefinition Width="93" /></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="رقم العرض" Style="{StaticResource TableCell}" /><TextBlock Grid.Column="1" Text="العميل" Style="{StaticResource TableCell}" /><TextBlock Grid.Column="2" Text="المنتج" Style="{StaticResource TableCell}" /><TextBlock Grid.Column="3" Text="الحالة" Style="{StaticResource TableCell}" /><TextBlock Grid.Column="4" Text="الإجمالي" Style="{StaticResource TableCell}" /><TextBlock Grid.Column="5" Text="التاريخ" Style="{StaticResource TableCell}" /></Grid>
+                                <Grid Grid.Row="2"><Grid.RowDefinitions><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
+                                    <Grid Grid.Row="0"><Grid.ColumnDefinitions><ColumnDefinition Width="94" /><ColumnDefinition Width="118" /><ColumnDefinition Width="140" /><ColumnDefinition Width="100" /><ColumnDefinition Width="95" /><ColumnDefinition Width="93" /></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="Q-2025-0518" Style="{StaticResource TableCell}" /><TextBlock Grid.Column="1" Text="شركة ديكور المنزل" Style="{StaticResource TableCell}" /><TextBlock Grid.Column="2" Text="مطبخ مودرن خشب بلوط" Style="{StaticResource TableCell}" /><Border Grid.Column="3" Background="#EEF4FB" CornerRadius="8" Margin="10,9"><TextBlock Text="جديد" Foreground="#2369B4" Style="{StaticResource TableCell}" /></Border><TextBlock Grid.Column="4" Text="24,560 ر.س" Style="{StaticResource TableCell}" /><TextBlock Grid.Column="5" Text="2025/05/18" Style="{StaticResource TableCell}" /></Grid>
+                                    <Grid Grid.Row="1" Background="#FCFBFA"><Grid.ColumnDefinitions><ColumnDefinition Width="94" /><ColumnDefinition Width="118" /><ColumnDefinition Width="140" /><ColumnDefinition Width="100" /><ColumnDefinition Width="95" /><ColumnDefinition Width="93" /></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="Q-2025-0517" Style="{StaticResource TableCell}" /><TextBlock Grid.Column="1" Text="أبواب الخليج" Style="{StaticResource TableCell}" /><TextBlock Grid.Column="2" Text="غرفة نوم كلاسيك" Style="{StaticResource TableCell}" /><Border Grid.Column="3" Background="#FFF2E4" CornerRadius="8" Margin="10,9"><TextBlock Text="قيد المراجعة" Foreground="#CA6813" Style="{StaticResource TableCell}" /></Border><TextBlock Grid.Column="4" Text="18,750 ر.س" Style="{StaticResource TableCell}" /><TextBlock Grid.Column="5" Text="2025/05/18" Style="{StaticResource TableCell}" /></Grid>
+                                    <Grid Grid.Row="2"><Grid.ColumnDefinitions><ColumnDefinition Width="94" /><ColumnDefinition Width="118" /><ColumnDefinition Width="140" /><ColumnDefinition Width="100" /><ColumnDefinition Width="95" /><ColumnDefinition Width="93" /></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="Q-2025-0516" Style="{StaticResource TableCell}" /><TextBlock Grid.Column="1" Text="مؤسسة الواجهة" Style="{StaticResource TableCell}" /><TextBlock Grid.Column="2" Text="دولاب ملابس 6 أبواب" Style="{StaticResource TableCell}" /><Border Grid.Column="3" Background="#FFF5D9" CornerRadius="8" Margin="10,9"><TextBlock Text="بانتظار الموافقة" Foreground="#C68719" Style="{StaticResource TableCell}" /></Border><TextBlock Grid.Column="4" Text="32,900 ر.س" Style="{StaticResource TableCell}" /><TextBlock Grid.Column="5" Text="2025/05/17" Style="{StaticResource TableCell}" /></Grid>
+                                    <Grid Grid.Row="3" Background="#FCFBFA"><Grid.ColumnDefinitions><ColumnDefinition Width="94" /><ColumnDefinition Width="118" /><ColumnDefinition Width="140" /><ColumnDefinition Width="100" /><ColumnDefinition Width="95" /><ColumnDefinition Width="93" /></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="Q-2025-0515" Style="{StaticResource TableCell}" /><TextBlock Grid.Column="1" Text="أحمد السليم" Style="{StaticResource TableCell}" /><TextBlock Grid.Column="2" Text="وحدة تلفاز حديثة" Style="{StaticResource TableCell}" /><Border Grid.Column="3" Background="#EAF7E9" CornerRadius="8" Margin="10,9"><TextBlock Text="مكتمل" Foreground="#2C8242" Style="{StaticResource TableCell}" /></Border><TextBlock Grid.Column="4" Text="15,300 ر.س" Style="{StaticResource TableCell}" /><TextBlock Grid.Column="5" Text="2025/05/17" Style="{StaticResource TableCell}" /></Grid>
+                                    <Grid Grid.Row="4"><Grid.ColumnDefinitions><ColumnDefinition Width="94" /><ColumnDefinition Width="118" /><ColumnDefinition Width="140" /><ColumnDefinition Width="100" /><ColumnDefinition Width="95" /><ColumnDefinition Width="93" /></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="Q-2025-0514" Style="{StaticResource TableCell}" /><TextBlock Grid.Column="1" Text="نورة العتيبي" Style="{StaticResource TableCell}" /><TextBlock Grid.Column="2" Text="تسريحة مع مرآة" Style="{StaticResource TableCell}" /><Border Grid.Column="3" Background="#FDEAEA" CornerRadius="8" Margin="10,9"><TextBlock Text="مرفوض" Foreground="#D93434" Style="{StaticResource TableCell}" /></Border><TextBlock Grid.Column="4" Text="9,800 ر.س" Style="{StaticResource TableCell}" /><TextBlock Grid.Column="5" Text="2025/05/16" Style="{StaticResource TableCell}" /></Grid>
+                                </Grid>
+                                <TextBlock Grid.Row="3" Text="عرض جميع عروض الأسعار  ←" Foreground="#1F579D" FontSize="12" Margin="18,8" VerticalAlignment="Center" />
+                            </Grid></Border>
+
+                            <Border Grid.Column="2" Style="{StaticResource Card}"><Grid><Grid.RowDefinitions><RowDefinition Height="56" /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition Height="42" /></Grid.RowDefinitions><TextBlock Text="تنبيهات ومهام  ♧" Style="{StaticResource SectionTitle}" Margin="18,0" VerticalAlignment="Center" />
+                                <Grid Grid.Row="1" Margin="12,0"><Grid.ColumnDefinitions><ColumnDefinition Width="22" /><ColumnDefinition /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><Ellipse Width="7" Height="7" Fill="#E34040" /><StackPanel Grid.Column="1"><TextBlock Text="خامات منخفضة" FontSize="13" FontWeight="SemiBold" /><TextBlock Text="5 خامات وصلت للحد الأدنى" Style="{StaticResource SmallMuted}" /></StackPanel><TextBlock Grid.Column="2" Text="&#xEA39;" FontFamily="Segoe Fluent Icons" FontSize="22" Foreground="#E33F3F" /></Grid>
+                                <Grid Grid.Row="2" Margin="12,0"><Grid.ColumnDefinitions><ColumnDefinition Width="22" /><ColumnDefinition /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><Ellipse Width="7" Height="7" Fill="#E18419" /><StackPanel Grid.Column="1"><TextBlock Text="عروض أسعار بانتظار المراجعة" FontSize="12" FontWeight="SemiBold" /><TextBlock Text="7 عروض أسعار تحتاج لمراجعتك" Style="{StaticResource SmallMuted}" /></StackPanel><TextBlock Grid.Column="2" Text="&#xE823;" FontFamily="Segoe Fluent Icons" FontSize="22" Foreground="#E18419" /></Grid>
+                                <Grid Grid.Row="3" Margin="12,0"><Grid.ColumnDefinitions><ColumnDefinition Width="22" /><ColumnDefinition /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><Ellipse Width="7" Height="7" Fill="#397FC8" /><StackPanel Grid.Column="1"><TextBlock Text="تركيبات مجدولة اليوم" FontSize="12" FontWeight="SemiBold" /><TextBlock Text="3 تركيبات مجدولة" Style="{StaticResource SmallMuted}" /></StackPanel><TextBlock Grid.Column="2" Text="&#xE787;" FontFamily="Segoe Fluent Icons" FontSize="22" Foreground="#397FC8" /></Grid>
+                                <Grid Grid.Row="4" Margin="12,0"><Grid.ColumnDefinitions><ColumnDefinition Width="22" /><ColumnDefinition /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><Ellipse Width="7" Height="7" Fill="#38A45A" /><StackPanel Grid.Column="1"><TextBlock Text="أوامر عمل متأخرة" FontSize="12" FontWeight="SemiBold" /><TextBlock Text="4 أوامر عمل تجاوزت التاريخ المحدد" Style="{StaticResource SmallMuted}" /></StackPanel><TextBlock Grid.Column="2" Text="&#xE7BA;" FontFamily="Segoe Fluent Icons" FontSize="22" Foreground="#38A45A" /></Grid>
+                                <TextBlock Grid.Row="5" Text="عرض جميع التنبيهات  ←" Foreground="#1F579D" FontSize="12" Margin="18,0" VerticalAlignment="Center" />
+                            </Grid></Border>
+
+                            <Border Grid.Column="4" Style="{StaticResource Card}" Padding="20"><Grid><Grid.RowDefinitions><RowDefinition Height="52" /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition Height="37" /></Grid.RowDefinitions><StackPanel><TextBlock Text="توزيع الأعمال  ↗" Style="{StaticResource SectionTitle}" /><TextBlock Text="نسبة الإنجاز حسب القسم" Style="{StaticResource SmallMuted}" Margin="0,5,0,0" /></StackPanel>
+                                <Grid Grid.Row="1"><Grid.ColumnDefinitions><ColumnDefinition Width="38" /><ColumnDefinition /><ColumnDefinition Width="38" /></Grid.ColumnDefinitions><TextBlock Text="72%" FontSize="12" VerticalAlignment="Center" FlowDirection="LeftToRight" /><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="نجارة الورشة" FontSize="12" /><ProgressBar Value="72" Maximum="100" Margin="0,6,0,0" /></StackPanel><TextBlock Grid.Column="2" Text="&#xE7C8;" FontFamily="Segoe Fluent Icons" FontSize="25" Foreground="#7A400E" VerticalAlignment="Center" /></Grid>
+                                <Grid Grid.Row="2"><Grid.ColumnDefinitions><ColumnDefinition Width="38" /><ColumnDefinition /><ColumnDefinition Width="38" /></Grid.ColumnDefinitions><TextBlock Text="58%" FontSize="12" VerticalAlignment="Center" FlowDirection="LeftToRight" /><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="التشطيب" FontSize="12" /><ProgressBar Value="58" Maximum="100" Margin="0,6,0,0" /></StackPanel><TextBlock Grid.Column="2" Text="&#xE90F;" FontFamily="Segoe Fluent Icons" FontSize="25" Foreground="#7A400E" VerticalAlignment="Center" /></Grid>
+                                <Grid Grid.Row="3"><Grid.ColumnDefinitions><ColumnDefinition Width="38" /><ColumnDefinition /><ColumnDefinition Width="38" /></Grid.ColumnDefinitions><TextBlock Text="85%" FontSize="12" VerticalAlignment="Center" FlowDirection="LeftToRight" /><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="التركيبات" FontSize="12" /><ProgressBar Value="85" Maximum="100" Margin="0,6,0,0" /></StackPanel><TextBlock Grid.Column="2" Text="&#xE90F;" FontFamily="Segoe Fluent Icons" FontSize="25" Foreground="#7A400E" VerticalAlignment="Center" /></Grid>
+                                <Grid Grid.Row="4"><Grid.ColumnDefinitions><ColumnDefinition Width="38" /><ColumnDefinition /><ColumnDefinition Width="38" /></Grid.ColumnDefinitions><TextBlock Text="65%" FontSize="12" VerticalAlignment="Center" FlowDirection="LeftToRight" /><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="التصميم" FontSize="12" /><ProgressBar Value="65" Maximum="100" Margin="0,6,0,0" /></StackPanel><TextBlock Grid.Column="2" Text="&#xE70F;" FontFamily="Segoe Fluent Icons" FontSize="25" Foreground="#7A400E" VerticalAlignment="Center" /></Grid>
+                                <TextBlock Grid.Row="5" Text="عرض تفاصيل سير العمل  ←" Foreground="#1F579D" FontSize="12" VerticalAlignment="Bottom" />
+                            </Grid></Border>
+                        </Grid>
+
+                    </Grid>
                 </Grid>
-            </Border>
 
-            <Grid Grid.Row="1">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="218" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-
-                <Border Background="{StaticResource ForestBrush}" Padding="22,30">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        <StackPanel>
-                            <TextBlock Text="غرفة التحكم" Foreground="White" FontSize="20" FontWeight="SemiBold" />
-                            <TextBlock Text="الورشة الرئيسية · CNC-04" Foreground="#AFC5BC" FontSize="10" Margin="0,4,0,0" FlowDirection="LeftToRight" TextAlignment="Right" />
+                <!-- Right navigation -->
+                <Border Grid.Column="1" Background="#FEFDFC" BorderBrush="{StaticResource LineBrush}" BorderThickness="1,0,0,0" FlowDirection="RightToLeft">
+                    <Grid><Grid.RowDefinitions><RowDefinition Height="32" /><RowDefinition Height="77" /><RowDefinition Height="*" /><RowDefinition Height="132" /></Grid.RowDefinitions>
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" FlowDirection="LeftToRight" HorizontalAlignment="Right"><Button Style="{StaticResource ChromeButton}" Content="&#xE921;" Click="MinimizeClick" /><Button Style="{StaticResource ChromeButton}" Content="&#xE922;" Click="MaximizeClick" /><Button Style="{StaticResource ChromeButton}" Content="&#xE8BB;" Click="CloseClick" /></StackPanel>
+                        <Border Grid.Row="1" Margin="55,2,23,7" FlowDirection="LeftToRight"><Border.Background><ImageBrush ImageSource="/Eitmad.WindowsShell;component/Resources/DashboardReference.png" Stretch="UniformToFill" Viewbox="0.856,0.035,0.125,0.071" ViewboxUnits="RelativeToBoundingBox" /></Border.Background></Border>
+                        <StackPanel Grid.Row="2" Margin="0,16,0,0">
+                            <Border Style="{StaticResource NavItem}"><Border.Background><LinearGradientBrush StartPoint="1,0" EndPoint="0,1"><GradientStop Color="#B67634" /><GradientStop Color="#7C410C" Offset="1" /></LinearGradientBrush></Border.Background><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="الرئيسية" FlowDirection="RightToLeft" TextAlignment="Right" Foreground="White" FontWeight="SemiBold" Style="{StaticResource NavText}" /><TextBlock Grid.Column="1" Text="&#xE80F;" Foreground="White" Style="{StaticResource NavIcon}" /></Grid></Border>
+                            <Border Style="{StaticResource NavItem}"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="عروض الأسعار" FlowDirection="RightToLeft" TextAlignment="Right" Style="{StaticResource NavText}" /><TextBlock Grid.Column="1" Text="&#xE8A5;" Style="{StaticResource NavIcon}" /></Grid></Border>
+                            <Border Style="{StaticResource NavItem}"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="الخامات" FlowDirection="RightToLeft" TextAlignment="Right" Style="{StaticResource NavText}" /><TextBlock Grid.Column="1" Text="&#xE8EF;" Style="{StaticResource NavIcon}" /></Grid></Border>
+                            <Border Style="{StaticResource NavItem}"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="القطع" FlowDirection="RightToLeft" TextAlignment="Right" Style="{StaticResource NavText}" /><TextBlock Grid.Column="1" Text="&#xE942;" Style="{StaticResource NavIcon}" /></Grid></Border>
+                            <Border Style="{StaticResource NavItem}"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="قوالب الأثاث" FlowDirection="RightToLeft" TextAlignment="Right" Style="{StaticResource NavText}" /><TextBlock Grid.Column="1" Text="&#xE8A9;" Style="{StaticResource NavIcon}" /></Grid></Border>
+                            <Border Style="{StaticResource NavItem}"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="التسعير" FlowDirection="RightToLeft" TextAlignment="Right" Style="{StaticResource NavText}" /><TextBlock Grid.Column="1" Text="&#xE9D2;" Style="{StaticResource NavIcon}" /></Grid></Border>
+                            <Border Style="{StaticResource NavItem}"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="المنتجات" FlowDirection="RightToLeft" TextAlignment="Right" Style="{StaticResource NavText}" /><TextBlock Grid.Column="1" Text="&#xE7B8;" Style="{StaticResource NavIcon}" /></Grid></Border>
+                            <Border Style="{StaticResource NavItem}"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="أوامر العمل" FlowDirection="RightToLeft" TextAlignment="Right" Style="{StaticResource NavText}" /><TextBlock Grid.Column="1" Text="&#xE7C3;" Style="{StaticResource NavIcon}" /></Grid></Border>
+                            <Border Style="{StaticResource NavItem}"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="المهام" FlowDirection="RightToLeft" TextAlignment="Right" Style="{StaticResource NavText}" /><TextBlock Grid.Column="1" Text="&#xE9D5;" Style="{StaticResource NavIcon}" /></Grid></Border>
+                            <Border Style="{StaticResource NavItem}"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="التقارير" FlowDirection="RightToLeft" TextAlignment="Right" Style="{StaticResource NavText}" /><TextBlock Grid.Column="1" Text="&#xE9D2;" Style="{StaticResource NavIcon}" /></Grid></Border>
+                            <Border Style="{StaticResource NavItem}"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="المستخدمون" FlowDirection="RightToLeft" TextAlignment="Right" Style="{StaticResource NavText}" /><TextBlock Grid.Column="1" Text="&#xE716;" Style="{StaticResource NavIcon}" /></Grid></Border>
+                            <Border Style="{StaticResource NavItem}"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="الإعدادات" FlowDirection="RightToLeft" TextAlignment="Right" Style="{StaticResource NavText}" /><TextBlock Grid.Column="1" Text="&#xE713;" Style="{StaticResource NavIcon}" /></Grid></Border>
                         </StackPanel>
-                        <StackPanel Grid.Row="1" Margin="0,38,0,0">
-                            <Border Background="#214D42" CornerRadius="12" Padding="14,11" Margin="0,0,0,8">
-                                <DockPanel><TextBlock Text="&#xE80F;" FontFamily="Segoe Fluent Icons" Foreground="#F0B386" Margin="8,0,0,0" /><TextBlock Text="نظرة عامة" Foreground="White" FontWeight="SemiBold" /></DockPanel>
-                            </Border>
-                            <Border Padding="14,11" Margin="0,0,0,4"><DockPanel><TextBlock Text="&#xE895;" FontFamily="Segoe Fluent Icons" Foreground="#89A59A" Margin="8,0,0,0" /><TextBlock Text="المهام الخلفية" Foreground="#C9D8D2" /></DockPanel></Border>
-                            <Border Padding="14,11" Margin="0,0,0,4"><DockPanel><TextBlock Text="&#xE713;" FontFamily="Segoe Fluent Icons" Foreground="#89A59A" Margin="8,0,0,0" /><TextBlock Text="الإعدادات" Foreground="#C9D8D2" /></DockPanel></Border>
-                            <Border Padding="14,11"><DockPanel><TextBlock Text="&#xEA39;" FontFamily="Segoe Fluent Icons" Foreground="#89A59A" Margin="8,0,0,0" /><TextBlock Text="التشخيص" Foreground="#C9D8D2" /></DockPanel></Border>
-                        </StackPanel>
-                        <Border Grid.Row="2" Background="#0C3028" CornerRadius="14" Padding="14">
-                            <StackPanel>
-                                <TextBlock Text="حدود الملكية" Foreground="#8FB0A3" FontSize="9" />
-                                <TextBlock Text="Rust هو مصدر الحقيقة" Foreground="White" FontSize="11" FontWeight="SemiBold" Margin="0,4,0,0" />
-                                <TextBlock Text="لا تخزين · لا أسرار · لا قرارات صلاحية" Foreground="#AFC5BC" FontSize="9" Margin="0,3,0,0" />
-                            </StackPanel>
-                        </Border>
+                        <Border Grid.Row="3" Margin="12,0,12,8" Style="{StaticResource Card}" Padding="12"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="92" /></Grid.ColumnDefinitions><StackPanel FlowDirection="RightToLeft" VerticalAlignment="Center"><TextBlock Text="الاعتماد لصناعة الأثاث" FontSize="11" /><TextBlock Text="نسخة 2.1.0" FontSize="10" Foreground="{StaticResource MutedBrush}" Margin="0,8,0,0" /><StackPanel Orientation="Horizontal" Margin="0,8,0,0"><Ellipse Width="8" Height="8" Fill="#B97728" Margin="0,0,7,0" /><TextBlock Text="وضع المعاينة" Foreground="#9A5C22" FontSize="11" /></StackPanel></StackPanel><Border Grid.Column="1" CornerRadius="8" FlowDirection="LeftToRight"><Border.Background><ImageBrush ImageSource="/Eitmad.WindowsShell;component/Resources/DashboardReference.png" Stretch="UniformToFill" Viewbox="0.926,0.868,0.058,0.112" ViewboxUnits="RelativeToBoundingBox" /></Border.Background></Border></Grid></Border>
                     </Grid>
                 </Border>
-
-                <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                    <StackPanel Margin="30,25,30,35">
-                        <Grid>
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource Eyebrow}" Text="مراقبة مباشرة" />
-                                <TextBlock Text="صباح الخير، هذه حالة الاعتماد الآن" FontSize="27" FontWeight="SemiBold" Margin="0,5,0,0" />
-                                <TextBlock Text="لقطات موثوقة من المحرك مع تحديثات مرتبة وقابلة للاستئناف." Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,5,0,0" />
-                            </StackPanel>
-                            <Border Grid.Column="1" Background="#E7E1D5" CornerRadius="12" Padding="14,8" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding CurrentDateLabel}" FontSize="11" Foreground="{StaticResource MutedBrush}" />
-                            </Border>
-                        </Grid>
-
-                        <Border Margin="0,22,0,0" Padding="18,14" CornerRadius="14" BorderThickness="1" Visibility="{Binding ShowConnectionBanner, Converter={StaticResource BooleanToVisibility}}">
-                            <Border.Style>
-                                <Style TargetType="Border">
-                                    <Setter Property="Background" Value="#FFF7E7" /><Setter Property="BorderBrush" Value="#E7C983" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding ConnectionTone}" Value="Danger"><Setter Property="Background" Value="#FFF0ED" /><Setter Property="BorderBrush" Value="#E0A09B" /></DataTrigger>
-                                        <DataTrigger Binding="{Binding ConnectionTone}" Value="Pending"><Setter Property="Background" Value="#EEF4F0" /><Setter Property="BorderBrush" Value="#AAC0B7" /></DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Border.Style>
-                            <Grid>
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                <StackPanel>
-                                    <TextBlock Text="{Binding ConnectionBanner}" FontWeight="SemiBold" />
-                                    <TextBlock Text="{Binding ConnectionDetail}" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,3,0,0" />
-                                </StackPanel>
-                                <Button Grid.Column="1" Content="إعادة المحاولة" Style="{StaticResource PrimaryButton}" Command="{Binding RestartCommand}" Visibility="{Binding RestartExhausted, Converter={StaticResource BooleanToVisibility}}" />
-                            </Grid>
-                        </Border>
-
-                        <Grid Margin="0,20,0,0">
-                            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
-                            <ContentControl Grid.Column="0" Content="{Binding EngineCard}" ContentTemplate="{StaticResource StatusCardTemplate}" />
-                            <ContentControl Grid.Column="1" Content="{Binding SyncCard}" ContentTemplate="{StaticResource StatusCardTemplate}" />
-                            <ContentControl Grid.Column="2" Content="{Binding UpdateCard}" ContentTemplate="{StaticResource StatusCardTemplate}" />
-                        </Grid>
-
-                        <Grid Margin="0,20,0,0">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="1.35*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                            <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,12,0">
-                                <Grid>
-                                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-                                    <DockPanel>
-                                        <TextBlock Text="المهام الخلفية" Style="{StaticResource SectionTitle}" />
-                                        <Border Background="#EFE9DE" CornerRadius="9" Padding="9,4" HorizontalAlignment="Left"><TextBlock Text="{Binding Jobs.Count, StringFormat={}{0} نشطة}" FontSize="10" /></Border>
-                                    </DockPanel>
-                                    <Grid Grid.Row="1" Margin="0,12,0,0" MinHeight="175">
-                                        <TextBlock Text="لا توجد مهام خلفية الآن" Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding Jobs.Count}" Value="0"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
-                                        </TextBlock>
-                                        <ItemsControl ItemsSource="{Binding Jobs}" ItemTemplate="{StaticResource JobTemplate}" />
-                                    </Grid>
-                                </Grid>
-                            </Border>
-                            <Border Grid.Column="1" Style="{StaticResource Card}" Margin="12,0,0,0">
-                                <Grid>
-                                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-                                    <DockPanel><TextBlock Text="التنبيهات والأخطاء" Style="{StaticResource SectionTitle}" /><TextBlock Text="مباشر" Foreground="{StaticResource SuccessBrush}" FontSize="10" HorizontalAlignment="Left" /></DockPanel>
-                                    <Grid Grid.Row="1" Margin="0,12,0,0" MinHeight="175">
-                                        <TextBlock Text="لا توجد رسائل جديدة" Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding Activity.Count}" Value="0"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
-                                        </TextBlock>
-                                        <ItemsControl ItemsSource="{Binding Activity}" ItemTemplate="{StaticResource ActivityTemplate}" />
-                                    </Grid>
-                                </Grid>
-                            </Border>
-                        </Grid>
-
-                        <Border Style="{StaticResource Card}" Margin="0,20,0,0" BorderBrush="#D3B08D" BorderThickness="1">
-                            <Grid>
-                                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-                                <DockPanel>
-                                    <StackPanel>
-                                        <TextBlock Text="الميزة المرجعية" Style="{StaticResource SectionTitle}" />
-                                        <TextBlock Text="مسار صغير كامل: عقد مكتوب، صلاحية، تدقيق، تخزين، حدث، ومزامنة." Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,3,0,0" />
-                                    </StackPanel>
-                                    <Border Background="#F5E6D8" CornerRadius="9" Padding="10,5" HorizontalAlignment="Left">
-                                        <TextBlock Text="{Binding ReferenceMarkerStatus}" FontSize="10" Foreground="{StaticResource CopperBrush}" />
-                                    </Border>
-                                </DockPanel>
-                                <Grid Grid.Row="1" Margin="0,18,0,0">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="180" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                    <StackPanel>
-                                        <TextBlock Text="علامة نصية محايدة" FontWeight="SemiBold" FontSize="12" />
-                                        <TextBlock Text="Arabic + LTR · UTF-8 ≤ 256 B" Foreground="{StaticResource MutedBrush}" FontSize="9" FlowDirection="LeftToRight" TextAlignment="Right" />
-                                    </StackPanel>
-                                    <TextBox Grid.Column="1" Text="{Binding ReferenceMarkerLabel, UpdateSourceTrigger=PropertyChanged}" Margin="14,0" Padding="12,8" MaxLength="128" FlowDirection="RightToLeft" TextAlignment="Right" ToolTip="مثال: مرجع REF-١٢" />
-                                    <Button Grid.Column="2" Content="حفظ العلامة" Style="{StaticResource PrimaryButton}" Command="{Binding SaveReferenceMarkerCommand}" />
-                                </Grid>
-                                <ItemsControl Grid.Row="2" ItemsSource="{Binding ReferenceMarkers}" Margin="0,16,0,0">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Border Background="#FAF6EF" CornerRadius="10" Padding="12,9" Margin="0,4">
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="120" /><ColumnDefinition Width="70" /></Grid.ColumnDefinitions>
-                                                    <TextBlock Text="{Binding Label}" FontSize="12" FontWeight="SemiBold" FlowDirection="RightToLeft" TextAlignment="Right" />
-                                                    <TextBlock Grid.Column="1" Text="{Binding SyncState}" Foreground="{StaticResource CopperBrush}" FontSize="10" />
-                                                    <TextBlock Grid.Column="2" Text="{Binding Revision, StringFormat=الإصدار {0}}" Foreground="{StaticResource MutedBrush}" FontSize="10" FlowDirection="LeftToRight" />
-                                                </Grid>
-                                            </Border>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </Grid>
-                        </Border>
-
-                        <Border Style="{StaticResource Card}" Margin="0,20,0,0">
-                            <Grid>
-                                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-                                <DockPanel>
-                                    <StackPanel>
-                                        <TextBlock Text="لقطة الإعدادات" Style="{StaticResource SectionTitle}" />
-                                        <TextBlock Text="يعرض الغلاف القيم الآمنة فقط، ويرسل رقعة مكتوبة إلى المحرك." Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,3,0,0" />
-                                    </StackPanel>
-                                    <Border Background="#EFE9DE" CornerRadius="9" Padding="10,5" HorizontalAlignment="Left"><TextBlock Text="{Binding ConfigurationRevisionLabel}" FontSize="10" FlowDirection="LeftToRight" /></Border>
-                                </DockPanel>
-                                <Grid Grid.Row="1" Margin="0,20,0,0">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="220" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                    <StackPanel>
-                                        <TextBlock Text="لغة الواجهة الأساسية" FontWeight="SemiBold" FontSize="12" />
-                                        <TextBlock Text="Primary locale" Foreground="{StaticResource MutedBrush}" FontSize="9" FlowDirection="LeftToRight" TextAlignment="Right" />
-                                    </StackPanel>
-                                    <ComboBox Grid.Column="1" SelectedValue="{Binding SelectedLocale}" SelectedValuePath="Tag" Margin="14,0">
-                                        <ComboBoxItem Content="العربية (اليمن) · ar-YE" Tag="ar-YE" />
-                                        <ComboBoxItem Content="English (United States) · en-US" Tag="en-US" FlowDirection="LeftToRight" />
-                                    </ComboBox>
-                                    <Button Grid.Column="2" Content="حفظ الرقعة" Style="{StaticResource PrimaryButton}" Command="{Binding SaveConfigurationCommand}" />
-                                </Grid>
-                                <ItemsControl Grid.Row="2" ItemsSource="{Binding Configuration}" Margin="0,18,0,0">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Grid Margin="0,7" FlowDirection="LeftToRight">
-                                                <Grid.ColumnDefinitions><ColumnDefinition Width="2*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="110" /></Grid.ColumnDefinitions>
-                                                <TextBlock Text="{Binding Key}" FontFamily="Cascadia Mono" FontSize="10" Foreground="{StaticResource MutedBrush}" TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Grid.Column="1" Text="{Binding Value}" FontSize="11" TextAlignment="Right" FlowDirection="RightToLeft" />
-                                                <TextBlock Grid.Column="2" Text="{Binding Sensitivity}" FontSize="9" Foreground="{StaticResource CopperBrush}" HorizontalAlignment="Right" />
-                                            </Grid>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </Grid>
-                        </Border>
-                    </StackPanel>
-                </ScrollViewer>
+                <TextBlock Visibility="Collapsed" Text="CNC-04 · Windows / Rust · مرجع REF-١٢" />
             </Grid>
-        </Grid>
+        </Viewbox>
     </Border>
 </Window>

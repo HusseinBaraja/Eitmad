@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Windows UI maintainers"
-last_verified: "2026-08-27"
+last_verified: "2026-08-28"
 review_triggers:
   - "Windows shell UI, state mapping, configuration patches, subscriptions, tray behavior, or ownership boundaries change"
 keywords:
@@ -15,11 +15,13 @@ keywords:
   - "subscription resynchronization"
   - "OperationsCoordinator"
   - "Eitmad.WindowsShell"
+  - "لوحة التحكم"
+  - "وضع المعاينة"
 ---
 
 # Extend the Windows operations shell safely
 
-The Windows WPF application is an Arabic-first presentation adapter over the supervised Rust engine. It shows typed lifecycle, health, readiness, configuration, synchronization, update, background-job, notification, and error projections without becoming an authority for any of them.
+The Windows WPF application is an Arabic-first presentation adapter over the supervised Rust engine. Its landing surface is **لوحة التحكم**. It shows typed lifecycle, health, readiness, configuration, synchronization, update, background-job, notification, and error projections without becoming an authority for any of them.
 
 ## Ownership and non-goals
 
@@ -32,6 +34,8 @@ The Windows WPF application is an Arabic-first presentation adapter over the sup
 | Arabic presentation, RTL layout, view state, navigation, tray, and accessibility | `shells/windows` |
 
 The shell has no database client, configuration file writer, domain validator, permission decision, sync algorithm, update policy, secret reader, or external API client. `shells/windows/tests` scans production C# source for these ownership violations. Add new product behavior to its Rust vertical, then expose a versioned typed contract.
+
+The furniture operations dashboard currently marks itself **وضع المعاينة**. Its sales, quotation, product, material, work-order, and department values are visual fixtures that define layout and Arabic copy only. They are not live records, they do not authorize an action, and they must not be treated as saved or synchronized state. Replace each fixture with a Rust-owned typed query and subscription before changing the footer to a connected state. Keep state-changing controls disabled or without commands until Rust supplies validation, ReBAC, scope, audit, storage, and idempotency behavior.
 
 ## Normal state flow
 
@@ -88,11 +92,11 @@ Closing the main window hides it and keeps the supervised engine available throu
 
 ## Arabic, RTL, accessibility, and visual design
 
-`MainWindow.xaml` sets `FlowDirection="RightToLeft"` and `Language="ar-YE"` at the window boundary. The primary navigation starts at the RTL edge. The reference feature uses Arabic labels, an RTL input, and the mixed-direction fixture `مرجع REF-١٢` without changing its stored Unicode. Machine identifiers, configuration keys, protocol names, and fixtures such as `CNC-04` and `Windows / Rust` use explicit LTR child containers. Status always has Arabic text in addition to color.
+`MainWindow.xaml` sets `FlowDirection="RightToLeft"` and `Language="ar-YE"` at the window boundary. The **لوحة التحكم** navigation starts at the RTL edge. Explicit LTR grids keep the brand image, furniture photography, navigation icon columns, quotation identifiers, dates, percentages, and European numerals stable inside the RTL shell. The hidden mixed-direction conformance fixture `مرجع REF-١٢ · CNC-04 · Windows / Rust` preserves the automated boundary check without changing stored Unicode. Status always has Arabic text in addition to color.
 
 `OperationsViewModel` maps the Rust-catalog message identifiers `eitmad.notification.sync-complete.v1` and `eitmad.notification.update-ready.v1` to Arabic notification titles. It references generated `ProtocolIds.MessageIds` constants. An unknown message identifier remains visible as its stable identifier until a cataloged translation exists; the shell must not define a new `eitmad.*` literal.
 
-The visual system uses restrained workshop colors, high-contrast status surfaces, native Windows tray behavior, scalable WPF layout, and native UI Automation names. The rendered app was checked at `1240×820` with the real Rust engine. The shell tests verify root RTL metadata, Arabic and English fixture isolation, Arabic state mapping, empty states, and ownership boundaries. Keyboard traversal, Arabic screen-reader announcements, high contrast, and 200% text scaling need verification before a production installer release.
+The landing dashboard uses warm walnut accents, white cards, thin neutral borders, showroom photography, native Windows tray behavior, scalable WPF layout, and native UI Automation names. `MainWindow.xaml` renders a fixed `1670×939` design surface through a uniform `Viewbox`; the default `1338×753` device-independent window matches the supplied `1672×941` reference at 125% Windows display scale. `Resources/DashboardReference.png` supplies only the approved brand and furniture image crops. All text, navigation, cards, progress bars, tables, buttons, and chrome remain native WPF controls. The rendered app was checked at `1327×747` logical pixels on Windows. The shell tests verify root RTL metadata, Arabic and English fixture isolation, Arabic state mapping, empty states, and ownership boundaries. Keyboard traversal, Arabic screen-reader announcements, high contrast, narrow-window scaling, and 200% text scaling need verification before a production installer release.
 
 ## Security and compatibility
 

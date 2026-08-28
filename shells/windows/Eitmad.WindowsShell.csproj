@@ -17,4 +17,7 @@
     <Compile Remove="tests\**\*.cs" />
     <ProjectReference Include="..\..\platform-adapters\windows\Eitmad.Platform.Windows.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Resources\DashboardReference.png" />
+  </ItemGroup>
 </Project>
