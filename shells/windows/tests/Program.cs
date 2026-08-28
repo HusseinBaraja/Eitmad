@@ -23,6 +23,8 @@ tests.NativeWindowChromeIsDelegatedToWindows();
 tests.DashboardUsesNativeInteractiveControls();
 tests.DashboardVisualSystemIsConsistentAndRtlSafe();
 tests.SidebarNavigationKeepsArabicLabelsAtTheRtlEdge();
+tests.NotificationRowsKeepArabicTextBesideIcons();
+tests.WorkDistributionRowsKeepProgressBesideIcons();
 tests.SelectedSidebarNavigationUsesBlackHoverContent();
 tests.ShellOwnershipRulesAreEnforced();
 Console.WriteLine("Windows shell scenarios passed.");
@@ -338,6 +340,34 @@ internal sealed class ShellScenarios
 
         Assert.Equal(12, xaml.Split(physicalNavigationColumns, StringSplitOptions.None).Length - 1, "every sidebar row keeps a fixed label-to-icon gap");
         Assert.Contains(sharedArabicLabelAlignment, xaml, "sidebar Arabic alignment is owned by the shared label style");
+    }
+
+    public void NotificationRowsKeepArabicTextBesideIcons()
+    {
+        var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
+        const string headerColumns = "<Grid Margin=\"18,0\" FlowDirection=\"LeftToRight\"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width=\"12\" /><ColumnDefinition Width=\"31\" /></Grid.ColumnDefinitions>";
+        const string itemColumns = "<Grid.ColumnDefinitions><ColumnDefinition Width=\"18\" /><ColumnDefinition /><ColumnDefinition Width=\"12\" /><ColumnDefinition Width=\"34\" /></Grid.ColumnDefinitions>";
+        const string itemTextAlignment = "<StackPanel Grid.Column=\"1\" FlowDirection=\"RightToLeft\" TextBlock.TextAlignment=\"Left\" VerticalAlignment=\"Center\">";
+
+        Assert.Contains(headerColumns, xaml, "notification header keeps a fixed title-to-icon gap");
+        Assert.Equal(4, xaml.Split(itemColumns, StringSplitOptions.None).Length - 1, "notification rows keep a fixed text-to-icon gap");
+        Assert.Equal(4, xaml.Split(itemTextAlignment, StringSplitOptions.None).Length - 1, "notification rows preserve physical-right Arabic alignment");
+    }
+
+    public void WorkDistributionRowsKeepProgressBesideIcons()
+    {
+        var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
+        const string rowColumns = "<Grid.ColumnDefinitions><ColumnDefinition Width=\"38\" /><ColumnDefinition /><ColumnDefinition Width=\"12\" /><ColumnDefinition Width=\"38\" /></Grid.ColumnDefinitions>";
+        const string rowLabelAlignment = "<TextBlock FlowDirection=\"RightToLeft\" TextAlignment=\"Left\" HorizontalAlignment=\"Stretch\"";
+        const string headerAlignment = "<StackPanel x:Name=\"WorkDistributionHeader\" FlowDirection=\"RightToLeft\" TextBlock.TextAlignment=\"Left\">";
+
+        Assert.Equal(4, xaml.Split(rowColumns, StringSplitOptions.None).Length - 1, "work distribution rows keep a fixed progress-to-icon gap");
+        Assert.Equal(4, xaml.Split(rowLabelAlignment, StringSplitOptions.None).Length - 1, "work distribution Arabic labels align to the physical right edge");
+        Assert.Contains(headerAlignment, xaml, "work distribution title aligns to the physical right edge");
+        Assert.Contains("<Path Grid.Column=\"3\" Data=\"{StaticResource IconCut}\"", xaml, "work distribution first icon stays on the right");
+        Assert.Contains("<Path Grid.Column=\"3\" Data=\"{StaticResource IconMaterials}\"", xaml, "work distribution second icon stays on the right");
+        Assert.Contains("<Path Grid.Column=\"3\" Data=\"{StaticResource IconWorkOrder}\"", xaml, "work distribution third icon stays on the right");
+        Assert.Contains("<Path Grid.Column=\"3\" Data=\"{StaticResource IconFurniture}\"", xaml, "work distribution fourth icon stays on the right");
     }
 
     public void SelectedSidebarNavigationUsesBlackHoverContent()
