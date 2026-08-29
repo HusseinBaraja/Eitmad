@@ -262,7 +262,7 @@
                                 <TextBlock Text="وصف المنتج" FontSize="13" FontWeight="SemiBold" /><TextBox x:Name="ProductDescriptionBox" Height="88" Margin="0,7,0,18" Padding="12,8" FontFamily="Noto Kufi Arabic, Segoe UI" BorderBrush="#DED6CE" BorderThickness="1" AcceptsReturn="True" TextWrapping="Wrap" />
                                 <TextBlock Text="القيمة التقديرية" FontSize="13" FontWeight="SemiBold" /><TextBox x:Name="EstimatedValueBox" Height="42" Margin="0,7,0,0" Padding="12,8" FontFamily="Segoe UI" FlowDirection="LeftToRight" BorderBrush="#DED6CE" BorderThickness="1" />
                             </StackPanel>
-                            <Button Grid.Row="2" Height="44" Style="{StaticResource PrimaryButton}" Content="حفظ كمسودة تجريبية" Click="PreviewSubmitClick" />
+                            <Button Grid.Row="2" Height="44" Style="{StaticResource PrimaryButton}" Click="PreviewSubmitClick"><TextBlock Text="حفظ كمسودة تجريبية" Foreground="White" /></Button>
                         </Grid>
                     </Border>
                     <Border x:Name="InteractionToast" Grid.Row="1" Margin="30" Padding="18,11" HorizontalAlignment="Left" VerticalAlignment="Bottom" Panel.ZIndex="40" Visibility="Collapsed" Background="#3B240F" CornerRadius="9"><TextBlock x:Name="InteractionToastText" Foreground="White" FontSize="12" /></Border>

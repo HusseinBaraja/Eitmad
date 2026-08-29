@@ -386,11 +386,16 @@ internal sealed class ShellScenarios
         var shell = Path.Combine(RepositoryRoot, "shells", "windows");
         var xaml = File.ReadAllText(Path.Combine(shell, "Features", "RawMaterials", "RawMaterialsView.xaml"));
         var mainWindow = File.ReadAllText(Path.Combine(shell, "MainWindow.xaml"));
+        var theme = File.ReadAllText(Path.Combine(shell, "Resources", "OperationsTheme.xaml"));
 
         Assert.Contains("Text=\"المواد الخام\"", xaml, "raw-material page heading");
         Assert.Contains("Text=\"إضافة مادة خام\"", xaml, "primary create action");
         Assert.Contains("Text=\"اسم المادة\"", xaml, "material-name column");
         Assert.Contains("Text=\"التكلفة الحالية\"", xaml, "current-cost column");
+        Assert.Contains("x:Key=\"PrimaryButton\"", theme, "primary action uses the shared button style");
+        Assert.Contains("TextElement.Foreground=\"{Binding Foreground, RelativeSource={RelativeSource TemplatedParent}}\"", theme, "dark button content inherits white foreground");
+        Assert.Contains("BorderBrush\" Value=\"#B79A80\"", xaml, "secondary button keeps a visible border");
+        Assert.Contains("SnapsToDevicePixels\" Value=\"True\"", xaml, "secondary button border is pixel snapped");
         Assert.Contains("Header=\"تعديل\"", xaml, "compact edit action");
         Assert.Contains("Header=\"تكرار\"", xaml, "compact duplicate action");
         Assert.Contains("Header=\"أرشفة\"", xaml, "compact archive action");
