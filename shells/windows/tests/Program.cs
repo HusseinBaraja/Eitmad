@@ -417,7 +417,7 @@ internal sealed class ShellScenarios
         Assert.Contains("Property=\"FlowDirection\" Value=\"RightToLeft\"", xaml, "Arabic row-action labels keep RTL text direction");
         Assert.Contains("CornerRadius=\"10\"", xaml, "dropdown surfaces use rounded dashboard geometry");
         Assert.Contains("Binding IsArchived", xaml, "archived rows have an inactive visual trigger");
-        Assert.Contains("محرك Rust", xaml, "preview does not claim Rust-owned persistence");
+        Assert.False(xaml.Contains("وضع المعاينة —", StringComparison.Ordinal), "raw-material list has no preview notification banner");
         Assert.Contains("rawMaterials:RawMaterialsView", mainWindow, "sidebar destination hosts the raw-material page");
     }
 

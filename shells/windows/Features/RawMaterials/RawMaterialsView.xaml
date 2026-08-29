@@ -230,14 +230,6 @@
 
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                 <StackPanel Margin="28,22,28,28">
-                    <Border Background="#FFF7EB" BorderBrush="#E9CDAF" BorderThickness="1" CornerRadius="9" Padding="14,10" Margin="0,0,0,14">
-                        <Grid>
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                            <Border Width="8" Height="8" CornerRadius="4" Background="{StaticResource CopperBrush}" VerticalAlignment="Center" Margin="0,0,10,0" />
-                            <TextBlock Grid.Column="1" Text="وضع المعاينة — التغييرات محلية ومؤقتة حتى تتوفر سلطة المواد الخام في محرك Rust." Foreground="#754417" FontSize="11" />
-                        </Grid>
-                    </Border>
-
                     <UniformGrid x:Name="FiltersGrid" Margin="-6,0,-6,14">
                         <StackPanel Margin="6,0">
                             <TextBlock Text="البحث" Style="{StaticResource RawMaterialsFieldLabel}" />
