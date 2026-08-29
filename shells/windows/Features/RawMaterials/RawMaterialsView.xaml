@@ -222,8 +222,8 @@
                         </StackPanel>
                     </Button>
                     <StackPanel Grid.Column="1" FlowDirection="RightToLeft" HorizontalAlignment="Right" Margin="24,0,0,0">
-                        <TextBlock Text="المواد الخام" FontSize="27" FontWeight="Bold" TextAlignment="Right" />
-                        <TextBlock Text="بحث سريع وتكاليف واضحة وإدارة بدون حذف دائم" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,4,0,0" />
+                        <TextBlock Text="المواد الخام" FontSize="27" FontWeight="Bold" HorizontalAlignment="Left" TextAlignment="Right" />
+                        <TextBlock Text="بحث سريع وتكاليف واضحة وإدارة بدون حذف دائم" Foreground="{StaticResource MutedBrush}" FontSize="11" HorizontalAlignment="Left" TextAlignment="Right" Margin="0,4,0,0" />
                     </StackPanel>
                 </Grid>
             </Border>

@@ -392,6 +392,8 @@ internal sealed class ShellScenarios
 
         Assert.Contains("Text=\"المواد الخام\"", xaml, "raw-material page heading");
         Assert.Contains("Text=\"إضافة مادة خام\"", xaml, "primary create action");
+        Assert.Contains("Grid.Column=\"1\" FlowDirection=\"RightToLeft\" HorizontalAlignment=\"Right\" Margin=\"24,0,0,0\"", xaml, "raw-material header is anchored at the physical right edge");
+        Assert.Contains("HorizontalAlignment=\"Left\" TextAlignment=\"Right\"", xaml, "raw-material heading lines use RTL-safe physical alignment");
         Assert.Contains("Text=\"اسم المادة\"", xaml, "material-name column");
         Assert.Contains("Text=\"التكلفة الحالية\"", xaml, "current-cost column");
         Assert.Contains("x:Key=\"PrimaryButton\"", theme, "primary action uses the shared button style");
