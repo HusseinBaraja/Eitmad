@@ -33,13 +33,13 @@ public sealed class RawMaterialsViewModel : INotifyPropertyChanged
     {
         materials =
         [
-            new(Guid.Parse("90e8280f-e8ce-4b57-9af5-5bb263eec885"), "MDF 18mm", "ألواح خشبية", "لوح", 25_000m),
-            new(Guid.Parse("f10241bb-f60b-464a-8f43-0df9d1322c9f"), "Beech Wood", "أخشاب", "متر", 8_000m),
-            new(Guid.Parse("ea15bd52-40b7-4f9c-94d4-00585c52a6e7"), "قماش كتان Linen", "أقمشة", "متر", 3_500m),
-            new(Guid.Parse("4a34cd4c-6d5c-438c-87ab-a9ded9bd9f73"), "خشب سويدي 2×4", "أخشاب", "متر", 5_200m, isArchived: true),
+            new(Guid.Parse("90e8280f-e8ce-4b57-9af5-5bb263eec885"), "لوح MDF سماكة 18 مم", "ألواح خشبية", "لوح", 25_000m),
+            new(Guid.Parse("f10241bb-f60b-464a-8f43-0df9d1322c9f"), "خشب زان مجفف", "أخشاب طبيعية", "متر", 8_000m),
+            new(Guid.Parse("ea15bd52-40b7-4f9c-94d4-00585c52a6e7"), "قماش كتان بيج", "أقمشة ومفروشات", "متر", 3_500m),
+            new(Guid.Parse("4a34cd4c-6d5c-438c-87ab-a9ded9bd9f73"), "خشب سويدي مقاس 2×4", "أخشاب طبيعية", "متر", 5_200m, isArchived: true),
         ];
 
-        CategoryOptions = [AllCategories, "ألواح خشبية", "أخشاب", "أقمشة"];
+        CategoryOptions = [AllCategories, "ألواح خشبية", "أخشاب طبيعية", "أقمشة ومفروشات"];
         StatusOptions = [AllStatuses, ActiveStatus, ArchivedStatus];
         UnitOptions = ["لوح", "متر", "كيلوجرام", "قطعة"];
         VisibleMaterials = [];

@@ -342,17 +342,21 @@ internal sealed class ShellScenarios
         Assert.Equal(4, model.VisibleMaterials.Count, "raw-material preview starts with all fixtures");
         model.SearchText = "mdf";
         Assert.Equal(1, model.VisibleMaterials.Count, "search is case-insensitive");
-        Assert.Equal("MDF 18mm", model.VisibleMaterials.Single().Name, "search returns the expected board");
+        Assert.Equal("لوح MDF سماكة 18 مم", model.VisibleMaterials.Single().Name, "search returns the expected board");
 
         model.SearchText = string.Empty;
-        model.SelectedCategory = "أخشاب";
+        model.SearchText = "زان";
+        Assert.Equal("خشب زان مجفف", model.VisibleMaterials.Single().Name, "Arabic search returns the expected timber");
+
+        model.SearchText = string.Empty;
+        model.SelectedCategory = "أخشاب طبيعية";
         model.SelectedStatus = RawMaterialsViewModel.ArchivedStatus;
         Assert.Equal(1, model.VisibleMaterials.Count, "category and archived filters combine");
         Assert.True(model.VisibleMaterials.Single().IsArchived, "archived filter excludes active timber");
 
         model.SelectedStatus = RawMaterialsViewModel.ActiveStatus;
         Assert.Equal(1, model.VisibleMaterials.Count, "active filter excludes archived timber");
-        Assert.Equal("Beech Wood", model.VisibleMaterials.Single().Name, "active timber remains visible");
+        Assert.Equal("خشب زان مجفف", model.VisibleMaterials.Single().Name, "active timber remains visible");
     }
 
     /// <summary>Verifies local create/edit/duplicate/archive behavior without permanent deletion.</summary>
@@ -360,14 +364,14 @@ internal sealed class ShellScenarios
     {
         var model = new RawMaterialsViewModel();
         var originalCount = model.VisibleMaterials.Count;
-        var board = model.VisibleMaterials.Single(item => item.Name == "MDF 18mm");
+        var board = model.VisibleMaterials.Single(item => item.Name == "لوح MDF سماكة 18 مم");
         Assert.Equal("ر.س. 25,000", board.CostLabel, "raw-material costs use the Arabic Saudi Riyal prefix");
 
         model.Archive(board);
         Assert.Equal(originalCount, model.VisibleMaterials.Count, "archive keeps the material in the all-status list");
         Assert.True(board.IsArchived, "archive marks the row visually inactive");
 
-        var timber = model.VisibleMaterials.Single(item => item.Name == "Beech Wood");
+        var timber = model.VisibleMaterials.Single(item => item.Name == "خشب زان مجفف");
         var duplicate = model.Duplicate(timber);
         Assert.True(model.IsEditorOpen, "duplicate opens the edit page");
         Assert.True(duplicate.Name.EndsWith("نسخة", StringComparison.Ordinal), "duplicate has a clear local name");
@@ -399,9 +403,13 @@ internal sealed class ShellScenarios
         Assert.Contains("Text=\"اسم المادة\"", xaml, "material-name column");
         Assert.Contains("Text=\"التكلفة الحالية\"", xaml, "current-cost column");
         Assert.Contains("التكلفة الحالية (ر.س.)", xaml, "Saudi Riyal editor label");
-        Assert.Contains("CostLabel => $\"ر.س. {CurrentCost:N0}\"", rawMaterialItem, "raw-material cost formatter prefixes Saudi Riyal");
+        Assert.Contains("CurrencyLabel => \"ر.س.\"", rawMaterialItem, "raw-material cost formatter uses Arabic Saudi Riyal");
+        Assert.Contains("CostAmountLabel => $\"{CurrentCost:N0}\"", rawMaterialItem, "raw-material cost formatter keeps the numeric amount separate");
+        Assert.Contains("Text=\"{Binding CurrencyLabel}\"", xaml, "raw-material cost cell renders a separate currency element");
+        Assert.Contains("Text=\"{Binding CostAmountLabel}\"", xaml, "raw-material cost cell renders a separate amount element");
         Assert.False(rawMaterialItem.Contains("ر.ي.", StringComparison.Ordinal), "raw-material formatter has no Yemeni Riyal marker");
-        Assert.Contains("Text=\"ر.س. 1,245,780\"", mainWindow, "dashboard amount uses Saudi Riyal prefix");
+        Assert.Contains("Text=\"ر.س.\" Style=\"{StaticResource MetricValue}\"", mainWindow, "dashboard amount uses Saudi Riyal prefix");
+        Assert.Contains("Text=\"1,245,780\" Style=\"{StaticResource MetricValue}\"", mainWindow, "dashboard amount renders the number separately");
         Assert.False(mainWindow.Contains(" ر.س\"", StringComparison.Ordinal), "dashboard amounts do not suffix the currency");
         Assert.Contains("x:Key=\"PrimaryButton\"", theme, "primary action uses the shared button style");
         Assert.Contains("TextElement.Foreground=\"{Binding Foreground, RelativeSource={RelativeSource TemplatedParent}}\"", theme, "dark button content inherits white foreground");
