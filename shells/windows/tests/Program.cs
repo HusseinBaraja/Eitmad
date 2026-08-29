@@ -405,7 +405,11 @@ internal sealed class ShellScenarios
         var textInputStyleStart = xaml.IndexOf("x:Key=\"RawMaterialsTextInput\"", StringComparison.Ordinal);
         var comboStyleStart = xaml.IndexOf("x:Key=\"RawMaterialsComboBoxItem\"", StringComparison.Ordinal);
         Assert.True(textInputStyleStart >= 0 && comboStyleStart > textInputStyleStart, "text input style precedes selector styles");
-        Assert.Contains("CornerRadius=\"8\"", xaml[textInputStyleStart..comboStyleStart], "text fields match the combo input radius");
+        var textInputStyle = xaml[textInputStyleStart..comboStyleStart];
+        Assert.Contains("CornerRadius=\"8\"", textInputStyle, "text fields match the combo input radius");
+        Assert.Contains("Property=\"VerticalContentAlignment\" Value=\"Center\"", textInputStyle, "editor text is vertically centered");
+        Assert.Contains("VerticalAlignment=\"Center\"", textInputStyle, "text host is centered inside the input chrome");
+        Assert.Contains("VerticalContentAlignment=\"{TemplateBinding VerticalContentAlignment}\"", textInputStyle, "text host uses the editor alignment");
         Assert.Contains("x:Name=\"PART_Popup\"", xaml, "selector popup is owned by the page visual system");
         Assert.Contains("x:Key=\"RawMaterialsContextMenu\"", xaml, "row actions use the matching modern popup surface");
         Assert.Contains("FlowDirection=\"LeftToRight\" Style=\"{StaticResource RawMaterialsContextMenu}\" Placement=\"Right\" HorizontalOffset=\"6\"", xaml, "row-action popup placement is isolated from RTL mirroring");
