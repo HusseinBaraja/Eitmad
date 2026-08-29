@@ -275,7 +275,7 @@
                                             <TextBlock Grid.Column="0" Text="اسم المادة" Style="{StaticResource RawMaterialsHeaderCell}" />
                                             <TextBlock Grid.Column="1" Text="الفئة" Style="{StaticResource RawMaterialsHeaderCell}" />
                                             <TextBlock Grid.Column="2" Text="الوحدة" Style="{StaticResource RawMaterialsHeaderCell}" />
-                                            <TextBlock Grid.Column="3" Text="التكلفة الحالية" Style="{StaticResource RawMaterialsHeaderCell}" />
+                                                        <TextBlock Grid.Column="3" Text="التكلفة الحالية" Style="{StaticResource RawMaterialsHeaderCell}" />
                                             <TextBlock Grid.Column="4" Text="الحالة" Style="{StaticResource RawMaterialsHeaderCell}" />
                                             <TextBlock Grid.Column="5" Text="الإجراءات" Style="{StaticResource RawMaterialsHeaderCell}" />
                                         </Grid>
@@ -294,7 +294,10 @@
                                                         </StackPanel>
                                                         <TextBlock Grid.Column="1" Text="{Binding Category}" Style="{StaticResource RawMaterialsBodyCell}" />
                                                         <TextBlock Grid.Column="2" Text="{Binding Unit}" Style="{StaticResource RawMaterialsBodyCell}" />
-                                                        <TextBlock Grid.Column="3" Text="{Binding CostLabel}" Style="{StaticResource RawMaterialsBodyCell}" FlowDirection="LeftToRight" />
+                                                        <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" FlowDirection="LeftToRight">
+                                                            <TextBlock Text="{Binding CurrencyLabel}" Style="{StaticResource RawMaterialsBodyCell}" />
+                                                            <TextBlock Text="{Binding CostAmountLabel}" Style="{StaticResource RawMaterialsBodyCell}" Margin="6,0,0,0" FlowDirection="LeftToRight" />
+                                                        </StackPanel>
                                                         <Border Grid.Column="4" x:Name="StatusPill" Background="#EAF7E9" CornerRadius="10" Padding="10,4" HorizontalAlignment="Center" VerticalAlignment="Center">
                                                             <TextBlock x:Name="StatusText" Text="{Binding StatusLabel}" Foreground="#28733C" FontSize="10" FontWeight="SemiBold" />
                                                         </Border>
