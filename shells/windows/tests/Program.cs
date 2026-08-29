@@ -295,9 +295,9 @@ internal sealed class ShellScenarios
         var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
         Assert.Contains("FlowDirection=\"RightToLeft\"", xaml, "root RTL layout");
         Assert.Contains("Language=\"ar-YE\"", xaml, "Arabic language metadata");
-        Assert.Contains("Text=\"العربية (اليمن)\"", xaml, "visible primary locale marker");
-        Assert.False(xaml.Contains("Text=\"العربية (اليمن) · ar-YE\"", StringComparison.Ordinal), "visible locale marker omits the machine locale code");
-        Assert.Contains("HorizontalAlignment=\"Stretch\" VerticalAlignment=\"Center\"", xaml, "brand text area fills the header column");
+        Assert.False(xaml.Contains("Text=\"العربية (اليمن)", StringComparison.Ordinal), "visible brand header omits the locale label");
+        Assert.Contains("Grid.Column=\"1\" FlowDirection=\"RightToLeft\" HorizontalAlignment=\"Stretch\" VerticalAlignment=\"Center\"", xaml, "brand text area fills the header column");
+        Assert.Contains("HorizontalAlignment=\"Stretch\" TextAlignment=\"Right\"", xaml, "brand text uses right alignment");
         Assert.Contains("FlowDirection=\"LeftToRight\"", xaml, "mixed-direction isolation");
         Assert.Contains("CNC-04", xaml, "Arabic and English workshop fixture");
         Assert.Contains("Windows / Rust", xaml, "mixed product fixture");

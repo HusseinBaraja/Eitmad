@@ -303,12 +303,12 @@
                                     <Path Fill="#70421D" Data="M 59,12 L 61,43 L 73,50 Z" />
                                 </Canvas>
                             </Viewbox>
-                            <StackPanel Grid.Column="1" FlowDirection="RightToLeft" HorizontalAlignment="Stretch" VerticalAlignment="Center">
-                                <StackPanel.Style><Style TargetType="StackPanel"><Style.Triggers><DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></StackPanel.Style>
-                                <TextBlock Text="الاعتماد" FontSize="28" FontWeight="Bold" Foreground="#704019" HorizontalAlignment="Stretch" TextAlignment="Right" />
-                                <TextBlock Text="لصناعة الأثاث" FontSize="12" Foreground="#704019" HorizontalAlignment="Stretch" TextAlignment="Right" Margin="0,-2,2,0" />
-                                <TextBlock Text="العربية (اليمن)" FontSize="9" Foreground="#8D8781" HorizontalAlignment="Stretch" TextAlignment="Right" Margin="0,1,2,0" />
-                            </StackPanel>
+                            <Grid Grid.Column="1" FlowDirection="RightToLeft" HorizontalAlignment="Stretch" VerticalAlignment="Center">
+                                <Grid.Style><Style TargetType="Grid"><Style.Triggers><DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></Grid.Style>
+                                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Text="الاعتماد" FontSize="28" FontWeight="Bold" Foreground="#704019" HorizontalAlignment="Stretch" TextAlignment="Right" />
+                                <TextBlock Grid.Row="1" Text="لصناعة الأثاث" FontSize="12" Foreground="#704019" HorizontalAlignment="Stretch" TextAlignment="Right" Margin="0,-2,2,0" />
+                            </Grid>
                         </Grid>
                         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                           <StackPanel x:Name="SidebarNavigation" Margin="0,16,0,8">
