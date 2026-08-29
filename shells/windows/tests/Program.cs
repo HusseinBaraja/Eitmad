@@ -3,6 +3,7 @@ using Eitmad.Contracts;
 using Eitmad.Platform.Windows.ProcessSupervision;
 using Eitmad.Platform.Windows.Shell;
 using Eitmad.WindowsShell.Features.Operations;
+using Eitmad.WindowsShell.Layout;
 
 var tests = new ShellScenarios();
 tests.StateMappingCoversOperationalContracts();
@@ -22,6 +23,8 @@ tests.RtlLayoutIncludesMixedDirectionFixtures();
 tests.NativeWindowChromeIsDelegatedToWindows();
 tests.DashboardUsesNativeInteractiveControls();
 tests.DashboardVisualSystemIsConsistentAndRtlSafe();
+tests.ResponsiveLayoutSelectsStableBreakpoints();
+tests.DashboardReflowsInsteadOfScalingAFixedCanvas();
 tests.SidebarFooterCardIsRemoved();
 tests.ToolbarExpandsSearchAfterActionButtons();
 tests.SearchBoxArabicTextAlignsToTheRtlEdge();
@@ -338,7 +341,32 @@ internal sealed class ShellScenarios
         Assert.False(xaml.Contains("FontFamily=\"Segoe Fluent Icons\"", StringComparison.Ordinal), "dashboard does not depend on font-code glyphs");
         Assert.Contains("x:Name=\"LatestQuotesHeader\"", xaml, "latest quotations header has an explicit RTL layout");
         Assert.Contains("x:Name=\"NotificationsCard\"", xaml, "notification card has an explicit RTL layout");
-        Assert.Contains("x:Name=\"ToolbarGap\"", xaml, "search and new quotation action have a fixed gap");
+        Assert.Contains("x:Name=\"ToolbarLayout\"", xaml, "toolbar uses the shared responsive boundary");
+    }
+
+    /// <summary>Verifies the shared shell breakpoint policy at its exact boundaries.</summary>
+    public void ResponsiveLayoutSelectsStableBreakpoints()
+    {
+        Assert.Equal(ResponsiveLayoutMode.Compact, ResponsiveLayout.ResolveMode(719), "narrow windows use the compact rail");
+        Assert.Equal(ResponsiveLayoutMode.Compact, ResponsiveLayout.ResolveMode(899), "compact mode includes its upper edge");
+        Assert.Equal(ResponsiveLayoutMode.Standard, ResponsiveLayout.ResolveMode(900), "standard mode starts at 900 DIPs");
+        Assert.Equal(ResponsiveLayoutMode.Standard, ResponsiveLayout.ResolveMode(1599), "standard mode includes its upper edge");
+        Assert.Equal(ResponsiveLayoutMode.Wide, ResponsiveLayout.ResolveMode(1600), "wide mode starts at 1600 DIPs");
+    }
+
+    /// <summary>Verifies that the dashboard uses reflow and overflow instead of whole-page scaling.</summary>
+    public void DashboardReflowsInsteadOfScalingAFixedCanvas()
+    {
+        var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
+
+        Assert.False(xaml.Contains("<Viewbox Stretch=\"Uniform\">", StringComparison.Ordinal), "the root dashboard is not a scaled fixed canvas");
+        Assert.False(xaml.Contains("Width=\"1670\" Height=\"939\"", StringComparison.Ordinal), "the root dashboard has no fixed design surface");
+        Assert.Contains("layout:ResponsiveLayout.IsEnabled=\"True\"", xaml, "the shared responsive policy observes the page width");
+        Assert.Contains("VerticalScrollBarVisibility=\"Auto\"", xaml, "short windows can scroll dashboard content");
+        Assert.Contains("x:Name=\"MetricsGrid\"", xaml, "metrics expose a reflow target");
+        Assert.Contains("x:Name=\"QuickActionsGrid\"", xaml, "quick actions expose a reflow target");
+        Assert.Contains("Value=\"{x:Static layout:ResponsiveLayoutMode.Compact}\"", xaml, "compact layout rules are declared in XAML");
+        Assert.Contains("Value=\"{x:Static layout:ResponsiveLayoutMode.Standard}\"", xaml, "standard layout rules are declared in XAML");
     }
 
     /// <summary>Verifies that the sidebar does not reserve a footer card.</summary>
@@ -354,17 +382,15 @@ internal sealed class ShellScenarios
     public void ToolbarExpandsSearchAfterActionButtons()
     {
         var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
-        const string toolbarGrid = "<Grid Grid.Column=\"1\" FlowDirection=\"LeftToRight\" VerticalAlignment=\"Center\" HorizontalAlignment=\"Stretch\">";
-        const string toolbarColumns = "<Grid.ColumnDefinitions><ColumnDefinition Width=\"178\" /><ColumnDefinition Width=\"*\" /></Grid.ColumnDefinitions>";
-        const string titleSizedColumns = "<Grid.ColumnDefinitions><ColumnDefinition Width=\"Auto\" /><ColumnDefinition Width=\"*\" /><ColumnDefinition Width=\"196\" /></Grid.ColumnDefinitions>";
+        const string toolbarColumns = "<Grid.ColumnDefinitions><ColumnDefinition Width=\"Auto\" /><ColumnDefinition Width=\"Auto\" /><ColumnDefinition Width=\"*\" /><ColumnDefinition Width=\"Auto\" /></Grid.ColumnDefinitions>";
 
-        Assert.Contains(titleSizedColumns, xaml, "toolbar sizes the dashboard title to its content");
-        Assert.Contains(toolbarGrid, xaml, "toolbar keeps a stable mixed-direction boundary");
-        Assert.Contains(toolbarColumns, xaml, "toolbar reserves actions before the flexible search field");
-        Assert.Contains("<StackPanel Grid.Column=\"0\" Orientation=\"Horizontal\" Margin=\"0,0,20,0\">", xaml, "toolbar actions occupy the left slot before search");
-        Assert.Contains("<Border Grid.Column=\"1\" Height=\"43\"", xaml, "search field expands in the slot beside the dashboard title");
-        Assert.Contains("<Border Grid.Column=\"1\" Height=\"43\" HorizontalAlignment=\"Stretch\"", xaml, "search border stretches across the flexible slot");
-        Assert.Contains("<Border Grid.Column=\"1\" Height=\"43\" HorizontalAlignment=\"Stretch\" Margin=\"0,0,16,0\"", xaml, "search border keeps a margin before the dashboard title");
+        Assert.Contains("x:Name=\"ToolbarLayout\"", xaml, "toolbar exposes one responsive layout boundary");
+        Assert.Contains(toolbarColumns, xaml, "toolbar reserves actions, flexible search, and content-sized title slots");
+        Assert.Contains("<StackPanel Grid.Column=\"1\" Orientation=\"Horizontal\"", xaml, "toolbar status actions occupy their own slot");
+        Assert.Contains("<Border Height=\"43\" HorizontalAlignment=\"Stretch\"", xaml, "search expands in the flexible toolbar slot");
+        Assert.Contains("<Setter Property=\"Grid.Column\" Value=\"2\" />", xaml, "search base position remains style-overridable");
+        Assert.Contains("<Setter Property=\"Grid.Row\" Value=\"1\" />", xaml, "compact search reflows below the primary toolbar row");
+        Assert.Contains("x:Name=\"NewQuoteLabel\"", xaml, "compact action can hide only its text label");
     }
 
     /// <summary>Verifies Arabic search text alignment at the RTL edge.</summary>
@@ -389,10 +415,16 @@ internal sealed class ShellScenarios
     {
         var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
         const string physicalNavigationColumns = "<Grid FlowDirection=\"LeftToRight\"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width=\"12\" /><ColumnDefinition Width=\"34\" /></Grid.ColumnDefinitions>";
-        const string sharedArabicLabelAlignment = "<Style x:Key=\"NavText\" TargetType=\"TextBlock\"><Setter Property=\"FontSize\" Value=\"17\" /><Setter Property=\"VerticalAlignment\" Value=\"Center\" /><Setter Property=\"FlowDirection\" Value=\"RightToLeft\" /><Setter Property=\"TextAlignment\" Value=\"Right\" /><Setter Property=\"HorizontalAlignment\" Value=\"Stretch\" /></Style>";
 
         Assert.Equal(12, xaml.Split(physicalNavigationColumns, StringSplitOptions.None).Length - 1, "every sidebar row keeps a fixed label-to-icon gap");
-        Assert.Contains(sharedArabicLabelAlignment, xaml, "sidebar Arabic alignment is owned by the shared label style");
+        Assert.Contains("<Style x:Key=\"NavText\" TargetType=\"TextBlock\">", xaml, "sidebar Arabic alignment is owned by the shared label style");
+        Assert.Contains("<Setter Property=\"FlowDirection\" Value=\"RightToLeft\" />", xaml, "navigation labels preserve Arabic flow");
+        Assert.Contains("<Setter Property=\"TextAlignment\" Value=\"Right\" />", xaml, "navigation labels align beside their icons");
+        Assert.Contains("<Setter Property=\"HorizontalAlignment\" Value=\"Right\" />", xaml, "navigation labels anchor to the physical right edge");
+        Assert.Contains("<Setter Property=\"TextWrapping\" Value=\"NoWrap\" />", xaml, "navigation labels do not wrap away from the icon");
+        var theme = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "Resources", "OperationsTheme.xaml"));
+        Assert.Contains("Property=\"ToolTip\" Value=\"{Binding RelativeSource={RelativeSource Self}, Path=Tag}\"", theme, "compact navigation keeps visible labels as tooltips");
+        Assert.Contains("automation:AutomationProperties.Name", theme, "compact navigation keeps stable accessible names");
     }
 
     /// <summary>Verifies notification text alignment and icon spacing.</summary>
