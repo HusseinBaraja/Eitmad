@@ -19,6 +19,18 @@ await tests.ConfigurationQueryFailureClearsStaleState();
 tests.EngineFailureMapsToRecoveryUx();
 await tests.ShutdownStopsEngineCleanly();
 tests.RtlLayoutIncludesMixedDirectionFixtures();
+tests.NativeWindowChromeIsDelegatedToWindows();
+tests.DashboardUsesNativeInteractiveControls();
+tests.DashboardVisualSystemIsConsistentAndRtlSafe();
+tests.SidebarFooterCardIsRemoved();
+tests.ToolbarExpandsSearchAfterActionButtons();
+tests.SearchBoxArabicTextAlignsToTheRtlEdge();
+tests.LatestQuotesTitleAlignsToTheRtlEdge();
+tests.SidebarNavigationKeepsArabicLabelsAtTheRtlEdge();
+tests.NotificationRowsKeepArabicTextBesideIcons();
+tests.WorkDistributionRowsKeepProgressBesideIcons();
+tests.WorkDistributionFooterAlignsToTheLeft();
+tests.SelectedSidebarNavigationKeepsWhiteHoverContent();
 tests.ShellOwnershipRulesAreEnforced();
 Console.WriteLine("Windows shell scenarios passed.");
 
@@ -270,15 +282,173 @@ internal sealed class ShellScenarios
         Assert.Equal(1, engine.StopCount, "shutdown delegates one clean stop");
     }
 
+    /// <summary>Verifies the root RTL metadata and mixed-direction fixtures.</summary>
     public void RtlLayoutIncludesMixedDirectionFixtures()
     {
         var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
         Assert.Contains("FlowDirection=\"RightToLeft\"", xaml, "root RTL layout");
         Assert.Contains("Language=\"ar-YE\"", xaml, "Arabic language metadata");
+        Assert.Contains("Text=\"العربية (اليمن) · ar-YE\"", xaml, "visible primary locale marker");
         Assert.Contains("FlowDirection=\"LeftToRight\"", xaml, "mixed-direction isolation");
         Assert.Contains("CNC-04", xaml, "Arabic and English workshop fixture");
         Assert.Contains("Windows / Rust", xaml, "mixed product fixture");
         Assert.Contains("مرجع REF-١٢", xaml, "mixed reference marker fixture");
+    }
+
+    /// <summary>Verifies that Windows owns the native window frame.</summary>
+    public void NativeWindowChromeIsDelegatedToWindows()
+    {
+        var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
+        var codeBehind = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml.cs"));
+        var theme = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "Resources", "OperationsTheme.xaml"));
+
+        Assert.Contains("WindowStyle=\"SingleBorderWindow\"", xaml, "Windows owns the non-client frame");
+        Assert.Contains("ResizeMode=\"CanResize\"", xaml, "Windows owns standard resize behavior");
+        Assert.False(xaml.Contains("ChromeButton", StringComparison.Ordinal), "custom caption buttons are absent");
+        Assert.False(theme.Contains("ChromeButton", StringComparison.Ordinal), "custom caption style is absent");
+        Assert.False(codeBehind.Contains("TitleBarMouseDown", StringComparison.Ordinal), "custom title-bar dragging is absent");
+        Assert.False(codeBehind.Contains("MinimizeClick", StringComparison.Ordinal), "custom caption handlers are absent");
+    }
+
+    /// <summary>Verifies that dashboard preview actions use native controls.</summary>
+    public void DashboardUsesNativeInteractiveControls()
+    {
+        var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
+        var codeBehind = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml.cs"));
+
+        Assert.Contains("Resources/ShowroomHero.png", xaml, "standalone showroom asset");
+        Assert.False(xaml.Contains("DashboardReference.png", StringComparison.Ordinal), "reference screenshot is not rendered");
+        Assert.Contains("Click=\"NavigationClick\"", xaml, "sidebar navigation buttons");
+        Assert.Contains("Click=\"OpenPreviewPanelClick\"", xaml, "new quotation preview action");
+        Assert.Contains("KeyDown=\"SearchKeyDown\"", xaml, "search keyboard interaction");
+        Assert.Contains("PreviewSubmitClick", codeBehind, "preview form validation");
+        Assert.Contains("الحفظ معطل في وضع المعاينة", codeBehind, "preview cannot claim durable storage");
+    }
+
+    /// <summary>Verifies shared icons and explicit RTL layout boundaries.</summary>
+    public void DashboardVisualSystemIsConsistentAndRtlSafe()
+    {
+        var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
+        var app = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "App.xaml"));
+        var icons = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "Resources", "OperationsIcons.xaml"));
+
+        Assert.Contains("Resources/OperationsIcons.xaml", app, "vector icon resources are loaded");
+        Assert.Contains("x:Key=\"IconHome\"", icons, "sidebar uses repository-owned vector geometry");
+        Assert.Contains("x:Key=\"IconSearch\"", icons, "toolbar search icon is available");
+        Assert.False(xaml.Contains("FontFamily=\"Segoe Fluent Icons\"", StringComparison.Ordinal), "dashboard does not depend on font-code glyphs");
+        Assert.Contains("x:Name=\"LatestQuotesHeader\"", xaml, "latest quotations header has an explicit RTL layout");
+        Assert.Contains("x:Name=\"NotificationsCard\"", xaml, "notification card has an explicit RTL layout");
+        Assert.Contains("x:Name=\"ToolbarGap\"", xaml, "search and new quotation action have a fixed gap");
+    }
+
+    /// <summary>Verifies that the sidebar does not reserve a footer card.</summary>
+    public void SidebarFooterCardIsRemoved()
+    {
+        var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
+
+        Assert.False(xaml.Contains("SidebarFooterCard", StringComparison.Ordinal), "sidebar footer card is removed");
+        Assert.Contains("<Grid><Grid.RowDefinitions><RowDefinition Height=\"77\" /><RowDefinition Height=\"*\" /></Grid.RowDefinitions>", xaml, "sidebar no longer reserves a footer row");
+    }
+
+    /// <summary>Verifies the physical order and flexible width of toolbar controls.</summary>
+    public void ToolbarExpandsSearchAfterActionButtons()
+    {
+        var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
+        const string toolbarGrid = "<Grid Grid.Column=\"1\" FlowDirection=\"LeftToRight\" VerticalAlignment=\"Center\" HorizontalAlignment=\"Stretch\">";
+        const string toolbarColumns = "<Grid.ColumnDefinitions><ColumnDefinition Width=\"178\" /><ColumnDefinition Width=\"*\" /></Grid.ColumnDefinitions>";
+        const string titleSizedColumns = "<Grid.ColumnDefinitions><ColumnDefinition Width=\"Auto\" /><ColumnDefinition Width=\"*\" /><ColumnDefinition Width=\"196\" /></Grid.ColumnDefinitions>";
+
+        Assert.Contains(titleSizedColumns, xaml, "toolbar sizes the dashboard title to its content");
+        Assert.Contains(toolbarGrid, xaml, "toolbar keeps a stable mixed-direction boundary");
+        Assert.Contains(toolbarColumns, xaml, "toolbar reserves actions before the flexible search field");
+        Assert.Contains("<StackPanel Grid.Column=\"0\" Orientation=\"Horizontal\" Margin=\"0,0,20,0\">", xaml, "toolbar actions occupy the left slot before search");
+        Assert.Contains("<Border Grid.Column=\"1\" Height=\"43\"", xaml, "search field expands in the slot beside the dashboard title");
+        Assert.Contains("<Border Grid.Column=\"1\" Height=\"43\" HorizontalAlignment=\"Stretch\"", xaml, "search border stretches across the flexible slot");
+        Assert.Contains("<Border Grid.Column=\"1\" Height=\"43\" HorizontalAlignment=\"Stretch\" Margin=\"0,0,16,0\"", xaml, "search border keeps a margin before the dashboard title");
+    }
+
+    /// <summary>Verifies Arabic search text alignment at the RTL edge.</summary>
+    public void SearchBoxArabicTextAlignsToTheRtlEdge()
+    {
+        var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
+
+        Assert.Contains("x:Name=\"SearchBox\"", xaml, "search box has a stable automation name");
+        Assert.Contains("x:Name=\"SearchBox\" Background=\"Transparent\" BorderThickness=\"0\" FontFamily=\"Noto Kufi Arabic, Segoe UI\" FontSize=\"13\" Foreground=\"#8D8781\" Padding=\"10,11,0,8\" TextAlignment=\"Left\" FlowDirection=\"RightToLeft\"", xaml, "search Arabic text aligns to the physical right edge");
+    }
+
+    /// <summary>Verifies the latest quotations title alignment.</summary>
+    public void LatestQuotesTitleAlignsToTheRtlEdge()
+    {
+        var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
+
+        Assert.Contains("<TextBlock Grid.Column=\"0\" Text=\"آخر عروض الأسعار\" Style=\"{StaticResource SectionTitle}\" TextAlignment=\"Left\" HorizontalAlignment=\"Stretch\"", xaml, "latest quotations title aligns to the physical right edge");
+    }
+
+    /// <summary>Verifies shared Arabic navigation alignment and icon spacing.</summary>
+    public void SidebarNavigationKeepsArabicLabelsAtTheRtlEdge()
+    {
+        var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
+        const string physicalNavigationColumns = "<Grid FlowDirection=\"LeftToRight\"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width=\"12\" /><ColumnDefinition Width=\"34\" /></Grid.ColumnDefinitions>";
+        const string sharedArabicLabelAlignment = "<Style x:Key=\"NavText\" TargetType=\"TextBlock\"><Setter Property=\"FontSize\" Value=\"17\" /><Setter Property=\"VerticalAlignment\" Value=\"Center\" /><Setter Property=\"FlowDirection\" Value=\"RightToLeft\" /><Setter Property=\"TextAlignment\" Value=\"Right\" /><Setter Property=\"HorizontalAlignment\" Value=\"Stretch\" /></Style>";
+
+        Assert.Equal(12, xaml.Split(physicalNavigationColumns, StringSplitOptions.None).Length - 1, "every sidebar row keeps a fixed label-to-icon gap");
+        Assert.Contains(sharedArabicLabelAlignment, xaml, "sidebar Arabic alignment is owned by the shared label style");
+    }
+
+    /// <summary>Verifies notification text alignment and icon spacing.</summary>
+    public void NotificationRowsKeepArabicTextBesideIcons()
+    {
+        var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
+        const string headerColumns = "<Grid Margin=\"18,0\" FlowDirection=\"LeftToRight\"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width=\"12\" /><ColumnDefinition Width=\"31\" /></Grid.ColumnDefinitions>";
+        const string itemColumns = "<Grid.ColumnDefinitions><ColumnDefinition Width=\"18\" /><ColumnDefinition /><ColumnDefinition Width=\"12\" /><ColumnDefinition Width=\"34\" /></Grid.ColumnDefinitions>";
+        const string itemTextAlignment = "<StackPanel Grid.Column=\"1\" FlowDirection=\"RightToLeft\" TextBlock.TextAlignment=\"Left\" VerticalAlignment=\"Center\">";
+
+        Assert.Contains(headerColumns, xaml, "notification header keeps a fixed title-to-icon gap");
+        Assert.Equal(4, xaml.Split(itemColumns, StringSplitOptions.None).Length - 1, "notification rows keep a fixed text-to-icon gap");
+        Assert.Equal(4, xaml.Split(itemTextAlignment, StringSplitOptions.None).Length - 1, "notification rows preserve physical-right Arabic alignment");
+    }
+
+    /// <summary>Verifies work-distribution labels, progress, and icon placement.</summary>
+    public void WorkDistributionRowsKeepProgressBesideIcons()
+    {
+        var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
+        const string rowColumns = "<Grid.ColumnDefinitions><ColumnDefinition Width=\"38\" /><ColumnDefinition /><ColumnDefinition Width=\"12\" /><ColumnDefinition Width=\"38\" /></Grid.ColumnDefinitions>";
+        const string rowLabelAlignment = "<TextBlock FlowDirection=\"RightToLeft\" TextAlignment=\"Left\" HorizontalAlignment=\"Stretch\"";
+        const string headerAlignment = "<StackPanel x:Name=\"WorkDistributionHeader\" FlowDirection=\"RightToLeft\" TextBlock.TextAlignment=\"Left\">";
+
+        Assert.Equal(4, xaml.Split(rowColumns, StringSplitOptions.None).Length - 1, "work distribution rows keep a fixed progress-to-icon gap");
+        Assert.Equal(4, xaml.Split(rowLabelAlignment, StringSplitOptions.None).Length - 1, "work distribution Arabic labels align to the physical right edge");
+        Assert.Contains(headerAlignment, xaml, "work distribution title aligns to the physical right edge");
+        Assert.Contains("<Path Grid.Column=\"3\" Data=\"{StaticResource IconCut}\"", xaml, "work distribution first icon stays on the right");
+        Assert.Contains("<Path Grid.Column=\"3\" Data=\"{StaticResource IconMaterials}\"", xaml, "work distribution second icon stays on the right");
+        Assert.Contains("<Path Grid.Column=\"3\" Data=\"{StaticResource IconWorkOrder}\"", xaml, "work distribution third icon stays on the right");
+        Assert.Contains("<Path Grid.Column=\"3\" Data=\"{StaticResource IconFurniture}\"", xaml, "work distribution fourth icon stays on the right");
+    }
+
+    /// <summary>Verifies the work-distribution footer action alignment.</summary>
+    public void WorkDistributionFooterAlignsToTheLeft()
+    {
+        var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
+
+        Assert.Contains("<Button Grid.Row=\"5\" Content=\"عرض تفاصيل سير العمل  ←\" Style=\"{StaticResource LinkButton}\" Tag=\"تفاصيل سير العمل\" Click=\"PreviewActionClick\" HorizontalContentAlignment=\"Left\"", xaml, "work distribution footer aligns with the notification footer");
+    }
+
+    /// <summary>Verifies readable selected navigation content during hover.</summary>
+    public void SelectedSidebarNavigationKeepsWhiteHoverContent()
+    {
+        var codeBehind = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml.cs"));
+
+        Assert.Contains("VisualDescendants<Button>(SidebarNavigation)", codeBehind, "hover handling is limited to sidebar navigation");
+        Assert.Contains("button.MouseEnter += NavigationMouseEnter", codeBehind, "sidebar buttons report hover entry");
+        Assert.Contains("button.MouseLeave += NavigationMouseLeave", codeBehind, "sidebar buttons report hover exit");
+        Assert.Contains("VisualDescendants<System.Windows.Shapes.Path>(button)", codeBehind, "navigation updates each vector icon");
+        var hoverStart = codeBehind.IndexOf("private void NavigationMouseEnter", StringComparison.Ordinal);
+        var hoverEnd = codeBehind.IndexOf("private void NavigationMouseLeave", StringComparison.Ordinal);
+        Assert.True(hoverStart >= 0 && hoverEnd > hoverStart, "navigation hover handlers exist");
+        var hoverHandler = codeBehind[hoverStart..hoverEnd];
+        Assert.False(hoverHandler.Contains("SetNavigationContentTone(button, Brushes.Black)", StringComparison.Ordinal), "selected content does not become black on hover entry");
+        Assert.Contains("SetNavigationContentTone(button, Brushes.White)", hoverHandler, "selected content stays white on hover entry");
+        Assert.Contains("icon.ClearValue(System.Windows.Shapes.Shape.FillProperty)", codeBehind, "unselected navigation icon restores its themed brush");
     }
 
     public void ShellOwnershipRulesAreEnforced()

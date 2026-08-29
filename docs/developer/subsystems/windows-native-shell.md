@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Windows UI maintainers"
-last_verified: "2026-08-27"
+last_verified: "2026-08-28"
 review_triggers:
   - "Windows shell UI, state mapping, configuration patches, subscriptions, tray behavior, or ownership boundaries change"
 keywords:
@@ -15,11 +15,16 @@ keywords:
   - "subscription resynchronization"
   - "OperationsCoordinator"
   - "Eitmad.WindowsShell"
+  - "لوحة التحكم"
+  - "وضع المعاينة"
+  - "OperationsIcons.xaml"
+  - "RTL dashboard icons"
+  - "selected sidebar hover contrast"
 ---
 
 # Extend the Windows operations shell safely
 
-The Windows WPF application is an Arabic-first presentation adapter over the supervised Rust engine. It shows typed lifecycle, health, readiness, configuration, synchronization, update, background-job, notification, and error projections without becoming an authority for any of them.
+The Windows WPF application is an Arabic-first presentation adapter over the supervised Rust engine. Its landing surface is **لوحة التحكم**. It shows typed lifecycle, health, readiness, configuration, synchronization, update, background-job, notification, and error projections without becoming an authority for any of them.
 
 ## Ownership and non-goals
 
@@ -32,6 +37,10 @@ The Windows WPF application is an Arabic-first presentation adapter over the sup
 | Arabic presentation, RTL layout, view state, navigation, tray, and accessibility | `shells/windows` |
 
 The shell has no database client, configuration file writer, domain validator, permission decision, sync algorithm, update policy, secret reader, or external API client. `shells/windows/tests` scans production C# source for these ownership violations. Add new product behavior to its Rust vertical, then expose a versioned typed contract.
+
+The furniture operations dashboard currently marks itself **وضع المعاينة**. Its sales, quotation, product, material, work-order, and department values are visual fixtures that define layout and Arabic copy only. They are not live records, they do not authorize an action, and they must not be treated as saved or synchronized state. Replace each fixture with a Rust-owned typed query and subscription before changing the footer to a connected state. Keep state-changing controls disabled or without commands until Rust supplies validation, ReBAC, scope, audit, storage, and idempotency behavior.
+
+Preview interactions are real WPF input behavior but remain ephemeral. Sidebar buttons update their selected style and the page heading. The selected label and vector icon stay white on the walnut background, including while the pointer highlights the selected button. When another item is selected, the old icon returns to the shared ink theme brush. Quick actions, notification controls, and footer links show bounded Arabic feedback. The search box clears and restores its placeholder on focus changes and reports the submitted Arabic term without querying authoritative records. **عرض سعر جديد** opens a keyboard-editable drawer, validates that a customer name is present, and then reports **الحفظ معطل في وضع المعاينة**. It does not create a command, record, audit entry, or sync item. When the quotation vertical exists, replace only this preview boundary with a typed Rust-owned command and keep the failure message until a successful authoritative result returns.
 
 ## Normal state flow
 
@@ -88,11 +97,27 @@ Closing the main window hides it and keeps the supervised engine available throu
 
 ## Arabic, RTL, accessibility, and visual design
 
-`MainWindow.xaml` sets `FlowDirection="RightToLeft"` and `Language="ar-YE"` at the window boundary. The primary navigation starts at the RTL edge. The reference feature uses Arabic labels, an RTL input, and the mixed-direction fixture `مرجع REF-١٢` without changing its stored Unicode. Machine identifiers, configuration keys, protocol names, and fixtures such as `CNC-04` and `Windows / Rust` use explicit LTR child containers. Status always has Arabic text in addition to color.
+`MainWindow.xaml` sets `FlowDirection="RightToLeft"` and `Language="ar-YE"` at the window boundary. The brand header shows the active preview locale as **العربية (اليمن) · ar-YE**. The **لوحة التحكم** navigation starts at the RTL edge. Explicit LTR grids keep the brand image, furniture photography, navigation icon columns, quotation identifiers, dates, percentages, and European numerals stable inside the RTL shell. The hidden mixed-direction conformance fixture `مرجع REF-١٢ · CNC-04 · Windows / Rust` preserves the automated boundary check without changing stored Unicode. Status always has Arabic text in addition to color.
 
 `OperationsViewModel` maps the Rust-catalog message identifiers `eitmad.notification.sync-complete.v1` and `eitmad.notification.update-ready.v1` to Arabic notification titles. It references generated `ProtocolIds.MessageIds` constants. An unknown message identifier remains visible as its stable identifier until a cataloged translation exists; the shell must not define a new `eitmad.*` literal.
 
-The visual system uses restrained workshop colors, high-contrast status surfaces, native Windows tray behavior, scalable WPF layout, and native UI Automation names. The rendered app was checked at `1240×820` with the real Rust engine. The shell tests verify root RTL metadata, Arabic and English fixture isolation, Arabic state mapping, empty states, and ownership boundaries. Keyboard traversal, Arabic screen-reader announcements, high contrast, and 200% text scaling need verification before a production installer release.
+The landing dashboard uses warm walnut accents, white cards, thin neutral borders, standalone showroom photography, native Windows tray behavior, scalable WPF layout, and native UI Automation names. `MainWindow.xaml` renders a fixed `1670×939` design surface through a uniform `Viewbox`; the default `1338×753` device-independent window matches the supplied `1672×941` reference at 125% Windows display scale. `Resources/ShowroomHero.png` is a standalone photography asset generated without the reference screenshot as an input. The Arabic brand, geometric mark, text, navigation, cards, progress bars, tables, buttons, and drawer are native WPF controls and vector geometry. The reference screenshot is not packaged or rendered by the application.
+
+`Resources/OperationsIcons.xaml` owns the dashboard icon geometry on one `24 × 24` coordinate grid. Use these vector resources instead of private-use font code points: a missing symbol font can otherwise render a blank square, and different font revisions can change the symbol shape. `OperationsTheme.xaml` supplies the shared walnut, ink, tint, and status brushes. Metric and notification icons must not introduce isolated category colors. `MainWindow.SetNavigationTone` keeps selected text and `Path.Fill` white, including while the selected button is under the pointer. The pointer handlers apply only inside `SidebarNavigation`. Deselection clears the local icon fill so `NavVectorIcon` can restore the shared ink brush. Each sidebar navigation row uses an explicit LTR three-column layout to keep its physical geometry stable: the flexible Arabic label column comes first, a fixed `12`-unit spacer separates the content, and the fixed `34`-unit icon column stays at the right edge. The shared `NavText` style applies RTL shaping and right text alignment so the label stays beside the spacer and icon. The notification header uses the same LTR boundary with a fixed `12`-unit title-to-bell spacer. Its four rows use LTR columns for the left status dot, flexible RTL text, a fixed `12`-unit text-to-icon spacer, and the fixed `34`-unit icon column. The toolbar gives **عرض سعر جديد** and the search field a fixed `16`-unit separator. Keep these spacing and direction invariants when the preview fixtures become live Rust-owned projections.
+
+Windows owns the complete non-client frame. `MainWindow.xaml` uses `WindowStyle="SingleBorderWindow"` and `ResizeMode="CanResize"`; it must not define caption-button glyphs, caption-button styles, drag handlers, or minimize, maximize, and close handlers. Windows supplies the icons, system menu, snapping, hover behavior, drag behavior, resizing, and RTL/LTR caption placement. The Arabic `RightToLeft` window places the native caption controls on the left. A left-to-right localized window lets Windows place them on the right.
+
+The rendered app was checked at `1326×746` logical pixels on Windows. Windows UI Automation verified native **Minimize**, **Maximize**, and **Close** caption buttons. The rendered check also verified visible toolbar vectors, sidebar labels ending beside their right-edge icon columns, right-aligned notification labels, the separated **آخر عروض الأسعار** header, and the fixed toolbar gap. An interaction check selected **عروض الأسعار** and verified that its icon became white while the old icon returned to the ink theme color. Earlier interaction checks verified opening and closing the quotation drawer, changing the selected sidebar destination to **المنتجات**, and entering the synthetic Arabic search term **مطبخ بلوط**. The shell tests verify Windows-owned chrome, native interaction handlers, selected sidebar hover contrast, repository-owned icon resources, absence of font-code glyph dependencies and the reference screenshot, physical sidebar column isolation with shared Arabic label alignment, explicit RTL layout markers, Arabic and English fixture isolation, Arabic state mapping, empty states, and ownership boundaries. Full keyboard traversal, Arabic screen-reader announcements, high contrast, narrow-window scaling, and 200% text scaling need verification before a production installer release.
+
+The work-distribution header uses a local RTL stack with logical-left text alignment, so **توزيع الأعمال** and its subtitle end at the card’s physical right edge. Work-distribution rows follow the same physical LTR boundary: percentage in a fixed `38`-unit column, label and progress bar in the flexible column, a fixed `12`-unit spacer, and the icon in a fixed `38`-unit right column. Each Arabic row label uses a local RTL text element with logical-left alignment so its glyphs end at the physical right edge beside the progress bar and spacer; each progress bar remains explicitly LTR.
+
+The search field keeps its local RTL direction with logical-left text alignment so Arabic placeholder and query text end beside the search icon.
+
+The latest quotations header keeps its title in the RTL text boundary with logical-left alignment, so **آخر عروض الأسعار** ends at the card’s physical right edge while **عرض الكل** remains in its separate action column.
+
+The top toolbar reserves the notification, message, and profile buttons in a fixed `178`-unit left slot. The dashboard-title column is content-sized, and the search border occupies the following flexible slot and stretches directly to that title boundary; its local RTL text boundary remains independent from this physical LTR toolbar arrangement.
+
+The work-distribution footer link sets `HorizontalContentAlignment="Left"` locally so it starts at the same physical left edge as the notification footer link, despite the shared `LinkButton` style defaulting to right-aligned content.
 
 ## Security and compatibility
 
