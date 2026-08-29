@@ -361,6 +361,7 @@ internal sealed class ShellScenarios
         var model = new RawMaterialsViewModel();
         var originalCount = model.VisibleMaterials.Count;
         var board = model.VisibleMaterials.Single(item => item.Name == "MDF 18mm");
+        Assert.Equal("ر.س. 25,000", board.CostLabel, "raw-material costs use the Arabic Saudi Riyal prefix");
 
         model.Archive(board);
         Assert.Equal(originalCount, model.VisibleMaterials.Count, "archive keeps the material in the all-status list");
@@ -387,6 +388,7 @@ internal sealed class ShellScenarios
     {
         var shell = Path.Combine(RepositoryRoot, "shells", "windows");
         var xaml = File.ReadAllText(Path.Combine(shell, "Features", "RawMaterials", "RawMaterialsView.xaml"));
+        var rawMaterialItem = File.ReadAllText(Path.Combine(shell, "Features", "RawMaterials", "RawMaterialListItem.cs"));
         var mainWindow = File.ReadAllText(Path.Combine(shell, "MainWindow.xaml"));
         var theme = File.ReadAllText(Path.Combine(shell, "Resources", "OperationsTheme.xaml"));
 
@@ -396,6 +398,11 @@ internal sealed class ShellScenarios
         Assert.Contains("HorizontalAlignment=\"Left\" TextAlignment=\"Right\"", xaml, "raw-material heading lines use RTL-safe physical alignment");
         Assert.Contains("Text=\"اسم المادة\"", xaml, "material-name column");
         Assert.Contains("Text=\"التكلفة الحالية\"", xaml, "current-cost column");
+        Assert.Contains("التكلفة الحالية (ر.س.)", xaml, "Saudi Riyal editor label");
+        Assert.Contains("CostLabel => $\"ر.س. {CurrentCost:N0}\"", rawMaterialItem, "raw-material cost formatter prefixes Saudi Riyal");
+        Assert.False(rawMaterialItem.Contains("ر.ي.", StringComparison.Ordinal), "raw-material formatter has no Yemeni Riyal marker");
+        Assert.Contains("Text=\"ر.س. 1,245,780\"", mainWindow, "dashboard amount uses Saudi Riyal prefix");
+        Assert.False(mainWindow.Contains(" ر.س\"", StringComparison.Ordinal), "dashboard amounts do not suffix the currency");
         Assert.Contains("x:Key=\"PrimaryButton\"", theme, "primary action uses the shared button style");
         Assert.Contains("TextElement.Foreground=\"{Binding Foreground, RelativeSource={RelativeSource TemplatedParent}}\"", theme, "dark button content inherits white foreground");
         Assert.Contains("BorderBrush\" Value=\"#B79A80\"", xaml, "secondary button keeps a visible border");

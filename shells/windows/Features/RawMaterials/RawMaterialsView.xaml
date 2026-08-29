@@ -379,7 +379,7 @@
                                 <StackPanel><TextBlock Text="الفئة" Style="{StaticResource RawMaterialsFieldLabel}" /><ComboBox ItemsSource="{Binding CategoryOptions}" SelectedItem="{Binding EditorCategory}" Style="{StaticResource RawMaterialsComboBox}" /></StackPanel>
                                 <StackPanel Grid.Column="2"><TextBlock Text="الوحدة" Style="{StaticResource RawMaterialsFieldLabel}" /><ComboBox ItemsSource="{Binding UnitOptions}" SelectedItem="{Binding EditorUnit}" Style="{StaticResource RawMaterialsComboBox}" /></StackPanel>
                             </Grid>
-                            <TextBlock Text="التكلفة الحالية (ر.ي.)" Style="{StaticResource RawMaterialsFieldLabel}" />
+                            <TextBlock Text="التكلفة الحالية (ر.س.)" Style="{StaticResource RawMaterialsFieldLabel}" />
                             <TextBox Text="{Binding EditorCost, UpdateSourceTrigger=LostFocus}" Style="{StaticResource RawMaterialsTextInput}" FontFamily="Segoe UI" FlowDirection="LeftToRight" TextAlignment="Right" />
                             <TextBlock Text="{Binding EditorError}" Foreground="{StaticResource DangerBrush}" FontSize="11" Margin="0,10,0,0">
                                 <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding HasEditorError}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>

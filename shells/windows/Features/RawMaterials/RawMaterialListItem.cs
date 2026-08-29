@@ -35,5 +35,5 @@ public sealed class RawMaterialListItem
 
     public string StatusLabel => IsArchived ? "مؤرشفة" : "نشطة";
 
-    public string CostLabel => $"{CurrentCost:N0} ر.ي.";
+    public string CostLabel => $"ر.س. {CurrentCost:N0}";
 }
