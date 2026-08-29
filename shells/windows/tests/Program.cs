@@ -420,6 +420,8 @@ internal sealed class ShellScenarios
         Assert.Contains("<Style x:Key=\"NavText\" TargetType=\"TextBlock\">", xaml, "sidebar Arabic alignment is owned by the shared label style");
         Assert.Contains("<Setter Property=\"FlowDirection\" Value=\"RightToLeft\" />", xaml, "navigation labels preserve Arabic flow");
         Assert.Contains("<Setter Property=\"TextAlignment\" Value=\"Right\" />", xaml, "navigation labels align beside their icons");
+        Assert.Contains("<Setter Property=\"HorizontalAlignment\" Value=\"Right\" />", xaml, "navigation labels anchor to the physical right edge");
+        Assert.Contains("<Setter Property=\"TextWrapping\" Value=\"NoWrap\" />", xaml, "navigation labels do not wrap away from the icon");
         var theme = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "Resources", "OperationsTheme.xaml"));
         Assert.Contains("Property=\"ToolTip\" Value=\"{Binding RelativeSource={RelativeSource Self}, Path=Tag}\"", theme, "compact navigation keeps visible labels as tooltips");
         Assert.Contains("automation:AutomationProperties.Name", theme, "compact navigation keeps stable accessible names");

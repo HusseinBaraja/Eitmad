@@ -15,7 +15,8 @@
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="FlowDirection" Value="RightToLeft" />
             <Setter Property="TextAlignment" Value="Right" />
-            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="TextWrapping" Value="NoWrap" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
                     <Setter Property="Visibility" Value="Collapsed" />
