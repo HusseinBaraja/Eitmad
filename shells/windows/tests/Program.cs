@@ -297,7 +297,7 @@ internal sealed class ShellScenarios
         Assert.Contains("Language=\"ar-YE\"", xaml, "Arabic language metadata");
         Assert.False(xaml.Contains("Text=\"العربية (اليمن)", StringComparison.Ordinal), "visible brand header omits the locale label");
         Assert.Contains("Grid.Column=\"1\" FlowDirection=\"RightToLeft\" HorizontalAlignment=\"Stretch\" VerticalAlignment=\"Center\"", xaml, "brand text area fills the header column");
-        Assert.Contains("HorizontalAlignment=\"Stretch\" TextAlignment=\"Right\"", xaml, "brand text uses right alignment");
+        Assert.Contains("HorizontalAlignment=\"Left\" TextAlignment=\"Right\"", xaml, "RTL brand text is anchored at the physical right edge");
         Assert.Contains("FlowDirection=\"LeftToRight\"", xaml, "mixed-direction isolation");
         Assert.Contains("CNC-04", xaml, "Arabic and English workshop fixture");
         Assert.Contains("Windows / Rust", xaml, "mixed product fixture");

@@ -306,8 +306,8 @@
                             <Grid Grid.Column="1" FlowDirection="RightToLeft" HorizontalAlignment="Stretch" VerticalAlignment="Center">
                                 <Grid.Style><Style TargetType="Grid"><Style.Triggers><DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></Grid.Style>
                                 <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-                                <TextBlock Grid.Row="0" Text="الاعتماد" FontSize="28" FontWeight="Bold" Foreground="#704019" HorizontalAlignment="Stretch" TextAlignment="Right" />
-                                <TextBlock Grid.Row="1" Text="لصناعة الأثاث" FontSize="12" Foreground="#704019" HorizontalAlignment="Stretch" TextAlignment="Right" Margin="0,-2,2,0" />
+                                <TextBlock Grid.Row="0" Text="الاعتماد" FontSize="28" FontWeight="Bold" Foreground="#704019" HorizontalAlignment="Left" TextAlignment="Right" />
+                                <TextBlock Grid.Row="1" Text="لصناعة الأثاث" FontSize="12" Foreground="#704019" HorizontalAlignment="Left" TextAlignment="Right" Margin="0,-2,2,0" />
                             </Grid>
                         </Grid>
                         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
