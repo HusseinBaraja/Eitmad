@@ -411,6 +411,7 @@ internal sealed class ShellScenarios
         Assert.Contains("VerticalAlignment=\"Center\"", textInputStyle, "text host is centered inside the input chrome");
         Assert.Contains("VerticalContentAlignment=\"{TemplateBinding VerticalContentAlignment}\"", textInputStyle, "text host uses the editor alignment");
         Assert.Contains("x:Name=\"PART_Popup\"", xaml, "selector popup is owned by the page visual system");
+        Assert.Contains("Property=\"Data\" Value=\"M3,12 L8,7 L13,12\"", xaml, "open selectors keep the chevron centered");
         Assert.Contains("x:Key=\"RawMaterialsContextMenu\"", xaml, "row actions use the matching modern popup surface");
         Assert.Contains("FlowDirection=\"LeftToRight\" Style=\"{StaticResource RawMaterialsContextMenu}\" Placement=\"Right\" HorizontalOffset=\"6\"", xaml, "row-action popup placement is isolated from RTL mirroring");
         Assert.Contains("Property=\"FlowDirection\" Value=\"RightToLeft\"", xaml, "Arabic row-action labels keep RTL text direction");
