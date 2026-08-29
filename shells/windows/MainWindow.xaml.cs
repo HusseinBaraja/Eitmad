@@ -48,8 +48,29 @@ public partial class MainWindow : Window
         SetNavigationTone(selectedNavButton, false);
         selectedNavButton = button;
         SetNavigationTone(button, true);
-        DashboardTitle.Text = destination == "الرئيسية" ? "لوحة التحكم" : destination;
-        ShowToast($"تم فتح {destination} في وضع المعاينة");
+        ShowDestination(destination);
+    }
+
+    /// <summary>Opens the raw-material list from the dashboard shortcut.</summary>
+    private void OpenRawMaterialsFromActionClick(object sender, RoutedEventArgs eventArgs)
+    {
+        SetNavigationTone(selectedNavButton, false);
+        selectedNavButton = MaterialsNavButton;
+        SetNavigationTone(selectedNavButton, true);
+        ShowDestination("الخامات");
+    }
+
+    /// <summary>Switches between the dashboard preview and the raw-material list page.</summary>
+    private void ShowDestination(string destination)
+    {
+        var showRawMaterials = destination == "الخامات";
+        DashboardSurface.Visibility = showRawMaterials ? Visibility.Collapsed : Visibility.Visible;
+        RawMaterialsSurface.Visibility = showRawMaterials ? Visibility.Visible : Visibility.Collapsed;
+        if (!showRawMaterials)
+        {
+            DashboardTitle.Text = destination == "الرئيسية" ? "لوحة التحكم" : destination;
+            ShowToast($"تم فتح {destination} في وضع المعاينة");
+        }
     }
 
     /// <summary>Preserves readable content on the selected navigation item during hover.</summary>

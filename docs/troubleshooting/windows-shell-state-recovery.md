@@ -25,6 +25,9 @@ keywords:
   - "fixed Viewbox"
   - "window ratio leaves empty space"
   - "الواجهة لا تتجاوب مع حجم النافذة"
+  - "Win98 dropdown"
+  - "القائمة المنسدلة قديمة"
+  - "raw materials popup"
 ---
 
 # Recover a disconnected or stale Windows operations shell
@@ -42,6 +45,7 @@ The Windows shell can become temporarily unavailable without losing Rust-owned d
 - minimize, maximize, or close icons are missing, use custom colors, or appear on the wrong RTL/LTR side.
 - dashboard, toolbar, or sidebar icons appear as blank squares; a selected sidebar icon stays dark on the walnut background; Arabic labels drift away from their icons; **آخر عروض الأسعار** overlaps **عرض الكل**; or the toolbar and footer controls touch adjacent edges.
 - the dashboard scales as one frozen canvas, leaves large empty bands, clips cards, or does not reflow when the window width, height, or ratio changes.
+- the **المواد الخام** category, status, unit, or row-action dropdown uses square gray platform chrome, loses copper focus states, or places Arabic actions outside the expected popup surface.
 
 Sync and update **غير متاحة** currently means that the engine did not advertise those optional runtime capabilities. The shell sends no query or subscription for them. It does not mean that the shell calculated an offline, current, or failed state. Configuration remains usable when its typed query succeeds.
 
@@ -68,6 +72,7 @@ Sync and update **غير متاحة** currently means that the engine did not ad
 | A compact rule exists but search, logo, or cards keep their desktop position or width | A local XAML value overrides the responsive style trigger because local values have higher WPF precedence | Inspect the affected property for both an inline value and a responsive style setter | Move the base value into the same style as the breakpoint trigger, rebuild, and inspect compact and standard widths |
 | Caption icons are missing or do not follow RTL/LTR placement | The shell replaced the Windows non-client frame with custom controls | Check `MainWindow.xaml` for `WindowStyle="None"`, `WindowChrome`, or a custom caption-button style | Restore `WindowStyle="SingleBorderWindow"` with `ResizeMode="CanResize"`; remove custom caption controls and handlers, then run the shell tests |
 | Dashboard icons are blank squares or use inconsistent shapes and colors | The dashboard uses private-use font code points or per-card raw colors | Search `MainWindow.xaml` for `Segoe Fluent Icons`, `&#xE`, and raw icon foreground values | Use geometry from `Resources/OperationsIcons.xaml` and semantic brushes from `OperationsTheme.xaml`; then run the shell tests and inspect the rendered window |
+| A **المواد الخام** dropdown looks like an old square Windows control, or its row-action popup opens on the wrong RTL side | A raw-material selector uses the platform-default template, or popup placement and Arabic text share one direction boundary | Inspect `RawMaterialsView.xaml` for `RawMaterialsComboBox`, `PART_Popup`, `RawMaterialsContextMenu`, and RTL `RawMaterialsMenuItem`; verify the popup placement boundary is LTR while Arabic items remain RTL | Restore the raw-material control templates and direction isolation. Run `RawMaterialsPageUsesTheDashboardVisualSystem`, then inspect an open category selector and three-dot action popup in the rendered WPF window |
 | A selected sidebar label is white but its icon stays dark | `SetNavigationTone` updates only `TextBlock.Foreground`, or deselection leaves a local `Path.Fill` value | Check `MainWindow.xaml.cs` for the `VisualDescendants<System.Windows.Shapes.Path>` update and `Shape.FillProperty` reset | Set the selected icon fill to white and clear the local fill on deselection so `NavVectorIcon` restores the ink theme brush; then run the shell tests and select **عروض الأسعار** in the rendered app |
 | Arabic sidebar or notification labels sit at the left edge of their cell, touch an icon, or leave an oversized gap | The RTL `NavText` style does not use `TextAlignment="Right"` with physical `HorizontalAlignment="Right"`, or a fixed label-to-icon spacer is missing from the affected component | Check for an LTR row with a flexible RTL text column, the shared no-wrap `NavText` style, a fixed `12`-unit spacer, and a fixed icon column; sidebar icons use `34` units, notification icons use `34` units, and notification status dots use `18` units | Restore the component’s physical LTR columns and the shared right-aligned, right-anchored RTL label style; do not use per-label margins or physical alignment guesses |
 | Arabic notification labels are not beside their icons, or **آخر عروض الأسعار** overlaps **عرض الكل** | The component lost its explicit local direction boundary or named columns | Inspect the affected component for its fixed icon and label columns and inspect `LatestQuotesHeader` for separate title and action columns | Restore the component-specific direction boundary and named columns; do not use margins as a direction substitute |

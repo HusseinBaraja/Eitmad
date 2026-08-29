@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:layout="clr-namespace:Eitmad.WindowsShell.Layout"
+        xmlns:rawMaterials="clr-namespace:Eitmad.WindowsShell.Features.RawMaterials"
         Title="الاعتماد · لوحة التحكم" Width="1338" Height="753" MinWidth="720" MinHeight="560"
         WindowStartupLocation="CenterScreen" WindowStyle="SingleBorderWindow" ResizeMode="CanResize"
         Background="{StaticResource CanvasBrush}" FlowDirection="RightToLeft" Language="ar-YE"
@@ -63,7 +64,7 @@
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
 
                 <!-- Main toolbar and dashboard -->
-                <Grid Grid.Column="0" FlowDirection="RightToLeft" MinWidth="0">
+                <Grid x:Name="DashboardSurface" Grid.Column="0" FlowDirection="RightToLeft" MinWidth="0">
                     <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
                     <Border Grid.Row="0" Background="#FEFDFC" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
                         <Grid x:Name="ToolbarLayout" Margin="24,14" FlowDirection="LeftToRight">
@@ -171,7 +172,7 @@
                                     <Button Height="82" Margin="6" Style="{StaticResource QuickActionButton}" Tag="إعداد الربح" Click="PreviewActionClick"><StackPanel VerticalAlignment="Center"><Path Data="{StaticResource IconTrend}" Style="{StaticResource MetricVectorIcon}" /><TextBlock Text="إعداد الربح" FontSize="14" TextAlignment="Center" Margin="0,8,0,0" /></StackPanel></Button>
                                     <Button Height="82" Margin="6" Style="{StaticResource QuickActionButton}" Tag="قوالب المنتجات" Click="PreviewActionClick"><StackPanel VerticalAlignment="Center"><Path Data="{StaticResource IconFurniture}" Style="{StaticResource MetricVectorIcon}" /><TextBlock Text="قوالب المنتجات" FontSize="14" TextAlignment="Center" Margin="0,8,0,0" /></StackPanel></Button>
                                     <Button Height="82" Margin="6" Style="{StaticResource QuickActionButton}" Tag="إدارة القطع" Click="PreviewActionClick"><StackPanel VerticalAlignment="Center"><Path Data="{StaticResource IconCut}" Style="{StaticResource MetricVectorIcon}" /><TextBlock Text="إدارة القطع" FontSize="14" TextAlignment="Center" Margin="0,8,0,0" /></StackPanel></Button>
-                                    <Button Height="82" Margin="6" Style="{StaticResource QuickActionButton}" Tag="إدارة الخامات" Click="PreviewActionClick"><StackPanel VerticalAlignment="Center"><Path Data="{StaticResource IconMaterials}" Style="{StaticResource MetricVectorIcon}" /><TextBlock Text="إدارة الخامات" FontSize="14" TextAlignment="Center" Margin="0,8,0,0" /></StackPanel></Button>
+                                    <Button Height="82" Margin="6" Style="{StaticResource QuickActionButton}" Tag="إدارة الخامات" Click="OpenRawMaterialsFromActionClick"><StackPanel VerticalAlignment="Center"><Path Data="{StaticResource IconMaterials}" Style="{StaticResource MetricVectorIcon}" /><TextBlock Text="إدارة الخامات" FontSize="14" TextAlignment="Center" Margin="0,8,0,0" /></StackPanel></Button>
                                 </UniformGrid>
                             </Grid>
                         </Border>
@@ -267,6 +268,8 @@
                     <Border x:Name="InteractionToast" Grid.Row="1" Margin="30" Padding="18,11" HorizontalAlignment="Left" VerticalAlignment="Bottom" Panel.ZIndex="40" Visibility="Collapsed" Background="#3B240F" CornerRadius="9"><TextBlock x:Name="InteractionToastText" Foreground="White" FontSize="12" /></Border>
                 </Grid>
 
+                <rawMaterials:RawMaterialsView x:Name="RawMaterialsSurface" Grid.Column="0" Visibility="Collapsed" />
+
                 <!-- Right navigation -->
                 <Border x:Name="Sidebar" Grid.Column="1" Background="#FEFDFC" BorderBrush="{StaticResource LineBrush}" BorderThickness="1,0,0,0" FlowDirection="RightToLeft">
                     <Border.Style>
@@ -311,7 +314,7 @@
                           <StackPanel x:Name="SidebarNavigation" Margin="0,16,0,8">
                             <Button x:Name="HomeNavButton" Style="{StaticResource NavButton}" Tag="الرئيسية" Click="NavigationClick"><Button.Background><LinearGradientBrush StartPoint="1,0" EndPoint="0,1"><GradientStop Color="#B67634" /><GradientStop Color="#7C410C" Offset="1" /></LinearGradientBrush></Button.Background><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="الرئيسية" Foreground="White" FontWeight="SemiBold" Style="{StaticResource NavText}" /><Path Grid.Column="2" Data="{StaticResource IconHome}" Style="{StaticResource NavVectorIcon}" Fill="White" /></Grid></Button>
                             <Button Style="{StaticResource NavButton}" Tag="عروض الأسعار" Click="NavigationClick"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="عروض الأسعار" Style="{StaticResource NavText}" /><Path Grid.Column="2" Data="{StaticResource IconQuote}" Style="{StaticResource NavVectorIcon}" /></Grid></Button>
-                            <Button Style="{StaticResource NavButton}" Tag="الخامات" Click="NavigationClick"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="الخامات" Style="{StaticResource NavText}" /><Path Grid.Column="2" Data="{StaticResource IconMaterials}" Style="{StaticResource NavVectorIcon}" /></Grid></Button>
+                            <Button x:Name="MaterialsNavButton" Style="{StaticResource NavButton}" Tag="الخامات" Click="NavigationClick"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="الخامات" Style="{StaticResource NavText}" /><Path Grid.Column="2" Data="{StaticResource IconMaterials}" Style="{StaticResource NavVectorIcon}" /></Grid></Button>
                             <Button Style="{StaticResource NavButton}" Tag="القطع" Click="NavigationClick"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="القطع" Style="{StaticResource NavText}" /><Path Grid.Column="2" Data="{StaticResource IconCut}" Style="{StaticResource NavVectorIcon}" /></Grid></Button>
                             <Button Style="{StaticResource NavButton}" Tag="قوالب الأثاث" Click="NavigationClick"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="قوالب الأثاث" Style="{StaticResource NavText}" /><Path Grid.Column="2" Data="{StaticResource IconFurniture}" Style="{StaticResource NavVectorIcon}" /></Grid></Button>
                             <Button Style="{StaticResource NavButton}" Tag="التسعير" Click="NavigationClick"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="التسعير" Style="{StaticResource NavText}" /><Path Grid.Column="2" Data="{StaticResource IconPricing}" Style="{StaticResource NavVectorIcon}" /></Grid></Button>

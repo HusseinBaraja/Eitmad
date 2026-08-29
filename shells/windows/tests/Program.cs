@@ -3,6 +3,7 @@ using Eitmad.Contracts;
 using Eitmad.Platform.Windows.ProcessSupervision;
 using Eitmad.Platform.Windows.Shell;
 using Eitmad.WindowsShell.Features.Operations;
+using Eitmad.WindowsShell.Features.RawMaterials;
 using Eitmad.WindowsShell.Layout;
 
 var tests = new ShellScenarios();
@@ -22,6 +23,9 @@ await tests.ShutdownStopsEngineCleanly();
 tests.RtlLayoutIncludesMixedDirectionFixtures();
 tests.NativeWindowChromeIsDelegatedToWindows();
 tests.DashboardUsesNativeInteractiveControls();
+tests.RawMaterialsSearchAndFiltersUpdateVisibleList();
+tests.RawMaterialsActionsRemainNonDestructiveAndEphemeral();
+tests.RawMaterialsPageUsesTheDashboardVisualSystem();
 tests.DashboardVisualSystemIsConsistentAndRtlSafe();
 tests.ResponsiveLayoutSelectsStableBreakpoints();
 tests.DashboardReflowsInsteadOfScalingAFixedCanvas();
@@ -326,6 +330,80 @@ internal sealed class ShellScenarios
         Assert.Contains("KeyDown=\"SearchKeyDown\"", xaml, "search keyboard interaction");
         Assert.Contains("PreviewSubmitClick", codeBehind, "preview form validation");
         Assert.Contains("الحفظ معطل في وضع المعاينة", codeBehind, "preview cannot claim durable storage");
+    }
+
+    /// <summary>Verifies immediate search and combined category/status filtering.</summary>
+    public void RawMaterialsSearchAndFiltersUpdateVisibleList()
+    {
+        var model = new RawMaterialsViewModel();
+
+        Assert.Equal(4, model.VisibleMaterials.Count, "raw-material preview starts with all fixtures");
+        model.SearchText = "mdf";
+        Assert.Equal(1, model.VisibleMaterials.Count, "search is case-insensitive");
+        Assert.Equal("MDF 18mm", model.VisibleMaterials.Single().Name, "search returns the expected board");
+
+        model.SearchText = string.Empty;
+        model.SelectedCategory = "أخشاب";
+        model.SelectedStatus = RawMaterialsViewModel.ArchivedStatus;
+        Assert.Equal(1, model.VisibleMaterials.Count, "category and archived filters combine");
+        Assert.True(model.VisibleMaterials.Single().IsArchived, "archived filter excludes active timber");
+
+        model.SelectedStatus = RawMaterialsViewModel.ActiveStatus;
+        Assert.Equal(1, model.VisibleMaterials.Count, "active filter excludes archived timber");
+        Assert.Equal("Beech Wood", model.VisibleMaterials.Single().Name, "active timber remains visible");
+    }
+
+    /// <summary>Verifies local create/edit/duplicate/archive behavior without permanent deletion.</summary>
+    public void RawMaterialsActionsRemainNonDestructiveAndEphemeral()
+    {
+        var model = new RawMaterialsViewModel();
+        var originalCount = model.VisibleMaterials.Count;
+        var board = model.VisibleMaterials.Single(item => item.Name == "MDF 18mm");
+
+        model.Archive(board);
+        Assert.Equal(originalCount, model.VisibleMaterials.Count, "archive keeps the material in the all-status list");
+        Assert.True(board.IsArchived, "archive marks the row visually inactive");
+
+        var timber = model.VisibleMaterials.Single(item => item.Name == "Beech Wood");
+        var duplicate = model.Duplicate(timber);
+        Assert.True(model.IsEditorOpen, "duplicate opens the edit page");
+        Assert.True(duplicate.Name.EndsWith("نسخة", StringComparison.Ordinal), "duplicate has a clear local name");
+        Assert.Equal(originalCount + 1, model.VisibleMaterials.Count, "duplicate adds one local row");
+
+        model.CancelEditor();
+        model.BeginCreate();
+        model.EditorName = "قماش صنعاء Fabric";
+        model.EditorCategory = "أقمشة";
+        model.EditorUnit = "متر";
+        model.EditorCost = 4_200m;
+        Assert.True(model.SaveEditor(), "valid create form updates preview state");
+        Assert.Equal(originalCount + 2, model.VisibleMaterials.Count, "create adds one local row");
+    }
+
+    /// <summary>Verifies the required Arabic-first table and preview ownership boundaries.</summary>
+    public void RawMaterialsPageUsesTheDashboardVisualSystem()
+    {
+        var shell = Path.Combine(RepositoryRoot, "shells", "windows");
+        var xaml = File.ReadAllText(Path.Combine(shell, "Features", "RawMaterials", "RawMaterialsView.xaml"));
+        var mainWindow = File.ReadAllText(Path.Combine(shell, "MainWindow.xaml"));
+
+        Assert.Contains("Text=\"المواد الخام\"", xaml, "raw-material page heading");
+        Assert.Contains("Text=\"إضافة مادة خام\"", xaml, "primary create action");
+        Assert.Contains("Text=\"اسم المادة\"", xaml, "material-name column");
+        Assert.Contains("Text=\"التكلفة الحالية\"", xaml, "current-cost column");
+        Assert.Contains("Header=\"تعديل\"", xaml, "compact edit action");
+        Assert.Contains("Header=\"تكرار\"", xaml, "compact duplicate action");
+        Assert.Contains("Header=\"أرشفة\"", xaml, "compact archive action");
+        Assert.False(xaml.Contains("Header=\"حذف\"", StringComparison.Ordinal), "raw-material page has no permanent delete action");
+        Assert.Contains("x:Key=\"RawMaterialsComboBox\"", xaml, "selectors use a custom modern control template");
+        Assert.Contains("x:Name=\"PART_Popup\"", xaml, "selector popup is owned by the page visual system");
+        Assert.Contains("x:Key=\"RawMaterialsContextMenu\"", xaml, "row actions use the matching modern popup surface");
+        Assert.Contains("FlowDirection=\"LeftToRight\" Style=\"{StaticResource RawMaterialsContextMenu}\" Placement=\"Right\" HorizontalOffset=\"6\"", xaml, "row-action popup placement is isolated from RTL mirroring");
+        Assert.Contains("Property=\"FlowDirection\" Value=\"RightToLeft\"", xaml, "Arabic row-action labels keep RTL text direction");
+        Assert.Contains("CornerRadius=\"10\"", xaml, "dropdown surfaces use rounded dashboard geometry");
+        Assert.Contains("Binding IsArchived", xaml, "archived rows have an inactive visual trigger");
+        Assert.Contains("محرك Rust", xaml, "preview does not claim Rust-owned persistence");
+        Assert.Contains("rawMaterials:RawMaterialsView", mainWindow, "sidebar destination hosts the raw-material page");
     }
 
     /// <summary>Verifies shared icons and explicit RTL layout boundaries.</summary>
