@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Windows UI maintainers"
-last_verified: "2026-08-29"
+last_verified: "2026-08-30"
 review_triggers:
   - "Windows shell UI, state mapping, configuration patches, subscriptions, tray behavior, or ownership boundaries change"
 keywords:
@@ -25,6 +25,7 @@ keywords:
   - "compact navigation rail"
   - "المواد الخام"
   - "RawMaterialsView"
+  - "اخشاب"
   - "modern WPF ComboBox"
 ---
 
@@ -48,7 +49,7 @@ The furniture operations dashboard currently marks itself **وضع المعاي�
 
 Preview interactions are real WPF input behavior but remain ephemeral. Sidebar buttons update their selected style and the page heading. The selected label and vector icon stay white on the walnut background, including while the pointer highlights the selected button. When another item is selected, the old icon returns to the shared ink theme brush. Quick actions, notification controls, and footer links show bounded Arabic feedback. The search box clears and restores its placeholder on focus changes and reports the submitted Arabic term without querying authoritative records. **عرض سعر جديد** opens a keyboard-editable drawer, validates that a customer name is present, and then reports **الحفظ معطل في وضع المعاينة**. It does not create a command, record, audit entry, or sync item. When the quotation vertical exists, replace only this preview boundary with a typed Rust-owned command and keep the failure message until a successful authoritative result returns.
 
-The **المواد الخام** destination is a dedicated preview page under `Features/RawMaterials`. `RawMaterialsViewModel` owns only transient search, category and status filters, editor state, and synthetic list fixtures. Search updates on each text change, filters compose, archived rows remain available with inactive styling, and the compact menu offers **تعديل**, **تكرار**, and **أرشفة** without a permanent delete action. Clicking a row opens the same editor as **إضافة مادة خام**. Create, edit, duplicate, and archive change only the in-memory preview and show copy that states the result is local and temporary. The shell does not define a material contract, validate a durable material, authorize a manager, write audit or storage state, or enqueue synchronization. Add those behaviors to a Rust raw-material vertical before claiming that a change is saved.
+The **المواد الخام** destination is a dedicated preview page under `Features/RawMaterials`. `RawMaterialsViewModel` owns only transient search, category and status filters, editor state, and synthetic list fixtures. Search updates on each text change and normalizes Arabic alef variants, `ى`, `ة`, tatweel, and combining marks in both the query and searchable fields. For example, **اخشاب** matches **أخشاب طبيعية**. Filters compose, archived rows remain available with inactive styling, and the compact menu offers **تعديل**, **تكرار**, and **أرشفة** without a permanent delete action. Clicking a row opens the same editor as **إضافة مادة خام**. Create, edit, duplicate, and archive change only the in-memory preview and show copy that states the result is local and temporary. The shell does not define a material contract, validate a durable material, authorize a manager, write audit or storage state, or enqueue synchronization. Add those behaviors to a Rust raw-material vertical before claiming that a change is saved.
 
 ## Normal state flow
 

@@ -348,6 +348,9 @@ internal sealed class ShellScenarios
         model.SearchText = "زان";
         Assert.Equal("خشب زان مجفف", model.VisibleMaterials.Single().Name, "Arabic search returns the expected timber");
 
+        model.SearchText = "اخشاب";
+        Assert.Equal(2, model.VisibleMaterials.Count, "Arabic search folds alef variants in natural-timber categories");
+
         model.SearchText = string.Empty;
         model.SelectedCategory = "أخشاب طبيعية";
         model.SelectedStatus = RawMaterialsViewModel.ArchivedStatus;

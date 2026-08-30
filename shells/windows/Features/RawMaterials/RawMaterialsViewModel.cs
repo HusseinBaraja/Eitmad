@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Text;
 
 namespace Eitmad.WindowsShell.Features.RawMaterials;
 
@@ -272,7 +274,7 @@ public sealed class RawMaterialsViewModel : INotifyPropertyChanged
 
     private void RefreshVisibleMaterials()
     {
-        var normalizedSearch = SearchText.Trim();
+        var normalizedSearch = NormalizeSearchText(SearchText.Trim());
         var matches = materials.Where(material =>
             MatchesSearch(material, normalizedSearch)
             && (SelectedCategory == AllCategories || material.Category == SelectedCategory)
@@ -292,9 +294,37 @@ public sealed class RawMaterialsViewModel : INotifyPropertyChanged
 
     private static bool MatchesSearch(RawMaterialListItem material, string search) =>
         search.Length == 0
-        || material.Name.Contains(search, StringComparison.CurrentCultureIgnoreCase)
-        || material.Category.Contains(search, StringComparison.CurrentCultureIgnoreCase)
-        || material.Unit.Contains(search, StringComparison.CurrentCultureIgnoreCase);
+        || NormalizeSearchText(material.Name).Contains(search, StringComparison.CurrentCultureIgnoreCase)
+        || NormalizeSearchText(material.Category).Contains(search, StringComparison.CurrentCultureIgnoreCase)
+        || NormalizeSearchText(material.Unit).Contains(search, StringComparison.CurrentCultureIgnoreCase);
+
+    private static string NormalizeSearchText(string value)
+    {
+        var decomposed = value.Normalize(NormalizationForm.FormD);
+        var normalized = new StringBuilder(decomposed.Length);
+
+        foreach (var character in decomposed)
+        {
+            var category = CharUnicodeInfo.GetUnicodeCategory(character);
+            if (character == '\u0640'
+                || category is UnicodeCategory.NonSpacingMark
+                    or UnicodeCategory.SpacingCombiningMark
+                    or UnicodeCategory.EnclosingMark)
+            {
+                continue;
+            }
+
+            normalized.Append(character switch
+            {
+                '\u0622' or '\u0623' or '\u0625' or '\u0671' => '\u0627',
+                '\u0649' => '\u064A',
+                '\u0629' => '\u0647',
+                _ => character,
+            });
+        }
+
+        return normalized.ToString();
+    }
 
     private bool Set<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
     {

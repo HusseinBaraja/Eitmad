@@ -5,7 +5,7 @@ audience: "support"
 page_type: "troubleshooting"
 status: "active"
 owner: "Windows UI and platform maintainers"
-last_verified: "2026-08-29"
+last_verified: "2026-08-30"
 review_triggers:
   - "Windows shell frame, availability copy, reconnect, resync, query support, or shutdown behavior changes"
 keywords:
@@ -28,6 +28,7 @@ keywords:
   - "Win98 dropdown"
   - "القائمة المنسدلة قديمة"
   - "raw materials popup"
+  - "اخشاب لا تظهر نتائج"
   - "dark button text"
   - "missing rounded button border"
   - "clipped text box content"
@@ -54,6 +55,7 @@ The Windows shell can become temporarily unavailable without losing Rust-owned d
 - dashboard, toolbar, or sidebar icons appear as blank squares; a selected sidebar icon stays dark on the walnut background; Arabic labels drift away from their icons; **آخر عروض الأسعار** overlaps **عرض الكل**; or the toolbar and footer controls touch adjacent edges.
 - the dashboard scales as one frozen canvas, leaves large empty bands, clips cards, or does not reflow when the window width, height, or ratio changes.
 - the **المواد الخام** category, status, unit, or row-action dropdown uses square gray platform chrome, loses copper focus states, or places Arabic actions outside the expected popup surface.
+- the **المواد الخام** search returns no result for an unmarked spelling such as **اخشاب** when a matching category such as **أخشاب طبيعية** is visible without a search.
 - the **حفظ في المعاينة** text is dark on the brown button, or the **إلغاء** button loses its right border at a rounded corner.
 - Arabic or numeric values in the **اسم المادة** or **التكلفة الحالية** fields are clipped at the lower edge.
 - the category or status chevron flips upward but shifts away from the center of its circular control.
@@ -86,6 +88,7 @@ Sync and update **غير متاحة** currently means that the engine did not ad
 | Caption icons are missing or do not follow RTL/LTR placement | The shell replaced the Windows non-client frame with custom controls | Check `MainWindow.xaml` for `WindowStyle="None"`, `WindowChrome`, or a custom caption-button style | Restore `WindowStyle="SingleBorderWindow"` with `ResizeMode="CanResize"`; remove custom caption controls and handlers, then run the shell tests |
 | Dashboard icons are blank squares or use inconsistent shapes and colors | The dashboard uses private-use font code points or per-card raw colors | Search `MainWindow.xaml` for `Segoe Fluent Icons`, `&#xE`, and raw icon foreground values | Use geometry from `Resources/OperationsIcons.xaml` and semantic brushes from `OperationsTheme.xaml`; then run the shell tests and inspect the rendered window |
 | A **المواد الخام** dropdown looks like an old square Windows control, or its row-action popup opens on the wrong RTL side | A raw-material selector uses the platform-default template, or popup placement and Arabic text share one direction boundary | Inspect `RawMaterialsView.xaml` for `RawMaterialsComboBox`, `PART_Popup`, `RawMaterialsContextMenu`, and RTL `RawMaterialsMenuItem`; verify the popup placement boundary is LTR while Arabic items remain RTL | Restore the raw-material control templates and direction isolation. Run `RawMaterialsPageUsesTheDashboardVisualSystem`, then inspect an open category selector and three-dot action popup in the rendered WPF window |
+| **اخشاب** returns no raw-material results while **أخشاب طبيعية** is visible without a search | The query or searchable fields bypass `RawMaterialsViewModel` Arabic normalization | Run `RawMaterialsSearchAndFiltersUpdateVisibleList` and inspect `NormalizeSearchText`; do not change stored fixture text | Normalize the query and each searchable field before comparison, then verify both **اخشاب** and **أخشاب** return the natural-timber fixtures |
 | The **حفظ في المعاينة** label is dark, or the **إلغاء** button has a missing right border | `PrimaryButton` does not forward `Foreground` to its `ContentPresenter`, or the secondary button border is not pixel-snapped and is too faint at the rounded edge | Inspect `OperationsTheme.xaml` for a `TextElement.Foreground` binding to the templated button foreground; inspect `RawMaterialsSecondaryButton` for its explicit border brush and `SnapsToDevicePixels` | Restore the shared content foreground binding and the pixel-snapped secondary border. Run `RawMaterialsPageUsesTheDashboardVisualSystem`, then inspect both editor actions in the rendered WPF window |
 | Raw-material text appears clipped at the bottom of an editor field | `RawMaterialsTextInput` leaves the content host at its default vertical alignment or allows an internal scrollbar to constrain the line box | Inspect `RawMaterialsView.xaml` for `VerticalContentAlignment="Center"` on the style and the matching template binding on `PART_ContentHost` | Keep the content host vertically centered with hidden horizontal and vertical scrollbars, rebuild, and inspect Arabic and numeric values in both editor fields |
 | A category or status chevron shifts when its combo opens | The open-state trigger rotates an asymmetric path around the wrong pivot | Inspect `RawMaterialsComboBox` for separate centered closed and open `Data` geometries instead of a `RotateTransform` | Use the centered up-chevron geometry for `IsDropDownOpen`, rebuild, and inspect both closed and open selectors |
