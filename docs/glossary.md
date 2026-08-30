@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "product maintainers"
-last_verified: "2026-08-25"
+last_verified: "2026-08-30"
 review_triggers:
   - "a domain term, UI label, contract concept, or workshop synonym changes"
 keywords:
@@ -67,6 +67,8 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | المقاسات | Dimensions | Length, width, height, depth, thickness, or other measurements with explicit units. |
 | الخامة | Material | A substance or component used in production, such as wood, board, fabric, or hardware. |
 | المادة الخام | Raw material | A material stocked for use before or during furniture production. The current Windows **المواد الخام** page is a preview fixture; its durable lifecycle and authority are not yet defined. |
+| الفئة / التصنيف | Raw-material category | A grouping used to organize raw materials. The current field label is **الفئة**; inline actions use **إضافة تصنيف جديد** and **إدارة التصنيفات**. The preview values are not durable domain records. |
+| الوحدة | Unit | The named measure used for a raw-material quantity, with a short name such as `m²`. The preview action is **إضافة وحدة جديدة**; conversion and durable validation remain undefined. |
 | لوح خشبي | Board / panel | A sheet material used in furniture production. Exact material type remains a separate attribute. |
 | الإكسسوارات | Hardware / accessories | Hinges, handles, rails, fasteners, and similar furniture components. User terminology is provisional by context. |
 | التشطيب | Finish | The final surface treatment, color, coating, edge treatment, or appearance. |

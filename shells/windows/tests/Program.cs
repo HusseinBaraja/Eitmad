@@ -27,6 +27,7 @@ tests.DashboardUsesNativeInteractiveControls();
 tests.RawMaterialsSearchAndFiltersUpdateVisibleList();
 tests.RawMaterialCostsIgnoreTheAmbientCulture();
 tests.RawMaterialsActionsRemainNonDestructiveAndEphemeral();
+tests.RawMaterialReferencesCanBeManagedInline();
 tests.RawMaterialsPageUsesTheDashboardVisualSystem();
 tests.DashboardVisualSystemIsConsistentAndRtlSafe();
 tests.ResponsiveLayoutSelectsStableBreakpoints();
@@ -392,6 +393,39 @@ internal sealed class ShellScenarios
         Assert.Equal(originalCount + 2, model.VisibleMaterials.Count, "create adds one local row");
     }
 
+    /// <summary>Verifies inline category and unit creation, editing, selection, and archival.</summary>
+    public void RawMaterialReferencesCanBeManagedInline()
+    {
+        var model = new RawMaterialsViewModel();
+
+        model.BeginAddCategory();
+        model.ReferenceName = "إكسسوارات";
+        Assert.True(model.SaveReferenceEditor(), "a category can be created without leaving the material editor");
+        Assert.Equal("إكسسوارات", model.EditorCategory, "a new category is selected automatically");
+        Assert.True(model.ActiveCategories.Any(item => item.Name == "إكسسوارات"), "a new category appears in the dropdown");
+
+        model.BeginAddUnit();
+        model.ReferenceName = "متر مربع";
+        model.ReferenceShortName = "m²";
+        Assert.True(model.SaveReferenceEditor(), "a unit can be created without leaving the material editor");
+        Assert.Equal("متر مربع", model.EditorUnit, "a new unit is selected automatically");
+        Assert.Equal("لوح", model.ActiveUnits.First().DisplayLabel, "identical unit names are not repeated in dropdown labels");
+        var squareMeter = model.ActiveUnits.Single(item => item.Name == "متر مربع");
+        Assert.Equal("متر مربع — m²", squareMeter.DisplayLabel, "unit dropdown labels include the short name");
+
+        model.BeginManageUnits();
+        model.BeginEditReference(squareMeter);
+        model.ReferenceShortName = "م²";
+        Assert.True(model.SaveReferenceEditor(), "an existing unit can be edited from the small manager");
+        Assert.Equal("متر مربع — م²", squareMeter.DisplayLabel, "the edited short name updates in place");
+        Assert.True(model.IsReferenceManagerOpen, "saving an edit returns to the unit manager");
+
+        model.ArchiveReference(squareMeter);
+        Assert.True(squareMeter.IsArchived, "archive keeps the unit record and marks it inactive");
+        Assert.False(model.ActiveUnits.Contains(squareMeter), "archived units are no longer selectable for new materials");
+        Assert.False(model.IsReferenceEditorOpen, "archive does not open another dialog");
+    }
+
     /// <summary>Verifies raw-material amounts keep the selected Latin-digit presentation.</summary>
     public void RawMaterialCostsIgnoreTheAmbientCulture()
     {
@@ -442,6 +476,13 @@ internal sealed class ShellScenarios
         Assert.Contains("Header=\"أرشفة\"", xaml, "compact archive action");
         Assert.False(xaml.Contains("Header=\"حذف\"", StringComparison.Ordinal), "raw-material page has no permanent delete action");
         Assert.Contains("x:Key=\"RawMaterialsComboBox\"", xaml, "selectors use a custom modern control template");
+        Assert.Contains("+ إضافة تصنيف جديد", xaml, "category dropdown exposes inline creation");
+        Assert.Contains("+ إضافة وحدة جديدة", xaml, "unit dropdown exposes inline creation");
+        Assert.Contains("إدارة التصنيفات", xaml, "category dropdown exposes its small manager");
+        Assert.Contains("إدارة الوحدات", xaml, "unit dropdown exposes its small manager");
+        Assert.Contains("ItemsSource=\"{Binding ManagedReferences}\"", xaml, "both managers share one compact row pattern");
+        Assert.Contains("Content=\"أرشفة\"", xaml, "reference management archives instead of deleting");
+        Assert.False(xaml.Contains("Content=\"حذف\"", StringComparison.Ordinal), "reference management has no permanent delete button");
         Assert.Contains("x:Key=\"RawMaterialsTextInput\"", xaml, "editor fields use a named input style");
         var textInputStyleStart = xaml.IndexOf("x:Key=\"RawMaterialsTextInput\"", StringComparison.Ordinal);
         var comboStyleStart = xaml.IndexOf("x:Key=\"RawMaterialsComboBoxItem\"", StringComparison.Ordinal);
