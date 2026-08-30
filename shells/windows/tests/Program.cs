@@ -1,8 +1,10 @@
+using System.Globalization;
 using System.Threading.Channels;
 using Eitmad.Contracts;
 using Eitmad.Platform.Windows.ProcessSupervision;
 using Eitmad.Platform.Windows.Shell;
 using Eitmad.WindowsShell.Features.Operations;
+using Eitmad.WindowsShell.Features.RawMaterials;
 using Eitmad.WindowsShell.Layout;
 
 var tests = new ShellScenarios();
@@ -22,6 +24,10 @@ await tests.ShutdownStopsEngineCleanly();
 tests.RtlLayoutIncludesMixedDirectionFixtures();
 tests.NativeWindowChromeIsDelegatedToWindows();
 tests.DashboardUsesNativeInteractiveControls();
+tests.RawMaterialsSearchAndFiltersUpdateVisibleList();
+tests.RawMaterialCostsIgnoreTheAmbientCulture();
+tests.RawMaterialsActionsRemainNonDestructiveAndEphemeral();
+tests.RawMaterialsPageUsesTheDashboardVisualSystem();
 tests.DashboardVisualSystemIsConsistentAndRtlSafe();
 tests.ResponsiveLayoutSelectsStableBreakpoints();
 tests.DashboardReflowsInsteadOfScalingAFixedCanvas();
@@ -291,7 +297,9 @@ internal sealed class ShellScenarios
         var xaml = File.ReadAllText(Path.Combine(RepositoryRoot, "shells", "windows", "MainWindow.xaml"));
         Assert.Contains("FlowDirection=\"RightToLeft\"", xaml, "root RTL layout");
         Assert.Contains("Language=\"ar-YE\"", xaml, "Arabic language metadata");
-        Assert.Contains("Text=\"العربية (اليمن) · ar-YE\"", xaml, "visible primary locale marker");
+        Assert.False(xaml.Contains("Text=\"العربية (اليمن)", StringComparison.Ordinal), "visible brand header omits the locale label");
+        Assert.Contains("Grid.Column=\"1\" FlowDirection=\"RightToLeft\" HorizontalAlignment=\"Stretch\" VerticalAlignment=\"Center\"", xaml, "brand text area fills the header column");
+        Assert.Contains("HorizontalAlignment=\"Left\" TextAlignment=\"Right\"", xaml, "RTL brand text is anchored at the physical right edge");
         Assert.Contains("FlowDirection=\"LeftToRight\"", xaml, "mixed-direction isolation");
         Assert.Contains("CNC-04", xaml, "Arabic and English workshop fixture");
         Assert.Contains("Windows / Rust", xaml, "mixed product fixture");
@@ -326,6 +334,129 @@ internal sealed class ShellScenarios
         Assert.Contains("KeyDown=\"SearchKeyDown\"", xaml, "search keyboard interaction");
         Assert.Contains("PreviewSubmitClick", codeBehind, "preview form validation");
         Assert.Contains("الحفظ معطل في وضع المعاينة", codeBehind, "preview cannot claim durable storage");
+    }
+
+    /// <summary>Verifies immediate search and combined category/status filtering.</summary>
+    public void RawMaterialsSearchAndFiltersUpdateVisibleList()
+    {
+        var model = new RawMaterialsViewModel();
+
+        Assert.Equal(4, model.VisibleMaterials.Count, "raw-material preview starts with all fixtures");
+        model.SearchText = "mdf";
+        Assert.Equal(1, model.VisibleMaterials.Count, "search is case-insensitive");
+        Assert.Equal("لوح MDF سماكة 18 مم", model.VisibleMaterials.Single().Name, "search returns the expected board");
+
+        model.SearchText = string.Empty;
+        model.SearchText = "زان";
+        Assert.Equal("خشب زان مجفف", model.VisibleMaterials.Single().Name, "Arabic search returns the expected timber");
+
+        model.SearchText = "اخشاب";
+        Assert.Equal(2, model.VisibleMaterials.Count, "Arabic search folds alef variants in natural-timber categories");
+
+        model.SearchText = string.Empty;
+        model.SelectedCategory = "أخشاب طبيعية";
+        model.SelectedStatus = RawMaterialsViewModel.ArchivedStatus;
+        Assert.Equal(1, model.VisibleMaterials.Count, "category and archived filters combine");
+        Assert.True(model.VisibleMaterials.Single().IsArchived, "archived filter excludes active timber");
+
+        model.SelectedStatus = RawMaterialsViewModel.ActiveStatus;
+        Assert.Equal(1, model.VisibleMaterials.Count, "active filter excludes archived timber");
+        Assert.Equal("خشب زان مجفف", model.VisibleMaterials.Single().Name, "active timber remains visible");
+    }
+
+    /// <summary>Verifies local create/edit/duplicate/archive behavior without permanent deletion.</summary>
+    public void RawMaterialsActionsRemainNonDestructiveAndEphemeral()
+    {
+        var model = new RawMaterialsViewModel();
+        var originalCount = model.VisibleMaterials.Count;
+        var board = model.VisibleMaterials.Single(item => item.Name == "لوح MDF سماكة 18 مم");
+        Assert.Equal("ر.س. 25,000", board.CostLabel, "raw-material costs use the Arabic Saudi Riyal prefix");
+
+        model.Archive(board);
+        Assert.Equal(originalCount, model.VisibleMaterials.Count, "archive keeps the material in the all-status list");
+        Assert.True(board.IsArchived, "archive marks the row visually inactive");
+
+        var timber = model.VisibleMaterials.Single(item => item.Name == "خشب زان مجفف");
+        var duplicate = model.Duplicate(timber);
+        Assert.True(model.IsEditorOpen, "duplicate opens the edit page");
+        Assert.True(duplicate.Name.EndsWith("نسخة", StringComparison.Ordinal), "duplicate has a clear local name");
+        Assert.Equal(originalCount + 1, model.VisibleMaterials.Count, "duplicate adds one local row");
+
+        model.CancelEditor();
+        model.BeginCreate();
+        model.EditorName = "قماش صنعاء Fabric";
+        model.EditorCategory = "أقمشة";
+        model.EditorUnit = "متر";
+        model.EditorCost = 4_200m;
+        Assert.True(model.SaveEditor(), "valid create form updates preview state");
+        Assert.Equal(originalCount + 2, model.VisibleMaterials.Count, "create adds one local row");
+    }
+
+    /// <summary>Verifies raw-material amounts keep the selected Latin-digit presentation.</summary>
+    public void RawMaterialCostsIgnoreTheAmbientCulture()
+    {
+        var originalCulture = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("ar-YE");
+            var model = new RawMaterialsViewModel();
+            var board = model.VisibleMaterials.Single(item => item.Name == "لوح MDF سماكة 18 مم");
+
+            Assert.Equal("25,000", board.CostAmountLabel, "raw-material amounts use deterministic Latin digits and grouping");
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = originalCulture;
+        }
+    }
+
+    /// <summary>Verifies the required Arabic-first table and preview ownership boundaries.</summary>
+    public void RawMaterialsPageUsesTheDashboardVisualSystem()
+    {
+        var shell = Path.Combine(RepositoryRoot, "shells", "windows");
+        var xaml = File.ReadAllText(Path.Combine(shell, "Features", "RawMaterials", "RawMaterialsView.xaml"));
+        var rawMaterialItem = File.ReadAllText(Path.Combine(shell, "Features", "RawMaterials", "RawMaterialListItem.cs"));
+        var mainWindow = File.ReadAllText(Path.Combine(shell, "MainWindow.xaml"));
+        var theme = File.ReadAllText(Path.Combine(shell, "Resources", "OperationsTheme.xaml"));
+
+        Assert.Contains("Text=\"المواد الخام\"", xaml, "raw-material page heading");
+        Assert.Contains("Text=\"إضافة مادة خام\"", xaml, "primary create action");
+        Assert.Contains("Grid.Column=\"1\" FlowDirection=\"RightToLeft\" HorizontalAlignment=\"Right\" Margin=\"24,0,0,0\"", xaml, "raw-material header is anchored at the physical right edge");
+        Assert.Contains("HorizontalAlignment=\"Left\" TextAlignment=\"Right\"", xaml, "raw-material heading lines use RTL-safe physical alignment");
+        Assert.Contains("Text=\"اسم المادة\"", xaml, "material-name column");
+        Assert.Contains("Text=\"التكلفة الحالية\"", xaml, "current-cost column");
+        Assert.Contains("التكلفة الحالية (ر.س.)", xaml, "Saudi Riyal editor label");
+        Assert.Contains("CurrencyLabel => \"ر.س.\"", rawMaterialItem, "raw-material cost formatter uses Arabic Saudi Riyal");
+        Assert.Contains("Text=\"{Binding CurrencyLabel}\"", xaml, "raw-material cost cell renders a separate currency element");
+        Assert.Contains("Text=\"{Binding CostAmountLabel}\"", xaml, "raw-material cost cell renders a separate amount element");
+        Assert.False(rawMaterialItem.Contains("ر.ي.", StringComparison.Ordinal), "raw-material formatter has no Yemeni Riyal marker");
+        Assert.Contains("Text=\"ر.س.\" Style=\"{StaticResource MetricValue}\"", mainWindow, "dashboard amount uses Saudi Riyal prefix");
+        Assert.Contains("Text=\"1,245,780\" Style=\"{StaticResource MetricValue}\"", mainWindow, "dashboard amount renders the number separately");
+        Assert.False(mainWindow.Contains(" ر.س\"", StringComparison.Ordinal), "dashboard amounts do not suffix the currency");
+        Assert.Contains("x:Key=\"PrimaryButton\"", theme, "primary action uses the shared button style");
+        Assert.Contains("TextElement.Foreground=\"{Binding Foreground, RelativeSource={RelativeSource TemplatedParent}}\"", theme, "dark button content inherits white foreground");
+        Assert.Contains("BorderBrush\" Value=\"#B79A80\"", xaml, "secondary button keeps a visible border");
+        Assert.Contains("SnapsToDevicePixels\" Value=\"True\"", xaml, "secondary button border is pixel snapped");
+        Assert.Contains("Header=\"تعديل\"", xaml, "compact edit action");
+        Assert.Contains("Header=\"تكرار\"", xaml, "compact duplicate action");
+        Assert.Contains("Header=\"أرشفة\"", xaml, "compact archive action");
+        Assert.False(xaml.Contains("Header=\"حذف\"", StringComparison.Ordinal), "raw-material page has no permanent delete action");
+        Assert.Contains("x:Key=\"RawMaterialsComboBox\"", xaml, "selectors use a custom modern control template");
+        Assert.Contains("x:Key=\"RawMaterialsTextInput\"", xaml, "editor fields use a named input style");
+        var textInputStyleStart = xaml.IndexOf("x:Key=\"RawMaterialsTextInput\"", StringComparison.Ordinal);
+        var comboStyleStart = xaml.IndexOf("x:Key=\"RawMaterialsComboBoxItem\"", StringComparison.Ordinal);
+        Assert.True(textInputStyleStart >= 0 && comboStyleStart > textInputStyleStart, "text input style precedes selector styles");
+        var textInputStyle = xaml[textInputStyleStart..comboStyleStart];
+        Assert.Contains("Property=\"VerticalContentAlignment\" Value=\"Center\"", textInputStyle, "editor text is vertically centered");
+        Assert.Contains("VerticalAlignment=\"Center\"", textInputStyle, "text host is centered inside the input chrome");
+        Assert.Contains("VerticalContentAlignment=\"{TemplateBinding VerticalContentAlignment}\"", textInputStyle, "text host uses the editor alignment");
+        Assert.Contains("x:Name=\"PART_Popup\"", xaml, "selector popup is owned by the page visual system");
+        Assert.Contains("x:Key=\"RawMaterialsContextMenu\"", xaml, "row actions use the matching modern popup surface");
+        Assert.Contains("FlowDirection=\"LeftToRight\" Style=\"{StaticResource RawMaterialsContextMenu}\" Placement=\"Right\" HorizontalOffset=\"6\"", xaml, "row-action popup placement is isolated from RTL mirroring");
+        Assert.Contains("Property=\"FlowDirection\" Value=\"RightToLeft\"", xaml, "Arabic row-action labels keep RTL text direction");
+        Assert.Contains("Binding IsArchived", xaml, "archived rows have an inactive visual trigger");
+        Assert.False(xaml.Contains("وضع المعاينة —", StringComparison.Ordinal), "raw-material list has no preview notification banner");
+        Assert.Contains("rawMaterials:RawMaterialsView", mainWindow, "sidebar destination hosts the raw-material page");
     }
 
     /// <summary>Verifies shared icons and explicit RTL layout boundaries.</summary>

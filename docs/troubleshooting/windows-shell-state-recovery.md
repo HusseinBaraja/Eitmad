@@ -5,7 +5,7 @@ audience: "support"
 page_type: "troubleshooting"
 status: "active"
 owner: "Windows UI and platform maintainers"
-last_verified: "2026-08-29"
+last_verified: "2026-08-30"
 review_triggers:
   - "Windows shell frame, availability copy, reconnect, resync, query support, or shutdown behavior changes"
 keywords:
@@ -25,6 +25,18 @@ keywords:
   - "fixed Viewbox"
   - "window ratio leaves empty space"
   - "الواجهة لا تتجاوب مع حجم النافذة"
+  - "Win98 dropdown"
+  - "القائمة المنسدلة قديمة"
+  - "raw materials popup"
+  - "اخشاب لا تظهر نتائج"
+  - "dark button text"
+  - "missing rounded button border"
+  - "clipped text box content"
+  - "dropdown arrow shifts"
+  - "brand text left aligned"
+  - "brand locale label"
+  - "Saudi Riyal prefix"
+  - "currency displays on wrong side"
 ---
 
 # Recover a disconnected or stale Windows operations shell
@@ -42,6 +54,13 @@ The Windows shell can become temporarily unavailable without losing Rust-owned d
 - minimize, maximize, or close icons are missing, use custom colors, or appear on the wrong RTL/LTR side.
 - dashboard, toolbar, or sidebar icons appear as blank squares; a selected sidebar icon stays dark on the walnut background; Arabic labels drift away from their icons; **آخر عروض الأسعار** overlaps **عرض الكل**; or the toolbar and footer controls touch adjacent edges.
 - the dashboard scales as one frozen canvas, leaves large empty bands, clips cards, or does not reflow when the window width, height, or ratio changes.
+- the **المواد الخام** category, status, or unit dropdown, or the row-action popup, uses square gray platform chrome, loses copper focus states, or places Arabic actions outside the expected popup surface.
+- the **المواد الخام** search returns no result for an unmarked spelling such as **اخشاب** when a matching category such as **أخشاب طبيعية** is visible without a search.
+- the **حفظ في المعاينة** text is dark on the brown button, or the **إلغاء** button loses its right border at a rounded corner.
+- Arabic or numeric values in the **اسم المادة** or **التكلفة الحالية** fields are clipped at the lower edge.
+- the category or status chevron flips upward but shifts away from the center of its circular control.
+- brand descriptor lines share a left edge instead of one physical right boundary, or a locale label appears below the wordmark.
+- material or quotation amounts show `ر.ي.` or place the number before the currency instead of displaying `ر.س.` followed by the amount.
 
 Sync and update **غير متاحة** currently means that the engine did not advertise those optional runtime capabilities. The shell sends no query or subscription for them. It does not mean that the shell calculated an offline, current, or failed state. Configuration remains usable when its typed query succeeds.
 
@@ -68,13 +87,20 @@ Sync and update **غير متاحة** currently means that the engine did not ad
 | A compact rule exists but search, logo, or cards keep their desktop position or width | A local XAML value overrides the responsive style trigger because local values have higher WPF precedence | Inspect the affected property for both an inline value and a responsive style setter | Move the base value into the same style as the breakpoint trigger, rebuild, and inspect compact and standard widths |
 | Caption icons are missing or do not follow RTL/LTR placement | The shell replaced the Windows non-client frame with custom controls | Check `MainWindow.xaml` for `WindowStyle="None"`, `WindowChrome`, or a custom caption-button style | Restore `WindowStyle="SingleBorderWindow"` with `ResizeMode="CanResize"`; remove custom caption controls and handlers, then run the shell tests |
 | Dashboard icons are blank squares or use inconsistent shapes and colors | The dashboard uses private-use font code points or per-card raw colors | Search `MainWindow.xaml` for `Segoe Fluent Icons`, `&#xE`, and raw icon foreground values | Use geometry from `Resources/OperationsIcons.xaml` and semantic brushes from `OperationsTheme.xaml`; then run the shell tests and inspect the rendered window |
+| A **المواد الخام** dropdown looks like an old square Windows control, or its row-action popup opens on the wrong RTL side | A raw-material selector uses the platform-default template, or popup placement and Arabic text share one direction boundary | Inspect `RawMaterialsView.xaml` for `RawMaterialsComboBox`, `PART_Popup`, `RawMaterialsContextMenu`, and RTL `RawMaterialsMenuItem`; verify the popup placement boundary is LTR while Arabic items remain RTL | Restore the raw-material control templates and direction isolation. Run `RawMaterialsPageUsesTheDashboardVisualSystem`, then inspect an open category selector and three-dot action popup in the rendered WPF window |
+| **اخشاب** returns no raw-material results while **أخشاب طبيعية** is visible without a search | The query or searchable fields bypass `RawMaterialsViewModel` Arabic normalization | Run `RawMaterialsSearchAndFiltersUpdateVisibleList` and inspect `NormalizeSearchText`; do not change stored fixture text | Normalize the query and each searchable field before comparison, then verify both **اخشاب** and **أخشاب** return the natural-timber fixtures |
+| The **حفظ في المعاينة** label is dark, or the **إلغاء** button has a missing right border | `PrimaryButton` does not forward `Foreground` to its `ContentPresenter`, or the secondary button border is not pixel-snapped and is too faint at the rounded edge | Inspect `OperationsTheme.xaml` for a `TextElement.Foreground` binding to the templated button foreground; inspect `RawMaterialsSecondaryButton` for its explicit border brush and `SnapsToDevicePixels` | Restore the shared content foreground binding and the pixel-snapped secondary border. Run `RawMaterialsPageUsesTheDashboardVisualSystem`, then inspect both editor actions in the rendered WPF window |
+| Raw-material text appears clipped at the bottom of an editor field | `RawMaterialsTextInput` leaves the content host at its default vertical alignment or allows an internal scrollbar to constrain the line box | Inspect `RawMaterialsView.xaml` for `VerticalContentAlignment="Center"` on the style and the matching template binding on `PART_ContentHost` | Keep the content host vertically centered with hidden horizontal and vertical scrollbars, rebuild, and inspect Arabic and numeric values in both editor fields |
+| A category or status chevron shifts when its combo opens | The open-state trigger rotates an asymmetric path around the wrong pivot | Inspect `RawMaterialsComboBox` for separate centered closed and open `Data` geometries instead of a `RotateTransform` | Use the centered up-chevron geometry for `IsDropDownOpen`, rebuild, and inspect both closed and open selectors |
+| Brand lines share a left edge, or a locale label appears below the wordmark | The RTL coordinate frame is combined with content-sized brand text, so alignment follows the wrong physical edge and the old locale label remains in the header | Inspect the brand header grid for its fixed logo column, full-width text column, explicit physical anchor, and absence of a locale `TextBlock` | Keep the header geometry explicit, anchor RTL brand lines at the physical right edge, remove the locale label, rebuild, and run `RtlLayoutIncludesMixedDirectionFixtures` |
+| A material or quotation amount shows `ر.ي.` or the number appears before the currency | The shell fixture or raw-material projection still uses the old Yemeni Riyal suffix, or the amount inherits the RTL text direction | Inspect `RawMaterialListItem.CostLabel` and every visible amount in `MainWindow.xaml`; verify each amount has `FlowDirection="LeftToRight"` | Format the Arabic Saudi Riyal prefix as `ر.س. 25,000`, keep the amount run LTR, rebuild, and run `RawMaterialsPageUsesTheDashboardVisualSystem` |
 | A selected sidebar label is white but its icon stays dark | `SetNavigationTone` updates only `TextBlock.Foreground`, or deselection leaves a local `Path.Fill` value | Check `MainWindow.xaml.cs` for the `VisualDescendants<System.Windows.Shapes.Path>` update and `Shape.FillProperty` reset | Set the selected icon fill to white and clear the local fill on deselection so `NavVectorIcon` restores the ink theme brush; then run the shell tests and select **عروض الأسعار** in the rendered app |
 | Arabic sidebar or notification labels sit at the left edge of their cell, touch an icon, or leave an oversized gap | The RTL `NavText` style does not use `TextAlignment="Right"` with physical `HorizontalAlignment="Right"`, or a fixed label-to-icon spacer is missing from the affected component | Check for an LTR row with a flexible RTL text column, the shared no-wrap `NavText` style, a fixed `12`-unit spacer, and a fixed icon column; sidebar icons use `34` units, notification icons use `34` units, and notification status dots use `18` units | Restore the component’s physical LTR columns and the shared right-aligned, right-anchored RTL label style; do not use per-label margins or physical alignment guesses |
 | Arabic notification labels are not beside their icons, or **آخر عروض الأسعار** overlaps **عرض الكل** | The component lost its explicit local direction boundary or named columns | Inspect the affected component for its fixed icon and label columns and inspect `LatestQuotesHeader` for separate title and action columns | Restore the component-specific direction boundary and named columns; do not use margins as a direction substitute |
 | **آخر عروض الأسعار** is left-aligned | `LatestQuotesHeader` uses logical `TextAlignment="Right"` inside its RTL boundary | Check the title TextBlock for `FlowDirection="RightToLeft"` and logical `TextAlignment="Left"` | Restore logical-left alignment so the title ends at the physical right edge while **عرض الكل** stays in its action column |
 | Work-distribution title or labels align at the left edge, or progress bars touch their icons | The header/row label lost its local RTL logical-left alignment, or the fixed text-to-icon spacer/right icon column is missing | Inspect the named `WorkDistributionHeader` and each row for RTL logical-left alignment, an explicitly LTR progress bar, percentage `38`, flexible label/progress, spacer `12`, and icon `38` columns | Restore the local RTL header and four-column LTR rows; do not use physical-right alignment or per-label margins |
 | Work-distribution footer link is right-aligned while notification footer link is left-aligned | The shared `LinkButton` style defaults to right-aligned content and the work footer has no local override | Check the work footer button for `HorizontalContentAlignment="Left"` | Keep the local left-content override; do not change the shared link style and move unrelated footer links |
-| Arabic search placeholder or query text sits at the left edge | `SearchBox` uses logical `TextAlignment="Right"` inside its RTL boundary | Check `SearchBox` for `FlowDirection="RightToLeft"` with logical `TextAlignment="Left"` | Restore logical-left alignment so WPF renders Arabic text at the physical right edge beside the search icon |
+| Arabic search hint or query text sits at the left edge | `SearchBox` uses logical `TextAlignment="Right"` inside its RTL boundary | Check `SearchBox` for `FlowDirection="RightToLeft"` with logical `TextAlignment="Left"` | Restore logical-left alignment so WPF renders Arabic text at the physical right edge beside the search icon |
 | Search bar appears before the action buttons or does not fill the toolbar space | The responsive toolbar columns or compact row trigger are missing, or a local `Grid.Column` blocks the trigger | Check `ToolbarLayout` for new quotation, status actions, flexible search, and content-sized title columns; compact search must move to row `1` and span four columns | Restore the four-column physical order and compact row trigger; keep the search text’s local RTL boundary |
 | **عرض سعر جديد** touches the status actions or compact search | The status-action inset or compact search margin is missing | Check the status action stack for its `16`-unit inset and the compact search trigger for its top margin | Restore the responsive insets, then inspect standard and compact logical widths |
 

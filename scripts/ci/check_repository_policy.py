@@ -140,7 +140,7 @@ def check_secret_literals(errors: list[str]) -> None:
 
 def check_arabic_shell(errors: list[str]) -> None:
     window = (ROOT / "shells" / "windows" / "MainWindow.xaml").read_text(encoding="utf-8")
-    required = ('FlowDirection="RightToLeft"', 'Language="ar-YE"', "العربية (اليمن)")
+    required = ('FlowDirection="RightToLeft"', 'Language="ar-YE"')
     for marker in required:
         if marker not in window:
             errors.append(f"Windows shell lost required Arabic/RTL marker: {marker}")

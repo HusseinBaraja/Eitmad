@@ -15,6 +15,32 @@ SPEC.loader.exec_module(policy)
 
 
 class RepositoryPolicyTests(unittest.TestCase):
+    def test_arabic_shell_accepts_language_and_direction_without_visible_locale_copy(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_value:
+            root = Path(temp_value)
+            window = root / "shells" / "windows" / "MainWindow.xaml"
+            window.parent.mkdir(parents=True)
+            window.write_text(
+                '<Window FlowDirection="RightToLeft" Language="ar-YE" />\n',
+                encoding="utf-8",
+            )
+            with patch.object(policy, "ROOT", root):
+                errors: list[str] = []
+                policy.check_arabic_shell(errors)
+            self.assertEqual([], errors)
+
+    def test_arabic_shell_rejects_missing_language_and_direction(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_value:
+            root = Path(temp_value)
+            window = root / "shells" / "windows" / "MainWindow.xaml"
+            window.parent.mkdir(parents=True)
+            window.write_text("<Window />\n", encoding="utf-8")
+            with patch.object(policy, "ROOT", root):
+                errors: list[str] = []
+                policy.check_arabic_shell(errors)
+            self.assertEqual(2, len(errors))
+            self.assertTrue(all("Arabic/RTL marker" in error for error in errors))
+
     def test_text_files_ignores_tracked_paths_deleted_by_the_change(self) -> None:
         with tempfile.TemporaryDirectory() as temp_value:
             root = Path(temp_value)

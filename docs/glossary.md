@@ -66,6 +66,7 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | تصميم | Design | The specification of form, dimensions, materials, finishes, and construction details. |
 | المقاسات | Dimensions | Length, width, height, depth, thickness, or other measurements with explicit units. |
 | الخامة | Material | A substance or component used in production, such as wood, board, fabric, or hardware. |
+| المادة الخام | Raw material | A material stocked for use before or during furniture production. The current Windows **المواد الخام** page is a preview fixture; its durable lifecycle and authority are not yet defined. |
 | لوح خشبي | Board / panel | A sheet material used in furniture production. Exact material type remains a separate attribute. |
 | الإكسسوارات | Hardware / accessories | Hinges, handles, rails, fasteners, and similar furniture components. User terminology is provisional by context. |
 | التشطيب | Finish | The final surface treatment, color, coating, edge treatment, or appearance. |
