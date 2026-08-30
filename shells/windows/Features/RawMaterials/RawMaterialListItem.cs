@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace Eitmad.WindowsShell.Features.RawMaterials;
 
 /// <summary>Represents one raw-material row projected for the Windows preview surface.</summary>
@@ -37,7 +39,7 @@ public sealed class RawMaterialListItem
 
     public string CurrencyLabel => "ر.س.";
 
-    public string CostAmountLabel => $"{CurrentCost:N0}";
+    public string CostAmountLabel => CurrentCost.ToString("N0", CultureInfo.InvariantCulture);
 
     public string CostLabel => $"{CurrencyLabel} {CostAmountLabel}";
 }

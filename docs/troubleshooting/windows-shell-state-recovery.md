@@ -54,7 +54,7 @@ The Windows shell can become temporarily unavailable without losing Rust-owned d
 - minimize, maximize, or close icons are missing, use custom colors, or appear on the wrong RTL/LTR side.
 - dashboard, toolbar, or sidebar icons appear as blank squares; a selected sidebar icon stays dark on the walnut background; Arabic labels drift away from their icons; **آخر عروض الأسعار** overlaps **عرض الكل**; or the toolbar and footer controls touch adjacent edges.
 - the dashboard scales as one frozen canvas, leaves large empty bands, clips cards, or does not reflow when the window width, height, or ratio changes.
-- the **المواد الخام** category, status, unit, or row-action dropdown uses square gray platform chrome, loses copper focus states, or places Arabic actions outside the expected popup surface.
+- the **المواد الخام** category, status, or unit dropdown, or the row-action popup, uses square gray platform chrome, loses copper focus states, or places Arabic actions outside the expected popup surface.
 - the **المواد الخام** search returns no result for an unmarked spelling such as **اخشاب** when a matching category such as **أخشاب طبيعية** is visible without a search.
 - the **حفظ في المعاينة** text is dark on the brown button, or the **إلغاء** button loses its right border at a rounded corner.
 - Arabic or numeric values in the **اسم المادة** or **التكلفة الحالية** fields are clipped at the lower edge.

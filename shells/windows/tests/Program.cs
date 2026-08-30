@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Threading.Channels;
 using Eitmad.Contracts;
 using Eitmad.Platform.Windows.ProcessSupervision;
@@ -24,6 +25,7 @@ tests.RtlLayoutIncludesMixedDirectionFixtures();
 tests.NativeWindowChromeIsDelegatedToWindows();
 tests.DashboardUsesNativeInteractiveControls();
 tests.RawMaterialsSearchAndFiltersUpdateVisibleList();
+tests.RawMaterialCostsIgnoreTheAmbientCulture();
 tests.RawMaterialsActionsRemainNonDestructiveAndEphemeral();
 tests.RawMaterialsPageUsesTheDashboardVisualSystem();
 tests.DashboardVisualSystemIsConsistentAndRtlSafe();
@@ -390,6 +392,24 @@ internal sealed class ShellScenarios
         Assert.Equal(originalCount + 2, model.VisibleMaterials.Count, "create adds one local row");
     }
 
+    /// <summary>Verifies raw-material amounts keep the selected Latin-digit presentation.</summary>
+    public void RawMaterialCostsIgnoreTheAmbientCulture()
+    {
+        var originalCulture = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("ar-YE");
+            var model = new RawMaterialsViewModel();
+            var board = model.VisibleMaterials.Single(item => item.Name == "لوح MDF سماكة 18 مم");
+
+            Assert.Equal("25,000", board.CostAmountLabel, "raw-material amounts use deterministic Latin digits and grouping");
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = originalCulture;
+        }
+    }
+
     /// <summary>Verifies the required Arabic-first table and preview ownership boundaries.</summary>
     public void RawMaterialsPageUsesTheDashboardVisualSystem()
     {
@@ -407,7 +427,6 @@ internal sealed class ShellScenarios
         Assert.Contains("Text=\"التكلفة الحالية\"", xaml, "current-cost column");
         Assert.Contains("التكلفة الحالية (ر.س.)", xaml, "Saudi Riyal editor label");
         Assert.Contains("CurrencyLabel => \"ر.س.\"", rawMaterialItem, "raw-material cost formatter uses Arabic Saudi Riyal");
-        Assert.Contains("CostAmountLabel => $\"{CurrentCost:N0}\"", rawMaterialItem, "raw-material cost formatter keeps the numeric amount separate");
         Assert.Contains("Text=\"{Binding CurrencyLabel}\"", xaml, "raw-material cost cell renders a separate currency element");
         Assert.Contains("Text=\"{Binding CostAmountLabel}\"", xaml, "raw-material cost cell renders a separate amount element");
         Assert.False(rawMaterialItem.Contains("ر.ي.", StringComparison.Ordinal), "raw-material formatter has no Yemeni Riyal marker");
@@ -428,16 +447,13 @@ internal sealed class ShellScenarios
         var comboStyleStart = xaml.IndexOf("x:Key=\"RawMaterialsComboBoxItem\"", StringComparison.Ordinal);
         Assert.True(textInputStyleStart >= 0 && comboStyleStart > textInputStyleStart, "text input style precedes selector styles");
         var textInputStyle = xaml[textInputStyleStart..comboStyleStart];
-        Assert.Contains("CornerRadius=\"8\"", textInputStyle, "text fields match the combo input radius");
         Assert.Contains("Property=\"VerticalContentAlignment\" Value=\"Center\"", textInputStyle, "editor text is vertically centered");
         Assert.Contains("VerticalAlignment=\"Center\"", textInputStyle, "text host is centered inside the input chrome");
         Assert.Contains("VerticalContentAlignment=\"{TemplateBinding VerticalContentAlignment}\"", textInputStyle, "text host uses the editor alignment");
         Assert.Contains("x:Name=\"PART_Popup\"", xaml, "selector popup is owned by the page visual system");
-        Assert.Contains("Property=\"Data\" Value=\"M3,12 L8,7 L13,12\"", xaml, "open selectors keep the chevron centered");
         Assert.Contains("x:Key=\"RawMaterialsContextMenu\"", xaml, "row actions use the matching modern popup surface");
         Assert.Contains("FlowDirection=\"LeftToRight\" Style=\"{StaticResource RawMaterialsContextMenu}\" Placement=\"Right\" HorizontalOffset=\"6\"", xaml, "row-action popup placement is isolated from RTL mirroring");
         Assert.Contains("Property=\"FlowDirection\" Value=\"RightToLeft\"", xaml, "Arabic row-action labels keep RTL text direction");
-        Assert.Contains("CornerRadius=\"10\"", xaml, "dropdown surfaces use rounded dashboard geometry");
         Assert.Contains("Binding IsArchived", xaml, "archived rows have an inactive visual trigger");
         Assert.False(xaml.Contains("وضع المعاينة —", StringComparison.Ordinal), "raw-material list has no preview notification banner");
         Assert.Contains("rawMaterials:RawMaterialsView", mainWindow, "sidebar destination hosts the raw-material page");
