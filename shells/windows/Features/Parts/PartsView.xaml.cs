@@ -85,6 +85,12 @@ public partial class PartsView : UserControl
 
     private void SaveEditorClick(object sender, RoutedEventArgs eventArgs)
     {
+        if (Validation.GetHasError(EditorCostBox) || Validation.GetHasError(EditorUsedInCountBox))
+        {
+            (Validation.GetHasError(EditorCostBox) ? EditorCostBox : EditorUsedInCountBox).Focus();
+            return;
+        }
+
         if (ViewModel.SaveEditor())
         {
             RestartFeedbackTimer();

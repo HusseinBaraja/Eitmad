@@ -35,7 +35,7 @@ The list starts with four synthetic rows. Search runs on each text change agains
 
 The header and table use the Raw Materials visual system: white cards, walnut/copper accents, rounded inputs, explicit LTR geometry for numeric values, and an RTL text boundary. The row menu uses mouse-point placement so the menu remains inside the window when the action column is at the physical left edge. The cost and usage cells isolate mixed-direction values; the English fixture **Wardrobe Side Panel**, `YER`, and **3 Products** stay readable beside Arabic labels.
 
-The Add, Edit, Duplicate, and Archive paths update only in-memory state. Add and Edit validate a non-empty name and non-negative cost and usage count. Duplicate creates a local **نسخة** and opens the editor. Archive marks the row inactive and never deletes it. The editor subtitle **بيانات تجريبية غير محفوظة** is intentionally explicit.
+The Add, Edit, Duplicate, and Archive paths update only in-memory state. The preview form checks that the name is present and that the cost and usage count are valid non-negative numbers; these are presentation checks against synthetic state, not domain validation. Rust remains authoritative for validation when this vertical is connected. Duplicate creates a local **نسخة** and opens the editor. Archive marks the row inactive and never deletes it. The editor subtitle **بيانات تجريبية غير محفوظة** is intentionally explicit.
 
 ## Security, compatibility, and failure recovery
 

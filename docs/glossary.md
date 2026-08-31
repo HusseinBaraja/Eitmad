@@ -69,6 +69,7 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | المادة الخام | Raw material | A material stocked for use before or during furniture production. The current Windows **المواد الخام** page is a preview fixture; its durable lifecycle and authority are not yet defined. |
 | الجزء / الأجزاء | Part / parts | A furniture component listed for production use, with a category, cost, and count of products that use it. The current Windows **الأجزاء** page is a preview fixture; its durable lifecycle and authority are not yet defined. |
 | الفئة / التصنيف | Raw-material category | A grouping used to organize raw materials. The current field label is **الفئة**; inline actions use **إضافة تصنيف جديد** and **إدارة التصنيفات**. The preview values are not durable domain records. |
+| فئة الجزء | Part category | A preview-only grouping used on the current Windows **الأجزاء** page. Part categories are separate from raw-material categories and do not use the raw-material category reference set or its lifecycle. |
 | الوحدة | Unit | The named measure used for a raw-material quantity, with a short name such as `m²`. The preview action is **إضافة وحدة جديدة**; conversion and durable validation remain undefined. |
 | لوح خشبي | Board / panel | A sheet material used in furniture production. Exact material type remains a separate attribute. |
 | الإكسسوارات | Hardware / accessories | Hinges, handles, rails, fasteners, and similar furniture components. User terminology is provisional by context. |

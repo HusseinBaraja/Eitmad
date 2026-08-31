@@ -390,11 +390,20 @@ internal sealed class ShellScenarios
         model.CancelEditor();
         model.BeginCreate();
         model.EditorName = "قماش صنعاء Fabric";
-        model.EditorCategory = "أقمشة";
+        model.EditorCategory = "أقمشة ومفروشات";
         model.EditorUnit = "متر";
         model.EditorCost = 4_200m;
         Assert.True(model.SaveEditor(), "valid create form updates preview state");
         Assert.Equal(originalCount + 2, model.VisibleMaterials.Count, "create adds one local row");
+
+        model.BeginCreate();
+        model.EditorName = "خامة بلا مرجع";
+        model.EditorCategory = "تصنيف مؤرشف";
+        model.EditorUnit = "متر";
+        Assert.False(model.SaveEditor(), "a material cannot use a category outside the active reference set");
+        model.EditorCategory = "أقمشة ومفروشات";
+        model.EditorUnit = string.Empty;
+        Assert.False(model.SaveEditor(), "a material cannot omit its active unit reference");
     }
 
     /// <summary>Verifies inline category and unit creation, editing, selection, and archival.</summary>
@@ -428,6 +437,12 @@ internal sealed class ShellScenarios
         Assert.True(squareMeter.IsArchived, "archive keeps the unit record and marks it inactive");
         Assert.False(model.ActiveUnits.Contains(squareMeter), "archived units are no longer selectable for new materials");
         Assert.False(model.IsReferenceEditorOpen, "archive does not open another dialog");
+
+        foreach (var unit in model.ActiveUnits.Skip(1).ToList()) model.ArchiveReference(unit);
+        var finalUnit = model.ActiveUnits.Single();
+        model.ArchiveReference(finalUnit);
+        Assert.False(finalUnit.IsArchived, "the final active unit cannot be archived");
+        Assert.Equal(1, model.ActiveUnits.Count, "one active unit remains available for material editing");
     }
 
     /// <summary>Verifies raw-material amounts keep the selected Latin-digit presentation.</summary>
@@ -581,6 +596,9 @@ internal sealed class ShellScenarios
         Assert.Contains("x:Key=\"PartsComboBox\"", xaml, "filters use page-owned modern selectors");
         Assert.Contains("x:Key=\"PartsContextMenu\"", xaml, "row actions use the matching popup surface");
         Assert.Contains("Placement=\"MousePoint\"", xaml, "row-action popup follows the clicked action point");
+        Assert.Contains("automation:AutomationProperties.Name=\"البحث عن جزء\"", xaml, "parts search has an accessible Arabic name");
+        Assert.Contains("ValidatesOnExceptions=True, NotifyOnValidationError=True", xaml, "numeric editor inputs expose conversion failures");
+        Assert.Contains("Property=\"Validation.HasError\"", xaml, "invalid numeric input has a visible error state");
         Assert.Contains("Binding IsArchived", xaml, "archived rows have an inactive visual trigger");
         Assert.Contains("parts:PartsView", mainWindow, "sidebar destination hosts the parts page");
         Assert.Contains("x:Name=\"PartsNavButton\"", mainWindow, "parts navigation item can own selected state");

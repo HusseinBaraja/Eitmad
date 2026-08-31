@@ -308,6 +308,18 @@ public sealed class RawMaterialsViewModel : INotifyPropertyChanged
             return false;
         }
 
+        if (!ActiveCategories.Any(item => item.Name == EditorCategory))
+        {
+            EditorError = "اختر تصنيفاً نشطاً للمادة الخام.";
+            return false;
+        }
+
+        if (!ActiveUnits.Any(item => item.Name == EditorUnit))
+        {
+            EditorError = "اختر وحدة نشطة للمادة الخام.";
+            return false;
+        }
+
         if (editingMaterial is null)
         {
             materials.Add(new RawMaterialListItem(
@@ -457,6 +469,15 @@ public sealed class RawMaterialsViewModel : INotifyPropertyChanged
         ArgumentNullException.ThrowIfNull(reference);
         if (reference.IsArchived)
         {
+            return;
+        }
+
+        var activeReferences = IsCategoryReference ? ActiveCategories : ActiveUnits;
+        if (activeReferences.Count == 1 && activeReferences.Contains(reference))
+        {
+            ReferenceError = IsCategoryReference
+                ? "يجب إبقاء تصنيف نشط واحد على الأقل."
+                : "يجب إبقاء وحدة نشطة واحدة على الأقل.";
             return;
         }
 
