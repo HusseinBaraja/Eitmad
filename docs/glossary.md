@@ -67,6 +67,7 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | المقاسات | Dimensions | Length, width, height, depth, thickness, or other measurements with explicit units. |
 | الخامة | Material | A substance or component used in production, such as wood, board, fabric, or hardware. |
 | المادة الخام | Raw material | A material stocked for use before or during furniture production. The current Windows **المواد الخام** page is a preview fixture; its durable lifecycle and authority are not yet defined. |
+| الجزء / الأجزاء | Part / parts | A furniture component listed for production use, with a category, cost, and count of products that use it. The current Windows **الأجزاء** page is a preview fixture; its durable lifecycle and authority are not yet defined. |
 | الفئة / التصنيف | Raw-material category | A grouping used to organize raw materials. The current field label is **الفئة**; inline actions use **إضافة تصنيف جديد** and **إدارة التصنيفات**. The preview values are not durable domain records. |
 | الوحدة | Unit | The named measure used for a raw-material quantity, with a short name such as `m²`. The preview action is **إضافة وحدة جديدة**; conversion and durable validation remain undefined. |
 | لوح خشبي | Board / panel | A sheet material used in furniture production. Exact material type remains a separate attribute. |

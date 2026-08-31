@@ -60,13 +60,24 @@ public partial class MainWindow : Window
         ShowDestination("الخامات");
     }
 
-    /// <summary>Switches between the dashboard preview and the raw-material list page.</summary>
+    /// <summary>Opens the parts list from the dashboard shortcut.</summary>
+    private void OpenPartsFromActionClick(object sender, RoutedEventArgs eventArgs)
+    {
+        SetNavigationTone(selectedNavButton, false);
+        selectedNavButton = PartsNavButton;
+        SetNavigationTone(selectedNavButton, true);
+        ShowDestination("القطع");
+    }
+
+    /// <summary>Switches between the dashboard preview and dedicated management pages.</summary>
     private void ShowDestination(string destination)
     {
         var showRawMaterials = destination == "الخامات";
-        DashboardSurface.Visibility = showRawMaterials ? Visibility.Collapsed : Visibility.Visible;
+        var showParts = destination == "القطع";
+        DashboardSurface.Visibility = showRawMaterials || showParts ? Visibility.Collapsed : Visibility.Visible;
         RawMaterialsSurface.Visibility = showRawMaterials ? Visibility.Visible : Visibility.Collapsed;
-        if (!showRawMaterials)
+        PartsSurface.Visibility = showParts ? Visibility.Visible : Visibility.Collapsed;
+        if (!showRawMaterials && !showParts)
         {
             DashboardTitle.Text = destination == "الرئيسية" ? "لوحة التحكم" : destination;
             ShowToast($"تم فتح {destination} في وضع المعاينة");

@@ -4,6 +4,7 @@ using Eitmad.Contracts;
 using Eitmad.Platform.Windows.ProcessSupervision;
 using Eitmad.Platform.Windows.Shell;
 using Eitmad.WindowsShell.Features.Operations;
+using Eitmad.WindowsShell.Features.Parts;
 using Eitmad.WindowsShell.Features.RawMaterials;
 using Eitmad.WindowsShell.Layout;
 
@@ -29,6 +30,9 @@ tests.RawMaterialCostsIgnoreTheAmbientCulture();
 tests.RawMaterialsActionsRemainNonDestructiveAndEphemeral();
 tests.RawMaterialReferencesCanBeManagedInline();
 tests.RawMaterialsPageUsesTheDashboardVisualSystem();
+tests.PartsSearchAndFiltersUpdateVisibleList();
+tests.PartsActionsRemainNonDestructiveAndEphemeral();
+tests.PartsPageMatchesTheRawMaterialsVisualSystem();
 tests.DashboardVisualSystemIsConsistentAndRtlSafe();
 tests.ResponsiveLayoutSelectsStableBreakpoints();
 tests.DashboardReflowsInsteadOfScalingAFixedCanvas();
@@ -498,6 +502,90 @@ internal sealed class ShellScenarios
         Assert.Contains("Binding IsArchived", xaml, "archived rows have an inactive visual trigger");
         Assert.False(xaml.Contains("وضع المعاينة —", StringComparison.Ordinal), "raw-material list has no preview notification banner");
         Assert.Contains("rawMaterials:RawMaterialsView", mainWindow, "sidebar destination hosts the raw-material page");
+    }
+
+    /// <summary>Verifies immediate search and combined category/status filtering for parts.</summary>
+    public void PartsSearchAndFiltersUpdateVisibleList()
+    {
+        var model = new PartsViewModel();
+
+        Assert.Equal(4, model.VisibleParts.Count, "parts preview starts with all fixtures");
+        model.SearchText = "wardrobe";
+        Assert.Equal(1, model.VisibleParts.Count, "English search returns the mixed-direction example");
+        Assert.Equal("Wardrobe Side Panel", model.VisibleParts.Single().Name, "search returns the expected part");
+
+        model.SearchText = "خزانه";
+        Assert.Equal(1, model.VisibleParts.Count, "Arabic search folds taa marbuta in part categories");
+
+        model.SearchText = string.Empty;
+        model.SelectedCategory = "أبواب";
+        model.SelectedStatus = PartsViewModel.ArchivedStatus;
+        Assert.Equal(1, model.VisibleParts.Count, "category and archived filters combine");
+        Assert.True(model.VisibleParts.Single().IsArchived, "archived filter excludes active parts");
+
+        model.SelectedStatus = PartsViewModel.ActiveStatus;
+        Assert.Equal(1, model.VisibleParts.Count, "active filter excludes archived parts");
+        Assert.False(model.VisibleParts.Single().IsArchived, "active door part remains visible");
+    }
+
+    /// <summary>Verifies local create, edit, duplicate, and archive behavior without deletion.</summary>
+    public void PartsActionsRemainNonDestructiveAndEphemeral()
+    {
+        var model = new PartsViewModel();
+        var originalCount = model.VisibleParts.Count;
+        var wardrobePanel = model.VisibleParts.Single(item => item.Name == "Wardrobe Side Panel");
+        Assert.Equal("9,450 YER", wardrobePanel.CostLabel, "example cost uses the requested ISO currency suffix");
+        Assert.Equal("3 Products", wardrobePanel.UsedInLabel, "example usage count matches the requested row");
+
+        model.Archive(wardrobePanel);
+        Assert.Equal(originalCount, model.VisibleParts.Count, "archive keeps the part in the all-status list");
+        Assert.True(wardrobePanel.IsArchived, "archive marks the row visually inactive");
+
+        var shelf = model.VisibleParts.Single(item => item.Name == "رف داخلي قابل للتعديل");
+        var duplicate = model.Duplicate(shelf);
+        Assert.True(model.IsEditorOpen, "duplicate opens the edit page");
+        Assert.True(duplicate.Name.EndsWith("نسخة", StringComparison.Ordinal), "duplicate has a clear local name");
+        Assert.Equal(originalCount + 1, model.VisibleParts.Count, "duplicate adds one local row");
+
+        model.CancelEditor();
+        model.BeginCreate();
+        model.EditorName = "واجهة درج صغيرة";
+        model.EditorCategory = "أدراج";
+        model.EditorCost = 2_750m;
+        model.EditorUsedInCount = 2;
+        Assert.True(model.SaveEditor(), "valid create form updates preview state");
+        Assert.Equal(originalCount + 2, model.VisibleParts.Count, "create adds one local row");
+    }
+
+    /// <summary>Verifies Arabic-first labels, required columns, actions, and page navigation.</summary>
+    public void PartsPageMatchesTheRawMaterialsVisualSystem()
+    {
+        var shell = Path.Combine(RepositoryRoot, "shells", "windows");
+        var xaml = File.ReadAllText(Path.Combine(shell, "Features", "Parts", "PartsView.xaml"));
+        var mainWindow = File.ReadAllText(Path.Combine(shell, "MainWindow.xaml"));
+        var codeBehind = File.ReadAllText(Path.Combine(shell, "MainWindow.xaml.cs"));
+
+        Assert.Contains("Text=\"الأجزاء\"", xaml, "parts page heading");
+        Assert.Contains("Text=\"إضافة جزء\"", xaml, "primary create action");
+        Assert.Contains("Text=\"البحث\"", xaml, "search control label");
+        Assert.Contains("Text=\"الفئة\"", xaml, "category filter and column label");
+        Assert.Contains("Text=\"الحالة\"", xaml, "status filter and column label");
+        Assert.Contains("Text=\"اسم الجزء\"", xaml, "part-name column");
+        Assert.Contains("Text=\"التكلفة\"", xaml, "cost column");
+        Assert.Contains("Text=\"مستخدم في\"", xaml, "used-in column");
+        Assert.Contains("Text=\"الإجراءات\"", xaml, "actions column");
+        Assert.Contains("Header=\"تعديل\"", xaml, "compact edit action");
+        Assert.Contains("Header=\"تكرار\"", xaml, "compact duplicate action");
+        Assert.Contains("Header=\"أرشفة\"", xaml, "compact archive action");
+        Assert.False(xaml.Contains("Header=\"حذف\"", StringComparison.Ordinal), "parts page has no permanent delete action");
+        Assert.Contains("x:Key=\"PartsComboBox\"", xaml, "filters use page-owned modern selectors");
+        Assert.Contains("x:Key=\"PartsContextMenu\"", xaml, "row actions use the matching popup surface");
+        Assert.Contains("Placement=\"MousePoint\"", xaml, "row-action popup follows the clicked action point");
+        Assert.Contains("Binding IsArchived", xaml, "archived rows have an inactive visual trigger");
+        Assert.Contains("parts:PartsView", mainWindow, "sidebar destination hosts the parts page");
+        Assert.Contains("x:Name=\"PartsNavButton\"", mainWindow, "parts navigation item can own selected state");
+        Assert.Contains("destination == \"القطع\"", codeBehind, "parts destination selects the dedicated page");
+        Assert.Contains("OpenPartsFromActionClick", codeBehind, "dashboard shortcut opens the parts page");
     }
 
     /// <summary>Verifies shared icons and explicit RTL layout boundaries.</summary>

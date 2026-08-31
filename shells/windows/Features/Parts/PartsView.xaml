@@ -1,0 +1,249 @@
+<UserControl x:Class="Eitmad.WindowsShell.Features.Parts.PartsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:layout="clr-namespace:Eitmad.WindowsShell.Layout"
+             xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
+             FlowDirection="RightToLeft"
+             Background="{StaticResource CanvasBrush}">
+    <UserControl.Resources>
+        <Style x:Key="PartsFieldLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,0,0,7" />
+        </Style>
+        <Style x:Key="PartsTextInput" TargetType="TextBox">
+            <Setter Property="Height" Value="44" />
+            <Setter Property="FontFamily" Value="Noto Kufi Arabic, Segoe UI" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Background" Value="White" />
+            <Setter Property="BorderBrush" Value="#DED6CE" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="12,4" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="InputChrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" Focusable="False" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden" HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="InputChrome" Property="BorderBrush" Value="#A35E1E" /><Setter TargetName="InputChrome" Property="BorderThickness" Value="1.5" /></Trigger>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="InputChrome" Property="BorderBrush" Value="#C69A70" /><Setter TargetName="InputChrome" Property="Background" Value="#FFFEFC" /></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="PartsComboBoxItem" TargetType="ComboBoxItem">
+            <Setter Property="MinHeight" Value="38" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="Margin" Value="3,2" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBoxItem">
+                        <Border x:Name="ItemSurface" Background="Transparent" CornerRadius="7" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Right" VerticalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True"><Setter TargetName="ItemSurface" Property="Background" Value="#F3E5D7" /><Setter Property="Foreground" Value="#6C390D" /><Setter Property="FontWeight" Value="SemiBold" /></Trigger>
+                            <Trigger Property="IsHighlighted" Value="True"><Setter TargetName="ItemSurface" Property="Background" Value="#FBF2E9" /><Setter Property="Foreground" Value="#7A4314" /></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="PartsComboBox" TargetType="ComboBox">
+            <Setter Property="Height" Value="44" />
+            <Setter Property="FontFamily" Value="Noto Kufi Arabic, Segoe UI" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+            <Setter Property="Background" Value="White" />
+            <Setter Property="BorderBrush" Value="#DED6CE" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="ItemContainerStyle" Value="{StaticResource PartsComboBoxItem}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <Border x:Name="InputChrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8">
+                                <Grid FlowDirection="LeftToRight">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="42" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Width="24" Height="24" CornerRadius="12" Background="#F6EEE6" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <Path x:Name="Chevron" Data="M3,7 L8,12 L13,7" Stroke="#8B4D17" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Width="16" Height="16" Stretch="Uniform" />
+                                    </Border>
+                                    <ContentPresenter Grid.Column="1" Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}" Margin="4,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center" FlowDirection="RightToLeft" />
+                                </Grid>
+                            </Border>
+                            <ToggleButton Background="Transparent" BorderThickness="0" Focusable="False" Cursor="Hand" IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}" ClickMode="Press">
+                                <ToggleButton.Template><ControlTemplate TargetType="ToggleButton"><Border Background="Transparent" /></ControlTemplate></ToggleButton.Template>
+                            </ToggleButton>
+                            <Popup x:Name="PART_Popup" Placement="Bottom" IsOpen="{TemplateBinding IsDropDownOpen}" AllowsTransparency="True" PopupAnimation="Fade" VerticalOffset="6" Focusable="False">
+                                <Border Width="{Binding ActualWidth, ElementName=InputChrome}" MaxHeight="260" Background="White" BorderBrush="#DCCFC2" BorderThickness="1" CornerRadius="10" Padding="4">
+                                    <Border.Effect><DropShadowEffect BlurRadius="22" ShadowDepth="7" Opacity="0.18" Color="#4A2B12" /></Border.Effect>
+                                    <ScrollViewer CanContentScroll="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" /></ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="InputChrome" Property="BorderBrush" Value="#C69A70" /><Setter TargetName="InputChrome" Property="Background" Value="#FFFEFC" /></Trigger>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="InputChrome" Property="BorderBrush" Value="#A35E1E" /><Setter TargetName="InputChrome" Property="BorderThickness" Value="1.5" /></Trigger>
+                            <Trigger Property="IsDropDownOpen" Value="True"><Setter TargetName="InputChrome" Property="BorderBrush" Value="#A35E1E" /><Setter TargetName="InputChrome" Property="Background" Value="#FFFCF8" /><Setter TargetName="Chevron" Property="Data" Value="M3,12 L8,7 L13,12" /></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="PartsRowActionButton" TargetType="Button">
+            <Setter Property="Width" Value="34" /><Setter Property="Height" Value="34" /><Setter Property="Background" Value="Transparent" /><Setter Property="BorderBrush" Value="Transparent" /><Setter Property="BorderThickness" Value="1" /><Setter Property="FontSize" Value="21" /><Setter Property="FontWeight" Value="Bold" /><Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="ActionSurface" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" /></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ActionSurface" Property="Background" Value="#F5E9DC" /><Setter TargetName="ActionSurface" Property="BorderBrush" Value="#D5B18E" /></Trigger><Trigger Property="IsPressed" Value="True"><Setter TargetName="ActionSurface" Property="Opacity" Value="0.68" /></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+        </Style>
+        <Style x:Key="PartsContextMenu" TargetType="ContextMenu">
+            <Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" /><Setter Property="Padding" Value="0" /><Setter Property="FontFamily" Value="Noto Kufi Arabic, Segoe UI" />
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ContextMenu"><Border Background="White" BorderBrush="#DCCFC2" BorderThickness="1" CornerRadius="10" Padding="5" MinWidth="154"><Border.Effect><DropShadowEffect BlurRadius="22" ShadowDepth="7" Opacity="0.18" Color="#4A2B12" /></Border.Effect><StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" /></Border></ControlTemplate></Setter.Value></Setter>
+        </Style>
+        <Style x:Key="PartsMenuItem" TargetType="MenuItem">
+            <Setter Property="Foreground" Value="{StaticResource InkBrush}" /><Setter Property="FontSize" Value="12" /><Setter Property="Padding" Value="13,9" /><Setter Property="Cursor" Value="Hand" /><Setter Property="FlowDirection" Value="RightToLeft" />
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="MenuItem"><Border x:Name="MenuSurface" Background="Transparent" CornerRadius="7" Padding="{TemplateBinding Padding}"><ContentPresenter ContentSource="Header" HorizontalAlignment="Right" VerticalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}" /></Border><ControlTemplate.Triggers><Trigger Property="IsHighlighted" Value="True"><Setter TargetName="MenuSurface" Property="Background" Value="#FBF0E5" /><Setter Property="Foreground" Value="#783F0D" /></Trigger><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.36" /></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+        </Style>
+        <Style x:Key="PartsMenuSeparator" TargetType="Separator"><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Separator"><Border Height="1" Background="#ECE4DC" Margin="9,4" /></ControlTemplate></Setter.Value></Setter></Style>
+        <Style x:Key="PartsHeaderCell" TargetType="TextBlock"><Setter Property="FontSize" Value="11" /><Setter Property="FontWeight" Value="SemiBold" /><Setter Property="Foreground" Value="{StaticResource MutedBrush}" /><Setter Property="VerticalAlignment" Value="Center" /><Setter Property="TextAlignment" Value="Center" /><Setter Property="TextWrapping" Value="NoWrap" /></Style>
+        <Style x:Key="PartsBodyCell" TargetType="TextBlock"><Setter Property="FontSize" Value="12" /><Setter Property="VerticalAlignment" Value="Center" /><Setter Property="TextAlignment" Value="Center" /><Setter Property="TextWrapping" Value="NoWrap" /></Style>
+        <Style x:Key="PartsSecondaryButton" TargetType="Button">
+            <Setter Property="Height" Value="43" /><Setter Property="Padding" Value="18,8" /><Setter Property="Background" Value="White" /><Setter Property="Foreground" Value="{StaticResource InkBrush}" /><Setter Property="BorderBrush" Value="#B79A80" /><Setter Property="BorderThickness" Value="1.2" /><Setter Property="SnapsToDevicePixels" Value="True" /><Setter Property="UseLayoutRounding" Value="True" /><Setter Property="FontFamily" Value="Noto Kufi Arabic, Segoe UI" /><Setter Property="FontWeight" Value="SemiBold" /><Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="Surface" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}" /></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Surface" Property="Background" Value="#F7F0E8" /><Setter TargetName="Surface" Property="BorderBrush" Value="#98653D" /></Trigger><Trigger Property="IsPressed" Value="True"><Setter TargetName="Surface" Property="Opacity" Value="0.72" /></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid x:Name="ListSurface">
+            <Grid.Style><Style TargetType="Grid"><Style.Triggers><DataTrigger Binding="{Binding IsEditorOpen}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></Grid.Style>
+            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+
+            <Border Background="#FEFDFC" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
+                <Grid Margin="28,15" FlowDirection="LeftToRight">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                    <Button Grid.Column="0" Height="46" Style="{StaticResource PrimaryButton}" Click="AddPartClick" automation:AutomationProperties.Name="إضافة جزء">
+                        <StackPanel Orientation="Horizontal" FlowDirection="RightToLeft"><Path Data="{StaticResource IconPlus}" Width="18" Height="18" Fill="White" Stretch="Uniform" /><TextBlock Text="إضافة جزء" Foreground="White" FontSize="13" Margin="9,0,0,0" /></StackPanel>
+                    </Button>
+                    <StackPanel Grid.Column="1" FlowDirection="RightToLeft" HorizontalAlignment="Right" Margin="24,0,0,0">
+                        <TextBlock Text="الأجزاء" FontSize="27" FontWeight="Bold" HorizontalAlignment="Left" TextAlignment="Right" />
+                        <TextBlock Text="إدارة أجزاء الأثاث وتكاليفها واستخدامها" Foreground="{StaticResource MutedBrush}" FontSize="11" HorizontalAlignment="Left" TextAlignment="Right" Margin="0,4,0,0" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
+                <StackPanel Margin="28,22,28,28">
+                    <UniformGrid x:Name="FiltersGrid" Margin="-6,0,-6,14">
+                        <StackPanel Margin="6,0">
+                            <TextBlock Text="البحث" Style="{StaticResource PartsFieldLabel}" />
+                            <Border Height="44" Background="White" BorderBrush="#DED6CE" BorderThickness="1" CornerRadius="8">
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="42" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions><Path Data="{StaticResource IconSearch}" Style="{StaticResource ToolbarVectorIcon}" /><TextBox Grid.Column="1" x:Name="PartsSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" BorderThickness="0" Background="Transparent" Padding="9,10,2,8" FontFamily="Noto Kufi Arabic, Segoe UI" FontSize="13" ToolTip="ابحث باسم الجزء أو الفئة" TextAlignment="Left" FlowDirection="RightToLeft" /></Grid>
+                            </Border>
+                        </StackPanel>
+                        <StackPanel Margin="6,0"><TextBlock Text="الفئة" Style="{StaticResource PartsFieldLabel}" /><ComboBox ItemsSource="{Binding CategoryOptions}" SelectedItem="{Binding SelectedCategory, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource PartsComboBox}" automation:AutomationProperties.Name="تصفية الفئة" /></StackPanel>
+                        <StackPanel Margin="6,0"><TextBlock Text="الحالة" Style="{StaticResource PartsFieldLabel}" /><ComboBox ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding SelectedStatus, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource PartsComboBox}" automation:AutomationProperties.Name="تصفية الحالة" /></StackPanel>
+                        <UniformGrid.Style><Style TargetType="UniformGrid"><Setter Property="Columns" Value="3" /><Style.Triggers><DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}"><Setter Property="Columns" Value="1" /></DataTrigger></Style.Triggers></Style></UniformGrid.Style>
+                    </UniformGrid>
+
+                    <Border Style="{StaticResource Card}" ClipToBounds="True" MinHeight="310">
+                        <Grid>
+                            <Grid.RowDefinitions><RowDefinition Height="52" /><RowDefinition Height="*" /><RowDefinition Height="42" /></Grid.RowDefinitions>
+                            <ScrollViewer Grid.RowSpan="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                                <Grid MinWidth="790">
+                                    <Grid.RowDefinitions><RowDefinition Height="52" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                                    <Border Background="#F7F3EF" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
+                                        <Grid FlowDirection="RightToLeft">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="2*" /><ColumnDefinition Width="1.2*" /><ColumnDefinition Width="1.1*" /><ColumnDefinition Width="1*" /><ColumnDefinition Width="0.9*" /><ColumnDefinition Width="0.55*" /></Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="اسم الجزء" Style="{StaticResource PartsHeaderCell}" />
+                                            <TextBlock Grid.Column="1" Text="الفئة" Style="{StaticResource PartsHeaderCell}" />
+                                            <TextBlock Grid.Column="2" Text="التكلفة" Style="{StaticResource PartsHeaderCell}" />
+                                            <TextBlock Grid.Column="3" Text="مستخدم في" Style="{StaticResource PartsHeaderCell}" />
+                                            <TextBlock Grid.Column="4" Text="الحالة" Style="{StaticResource PartsHeaderCell}" />
+                                            <TextBlock Grid.Column="5" Text="الإجراءات" Style="{StaticResource PartsHeaderCell}" />
+                                        </Grid>
+                                    </Border>
+                                    <ItemsControl Grid.Row="1" ItemsSource="{Binding VisibleParts}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border x:Name="RowSurface" MinHeight="64" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1" Background="White" Cursor="Hand" MouseLeftButtonUp="PartRowClick">
+                                                    <Grid FlowDirection="RightToLeft">
+                                                        <Grid.ColumnDefinitions><ColumnDefinition Width="2*" /><ColumnDefinition Width="1.2*" /><ColumnDefinition Width="1.1*" /><ColumnDefinition Width="1*" /><ColumnDefinition Width="0.9*" /><ColumnDefinition Width="0.55*" /></Grid.ColumnDefinitions>
+                                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="18,8" FlowDirection="LeftToRight"><TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold" TextAlignment="Right" TextWrapping="NoWrap" /><TextBlock Text="جزء أثاث" Foreground="{StaticResource MutedBrush}" FontSize="9" TextAlignment="Right" Margin="0,3,0,0" /></StackPanel>
+                                                        <TextBlock Grid.Column="1" Text="{Binding Category}" Style="{StaticResource PartsBodyCell}" />
+                                                        <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" FlowDirection="LeftToRight"><TextBlock Text="{Binding CostAmountLabel}" Style="{StaticResource PartsBodyCell}" FlowDirection="LeftToRight" /><TextBlock Text="{Binding CurrencyLabel}" Style="{StaticResource PartsBodyCell}" Margin="6,0,0,0" /></StackPanel>
+                                                        <TextBlock Grid.Column="3" Text="{Binding UsedInLabel}" Style="{StaticResource PartsBodyCell}" FlowDirection="LeftToRight" />
+                                                        <Border Grid.Column="4" x:Name="StatusPill" Background="#EAF7E9" CornerRadius="10" Padding="10,4" HorizontalAlignment="Center" VerticalAlignment="Center"><TextBlock x:Name="StatusText" Text="{Binding StatusLabel}" Foreground="#28733C" FontSize="10" FontWeight="SemiBold" /></Border>
+                                                        <Button Grid.Column="5" HorizontalAlignment="Center" VerticalAlignment="Center" Style="{StaticResource PartsRowActionButton}" Content="⋮" Click="OpenRowMenuClick" automation:AutomationProperties.Name="إجراءات الجزء">
+                                                            <Button.ContextMenu>
+                                                                <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}" FlowDirection="LeftToRight" Style="{StaticResource PartsContextMenu}" Placement="MousePoint">
+                                                                    <MenuItem Header="تعديل" Style="{StaticResource PartsMenuItem}" Click="EditMenuItemClick" />
+                                                                    <MenuItem Header="تكرار" Style="{StaticResource PartsMenuItem}" Click="DuplicateMenuItemClick" />
+                                                                    <Separator Style="{StaticResource PartsMenuSeparator}" />
+                                                                    <MenuItem Header="أرشفة" Style="{StaticResource PartsMenuItem}" IsEnabled="{Binding CanArchive}" Click="ArchiveMenuItemClick" />
+                                                                </ContextMenu>
+                                                            </Button.ContextMenu>
+                                                        </Button>
+                                                    </Grid>
+                                                </Border>
+                                                <DataTemplate.Triggers>
+                                                    <DataTrigger Binding="{Binding IsArchived}" Value="True"><Setter TargetName="RowSurface" Property="Opacity" Value="0.52" /><Setter TargetName="RowSurface" Property="Background" Value="#F3F1EF" /><Setter TargetName="StatusPill" Property="Background" Value="#E5E2DF" /><Setter TargetName="StatusText" Property="Foreground" Value="#716B66" /></DataTrigger>
+                                                    <Trigger SourceName="RowSurface" Property="IsMouseOver" Value="True"><Setter TargetName="RowSurface" Property="Background" Value="#FBF4EC" /></Trigger>
+                                                </DataTemplate.Triggers>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Grid>
+                            </ScrollViewer>
+                            <Border Grid.Row="1" Background="White" Panel.ZIndex="4">
+                                <Border.Style><Style TargetType="Border"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding HasNoVisibleParts}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></Border.Style>
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"><Border Width="50" Height="50" CornerRadius="25" Background="{StaticResource CopperTintBrush}"><Path Data="{StaticResource IconSearch}" Style="{StaticResource MetricVectorIcon}" Width="23" Height="23" /></Border><TextBlock Text="لا توجد أجزاء مطابقة" FontSize="15" FontWeight="SemiBold" TextAlignment="Center" Margin="0,13,0,0" /><TextBlock Text="جرّب تغيير البحث أو عوامل التصفية." Foreground="{StaticResource MutedBrush}" FontSize="11" TextAlignment="Center" Margin="0,5,0,0" /></StackPanel>
+                            </Border>
+                            <Border Grid.Row="2" Background="#FCFAF8" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,1,0,0" Padding="16,9"><TextBlock Text="{Binding VisibleCountLabel}" Foreground="{StaticResource MutedBrush}" FontSize="10" /></Border>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <Grid x:Name="EditorSurface">
+            <Grid.Style><Style TargetType="Grid"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding IsEditorOpen}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></Grid.Style>
+            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+            <Border Background="#FEFDFC" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
+                <Grid Margin="28,15" FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions><Button Style="{StaticResource PartsSecondaryButton}" Content="العودة إلى القائمة" Click="CancelEditorClick" /><StackPanel Grid.Column="1" HorizontalAlignment="Right" FlowDirection="RightToLeft" Margin="24,0,0,0"><TextBlock Text="{Binding EditorTitle}" FontSize="27" FontWeight="Bold" /><TextBlock Text="بيانات تجريبية غير محفوظة" Foreground="{StaticResource CopperBrush}" FontSize="11" Margin="0,4,0,0" /></StackPanel></Grid>
+            </Border>
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <Grid Margin="28,24" MaxWidth="860" HorizontalAlignment="Stretch">
+                    <Border Style="{StaticResource Card}" Padding="28">
+                        <StackPanel>
+                            <TextBlock Text="تفاصيل الجزء" Style="{StaticResource SectionTitle}" />
+                            <TextBlock Text="يمكنك مراجعة البيانات قبل حفظها في المعاينة المحلية." Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,5,0,24" />
+                            <TextBlock Text="اسم الجزء" Style="{StaticResource PartsFieldLabel}" />
+                            <TextBox x:Name="EditorNameBox" Text="{Binding EditorName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource PartsTextInput}" Margin="0,0,0,18" />
+                            <TextBlock Text="الفئة" Style="{StaticResource PartsFieldLabel}" />
+                            <ComboBox ItemsSource="{Binding EditorCategoryOptions}" SelectedItem="{Binding EditorCategory, Mode=TwoWay}" Style="{StaticResource PartsComboBox}" automation:AutomationProperties.Name="فئة الجزء" Margin="0,0,0,18" />
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="16" /><ColumnDefinition /></Grid.ColumnDefinitions>
+                                <StackPanel><TextBlock Text="التكلفة (YER)" Style="{StaticResource PartsFieldLabel}" /><TextBox Text="{Binding EditorCost, UpdateSourceTrigger=LostFocus}" Style="{StaticResource PartsTextInput}" FontFamily="Segoe UI" FlowDirection="LeftToRight" TextAlignment="Right" /></StackPanel>
+                                <StackPanel Grid.Column="2"><TextBlock Text="عدد المنتجات المستخدمة" Style="{StaticResource PartsFieldLabel}" /><TextBox Text="{Binding EditorUsedInCount, UpdateSourceTrigger=LostFocus}" Style="{StaticResource PartsTextInput}" FontFamily="Segoe UI" FlowDirection="LeftToRight" TextAlignment="Right" /></StackPanel>
+                            </Grid>
+                            <TextBlock Text="{Binding EditorError}" Foreground="{StaticResource DangerBrush}" FontSize="11" Margin="0,10,0,0"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding HasEditorError}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,28,0,0" FlowDirection="LeftToRight"><Button Style="{StaticResource PrimaryButton}" Height="44" Click="SaveEditorClick"><TextBlock Text="حفظ في المعاينة" Foreground="White" /></Button><Button Content="إلغاء" Style="{StaticResource PartsSecondaryButton}" Margin="10,0,0,0" Click="CancelEditorClick" /></StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </ScrollViewer>
+        </Grid>
+
+        <Border x:Name="FeedbackToast" Margin="28" Padding="18,11" HorizontalAlignment="Left" VerticalAlignment="Bottom" Panel.ZIndex="20" Background="#3B240F" CornerRadius="9">
+            <Border.Style><Style TargetType="Border"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding HasFeedback}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></Border.Style>
+            <TextBlock Text="{Binding FeedbackMessage}" Foreground="White" FontSize="11" />
+        </Border>
+    </Grid>
+</UserControl>
