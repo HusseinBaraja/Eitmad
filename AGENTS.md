@@ -35,10 +35,12 @@ Use the [repository ownership map](docs/developer/repository-layout.md), [target
 These are working defaults. The user can override them unless a hard invariant is affected.
 
 - Make the smallest complete change that resolves the requested outcome.
+- Plan in proportion to risk. Keep the plan brief for focused work; use a detailed plan only for multi-boundary work or irreversible decisions.
+- Fix the verified root cause within scope. Do not hide it behind another conditional, compatibility path, or duplicate implementation.
 - Keep one product concern in one change. Do not fix adjacent issues unless they block correctness or verification.
 - Prefer vertical product capabilities over generic `utils`, `common`, `shared`, `handlers`, or `services` buckets.
-- Reuse a suitable existing dependency, pattern, control, contract, or helper. Do not add machinery for hypothetical future use.
-- Read the narrowest authoritative code, test, and canonical document needed for the task. Do not explore every crate or page as a precaution.
+- Reuse suitable existing dependencies, patterns, controls, contracts, helpers, and test mechanisms. Add new machinery only when the current requirement cannot be met safely without it.
+- Use local code, focused tests, logs, Git history, and canonical documentation as primary evidence. Browse only for an external specification, dependency behavior, current fact, or when local evidence is insufficient. Treat a diagnostic hypothesis as unverified until evidence confirms it.
 - For a review, explanation, diagnosis, or plan, inspect and report. Edit only when the user asks for a change.
 - For a change or fix, make safe in-scope edits and run focused verification without asking for routine approval.
 
@@ -49,7 +51,8 @@ For implementation:
 3. Inspect the owner and its focused evidence.
 4. Implement the smallest correct patch. Update direct callers and generated artifacts with it.
 5. Run the smallest proof that can detect a defect in the changed behavior.
-6. Stop when the requested outcome is complete and that proof passes.
+6. Inspect the final diff once for unrelated edits, temporary files, debug code, and accidental generated output.
+7. Stop when the requested outcome is complete and the focused proof passes.
 
 Do not continue with optional cleanup, broad refactoring, extra tests, repeated screenshots, or speculative edge cases after the stop condition. Do not repeat a successful tool call or check unless relevant code changed. After two failed attempts with the same approach, reassess the cause before another attempt.
 
@@ -67,7 +70,7 @@ There is no public production baseline. Do not build backward compatibility for 
 
 ## Native Arabic UI and UX
 
-This is native software, not an Electron or web app. Apply native platform conventions before web conventions.
+This is native software. Apply native platform conventions before web conventions.
 
 ### Native behavior
 
@@ -102,9 +105,9 @@ For a user-visible UI change, inspect the real rendered affected screen once aft
 
 ## Tests and Verification
 
-Tests are risk controls, not a quantity target. Keep them few, stable, and behavior-focused.
+Tests are risk controls, not a quantity target. Run relevant existing tests first. Add or update a test only when existing evidence cannot detect a credible regression in changed consequential behavior.
 
-Add or update a test for consequential logic such as:
+A credible regression usually concerns:
 
 - domain calculations, validation, and state transitions;
 - authorization, scope, audit, privacy, or secrets;
@@ -113,6 +116,8 @@ Add or update a test for consequential logic such as:
 - Arabic search normalization or mixed-direction formatting logic;
 - non-trivial UI state, command availability, reconnect, or failure recovery;
 - a reproduced defect with a stable regression check.
+
+Before adding a test, identify the accepted behavior, the regression that existing evidence misses, and the smallest stable boundary that can detect it.
 
 Do not add a test only for static copy, spacing, color, a trivial property, simple delegation, generated output, framework behavior, or an implementation detail. Do not use brittle source-text assertions when behavior or focused rendering is the real proof.
 
