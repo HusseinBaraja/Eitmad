@@ -116,9 +116,35 @@
                             <Popup x:Name="PART_Popup" Placement="Bottom" IsOpen="{TemplateBinding IsDropDownOpen}" AllowsTransparency="True" PopupAnimation="Fade" VerticalOffset="6" Focusable="False">
                                 <Border Width="{Binding ActualWidth, ElementName=InputChrome}" MaxHeight="260" Background="White" BorderBrush="#DCCFC2" BorderThickness="1" CornerRadius="10" Padding="4">
                                     <Border.Effect><DropShadowEffect BlurRadius="22" ShadowDepth="7" Opacity="0.18" Color="#4A2B12" /></Border.Effect>
-                                    <ScrollViewer CanContentScroll="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                                        <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
-                                    </ScrollViewer>
+                                    <Grid>
+                                        <Grid.RowDefinitions><RowDefinition /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                                        <ScrollViewer CanContentScroll="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                            <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
+                                        </ScrollViewer>
+                                        <StackPanel x:Name="ReferenceActions" Grid.Row="1" Margin="5,3,5,2">
+                                            <Border Height="1" Background="#ECE4DC" Margin="3,2,3,5" />
+                                            <Button Tag="{TemplateBinding Tag}" Click="AddReferenceFromDropdownClick" Background="Transparent" BorderThickness="0" Padding="8,7" Cursor="Hand" HorizontalContentAlignment="Right">
+                                                <TextBlock Foreground="#8B4D17" FontSize="12" FontWeight="SemiBold">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Text" Value="+ إضافة تصنيف جديد" />
+                                                            <Style.Triggers><DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Value="unit"><Setter Property="Text" Value="+ إضافة وحدة جديدة" /></DataTrigger></Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </Button>
+                                            <Button Tag="{TemplateBinding Tag}" Click="ManageReferencesFromDropdownClick" Background="Transparent" BorderThickness="0" Padding="8,6" Cursor="Hand" HorizontalContentAlignment="Right">
+                                                <TextBlock Foreground="{StaticResource MutedBrush}" FontSize="11">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Text" Value="إدارة التصنيفات" />
+                                                            <Style.Triggers><DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Value="unit"><Setter Property="Text" Value="إدارة الوحدات" /></DataTrigger></Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </Button>
+                                        </StackPanel>
+                                    </Grid>
                                 </Border>
                             </Popup>
                         </Grid>
@@ -128,6 +154,7 @@
                             <Trigger Property="IsDropDownOpen" Value="True"><Setter TargetName="InputChrome" Property="BorderBrush" Value="#A35E1E" /><Setter TargetName="InputChrome" Property="Background" Value="#FFFCF8" /><Setter TargetName="Chevron" Property="Data" Value="M3,12 L8,7 L13,12" /></Trigger>
                             <Trigger Property="HasItems" Value="False"><Setter TargetName="PART_Popup" Property="MinHeight" Value="50" /></Trigger>
                             <Trigger Property="IsEnabled" Value="False"><Setter TargetName="InputChrome" Property="Opacity" Value="0.48" /></Trigger>
+                            <Trigger Property="Tag" Value="{x:Null}"><Setter TargetName="ReferenceActions" Property="Visibility" Value="Collapsed" /></Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -195,6 +222,12 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+        <Style x:Key="RawMaterialsCompactActionButton" TargetType="Button" BasedOn="{StaticResource RawMaterialsSecondaryButton}">
+            <Setter Property="Height" Value="32" />
+            <Setter Property="MinWidth" Value="58" />
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="FontSize" Value="11" />
         </Style>
     </UserControl.Resources>
 
@@ -379,8 +412,14 @@
                             <TextBox x:Name="EditorNameBox" Text="{Binding EditorName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource RawMaterialsTextInput}" Margin="0,0,0,18" />
                             <Grid Margin="0,0,0,18">
                                 <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="16" /><ColumnDefinition /></Grid.ColumnDefinitions>
-                                <StackPanel><TextBlock Text="الفئة" Style="{StaticResource RawMaterialsFieldLabel}" /><ComboBox ItemsSource="{Binding CategoryOptions}" SelectedItem="{Binding EditorCategory}" Style="{StaticResource RawMaterialsComboBox}" /></StackPanel>
-                                <StackPanel Grid.Column="2"><TextBlock Text="الوحدة" Style="{StaticResource RawMaterialsFieldLabel}" /><ComboBox ItemsSource="{Binding UnitOptions}" SelectedItem="{Binding EditorUnit}" Style="{StaticResource RawMaterialsComboBox}" /></StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="الفئة" Style="{StaticResource RawMaterialsFieldLabel}" />
+                                    <ComboBox Tag="category" ItemsSource="{Binding ActiveCategories}" DisplayMemberPath="Name" SelectedValuePath="Name" SelectedValue="{Binding EditorCategory, Mode=TwoWay}" Style="{StaticResource RawMaterialsComboBox}" automation:AutomationProperties.Name="تصنيف المادة الخام" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="الوحدة" Style="{StaticResource RawMaterialsFieldLabel}" />
+                                    <ComboBox Tag="unit" ItemsSource="{Binding ActiveUnits}" DisplayMemberPath="DisplayLabel" SelectedValuePath="Name" SelectedValue="{Binding EditorUnit, Mode=TwoWay}" Style="{StaticResource RawMaterialsComboBox}" automation:AutomationProperties.Name="وحدة المادة الخام" />
+                                </StackPanel>
                             </Grid>
                             <TextBlock Text="التكلفة الحالية (ر.س.)" Style="{StaticResource RawMaterialsFieldLabel}" />
                             <TextBox Text="{Binding EditorCost, UpdateSourceTrigger=LostFocus}" Style="{StaticResource RawMaterialsTextInput}" FontFamily="Segoe UI" FlowDirection="LeftToRight" TextAlignment="Right" />
@@ -396,6 +435,85 @@
                 </Grid>
             </ScrollViewer>
         </Grid>
+
+        <Border Panel.ZIndex="30" Background="#6A2B1A0D">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers><DataTrigger Binding="{Binding IsReferenceManagerOpen}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers>
+                </Style>
+            </Border.Style>
+            <Border Width="520" MaxHeight="520" HorizontalAlignment="Center" VerticalAlignment="Center" Background="White" BorderBrush="#DCCFC2" BorderThickness="1" CornerRadius="12" Padding="22">
+                <Border.Effect><DropShadowEffect BlurRadius="34" ShadowDepth="10" Opacity="0.24" Color="#36200F" /></Border.Effect>
+                <Grid>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition MaxHeight="350" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                    <TextBlock Text="{Binding ReferenceManagerTitle}" FontSize="18" FontWeight="Bold" />
+                    <TextBlock Grid.Row="1" Text="يمكنك تعديل العناصر أو أرشفتها بدون حذف دائم." Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,5,0,15" />
+                    <Border Grid.Row="2" BorderBrush="#E6DED6" BorderThickness="1" CornerRadius="8">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <ItemsControl ItemsSource="{Binding ManagedReferences}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="#EEE7E0" BorderThickness="0,0,0,1" Padding="10,9">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                                <StackPanel VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold" />
+                                                    <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                                                        <TextBlock Text="{Binding ShortName}" Foreground="{StaticResource MutedBrush}" FontSize="9" Margin="0,0,8,0">
+                                                            <TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed" /></Trigger></Style.Triggers></Style></TextBlock.Style>
+                                                        </TextBlock>
+                                                        <TextBlock Text="{Binding StatusLabel}" Foreground="{StaticResource MutedBrush}" FontSize="9">
+                                                            <TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed" /></Trigger></Style.Triggers></Style></TextBlock.Style>
+                                                        </TextBlock>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                                <Button Grid.Column="1" Content="تعديل" Style="{StaticResource RawMaterialsCompactActionButton}" Margin="8,0,0,0" Click="EditReferenceClick" />
+                                                <Button Grid.Column="2" Content="أرشفة" Style="{StaticResource RawMaterialsCompactActionButton}" Foreground="#8B2E1B" BorderBrush="#D5A89E" IsEnabled="{Binding CanArchive}" Click="ArchiveReferenceClick" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Border>
+                    <Button Grid.Row="3" Content="إغلاق" Style="{StaticResource RawMaterialsSecondaryButton}" HorizontalAlignment="Left" Margin="0,18,0,0" Click="CloseReferenceManagerClick" />
+                </Grid>
+            </Border>
+        </Border>
+
+        <Border Panel.ZIndex="31" Background="#6A2B1A0D">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers><DataTrigger Binding="{Binding IsReferenceEditorOpen}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers>
+                </Style>
+            </Border.Style>
+            <Border Width="430" HorizontalAlignment="Center" VerticalAlignment="Center" Background="White" BorderBrush="#DCCFC2" BorderThickness="1" CornerRadius="12" Padding="24">
+                <Border.Effect><DropShadowEffect BlurRadius="34" ShadowDepth="10" Opacity="0.24" Color="#36200F" /></Border.Effect>
+                <StackPanel>
+                    <TextBlock Text="{Binding ReferenceEditorTitle}" FontSize="18" FontWeight="Bold" />
+                    <TextBlock Text="يُضاف العنصر إلى هذه المعاينة فقط." Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,5,0,20" />
+                    <TextBlock Text="الاسم" Style="{StaticResource RawMaterialsFieldLabel}" />
+                    <TextBox x:Name="ReferenceNameBox" Text="{Binding ReferenceName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource RawMaterialsTextInput}" />
+                    <StackPanel Margin="0,16,0,0">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding IsUnitReference}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style>
+                        </StackPanel.Style>
+                        <TextBlock Text="الاسم المختصر" Style="{StaticResource RawMaterialsFieldLabel}" />
+                        <TextBox Text="{Binding ReferenceShortName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource RawMaterialsTextInput}" FlowDirection="LeftToRight" TextAlignment="Right" />
+                        <TextBlock Text="مثال: متر مربع — m²" Foreground="{StaticResource MutedBrush}" FontSize="9" Margin="0,5,0,0" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding ReferenceError}" Foreground="{StaticResource DangerBrush}" FontSize="10" Margin="0,9,0,0">
+                        <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding HasReferenceError}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                    </TextBlock>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" FlowDirection="LeftToRight" Margin="0,22,0,0">
+                        <Button Style="{StaticResource PrimaryButton}" Height="43" Content="حفظ" Click="SaveReferenceClick" />
+                        <Button Style="{StaticResource RawMaterialsSecondaryButton}" Content="إلغاء" Margin="9,0,0,0" Click="CancelReferenceClick" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Border>
 
         <Border x:Name="FeedbackToast" Margin="28" Padding="18,11" HorizontalAlignment="Left" VerticalAlignment="Bottom" Panel.ZIndex="20" Background="#3B240F" CornerRadius="9">
             <Border.Style>

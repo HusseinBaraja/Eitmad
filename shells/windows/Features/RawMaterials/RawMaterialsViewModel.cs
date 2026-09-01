@@ -30,6 +30,14 @@ public sealed class RawMaterialsViewModel : INotifyPropertyChanged
     private decimal editorCost;
     private string editorError = string.Empty;
     private string feedbackMessage = string.Empty;
+    private RawMaterialReferenceOption? editingReference;
+    private bool isCategoryReference = true;
+    private bool isReferenceEditorOpen;
+    private bool isReferenceManagerOpen;
+    private bool returnToReferenceManager;
+    private string referenceName = string.Empty;
+    private string referenceShortName = string.Empty;
+    private string referenceError = string.Empty;
 
     public RawMaterialsViewModel()
     {
@@ -41,20 +49,43 @@ public sealed class RawMaterialsViewModel : INotifyPropertyChanged
             new(Guid.Parse("4a34cd4c-6d5c-438c-87ab-a9ded9bd9f73"), "خشب سويدي مقاس 2×4", "أخشاب طبيعية", "متر", 5_200m, isArchived: true),
         ];
 
-        CategoryOptions = [AllCategories, "ألواح خشبية", "أخشاب طبيعية", "أقمشة ومفروشات"];
+        Categories =
+        [
+            new("ألواح خشبية"),
+            new("أخشاب طبيعية"),
+            new("أقمشة ومفروشات"),
+        ];
+        Units =
+        [
+            new("لوح", "لوح"),
+            new("متر", "م"),
+            new("كيلوجرام", "كجم"),
+            new("قطعة", "قطعة"),
+        ];
+        ActiveCategories = new ObservableCollection<RawMaterialReferenceOption>(Categories);
+        ActiveUnits = new ObservableCollection<RawMaterialReferenceOption>(Units);
+        CategoryOptions = [AllCategories, .. Categories.Select(item => item.Name)];
         StatusOptions = [AllStatuses, ActiveStatus, ArchivedStatus];
-        UnitOptions = ["لوح", "متر", "كيلوجرام", "قطعة"];
         VisibleMaterials = [];
         RefreshVisibleMaterials();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    public IReadOnlyList<string> CategoryOptions { get; }
+    public ObservableCollection<string> CategoryOptions { get; }
 
     public IReadOnlyList<string> StatusOptions { get; }
 
-    public IReadOnlyList<string> UnitOptions { get; }
+    public ObservableCollection<RawMaterialReferenceOption> Categories { get; }
+
+    public ObservableCollection<RawMaterialReferenceOption> Units { get; }
+
+    public ObservableCollection<RawMaterialReferenceOption> ActiveCategories { get; }
+
+    public ObservableCollection<RawMaterialReferenceOption> ActiveUnits { get; }
+
+    public IEnumerable<RawMaterialReferenceOption> ManagedReferences =>
+        IsCategoryReference ? Categories : Units;
 
     public ObservableCollection<RawMaterialListItem> VisibleMaterials { get; }
 
@@ -166,6 +197,67 @@ public sealed class RawMaterialsViewModel : INotifyPropertyChanged
 
     public bool HasFeedback => !string.IsNullOrEmpty(FeedbackMessage);
 
+    public bool IsReferenceEditorOpen
+    {
+        get => isReferenceEditorOpen;
+        private set => Set(ref isReferenceEditorOpen, value);
+    }
+
+    public bool IsReferenceManagerOpen
+    {
+        get => isReferenceManagerOpen;
+        private set => Set(ref isReferenceManagerOpen, value);
+    }
+
+    public bool IsCategoryReference
+    {
+        get => isCategoryReference;
+        private set
+        {
+            if (Set(ref isCategoryReference, value))
+            {
+                Raise(nameof(IsUnitReference));
+                Raise(nameof(ManagedReferences));
+                Raise(nameof(ReferenceEditorTitle));
+                Raise(nameof(ReferenceManagerTitle));
+            }
+        }
+    }
+
+    public bool IsUnitReference => !IsCategoryReference;
+
+    public string ReferenceEditorTitle => editingReference is null
+        ? IsCategoryReference ? "إضافة تصنيف جديد" : "إضافة وحدة جديدة"
+        : IsCategoryReference ? "تعديل التصنيف" : "تعديل الوحدة";
+
+    public string ReferenceManagerTitle => IsCategoryReference ? "إدارة التصنيفات" : "إدارة الوحدات";
+
+    public string ReferenceName
+    {
+        get => referenceName;
+        set => Set(ref referenceName, value ?? string.Empty);
+    }
+
+    public string ReferenceShortName
+    {
+        get => referenceShortName;
+        set => Set(ref referenceShortName, value ?? string.Empty);
+    }
+
+    public string ReferenceError
+    {
+        get => referenceError;
+        private set
+        {
+            if (Set(ref referenceError, value))
+            {
+                Raise(nameof(HasReferenceError));
+            }
+        }
+    }
+
+    public bool HasReferenceError => !string.IsNullOrEmpty(ReferenceError);
+
     public bool HasNoVisibleMaterials => VisibleMaterials.Count == 0;
 
     public string VisibleCountLabel => $"{VisibleMaterials.Count} من {materials.Count} مواد";
@@ -213,6 +305,18 @@ public sealed class RawMaterialsViewModel : INotifyPropertyChanged
         if (EditorCost < 0m)
         {
             EditorError = "يجب ألا تكون التكلفة سالبة.";
+            return false;
+        }
+
+        if (!ActiveCategories.Any(item => item.Name == EditorCategory))
+        {
+            EditorError = "اختر تصنيفاً نشطاً للمادة الخام.";
+            return false;
+        }
+
+        if (!ActiveUnits.Any(item => item.Name == EditorUnit))
+        {
+            EditorError = "اختر وحدة نشطة للمادة الخام.";
             return false;
         }
 
@@ -271,6 +375,195 @@ public sealed class RawMaterialsViewModel : INotifyPropertyChanged
     }
 
     public void ClearFeedback() => FeedbackMessage = string.Empty;
+
+    public void BeginAddCategory() => BeginAddReference(isCategory: true);
+
+    public void BeginAddUnit() => BeginAddReference(isCategory: false);
+
+    public void BeginManageCategories() => BeginManageReferences(isCategory: true);
+
+    public void BeginManageUnits() => BeginManageReferences(isCategory: false);
+
+    public void BeginEditReference(RawMaterialReferenceOption reference)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+        editingReference = reference;
+        returnToReferenceManager = IsReferenceManagerOpen;
+        ReferenceName = reference.Name;
+        ReferenceShortName = reference.ShortName;
+        ReferenceError = string.Empty;
+        IsReferenceManagerOpen = false;
+        IsReferenceEditorOpen = true;
+        Raise(nameof(ReferenceEditorTitle));
+    }
+
+    public bool SaveReferenceEditor()
+    {
+        var normalizedName = ReferenceName.Trim();
+        var normalizedShortName = ReferenceShortName.Trim();
+        if (normalizedName.Length == 0)
+        {
+            ReferenceError = IsCategoryReference ? "أدخل اسم التصنيف." : "أدخل اسم الوحدة.";
+            return false;
+        }
+
+        if (IsUnitReference && normalizedShortName.Length == 0)
+        {
+            ReferenceError = "أدخل الاسم المختصر للوحدة.";
+            return false;
+        }
+
+        var references = IsCategoryReference ? Categories : Units;
+        if (references.Any(item => item != editingReference
+            && string.Equals(item.Name, normalizedName, StringComparison.CurrentCultureIgnoreCase)))
+        {
+            ReferenceError = IsCategoryReference ? "اسم التصنيف مستخدم بالفعل." : "اسم الوحدة مستخدم بالفعل.";
+            return false;
+        }
+
+        if (editingReference is null)
+        {
+            var added = new RawMaterialReferenceOption(normalizedName, IsUnitReference ? normalizedShortName : string.Empty);
+            references.Add(added);
+            if (IsCategoryReference)
+            {
+                ActiveCategories.Add(added);
+                CategoryOptions.Add(added.Name);
+                EditorCategory = added.Name;
+            }
+            else
+            {
+                ActiveUnits.Add(added);
+                EditorUnit = added.Name;
+            }
+        }
+        else
+        {
+            RenameReference(editingReference, normalizedName, IsUnitReference ? normalizedShortName : string.Empty);
+        }
+
+        ReferenceError = string.Empty;
+        IsReferenceEditorOpen = false;
+        if (returnToReferenceManager)
+        {
+            IsReferenceManagerOpen = true;
+        }
+
+        return true;
+    }
+
+    public void CancelReferenceEditor()
+    {
+        IsReferenceEditorOpen = false;
+        ReferenceError = string.Empty;
+        if (returnToReferenceManager)
+        {
+            IsReferenceManagerOpen = true;
+        }
+    }
+
+    public void CloseReferenceManager() => IsReferenceManagerOpen = false;
+
+    public void ArchiveReference(RawMaterialReferenceOption reference)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+        if (reference.IsArchived)
+        {
+            return;
+        }
+
+        var activeReferences = IsCategoryReference ? ActiveCategories : ActiveUnits;
+        if (activeReferences.Count == 1 && activeReferences.Contains(reference))
+        {
+            ReferenceError = IsCategoryReference
+                ? "يجب إبقاء تصنيف نشط واحد على الأقل."
+                : "يجب إبقاء وحدة نشطة واحدة على الأقل.";
+            return;
+        }
+
+        reference.IsArchived = true;
+        if (IsCategoryReference)
+        {
+            ActiveCategories.Remove(reference);
+            if (EditorCategory == reference.Name)
+            {
+                EditorCategory = ActiveCategories.FirstOrDefault()?.Name ?? string.Empty;
+            }
+        }
+        else
+        {
+            ActiveUnits.Remove(reference);
+            if (EditorUnit == reference.Name)
+            {
+                EditorUnit = ActiveUnits.FirstOrDefault()?.Name ?? string.Empty;
+            }
+        }
+    }
+
+    private void BeginAddReference(bool isCategory)
+    {
+        IsCategoryReference = isCategory;
+        editingReference = null;
+        returnToReferenceManager = false;
+        ReferenceName = string.Empty;
+        ReferenceShortName = string.Empty;
+        ReferenceError = string.Empty;
+        IsReferenceManagerOpen = false;
+        IsReferenceEditorOpen = true;
+        Raise(nameof(ReferenceEditorTitle));
+    }
+
+    private void BeginManageReferences(bool isCategory)
+    {
+        IsCategoryReference = isCategory;
+        IsReferenceEditorOpen = false;
+        IsReferenceManagerOpen = true;
+    }
+
+    private void RenameReference(RawMaterialReferenceOption reference, string name, string shortName)
+    {
+        var previousName = reference.Name;
+        reference.Name = name;
+        reference.ShortName = shortName;
+
+        if (IsCategoryReference)
+        {
+            var filterIndex = CategoryOptions.IndexOf(previousName);
+            if (filterIndex >= 0)
+            {
+                CategoryOptions[filterIndex] = name;
+            }
+
+            foreach (var material in materials.Where(item => item.Category == previousName))
+            {
+                material.Category = name;
+            }
+
+            if (EditorCategory == previousName)
+            {
+                EditorCategory = name;
+            }
+
+            if (SelectedCategory == previousName)
+            {
+                SelectedCategory = name;
+            }
+        }
+        else
+        {
+            foreach (var material in materials.Where(item => item.Unit == previousName))
+            {
+                material.Unit = name;
+            }
+
+            if (EditorUnit == previousName)
+            {
+                EditorUnit = name;
+            }
+        }
+
+        RefreshVisibleMaterials();
+    }
 
     private void RefreshVisibleMaterials()
     {

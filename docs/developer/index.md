@@ -44,6 +44,7 @@ Read `AGENTS.md` at the repository root, then review:
 - [Persistent tenant identity](subsystems/identity-foundation.md)
 - [Windows engine process supervision](subsystems/windows-process-supervision.md)
 - [Arabic-first Windows operations shell](subsystems/windows-native-shell.md)
+- [Parts list vertical](subsystems/parts.md)
 - [Reference marker complete vertical](subsystems/reference-marker.md)
 - [Build the first real product](build-first-product.md)
 
