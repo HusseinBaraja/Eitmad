@@ -222,9 +222,11 @@ public sealed class PartsViewModel : INotifyPropertyChanged
 
     public bool HasNoMaterialOptions => FilteredMaterials.Count == 0;
 
-    public decimal TotalPartCost => SelectedMaterials.Sum(item => item.TotalCost);
+    public decimal TotalPartCost => TryCalculateTotalPartCost(out var totalCost) ? totalCost : 0m;
 
-    public string TotalPartCostLabel => TotalPartCost.ToString("N0", CultureInfo.InvariantCulture);
+    public string TotalPartCostLabel => TryCalculateTotalPartCost(out var totalCost)
+        ? totalCost.ToString("N0", CultureInfo.InvariantCulture)
+        : "—";
 
     public bool HasNoVisibleParts => VisibleParts.Count == 0;
 
@@ -286,6 +288,12 @@ public sealed class PartsViewModel : INotifyPropertyChanged
         if (SelectedMaterials.Any(item => item.Quantity <= 0m))
         {
             EditorError = "أدخل كمية أكبر من صفر لكل مادة خام.";
+            return false;
+        }
+
+        if (!TryCalculateTotalPartCost(out _))
+        {
+            EditorError = "الكمية كبيرة جداً لحساب تكلفة الجزء.";
             return false;
         }
 
@@ -450,6 +458,31 @@ public sealed class PartsViewModel : INotifyPropertyChanged
         Raise(nameof(HasSelectedMaterials));
         Raise(nameof(TotalPartCost));
         Raise(nameof(TotalPartCostLabel));
+    }
+
+    private bool TryCalculateTotalPartCost(out decimal totalCost)
+    {
+        totalCost = 0m;
+        try
+        {
+            foreach (var usage in SelectedMaterials)
+            {
+                if (!usage.TryCalculateTotalCost(out var rowCost))
+                {
+                    totalCost = 0m;
+                    return false;
+                }
+
+                totalCost = checked(totalCost + rowCost);
+            }
+
+            return true;
+        }
+        catch (OverflowException)
+        {
+            totalCost = 0m;
+            return false;
+        }
     }
 
     private void RefreshMaterialOptions()

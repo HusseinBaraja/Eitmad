@@ -45,7 +45,7 @@ The Add, Edit, Duplicate, and Archive paths update only in-memory state. **إض�
 2. **المواد الخام المستخدمة** opens a searchable local material picker, adds selected materials to an editable usage table, and calculates each row and **تكلفة الجزء** from positive quantities.
 3. **مراجعة الجزء** shows the part identity, a read-only material table, and the prominent **إجمالي تكلفة الجزء**. It does not allow inline editing; **السابق** returns to the owning step, and **حفظ الجزء** returns to the list.
 
-The preview checks that the name is present, that a new part has at least one material, and that each amount is greater than zero. These are presentation checks against synthetic state, not domain validation. Rust remains authoritative for validation when this vertical is connected. The sample material costs are selected so `1.2 m²` of `MDF 18mm` plus `3 m` of `Edge Band` calculates to `9,450 YER`; no hidden surcharge exists. Duplicate creates a local **نسخة** and opens the same wizard. Archive marks the row inactive and never deletes it.
+The preview checks that the name is present, that a new part has at least one material, that each amount is greater than zero, and that row and aggregate cost calculations fit the `decimal` presentation range. These are presentation checks against synthetic state, not domain validation. Rust remains authoritative for validation when this vertical is connected. The sample material costs are selected so `1.2 m²` of `MDF 18mm` plus `3 m` of `Edge Band` calculates to `9,450 YER`; no hidden surcharge exists. Duplicate creates a local **نسخة** and opens the same wizard. Archive marks the row inactive and never deletes it.
 
 ## Security, compatibility, and failure recovery
 

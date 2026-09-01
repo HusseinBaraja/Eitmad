@@ -42,11 +42,27 @@ public sealed class PartMaterialUsage : INotifyPropertyChanged
         }
     }
 
-    public decimal TotalCost => decimal.Round(Quantity * Material.UnitCost, 0, MidpointRounding.AwayFromZero);
+    public decimal TotalCost => TryCalculateTotalCost(out var totalCost) ? totalCost : 0m;
 
     public string UnitCostLabel => Material.UnitCost.ToString("N0", CultureInfo.InvariantCulture);
 
-    public string TotalCostLabel => TotalCost.ToString("N0", CultureInfo.InvariantCulture);
+    public string TotalCostLabel => TryCalculateTotalCost(out var totalCost)
+        ? totalCost.ToString("N0", CultureInfo.InvariantCulture)
+        : "—";
+
+    public bool TryCalculateTotalCost(out decimal totalCost)
+    {
+        try
+        {
+            totalCost = decimal.Round(checked(Quantity * Material.UnitCost), 0, MidpointRounding.AwayFromZero);
+            return true;
+        }
+        catch (OverflowException)
+        {
+            totalCost = 0m;
+            return false;
+        }
+    }
 
     public PartMaterialUsage Copy() => new(Material, Quantity);
 
