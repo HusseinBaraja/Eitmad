@@ -31,7 +31,7 @@ public partial class RawMaterialsView : UserControl
     private void AddRawMaterialClick(object sender, RoutedEventArgs eventArgs)
     {
         ViewModel.BeginCreate();
-        EditorNameBox.Focus();
+        Dispatcher.BeginInvoke(EditorNameBox.Focus, DispatcherPriority.Input);
     }
 
     private void RawMaterialRowClick(object sender, MouseButtonEventArgs eventArgs)
@@ -39,7 +39,7 @@ public partial class RawMaterialsView : UserControl
         if (sender is FrameworkElement { DataContext: RawMaterialListItem material })
         {
             ViewModel.BeginEdit(material);
-            EditorNameBox.Focus();
+            Dispatcher.BeginInvoke(EditorNameBox.Focus, DispatcherPriority.Input);
         }
     }
 
@@ -61,7 +61,7 @@ public partial class RawMaterialsView : UserControl
         if (MaterialFromMenuItem(sender) is { } material)
         {
             ViewModel.BeginEdit(material);
-            EditorNameBox.Focus();
+            Dispatcher.BeginInvoke(EditorNameBox.Focus, DispatcherPriority.Input);
         }
     }
 
@@ -71,7 +71,7 @@ public partial class RawMaterialsView : UserControl
         {
             ViewModel.Duplicate(material);
             RestartFeedbackTimer();
-            EditorNameBox.Focus();
+            Dispatcher.BeginInvoke(EditorNameBox.Focus, DispatcherPriority.Input);
         }
     }
 

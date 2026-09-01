@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "reference marker maintainers"
-last_verified: "2026-08-26"
+last_verified: "2026-09-01"
 review_triggers:
   - "reference marker contracts, permissions, migration, sync projection, event, or Windows view changes"
 keywords:
@@ -121,7 +121,7 @@ npm run contracts:verify --prefix crates/contracts/codegen
 ```
 
 ```powershell
-dotnet run --project shells/windows/tests/Eitmad.WindowsShell.Tests.csproj
+dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --configuration Release --nologo
 ```
 
 ## Tradeoffs and extension points

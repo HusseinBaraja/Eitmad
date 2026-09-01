@@ -107,8 +107,8 @@ jobs:
         run: cargo build --locked -p eitmad-engine-cli
       - name: Build Windows shell with warnings rejected
         run: dotnet build shells/windows/Eitmad.WindowsShell.csproj --configuration Release --nologo
-      - name: Test Arabic, RTL, shell ownership, and presentation lifecycle
-        run: dotnet run --project shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --configuration Release --nologo
+      - name: Test Arabic, RTL, and presentation lifecycle
+        run: dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --configuration Release --nologo
       - name: Test fake and real-engine process supervision
         run: >-
           dotnet run

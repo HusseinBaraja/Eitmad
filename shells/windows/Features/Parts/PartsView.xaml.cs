@@ -30,7 +30,7 @@ public partial class PartsView : UserControl
     private void AddPartClick(object sender, RoutedEventArgs eventArgs)
     {
         ViewModel.BeginCreate();
-        EditorNameBox.Focus();
+        Dispatcher.BeginInvoke(EditorNameBox.Focus, DispatcherPriority.Input);
     }
 
     private void PartRowClick(object sender, MouseButtonEventArgs eventArgs)
@@ -38,7 +38,7 @@ public partial class PartsView : UserControl
         if (sender is FrameworkElement { DataContext: PartListItem part })
         {
             ViewModel.BeginEdit(part);
-            EditorNameBox.Focus();
+            Dispatcher.BeginInvoke(EditorNameBox.Focus, DispatcherPriority.Input);
         }
     }
 
@@ -60,7 +60,7 @@ public partial class PartsView : UserControl
         if (PartFromMenuItem(sender) is { } part)
         {
             ViewModel.BeginEdit(part);
-            EditorNameBox.Focus();
+            Dispatcher.BeginInvoke(EditorNameBox.Focus, DispatcherPriority.Input);
         }
     }
 
@@ -70,7 +70,7 @@ public partial class PartsView : UserControl
         {
             ViewModel.Duplicate(part);
             RestartFeedbackTimer();
-            EditorNameBox.Focus();
+            Dispatcher.BeginInvoke(EditorNameBox.Focus, DispatcherPriority.Input);
         }
     }
 
