@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Windows UI maintainers"
-last_verified: "2026-08-31"
+last_verified: "2026-09-01"
 review_triggers:
   - "Parts domain contracts, Rust projections, or Windows Parts UI behavior change"
 keywords:
@@ -48,10 +48,10 @@ If the page is missing, opens a generic preview, or shows a clipped menu, inspec
 Run the focused shell suite:
 
 ```powershell
-dotnet run --project shells/windows/tests/Eitmad.WindowsShell.Tests.csproj
+dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --configuration Release --nologo
 ```
 
-`PartsSearchAndFiltersUpdateVisibleList` covers English and Arabic search plus combined filters. `PartsActionsRemainNonDestructiveAndEphemeral` covers cost and usage formatting, archive, duplicate, and create. `PartsPageMatchesTheRawMaterialsVisualSystem` covers Arabic labels, columns, actions, popup placement, navigation wiring, and the no-delete boundary. The rendered Windows check on 2026-08-31 verified the list, selector popup, in-window row menu, Edit transition, and Add transition.
+`PartsSearchAndFiltersUpdateVisibleList` covers English and Arabic search plus combined filters. `PartsActionsRemainNonDestructiveAndEphemeral` covers cost and usage formatting, archive, duplicate, and create. `PartsRenderedTests` instantiates the WPF page, verifies the accessible Arabic search and create controls, drives the Add transition and focus, and opens the row menu to verify mouse-point placement and the **تعديل**, **تكرار**, and **أرشفة** actions.
 
 When the product gains a Rust Parts vertical, keep the WPF page as a thin projection adapter. Add typed contracts and generated bindings first, then replace only the transient fixture and local action boundary. Preserve the Arabic labels, RTL/LTR isolation, numeric formatting, accessibility names, and non-destructive failure behavior while mapping authorization, scope, audit, idempotency, conflict, and sync results from Rust.
 

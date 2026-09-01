@@ -94,6 +94,16 @@ def check_shell_authority(errors: list[str]) -> None:
         "IConfiguration": "direct configuration access",
         "PasswordVault": "direct secret access",
         "ProtectedData": "direct secret access",
+        "HttpClient": "direct HTTP access",
+        "File.WriteAll": "direct file writing",
+        "FileStream(": "direct file access",
+        "RegistryKey": "direct registry access",
+        "Authorize(": "shell-owned authorization",
+        "PermissionDecision.Granted": "shell-owned authorization decision",
+        "SendCommandAsync": "generic command submission",
+        "EngineLaunchRequest": "engine launch configuration",
+        "DevelopmentIdentity": "development identity assertion",
+        "SpecialFolder.LocalApplicationData": "runtime storage selection",
     }
     for path in (ROOT / "shells").rglob("*"):
         if (
