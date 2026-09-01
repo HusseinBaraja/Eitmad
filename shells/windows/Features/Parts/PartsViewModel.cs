@@ -6,7 +6,7 @@ using System.Text;
 
 namespace Eitmad.WindowsShell.Features.Parts;
 
-/// <summary>Owns transient list, filter, and editor state for the parts preview.</summary>
+/// <summary>Owns transient list, filter, and guided-editor state for the Parts preview.</summary>
 public sealed class PartsViewModel : INotifyPropertyChanged
 {
     public const string AllCategories = "كل الفئات";
@@ -15,18 +15,23 @@ public sealed class PartsViewModel : INotifyPropertyChanged
     public const string ArchivedStatus = "مؤرشف";
 
     private readonly List<PartListItem> parts;
+    private readonly Dictionary<Guid, string> descriptions = [];
+    private readonly Dictionary<Guid, List<PartMaterialUsage>> materialUsages = [];
+    private readonly List<PartMaterialOption> availableMaterials;
     private PartListItem? editingPart;
     private string searchText = string.Empty;
     private string selectedCategory = AllCategories;
     private string selectedStatus = AllStatuses;
     private bool isEditorOpen;
     private bool isCreating;
+    private int currentStep = 1;
     private string editorName = string.Empty;
     private string editorCategory = "خزانة ملابس";
-    private decimal editorCost;
-    private int editorUsedInCount;
+    private string editorDescription = string.Empty;
     private string editorError = string.Empty;
     private string feedbackMessage = string.Empty;
+    private bool isMaterialPickerOpen;
+    private string materialSearchText = string.Empty;
 
     public PartsViewModel()
     {
@@ -38,11 +43,22 @@ public sealed class PartsViewModel : INotifyPropertyChanged
             new(Guid.Parse("6970881f-96f8-413f-8dca-bd6f4e122812"), "باب جرار مزخرف", "أبواب", 7_800m, 1, isArchived: true),
         ];
 
+        availableMaterials =
+        [
+            new(Guid.Parse("c82cf130-539f-4fc3-9d07-dbc5c1da7e4e"), "MDF 18mm", "m²", 7_250m),
+            new(Guid.Parse("eb969e93-ad20-41f5-8c56-bbb83bba5d9c"), "Edge Band", "m", 250m),
+            new(Guid.Parse("09b5cc44-8c98-4697-bcd0-39e90f7611ed"), "خشب زان مجفف", "m", 8_000m),
+            new(Guid.Parse("84c316a4-f65d-4d4e-9ec3-2adfcaedfc6f"), "قماش كتان بيج", "m", 3_500m),
+        ];
+
         CategoryOptions = [AllCategories, "خزانة ملابس", "رفوف", "أبواب", "أدراج"];
         EditorCategoryOptions = ["خزانة ملابس", "رفوف", "أبواب", "أدراج"];
         StatusOptions = [AllStatuses, ActiveStatus, ArchivedStatus];
         VisibleParts = [];
+        SelectedMaterials = [];
+        FilteredMaterials = [];
         RefreshVisibleParts();
+        RefreshMaterialOptions();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -54,6 +70,10 @@ public sealed class PartsViewModel : INotifyPropertyChanged
     public IReadOnlyList<string> StatusOptions { get; }
 
     public ObservableCollection<PartListItem> VisibleParts { get; }
+
+    public ObservableCollection<PartMaterialUsage> SelectedMaterials { get; }
+
+    public ObservableCollection<PartMaterialOption> FilteredMaterials { get; }
 
     public string SearchText
     {
@@ -105,11 +125,34 @@ public sealed class PartsViewModel : INotifyPropertyChanged
             if (Set(ref isCreating, value))
             {
                 Raise(nameof(EditorTitle));
+                Raise(nameof(SaveButtonLabel));
             }
         }
     }
 
-    public string EditorTitle => IsCreating ? "إضافة جزء" : "تعديل جزء";
+    public string EditorTitle => IsCreating ? "إنشاء جزء جديد" : "تعديل الجزء";
+
+    public string SaveButtonLabel => IsCreating ? "حفظ الجزء" : "حفظ التعديلات";
+
+    public int CurrentStep
+    {
+        get => currentStep;
+        private set
+        {
+            if (Set(ref currentStep, value))
+            {
+                Raise(nameof(IsStepOne));
+                Raise(nameof(IsStepTwo));
+                Raise(nameof(IsStepThree));
+            }
+        }
+    }
+
+    public bool IsStepOne => CurrentStep == 1;
+
+    public bool IsStepTwo => CurrentStep == 2;
+
+    public bool IsStepThree => CurrentStep == 3;
 
     public string EditorName
     {
@@ -123,16 +166,10 @@ public sealed class PartsViewModel : INotifyPropertyChanged
         set => Set(ref editorCategory, value ?? string.Empty);
     }
 
-    public decimal EditorCost
+    public string EditorDescription
     {
-        get => editorCost;
-        set => Set(ref editorCost, value);
-    }
-
-    public int EditorUsedInCount
-    {
-        get => editorUsedInCount;
-        set => Set(ref editorUsedInCount, value);
+        get => editorDescription;
+        set => Set(ref editorDescription, value ?? string.Empty);
     }
 
     public string EditorError
@@ -163,6 +200,32 @@ public sealed class PartsViewModel : INotifyPropertyChanged
 
     public bool HasFeedback => !string.IsNullOrEmpty(FeedbackMessage);
 
+    public bool IsMaterialPickerOpen
+    {
+        get => isMaterialPickerOpen;
+        private set => Set(ref isMaterialPickerOpen, value);
+    }
+
+    public string MaterialSearchText
+    {
+        get => materialSearchText;
+        set
+        {
+            if (Set(ref materialSearchText, value ?? string.Empty))
+            {
+                RefreshMaterialOptions();
+            }
+        }
+    }
+
+    public bool HasSelectedMaterials => SelectedMaterials.Count > 0;
+
+    public bool HasNoMaterialOptions => FilteredMaterials.Count == 0;
+
+    public decimal TotalPartCost => SelectedMaterials.Sum(item => item.TotalCost);
+
+    public string TotalPartCostLabel => TotalPartCost.ToString("N0", CultureInfo.InvariantCulture);
+
     public bool HasNoVisibleParts => VisibleParts.Count == 0;
 
     public string VisibleCountLabel => $"{VisibleParts.Count} من {parts.Count} أجزاء";
@@ -173,9 +236,11 @@ public sealed class PartsViewModel : INotifyPropertyChanged
         IsCreating = true;
         EditorName = string.Empty;
         EditorCategory = "خزانة ملابس";
-        EditorCost = 0m;
-        EditorUsedInCount = 0;
+        EditorDescription = string.Empty;
+        ReplaceSelectedMaterials([]);
         EditorError = string.Empty;
+        CurrentStep = 1;
+        IsMaterialPickerOpen = false;
         IsEditorOpen = true;
     }
 
@@ -186,53 +251,126 @@ public sealed class PartsViewModel : INotifyPropertyChanged
         IsCreating = false;
         EditorName = part.Name;
         EditorCategory = part.Category;
-        EditorCost = part.Cost;
-        EditorUsedInCount = part.UsedInCount;
+        EditorDescription = descriptions.GetValueOrDefault(part.Id, string.Empty);
+        ReplaceSelectedMaterials(materialUsages.TryGetValue(part.Id, out var usages)
+            ? usages.Select(item => item.Copy())
+            : []);
         EditorError = string.Empty;
+        CurrentStep = 1;
+        IsMaterialPickerOpen = false;
         IsEditorOpen = true;
     }
 
     public void CancelEditor()
     {
         IsEditorOpen = false;
+        IsMaterialPickerOpen = false;
         EditorError = string.Empty;
     }
 
-    public bool SaveEditor()
+    public bool MoveToMaterials()
     {
-        var normalizedName = EditorName.Trim();
-        if (normalizedName.Length == 0)
+        if (EditorName.Trim().Length == 0)
         {
             EditorError = "أدخل اسم الجزء.";
             return false;
         }
 
-        if (EditorCost < 0m || EditorUsedInCount < 0)
+        EditorError = string.Empty;
+        CurrentStep = 2;
+        return true;
+    }
+
+    public bool MoveToReview()
+    {
+        if (SelectedMaterials.Any(item => item.Quantity <= 0m))
         {
-            EditorError = "يجب ألا تكون التكلفة أو عدد المنتجات سالباً.";
+            EditorError = "أدخل كمية أكبر من صفر لكل مادة خام.";
             return false;
         }
 
-        if (editingPart is null)
+        if (IsCreating && SelectedMaterials.Count == 0)
         {
-            parts.Add(new PartListItem(
-                Guid.NewGuid(),
-                normalizedName,
-                EditorCategory,
-                EditorCost,
-                EditorUsedInCount));
+            EditorError = "أضف مادة خام واحدة على الأقل للمتابعة.";
+            return false;
+        }
+
+        EditorError = string.Empty;
+        CurrentStep = 3;
+        return true;
+    }
+
+    public void MoveToPreviousStep()
+    {
+        if (CurrentStep > 1)
+        {
+            CurrentStep--;
+            EditorError = string.Empty;
+        }
+    }
+
+    public void OpenMaterialPicker()
+    {
+        MaterialSearchText = string.Empty;
+        RefreshMaterialOptions();
+        IsMaterialPickerOpen = true;
+    }
+
+    public void CloseMaterialPicker() => IsMaterialPickerOpen = false;
+
+    public void AddMaterial(PartMaterialOption material)
+    {
+        ArgumentNullException.ThrowIfNull(material);
+        if (SelectedMaterials.Any(item => item.Material.Id == material.Id))
+        {
+            return;
+        }
+
+        AddSelectedMaterial(new PartMaterialUsage(material));
+        RefreshMaterialOptions();
+        IsMaterialPickerOpen = false;
+        EditorError = string.Empty;
+    }
+
+    public void RemoveMaterial(PartMaterialUsage usage)
+    {
+        ArgumentNullException.ThrowIfNull(usage);
+        usage.PropertyChanged -= SelectedMaterialChanged;
+        SelectedMaterials.Remove(usage);
+        RefreshMaterialState();
+        RefreshMaterialOptions();
+    }
+
+    public bool SaveEditor()
+    {
+        if (CurrentStep != 3 || EditorName.Trim().Length == 0)
+        {
+            return false;
+        }
+
+        var normalizedName = EditorName.Trim();
+        var cost = SelectedMaterials.Count == 0 && editingPart is not null
+            ? editingPart.Cost
+            : TotalPartCost;
+        var target = editingPart;
+        if (target is null)
+        {
+            target = new PartListItem(Guid.NewGuid(), normalizedName, EditorCategory, cost, 0);
+            parts.Add(target);
             FeedbackMessage = "أضيف الجزء إلى المعاينة المحلية.";
         }
         else
         {
-            editingPart.Name = normalizedName;
-            editingPart.Category = EditorCategory;
-            editingPart.Cost = EditorCost;
-            editingPart.UsedInCount = EditorUsedInCount;
+            target.Name = normalizedName;
+            target.Category = EditorCategory;
+            target.Cost = cost;
             FeedbackMessage = "حُدث الجزء في المعاينة المحلية.";
         }
 
+        descriptions[target.Id] = EditorDescription.Trim();
+        materialUsages[target.Id] = SelectedMaterials.Select(item => item.Copy()).ToList();
         IsEditorOpen = false;
+        IsMaterialPickerOpen = false;
         EditorError = string.Empty;
         RefreshVisibleParts();
         return true;
@@ -241,13 +379,18 @@ public sealed class PartsViewModel : INotifyPropertyChanged
     public PartListItem Duplicate(PartListItem part)
     {
         ArgumentNullException.ThrowIfNull(part);
-        var duplicate = new PartListItem(
-            Guid.NewGuid(),
-            $"{part.Name} — نسخة",
-            part.Category,
-            part.Cost,
-            part.UsedInCount);
+        var duplicate = new PartListItem(Guid.NewGuid(), $"{part.Name} — نسخة", part.Category, part.Cost, part.UsedInCount);
         parts.Add(duplicate);
+        if (descriptions.TryGetValue(part.Id, out var description))
+        {
+            descriptions[duplicate.Id] = description;
+        }
+
+        if (materialUsages.TryGetValue(part.Id, out var usages))
+        {
+            materialUsages[duplicate.Id] = usages.Select(item => item.Copy()).ToList();
+        }
+
         FeedbackMessage = "أُنشئت نسخة محلية ويمكن تعديلها الآن.";
         RefreshVisibleParts();
         BeginEdit(duplicate);
@@ -268,6 +411,62 @@ public sealed class PartsViewModel : INotifyPropertyChanged
     }
 
     public void ClearFeedback() => FeedbackMessage = string.Empty;
+
+    private void ReplaceSelectedMaterials(IEnumerable<PartMaterialUsage> usages)
+    {
+        foreach (var existing in SelectedMaterials)
+        {
+            existing.PropertyChanged -= SelectedMaterialChanged;
+        }
+
+        SelectedMaterials.Clear();
+        foreach (var usage in usages)
+        {
+            AddSelectedMaterial(usage);
+        }
+
+        RefreshMaterialState();
+        RefreshMaterialOptions();
+    }
+
+    private void AddSelectedMaterial(PartMaterialUsage usage)
+    {
+        usage.PropertyChanged += SelectedMaterialChanged;
+        SelectedMaterials.Add(usage);
+        RefreshMaterialState();
+    }
+
+    private void SelectedMaterialChanged(object? sender, PropertyChangedEventArgs eventArgs)
+    {
+        if (eventArgs.PropertyName is nameof(PartMaterialUsage.Quantity) or nameof(PartMaterialUsage.TotalCost))
+        {
+            Raise(nameof(TotalPartCost));
+            Raise(nameof(TotalPartCostLabel));
+        }
+    }
+
+    private void RefreshMaterialState()
+    {
+        Raise(nameof(HasSelectedMaterials));
+        Raise(nameof(TotalPartCost));
+        Raise(nameof(TotalPartCostLabel));
+    }
+
+    private void RefreshMaterialOptions()
+    {
+        var normalizedSearch = NormalizeSearchText(MaterialSearchText.Trim());
+        var selectedIds = SelectedMaterials.Select(item => item.Material.Id).ToHashSet();
+        FilteredMaterials.Clear();
+        foreach (var material in availableMaterials.Where(item =>
+                     !selectedIds.Contains(item.Id)
+                     && (normalizedSearch.Length == 0
+                         || NormalizeSearchText(item.Name).Contains(normalizedSearch, StringComparison.CurrentCultureIgnoreCase))))
+        {
+            FilteredMaterials.Add(material);
+        }
+
+        Raise(nameof(HasNoMaterialOptions));
+    }
 
     private void RefreshVisibleParts()
     {

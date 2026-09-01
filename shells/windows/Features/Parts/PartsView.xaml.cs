@@ -1,9 +1,11 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
 using Button = System.Windows.Controls.Button;
 using MenuItem = System.Windows.Controls.MenuItem;
+using TextBox = System.Windows.Controls.TextBox;
 using UserControl = System.Windows.Controls.UserControl;
 
 namespace Eitmad.WindowsShell.Features.Parts;
@@ -85,19 +87,56 @@ public partial class PartsView : UserControl
 
     private void SaveEditorClick(object sender, RoutedEventArgs eventArgs)
     {
-        if (Validation.GetHasError(EditorCostBox) || Validation.GetHasError(EditorUsedInCountBox))
-        {
-            (Validation.GetHasError(EditorCostBox) ? EditorCostBox : EditorUsedInCountBox).Focus();
-            return;
-        }
-
         if (ViewModel.SaveEditor())
         {
             RestartFeedbackTimer();
         }
-        else
+    }
+
+    private void NextFromInformationClick(object sender, RoutedEventArgs eventArgs)
+    {
+        if (!ViewModel.MoveToMaterials())
         {
             EditorNameBox.Focus();
+        }
+    }
+
+    private void NextFromMaterialsClick(object sender, RoutedEventArgs eventArgs)
+    {
+        var invalidQuantity = VisualDescendants<TextBox>(MaterialRows)
+            .FirstOrDefault(Validation.GetHasError);
+        if (invalidQuantity is not null)
+        {
+            invalidQuantity.Focus();
+            return;
+        }
+
+        ViewModel.MoveToReview();
+    }
+
+    private void PreviousStepClick(object sender, RoutedEventArgs eventArgs) => ViewModel.MoveToPreviousStep();
+
+    private void OpenMaterialPickerClick(object sender, RoutedEventArgs eventArgs)
+    {
+        ViewModel.OpenMaterialPicker();
+        Dispatcher.BeginInvoke(MaterialSearchBox.Focus, DispatcherPriority.Input);
+    }
+
+    private void CloseMaterialPickerClick(object sender, RoutedEventArgs eventArgs) => ViewModel.CloseMaterialPicker();
+
+    private void SelectMaterialClick(object sender, RoutedEventArgs eventArgs)
+    {
+        if (sender is Button { DataContext: PartMaterialOption material })
+        {
+            ViewModel.AddMaterial(material);
+        }
+    }
+
+    private void RemoveMaterialClick(object sender, RoutedEventArgs eventArgs)
+    {
+        if (sender is Button { DataContext: PartMaterialUsage usage })
+        {
+            ViewModel.RemoveMaterial(usage);
         }
     }
 
@@ -107,5 +146,22 @@ public partial class PartsView : UserControl
     {
         feedbackTimer.Stop();
         feedbackTimer.Start();
+    }
+
+    private static IEnumerable<T> VisualDescendants<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, index);
+            if (child is T match)
+            {
+                yield return match;
+            }
+
+            foreach (var descendant in VisualDescendants<T>(child))
+            {
+                yield return descendant;
+            }
+        }
     }
 }
