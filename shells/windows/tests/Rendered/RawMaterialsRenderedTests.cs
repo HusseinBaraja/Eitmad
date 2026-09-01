@@ -28,7 +28,6 @@ public sealed class RawMaterialsRenderedTests
             Assert.AreEqual(Visibility.Visible, WpfTestHost.FindByName<Grid>(view, "EditorSurface").Visibility);
             var editorName = WpfTestHost.FindByName<TextBox>(view, "EditorNameBox");
             WpfTestHost.CompleteLayout(view);
-            Assert.IsTrue(editorName.Focus());
             Assert.IsTrue(editorName.IsKeyboardFocusWithin);
         });
     }

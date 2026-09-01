@@ -43,7 +43,6 @@ public sealed class MainWindowRenderedTests
 
             Assert.AreEqual(Visibility.Visible, WpfTestHost.FindByName<FrameworkElement>(window, "InteractionPanel").Visibility);
             var customerName = WpfTestHost.FindByName<TextBox>(window, "CustomerNameBox");
-            Assert.IsTrue(customerName.Focus());
             Assert.IsTrue(customerName.IsKeyboardFocusWithin);
         });
     }
