@@ -8,6 +8,7 @@ internal sealed class FakeEngine : IEngineShellBridge
 {
     private readonly Dictionary<string, FakeSubscription> subscriptions = [];
     private readonly HashSet<string> queriedKinds = [];
+    private readonly object stateLock = new();
     private EngineSupervisionSnapshot snapshot = new(
         EngineSupervisionState.Stopped,
         0,
@@ -17,14 +18,44 @@ internal sealed class FakeEngine : IEngineShellBridge
         null,
         null);
     private int queryCount;
+    private int stopCount;
 
     public event Action<EngineSupervisionSnapshot>? StateChanged;
 
-    public EngineSupervisionSnapshot Snapshot => snapshot;
+    public EngineSupervisionSnapshot Snapshot
+    {
+        get
+        {
+            lock (stateLock)
+            {
+                return snapshot;
+            }
+        }
+    }
+
     public bool FailConfigurationQuery { get; init; }
     public int QueryCount => Volatile.Read(ref queryCount);
-    public int SubscriptionCount => subscriptions.Count;
-    public int StopCount { get; private set; }
+    public int SubscriptionCount
+    {
+        get
+        {
+            lock (stateLock)
+            {
+                return subscriptions.Count;
+            }
+        }
+    }
+
+    public int StopCount
+    {
+        get
+        {
+            lock (stateLock)
+            {
+                return stopCount;
+            }
+        }
+    }
     public IReadOnlySet<string> SupportedCapabilities { get; init; } = new HashSet<string>
     {
         ProtocolIds.Capabilities.EitmadCapabilityConfigV1,
@@ -45,16 +76,34 @@ internal sealed class FakeEngine : IEngineShellBridge
 
     public Task StartAsync(CancellationToken cancellationToken = default)
     {
-        snapshot = snapshot with { State = EngineSupervisionState.Starting, Generation = snapshot.Generation + 1 };
-        StateChanged?.Invoke(snapshot);
+        EngineSupervisionSnapshot current;
+        lock (stateLock)
+        {
+            current = snapshot = snapshot with
+            {
+                State = EngineSupervisionState.Starting,
+                Generation = snapshot.Generation + 1,
+            };
+        }
+
+        StateChanged?.Invoke(current);
         return Task.CompletedTask;
     }
 
     public Task StopAsync(CancellationToken cancellationToken = default)
     {
-        StopCount++;
-        snapshot = snapshot with { State = EngineSupervisionState.Stopped, IpcHealth = EngineIpcHealthState.Unavailable };
-        StateChanged?.Invoke(snapshot);
+        EngineSupervisionSnapshot current;
+        lock (stateLock)
+        {
+            stopCount++;
+            current = snapshot = snapshot with
+            {
+                State = EngineSupervisionState.Stopped,
+                IpcHealth = EngineIpcHealthState.Unavailable,
+            };
+        }
+
+        StateChanged?.Invoke(current);
         return Task.CompletedTask;
     }
 
@@ -151,54 +200,92 @@ internal sealed class FakeEngine : IEngineShellBridge
         CancellationToken cancellationToken = default)
     {
         var item = new FakeSubscription();
-        subscriptions.Add(subscription.Kind, item);
+        lock (stateLock)
+        {
+            subscriptions.Add(subscription.Kind, item);
+        }
+
         return Task.FromResult<IEngineSubscription>(item);
     }
 
     public void Connect()
     {
-        snapshot = snapshot with
+        EngineSupervisionSnapshot current;
+        lock (stateLock)
         {
-            State = EngineSupervisionState.Running,
-            IpcHealth = EngineIpcHealthState.Connected,
-            LastLifecycle = new LifecycleSnapshot
+            current = snapshot = snapshot with
             {
-                Live = true,
-                Ready = true,
-                State = LifecycleState.Ready,
-                Health = HealthStatus.Healthy,
-                Checks = [],
-                ObservedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                Identity = new EngineProcessIdentity
+                State = EngineSupervisionState.Running,
+                IpcHealth = EngineIpcHealthState.Connected,
+                LastLifecycle = new LifecycleSnapshot
                 {
-                    InstanceId = Guid.NewGuid(),
-                    Mode = EngineMode.SupervisedDesktop,
-                    ProcessId = 100,
-                    ProductVersion = "0.0.0",
-                    ProtocolVersion = new ProtocolVersion { Major = 1, Minor = 3 },
-                    StartedAt = 1,
+                    Live = true,
+                    Ready = true,
+                    State = LifecycleState.Ready,
+                    Health = HealthStatus.Healthy,
+                    Checks = [],
+                    ObservedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                    Identity = new EngineProcessIdentity
+                    {
+                        InstanceId = Guid.NewGuid(),
+                        Mode = EngineMode.SupervisedDesktop,
+                        ProcessId = 100,
+                        ProductVersion = "0.0.0",
+                        ProtocolVersion = new ProtocolVersion { Major = 1, Minor = 3 },
+                        StartedAt = 1,
+                    },
                 },
-            },
-        };
-        StateChanged?.Invoke(snapshot);
+            };
+        }
+
+        StateChanged?.Invoke(current);
     }
 
     public void Disconnect()
     {
-        snapshot = snapshot with { IpcHealth = EngineIpcHealthState.Connecting };
-        StateChanged?.Invoke(snapshot);
-    }
-
-    public void SignalResync(string kind) => subscriptions[kind].SignalResync();
-
-    public ValueTask DisposeAsync()
-    {
-        foreach (var subscription in subscriptions.Values)
+        EngineSupervisionSnapshot current;
+        lock (stateLock)
         {
-            subscription.DisposeAsync();
+            current = snapshot = snapshot with { IpcHealth = EngineIpcHealthState.Connecting };
         }
 
-        return ValueTask.CompletedTask;
+        StateChanged?.Invoke(current);
+    }
+
+    public void SignalResync(string kind)
+    {
+        FakeSubscription subscription;
+        lock (stateLock)
+        {
+            subscription = subscriptions[kind];
+        }
+
+        subscription.SignalResync();
+    }
+
+    public void Publish(string kind, EventEnvelope envelope)
+    {
+        FakeSubscription subscription;
+        lock (stateLock)
+        {
+            subscription = subscriptions[kind];
+        }
+
+        subscription.Publish(envelope);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        FakeSubscription[] currentSubscriptions;
+        lock (stateLock)
+        {
+            currentSubscriptions = subscriptions.Values.ToArray();
+        }
+
+        foreach (var subscription in currentSubscriptions)
+        {
+            await subscription.DisposeAsync();
+        }
     }
 
     private static ConfigSnapshot Configuration() => new()

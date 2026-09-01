@@ -1,4 +1,5 @@
 using Eitmad.WindowsShell.Features.Parts;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Eitmad.WindowsShell.Tests.Parts;
 

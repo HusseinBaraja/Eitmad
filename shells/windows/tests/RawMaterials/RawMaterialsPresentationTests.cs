@@ -1,5 +1,6 @@
 using System.Globalization;
 using Eitmad.WindowsShell.Features.RawMaterials;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Eitmad.WindowsShell.Tests.RawMaterials;
 

@@ -17,6 +17,8 @@ internal sealed class FakeSubscription : IEngineSubscription
     {
     }
 
+    public void Publish(EventEnvelope envelope) => events.Writer.TryWrite(envelope);
+
     public void SignalResync() => ResyncRequired?.Invoke();
 
     public ValueTask DisposeAsync()
