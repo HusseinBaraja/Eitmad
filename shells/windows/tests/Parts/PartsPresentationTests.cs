@@ -53,9 +53,75 @@ public sealed class PartsPresentationTests
         model.BeginCreate();
         model.EditorName = "واجهة درج صغيرة";
         model.EditorCategory = "أدراج";
-        model.EditorCost = 2_750m;
-        model.EditorUsedInCount = 2;
+        model.EditorDescription = "واجهة درج للمقاسات الصغيرة.";
+        Assert.IsTrue(model.MoveToMaterials());
+
+        model.OpenMaterialPicker();
+        model.AddMaterial(model.FilteredMaterials.Single(item => item.Name == "MDF 18mm"));
+        model.SelectedMaterials.Single().Quantity = 1.2m;
+        model.OpenMaterialPicker();
+        model.AddMaterial(model.FilteredMaterials.Single(item => item.Name == "Edge Band"));
+        model.SelectedMaterials.Single(item => item.Material.Name == "Edge Band").Quantity = 3m;
+
+        Assert.AreEqual(9_450m, model.TotalPartCost);
+        Assert.AreEqual("9,450", model.TotalPartCostLabel);
+        Assert.IsTrue(model.MoveToReview());
         Assert.IsTrue(model.SaveEditor());
         Assert.HasCount(originalCount + 2, model.VisibleParts);
+        Assert.AreEqual("9,450 YER", model.VisibleParts.Single(item => item.Name == "واجهة درج صغيرة").CostLabel);
+    }
+
+    [TestMethod]
+    public void GuidedCreationValidatesStepsAndFiltersMaterialPicker()
+    {
+        var model = new PartsViewModel();
+
+        model.BeginCreate();
+        Assert.AreEqual(1, model.CurrentStep);
+        Assert.IsFalse(model.MoveToMaterials());
+        Assert.AreEqual("أدخل اسم الجزء.", model.EditorError);
+
+        model.EditorName = "جانب خزانة";
+        Assert.IsTrue(model.MoveToMaterials());
+        Assert.IsFalse(model.MoveToReview());
+        Assert.AreEqual("أضف مادة خام واحدة على الأقل للمتابعة.", model.EditorError);
+
+        model.OpenMaterialPicker();
+        model.MaterialSearchText = "edge";
+        Assert.HasCount(1, model.FilteredMaterials);
+        model.AddMaterial(model.FilteredMaterials.Single());
+        Assert.IsFalse(model.IsMaterialPickerOpen);
+
+        var usage = model.SelectedMaterials.Single();
+        model.RemoveMaterial(usage);
+        Assert.IsFalse(model.HasSelectedMaterials);
+        model.OpenMaterialPicker();
+        Assert.IsTrue(model.FilteredMaterials.Any(item => item.Name == "Edge Band"));
+    }
+
+    [TestMethod]
+    public void GuidedCreationRejectsCostsOutsideThePresentationRange()
+    {
+        var model = new PartsViewModel();
+        model.BeginCreate();
+        model.EditorName = "جزء تجريبي";
+        Assert.IsTrue(model.MoveToMaterials());
+
+        model.OpenMaterialPicker();
+        model.AddMaterial(model.FilteredMaterials.Single(item => item.Name == "MDF 18mm"));
+        model.SelectedMaterials.Single().Quantity = decimal.MaxValue;
+
+        Assert.AreEqual("—", model.SelectedMaterials.Single().TotalCostLabel);
+        Assert.IsFalse(model.MoveToReview());
+        Assert.AreEqual("الكمية كبيرة جداً لحساب تكلفة الجزء.", model.EditorError);
+
+        model.SelectedMaterials.Single().Quantity = decimal.MaxValue / 7_250m;
+        model.OpenMaterialPicker();
+        model.AddMaterial(model.FilteredMaterials.Single(item => item.Name == "Edge Band"));
+        model.SelectedMaterials.Single(item => item.Material.Name == "Edge Band").Quantity = decimal.MaxValue / 250m;
+
+        Assert.AreEqual("—", model.TotalPartCostLabel);
+        Assert.IsFalse(model.MoveToReview());
+        Assert.AreEqual("الكمية كبيرة جداً لحساب تكلفة الجزء.", model.EditorError);
     }
 }

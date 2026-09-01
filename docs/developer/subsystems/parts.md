@@ -14,6 +14,10 @@ keywords:
   - "PartListItem"
   - "الأجزاء"
   - "إضافة جزء"
+  - "معلومات الجزء"
+  - "المواد الخام المستخدمة"
+  - "مراجعة الجزء"
+  - "حفظ الجزء"
   - "Wardrobe Side Panel"
   - "YER"
   - "مستخدم في"
@@ -21,11 +25,11 @@ keywords:
 
 # Extend the Parts list safely
 
-The Windows **الأجزاء** page gives managers a compact list of furniture parts. It currently provides search, category and status filters, a cost and product-usage projection, and non-destructive **تعديل**, **تكرار**, and **أرشفة** actions. The page is a local preview: closing the shell discards changes.
+The Windows **الأجزاء** page gives managers a compact list of furniture parts and a guided three-step creation flow. The list provides search, category and status filters, a cost and product-usage projection, and non-destructive **تعديل**, **تكرار**, and **أرشفة** actions. The page is a local preview: closing the shell discards changes.
 
 ## Ownership and design
 
-`shells/windows/Features/Parts/PartsViewModel.cs` owns only transient filtering, editor state, synthetic fixtures, and list projection. `PartListItem` in the same vertical formats the requested example as `9,450 YER` and `3 Products`. `PartsView.xaml` owns the RTL WPF layout, custom selector and popup templates, and accessibility names. `MainWindow.xaml` owns the **القطع** sidebar destination and the **إدارة القطع** dashboard shortcut.
+`shells/windows/Features/Parts/PartsViewModel.cs` owns only transient filtering, wizard state, synthetic fixtures, material selection, calculated cost, and list projection. `PartMaterialUsage.cs` owns the selected amount and row-cost projection. `PartListItem` in the same vertical formats the requested example as `9,450 YER` and `3 Products`. `PartsView.xaml` owns the RTL WPF layout, custom selector and popup templates, and accessibility names. `MainWindow.xaml` owns the **القطع** sidebar destination and the **إدارة القطع** dashboard shortcut.
 
 Rust remains the future authority for part identifiers, category membership, cost validation, product relationships, ReBAC authorization, scope, audit, persistence, sync, and idempotency. This preview does not define a command, query, subscription, version, capability, or storage schema. Do not add database, IPC, permission, or domain-validation code to the shell to make the page appear connected.
 
@@ -35,7 +39,13 @@ The list starts with four synthetic rows. Search runs on each text change agains
 
 The header and table use the Raw Materials visual system: white cards, walnut/copper accents, rounded inputs, explicit LTR geometry for numeric values, and an RTL text boundary. The row menu uses mouse-point placement so the menu remains inside the window when the action column is at the physical left edge. The cost and usage cells isolate mixed-direction values; the English fixture **Wardrobe Side Panel**, `YER`, and **3 Products** stay readable beside Arabic labels.
 
-The Add, Edit, Duplicate, and Archive paths update only in-memory state. The preview form checks that the name is present and that the cost and usage count are valid non-negative numbers; these are presentation checks against synthetic state, not domain validation. Rust remains authoritative for validation when this vertical is connected. Duplicate creates a local **نسخة** and opens the editor. Archive marks the row inactive and never deletes it. The editor subtitle **بيانات تجريبية غير محفوظة** is intentionally explicit.
+The Add, Edit, Duplicate, and Archive paths update only in-memory state. **إضافة جزء** opens a three-step RTL wizard:
+
+1. **معلومات الجزء** collects the part name, category, and optional description or notes.
+2. **المواد الخام المستخدمة** opens a searchable local material picker, adds selected materials to an editable usage table, and calculates each row and **تكلفة الجزء** from positive quantities.
+3. **مراجعة الجزء** shows the part identity, a read-only material table, and the prominent **إجمالي تكلفة الجزء**. It does not allow inline editing; **السابق** returns to the owning step, and **حفظ الجزء** returns to the list.
+
+The preview checks that the name is present, that a new part has at least one material, that each amount is greater than zero, and that row and aggregate cost calculations fit the `decimal` presentation range. These are presentation checks against synthetic state, not domain validation. Rust remains authoritative for validation when this vertical is connected. The sample material costs are selected so `1.2 m²` of `MDF 18mm` plus `3 m` of `Edge Band` calculates to `9,450 YER`; no hidden surcharge exists. Duplicate creates a local **نسخة** and opens the same wizard. Archive marks the row inactive and never deletes it.
 
 ## Security, compatibility, and failure recovery
 
@@ -51,7 +61,7 @@ Run the focused shell suite:
 dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --configuration Release --nologo
 ```
 
-`PartsSearchAndFiltersUpdateVisibleList` covers English and Arabic search plus combined filters. `PartsActionsRemainNonDestructiveAndEphemeral` covers cost and usage formatting, archive, duplicate, and create. `PartsRenderedTests` instantiates the WPF page, verifies the accessible Arabic search and create controls, drives the Add transition and focus, and opens the row menu to verify mouse-point placement and the **تعديل**, **تكرار**, and **أرشفة** actions.
+`PartsSearchAndFiltersUpdateVisibleList` covers English and Arabic search plus combined filters. `PartsActionsRemainNonDestructiveAndEphemeral` covers cost and usage formatting, archive, duplicate, the three wizard steps, material quantities, and the calculated `9,450 YER` total. `GuidedCreationValidatesStepsAndFiltersMaterialPicker` covers step guards, material search, selection, and removal. `PartsRenderedTests` instantiates the WPF page, verifies the accessible Arabic controls and focus path, drives create through all three steps and back to the list, and opens the row menu to verify mouse-point placement and the **تعديل**, **تكرار**, and **أرشفة** actions.
 
 When the product gains a Rust Parts vertical, keep the WPF page as a thin projection adapter. Add typed contracts and generated bindings first, then replace only the transient fixture and local action boundary. Preserve the Arabic labels, RTL/LTR isolation, numeric formatting, accessibility names, and non-destructive failure behavior while mapping authorization, scope, audit, idempotency, conflict, and sync results from Rust.
 

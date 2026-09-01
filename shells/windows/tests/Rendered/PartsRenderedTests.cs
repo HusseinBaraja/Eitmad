@@ -10,7 +10,7 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 public sealed class PartsRenderedTests
 {
     [TestMethod]
-    public void NavigationRendersAccessibleControlsAndCreateFocus()
+    public void CreateWizardRendersAccessibleStepsAndMaterialPicker()
     {
         WpfTestHost.Run(1338, 753, window =>
         {
@@ -30,6 +30,37 @@ public sealed class PartsRenderedTests
             var editorName = WpfTestHost.FindByName<TextBox>(view, "EditorNameBox");
             WpfTestHost.CompleteLayout(view);
             Assert.IsTrue(editorName.IsKeyboardFocusWithin);
+            Assert.AreEqual(1, view.ViewModel.CurrentStep);
+
+            editorName.Text = "جانب خزانة";
+            WpfTestHost.FindByAutomationName<Button>(view, "التالي إلى المواد الخام")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(view);
+            Assert.AreEqual(2, view.ViewModel.CurrentStep);
+            Assert.AreEqual(Visibility.Visible, WpfTestHost.FindByName<Border>(view, "MaterialsStep").Visibility);
+
+            WpfTestHost.FindByAutomationName<Button>(view, "إضافة مادة خام")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.PumpDispatcher();
+            Assert.IsTrue(view.ViewModel.IsMaterialPickerOpen);
+            Assert.IsTrue(WpfTestHost.FindByName<TextBox>(view, "MaterialSearchBox").IsKeyboardFocusWithin);
+
+            WpfTestHost.Descendants<Button>(view)
+                .First(button => AutomationProperties.GetName(button) == "اختيار المادة الخام")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(view);
+            Assert.HasCount(1, view.ViewModel.SelectedMaterials);
+
+            WpfTestHost.FindByAutomationName<Button>(view, "التالي إلى المراجعة")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(view);
+            Assert.AreEqual(3, view.ViewModel.CurrentStep);
+            Assert.AreEqual(Visibility.Visible, WpfTestHost.FindByName<Border>(view, "ReviewStep").Visibility);
+
+            WpfTestHost.FindByAutomationName<Button>(view, "حفظ الجزء")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(view);
+            Assert.IsFalse(view.ViewModel.IsEditorOpen);
         });
     }
 
