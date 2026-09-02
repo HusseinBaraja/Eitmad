@@ -144,9 +144,9 @@ If none applies, report no documentation impact and do not edit documentation or
 
 - Never commit to `main`. If work starts there, create a descriptive branch without a tool or vendor prefix unless the user says no branch is needed.
 - Preserve user changes and keep unrelated files out of commits.
-- Prefer one logical commit for a focused verified task. Use more only for independent or ordered checkpoints.
+- For implementation work, create a local commit after focused verification unless the user explicitly asks not to commit. A local commit does not require separate approval. Use one logical commit for a focused task and use more only for independent or ordered checkpoints.
 - Before committing, use `.agents/skills/caveman-commit/SKILL.md`, then keep the message compliant with the `conventional-commit` skill.
-- Do not push, rebase, create a pull request, or modify remote state unless the user asks to publish.
+- Do not push, rebase, create a pull request, or modify remote state unless the user asks to publish. This restriction does not prevent the required local commit.
 - When publishing, push the active branch first and create only a regular ready-for-review pull request.
 - Keep one concern per pull request. If its summary needs an unrelated “also,” split it.
 
