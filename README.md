@@ -13,19 +13,17 @@ Start with:
 
 ## Run the admin dashboard on Windows
 
-Install the .NET 8 SDK and the stable Rust toolchain. From the repository root, build the Rust engine:
+Install the .NET 8 SDK and the stable Rust toolchain. From the repository root, build the Rust engine and start the native Windows dashboard with one command:
 
 ```powershell
-cargo build -p eitmad-engine-cli
-```
-
-Then start the native Windows dashboard with that engine:
-
-```powershell
-dotnet run --project shells/windows/Eitmad.WindowsShell.csproj -- --engine target/debug/eitmad-engine-cli.exe
+.\run.ps1
 ```
 
 The **لوحة التحكم** window opens in **وضع المعاينة**. Closing the window keeps the app in the system tray. Use **إنهاء الاعتماد** in the tray menu to stop the shell and engine. For design and ownership details, see the [Windows operations shell guide](docs/developer/subsystems/windows-native-shell.md).
+
+## Furniture editor flow
+
+The Windows Furniture editor uses six steps: `المعلومات`, `الأجزاء`, `المقاسات`, `الخيارات`, `التسعير`, and `المراجعة`. Managers set selling prices for each fixed variant, then choose `حفظ كمسودة` or `حفظ ونشر` from the read-only review step.
 
 Foundation verification:
 

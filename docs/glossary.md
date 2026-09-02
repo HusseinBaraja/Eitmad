@@ -62,9 +62,13 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | Arabic term | English term | Working definition |
 | --- | --- | --- |
 | المنتج | Product | A sellable furniture design or standardized offering. |
+| الأثاث | Furniture | The manager-facing product collection in the Windows preview. Its compact table and six-step editor are transient fixtures; no Furniture lifecycle is durable or Rust-authoritative yet. |
 | قطعة أثاث | Furniture item | A specific physical item requested, produced, delivered, or installed. |
 | تصميم | Design | The specification of form, dimensions, materials, finishes, and construction details. |
 | المقاسات | Dimensions | Length, width, height, depth, thickness, or other measurements with explicit units. |
+| المقاس الثابت | Fixed furniture variant | One manager-defined furniture size with explicit width, height, and depth. It is selected as defined and is not receptionist customization. The current **المقاسات الثابتة** cards are preview fixtures. |
+| الألوان المتاحة | Available colors | Manager-defined color choices shown with a swatch, visible price adjustment, and active state. The current Options section is a transient preview. |
+| المقابض المتاحة | Available handles | Manager-defined handle choices shown as visual tiles with a visible price adjustment and active state. The current Options section is a transient preview. |
 | الخامة | Material | A substance or component used in production, such as wood, board, fabric, or hardware. |
 | المادة الخام | Raw material | A material stocked for use before or during furniture production. The current Windows **المواد الخام** page is a preview fixture; its durable lifecycle and authority are not yet defined. |
 | الجزء / الأجزاء | Part / parts | A furniture component listed for production use, with a category, cost, and count of products that use it. The current Windows **الأجزاء** page is a preview fixture; its durable lifecycle and authority are not yet defined. |

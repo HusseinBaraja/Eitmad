@@ -508,7 +508,7 @@
                         <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding HasReferenceError}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
                     </TextBlock>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" FlowDirection="LeftToRight" Margin="0,22,0,0">
-                        <Button Style="{StaticResource PrimaryButton}" Height="43" Content="حفظ" Click="SaveReferenceClick" />
+                        <Button Style="{StaticResource PrimaryButton}" Height="43" Click="SaveReferenceClick"><TextBlock Text="حفظ" Foreground="White" /></Button>
                         <Button Style="{StaticResource RawMaterialsSecondaryButton}" Content="إلغاء" Margin="9,0,0,0" Click="CancelReferenceClick" />
                     </StackPanel>
                 </StackPanel>

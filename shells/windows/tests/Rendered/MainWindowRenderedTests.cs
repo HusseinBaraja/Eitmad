@@ -1,7 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
-using System.Windows.Input;
 using System.Windows.Media;
 using Eitmad.WindowsShell.Layout;
 
@@ -48,21 +47,85 @@ public sealed class MainWindowRenderedTests
     }
 
     [TestMethod]
-    public void SelectedNavigationContentStaysReadableDuringHover()
+    public void SelectedNavigationUsesAContrastingSurfaceAndContent()
     {
         WpfTestHost.Run(1338, 753, window =>
         {
             var homeButton = WpfTestHost.FindByName<Button>(window, "HomeNavButton");
-            homeButton.RaiseEvent(new MouseEventArgs(Mouse.PrimaryDevice, 0)
-            {
-                RoutedEvent = Mouse.MouseEnterEvent,
-            });
+            AssertSelectedNavigationContrast(homeButton);
 
-            foreach (var text in WpfTestHost.Descendants<TextBlock>(homeButton))
-            {
-                Assert.AreEqual(Colors.White, ((SolidColorBrush)text.Foreground).Color);
-            }
+            var furnitureButton = WpfTestHost.FindByName<Button>(window, "FurnitureNavButton");
+            furnitureButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+
+            AssertSelectedNavigationContrast(furnitureButton);
+            Assert.AreEqual(Colors.Transparent, ((SolidColorBrush)homeButton.Background).Color);
         });
+    }
+
+    private static void AssertSelectedNavigationContrast(Button button)
+    {
+        var surface = (Border)button.Template.FindName("Surface", button);
+        var background = (LinearGradientBrush)surface.Background;
+        Assert.IsTrue(background.GradientStops.All(stop => ContrastAgainstWhite(stop.Color) >= 4.5));
+
+        Assert.IsTrue(VisualStateManager.GoToState(button, "MouseOver", false));
+        WpfTestHost.PumpDispatcher();
+        var hoverShade = (Border)button.Template.FindName("HoverShade", button);
+        var hoverColor = ((SolidColorBrush)hoverShade.Background).Color;
+        Assert.AreEqual(1d, hoverShade.Opacity);
+        Assert.AreNotEqual(0, hoverColor.A);
+        foreach (var stop in background.GradientStops)
+        {
+            var hoveredStop = Composite(stop.Color, hoverColor);
+            Assert.AreNotEqual(stop.Color, hoveredStop);
+            Assert.IsTrue(ContrastAgainstWhite(hoveredStop) >= 4.5);
+        }
+
+        var inkColor = ((SolidColorBrush)button.FindResource("InkBrush")).Color;
+        Assert.IsTrue(Contrast(Composite(Colors.White, hoverColor), inkColor) >= 4.5);
+
+        foreach (var text in WpfTestHost.Descendants<TextBlock>(button))
+        {
+            Assert.AreEqual(Colors.White, ((SolidColorBrush)text.Foreground).Color);
+        }
+
+        foreach (var icon in WpfTestHost.Descendants<System.Windows.Shapes.Path>(button))
+        {
+            Assert.AreEqual(Colors.White, ((SolidColorBrush)icon.Fill).Color);
+        }
+    }
+
+    private static double ContrastAgainstWhite(Color color)
+        => Contrast(color, Colors.White);
+
+    private static double Contrast(Color first, Color second)
+    {
+        var firstLuminance = Luminance(first);
+        var secondLuminance = Luminance(second);
+        var lighter = Math.Max(firstLuminance, secondLuminance);
+        var darker = Math.Min(firstLuminance, secondLuminance);
+        return (lighter + 0.05) / (darker + 0.05);
+    }
+
+    private static double Luminance(Color color) =>
+        (0.2126 * LinearChannel(color.R))
+        + (0.7152 * LinearChannel(color.G))
+        + (0.0722 * LinearChannel(color.B));
+
+    private static Color Composite(Color background, Color overlay)
+    {
+        var alpha = overlay.A / 255d;
+        return Color.FromRgb(
+            (byte)Math.Round((overlay.R * alpha) + (background.R * (1 - alpha))),
+            (byte)Math.Round((overlay.G * alpha) + (background.G * (1 - alpha))),
+            (byte)Math.Round((overlay.B * alpha) + (background.B * (1 - alpha))));
+    }
+
+    private static double LinearChannel(byte channel)
+    {
+        var value = channel / 255d;
+        return value <= 0.04045 ? value / 12.92 : Math.Pow((value + 0.055) / 1.055, 2.4);
     }
 
     [TestMethod]

@@ -24,11 +24,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = viewModel;
         selectedNavButton = HomeNavButton;
-        foreach (var button in VisualDescendants<Button>(SidebarNavigation))
-        {
-            button.MouseEnter += NavigationMouseEnter;
-            button.MouseLeave += NavigationMouseLeave;
-        }
+        SetNavigationTone(selectedNavButton, true);
         toastTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
         toastTimer.Tick += (_, _) =>
         {
@@ -74,31 +70,15 @@ public partial class MainWindow : Window
     {
         var showRawMaterials = destination == "الخامات";
         var showParts = destination == "القطع";
-        DashboardSurface.Visibility = showRawMaterials || showParts ? Visibility.Collapsed : Visibility.Visible;
+        var showFurniture = destination == "الأثاث";
+        DashboardSurface.Visibility = showRawMaterials || showParts || showFurniture ? Visibility.Collapsed : Visibility.Visible;
         RawMaterialsSurface.Visibility = showRawMaterials ? Visibility.Visible : Visibility.Collapsed;
         PartsSurface.Visibility = showParts ? Visibility.Visible : Visibility.Collapsed;
-        if (!showRawMaterials && !showParts)
+        FurnitureSurface.Visibility = showFurniture ? Visibility.Visible : Visibility.Collapsed;
+        if (!showRawMaterials && !showParts && !showFurniture)
         {
             DashboardTitle.Text = destination == "الرئيسية" ? "لوحة التحكم" : destination;
             ShowToast($"تم فتح {destination} في وضع المعاينة");
-        }
-    }
-
-    /// <summary>Preserves readable content on the selected navigation item during hover.</summary>
-    private void NavigationMouseEnter(object sender, System.Windows.Input.MouseEventArgs eventArgs)
-    {
-        if (sender is Button button && ReferenceEquals(button, selectedNavButton))
-        {
-            SetNavigationContentTone(button, Brushes.White);
-        }
-    }
-
-    /// <summary>Restores the selected navigation content after hover.</summary>
-    private void NavigationMouseLeave(object sender, System.Windows.Input.MouseEventArgs eventArgs)
-    {
-        if (sender is Button button && ReferenceEquals(button, selectedNavButton))
-        {
-            SetNavigationContentTone(button, Brushes.White);
         }
     }
 
@@ -181,35 +161,35 @@ public partial class MainWindow : Window
     /// <summary>Applies selected or unselected navigation colors.</summary>
     private static void SetNavigationTone(Button button, bool selected)
     {
-        button.Background = selected
-            ? new LinearGradientBrush(Color.FromRgb(0xB6, 0x76, 0x34), Color.FromRgb(0x7C, 0x41, 0x0C), 35)
-            : Brushes.Transparent;
+        var content = button.Content as DependencyObject ?? button;
         if (selected)
         {
-            SetNavigationContentTone(button, Brushes.White);
+            button.SetResourceReference(Button.BackgroundProperty, "NavSelectedBrush");
+            SetNavigationContentTone(content, Brushes.White);
             return;
         }
 
-        foreach (var text in VisualDescendants<TextBlock>(button))
+        button.ClearValue(Button.BackgroundProperty);
+        foreach (var text in VisualDescendants<TextBlock>(content))
         {
-            text.Foreground = new SolidColorBrush(Color.FromRgb(0x20, 0x1A, 0x17));
+            text.ClearValue(TextBlock.ForegroundProperty);
         }
 
-        foreach (var icon in VisualDescendants<System.Windows.Shapes.Path>(button))
+        foreach (var icon in VisualDescendants<System.Windows.Shapes.Path>(content))
         {
             icon.ClearValue(System.Windows.Shapes.Shape.FillProperty);
         }
     }
 
     /// <summary>Applies one tone to navigation text and vector icons.</summary>
-    private static void SetNavigationContentTone(Button button, Brush tone)
+    private static void SetNavigationContentTone(DependencyObject content, Brush tone)
     {
-        foreach (var text in VisualDescendants<TextBlock>(button))
+        foreach (var text in VisualDescendants<TextBlock>(content))
         {
             text.Foreground = tone;
         }
 
-        foreach (var icon in VisualDescendants<System.Windows.Shapes.Path>(button))
+        foreach (var icon in VisualDescendants<System.Windows.Shapes.Path>(content))
         {
             icon.Fill = tone;
         }

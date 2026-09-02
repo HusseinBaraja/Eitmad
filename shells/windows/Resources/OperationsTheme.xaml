@@ -7,6 +7,7 @@
     <SolidColorBrush x:Key="LineBrush" Color="{StaticResource LineColor}" /><SolidColorBrush x:Key="ForestBrush" Color="#1F6F3D" />
     <SolidColorBrush x:Key="CopperBrush" Color="{StaticResource CopperColor}" /><SolidColorBrush x:Key="SuccessBrush" Color="{StaticResource SuccessColor}" />
     <SolidColorBrush x:Key="CopperTintBrush" Color="#F6EEE6" /><SolidColorBrush x:Key="StatusDotBrush" Color="#A35E1E" />
+    <LinearGradientBrush x:Key="NavSelectedBrush" StartPoint="1,0" EndPoint="0,1"><GradientStop Color="#9A5C22" /><GradientStop Color="#693705" Offset="1" /></LinearGradientBrush>
     <SolidColorBrush x:Key="WarningBrush" Color="{StaticResource WarningColor}" /><SolidColorBrush x:Key="DangerBrush" Color="{StaticResource DangerColor}" />
     <BooleanToVisibilityConverter x:Key="BooleanToVisibility" />
     <Style TargetType="TextBlock"><Setter Property="FontFamily" Value="Noto Kufi Arabic, Segoe UI Variable Text, Segoe UI" /><Setter Property="Foreground" Value="{StaticResource InkBrush}" /><Setter Property="TextWrapping" Value="Wrap" /></Style>
@@ -24,8 +25,20 @@
         <Setter Property="ToolTip" Value="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" />
         <Setter Property="automation:AutomationProperties.Name" Value="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" />
         <Setter Property="HorizontalContentAlignment" Value="Stretch" /><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
-            <Border x:Name="Surface" Background="{TemplateBinding Background}" CornerRadius="10" Padding="{TemplateBinding Padding}"><ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Stretch" /></Border>
-            <ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Surface" Property="Background" Value="#F4ECE3" /></Trigger><Trigger Property="IsPressed" Value="True"><Setter TargetName="Surface" Property="Opacity" Value="0.72" /></Trigger></ControlTemplate.Triggers>
+            <Grid x:Name="Chrome">
+                <VisualStateManager.VisualStateGroups>
+                    <VisualStateGroup x:Name="CommonStates">
+                        <VisualStateGroup.Transitions><VisualTransition To="MouseOver" GeneratedDuration="0:0:0.08" /><VisualTransition From="MouseOver" GeneratedDuration="0:0:0.08" /></VisualStateGroup.Transitions>
+                        <VisualState x:Name="Normal" />
+                        <VisualState x:Name="MouseOver"><Storyboard><DoubleAnimation Storyboard.TargetName="HoverShade" Storyboard.TargetProperty="Opacity" To="1" Duration="0" /></Storyboard></VisualState>
+                        <VisualState x:Name="Pressed"><Storyboard><DoubleAnimation Storyboard.TargetName="HoverShade" Storyboard.TargetProperty="Opacity" To="1" Duration="0" /><DoubleAnimation Storyboard.TargetName="Chrome" Storyboard.TargetProperty="Opacity" To="0.78" Duration="0" /></Storyboard></VisualState>
+                        <VisualState x:Name="Disabled"><Storyboard><DoubleAnimation Storyboard.TargetName="Chrome" Storyboard.TargetProperty="Opacity" To="0.48" Duration="0" /></Storyboard></VisualState>
+                    </VisualStateGroup>
+                </VisualStateManager.VisualStateGroups>
+                <Border x:Name="Surface" Background="{TemplateBinding Background}" CornerRadius="10" />
+                <Border x:Name="HoverShade" Background="#30703A08" CornerRadius="10" IsHitTestVisible="False" Opacity="0" />
+                <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+            </Grid>
         </ControlTemplate></Setter.Value></Setter>
         <Style.Triggers>
             <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">

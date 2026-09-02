@@ -5,7 +5,7 @@ audience: "support"
 page_type: "troubleshooting"
 status: "active"
 owner: "Windows UI and platform maintainers"
-last_verified: "2026-09-01"
+last_verified: "2026-09-02"
 review_triggers:
   - "Windows shell frame, availability copy, reconnect, resync, query support, or shutdown behavior changes"
 keywords:
@@ -21,6 +21,8 @@ keywords:
   - "blank square dashboard icons"
   - "Arabic sidebar text alignment"
   - "selected sidebar icon stays dark"
+  - "selected sidebar turns pale on hover"
+  - "selected sidebar hover looks unchanged"
   - "dashboard does not resize"
   - "fixed Viewbox"
   - "window ratio leaves empty space"
@@ -60,7 +62,7 @@ The Windows shell can become temporarily unavailable without losing Rust-owned d
 - a sync or update card says **غير متاحة** with `eitmad.error.ipc-subscription-unsupported.v1`;
 - a configuration revision says **غير متاح** or the patch action remains disabled.
 - minimize, maximize, or close icons are missing, use custom colors, or appear on the wrong RTL/LTR side.
-- dashboard, toolbar, or sidebar icons appear as blank squares; a selected sidebar icon stays dark on the walnut background; Arabic labels drift away from their icons; **آخر عروض الأسعار** overlaps **عرض الكل**; or the toolbar and footer controls touch adjacent edges.
+- dashboard, toolbar, or sidebar icons appear as blank squares; a selected sidebar icon stays dark on the walnut background; a selected row turns pale while its text stays white under the pointer; selected and selected-hover rows look identical; Arabic labels drift away from their icons; **آخر عروض الأسعار** overlaps **عرض الكل**; or the toolbar and footer controls touch adjacent edges.
 - the dashboard scales as one frozen canvas, leaves large empty bands, clips cards, or does not reflow when the window width, height, or ratio changes.
 - the **المواد الخام** category, status, or unit dropdown, or the row-action popup, uses square gray platform chrome, loses copper focus states, or places Arabic actions outside the expected popup surface.
 - the **الأجزاء** page is missing, its category or status filter uses platform-default chrome, or the three-dot action popup is clipped at the left edge.
@@ -107,7 +109,7 @@ Sync and update **غير متاحة** currently means that the engine did not ad
 | A category or status chevron shifts when its combo opens | The open-state trigger rotates an asymmetric path around the wrong pivot | Inspect `RawMaterialsComboBox` for separate centered closed and open `Data` geometries instead of a `RotateTransform` | Use the centered up-chevron geometry for `IsDropDownOpen`, rebuild, and inspect both closed and open selectors |
 | Brand lines share a left edge, or a locale label appears below the wordmark | The RTL coordinate frame is combined with content-sized brand text, so alignment follows the wrong physical edge and the old locale label remains in the header | Inspect the brand header grid for its fixed logo column, full-width text column, explicit physical anchor, and absence of a locale `TextBlock` | Keep the header geometry explicit, anchor RTL brand lines at the physical right edge, remove the locale label, rebuild, and run `RtlLayoutIncludesMixedDirectionFixtures` |
 | A material or quotation amount shows `ر.ي.` or the number appears before the currency | The shell fixture or raw-material projection still uses the old Yemeni Riyal suffix, or the amount inherits the RTL text direction | Inspect `RawMaterialListItem.CostLabel` and every visible amount in `MainWindow.xaml`; verify each amount has `FlowDirection="LeftToRight"` | Format the Arabic Saudi Riyal prefix as `ر.س. 25,000`, keep the amount run LTR, rebuild, and run `RawMaterialCostsIgnoreTheAmbientCulture`. Parts use the separate ISO display `9,450 YER` in `PartsView.xaml` and `PartListItem`. |
-| A selected sidebar label is white but its icon stays dark | `SetNavigationTone` updates only `TextBlock.Foreground`, or deselection leaves a local `Path.Fill` value | Check `MainWindow.xaml.cs` for the `VisualDescendants<System.Windows.Shapes.Path>` update and `Shape.FillProperty` reset | Set the selected icon fill to white and clear the local fill on deselection so `NavVectorIcon` restores the ink theme brush; then run the shell tests and select **عروض الأسعار** in the rendered app |
+| A selected sidebar label is white but its icon stays dark, the selected row turns pale under the pointer, or selected and selected-hover look identical | The selected tone updates only one content type, a local fill survives deselection, or hover replaces or does not modify the selected surface | Check `MainWindow.SetNavigationTone` for one theme-owned selected background plus text and `Path.Fill` updates. Check `NavButton` for a translucent `HoverShade` behind the content and a `MouseOver` visual state that reveals it | Keep the selected background independent from hover, clear local values on deselection, and use the shared walnut hover layer to darken both selected and unselected surfaces without tinting their content. Then run `SelectedNavigationUsesAContrastingSurfaceAndContent` and inspect selected normal and pointer-over states |
 | Arabic sidebar or notification labels sit at the left edge of their cell, touch an icon, or leave an oversized gap | The RTL `NavText` style does not use `TextAlignment="Right"` with physical `HorizontalAlignment="Right"`, or a fixed label-to-icon spacer is missing from the affected component | Check for an LTR row with a flexible RTL text column, the shared no-wrap `NavText` style, a fixed `12`-unit spacer, and a fixed icon column; sidebar icons use `34` units, notification icons use `34` units, and notification status dots use `18` units | Restore the component’s physical LTR columns and the shared right-aligned, right-anchored RTL label style; do not use per-label margins or physical alignment guesses |
 | Arabic notification labels are not beside their icons, or **آخر عروض الأسعار** overlaps **عرض الكل** | The component lost its explicit local direction boundary or named columns | Inspect the affected component for its fixed icon and label columns and inspect `LatestQuotesHeader` for separate title and action columns | Restore the component-specific direction boundary and named columns; do not use margins as a direction substitute |
 | **آخر عروض الأسعار** is left-aligned | `LatestQuotesHeader` uses logical `TextAlignment="Right"` inside its RTL boundary | Check the title TextBlock for `FlowDirection="RightToLeft"` and logical `TextAlignment="Left"` | Restore logical-left alignment so the title ends at the physical right edge while **عرض الكل** stays in its action column |
