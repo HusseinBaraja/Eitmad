@@ -1,0 +1,226 @@
+<UserControl x:Class="Eitmad.WindowsShell.Features.Pricing.PricingView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:layout="clr-namespace:Eitmad.WindowsShell.Layout"
+             xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
+             FlowDirection="RightToLeft"
+             Background="{StaticResource CanvasBrush}">
+    <UserControl.Resources>
+        <Style x:Key="PricingInput" TargetType="TextBox">
+            <Setter Property="Height" Value="46" />
+            <Setter Property="Padding" Value="13,4" />
+            <Setter Property="FontFamily" Value="Noto Kufi Arabic, Segoe UI" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Background" Value="White" />
+            <Setter Property="BorderBrush" Value="#D8CFC6" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="Chrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="9" Padding="{TemplateBinding Padding}">
+                            <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" Focusable="False" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="#9A5C22" /><Setter TargetName="Chrome" Property="BorderThickness" Value="1.5" /></Trigger>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="#BC8B60" /></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="PricingFilter" TargetType="ComboBox">
+            <Setter Property="Height" Value="46" />
+            <Setter Property="MinWidth" Value="210" />
+            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="FontFamily" Value="Noto Kufi Arabic, Segoe UI" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Background" Value="White" />
+            <Setter Property="BorderBrush" Value="#D8CFC6" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style x:Key="PricingHeader" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+            <Setter Property="TextAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="TextWrapping" Value="NoWrap" />
+        </Style>
+        <Style x:Key="PricingCell" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="TextWrapping" Value="NoWrap" />
+        </Style>
+        <Style x:Key="EditPriceButton" TargetType="Button">
+            <Setter Property="Height" Value="34" />
+            <Setter Property="MinWidth" Value="66" />
+            <Setter Property="Padding" Value="13,5" />
+            <Setter Property="Background" Value="#F7EEE5" />
+            <Setter Property="Foreground" Value="#76400F" />
+            <Setter Property="BorderBrush" Value="#DAB997" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontFamily" Value="Noto Kufi Arabic, Segoe UI" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Surface" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Surface" Property="Background" Value="#EFE0D1" /><Setter TargetName="Surface" Property="BorderBrush" Value="#B9824D" /></Trigger>
+                            <Trigger Property="IsPressed" Value="True"><Setter TargetName="Surface" Property="Opacity" Value="0.7" /></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="SecondaryPricingButton" TargetType="Button">
+            <Setter Property="Height" Value="44" />
+            <Setter Property="MinWidth" Value="104" />
+            <Setter Property="Padding" Value="18,8" />
+            <Setter Property="Background" Value="White" />
+            <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+            <Setter Property="BorderBrush" Value="#B79A80" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontFamily" Value="Noto Kufi Arabic, Segoe UI" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid layout:ResponsiveLayout.IsEnabled="True">
+        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Background="#FEFDFC" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1" Padding="32,20">
+            <Grid>
+                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                <StackPanel>
+                    <TextBlock Text="التسعير" FontSize="29" FontWeight="Bold" />
+                    <TextBlock Text="راجع أسعار البيع وحدّثها بسرعة من مكان واحد" Foreground="{StaticResource MutedBrush}" FontSize="13" Margin="0,7,0,0" />
+                </StackPanel>
+                <Border Grid.Row="1" Background="#FFF7EE" BorderBrush="#E8CBAE" BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="0,15,0,0" HorizontalAlignment="Right">
+                    <StackPanel Orientation="Horizontal">
+                        <Border Width="8" Height="8" CornerRadius="4" Background="#A35E1E" VerticalAlignment="Center" Margin="0,0,0,1" />
+                        <TextBlock Text="وضع المعاينة — التغييرات محلية وغير محفوظة" Foreground="#744313" FontSize="11" Margin="9,0,0,0" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
+            <StackPanel Margin="32,24,32,30">
+                <Grid Margin="0,0,0,17">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                    <Border Height="46" Background="White" BorderBrush="#D8CFC6" BorderThickness="1" CornerRadius="9" Margin="0,0,12,0">
+                        <Grid FlowDirection="RightToLeft">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="44" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <Path Grid.Column="0" Data="{StaticResource IconSearch}" Width="17" Height="17" Fill="#8C6A4B" Stretch="Uniform" />
+                            <TextBox x:Name="PricingSearchBox" Grid.Column="1" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Background="Transparent" BorderThickness="0" Padding="8,3" FontFamily="Noto Kufi Arabic, Segoe UI" FontSize="13" VerticalContentAlignment="Center" automation:AutomationProperties.Name="البحث عن منتج أو مقاس" />
+                        </Grid>
+                    </Border>
+                    <ComboBox Grid.Column="1" ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}" Style="{StaticResource PricingFilter}" automation:AutomationProperties.Name="تصفية حسب الفئة" />
+                </Grid>
+
+                <Border Style="{StaticResource Card}" ClipToBounds="True">
+                    <Grid>
+                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                        <Grid Background="#F7F3EF" Height="48" MinWidth="920" FlowDirection="RightToLeft">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="1.55*" /><ColumnDefinition Width="1.05*" /><ColumnDefinition Width="1.12*" /><ColumnDefinition Width="1.42*" /><ColumnDefinition Width="1.12*" /><ColumnDefinition Width="0.9*" /><ColumnDefinition Width="0.78*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="المنتج" Style="{StaticResource PricingHeader}" />
+                            <TextBlock Grid.Column="1" Text="المقاس" Style="{StaticResource PricingHeader}" />
+                            <TextBlock Grid.Column="2" Text="التكلفة" Style="{StaticResource PricingHeader}" />
+                            <TextBlock Grid.Column="3" Text="سعر البيع" Foreground="#7B410F" FontSize="12" Style="{StaticResource PricingHeader}" />
+                            <TextBlock Grid.Column="4" Text="الهامش" Style="{StaticResource PricingHeader}" />
+                            <TextBlock Grid.Column="5" Text="الحالة" Style="{StaticResource PricingHeader}" />
+                            <TextBlock Grid.Column="6" Text="تعديل" Style="{StaticResource PricingHeader}" />
+                        </Grid>
+                        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" FlowDirection="LeftToRight">
+                            <ItemsControl ItemsSource="{Binding VisiblePrices}" MinWidth="920" FlowDirection="RightToLeft">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="#EEE9E4" BorderThickness="0,0,0,1" Background="White" MinHeight="68">
+                                            <Grid FlowDirection="RightToLeft">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="1.55*" /><ColumnDefinition Width="1.05*" /><ColumnDefinition Width="1.12*" /><ColumnDefinition Width="1.42*" /><ColumnDefinition Width="1.12*" /><ColumnDefinition Width="0.9*" /><ColumnDefinition Width="0.78*" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding Product}" Style="{StaticResource PricingCell}" FontWeight="SemiBold" FlowDirection="RightToLeft" />
+                                                <TextBlock Grid.Column="1" Text="{Binding Variant}" Style="{StaticResource PricingCell}" FlowDirection="RightToLeft" />
+                                                <TextBlock Grid.Column="2" Text="{Binding CostLabel}" Style="{StaticResource PricingCell}" Foreground="{StaticResource MutedBrush}" FlowDirection="LeftToRight" />
+                                                <Border Grid.Column="3" Background="#FFF8F0" CornerRadius="9" Margin="10,9" BorderBrush="#EAD3BC" BorderThickness="1">
+                                                    <TextBlock Text="{Binding SellingPriceLabel}" Style="{StaticResource PricingCell}" FontSize="15" FontWeight="Bold" Foreground="#713B08" FlowDirection="LeftToRight" />
+                                                </Border>
+                                                <TextBlock Grid.Column="4" Text="{Binding MarginLabel}" FlowDirection="LeftToRight">
+                                                    <TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource PricingCell}"><Setter Property="Foreground" Value="#20723D" /><Style.Triggers><DataTrigger Binding="{Binding HasNegativeMargin}" Value="True"><Setter Property="Foreground" Value="{StaticResource DangerBrush}" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                                                </TextBlock>
+                                                <Border Grid.Column="5" CornerRadius="12" Height="27" Padding="11,3" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                    <Border.Style><Style TargetType="Border"><Setter Property="Background" Value="#EAF5ED" /><Style.Triggers><DataTrigger Binding="{Binding IsActive}" Value="False"><Setter Property="Background" Value="#F0EEEC" /></DataTrigger></Style.Triggers></Style></Border.Style>
+                                                    <TextBlock Text="{Binding StatusLabel}" FontSize="10" FontWeight="SemiBold" Foreground="#267441" />
+                                                </Border>
+                                                <Button Grid.Column="6" Content="تعديل" Style="{StaticResource EditPriceButton}" Click="EditPriceClick" HorizontalAlignment="Center" VerticalAlignment="Center" automation:AutomationProperties.Name="تعديل سعر البيع" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                        <StackPanel Grid.Row="2" Margin="18,12" Orientation="Horizontal">
+                            <TextBlock Text="{Binding VisibleCountLabel}" Foreground="{StaticResource MutedBrush}" FontSize="11" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Border Margin="0,18,0,0" Background="#EAF5ED" BorderBrush="#B9D9C2" BorderThickness="1" CornerRadius="9" Padding="14,10" Visibility="{Binding HasFeedback, Converter={StaticResource BooleanToVisibility}}">
+                    <TextBlock Text="{Binding FeedbackMessage}" Foreground="#1F693A" FontSize="12" />
+                </Border>
+                <Border Margin="0,18,0,0" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="10" Padding="28" Visibility="{Binding HasNoVisiblePrices, Converter={StaticResource BooleanToVisibility}}">
+                    <StackPanel HorizontalAlignment="Center"><TextBlock Text="لا توجد أسعار مطابقة" FontSize="17" FontWeight="SemiBold" TextAlignment="Center" /><TextBlock Text="جرّب كلمة بحث أو فئة أخرى." Foreground="{StaticResource MutedBrush}" Margin="0,7,0,0" TextAlignment="Center" /></StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Grid Grid.RowSpan="2" Panel.ZIndex="20" Visibility="{Binding IsEditorOpen, Converter={StaticResource BooleanToVisibility}}" FlowDirection="LeftToRight">
+            <Border Background="#7A201A17" />
+            <Border Width="440" MaxWidth="440" Background="White" BorderBrush="#D8C8B9" BorderThickness="1" CornerRadius="14" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="28" FlowDirection="RightToLeft">
+                <Border.Effect><DropShadowEffect BlurRadius="35" ShadowDepth="10" Opacity="0.28" Color="#3D2513" /></Border.Effect>
+                <StackPanel>
+                    <TextBlock Text="تعديل سعر البيع" FontSize="22" FontWeight="Bold" />
+                    <TextBlock Text="تغيير سريع لهذا المقاس فقط" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,5,0,21" />
+
+                    <Grid Margin="0,0,0,9"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="110" /></Grid.ColumnDefinitions><TextBlock Text="{Binding EditorProduct}" Grid.Column="0" FontSize="14" FontWeight="SemiBold" /><TextBlock Text="المنتج" Grid.Column="1" Foreground="{StaticResource MutedBrush}" FontSize="12" /></Grid>
+                    <Grid Margin="0,0,0,9"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="110" /></Grid.ColumnDefinitions><TextBlock Text="{Binding EditorVariant}" Grid.Column="0" FontSize="13" /><TextBlock Text="المقاس" Grid.Column="1" Foreground="{StaticResource MutedBrush}" FontSize="12" /></Grid>
+                    <Grid Margin="0,0,0,17"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="110" /></Grid.ColumnDefinitions><TextBlock Text="{Binding EditorCost}" Grid.Column="0" FontSize="13" FlowDirection="LeftToRight" TextAlignment="Right" /><TextBlock Text="التكلفة" Grid.Column="1" Foreground="{StaticResource MutedBrush}" FontSize="12" /></Grid>
+
+                    <TextBlock Text="سعر البيع" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,7" />
+                    <Grid FlowDirection="LeftToRight">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="56" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <Border Grid.Column="0" Background="#F2ECE6" CornerRadius="9,0,0,9" BorderBrush="#D8CFC6" BorderThickness="1,1,0,1"><TextBlock Text="YER" FontSize="11" FontWeight="SemiBold" Foreground="#704A2A" HorizontalAlignment="Center" VerticalAlignment="Center" /></Border>
+                        <TextBox x:Name="PriceInput" Grid.Column="1" Text="{Binding EditorSellingPrice, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource PricingInput}" FlowDirection="LeftToRight" TextAlignment="Right" FontSize="17" FontWeight="SemiBold" automation:AutomationProperties.Name="سعر البيع الجديد" />
+                    </Grid>
+                    <TextBlock Text="{Binding EditorError}" Foreground="{StaticResource DangerBrush}" FontSize="11" Margin="0,7,0,0" Visibility="{Binding HasEditorError, Converter={StaticResource BooleanToVisibility}}" />
+
+                    <Border Background="#F7F4F1" CornerRadius="9" Padding="14,11" Margin="0,16,0,22">
+                        <Grid><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="130" /></Grid.ColumnDefinitions>
+                            <TextBlock Text="{Binding EditorMargin}" Grid.Column="0" FontSize="16" FontWeight="Bold" FlowDirection="LeftToRight" TextAlignment="Right">
+                                <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Foreground" Value="#20723D" /><Style.Triggers><DataTrigger Binding="{Binding HasNegativeEditorMargin}" Value="True"><Setter Property="Foreground" Value="{StaticResource DangerBrush}" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                            </TextBlock>
+                            <TextBlock Text="الهامش المحسوب" Grid.Column="1" Foreground="{StaticResource MutedBrush}" FontSize="12" VerticalAlignment="Center" />
+                        </Grid>
+                    </Border>
+
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="حفظ" Style="{StaticResource PrimaryButton}" Height="44" MinWidth="116" Click="SavePriceClick" automation:AutomationProperties.Name="حفظ سعر البيع" />
+                        <Button Content="إلغاء" Style="{StaticResource SecondaryPricingButton}" Margin="10,0,0,0" Click="CancelPriceClick" automation:AutomationProperties.Name="إلغاء تعديل السعر" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

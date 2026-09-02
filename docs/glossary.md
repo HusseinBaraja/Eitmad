@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "product maintainers"
-last_verified: "2026-08-30"
+last_verified: "2026-09-02"
 review_triggers:
   - "a domain term, UI label, contract concept, or workshop synonym changes"
 keywords:
@@ -89,9 +89,11 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 
 | Arabic term | English term | Working definition |
 | --- | --- | --- |
-| التسعير | Pricing | The controlled calculation or selection of a selling price. |
+| التسعير | Pricing | The controlled calculation or selection of a selling price. The current manager-facing **التسعير** page is a transient Windows preview for product variants; it does not persist or authorize a price change. |
 | التكلفة | Cost | Resource value consumed or expected to be consumed; the precise cost model is domain-specific. |
 | السعر | Price | The amount offered or charged to a customer, excluding or including adjustments as explicitly defined. |
+| سعر البيع | Selling price | The manager-set amount offered for one product variant. The current **تعديل سعر البيع** action updates only in-memory preview state. |
+| هامش الربح / الهامش المحسوب | Margin / calculated margin | The preview difference between selling price and displayed cost for one product variant. Its production definition and cost authority remain undefined. |
 | الخصم | Discount | A controlled reduction from a price with reason and authorization where required. |
 | الضريبة | Tax | A statutory amount calculated under a versioned jurisdiction rule. |
 | العربون | Deposit | An amount received toward a future order balance. Legal/accounting treatment requires domain confirmation. |

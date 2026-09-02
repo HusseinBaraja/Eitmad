@@ -71,11 +71,13 @@ public partial class MainWindow : Window
         var showRawMaterials = destination == "الخامات";
         var showParts = destination == "القطع";
         var showFurniture = destination == "الأثاث";
-        DashboardSurface.Visibility = showRawMaterials || showParts || showFurniture ? Visibility.Collapsed : Visibility.Visible;
+        var showPricing = destination == "التسعير";
+        DashboardSurface.Visibility = showRawMaterials || showParts || showFurniture || showPricing ? Visibility.Collapsed : Visibility.Visible;
         RawMaterialsSurface.Visibility = showRawMaterials ? Visibility.Visible : Visibility.Collapsed;
         PartsSurface.Visibility = showParts ? Visibility.Visible : Visibility.Collapsed;
         FurnitureSurface.Visibility = showFurniture ? Visibility.Visible : Visibility.Collapsed;
-        if (!showRawMaterials && !showParts && !showFurniture)
+        PricingSurface.Visibility = showPricing ? Visibility.Visible : Visibility.Collapsed;
+        if (!showRawMaterials && !showParts && !showFurniture && !showPricing)
         {
             DashboardTitle.Text = destination == "الرئيسية" ? "لوحة التحكم" : destination;
             ShowToast($"تم فتح {destination} في وضع المعاينة");
