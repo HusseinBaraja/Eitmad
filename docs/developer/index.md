@@ -5,12 +5,13 @@ audience: "developer"
 page_type: "tutorial"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-08-27"
+last_verified: "2026-09-02"
 review_triggers:
-  - "workspace layout, contributor checks, or ownership rules change"
+  - "workspace layout, local app startup, contributor checks, or ownership rules change"
 keywords:
   - "developer guide"
   - "developer onboarding"
+  - "run Windows app"
   - "cargo check workspace"
   - "vertical capability"
 ---
@@ -49,23 +50,33 @@ Read `AGENTS.md` at the repository root, then review:
 - [Reference marker complete vertical](subsystems/reference-marker.md)
 - [Build the first real product](build-first-product.md)
 
-## 1. Name the product capability
+## 1. Run the local Windows app
+
+Install the .NET 8 SDK and the stable Rust toolchain. From the repository root, build the Rust engine and start the Windows shell with one command:
+
+```powershell
+.\run.ps1
+```
+
+The **لوحة التحكم** window opens, and the shell supervises the Rust engine. Use **إنهاء الاعتماد** in the system tray menu to stop both processes.
+
+## 2. Name the product capability
 
 Put behavior in a vertical module or crate named for what the product does. Do not create generic containers such as `utils`, `services`, or `handlers`. Keep Rust authoritative for domain rules, contracts, storage, authorization, and synchronization.
 
-## 2. Define boundaries before implementation
+## 3. Define boundaries before implementation
 
 Define commands, queries, subscriptions, errors, versions, and capabilities, followed by scope, ReBAC permissions, audit, storage and sync modes, and Arabic UI behavior. Complete the [Arabic-first pre-shell gate](contributing/arabic-first-feature-checklist.md#pre-shell-product-decisions) before shell implementation. The native shell remains a thin presentation adapter.
 
-## 3. Develop with focused tests
+## 4. Develop with focused tests
 
 Keep unit tests near the capability they verify. Use `tests/` only for cross-boundary flows. Cover relevant success, denial, and failure paths.
 
-## 4. Update the knowledge graph
+## 5. Update the knowledge graph
 
 Follow `.agents/skills/maintain-project-documentation/SKILL.md` after feature behavior is complete and before considering the feature done. Update the canonical page, index, glossary, ADR, and troubleshooting knowledge where applicable.
 
-## 5. Verify
+## 6. Verify
 
 Run the [foundation checks](../operations/index.md). Expected result: formatting, checks, builds, and tests complete without warnings; `eitmad-engine-cli` and the Windows supervisor run cleanly; and the documentation audit passes.
 
