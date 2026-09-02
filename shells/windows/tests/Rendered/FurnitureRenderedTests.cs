@@ -10,7 +10,7 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 public sealed class FurnitureRenderedTests
 {
     [TestMethod]
-    public void ManagerListAndThreeStepEditorRenderAccessibleInteractions()
+    public void ManagerListAndSixStepEditorRenderAccessibleInteractions()
     {
         WpfTestHost.Run(1338, 753, window =>
         {
@@ -72,7 +72,7 @@ public sealed class FurnitureRenderedTests
             Assert.AreEqual(Visibility.Visible, WpfTestHost.FindByName<StackPanel>(view, "OptionsStep").Visibility);
             Assert.HasCount(3, view.ViewModel.Colors);
             Assert.HasCount(3, view.ViewModel.Handles);
-            Assert.AreEqual("Included", view.ViewModel.Colors[0].PriceAdjustmentLabel);
+            Assert.AreEqual("مشمول", view.ViewModel.Colors[0].PriceAdjustmentLabel);
             Assert.AreEqual("+10,000 YER", view.ViewModel.Colors[2].PriceAdjustmentLabel);
             Assert.IsTrue(WpfTestHost.FindByAutomationName<Button>(view, "إضافة لون").IsEnabled);
             Assert.IsTrue(WpfTestHost.FindByAutomationName<Button>(view, "إضافة مقبض").IsEnabled);
@@ -82,7 +82,7 @@ public sealed class FurnitureRenderedTests
             WpfTestHost.PumpDispatcher();
             var colorName = WpfTestHost.FindByName<TextBox>(view, "ColorNameBox");
             Assert.IsTrue(colorName.IsKeyboardFocusWithin);
-            colorName.Text = "Blue";
+            colorName.Text = "أزرق";
             WpfTestHost.FindByAutomationName<Button>(view, "حفظ اللون")
                 .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(view);
@@ -93,7 +93,7 @@ public sealed class FurnitureRenderedTests
             WpfTestHost.PumpDispatcher();
             var handleName = WpfTestHost.FindByName<TextBox>(view, "HandleNameBox");
             Assert.IsTrue(handleName.IsKeyboardFocusWithin);
-            handleName.Text = "Steel";
+            handleName.Text = "فولاذي";
             WpfTestHost.FindByAutomationName<Button>(view, "حفظ المقبض")
                 .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(view);
@@ -102,8 +102,34 @@ public sealed class FurnitureRenderedTests
             WpfTestHost.FindByName<Button>(view, "NextButton")
                 .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(view);
-            Assert.AreEqual(4, view.ViewModel.CurrentStep);
-            StringAssert.Contains(view.ViewModel.FeedbackMessage, "لم تُبنَ خطوة التسعير");
+            Assert.AreEqual(5, view.ViewModel.CurrentStep);
+            Assert.AreEqual(Visibility.Visible, WpfTestHost.FindByName<StackPanel>(view, "PricingStep").Visibility);
+            var sellingPrice = WpfTestHost.Descendants<TextBox>(view)
+                .Single(box => AutomationProperties.GetName(box) == "سعر بيع المقاس");
+            sellingPrice.Text = "غير صالح";
+
+            WpfTestHost.FindByName<Button>(view, "NextButton")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(view);
+            Assert.AreEqual(5, view.ViewModel.CurrentStep);
+            Assert.IsTrue(sellingPrice.IsKeyboardFocusWithin);
+            StringAssert.Contains(view.ViewModel.EditorError, "صحّح سعر البيع");
+
+            sellingPrice.Text = "200000";
+
+            WpfTestHost.FindByName<Button>(view, "NextButton")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(view);
+            Assert.AreEqual(6, view.ViewModel.CurrentStep);
+            Assert.AreEqual(Visibility.Visible, WpfTestHost.FindByName<StackPanel>(view, "ReviewStep").Visibility);
+            Assert.IsTrue(WpfTestHost.FindByAutomationName<Button>(view, "حفظ الأثاث كمسودة").IsEnabled);
+            Assert.IsTrue(WpfTestHost.FindByAutomationName<Button>(view, "حفظ الأثاث ونشره").IsEnabled);
+
+            WpfTestHost.FindByAutomationName<Button>(view, "حفظ الأثاث ونشره")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(view);
+            Assert.IsTrue(view.ViewModel.IsListVisible);
+            StringAssert.Contains(view.ViewModel.FeedbackMessage, "المعاينة المحلية");
         });
     }
 

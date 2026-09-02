@@ -17,7 +17,8 @@ public sealed class FurnitureListItem
         int variantCount,
         decimal sellingPrice,
         string thumbnailKind,
-        bool isArchived = false)
+        bool isArchived = false,
+        bool isDraft = false)
     {
         Id = id;
         Name = name;
@@ -26,6 +27,7 @@ public sealed class FurnitureListItem
         SellingPrice = sellingPrice;
         ThumbnailKind = thumbnailKind;
         IsArchived = isArchived;
+        IsDraft = isDraft;
     }
 
     public Guid Id { get; }
@@ -42,6 +44,8 @@ public sealed class FurnitureListItem
 
     public bool IsArchived { get; set; }
 
+    public bool IsDraft { get; set; }
+
     public bool CanArchive => !IsArchived;
 
     public string VariantCountLabel => VariantCount switch
@@ -53,7 +57,7 @@ public sealed class FurnitureListItem
 
     public string SellingPriceAmountLabel => SellingPrice.ToString("N0", CultureInfo.InvariantCulture);
 
-    public string StatusLabel => IsArchived ? "مؤرشف" : "نشط";
+    public string StatusLabel => IsArchived ? "مؤرشف" : IsDraft ? "مسودة" : "نشط";
 }
 
 /// <summary>Describes one selectable furniture part in the transient picker.</summary>
@@ -123,9 +127,18 @@ public sealed class FurniturePartUsage : INotifyPropertyChanged
 }
 
 /// <summary>Represents one fixed manager-defined furniture size in the preview.</summary>
-public sealed class FurnitureVariant
+public sealed class FurnitureVariant : INotifyPropertyChanged
 {
-    public FurnitureVariant(Guid id, string name, decimal width, decimal height, decimal depth, decimal calculatedCost)
+    private decimal sellingPrice;
+
+    public FurnitureVariant(
+        Guid id,
+        string name,
+        decimal width,
+        decimal height,
+        decimal depth,
+        decimal calculatedCost,
+        decimal? sellingPrice = null)
     {
         Id = id;
         Name = name;
@@ -133,7 +146,10 @@ public sealed class FurnitureVariant
         Height = height;
         Depth = depth;
         CalculatedCost = calculatedCost;
+        this.sellingPrice = sellingPrice ?? calculatedCost;
     }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
 
     public Guid Id { get; }
 
@@ -147,14 +163,62 @@ public sealed class FurnitureVariant
 
     public decimal CalculatedCost { get; set; }
 
+    public decimal SellingPrice
+    {
+        get => sellingPrice;
+        set
+        {
+            if (sellingPrice == value)
+            {
+                return;
+            }
+
+            sellingPrice = value;
+            Raise();
+            Raise(nameof(SellingPriceLabel));
+            Raise(nameof(Margin));
+            Raise(nameof(MarginLabel));
+            Raise(nameof(MarginCaption));
+            Raise(nameof(HasNegativeMargin));
+        }
+    }
+
+    public string SellingPriceInput
+    {
+        get => SellingPrice.ToString("N0", CultureInfo.InvariantCulture);
+        set
+        {
+            if (!decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out var parsed)
+                || parsed < 0m)
+            {
+                throw new FormatException("أدخل سعر بيع صالحاً يساوي صفراً أو أكثر.");
+            }
+
+            SellingPrice = decimal.Round(parsed, 0, MidpointRounding.AwayFromZero);
+        }
+    }
+
+    public decimal Margin => SellingPrice - CalculatedCost;
+
+    public bool HasNegativeMargin => Margin < 0m;
+
     public string DimensionsLabel => $"{Format(Width)} × {Format(Height)} × {Format(Depth)} cm";
 
     public string CalculatedCostLabel => CalculatedCost.ToString("N0", CultureInfo.InvariantCulture);
 
+    public string SellingPriceLabel => SellingPrice.ToString("N0", CultureInfo.InvariantCulture);
+
+    public string MarginLabel => Margin.ToString("N0", CultureInfo.InvariantCulture);
+
+    public string MarginCaption => HasNegativeMargin ? "خسارة متوقعة" : "هامش الربح";
+
     public FurnitureVariant Copy(string name) =>
-        new(Guid.NewGuid(), name, Width, Height, Depth, CalculatedCost);
+        new(Guid.NewGuid(), name, Width, Height, Depth, CalculatedCost, SellingPrice);
 
     private static string Format(decimal value) => value.ToString("0.##", CultureInfo.InvariantCulture);
+
+    private void Raise([CallerMemberName] string? propertyName = null) =>
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }
 
 /// <summary>Represents one selectable furniture color in the transient options preview.</summary>
@@ -201,7 +265,7 @@ public sealed class FurnitureColorOption : INotifyPropertyChanged
     public System.Windows.Media.Brush SwatchBrush => new SolidColorBrush((MediaColor)MediaColorConverter.ConvertFromString(SwatchHex));
 
     public string PriceAdjustmentLabel => PriceAdjustment == 0m
-        ? "Included"
+        ? "مشمول"
         : $"+{PriceAdjustment.ToString("N0", CultureInfo.InvariantCulture)} YER";
 
     public string StatusLabel => IsActive ? "نشط" : "غير نشط";
@@ -270,7 +334,7 @@ public sealed class FurnitureHandleOption : INotifyPropertyChanged
     };
 
     public string PriceAdjustmentLabel => PriceAdjustment == 0m
-        ? "Included"
+        ? "مشمول"
         : $"+{PriceAdjustment.ToString("N0", CultureInfo.InvariantCulture)} YER";
 
     public string StatusLabel => IsActive ? "نشط" : "غير نشط";

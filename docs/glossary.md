@@ -62,7 +62,7 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | Arabic term | English term | Working definition |
 | --- | --- | --- |
 | المنتج | Product | A sellable furniture design or standardized offering. |
-| الأثاث | Furniture | The manager-facing product collection in the Windows preview. Its compact table and four-step editor are transient fixtures; no Furniture lifecycle is durable or Rust-authoritative yet. |
+| الأثاث | Furniture | The manager-facing product collection in the Windows preview. Its compact table and six-step editor are transient fixtures; no Furniture lifecycle is durable or Rust-authoritative yet. |
 | قطعة أثاث | Furniture item | A specific physical item requested, produced, delivered, or installed. |
 | تصميم | Design | The specification of form, dimensions, materials, finishes, and construction details. |
 | المقاسات | Dimensions | Length, width, height, depth, thickness, or other measurements with explicit units. |

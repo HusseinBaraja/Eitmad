@@ -1,10 +1,12 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Button = System.Windows.Controls.Button;
 using MenuItem = System.Windows.Controls.MenuItem;
+using TextBox = System.Windows.Controls.TextBox;
 using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
 using UserControl = System.Windows.Controls.UserControl;
 
@@ -124,13 +126,40 @@ public partial class FurnitureView : UserControl
             return;
         }
 
-        ViewModel.RequestNextFromOptions();
-        RestartFeedbackTimer();
+        if (ViewModel.IsStepFour)
+        {
+            ViewModel.MoveToPricing();
+            return;
+        }
+
+        if (ViewModel.IsStepFive)
+        {
+            if (FindInvalidTextBox(PricingStep) is { } invalidPrice)
+            {
+                ViewModel.ReportPricingInputError();
+                invalidPrice.Focus();
+                return;
+            }
+
+            ViewModel.MoveToReview();
+        }
     }
 
     private void PreviousStepClick(object sender, RoutedEventArgs eventArgs) => ViewModel.MoveToPreviousStep();
 
     private void CancelEditorClick(object sender, RoutedEventArgs eventArgs) => ViewModel.CancelEditor();
+
+    private void SaveDraftClick(object sender, RoutedEventArgs eventArgs)
+    {
+        ViewModel.SaveDraftPreview();
+        RestartFeedbackTimer();
+    }
+
+    private void PublishClick(object sender, RoutedEventArgs eventArgs)
+    {
+        ViewModel.PublishPreview();
+        RestartFeedbackTimer();
+    }
 
     private void OpenPartPickerClick(object sender, RoutedEventArgs eventArgs)
     {
@@ -232,5 +261,24 @@ public partial class FurnitureView : UserControl
     {
         feedbackTimer.Stop();
         feedbackTimer.Start();
+    }
+
+    private static TextBox? FindInvalidTextBox(DependencyObject root)
+    {
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(root); index++)
+        {
+            var child = VisualTreeHelper.GetChild(root, index);
+            if (child is TextBox textBox && Validation.GetHasError(textBox))
+            {
+                return textBox;
+            }
+
+            if (FindInvalidTextBox(child) is { } nested)
+            {
+                return nested;
+            }
+        }
+
+        return null;
     }
 }
