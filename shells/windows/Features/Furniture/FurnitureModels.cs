@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Windows.Media;
 using MediaColor = System.Windows.Media.Color;
 using MediaColorConverter = System.Windows.Media.ColorConverter;
@@ -188,7 +189,7 @@ public sealed class FurnitureVariant : INotifyPropertyChanged
         get => SellingPrice.ToString("N0", CultureInfo.InvariantCulture);
         set
         {
-            if (!decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out var parsed)
+            if (!decimal.TryParse(NormalizeNumericInput(value), NumberStyles.Number, CultureInfo.InvariantCulture, out var parsed)
                 || parsed < 0m)
             {
                 throw new FormatException("أدخل سعر بيع صالحاً يساوي صفراً أو أكثر.");
@@ -216,6 +217,24 @@ public sealed class FurnitureVariant : INotifyPropertyChanged
         new(Guid.NewGuid(), name, Width, Height, Depth, CalculatedCost, SellingPrice);
 
     private static string Format(decimal value) => value.ToString("0.##", CultureInfo.InvariantCulture);
+
+    private static string NormalizeNumericInput(string value)
+    {
+        var normalized = new StringBuilder(value.Length);
+        foreach (var character in value)
+        {
+            normalized.Append(character switch
+            {
+                >= '\u0660' and <= '\u0669' => (char)('0' + character - '\u0660'),
+                >= '\u06F0' and <= '\u06F9' => (char)('0' + character - '\u06F0'),
+                '\u066B' => '.',
+                '\u066C' => ',',
+                _ => character,
+            });
+        }
+
+        return normalized.ToString();
+    }
 
     private void Raise([CallerMemberName] string? propertyName = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));

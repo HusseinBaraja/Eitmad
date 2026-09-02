@@ -537,7 +537,6 @@ public sealed class FurnitureViewModel : INotifyPropertyChanged
             item.Category = EditorCategory;
             item.VariantCount = Variants.Count;
             item.SellingPrice = lowestPrice;
-            item.IsArchived = false;
             item.IsDraft = isDraft;
         }
 
@@ -628,7 +627,16 @@ public sealed class FurnitureViewModel : INotifyPropertyChanged
             return false;
         }
 
-        var cost = CalculateVariantPreviewCost(VariantWidth, VariantHeight, VariantDepth);
+        decimal cost;
+        try
+        {
+            cost = CalculateVariantPreviewCost(VariantWidth, VariantHeight, VariantDepth);
+        }
+        catch (OverflowException)
+        {
+            EditorError = "أدخل أبعاداً ضمن النطاق المدعوم.";
+            return false;
+        }
         if (editingVariant is null)
         {
             Variants.Add(new FurnitureVariant(Guid.NewGuid(), VariantName.Trim(), VariantWidth, VariantHeight, VariantDepth, cost));
@@ -799,6 +807,9 @@ public sealed class FurnitureViewModel : INotifyPropertyChanged
     }
 
     public void ClearFeedback() => FeedbackMessage = string.Empty;
+
+    public void ReportImageLoadError() =>
+        FeedbackMessage = "تعذر فتح الصورة. اختر ملف صورة صالحاً بحجم مناسب.";
 
     private void ResetEditorState()
     {

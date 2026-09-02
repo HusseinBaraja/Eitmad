@@ -52,13 +52,27 @@ public partial class FurnitureView : UserControl
             return;
         }
 
-        var image = new BitmapImage();
-        image.BeginInit();
-        image.CacheOption = BitmapCacheOption.OnLoad;
-        image.UriSource = new System.Uri(dialog.FileName, System.UriKind.Absolute);
-        image.EndInit();
-        image.Freeze();
-        ViewModel.SetProductImage(image, Path.GetFileName(dialog.FileName));
+        try
+        {
+            var image = new BitmapImage();
+            image.BeginInit();
+            image.CacheOption = BitmapCacheOption.OnLoad;
+            image.DecodePixelWidth = 2048;
+            image.DecodePixelHeight = 2048;
+            image.UriSource = new System.Uri(dialog.FileName, System.UriKind.Absolute);
+            image.EndInit();
+            image.Freeze();
+            ViewModel.SetProductImage(image, Path.GetFileName(dialog.FileName));
+        }
+        catch (Exception exception) when (exception is IOException
+                                          or UnauthorizedAccessException
+                                          or FormatException
+                                          or NotSupportedException
+                                          or OutOfMemoryException)
+        {
+            ViewModel.ReportImageLoadError();
+            RestartFeedbackTimer();
+        }
     }
 
     private void OpenRowMenuClick(object sender, RoutedEventArgs eventArgs)

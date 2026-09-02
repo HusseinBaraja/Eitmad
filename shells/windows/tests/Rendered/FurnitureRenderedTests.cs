@@ -155,4 +155,33 @@ public sealed class FurnitureRenderedTests
                 action.ContextMenu.Items.OfType<MenuItem>().Select(item => item.Header).Cast<string>().ToArray());
         });
     }
+
+    [TestMethod]
+    public void ReviewDraftActionReturnsToListWithDraftFeedback()
+    {
+        WpfTestHost.Run(1338, 753, window =>
+        {
+            WpfTestHost.FindByName<Button>(window, "FurnitureNavButton")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+
+            var view = WpfTestHost.Descendants<FurnitureView>(window).Single();
+            var furniture = view.ViewModel.VisibleFurniture.First(item => !item.IsArchived);
+            view.ViewModel.BeginEdit(furniture);
+            Assert.IsTrue(view.ViewModel.MoveToParts());
+            Assert.IsTrue(view.ViewModel.MoveToVariants());
+            Assert.IsTrue(view.ViewModel.MoveToOptions());
+            Assert.IsTrue(view.ViewModel.MoveToPricing());
+            Assert.IsTrue(view.ViewModel.MoveToReview());
+            WpfTestHost.CompleteLayout(view);
+
+            WpfTestHost.FindByAutomationName<Button>(view, "حفظ الأثاث كمسودة")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(view);
+
+            Assert.IsTrue(view.ViewModel.IsListVisible);
+            Assert.IsTrue(furniture.IsDraft);
+            StringAssert.Contains(view.ViewModel.FeedbackMessage, "حُفظت مسودة");
+        });
+    }
 }

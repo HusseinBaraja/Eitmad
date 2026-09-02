@@ -65,6 +65,22 @@ public sealed class FurniturePresentationTests
     }
 
     [TestMethod]
+    public void VariantRejectsDimensionsThatOverflowPreviewCost()
+    {
+        var viewModel = new FurnitureViewModel();
+        viewModel.BeginCreate();
+        viewModel.BeginAddVariant();
+        viewModel.VariantName = "كبير";
+        viewModel.VariantWidth = decimal.MaxValue;
+        viewModel.VariantHeight = decimal.MaxValue;
+        viewModel.VariantDepth = decimal.MaxValue;
+
+        Assert.IsFalse(viewModel.SaveVariant());
+        Assert.HasCount(0, viewModel.Variants);
+        StringAssert.Contains(viewModel.EditorError, "النطاق المدعوم");
+    }
+
+    [TestMethod]
     public void OptionsExposePriceAdjustmentsAndTransientActiveState()
     {
         var viewModel = new FurnitureViewModel();
@@ -138,5 +154,37 @@ public sealed class FurniturePresentationTests
         Assert.AreEqual("مسودة", wardrobe.StatusLabel);
         Assert.AreEqual(200_000m, wardrobe.SellingPrice);
         StringAssert.Contains(viewModel.FeedbackMessage, "المعاينة المحلية");
+    }
+
+    [TestMethod]
+    public void SellingPriceAcceptsArabicIndicNumerals()
+    {
+        var variant = new FurnitureVariant(Guid.NewGuid(), "صغير", 120m, 200m, 55m, 160_000m);
+
+        variant.SellingPriceInput = "٢٠٠٬٠٠٠";
+
+        Assert.AreEqual(200_000m, variant.SellingPrice);
+    }
+
+    [TestMethod]
+    [DataRow(true)]
+    [DataRow(false)]
+    public void SavingAnArchivedFurnitureEditPreservesArchiveState(bool saveAsDraft)
+    {
+        var viewModel = new FurnitureViewModel();
+        var archived = viewModel.VisibleFurniture.First(item => item.IsArchived);
+        viewModel.BeginEdit(archived);
+
+        if (saveAsDraft)
+        {
+            viewModel.SaveDraftPreview();
+        }
+        else
+        {
+            viewModel.PublishPreview();
+        }
+
+        Assert.IsTrue(archived.IsArchived);
+        Assert.AreEqual(saveAsDraft, archived.IsDraft);
     }
 }

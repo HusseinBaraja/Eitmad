@@ -58,6 +58,8 @@ The header shows and implements the complete sequence: **المعلومات**, *
 
 The preview checks that a furniture name and category are present, that at least one part has a positive quantity before Variants, that fixed-variant names and dimensions are positive, and that every variant has a positive selling price before Review. These checks protect the local interaction only and do not define domain validation.
 
+If WPF cannot access or decode a selected image, the preview keeps the current image and shows **تعذر فتح الصورة** instead of letting the decoder failure reach the UI dispatcher. Image decoding is bounded to the preview size.
+
 If navigation opens the generic dashboard, inspect `MainWindow.xaml` and `MainWindow.xaml.cs`. If the part picker, row menu, or variant editor is clipped, inspect the explicit popup overlays and physical LTR placement boundary in `FurnitureView.xaml`. Close the preview to discard local edits. Do not edit storage or bypass the shell.
 
 ## Verification and safe extension
