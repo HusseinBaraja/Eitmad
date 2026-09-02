@@ -38,7 +38,7 @@
             <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
             <Border Grid.Row="0" Background="#FEFDFC" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1" Padding="28,17">
                 <Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                    <Button Grid.Column="0" Style="{StaticResource PrimaryButton}" Height="46" Click="AddFurnitureClick" automation:AutomationProperties.Name="إضافة منتج"><StackPanel Orientation="Horizontal" FlowDirection="RightToLeft"><Path Data="{StaticResource IconPlus}" Width="18" Height="18" Fill="White" /><TextBlock Text="إضافة منتج" Foreground="White" FontSize="13" Margin="9,0,0,0" /></StackPanel></Button>
+                    <Button Grid.Column="0" Style="{StaticResource PrimaryButton}" Height="46" Click="AddFurnitureClick" automation:AutomationProperties.Name="إضافة منتج"><StackPanel Orientation="Horizontal" FlowDirection="RightToLeft"><Path Data="{StaticResource IconPlus}" Width="18" Height="18" Fill="White" Stretch="Uniform" /><TextBlock Text="إضافة منتج" Foreground="White" FontSize="13" Margin="9,0,0,0" /></StackPanel></Button>
                     <StackPanel Grid.Column="1" FlowDirection="RightToLeft" HorizontalAlignment="Right"><TextBlock Text="الأثاث" FontSize="27" FontWeight="Bold" TextAlignment="Right" /><TextBlock Text="منتجات ثابتة ومقاسات يحددها المدير" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,4,0,0" /></StackPanel>
                 </Grid>
             </Border>
