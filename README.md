@@ -29,6 +29,10 @@ The Windows Furniture editor uses six steps: `المعلومات`, `الأجزا
 
 The separate Windows **التسعير** page lets a manager search product variants, filter by category, and open **تعديل سعر البيع** without entering the full Furniture editor. The current quick edit changes in-memory preview state only; Rust authorization, audit, storage, and synchronization are not implemented for product pricing yet.
 
+## Manager quotation review
+
+The Windows **عروض الأسعار** page lets a manager search and filter quotations, open a read-only furniture-item detail, and review subtotal, discount, and final total. **موافقة** and **رفض** appear only when the synthetic fixture requires discount approval. These actions update preview state only; Rust quotation authorization, audit, storage, and synchronization are not implemented yet.
+
 Foundation verification:
 
 ```text
