@@ -7,7 +7,7 @@ using System.Windows.Media;
 
 namespace Eitmad.WindowsShell.Features.Furniture;
 
-/// <summary>Owns transient list and three-step furniture editor state for the Windows preview.</summary>
+/// <summary>Owns transient list and four-step furniture editor state for the Windows preview.</summary>
 public sealed class FurnitureViewModel : INotifyPropertyChanged
 {
     public const string AllCategories = "كل الفئات";
@@ -19,6 +19,20 @@ public sealed class FurnitureViewModel : INotifyPropertyChanged
     private readonly List<FurniturePartOption> availableParts;
     private readonly Dictionary<Guid, List<FurniturePartUsage>> partUsages = [];
     private readonly Dictionary<Guid, List<FurnitureVariant>> productVariants = [];
+    private readonly List<FurnitureColorOption> defaultColors =
+    [
+        new(Guid.NewGuid(), "White", "#F7F4EF", 0m),
+        new(Guid.NewGuid(), "Brown", "#8B5A3C", 0m, isActive: false),
+        new(Guid.NewGuid(), "Walnut", "#4F2C1D", 10_000m),
+    ];
+    private readonly List<FurnitureHandleOption> defaultHandles =
+    [
+        new(Guid.NewGuid(), "Standard Handle", "Standard", 0m),
+        new(Guid.NewGuid(), "Black Metal", "BlackMetal", 3_000m),
+        new(Guid.NewGuid(), "Brass", "Brass", 5_000m, isActive: false),
+    ];
+    private readonly Dictionary<Guid, List<FurnitureColorOption>> productColors = [];
+    private readonly Dictionary<Guid, List<FurnitureHandleOption>> productHandles = [];
     private FurnitureListItem? editingFurniture;
     private FurnitureVariant? editingVariant;
     private string searchText = string.Empty;
@@ -42,6 +56,13 @@ public sealed class FurnitureViewModel : INotifyPropertyChanged
     private decimal variantWidth = 120m;
     private decimal variantHeight = 200m;
     private decimal variantDepth = 55m;
+    private bool isColorEditorOpen;
+    private string colorName = string.Empty;
+    private decimal colorPriceAdjustment;
+    private string colorSwatchHex = "#F7F4EF";
+    private bool isHandleEditorOpen;
+    private string handleName = string.Empty;
+    private decimal handlePriceAdjustment;
 
     public FurnitureViewModel()
     {
@@ -70,6 +91,8 @@ public sealed class FurnitureViewModel : INotifyPropertyChanged
         SelectedParts = [];
         FilteredParts = [];
         Variants = [];
+        Colors = [];
+        Handles = [];
         SeedExistingProductDetails();
         RefreshVisibleFurniture();
         RefreshPartOptions();
@@ -90,6 +113,19 @@ public sealed class FurnitureViewModel : INotifyPropertyChanged
     public ObservableCollection<FurniturePartOption> FilteredParts { get; }
 
     public ObservableCollection<FurnitureVariant> Variants { get; }
+
+    public ObservableCollection<FurnitureColorOption> Colors { get; }
+
+    public ObservableCollection<FurnitureHandleOption> Handles { get; }
+
+    public IReadOnlyList<string> ColorSwatchOptions { get; } =
+    [
+        "#F7F4EF",
+        "#8B5A3C",
+        "#4F2C1D",
+        "#2E596B",
+        "#B89A72",
+    ];
 
     public string SearchText
     {
@@ -165,6 +201,8 @@ public sealed class FurnitureViewModel : INotifyPropertyChanged
                 Raise(nameof(IsStepOne));
                 Raise(nameof(IsStepTwo));
                 Raise(nameof(IsStepThree));
+                Raise(nameof(IsStepFour));
+                Raise(nameof(EditorStepDescription));
             }
         }
     }
@@ -174,6 +212,16 @@ public sealed class FurnitureViewModel : INotifyPropertyChanged
     public bool IsStepTwo => CurrentStep == 2;
 
     public bool IsStepThree => CurrentStep == 3;
+
+    public bool IsStepFour => CurrentStep == 4;
+
+    public string EditorStepDescription => CurrentStep switch
+    {
+        2 => "اختر الأجزاء، واضبط الكمية، وشاهد التكلفة المحدثة.",
+        3 => "أضف المقاسات الثابتة التي يحددها المدير.",
+        4 => "حدّد الألوان والمقابض التي يمكن اختيارها لاحقاً.",
+        _ => "أنشئ معلومات المنتج الأساسية قبل المتابعة.",
+    };
 
     public string EditorName { get => editorName; set => Set(ref editorName, value ?? string.Empty); }
 
@@ -265,6 +313,24 @@ public sealed class FurnitureViewModel : INotifyPropertyChanged
 
     public decimal VariantDepth { get => variantDepth; set => Set(ref variantDepth, value); }
 
+    public bool IsColorEditorOpen { get => isColorEditorOpen; private set => Set(ref isColorEditorOpen, value); }
+
+    public string ColorName { get => colorName; set => Set(ref colorName, value ?? string.Empty); }
+
+    public decimal ColorPriceAdjustment { get => colorPriceAdjustment; set => Set(ref colorPriceAdjustment, value); }
+
+    public string ColorSwatchHex { get => colorSwatchHex; set => Set(ref colorSwatchHex, value ?? "#F7F4EF"); }
+
+    public bool IsHandleEditorOpen { get => isHandleEditorOpen; private set => Set(ref isHandleEditorOpen, value); }
+
+    public string HandleName { get => handleName; set => Set(ref handleName, value ?? string.Empty); }
+
+    public decimal HandlePriceAdjustment { get => handlePriceAdjustment; set => Set(ref handlePriceAdjustment, value); }
+
+    public bool HasColors => Colors.Count > 0;
+
+    public bool HasHandles => Handles.Count > 0;
+
     public bool HasNoVisibleFurniture => VisibleFurniture.Count == 0;
 
     public string VisibleCountLabel => $"{VisibleFurniture.Count} من {furniture.Count} منتجات";
@@ -281,6 +347,8 @@ public sealed class FurnitureViewModel : INotifyPropertyChanged
         ProductImageName = string.Empty;
         ReplaceSelectedParts([]);
         ReplaceVariants([]);
+        ReplaceColors(defaultColors.Select(color => color.Copy()));
+        ReplaceHandles(defaultHandles.Select(handle => handle.Copy()));
         ResetEditorState();
     }
 
@@ -297,6 +365,8 @@ public sealed class FurnitureViewModel : INotifyPropertyChanged
         ProductImageName = string.Empty;
         ReplaceSelectedParts(partUsages.GetValueOrDefault(item.Id, []).Select(usage => usage.Copy()));
         ReplaceVariants(productVariants.GetValueOrDefault(item.Id, []).Select(CopyVariant));
+        ReplaceColors(productColors.GetValueOrDefault(item.Id, defaultColors).Select(color => color.Copy()));
+        ReplaceHandles(productHandles.GetValueOrDefault(item.Id, defaultHandles).Select(handle => handle.Copy()));
         ResetEditorState();
     }
 
@@ -305,6 +375,8 @@ public sealed class FurnitureViewModel : INotifyPropertyChanged
         IsEditorOpen = false;
         IsPartPickerOpen = false;
         IsVariantEditorOpen = false;
+        IsColorEditorOpen = false;
+        IsHandleEditorOpen = false;
         EditorError = string.Empty;
     }
 
@@ -372,6 +444,24 @@ public sealed class FurnitureViewModel : INotifyPropertyChanged
     public void RequestNextFromVariants()
     {
         FeedbackMessage = "تنتهي هذه المعاينة عند المقاسات؛ لم تُبنَ خطوة الخيارات بعد.";
+    }
+
+    public bool MoveToOptions()
+    {
+        if (!HasVariants)
+        {
+            EditorError = "أضف مقاساً ثابتاً واحداً على الأقل للمتابعة.";
+            return false;
+        }
+
+        EditorError = string.Empty;
+        CurrentStep = 4;
+        return true;
+    }
+
+    public void RequestNextFromOptions()
+    {
+        FeedbackMessage = "تنتهي هذه المعاينة عند الخيارات؛ لم تُبنَ خطوة التسعير بعد.";
     }
 
     public void OpenPartPicker()
@@ -483,6 +573,92 @@ public sealed class FurnitureViewModel : INotifyPropertyChanged
         Raise(nameof(HasVariants));
     }
 
+    public void BeginAddColor()
+    {
+        ColorName = string.Empty;
+        ColorPriceAdjustment = 0m;
+        ColorSwatchHex = ColorSwatchOptions[0];
+        EditorError = string.Empty;
+        IsColorEditorOpen = true;
+    }
+
+    public bool SaveColor()
+    {
+        if (ColorName.Trim().Length == 0)
+        {
+            EditorError = "أدخل اسم اللون.";
+            return false;
+        }
+
+        if (ColorPriceAdjustment < 0m)
+        {
+            EditorError = "أدخل تعديلاً سعرياً يساوي صفراً أو أكثر.";
+            return false;
+        }
+
+        Colors.Add(new FurnitureColorOption(Guid.NewGuid(), ColorName.Trim(), ColorSwatchHex, ColorPriceAdjustment));
+        IsColorEditorOpen = false;
+        EditorError = string.Empty;
+        Raise(nameof(HasColors));
+        FeedbackMessage = "أُضيف اللون إلى المعاينة المحلية.";
+        return true;
+    }
+
+    public void CancelColorEditor()
+    {
+        IsColorEditorOpen = false;
+        EditorError = string.Empty;
+    }
+
+    public void ToggleColor(FurnitureColorOption color)
+    {
+        ArgumentNullException.ThrowIfNull(color);
+        color.IsActive = !color.IsActive;
+    }
+
+    public void BeginAddHandle()
+    {
+        HandleName = string.Empty;
+        HandlePriceAdjustment = 0m;
+        EditorError = string.Empty;
+        IsHandleEditorOpen = true;
+    }
+
+    public bool SaveHandle()
+    {
+        if (HandleName.Trim().Length == 0)
+        {
+            EditorError = "أدخل اسم المقبض.";
+            return false;
+        }
+
+        if (HandlePriceAdjustment < 0m)
+        {
+            EditorError = "أدخل تعديلاً سعرياً يساوي صفراً أو أكثر.";
+            return false;
+        }
+
+        var handleKind = defaultHandles[Handles.Count % defaultHandles.Count].HandleKind;
+        Handles.Add(new FurnitureHandleOption(Guid.NewGuid(), HandleName.Trim(), handleKind, HandlePriceAdjustment));
+        IsHandleEditorOpen = false;
+        EditorError = string.Empty;
+        Raise(nameof(HasHandles));
+        FeedbackMessage = "أُضيف المقبض إلى المعاينة المحلية.";
+        return true;
+    }
+
+    public void CancelHandleEditor()
+    {
+        IsHandleEditorOpen = false;
+        EditorError = string.Empty;
+    }
+
+    public void ToggleHandle(FurnitureHandleOption handle)
+    {
+        ArgumentNullException.ThrowIfNull(handle);
+        handle.IsActive = !handle.IsActive;
+    }
+
     public FurnitureListItem DuplicateFurniture(FurnitureListItem item)
     {
         ArgumentNullException.ThrowIfNull(item);
@@ -496,6 +672,8 @@ public sealed class FurnitureViewModel : INotifyPropertyChanged
         furniture.Add(duplicate);
         partUsages[duplicate.Id] = partUsages.GetValueOrDefault(item.Id, []).Select(usage => usage.Copy()).ToList();
         productVariants[duplicate.Id] = productVariants.GetValueOrDefault(item.Id, []).Select(CopyVariant).ToList();
+        productColors[duplicate.Id] = productColors.GetValueOrDefault(item.Id, defaultColors).Select(color => color.Copy()).ToList();
+        productHandles[duplicate.Id] = productHandles.GetValueOrDefault(item.Id, defaultHandles).Select(handle => handle.Copy()).ToList();
         RefreshVisibleFurniture();
         FeedbackMessage = "أُنشئت نسخة محلية ويمكن تعديلها الآن.";
         BeginEdit(duplicate);
@@ -523,6 +701,8 @@ public sealed class FurnitureViewModel : INotifyPropertyChanged
         CurrentStep = 1;
         IsPartPickerOpen = false;
         IsVariantEditorOpen = false;
+        IsColorEditorOpen = false;
+        IsHandleEditorOpen = false;
         IsEditorOpen = true;
     }
 
@@ -549,6 +729,12 @@ public sealed class FurnitureViewModel : INotifyPropertyChanged
             productVariants[item.Id] = Enumerable.Range(1, item.VariantCount)
                 .Select(number => new FurnitureVariant(Guid.NewGuid(), $"مقاس {number}", 100m + (number * 20m), 80m + (number * 15m), 50m, item.SellingPrice * 0.72m))
                 .ToList();
+        }
+
+        foreach (var item in furniture)
+        {
+            productColors[item.Id] = defaultColors.Select(color => color.Copy()).ToList();
+            productHandles[item.Id] = defaultHandles.Select(handle => handle.Copy()).ToList();
         }
     }
 
@@ -633,6 +819,28 @@ public sealed class FurnitureViewModel : INotifyPropertyChanged
         }
 
         Raise(nameof(HasVariants));
+    }
+
+    private void ReplaceColors(IEnumerable<FurnitureColorOption> colors)
+    {
+        Colors.Clear();
+        foreach (var color in colors)
+        {
+            Colors.Add(color);
+        }
+
+        Raise(nameof(HasColors));
+    }
+
+    private void ReplaceHandles(IEnumerable<FurnitureHandleOption> handles)
+    {
+        Handles.Clear();
+        foreach (var handle in handles)
+        {
+            Handles.Add(handle);
+        }
+
+        Raise(nameof(HasHandles));
     }
 
     private static FurnitureVariant CopyVariant(FurnitureVariant variant) =>

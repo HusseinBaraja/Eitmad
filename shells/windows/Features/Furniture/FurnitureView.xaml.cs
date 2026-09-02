@@ -118,7 +118,13 @@ public partial class FurnitureView : UserControl
             return;
         }
 
-        ViewModel.RequestNextFromVariants();
+        if (ViewModel.IsStepThree)
+        {
+            ViewModel.MoveToOptions();
+            return;
+        }
+
+        ViewModel.RequestNextFromOptions();
         RestartFeedbackTimer();
     }
 
@@ -185,6 +191,42 @@ public partial class FurnitureView : UserControl
     private void SaveVariantClick(object sender, RoutedEventArgs eventArgs) => ViewModel.SaveVariant();
 
     private void CancelVariantClick(object sender, RoutedEventArgs eventArgs) => ViewModel.CancelVariantEditor();
+
+    private void AddColorClick(object sender, RoutedEventArgs eventArgs)
+    {
+        ViewModel.BeginAddColor();
+        Dispatcher.BeginInvoke(ColorNameBox.Focus, DispatcherPriority.Input);
+    }
+
+    private void SaveColorClick(object sender, RoutedEventArgs eventArgs) => ViewModel.SaveColor();
+
+    private void CancelColorClick(object sender, RoutedEventArgs eventArgs) => ViewModel.CancelColorEditor();
+
+    private void ToggleColorClick(object sender, RoutedEventArgs eventArgs)
+    {
+        if (sender is Button { DataContext: FurnitureColorOption color })
+        {
+            ViewModel.ToggleColor(color);
+        }
+    }
+
+    private void AddHandleClick(object sender, RoutedEventArgs eventArgs)
+    {
+        ViewModel.BeginAddHandle();
+        Dispatcher.BeginInvoke(HandleNameBox.Focus, DispatcherPriority.Input);
+    }
+
+    private void SaveHandleClick(object sender, RoutedEventArgs eventArgs) => ViewModel.SaveHandle();
+
+    private void CancelHandleClick(object sender, RoutedEventArgs eventArgs) => ViewModel.CancelHandleEditor();
+
+    private void ToggleHandleClick(object sender, RoutedEventArgs eventArgs)
+    {
+        if (sender is Button { DataContext: FurnitureHandleOption handle })
+        {
+            ViewModel.ToggleHandle(handle);
+        }
+    }
 
     private void RestartFeedbackTimer()
     {

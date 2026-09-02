@@ -64,4 +64,47 @@ public sealed class FurniturePresentationTests
         Assert.AreEqual(3, viewModel.CurrentStep);
         StringAssert.Contains(viewModel.FeedbackMessage, "لم تُبنَ خطوة الخيارات");
     }
+
+    [TestMethod]
+    public void OptionsExposePriceAdjustmentsAndTransientActiveState()
+    {
+        var viewModel = new FurnitureViewModel();
+        viewModel.BeginCreate();
+        viewModel.EditorName = "خزانة خيارات";
+        Assert.IsTrue(viewModel.MoveToParts());
+        viewModel.AddPart(viewModel.FilteredParts[0]);
+        Assert.IsTrue(viewModel.MoveToVariants());
+        viewModel.BeginAddVariant();
+        viewModel.VariantName = "صغير";
+        Assert.IsTrue(viewModel.SaveVariant());
+
+        Assert.IsTrue(viewModel.MoveToOptions());
+        Assert.AreEqual(4, viewModel.CurrentStep);
+        Assert.HasCount(3, viewModel.Colors);
+        Assert.HasCount(3, viewModel.Handles);
+        Assert.AreEqual("Included", viewModel.Colors.First(color => color.Name == "White").PriceAdjustmentLabel);
+        Assert.AreEqual("+10,000 YER", viewModel.Colors.First(color => color.Name == "Walnut").PriceAdjustmentLabel);
+        Assert.IsFalse(viewModel.Colors.First(color => color.Name == "Brown").IsActive);
+
+        var brown = viewModel.Colors.First(color => color.Name == "Brown");
+        viewModel.ToggleColor(brown);
+        Assert.IsTrue(brown.IsActive);
+        Assert.AreEqual("تعطيل", brown.ToggleActionLabel);
+
+        viewModel.BeginAddColor();
+        viewModel.ColorName = "Blue";
+        viewModel.ColorPriceAdjustment = 2_500m;
+        Assert.IsTrue(viewModel.SaveColor());
+        Assert.AreEqual("+2,500 YER", viewModel.Colors[^1].PriceAdjustmentLabel);
+
+        viewModel.BeginAddHandle();
+        viewModel.HandleName = "Steel";
+        viewModel.HandlePriceAdjustment = 4_000m;
+        Assert.IsTrue(viewModel.SaveHandle());
+        Assert.AreEqual("+4,000 YER", viewModel.Handles[^1].PriceAdjustmentLabel);
+
+        viewModel.RequestNextFromOptions();
+        Assert.AreEqual(4, viewModel.CurrentStep);
+        StringAssert.Contains(viewModel.FeedbackMessage, "لم تُبنَ خطوة التسعير");
+    }
 }

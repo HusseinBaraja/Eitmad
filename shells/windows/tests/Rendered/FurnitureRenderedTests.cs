@@ -64,6 +64,46 @@ public sealed class FurnitureRenderedTests
                 .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(view);
             Assert.HasCount(1, view.ViewModel.Variants);
+
+            WpfTestHost.FindByName<Button>(view, "NextButton")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(view);
+            Assert.AreEqual(4, view.ViewModel.CurrentStep);
+            Assert.AreEqual(Visibility.Visible, WpfTestHost.FindByName<StackPanel>(view, "OptionsStep").Visibility);
+            Assert.HasCount(3, view.ViewModel.Colors);
+            Assert.HasCount(3, view.ViewModel.Handles);
+            Assert.AreEqual("Included", view.ViewModel.Colors[0].PriceAdjustmentLabel);
+            Assert.AreEqual("+10,000 YER", view.ViewModel.Colors[2].PriceAdjustmentLabel);
+            Assert.IsTrue(WpfTestHost.FindByAutomationName<Button>(view, "إضافة لون").IsEnabled);
+            Assert.IsTrue(WpfTestHost.FindByAutomationName<Button>(view, "إضافة مقبض").IsEnabled);
+
+            WpfTestHost.FindByAutomationName<Button>(view, "إضافة لون")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.PumpDispatcher();
+            var colorName = WpfTestHost.FindByName<TextBox>(view, "ColorNameBox");
+            Assert.IsTrue(colorName.IsKeyboardFocusWithin);
+            colorName.Text = "Blue";
+            WpfTestHost.FindByAutomationName<Button>(view, "حفظ اللون")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(view);
+            Assert.HasCount(4, view.ViewModel.Colors);
+
+            WpfTestHost.FindByAutomationName<Button>(view, "إضافة مقبض")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.PumpDispatcher();
+            var handleName = WpfTestHost.FindByName<TextBox>(view, "HandleNameBox");
+            Assert.IsTrue(handleName.IsKeyboardFocusWithin);
+            handleName.Text = "Steel";
+            WpfTestHost.FindByAutomationName<Button>(view, "حفظ المقبض")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(view);
+            Assert.HasCount(4, view.ViewModel.Handles);
+
+            WpfTestHost.FindByName<Button>(view, "NextButton")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(view);
+            Assert.AreEqual(4, view.ViewModel.CurrentStep);
+            StringAssert.Contains(view.ViewModel.FeedbackMessage, "لم تُبنَ خطوة التسعير");
         });
     }
 
