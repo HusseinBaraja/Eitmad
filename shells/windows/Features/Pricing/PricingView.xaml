@@ -146,17 +146,11 @@
 
         <Border Grid.Row="0" Background="#FEFDFC" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1" Padding="32,20">
             <Grid>
-                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                <Grid.RowDefinitions><RowDefinition Height="Auto" /></Grid.RowDefinitions>
                 <StackPanel>
                     <TextBlock Text="التسعير" FontSize="29" FontWeight="Bold" />
                     <TextBlock Text="راجع أسعار البيع وحدّثها بسرعة من مكان واحد" Foreground="{StaticResource MutedBrush}" FontSize="13" Margin="0,7,0,0" />
                 </StackPanel>
-                <Border Grid.Row="1" Background="#FFF7EE" BorderBrush="#E8CBAE" BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="0,15,0,0" HorizontalAlignment="Right">
-                    <StackPanel Orientation="Horizontal">
-                        <Border Width="8" Height="8" CornerRadius="4" Background="#A35E1E" VerticalAlignment="Center" Margin="0,0,0,1" />
-                        <TextBlock Text="وضع المعاينة — التغييرات محلية وغير محفوظة" Foreground="#744313" FontSize="11" Margin="9,0,0,0" />
-                    </StackPanel>
-                </Border>
             </Grid>
         </Border>
 
