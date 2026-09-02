@@ -30,15 +30,62 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style x:Key="PricingComboBoxItem" TargetType="ComboBoxItem">
+            <Setter Property="MinHeight" Value="38" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="Margin" Value="3,2" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBoxItem">
+                        <Border x:Name="ItemSurface" Background="Transparent" CornerRadius="7" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Right" VerticalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True"><Setter TargetName="ItemSurface" Property="Background" Value="#F3E5D7" /><Setter Property="Foreground" Value="#6C390D" /><Setter Property="FontWeight" Value="SemiBold" /></Trigger>
+                            <Trigger Property="IsHighlighted" Value="True"><Setter TargetName="ItemSurface" Property="Background" Value="#FBF2E9" /><Setter Property="Foreground" Value="#7A4314" /></Trigger>
+                            <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4" /></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style x:Key="PricingFilter" TargetType="ComboBox">
-            <Setter Property="Height" Value="46" />
+            <Setter Property="Height" Value="44" />
             <Setter Property="MinWidth" Value="210" />
-            <Setter Property="Padding" Value="12,6" />
             <Setter Property="FontFamily" Value="Noto Kufi Arabic, Segoe UI" />
             <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
             <Setter Property="Background" Value="White" />
-            <Setter Property="BorderBrush" Value="#D8CFC6" />
+            <Setter Property="BorderBrush" Value="#DED6CE" />
             <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="ItemContainerStyle" Value="{StaticResource PricingComboBoxItem}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <Border x:Name="InputChrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8">
+                                <Grid FlowDirection="LeftToRight">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="42" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Width="24" Height="24" CornerRadius="12" Background="#F6EEE6" HorizontalAlignment="Center" VerticalAlignment="Center"><Path x:Name="Chevron" Data="M3,7 L8,12 L13,7" Stroke="#8B4D17" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Width="16" Height="16" Stretch="Uniform" /></Border>
+                                    <ContentPresenter Grid.Column="1" Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}" Margin="4,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center" FlowDirection="{TemplateBinding FlowDirection}" />
+                                </Grid>
+                            </Border>
+                            <ToggleButton x:Name="DropDownToggle" Background="Transparent" BorderThickness="0" Focusable="False" Cursor="Hand" IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}" ClickMode="Press"><ToggleButton.Template><ControlTemplate TargetType="ToggleButton"><Border Background="Transparent" /></ControlTemplate></ToggleButton.Template></ToggleButton>
+                            <Popup x:Name="PART_Popup" Placement="Bottom" IsOpen="{TemplateBinding IsDropDownOpen}" AllowsTransparency="True" PopupAnimation="Fade" VerticalOffset="6" Focusable="False"><Border Width="{Binding ActualWidth, ElementName=InputChrome}" MaxHeight="260" Background="White" BorderBrush="#DCCFC2" BorderThickness="1" CornerRadius="10" Padding="4"><Border.Effect><DropShadowEffect BlurRadius="22" ShadowDepth="7" Opacity="0.18" Color="#4A2B12" /></Border.Effect><ScrollViewer CanContentScroll="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" /></ScrollViewer></Border></Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="InputChrome" Property="BorderBrush" Value="#C69A70" /></Trigger>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="InputChrome" Property="BorderBrush" Value="#A35E1E" /><Setter TargetName="InputChrome" Property="BorderThickness" Value="1.5" /></Trigger>
+                            <Trigger Property="IsDropDownOpen" Value="True"><Setter TargetName="InputChrome" Property="BorderBrush" Value="#A35E1E" /><Setter TargetName="Chevron" Property="Data" Value="M3,12 L8,7 L13,12" /></Trigger>
+                            <Trigger Property="IsEnabled" Value="False"><Setter TargetName="InputChrome" Property="Opacity" Value="0.48" /></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
         <Style x:Key="PricingHeader" TargetType="TextBlock">
             <Setter Property="FontSize" Value="11" />
