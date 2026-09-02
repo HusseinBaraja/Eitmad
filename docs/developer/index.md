@@ -45,6 +45,7 @@ Read `AGENTS.md` at the repository root, then review:
 - [Windows engine process supervision](subsystems/windows-process-supervision.md)
 - [Arabic-first Windows operations shell](subsystems/windows-native-shell.md)
 - [Parts list vertical](subsystems/parts.md)
+- [Furniture manager flow](subsystems/furniture.md)
 - [Reference marker complete vertical](subsystems/reference-marker.md)
 - [Build the first real product](build-first-product.md)
 
