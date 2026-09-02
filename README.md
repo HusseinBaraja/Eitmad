@@ -27,6 +27,10 @@ dotnet run --project shells/windows/Eitmad.WindowsShell.csproj -- --engine targe
 
 The **لوحة التحكم** window opens in **وضع المعاينة**. Closing the window keeps the app in the system tray. Use **إنهاء الاعتماد** in the tray menu to stop the shell and engine. For design and ownership details, see the [Windows operations shell guide](docs/developer/subsystems/windows-native-shell.md).
 
+## Furniture editor flow
+
+The Windows Furniture editor uses six steps: `المعلومات`, `الأجزاء`, `المقاسات`, `الخيارات`, `التسعير`, and `المراجعة`. Managers set selling prices for each fixed variant, then choose `حفظ كمسودة` or `حفظ ونشر` from the read-only review step.
+
 Foundation verification:
 
 ```text
