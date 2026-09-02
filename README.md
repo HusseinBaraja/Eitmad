@@ -33,6 +33,10 @@ The separate Windows **التسعير** page lets a manager search product varia
 
 The Windows **عروض الأسعار** page lets a manager search and filter quotations, open a read-only furniture-item detail, and review subtotal, discount, and final total. **موافقة** and **رفض** appear only when the synthetic fixture requires discount approval. These actions update preview state only; Rust quotation authorization, audit, storage, and synchronization are not implemented yet.
 
+## Manager order review
+
+The Windows **الطلبات** page lets a manager search and filter orders, review the five preview statuses, and open a read-only order detail with furniture specifications and totals. It does not expose carpenter actions or change order state. The rows are synthetic presentation fixtures; Rust order authorization, audit, storage, and synchronization are not implemented yet.
+
 Foundation verification:
 
 ```text

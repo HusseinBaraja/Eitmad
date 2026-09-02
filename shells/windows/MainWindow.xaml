@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:layout="clr-namespace:Eitmad.WindowsShell.Layout"
         xmlns:furniture="clr-namespace:Eitmad.WindowsShell.Features.Furniture"
+        xmlns:orders="clr-namespace:Eitmad.WindowsShell.Features.Orders"
         xmlns:parts="clr-namespace:Eitmad.WindowsShell.Features.Parts"
         xmlns:pricing="clr-namespace:Eitmad.WindowsShell.Features.Pricing"
         xmlns:quotations="clr-namespace:Eitmad.WindowsShell.Features.Quotations"
@@ -277,6 +278,7 @@
                 <furniture:FurnitureView x:Name="FurnitureSurface" Grid.Column="0" Visibility="Collapsed" />
                 <pricing:PricingView x:Name="PricingSurface" Grid.Column="0" Visibility="Collapsed" />
                 <quotations:QuotationsView x:Name="QuotationsSurface" Grid.Column="0" Visibility="Collapsed" />
+                <orders:OrdersView x:Name="OrdersSurface" Grid.Column="0" Visibility="Collapsed" />
 
                 <!-- Right navigation -->
                 <Border x:Name="Sidebar" Grid.Column="1" Background="#FEFDFC" BorderBrush="{StaticResource LineBrush}" BorderThickness="1,0,0,0" FlowDirection="RightToLeft">
@@ -322,6 +324,7 @@
                           <StackPanel x:Name="SidebarNavigation" Margin="0,16,0,8">
                             <Button x:Name="HomeNavButton" Style="{StaticResource NavButton}" Tag="الرئيسية" Click="NavigationClick"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="الرئيسية" FontWeight="SemiBold" Style="{StaticResource NavText}" /><Path Grid.Column="2" Data="{StaticResource IconHome}" Style="{StaticResource NavVectorIcon}" /></Grid></Button>
                             <Button x:Name="QuotationsNavButton" Style="{StaticResource NavButton}" Tag="عروض الأسعار" Click="NavigationClick"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="عروض الأسعار" Style="{StaticResource NavText}" /><Path Grid.Column="2" Data="{StaticResource IconQuote}" Style="{StaticResource NavVectorIcon}" /></Grid></Button>
+                            <Button x:Name="OrdersNavButton" Style="{StaticResource NavButton}" Tag="الطلبات" Click="NavigationClick"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="الطلبات" Style="{StaticResource NavText}" /><Path Grid.Column="2" Data="{StaticResource IconOrder}" Style="{StaticResource NavVectorIcon}" /></Grid></Button>
                             <Button x:Name="MaterialsNavButton" Style="{StaticResource NavButton}" Tag="الخامات" Click="NavigationClick"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="الخامات" Style="{StaticResource NavText}" /><Path Grid.Column="2" Data="{StaticResource IconMaterials}" Style="{StaticResource NavVectorIcon}" /></Grid></Button>
                             <Button x:Name="PartsNavButton" Style="{StaticResource NavButton}" Tag="القطع" Click="NavigationClick"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="القطع" Style="{StaticResource NavText}" /><Path Grid.Column="2" Data="{StaticResource IconCut}" Style="{StaticResource NavVectorIcon}" /></Grid></Button>
                             <Button x:Name="FurnitureNavButton" Style="{StaticResource NavButton}" Tag="الأثاث" Click="NavigationClick"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="الأثاث" Style="{StaticResource NavText}" /><Path Grid.Column="2" Data="{StaticResource IconFurniture}" Style="{StaticResource NavVectorIcon}" /></Grid></Button>

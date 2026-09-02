@@ -73,13 +73,15 @@ public partial class MainWindow : Window
         var showFurniture = destination == "الأثاث";
         var showPricing = destination == "التسعير";
         var showQuotations = destination == "عروض الأسعار";
-        DashboardSurface.Visibility = showRawMaterials || showParts || showFurniture || showPricing || showQuotations ? Visibility.Collapsed : Visibility.Visible;
+        var showOrders = destination == "الطلبات";
+        DashboardSurface.Visibility = showRawMaterials || showParts || showFurniture || showPricing || showQuotations || showOrders ? Visibility.Collapsed : Visibility.Visible;
         RawMaterialsSurface.Visibility = showRawMaterials ? Visibility.Visible : Visibility.Collapsed;
         PartsSurface.Visibility = showParts ? Visibility.Visible : Visibility.Collapsed;
         FurnitureSurface.Visibility = showFurniture ? Visibility.Visible : Visibility.Collapsed;
         PricingSurface.Visibility = showPricing ? Visibility.Visible : Visibility.Collapsed;
         QuotationsSurface.Visibility = showQuotations ? Visibility.Visible : Visibility.Collapsed;
-        if (!showRawMaterials && !showParts && !showFurniture && !showPricing && !showQuotations)
+        OrdersSurface.Visibility = showOrders ? Visibility.Visible : Visibility.Collapsed;
+        if (!showRawMaterials && !showParts && !showFurniture && !showPricing && !showQuotations && !showOrders)
         {
             DashboardTitle.Text = destination == "الرئيسية" ? "لوحة التحكم" : destination;
             ShowToast($"تم فتح {destination} في وضع المعاينة");

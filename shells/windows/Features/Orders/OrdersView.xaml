@@ -1,0 +1,196 @@
+<UserControl x:Class="Eitmad.WindowsShell.Features.Orders.OrdersView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:layout="clr-namespace:Eitmad.WindowsShell.Layout"
+             xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
+             FlowDirection="RightToLeft"
+             Background="{StaticResource CanvasBrush}">
+    <UserControl.Resources>
+        <Style x:Key="OrderInput" TargetType="TextBox">
+            <Setter Property="Height" Value="44" />
+            <Setter Property="Padding" Value="12,4" />
+            <Setter Property="FontFamily" Value="Noto Kufi Arabic, Segoe UI" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Background" Value="White" />
+            <Setter Property="BorderBrush" Value="#D8CFC6" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="Chrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" Focusable="False" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="#9A5C22" /><Setter TargetName="Chrome" Property="BorderThickness" Value="1.5" /></Trigger>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="#BC8B60" /></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="OrderFilterItem" TargetType="ComboBoxItem">
+            <Setter Property="MinHeight" Value="36" />
+            <Setter Property="Padding" Value="11,7" />
+            <Setter Property="Margin" Value="3,2" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBoxItem">
+                        <Border x:Name="ItemSurface" Background="Transparent" CornerRadius="7" Padding="{TemplateBinding Padding}"><ContentPresenter HorizontalAlignment="Right" VerticalAlignment="Center" /></Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True"><Setter TargetName="ItemSurface" Property="Background" Value="#F3E5D7" /><Setter Property="Foreground" Value="#6C390D" /><Setter Property="FontWeight" Value="SemiBold" /></Trigger>
+                            <Trigger Property="IsHighlighted" Value="True"><Setter TargetName="ItemSurface" Property="Background" Value="#FBF2E9" /></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="OrderFilter" TargetType="ComboBox">
+            <Setter Property="Height" Value="44" />
+            <Setter Property="Width" Value="190" />
+            <Setter Property="FontFamily" Value="Noto Kufi Arabic, Segoe UI" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+            <Setter Property="Background" Value="White" />
+            <Setter Property="BorderBrush" Value="#DED6CE" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="ItemContainerStyle" Value="{StaticResource OrderFilterItem}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <Border x:Name="InputChrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8">
+                                <Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition Width="40" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions><Path x:Name="Chevron" Grid.Column="0" Data="M3,7 L8,12 L13,7" Stroke="#8B4D17" StrokeThickness="1.8" Width="16" Height="16" Stretch="Uniform" /><ContentPresenter Grid.Column="1" Content="{TemplateBinding SelectionBoxItem}" Margin="4,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center" FlowDirection="{TemplateBinding FlowDirection}" /></Grid>
+                            </Border>
+                            <ToggleButton Background="Transparent" BorderThickness="0" Focusable="False" IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}" ClickMode="Press"><ToggleButton.Template><ControlTemplate TargetType="ToggleButton"><Border Background="Transparent" /></ControlTemplate></ToggleButton.Template></ToggleButton>
+                            <Popup x:Name="PART_Popup" Placement="Bottom" IsOpen="{TemplateBinding IsDropDownOpen}" AllowsTransparency="True" PopupAnimation="Fade" VerticalOffset="5"><Border Width="{Binding ActualWidth, ElementName=InputChrome}" MaxHeight="250" Background="White" BorderBrush="#DCCFC2" BorderThickness="1" CornerRadius="9" Padding="4"><Border.Effect><DropShadowEffect BlurRadius="20" ShadowDepth="6" Opacity="0.16" Color="#4A2B12" /></Border.Effect><ScrollViewer VerticalScrollBarVisibility="Auto"><ItemsPresenter /></ScrollViewer></Border></Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="InputChrome" Property="BorderBrush" Value="#C69A70" /></Trigger>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="InputChrome" Property="BorderBrush" Value="#A35E1E" /></Trigger>
+                            <Trigger Property="IsDropDownOpen" Value="True"><Setter TargetName="Chevron" Property="Data" Value="M3,12 L8,7 L13,12" /></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="OrderHeaderCell" TargetType="TextBlock"><Setter Property="FontSize" Value="10" /><Setter Property="FontWeight" Value="SemiBold" /><Setter Property="Foreground" Value="{StaticResource MutedBrush}" /><Setter Property="TextAlignment" Value="Center" /><Setter Property="VerticalAlignment" Value="Center" /><Setter Property="TextWrapping" Value="NoWrap" /></Style>
+        <Style x:Key="OrderCell" TargetType="TextBlock"><Setter Property="FontSize" Value="11" /><Setter Property="TextAlignment" Value="Center" /><Setter Property="VerticalAlignment" Value="Center" /><Setter Property="TextWrapping" Value="NoWrap" /></Style>
+        <Style x:Key="OpenOrderButton" TargetType="Button">
+            <Setter Property="Height" Value="33" /><Setter Property="MinWidth" Value="62" /><Setter Property="Padding" Value="12,5" /><Setter Property="Background" Value="#F7EEE5" /><Setter Property="Foreground" Value="#76400F" /><Setter Property="BorderBrush" Value="#DAB997" /><Setter Property="BorderThickness" Value="1" /><Setter Property="FontFamily" Value="Noto Kufi Arabic, Segoe UI" /><Setter Property="FontSize" Value="10" /><Setter Property="FontWeight" Value="SemiBold" /><Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="Surface" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8" Padding="{TemplateBinding Padding}"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" /></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Surface" Property="Background" Value="#EFE0D1" /><Setter TargetName="Surface" Property="BorderBrush" Value="#B9824D" /></Trigger><Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Surface" Property="BorderBrush" Value="#7D420F" /><Setter TargetName="Surface" Property="BorderThickness" Value="2" /></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+        </Style>
+        <Style x:Key="OrderStatusBadge" TargetType="Border">
+            <Setter Property="Background" Value="#F0EEEC" /><Setter Property="BorderBrush" Value="#DED8D2" /><Setter Property="BorderThickness" Value="1" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsNew}" Value="True"><Setter Property="Background" Value="#FFF4D8" /><Setter Property="BorderBrush" Value="#E6C66F" /></DataTrigger>
+                <DataTrigger Binding="{Binding IsInProduction}" Value="True"><Setter Property="Background" Value="#EAF2F8" /><Setter Property="BorderBrush" Value="#B8D0E1" /></DataTrigger>
+                <DataTrigger Binding="{Binding IsReady}" Value="True"><Setter Property="Background" Value="#EAF5ED" /><Setter Property="BorderBrush" Value="#B9D9C2" /></DataTrigger>
+                <DataTrigger Binding="{Binding IsDelivered}" Value="True"><Setter Property="Background" Value="#E8F3F1" /><Setter Property="BorderBrush" Value="#AED2CB" /></DataTrigger>
+                <DataTrigger Binding="{Binding IsCancelled}" Value="True"><Setter Property="Background" Value="#F8ECEA" /><Setter Property="BorderBrush" Value="#DFBBB5" /></DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="OrderStatusText" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#625C57" /><Setter Property="FontSize" Value="9" /><Setter Property="FontWeight" Value="SemiBold" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsNew}" Value="True"><Setter Property="Foreground" Value="#805D12" /></DataTrigger>
+                <DataTrigger Binding="{Binding IsInProduction}" Value="True"><Setter Property="Foreground" Value="#2D617F" /></DataTrigger>
+                <DataTrigger Binding="{Binding IsReady}" Value="True"><Setter Property="Foreground" Value="#267441" /></DataTrigger>
+                <DataTrigger Binding="{Binding IsDelivered}" Value="True"><Setter Property="Foreground" Value="#23665C" /></DataTrigger>
+                <DataTrigger Binding="{Binding IsCancelled}" Value="True"><Setter Property="Foreground" Value="#8B3A31" /></DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="OrderMetadataLabel" TargetType="TextBlock"><Setter Property="Foreground" Value="{StaticResource MutedBrush}" /><Setter Property="FontSize" Value="10" /></Style>
+        <Style x:Key="OrderMetadataValue" TargetType="TextBlock"><Setter Property="FontSize" Value="14" /><Setter Property="FontWeight" Value="SemiBold" /><Setter Property="Margin" Value="0,5,0,0" /></Style>
+        <Style x:Key="OrderSummaryLabel" TargetType="TextBlock"><Setter Property="FontSize" Value="12" /><Setter Property="Foreground" Value="{StaticResource MutedBrush}" /><Setter Property="VerticalAlignment" Value="Center" /></Style>
+        <Style x:Key="OrderSummaryValue" TargetType="TextBlock"><Setter Property="FontSize" Value="13" /><Setter Property="FontWeight" Value="SemiBold" /><Setter Property="FlowDirection" Value="LeftToRight" /><Setter Property="TextAlignment" Value="Right" /></Style>
+    </UserControl.Resources>
+
+    <Grid layout:ResponsiveLayout.IsEnabled="True">
+        <Grid x:Name="ListSurface" Visibility="{Binding IsListVisible, Converter={StaticResource BooleanToVisibility}}">
+            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+            <Border Grid.Row="0" Background="#FEFDFC" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1" Padding="32,20">
+                <StackPanel><TextBlock Text="الطلبات" FontSize="29" FontWeight="Bold" /><TextBlock Text="راجع طلبات العملاء وتقدمها من مكان واحد" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,6,0,0" /></StackPanel>
+            </Border>
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
+                <StackPanel Margin="32,22,32,30">
+                    <WrapPanel Margin="0,0,0,16">
+                        <Grid Width="360" Margin="0,0,0,8" FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="42" /></Grid.ColumnDefinitions><TextBox x:Name="OrderSearchBox" Grid.ColumnSpan="2" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource OrderInput}" Padding="12,4,42,4" FlowDirection="RightToLeft" automation:AutomationProperties.Name="البحث برقم الطلب أو العميل" /><Path Grid.Column="1" Data="{StaticResource IconSearch}" Width="16" Height="16" Fill="#8C6A4B" HorizontalAlignment="Center" IsHitTestVisible="False" /></Grid>
+                        <ComboBox ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding SelectedStatus}" Style="{StaticResource OrderFilter}" Margin="10,0,0,8" automation:AutomationProperties.Name="تصفية الطلبات حسب الحالة" />
+                        <ComboBox ItemsSource="{Binding DateOptions}" SelectedItem="{Binding SelectedDate}" Style="{StaticResource OrderFilter}" Margin="10,0,0,8" automation:AutomationProperties.Name="تصفية الطلبات حسب التاريخ" />
+                    </WrapPanel>
+
+                    <Border Style="{StaticResource Card}" ClipToBounds="True">
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" FlowDirection="LeftToRight">
+                            <StackPanel MinWidth="920" FlowDirection="RightToLeft">
+                                <Grid Height="47" Background="#F7F3EF">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="1.2*" /><ColumnDefinition Width="1.65*" /><ColumnDefinition Width="1.05*" /><ColumnDefinition Width="1.3*" /><ColumnDefinition Width="1.05*" /><ColumnDefinition Width="0.72*" /></Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="رقم الطلب" Style="{StaticResource OrderHeaderCell}" /><TextBlock Grid.Column="1" Text="العميل" Style="{StaticResource OrderHeaderCell}" /><TextBlock Grid.Column="2" Text="التاريخ" Style="{StaticResource OrderHeaderCell}" /><TextBlock Grid.Column="3" Text="الإجمالي" Style="{StaticResource OrderHeaderCell}" /><TextBlock Grid.Column="4" Text="الحالة" Style="{StaticResource OrderHeaderCell}" /><TextBlock Grid.Column="5" Text="فتح" Style="{StaticResource OrderHeaderCell}" />
+                                </Grid>
+                                <ItemsControl ItemsSource="{Binding VisibleOrders}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border BorderBrush="#EEE9E4" BorderThickness="0,0,0,1" Background="White" MinHeight="65">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="1.2*" /><ColumnDefinition Width="1.65*" /><ColumnDefinition Width="1.05*" /><ColumnDefinition Width="1.3*" /><ColumnDefinition Width="1.05*" /><ColumnDefinition Width="0.72*" /></Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0" Text="{Binding Number}" Style="{StaticResource OrderCell}" FontWeight="SemiBold" FlowDirection="LeftToRight" /><TextBlock Grid.Column="1" Text="{Binding Customer}" Style="{StaticResource OrderCell}" /><TextBlock Grid.Column="2" Text="{Binding DateLabel}" Style="{StaticResource OrderCell}" FlowDirection="LeftToRight" /><TextBlock Grid.Column="3" Text="{Binding FinalTotalLabel}" Style="{StaticResource OrderCell}" FlowDirection="LeftToRight" FontWeight="SemiBold" />
+                                                    <Border Grid.Column="4" Style="{StaticResource OrderStatusBadge}" CornerRadius="12" Height="27" Padding="11,3" HorizontalAlignment="Center" VerticalAlignment="Center"><TextBlock Text="{Binding StatusLabel}" Style="{StaticResource OrderStatusText}" /></Border>
+                                                    <Button Grid.Column="5" Content="فتح" Style="{StaticResource OpenOrderButton}" Click="OpenOrderClick" HorizontalAlignment="Center" VerticalAlignment="Center" automation:AutomationProperties.Name="فتح الطلب" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock Text="{Binding VisibleCountLabel}" Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="18,11" />
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Border>
+                    <Border Margin="0,16,0,0" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="10" Padding="28" Visibility="{Binding HasNoVisibleOrders, Converter={StaticResource BooleanToVisibility}}"><StackPanel HorizontalAlignment="Center"><TextBlock Text="لا توجد طلبات مطابقة" FontSize="17" FontWeight="SemiBold" TextAlignment="Center" /><TextBlock Text="غيّر البحث أو عوامل التصفية." Foreground="{StaticResource MutedBrush}" Margin="0,7,0,0" TextAlignment="Center" /></StackPanel></Border>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <Grid x:Name="DetailSurface" Visibility="{Binding IsDetailVisible, Converter={StaticResource BooleanToVisibility}}">
+            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+            <Border Grid.Row="0" Background="#FEFDFC" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1" Padding="32,17">
+                <Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions><Button x:Name="BackToOrdersButton" Grid.Column="0" Content="العودة إلى الطلبات" Style="{StaticResource OpenOrderButton}" Height="38" Click="BackToListClick" automation:AutomationProperties.Name="العودة إلى قائمة الطلبات" /><StackPanel Grid.Column="1" FlowDirection="RightToLeft" HorizontalAlignment="Right"><TextBlock Text="تفاصيل الطلب" FontSize="25" FontWeight="Bold" /><TextBlock Text="مراجعة بيانات الطلب وبنود الأثاث" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,5,0,0" /></StackPanel></Grid>
+            </Border>
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
+                <StackPanel Margin="32,22,32,30">
+                    <Border Style="{StaticResource Card}" Padding="20">
+                        <Grid>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                            <WrapPanel>
+                                <StackPanel Width="220" Margin="0,0,0,9"><TextBlock Text="رقم الطلب" Style="{StaticResource OrderMetadataLabel}" /><TextBlock Text="{Binding SelectedOrder.Number}" Style="{StaticResource OrderMetadataValue}" FlowDirection="LeftToRight" TextAlignment="Right" /></StackPanel>
+                                <StackPanel Width="180" Margin="0,0,0,9"><TextBlock Text="الحالة الحالية" Style="{StaticResource OrderMetadataLabel}" /><Border DataContext="{Binding SelectedOrder}" Style="{StaticResource OrderStatusBadge}" CornerRadius="12" Height="28" Padding="12,3" HorizontalAlignment="Right" Margin="0,5,0,0"><TextBlock Text="{Binding StatusLabel}" Style="{StaticResource OrderStatusText}" /></Border></StackPanel>
+                                <StackPanel Width="250" Margin="0,0,0,9"><TextBlock Text="العميل" Style="{StaticResource OrderMetadataLabel}" /><TextBlock Text="{Binding SelectedOrder.Customer}" Style="{StaticResource OrderMetadataValue}" /></StackPanel>
+                                <StackPanel Width="160" Margin="0,0,0,9"><TextBlock Text="التاريخ" Style="{StaticResource OrderMetadataLabel}" /><TextBlock Text="{Binding SelectedOrder.DateLabel}" Style="{StaticResource OrderMetadataValue}" FlowDirection="LeftToRight" TextAlignment="Right" /></StackPanel>
+                            </WrapPanel>
+                            <Border Grid.Row="1" Background="#F7F3EF" CornerRadius="7" Padding="12,8" Margin="0,8,0,0"><TextBlock Text="للمراجعة فقط · تُدار مهام الورشة في أوامر العمل" Foreground="#745A43" FontSize="10" /></Border>
+                        </Grid>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}" ClipToBounds="True" Margin="0,16,0,0">
+                        <Grid><Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                            <Border Padding="20,15" BorderBrush="#EEE9E4" BorderThickness="0,0,0,1"><TextBlock Text="بنود الأثاث" FontSize="17" FontWeight="SemiBold" /></Border>
+                            <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" FlowDirection="LeftToRight">
+                                <StackPanel MinWidth="1040" FlowDirection="RightToLeft">
+                                    <Grid Height="43" Background="#F7F3EF"><Grid.ColumnDefinitions><ColumnDefinition Width="1.35*" /><ColumnDefinition Width="1.05*" /><ColumnDefinition Width="1.28*" /><ColumnDefinition Width="0.82*" /><ColumnDefinition Width="1.02*" /><ColumnDefinition Width="0.62*" /><ColumnDefinition Width="1.12*" /></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="المنتج" Style="{StaticResource OrderHeaderCell}" /><TextBlock Grid.Column="1" Text="التنويعة" Style="{StaticResource OrderHeaderCell}" /><TextBlock Grid.Column="2" Text="الأبعاد" Style="{StaticResource OrderHeaderCell}" /><TextBlock Grid.Column="3" Text="اللون" Style="{StaticResource OrderHeaderCell}" /><TextBlock Grid.Column="4" Text="المقبض" Style="{StaticResource OrderHeaderCell}" /><TextBlock Grid.Column="5" Text="الكمية" Style="{StaticResource OrderHeaderCell}" /><TextBlock Grid.Column="6" Text="سعر البيع" Style="{StaticResource OrderHeaderCell}" /></Grid>
+                                    <ItemsControl ItemsSource="{Binding SelectedOrder.Items}"><ItemsControl.ItemTemplate><DataTemplate><Border BorderBrush="#EEE9E4" BorderThickness="0,0,0,1" MinHeight="62"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="1.35*" /><ColumnDefinition Width="1.05*" /><ColumnDefinition Width="1.28*" /><ColumnDefinition Width="0.82*" /><ColumnDefinition Width="1.02*" /><ColumnDefinition Width="0.62*" /><ColumnDefinition Width="1.12*" /></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="{Binding Product}" Style="{StaticResource OrderCell}" FontWeight="SemiBold" /><TextBlock Grid.Column="1" Text="{Binding Variant}" Style="{StaticResource OrderCell}" /><TextBlock Grid.Column="2" Text="{Binding Dimensions}" Style="{StaticResource OrderCell}" FlowDirection="LeftToRight" /><TextBlock Grid.Column="3" Text="{Binding Color}" Style="{StaticResource OrderCell}" /><TextBlock Grid.Column="4" Text="{Binding Handle}" Style="{StaticResource OrderCell}" /><TextBlock Grid.Column="5" Text="{Binding QuantityLabel}" Style="{StaticResource OrderCell}" FlowDirection="LeftToRight" /><TextBlock Grid.Column="6" Text="{Binding SellingPriceLabel}" Style="{StaticResource OrderCell}" FlowDirection="LeftToRight" FontWeight="SemiBold" /></Grid></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}" Width="430" HorizontalAlignment="Left" Padding="22" Margin="0,16,0,0">
+                        <StackPanel><TextBlock Text="ملخص الطلب" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,15" /><Grid Margin="0,0,0,11"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="190" /></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="المجموع الفرعي" Style="{StaticResource OrderSummaryLabel}" /><TextBlock Grid.Column="1" Text="{Binding SelectedOrder.SubtotalLabel}" Style="{StaticResource OrderSummaryValue}" /></Grid><Grid Margin="0,0,0,13"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="190" /></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="الخصم" Style="{StaticResource OrderSummaryLabel}" /><TextBlock Grid.Column="1" Text="{Binding SelectedOrder.DiscountLabel}" Style="{StaticResource OrderSummaryValue}" Foreground="#9A382B" /></Grid><Separator Background="#DED8D2" Margin="0,1,0,14" /><Grid><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="210" /></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="الإجمالي النهائي" FontSize="14" FontWeight="Bold" VerticalAlignment="Center" /><TextBlock Grid.Column="1" Text="{Binding SelectedOrder.FinalTotalLabel}" FlowDirection="LeftToRight" TextAlignment="Right" FontSize="20" FontWeight="Bold" Foreground="#6E3A0D" /></Grid></StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</UserControl>

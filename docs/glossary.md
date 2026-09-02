@@ -49,6 +49,7 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | حالة عرض السعر | Quotation status | **Provisional UI terms.** The manager preview uses **مسودة**, **نشط**, **محوّل**, **ملغي**, and **منتهي**. These fixtures do not define the production lifecycle. |
 | موافقة الخصم | Discount approval | **Provisional UI term.** A manager decision on a quotation discount that exceeds an approval threshold. The current **موافقة** and **رفض** actions change transient preview state only. |
 | الطلب | Order | A confirmed commercial request accepted for fulfillment. Avoid using this term for every incoming request. |
+| حالة الطلب | Order status | **Provisional UI terms.** The manager preview uses **جديد**, **قيد الإنتاج**, **جاهز**, **تم التسليم**, and **ملغي**. These fixtures do not define the production lifecycle. |
 | أمر العمل | Work order | An authorized instruction to perform defined production, delivery, installation, or service work. |
 | مهمة | Task | An assignable unit of work within a larger workflow or work order. |
 | الحالة | Status | A controlled lifecycle value, not free-form progress text. |
