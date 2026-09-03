@@ -47,6 +47,7 @@ Read `AGENTS.md` at the repository root, then review:
 - [Arabic-first Windows operations shell](subsystems/windows-native-shell.md)
 - [Parts list vertical](subsystems/parts.md)
 - [Furniture manager flow](subsystems/furniture.md)
+- [Ready-made Products manager flow](subsystems/products.md)
 - [Reference marker complete vertical](subsystems/reference-marker.md)
 - [Build the first real product](build-first-product.md)
 

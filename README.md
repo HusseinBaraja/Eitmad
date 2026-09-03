@@ -27,6 +27,10 @@ The **لوحة التحكم** window opens in **وضع المعاينة**. Closi
 
 The Windows Furniture editor uses six steps: `المعلومات`, `الأجزاء`, `المقاسات`, `الخيارات`, `التسعير`, and `المراجعة`. Managers set selling prices for each fixed variant, then choose `حفظ كمسودة` or `حفظ ونشر` from the read-only review step.
 
+## Ready-made Products manager
+
+The Windows **المنتجات** page manages ready-made items that the company purchases and sells as-is. Its compact table and short **إضافة منتج** / **تعديل المنتج** page support images, shared category interaction, purchase and selling prices, calculated margins, optional supplier variants, notes, duplicate, and confirmed archive. The current workflow uses in-memory preview state only; Rust authorization, audit, storage, and synchronization are not implemented for Products yet.
+
 ## Quick pricing preview
 
 The separate Windows **التسعير** page lets a manager search product variants, filter by category, and open **تعديل سعر البيع** without entering the full Furniture editor. The current quick edit changes in-memory preview state only; Rust authorization, audit, storage, and synchronization are not implemented for product pricing yet.

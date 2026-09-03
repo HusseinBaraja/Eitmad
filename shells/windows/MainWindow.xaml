@@ -6,6 +6,7 @@
         xmlns:orders="clr-namespace:Eitmad.WindowsShell.Features.Orders"
         xmlns:parts="clr-namespace:Eitmad.WindowsShell.Features.Parts"
         xmlns:pricing="clr-namespace:Eitmad.WindowsShell.Features.Pricing"
+        xmlns:products="clr-namespace:Eitmad.WindowsShell.Features.Products"
         xmlns:quotations="clr-namespace:Eitmad.WindowsShell.Features.Quotations"
         xmlns:rawMaterials="clr-namespace:Eitmad.WindowsShell.Features.RawMaterials"
         Title="الاعتماد · لوحة التحكم" Width="1338" Height="753" MinWidth="720" MinHeight="560"
@@ -277,6 +278,7 @@
                 <parts:PartsView x:Name="PartsSurface" Grid.Column="0" Visibility="Collapsed" />
                 <furniture:FurnitureView x:Name="FurnitureSurface" Grid.Column="0" Visibility="Collapsed" />
                 <pricing:PricingView x:Name="PricingSurface" Grid.Column="0" Visibility="Collapsed" />
+                <products:ProductsView x:Name="ProductsSurface" Grid.Column="0" Visibility="Collapsed" />
                 <quotations:QuotationsView x:Name="QuotationsSurface" Grid.Column="0" Visibility="Collapsed" />
                 <orders:OrdersView x:Name="OrdersSurface" Grid.Column="0" Visibility="Collapsed" />
 
@@ -329,7 +331,7 @@
                             <Button x:Name="PartsNavButton" Style="{StaticResource NavButton}" Tag="القطع" Click="NavigationClick"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="القطع" Style="{StaticResource NavText}" /><Path Grid.Column="2" Data="{StaticResource IconCut}" Style="{StaticResource NavVectorIcon}" /></Grid></Button>
                             <Button x:Name="FurnitureNavButton" Style="{StaticResource NavButton}" Tag="الأثاث" Click="NavigationClick"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="الأثاث" Style="{StaticResource NavText}" /><Path Grid.Column="2" Data="{StaticResource IconFurniture}" Style="{StaticResource NavVectorIcon}" /></Grid></Button>
                             <Button x:Name="PricingNavButton" Style="{StaticResource NavButton}" Tag="التسعير" Click="NavigationClick"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="التسعير" Style="{StaticResource NavText}" /><Path Grid.Column="2" Data="{StaticResource IconPricing}" Style="{StaticResource NavVectorIcon}" /></Grid></Button>
-                            <Button Style="{StaticResource NavButton}" Tag="المنتجات" Click="NavigationClick"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="المنتجات" Style="{StaticResource NavText}" /><Path Grid.Column="2" Data="{StaticResource IconProducts}" Style="{StaticResource NavVectorIcon}" /></Grid></Button>
+                            <Button x:Name="ProductsNavButton" Style="{StaticResource NavButton}" Tag="المنتجات" Click="NavigationClick"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="المنتجات" Style="{StaticResource NavText}" /><Path Grid.Column="2" Data="{StaticResource IconProducts}" Style="{StaticResource NavVectorIcon}" /></Grid></Button>
                             <Button Style="{StaticResource NavButton}" Tag="أوامر العمل" Click="NavigationClick"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="أوامر العمل" Style="{StaticResource NavText}" /><Path Grid.Column="2" Data="{StaticResource IconWorkOrder}" Style="{StaticResource NavVectorIcon}" /></Grid></Button>
                             <Button Style="{StaticResource NavButton}" Tag="المهام" Click="NavigationClick"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="المهام" Style="{StaticResource NavText}" /><Path Grid.Column="2" Data="{StaticResource IconTasks}" Style="{StaticResource NavVectorIcon}" /></Grid></Button>
                             <Button Style="{StaticResource NavButton}" Tag="التقارير" Click="NavigationClick"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="التقارير" Style="{StaticResource NavText}" /><Path Grid.Column="2" Data="{StaticResource IconReports}" Style="{StaticResource NavVectorIcon}" /></Grid></Button>

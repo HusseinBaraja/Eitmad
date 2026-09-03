@@ -64,7 +64,9 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 
 | Arabic term | English term | Working definition |
 | --- | --- | --- |
-| المنتج | Product | A sellable furniture design or standardized offering. |
+| المنتج | Product | A ready-made item that the company purchases and sells as-is, such as a mattress, pillow, lamp, or décor item. It is not Furniture and has no raw materials, furniture parts, construction details, or manufacturing cost. The current Windows **المنتجات** workflow is a transient preview. |
+| خيار المنتج | Product variant | A fixed ready-made version sold by the supplier, such as **مفرد**, **مزدوج**, or **كينغ**. It can have its own purchase cost, selling price, and calculated margin. It is not a customizable furniture dimension. |
+| فئة المنتج | Product category | A grouping for ready-made Products. The current **الفئة** selector reuses the established inline add and manage interaction, but its values are transient and separate from raw-material and Part categories. |
 | الأثاث | Furniture | The manager-facing product collection in the Windows preview. Its compact table and six-step editor are transient fixtures; no Furniture lifecycle is durable or Rust-authoritative yet. |
 | قطعة أثاث | Furniture item | A specific physical item requested, produced, delivered, or installed. |
 | تصميم | Design | The specification of form, dimensions, materials, finishes, and construction details. |
