@@ -4,6 +4,8 @@ Arabic-first operations system for الاعتماد furniture manufacturing.
 
 This repository is a cross-platform native desktop workspace built around a separate, authoritative Rust engine. Native shells stay thin; Rust owns contracts, product behavior, storage, synchronization, authorization, update policy, observability, audit, and external boundaries.
 
+Use English for reasoning and for communication with the user. Keep the application UI Arabic-first, and preserve exact Arabic UI labels and established domain terms when you refer to them.
+
 Start with:
 
 - [Repository policy](AGENTS.md)
