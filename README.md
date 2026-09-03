@@ -45,7 +45,7 @@ The Windows **الطلبات** page lets a manager search and filter orders, rev
 
 ## Manager work orders
 
-The Windows **أوامر العمل** page separates furniture that must be manufactured from ready-made Products. Managers can search and filter the scan-first list, open **أمر عمل #024**, review the assigned carpenter, due date, furniture specifications, required Parts, and customer notes, then move the local preview through **جديد** → **قيد التنفيذ** → **مكتمل**. It never shows selling price, cost, profit, or margin. The status action is transient; Rust work-order authorization, audit, storage, and synchronization are not implemented yet.
+The Windows **أوامر العمل** page separates furniture that must be manufactured from ready-made Products. One Work order can contain multiple Furniture items, and the list shows both the item summary and total quantity. Managers can search and filter the scan-first list, open **أمر عمل #024**, review the assigned carpenter, due date, every furniture specification, required Parts, and customer notes, then move the local preview through **جديد** → **قيد التنفيذ** → **مكتمل**. It never shows selling price, cost, profit, or margin. The status action is transient; Rust work-order authorization, audit, storage, and synchronization are not implemented yet.
 
 Foundation verification:
 

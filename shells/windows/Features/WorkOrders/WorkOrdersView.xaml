@@ -189,7 +189,7 @@
 
                     <Border Style="{StaticResource Card}" Margin="0,16,0,0" Padding="22">
                         <StackPanel>
-                            <Grid FlowDirection="LeftToRight" Margin="0,0,0,17"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions><Border Grid.Column="0" Background="#F2E4D6" CornerRadius="9" Padding="10,5"><TextBlock Text="مواصفات التصنيع" Foreground="#76400F" FontSize="9" FontWeight="SemiBold" /></Border><TextBlock Grid.Column="1" Text="الأثاث المطلوب" FontSize="19" FontWeight="Bold" TextAlignment="Right" FlowDirection="RightToLeft" /></Grid>
+                            <Grid FlowDirection="LeftToRight" Margin="0,0,0,17"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions><Border Grid.Column="0" Background="#F2E4D6" CornerRadius="9" Padding="10,5"><TextBlock Text="{Binding SelectedWorkOrder.FurnitureCountLabel}" Foreground="#76400F" FontSize="9" FontWeight="SemiBold" FlowDirection="RightToLeft" /></Border><TextBlock Grid.Column="1" Text="الأثاث المطلوب" FontSize="19" FontWeight="Bold" TextAlignment="Right" FlowDirection="RightToLeft" /></Grid>
                             <ItemsControl ItemsSource="{Binding SelectedWorkOrder.Furniture}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>

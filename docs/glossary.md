@@ -50,7 +50,7 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | موافقة الخصم | Discount approval | **Provisional UI term.** A manager decision on a quotation discount that exceeds an approval threshold. The current **موافقة** and **رفض** actions change transient preview state only. |
 | الطلب | Order | A confirmed commercial request accepted for fulfillment. Avoid using this term for every incoming request. |
 | حالة الطلب | Order status | **Provisional UI terms.** The manager preview uses **جديد**, **قيد الإنتاج**, **جاهز**, **تم التسليم**, and **ملغي**. These fixtures do not define the production lifecycle. |
-| أمر العمل | Work order | An instruction to manufacture specified Furniture for a related Order. Ready-made Products do not become Work orders. The current Windows manager workflow is a transient preview. |
+| أمر العمل | Work order | An instruction to manufacture one or more specified Furniture items for a related Order. Ready-made Products do not become Work orders. The current Windows manager workflow is a transient preview. |
 | حالة أمر العمل | Work order status | **Provisional UI terms.** The manager preview uses **جديد**, **قيد التنفيذ**, **مكتمل**, and **ملغي**. Its status action changes transient preview state only. |
 | مهمة | Task | An assignable unit of work within a larger workflow or work order. |
 | الحالة | Status | A controlled lifecycle value, not free-form progress text. |

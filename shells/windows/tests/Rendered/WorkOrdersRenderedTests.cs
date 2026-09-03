@@ -34,9 +34,12 @@ public sealed class WorkOrdersRenderedTests
             Assert.IsTrue(WpfTestHost.FindByName<Button>(view, "BackToWorkOrdersButton").IsKeyboardFocusWithin);
             Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(view).Any(text => text.Text == "أمر عمل"));
             Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(view).Any(text => text.Text == "#024" && text.FlowDirection == FlowDirection.LeftToRight));
+            Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(view).Any(text => text.Text == "عدد قطع الأثاث: 2"));
+            Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(view).Any(text => text.Text == "خزانة كبيرة"));
+            Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(view).Any(text => text.Text == "مكتب عمل"));
             Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(view).Any(text => text.Text == "الأجزاء المطلوبة"));
             Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(view).Any(text => text.Text == "ملاحظات الطلب"));
-            Assert.IsGreaterThan(0, WpfTestHost.Descendants<Canvas>(view).Count(canvas => canvas.IsVisible));
+            Assert.AreEqual(2, WpfTestHost.Descendants<Canvas>(view).Count(canvas => canvas.IsVisible));
 
             var statusAction = WpfTestHost.FindByName<Button>(view, "AdvanceStatusButton");
             Assert.AreEqual("تغيير حالة أمر العمل", AutomationProperties.GetName(statusAction));

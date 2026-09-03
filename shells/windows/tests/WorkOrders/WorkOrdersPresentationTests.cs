@@ -37,9 +37,14 @@ public sealed class WorkOrdersPresentationTests
         viewModel.OpenWorkOrder(workOrder);
 
         Assert.AreEqual("#024", workOrder.DetailNumberLabel);
+        Assert.HasCount(2, workOrder.Furniture);
         Assert.AreEqual("خزانة كبيرة", workOrder.Furniture[0].Name);
         Assert.AreEqual("200 × 220 × 60 سم", workOrder.Furniture[0].Dimensions);
-        Assert.HasCount(4, workOrder.Parts);
+        Assert.AreEqual("مكتب عمل", workOrder.Furniture[1].Name);
+        Assert.AreEqual("خزانة كبيرة +1", workOrder.FurnitureSummary);
+        Assert.AreEqual("2", workOrder.QuantityLabel);
+        Assert.AreEqual("عدد قطع الأثاث: 2", workOrder.FurnitureCountLabel);
+        Assert.HasCount(7, workOrder.Parts);
         Assert.IsTrue(viewModel.AdvanceSelectedStatus());
         Assert.AreEqual(WorkOrderStatus.InProgress, workOrder.Status);
         StringAssert.Contains(viewModel.FeedbackMessage, "المعاينة المحلية فقط");
