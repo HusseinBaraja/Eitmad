@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "product maintainers"
-last_verified: "2026-08-30"
+last_verified: "2026-09-03"
 review_triggers:
   - "a domain term, UI label, contract concept, or workshop synonym changes"
 keywords:
@@ -46,8 +46,12 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | طلب العميل | Customer request | The initial expression of a customer's need; it may precede pricing or commitment. |
 | عرض السعر | Quotation | A priced proposal with scope, validity, terms, and versioned line items. |
 | بند عرض السعر | Quotation line | A priced unit of product, service, material, or adjustment within a quotation. |
+| حالة عرض السعر | Quotation status | **Provisional UI terms.** The manager preview uses **مسودة**, **نشط**, **محوّل**, **ملغي**, and **منتهي**. These fixtures do not define the production lifecycle. |
+| موافقة الخصم | Discount approval | **Provisional UI term.** A manager decision on a quotation discount that exceeds an approval threshold. The current **موافقة** and **رفض** actions change transient preview state only. |
 | الطلب | Order | A confirmed commercial request accepted for fulfillment. Avoid using this term for every incoming request. |
-| أمر العمل | Work order | An authorized instruction to perform defined production, delivery, installation, or service work. |
+| حالة الطلب | Order status | **Provisional UI terms.** The manager preview uses **جديد**, **قيد الإنتاج**, **جاهز**, **تم التسليم**, and **ملغي**. These fixtures do not define the production lifecycle. |
+| أمر العمل | Work order | An instruction to manufacture one or more specified Furniture items for a related Order. Ready-made Products do not become Work orders. The current Windows manager workflow is a transient preview. |
+| حالة أمر العمل | Work order status | **Provisional UI terms.** The manager preview uses **جديد**, **قيد التنفيذ**, **مكتمل**, and **ملغي**. Its status action changes transient preview state only. |
 | مهمة | Task | An assignable unit of work within a larger workflow or work order. |
 | الحالة | Status | A controlled lifecycle value, not free-form progress text. |
 | الأولوية | Priority | An explicit ordering signal for operational attention; it does not override authorization or safety. |
@@ -61,7 +65,9 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 
 | Arabic term | English term | Working definition |
 | --- | --- | --- |
-| المنتج | Product | A sellable furniture design or standardized offering. |
+| المنتج | Product | A ready-made item that the company purchases and sells as-is, such as a mattress, pillow, lamp, or décor item. It is not Furniture and has no raw materials, furniture parts, construction details, or manufacturing cost. The current Windows **المنتجات** workflow is a transient preview. |
+| خيار المنتج | Product variant | A fixed ready-made version sold by the supplier, such as **مفرد**, **مزدوج**, or **كينغ**. It can have its own purchase cost, selling price, and calculated margin. It is not a customizable furniture dimension. |
+| فئة المنتج | Product category | A grouping for ready-made Products. The current **الفئة** selector reuses the established inline add and manage interaction, but its values are transient and separate from raw-material and Part categories. |
 | الأثاث | Furniture | The manager-facing product collection in the Windows preview. Its compact table and six-step editor are transient fixtures; no Furniture lifecycle is durable or Rust-authoritative yet. |
 | قطعة أثاث | Furniture item | A specific physical item requested, produced, delivered, or installed. |
 | تصميم | Design | The specification of form, dimensions, materials, finishes, and construction details. |
@@ -89,9 +95,11 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 
 | Arabic term | English term | Working definition |
 | --- | --- | --- |
-| التسعير | Pricing | The controlled calculation or selection of a selling price. |
+| التسعير | Pricing | The controlled calculation or selection of a selling price. The current manager-facing **التسعير** page is a transient Windows preview for product variants; it does not persist or authorize a price change. |
 | التكلفة | Cost | Resource value consumed or expected to be consumed; the precise cost model is domain-specific. |
 | السعر | Price | The amount offered or charged to a customer, excluding or including adjustments as explicitly defined. |
+| سعر البيع | Selling price | The manager-set amount offered for one product variant. The current **تعديل سعر البيع** action updates only in-memory preview state. |
+| هامش الربح / الهامش المحسوب | Margin / calculated margin | The preview difference between selling price and displayed cost for one product variant. Its production definition and cost authority remain undefined. |
 | الخصم | Discount | A controlled reduction from a price with reason and authorization where required. |
 | الضريبة | Tax | A statutory amount calculated under a versioned jurisdiction rule. |
 | العربون | Deposit | An amount received toward a future order balance. Legal/accounting treatment requires domain confirmation. |
