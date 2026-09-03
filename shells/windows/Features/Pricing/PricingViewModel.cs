@@ -135,6 +135,7 @@ public sealed class PricingViewModel : INotifyPropertyChanged
         ArgumentNullException.ThrowIfNull(item);
         editingPrice = item;
         EditorSellingPrice = item.SellingPrice.ToString("N0", CultureInfo.InvariantCulture);
+        UpdateEditorMargin();
         EditorError = string.Empty;
         IsEditorOpen = true;
         RaiseEditorDetails();

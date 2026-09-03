@@ -452,6 +452,7 @@ public sealed class ProductsViewModel : INotifyPropertyChanged
         {
             editingProduct.Name = normalizedName;
             editingProduct.Category = EditorCategory;
+            editingProduct.UpdateThumbnailKind(ThumbnailForCategory(EditorCategory));
             editingProduct.PurchaseCost = rowPurchaseCost;
             editingProduct.SellingPrice = rowSellingPrice;
             editingProduct.VariantSummary = variantSummary;
@@ -516,6 +517,17 @@ public sealed class ProductsViewModel : INotifyPropertyChanged
     }
 
     public void ClearFeedback() => FeedbackMessage = string.Empty;
+
+    public void SetProductImage(ImageSource image, string fileName)
+    {
+        ArgumentNullException.ThrowIfNull(image);
+        ProductImage = image;
+        ProductImageName = fileName;
+        EditorError = string.Empty;
+    }
+
+    public void ReportImageLoadError() =>
+        FeedbackMessage = "تعذر فتح الصورة. اختر ملف صورة صالحاً بحجم مناسب.";
 
     public void BeginAddCategory()
     {

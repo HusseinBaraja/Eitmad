@@ -46,7 +46,18 @@ public sealed class ProductListItem : INotifyPropertyChanged
 
     public string VariantSummary { get; set; }
 
-    public string ThumbnailKind { get; }
+    public string ThumbnailKind { get; private set; }
+
+    public void UpdateThumbnailKind(string thumbnailKind)
+    {
+        if (ThumbnailKind == thumbnailKind)
+        {
+            return;
+        }
+
+        ThumbnailKind = thumbnailKind;
+        Raise(nameof(ThumbnailKind));
+    }
 
     public ImageSource? Image { get; set; }
 

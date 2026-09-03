@@ -48,6 +48,10 @@ Read `AGENTS.md` at the repository root, then review:
 - [Parts list vertical](subsystems/parts.md)
 - [Furniture manager flow](subsystems/furniture.md)
 - [Ready-made Products manager flow](subsystems/products.md)
+- [Quick Pricing manager flow](subsystems/pricing.md)
+- [Quotation review flow](subsystems/quotations.md)
+- [Order review flow](subsystems/orders.md)
+- [Work order review flow](subsystems/work-orders.md)
 - [Reference marker complete vertical](subsystems/reference-marker.md)
 - [Build the first real product](build-first-product.md)
 

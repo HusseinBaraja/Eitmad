@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Windows.Media;
 using Eitmad.WindowsShell.Features.Products;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -124,5 +125,33 @@ public sealed class ProductsPresentationTests
         {
             CultureInfo.CurrentCulture = originalCulture;
         }
+    }
+
+    [TestMethod]
+    public void RejectedProductImageKeepsTheExistingPreviewAndReportsFeedback()
+    {
+        var model = new ProductsViewModel();
+        model.BeginCreate();
+        var existingImage = new DrawingImage();
+        model.SetProductImage(existingImage, "existing.png");
+
+        model.ReportImageLoadError();
+
+        Assert.AreSame(existingImage, model.ProductImage);
+        Assert.AreEqual("existing.png", model.ProductImageName);
+        StringAssert.Contains(model.FeedbackMessage, "تعذر فتح الصورة");
+    }
+
+    [TestMethod]
+    public void EditingAProductCategoryUpdatesItsThumbnailKind()
+    {
+        var model = new ProductsViewModel();
+        var mattress = model.VisibleProducts.Single(product => product.Name == "مرتبة طبية");
+
+        model.BeginEdit(mattress);
+        model.EditorCategory = "الإضاءة";
+
+        Assert.IsTrue(model.SaveEditor());
+        Assert.AreEqual("Lamp", mattress.ThumbnailKind);
     }
 }

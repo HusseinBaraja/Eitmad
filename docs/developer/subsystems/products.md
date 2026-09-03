@@ -31,7 +31,7 @@ Rust does not yet provide a Products capability. The preview has no Product comm
 
 ## Manager list
 
-The manager opens **المنتجات** to see a compact table with image, name, category, supplier variant or size, purchase cost, selling price, status, and actions. Search matches the Arabic product name, category, and variant while normalizing Arabic diacritics and common Alef, Ya, and Ta Marbuta forms. Category and status filters compose with search.
+The manager opens **المنتجات** to see a compact table with image, name, category, supplier variant or size, purchase cost, selling price, status, and actions. Search matches the Arabic product name, category, and variant while normalizing Arabic diacritics and common Alef, Ya, and Ta Marbuta forms. Category and status filters compose with search. The row thumbnail follows the selected category mapping when an existing product is edited.
 
 The row menu reuses the compact **تعديل**, **تكرار**, and **أرشفة** actions. Archive is non-destructive and requires the common centered confirmation style. An archived row remains available through the **مؤرشف** status filter.
 
@@ -39,7 +39,7 @@ The row menu reuses the compact **تعديل**, **تكرار**, and **أرشفة
 
 **إضافة منتج** opens one scrolling page. It does not use steps.
 
-1. **المعلومات الأساسية** collects **اسم المنتج**, **الفئة**, **صورة المنتج**, and **وصف قصير**. Image selection loads a preview into memory and does not upload or persist the file. The category selector reuses the established inline add and manage interaction.
+1. **المعلومات الأساسية** collects **اسم المنتج**, **الفئة**, **صورة المنتج**, and **وصف قصير**. Image selection loads a preview into memory and does not upload or persist the file. If decoding fails, the current image remains and the shell reports **تعذر فتح الصورة**. The category selector reuses the established inline add and manage interaction.
 2. **هل لهذا المنتج مقاسات أو أنواع مختلفة؟** defaults to **لا**. Without variants, the manager enters **تكلفة الشراء** and the emphasized **سعر البيع**, then reads the calculated **الهامش**.
 3. With **نعم**, one supplier-defined row replaces the single-price surface. Each row contains name, purchase cost, selling price, calculated margin, and remove action. These rows describe fixed ready-made options, not customizable dimensions.
 4. **ملاحظات** remains optional and secondary.
@@ -49,7 +49,7 @@ The current preview validates a non-empty product name, an active category, non-
 
 ## Failure and recovery
 
-Validation text appears in the form footer and keeps the editor open. Invalid numeric text is held by WPF binding validation until the manager corrects it. If navigation opens the dashboard instead of Products, inspect `MainWindow.xaml` and `MainWindow.xaml.cs`. If a category popup, row action menu, or confirmation surface is clipped, inspect the explicit popup and overlay boundaries in `ProductsView.xaml`.
+Validation text appears in the form footer and keeps the editor open. Invalid numeric text is held by WPF binding validation until the manager corrects it. An invalid or unsupported image keeps the current preview and reports **تعذر فتح الصورة**; no file upload occurs. If navigation opens the dashboard instead of Products, inspect `MainWindow.xaml` and `MainWindow.xaml.cs`. If a category popup, row action menu, or confirmation surface is clipped, inspect the explicit popup and overlay boundaries in `ProductsView.xaml`.
 
 Close the preview to discard all local Product changes. Do not edit storage or imply that a local preview action was authorized, audited, saved, or synchronized.
 
@@ -65,7 +65,7 @@ dotnet build shells/windows/Eitmad.WindowsShell.csproj
 dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --filter "FullyQualifiedName~Products"
 ```
 
-`ProductsPresentationTests` verifies Arabic search normalization, composed filters, culture-independent YER labels, direct and variant pricing, calculated margins, duplicate, confirmed archive, and the inline category interaction. `ProductsRenderedTests` instantiates the real WPF window, opens **المنتجات**, verifies the manager list and compact action menu, opens **إضافة منتج**, checks keyboard focus and accessible names, and exposes the archive confirmation.
+`ProductsPresentationTests` verifies Arabic search normalization, composed filters, culture-independent YER labels, direct and variant pricing, calculated margins, duplicate, confirmed archive, the inline category interaction, rejected image feedback, and category-to-thumbnail mapping. `ProductsRenderedTests` instantiates the real WPF window, opens **المنتجات**, verifies the manager list and compact action menu, opens **إضافة منتج**, checks keyboard focus and accessible names, and exposes the archive confirmation.
 
 Perform one rendered check at `1338 × 753` after a visible UI change. Verify the compact table, mixed-direction YER values, short form, pricing emphasis, variants switch, popup placement, and archive confirmation. Add a compact-width pass only when responsive behavior changes.
 

@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -81,6 +82,7 @@ public partial class ProductsView : UserControl
         {
             Title = "اختر صورة المنتج",
             Filter = "Image files|*.png;*.jpg;*.jpeg;*.webp;*.bmp|All files|*.*",
+            CheckFileExists = true,
             Multiselect = false,
         };
 
@@ -89,14 +91,25 @@ public partial class ProductsView : UserControl
             return;
         }
 
-        var bitmap = new BitmapImage();
-        bitmap.BeginInit();
-        bitmap.CacheOption = BitmapCacheOption.OnLoad;
-        bitmap.UriSource = new System.Uri(dialog.FileName, System.UriKind.Absolute);
-        bitmap.EndInit();
-        bitmap.Freeze();
-        ViewModel.ProductImage = bitmap;
-        ViewModel.ProductImageName = System.IO.Path.GetFileName(dialog.FileName);
+        try
+        {
+            var bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.UriSource = new System.Uri(dialog.FileName, System.UriKind.Absolute);
+            bitmap.EndInit();
+            bitmap.Freeze();
+            ViewModel.SetProductImage(bitmap, Path.GetFileName(dialog.FileName));
+        }
+        catch (Exception exception) when (exception is IOException
+                                          or UnauthorizedAccessException
+                                          or FormatException
+                                          or NotSupportedException
+                                          or OutOfMemoryException)
+        {
+            ViewModel.ReportImageLoadError();
+            RestartFeedbackTimer();
+        }
     }
 
     private void AddVariantClick(object sender, RoutedEventArgs eventArgs) => ViewModel.AddVariant();

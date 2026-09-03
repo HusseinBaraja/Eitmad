@@ -1,3 +1,4 @@
+using System.Globalization;
 using Eitmad.WindowsShell.Features.Pricing;
 
 namespace Eitmad.WindowsShell.Tests.Pricing;
@@ -42,5 +43,21 @@ public sealed class PricingPresentationTests
         Assert.AreEqual(originalCost, item.Cost);
         Assert.AreEqual("60,000 YER", item.MarginLabel);
         StringAssert.Contains(viewModel.FeedbackMessage, "المعاينة المحلية فقط");
+    }
+
+    [TestMethod]
+    public void SelectingAnotherVariantRecalculatesMarginAfterCancelingAnEdit()
+    {
+        var viewModel = new PricingViewModel();
+        var firstVariant = viewModel.VisiblePrices[0];
+        var secondVariant = viewModel.VisiblePrices[1];
+
+        viewModel.BeginEdit(firstVariant);
+        viewModel.EditorSellingPrice = secondVariant.SellingPrice.ToString("N0", CultureInfo.InvariantCulture);
+        viewModel.CancelEditor();
+
+        viewModel.BeginEdit(secondVariant);
+
+        Assert.AreEqual("65,000 YER", viewModel.EditorMargin);
     }
 }
