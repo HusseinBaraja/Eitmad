@@ -43,6 +43,10 @@ The Windows **عروض الأسعار** page lets a manager search and filter qu
 
 The Windows **الطلبات** page lets a manager search and filter orders, review the five preview statuses, and open a read-only order detail with furniture specifications and totals. It does not expose carpenter actions or change order state. The rows are synthetic presentation fixtures; Rust order authorization, audit, storage, and synchronization are not implemented yet.
 
+## Manager work orders
+
+The Windows **أوامر العمل** page separates furniture that must be manufactured from ready-made Products. Managers can search and filter the scan-first list, open **أمر عمل #024**, review the assigned carpenter, due date, furniture specifications, required Parts, and customer notes, then move the local preview through **جديد** → **قيد التنفيذ** → **مكتمل**. It never shows selling price, cost, profit, or margin. The status action is transient; Rust work-order authorization, audit, storage, and synchronization are not implemented yet.
+
 Foundation verification:
 
 ```text
