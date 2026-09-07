@@ -162,10 +162,10 @@ If none applies, report no documentation impact and do not edit documentation or
 
 ## Git and Review
 
-* Never commit to `main`. If a commit is requested while work is on `main`, create a descriptive branch without a tool or vendor prefix unless the user explicitly says not to create a branch.
+* Never commit to `main`. Before committing work on `main`, create a descriptive branch without a tool or vendor prefix unless the user explicitly says not to create a branch.
 * Preserve user changes and keep unrelated files out of commits.
-* Do not create a commit unless the user asks for one or the requested workflow explicitly requires one.
-* Before a requested commit, use `.agents/skills/caveman-commit/SKILL.md`, then keep the message compliant with the `conventional-commit` skill.
+* Create local commits at suitable checkpoints during authorized work, using agent judgment without asking for routine confirmation. Commit a coherent, verified change when a meaningful milestone or the task is complete. Keep one concern per commit, avoid incomplete checkpoints, and follow an explicit user instruction to defer or omit commits.
+* Before each commit, use `.agents/skills/caveman-commit/SKILL.md`, then keep the message compliant with the `conventional-commit` skill.
 * A local commit does not authorize remote changes. Do not push, rebase, create a pull request, merge, or otherwise modify remote state unless the user asks for that action.
 * When publishing, push the active branch first and create only a regular ready-for-review pull request unless the user requests another state.
 * Keep one concern per pull request. If its summary needs an unrelated “also,” split it.
