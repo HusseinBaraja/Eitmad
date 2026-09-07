@@ -14,19 +14,11 @@ namespace Eitmad.WindowsShell.Features.Furniture;
 
 public partial class FurnitureView : UserControl
 {
-    private readonly DispatcherTimer feedbackTimer;
-
     public FurnitureView()
     {
         InitializeComponent();
         ViewModel = new FurnitureViewModel();
         DataContext = ViewModel;
-        feedbackTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
-        feedbackTimer.Tick += (_, _) =>
-        {
-            feedbackTimer.Stop();
-            ViewModel.ClearFeedback();
-        };
     }
 
     public FurnitureViewModel ViewModel { get; }
@@ -273,8 +265,7 @@ public partial class FurnitureView : UserControl
 
     private void RestartFeedbackTimer()
     {
-        feedbackTimer.Stop();
-        feedbackTimer.Start();
+        Feedback.RestartDuration();
     }
 
     private static TextBox? FindInvalidTextBox(DependencyObject root)
@@ -295,4 +286,5 @@ public partial class FurnitureView : UserControl
 
         return null;
     }
+    private void FeedbackDismissed(object sender, RoutedEventArgs e) => ViewModel.ClearFeedback();
 }

@@ -9,15 +9,7 @@
     <Grid layout:ResponsiveLayout.IsEnabled="True">
         <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
 
-        <Border Grid.Row="0" Background="#FEFDFC" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1" Padding="32,20">
-            <Grid>
-                <Grid.RowDefinitions><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-                <StackPanel>
-                    <TextBlock Text="التسعير" FontSize="29" FontWeight="Bold" />
-                    <TextBlock Text="راجع أسعار البيع وحدّثها بسرعة من مكان واحد" Foreground="{StaticResource MutedBrush}" FontSize="13" Margin="0,7,0,0" />
-                </StackPanel>
-            </Grid>
-        </Border>
+        <controls:PageHeader Grid.Row="0" Title="التسعير" Subtitle="راجع أسعار البيع وحدّثها بسرعة من مكان واحد"></controls:PageHeader>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
             <StackPanel Margin="32,24,32,30">
@@ -60,10 +52,7 @@
                                                 <TextBlock Grid.Column="4" Text="{Binding MarginLabel}" FlowDirection="LeftToRight">
                                                     <TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource TableBody}"><Setter Property="Foreground" Value="#20723D" /><Style.Triggers><DataTrigger Binding="{Binding HasNegativeMargin}" Value="True"><Setter Property="Foreground" Value="{StaticResource DangerBrush}" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
                                                 </TextBlock>
-                                                <Border Grid.Column="5" CornerRadius="12" Height="27" Padding="11,3" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                    <Border.Style><Style TargetType="Border"><Setter Property="Background" Value="#EAF5ED" /><Style.Triggers><DataTrigger Binding="{Binding IsActive}" Value="False"><Setter Property="Background" Value="#F0EEEC" /></DataTrigger></Style.Triggers></Style></Border.Style>
-                                                    <TextBlock Text="{Binding StatusLabel}" FontSize="10" FontWeight="SemiBold" Foreground="#267441" />
-                                                </Border>
+                                                <controls:StatusBadge Grid.Column="5" Padding="11,3" HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding StatusLabel}"><controls:StatusBadge.Style><Style TargetType="controls:StatusBadge" BasedOn="{StaticResource {x:Type controls:StatusBadge}}"><Setter Property="Tone" Value="Success"/><Style.Triggers><DataTrigger Binding="{Binding IsActive}" Value="False"><Setter Property="Tone" Value="Neutral"/></DataTrigger></Style.Triggers></Style></controls:StatusBadge.Style></controls:StatusBadge>
                                                 <Button Grid.Column="6" Content="تعديل" Style="{StaticResource InlineActionButton}" Click="EditPriceClick" HorizontalAlignment="Center" VerticalAlignment="Center" automation:AutomationProperties.Name="تعديل سعر البيع" />
                                             </Grid>
                                         </Border>
@@ -77,12 +66,8 @@
                     </Grid>
                 </Border>
 
-                <Border Margin="0,18,0,0" Background="#EAF5ED" BorderBrush="#B9D9C2" BorderThickness="1" CornerRadius="9" Padding="14,10" Visibility="{Binding HasFeedback, Converter={StaticResource BooleanToVisibility}}">
-                    <TextBlock Text="{Binding FeedbackMessage}" Foreground="#1F693A" FontSize="12" />
-                </Border>
-                <Border Margin="0,18,0,0" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="10" Padding="28" Visibility="{Binding HasNoVisiblePrices, Converter={StaticResource BooleanToVisibility}}">
-                    <StackPanel HorizontalAlignment="Center"><TextBlock Text="لا توجد أسعار مطابقة" FontSize="17" FontWeight="SemiBold" TextAlignment="Center" /><TextBlock Text="جرّب كلمة بحث أو فئة أخرى." Foreground="{StaticResource MutedBrush}" Margin="0,7,0,0" TextAlignment="Center" /></StackPanel>
-                </Border>
+                <controls:FeedbackNotice x:Name="Feedback" Message="{Binding FeedbackMessage}" Tone="Success" DisplayDuration="00:00:03" Dismissed="FeedbackDismissed" Margin="0,18,0,0" Visibility="{Binding HasFeedback, Converter={StaticResource BooleanToVisibility}}"/>
+                <controls:EmptyState Margin="0,18,0,0" Visibility="{Binding HasNoVisiblePrices, Converter={StaticResource BooleanToVisibility}}" Heading="لا توجد أسعار مطابقة" Description="جرّب كلمة بحث أو فئة أخرى."></controls:EmptyState>
             </StackPanel>
         </ScrollViewer>
 

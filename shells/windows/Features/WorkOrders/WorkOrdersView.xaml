@@ -8,21 +8,9 @@
              Background="{StaticResource CanvasBrush}">
     <UserControl.Resources>
 
-        <Style x:Key="WorkOrderStatusBadge" TargetType="Border" BasedOn="{StaticResource StatusSurface}"><Style.Triggers>
-                <DataTrigger Binding="{Binding IsNew}" Value="True"><Setter Property="Background" Value="#FFF4D8" /><Setter Property="BorderBrush" Value="#E5C365" /></DataTrigger>
-                <DataTrigger Binding="{Binding IsInProgress}" Value="True"><Setter Property="Background" Value="#E8F1F7" /><Setter Property="BorderBrush" Value="#ABC9DB" /></DataTrigger>
-                <DataTrigger Binding="{Binding IsCompleted}" Value="True"><Setter Property="Background" Value="#E7F4EA" /><Setter Property="BorderBrush" Value="#ACD2B5" /></DataTrigger>
-                <DataTrigger Binding="{Binding IsCancelled}" Value="True"><Setter Property="Background" Value="#F5ECEA" /><Setter Property="BorderBrush" Value="#DABBB5" /></DataTrigger>
-            </Style.Triggers>
-        </Style>
+        <Style x:Key="WorkOrderStatusBadge" TargetType="controls:StatusBadge" BasedOn="{StaticResource {x:Type controls:StatusBadge}}"><Style.Triggers><DataTrigger Binding="{Binding IsNew}" Value="True"><Setter Property="Tone" Value="Warning"/></DataTrigger><DataTrigger Binding="{Binding IsInProgress}" Value="True"><Setter Property="Tone" Value="Information"/></DataTrigger><DataTrigger Binding="{Binding IsCompleted}" Value="True"><Setter Property="Tone" Value="Success"/></DataTrigger><DataTrigger Binding="{Binding IsCancelled}" Value="True"><Setter Property="Tone" Value="Danger"/></DataTrigger></Style.Triggers></Style>
 
-        <Style x:Key="WorkOrderStatusText" TargetType="TextBlock" BasedOn="{StaticResource StatusLabel}"><Style.Triggers>
-                <DataTrigger Binding="{Binding IsNew}" Value="True"><Setter Property="Foreground" Value="#7D5A0B" /></DataTrigger>
-                <DataTrigger Binding="{Binding IsInProgress}" Value="True"><Setter Property="Foreground" Value="#245E7E" /></DataTrigger>
-                <DataTrigger Binding="{Binding IsCompleted}" Value="True"><Setter Property="Foreground" Value="#256F3C" /></DataTrigger>
-                <DataTrigger Binding="{Binding IsCancelled}" Value="True"><Setter Property="Foreground" Value="#873B32" /></DataTrigger>
-            </Style.Triggers>
-        </Style>
+
 
         <Style x:Key="FurniturePicture" TargetType="Border"><Setter Property="Width" Value="142" /><Setter Property="Height" Value="118" /><Setter Property="Background"><Setter.Value><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#F4E7D8" /><GradientStop Color="#E5CDB3" Offset="1" /></LinearGradientBrush></Setter.Value></Setter><Setter Property="CornerRadius" Value="11" /><Setter Property="ClipToBounds" Value="True" /></Style>
     </UserControl.Resources>
@@ -30,9 +18,7 @@
     <Grid layout:ResponsiveLayout.IsEnabled="True">
         <Grid x:Name="ListSurface" Visibility="{Binding IsListVisible, Converter={StaticResource BooleanToVisibility}}">
             <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-            <Border Grid.Row="0" Background="#FEFDFC" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1" Padding="32,20">
-                <Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions><Border Width="48" Height="48" CornerRadius="12" Background="#F1E2D2" VerticalAlignment="Center"><Path Data="{StaticResource IconWorkOrder}" Fill="#7B4517" Width="23" Height="23" Stretch="Uniform" /></Border><StackPanel Grid.Column="1" FlowDirection="RightToLeft" HorizontalAlignment="Right" Margin="18,0,0,0"><TextBlock Text="أوامر العمل" FontSize="29" FontWeight="Bold" /><TextBlock Text="الأثاث المطلوب تصنيعه ومسؤولية إنجازه" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,6,0,0" /></StackPanel></Grid>
-            </Border>
+            <controls:PageHeader Grid.Row="0" Title="أوامر العمل" Subtitle="الأثاث المطلوب تصنيعه ومسؤولية إنجازه"></controls:PageHeader>
 
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                 <StackPanel Margin="32,22,32,30">
@@ -62,7 +48,7 @@
                                                     <TextBlock Grid.Column="3" Text="{Binding QuantityLabel}" Style="{StaticResource TableBody}" FlowDirection="LeftToRight" FontWeight="SemiBold" />
                                                     <TextBlock Grid.Column="4" Text="{Binding AssignedTo}" Style="{StaticResource TableBody}" FontWeight="SemiBold" />
                                                     <TextBlock Grid.Column="5" Text="{Binding DueDateLabel}" Style="{StaticResource TableBody}" FlowDirection="LeftToRight" />
-                                                    <Border Grid.Column="6" Style="{StaticResource WorkOrderStatusBadge}" CornerRadius="13" Height="28" Padding="11,3" HorizontalAlignment="Center" VerticalAlignment="Center"><TextBlock Text="{Binding StatusLabel}" Style="{StaticResource WorkOrderStatusText}" /></Border>
+                                                    <controls:StatusBadge Grid.Column="6" Padding="11,3" HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding StatusLabel}" Style="{StaticResource WorkOrderStatusBadge}"></controls:StatusBadge>
                                                     <Button Grid.Column="7" Content="فتح" Style="{StaticResource InlineActionButton}" Click="OpenWorkOrderClick" HorizontalAlignment="Center" VerticalAlignment="Center" automation:AutomationProperties.Name="فتح أمر العمل" />
                                                 </Grid>
                                             </Border>
@@ -73,7 +59,7 @@
                         </ScrollViewer>
                     </Border>
 
-                    <Border Margin="0,16,0,0" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="10" Padding="28" Visibility="{Binding HasNoVisibleWorkOrders, Converter={StaticResource BooleanToVisibility}}"><StackPanel HorizontalAlignment="Center"><TextBlock Text="لا توجد أوامر عمل مطابقة" FontSize="17" FontWeight="SemiBold" TextAlignment="Center" /><TextBlock Text="غيّر البحث أو عوامل التصفية." Foreground="{StaticResource MutedBrush}" Margin="0,7,0,0" TextAlignment="Center" /></StackPanel></Border>
+                    <controls:EmptyState Margin="0,16,0,0" Visibility="{Binding HasNoVisibleWorkOrders, Converter={StaticResource BooleanToVisibility}}" Heading="لا توجد أوامر عمل مطابقة" Description="غيّر البحث أو عوامل التصفية."></controls:EmptyState>
                 </StackPanel>
             </ScrollViewer>
         </Grid>
@@ -85,7 +71,7 @@
                     <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                     <Button x:Name="BackToWorkOrdersButton" Grid.Column="0" Content="العودة إلى أوامر العمل" Style="{StaticResource InlineActionButton}" Height="38" Click="BackToListClick" automation:AutomationProperties.Name="العودة إلى قائمة أوامر العمل" />
                     <StackPanel Grid.Column="1" FlowDirection="RightToLeft" HorizontalAlignment="Right" Margin="18,0"><StackPanel Orientation="Horizontal" FlowDirection="RightToLeft"><TextBlock Text="أمر عمل" FontSize="26" FontWeight="Bold" /><TextBlock Text="{Binding SelectedWorkOrder.DetailNumberLabel}" FlowDirection="LeftToRight" FontSize="26" FontWeight="Bold" Margin="8,0,0,0" /></StackPanel><TextBlock Text="ما الذي يجب تصنيعه؟" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,4,0,0" /></StackPanel>
-                    <Border Grid.Column="2" DataContext="{Binding SelectedWorkOrder}" Style="{StaticResource WorkOrderStatusBadge}" CornerRadius="14" Height="31" Padding="14,4" VerticalAlignment="Center"><TextBlock Text="{Binding StatusLabel}" Style="{StaticResource WorkOrderStatusText}" FontSize="10" /></Border>
+                    <controls:StatusBadge Grid.Column="2" Padding="14,4" VerticalAlignment="Center" Text="{Binding StatusLabel}" Style="{StaticResource WorkOrderStatusBadge}"></controls:StatusBadge>
                 </Grid>
             </Border>
 
@@ -145,7 +131,7 @@
                         </Grid>
                     </Border>
 
-                    <Border Margin="0,10,0,0" Background="#EAF4EB" BorderBrush="#B9D5BD" BorderThickness="1" CornerRadius="8" Padding="13,9" Visibility="{Binding HasFeedback, Converter={StaticResource BooleanToVisibility}}"><TextBlock Text="{Binding FeedbackMessage}" Foreground="#236239" FontSize="10" FontWeight="SemiBold" /></Border>
+                    <controls:FeedbackNotice x:Name="Feedback" Message="{Binding FeedbackMessage}" Tone="Success" DisplayDuration="00:00:03" Dismissed="FeedbackDismissed" Margin="0,10,0,0" Visibility="{Binding HasFeedback, Converter={StaticResource BooleanToVisibility}}"/>
                 </StackPanel>
             </ScrollViewer>
         </Grid>

@@ -14,19 +14,11 @@ namespace Eitmad.WindowsShell.Features.Products;
 
 public partial class ProductsView : UserControl
 {
-    private readonly DispatcherTimer feedbackTimer;
-
     public ProductsView()
     {
         InitializeComponent();
         ViewModel = new ProductsViewModel();
         DataContext = ViewModel;
-        feedbackTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
-        feedbackTimer.Tick += (_, _) =>
-        {
-            feedbackTimer.Stop();
-            ViewModel.ClearFeedback();
-        };
     }
 
     public ProductsViewModel ViewModel { get; }
@@ -206,7 +198,7 @@ public partial class ProductsView : UserControl
 
     private void RestartFeedbackTimer()
     {
-        feedbackTimer.Stop();
-        feedbackTimer.Start();
+        Feedback.RestartDuration();
     }
+    private void FeedbackDismissed(object sender, RoutedEventArgs e) => ViewModel.ClearFeedback();
 }

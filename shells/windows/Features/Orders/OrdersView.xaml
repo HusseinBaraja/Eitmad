@@ -8,31 +8,15 @@
              Background="{StaticResource CanvasBrush}">
     <UserControl.Resources>
 
-        <Style x:Key="OrderStatusBadge" TargetType="Border" BasedOn="{StaticResource StatusSurface}"><Style.Triggers>
-                <DataTrigger Binding="{Binding IsNew}" Value="True"><Setter Property="Background" Value="#FFF4D8" /><Setter Property="BorderBrush" Value="#E6C66F" /></DataTrigger>
-                <DataTrigger Binding="{Binding IsInProduction}" Value="True"><Setter Property="Background" Value="#EAF2F8" /><Setter Property="BorderBrush" Value="#B8D0E1" /></DataTrigger>
-                <DataTrigger Binding="{Binding IsReady}" Value="True"><Setter Property="Background" Value="#EAF5ED" /><Setter Property="BorderBrush" Value="#B9D9C2" /></DataTrigger>
-                <DataTrigger Binding="{Binding IsDelivered}" Value="True"><Setter Property="Background" Value="#E8F3F1" /><Setter Property="BorderBrush" Value="#AED2CB" /></DataTrigger>
-                <DataTrigger Binding="{Binding IsCancelled}" Value="True"><Setter Property="Background" Value="#F8ECEA" /><Setter Property="BorderBrush" Value="#DFBBB5" /></DataTrigger>
-            </Style.Triggers>
-        </Style>
-        <Style x:Key="OrderStatusText" TargetType="TextBlock" BasedOn="{StaticResource StatusLabel}"><Style.Triggers>
-                <DataTrigger Binding="{Binding IsNew}" Value="True"><Setter Property="Foreground" Value="#805D12" /></DataTrigger>
-                <DataTrigger Binding="{Binding IsInProduction}" Value="True"><Setter Property="Foreground" Value="#2D617F" /></DataTrigger>
-                <DataTrigger Binding="{Binding IsReady}" Value="True"><Setter Property="Foreground" Value="#267441" /></DataTrigger>
-                <DataTrigger Binding="{Binding IsDelivered}" Value="True"><Setter Property="Foreground" Value="#23665C" /></DataTrigger>
-                <DataTrigger Binding="{Binding IsCancelled}" Value="True"><Setter Property="Foreground" Value="#8B3A31" /></DataTrigger>
-            </Style.Triggers>
-        </Style>
+        <Style x:Key="OrderStatusBadge" TargetType="controls:StatusBadge" BasedOn="{StaticResource {x:Type controls:StatusBadge}}"><Style.Triggers><DataTrigger Binding="{Binding IsNew}" Value="True"><Setter Property="Tone" Value="Warning"/></DataTrigger><DataTrigger Binding="{Binding IsInProduction}" Value="True"><Setter Property="Tone" Value="Information"/></DataTrigger><DataTrigger Binding="{Binding IsReady}" Value="True"><Setter Property="Tone" Value="Success"/></DataTrigger><DataTrigger Binding="{Binding IsDelivered}" Value="True"><Setter Property="Tone" Value="Success"/></DataTrigger><DataTrigger Binding="{Binding IsCancelled}" Value="True"><Setter Property="Tone" Value="Danger"/></DataTrigger></Style.Triggers></Style>
+
 
     </UserControl.Resources>
 
     <Grid layout:ResponsiveLayout.IsEnabled="True">
         <Grid x:Name="ListSurface" Visibility="{Binding IsListVisible, Converter={StaticResource BooleanToVisibility}}">
             <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-            <Border Grid.Row="0" Background="#FEFDFC" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1" Padding="32,20">
-                <StackPanel><TextBlock Text="الطلبات" FontSize="29" FontWeight="Bold" /><TextBlock Text="راجع طلبات العملاء وتقدمها من مكان واحد" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,6,0,0" /></StackPanel>
-            </Border>
+            <controls:PageHeader Grid.Row="0" Title="الطلبات" Subtitle="راجع طلبات العملاء وتقدمها من مكان واحد"></controls:PageHeader>
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                 <StackPanel Margin="32,22,32,30">
                     <layout:AdaptiveFieldsPanel MinItemWidth="220" Margin="0,0,0,16">
@@ -55,7 +39,7 @@
                                                 <Grid>
                                                     <Grid.ColumnDefinitions><ColumnDefinition Width="1.2*" /><ColumnDefinition Width="1.65*" /><ColumnDefinition Width="1.05*" /><ColumnDefinition Width="1.3*" /><ColumnDefinition Width="1.05*" /><ColumnDefinition Width="0.72*" /></Grid.ColumnDefinitions>
                                                     <TextBlock Grid.Column="0" Text="{Binding Number}" Style="{StaticResource TableBody}" FontWeight="SemiBold" FlowDirection="LeftToRight" /><TextBlock Grid.Column="1" Text="{Binding Customer}" Style="{StaticResource TableBody}" /><TextBlock Grid.Column="2" Text="{Binding DateLabel}" Style="{StaticResource TableBody}" FlowDirection="LeftToRight" /><TextBlock Grid.Column="3" Text="{Binding FinalTotalLabel}" Style="{StaticResource TableBody}" FlowDirection="LeftToRight" FontWeight="SemiBold" />
-                                                    <Border Grid.Column="4" Style="{StaticResource OrderStatusBadge}" CornerRadius="12" Height="27" Padding="11,3" HorizontalAlignment="Center" VerticalAlignment="Center"><TextBlock Text="{Binding StatusLabel}" Style="{StaticResource OrderStatusText}" /></Border>
+                                                    <controls:StatusBadge Grid.Column="4" Padding="11,3" HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding StatusLabel}" Style="{StaticResource OrderStatusBadge}"></controls:StatusBadge>
                                                     <Button Grid.Column="5" Content="فتح" Style="{StaticResource InlineActionButton}" Click="OpenOrderClick" HorizontalAlignment="Center" VerticalAlignment="Center" automation:AutomationProperties.Name="فتح الطلب" />
                                                 </Grid>
                                             </Border>
@@ -66,7 +50,7 @@
                             </StackPanel>
                         </ScrollViewer>
                     </Border>
-                    <Border Margin="0,16,0,0" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="10" Padding="28" Visibility="{Binding HasNoVisibleOrders, Converter={StaticResource BooleanToVisibility}}"><StackPanel HorizontalAlignment="Center"><TextBlock Text="لا توجد طلبات مطابقة" FontSize="17" FontWeight="SemiBold" TextAlignment="Center" /><TextBlock Text="غيّر البحث أو عوامل التصفية." Foreground="{StaticResource MutedBrush}" Margin="0,7,0,0" TextAlignment="Center" /></StackPanel></Border>
+                    <controls:EmptyState Margin="0,16,0,0" Visibility="{Binding HasNoVisibleOrders, Converter={StaticResource BooleanToVisibility}}" Heading="لا توجد طلبات مطابقة" Description="غيّر البحث أو عوامل التصفية."></controls:EmptyState>
                 </StackPanel>
             </ScrollViewer>
         </Grid>
@@ -83,7 +67,7 @@
                             <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
                             <WrapPanel>
                                 <StackPanel Width="220" Margin="0,0,0,9"><TextBlock Text="رقم الطلب" Style="{StaticResource MetadataLabel}" /><TextBlock Text="{Binding SelectedOrder.Number}" Style="{StaticResource MetadataValue}" FlowDirection="LeftToRight" TextAlignment="Right" /></StackPanel>
-                                <StackPanel Width="180" Margin="0,0,0,9"><TextBlock Text="الحالة الحالية" Style="{StaticResource MetadataLabel}" /><Border DataContext="{Binding SelectedOrder}" Style="{StaticResource OrderStatusBadge}" CornerRadius="12" Height="28" Padding="12,3" HorizontalAlignment="Right" Margin="0,5,0,0"><TextBlock Text="{Binding StatusLabel}" Style="{StaticResource OrderStatusText}" /></Border></StackPanel>
+                                <StackPanel Width="180" Margin="0,0,0,9"><TextBlock Text="الحالة الحالية" Style="{StaticResource MetadataLabel}" /><controls:StatusBadge Margin="0,5,0,0" Padding="12,3" HorizontalAlignment="Right" Text="{Binding StatusLabel}" Style="{StaticResource OrderStatusBadge}"></controls:StatusBadge></StackPanel>
                                 <StackPanel Width="250" Margin="0,0,0,9"><TextBlock Text="العميل" Style="{StaticResource MetadataLabel}" /><TextBlock Text="{Binding SelectedOrder.Customer}" Style="{StaticResource MetadataValue}" /></StackPanel>
                                 <StackPanel Width="160" Margin="0,0,0,9"><TextBlock Text="التاريخ" Style="{StaticResource MetadataLabel}" /><TextBlock Text="{Binding SelectedOrder.DateLabel}" Style="{StaticResource MetadataValue}" FlowDirection="LeftToRight" TextAlignment="Right" /></StackPanel>
                             </WrapPanel>

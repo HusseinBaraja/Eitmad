@@ -12,19 +12,11 @@ namespace Eitmad.WindowsShell.Features.Parts;
 
 public partial class PartsView : UserControl
 {
-    private readonly DispatcherTimer feedbackTimer;
-
     public PartsView()
     {
         InitializeComponent();
         ViewModel = new PartsViewModel();
         DataContext = ViewModel;
-        feedbackTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
-        feedbackTimer.Tick += (_, _) =>
-        {
-            feedbackTimer.Stop();
-            ViewModel.ClearFeedback();
-        };
     }
 
     public PartsViewModel ViewModel { get; }
@@ -144,8 +136,7 @@ public partial class PartsView : UserControl
 
     private void RestartFeedbackTimer()
     {
-        feedbackTimer.Stop();
-        feedbackTimer.Start();
+        Feedback.RestartDuration();
     }
 
     private static IEnumerable<T> VisualDescendants<T>(DependencyObject parent) where T : DependencyObject
@@ -164,4 +155,5 @@ public partial class PartsView : UserControl
             }
         }
     }
+    private void FeedbackDismissed(object sender, RoutedEventArgs e) => ViewModel.ClearFeedback();
 }

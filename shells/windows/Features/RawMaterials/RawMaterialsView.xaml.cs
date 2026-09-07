@@ -11,19 +11,11 @@ namespace Eitmad.WindowsShell.Features.RawMaterials;
 
 public partial class RawMaterialsView : UserControl
 {
-    private readonly DispatcherTimer feedbackTimer;
-
     public RawMaterialsView()
     {
         InitializeComponent();
         ViewModel = new RawMaterialsViewModel();
         DataContext = ViewModel;
-        feedbackTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
-        feedbackTimer.Tick += (_, _) =>
-        {
-            feedbackTimer.Stop();
-            ViewModel.ClearFeedback();
-        };
     }
 
     public RawMaterialsViewModel ViewModel { get; }
@@ -174,7 +166,7 @@ public partial class RawMaterialsView : UserControl
 
     private void RestartFeedbackTimer()
     {
-        feedbackTimer.Stop();
-        feedbackTimer.Start();
+        Feedback.RestartDuration();
     }
+    private void FeedbackDismissed(object sender, RoutedEventArgs e) => ViewModel.ClearFeedback();
 }

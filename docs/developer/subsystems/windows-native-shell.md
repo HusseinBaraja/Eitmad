@@ -238,3 +238,27 @@ dotnet run --project shells/windows/Eitmad.WindowsShell.csproj -- --engine targe
 Add operations copy and projection mapping inside `Features/Operations`; add raw-material list presentation state inside `Features/RawMaterials`; add Parts list presentation state inside `Features/Parts`; add Furniture list and editor presentation state inside `Features/Furniture`; add quick-pricing presentation state inside `Features/Pricing`; add quotation review presentation state inside `Features/Quotations`; add manager order review presentation state inside `Features/Orders`; add manager Work order presentation state inside `Features/WorkOrders`. Register every stable message identifier in the Rust contract catalog, regenerate `ProtocolIds`, and reference that generated constant from the mapping. Add shell-only Windows UI mechanics inside `Platform`; add launch, runtime, identity handoff, and process mechanics to the platform adapter. Add contract payloads, validation, authorization, audit, persistence, sync, and update behavior to the owning Rust vertical. Keep generated files under `shells/windows/generated` mechanically derived and excluded from shell compilation because the adapter assembly already links them.
 
 For related boundaries, see the [reference-marker vertical](reference-marker.md), [typed local IPC](local-ipc.md), [Windows process supervision](windows-process-supervision.md), [Arabic-first UX](../../architecture/arabic-first-ux.md), and [Windows shell recovery](../../troubleshooting/windows-shell-state-recovery.md).
+
+
+## Compose shared presentation controls
+
+The shell owns `PageHeader`, `EmptyState`, `FeedbackNotice`, `StatusBadge`, `AmountDisplay`, and `StepIndicator` in `shells/windows/Controls`. Templates live in `OperationsControls.xaml`. These controls do not validate domain data or change preview state.
+
+| Control | Parameters |
+| --- | --- |
+| `PageHeader` | `Title`, `Subtitle`, optional `Icon`, `BackAction`, and action `Content`; actions wrap below the heading. |
+| `EmptyState` | `Heading`, `Description`, optional `Icon` and action `Content`, `IsCompact`. |
+| `FeedbackNotice` | `Message`, `Tone`, `IsFloating`, `CanDismiss`, `DisplayDuration`, and `Dismissed`. Zero duration is persistent. |
+| `StatusBadge` | `Text`, `Tone`, optional `Icon`, and `IsCompact`. Feature styles supply tone. |
+| `AmountDisplay` | Preformatted `AmountText`, `UnitText`, `UnitPlacement` (`Before` or `After`), and `EmptyText`. No parsing or calculation. |
+| `StepIndicator` | `StepItem` items with `Label` and `Description`, and one-based `CurrentStep`. Steps do not accept clicks. |
+
+`PresentationTone` has `Neutral`, `Information`, `Success`, `Warning`, and `Danger`. Use the Arabic status label as well as color. A notice stops its timer when unloaded. The feature handles `Dismissed` with its existing clear-feedback action. Call `RestartDuration()` when repeating an identical message. Existing callers retain their 2.5-second or 3-second duration.
+
+```xml
+<controls:AmountDisplay AmountText="9,450"
+                        UnitText="YER" UnitPlacement="After" />
+<controls:StatusBadge Text="نشط" Tone="Success" />
+```
+
+The first composition checkpoint passed the shell build without warnings and 36 focused presentation/shared-control tests. Synthetic captures were inspected at normal and compact widths. Full Windows high-contrast mode and OS text scaling were not inspected at this checkpoint; template tests are not a substitute for those checks.

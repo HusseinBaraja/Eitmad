@@ -8,19 +8,11 @@ namespace Eitmad.WindowsShell.Features.WorkOrders;
 
 public partial class WorkOrdersView : UserControl
 {
-    private readonly DispatcherTimer feedbackTimer;
-
     public WorkOrdersView()
     {
         InitializeComponent();
         ViewModel = new WorkOrdersViewModel();
         DataContext = ViewModel;
-        feedbackTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
-        feedbackTimer.Tick += (_, _) =>
-        {
-            feedbackTimer.Stop();
-            ViewModel.ClearFeedback();
-        };
     }
 
     public WorkOrdersViewModel ViewModel { get; }
@@ -47,7 +39,8 @@ public partial class WorkOrdersView : UserControl
             return;
         }
 
-        feedbackTimer.Stop();
-        feedbackTimer.Start();
+
+        Feedback.RestartDuration();
     }
+    private void FeedbackDismissed(object sender, RoutedEventArgs e) => ViewModel.ClearFeedback();
 }

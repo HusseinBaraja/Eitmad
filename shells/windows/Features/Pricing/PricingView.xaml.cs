@@ -8,19 +8,11 @@ namespace Eitmad.WindowsShell.Features.Pricing;
 
 public partial class PricingView : UserControl
 {
-    private readonly DispatcherTimer feedbackTimer;
-
     public PricingView()
     {
         InitializeComponent();
         ViewModel = new PricingViewModel();
         DataContext = ViewModel;
-        feedbackTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
-        feedbackTimer.Tick += (_, _) =>
-        {
-            feedbackTimer.Stop();
-            ViewModel.ClearFeedback();
-        };
     }
 
     public PricingViewModel ViewModel { get; }
@@ -38,8 +30,8 @@ public partial class PricingView : UserControl
     {
         if (ViewModel.SaveEditor())
         {
-            feedbackTimer.Stop();
-            feedbackTimer.Start();
+
+            Feedback.RestartDuration();
         }
         else
         {
@@ -48,4 +40,5 @@ public partial class PricingView : UserControl
     }
 
     private void CancelPriceClick(object sender, RoutedEventArgs eventArgs) => ViewModel.CancelEditor();
+    private void FeedbackDismissed(object sender, RoutedEventArgs e) => ViewModel.ClearFeedback();
 }

@@ -47,21 +47,12 @@
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <Border Background="#FEFDFC" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
-                <Grid Margin="28,15" FlowDirection="LeftToRight">
-                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                    <Button Grid.Column="0" Height="46" Style="{StaticResource PrimaryButton}" Click="AddRawMaterialClick" automation:AutomationProperties.Name="إضافة مادة خام">
+            <controls:PageHeader  Title="المواد الخام" Subtitle="بحث سريع وتكاليف واضحة وإدارة بدون حذف دائم"><StackPanel Orientation="Horizontal"><Button Height="46" Style="{StaticResource PrimaryButton}" Click="AddRawMaterialClick" automation:AutomationProperties.Name="إضافة مادة خام">
                         <StackPanel Orientation="Horizontal" FlowDirection="RightToLeft">
                             <Path Data="{StaticResource IconPlus}" Width="18" Height="18" Fill="White" Stretch="Uniform" />
                             <TextBlock Text="إضافة مادة خام" Foreground="White" FontSize="13" Margin="9,0,0,0" />
                         </StackPanel>
-                    </Button>
-                    <StackPanel Grid.Column="1" FlowDirection="RightToLeft" HorizontalAlignment="Right" Margin="24,0,0,0">
-                        <TextBlock Text="المواد الخام" FontSize="27" FontWeight="Bold" HorizontalAlignment="Left" TextAlignment="Right" />
-                        <TextBlock Text="بحث سريع وتكاليف واضحة وإدارة بدون حذف دائم" Foreground="{StaticResource MutedBrush}" FontSize="11" HorizontalAlignment="Left" TextAlignment="Right" Margin="0,4,0,0" />
-                    </StackPanel>
-                </Grid>
-            </Border>
+                    </Button></StackPanel></controls:PageHeader>
 
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                 <StackPanel Margin="28,22,28,28">
@@ -114,13 +105,8 @@
                                                         </StackPanel>
                                                         <TextBlock Grid.Column="1" Text="{Binding Category}" Style="{StaticResource TableBody}" />
                                                         <TextBlock Grid.Column="2" Text="{Binding Unit}" Style="{StaticResource TableBody}" />
-                                                        <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" FlowDirection="LeftToRight">
-                                                            <TextBlock Text="{Binding CurrencyLabel}" Style="{StaticResource TableBody}" />
-                                                            <TextBlock Text="{Binding CostAmountLabel}" Style="{StaticResource TableBody}" Margin="6,0,0,0" FlowDirection="LeftToRight" />
-                                                        </StackPanel>
-                                                        <Border Grid.Column="4" x:Name="StatusPill" Background="#EAF7E9" CornerRadius="10" Padding="10,4" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                            <TextBlock x:Name="StatusText" Text="{Binding StatusLabel}" Foreground="#28733C" FontSize="10" FontWeight="SemiBold" />
-                                                        </Border>
+                                                        <controls:AmountDisplay Grid.Column="3" HorizontalAlignment="Center" AmountText="{Binding CostAmountLabel}" UnitText="{Binding CurrencyLabel}" UnitPlacement="Before"/>
+                                                        <controls:StatusBadge x:Name="StatusPill" Grid.Column="4" Padding="10,4" HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding StatusLabel}" Tone="Success"></controls:StatusBadge>
                                                         <Button Grid.Column="5" HorizontalAlignment="Center" VerticalAlignment="Center" Style="{StaticResource RowActionButton}" Content="⋮" Click="OpenRowMenuClick" automation:AutomationProperties.Name="إجراءات المادة الخام">
                                                             <Button.ContextMenu>
                                                                 <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}" FlowDirection="LeftToRight" Style="{StaticResource ActionMenu}" Placement="Right" HorizontalOffset="6">
@@ -138,7 +124,7 @@
                                                         <Setter TargetName="RowSurface" Property="Opacity" Value="0.52" />
                                                         <Setter TargetName="RowSurface" Property="Background" Value="#F3F1EF" />
                                                         <Setter TargetName="StatusPill" Property="Background" Value="#E5E2DF" />
-                                                        <Setter TargetName="StatusText" Property="Foreground" Value="#716B66" />
+                                                        <Setter TargetName="StatusPill" Property="Foreground" Value="#716B66" />
                                                     </DataTrigger>
                                                     <Trigger SourceName="RowSurface" Property="IsMouseOver" Value="True">
                                                         <Setter TargetName="RowSurface" Property="Background" Value="#FBF4EC" />
@@ -149,19 +135,12 @@
                                     </ItemsControl>
                                 </Grid>
                             </ScrollViewer>
-                            <Border Grid.Row="1" Background="White" Panel.ZIndex="4">
-                                <Border.Style>
-                                    <Style TargetType="Border">
+                            <controls:EmptyState Grid.Row="1" Panel.ZIndex="4" Heading="لا توجد مواد مطابقة" Description="جرّب تغيير البحث أو عوامل التصفية."><controls:EmptyState.Style>
+                                    <Style TargetType="controls:EmptyState" BasedOn="{StaticResource {x:Type controls:EmptyState}}">
                                         <Setter Property="Visibility" Value="Collapsed" />
                                         <Style.Triggers><DataTrigger Binding="{Binding HasNoVisibleMaterials}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers>
                                     </Style>
-                                </Border.Style>
-                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                                    <Border Width="50" Height="50" CornerRadius="25" Background="{StaticResource CopperTintBrush}"><Path Data="{StaticResource IconSearch}" Style="{StaticResource MetricVectorIcon}" Width="23" Height="23" /></Border>
-                                    <TextBlock Text="لا توجد مواد مطابقة" FontSize="15" FontWeight="SemiBold" TextAlignment="Center" Margin="0,13,0,0" />
-                                    <TextBlock Text="جرّب تغيير البحث أو عوامل التصفية." Foreground="{StaticResource MutedBrush}" FontSize="11" TextAlignment="Center" Margin="0,5,0,0" />
-                                </StackPanel>
-                            </Border>
+                                </controls:EmptyState.Style></controls:EmptyState>
                             <Border Grid.Row="2" Background="#FCFAF8" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,1,0,0" Padding="16,9">
                                 <TextBlock Text="{Binding VisibleCountLabel}" Foreground="{StaticResource MutedBrush}" FontSize="10" />
                             </Border>
@@ -179,16 +158,7 @@
                 </Style>
             </Grid.Style>
             <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-            <Border Background="#FEFDFC" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
-                <Grid Margin="28,15" FlowDirection="LeftToRight">
-                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                    <Button Style="{StaticResource SecondaryButton}" Content="العودة إلى القائمة" Click="CancelEditorClick" />
-                    <StackPanel Grid.Column="1" HorizontalAlignment="Right" FlowDirection="RightToLeft" Margin="24,0,0,0">
-                        <TextBlock Text="{Binding EditorTitle}" FontSize="27" FontWeight="Bold" />
-                        <TextBlock Text="بيانات تجريبية غير محفوظة" Foreground="{StaticResource CopperBrush}" FontSize="11" Margin="0,4,0,0" />
-                    </StackPanel>
-                </Grid>
-            </Border>
+            <controls:PageHeader  Title="{Binding EditorTitle}" Subtitle="بيانات تجريبية غير محفوظة"><StackPanel Orientation="Horizontal"><Button Style="{StaticResource SecondaryButton}" Content="العودة إلى القائمة" Click="CancelEditorClick" /></StackPanel></controls:PageHeader>
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <Grid Margin="28,24" MaxWidth="860" HorizontalAlignment="Stretch">
                     <Border Style="{StaticResource Card}" Padding="28">
@@ -302,11 +272,6 @@
             </Border>
         </Border>
 
-        <Border x:Name="FeedbackToast" Margin="28" Padding="18,11" HorizontalAlignment="Left" VerticalAlignment="Bottom" Panel.ZIndex="20" Background="#3B240F" CornerRadius="9">
-            <Border.Style>
-                <Style TargetType="Border"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding HasFeedback}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style>
-            </Border.Style>
-            <TextBlock Text="{Binding FeedbackMessage}" Foreground="White" FontSize="11" />
-        </Border>
+        <controls:FeedbackNotice x:Name="Feedback" Message="{Binding FeedbackMessage}" Tone="Success" DisplayDuration="00:00:02.5" Dismissed="FeedbackDismissed" Margin="28" Panel.ZIndex="20" HorizontalAlignment="Left" VerticalAlignment="Bottom"/>
     </Grid>
 </UserControl>
