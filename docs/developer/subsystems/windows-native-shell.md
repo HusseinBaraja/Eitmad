@@ -262,3 +262,17 @@ The shell owns `PageHeader`, `EmptyState`, `FeedbackNotice`, `StatusBadge`, `Amo
 ```
 
 The first composition checkpoint passed the shell build without warnings and 36 focused presentation/shared-control tests. Synthetic captures were inspected at normal and compact widths. Full Windows high-contrast mode and OS text scaling were not inspected at this checkpoint; template tests are not a substitute for those checks.
+
+
+## Associate form labels with native inputs
+
+`FormField` accepts `Label`, input `Content`, optional `HelpText`, `ErrorText`, `IsRequired`, and `LabelTarget`. The template wraps long help and error text. Set `LabelTarget` for a compound field with more than one input; otherwise the control associates its label with the first native input. It releases the previous accessibility association when content changes or unloads. Existing input names, Arabic accessible names, binding update timing, and validation remain owned by the feature.
+
+```xml
+<controls:FormField Label="اسم المادة" IsRequired="True"
+                    HelpText="أدخل الاسم كما سيظهر في القائمة">
+    <TextBox Style="&#123;StaticResource TextInput&#125;" />
+</controls:FormField>
+```
+
+The field checkpoint passed 20 focused rendered checks, including label replacement, unchanged binding timing, feature editor entry, and existing editor actions. Synthetic editor captures were inspected at normal and compact widths. Existing Furniture editor horizontal overflow remains outside the field layout change. Windows OS text scaling and full high-contrast mode remain unverified.

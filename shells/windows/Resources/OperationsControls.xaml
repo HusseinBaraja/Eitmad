@@ -439,4 +439,20 @@
         <Setter Property="ItemsPanel"><Setter.Value><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></Setter.Value></Setter>
         <Setter Property="ItemTemplate"><Setter.Value><DataTemplate><Border Padding="12,8" Margin="4" BorderThickness="1"><StackPanel><TextBlock Text="{Binding Label}" FontWeight="SemiBold"/><TextBlock Text="{Binding Description}" Foreground="{DynamicResource MutedBrush}" FontSize="10"/><TextBlock Text="{Binding State}" FontSize="10"/></StackPanel><Border.Style><Style TargetType="Border"><Setter Property="Background" Value="Transparent"/><Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/><Style.Triggers><DataTrigger Binding="{Binding State}" Value="الحالية"><Setter Property="Background" Value="{DynamicResource CopperTintBrush}"/><Setter Property="BorderBrush" Value="{DynamicResource CopperBrush}"/></DataTrigger></Style.Triggers></Style></Border.Style></Border></DataTemplate></Setter.Value></Setter>
     </Style>
+    <Style TargetType="controls:FormField">
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="controls:FormField">
+            <StackPanel>
+                <Label automation:AutomationProperties.Name="{TemplateBinding Label}" x:Name="PART_Label" Padding="0" Margin="0,0,0,7" Target="{TemplateBinding LabelTarget}" FontSize="12" FontWeight="SemiBold"><StackPanel Orientation="Horizontal"><TextBlock Text="{TemplateBinding Label}" TextWrapping="Wrap"/><TextBlock x:Name="Required" Text=" *" Visibility="Collapsed" automation:AutomationProperties.Name="مطلوب"/></StackPanel></Label>
+                <ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+                <TextBlock x:Name="Help" Text="{TemplateBinding HelpText}" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,7,0,0"/>
+                <TextBlock x:Name="Error" Text="{TemplateBinding ErrorText}" TextWrapping="Wrap" Foreground="{DynamicResource DangerBrush}" FontSize="11" Margin="0,7,0,0" automation:AutomationProperties.LiveSetting="Assertive"/>
+            </StackPanel>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsRequired" Value="True"><Setter TargetName="Required" Property="Visibility" Value="Visible"/></Trigger>
+                <Trigger Property="HelpText" Value=""><Setter TargetName="Help" Property="Visibility" Value="Collapsed"/></Trigger>
+                <Trigger Property="ErrorText" Value=""><Setter TargetName="Error" Property="Visibility" Value="Collapsed"/></Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate></Setter.Value></Setter>
+    </Style>
 </ResourceDictionary>

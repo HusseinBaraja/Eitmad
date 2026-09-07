@@ -83,13 +83,11 @@
                     <Grid Margin="0,0,0,9"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="110" /></Grid.ColumnDefinitions><TextBlock Text="{Binding EditorVariant}" Grid.Column="0" FontSize="13" /><TextBlock Text="المقاس" Grid.Column="1" Foreground="{StaticResource MutedBrush}" FontSize="12" /></Grid>
                     <Grid Margin="0,0,0,17"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="110" /></Grid.ColumnDefinitions><TextBlock Text="{Binding EditorCost}" Grid.Column="0" FontSize="13" FlowDirection="LeftToRight" TextAlignment="Right" /><TextBlock Text="التكلفة" Grid.Column="1" Foreground="{StaticResource MutedBrush}" FontSize="12" /></Grid>
 
-                    <TextBlock Text="سعر البيع" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,7" />
-                    <Grid FlowDirection="LeftToRight">
+                    <controls:FormField Label="سعر البيع" Margin="0,0,0,0" ErrorText="{Binding EditorError}"><Grid FlowDirection="LeftToRight">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="56" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                         <Border Grid.Column="0" Background="#F2ECE6" CornerRadius="9,0,0,9" BorderBrush="#D8CFC6" BorderThickness="1,1,0,1"><TextBlock Text="YER" FontSize="11" FontWeight="SemiBold" Foreground="#704A2A" HorizontalAlignment="Center" VerticalAlignment="Center" /></Border>
                         <TextBox x:Name="PriceInput" Grid.Column="1" Text="{Binding EditorSellingPrice, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" FlowDirection="LeftToRight" TextAlignment="Right" FontSize="17" FontWeight="SemiBold" automation:AutomationProperties.Name="سعر البيع الجديد" />
-                    </Grid>
-                    <TextBlock Text="{Binding EditorError}" Foreground="{StaticResource DangerBrush}" FontSize="11" Margin="0,7,0,0" Visibility="{Binding HasEditorError, Converter={StaticResource BooleanToVisibility}}" />
+                    </Grid></controls:FormField>
 
                     <Border Background="#F7F4F1" CornerRadius="9" Padding="14,11" Margin="0,16,0,22">
                         <Grid><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="130" /></Grid.ColumnDefinitions>
