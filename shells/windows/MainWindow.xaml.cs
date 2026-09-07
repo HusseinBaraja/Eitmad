@@ -14,7 +14,6 @@ namespace Eitmad.WindowsShell;
 
 public partial class MainWindow : Window
 {
-    private const string SearchPlaceholder = "ابحث عن عروض أسعار، عملاء، منتجات، أو أوامر عمل...";
     private readonly DispatcherTimer toastTimer;
     private Button selectedNavButton;
 
@@ -127,30 +126,10 @@ public partial class MainWindow : Window
         ShowToast("تم فحص المسودة محلياً؛ الحفظ معطل في وضع المعاينة");
     }
 
-    /// <summary>Removes the Arabic search placeholder when input starts.</summary>
-    private void SearchGotFocus(object sender, KeyboardFocusChangedEventArgs eventArgs)
-    {
-        if (SearchBox.Text == SearchPlaceholder)
-        {
-            SearchBox.Clear();
-            SearchBox.Foreground = (Brush)FindResource("InkBrush");
-        }
-    }
-
-    /// <summary>Restores the Arabic search placeholder when input is empty.</summary>
-    private void SearchLostFocus(object sender, KeyboardFocusChangedEventArgs eventArgs)
-    {
-        if (string.IsNullOrWhiteSpace(SearchBox.Text))
-        {
-            SearchBox.Text = SearchPlaceholder;
-            SearchBox.Foreground = new SolidColorBrush(Color.FromRgb(0x8D, 0x87, 0x81));
-        }
-    }
-
     /// <summary>Reports a local preview response for a submitted search term.</summary>
     private void SearchKeyDown(object sender, KeyEventArgs eventArgs)
     {
-        if (eventArgs.Key != Key.Enter || string.IsNullOrWhiteSpace(SearchBox.Text) || SearchBox.Text == SearchPlaceholder)
+        if (eventArgs.Key != Key.Enter || string.IsNullOrWhiteSpace(SearchBox.Text))
         {
             return;
         }

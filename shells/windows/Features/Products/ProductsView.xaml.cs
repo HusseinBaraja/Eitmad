@@ -169,7 +169,7 @@ public partial class ProductsView : UserControl
 
     private static void CloseOwningDropdown(Button button)
     {
-        if (button.TemplatedParent is ComboBox comboBox)
+        if (button.DataContext is ComboBox comboBox)
         {
             comboBox.IsDropDownOpen = false;
         }

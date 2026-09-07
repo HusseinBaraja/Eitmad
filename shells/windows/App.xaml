@@ -7,6 +7,7 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="Resources/OperationsTheme.xaml" />
                 <ResourceDictionary Source="Resources/OperationsIcons.xaml" />
+                <ResourceDictionary Source="Resources/OperationsControls.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>

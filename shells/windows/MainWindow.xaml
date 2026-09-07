@@ -1,6 +1,7 @@
 <Window x:Class="Eitmad.WindowsShell.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls" xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
         xmlns:layout="clr-namespace:Eitmad.WindowsShell.Layout"
         xmlns:furniture="clr-namespace:Eitmad.WindowsShell.Features.Furniture"
         xmlns:orders="clr-namespace:Eitmad.WindowsShell.Features.Orders"
@@ -94,7 +95,7 @@
                                     </Style>
                                 </TextBlock.Style>
                             </TextBlock>
-                            <Border Height="43" HorizontalAlignment="Stretch" CornerRadius="8" Background="#FEFDFC" BorderBrush="#E9E4DF" BorderThickness="1">
+                            <Border HorizontalAlignment="Stretch">
                                 <Border.Style>
                                     <Style TargetType="Border">
                                         <Setter Property="Grid.Column" Value="2" />
@@ -109,7 +110,7 @@
                                         </Style.Triggers>
                                     </Style>
                                 </Border.Style>
-                                    <Grid FlowDirection="RightToLeft"><Grid.ColumnDefinitions><ColumnDefinition Width="44" /><ColumnDefinition /></Grid.ColumnDefinitions><Path Grid.Column="0" Data="{StaticResource IconSearch}" Style="{StaticResource ToolbarVectorIcon}" /><TextBox Grid.Column="1" x:Name="SearchBox" Background="Transparent" BorderThickness="0" FontFamily="Noto Kufi Arabic, Segoe UI" FontSize="13" Foreground="#8D8781" Padding="10,11,0,8" TextAlignment="Left" FlowDirection="RightToLeft" Text="ابحث عن عروض أسعار، عملاء، منتجات، أو أوامر عمل..." GotKeyboardFocus="SearchGotFocus" LostKeyboardFocus="SearchLostFocus" KeyDown="SearchKeyDown" /></Grid>
+                                    <TextBox x:Name="SearchBox" Style="{StaticResource SearchInput}" controls:ControlOptions.Placeholder="ابحث عن عروض أسعار، عملاء، منتجات، أو أوامر عمل..." automation:AutomationProperties.Name="البحث في الاعتماد" KeyDown="SearchKeyDown" />
                             </Border>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="16,0,0,0" VerticalAlignment="Center">
                                     <Grid Margin="0,0,12,0"><Button Style="{StaticResource IconButton}" Tag="التنبيهات" Click="PreviewActionClick"><Path Data="{StaticResource IconBell}" Style="{StaticResource ToolbarVectorIcon}" /></Button><Border IsHitTestVisible="False" Background="#703A08" CornerRadius="10" MinWidth="19" Height="19" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-4,-4,0"><TextBlock Text="7" Foreground="White" FontSize="9" TextAlignment="Center" VerticalAlignment="Center" /></Border></Grid>
@@ -265,9 +266,9 @@
                         <Grid><Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
                             <Grid><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="38" /></Grid.ColumnDefinitions><StackPanel><TextBlock x:Name="PreviewPanelTitle" Text="عرض سعر جديد" FontSize="23" FontWeight="Bold" /><TextBlock Text="معاينة تفاعلية — لن يتم حفظ بيانات" Foreground="#9A5C22" FontSize="11" Margin="0,6,0,0" /></StackPanel><Button Grid.Column="1" Style="{StaticResource IconButton}" Width="34" Height="34" Click="ClosePreviewPanelClick"><Path Data="{StaticResource IconCloseCircle}" Style="{StaticResource ToolbarVectorIcon}" /></Button></Grid>
                             <StackPanel Grid.Row="1" Margin="0,28,0,0">
-                                <TextBlock Text="اسم العميل" FontSize="13" FontWeight="SemiBold" /><TextBox x:Name="CustomerNameBox" Height="42" Margin="0,7,0,18" Padding="12,8" FontFamily="Noto Kufi Arabic, Segoe UI" BorderBrush="#DED6CE" BorderThickness="1" />
-                                <TextBlock Text="وصف المنتج" FontSize="13" FontWeight="SemiBold" /><TextBox x:Name="ProductDescriptionBox" Height="88" Margin="0,7,0,18" Padding="12,8" FontFamily="Noto Kufi Arabic, Segoe UI" BorderBrush="#DED6CE" BorderThickness="1" AcceptsReturn="True" TextWrapping="Wrap" />
-                                <TextBlock Text="القيمة التقديرية" FontSize="13" FontWeight="SemiBold" /><TextBox x:Name="EstimatedValueBox" Height="42" Margin="0,7,0,0" Padding="12,8" FontFamily="Segoe UI" FlowDirection="LeftToRight" BorderBrush="#DED6CE" BorderThickness="1" />
+                                <TextBlock Text="اسم العميل" Style="{StaticResource FieldLabel}" Margin="0" /><TextBox x:Name="CustomerNameBox" Style="{StaticResource TextInput}" automation:AutomationProperties.Name="اسم العميل" Height="42" Margin="0,7,0,18" Padding="12,8" FontFamily="Noto Kufi Arabic, Segoe UI" BorderBrush="#DED6CE" BorderThickness="1" />
+                                <TextBlock Text="وصف المنتج" Style="{StaticResource FieldLabel}" Margin="0" /><TextBox x:Name="ProductDescriptionBox" Style="{StaticResource TextInput}" automation:AutomationProperties.Name="وصف المنتج" Height="88" Margin="0,7,0,18" Padding="12,8" FontFamily="Noto Kufi Arabic, Segoe UI" BorderBrush="#DED6CE" BorderThickness="1" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top" />
+                                <TextBlock Text="القيمة التقديرية" Style="{StaticResource FieldLabel}" Margin="0" /><TextBox x:Name="EstimatedValueBox" Style="{StaticResource TextInput}" automation:AutomationProperties.Name="القيمة التقديرية" Height="42" Margin="0,7,0,0" Padding="12,8" FontFamily="Segoe UI" FlowDirection="LeftToRight" BorderBrush="#DED6CE" BorderThickness="1" />
                             </StackPanel>
                             <Button Grid.Row="2" Height="44" Style="{StaticResource PrimaryButton}" Click="PreviewSubmitClick"><TextBlock Text="حفظ كمسودة تجريبية" Foreground="White" /></Button>
                         </Grid>

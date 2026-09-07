@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Windows UI maintainers"
-last_verified: "2026-09-03"
+last_verified: "2026-09-07"
 review_triggers:
   - "Windows shell UI, state mapping, configuration patches, subscriptions, tray behavior, or ownership boundaries change"
 keywords:
@@ -65,7 +65,7 @@ The shell has no database client, configuration file writer, domain validator, p
 
 The furniture operations dashboard currently marks itself **وضع المعاينة**. Its sales, quotation, product, material, work-order, and department values are visual fixtures that define layout and Arabic copy only. They are not live records, they do not authorize an action, and they must not be treated as saved or synchronized state. Replace each fixture with a Rust-owned typed query and subscription before changing the footer to a connected state. Keep state-changing controls disabled or without commands until Rust supplies validation, ReBAC, scope, audit, storage, and idempotency behavior.
 
-Preview interactions are real WPF input behavior but remain ephemeral. Sidebar buttons update their selected style and the page heading. The selected label and vector icon stay white on the walnut background, including while the pointer highlights the selected button. When another item is selected, the old icon returns to the shared ink theme brush. Quick actions, notification controls, and footer links show bounded Arabic feedback. The search box clears and restores its placeholder on focus changes and reports the submitted Arabic term without querying authoritative records. **عرض سعر جديد** opens a keyboard-editable drawer, validates that a customer name is present, and then reports **الحفظ معطل في وضع المعاينة**. It does not create a command, record, audit entry, or sync item. When the quotation vertical exists, replace only this preview boundary with a typed Rust-owned command and keep the failure message until a successful authoritative result returns.
+Preview interactions are real WPF input behavior but remain ephemeral. Sidebar buttons update their selected style and the page heading. The selected label and vector icon stay white on the walnut background, including while the pointer highlights the selected button. When another item is selected, the old icon returns to the shared ink theme brush. Quick actions, notification controls, and footer links show bounded Arabic feedback. The shared search input draws a placeholder only while its text is empty. Focus does not change query text. Dashboard search reports the submitted Arabic term without querying authoritative records. **عرض سعر جديد** opens a keyboard-editable drawer, validates that a customer name is present, and then reports **الحفظ معطل في وضع المعاينة**. It does not create a command, record, audit entry, or sync item. When the quotation vertical exists, replace only this preview boundary with a typed Rust-owned command and keep the failure message until a successful authoritative result returns.
 
 The **المواد الخام** destination is a dedicated preview page under `Features/RawMaterials`. `RawMaterialsViewModel` owns only transient search, category and status filters, editor state, synthetic list fixtures, and in-memory category and unit reference options. Search updates on each text change and normalizes Arabic alef variants, `ى`, `ة`, tatweel, and combining marks in both the query and searchable fields. For example, **اخشاب** matches **أخشاب طبيعية**. Filters compose, archived rows remain available with inactive styling, and the compact menu offers **تعديل**, **تكرار**, and **أرشفة** without a permanent delete action. Clicking a row opens the same editor as **إضافة مادة خام**.
 
@@ -142,11 +142,51 @@ The landing dashboard uses warm walnut accents, white cards, thin neutral border
 
 `RawMaterialsView.xaml` extends the same walnut and neutral system with explicit WPF templates for every selector, text editor, and row-action popup. The page header uses an LTR geometry grid with an RTL text stack anchored to the physical right edge; its title and descriptor share that right boundary. The list starts directly with its filters and does not render a separate preview notification banner; the editor keeps its local-data status label. Material costs use the Arabic Saudi Riyal abbreviation `ر.س.` as a prefix (`ر.س. 25,000`). `RawMaterialListItem` formats the numeric amount with `InvariantCulture` so Latin digits, comma grouping, and scenario results do not depend on the machine culture. Cost cells render the currency and numeric amount as separate siblings inside an LTR container, so bidi shaping cannot move the number ahead of the currency in the RTL shell. This display rule is also applied to dashboard and quotation fixtures.
 
-`RawMaterialsComboBox` owns the rounded input chrome, centered copper chevron geometry for both closed and open states, focus border, selected and highlighted item colors, fade animation, bounded scrolling, rounded popup, and shadow. A non-null selector `Tag` enables the shared reference-action footer; filter selectors have no tag and keep the original option-only popup. The category and unit selectors use the same footer spacing, buttons, modal overlay, input chrome, validation area, and RTL direction. The unit editor alone reveals the short-name field. The compact manager lists name and short name, shows **مؤرشفة** for inactive references, and disables the repeated archive action. Do not replace these inline overlays with navigation away from the material editor.
+## Reuse native controls on a new page
 
-`RawMaterialsTextInput` gives the editor fields the same `CornerRadius="8"` input chrome and copper focus treatment, with vertically centered content and hidden host scrollbars so Arabic and numeric values stay inside the field. The shared `PrimaryButton` forwards its white `Foreground` into the content presenter so labels on dark fills remain readable. `RawMaterialsSecondaryButton` uses a pixel-snapped, darker neutral border so all four sides remain visible at the rounded corners. `RawMaterialsContextMenu` and `RawMaterialsMenuItem` use the same popup surface and interaction states. Do not fall back to the platform-default `ComboBox`, `TextBox`, or `ContextMenu` templates, which do not match this dashboard. Keep popup placement direction isolated from Arabic text direction: the context popup uses physical LTR placement while each Arabic `MenuItem` uses RTL shaping. Status remains text-backed, and archived rows use opacity plus a neutral status pill instead of color alone.
+`shells/windows/Resources/OperationsControls.xaml` owns the reusable input, selector, menu, and label styles. `shells/windows/Resources/OperationsTheme.xaml` owns theme colors, cards, navigation, and the common action-button template. Both the application and rendered test host load the theme, icons, then controls. Use these resources directly; keep only feature-specific state triggers and footer content in page resources.
 
-`PartsView.xaml` mirrors these visual rules with page-local `PartsTextInput`, `PartsComboBox`, and `PartsContextMenu` templates. Its table keeps an explicit LTR boundary for the `YER` amount and mixed-language **3 Products** fixture. Mouse-point action placement prevents the left-edge popup from being clipped. The page uses the same Arabic status text, neutral archived styling, empty state, and editor subtitle as the materials preview while keeping its own part-specific labels.
+| Purpose | Shared resource |
+| --- | --- |
+| Editor input, multiline notes, numeric text | `TextInput` |
+| Dashboard, list, and picker search | `SearchInput` |
+| Filter or editor selector | `SelectInput`, `SelectItem` |
+| Form label, table heading, table value | `FieldLabel`, `TableHeader`, `TableBody` |
+| Detail labels and values | `MetadataLabel`, `MetadataValue`, `SummaryLabel`, `SummaryValue` |
+| Main, secondary, compact, and inline actions | `PrimaryButton`, `SecondaryButton`, `CompactButton`, `InlineActionButton` |
+| Icon, row, and selector-footer actions | `IconButton`, `RowActionButton`, `DropdownActionButton` |
+| Flat row menu and separator | `ActionMenu`, `ActionMenuItem`, `ActionMenuSeparator` |
+| Status appearance and native radio choice | `StatusSurface`, `StatusLabel`, `ChoiceRadio` |
+
+`shells/windows/Controls/ControlOptions.cs` supplies optional presentation parameters. `Icon` accepts a shared geometry or null. `Placeholder` is display text, never input data. `ShowText` controls button content visibility without changing its command, tooltip, or accessible name. `CornerRadius` controls input, selector, and button corners. Keep `ToolTip`, `ToolTipService.IsEnabled`, `Content`, `IsEnabled`, `IsReadOnly`, `Command`, and bindings on the native WPF control. Give icon-only actions an explicit Arabic `AutomationProperties.Name` and tooltip. Set `ShowText` from a style trigger when a compact layout must hide a label.
+
+Inputs have a 44-DIP minimum height and grow with content. Use `AcceptsReturn`, `TextWrapping`, `VerticalContentAlignment`, and scrollbar properties for notes; isolate numeric and technical text with a local LTR boundary. `SearchInput` defaults its placeholder to its Arabic automation name; override it with `ControlOptions.Placeholder`, or use an empty string to hide it. Buttons forward foreground color to generated text and icons, including keyboard-focus and disabled states. Inputs and buttons use Windows system color resources in high contrast. `ControlOptions.HighContrast` is a template implementation property bound to the Windows resource; pages should not set it.
+
+`SelectInput` uses the Materials selector's rounded surface, copper chevron, focus border, bounded scrolling, and popup. Native `ItemsSource`, `SelectedItem`, `SelectedValuePath`, `DisplayMemberPath`, `ItemTemplate`, `IsEditable`, `IsReadOnly`, and `MaxDropDownHeight` remain available. `ControlOptions.FooterTemplate` optionally adds a data template below the options. Its data context is the owning `ComboBox`; feature footer handlers can close that selector and open their existing editor. Materials supplies category/unit actions; Products supplies category actions. Selectors without a footer template show only options. Keep record behavior and reference management in the owning feature.
+
+`shells/windows/Layout/AdaptiveFieldsPanel.cs` arranges filter fields into equal columns according to available width. `MinItemWidth` is the preferred field width; `Spacing` separates columns and rows. Rows grow to the tallest field, and collapsed children use no space. At widths below one preferred column, the remaining column fits the available width. Place it in a bounded grid or vertical scroll viewer, without fixed child widths or a horizontal page-wide minimum. All eight feature lists use it. Furniture keeps horizontal scrolling around its table, and Pricing scrolls its header and rows together.
+
+For example, declare the `layout`, `controls`, and `automation` namespaces as the existing pages do, then compose native controls:
+
+```xml
+<layout:AdaptiveFieldsPanel MinItemWidth="220" Spacing="12">
+    <TextBox automation:AutomationProperties.Name="البحث عن جزء">
+        <TextBox.Style><StaticResource ResourceKey="SearchInput" /></TextBox.Style>
+        <TextBox.Text><Binding Path="SearchText" UpdateSourceTrigger="PropertyChanged" /></TextBox.Text>
+    </TextBox>
+    <ComboBox automation:AutomationProperties.Name="تصفية الفئة">
+        <ComboBox.Style><StaticResource ResourceKey="SelectInput" /></ComboBox.Style>
+        <ComboBox.ItemsSource><Binding Path="CategoryOptions" /></ComboBox.ItemsSource>
+        <ComboBox.SelectedItem><Binding Path="SelectedCategory" /></ComboBox.SelectedItem>
+    </ComboBox>
+</layout:AdaptiveFieldsPanel>
+```
+
+Keep status-state mappings in their feature styles, based on `StatusSurface` and `StatusLabel`. Keep popup placement separate from text direction: row menus use physical LTR placement and Arabic menu items use RTL shaping. The shared row menus currently contain flat actions; they do not define submenu or checkable-item templates.
+
+The focused `SharedControlsRenderedTests` cover all eight list search bindings and filter bounds at normal and compact widths, selector footer ownership and editor focus, editable selector text, optional button text, larger input text, and system-color template states. Existing rendered feature tests cover navigation, editing, row menus, and preview behavior. For optional synthetic review images, set `EITMAD_UI_CAPTURE_DIR` to a local output directory before running the focused tests. These checks do not certify a production release or replace full Windows high-contrast, text-scaling, and screen-reader verification.
+
+## Responsive shell layout
 
 `Layout/ResponsiveLayout.cs` is the shared shell presentation policy for this page and future WPF pages. A page root opts in with `layout:ResponsiveLayout.IsEnabled="True"`. The attached property observes device-independent width, publishes the inherited `ResponsiveLayoutMode`, and lets child styles respond without page-specific resize handlers. `Compact` applies below `900` DIPs, `Standard` applies from `900` through `1599` DIPs, and `Wide` starts at `1600` DIPs. Keep base values that a breakpoint must replace inside style setters. A local XAML value has higher WPF precedence and will block a data-trigger setter.
 
