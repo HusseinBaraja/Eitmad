@@ -144,7 +144,7 @@ public partial class ProductsView : UserControl
         {
             CloseOwningDropdown(button);
             ViewModel.BeginAddCategory();
-            Dispatcher.BeginInvoke(CategoryNameBox.Focus, DispatcherPriority.Input);
+
             eventArgs.Handled = true;
         }
     }
@@ -172,7 +172,7 @@ public partial class ProductsView : UserControl
         if (sender is Button { DataContext: ProductCategoryOption category })
         {
             ViewModel.BeginEditCategory(category);
-            Dispatcher.BeginInvoke(CategoryNameBox.Focus, DispatcherPriority.Input);
+
         }
     }
 

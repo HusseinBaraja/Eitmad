@@ -111,7 +111,7 @@ public partial class PartsView : UserControl
     private void OpenMaterialPickerClick(object sender, RoutedEventArgs eventArgs)
     {
         ViewModel.OpenMaterialPicker();
-        Dispatcher.BeginInvoke(MaterialSearchBox.Focus, DispatcherPriority.Input);
+
     }
 
     private void CloseMaterialPickerClick(object sender, RoutedEventArgs eventArgs) => ViewModel.CloseMaterialPicker();

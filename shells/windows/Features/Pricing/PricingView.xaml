@@ -71,12 +71,11 @@
             </StackPanel>
         </ScrollViewer>
 
-        <Grid Grid.RowSpan="2" Panel.ZIndex="20" Visibility="{Binding IsEditorOpen, Converter={StaticResource BooleanToVisibility}}" FlowDirection="LeftToRight">
-            <Border Background="#7A201A17" />
-            <Border Width="440" MaxWidth="440" Background="White" BorderBrush="#D8C8B9" BorderThickness="1" CornerRadius="14" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="28" FlowDirection="RightToLeft">
-                <Border.Effect><DropShadowEffect BlurRadius="35" ShadowDepth="10" Opacity="0.28" Color="#3D2513" /></Border.Effect>
-                <StackPanel>
-                    <TextBlock Text="تعديل سعر البيع" FontSize="22" FontWeight="Bold" />
+        <controls:DialogHost Grid.RowSpan="2" Panel.ZIndex="20" IsOpen="{Binding IsEditorOpen}" Title="تعديل سعر البيع" PreferredWidth="440" FlowDirection="RightToLeft" CloseRequested="CancelPriceClick" InitialFocusTarget="{Binding ElementName=PriceInput}"><controls:DialogHost.Footer><StackPanel Orientation="Horizontal">
+                        <Button Content="حفظ" Style="{StaticResource PrimaryButton}" Height="44" MinWidth="116" Click="SavePriceClick" automation:AutomationProperties.Name="حفظ سعر البيع" />
+                        <Button Content="إلغاء" Style="{StaticResource SecondaryButton}" Margin="10,0,0,0" Click="CancelPriceClick" automation:AutomationProperties.Name="إلغاء تعديل السعر" />
+                    </StackPanel></controls:DialogHost.Footer><StackPanel>
+
                     <TextBlock Text="تغيير سريع لهذا المقاس فقط" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,5,0,21" />
 
                     <Grid Margin="0,0,0,9"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="110" /></Grid.ColumnDefinitions><TextBlock Text="{Binding EditorProduct}" Grid.Column="0" FontSize="14" FontWeight="SemiBold" /><TextBlock Text="المنتج" Grid.Column="1" Foreground="{StaticResource MutedBrush}" FontSize="12" /></Grid>
@@ -98,12 +97,7 @@
                         </Grid>
                     </Border>
 
-                    <StackPanel Orientation="Horizontal">
-                        <Button Content="حفظ" Style="{StaticResource PrimaryButton}" Height="44" MinWidth="116" Click="SavePriceClick" automation:AutomationProperties.Name="حفظ سعر البيع" />
-                        <Button Content="إلغاء" Style="{StaticResource SecondaryButton}" Margin="10,0,0,0" Click="CancelPriceClick" automation:AutomationProperties.Name="إلغاء تعديل السعر" />
-                    </StackPanel>
-                </StackPanel>
-            </Border>
-        </Grid>
+
+                </StackPanel></controls:DialogHost>
     </Grid>
 </UserControl>

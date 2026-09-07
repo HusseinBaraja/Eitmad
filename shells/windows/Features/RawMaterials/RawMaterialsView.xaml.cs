@@ -104,7 +104,6 @@ public partial class RawMaterialsView : UserControl
                 ViewModel.BeginAddCategory();
             }
 
-            Dispatcher.BeginInvoke(ReferenceNameBox.Focus, DispatcherPriority.Input);
             eventArgs.Handled = true;
         }
     }
@@ -140,7 +139,7 @@ public partial class RawMaterialsView : UserControl
         if (sender is Button { DataContext: RawMaterialReferenceOption reference })
         {
             ViewModel.BeginEditReference(reference);
-            Dispatcher.BeginInvoke(ReferenceNameBox.Focus, DispatcherPriority.Input);
+
         }
     }
 

@@ -455,4 +455,46 @@
             </ControlTemplate.Triggers>
         </ControlTemplate></Setter.Value></Setter>
     </Style>
+    <Style TargetType="controls:DialogHost">
+        <Setter Property="AutomationProperties.Name" Value="{Binding Title, RelativeSource={RelativeSource Self}}" />
+        <Setter Property="Visibility" Value="Collapsed" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Background" Value="#66000000" />
+        <Setter Property="controls:ControlOptions.HighContrast" Value="{DynamicResource {x:Static SystemParameters.HighContrastKey}}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="controls:DialogHost">
+                    <Grid Background="{TemplateBinding Background}">
+                        <Border x:Name="DialogSurface" Width="{TemplateBinding DialogWidth}" MaxHeight="{TemplateBinding DialogMaxHeight}" HorizontalAlignment="Center" VerticalAlignment="Center" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="16" Padding="24">
+                            <Grid>
+                                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                                <Grid Margin="0,0,0,20">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                    <TextBlock Text="{TemplateBinding Title}" FontSize="20" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                    <Button x:Name="PART_Close" Grid.Column="1" Style="{StaticResource IconButton}" Content="×" AutomationProperties.Name="إغلاق الحوار" Margin="12,0,0,0" />
+                                </Grid>
+                                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False" Padding="0,0,4,0">
+                                    <ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" />
+                                </ScrollViewer>
+                                <ContentPresenter x:Name="DialogFooter" Grid.Row="2" Content="{TemplateBinding Footer}" Margin="0,20,0,0" />
+                            </Grid>
+                        </Border>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Footer" Value="{x:Null}"><Setter TargetName="DialogFooter" Property="Visibility" Value="Collapsed" /></Trigger>
+                        <Trigger Property="controls:ControlOptions.HighContrast" Value="True">
+                            <Setter TargetName="DialogSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                            <Setter TargetName="DialogSurface" Property="BorderBrush" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                            <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers><Trigger Property="IsOpen" Value="True"><Setter Property="Visibility" Value="Visible" /></Trigger></Style.Triggers>
+    </Style>
+
+
 </ResourceDictionary>

@@ -276,3 +276,21 @@ The first composition checkpoint passed the shell build without warnings and 36 
 ```
 
 The field checkpoint passed 20 focused rendered checks, including label replacement, unchanged binding timing, feature editor entry, and existing editor actions. Synthetic editor captures were inspected at normal and compact widths. Existing Furniture editor horizontal overflow remains outside the field layout change. Windows OS text scaling and full high-contrast mode remain unverified.
+
+
+## Host centered dialogs
+
+`DialogHost` owns the 11 centered overlays. Bind `IsOpen`, `Title`, body `Content`, footer `Footer`, and `PreferredWidth`. Set `InitialFocusTarget` to the editor input. Handle `CloseRequested`, or supply `CloseCommand` and `CloseCommandParameter`, using the same feature action as Cancel. A close request does not change `IsOpen`; validation and transitions remain in the feature.
+
+The host keeps a 24-DIP viewport inset, scrolls the body, and keeps the title and footer available. It traps keyboard focus and blocks background pointer and key input. Backdrop clicks do nothing. An open selector consumes Escape first; the next Escape requests Cancel. Enter does not confirm an action automatically. Closing restores the invoking control when available, then the reopened dialog's initial target, then an available window focus target. The dashboard drawer retains its separate presentation.
+
+```xml
+<controls:DialogHost Title="تعديل السعر" PreferredWidth="440">
+    <controls:DialogHost.Footer>
+        <Button Content="إلغاء" />
+    </controls:DialogHost.Footer>
+    <controls:FormField Label="سعر البيع"><TextBox /></controls:FormField>
+</controls:DialogHost>
+```
+
+The dialog checkpoint passed 21 focused rendered checks. Tests cover focus entry and cycle, pointer blocking, selector Escape, close requests, focus return, viewport limits, and real Products and Raw materials manager/editor transitions with failed validation. All 11 synthetic dialogs were inspected at both normal and compact widths. These checks do not certify screen-reader announcements or OS high-contrast mode.

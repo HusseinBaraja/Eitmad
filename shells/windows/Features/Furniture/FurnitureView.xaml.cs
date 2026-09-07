@@ -170,7 +170,7 @@ public partial class FurnitureView : UserControl
     private void OpenPartPickerClick(object sender, RoutedEventArgs eventArgs)
     {
         ViewModel.OpenPartPicker();
-        Dispatcher.BeginInvoke(PartSearchBox.Focus, DispatcherPriority.Input);
+
     }
 
     private void ClosePartPickerClick(object sender, RoutedEventArgs eventArgs) => ViewModel.ClosePartPicker();
@@ -194,7 +194,7 @@ public partial class FurnitureView : UserControl
     private void AddVariantClick(object sender, RoutedEventArgs eventArgs)
     {
         ViewModel.BeginAddVariant();
-        Dispatcher.BeginInvoke(VariantNameBox.Focus, DispatcherPriority.Input);
+
     }
 
     private void EditVariantClick(object sender, RoutedEventArgs eventArgs)
@@ -202,7 +202,7 @@ public partial class FurnitureView : UserControl
         if (sender is Button { DataContext: FurnitureVariant variant })
         {
             ViewModel.BeginEditVariant(variant);
-            Dispatcher.BeginInvoke(VariantNameBox.Focus, DispatcherPriority.Input);
+
         }
     }
 
@@ -230,7 +230,7 @@ public partial class FurnitureView : UserControl
     private void AddColorClick(object sender, RoutedEventArgs eventArgs)
     {
         ViewModel.BeginAddColor();
-        Dispatcher.BeginInvoke(ColorNameBox.Focus, DispatcherPriority.Input);
+
     }
 
     private void SaveColorClick(object sender, RoutedEventArgs eventArgs) => ViewModel.SaveColor();
@@ -248,7 +248,7 @@ public partial class FurnitureView : UserControl
     private void AddHandleClick(object sender, RoutedEventArgs eventArgs)
     {
         ViewModel.BeginAddHandle();
-        Dispatcher.BeginInvoke(HandleNameBox.Focus, DispatcherPriority.Input);
+
     }
 
     private void SaveHandleClick(object sender, RoutedEventArgs eventArgs) => ViewModel.SaveHandle();

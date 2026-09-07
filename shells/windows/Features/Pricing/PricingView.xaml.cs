@@ -22,7 +22,7 @@ public partial class PricingView : UserControl
         if (sender is Button { DataContext: PricingListItem item })
         {
             ViewModel.BeginEdit(item);
-            Dispatcher.BeginInvoke(PriceInput.Focus, DispatcherPriority.Input);
+
         }
     }
 

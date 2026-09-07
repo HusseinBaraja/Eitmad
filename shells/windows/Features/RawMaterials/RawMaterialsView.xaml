@@ -183,21 +183,12 @@
             </ScrollViewer>
         </Grid>
 
-        <Border Panel.ZIndex="30" Background="#6A2B1A0D">
-            <Border.Style>
-                <Style TargetType="Border">
-                    <Setter Property="Visibility" Value="Collapsed" />
-                    <Style.Triggers><DataTrigger Binding="{Binding IsReferenceManagerOpen}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers>
-                </Style>
-            </Border.Style>
-            <Border Width="520" MaxHeight="520" HorizontalAlignment="Center" VerticalAlignment="Center" Background="White" BorderBrush="#DCCFC2" BorderThickness="1" CornerRadius="12" Padding="22">
-                <Border.Effect><DropShadowEffect BlurRadius="34" ShadowDepth="10" Opacity="0.24" Color="#36200F" /></Border.Effect>
-                <Grid>
-                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition MaxHeight="350" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-                    <TextBlock Text="{Binding ReferenceManagerTitle}" FontSize="18" FontWeight="Bold" />
+        <controls:DialogHost Panel.ZIndex="30" IsOpen="{Binding IsReferenceManagerOpen}" Title="{Binding ReferenceManagerTitle}" PreferredWidth="520" FlowDirection="RightToLeft" CloseRequested="CloseReferenceManagerClick"><controls:DialogHost.Footer><Button Content="إغلاق" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Click="CloseReferenceManagerClick" /></controls:DialogHost.Footer><Grid>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+
                     <TextBlock Grid.Row="1" Text="يمكنك تعديل العناصر أو أرشفتها بدون حذف دائم." Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,5,0,15" />
                     <Border Grid.Row="2" BorderBrush="#E6DED6" BorderThickness="1" CornerRadius="8">
-                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <Border>
                             <ItemsControl ItemsSource="{Binding ManagedReferences}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
@@ -222,24 +213,16 @@
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
-                        </ScrollViewer>
+                        </Border>
                     </Border>
-                    <Button Grid.Row="3" Content="إغلاق" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,18,0,0" Click="CloseReferenceManagerClick" />
-                </Grid>
-            </Border>
-        </Border>
 
-        <Border Panel.ZIndex="31" Background="#6A2B1A0D">
-            <Border.Style>
-                <Style TargetType="Border">
-                    <Setter Property="Visibility" Value="Collapsed" />
-                    <Style.Triggers><DataTrigger Binding="{Binding IsReferenceEditorOpen}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers>
-                </Style>
-            </Border.Style>
-            <Border Width="430" HorizontalAlignment="Center" VerticalAlignment="Center" Background="White" BorderBrush="#DCCFC2" BorderThickness="1" CornerRadius="12" Padding="24">
-                <Border.Effect><DropShadowEffect BlurRadius="34" ShadowDepth="10" Opacity="0.24" Color="#36200F" /></Border.Effect>
-                <StackPanel>
-                    <TextBlock Text="{Binding ReferenceEditorTitle}" FontSize="18" FontWeight="Bold" />
+                </Grid></controls:DialogHost>
+
+        <controls:DialogHost Panel.ZIndex="31" IsOpen="{Binding IsReferenceEditorOpen}" Title="{Binding ReferenceEditorTitle}" PreferredWidth="430" FlowDirection="RightToLeft" CloseRequested="CancelReferenceClick" InitialFocusTarget="{Binding ElementName=ReferenceNameBox}"><controls:DialogHost.Footer><StackPanel Orientation="Horizontal" HorizontalAlignment="Left" FlowDirection="LeftToRight">
+                        <Button Style="{StaticResource PrimaryButton}" Height="43" Click="SaveReferenceClick"><TextBlock Text="حفظ" Foreground="White" /></Button>
+                        <Button Style="{StaticResource SecondaryButton}" Content="إلغاء" Margin="9,0,0,0" Click="CancelReferenceClick" />
+                    </StackPanel></controls:DialogHost.Footer><StackPanel>
+
                     <TextBlock Text="يُضاف العنصر إلى هذه المعاينة فقط." Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,5,0,20" />
                     <controls:FormField Label="الاسم"><TextBox x:Name="ReferenceNameBox" Text="{Binding ReferenceName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" /></controls:FormField>
                     <StackPanel Margin="0,16,0,0">
@@ -251,13 +234,8 @@
                     <TextBlock Text="{Binding ReferenceError}" Foreground="{StaticResource DangerBrush}" FontSize="10" Margin="0,9,0,0">
                         <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding HasReferenceError}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
                     </TextBlock>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" FlowDirection="LeftToRight" Margin="0,22,0,0">
-                        <Button Style="{StaticResource PrimaryButton}" Height="43" Click="SaveReferenceClick"><TextBlock Text="حفظ" Foreground="White" /></Button>
-                        <Button Style="{StaticResource SecondaryButton}" Content="إلغاء" Margin="9,0,0,0" Click="CancelReferenceClick" />
-                    </StackPanel>
-                </StackPanel>
-            </Border>
-        </Border>
+
+                </StackPanel></controls:DialogHost>
 
         <controls:FeedbackNotice x:Name="Feedback" Message="{Binding FeedbackMessage}" Tone="Success" DisplayDuration="00:00:02.5" Dismissed="FeedbackDismissed" Margin="28" Panel.ZIndex="20" HorizontalAlignment="Left" VerticalAlignment="Bottom"/>
     </Grid>
