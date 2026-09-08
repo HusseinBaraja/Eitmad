@@ -1,89 +1,590 @@
-<UserControl x:Class="Eitmad.WindowsShell.Features.Products.ProductsView"
-             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:layout="clr-namespace:Eitmad.WindowsShell.Layout"
-             xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls"
-             xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
-             FlowDirection="RightToLeft"
-             Background="{StaticResource CanvasBrush}">
+<UserControl x:Class="Eitmad.WindowsShell.Features.Products.ProductsView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:layout="clr-namespace:Eitmad.WindowsShell.Layout" xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls" xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore" FlowDirection="RightToLeft" Background="{StaticResource CanvasBrush}">
     <UserControl.Resources>
-
         <Style x:Key="ProductVariantInput" TargetType="TextBox" BasedOn="{StaticResource TextInput}">
             <Setter Property="Height" Value="46" />
             <Setter Property="MinHeight" Value="46" />
             <Setter Property="Padding" Value="12,4" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
-
-        <DataTemplate x:Key="CategoryActionsTemplate"><StackPanel Margin="5,3,5,2"><Border Height="1" Background="#ECE4DC" Margin="3,2,3,5" /><Button Content="+ إضافة فئة" Tag="category" Style="{StaticResource DropdownActionButton}" Click="AddCategoryFromDropdownClick" automation:AutomationProperties.Name="إضافة فئة جديدة" /><Button Content="إدارة الفئات" Tag="category" Style="{StaticResource DropdownActionButton}" Click="ManageCategoriesFromDropdownClick" automation:AutomationProperties.Name="إدارة فئات المنتجات" /></StackPanel></DataTemplate>
-
+        <DataTemplate x:Key="CategoryActionsTemplate">
+            <StackPanel Margin="5,3,5,2">
+                <Border Height="1" Background="#ECE4DC" Margin="3,2,3,5" />
+                <Button Content="+ إضافة فئة" Tag="category" Style="{StaticResource DropdownActionButton}" Click="AddCategoryFromDropdownClick" automation:AutomationProperties.Name="إضافة فئة جديدة" />
+                <Button Content="إدارة الفئات" Tag="category" Style="{StaticResource DropdownActionButton}" Click="ManageCategoriesFromDropdownClick" automation:AutomationProperties.Name="إدارة فئات المنتجات" />
+            </StackPanel>
+        </DataTemplate>
     </UserControl.Resources>
-
     <Grid>
         <Grid x:Name="ListSurface" Visibility="{Binding IsListVisible, Converter={StaticResource BooleanToVisibility}}">
-            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-            <controls:PageHeader Grid.Row="0" Title="المنتجات" Subtitle="منتجات جاهزة للبيع كما هي، بدون تصنيع"><StackPanel Orientation="Horizontal"><Button Style="{StaticResource PrimaryButton}" Height="46" Click="AddProductClick" automation:AutomationProperties.Name="إضافة منتج" Content="إضافة منتج" controls:ControlOptions.Icon="{StaticResource IconPlus}" /></StackPanel></controls:PageHeader>
-            <Grid Grid.Row="1" Margin="28,20,28,24"><Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-                <layout:AdaptiveFieldsPanel MinItemWidth="220" >
-                    <TextBox x:Name="ProductSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" automation:AutomationProperties.Name="البحث في المنتجات" Style="{StaticResource SearchInput}" />
-                    <ComboBox ItemsSource="{Binding CategoryOptions}" SelectedItem="{Binding SelectedCategory}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصفية فئة المنتجات" />
-                    <ComboBox ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding SelectedStatus}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصفية حالة المنتجات" />
-                </layout:AdaptiveFieldsPanel>
-                <Grid Grid.Row="1" Margin="0,15,0,9" FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><TextBlock Text="معاينة محلية — لا يتم حفظ البيانات" Foreground="#9A5C22" FontSize="10" /><TextBlock Grid.Column="1" Text="{Binding VisibleCountLabel}" Foreground="{StaticResource MutedBrush}" FontSize="10" /></Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <controls:PageHeader Grid.Row="0" Title="المنتجات" Subtitle="منتجات جاهزة للبيع كما هي، بدون تصنيع">
+                <StackPanel Orientation="Horizontal">
+                    <Button Style="{StaticResource PrimaryButton}" Height="46" Click="AddProductClick" automation:AutomationProperties.Name="إضافة منتج" Content="إضافة منتج" controls:ControlOptions.Icon="{StaticResource IconPlus}" />
+                </StackPanel>
+            </controls:PageHeader>
+            <Grid Grid.Row="1" Margin="28,20,28,24">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Grid FlowDirection="LeftToRight">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="190" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="170" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="ProductSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" automation:AutomationProperties.Name="البحث في المنتجات" controls:ControlOptions.Placeholder="" Style="{StaticResource SearchInput}" />
+                    <ComboBox Grid.Column="2" ItemsSource="{Binding CategoryOptions}" SelectedItem="{Binding SelectedCategory}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصفية فئة المنتجات" />
+                    <ComboBox Grid.Column="4" ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding SelectedStatus}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصفية حالة المنتجات" />
+                </Grid>
+                <Grid Grid.Row="1" Margin="0,15,0,9" FlowDirection="LeftToRight">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="معاينة محلية — لا يتم حفظ البيانات" Foreground="#9A5C22" FontSize="10" />
+                    <TextBlock Grid.Column="1" Text="{Binding VisibleCountLabel}" Foreground="{StaticResource MutedBrush}" FontSize="10" />
+                </Grid>
                 <Border Grid.Row="2" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="12" ClipToBounds="True">
                     <Grid>
-                        <Grid><Grid.RowDefinitions><RowDefinition Height="0" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-
-                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"><Grid><controls:OperationsTable ItemsSource="{Binding VisibleProducts}" SelectedValuePath="Id" MaxHeight="460" automation:AutomationProperties.Name="الصورة"><controls:OperationsTable.EmptyContent><controls:EmptyState Heading="لا توجد منتجات مطابقة" Description="جرّب تغيير البحث أو عوامل التصفية."/></controls:OperationsTable.EmptyContent><DataGrid.Columns><DataGridTemplateColumn Header="الصورة" Width="78" MinWidth="70" CanUserSort="False"><DataGridTemplateColumn.CellTemplate><DataTemplate><Border x:Name="RowSurface" MinHeight="76" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="0"><Border x:Name="ContrastCell1" Width="54" Height="54" CornerRadius="10" Background="#F2E7DC" HorizontalAlignment="Center" VerticalAlignment="Center"><Grid>
-                                        <Grid x:Name="MattressThumb" Visibility="Collapsed"><Border x:Name="ContrastCell2" Width="42" Height="25" CornerRadius="5" Background="#DCE6E4" BorderBrush="#7A958F" BorderThickness="1" /><Path Data="M8,26 L39,26 M11,16 L11,30 M36,16 L36,30" Stroke="#825A39" StrokeThickness="2" Stretch="Uniform" Width="40" Height="28" /></Grid>
-                                        <Grid x:Name="PillowThumb" Visibility="Collapsed"><Path Data="M7,17 C10,9 33,9 38,17 C42,24 37,35 29,34 C21,37 9,34 7,27 C5,23 5,20 7,17Z" Fill="#FAF8F3" Stroke="#B89572" StrokeThickness="1.4" Stretch="Uniform" Width="42" Height="36" /></Grid>
-                                        <Grid x:Name="VaseThumb" Visibility="Collapsed"><Path Data="M15,4 L29,4 C28,10 27,12 31,17 C37,25 33,41 22,44 C11,41 7,25 13,17 C17,12 16,10 15,4Z" Fill="#C98550" Stroke="#8B4D24" StrokeThickness="1.4" Stretch="Uniform" Width="34" Height="42" /></Grid>
-                                        <Grid x:Name="LampThumb" Visibility="Collapsed"><Path Data="M11,6 L32,6 L37,22 L6,22Z" Fill="#D5AA6D" Stroke="#79512A" StrokeThickness="1.4" /><Path Data="M21,22 L21,39 M13,40 L29,40" Stroke="#79512A" StrokeThickness="2" /></Grid>
-                                        <Border x:Name="ContrastCell3" CornerRadius="9"><Border.Background><ImageBrush ImageSource="{Binding Image}" Stretch="UniformToFill" /></Border.Background></Border>
-                                    </Grid></Border></Border><DataTemplate.Triggers><DataTrigger Binding="{Binding ThumbnailKind}" Value="Mattress"><Setter TargetName="MattressThumb" Property="Visibility" Value="Visible" /></DataTrigger><DataTrigger Binding="{Binding ThumbnailKind}" Value="Pillow"><Setter TargetName="PillowThumb" Property="Visibility" Value="Visible" /></DataTrigger><DataTrigger Binding="{Binding ThumbnailKind}" Value="Vase"><Setter TargetName="VaseThumb" Property="Visibility" Value="Visible" /></DataTrigger><DataTrigger Binding="{Binding ThumbnailKind}" Value="Lamp"><Setter TargetName="LampThumb" Property="Visibility" Value="Visible" /></DataTrigger><DataTrigger Binding="{Binding IsArchived}" Value="True"><Setter TargetName="RowSurface" Property="Opacity" Value="0.56" /></DataTrigger><DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True"><Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}"/><Setter TargetName="ContrastCell1" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}"/><Setter TargetName="ContrastCell2" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}"/></DataTrigger></DataTemplate.Triggers></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn><DataGridTemplateColumn Header="اسم المنتج" Width="1.65*" MinWidth="160" SortMemberPath="Name"><DataGridTemplateColumn.CellTemplate><DataTemplate><Border x:Name="RowSurface" MinHeight="76" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="0"><StackPanel Margin="14,8" VerticalAlignment="Center"><TextBlock x:Name="ContrastCell0" Text="{Binding Name}" FontSize="13" FontWeight="SemiBold" TextWrapping="NoWrap" /><TextBlock x:Name="ContrastCell1" Text="منتج جاهز" Foreground="{StaticResource MutedBrush}" FontSize="9" Margin="0,3,0,0" /></StackPanel></Border><DataTemplate.Triggers><DataTrigger Binding="{Binding IsArchived}" Value="True"><Setter TargetName="RowSurface" Property="Opacity" Value="0.56" /></DataTrigger><DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True"><Setter TargetName="ContrastCell0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}"/><Setter TargetName="ContrastCell1" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}"/><Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}"/></DataTrigger></DataTemplate.Triggers></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn><DataGridTemplateColumn Header="الفئة" Width="1.05*" MinWidth="120" SortMemberPath="Category"><DataGridTemplateColumn.CellTemplate><DataTemplate><Border x:Name="RowSurface" MinHeight="76" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="0"><TextBlock x:Name="ContrastCell0" Text="{Binding Category}" Style="{StaticResource TableBody}" /></Border><DataTemplate.Triggers><DataTrigger Binding="{Binding IsArchived}" Value="True"><Setter TargetName="RowSurface" Property="Opacity" Value="0.56" /></DataTrigger><DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True"><Setter TargetName="ContrastCell0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}"/><Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}"/></DataTrigger></DataTemplate.Triggers></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn><DataGridTemplateColumn Header="الخيار / المقاس" Width="1.05*" MinWidth="120" SortMemberPath="VariantSummary"><DataGridTemplateColumn.CellTemplate><DataTemplate><Border x:Name="RowSurface" MinHeight="76" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="0"><TextBlock x:Name="ContrastCell0" Text="{Binding VariantSummary}" Style="{StaticResource TableBody}" /></Border><DataTemplate.Triggers><DataTrigger Binding="{Binding IsArchived}" Value="True"><Setter TargetName="RowSurface" Property="Opacity" Value="0.56" /></DataTrigger><DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True"><Setter TargetName="ContrastCell0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}"/><Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}"/></DataTrigger></DataTemplate.Triggers></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn><DataGridTemplateColumn Header="تكلفة الشراء" Width="1.1*" MinWidth="120" SortMemberPath="PurchaseCost"><DataGridTemplateColumn.CellTemplate><DataTemplate><Border x:Name="RowSurface" MinHeight="76" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="0"><controls:AmountDisplay HorizontalAlignment="Center" VerticalAlignment="Center"  AmountText="{Binding PurchaseCostLabel}" UnitText="YER" UnitPlacement="After"></controls:AmountDisplay></Border><DataTemplate.Triggers><DataTrigger Binding="{Binding IsArchived}" Value="True"><Setter TargetName="RowSurface" Property="Opacity" Value="0.56" /></DataTrigger><DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True"><Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}"/></DataTrigger></DataTemplate.Triggers></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn><DataGridTemplateColumn Header="سعر البيع" Width="1.1*" MinWidth="120" SortMemberPath="SellingPrice"><DataGridTemplateColumn.CellTemplate><DataTemplate><Border x:Name="RowSurface" MinHeight="76" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="0"><controls:AmountDisplay HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#7B410F" AmountText="{Binding SellingPriceLabel}" UnitText="YER" UnitPlacement="After"></controls:AmountDisplay></Border><DataTemplate.Triggers><DataTrigger Binding="{Binding IsArchived}" Value="True"><Setter TargetName="RowSurface" Property="Opacity" Value="0.56" /></DataTrigger><DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True"><Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}"/></DataTrigger></DataTemplate.Triggers></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn><DataGridTemplateColumn Header="الحالة" Width="86" MinWidth="100" SortMemberPath="StatusLabel"><DataGridTemplateColumn.CellTemplate><DataTemplate><Border x:Name="RowSurface" MinHeight="76" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="0"><controls:StatusBadge x:Name="StatusPill" Padding="10,4" HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding StatusLabel}" Tone="Success"></controls:StatusBadge></Border><DataTemplate.Triggers><DataTrigger Binding="{Binding IsArchived}" Value="True"><Setter TargetName="RowSurface" Property="Opacity" Value="0.56" /><Setter TargetName="StatusPill" Property="Background" Value="#EEEAE6" /><Setter TargetName="StatusPill" Property="Foreground" Value="#625A54" /></DataTrigger><DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True"><Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}"/></DataTrigger></DataTemplate.Triggers></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn><DataGridTemplateColumn Header="الإجراءات" Width="64" MinWidth="70" CanUserSort="False"><DataGridTemplateColumn.CellTemplate><DataTemplate><Border x:Name="RowSurface" MinHeight="76" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="0"><Button Style="{StaticResource RowActionButton}" Content="⋮" Click="OpenRowMenuClick" automation:AutomationProperties.Name="إجراءات المنتج"><Button.ContextMenu><ContextMenu Style="{StaticResource ActionMenu}" DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}" FlowDirection="LeftToRight" Placement="Right" HorizontalOffset="6" Background="White" BorderBrush="#DCCFC2" BorderThickness="1" Padding="5"><MenuItem Header="تعديل" Style="{StaticResource ActionMenuItem}" Click="EditProductClick" /><MenuItem Header="تكرار" Style="{StaticResource ActionMenuItem}" Click="DuplicateProductClick" /><Separator Style="{StaticResource ActionMenuSeparator}" /><MenuItem Header="أرشفة" Style="{StaticResource ActionMenuItem}" IsEnabled="{Binding CanArchive}" Click="ArchiveProductClick" /></ContextMenu></Button.ContextMenu></Button></Border><DataTemplate.Triggers><DataTrigger Binding="{Binding IsArchived}" Value="True"><Setter TargetName="RowSurface" Property="Opacity" Value="0.56" /></DataTrigger><DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True"><Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}"/></DataTrigger></DataTemplate.Triggers></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn></DataGrid.Columns></controls:OperationsTable>
-                            </Grid></ScrollViewer>
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="0" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                <Grid>
+                                    <controls:OperationsTable ItemsSource="{Binding VisibleProducts}" SelectedValuePath="Id" MaxHeight="460" automation:AutomationProperties.Name="الصورة">
+                                        <controls:OperationsTable.EmptyContent>
+                                            <controls:EmptyState Heading="لا توجد منتجات مطابقة" Description="جرّب تغيير البحث أو عوامل التصفية." />
+                                        </controls:OperationsTable.EmptyContent>
+                                        <DataGrid.Columns>
+                                            <DataGridTemplateColumn Header="الصورة" Width="78" MinWidth="70" CanUserSort="False">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <Border x:Name="RowSurface" MinHeight="76" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="0">
+                                                            <Border x:Name="ContrastCell1" Width="54" Height="54" CornerRadius="10" Background="#F2E7DC" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                                <Grid>
+                                                                    <Grid x:Name="MattressThumb" Visibility="Collapsed">
+                                                                        <Border x:Name="ContrastCell2" Width="42" Height="25" CornerRadius="5" Background="#DCE6E4" BorderBrush="#7A958F" BorderThickness="1" />
+                                                                        <Path Data="M8,26 L39,26 M11,16 L11,30 M36,16 L36,30" Stroke="#825A39" StrokeThickness="2" Stretch="Uniform" Width="40" Height="28" />
+                                                                    </Grid>
+                                                                    <Grid x:Name="PillowThumb" Visibility="Collapsed">
+                                                                        <Path Data="M7,17 C10,9 33,9 38,17 C42,24 37,35 29,34 C21,37 9,34 7,27 C5,23 5,20 7,17Z" Fill="#FAF8F3" Stroke="#B89572" StrokeThickness="1.4" Stretch="Uniform" Width="42" Height="36" />
+                                                                    </Grid>
+                                                                    <Grid x:Name="VaseThumb" Visibility="Collapsed">
+                                                                        <Path Data="M15,4 L29,4 C28,10 27,12 31,17 C37,25 33,41 22,44 C11,41 7,25 13,17 C17,12 16,10 15,4Z" Fill="#C98550" Stroke="#8B4D24" StrokeThickness="1.4" Stretch="Uniform" Width="34" Height="42" />
+                                                                    </Grid>
+                                                                    <Grid x:Name="LampThumb" Visibility="Collapsed">
+                                                                        <Path Data="M11,6 L32,6 L37,22 L6,22Z" Fill="#D5AA6D" Stroke="#79512A" StrokeThickness="1.4" />
+                                                                        <Path Data="M21,22 L21,39 M13,40 L29,40" Stroke="#79512A" StrokeThickness="2" />
+                                                                    </Grid>
+                                                                    <Border x:Name="ContrastCell3" CornerRadius="9">
+                                                                        <Border.Background>
+                                                                            <ImageBrush ImageSource="{Binding Image}" Stretch="UniformToFill" />
+                                                                        </Border.Background>
+                                                                    </Border>
+                                                                </Grid>
+                                                            </Border>
+                                                        </Border>
+                                                        <DataTemplate.Triggers>
+                                                            <DataTrigger Binding="{Binding ThumbnailKind}" Value="Mattress">
+                                                                <Setter TargetName="MattressThumb" Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding ThumbnailKind}" Value="Pillow">
+                                                                <Setter TargetName="PillowThumb" Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding ThumbnailKind}" Value="Vase">
+                                                                <Setter TargetName="VaseThumb" Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding ThumbnailKind}" Value="Lamp">
+                                                                <Setter TargetName="LampThumb" Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding IsArchived}" Value="True">
+                                                                <Setter TargetName="RowSurface" Property="Opacity" Value="0.56" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
+                                                                <Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                                                                <Setter TargetName="ContrastCell1" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                                                                <Setter TargetName="ContrastCell2" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                                                            </DataTrigger>
+                                                        </DataTemplate.Triggers>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                            <DataGridTemplateColumn Header="اسم المنتج" Width="1.65*" MinWidth="160" SortMemberPath="Name">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <Border x:Name="RowSurface" MinHeight="76" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="0">
+                                                            <StackPanel Margin="14,8" VerticalAlignment="Center">
+                                                                <TextBlock x:Name="ContrastCell0" Text="{Binding Name}" FontSize="13" FontWeight="SemiBold" TextWrapping="NoWrap" />
+                                                                <TextBlock x:Name="ContrastCell1" Text="منتج جاهز" Foreground="{StaticResource MutedBrush}" FontSize="9" Margin="0,3,0,0" />
+                                                            </StackPanel>
+                                                        </Border>
+                                                        <DataTemplate.Triggers>
+                                                            <DataTrigger Binding="{Binding IsArchived}" Value="True">
+                                                                <Setter TargetName="RowSurface" Property="Opacity" Value="0.56" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
+                                                                <Setter TargetName="ContrastCell0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                                                                <Setter TargetName="ContrastCell1" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                                                                <Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                                                            </DataTrigger>
+                                                        </DataTemplate.Triggers>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                            <DataGridTemplateColumn Header="الفئة" Width="1.05*" MinWidth="120" SortMemberPath="Category">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <Border x:Name="RowSurface" MinHeight="76" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="0">
+                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding Category}" Style="{StaticResource TableBody}" />
+                                                        </Border>
+                                                        <DataTemplate.Triggers>
+                                                            <DataTrigger Binding="{Binding IsArchived}" Value="True">
+                                                                <Setter TargetName="RowSurface" Property="Opacity" Value="0.56" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
+                                                                <Setter TargetName="ContrastCell0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                                                                <Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                                                            </DataTrigger>
+                                                        </DataTemplate.Triggers>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                            <DataGridTemplateColumn Header="الخيار / المقاس" Width="1.05*" MinWidth="120" SortMemberPath="VariantSummary">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <Border x:Name="RowSurface" MinHeight="76" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="0">
+                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding VariantSummary}" Style="{StaticResource TableBody}" />
+                                                        </Border>
+                                                        <DataTemplate.Triggers>
+                                                            <DataTrigger Binding="{Binding IsArchived}" Value="True">
+                                                                <Setter TargetName="RowSurface" Property="Opacity" Value="0.56" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
+                                                                <Setter TargetName="ContrastCell0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                                                                <Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                                                            </DataTrigger>
+                                                        </DataTemplate.Triggers>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                            <DataGridTemplateColumn Header="تكلفة الشراء" Width="1.1*" MinWidth="120" SortMemberPath="PurchaseCost">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <Border x:Name="RowSurface" MinHeight="76" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="0">
+                                                            <controls:AmountDisplay HorizontalAlignment="Center" VerticalAlignment="Center" AmountText="{Binding PurchaseCostLabel}" UnitText="YER" UnitPlacement="After"></controls:AmountDisplay>
+                                                        </Border>
+                                                        <DataTemplate.Triggers>
+                                                            <DataTrigger Binding="{Binding IsArchived}" Value="True">
+                                                                <Setter TargetName="RowSurface" Property="Opacity" Value="0.56" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
+                                                                <Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                                                            </DataTrigger>
+                                                        </DataTemplate.Triggers>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                            <DataGridTemplateColumn Header="سعر البيع" Width="1.1*" MinWidth="120" SortMemberPath="SellingPrice">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <Border x:Name="RowSurface" MinHeight="76" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="0">
+                                                            <controls:AmountDisplay HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#7B410F" AmountText="{Binding SellingPriceLabel}" UnitText="YER" UnitPlacement="After"></controls:AmountDisplay>
+                                                        </Border>
+                                                        <DataTemplate.Triggers>
+                                                            <DataTrigger Binding="{Binding IsArchived}" Value="True">
+                                                                <Setter TargetName="RowSurface" Property="Opacity" Value="0.56" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
+                                                                <Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                                                            </DataTrigger>
+                                                        </DataTemplate.Triggers>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                            <DataGridTemplateColumn Header="الحالة" Width="86" MinWidth="100" SortMemberPath="StatusLabel">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <Border x:Name="RowSurface" MinHeight="76" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="0">
+                                                            <controls:StatusBadge x:Name="StatusPill" Padding="10,4" HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding StatusLabel}" Tone="Success"></controls:StatusBadge>
+                                                        </Border>
+                                                        <DataTemplate.Triggers>
+                                                            <DataTrigger Binding="{Binding IsArchived}" Value="True">
+                                                                <Setter TargetName="RowSurface" Property="Opacity" Value="0.56" />
+                                                                <Setter TargetName="StatusPill" Property="Background" Value="#EEEAE6" />
+                                                                <Setter TargetName="StatusPill" Property="Foreground" Value="#625A54" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
+                                                                <Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                                                            </DataTrigger>
+                                                        </DataTemplate.Triggers>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                            <DataGridTemplateColumn Header="الإجراءات" Width="64" MinWidth="70" CanUserSort="False">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <Border x:Name="RowSurface" MinHeight="76" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="0">
+                                                            <Button Style="{StaticResource RowActionButton}" Content="⋮" Click="OpenRowMenuClick" automation:AutomationProperties.Name="إجراءات المنتج">
+                                                                <Button.ContextMenu>
+                                                                    <ContextMenu Style="{StaticResource ActionMenu}" DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}" FlowDirection="LeftToRight" Placement="Right" HorizontalOffset="6" Background="White" BorderBrush="#DCCFC2" BorderThickness="1" Padding="5">
+                                                                        <MenuItem Header="تعديل" Style="{StaticResource ActionMenuItem}" Click="EditProductClick" />
+                                                                        <MenuItem Header="تكرار" Style="{StaticResource ActionMenuItem}" Click="DuplicateProductClick" />
+                                                                        <Separator Style="{StaticResource ActionMenuSeparator}" />
+                                                                        <MenuItem Header="أرشفة" Style="{StaticResource ActionMenuItem}" IsEnabled="{Binding CanArchive}" Click="ArchiveProductClick" />
+                                                                    </ContextMenu>
+                                                                </Button.ContextMenu>
+                                                            </Button>
+                                                        </Border>
+                                                        <DataTemplate.Triggers>
+                                                            <DataTrigger Binding="{Binding IsArchived}" Value="True">
+                                                                <Setter TargetName="RowSurface" Property="Opacity" Value="0.56" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
+                                                                <Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                                                            </DataTrigger>
+                                                        </DataTemplate.Triggers>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                        </DataGrid.Columns>
+                                    </controls:OperationsTable>
+                                </Grid>
+                            </ScrollViewer>
                         </Grid>
                     </Grid>
                 </Border>
             </Grid>
         </Grid>
-
         <Grid x:Name="EditorSurface">
-            <Grid.Style><Style TargetType="Grid"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding IsEditorOpen}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></Grid.Style>
-            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+            <Grid.Style>
+                <Style TargetType="Grid">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsEditorOpen}" Value="True">
+                            <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Grid.Style>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
             <controls:PageHeader Grid.Row="0" Title="{Binding EditorTitle}" Subtitle="المعلومات والسعر والخيارات في صفحة واحدة"></controls:PageHeader>
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel Margin="28,22,28,26" MaxWidth="970" HorizontalAlignment="Stretch">
-                <Border Style="{StaticResource Card}" Padding="24"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition Width="250" /><ColumnDefinition Width="24" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0" FlowDirection="RightToLeft"><TextBlock Text="صورة المنتج" Style="{StaticResource FieldLabel}" /><Border Height="236" Background="#F7F1EA" BorderBrush="#D8C6B4" BorderThickness="1" CornerRadius="12"><Grid>
-                        <StackPanel x:Name="ImagePlaceholder" VerticalAlignment="Center" HorizontalAlignment="Center"><StackPanel.Style><Style TargetType="StackPanel"><Style.Triggers><DataTrigger Binding="{Binding HasProductImage}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></StackPanel.Style><Border Width="72" Height="72" CornerRadius="36" Background="#EAD8C8"><Path Data="{StaticResource IconProducts}" Width="31" Height="31" Fill="#8B572A" Stretch="Uniform" /></Border><TextBlock Text="صورة واضحة للعرض لاحقاً" Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,10,0,0" /></StackPanel>
-                        <Image x:Name="ProductImagePreview" Source="{Binding ProductImage}" Stretch="UniformToFill"><Image.Style><Style TargetType="Image"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding HasProductImage}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></Image.Style></Image>
-                    </Grid></Border><TextBlock Text="{Binding ProductImageName}" Foreground="{StaticResource MutedBrush}" FontSize="9" TextTrimming="CharacterEllipsis" Margin="0,7,0,0" FlowDirection="LeftToRight" TextAlignment="Right" /><Button Content="اختيار صورة" Style="{StaticResource SecondaryButton}" Margin="0,12,0,0" Click="ChooseImageClick" automation:AutomationProperties.Name="اختيار صورة المنتج" /></StackPanel>
-                    <StackPanel Grid.Column="2" FlowDirection="RightToLeft"><TextBlock Text="المعلومات الأساسية" FontSize="19" FontWeight="SemiBold" /><TextBlock Text="عرّف المنتج الجاهز كما سيظهر في نقاط البيع." Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,4,0,20" /><controls:FormField Label="اسم المنتج"><TextBox x:Name="ProductNameBox" Text="{Binding EditorName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" automation:AutomationProperties.Name="اسم المنتج" /></controls:FormField><controls:FormField Label="الفئة" Margin="0,17,0,0"><ComboBox ItemsSource="{Binding ActiveCategories}" DisplayMemberPath="Name" SelectedValuePath="Name" SelectedValue="{Binding EditorCategory, Mode=TwoWay}" Style="{StaticResource SelectInput}" controls:ControlOptions.FooterTemplate="{StaticResource CategoryActionsTemplate}" automation:AutomationProperties.Name="فئة المنتج" /></controls:FormField><controls:FormField Label="وصف قصير" Margin="0,17,0,0"><TextBox Text="{Binding ShortDescription, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" Height="88" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top" automation:AutomationProperties.Name="الوصف القصير للمنتج" /></controls:FormField></StackPanel>
-                </Grid></Border>
-                <Border Style="{StaticResource Card}" Padding="24" Margin="0,18,0,0"><StackPanel><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions><StackPanel Grid.Column="0" Orientation="Horizontal" FlowDirection="RightToLeft" VerticalAlignment="Center"><RadioButton Content="نعم" GroupName="ProductVariants" IsChecked="{Binding HasVariants, Mode=TwoWay}" Style="{StaticResource ChoiceRadio}" automation:AutomationProperties.Name="للمنتج خيارات مختلفة نعم" /><RadioButton Content="لا" GroupName="ProductVariants" IsChecked="{Binding HasNoVariants, Mode=TwoWay}" Style="{StaticResource ChoiceRadio}" automation:AutomationProperties.Name="للمنتج خيارات مختلفة لا" /></StackPanel><StackPanel Grid.Column="1" FlowDirection="RightToLeft" HorizontalAlignment="Right"><TextBlock Text="هل لهذا المنتج مقاسات أو أنواع مختلفة؟" FontSize="17" FontWeight="SemiBold" /><TextBlock Text="الخيار هو نسخة جاهزة يبيعها المورد؛ لا توجد أبعاد مخصصة." Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,4,0,0" /></StackPanel></Grid>
-                    <Grid x:Name="SinglePricing" Margin="0,24,0,0"><Grid.Style><Style TargetType="Grid"><Style.Triggers><DataTrigger Binding="{Binding HasVariants}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></Grid.Style><Grid.ColumnDefinitions><ColumnDefinition Width="1*" /><ColumnDefinition Width="18" /><ColumnDefinition Width="1.2*" /><ColumnDefinition Width="18" /><ColumnDefinition Width="0.85*" /></Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0"><controls:FormField Label="تكلفة الشراء" HelpText="سعر المورد"><Border Background="#F8F5F1" CornerRadius="9" Padding="1"><Grid><TextBox Text="{Binding PurchaseCost, UpdateSourceTrigger=LostFocus, ValidatesOnExceptions=True}" Style="{StaticResource TextInput}" FlowDirection="LeftToRight" TextAlignment="Right" automation:AutomationProperties.Name="تكلفة شراء المنتج" /><TextBlock Text="YER" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="13,0" Foreground="{StaticResource MutedBrush}" IsHitTestVisible="False" /></Grid></Border></controls:FormField></StackPanel>
-                        <StackPanel Grid.Column="2"><controls:FormField Label="سعر البيع"><Border Background="#FFF8F0" CornerRadius="9" Padding="2"><Grid><TextBox Text="{Binding SellingPrice, UpdateSourceTrigger=LostFocus, ValidatesOnExceptions=True}" Style="{StaticResource TextInput}" BorderBrush="#B96B25" FontSize="17" FontWeight="SemiBold" FlowDirection="LeftToRight" TextAlignment="Right" automation:AutomationProperties.Name="سعر بيع المنتج" /><TextBlock Text="YER" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="13,0" Foreground="#7B410F" IsHitTestVisible="False" /></Grid></Border></controls:FormField><TextBlock Text="القيمة التي تظهر للمبيعات" Foreground="#9A5C22" FontSize="9" Margin="0,5,0,0" /></StackPanel>
-                        <Border Grid.Column="4" Background="#F4EEE7" CornerRadius="10" Padding="16" VerticalAlignment="Bottom" MinHeight="73"><StackPanel><TextBlock Text="الهامش" Foreground="{StaticResource MutedBrush}" FontSize="10" /><controls:AmountDisplay Margin="0,7,0,0" FontSize="18" FontWeight="SemiBold" AmountText="{Binding MarginLabel}" UnitText="YER" UnitPlacement="After"></controls:AmountDisplay></StackPanel></Border>
-                    </Grid>
-                    <StackPanel x:Name="VariantsPricing" Margin="0,24,0,0"><StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding HasVariants}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></StackPanel.Style>
-                        <Border Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="10" ClipToBounds="True"><Grid><Grid.RowDefinitions><RowDefinition Height="0" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-                            <controls:OperationsTable Grid.Row="1" ItemsSource="{Binding Variants}" MaxHeight="460" automation:AutomationProperties.Name="اسم الخيار"><DataGrid.Columns><DataGridTemplateColumn Header="اسم الخيار" Width="1.45*" MinWidth="160" SortMemberPath="Name"><DataGridTemplateColumn.CellTemplate><DataTemplate><Border x:Name="ContrastCell0" MinHeight="64" BorderBrush="{StaticResource LineBrush}" BorderThickness="0"><TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ProductVariantInput}" Margin="8" automation:AutomationProperties.Name="اسم خيار المنتج" /></Border><DataTemplate.Triggers><DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True"></DataTrigger></DataTemplate.Triggers></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn><DataGridTemplateColumn Header="تكلفة الشراء" Width="1.1*" MinWidth="120" SortMemberPath="PurchaseCost"><DataGridTemplateColumn.CellTemplate><DataTemplate><Border x:Name="ContrastCell0" MinHeight="64" BorderBrush="{StaticResource LineBrush}" BorderThickness="0"><TextBox Text="{Binding PurchaseCost, UpdateSourceTrigger=LostFocus, ValidatesOnExceptions=True}" Style="{StaticResource ProductVariantInput}" Margin="8" FlowDirection="LeftToRight" TextAlignment="Right" automation:AutomationProperties.Name="تكلفة شراء الخيار" /></Border><DataTemplate.Triggers><DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True"></DataTrigger></DataTemplate.Triggers></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn><DataGridTemplateColumn Header="سعر البيع" Width="1.1*" MinWidth="120" SortMemberPath="SellingPrice"><DataGridTemplateColumn.CellTemplate><DataTemplate><Border x:Name="ContrastCell0" MinHeight="64" BorderBrush="{StaticResource LineBrush}" BorderThickness="0"><TextBox Text="{Binding SellingPrice, UpdateSourceTrigger=LostFocus, ValidatesOnExceptions=True}" Style="{StaticResource ProductVariantInput}" BorderBrush="#C98442" Margin="8" FlowDirection="LeftToRight" TextAlignment="Right" automation:AutomationProperties.Name="سعر بيع الخيار" /></Border><DataTemplate.Triggers><DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True"></DataTrigger></DataTemplate.Triggers></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn><DataGridTemplateColumn Header="الهامش" Width="0.9*" MinWidth="120" SortMemberPath="Margin"><DataGridTemplateColumn.CellTemplate><DataTemplate><Border x:Name="ContrastCell0" MinHeight="64" BorderBrush="{StaticResource LineBrush}" BorderThickness="0"><controls:AmountDisplay HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold" AmountText="{Binding MarginLabel}" UnitText="YER" UnitPlacement="After"></controls:AmountDisplay></Border><DataTemplate.Triggers><DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True"></DataTrigger></DataTemplate.Triggers></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn><DataGridTemplateColumn Header="إزالة" Width="64" MinWidth="80" CanUserSort="False"><DataGridTemplateColumn.CellTemplate><DataTemplate><Border x:Name="ContrastCell0" MinHeight="64" BorderBrush="{StaticResource LineBrush}" BorderThickness="0"><Button Content="×" Style="{StaticResource RowActionButton}" Foreground="#A13B27" Click="RemoveVariantClick" automation:AutomationProperties.Name="إزالة خيار المنتج" /></Border><DataTemplate.Triggers><DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True"></DataTrigger></DataTemplate.Triggers></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn></DataGrid.Columns></controls:OperationsTable>
-                        </Grid></Border><Button Content="+ إضافة خيار" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,12,0,0" Click="AddVariantClick" automation:AutomationProperties.Name="إضافة خيار للمنتج" />
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="28,22,28,26" MaxWidth="970" HorizontalAlignment="Stretch">
+                    <Border Style="{StaticResource Card}" Padding="24">
+                        <Grid FlowDirection="LeftToRight">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="250" />
+                                <ColumnDefinition Width="24" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" FlowDirection="RightToLeft">
+                                <TextBlock Text="صورة المنتج" Style="{StaticResource FieldLabel}" />
+                                <Border Height="236" Background="#F7F1EA" BorderBrush="#D8C6B4" BorderThickness="1" CornerRadius="12">
+                                    <Grid>
+                                        <StackPanel x:Name="ImagePlaceholder" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                            <StackPanel.Style>
+                                                <Style TargetType="StackPanel">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding HasProductImage}" Value="True">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </StackPanel.Style>
+                                            <Border Width="72" Height="72" CornerRadius="36" Background="#EAD8C8">
+                                                <Path Data="{StaticResource IconProducts}" Width="31" Height="31" Fill="#8B572A" Stretch="Uniform" />
+                                            </Border>
+                                            <TextBlock Text="صورة واضحة للعرض لاحقاً" Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,10,0,0" />
+                                        </StackPanel>
+                                        <Image x:Name="ProductImagePreview" Source="{Binding ProductImage}" Stretch="UniformToFill">
+                                            <Image.Style>
+                                                <Style TargetType="Image">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding HasProductImage}" Value="True">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Image.Style>
+                                        </Image>
+                                    </Grid>
+                                </Border>
+                                <TextBlock Text="{Binding ProductImageName}" Foreground="{StaticResource MutedBrush}" FontSize="9" TextTrimming="CharacterEllipsis" Margin="0,7,0,0" FlowDirection="LeftToRight" TextAlignment="Right" />
+                                <Button Content="اختيار صورة" Style="{StaticResource SecondaryButton}" Margin="0,12,0,0" Click="ChooseImageClick" automation:AutomationProperties.Name="اختيار صورة المنتج" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" FlowDirection="RightToLeft">
+                                <TextBlock Text="المعلومات الأساسية" FontSize="19" FontWeight="SemiBold" />
+                                <TextBlock Text="عرّف المنتج الجاهز كما سيظهر في نقاط البيع." Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,4,0,20" />
+                                <controls:FormField Label="اسم المنتج">
+                                    <TextBox x:Name="ProductNameBox" Text="{Binding EditorName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" automation:AutomationProperties.Name="اسم المنتج" />
+                                </controls:FormField>
+                                <controls:FormField Label="الفئة" Margin="0,17,0,0">
+                                    <ComboBox ItemsSource="{Binding ActiveCategories}" DisplayMemberPath="Name" SelectedValuePath="Name" SelectedValue="{Binding EditorCategory, Mode=TwoWay}" Style="{StaticResource SelectInput}" controls:ControlOptions.FooterTemplate="{StaticResource CategoryActionsTemplate}" automation:AutomationProperties.Name="فئة المنتج" />
+                                </controls:FormField>
+                                <controls:FormField Label="وصف قصير" Margin="0,17,0,0">
+                                    <TextBox Text="{Binding ShortDescription, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" Height="88" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top" automation:AutomationProperties.Name="الوصف القصير للمنتج" />
+                                </controls:FormField>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    <Border Style="{StaticResource Card}" Padding="24" Margin="0,18,0,0">
+                        <StackPanel>
+                            <Grid FlowDirection="LeftToRight">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" FlowDirection="RightToLeft" VerticalAlignment="Center">
+                                    <RadioButton Content="نعم" GroupName="ProductVariants" IsChecked="{Binding HasVariants, Mode=TwoWay}" Style="{StaticResource ChoiceRadio}" automation:AutomationProperties.Name="للمنتج خيارات مختلفة نعم" />
+                                    <RadioButton Content="لا" GroupName="ProductVariants" IsChecked="{Binding HasNoVariants, Mode=TwoWay}" Style="{StaticResource ChoiceRadio}" automation:AutomationProperties.Name="للمنتج خيارات مختلفة لا" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" FlowDirection="RightToLeft" HorizontalAlignment="Right">
+                                    <TextBlock Text="هل لهذا المنتج مقاسات أو أنواع مختلفة؟" FontSize="17" FontWeight="SemiBold" />
+                                    <TextBlock Text="الخيار هو نسخة جاهزة يبيعها المورد؛ لا توجد أبعاد مخصصة." Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,4,0,0" />
+                                </StackPanel>
+                            </Grid>
+                            <Grid x:Name="SinglePricing" Margin="0,24,0,0">
+                                <Grid.Style>
+                                    <Style TargetType="Grid">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasVariants}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Grid.Style>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="1*" />
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="1.2*" />
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="0.85*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <controls:FormField Label="تكلفة الشراء" HelpText="سعر المورد">
+                                        <Border Background="#F8F5F1" CornerRadius="9" Padding="1">
+                                            <Grid>
+                                                <TextBox Text="{Binding PurchaseCost, UpdateSourceTrigger=LostFocus, ValidatesOnExceptions=True}" Style="{StaticResource TextInput}" FlowDirection="LeftToRight" TextAlignment="Right" automation:AutomationProperties.Name="تكلفة شراء المنتج" />
+                                                <TextBlock Text="YER" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="13,0" Foreground="{StaticResource MutedBrush}" IsHitTestVisible="False" />
+                                            </Grid>
+                                        </Border>
+                                    </controls:FormField>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <controls:FormField Label="سعر البيع">
+                                        <Border Background="#FFF8F0" CornerRadius="9" Padding="2">
+                                            <Grid>
+                                                <TextBox Text="{Binding SellingPrice, UpdateSourceTrigger=LostFocus, ValidatesOnExceptions=True}" Style="{StaticResource TextInput}" BorderBrush="#B96B25" FontSize="17" FontWeight="SemiBold" FlowDirection="LeftToRight" TextAlignment="Right" automation:AutomationProperties.Name="سعر بيع المنتج" />
+                                                <TextBlock Text="YER" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="13,0" Foreground="#7B410F" IsHitTestVisible="False" />
+                                            </Grid>
+                                        </Border>
+                                    </controls:FormField>
+                                    <TextBlock Text="القيمة التي تظهر للمبيعات" Foreground="#9A5C22" FontSize="9" Margin="0,5,0,0" />
+                                </StackPanel>
+                                <Border Grid.Column="4" Background="#F4EEE7" CornerRadius="10" Padding="16" VerticalAlignment="Bottom" MinHeight="73">
+                                    <StackPanel>
+                                        <TextBlock Text="الهامش" Foreground="{StaticResource MutedBrush}" FontSize="10" />
+                                        <controls:AmountDisplay Margin="0,7,0,0" FontSize="18" FontWeight="SemiBold" AmountText="{Binding MarginLabel}" UnitText="YER" UnitPlacement="After"></controls:AmountDisplay>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                            <StackPanel x:Name="VariantsPricing" Margin="0,24,0,0">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasVariants}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+                                <Border Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="10" ClipToBounds="True">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="0" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <controls:OperationsTable Grid.Row="1" ItemsSource="{Binding Variants}" MaxHeight="460" automation:AutomationProperties.Name="اسم الخيار">
+                                            <DataGrid.Columns>
+                                                <DataGridTemplateColumn Header="اسم الخيار" Width="1.45*" MinWidth="160" SortMemberPath="Name">
+                                                    <DataGridTemplateColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <Border x:Name="ContrastCell0" MinHeight="64" BorderBrush="{StaticResource LineBrush}" BorderThickness="0">
+                                                                <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ProductVariantInput}" Margin="8" automation:AutomationProperties.Name="اسم خيار المنتج" />
+                                                            </Border>
+                                                            <DataTemplate.Triggers>
+                                                                <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True"></DataTrigger>
+                                                            </DataTemplate.Triggers>
+                                                        </DataTemplate>
+                                                    </DataGridTemplateColumn.CellTemplate>
+                                                </DataGridTemplateColumn>
+                                                <DataGridTemplateColumn Header="تكلفة الشراء" Width="1.1*" MinWidth="120" SortMemberPath="PurchaseCost">
+                                                    <DataGridTemplateColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <Border x:Name="ContrastCell0" MinHeight="64" BorderBrush="{StaticResource LineBrush}" BorderThickness="0">
+                                                                <TextBox Text="{Binding PurchaseCost, UpdateSourceTrigger=LostFocus, ValidatesOnExceptions=True}" Style="{StaticResource ProductVariantInput}" Margin="8" FlowDirection="LeftToRight" TextAlignment="Right" automation:AutomationProperties.Name="تكلفة شراء الخيار" />
+                                                            </Border>
+                                                            <DataTemplate.Triggers>
+                                                                <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True"></DataTrigger>
+                                                            </DataTemplate.Triggers>
+                                                        </DataTemplate>
+                                                    </DataGridTemplateColumn.CellTemplate>
+                                                </DataGridTemplateColumn>
+                                                <DataGridTemplateColumn Header="سعر البيع" Width="1.1*" MinWidth="120" SortMemberPath="SellingPrice">
+                                                    <DataGridTemplateColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <Border x:Name="ContrastCell0" MinHeight="64" BorderBrush="{StaticResource LineBrush}" BorderThickness="0">
+                                                                <TextBox Text="{Binding SellingPrice, UpdateSourceTrigger=LostFocus, ValidatesOnExceptions=True}" Style="{StaticResource ProductVariantInput}" BorderBrush="#C98442" Margin="8" FlowDirection="LeftToRight" TextAlignment="Right" automation:AutomationProperties.Name="سعر بيع الخيار" />
+                                                            </Border>
+                                                            <DataTemplate.Triggers>
+                                                                <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True"></DataTrigger>
+                                                            </DataTemplate.Triggers>
+                                                        </DataTemplate>
+                                                    </DataGridTemplateColumn.CellTemplate>
+                                                </DataGridTemplateColumn>
+                                                <DataGridTemplateColumn Header="الهامش" Width="0.9*" MinWidth="120" SortMemberPath="Margin">
+                                                    <DataGridTemplateColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <Border x:Name="ContrastCell0" MinHeight="64" BorderBrush="{StaticResource LineBrush}" BorderThickness="0">
+                                                                <controls:AmountDisplay HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold" AmountText="{Binding MarginLabel}" UnitText="YER" UnitPlacement="After"></controls:AmountDisplay>
+                                                            </Border>
+                                                            <DataTemplate.Triggers>
+                                                                <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True"></DataTrigger>
+                                                            </DataTemplate.Triggers>
+                                                        </DataTemplate>
+                                                    </DataGridTemplateColumn.CellTemplate>
+                                                </DataGridTemplateColumn>
+                                                <DataGridTemplateColumn Header="إزالة" Width="64" MinWidth="80" CanUserSort="False">
+                                                    <DataGridTemplateColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <Border x:Name="ContrastCell0" MinHeight="64" BorderBrush="{StaticResource LineBrush}" BorderThickness="0">
+                                                                <Button Content="×" Style="{StaticResource RowActionButton}" Foreground="#A13B27" Click="RemoveVariantClick" automation:AutomationProperties.Name="إزالة خيار المنتج" />
+                                                            </Border>
+                                                            <DataTemplate.Triggers>
+                                                                <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True"></DataTrigger>
+                                                            </DataTemplate.Triggers>
+                                                        </DataTemplate>
+                                                    </DataGridTemplateColumn.CellTemplate>
+                                                </DataGridTemplateColumn>
+                                            </DataGrid.Columns>
+                                        </controls:OperationsTable>
+                                    </Grid>
+                                </Border>
+                                <Button Content="+ إضافة خيار" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,12,0,0" Click="AddVariantClick" automation:AutomationProperties.Name="إضافة خيار للمنتج" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource Card}" Padding="24" Margin="0,18,0,0">
+                        <StackPanel>
+                            <TextBlock Text="ملاحظات" FontSize="16" FontWeight="SemiBold" />
+                            <controls:FormField Label="معلومة داخلية اختيارية عن المورد أو العرض." Margin="0,4,0,0">
+                                <TextBox Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" Height="88" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top" automation:AutomationProperties.Name="ملاحظات المنتج" />
+                            </controls:FormField>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+            <Border Grid.Row="2" Background="#FEFDFC" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,1,0,0" Padding="28,13">
+                <Grid FlowDirection="LeftToRight">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Button Grid.Column="0" Content="أرشفة المنتج" Style="{StaticResource SecondaryButton}" Foreground="#942F1F" BorderBrush="#C99E94" Click="ArchiveFromEditorClick" IsEnabled="{Binding CanArchiveFromEditor}" Visibility="{Binding CanArchiveFromEditor, Converter={StaticResource BooleanToVisibility}}" automation:AutomationProperties.Name="أرشفة المنتج من صفحة التعديل" />
+                    <TextBlock Grid.Column="1" Text="{Binding EditorError}" Foreground="{StaticResource DangerBrush}" FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="18,0" Visibility="{Binding HasEditorError, Converter={StaticResource BooleanToVisibility}}" />
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" FlowDirection="LeftToRight">
+                        <Button Content="إلغاء" Style="{StaticResource SecondaryButton}" MinWidth="104" Click="CancelEditorClick" automation:AutomationProperties.Name="إلغاء تعديل المنتج" />
+                        <Button Content="حفظ المنتج" Style="{StaticResource PrimaryButton}" Height="43" MinWidth="132" Margin="10,0,0,0" Click="SaveProductClick" automation:AutomationProperties.Name="حفظ المنتج" />
                     </StackPanel>
-                </StackPanel></Border>
-                <Border Style="{StaticResource Card}" Padding="24" Margin="0,18,0,0"><StackPanel><TextBlock Text="ملاحظات" FontSize="16" FontWeight="SemiBold" /><controls:FormField Label="معلومة داخلية اختيارية عن المورد أو العرض." Margin="0,4,0,0"><TextBox Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" Height="88" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top" automation:AutomationProperties.Name="ملاحظات المنتج" /></controls:FormField></StackPanel></Border>
-            </StackPanel></ScrollViewer>
-            <Border Grid.Row="2" Background="#FEFDFC" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,1,0,0" Padding="28,13"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><Button Grid.Column="0" Content="أرشفة المنتج" Style="{StaticResource SecondaryButton}" Foreground="#942F1F" BorderBrush="#C99E94" Click="ArchiveFromEditorClick" IsEnabled="{Binding CanArchiveFromEditor}" Visibility="{Binding CanArchiveFromEditor, Converter={StaticResource BooleanToVisibility}}" automation:AutomationProperties.Name="أرشفة المنتج من صفحة التعديل" /><TextBlock Grid.Column="1" Text="{Binding EditorError}" Foreground="{StaticResource DangerBrush}" FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="18,0" Visibility="{Binding HasEditorError, Converter={StaticResource BooleanToVisibility}}" /><StackPanel Grid.Column="2" Orientation="Horizontal" FlowDirection="LeftToRight"><Button Content="إلغاء" Style="{StaticResource SecondaryButton}" MinWidth="104" Click="CancelEditorClick" automation:AutomationProperties.Name="إلغاء تعديل المنتج" /><Button Content="حفظ المنتج" Style="{StaticResource PrimaryButton}" Height="43" MinWidth="132" Margin="10,0,0,0" Click="SaveProductClick" automation:AutomationProperties.Name="حفظ المنتج" /></StackPanel></Grid></Border>
+                </Grid>
+            </Border>
         </Grid>
-
-        <controls:DialogHost Panel.ZIndex="40" IsOpen="{Binding IsArchiveConfirmationOpen}" Title="{Binding ArchiveConfirmationTitle}" PreferredWidth="430" FlowDirection="RightToLeft" CloseRequested="CancelArchiveClick"><controls:DialogHost.Footer><StackPanel Orientation="Horizontal" FlowDirection="LeftToRight" HorizontalAlignment="Left"><Button Content="إلغاء" Style="{StaticResource SecondaryButton}" MinWidth="96" Click="CancelArchiveClick" automation:AutomationProperties.Name="إلغاء أرشفة المنتج" /><Button Content="تأكيد الأرشفة" Style="{StaticResource SecondaryButton}" Background="#943E2D" Foreground="White" BorderBrush="#943E2D" MinWidth="130" Margin="10,0,0,0" Click="ConfirmArchiveClick" automation:AutomationProperties.Name="تأكيد أرشفة المنتج" /></StackPanel></controls:DialogHost.Footer><StackPanel><Border Width="54" Height="54" CornerRadius="27" Background="#F9E9E5" HorizontalAlignment="Right"><Path Data="M7,7 L25,7 M10,7 L11,27 L21,27 L22,7 M13,4 L19,4 L20,7 L12,7 M14,11 L14,23 M18,11 L18,23" Stroke="#9C3D2B" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Width="26" Height="28" Stretch="Uniform" /></Border><TextBlock Text="سيبقى المنتج في المعاينة ويمكن عرضه من فلتر «مؤرشف». لا يتم حذف أي بيانات." Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" LineHeight="20" Margin="0,8,0,20" /></StackPanel></controls:DialogHost>
-
-        <controls:DialogHost Panel.ZIndex="50" IsOpen="{Binding IsCategoryEditorOpen}" Title="{Binding CategoryEditorTitle}" PreferredWidth="430" FlowDirection="RightToLeft" CloseRequested="CancelCategoryClick" InitialFocusTarget="{Binding ElementName=CategoryNameBox}"><controls:DialogHost.Footer><StackPanel Orientation="Horizontal" FlowDirection="LeftToRight" HorizontalAlignment="Left"><Button Content="إلغاء" Style="{StaticResource SecondaryButton}" MinWidth="96" Click="CancelCategoryClick" /><Button Content="حفظ الفئة" Style="{StaticResource PrimaryButton}" Height="43" MinWidth="116" Margin="10,0,0,0" Click="SaveCategoryClick" /></StackPanel></controls:DialogHost.Footer><StackPanel><TextBlock Text="استخدم فئة واحدة واضحة للمنتجات الجاهزة." Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,5,0,18" /><controls:FormField Label="اسم الفئة" ErrorText="{Binding CategoryError}"><TextBox x:Name="CategoryNameBox" Text="{Binding CategoryName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" automation:AutomationProperties.Name="اسم فئة المنتج" /></controls:FormField></StackPanel></controls:DialogHost>
-
-        <controls:DialogHost Panel.ZIndex="50" IsOpen="{Binding IsCategoryManagerOpen}" Title="إدارة الفئات" PreferredWidth="560" FlowDirection="RightToLeft" CloseRequested="CloseCategoryManagerClick"><controls:DialogHost.Footer><StackPanel Orientation="Horizontal" FlowDirection="LeftToRight" HorizontalAlignment="Left"><Button Content="إغلاق" Style="{StaticResource SecondaryButton}" MinWidth="96" Click="CloseCategoryManagerClick" /><Button Content="+ إضافة فئة" Style="{StaticResource PrimaryButton}" Height="43" MinWidth="120" Margin="10,0,0,0" Click="AddCategoryFromDropdownClick" /></StackPanel></controls:DialogHost.Footer><Grid><Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions><StackPanel><TextBlock Text="نفس الفئات تظهر في القائمة ونموذج المنتج." Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,5,0,16" /></StackPanel><Border Grid.Row="1"><ItemsControl ItemsSource="{Binding Categories}"><ItemsControl.ItemTemplate><DataTemplate><Border Background="#FBF8F5" BorderBrush="#E4D9CF" BorderThickness="1" CornerRadius="9" Padding="12" Margin="0,0,0,8"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions><StackPanel Grid.Column="0" Orientation="Horizontal" FlowDirection="LeftToRight"><Button Content="تعديل" Style="{StaticResource CompactButton}" Margin="0,0,8,0" Click="EditCategoryClick" /><Button Content="أرشفة" Style="{StaticResource CompactButton}" Foreground="#942F1F" IsEnabled="{Binding CanArchive}" Click="ArchiveCategoryClick" /></StackPanel><StackPanel Grid.Column="1" HorizontalAlignment="Right" FlowDirection="RightToLeft"><TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold" /><TextBlock Text="{Binding StatusLabel}" Foreground="#8B2E1B" FontSize="9" /></StackPanel></Grid></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></Border></Grid></controls:DialogHost>
-
-        <controls:FeedbackNotice x:Name="Feedback" Message="{Binding FeedbackMessage}" Tone="Success" DisplayDuration="00:00:02.5" Dismissed="FeedbackDismissed" Margin="28" Visibility="{Binding HasFeedback, Converter={StaticResource BooleanToVisibility}}" Panel.ZIndex="60" HorizontalAlignment="Left" VerticalAlignment="Bottom"/>
-
+        <controls:DialogHost Panel.ZIndex="40" IsOpen="{Binding IsArchiveConfirmationOpen}" Title="{Binding ArchiveConfirmationTitle}" PreferredWidth="430" FlowDirection="RightToLeft" CloseRequested="CancelArchiveClick">
+            <controls:DialogHost.Footer>
+                <StackPanel Orientation="Horizontal" FlowDirection="LeftToRight" HorizontalAlignment="Left">
+                    <Button Content="إلغاء" Style="{StaticResource SecondaryButton}" MinWidth="96" Click="CancelArchiveClick" automation:AutomationProperties.Name="إلغاء أرشفة المنتج" />
+                    <Button Content="تأكيد الأرشفة" Style="{StaticResource SecondaryButton}" Background="#943E2D" Foreground="White" BorderBrush="#943E2D" MinWidth="130" Margin="10,0,0,0" Click="ConfirmArchiveClick" automation:AutomationProperties.Name="تأكيد أرشفة المنتج" />
+                </StackPanel>
+            </controls:DialogHost.Footer>
+            <StackPanel>
+                <Border Width="54" Height="54" CornerRadius="27" Background="#F9E9E5" HorizontalAlignment="Right">
+                    <Path Data="M7,7 L25,7 M10,7 L11,27 L21,27 L22,7 M13,4 L19,4 L20,7 L12,7 M14,11 L14,23 M18,11 L18,23" Stroke="#9C3D2B" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Width="26" Height="28" Stretch="Uniform" />
+                </Border>
+                <TextBlock Text="سيبقى المنتج في المعاينة ويمكن عرضه من فلتر «مؤرشف». لا يتم حذف أي بيانات." Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" LineHeight="20" Margin="0,8,0,20" />
+            </StackPanel>
+        </controls:DialogHost>
+        <controls:DialogHost Panel.ZIndex="50" IsOpen="{Binding IsCategoryEditorOpen}" Title="{Binding CategoryEditorTitle}" PreferredWidth="430" FlowDirection="RightToLeft" CloseRequested="CancelCategoryClick" InitialFocusTarget="{Binding ElementName=CategoryNameBox}">
+            <controls:DialogHost.Footer>
+                <StackPanel Orientation="Horizontal" FlowDirection="LeftToRight" HorizontalAlignment="Left">
+                    <Button Content="إلغاء" Style="{StaticResource SecondaryButton}" MinWidth="96" Click="CancelCategoryClick" />
+                    <Button Content="حفظ الفئة" Style="{StaticResource PrimaryButton}" Height="43" MinWidth="116" Margin="10,0,0,0" Click="SaveCategoryClick" />
+                </StackPanel>
+            </controls:DialogHost.Footer>
+            <StackPanel>
+                <TextBlock Text="استخدم فئة واحدة واضحة للمنتجات الجاهزة." Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,5,0,18" />
+                <controls:FormField Label="اسم الفئة" ErrorText="{Binding CategoryError}">
+                    <TextBox x:Name="CategoryNameBox" Text="{Binding CategoryName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" automation:AutomationProperties.Name="اسم فئة المنتج" />
+                </controls:FormField>
+            </StackPanel>
+        </controls:DialogHost>
+        <controls:DialogHost Panel.ZIndex="50" IsOpen="{Binding IsCategoryManagerOpen}" Title="إدارة الفئات" PreferredWidth="560" FlowDirection="RightToLeft" CloseRequested="CloseCategoryManagerClick">
+            <controls:DialogHost.Footer>
+                <StackPanel Orientation="Horizontal" FlowDirection="LeftToRight" HorizontalAlignment="Left">
+                    <Button Content="إغلاق" Style="{StaticResource SecondaryButton}" MinWidth="96" Click="CloseCategoryManagerClick" />
+                    <Button Content="+ إضافة فئة" Style="{StaticResource PrimaryButton}" Height="43" MinWidth="120" Margin="10,0,0,0" Click="AddCategoryFromDropdownClick" />
+                </StackPanel>
+            </controls:DialogHost.Footer>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <StackPanel>
+                    <TextBlock Text="نفس الفئات تظهر في القائمة ونموذج المنتج." Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,5,0,16" />
+                </StackPanel>
+                <Border Grid.Row="1">
+                    <ItemsControl ItemsSource="{Binding Categories}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="#FBF8F5" BorderBrush="#E4D9CF" BorderThickness="1" CornerRadius="9" Padding="12" Margin="0,0,0,8">
+                                    <Grid FlowDirection="LeftToRight">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" FlowDirection="LeftToRight">
+                                            <Button Content="تعديل" Style="{StaticResource CompactButton}" Margin="0,0,8,0" Click="EditCategoryClick" />
+                                            <Button Content="أرشفة" Style="{StaticResource CompactButton}" Foreground="#942F1F" IsEnabled="{Binding CanArchive}" Click="ArchiveCategoryClick" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" HorizontalAlignment="Right" FlowDirection="RightToLeft">
+                                            <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold" />
+                                            <TextBlock Text="{Binding StatusLabel}" Foreground="#8B2E1B" FontSize="9" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Border>
+            </Grid>
+        </controls:DialogHost>
+        <controls:FeedbackNotice x:Name="Feedback" Message="{Binding FeedbackMessage}" Tone="Success" IsFloating="True" FontSize="11" DisplayDuration="00:00:02.5" Dismissed="FeedbackDismissed" Margin="28" Visibility="{Binding HasFeedback, Converter={StaticResource BooleanToVisibility}}" Panel.ZIndex="60" HorizontalAlignment="Left" VerticalAlignment="Bottom" />
     </Grid>
 </UserControl>

@@ -27,6 +27,8 @@ public sealed class DialogHost : ContentControl
     public static readonly DependencyProperty InitialFocusTargetProperty = DependencyProperty.Register(nameof(InitialFocusTarget), typeof(IInputElement), typeof(DialogHost));
     public static readonly DependencyProperty CloseCommandProperty = DependencyProperty.Register(nameof(CloseCommand), typeof(ICommand), typeof(DialogHost));
     public static readonly DependencyProperty CloseCommandParameterProperty = DependencyProperty.Register(nameof(CloseCommandParameter), typeof(object), typeof(DialogHost));
+    public static readonly DependencyProperty ShowCloseButtonProperty = DependencyProperty.Register(nameof(ShowCloseButton), typeof(bool), typeof(DialogHost), new PropertyMetadata(false));
+    public static readonly DependencyProperty FooterMarginProperty = DependencyProperty.Register(nameof(FooterMargin), typeof(Thickness), typeof(DialogHost), new PropertyMetadata(new Thickness(0, 20, 0, 0)));
     private static readonly DependencyPropertyKey DialogWidthPropertyKey = DependencyProperty.RegisterReadOnly(nameof(DialogWidth), typeof(double), typeof(DialogHost), new PropertyMetadata(640d));
     public static readonly DependencyProperty DialogWidthProperty = DialogWidthPropertyKey.DependencyProperty;
     private static readonly DependencyPropertyKey DialogMaxHeightPropertyKey = DependencyProperty.RegisterReadOnly(nameof(DialogMaxHeight), typeof(double), typeof(DialogHost), new PropertyMetadata(600d));
@@ -40,6 +42,8 @@ public sealed class DialogHost : ContentControl
     public IInputElement? InitialFocusTarget { get => (IInputElement?)GetValue(InitialFocusTargetProperty); set => SetValue(InitialFocusTargetProperty, value); }
     public ICommand? CloseCommand { get => (ICommand?)GetValue(CloseCommandProperty); set => SetValue(CloseCommandProperty, value); }
     public object? CloseCommandParameter { get => GetValue(CloseCommandParameterProperty); set => SetValue(CloseCommandParameterProperty, value); }
+    public bool ShowCloseButton { get => (bool)GetValue(ShowCloseButtonProperty); set => SetValue(ShowCloseButtonProperty, value); }
+    public Thickness FooterMargin { get => (Thickness)GetValue(FooterMarginProperty); set => SetValue(FooterMarginProperty, value); }
     public double DialogWidth => (double)GetValue(DialogWidthProperty);
     public double DialogMaxHeight => (double)GetValue(DialogMaxHeightProperty);
     public event RoutedEventHandler CloseRequested { add => AddHandler(CloseRequestedEvent, value); remove => RemoveHandler(CloseRequestedEvent, value); }

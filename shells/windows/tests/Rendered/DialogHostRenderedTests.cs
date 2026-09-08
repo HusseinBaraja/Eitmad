@@ -26,7 +26,7 @@ public sealed class DialogHostRenderedTests
             var last = new Button { Content = "إلغاء" };
             var body = new StackPanel();
             body.Children.Add(first);
-            var dialog = new DialogHost { Title = "تحرير", Content = body, Footer = last, InitialFocusTarget = first };
+            var dialog = new DialogHost { Title = "تحرير", Content = body, Footer = last, InitialFocusTarget = first, ShowCloseButton = true };
             var root = new Grid();
             root.Children.Add(background);
             root.Children.Add(dialog);
@@ -127,7 +127,7 @@ public sealed class DialogHostRenderedTests
             scroll.ScrollToEnd();
             WpfTestHost.CompleteLayout(window);
             Assert.IsTrue(footer.IsVisible);
-            Assert.IsTrue(((Button)dialog.Template.FindName("PART_Close", dialog)).IsVisible);
+            Assert.IsFalse(((Button)dialog.Template.FindName("PART_Close", dialog)).IsVisible);
         });
     }
 

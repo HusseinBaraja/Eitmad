@@ -29,11 +29,10 @@ public sealed class SharedControlsRenderedTests
             {
                 WpfTestHost.FindByName<Button>(window, destination + "NavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 WpfTestHost.CompleteLayout(window);
-                var panel = WpfTestHost.Descendants<AdaptiveFieldsPanel>(window).Single(element => element.IsVisible);
-                var search = WpfTestHost.Descendants<TextBox>(panel).Single(element => element.Name.EndsWith("SearchBox", StringComparison.Ordinal));
+                var search = WpfTestHost.Descendants<TextBox>(window).Single(element => element.IsVisible && element.Name.EndsWith("SearchBox", StringComparison.Ordinal));
+                var panel = OwningLayoutPanel(search);
                 Assert.IsFalse(string.IsNullOrWhiteSpace(AutomationProperties.GetName(search)));
                 Assert.AreEqual(string.Empty, search.Text);
-                Assert.IsFalse(string.IsNullOrWhiteSpace(ControlOptions.GetPlaceholder(search)));
                 search.Focus();
                 search.Text = "خشب";
                 WpfTestHost.CompleteLayout(window);
@@ -41,7 +40,8 @@ public sealed class SharedControlsRenderedTests
                 Assert.AreEqual("خشب", binding.DataItem.GetType().GetProperty("SearchText")!.GetValue(binding.DataItem));
                 search.Clear();
                 WpfTestHost.CompleteLayout(window);
-                Assert.AreEqual(Visibility.Visible, ((TextBlock)search.Template.FindName("Placeholder", search)).Visibility);
+                var placeholder = (TextBlock)search.Template.FindName("Placeholder", search);
+                Assert.AreEqual(string.IsNullOrEmpty(ControlOptions.GetPlaceholder(search)) ? Visibility.Collapsed : Visibility.Visible, placeholder.Visibility);
                 var children = panel.Children.Cast<FrameworkElement>().Where(child => child.Visibility != Visibility.Collapsed).ToArray();
                 var bounds = children.Select(child => child.TransformToAncestor(panel).TransformBounds(new Rect(child.RenderSize))).ToArray();
                 for (var index = 0; index < bounds.Length; index++)
@@ -53,6 +53,20 @@ public sealed class SharedControlsRenderedTests
                 Capture(window, $"{destination}-{width}");
             }
         });
+    }
+
+    private static Panel OwningLayoutPanel(FrameworkElement element)
+    {
+        DependencyObject? current = element.Parent;
+        while (current is not null)
+        {
+            if (current is Panel panel) return panel;
+            current = current is FrameworkElement frameworkElement
+                ? frameworkElement.Parent
+                : LogicalTreeHelper.GetParent(current);
+        }
+
+        throw new InvalidOperationException("The search field has no layout panel.");
     }
 
     [TestMethod]

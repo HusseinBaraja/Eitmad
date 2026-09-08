@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Media;
+using Brush = System.Windows.Media.Brush;
 
 namespace Eitmad.WindowsShell.Controls;
 
@@ -19,6 +20,14 @@ public static class ControlOptions
         "CornerRadius", typeof(CornerRadius), typeof(ControlOptions), new PropertyMetadata(new CornerRadius(8)));
     public static readonly DependencyProperty FooterTemplateProperty = DependencyProperty.RegisterAttached(
         "FooterTemplate", typeof(DataTemplate), typeof(ControlOptions), new PropertyMetadata(null));
+    public static readonly DependencyProperty HoverBackgroundProperty = DependencyProperty.RegisterAttached(
+        "HoverBackground", typeof(Brush), typeof(ControlOptions), new PropertyMetadata(null));
+    public static readonly DependencyProperty HoverBorderBrushProperty = DependencyProperty.RegisterAttached(
+        "HoverBorderBrush", typeof(Brush), typeof(ControlOptions), new PropertyMetadata(null));
+    public static readonly DependencyProperty HoverOpacityProperty = DependencyProperty.RegisterAttached(
+        "HoverOpacity", typeof(double), typeof(ControlOptions), new PropertyMetadata(1d));
+    public static readonly DependencyProperty PressedOpacityProperty = DependencyProperty.RegisterAttached(
+        "PressedOpacity", typeof(double), typeof(ControlOptions), new PropertyMetadata(1d));
 
     public static string GetPlaceholder(DependencyObject element) => (string)element.GetValue(PlaceholderProperty);
     public static bool GetHighContrast(DependencyObject element) => (bool)element.GetValue(HighContrastProperty);
@@ -32,4 +41,12 @@ public static class ControlOptions
     public static void SetCornerRadius(DependencyObject element, CornerRadius value) => element.SetValue(CornerRadiusProperty, value);
     public static DataTemplate? GetFooterTemplate(DependencyObject element) => (DataTemplate?)element.GetValue(FooterTemplateProperty);
     public static void SetFooterTemplate(DependencyObject element, DataTemplate? value) => element.SetValue(FooterTemplateProperty, value);
+    public static Brush? GetHoverBackground(DependencyObject element) => (Brush?)element.GetValue(HoverBackgroundProperty);
+    public static void SetHoverBackground(DependencyObject element, Brush? value) => element.SetValue(HoverBackgroundProperty, value);
+    public static Brush? GetHoverBorderBrush(DependencyObject element) => (Brush?)element.GetValue(HoverBorderBrushProperty);
+    public static void SetHoverBorderBrush(DependencyObject element, Brush? value) => element.SetValue(HoverBorderBrushProperty, value);
+    public static double GetHoverOpacity(DependencyObject element) => (double)element.GetValue(HoverOpacityProperty);
+    public static void SetHoverOpacity(DependencyObject element, double value) => element.SetValue(HoverOpacityProperty, value);
+    public static double GetPressedOpacity(DependencyObject element) => (double)element.GetValue(PressedOpacityProperty);
+    public static void SetPressedOpacity(DependencyObject element, double value) => element.SetValue(PressedOpacityProperty, value);
 }

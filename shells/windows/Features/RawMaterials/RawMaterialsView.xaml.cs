@@ -1,7 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
 using System.Windows.Threading;
+using Eitmad.WindowsShell.Controls;
 using Button = System.Windows.Controls.Button;
 using ComboBox = System.Windows.Controls.ComboBox;
 using MenuItem = System.Windows.Controls.MenuItem;
@@ -26,6 +26,15 @@ public partial class RawMaterialsView : UserControl
         Dispatcher.BeginInvoke(EditorNameBox.Focus, DispatcherPriority.Input);
     }
 
+    private void RawMaterialRowInvoked(object sender, RowInvokedEventArgs eventArgs) =>
+        OpenEditor((RawMaterialListItem)eventArgs.Item);
+
+    private void OpenEditor(RawMaterialListItem material)
+    {
+        ViewModel.BeginEdit(material);
+        Dispatcher.BeginInvoke(EditorNameBox.Focus, DispatcherPriority.Input);
+    }
+
     private static RawMaterialListItem? MaterialFromMenuItem(object sender) =>
         sender is MenuItem { DataContext: RawMaterialListItem material } ? material : null;
 
@@ -43,8 +52,7 @@ public partial class RawMaterialsView : UserControl
     {
         if (MaterialFromMenuItem(sender) is { } material)
         {
-            ViewModel.BeginEdit(material);
-            Dispatcher.BeginInvoke(EditorNameBox.Focus, DispatcherPriority.Input);
+            OpenEditor(material);
         }
     }
 

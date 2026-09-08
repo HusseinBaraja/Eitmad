@@ -1,8 +1,8 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
+using Eitmad.WindowsShell.Controls;
 using Button = System.Windows.Controls.Button;
 using MenuItem = System.Windows.Controls.MenuItem;
 using TextBox = System.Windows.Controls.TextBox;
@@ -27,6 +27,15 @@ public partial class PartsView : UserControl
         Dispatcher.BeginInvoke(EditorNameBox.Focus, DispatcherPriority.Input);
     }
 
+    private void PartRowInvoked(object sender, RowInvokedEventArgs eventArgs) =>
+        OpenEditor((PartListItem)eventArgs.Item);
+
+    private void OpenEditor(PartListItem part)
+    {
+        ViewModel.BeginEdit(part);
+        Dispatcher.BeginInvoke(EditorNameBox.Focus, DispatcherPriority.Input);
+    }
+
     private static PartListItem? PartFromMenuItem(object sender) =>
         sender is MenuItem { DataContext: PartListItem part } ? part : null;
 
@@ -44,8 +53,7 @@ public partial class PartsView : UserControl
     {
         if (PartFromMenuItem(sender) is { } part)
         {
-            ViewModel.BeginEdit(part);
-            Dispatcher.BeginInvoke(EditorNameBox.Focus, DispatcherPriority.Input);
+            OpenEditor(part);
         }
     }
 

@@ -7,7 +7,14 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
+using System.Windows.Controls.Primitives;
+using KeyEventArgs = System.Windows.Input.KeyEventArgs;
+using KeyEventHandler = System.Windows.Input.KeyEventHandler;
+using ButtonBase = System.Windows.Controls.Primitives.ButtonBase;
+using TextBoxBase = System.Windows.Controls.Primitives.TextBoxBase;
+using ComboBox = System.Windows.Controls.ComboBox;
 
 namespace Eitmad.WindowsShell.Controls;
 
@@ -16,6 +23,10 @@ public class OperationsTable : DataGrid
 {
     public static readonly DependencyProperty EmptyContentProperty = DependencyProperty.Register(
         nameof(EmptyContent), typeof(object), typeof(OperationsTable));
+    public static readonly DependencyProperty IsRowInvocationEnabledProperty = DependencyProperty.Register(
+        nameof(IsRowInvocationEnabled), typeof(bool), typeof(OperationsTable), new PropertyMetadata(false));
+    public static readonly RoutedEvent RowInvokedEvent = EventManager.RegisterRoutedEvent(
+        nameof(RowInvoked), RoutingStrategy.Bubble, typeof(EventHandler<RowInvokedEventArgs>), typeof(OperationsTable));
 
     private IEnumerable? source;
     private INotifyCollectionChanged? observableSource;
@@ -46,11 +57,55 @@ public class OperationsTable : DataGrid
         EnableRowVirtualization = true;
         EnableColumnVirtualization = true;
         AddHandler(LostKeyboardFocusEvent, new KeyboardFocusChangedEventHandler(OnEditorLostFocus), true);
+        AddHandler(Mouse.PreviewMouseUpEvent, new MouseButtonEventHandler(OnPreviewMouseUp), true);
+        AddHandler(Keyboard.PreviewKeyDownEvent, new KeyEventHandler(OnPreviewKeyDown), true);
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
 
     public object? EmptyContent { get => GetValue(EmptyContentProperty); set => SetValue(EmptyContentProperty, value); }
+    public bool IsRowInvocationEnabled { get => (bool)GetValue(IsRowInvocationEnabledProperty); set => SetValue(IsRowInvocationEnabledProperty, value); }
+    public event EventHandler<RowInvokedEventArgs> RowInvoked { add => AddHandler(RowInvokedEvent, value); remove => RemoveHandler(RowInvokedEvent, value); }
+
+    private void OnPreviewMouseUp(object sender, MouseButtonEventArgs eventArgs)
+    {
+        if (!IsRowInvocationEnabled || eventArgs.ChangedButton != MouseButton.Left ||
+            eventArgs.OriginalSource is not DependencyObject source ||
+            FindAncestor<ButtonBase>(source) is not null ||
+            FindAncestor<DataGridRow>(source) is not { DataContext: { } item })
+        {
+            return;
+        }
+
+        InvokeRow(item, eventArgs);
+    }
+
+    private void OnPreviewKeyDown(object sender, KeyEventArgs eventArgs)
+    {
+        if (!IsRowInvocationEnabled || eventArgs.Key is not (Key.Enter or Key.Space) ||
+            Keyboard.FocusedElement is ButtonBase or TextBoxBase or ComboBox || SelectedItem is null)
+        {
+            return;
+        }
+
+        InvokeRow(SelectedItem, eventArgs);
+    }
+
+    private void InvokeRow(object item, RoutedEventArgs inputEvent)
+    {
+        RaiseEvent(new RowInvokedEventArgs(RowInvokedEvent, this, item));
+        inputEvent.Handled = true;
+    }
+
+    private static T? FindAncestor<T>(DependencyObject source) where T : DependencyObject
+    {
+        for (var current = source; current is not null; current = VisualTreeHelper.GetParent(current))
+        {
+            if (current is T match) return match;
+        }
+
+        return null;
+    }
 
     private static object? CoerceSource(DependencyObject owner, object? value)
     {
@@ -233,4 +288,9 @@ public class OperationsTable : DataGrid
 
         private object? Read(object? item) => ReadProperty(item, path);
     }
+}
+
+public sealed class RowInvokedEventArgs(RoutedEvent routedEvent, object source, object item) : RoutedEventArgs(routedEvent, source)
+{
+    public object Item { get; } = item;
 }

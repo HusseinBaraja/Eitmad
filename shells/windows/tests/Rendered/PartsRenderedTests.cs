@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 using Eitmad.WindowsShell.Features.Parts;
 
 namespace Eitmad.WindowsShell.Tests.Rendered;
@@ -81,10 +82,34 @@ public sealed class PartsRenderedTests
             Assert.IsNotNull(action.ContextMenu);
             Assert.IsTrue(action.ContextMenu.IsOpen);
             Assert.AreSame(action, action.ContextMenu.PlacementTarget);
+            Assert.IsFalse(view.ViewModel.IsEditorOpen);
             Assert.AreEqual(PlacementMode.MousePoint, action.ContextMenu.Placement);
             CollectionAssert.AreEquivalent(
                 new[] { "تعديل", "تكرار", "أرشفة" },
                 action.ContextMenu.Items.OfType<MenuItem>().Select(item => item.Header).Cast<string>().ToArray());
+        });
+    }
+
+    [TestMethod]
+    public void KeyboardRowActivationOpensTheExistingPart()
+    {
+        WpfTestHost.Run(1338, 753, window =>
+        {
+            WpfTestHost.FindByName<Button>(window, "PartsNavButton")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var view = WpfTestHost.Descendants<PartsView>(window).Single();
+            var table = WpfTestHost.FindByName<DataGrid>(view, "PartsTable");
+            table.SelectedIndex = 0;
+
+            table.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(table), 0, Key.Enter)
+            {
+                RoutedEvent = Keyboard.PreviewKeyDownEvent
+            });
+            WpfTestHost.PumpDispatcher();
+
+            Assert.IsTrue(view.ViewModel.IsEditorOpen);
+            Assert.AreEqual(((PartListItem)table.SelectedItem).Name, view.ViewModel.EditorName);
         });
     }
 }

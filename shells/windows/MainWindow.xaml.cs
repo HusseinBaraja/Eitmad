@@ -7,7 +7,6 @@ using Eitmad.WindowsShell.Features.Operations;
 using Brush = System.Windows.Media.Brush;
 using Brushes = System.Windows.Media.Brushes;
 using Button = System.Windows.Controls.Button;
-using Color = System.Windows.Media.Color;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 
 namespace Eitmad.WindowsShell;
@@ -79,7 +78,7 @@ public partial class MainWindow : Window
         WorkOrdersSurface.Visibility = showWorkOrders ? Visibility.Visible : Visibility.Collapsed;
         if (!showRawMaterials && !showParts && !showFurniture && !showPricing && !showProducts && !showQuotations && !showOrders && !showWorkOrders)
         {
-            DashboardTitle.Title = destination == "الرئيسية" ? "لوحة التحكم" : destination;
+            DashboardTitle.Text = destination == "الرئيسية" ? "لوحة التحكم" : destination;
             ShowToast($"تم فتح {destination} في وضع المعاينة");
         }
     }
