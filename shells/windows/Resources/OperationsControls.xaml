@@ -414,8 +414,24 @@
             <Setter.Value>
                 <ControlTemplate TargetType="controls:PageHeader">
                     <Border x:Name="ContrastPart2" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="{TemplateBinding BorderThickness}">
-                        <WrapPanel>
-                    <Grid MinWidth="{TemplateBinding HeadingMinWidth}" Margin="0,0,24,0" FlowDirection="LeftToRight">
+                        <Grid FlowDirection="LeftToRight">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center" FlowDirection="RightToLeft">
+                                <Button x:Name="HeaderButton" Visibility="Collapsed" Height="{TemplateBinding ButtonHeight}"
+                                        Style="{StaticResource PrimaryButton}" FontSize="13"
+                                        Command="{TemplateBinding ButtonCommand}" CommandParameter="{TemplateBinding ButtonCommandParameter}"
+                                        AutomationProperties.Name="{TemplateBinding ButtonText}">
+                                    <StackPanel Orientation="Horizontal" FlowDirection="RightToLeft">
+                                        <Path x:Name="ButtonIcon" Data="{TemplateBinding ButtonIcon}" Width="18" Height="18" Stretch="Uniform" Fill="{Binding Foreground, ElementName=HeaderButton}" />
+                                        <TextBlock x:Name="ButtonLabel" Text="{TemplateBinding ButtonText}" Foreground="{Binding Foreground, ElementName=HeaderButton}" FontSize="{Binding FontSize, ElementName=HeaderButton}" Margin="9,0,0,0" />
+                                    </StackPanel>
+                                </Button>
+                                <ContentPresenter Content="{TemplateBinding Content}" />
+                            </StackPanel>
+                            <Grid Grid.Column="1" Margin="24,0,0,0" HorizontalAlignment="Right">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
@@ -424,13 +440,33 @@
                                 <StackPanel Grid.Column="1" FlowDirection="RightToLeft">
                                     <ContentPresenter Content="{TemplateBinding BackAction}" />
                                     <TextBlock x:Name="ContrastPart0" Text="{TemplateBinding Title}" FontSize="{TemplateBinding FontSize}" FontWeight="Bold" TextWrapping="Wrap" />
-                                    <TextBlock x:Name="ContrastPart1" Text="{TemplateBinding Subtitle}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                                    <TextBlock x:Name="ContrastPart1" Text="{TemplateBinding Subtitle}" FontSize="{TemplateBinding DescriptionFontSize}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="{TemplateBinding DescriptionMargin}" />
                                 </StackPanel>
                             </Grid>
-                            <ContentPresenter Content="{TemplateBinding Content}" VerticalAlignment="Center" />
-                        </WrapPanel>
+                        </Grid>
                     </Border>
                     <ControlTemplate.Triggers>
+                        <Trigger Property="ButtonIcon" Value="{x:Null}">
+                            <Setter TargetName="ButtonIcon" Property="Visibility" Value="Collapsed" />
+                            <Setter TargetName="ButtonLabel" Property="Margin" Value="0" />
+                        </Trigger>
+                        <Trigger Property="ContainsButton" Value="True">
+                            <Setter TargetName="HeaderButton" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="ButtonType" Value="Secondary">
+                            <Setter TargetName="HeaderButton" Property="Style" Value="{StaticResource SecondaryButton}" />
+                        </Trigger>
+                        <Trigger Property="ButtonType" Value="Inline">
+                            <Setter TargetName="HeaderButton" Property="Style" Value="{StaticResource InlineActionButton}" />
+                            <Setter TargetName="HeaderButton" Property="FontSize" Value="10" />
+                        </Trigger>
+
+                        <Trigger Property="Subtitle" Value="">
+                            <Setter TargetName="ContrastPart1" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
+                        <Trigger Property="Subtitle" Value="{x:Null}">
+                            <Setter TargetName="ContrastPart1" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
                         <Trigger Property="controls:ControlOptions.HighContrast" Value="True">
                             <Setter TargetName="ContrastPart0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
                             <Setter TargetName="ContrastPart1" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />

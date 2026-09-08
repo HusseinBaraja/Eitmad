@@ -28,7 +28,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <controls:PageHeader Grid.Row="0" Title="الطلبات" Subtitle="راجع طلبات العملاء وتقدمها من مكان واحد" Padding="32,20" FontSize="29"></controls:PageHeader>
+            <controls:PageHeader Grid.Row="0" Title="الطلبات" Subtitle="راجع طلبات العملاء وتقدمها من مكان واحد" Padding="32,20" FontSize="29" DescriptionFontSize="12" DescriptionMargin="0,6,0,0"></controls:PageHeader>
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                 <StackPanel Margin="32,22,32,30">
                     <WrapPanel Margin="0,0,0,16">
@@ -146,7 +146,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <controls:PageHeader Title="تفاصيل الطلب" Subtitle="مراجعة بيانات الطلب وبنود الأثاث">
+            <controls:PageHeader Padding="32,17" FontSize="25" DescriptionMargin="0,5,0,0" Title="تفاصيل الطلب" Subtitle="مراجعة بيانات الطلب وبنود الأثاث">
                 <StackPanel Orientation="Horizontal">
                     <Button x:Name="BackToOrdersButton" Content="العودة إلى الطلبات" Style="{StaticResource InlineActionButton}" Height="38" Click="BackToListClick" automation:AutomationProperties.Name="العودة إلى قائمة الطلبات" />
                 </StackPanel>

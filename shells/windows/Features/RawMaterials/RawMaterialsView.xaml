@@ -49,16 +49,9 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <controls:PageHeader Title="المواد الخام" Subtitle="بحث سريع وتكاليف واضحة وإدارة بدون حذف دائم">
-                <StackPanel Orientation="Horizontal">
-                    <Button Height="46" Style="{StaticResource PrimaryButton}" Click="AddRawMaterialClick" automation:AutomationProperties.Name="إضافة مادة خام">
-                        <StackPanel Orientation="Horizontal" FlowDirection="RightToLeft">
-                            <Path Data="{StaticResource IconPlus}" Width="18" Height="18" Fill="White" Stretch="Uniform" />
-                            <TextBlock Text="إضافة مادة خام" Foreground="White" FontSize="13" Margin="9,0,0,0" />
-                        </StackPanel>
-                    </Button>
-                </StackPanel>
-            </controls:PageHeader>
+            <controls:PageHeader Title="المواد الخام" Subtitle="بحث سريع وتكاليف واضحة وإدارة بدون حذف دائم"
+                                 Padding="28,15" ContainsButton="True" ButtonText="إضافة مادة خام" ButtonType="Primary"
+                                 ButtonIcon="{StaticResource IconPlus}" ButtonClick="AddRawMaterialClick" />
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                 <StackPanel Margin="28,22,28,28">
                     <layout:AdaptiveFieldsPanel MinItemWidth="220" x:Name="FiltersGrid" Margin="0,0,0,14">

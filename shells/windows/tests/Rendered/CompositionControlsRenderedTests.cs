@@ -10,6 +10,54 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 public sealed class CompositionControlsRenderedTests
 {
     [TestMethod]
+    public void HeaderKeepsActionsOnPhysicalLeftAndSupportsOptionalButton()
+    {
+        WpfTestHost.Run(1338, 753, window =>
+        {
+            var header = new PageHeader
+            {
+                Title = "المواد الخام", Subtitle = "بحث سريع وتكاليف واضحة وإدارة بدون حذف دائم",
+                ContainsButton = true, ButtonText = "إضافة مادة خام", Padding = new Thickness(28, 15, 28, 15),
+                ButtonIcon = (System.Windows.Media.Geometry)window.FindResource("IconPlus"),
+            };
+            window.Content = new StackPanel { FlowDirection = FlowDirection.RightToLeft, Children = { header } };
+            WpfTestHost.CompleteLayout(window);
+            var button = (Button)header.Template.FindName("HeaderButton", header);
+            var title = (TextBlock)header.Template.FindName("ContrastPart0", header);
+            Assert.IsTrue(button.TransformToAncestor(window).Transform(new Point(button.ActualWidth, 0)).X < title.TransformToAncestor(window).Transform(new Point()).X);
+            Assert.IsTrue(button.Focus());
+            Assert.IsTrue(button.IsKeyboardFocused);
+            var clicks = 0;
+            header.ButtonClick += (_, _) => clicks++;
+            button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.AreEqual(1, clicks);
+            var directory = Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR");
+            if (!string.IsNullOrEmpty(directory))
+            {
+                System.IO.Directory.CreateDirectory(directory);
+                var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap((int)window.ActualWidth, (int)window.ActualHeight, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+                bitmap.Render(window);
+                var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+                encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+                using var stream = System.IO.File.Create(System.IO.Path.Combine(directory, "page-header.png"));
+                encoder.Save(stream);
+            }
+            window.Width = 780;
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsTrue(button.TransformToAncestor(window).Transform(new Point(button.ActualWidth, 0)).X < title.TransformToAncestor(window).Transform(new Point()).X);
+            header.ButtonType = HeaderButtonType.Secondary;
+            header.ButtonIcon = null!;
+            header.Subtitle = "";
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual(window.FindResource("SecondaryButton"), button.Style);
+            Assert.AreEqual(Visibility.Collapsed, ((TextBlock)header.Template.FindName("ContrastPart1", header)).Visibility);
+            header.ContainsButton = false;
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsFalse(button.IsVisible);
+        });
+    }
+
+    [TestMethod]
     public void SharedCompositionsUseSystemColorsAndLargeAmountText()
     {
         WpfTestHost.Run(780, 745, window =>

@@ -37,7 +37,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <controls:PageHeader Grid.Row="0" Title="أوامر العمل" Subtitle="الأثاث المطلوب تصنيعه ومسؤولية إنجازه" Padding="32,20" FontSize="29">
+            <controls:PageHeader Grid.Row="0" Title="أوامر العمل" Subtitle="الأثاث المطلوب تصنيعه ومسؤولية إنجازه" Padding="32,20" FontSize="29" DescriptionFontSize="12" DescriptionMargin="0,6,0,0">
                 <controls:PageHeader.Icon>
                     <Border Width="48" Height="48" CornerRadius="12" Background="#F1E2D2" Margin="0,0,18,0">
                         <Path Data="{StaticResource IconWorkOrder}" Fill="#7B4517" Width="23" Height="23" Stretch="Uniform" />

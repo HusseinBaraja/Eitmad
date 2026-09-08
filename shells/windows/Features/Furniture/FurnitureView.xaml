@@ -248,7 +248,7 @@
             </Grid.RowDefinitions>
             <Border Grid.Row="0" Background="#FEFDFC" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1" Padding="24,14">
                 <StackPanel>
-                    <controls:PageHeader Padding="0" Title="{Binding EditorTitle}" Subtitle="{Binding EditorStepDescription}">
+                    <controls:PageHeader Padding="0" FontSize="23" DescriptionFontSize="10" DescriptionMargin="0" Title="{Binding EditorTitle}" Subtitle="{Binding EditorStepDescription}">
                         <controls:FeedbackNotice Message="وضع المعاينة" Tone="Warning" />
                     </controls:PageHeader>
                     <controls:StepIndicator CurrentStep="{Binding CurrentStep}" Margin="-4,12,-4,0">
