@@ -32,7 +32,7 @@ Infer intent and scope from the request, prior conversation, and repository evid
 
 Complete all authorized reversible work before requesting approval for an irreversible or external action. Do not ask for approval for read-only work, reversible local work, or an action the user already authorized.
 
-Use subagents only when independent work can run in parallel and materially reduce time or improve confidence. Prefer direct work for focused tasks. Do not delegate overlapping edits or small investigations. Keep one agent responsible for integration and the final result.
+Never use subagents in the user's projects. Do all work directly in the primary agent. Do not spawn subagents or delegate work to existing agents.
 
 ## Hard Invariants
 
