@@ -1,4 +1,7 @@
-<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls" xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore">
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls" xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore">
+    <sys:Double x:Key="PageHeaderHeight">136</sys:Double>
+    <sys:Double x:Key="PageHeaderTitleSize">27</sys:Double>
+    <sys:Double x:Key="PageHeaderDescriptionSize">12</sys:Double>
     <Style x:Key="FieldLabel" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
         <Setter Property="FontSize" Value="12" />
         <Setter Property="FontWeight" Value="SemiBold" />
@@ -406,8 +409,11 @@
     </Style>
     <Style TargetType="controls:PageHeader">
         <Setter Property="controls:ControlOptions.HighContrast" Value="{DynamicResource {x:Static SystemParameters.HighContrastKey}}" />
-        <Setter Property="Padding" Value="28,17" />
-        <Setter Property="FontSize" Value="27" />
+        <Setter Property="Height" Value="{StaticResource PageHeaderHeight}" />
+        <Setter Property="VerticalAlignment" Value="Top" />
+        <Setter Property="Padding" Value="28,16" />
+        <Setter Property="DescriptionFontSize" Value="{StaticResource PageHeaderDescriptionSize}" />
+        <Setter Property="FontSize" Value="{StaticResource PageHeaderTitleSize}" />
         <Setter Property="BorderThickness" Value="0,0,0,1" />
         <Setter Property="Background" Value="#FEFDFC" />
         <Setter Property="Template">
@@ -431,7 +437,7 @@
                                 </Button>
                                 <ContentPresenter Content="{TemplateBinding Content}" />
                             </StackPanel>
-                            <Grid Grid.Column="1" Margin="24,0,0,0" HorizontalAlignment="Right">
+                            <Grid Grid.Column="1" Margin="24,0,0,0" HorizontalAlignment="Right" VerticalAlignment="Center">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
@@ -439,8 +445,8 @@
                                 <ContentPresenter Content="{TemplateBinding Icon}" VerticalAlignment="Center" />
                                 <StackPanel Grid.Column="1" FlowDirection="RightToLeft">
                                     <ContentPresenter Content="{TemplateBinding BackAction}" />
-                                    <TextBlock x:Name="ContrastPart0" Text="{TemplateBinding Title}" FontSize="{TemplateBinding FontSize}" FontWeight="Bold" TextWrapping="Wrap" />
-                                    <TextBlock x:Name="ContrastPart1" Text="{TemplateBinding Subtitle}" FontSize="{TemplateBinding DescriptionFontSize}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="{TemplateBinding DescriptionMargin}" />
+                                    <TextBlock x:Name="ContrastPart0" Text="{TemplateBinding Title}" ToolTip="{TemplateBinding Title}" FontSize="{TemplateBinding FontSize}" FontWeight="Bold" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock x:Name="ContrastPart1" Text="{TemplateBinding Subtitle}" ToolTip="{TemplateBinding Subtitle}" FontSize="{TemplateBinding DescriptionFontSize}" Foreground="{DynamicResource MutedBrush}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Margin="{TemplateBinding DescriptionMargin}" />
                                 </StackPanel>
                             </Grid>
                         </Grid>
@@ -462,10 +468,10 @@
                         </Trigger>
 
                         <Trigger Property="Subtitle" Value="">
-                            <Setter TargetName="ContrastPart1" Property="Visibility" Value="Collapsed" />
+                            <Setter TargetName="ContrastPart1" Property="Visibility" Value="Hidden" />
                         </Trigger>
                         <Trigger Property="Subtitle" Value="{x:Null}">
-                            <Setter TargetName="ContrastPart1" Property="Visibility" Value="Collapsed" />
+                            <Setter TargetName="ContrastPart1" Property="Visibility" Value="Hidden" />
                         </Trigger>
                         <Trigger Property="controls:ControlOptions.HighContrast" Value="True">
                             <Setter TargetName="ContrastPart0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />

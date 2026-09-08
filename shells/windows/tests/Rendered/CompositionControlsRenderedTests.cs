@@ -50,10 +50,12 @@ public sealed class CompositionControlsRenderedTests
             header.Subtitle = "";
             WpfTestHost.CompleteLayout(window);
             Assert.AreEqual(window.FindResource("SecondaryButton"), button.Style);
-            Assert.AreEqual(Visibility.Collapsed, ((TextBlock)header.Template.FindName("ContrastPart1", header)).Visibility);
+            Assert.AreEqual(Visibility.Hidden, ((TextBlock)header.Template.FindName("ContrastPart1", header)).Visibility);
+            Assert.AreEqual(136d, header.ActualHeight);
             header.ContainsButton = false;
             WpfTestHost.CompleteLayout(window);
             Assert.IsFalse(button.IsVisible);
+            Assert.AreEqual(136d, header.ActualHeight);
         });
     }
 

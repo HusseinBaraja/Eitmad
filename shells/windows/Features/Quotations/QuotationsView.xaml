@@ -36,7 +36,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <controls:PageHeader Grid.Row="0" Title="عروض الأسعار" Subtitle="راجع عروض العملاء وحالاتها من مكان واحد" Padding="32,20" FontSize="29" DescriptionFontSize="12" DescriptionMargin="0,6,0,0"></controls:PageHeader>
+            <controls:PageHeader Grid.Row="0" Title="عروض الأسعار" Subtitle="راجع عروض العملاء وحالاتها من مكان واحد"></controls:PageHeader>
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                 <StackPanel Margin="32,22,32,30">
                     <WrapPanel Margin="0,0,0,16">
@@ -169,7 +169,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <controls:PageHeader Padding="32,17" FontSize="25" DescriptionMargin="0,5,0,0" Title="تفاصيل عرض السعر" Subtitle="مراجعة بنود العرض والإجماليات">
+            <controls:PageHeader Title="تفاصيل عرض السعر" Subtitle="مراجعة بنود العرض والإجماليات">
                 <StackPanel Orientation="Horizontal">
                     <Button x:Name="BackToQuotationsButton" Content="العودة إلى العروض" Style="{StaticResource InlineActionButton}" Height="38" Click="BackToListClick" automation:AutomationProperties.Name="العودة إلى قائمة عروض الأسعار" />
                 </StackPanel>

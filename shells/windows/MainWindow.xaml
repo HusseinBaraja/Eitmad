@@ -77,8 +77,8 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <Border Grid.Row="0" Background="#FEFDFC" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
-                <Grid x:Name="ToolbarLayout" Margin="24,14" FlowDirection="LeftToRight">
+            <Border Grid.Row="0" Height="{StaticResource PageHeaderHeight}" Background="#FEFDFC" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
+                <Grid x:Name="ToolbarLayout" Margin="28,16" VerticalAlignment="Center" FlowDirection="LeftToRight">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
@@ -93,13 +93,12 @@
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
                                 <Setter Property="Grid.Column" Value="3" />
-                                <Setter Property="FontSize" Value="27" />
+                                <Setter Property="FontSize" Value="{StaticResource PageHeaderTitleSize}" />
                                 <Setter Property="Margin" Value="20,0,0,0" />
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
                                         <Setter Property="Grid.Column" Value="2" />
                                         <Setter Property="Grid.ColumnSpan" Value="2" />
-                                        <Setter Property="FontSize" Value="23" />
                                         <Setter Property="Margin" Value="16,0,0,0" />
                                     </DataTrigger>
                                 </Style.Triggers>

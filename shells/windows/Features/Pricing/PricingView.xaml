@@ -4,7 +4,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-        <controls:PageHeader Grid.Row="0" Title="التسعير" Subtitle="راجع أسعار البيع وحدّثها بسرعة من مكان واحد" Padding="32,20" FontSize="29" DescriptionFontSize="13" DescriptionMargin="0,7,0,0"></controls:PageHeader>
+        <controls:PageHeader Grid.Row="0" Title="التسعير" Subtitle="راجع أسعار البيع وحدّثها بسرعة من مكان واحد"></controls:PageHeader>
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
             <StackPanel Margin="32,24,32,30">
                 <Grid Margin="0,0,0,17">

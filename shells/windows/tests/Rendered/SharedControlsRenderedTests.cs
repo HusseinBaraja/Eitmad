@@ -24,11 +24,16 @@ public sealed class SharedControlsRenderedTests
     {
         WpfTestHost.Run(width, height, window =>
         {
+            var homeHeader = (Border)WpfTestHost.FindByName<Grid>(window, "ToolbarLayout").Parent;
+            var headerHeight = homeHeader.ActualHeight;
             Capture(window, $"dashboard-{width}");
             foreach (var destination in new[] { "Materials", "Parts", "Furniture", "Pricing", "Products", "Quotations", "Orders", "WorkOrders" })
             {
                 WpfTestHost.FindByName<Button>(window, destination + "NavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 WpfTestHost.CompleteLayout(window);
+                var header = WpfTestHost.Descendants<PageHeader>(window).Single(element => element.IsVisible);
+                Assert.AreEqual(headerHeight, header.ActualHeight, destination);
+                Assert.AreEqual(WpfTestHost.FindByName<TextBlock>(window, "DashboardTitle").FontSize, header.FontSize, destination);
                 var search = WpfTestHost.Descendants<TextBox>(window).Single(element => element.IsVisible && element.Name.EndsWith("SearchBox", StringComparison.Ordinal));
                 var panel = OwningLayoutPanel(search);
                 Assert.IsFalse(string.IsNullOrWhiteSpace(AutomationProperties.GetName(search)));

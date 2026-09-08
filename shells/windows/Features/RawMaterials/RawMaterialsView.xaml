@@ -49,8 +49,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <controls:PageHeader Title="المواد الخام" Subtitle="بحث سريع وتكاليف واضحة وإدارة بدون حذف دائم"
-                                 Padding="28,15" ContainsButton="True" ButtonText="إضافة مادة خام" ButtonType="Primary"
+            <controls:PageHeader Title="المواد الخام" Subtitle="بحث سريع وتكاليف واضحة وإدارة بدون حذف دائم" ContainsButton="True" ButtonText="إضافة مادة خام" ButtonType="Primary"
                                  ButtonIcon="{StaticResource IconPlus}" ButtonClick="AddRawMaterialClick" />
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                 <StackPanel Margin="28,22,28,28">
