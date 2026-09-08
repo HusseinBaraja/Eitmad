@@ -5,21 +5,42 @@ using System.Windows.Controls;
 
 namespace Eitmad.WindowsShell.Controls;
 
-public class StepItem : DependencyObject
-{
-    public string Label { get; set; } = string.Empty;
-    public string Description { get; set; } = string.Empty;
-    public static readonly DependencyProperty StateProperty = DependencyProperty.Register(nameof(State), typeof(string), typeof(StepItem), new PropertyMetadata(""));
-    public string State { get => (string)GetValue(StateProperty); set => SetValue(StateProperty, value); }
-    public int Number { get; set; }
-}
 public partial class StepIndicator
 {
-    protected override void OnItemsChanged(NotifyCollectionChangedEventArgs e) { base.OnItemsChanged(e); UpdateSteps(); }
+    public static readonly DependencyProperty NumberProperty = DependencyProperty.RegisterAttached("Number", typeof(int), typeof(StepIndicator), new PropertyMetadata(0));
+    public static int GetNumber(DependencyObject element) => (int)element.GetValue(NumberProperty);
+    public static void SetNumber(DependencyObject element, int value) => element.SetValue(NumberProperty, value);
+    public static readonly DependencyProperty StateProperty = DependencyProperty.RegisterAttached("State", typeof(string), typeof(StepIndicator), new PropertyMetadata(string.Empty));
+    public static string GetState(DependencyObject element) => (string)element.GetValue(StateProperty);
+    public static void SetState(DependencyObject element, string value) => element.SetValue(StateProperty, value);
+
+    protected override void PrepareContainerForItemOverride(DependencyObject element, object item)
+    {
+        base.PrepareContainerForItemOverride(element, item);
+        UpdateStep(element, ItemContainerGenerator.IndexFromContainer(element));
+    }
+
+    protected override void OnItemsChanged(NotifyCollectionChangedEventArgs e)
+    {
+        base.OnItemsChanged(e);
+        UpdateSteps();
+    }
+
     private static void OnStepChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) => ((StepIndicator)d).UpdateSteps();
+
     private void UpdateSteps()
     {
-        for (int i = 0; i < Items.Count; i++) if (Items[i] is StepItem step)
-        { step.Number = i + 1; step.State = i + 1 == CurrentStep ? "الحالية" : i + 1 < CurrentStep ? "السابقة" : "التالية"; }
+        for (var i = 0; i < Items.Count; i++)
+            if (ItemContainerGenerator.ContainerFromIndex(i) is DependencyObject container)
+                UpdateStep(container, i);
+    }
+
+    private void UpdateStep(DependencyObject container, int index)
+    {
+        var number = index + 1;
+        var state = number == CurrentStep ? "الحالية" : number < CurrentStep ? "السابقة" : "التالية";
+        SetNumber(container, number);
+        SetState(container, state);
+        AutomationProperties.SetName(container, $"{number}. {Items[index]}، {state}");
     }
 }

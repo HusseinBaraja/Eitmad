@@ -21,8 +21,8 @@ public sealed class CompositionControlsRenderedTests
             var notice = new FeedbackNotice { Message = "رسالة تجريبية طويلة توضح نتيجة الإجراء وتبقى قابلة للقراءة", Tone = PresentationTone.Warning, FontSize = 24 };
             var field = new FormField { Label = "اسم المادة", HelpText = "أدخل الاسم كما يظهر في القائمة", ErrorText = "راجع الاسم المدخل قبل الحفظ", Content = new TextBox { Text = "خشب زان", FontSize = 24, Style = (Style)window.FindResource("TextInput") } };
             var steps = new StepIndicator { CurrentStep = 2 };
-            steps.Items.Add(new StepItem { Label = "المعلومات", Description = "بيانات المادة" });
-            steps.Items.Add(new StepItem { Label = "المراجعة", Description = "تأكيد البيانات" });
+            steps.Items.Add("المعلومات");
+            steps.Items.Add("المراجعة");
             var panel = new StackPanel { Margin = new Thickness(24) };
             panel.Children.Add(new PageHeader { Title = "مراجعة العرض", Subtitle = "بيانات عربية تجريبية", FontSize = 30 });
             panel.Children.Add(new StatusBadge { Text = "بانتظار الموافقة", Tone = PresentationTone.Warning, FontSize = 24 });
@@ -128,10 +128,10 @@ public sealed class CompositionControlsRenderedTests
     {
         WpfTestHost.Run(780, 745, window =>
         {
-            var steps = new ObservableCollection<StepItem>
+            var steps = new ObservableCollection<string>
             {
-                new() { Label = "بيانات الطلب" },
-                new() { Label = "مراجعة الطلب" },
+                "بيانات الطلب",
+                "مراجعة الطلب",
             };
             var indicator = new StepIndicator { ItemsSource = steps, CurrentStep = 1 };
             window.Content = indicator;
@@ -142,19 +142,24 @@ public sealed class CompositionControlsRenderedTests
             WpfTestHost.CompleteLayout(window);
             AssertState(indicator, steps[0], "السابقة");
             AssertState(indicator, steps[1], "الحالية");
-            steps.Insert(0, new StepItem { Label = "اختيار العميل" });
+            steps.Insert(0, "اختيار العميل");
             WpfTestHost.CompleteLayout(window);
             AssertState(indicator, steps[0], "السابقة");
             AssertState(indicator, steps[1], "الحالية");
             AssertState(indicator, steps[2], "التالية");
-            CollectionAssert.AreEqual(new[] { 1, 2, 3 }, steps.Select(step => step.Number).ToArray());
+            CollectionAssert.AreEqual(new[] { 1, 2, 3 }, Enumerable.Range(0, steps.Count).Select(i => StepIndicator.GetNumber(indicator.ItemContainerGenerator.ContainerFromIndex(i))).ToArray());
         });
     }
 
-    private static void AssertState(StepIndicator indicator, StepItem step, string state)
+    private static void AssertState(StepIndicator indicator, string step, string state)
     {
-        Assert.AreEqual(state, step.State);
-        Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(indicator).Any(text => ReferenceEquals(text.DataContext, step) && text.Text == state));
+        var container = indicator.ItemContainerGenerator.ContainerFromItem(step);
+        Assert.AreEqual(state, StepIndicator.GetState(container));
+        var border = WpfTestHost.Descendants<Border>(container).Single(element => element.Name == "Step");
+        Assert.AreEqual(state == "الحالية" ? "#FF6F3B0D" : "#FFF5F1ED", border.Background.ToString());
+        StringAssert.Contains(System.Windows.Automation.AutomationProperties.GetName(container), state);
+        Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(container).Any(text => text.Text == step));
+        Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(container).Any(text => text.Text == StepIndicator.GetNumber(container).ToString()));
     }
 
     private static Rect ScreenBounds(FrameworkElement element) =>

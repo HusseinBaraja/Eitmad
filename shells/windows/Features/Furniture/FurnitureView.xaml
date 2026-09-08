@@ -1,4 +1,4 @@
-<UserControl x:Class="Eitmad.WindowsShell.Features.Furniture.FurnitureView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:layout="clr-namespace:Eitmad.WindowsShell.Layout" xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls" xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore" FlowDirection="RightToLeft" Background="{StaticResource CanvasBrush}">
+<UserControl x:Class="Eitmad.WindowsShell.Features.Furniture.FurnitureView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:sys="clr-namespace:System;assembly=mscorlib" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:layout="clr-namespace:Eitmad.WindowsShell.Layout" xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls" xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore" FlowDirection="RightToLeft" Background="{StaticResource CanvasBrush}">
     <UserControl.Resources></UserControl.Resources>
     <Grid>
         <Grid x:Name="ListSurface" Visibility="{Binding IsListVisible, Converter={StaticResource BooleanToVisibility}}">
@@ -251,13 +251,17 @@
                     <controls:PageHeader Padding="0" Title="{Binding EditorTitle}" Subtitle="{Binding EditorStepDescription}">
                         <controls:FeedbackNotice Message="وضع المعاينة" Tone="Warning" />
                     </controls:PageHeader>
-                    <controls:StepIndicator CurrentStep="{Binding CurrentStep}" Margin="0,0,0,18">
-                        <controls:StepItem Label="المعلومات" />
-                        <controls:StepItem Label="الأجزاء" />
-                        <controls:StepItem Label="المقاسات" />
-                        <controls:StepItem Label="الخيارات" />
-                        <controls:StepItem Label="التسعير" />
-                        <controls:StepItem Label="المراجعة" />
+                    <controls:StepIndicator CurrentStep="{Binding CurrentStep}" Margin="-4,12,-4,0">
+                        <controls:StepIndicator.ItemsSource>
+                            <x:Array Type="{x:Type sys:String}">
+                                <sys:String>المعلومات</sys:String>
+                                <sys:String>الأجزاء</sys:String>
+                                <sys:String>المقاسات</sys:String>
+                                <sys:String>الخيارات</sys:String>
+                                <sys:String>التسعير</sys:String>
+                                <sys:String>المراجعة</sys:String>
+                            </x:Array>
+                        </controls:StepIndicator.ItemsSource>
                     </controls:StepIndicator>
                 </StackPanel>
             </Border>

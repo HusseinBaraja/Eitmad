@@ -9,6 +9,19 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 [TestClass]
 public sealed class FurnitureRenderedTests
 {
+    private static void CaptureSteps(MainWindow window, string size)
+    {
+        var directory = Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR");
+        if (string.IsNullOrEmpty(directory)) return;
+        System.IO.Directory.CreateDirectory(directory);
+        var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap((int)window.ActualWidth, (int)window.ActualHeight, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+        bitmap.Render(window);
+        var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+        encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+        using var stream = System.IO.File.Create(System.IO.Path.Combine(directory, $"furniture-steps-{size}.png"));
+        encoder.Save(stream);
+    }
+
     [TestMethod]
     public void ManagerListAndSixStepEditorRenderAccessibleInteractions()
     {
@@ -28,6 +41,16 @@ public sealed class FurnitureRenderedTests
             WpfTestHost.CompleteLayout(view);
             Assert.IsTrue(view.ViewModel.IsEditorOpen);
             Assert.AreEqual(1, view.ViewModel.CurrentStep);
+            CaptureSteps(window, "normal");
+            if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR")))
+            {
+                window.Width = 1100;
+                WpfTestHost.CompleteLayout(window);
+                CaptureSteps(window, "compact");
+                window.Width = 1338;
+                WpfTestHost.CompleteLayout(window);
+            }
+
             var name = WpfTestHost.FindByName<TextBox>(view, "FurnitureNameBox");
             Assert.IsTrue(name.IsKeyboardFocusWithin);
             Assert.IsTrue(WpfTestHost.FindByAutomationName<Button>(view, "اختيار صورة المنتج").IsEnabled);

@@ -251,7 +251,7 @@ The shell owns `PageHeader`, `EmptyState`, `FeedbackNotice`, `StatusBadge`, `Amo
 | `FeedbackNotice` | `Message`, `Tone`, `IsFloating`, `CanDismiss`, `DisplayDuration`, and `Dismissed`. Zero duration is persistent. |
 | `StatusBadge` | `Text`, `Tone`, optional `Icon`, and `IsCompact`. Feature styles supply tone. |
 | `AmountDisplay` | Preformatted `AmountText`, `UnitText`, `UnitPlacement` (`Before` or `After`), and `EmptyText`. No parsing or calculation. |
-| `StepIndicator` | `StepItem` items with `Label` and `Description`, and one-based `CurrentStep`. Steps do not accept clicks. |
+| `StepIndicator` | `ItemsSource` accepts a string array or list of step names (use `ObservableCollection<string>` for live changes). Count, equal widths, and one-based numbers are automatic. Optional one-based `CurrentStep` defaults to 1. Steps do not accept clicks; state is exposed through Arabic automation names. |
 
 `PresentationTone` has `Neutral`, `Information`, `Success`, `Warning`, and `Danger`. Use the Arabic status label as well as color. A notice stops its timer when unloaded. The feature handles `Dismissed` with its existing clear-feedback action. Call `RestartDuration()` when repeating an identical message. Existing callers retain their 2.5-second or 3-second duration.
 

@@ -638,42 +638,44 @@
     </Style>
     <Style TargetType="controls:StepIndicator">
         <Setter Property="controls:ControlOptions.HighContrast" Value="{DynamicResource {x:Static SystemParameters.HighContrastKey}}" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
         <Setter Property="ItemsPanel">
             <Setter.Value>
-                <ItemsPanelTemplate>
-                    <WrapPanel />
-                </ItemsPanelTemplate>
+                <ItemsPanelTemplate><UniformGrid Rows="1" /></ItemsPanelTemplate>
             </Setter.Value>
         </Setter>
         <Setter Property="ItemTemplate">
             <Setter.Value>
                 <DataTemplate>
-                    <Border x:Name="StepContrast0" Padding="12,8" Margin="4" BorderThickness="1">
-                        <StackPanel>
-                            <TextBlock x:Name="StepContrast1" Text="{Binding Label}" FontWeight="SemiBold" />
-                            <TextBlock x:Name="StepContrast2" Text="{Binding Description}" Foreground="{DynamicResource MutedBrush}" FontSize="10" />
-                            <TextBlock x:Name="StepContrast3" Text="{Binding State}" FontSize="10" />
+                    <Border x:Name="Step" Background="#F5F1ED" BorderBrush="#E3DDD7" BorderThickness="1" CornerRadius="10" Padding="10,9" Margin="4">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <Border x:Name="Circle" Width="22" Height="22" CornerRadius="11" Background="#E5D5C5">
+                                <TextBlock x:Name="Number" Text="{Binding Path=(controls:StepIndicator.Number), RelativeSource={RelativeSource AncestorType=ContentPresenter}}" TextAlignment="Center" VerticalAlignment="Center" FlowDirection="LeftToRight" FontSize="10" FontWeight="Bold" />
+                            </Border>
+                            <TextBlock x:Name="Label" Text="{Binding}" Margin="7,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
-                        <Border.Style>
-                            <Style TargetType="Border">
-                                <Setter Property="Background" Value="Transparent" />
-                                <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding State}" Value="الحالية">
-                                        <Setter Property="Background" Value="{DynamicResource CopperTintBrush}" />
-                                        <Setter Property="BorderBrush" Value="{DynamicResource CopperBrush}" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Border.Style>
                     </Border>
                     <DataTemplate.Triggers>
-                        <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:StepIndicator}}" Value="True">
-                            <Setter TargetName="StepContrast0" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
-                            <Setter TargetName="StepContrast1" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
-                            <Setter TargetName="StepContrast2" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
-                            <Setter TargetName="StepContrast3" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                        <DataTrigger Binding="{Binding Path=(controls:StepIndicator.State), RelativeSource={RelativeSource Self}}" Value="الحالية">
+                            <Setter TargetName="Step" Property="Background" Value="#6F3B0D" />
+                            <Setter TargetName="Step" Property="BorderBrush" Value="#6F3B0D" />
+                            <Setter TargetName="Label" Property="Foreground" Value="White" />
                         </DataTrigger>
+                        <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:StepIndicator}}" Value="True">
+                            <Setter TargetName="Step" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                            <Setter TargetName="Step" Property="BorderBrush" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                            <Setter TargetName="Circle" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                            <Setter TargetName="Number" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                            <Setter TargetName="Label" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                        </DataTrigger>
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:StepIndicator}}" Value="True" />
+                                <Condition Binding="{Binding Path=(controls:StepIndicator.State), RelativeSource={RelativeSource Self}}" Value="الحالية" />
+                            </MultiDataTrigger.Conditions>
+                            <Setter TargetName="Step" Property="Background" Value="{DynamicResource {x:Static SystemColors.HighlightBrushKey}}" />
+                            <Setter TargetName="Label" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.HighlightTextBrushKey}}" />
+                        </MultiDataTrigger>
                     </DataTemplate.Triggers>
                 </DataTemplate>
             </Setter.Value>

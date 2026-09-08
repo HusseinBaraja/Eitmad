@@ -1,4 +1,4 @@
-<UserControl x:Class="Eitmad.WindowsShell.Features.Parts.PartsView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls" xmlns:layout="clr-namespace:Eitmad.WindowsShell.Layout" xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore" FlowDirection="RightToLeft" Background="{StaticResource CanvasBrush}">
+<UserControl x:Class="Eitmad.WindowsShell.Features.Parts.PartsView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:sys="clr-namespace:System;assembly=mscorlib" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls" xmlns:layout="clr-namespace:Eitmad.WindowsShell.Layout" xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore" FlowDirection="RightToLeft" Background="{StaticResource CanvasBrush}">
     <Grid>
         <Grid x:Name="ListSurface">
             <Grid.Style>
@@ -236,9 +236,13 @@
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                 <StackPanel Margin="28,22,28,30" MaxWidth="980" HorizontalAlignment="Stretch">
                     <controls:StepIndicator CurrentStep="{Binding CurrentStep}" Margin="0,0,0,14">
-                        <controls:StepItem Label="المعلومات" Description="تعريف الجزء" />
-                        <controls:StepItem Label="المواد الخام" Description="الاستهلاك والتكلفة" />
-                        <controls:StepItem Label="المراجعة" Description="تأكيد البيانات" />
+                        <controls:StepIndicator.ItemsSource>
+                            <x:Array Type="{x:Type sys:String}">
+                                <sys:String>المعلومات</sys:String>
+                                <sys:String>المواد الخام</sys:String>
+                                <sys:String>المراجعة</sys:String>
+                            </x:Array>
+                        </controls:StepIndicator.ItemsSource>
                     </controls:StepIndicator>
                     <Border x:Name="InformationStep" Padding="30">
                         <Border.Style>
