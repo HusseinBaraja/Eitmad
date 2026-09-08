@@ -247,5 +247,3 @@ public sealed class DialogHostRenderedTests
     }
     private static void RaiseKey(UIElement target, Key key) => target.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(target), 0, key) { RoutedEvent = Keyboard.KeyDownEvent });
 }
-
-

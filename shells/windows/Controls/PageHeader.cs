@@ -16,4 +16,6 @@ public class PageHeader : System.Windows.Controls.ContentControl
     public static readonly DependencyProperty BackActionProperty = DependencyProperty.Register(nameof(BackAction), typeof(object), typeof(PageHeader), new PropertyMetadata(null));
     public object BackAction { get => (object)GetValue(BackActionProperty); set => SetValue(BackActionProperty, value); }
 
+    public static readonly DependencyProperty HeadingMinWidthProperty = DependencyProperty.Register(nameof(HeadingMinWidth), typeof(double), typeof(PageHeader), new PropertyMetadata(260d));
+    public double HeadingMinWidth { get => (double)GetValue(HeadingMinWidthProperty); set => SetValue(HeadingMinWidthProperty, value); }
 }

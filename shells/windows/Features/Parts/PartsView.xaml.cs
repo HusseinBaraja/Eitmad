@@ -27,15 +27,6 @@ public partial class PartsView : UserControl
         Dispatcher.BeginInvoke(EditorNameBox.Focus, DispatcherPriority.Input);
     }
 
-    private void PartRowClick(object sender, MouseButtonEventArgs eventArgs)
-    {
-        if (sender is FrameworkElement { DataContext: PartListItem part })
-        {
-            ViewModel.BeginEdit(part);
-            Dispatcher.BeginInvoke(EditorNameBox.Focus, DispatcherPriority.Input);
-        }
-    }
-
     private static PartListItem? PartFromMenuItem(object sender) =>
         sender is MenuItem { DataContext: PartListItem part } ? part : null;
 

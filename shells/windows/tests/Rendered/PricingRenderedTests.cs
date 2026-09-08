@@ -1,6 +1,8 @@
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using Eitmad.WindowsShell.Controls;
 using Eitmad.WindowsShell.Features.Pricing;
 
 namespace Eitmad.WindowsShell.Tests.Rendered;
@@ -17,15 +19,19 @@ public sealed class PricingRenderedTests
             WpfTestHost.CompleteLayout(window);
             var view = WpfTestHost.Descendants<PricingView>(window).Single();
             var search = WpfTestHost.FindByName<TextBox>(view, "PricingSearchBox");
-            var scroll = WpfTestHost.FindByName<ScrollViewer>(view, "PricingTableScroll");
-            var header = WpfTestHost.FindByName<Grid>(view, "PricingTableHeader");
-            var rows = WpfTestHost.FindByName<ItemsControl>(view, "PricingRows");
+            var rows = WpfTestHost.FindByName<OperationsTable>(view, "PricingRows");
+            var scroll = WpfTestHost.Descendants<ScrollViewer>(rows).Single(element => element.Name == "DG_ScrollViewer");
+            var column = rows.Columns[0];
+            column.Width = 300;
+            WpfTestHost.CompleteLayout(window);
             Assert.IsTrue(search.TransformToAncestor(view).Transform(new Point()).Y > 80);
             Assert.IsTrue(scroll.TransformToAncestor(view).Transform(new Point()).Y >= search.TransformToAncestor(view).Transform(new Point(0, search.ActualHeight)).Y);
             scroll.ScrollToHorizontalOffset(scroll.ScrollableWidth / 2);
             WpfTestHost.CompleteLayout(view);
-            Assert.AreEqual(header.TransformToAncestor(view).Transform(new Point()).X, rows.TransformToAncestor(view).Transform(new Point()).X, 0.1);
-            Assert.AreEqual(header.ActualWidth, rows.ActualWidth, 0.1);
+            var header = WpfTestHost.Descendants<DataGridColumnHeader>(rows).Single(element => element.Column == column);
+            var cell = WpfTestHost.Descendants<DataGridCell>(rows).First(element => element.Column == column);
+            Assert.AreEqual(header.TransformToAncestor(rows).Transform(new Point()).X, cell.TransformToAncestor(rows).Transform(new Point()).X, 1);
+            Assert.AreEqual(header.ActualWidth, cell.ActualWidth, 1);
         });
     }
 

@@ -72,39 +72,49 @@
                     <Border Style="{StaticResource Card}" ClipToBounds="True" MinHeight="310">
                         <Grid>
                             <Grid.RowDefinitions><RowDefinition Height="52" /><RowDefinition Height="*" /><RowDefinition Height="42" /></Grid.RowDefinitions>
-                            <ScrollViewer Grid.RowSpan="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                                <Grid MinWidth="760">
-                                    <Grid.RowDefinitions><RowDefinition Height="52" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-                                    <Border Background="#F7F3EF" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
-                                        <Grid FlowDirection="RightToLeft">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="2*" /><ColumnDefinition Width="1.2*" /><ColumnDefinition Width="0.8*" /><ColumnDefinition Width="1.1*" /><ColumnDefinition Width="0.9*" /><ColumnDefinition Width="0.55*" />
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="اسم المادة" Style="{StaticResource TableHeader}" />
-                                            <TextBlock Grid.Column="1" Text="الفئة" Style="{StaticResource TableHeader}" />
-                                            <TextBlock Grid.Column="2" Text="الوحدة" Style="{StaticResource TableHeader}" />
-                                                        <TextBlock Grid.Column="3" Text="التكلفة الحالية" Style="{StaticResource TableHeader}" />
-                                            <TextBlock Grid.Column="4" Text="الحالة" Style="{StaticResource TableHeader}" />
-                                            <TextBlock Grid.Column="5" Text="الإجراءات" Style="{StaticResource TableHeader}" />
-                                        </Grid>
-                                    </Border>
-                                    <ItemsControl Grid.Row="1" ItemsSource="{Binding VisibleMaterials}">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <Border x:Name="RowSurface" MinHeight="64" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1" Background="White" Cursor="Hand" MouseLeftButtonUp="RawMaterialRowClick">
-                                                    <Grid FlowDirection="RightToLeft">
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="2*" /><ColumnDefinition Width="1.2*" /><ColumnDefinition Width="0.8*" /><ColumnDefinition Width="1.1*" /><ColumnDefinition Width="0.9*" /><ColumnDefinition Width="0.55*" />
-                                                        </Grid.ColumnDefinitions>
-                                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="18,8" FlowDirection="LeftToRight">
-                                                            <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold" TextAlignment="Right" TextWrapping="NoWrap" />
-                                                            <TextBlock Text="مادة خام" Foreground="{StaticResource MutedBrush}" FontSize="9" TextAlignment="Right" Margin="0,3,0,0" />
-                                                        </StackPanel>
-                                                        <TextBlock Grid.Column="1" Text="{Binding Category}" Style="{StaticResource TableBody}" />
-                                                        <TextBlock Grid.Column="2" Text="{Binding Unit}" Style="{StaticResource TableBody}" />
-                                                        <controls:AmountDisplay Grid.Column="3" HorizontalAlignment="Center" AmountText="{Binding CostAmountLabel}" UnitText="{Binding CurrencyLabel}" UnitPlacement="Before"/>
-                                                        <controls:StatusBadge x:Name="StatusPill" Grid.Column="4" Padding="10,4" HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding StatusLabel}" Tone="Success"></controls:StatusBadge>
-                                                        <Button Grid.Column="5" HorizontalAlignment="Center" VerticalAlignment="Center" Style="{StaticResource RowActionButton}" Content="⋮" Click="OpenRowMenuClick" automation:AutomationProperties.Name="إجراءات المادة الخام">
+                            <Grid Grid.RowSpan="2">
+                                <Grid>
+                                    <Grid.RowDefinitions><RowDefinition Height="0" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+
+                                    <controls:OperationsTable Grid.Row="1" ItemsSource="{Binding VisibleMaterials}" SelectedValuePath="Id" FlowDirection="RightToLeft" MaxHeight="460" automation:AutomationProperties.Name="اسم المادة"><controls:OperationsTable.EmptyContent><controls:EmptyState Heading="لا توجد مواد مطابقة" Description="جرّب تغيير البحث أو عوامل التصفية."/></controls:OperationsTable.EmptyContent><DataGrid.Columns><DataGridTemplateColumn Header="اسم المادة" Width="2*" MinWidth="160" SortMemberPath="Name"><DataGridTemplateColumn.CellTemplate><DataTemplate><Border x:Name="RowSurface" MinHeight="64" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White"><StackPanel VerticalAlignment="Center" Margin="18,8" FlowDirection="LeftToRight">
+                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding Name}" FontSize="13" FontWeight="SemiBold" TextAlignment="Right" TextWrapping="NoWrap" />
+                                                            <TextBlock x:Name="ContrastCell1" Text="مادة خام" Foreground="{StaticResource MutedBrush}" FontSize="9" TextAlignment="Right" Margin="0,3,0,0" />
+                                                        </StackPanel></Border><DataTemplate.Triggers><DataTrigger Binding="{Binding IsArchived}" Value="True">
+                                                        <Setter TargetName="RowSurface" Property="Opacity" Value="0.52" />
+                                                        <Setter TargetName="RowSurface" Property="Background" Value="#F3F1EF" />
+
+
+                                                    </DataTrigger><Trigger SourceName="RowSurface" Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="RowSurface" Property="Background" Value="#FBF4EC" />
+                                                    </Trigger><DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True"><Setter TargetName="ContrastCell0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}"/><Setter TargetName="ContrastCell1" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}"/><Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}"/></DataTrigger></DataTemplate.Triggers></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn><DataGridTemplateColumn Header="الفئة" Width="1.2*" MinWidth="120" SortMemberPath="Category"><DataGridTemplateColumn.CellTemplate><DataTemplate><Border x:Name="RowSurface" MinHeight="64" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White"><TextBlock x:Name="ContrastCell0" Text="{Binding Category}" Style="{StaticResource TableBody}" /></Border><DataTemplate.Triggers><DataTrigger Binding="{Binding IsArchived}" Value="True">
+                                                        <Setter TargetName="RowSurface" Property="Opacity" Value="0.52" />
+                                                        <Setter TargetName="RowSurface" Property="Background" Value="#F3F1EF" />
+
+
+                                                    </DataTrigger><Trigger SourceName="RowSurface" Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="RowSurface" Property="Background" Value="#FBF4EC" />
+                                                    </Trigger><DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True"><Setter TargetName="ContrastCell0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}"/><Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}"/></DataTrigger></DataTemplate.Triggers></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn><DataGridTemplateColumn Header="الوحدة" Width="0.8*" MinWidth="120" SortMemberPath="Unit"><DataGridTemplateColumn.CellTemplate><DataTemplate><Border x:Name="RowSurface" MinHeight="64" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White"><TextBlock x:Name="ContrastCell0" Text="{Binding Unit}" Style="{StaticResource TableBody}" /></Border><DataTemplate.Triggers><DataTrigger Binding="{Binding IsArchived}" Value="True">
+                                                        <Setter TargetName="RowSurface" Property="Opacity" Value="0.52" />
+                                                        <Setter TargetName="RowSurface" Property="Background" Value="#F3F1EF" />
+
+
+                                                    </DataTrigger><Trigger SourceName="RowSurface" Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="RowSurface" Property="Background" Value="#FBF4EC" />
+                                                    </Trigger><DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True"><Setter TargetName="ContrastCell0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}"/><Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}"/></DataTrigger></DataTemplate.Triggers></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn><DataGridTemplateColumn Header="التكلفة الحالية" Width="1.1*" MinWidth="120" SortMemberPath="CurrentCost"><DataGridTemplateColumn.CellTemplate><DataTemplate><Border x:Name="RowSurface" MinHeight="64" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White"><controls:AmountDisplay HorizontalAlignment="Center" AmountText="{Binding CostAmountLabel}" UnitText="{Binding CurrencyLabel}" UnitPlacement="Before"/></Border><DataTemplate.Triggers><DataTrigger Binding="{Binding IsArchived}" Value="True">
+                                                        <Setter TargetName="RowSurface" Property="Opacity" Value="0.52" />
+                                                        <Setter TargetName="RowSurface" Property="Background" Value="#F3F1EF" />
+
+
+                                                    </DataTrigger><Trigger SourceName="RowSurface" Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="RowSurface" Property="Background" Value="#FBF4EC" />
+                                                    </Trigger><DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True"><Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}"/></DataTrigger></DataTemplate.Triggers></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn><DataGridTemplateColumn Header="الحالة" Width="0.9*" MinWidth="100" SortMemberPath="StatusLabel"><DataGridTemplateColumn.CellTemplate><DataTemplate><Border x:Name="RowSurface" MinHeight="64" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White"><controls:StatusBadge x:Name="StatusPill" Padding="10,4" HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding StatusLabel}" Tone="Success"></controls:StatusBadge></Border><DataTemplate.Triggers><DataTrigger Binding="{Binding IsArchived}" Value="True">
+                                                        <Setter TargetName="RowSurface" Property="Opacity" Value="0.52" />
+                                                        <Setter TargetName="RowSurface" Property="Background" Value="#F3F1EF" />
+                                                        <Setter TargetName="StatusPill" Property="Background" Value="#E5E2DF" />
+                                                        <Setter TargetName="StatusPill" Property="Foreground" Value="#716B66" />
+                                                    </DataTrigger><Trigger SourceName="RowSurface" Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="RowSurface" Property="Background" Value="#FBF4EC" />
+                                                    </Trigger><DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True"><Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}"/></DataTrigger></DataTemplate.Triggers></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn><DataGridTemplateColumn Header="الإجراءات" Width="0.55*" MinWidth="70" CanUserSort="False"><DataGridTemplateColumn.CellTemplate><DataTemplate><Border x:Name="RowSurface" MinHeight="64" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White"><Button HorizontalAlignment="Center" VerticalAlignment="Center" Style="{StaticResource RowActionButton}" Content="⋮" Click="OpenRowMenuClick" automation:AutomationProperties.Name="إجراءات المادة الخام">
                                                             <Button.ContextMenu>
                                                                 <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}" FlowDirection="LeftToRight" Style="{StaticResource ActionMenu}" Placement="Right" HorizontalOffset="6">
                                                                     <MenuItem Header="تعديل" Style="{StaticResource ActionMenuItem}" Click="EditMenuItemClick" />
@@ -113,31 +123,17 @@
                                                                     <MenuItem Header="أرشفة" Style="{StaticResource ActionMenuItem}" IsEnabled="{Binding CanArchive}" Click="ArchiveMenuItemClick" />
                                                                 </ContextMenu>
                                                             </Button.ContextMenu>
-                                                        </Button>
-                                                    </Grid>
-                                                </Border>
-                                                <DataTemplate.Triggers>
-                                                    <DataTrigger Binding="{Binding IsArchived}" Value="True">
+                                                        </Button></Border><DataTemplate.Triggers><DataTrigger Binding="{Binding IsArchived}" Value="True">
                                                         <Setter TargetName="RowSurface" Property="Opacity" Value="0.52" />
                                                         <Setter TargetName="RowSurface" Property="Background" Value="#F3F1EF" />
-                                                        <Setter TargetName="StatusPill" Property="Background" Value="#E5E2DF" />
-                                                        <Setter TargetName="StatusPill" Property="Foreground" Value="#716B66" />
-                                                    </DataTrigger>
-                                                    <Trigger SourceName="RowSurface" Property="IsMouseOver" Value="True">
+
+
+                                                    </DataTrigger><Trigger SourceName="RowSurface" Property="IsMouseOver" Value="True">
                                                         <Setter TargetName="RowSurface" Property="Background" Value="#FBF4EC" />
-                                                    </Trigger>
-                                                </DataTemplate.Triggers>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
+                                                    </Trigger><DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True"><Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}"/></DataTrigger></DataTemplate.Triggers></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn></DataGrid.Columns></controls:OperationsTable>
                                 </Grid>
-                            </ScrollViewer>
-                            <controls:EmptyState Grid.Row="1" Panel.ZIndex="4" Heading="لا توجد مواد مطابقة" Description="جرّب تغيير البحث أو عوامل التصفية."><controls:EmptyState.Style>
-                                    <Style TargetType="controls:EmptyState" BasedOn="{StaticResource {x:Type controls:EmptyState}}">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers><DataTrigger Binding="{Binding HasNoVisibleMaterials}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers>
-                                    </Style>
-                                </controls:EmptyState.Style></controls:EmptyState>
+                            </Grid>
+
                             <Border Grid.Row="2" Background="#FCFAF8" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,1,0,0" Padding="16,9">
                                 <TextBlock Text="{Binding VisibleCountLabel}" Foreground="{StaticResource MutedBrush}" FontSize="10" />
                             </Border>

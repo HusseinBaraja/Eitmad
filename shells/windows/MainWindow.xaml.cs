@@ -14,7 +14,6 @@ namespace Eitmad.WindowsShell;
 
 public partial class MainWindow : Window
 {
-    private readonly DispatcherTimer toastTimer;
     private Button selectedNavButton;
 
     /// <summary>Initializes the dashboard preview and its transient interactions.</summary>
@@ -24,12 +23,6 @@ public partial class MainWindow : Window
         DataContext = viewModel;
         selectedNavButton = HomeNavButton;
         SetNavigationTone(selectedNavButton, true);
-        toastTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
-        toastTimer.Tick += (_, _) =>
-        {
-            toastTimer.Stop();
-            InteractionToast.Visibility = Visibility.Collapsed;
-        };
     }
 
     /// <summary>Selects a preview destination and updates the dashboard heading.</summary>
@@ -86,7 +79,7 @@ public partial class MainWindow : Window
         WorkOrdersSurface.Visibility = showWorkOrders ? Visibility.Visible : Visibility.Collapsed;
         if (!showRawMaterials && !showParts && !showFurniture && !showPricing && !showProducts && !showQuotations && !showOrders && !showWorkOrders)
         {
-            DashboardTitle.Text = destination == "الرئيسية" ? "لوحة التحكم" : destination;
+            DashboardTitle.Title = destination == "الرئيسية" ? "لوحة التحكم" : destination;
             ShowToast($"تم فتح {destination} في وضع المعاينة");
         }
     }
@@ -105,7 +98,7 @@ public partial class MainWindow : Window
     {
         PreviewPanelTitle.Text = sender is Button { Tag: string title } ? title : "عرض سعر جديد";
         InteractionPanel.Visibility = Visibility.Visible;
-        CustomerNameBox.Focus();
+        Dispatcher.BeginInvoke(CustomerNameBox.Focus, DispatcherPriority.Input);
     }
 
     /// <summary>Closes the quotation preview panel without saving state.</summary>
@@ -141,11 +134,11 @@ public partial class MainWindow : Window
     /// <summary>Shows transient preview feedback.</summary>
     private void ShowToast(string message)
     {
-        InteractionToastText.Text = message;
-        InteractionToast.Visibility = Visibility.Visible;
-        toastTimer.Stop();
-        toastTimer.Start();
+        InteractionToast.Message = message;
+        InteractionToast.RestartDuration();
     }
+
+    private void DismissToast(object sender, RoutedEventArgs e) => InteractionToast.Message = string.Empty;
 
     /// <summary>Applies selected or unselected navigation colors.</summary>
     private static void SetNavigationTone(Button button, bool selected)

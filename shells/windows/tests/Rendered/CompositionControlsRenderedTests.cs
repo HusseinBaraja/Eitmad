@@ -10,6 +10,49 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 public sealed class CompositionControlsRenderedTests
 {
     [TestMethod]
+    public void SharedCompositionsUseSystemColorsAndLargeAmountText()
+    {
+        WpfTestHost.Run(780, 745, window =>
+        {
+            window.Resources[SystemParameters.HighContrastKey] = true;
+            window.Resources[SystemColors.WindowBrushKey] = System.Windows.Media.Brushes.Black;
+            window.Resources[SystemColors.WindowTextBrushKey] = System.Windows.Media.Brushes.White;
+            var amount = new AmountDisplay { AmountText = "-12,345.50", UnitText = "ر.س.", FontSize = 28 };
+            var notice = new FeedbackNotice { Message = "رسالة تجريبية طويلة توضح نتيجة الإجراء وتبقى قابلة للقراءة", Tone = PresentationTone.Warning, FontSize = 24 };
+            var field = new FormField { Label = "اسم المادة", HelpText = "أدخل الاسم كما يظهر في القائمة", ErrorText = "راجع الاسم المدخل قبل الحفظ", Content = new TextBox { Text = "خشب زان", FontSize = 24, Style = (Style)window.FindResource("TextInput") } };
+            var steps = new StepIndicator { CurrentStep = 2 };
+            steps.Items.Add(new StepItem { Label = "المعلومات", Description = "بيانات المادة" });
+            steps.Items.Add(new StepItem { Label = "المراجعة", Description = "تأكيد البيانات" });
+            var panel = new StackPanel { Margin = new Thickness(24) };
+            panel.Children.Add(new PageHeader { Title = "مراجعة العرض", Subtitle = "بيانات عربية تجريبية", FontSize = 30 });
+            panel.Children.Add(new StatusBadge { Text = "بانتظار الموافقة", Tone = PresentationTone.Warning, FontSize = 24 });
+            panel.Children.Add(amount);
+            panel.Children.Add(notice);
+            panel.Children.Add(steps);
+            panel.Children.Add(field);
+            panel.Children.Add(new EmptyState { Heading = "لا توجد نتائج مطابقة", Description = "جرّب تغيير البحث أو عوامل التصفية", IsCompact = true });
+            window.Content = new ScrollViewer { Content = panel };
+            WpfTestHost.CompleteLayout(window);
+            var amountText = (TextBlock)amount.Template.FindName("Amount", amount);
+            Assert.AreEqual(28d, amountText.FontSize);
+            Assert.AreEqual(System.Windows.Media.Brushes.White, amountText.Foreground);
+            Assert.AreEqual(System.Windows.Media.Brushes.White, WpfTestHost.Descendants<TextBlock>(notice).First(text => text.Text == notice.Message).Foreground);
+            Assert.AreEqual(System.Windows.Media.Brushes.White, ((TextBlock)field.Template.FindName("Error", field)).Foreground);
+            var directory = Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR");
+            if (!string.IsNullOrEmpty(directory))
+            {
+                System.IO.Directory.CreateDirectory(directory);
+                var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap((int)window.ActualWidth, (int)window.ActualHeight, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+                bitmap.Render(window);
+                var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+                encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+                using var stream = System.IO.File.Create(System.IO.Path.Combine(directory, "compositions-large-system-colors.png"));
+                encoder.Save(stream);
+            }
+        });
+    }
+
+    [TestMethod]
     public void FeedbackReplacementRestartsExpiryAndExpiresOnlyOnce()
     {
         WpfTestHost.Run(780, 745, window =>

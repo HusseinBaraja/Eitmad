@@ -191,5 +191,3 @@ public sealed class DialogHost : ContentControl
             foreach (var child in Descendants<T>(VisualTreeHelper.GetChild(root, index))) yield return child;
     }
 }
-
-

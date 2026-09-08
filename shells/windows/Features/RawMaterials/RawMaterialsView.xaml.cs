@@ -26,15 +26,6 @@ public partial class RawMaterialsView : UserControl
         Dispatcher.BeginInvoke(EditorNameBox.Focus, DispatcherPriority.Input);
     }
 
-    private void RawMaterialRowClick(object sender, MouseButtonEventArgs eventArgs)
-    {
-        if (sender is FrameworkElement { DataContext: RawMaterialListItem material })
-        {
-            ViewModel.BeginEdit(material);
-            Dispatcher.BeginInvoke(EditorNameBox.Focus, DispatcherPriority.Input);
-        }
-    }
-
     private static RawMaterialListItem? MaterialFromMenuItem(object sender) =>
         sender is MenuItem { DataContext: RawMaterialListItem material } ? material : null;
 

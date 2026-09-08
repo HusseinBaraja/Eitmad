@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Windows UI maintainers"
-last_verified: "2026-09-07"
+last_verified: "2026-09-08"
 review_triggers:
   - "Windows shell UI, state mapping, configuration patches, subscriptions, tray behavior, or ownership boundaries change"
 keywords:
@@ -67,7 +67,7 @@ The furniture operations dashboard currently marks itself **وضع المعاي�
 
 Preview interactions are real WPF input behavior but remain ephemeral. Sidebar buttons update their selected style and the page heading. The selected label and vector icon stay white on the walnut background, including while the pointer highlights the selected button. When another item is selected, the old icon returns to the shared ink theme brush. Quick actions, notification controls, and footer links show bounded Arabic feedback. The shared search input draws a placeholder only while its text is empty. Focus does not change query text. Dashboard search reports the submitted Arabic term without querying authoritative records. **عرض سعر جديد** opens a keyboard-editable drawer, validates that a customer name is present, and then reports **الحفظ معطل في وضع المعاينة**. It does not create a command, record, audit entry, or sync item. When the quotation vertical exists, replace only this preview boundary with a typed Rust-owned command and keep the failure message until a successful authoritative result returns.
 
-The **المواد الخام** destination is a dedicated preview page under `Features/RawMaterials`. `RawMaterialsViewModel` owns only transient search, category and status filters, editor state, synthetic list fixtures, and in-memory category and unit reference options. Search updates on each text change and normalizes Arabic alef variants, `ى`, `ة`, tatweel, and combining marks in both the query and searchable fields. For example, **اخشاب** matches **أخشاب طبيعية**. Filters compose, archived rows remain available with inactive styling, and the compact menu offers **تعديل**, **تكرار**, and **أرشفة** without a permanent delete action. Clicking a row opens the same editor as **إضافة مادة خام**.
+The **المواد الخام** destination is a dedicated preview page under `Features/RawMaterials`. `RawMaterialsViewModel` owns only transient search, category and status filters, editor state, synthetic list fixtures, and in-memory category and unit reference options. Search updates on each text change and normalizes Arabic alef variants, `ى`, `ة`, tatweel, and combining marks in both the query and searchable fields. For example, **اخشاب** matches **أخشاب طبيعية**. Filters compose, archived rows remain available with inactive styling, and the compact menu offers **تعديل**, **تكرار**, and **أرشفة** without a permanent delete action. Selecting a row does not open an editor. Use **تعديل** in its row menu to edit the selected record.
 
 The category and unit selectors keep the manager inside the material editor. Their popup footers expose **+ إضافة تصنيف جديد** or **+ إضافة وحدة جديدة** plus **إدارة التصنيفات** or **إدارة الوحدات**. Saving a valid new reference closes the small editor, adds it to the active selector collection, and selects it on the material form. Unit references require both a name and short name. `RawMaterialReferenceOption` keeps the display label, archive state, and manager status observable. The shared manager can edit an existing reference or archive it. Archive never removes the reference record; it removes the option from the active material selector and moves the current selection to the first active option when required. Existing synthetic material rows keep their archived reference text. Editing a reference updates matching synthetic rows and the active form value. Duplicate names are rejected within the local reference type.
 
@@ -151,12 +151,12 @@ The landing dashboard uses warm walnut accents, white cards, thin neutral border
 | Editor input, multiline notes, numeric text | `TextInput` |
 | Dashboard, list, and picker search | `SearchInput` |
 | Filter or editor selector | `SelectInput`, `SelectItem` |
-| Form label, table heading, table value | `FieldLabel`, `TableHeader`, `TableBody` |
+| Form label, table heading, table value | `FormField`, `OperationsTable`, `TableBody` |
 | Detail labels and values | `MetadataLabel`, `MetadataValue`, `SummaryLabel`, `SummaryValue` |
 | Main, secondary, compact, and inline actions | `PrimaryButton`, `SecondaryButton`, `CompactButton`, `InlineActionButton` |
 | Icon, row, and selector-footer actions | `IconButton`, `RowActionButton`, `DropdownActionButton` |
 | Flat row menu and separator | `ActionMenu`, `ActionMenuItem`, `ActionMenuSeparator` |
-| Status appearance and native radio choice | `StatusSurface`, `StatusLabel`, `ChoiceRadio` |
+| Status appearance and native radio choice | `StatusBadge`, `ChoiceRadio` |
 
 `shells/windows/Controls/ControlOptions.cs` supplies optional presentation parameters. `Icon` accepts a shared geometry or null. `Placeholder` is display text, never input data. `ShowText` controls button content visibility without changing its command, tooltip, or accessible name. `CornerRadius` controls input, selector, and button corners. Keep `ToolTip`, `ToolTipService.IsEnabled`, `Content`, `IsEnabled`, `IsReadOnly`, `Command`, and bindings on the native WPF control. Give icon-only actions an explicit Arabic `AutomationProperties.Name` and tooltip. Set `ShowText` from a style trigger when a compact layout must hide a label.
 
@@ -246,7 +246,7 @@ The shell owns `PageHeader`, `EmptyState`, `FeedbackNotice`, `StatusBadge`, `Amo
 
 | Control | Parameters |
 | --- | --- |
-| `PageHeader` | `Title`, `Subtitle`, optional `Icon`, `BackAction`, and action `Content`; actions wrap below the heading. |
+| `PageHeader` | `Title`, `Subtitle`, optional `Icon`, `BackAction`, and action `Content`; actions wrap below the heading. `HeadingMinWidth` defaults to 260 DIPs; the dashboard title uses zero inside its existing toolbar. |
 | `EmptyState` | `Heading`, `Description`, optional `Icon` and action `Content`, `IsCompact`. |
 | `FeedbackNotice` | `Message`, `Tone`, `IsFloating`, `CanDismiss`, `DisplayDuration`, and `Dismissed`. Zero duration is persistent. |
 | `StatusBadge` | `Text`, `Tone`, optional `Icon`, and `IsCompact`. Feature styles supply tone. |
@@ -294,3 +294,36 @@ The host keeps a 24-DIP viewport inset, scrolls the body, and keeps the title an
 ```
 
 The dialog checkpoint passed 21 focused rendered checks. Tests cover focus entry and cycle, pointer blocking, selector Escape, close requests, focus return, viewport limits, and real Products and Raw materials manager/editor transitions with failed validation. All 11 synthetic dialogs were inspected at both normal and compact widths. These checks do not certify screen-reader announcements or OS high-contrast mode.
+
+
+## Define native operations tables
+
+`OperationsTable` derives from WPF `DataGrid`. The dashboard and eight feature pages use 17 instances for lists, detail rows, and editor rows. Each column declares its header, width, cell template, and `SortMemberPath` once. Use typed numbers and dates for sorting, and the visible Arabic label for status sorting. Image and action columns set `CanUserSort="False"`. Headers accept keyboard focus; Space activates sorting. Activation alternates ascending and descending order on one column.
+
+Each table owns a separate collection view with Arabic culture. It preserves initial source order until a header is activated and never sorts the source collection. `SelectedValuePath="Id"` preserves the selected record when a list rebuild replaces its object. Synchronous filter rebuilds retain selection only if the record remains visible; a later filter does not restore a previously removed selection. The table refreshes an active sort after completed record edits and defers it while an explicit input holds focus.
+
+Selection is single-row. Selection and double-click do not open a record. Existing buttons and menus remain the action paths. Automatic row creation, deletion, column reordering, and cell editing are disabled. Put explicit inputs in `CellTemplate` and retain their normal binding update timing. The table owns horizontal scrolling, native column resizing, and virtualized rows within bounded vertical space. Widths and sort state live only in the current view. The Furniture Parts and Colors steps give their tables the available viewport width; other Furniture editor layouts retain their existing layout.
+
+```xml
+<controls:OperationsTable MaxHeight="460" SelectedValuePath="Id">
+    <controls:OperationsTable.EmptyContent>
+        <controls:EmptyState Heading="لا توجد نتائج" IsCompact="True" />
+    </controls:OperationsTable.EmptyContent>
+    <DataGrid.Columns>
+        <DataGridTextColumn Header="الاسم" Width="2*" MinWidth="160"
+                            SortMemberPath="Name" Binding="&#123;Binding Name&#125;" />
+    </DataGrid.Columns>
+</controls:OperationsTable>
+```
+
+Set `ItemsSource` to the feature's existing visible collection. `EmptyContent` accepts any presentation content. Keep amount formatting in the feature; `AmountDisplay` receives complete strings and never splits formatted currency. `DashboardQuotationPreview` contains only the existing synthetic dashboard rows with typed sort values.
+
+Focused rendered checks cover numeric/date/Arabic sorting, keyboard header activation, column alignment after resizing, isolated views, row-menu targets after sorting, selection through real filter rebuilds, and unchanged explicit editor bindings. All 17 tables have normal and compact synthetic captures. The captures exposed and resolved missing detail-status data contexts and unbounded Furniture table layout. Large text and simulated Windows system-color resources were also inspected. Actual OS high-contrast mode, OS text scaling, and screen-reader announcements remain unverified. The tests do not establish production readiness; Rust contracts, authorization, audit, storage, and preview limits are unchanged.
+
+Run the affected presentation and rendered checks:
+
+```powershell
+dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --filter 'FullyQualifiedName~Rendered|FullyQualifiedName~PresentationTests'
+```
+
+Audit this guide with the focused documentation command in the [documentation standard](../contributing/documentation-standard.md). No Rust workspace check is needed for these shell-only controls.
