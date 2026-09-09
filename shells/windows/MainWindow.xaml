@@ -120,14 +120,7 @@
                                 </Style.Triggers>
                             </Style>
                         </Border.Style>
-                        <Grid FlowDirection="RightToLeft">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="44" />
-                                <ColumnDefinition />
-                            </Grid.ColumnDefinitions>
-                            <Path Grid.Column="0" Data="{StaticResource IconSearch}" Style="{StaticResource ToolbarVectorIcon}" />
-                            <TextBox Grid.Column="1" x:Name="SearchBox" Style="{StaticResource SearchInput}" MinHeight="0" Background="Transparent" BorderThickness="0" FontFamily="Noto Kufi Arabic, Segoe UI" FontSize="13" Padding="10,11,0,8" TextAlignment="Left" FlowDirection="RightToLeft" controls:ControlOptions.Placeholder="ابحث عن عروض أسعار، عملاء، منتجات، أو أوامر عمل..." automation:AutomationProperties.Name="البحث في الاعتماد" KeyDown="SearchKeyDown" />
-                        </Grid>
+                        <TextBox x:Name="SearchBox" Style="{StaticResource SearchInput}" MinHeight="0" Background="Transparent" BorderThickness="0" FontFamily="Noto Kufi Arabic, Segoe UI" FontSize="13" Padding="10,11,0,8" TextAlignment="Left" FlowDirection="RightToLeft" controls:ControlOptions.Placeholder="ابحث عن عروض أسعار، عملاء، منتجات، أو أوامر عمل..." automation:AutomationProperties.Name="البحث في الاعتماد" KeyDown="SearchKeyDown" />
                     </Border>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="16,0,0,0" VerticalAlignment="Center">
                         <Grid Margin="0,0,12,0">

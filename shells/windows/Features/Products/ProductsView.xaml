@@ -32,7 +32,7 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
                 <layout:AdaptiveFieldsPanel MinItemWidth="220">
-                    <TextBox x:Name="ProductSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" automation:AutomationProperties.Name="البحث في المنتجات" controls:ControlOptions.Placeholder="" Style="{StaticResource SearchInput}" />
+                    <TextBox x:Name="ProductSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" automation:AutomationProperties.Name="البحث في المنتجات" Style="{StaticResource SearchInput}" />
                     <ComboBox ItemsSource="{Binding CategoryOptions}" SelectedItem="{Binding SelectedCategory}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصفية فئة المنتجات" />
                     <ComboBox ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding SelectedStatus}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصفية حالة المنتجات" />
                 </layout:AdaptiveFieldsPanel>

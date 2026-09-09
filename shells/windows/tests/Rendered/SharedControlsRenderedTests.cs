@@ -26,6 +26,10 @@ public sealed class SharedControlsRenderedTests
         {
             var homeHeader = (Border)WpfTestHost.FindByName<Grid>(window, "ToolbarLayout").Parent;
             var headerHeight = homeHeader.ActualHeight;
+            var dashboardSearch = WpfTestHost.FindByName<TextBox>(window, "SearchBox");
+            Assert.IsFalse(string.IsNullOrWhiteSpace(ControlOptions.GetPlaceholder(dashboardSearch)));
+            var searchIcon = (Geometry)window.FindResource("IconSearch");
+            Assert.HasCount(1, WpfTestHost.Descendants<System.Windows.Shapes.Path>((Border)dashboardSearch.Parent).Where(path => path.IsVisible && Equals(path.Data, searchIcon)));
             Capture(window, $"dashboard-{width}");
             foreach (var destination in new[] { "Materials", "Parts", "Furniture", "Pricing", "Products", "Quotations", "Orders", "WorkOrders" })
             {
@@ -46,7 +50,8 @@ public sealed class SharedControlsRenderedTests
                 search.Clear();
                 WpfTestHost.CompleteLayout(window);
                 var placeholder = (TextBlock)search.Template.FindName("Placeholder", search);
-                Assert.AreEqual(string.IsNullOrEmpty(ControlOptions.GetPlaceholder(search)) ? Visibility.Collapsed : Visibility.Visible, placeholder.Visibility);
+                Assert.IsFalse(string.IsNullOrWhiteSpace(ControlOptions.GetPlaceholder(search)), destination);
+                Assert.AreEqual(Visibility.Visible, placeholder.Visibility);
                 var children = panel.Children.Cast<FrameworkElement>().Where(child => child.Visibility != Visibility.Collapsed).ToArray();
                 var bounds = children.Select(child => child.TransformToAncestor(panel).TransformBounds(new Rect(child.RenderSize))).ToArray();
                 for (var index = 0; index < bounds.Length; index++)
