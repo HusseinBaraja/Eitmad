@@ -758,7 +758,7 @@
                                                 <TextBlock Text="{Binding MarginCaption}" Foreground="{StaticResource MutedBrush}" FontSize="9" />
                                                 <controls:AmountDisplay Margin="0,6,0,0" FontSize="16" FontWeight="Bold" AmountText="{Binding MarginLabel}" UnitText="YER" UnitPlacement="After">
                                                     <controls:AmountDisplay.Style>
-                                                        <Style TargetType="controls:AmountDisplay">
+                                                        <Style TargetType="controls:AmountDisplay" BasedOn="{StaticResource {x:Type controls:AmountDisplay}}">
                                                             <Setter Property="Foreground" Value="#28733C" />
                                                             <Style.Triggers>
                                                                 <DataTrigger Binding="{Binding HasNegativeMargin}" Value="True">
