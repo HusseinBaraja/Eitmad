@@ -46,11 +46,11 @@
             </controls:PageHeader>
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                 <StackPanel Margin="32,22,32,30">
-                    <WrapPanel Margin="0,0,0,8">
-                        <TextBox x:Name="WorkOrderSearchBox" Width="350" Margin="0,0,0,8" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" automation:AutomationProperties.Name="البحث في أوامر العمل" controls:ControlOptions.Placeholder="" Style="{StaticResource SearchInput}" />
-                        <ComboBox Width="185" ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding SelectedStatus}" Style="{StaticResource SelectInput}" Margin="10,0,0,8" automation:AutomationProperties.Name="تصفية أوامر العمل حسب الحالة" />
-                        <ComboBox Width="185" ItemsSource="{Binding DueDateOptions}" SelectedItem="{Binding SelectedDueDate}" Style="{StaticResource SelectInput}" Margin="10,0,0,8" automation:AutomationProperties.Name="تصفية أوامر العمل حسب موعد التسليم" />
-                    </WrapPanel>
+                    <layout:AdaptiveFieldsPanel MinItemWidth="220" Margin="0,0,0,8">
+                        <TextBox x:Name="WorkOrderSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" automation:AutomationProperties.Name="البحث في أوامر العمل" controls:ControlOptions.Placeholder="" Style="{StaticResource SearchInput}" />
+                        <ComboBox ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding SelectedStatus}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصفية أوامر العمل حسب الحالة" />
+                        <ComboBox ItemsSource="{Binding DueDateOptions}" SelectedItem="{Binding SelectedDueDate}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصفية أوامر العمل حسب موعد التسليم" />
+                    </layout:AdaptiveFieldsPanel>
                     <Grid Margin="0,0,0,12" FlowDirection="LeftToRight">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
