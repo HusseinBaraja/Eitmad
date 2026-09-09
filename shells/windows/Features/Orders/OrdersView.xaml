@@ -53,7 +53,7 @@
                                         <DataGridTemplateColumn Header="رقم الطلب" Width="1.2*" MinWidth="120" SortMemberPath="Number">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="White" MinHeight="65">
+                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="65">
                                                         <TextBlock x:Name="ContrastCell0" Text="{Binding Number}" Style="{StaticResource TableBody}" FontWeight="SemiBold" FlowDirection="LeftToRight" />
                                                     </Border>
                                                     <DataTemplate.Triggers>
@@ -68,7 +68,7 @@
                                         <DataGridTemplateColumn Header="العميل" Width="1.65*" MinWidth="160" SortMemberPath="Customer">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="White" MinHeight="65">
+                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="65">
                                                         <TextBlock x:Name="ContrastCell0" Text="{Binding Customer}" Style="{StaticResource TableBody}" />
                                                     </Border>
                                                     <DataTemplate.Triggers>
@@ -83,7 +83,7 @@
                                         <DataGridTemplateColumn Header="التاريخ" Width="1.05*" MinWidth="120" SortMemberPath="Date">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="White" MinHeight="65">
+                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="65">
                                                         <TextBlock x:Name="ContrastCell0" Text="{Binding DateLabel}" Style="{StaticResource TableBody}" FlowDirection="LeftToRight" />
                                                     </Border>
                                                     <DataTemplate.Triggers>
@@ -98,7 +98,7 @@
                                         <DataGridTemplateColumn Header="الإجمالي" Width="1.3*" MinWidth="120" SortMemberPath="FinalTotal">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="White" MinHeight="65">
+                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="65">
                                                         <TextBlock x:Name="ContrastCell0" Text="{Binding FinalTotalLabel}" Style="{StaticResource TableBody}" FlowDirection="LeftToRight" FontWeight="SemiBold" />
                                                     </Border>
                                                     <DataTemplate.Triggers>
@@ -113,7 +113,7 @@
                                         <DataGridTemplateColumn Header="الحالة" Width="1.05*" MinWidth="100" SortMemberPath="StatusLabel">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell0" BorderBrush="#EEE9E4" BorderThickness="0" Background="White" MinHeight="65">
+                                                    <Border x:Name="ContrastCell0" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="65">
                                                         <controls:StatusBadge Padding="11,3" HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding StatusLabel}" Style="{StaticResource OrderStatusBadge}"></controls:StatusBadge>
                                                     </Border>
                                                     <DataTemplate.Triggers>
@@ -127,7 +127,7 @@
                                         <DataGridTemplateColumn Header="فتح" Width="0.72*" MinWidth="70" CanUserSort="False">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell0" BorderBrush="#EEE9E4" BorderThickness="0" Background="White" MinHeight="65">
+                                                    <Border x:Name="ContrastCell0" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="65">
                                                         <Button Content="فتح" Style="{StaticResource InlineActionButton}" Click="OpenOrderClick" HorizontalAlignment="Center" VerticalAlignment="Center" automation:AutomationProperties.Name="فتح الطلب" />
                                                     </Border>
                                                     <DataTemplate.Triggers>

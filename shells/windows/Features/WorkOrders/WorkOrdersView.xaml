@@ -70,7 +70,7 @@
                                         <DataGridTemplateColumn Header="رقم أمر العمل" Width="1.05*" MinWidth="120" SortMemberPath="Number">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell1" BorderBrush="#ECE5DE" BorderThickness="0" Background="White" MinHeight="76">
+                                                    <Border x:Name="ContrastCell1" BorderBrush="#ECE5DE" BorderThickness="0" Background="Transparent" MinHeight="76">
                                                         <TextBlock x:Name="ContrastCell0" Text="{Binding Number}" Style="{StaticResource TableBody}" FontWeight="Bold" Foreground="#6F3B10" FlowDirection="LeftToRight" />
                                                     </Border>
                                                     <DataTemplate.Triggers>
@@ -85,7 +85,7 @@
                                         <DataGridTemplateColumn Header="العميل / الطلب" Width="1.85*" MinWidth="160" SortMemberPath="Customer">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell2" BorderBrush="#ECE5DE" BorderThickness="0" Background="White" MinHeight="76">
+                                                    <Border x:Name="ContrastCell2" BorderBrush="#ECE5DE" BorderThickness="0" Background="Transparent" MinHeight="76">
                                                         <StackPanel VerticalAlignment="Center" Margin="10,0">
                                                             <TextBlock x:Name="ContrastCell0" Text="{Binding Customer}" Style="{StaticResource TableBody}" FontWeight="SemiBold" />
                                                             <TextBlock x:Name="ContrastCell1" Text="{Binding OrderNumber, StringFormat=الطلب {0}}" Foreground="{StaticResource MutedBrush}" FontSize="9" TextAlignment="Center" FlowDirection="LeftToRight" Margin="0,3,0,0" />
@@ -104,7 +104,7 @@
                                         <DataGridTemplateColumn Header="الأثاث" Width="1.55*" MinWidth="160" SortMemberPath="FurnitureSummary">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell1" BorderBrush="#ECE5DE" BorderThickness="0" Background="White" MinHeight="76">
+                                                    <Border x:Name="ContrastCell1" BorderBrush="#ECE5DE" BorderThickness="0" Background="Transparent" MinHeight="76">
                                                         <Border x:Name="ContrastCell2" BorderBrush="#9A5C22" BorderThickness="2,0,0,0" Padding="9,0" Margin="4,12">
                                                             <TextBlock x:Name="ContrastCell0" Text="{Binding FurnitureSummary}" Style="{StaticResource TableBody}" FontWeight="Bold" FontSize="12" />
                                                         </Border>
@@ -121,7 +121,7 @@
                                         <DataGridTemplateColumn Header="الكمية" Width="0.55*" MinWidth="70" SortMemberPath="TotalQuantity">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell1" BorderBrush="#ECE5DE" BorderThickness="0" Background="White" MinHeight="76">
+                                                    <Border x:Name="ContrastCell1" BorderBrush="#ECE5DE" BorderThickness="0" Background="Transparent" MinHeight="76">
                                                         <TextBlock x:Name="ContrastCell0" Text="{Binding QuantityLabel}" Style="{StaticResource TableBody}" FlowDirection="LeftToRight" FontWeight="SemiBold" />
                                                     </Border>
                                                     <DataTemplate.Triggers>
@@ -136,7 +136,7 @@
                                         <DataGridTemplateColumn Header="مسند إلى" Width="1.05*" MinWidth="120" SortMemberPath="AssignedTo">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell1" BorderBrush="#ECE5DE" BorderThickness="0" Background="White" MinHeight="76">
+                                                    <Border x:Name="ContrastCell1" BorderBrush="#ECE5DE" BorderThickness="0" Background="Transparent" MinHeight="76">
                                                         <TextBlock x:Name="ContrastCell0" Text="{Binding AssignedTo}" Style="{StaticResource TableBody}" FontWeight="SemiBold" />
                                                     </Border>
                                                     <DataTemplate.Triggers>
@@ -151,7 +151,7 @@
                                         <DataGridTemplateColumn Header="موعد التسليم" Width="1.2*" MinWidth="120" SortMemberPath="DueDate">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell1" BorderBrush="#ECE5DE" BorderThickness="0" Background="White" MinHeight="76">
+                                                    <Border x:Name="ContrastCell1" BorderBrush="#ECE5DE" BorderThickness="0" Background="Transparent" MinHeight="76">
                                                         <TextBlock x:Name="ContrastCell0" Text="{Binding DueDateLabel}" Style="{StaticResource TableBody}" FlowDirection="LeftToRight" />
                                                     </Border>
                                                     <DataTemplate.Triggers>
@@ -166,7 +166,7 @@
                                         <DataGridTemplateColumn Header="الحالة" Width="1.05*" MinWidth="100" SortMemberPath="StatusLabel">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell0" BorderBrush="#ECE5DE" BorderThickness="0" Background="White" MinHeight="76">
+                                                    <Border x:Name="ContrastCell0" BorderBrush="#ECE5DE" BorderThickness="0" Background="Transparent" MinHeight="76">
                                                         <controls:StatusBadge Padding="11,3" HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding StatusLabel}" Style="{StaticResource WorkOrderStatusBadge}"></controls:StatusBadge>
                                                     </Border>
                                                     <DataTemplate.Triggers>
@@ -180,7 +180,7 @@
                                         <DataGridTemplateColumn Header="فتح" Width="0.65*" MinWidth="70" CanUserSort="False">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell0" BorderBrush="#ECE5DE" BorderThickness="0" Background="White" MinHeight="76">
+                                                    <Border x:Name="ContrastCell0" BorderBrush="#ECE5DE" BorderThickness="0" Background="Transparent" MinHeight="76">
                                                         <Button Content="فتح" Style="{StaticResource InlineActionButton}" Click="OpenWorkOrderClick" HorizontalAlignment="Center" VerticalAlignment="Center" automation:AutomationProperties.Name="فتح أمر العمل" />
                                                     </Border>
                                                     <DataTemplate.Triggers>
