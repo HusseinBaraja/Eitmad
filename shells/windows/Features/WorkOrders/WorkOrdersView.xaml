@@ -62,7 +62,7 @@
                     <Border Style="{StaticResource Card}" ClipToBounds="True">
                         <Grid FlowDirection="LeftToRight">
                             <StackPanel FlowDirection="RightToLeft">
-                                <controls:OperationsTable ItemsSource="{Binding VisibleWorkOrders}" SelectedValuePath="Id" MaxHeight="460" automation:AutomationProperties.Name="رقم أمر العمل">
+                                <controls:OperationsTable ItemsSource="{Binding VisibleWorkOrders}" SelectedValuePath="Id" MaxHeight="460" IsRowInvocationEnabled="True" RowInvoked="WorkOrderRowInvoked" automation:AutomationProperties.Name="رقم أمر العمل">
                                     <controls:OperationsTable.EmptyContent>
                                         <controls:EmptyState Heading="لا توجد أوامر عمل مطابقة" Description="غيّر البحث أو عوامل التصفية." />
                                     </controls:OperationsTable.EmptyContent>

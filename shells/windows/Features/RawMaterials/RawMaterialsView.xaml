@@ -83,7 +83,7 @@
                                         <RowDefinition Height="0" />
                                         <RowDefinition Height="*" />
                                     </Grid.RowDefinitions>
-                                    <controls:OperationsTable x:Name="MaterialsTable" Grid.Row="1" ItemsSource="{Binding VisibleMaterials}" SelectedValuePath="Id" FlowDirection="RightToLeft" MaxHeight="460" Cursor="Hand" IsRowInvocationEnabled="True" RowInvoked="RawMaterialRowInvoked" automation:AutomationProperties.Name="اسم المادة">
+                                    <controls:OperationsTable x:Name="MaterialsTable" Grid.Row="1" ItemsSource="{Binding VisibleMaterials}" SelectedValuePath="Id" FlowDirection="RightToLeft" MaxHeight="460" IsRowInvocationEnabled="True" RowInvoked="RawMaterialRowInvoked" automation:AutomationProperties.Name="اسم المادة">
                                         <controls:OperationsTable.EmptyContent>
                                             <controls:EmptyState Heading="لا توجد مواد مطابقة" Description="جرّب تغيير البحث أو عوامل التصفية." />
                                         </controls:OperationsTable.EmptyContent>

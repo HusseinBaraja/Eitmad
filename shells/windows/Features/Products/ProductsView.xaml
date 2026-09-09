@@ -59,7 +59,7 @@
                             </Grid.RowDefinitions>
                             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                                 <Grid>
-                                    <controls:OperationsTable ItemsSource="{Binding VisibleProducts}" SelectedValuePath="Id" MaxHeight="460" automation:AutomationProperties.Name="الصورة">
+                                    <controls:OperationsTable ItemsSource="{Binding VisibleProducts}" SelectedValuePath="Id" MaxHeight="460" IsRowInvocationEnabled="True" RowInvoked="ProductRowInvoked" automation:AutomationProperties.Name="الصورة">
                                         <controls:OperationsTable.EmptyContent>
                                             <controls:EmptyState Heading="لا توجد منتجات مطابقة" Description="جرّب تغيير البحث أو عوامل التصفية." />
                                         </controls:OperationsTable.EmptyContent>

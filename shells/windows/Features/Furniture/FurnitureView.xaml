@@ -37,7 +37,7 @@
                                     <RowDefinition Height="0" />
                                     <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
-                                <controls:OperationsTable Grid.Row="1" ItemsSource="{Binding VisibleFurniture}" SelectedValuePath="Id" MaxHeight="460" automation:AutomationProperties.Name="الصورة">
+                                <controls:OperationsTable Grid.Row="1" ItemsSource="{Binding VisibleFurniture}" SelectedValuePath="Id" MaxHeight="460" IsRowInvocationEnabled="True" RowInvoked="FurnitureRowInvoked" automation:AutomationProperties.Name="الصورة">
                                     <DataGrid.Columns>
                                         <DataGridTemplateColumn Header="الصورة" Width="86" MinWidth="70" CanUserSort="False">
                                             <DataGridTemplateColumn.CellTemplate>

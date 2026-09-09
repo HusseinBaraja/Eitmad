@@ -56,7 +56,7 @@
                                         <RowDefinition Height="0" />
                                         <RowDefinition Height="*" />
                                     </Grid.RowDefinitions>
-                                    <controls:OperationsTable x:Name="PartsTable" Grid.Row="1" ItemsSource="{Binding VisibleParts}" SelectedValuePath="Id" FlowDirection="RightToLeft" MaxHeight="460" Cursor="Hand" IsRowInvocationEnabled="True" RowInvoked="PartRowInvoked" automation:AutomationProperties.Name="اسم الجزء">
+                                    <controls:OperationsTable x:Name="PartsTable" Grid.Row="1" ItemsSource="{Binding VisibleParts}" SelectedValuePath="Id" FlowDirection="RightToLeft" MaxHeight="460" IsRowInvocationEnabled="True" RowInvoked="PartRowInvoked" automation:AutomationProperties.Name="اسم الجزء">
                                         <controls:OperationsTable.EmptyContent>
                                             <controls:EmptyState Heading="لا توجد أجزاء مطابقة" Description="جرّب تغيير البحث أو عوامل التصفية." />
                                         </controls:OperationsTable.EmptyContent>

@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Windows UI maintainers"
-last_verified: "2026-09-08"
+last_verified: "2026-09-09"
 review_triggers:
   - "Windows shell UI, state mapping, configuration patches, subscriptions, tray behavior, or ownership boundaries change"
 keywords:
@@ -302,10 +302,12 @@ The dialog checkpoint passed 21 focused rendered checks. Tests cover focus entry
 
 Each table owns a separate collection view with Arabic culture. It preserves initial source order until a header is activated and never sorts the source collection. `SelectedValuePath="Id"` preserves the selected record when a list rebuild replaces its object. Synchronous filter rebuilds retain selection only if the record remains visible; a later filter does not restore a previously removed selection. The table refreshes an active sort after completed record edits and defers it while an explicit input holds focus.
 
-Selection is single-row. Raw-material and Part list rows open their existing editor on pointer release, Enter, or Space, which preserves their established workflow. Their action buttons do not activate the row. Other tables keep explicit buttons and menus as their action paths. Automatic row creation, deletion, column reordering, and cell editing are disabled. Put explicit inputs in `CellTemplate` and retain their normal binding update timing. The table owns horizontal scrolling, native column resizing, and virtualized rows within bounded vertical space. Widths and sort state live only in the current view. The Furniture Parts and Colors steps give their tables the available viewport width; other Furniture editor layouts retain their existing layout.
+Selection is single-row. Record-list tables enable `IsRowInvocationEnabled` and handle `RowInvoked` to open the same edit or detail surface as their explicit action. Pointer release, Enter, and Space invoke a row; buttons, text inputs, and selectors do not. The shared style supplies the hand cursor and a calm `#FBF4EC` cell highlight, with Windows highlight colors in high contrast. Detail and editor tables leave invocation disabled. Automatic row creation, deletion, column reordering, and cell editing are disabled. Put explicit inputs in `CellTemplate` and retain their normal binding update timing. The table owns horizontal scrolling, native column resizing, and virtualized rows within bounded vertical space. Widths and sort state live only in the current view. The Furniture Parts and Colors steps give their tables the available viewport width; other Furniture editor layouts retain their existing layout.
 
 ```xml
-<controls:OperationsTable MaxHeight="460" SelectedValuePath="Id">
+<controls:OperationsTable MaxHeight="460" SelectedValuePath="Id"
+                          IsRowInvocationEnabled="True"
+                          RowInvoked="RecordRowInvoked">
     <controls:OperationsTable.EmptyContent>
         <controls:EmptyState Heading="لا توجد نتائج" IsCompact="True" />
     </controls:OperationsTable.EmptyContent>

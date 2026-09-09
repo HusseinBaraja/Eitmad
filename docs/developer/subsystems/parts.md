@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Windows UI maintainers"
-last_verified: "2026-09-01"
+last_verified: "2026-09-09"
 review_triggers:
   - "Parts domain contracts, Rust projections, or Windows Parts UI behavior change"
 keywords:
@@ -35,7 +35,7 @@ Rust remains the future authority for part identifiers, category membership, cos
 
 ## Normal behavior
 
-The list starts with four synthetic rows. Search runs on each text change against part name and category and folds Arabic alef variants, `ى`, `ة`, tatweel, and combining marks. Category and status filters compose. Archived rows remain visible in the all-status view with reduced opacity and a neutral status pill. Selecting a row, or pressing Enter or Space on a selected row, opens its editor. Row action buttons remain separate from row activation. The empty state says **لا توجد أجزاء مطابقة**.
+The list starts with four synthetic rows. Search runs on each text change against part name and category and folds Arabic alef variants, `ى`, `ة`, tatweel, and combining marks. Category and status filters compose. Archived rows remain visible in the all-status view with reduced opacity and a neutral status pill. Clicking a non-action cell, or pressing Enter or Space on a selected row, opens its editor. The cell under the pointer uses the shared calm table highlight. Row action buttons remain separate from row activation. The empty state says **لا توجد أجزاء مطابقة**.
 
 The header and table use the Raw Materials visual system: white cards, walnut/copper accents, rounded inputs, explicit LTR geometry for numeric values, and an RTL text boundary. The row menu uses mouse-point placement so the menu remains inside the window when the action column is at the physical left edge. The cost and usage cells isolate mixed-direction values; the English fixture **Wardrobe Side Panel**, `YER`, and **3 Products** stay readable beside Arabic labels.
 
@@ -61,7 +61,7 @@ Run the focused shell suite:
 dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --configuration Release --nologo
 ```
 
-`PartsSearchAndFiltersUpdateVisibleList` covers English and Arabic search plus combined filters. `PartsActionsRemainNonDestructiveAndEphemeral` covers cost and usage formatting, archive, duplicate, the three wizard steps, material quantities, and the calculated `9,450 YER` total. `GuidedCreationValidatesStepsAndFiltersMaterialPicker` covers step guards, material search, selection, and removal. `PartsRenderedTests` instantiates the WPF page, verifies the accessible Arabic controls and focus path, drives create through all three steps and back to the list, verifies keyboard row activation, and opens the row menu to verify mouse-point placement and the **تعديل**, **تكرار**, and **أرشفة** actions.
+`PartsSearchAndFiltersUpdateVisibleList` covers English and Arabic search plus combined filters. `PartsActionsRemainNonDestructiveAndEphemeral` covers cost and usage formatting, archive, duplicate, the three wizard steps, material quantities, and the calculated `9,450 YER` total. `GuidedCreationValidatesStepsAndFiltersMaterialPicker` covers step guards, material search, selection, and removal. `PartsRenderedTests` instantiates the WPF page, verifies the accessible Arabic controls and focus path, drives create through all three steps and back to the list, verifies pointer and keyboard row activation, and opens the row menu to verify mouse-point placement and the **تعديل**, **تكرار**, and **أرشفة** actions.
 
 When the product gains a Rust Parts vertical, keep the WPF page as a thin projection adapter. Add typed contracts and generated bindings first, then replace only the transient fixture and local action boundary. Preserve the Arabic labels, RTL/LTR isolation, numeric formatting, accessibility names, and non-destructive failure behavior while mapping authorization, scope, audit, idempotency, conflict, and sync results from Rust.
 

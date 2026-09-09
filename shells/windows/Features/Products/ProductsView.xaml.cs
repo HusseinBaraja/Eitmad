@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using Eitmad.WindowsShell.Controls;
 using Button = System.Windows.Controls.Button;
 using ComboBox = System.Windows.Controls.ComboBox;
 using MenuItem = System.Windows.Controls.MenuItem;
@@ -23,6 +24,15 @@ public partial class ProductsView : UserControl
 
     public ProductsViewModel ViewModel { get; }
 
+    private void ProductRowInvoked(object sender, RowInvokedEventArgs eventArgs) =>
+        OpenEditor((ProductListItem)eventArgs.Item);
+
+    private void OpenEditor(ProductListItem product)
+    {
+        ViewModel.BeginEdit(product);
+        Dispatcher.BeginInvoke(ProductNameBox.Focus, DispatcherPriority.Input);
+    }
+
     private void AddProductClick(object sender, RoutedEventArgs eventArgs)
     {
         ViewModel.BeginCreate();
@@ -33,8 +43,7 @@ public partial class ProductsView : UserControl
     {
         if (ProductFromMenuItem(sender) is { } product)
         {
-            ViewModel.BeginEdit(product);
-            Dispatcher.BeginInvoke(ProductNameBox.Focus, DispatcherPriority.Input);
+            OpenEditor(product);
         }
     }
 

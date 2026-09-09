@@ -28,7 +28,7 @@
                                     <RowDefinition Height="0" />
                                     <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
-                                <controls:OperationsTable x:Name="PricingRows" Grid.Row="1" ItemsSource="{Binding VisiblePrices}" SelectedValuePath="Id" FlowDirection="RightToLeft" MaxHeight="460" automation:AutomationProperties.Name="المنتج">
+                                <controls:OperationsTable x:Name="PricingRows" Grid.Row="1" ItemsSource="{Binding VisiblePrices}" SelectedValuePath="Id" FlowDirection="RightToLeft" MaxHeight="460" IsRowInvocationEnabled="True" RowInvoked="PriceRowInvoked" automation:AutomationProperties.Name="المنتج">
                                     <controls:OperationsTable.EmptyContent>
                                         <controls:EmptyState Heading="لا توجد أسعار مطابقة" Description="جرّب كلمة بحث أو فئة أخرى." />
                                     </controls:OperationsTable.EmptyContent>

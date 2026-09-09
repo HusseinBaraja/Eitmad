@@ -112,4 +112,28 @@ public sealed class PartsRenderedTests
             Assert.AreEqual(((PartListItem)table.SelectedItem).Name, view.ViewModel.EditorName);
         });
     }
+
+    [TestMethod]
+    public void PointerRowActivationOpensTheExistingPart()
+    {
+        WpfTestHost.Run(1338, 753, window =>
+        {
+            WpfTestHost.FindByName<Button>(window, "PartsNavButton")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var view = WpfTestHost.Descendants<PartsView>(window).Single();
+            var table = WpfTestHost.FindByName<DataGrid>(view, "PartsTable");
+            var row = WpfTestHost.Descendants<DataGridRow>(table).First();
+            var part = (PartListItem)row.DataContext;
+
+            row.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left)
+            {
+                RoutedEvent = Mouse.PreviewMouseUpEvent
+            });
+            WpfTestHost.PumpDispatcher();
+
+            Assert.IsTrue(view.ViewModel.IsEditorOpen);
+            Assert.AreEqual(part.Name, view.ViewModel.EditorName);
+        });
+    }
 }

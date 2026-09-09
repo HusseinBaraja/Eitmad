@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
+using Eitmad.WindowsShell.Controls;
 using Button = System.Windows.Controls.Button;
 using UserControl = System.Windows.Controls.UserControl;
 
@@ -17,12 +18,16 @@ public partial class PricingView : UserControl
 
     public PricingViewModel ViewModel { get; }
 
+    private void PriceRowInvoked(object sender, RowInvokedEventArgs eventArgs) =>
+        OpenEditor((PricingListItem)eventArgs.Item);
+
+    private void OpenEditor(PricingListItem item) => ViewModel.BeginEdit(item);
+
     private void EditPriceClick(object sender, RoutedEventArgs eventArgs)
     {
         if (sender is Button { DataContext: PricingListItem item })
         {
-            ViewModel.BeginEdit(item);
-
+            OpenEditor(item);
         }
     }
 

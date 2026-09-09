@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
+using Eitmad.WindowsShell.Controls;
 using Button = System.Windows.Controls.Button;
 using UserControl = System.Windows.Controls.UserControl;
 
@@ -17,12 +18,20 @@ public partial class WorkOrdersView : UserControl
 
     public WorkOrdersViewModel ViewModel { get; }
 
+    private void WorkOrderRowInvoked(object sender, RowInvokedEventArgs eventArgs) =>
+        OpenWorkOrder((WorkOrderListItem)eventArgs.Item);
+
+    private void OpenWorkOrder(WorkOrderListItem workOrder)
+    {
+        ViewModel.OpenWorkOrder(workOrder);
+        Dispatcher.BeginInvoke(BackToWorkOrdersButton.Focus, DispatcherPriority.Input);
+    }
+
     private void OpenWorkOrderClick(object sender, RoutedEventArgs eventArgs)
     {
         if (sender is Button { DataContext: WorkOrderListItem workOrder })
         {
-            ViewModel.OpenWorkOrder(workOrder);
-            Dispatcher.BeginInvoke(BackToWorkOrdersButton.Focus, DispatcherPriority.Input);
+            OpenWorkOrder(workOrder);
         }
     }
 

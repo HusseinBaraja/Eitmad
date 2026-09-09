@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using Eitmad.WindowsShell.Controls;
 using Button = System.Windows.Controls.Button;
 using MenuItem = System.Windows.Controls.MenuItem;
 using TextBox = System.Windows.Controls.TextBox;
@@ -22,6 +23,15 @@ public partial class FurnitureView : UserControl
     }
 
     public FurnitureViewModel ViewModel { get; }
+
+    private void FurnitureRowInvoked(object sender, RowInvokedEventArgs eventArgs) =>
+        OpenEditor((FurnitureListItem)eventArgs.Item);
+
+    private void OpenEditor(FurnitureListItem item)
+    {
+        ViewModel.BeginEdit(item);
+        Dispatcher.BeginInvoke(FurnitureNameBox.Focus, DispatcherPriority.Input);
+    }
 
     private void AddFurnitureClick(object sender, RoutedEventArgs eventArgs)
     {
@@ -84,8 +94,7 @@ public partial class FurnitureView : UserControl
     {
         if (FurnitureFromMenuItem(sender) is { } item)
         {
-            ViewModel.BeginEdit(item);
-            Dispatcher.BeginInvoke(FurnitureNameBox.Focus, DispatcherPriority.Input);
+            OpenEditor(item);
         }
     }
 

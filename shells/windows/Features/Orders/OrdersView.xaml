@@ -45,7 +45,7 @@
                     <Border Style="{StaticResource Card}" ClipToBounds="True">
                         <Grid FlowDirection="LeftToRight">
                             <StackPanel FlowDirection="RightToLeft">
-                                <controls:OperationsTable ItemsSource="{Binding VisibleOrders}" SelectedValuePath="Id" MaxHeight="460" automation:AutomationProperties.Name="رقم الطلب">
+                                <controls:OperationsTable ItemsSource="{Binding VisibleOrders}" SelectedValuePath="Id" MaxHeight="460" IsRowInvocationEnabled="True" RowInvoked="OrderRowInvoked" automation:AutomationProperties.Name="رقم الطلب">
                                     <controls:OperationsTable.EmptyContent>
                                         <controls:EmptyState Heading="لا توجد طلبات مطابقة" Description="غيّر البحث أو عوامل التصفية." />
                                     </controls:OperationsTable.EmptyContent>

@@ -53,7 +53,7 @@
                     <Border Style="{StaticResource Card}" ClipToBounds="True">
                         <Grid FlowDirection="LeftToRight">
                             <StackPanel FlowDirection="RightToLeft">
-                                <controls:OperationsTable ItemsSource="{Binding VisibleQuotations}" SelectedValuePath="Id" MaxHeight="460" automation:AutomationProperties.Name="رقم عرض السعر">
+                                <controls:OperationsTable ItemsSource="{Binding VisibleQuotations}" SelectedValuePath="Id" MaxHeight="460" IsRowInvocationEnabled="True" RowInvoked="QuotationRowInvoked" automation:AutomationProperties.Name="رقم عرض السعر">
                                     <controls:OperationsTable.EmptyContent>
                                         <controls:EmptyState Heading="لا توجد عروض أسعار مطابقة" Description="غيّر البحث أو عوامل التصفية." />
                                     </controls:OperationsTable.EmptyContent>
