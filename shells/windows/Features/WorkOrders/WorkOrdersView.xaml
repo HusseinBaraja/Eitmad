@@ -37,13 +37,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <controls:PageHeader Grid.Row="0" Title="أوامر العمل" Subtitle="الأثاث المطلوب تصنيعه ومسؤولية إنجازه">
-                <controls:PageHeader.Icon>
-                    <Border Width="48" Height="48" CornerRadius="12" Background="#F1E2D2" Margin="0,0,18,0">
-                        <Path Data="{StaticResource IconWorkOrder}" Fill="#7B4517" Width="23" Height="23" Stretch="Uniform" />
-                    </Border>
-                </controls:PageHeader.Icon>
-            </controls:PageHeader>
+            <controls:PageHeader Grid.Row="0" Title="أوامر العمل" Subtitle="الأثاث المطلوب تصنيعه ومسؤولية إنجازه" />
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                 <StackPanel Margin="32,22,32,30">
                     <layout:AdaptiveFieldsPanel MinItemWidth="220" Margin="0,0,0,8">
