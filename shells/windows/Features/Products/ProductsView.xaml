@@ -32,9 +32,15 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
                 <layout:AdaptiveFieldsPanel MinItemWidth="220">
-                    <TextBox x:Name="ProductSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" automation:AutomationProperties.Name="البحث في المنتجات" Style="{StaticResource SearchInput}" />
-                    <ComboBox ItemsSource="{Binding CategoryOptions}" SelectedItem="{Binding SelectedCategory}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصفية فئة المنتجات" />
-                    <ComboBox ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding SelectedStatus}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصفية حالة المنتجات" />
+                    <controls:FormField Label="البحث">
+                        <TextBox x:Name="ProductSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" automation:AutomationProperties.Name="البحث في المنتجات" Style="{StaticResource SearchInput}" />
+                    </controls:FormField>
+                    <controls:FormField Label="الفئة">
+                        <ComboBox ItemsSource="{Binding CategoryOptions}" SelectedItem="{Binding SelectedCategory}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصفية فئة المنتجات" />
+                    </controls:FormField>
+                    <controls:FormField Label="الحالة">
+                        <ComboBox ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding SelectedStatus}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصفية حالة المنتجات" />
+                    </controls:FormField>
                 </layout:AdaptiveFieldsPanel>
                 <Grid Grid.Row="1" Margin="0,15,0,9" FlowDirection="LeftToRight">
                     <Grid.ColumnDefinitions>

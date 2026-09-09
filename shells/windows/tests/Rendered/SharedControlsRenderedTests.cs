@@ -40,6 +40,11 @@ public sealed class SharedControlsRenderedTests
                 Assert.AreEqual(WpfTestHost.FindByName<TextBlock>(window, "DashboardTitle").FontSize, header.FontSize, destination);
                 var search = WpfTestHost.Descendants<TextBox>(window).Single(element => element.IsVisible && element.Name.EndsWith("SearchBox", StringComparison.Ordinal));
                 var panel = OwningLayoutPanel(search);
+                var fields = panel.Children.Cast<FrameworkElement>()
+                    .Select(child => child as FormField ?? WpfTestHost.Descendants<FormField>(child).Single())
+                    .ToArray();
+                Assert.IsTrue(fields.All(field => !string.IsNullOrWhiteSpace(field.Label)), destination);
+                Assert.IsTrue(fields.All(field => field.Content is UIElement input && AutomationProperties.GetLabeledBy(input) is not null), destination);
                 Assert.IsFalse(string.IsNullOrWhiteSpace(AutomationProperties.GetName(search)));
                 Assert.AreEqual(string.Empty, search.Text);
                 search.Focus();
@@ -65,15 +70,13 @@ public sealed class SharedControlsRenderedTests
         });
     }
 
-    private static Panel OwningLayoutPanel(FrameworkElement element)
+    private static AdaptiveFieldsPanel OwningLayoutPanel(FrameworkElement element)
     {
-        DependencyObject? current = element.Parent;
+        DependencyObject? current = element;
         while (current is not null)
         {
-            if (current is Panel panel) return panel;
-            current = current is FrameworkElement frameworkElement
-                ? frameworkElement.Parent
-                : LogicalTreeHelper.GetParent(current);
+            if (current is AdaptiveFieldsPanel panel) return panel;
+            current = VisualTreeHelper.GetParent(current) ?? LogicalTreeHelper.GetParent(current);
         }
 
         throw new InvalidOperationException("The search field has no layout panel.");

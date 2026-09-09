@@ -47,9 +47,15 @@
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                 <StackPanel Margin="32,22,32,30">
                     <layout:AdaptiveFieldsPanel MinItemWidth="220" Margin="0,0,0,8">
-                        <TextBox x:Name="WorkOrderSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" automation:AutomationProperties.Name="البحث في أوامر العمل" Style="{StaticResource SearchInput}" />
-                        <ComboBox ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding SelectedStatus}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصفية أوامر العمل حسب الحالة" />
-                        <ComboBox ItemsSource="{Binding DueDateOptions}" SelectedItem="{Binding SelectedDueDate}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصفية أوامر العمل حسب موعد التسليم" />
+                        <controls:FormField Label="البحث">
+                            <TextBox x:Name="WorkOrderSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" automation:AutomationProperties.Name="البحث في أوامر العمل" Style="{StaticResource SearchInput}" />
+                        </controls:FormField>
+                        <controls:FormField Label="الحالة">
+                            <ComboBox ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding SelectedStatus}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصفية أوامر العمل حسب الحالة" />
+                        </controls:FormField>
+                        <controls:FormField Label="موعد التسليم">
+                            <ComboBox ItemsSource="{Binding DueDateOptions}" SelectedItem="{Binding SelectedDueDate}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصفية أوامر العمل حسب موعد التسليم" />
+                        </controls:FormField>
                     </layout:AdaptiveFieldsPanel>
                     <Grid Margin="0,0,0,12" FlowDirection="LeftToRight">
                         <Grid.ColumnDefinitions>

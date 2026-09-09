@@ -7,14 +7,14 @@
         <controls:PageHeader Grid.Row="0" Title="التسعير" Subtitle="راجع أسعار البيع وحدّثها بسرعة من مكان واحد"></controls:PageHeader>
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
             <StackPanel Margin="32,24,32,30">
-                <Grid Margin="0,0,0,17">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <TextBox x:Name="PricingSearchBox" Height="46" Margin="0,0,12,0" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" automation:AutomationProperties.Name="البحث عن منتج أو مقاس" Style="{StaticResource SearchInput}" />
-                    <ComboBox Grid.Column="1" Width="210" ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصفية حسب الفئة" />
-                </Grid>
+                <layout:AdaptiveFieldsPanel MinItemWidth="220" Margin="0,0,0,17">
+                    <controls:FormField Label="البحث">
+                        <TextBox x:Name="PricingSearchBox" Height="46" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" automation:AutomationProperties.Name="البحث عن منتج أو مقاس" Style="{StaticResource SearchInput}" />
+                    </controls:FormField>
+                    <controls:FormField Label="الفئة">
+                        <ComboBox ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصفية حسب الفئة" />
+                    </controls:FormField>
+                </layout:AdaptiveFieldsPanel>
                 <Border Style="{StaticResource Card}" ClipToBounds="True">
                     <Grid>
                         <Grid.RowDefinitions>
