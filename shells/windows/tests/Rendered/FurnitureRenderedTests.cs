@@ -97,6 +97,7 @@ public sealed class FurnitureRenderedTests
             Assert.HasCount(3, view.ViewModel.Handles);
             Assert.AreEqual("مشمول", view.ViewModel.Colors[0].PriceAdjustmentLabel);
             Assert.AreEqual("+10,000 YER", view.ViewModel.Colors[2].PriceAdjustmentLabel);
+            CaptureSteps(window, "options");
             Assert.IsTrue(WpfTestHost.FindByAutomationName<Button>(view, "إضافة لون").IsEnabled);
             Assert.IsTrue(WpfTestHost.FindByAutomationName<Button>(view, "إضافة مقبض").IsEnabled);
 

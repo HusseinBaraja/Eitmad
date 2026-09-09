@@ -631,7 +631,18 @@
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <Border x:Name="ContrastCell0" MinHeight="70" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="0">
-                                                        <Button Content="{Binding ToggleActionLabel}" Style="{StaticResource CompactButton}" Click="ToggleColorClick" automation:AutomationProperties.Name="تغيير حالة اللون" HorizontalAlignment="Center" />
+                                                        <Button Content="{Binding ToggleActionLabel}" Style="{StaticResource CompactButton}" Click="ToggleColorClick" automation:AutomationProperties.Name="تغيير حالة اللون" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                            <Button.ContentTemplate>
+                                                                <DataTemplate>
+                                                                    <Grid>
+                                                                        <!-- Reserve the wider label even when every row has the same state. -->
+                                                                        <TextBlock Text="تفعيل" Visibility="Hidden" />
+                                                                        <TextBlock Text="تعطيل" Visibility="Hidden" />
+                                                                        <TextBlock Text="{Binding}" HorizontalAlignment="Center" />
+                                                                    </Grid>
+                                                                </DataTemplate>
+                                                            </Button.ContentTemplate>
+                                                        </Button>
                                                     </Border>
                                                     <DataTemplate.Triggers>
                                                         <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
