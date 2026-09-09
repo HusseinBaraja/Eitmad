@@ -103,9 +103,13 @@
                         <Trigger Property="IsPressed" Value="True">
                             <Setter TargetName="Root" Property="Opacity" Value="{Binding Path=(controls:ControlOptions.PressedOpacity), RelativeSource={RelativeSource TemplatedParent}}" />
                         </Trigger>
-                        <Trigger Property="IsKeyboardFocused" Value="True">
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="IsKeyboardFocused" Value="True" />
+                                <Condition Property="controls:ControlOptions.ShowFocusRing" Value="True" />
+                            </MultiTrigger.Conditions>
                             <Setter TargetName="FocusRing" Property="Visibility" Value="Visible" />
-                        </Trigger>
+                        </MultiTrigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="Chrome" Property="Opacity" Value="0.48" />
                             <Setter TargetName="ActionText" Property="Opacity" Value="0.48" />
@@ -144,6 +148,7 @@
         <Setter Property="controls:ControlOptions.CornerRadius" Value="9" />
     </Style>
     <Style x:Key="IconButton" TargetType="Button" BasedOn="{StaticResource ActionButton}">
+        <Setter Property="controls:ControlOptions.ShowFocusRing" Value="False" />
         <Setter Property="Width" Value="42" />
         <Setter Property="Height" Value="42" />
         <Setter Property="Background" Value="White" />

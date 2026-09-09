@@ -16,6 +16,8 @@ public static class ControlOptions
         "Icon", typeof(Geometry), typeof(ControlOptions), new PropertyMetadata(null));
     public static readonly DependencyProperty ShowTextProperty = DependencyProperty.RegisterAttached(
         "ShowText", typeof(bool), typeof(ControlOptions), new PropertyMetadata(true));
+    public static readonly DependencyProperty ShowFocusRingProperty = DependencyProperty.RegisterAttached(
+        "ShowFocusRing", typeof(bool), typeof(ControlOptions), new PropertyMetadata(true));
     public static readonly DependencyProperty CornerRadiusProperty = DependencyProperty.RegisterAttached(
         "CornerRadius", typeof(CornerRadius), typeof(ControlOptions), new PropertyMetadata(new CornerRadius(8)));
     public static readonly DependencyProperty FooterTemplateProperty = DependencyProperty.RegisterAttached(
@@ -37,6 +39,8 @@ public static class ControlOptions
     public static void SetIcon(DependencyObject element, Geometry? value) => element.SetValue(IconProperty, value);
     public static bool GetShowText(DependencyObject element) => (bool)element.GetValue(ShowTextProperty);
     public static void SetShowText(DependencyObject element, bool value) => element.SetValue(ShowTextProperty, value);
+    public static bool GetShowFocusRing(DependencyObject element) => (bool)element.GetValue(ShowFocusRingProperty);
+    public static void SetShowFocusRing(DependencyObject element, bool value) => element.SetValue(ShowFocusRingProperty, value);
     public static CornerRadius GetCornerRadius(DependencyObject element) => (CornerRadius)element.GetValue(CornerRadiusProperty);
     public static void SetCornerRadius(DependencyObject element, CornerRadius value) => element.SetValue(CornerRadiusProperty, value);
     public static DataTemplate? GetFooterTemplate(DependencyObject element) => (DataTemplate?)element.GetValue(FooterTemplateProperty);
