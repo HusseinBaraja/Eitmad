@@ -39,11 +39,11 @@
             <controls:PageHeader Grid.Row="0" Title="عروض الأسعار" Subtitle="راجع عروض العملاء وحالاتها من مكان واحد"></controls:PageHeader>
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                 <StackPanel Margin="32,22,32,30">
-                    <WrapPanel Margin="0,0,0,16">
-                        <TextBox x:Name="QuotationSearchBox" Width="360" Margin="0,0,0,8" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" automation:AutomationProperties.Name="البحث برقم عرض السعر أو العميل" controls:ControlOptions.Placeholder="" Style="{StaticResource SearchInput}" />
-                        <ComboBox Width="190" ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding SelectedStatus}" Style="{StaticResource SelectInput}" Margin="10,0,0,8" automation:AutomationProperties.Name="تصفية عروض الأسعار حسب الحالة" />
-                        <ComboBox Width="190" ItemsSource="{Binding DateOptions}" SelectedItem="{Binding SelectedDate}" Style="{StaticResource SelectInput}" Margin="10,0,0,8" automation:AutomationProperties.Name="تصفية عروض الأسعار حسب التاريخ" />
-                    </WrapPanel>
+                    <layout:AdaptiveFieldsPanel MinItemWidth="220" Margin="0,0,0,16">
+                        <TextBox x:Name="QuotationSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" automation:AutomationProperties.Name="البحث برقم عرض السعر أو العميل" controls:ControlOptions.Placeholder="" Style="{StaticResource SearchInput}" />
+                        <ComboBox ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding SelectedStatus}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصفية عروض الأسعار حسب الحالة" />
+                        <ComboBox ItemsSource="{Binding DateOptions}" SelectedItem="{Binding SelectedDate}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصفية عروض الأسعار حسب التاريخ" />
+                    </layout:AdaptiveFieldsPanel>
                     <Border Style="{StaticResource Card}" ClipToBounds="True">
                         <Grid FlowDirection="LeftToRight">
                             <StackPanel FlowDirection="RightToLeft">
