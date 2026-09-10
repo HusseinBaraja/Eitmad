@@ -91,15 +91,6 @@ impl Migration {
         }
     }
 
-    pub(crate) const fn additive(
-        version: u32,
-        id: &'static str,
-        feature: &'static str,
-        sql: &'static str,
-    ) -> Self {
-        Self::new(version, id, feature, sql)
-    }
-
     #[cfg(test)]
     const fn destructive(
         version: u32,

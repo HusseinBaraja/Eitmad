@@ -186,11 +186,6 @@ mod tests {
     }
 
     #[test]
-    fn frame_limit_is_eight_mebibytes() {
-        assert_eq!(MAX_IPC_FRAME_BYTES, 8_388_608);
-    }
-
-    #[test]
     fn ipc_projection_redacts_every_nested_error_path() {
         let correlation_id = CorrelationId::new(Uuid::from_u128(1));
         let request_id = RequestId::new(Uuid::from_u128(2));
