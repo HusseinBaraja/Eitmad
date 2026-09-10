@@ -6,11 +6,13 @@ namespace Eitmad.WindowsShell.Tests.Quotations;
 public sealed class QuotationsPresentationTests
 {
     [TestMethod]
-    public void SearchStatusAndDateFiltersComposeAcrossManagerRows()
+    [DataRow("المها")]
+    [DataRow("ٱلـمَهَا")]
+    public void SearchStatusAndDateFiltersComposeAcrossManagerRows(string search)
     {
         var viewModel = new QuotationsViewModel();
 
-        viewModel.SearchText = "المها";
+        viewModel.SearchText = search;
         Assert.HasCount(1, viewModel.VisibleQuotations);
         Assert.AreEqual("QT-2026-0142", viewModel.VisibleQuotations[0].Number);
 

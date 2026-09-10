@@ -1,6 +1,4 @@
-using System.ComponentModel;
 using System.Globalization;
-using System.Runtime.CompilerServices;
 
 namespace Eitmad.WindowsShell.Features.Quotations;
 
@@ -41,7 +39,7 @@ public sealed record QuotationLineItem(
 }
 
 /// <summary>Represents one quotation row and its transient approval preview state.</summary>
-public sealed class QuotationListItem : INotifyPropertyChanged
+public sealed class QuotationListItem : ObservableObject
 {
     private DiscountApprovalDecision approvalDecision;
 
@@ -64,8 +62,6 @@ public sealed class QuotationListItem : INotifyPropertyChanged
         Items = items;
         RequiresDiscountApproval = requiresDiscountApproval;
     }
-
-    public event PropertyChangedEventHandler? PropertyChanged;
 
     public Guid Id { get; }
 
@@ -155,7 +151,4 @@ public sealed class QuotationListItem : INotifyPropertyChanged
     }
 
     private static string FormatMoney(decimal value) => $"{value.ToString("N0", CultureInfo.InvariantCulture)} YER";
-
-    private void Raise([CallerMemberName] string? propertyName = null) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }

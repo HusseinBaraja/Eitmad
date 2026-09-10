@@ -1,7 +1,5 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
-using System.Text;
-using Eitmad.WindowsShell.Features.Operations;
 
 namespace Eitmad.WindowsShell.Features.Orders;
 
@@ -155,7 +153,7 @@ public sealed class OrdersViewModel : ObservableObject
 
     private void RefreshVisibleOrders()
     {
-        var normalizedSearch = NormalizeArabic(SearchText.Trim());
+        var normalizedSearch = PreviewText.NormalizeSearch(SearchText.Trim());
         var today = DateOnly.FromDateTime(DateTime.Today);
         var filtered = orders.Where(order =>
             MatchesSearch(order, normalizedSearch)
@@ -174,8 +172,8 @@ public sealed class OrdersViewModel : ObservableObject
 
     private static bool MatchesSearch(OrderListItem order, string normalizedSearch) =>
         string.IsNullOrEmpty(normalizedSearch)
-        || NormalizeArabic(order.Number).Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase)
-        || NormalizeArabic(order.Customer).Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase);
+        || PreviewText.NormalizeSearch(order.Number).Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase)
+        || PreviewText.NormalizeSearch(order.Customer).Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase);
 
     private bool MatchesStatus(OrderListItem order) => SelectedStatus switch
     {
@@ -196,26 +194,4 @@ public sealed class OrdersViewModel : ObservableObject
         LastThirtyDays => order.Date >= today.AddDays(-29),
         _ => false,
     };
-
-    private static string NormalizeArabic(string value)
-    {
-        var normalized = new StringBuilder(value.Length);
-        foreach (var character in value.Normalize(NormalizationForm.FormD))
-        {
-            if (CharUnicodeInfo.GetUnicodeCategory(character) == UnicodeCategory.NonSpacingMark || character == '\u0640')
-            {
-                continue;
-            }
-
-            normalized.Append(character switch
-            {
-                '\u0622' or '\u0623' or '\u0625' => '\u0627',
-                '\u0649' => '\u064A',
-                '\u0629' => '\u0647',
-                _ => character,
-            });
-        }
-
-        return normalized.ToString().Normalize(NormalizationForm.FormC);
-    }
 }

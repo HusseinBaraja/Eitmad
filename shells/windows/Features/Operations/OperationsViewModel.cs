@@ -60,7 +60,6 @@ public sealed class OperationsViewModel : ObservableObject
     public bool IsSavingConfiguration { get => isSavingConfiguration; private set => Set(ref isSavingConfiguration, value); }
     public long ConfigRevision => configRevision;
     public string ConfigurationRevisionLabel => configRevision < 0 ? "غير متاح" : $"الإصدار {configRevision}";
-    public string CurrentDateLabel => DateTime.Now.ToString("dddd · d MMMM yyyy", CultureInfo.GetCultureInfo("ar-YE"));
     public bool CanSaveConfiguration => configRevision >= 0 && !IsSavingConfiguration;
     public bool CanSaveReferenceMarker => SubmitReferenceMarker is not null
         && !IsSavingReferenceMarker

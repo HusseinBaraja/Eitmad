@@ -2,10 +2,11 @@ using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using Eitmad.Contracts;
 using Eitmad.Platform.Windows.LocalIpc;
+using Eitmad.Platform.Windows.Shell;
 
 namespace Eitmad.Platform.Windows.ProcessSupervision;
 
-public sealed class SupervisedEngineSubscription : IAsyncDisposable
+public sealed class SupervisedEngineSubscription : IEngineSubscription
 {
     private readonly object gate = new();
     private Channel<EventEnvelope> events = CreateEventChannel();

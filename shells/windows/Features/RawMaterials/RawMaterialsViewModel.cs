@@ -1,8 +1,4 @@
 using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.Globalization;
-using System.Runtime.CompilerServices;
-using System.Text;
 
 namespace Eitmad.WindowsShell.Features.RawMaterials;
 
@@ -10,7 +6,7 @@ namespace Eitmad.WindowsShell.Features.RawMaterials;
 /// Owns ephemeral list-page state for the raw-materials preview.
 /// Durable validation, authorization, and storage remain unavailable until a Rust vertical exists.
 /// </summary>
-public sealed class RawMaterialsViewModel : INotifyPropertyChanged
+public sealed class RawMaterialsViewModel : ObservableObject
 {
     public const string AllCategories = "كل الفئات";
     public const string AllStatuses = "كل الحالات";
@@ -69,8 +65,6 @@ public sealed class RawMaterialsViewModel : INotifyPropertyChanged
         VisibleMaterials = [];
         RefreshVisibleMaterials();
     }
-
-    public event PropertyChangedEventHandler? PropertyChanged;
 
     public ObservableCollection<string> CategoryOptions { get; }
 
@@ -567,7 +561,7 @@ public sealed class RawMaterialsViewModel : INotifyPropertyChanged
 
     private void RefreshVisibleMaterials()
     {
-        var normalizedSearch = NormalizeSearchText(SearchText.Trim());
+        var normalizedSearch = PreviewText.NormalizeSearch(SearchText.Trim());
         var matches = materials.Where(material =>
             MatchesSearch(material, normalizedSearch)
             && (SelectedCategory == AllCategories || material.Category == SelectedCategory)
@@ -587,50 +581,7 @@ public sealed class RawMaterialsViewModel : INotifyPropertyChanged
 
     private static bool MatchesSearch(RawMaterialListItem material, string search) =>
         search.Length == 0
-        || NormalizeSearchText(material.Name).Contains(search, StringComparison.CurrentCultureIgnoreCase)
-        || NormalizeSearchText(material.Category).Contains(search, StringComparison.CurrentCultureIgnoreCase)
-        || NormalizeSearchText(material.Unit).Contains(search, StringComparison.CurrentCultureIgnoreCase);
-
-    private static string NormalizeSearchText(string value)
-    {
-        var decomposed = value.Normalize(NormalizationForm.FormD);
-        var normalized = new StringBuilder(decomposed.Length);
-
-        foreach (var character in decomposed)
-        {
-            var category = CharUnicodeInfo.GetUnicodeCategory(character);
-            if (character == '\u0640'
-                || category is UnicodeCategory.NonSpacingMark
-                    or UnicodeCategory.SpacingCombiningMark
-                    or UnicodeCategory.EnclosingMark)
-            {
-                continue;
-            }
-
-            normalized.Append(character switch
-            {
-                '\u0622' or '\u0623' or '\u0625' or '\u0671' => '\u0627',
-                '\u0649' => '\u064A',
-                '\u0629' => '\u0647',
-                _ => character,
-            });
-        }
-
-        return normalized.ToString();
-    }
-
-    private bool Set<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
-    {
-        if (EqualityComparer<T>.Default.Equals(field, value))
-        {
-            return false;
-        }
-
-        field = value;
-        Raise(propertyName);
-        return true;
-    }
-
-    private void Raise([CallerMemberName] string? propertyName = null) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        || PreviewText.NormalizeSearch(material.Name).Contains(search, StringComparison.CurrentCultureIgnoreCase)
+        || PreviewText.NormalizeSearch(material.Category).Contains(search, StringComparison.CurrentCultureIgnoreCase)
+        || PreviewText.NormalizeSearch(material.Unit).Contains(search, StringComparison.CurrentCultureIgnoreCase);
 }

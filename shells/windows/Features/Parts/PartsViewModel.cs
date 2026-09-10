@@ -1,13 +1,11 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
-using System.Runtime.CompilerServices;
-using System.Text;
 
 namespace Eitmad.WindowsShell.Features.Parts;
 
 /// <summary>Owns transient list, filter, and guided-editor state for the Parts preview.</summary>
-public sealed class PartsViewModel : INotifyPropertyChanged
+public sealed class PartsViewModel : ObservableObject
 {
     public const string AllCategories = "كل الفئات";
     public const string AllStatuses = "كل الحالات";
@@ -60,8 +58,6 @@ public sealed class PartsViewModel : INotifyPropertyChanged
         RefreshVisibleParts();
         RefreshMaterialOptions();
     }
-
-    public event PropertyChangedEventHandler? PropertyChanged;
 
     public IReadOnlyList<string> CategoryOptions { get; }
 
@@ -487,13 +483,13 @@ public sealed class PartsViewModel : INotifyPropertyChanged
 
     private void RefreshMaterialOptions()
     {
-        var normalizedSearch = NormalizeSearchText(MaterialSearchText.Trim());
+        var normalizedSearch = PreviewText.NormalizeSearch(MaterialSearchText.Trim());
         var selectedIds = SelectedMaterials.Select(item => item.Material.Id).ToHashSet();
         FilteredMaterials.Clear();
         foreach (var material in availableMaterials.Where(item =>
                      !selectedIds.Contains(item.Id)
                      && (normalizedSearch.Length == 0
-                         || NormalizeSearchText(item.Name).Contains(normalizedSearch, StringComparison.CurrentCultureIgnoreCase))))
+                         || PreviewText.NormalizeSearch(item.Name).Contains(normalizedSearch, StringComparison.CurrentCultureIgnoreCase))))
         {
             FilteredMaterials.Add(material);
         }
@@ -503,7 +499,7 @@ public sealed class PartsViewModel : INotifyPropertyChanged
 
     private void RefreshVisibleParts()
     {
-        var normalizedSearch = NormalizeSearchText(SearchText.Trim());
+        var normalizedSearch = PreviewText.NormalizeSearch(SearchText.Trim());
         var matches = parts.Where(part =>
             MatchesSearch(part, normalizedSearch)
             && (SelectedCategory == AllCategories || part.Category == SelectedCategory)
@@ -523,49 +519,6 @@ public sealed class PartsViewModel : INotifyPropertyChanged
 
     private static bool MatchesSearch(PartListItem part, string search) =>
         search.Length == 0
-        || NormalizeSearchText(part.Name).Contains(search, StringComparison.CurrentCultureIgnoreCase)
-        || NormalizeSearchText(part.Category).Contains(search, StringComparison.CurrentCultureIgnoreCase);
-
-    private static string NormalizeSearchText(string value)
-    {
-        var decomposed = value.Normalize(NormalizationForm.FormD);
-        var normalized = new StringBuilder(decomposed.Length);
-
-        foreach (var character in decomposed)
-        {
-            var category = CharUnicodeInfo.GetUnicodeCategory(character);
-            if (character == '\u0640'
-                || category is UnicodeCategory.NonSpacingMark
-                    or UnicodeCategory.SpacingCombiningMark
-                    or UnicodeCategory.EnclosingMark)
-            {
-                continue;
-            }
-
-            normalized.Append(character switch
-            {
-                '\u0622' or '\u0623' or '\u0625' or '\u0671' => '\u0627',
-                '\u0649' => '\u064A',
-                '\u0629' => '\u0647',
-                _ => character,
-            });
-        }
-
-        return normalized.ToString();
-    }
-
-    private bool Set<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
-    {
-        if (EqualityComparer<T>.Default.Equals(field, value))
-        {
-            return false;
-        }
-
-        field = value;
-        Raise(propertyName);
-        return true;
-    }
-
-    private void Raise([CallerMemberName] string? propertyName = null) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        || PreviewText.NormalizeSearch(part.Name).Contains(search, StringComparison.CurrentCultureIgnoreCase)
+        || PreviewText.NormalizeSearch(part.Category).Contains(search, StringComparison.CurrentCultureIgnoreCase);
 }

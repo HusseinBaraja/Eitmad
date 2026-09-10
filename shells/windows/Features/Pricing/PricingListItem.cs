@@ -1,11 +1,9 @@
-using System.ComponentModel;
 using System.Globalization;
-using System.Runtime.CompilerServices;
 
 namespace Eitmad.WindowsShell.Features.Pricing;
 
 /// <summary>Represents one product variant in the transient pricing preview.</summary>
-public sealed class PricingListItem : INotifyPropertyChanged
+public sealed class PricingListItem : ObservableObject
 {
     private decimal sellingPrice;
 
@@ -26,8 +24,6 @@ public sealed class PricingListItem : INotifyPropertyChanged
         this.sellingPrice = sellingPrice;
         IsActive = isActive;
     }
-
-    public event PropertyChangedEventHandler? PropertyChanged;
 
     public Guid Id { get; }
 
@@ -73,7 +69,4 @@ public sealed class PricingListItem : INotifyPropertyChanged
     public string StatusLabel => IsActive ? "نشط" : "غير نشط";
 
     private static string FormatMoney(decimal value) => $"{value.ToString("N0", CultureInfo.InvariantCulture)} YER";
-
-    private void Raise([CallerMemberName] string? propertyName = null) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }

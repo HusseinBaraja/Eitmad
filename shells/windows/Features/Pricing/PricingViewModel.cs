@@ -1,8 +1,5 @@
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Globalization;
-using System.Runtime.CompilerServices;
-using System.Text;
 
 namespace Eitmad.WindowsShell.Features.Pricing;
 
@@ -10,7 +7,7 @@ namespace Eitmad.WindowsShell.Features.Pricing;
 /// Owns ephemeral list and quick-edit state for the pricing preview.
 /// Rust-authoritative price commands, authorization, audit, and storage are not available yet.
 /// </summary>
-public sealed class PricingViewModel : INotifyPropertyChanged
+public sealed class PricingViewModel : ObservableObject
 {
     public const string AllCategories = "كل الفئات";
 
@@ -39,8 +36,6 @@ public sealed class PricingViewModel : INotifyPropertyChanged
         VisiblePrices = [];
         RefreshVisiblePrices();
     }
-
-    public event PropertyChangedEventHandler? PropertyChanged;
 
     public IReadOnlyList<string> Categories { get; }
 
@@ -193,11 +188,11 @@ public sealed class PricingViewModel : INotifyPropertyChanged
 
     private void RefreshVisiblePrices()
     {
-        var search = NormalizeSearchText(SearchText.Trim());
+        var search = PreviewText.NormalizeSearch(SearchText.Trim());
         var matches = prices.Where(item =>
             (search.Length == 0
-             || NormalizeSearchText(item.Product).Contains(search, StringComparison.CurrentCultureIgnoreCase)
-             || NormalizeSearchText(item.Variant).Contains(search, StringComparison.CurrentCultureIgnoreCase))
+             || PreviewText.NormalizeSearch(item.Product).Contains(search, StringComparison.CurrentCultureIgnoreCase)
+             || PreviewText.NormalizeSearch(item.Variant).Contains(search, StringComparison.CurrentCultureIgnoreCase))
             && (SelectedCategory == AllCategories || item.Category == SelectedCategory));
 
         VisiblePrices.Clear();
@@ -211,65 +206,5 @@ public sealed class PricingViewModel : INotifyPropertyChanged
     }
 
     private static bool TryParsePrice(string value, out decimal result) =>
-        decimal.TryParse(NormalizeNumericInput(value), NumberStyles.Number, CultureInfo.InvariantCulture, out result);
-
-    private static string NormalizeNumericInput(string value)
-    {
-        var normalized = new StringBuilder(value.Length);
-        foreach (var character in value)
-        {
-            normalized.Append(character switch
-            {
-                >= '\u0660' and <= '\u0669' => (char)('0' + character - '\u0660'),
-                >= '\u06F0' and <= '\u06F9' => (char)('0' + character - '\u06F0'),
-                '\u066B' => '.',
-                '\u066C' => ',',
-                _ => character,
-            });
-        }
-
-        return normalized.ToString();
-    }
-
-    private static string NormalizeSearchText(string value)
-    {
-        var decomposed = value.Normalize(NormalizationForm.FormD);
-        var normalized = new StringBuilder(decomposed.Length);
-        foreach (var character in decomposed)
-        {
-            var category = CharUnicodeInfo.GetUnicodeCategory(character);
-            if (character == '\u0640'
-                || category is UnicodeCategory.NonSpacingMark
-                    or UnicodeCategory.SpacingCombiningMark
-                    or UnicodeCategory.EnclosingMark)
-            {
-                continue;
-            }
-
-            normalized.Append(character switch
-            {
-                '\u0622' or '\u0623' or '\u0625' or '\u0671' => '\u0627',
-                '\u0649' => '\u064A',
-                '\u0629' => '\u0647',
-                _ => character,
-            });
-        }
-
-        return normalized.ToString();
-    }
-
-    private bool Set<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
-    {
-        if (EqualityComparer<T>.Default.Equals(field, value))
-        {
-            return false;
-        }
-
-        field = value;
-        Raise(propertyName);
-        return true;
-    }
-
-    private void Raise([CallerMemberName] string? propertyName = null) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        decimal.TryParse(PreviewText.NormalizeNumericInput(value), NumberStyles.Number, CultureInfo.InvariantCulture, out result);
 }

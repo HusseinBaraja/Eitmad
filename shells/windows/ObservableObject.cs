@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
-namespace Eitmad.WindowsShell.Features.Operations;
+namespace Eitmad.WindowsShell;
 
 public abstract class ObservableObject : INotifyPropertyChanged
 {

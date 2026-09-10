@@ -1,10 +1,7 @@
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
-
 namespace Eitmad.WindowsShell.Features.RawMaterials;
 
 /// <summary>Represents an ephemeral category or unit shown by the raw-material preview.</summary>
-public sealed class RawMaterialReferenceOption : INotifyPropertyChanged
+public sealed class RawMaterialReferenceOption : ObservableObject
 {
     private string name;
     private string shortName;
@@ -15,8 +12,6 @@ public sealed class RawMaterialReferenceOption : INotifyPropertyChanged
         this.name = name;
         this.shortName = shortName;
     }
-
-    public event PropertyChangedEventHandler? PropertyChanged;
 
     public string Name
     {
@@ -63,19 +58,4 @@ public sealed class RawMaterialReferenceOption : INotifyPropertyChanged
             : $"{Name} — {ShortName}";
 
     public string StatusLabel => IsArchived ? "مؤرشفة" : string.Empty;
-
-    private bool Set<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
-    {
-        if (EqualityComparer<T>.Default.Equals(field, value))
-        {
-            return false;
-        }
-
-        field = value;
-        Raise(propertyName);
-        return true;
-    }
-
-    private void Raise([CallerMemberName] string? propertyName = null) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }
