@@ -1,0 +1,974 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls" xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore">
+    <sys:Double x:Key="PageHeaderHeight">136</sys:Double>
+    <sys:Double x:Key="PageHeaderTitleSize">27</sys:Double>
+    <sys:Double x:Key="PageHeaderDescriptionSize">12</sys:Double>
+    <Style x:Key="FieldLabel" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Margin" Value="0,0,0,7" />
+    </Style>
+    <Style x:Key="TextInput" TargetType="TextBox">
+        <Setter Property="controls:ControlOptions.HighContrast" Value="{DynamicResource {x:Static SystemParameters.HighContrastKey}}" />
+        <Setter Property="MinHeight" Value="44" />
+        <Setter Property="FontFamily" Value="Noto Kufi Arabic, Segoe UI" />
+        <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Hidden" />
+        <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Background" Value="White" />
+        <Setter Property="BorderBrush" Value="#DED6CE" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="12,4" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Border x:Name="InputChrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{Binding Path=(controls:ControlOptions.CornerRadius), RelativeSource={RelativeSource TemplatedParent}}" Padding="{TemplateBinding Padding}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Path x:Name="InputIcon" Data="{Binding Path=(controls:ControlOptions.Icon), RelativeSource={RelativeSource TemplatedParent}}" Width="17" Height="17" Stretch="Uniform" Fill="{TemplateBinding Foreground}" Margin="0,0,12,0" VerticalAlignment="Center" IsHitTestVisible="False" />
+                            <ScrollViewer x:Name="PART_ContentHost" Grid.Column="1" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" Focusable="False" HorizontalScrollBarVisibility="{TemplateBinding ScrollViewer.HorizontalScrollBarVisibility}" VerticalScrollBarVisibility="{TemplateBinding ScrollViewer.VerticalScrollBarVisibility}" />
+                            <TextBlock x:Name="Placeholder" Grid.Column="1" Text="{Binding Path=(controls:ControlOptions.Placeholder), RelativeSource={RelativeSource TemplatedParent}}" Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" IsHitTestVisible="False" Visibility="Collapsed" />
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="controls:ControlOptions.Icon" Value="{x:Null}">
+                            <Setter TargetName="InputIcon" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
+                        <Trigger Property="Text" Value="">
+                            <Setter TargetName="Placeholder" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="controls:ControlOptions.Placeholder" Value="">
+                            <Setter TargetName="Placeholder" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="InputChrome" Property="BorderBrush" Value="#C69A70" />
+                            <Setter TargetName="InputChrome" Property="Background" Value="#FFFEFC" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="InputChrome" Property="Opacity" Value="0.48" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="InputChrome" Property="BorderBrush" Value="#A35E1E" />
+                            <Setter TargetName="InputChrome" Property="BorderThickness" Value="1.5" />
+                        </Trigger>
+                        <Trigger Property="Validation.HasError" Value="True">
+                            <Setter TargetName="InputChrome" Property="BorderBrush" Value="{DynamicResource DangerBrush}" />
+                        </Trigger>
+                        <Trigger Property="controls:ControlOptions.HighContrast" Value="True">
+                            <Setter TargetName="InputChrome" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                            <Setter TargetName="InputChrome" Property="BorderBrush" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                            <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                            <Setter TargetName="Placeholder" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" />
+                        </Trigger>
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource Self}}" Value="True" />
+                                <Condition Binding="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource Self}}" Value="True" />
+                            </MultiDataTrigger.Conditions>
+                            <Setter TargetName="InputChrome" Property="BorderBrush" Value="{DynamicResource {x:Static SystemColors.HighlightBrushKey}}" />
+                        </MultiDataTrigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="SelectItem" TargetType="ComboBoxItem">
+        <Setter Property="controls:ControlOptions.HighContrast" Value="{DynamicResource {x:Static SystemParameters.HighContrastKey}}" />
+        <Setter Property="MinHeight" Value="38" />
+        <Setter Property="Padding" Value="12,8" />
+        <Setter Property="Margin" Value="3,2" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBoxItem">
+                    <Border x:Name="ItemSurface" FlowDirection="LeftToRight" Background="Transparent" CornerRadius="7" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter FlowDirection="{TemplateBinding FlowDirection}" HorizontalAlignment="Right" VerticalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}" RecognizesAccessKey="True">
+                            <ContentPresenter.Resources>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                    <Setter Property="Foreground" Value="{Binding Path=(TextElement.Foreground), RelativeSource={RelativeSource AncestorType=ContentPresenter}}" />
+                                </Style>
+                            </ContentPresenter.Resources>
+                        </ContentPresenter>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="ItemSurface" Property="Background" Value="#F3E5D7" />
+                            <Setter Property="Foreground" Value="#6C390D" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                        </Trigger>
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter TargetName="ItemSurface" Property="Background" Value="#FBF2E9" />
+                            <Setter Property="Foreground" Value="#7A4314" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.4" />
+                        </Trigger>
+                        <Trigger Property="controls:ControlOptions.HighContrast" Value="True">
+                            <Setter TargetName="ItemSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                            <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                        </Trigger>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="controls:ControlOptions.HighContrast" Value="True" />
+                                <Condition Property="IsHighlighted" Value="True" />
+                            </MultiTrigger.Conditions>
+                            <Setter TargetName="ItemSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.HighlightBrushKey}}" />
+                            <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.HighlightTextBrushKey}}" />
+                        </MultiTrigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="SelectInput" TargetType="ComboBox">
+        <Setter Property="controls:ControlOptions.HighContrast" Value="{DynamicResource {x:Static SystemParameters.HighContrastKey}}" />
+        <Setter Property="MinHeight" Value="44" />
+        <Setter Property="FontFamily" Value="Noto Kufi Arabic, Segoe UI" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+        <Setter Property="Background" Value="White" />
+        <Setter Property="BorderBrush" Value="#DED6CE" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="12,4" />
+        <Setter Property="MaxDropDownHeight" Value="300" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="ItemContainerStyle" Value="{StaticResource SelectItem}" />
+        <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBox">
+                    <Grid FlowDirection="LeftToRight">
+                        <Border x:Name="InputChrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{Binding Path=(controls:ControlOptions.CornerRadius), RelativeSource={RelativeSource TemplatedParent}}">
+                            <Grid FlowDirection="LeftToRight">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="42" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Border x:Name="ChevronSurface" Grid.Column="0" Width="24" Height="24" CornerRadius="12" Background="#F6EEE6" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Path x:Name="Chevron" Data="M3,7 L8,12 L13,7" Stroke="#8B4D17" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Width="16" Height="16" Stretch="Uniform" />
+                                </Border>
+                                <ContentPresenter x:Name="SelectionContent" Grid.Column="1" Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}" Margin="{TemplateBinding Padding}" HorizontalAlignment="Right" VerticalAlignment="Center" FlowDirection="{TemplateBinding FlowDirection}" />
+                            </Grid>
+                        </Border>
+                        <ToggleButton x:Name="DropDownToggle" Background="Transparent" BorderThickness="0" Focusable="False" Cursor="Hand" IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}" ClickMode="Press">
+                            <ToggleButton.Template>
+                                <ControlTemplate TargetType="ToggleButton">
+                                    <Border Background="Transparent" />
+                                </ControlTemplate>
+                            </ToggleButton.Template>
+                        </ToggleButton>
+                        <TextBox x:Name="PART_EditableTextBox" Visibility="Collapsed" Style="{StaticResource TextInput}" Margin="42,0,0,0" Padding="{TemplateBinding Padding}" Background="Transparent" BorderThickness="0" IsReadOnly="{TemplateBinding IsReadOnly}" FlowDirection="{TemplateBinding FlowDirection}" VerticalContentAlignment="Center" />
+                        <Popup x:Name="PART_Popup" FlowDirection="{TemplateBinding FlowDirection}" Placement="Bottom" IsOpen="{TemplateBinding IsDropDownOpen}" AllowsTransparency="True" PopupAnimation="Fade" VerticalOffset="6" Focusable="False">
+                            <Border x:Name="PopupSurface" Width="{Binding ActualWidth, ElementName=InputChrome}" MaxHeight="{TemplateBinding MaxDropDownHeight}" Background="White" BorderBrush="#DCCFC2" BorderThickness="1" CornerRadius="10" Padding="4">
+                                <Border.Effect>
+                                    <DropShadowEffect BlurRadius="22" ShadowDepth="7" Opacity="0.18" Color="#4A2B12" />
+                                </Border.Effect>
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <ScrollViewer CanContentScroll="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                        <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
+                                    </ScrollViewer>
+                                    <ContentPresenter x:Name="ReferenceActions" Grid.Row="1" Content="{Binding RelativeSource={RelativeSource TemplatedParent}}" ContentTemplate="{Binding Path=(controls:ControlOptions.FooterTemplate), RelativeSource={RelativeSource TemplatedParent}}" />
+                                </Grid>
+                            </Border>
+                        </Popup>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsEditable" Value="True">
+                            <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible" />
+                            <Setter TargetName="SelectionContent" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="InputChrome" Property="BorderBrush" Value="#C69A70" />
+                            <Setter TargetName="InputChrome" Property="Background" Value="#FFFEFC" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="InputChrome" Property="BorderBrush" Value="#A35E1E" />
+                            <Setter TargetName="InputChrome" Property="BorderThickness" Value="1.5" />
+                        </Trigger>
+                        <Trigger Property="IsDropDownOpen" Value="True">
+                            <Setter TargetName="InputChrome" Property="BorderBrush" Value="#A35E1E" />
+                            <Setter TargetName="InputChrome" Property="Background" Value="#FFFCF8" />
+                            <Setter TargetName="Chevron" Property="Data" Value="M3,12 L8,7 L13,12" />
+                        </Trigger>
+                        <Trigger Property="HasItems" Value="False">
+                            <Setter TargetName="PART_Popup" Property="MinHeight" Value="50" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="InputChrome" Property="Opacity" Value="0.48" />
+                        </Trigger>
+                        <Trigger Property="controls:ControlOptions.FooterTemplate" Value="{x:Null}">
+                            <Setter TargetName="ReferenceActions" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
+                        <Trigger Property="controls:ControlOptions.HighContrast" Value="True">
+                            <Setter TargetName="InputChrome" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                            <Setter TargetName="PopupSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                            <Setter TargetName="PopupSurface" Property="BorderBrush" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                            <Setter TargetName="PopupSurface" Property="Effect" Value="{x:Null}" />
+                            <Setter TargetName="ChevronSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.ControlBrushKey}}" />
+                            <Setter TargetName="Chevron" Property="Stroke" Value="{DynamicResource {x:Static SystemColors.ControlTextBrushKey}}" />
+                            <Setter TargetName="InputChrome" Property="BorderBrush" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                            <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                        </Trigger>
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource Self}}" Value="True" />
+                                <Condition Binding="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource Self}}" Value="True" />
+                            </MultiDataTrigger.Conditions>
+                            <Setter TargetName="InputChrome" Property="BorderBrush" Value="{DynamicResource {x:Static SystemColors.HighlightBrushKey}}" />
+                        </MultiDataTrigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="RowActionButton" TargetType="Button" BasedOn="{StaticResource ActionButton}">
+        <Setter Property="Width" Value="34" />
+        <Setter Property="Height" Value="34" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="FontSize" Value="21" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Padding" Value="0" />
+    </Style>
+    <Style x:Key="ActionMenu" TargetType="ContextMenu">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="FontFamily" Value="Noto Kufi Arabic, Segoe UI" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ContextMenu">
+                    <Border Background="White" BorderBrush="#DCCFC2" BorderThickness="1" CornerRadius="10" Padding="5" MinWidth="154">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="22" ShadowDepth="7" Opacity="0.18" Color="#4A2B12" />
+                        </Border.Effect>
+                        <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="ActionMenuItem" TargetType="MenuItem">
+        <Setter Property="controls:ControlOptions.HighContrast" Value="{DynamicResource {x:Static SystemParameters.HighContrastKey}}" />
+        <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Padding" Value="13,9" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FlowDirection" Value="RightToLeft" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="MenuItem">
+                    <Border x:Name="MenuSurface" FlowDirection="LeftToRight" Background="Transparent" CornerRadius="7" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter FlowDirection="{TemplateBinding FlowDirection}" ContentSource="Header" HorizontalAlignment="Right" VerticalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}" RecognizesAccessKey="True">
+                            <ContentPresenter.Resources>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                    <Setter Property="Foreground" Value="{Binding Path=(TextElement.Foreground), RelativeSource={RelativeSource AncestorType=ContentPresenter}}" />
+                                </Style>
+                            </ContentPresenter.Resources>
+                        </ContentPresenter>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter TargetName="MenuSurface" Property="Background" Value="#FBF0E5" />
+                            <Setter Property="Foreground" Value="#783F0D" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.36" />
+                        </Trigger>
+                        <Trigger Property="controls:ControlOptions.HighContrast" Value="True">
+                            <Setter TargetName="MenuSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                            <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                        </Trigger>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="controls:ControlOptions.HighContrast" Value="True" />
+                                <Condition Property="IsHighlighted" Value="True" />
+                            </MultiTrigger.Conditions>
+                            <Setter TargetName="MenuSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.HighlightBrushKey}}" />
+                            <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.HighlightTextBrushKey}}" />
+                        </MultiTrigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="ActionMenuSeparator" TargetType="Separator">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Separator">
+                    <Border Height="1" Background="#ECE4DC" Margin="9,4" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="TableHeader" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+        <Setter Property="FontSize" Value="10" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="TextAlignment" Value="Center" />
+        <Setter Property="TextWrapping" Value="NoWrap" />
+    </Style>
+    <Style x:Key="TableBody" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="TextAlignment" Value="Center" />
+        <Setter Property="TextWrapping" Value="NoWrap" />
+    </Style>
+    <Style x:Key="SecondaryButton" TargetType="Button" BasedOn="{StaticResource ActionButton}">
+        <Setter Property="Padding" Value="18,8" />
+        <Setter Property="Background" Value="White" />
+        <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+        <Setter Property="BorderBrush" Value="#B79A80" />
+        <Setter Property="BorderThickness" Value="1.2" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="UseLayoutRounding" Value="True" />
+        <Setter Property="FontFamily" Value="Noto Kufi Arabic, Segoe UI" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="controls:ControlOptions.HoverBackground" Value="#EFE0D1" />
+        <Setter Property="controls:ControlOptions.HoverBorderBrush" Value="#B9824D" />
+    </Style>
+    <Style x:Key="InlineActionButton" TargetType="Button" BasedOn="{StaticResource ActionButton}">
+        <Setter Property="Height" Value="33" />
+        <Setter Property="MinWidth" Value="62" />
+        <Setter Property="Padding" Value="12,5" />
+        <Setter Property="Background" Value="#F7EEE5" />
+        <Setter Property="Foreground" Value="#76400F" />
+        <Setter Property="BorderBrush" Value="#DAB997" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="FontFamily" Value="Noto Kufi Arabic, Segoe UI" />
+        <Setter Property="FontSize" Value="10" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="controls:ControlOptions.HoverBackground" Value="#EFE0D1" />
+        <Setter Property="controls:ControlOptions.HoverBorderBrush" Value="#B9824D" />
+    </Style>
+    <Style x:Key="DropdownActionButton" TargetType="Button" BasedOn="{StaticResource ActionButton}">
+        <Setter Property="Height" Value="35" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Foreground" Value="#7B410F" />
+        <Setter Property="HorizontalContentAlignment" Value="Right" />
+        <Setter Property="Padding" Value="11,6" />
+        <Setter Property="FontFamily" Value="Noto Kufi Arabic, Segoe UI" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style x:Key="SearchInput" TargetType="TextBox" BasedOn="{StaticResource TextInput}">
+        <Setter Property="FlowDirection" Value="RightToLeft" />
+        <Setter Property="TextAlignment" Value="Left" />
+        <Setter Property="controls:ControlOptions.Icon" Value="{StaticResource IconSearch}" />
+        <Setter Property="controls:ControlOptions.Placeholder" Value="{Binding Path=(automation:AutomationProperties.Name), RelativeSource={RelativeSource Self}}" />
+    </Style>
+    <Style x:Key="CompactButton" TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
+        <Setter Property="MinHeight" Value="34" />
+        <Setter Property="Padding" Value="11,5" />
+        <Setter Property="FontSize" Value="11" />
+    </Style>
+    <Style x:Key="MetadataLabel" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+        <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+        <Setter Property="FontSize" Value="10" />
+    </Style>
+    <Style x:Key="MetadataValue" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Margin" Value="0,5,0,0" />
+    </Style>
+    <Style x:Key="SummaryLabel" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style x:Key="SummaryValue" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FlowDirection" Value="LeftToRight" />
+        <Setter Property="TextAlignment" Value="Right" />
+    </Style>
+    <Style x:Key="ChoiceRadio" TargetType="RadioButton">
+        <Setter Property="FontFamily" Value="Noto Kufi Arabic, Segoe UI" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Margin" Value="0,0,16,0" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style TargetType="controls:PageHeader">
+        <Setter Property="controls:ControlOptions.HighContrast" Value="{DynamicResource {x:Static SystemParameters.HighContrastKey}}" />
+        <Setter Property="Height" Value="{StaticResource PageHeaderHeight}" />
+        <Setter Property="VerticalAlignment" Value="Top" />
+        <Setter Property="Padding" Value="28,16" />
+        <Setter Property="DescriptionFontSize" Value="{StaticResource PageHeaderDescriptionSize}" />
+        <Setter Property="FontSize" Value="{StaticResource PageHeaderTitleSize}" />
+        <Setter Property="BorderThickness" Value="0,0,0,1" />
+        <Setter Property="Background" Value="#FEFDFC" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="controls:PageHeader">
+                    <Border x:Name="ContrastPart2" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+                        <Grid FlowDirection="LeftToRight">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center" FlowDirection="RightToLeft">
+                                <Button x:Name="HeaderButton" Visibility="Collapsed" Height="{TemplateBinding ButtonHeight}"
+                                        Style="{StaticResource PrimaryButton}" FontSize="13"
+                                        Command="{TemplateBinding ButtonCommand}" CommandParameter="{TemplateBinding ButtonCommandParameter}"
+                                        AutomationProperties.Name="{TemplateBinding ButtonText}">
+                                    <StackPanel Orientation="Horizontal" FlowDirection="RightToLeft">
+                                        <Path x:Name="ButtonIcon" Data="{TemplateBinding ButtonIcon}" Width="18" Height="18" Stretch="Uniform" Fill="{Binding Foreground, ElementName=HeaderButton}" />
+                                        <TextBlock x:Name="ButtonLabel" Text="{TemplateBinding ButtonText}" Foreground="{Binding Foreground, ElementName=HeaderButton}" FontSize="{Binding FontSize, ElementName=HeaderButton}" Margin="9,0,0,0" />
+                                    </StackPanel>
+                                </Button>
+                                <ContentPresenter Content="{TemplateBinding Content}" />
+                            </StackPanel>
+                            <Grid Grid.Column="1" Margin="24,0,0,0" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <ContentPresenter Content="{TemplateBinding Icon}" VerticalAlignment="Center" />
+                                <StackPanel Grid.Column="1" FlowDirection="RightToLeft">
+                                    <ContentPresenter Content="{TemplateBinding BackAction}" />
+                                    <TextBlock x:Name="ContrastPart0" Text="{TemplateBinding Title}" ToolTip="{TemplateBinding Title}" FontSize="{TemplateBinding FontSize}" FontWeight="Bold" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock x:Name="ContrastPart1" Text="{TemplateBinding Subtitle}" ToolTip="{TemplateBinding Subtitle}" FontSize="{TemplateBinding DescriptionFontSize}" Foreground="{DynamicResource MutedBrush}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Margin="{TemplateBinding DescriptionMargin}" />
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="ButtonIcon" Value="{x:Null}">
+                            <Setter TargetName="ButtonIcon" Property="Visibility" Value="Collapsed" />
+                            <Setter TargetName="ButtonLabel" Property="Margin" Value="0" />
+                        </Trigger>
+                        <Trigger Property="ContainsButton" Value="True">
+                            <Setter TargetName="HeaderButton" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="ButtonType" Value="Secondary">
+                            <Setter TargetName="HeaderButton" Property="Style" Value="{StaticResource SecondaryButton}" />
+                        </Trigger>
+                        <Trigger Property="ButtonType" Value="Inline">
+                            <Setter TargetName="HeaderButton" Property="Style" Value="{StaticResource InlineActionButton}" />
+                            <Setter TargetName="HeaderButton" Property="FontSize" Value="10" />
+                        </Trigger>
+
+                        <Trigger Property="Subtitle" Value="">
+                            <Setter TargetName="ContrastPart1" Property="Visibility" Value="Hidden" />
+                        </Trigger>
+                        <Trigger Property="Subtitle" Value="{x:Null}">
+                            <Setter TargetName="ContrastPart1" Property="Visibility" Value="Hidden" />
+                        </Trigger>
+                        <Trigger Property="controls:ControlOptions.HighContrast" Value="True">
+                            <Setter TargetName="ContrastPart0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                            <Setter TargetName="ContrastPart1" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                            <Setter TargetName="ContrastPart2" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                            <Setter TargetName="ContrastPart2" Property="BorderBrush" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style TargetType="controls:EmptyState">
+        <Setter Property="controls:ControlOptions.HighContrast" Value="{DynamicResource {x:Static SystemParameters.HighContrastKey}}" />
+        <Setter Property="Padding" Value="28" />
+        <Setter Property="Background" Value="White" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="controls:EmptyState">
+                    <Border x:Name="ContrastPart2" Padding="{TemplateBinding Padding}" Background="{TemplateBinding Background}" CornerRadius="10">
+                        <StackPanel HorizontalAlignment="Center">
+                            <ContentPresenter Content="{TemplateBinding Icon}" HorizontalAlignment="Center" />
+                            <TextBlock x:Name="ContrastPart0" Text="{TemplateBinding Heading}" FontSize="17" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap" />
+                            <TextBlock x:Name="ContrastPart1" Text="{TemplateBinding Description}" Foreground="{DynamicResource MutedBrush}" Margin="0,7,0,0" TextAlignment="Center" TextWrapping="Wrap" />
+                            <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" Margin="0,8,0,0" />
+                        </StackPanel>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="controls:ControlOptions.HighContrast" Value="True">
+                            <Setter TargetName="ContrastPart0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                            <Setter TargetName="ContrastPart1" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                            <Setter TargetName="ContrastPart2" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsCompact" Value="True">
+                <Setter Property="Padding" Value="12" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+    <Style TargetType="controls:AmountDisplay">
+        <Setter Property="controls:ControlOptions.HighContrast" Value="{DynamicResource {x:Static SystemParameters.HighContrastKey}}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="controls:AmountDisplay">
+                    <StackPanel x:Name="ContrastBacking" Orientation="Horizontal" FlowDirection="LeftToRight" HorizontalAlignment="Center">
+                        <TextBlock x:Name="Before" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" FontWeight="{TemplateBinding FontWeight}" FlowDirection="RightToLeft" Text="{TemplateBinding UnitText}" Margin="0,0,8,0" Visibility="Collapsed" />
+                        <TextBlock x:Name="Amount" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" FontWeight="{TemplateBinding FontWeight}" Text="{TemplateBinding AmountText}" FlowDirection="LeftToRight" />
+                        <TextBlock x:Name="After" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" FontWeight="{TemplateBinding FontWeight}" FlowDirection="RightToLeft" Text="{TemplateBinding UnitText}" Margin="8,0,0,0" />
+                    </StackPanel>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="UnitPlacement" Value="Before">
+                            <Setter TargetName="Before" Property="Visibility" Value="Visible" />
+                            <Setter TargetName="After" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
+                        <Trigger Property="AmountText" Value="">
+                            <Setter TargetName="Amount" Property="Text" Value="{Binding EmptyText, RelativeSource={RelativeSource TemplatedParent}}" />
+                        </Trigger>
+                        <Trigger Property="controls:ControlOptions.HighContrast" Value="True">
+                            <Setter TargetName="Before" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                            <Setter TargetName="Amount" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                            <Setter TargetName="After" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                        </Trigger>
+                        <Trigger Property="controls:ControlOptions.HighContrast" Value="True">
+                            <Setter TargetName="ContrastBacking" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style TargetType="controls:StatusBadge">
+        <Setter Property="controls:ControlOptions.HighContrast" Value="{DynamicResource {x:Static SystemParameters.HighContrastKey}}" />
+        <Setter Property="Background" Value="#F0EEEC" />
+        <Setter Property="Foreground" Value="#625C57" />
+        <Setter Property="BorderBrush" Value="#DED8D2" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="10,4" />
+        <Setter Property="FontSize" Value="10" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="controls:StatusBadge">
+                    <Border x:Name="ContrastPart1" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="10" Padding="{TemplateBinding Padding}">
+                        <StackPanel Orientation="Horizontal">
+                            <ContentPresenter Content="{TemplateBinding Icon}" />
+                            <TextBlock x:Name="ContrastPart0" Text="{TemplateBinding Text}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" FontWeight="SemiBold" />
+                        </StackPanel>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="controls:ControlOptions.HighContrast" Value="True">
+                            <Setter TargetName="ContrastPart0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                            <Setter TargetName="ContrastPart1" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                            <Setter TargetName="ContrastPart1" Property="BorderBrush" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="Tone" Value="Neutral">
+                <Setter Property="Background" Value="#F0EEEC" />
+                <Setter Property="Foreground" Value="#625C57" />
+                <Setter Property="BorderBrush" Value="#DED8D2" />
+            </Trigger>
+            <Trigger Property="Tone" Value="Information">
+                <Setter Property="Background" Value="#EAF2F8" />
+                <Setter Property="Foreground" Value="#2D617F" />
+                <Setter Property="BorderBrush" Value="#B8D0E1" />
+            </Trigger>
+            <Trigger Property="Tone" Value="Success">
+                <Setter Property="Background" Value="#EAF5ED" />
+                <Setter Property="Foreground" Value="#267441" />
+                <Setter Property="BorderBrush" Value="#B9D9C2" />
+            </Trigger>
+            <Trigger Property="Tone" Value="Warning">
+                <Setter Property="Background" Value="#FFF4D8" />
+                <Setter Property="Foreground" Value="#805D12" />
+                <Setter Property="BorderBrush" Value="#E6C66F" />
+            </Trigger>
+            <Trigger Property="Tone" Value="Danger">
+                <Setter Property="Background" Value="#F8ECEA" />
+                <Setter Property="Foreground" Value="#8B3A31" />
+                <Setter Property="BorderBrush" Value="#DFBBB5" />
+            </Trigger>
+            <Trigger Property="IsCompact" Value="True">
+                <Setter Property="Padding" Value="6,2" />
+                <Setter Property="FontSize" Value="9" />
+            </Trigger>
+            <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource Self}}" Value="True">
+                <Setter Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+    <Style TargetType="controls:FeedbackNotice">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="controls:ControlOptions.HighContrast" Value="{DynamicResource {x:Static SystemParameters.HighContrastKey}}" />
+        <Setter Property="Background" Value="#EEF4FA" />
+        <Setter Property="Foreground" Value="#254B70" />
+        <Setter Property="Padding" Value="14,10" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="controls:FeedbackNotice">
+                    <Border x:Name="ContrastPart1" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}" CornerRadius="9">
+                        <DockPanel>
+                            <Button x:Name="PART_Dismiss" DockPanel.Dock="Left" Content="×" automation:AutomationProperties.Name="إغلاق الرسالة" Visibility="Collapsed" Style="{StaticResource CompactButton}" />
+                            <TextBlock x:Name="ContrastPart0" Text="{TemplateBinding Message}" Foreground="{TemplateBinding Foreground}" TextWrapping="Wrap" FontSize="{TemplateBinding FontSize}" />
+                        </DockPanel>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="CanDismiss" Value="True">
+                            <Setter TargetName="PART_Dismiss" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="controls:ControlOptions.HighContrast" Value="True">
+                            <Setter TargetName="ContrastPart0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                            <Setter TargetName="ContrastPart1" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="Tone" Value="Neutral">
+                <Setter Property="Background" Value="#F0EEEC" />
+                <Setter Property="Foreground" Value="#625C57" />
+            </Trigger>
+            <Trigger Property="Tone" Value="Information">
+                <Setter Property="Background" Value="#EEF4FA" />
+                <Setter Property="Foreground" Value="#254B70" />
+            </Trigger>
+            <Trigger Property="Tone" Value="Success">
+                <Setter Property="Background" Value="#EAF5ED" />
+                <Setter Property="Foreground" Value="#1F693A" />
+            </Trigger>
+            <Trigger Property="Tone" Value="Warning">
+                <Setter Property="Background" Value="#FFF2DC" />
+                <Setter Property="Foreground" Value="#794D0C" />
+            </Trigger>
+            <Trigger Property="Tone" Value="Danger">
+                <Setter Property="Background" Value="#FCEBE9" />
+                <Setter Property="Foreground" Value="#9B2920" />
+            </Trigger>
+            <Trigger Property="Message" Value="">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </Trigger>
+            <Trigger Property="Message" Value="{x:Null}">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </Trigger>
+            <Trigger Property="IsFloating" Value="True">
+                <Setter Property="HorizontalAlignment" Value="Center" />
+                <Setter Property="VerticalAlignment" Value="Bottom" />
+                <Setter Property="Panel.ZIndex" Value="50" />
+                <Setter Property="Background" Value="#3B240F" />
+                <Setter Property="Foreground" Value="White" />
+                <Setter Property="Padding" Value="18,11" />
+            </Trigger>
+            <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource Self}}" Value="True">
+                <Setter Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+    <Style TargetType="controls:StepIndicator">
+        <Setter Property="controls:ControlOptions.HighContrast" Value="{DynamicResource {x:Static SystemParameters.HighContrastKey}}" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="ItemsPanel">
+            <Setter.Value>
+                <ItemsPanelTemplate><UniformGrid Rows="1" /></ItemsPanelTemplate>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="ItemTemplate">
+            <Setter.Value>
+                <DataTemplate>
+                    <Border x:Name="Step" Background="#F5F1ED" BorderBrush="#E3DDD7" BorderThickness="1" CornerRadius="10" Padding="10,9" Margin="4" controls:StepIndicator.State="{Binding Path=(controls:StepIndicator.State), RelativeSource={RelativeSource AncestorType=ContentPresenter}}">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <Border x:Name="Circle" Width="22" Height="22" CornerRadius="11" Background="#E5D5C5">
+                                <TextBlock x:Name="Number" Text="{Binding Path=(controls:StepIndicator.Number), RelativeSource={RelativeSource AncestorType=ContentPresenter}}" TextAlignment="Center" VerticalAlignment="Center" FlowDirection="LeftToRight" FontSize="10" FontWeight="Bold" />
+                            </Border>
+                            <TextBlock x:Name="Label" Text="{Binding}" Margin="7,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+                    <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding Path=(controls:StepIndicator.State), ElementName=Step}" Value="الحالية">
+                            <Setter TargetName="Step" Property="Background" Value="#6F3B0D" />
+                            <Setter TargetName="Step" Property="BorderBrush" Value="#6F3B0D" />
+                            <Setter TargetName="Label" Property="Foreground" Value="White" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:StepIndicator}}" Value="True">
+                            <Setter TargetName="Step" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                            <Setter TargetName="Step" Property="BorderBrush" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                            <Setter TargetName="Circle" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                            <Setter TargetName="Number" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                            <Setter TargetName="Label" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                        </DataTrigger>
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:StepIndicator}}" Value="True" />
+                                <Condition Binding="{Binding Path=(controls:StepIndicator.State), ElementName=Step}" Value="الحالية" />
+                            </MultiDataTrigger.Conditions>
+                            <Setter TargetName="Step" Property="Background" Value="{DynamicResource {x:Static SystemColors.HighlightBrushKey}}" />
+                            <Setter TargetName="Label" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.HighlightTextBrushKey}}" />
+                        </MultiDataTrigger>
+                    </DataTemplate.Triggers>
+                </DataTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style TargetType="controls:FormField">
+        <Setter Property="controls:ControlOptions.HighContrast" Value="{DynamicResource {x:Static SystemParameters.HighContrastKey}}" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="controls:FormField">
+                    <StackPanel x:Name="ContrastBacking">
+                        <Label automation:AutomationProperties.Name="{TemplateBinding Label}" x:Name="PART_Label" Padding="0" Margin="0,0,0,7" Target="{TemplateBinding LabelTarget}" FontSize="12" FontWeight="SemiBold">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock x:Name="ContrastPart0" Text="{TemplateBinding Label}" TextWrapping="Wrap" />
+                                <TextBlock x:Name="Required" Text=" *" Visibility="Collapsed" automation:AutomationProperties.Name="مطلوب" />
+                            </StackPanel>
+                        </Label>
+                        <ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" />
+                        <TextBlock x:Name="Help" Text="{TemplateBinding HelpText}" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,7,0,0" />
+                        <TextBlock x:Name="Error" Text="{TemplateBinding ErrorText}" TextWrapping="Wrap" Foreground="{DynamicResource DangerBrush}" FontSize="11" Margin="0,7,0,0" automation:AutomationProperties.LiveSetting="Assertive" />
+                    </StackPanel>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsRequired" Value="True">
+                            <Setter TargetName="Required" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="HelpText" Value="">
+                            <Setter TargetName="Help" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
+                        <Trigger Property="ErrorText" Value="">
+                            <Setter TargetName="Error" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
+                        <Trigger Property="controls:ControlOptions.HighContrast" Value="True">
+                            <Setter TargetName="ContrastPart0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                            <Setter TargetName="Required" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                            <Setter TargetName="Help" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                            <Setter TargetName="Error" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                        </Trigger>
+                        <Trigger Property="controls:ControlOptions.HighContrast" Value="True">
+                            <Setter TargetName="ContrastBacking" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style TargetType="controls:DialogHost">
+        <Setter Property="AutomationProperties.Name" Value="{Binding Title, RelativeSource={RelativeSource Self}}" />
+        <Setter Property="Visibility" Value="Collapsed" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Padding" Value="24" />
+        <Setter Property="FontSize" Value="20" />
+        <Setter Property="Background" Value="#7A201A17" />
+        <Setter Property="controls:ControlOptions.HighContrast" Value="{DynamicResource {x:Static SystemParameters.HighContrastKey}}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="controls:DialogHost">
+                    <Grid Background="{TemplateBinding Background}">
+                        <Border x:Name="DialogSurface" Width="{TemplateBinding DialogWidth}" MaxHeight="{TemplateBinding DialogMaxHeight}" HorizontalAlignment="Center" VerticalAlignment="Center" Background="{DynamicResource PanelBrush}" BorderBrush="#D8C8B9" BorderThickness="1" CornerRadius="14" Padding="{TemplateBinding Padding}">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="35" ShadowDepth="10" Opacity="0.28" Color="#3D2513" />
+                            </Border.Effect>
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <Grid Margin="0,0,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="ContrastPart0" Text="{TemplateBinding Title}" FontSize="{TemplateBinding FontSize}" FontWeight="Bold" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                    <Button x:Name="PART_Close" Grid.Column="1" Style="{StaticResource IconButton}" Content="×" AutomationProperties.Name="إغلاق الحوار" Margin="12,0,0,0" Visibility="Collapsed" />
+                                </Grid>
+                                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False" Padding="0,0,4,0">
+                                    <ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" />
+                                </ScrollViewer>
+                                <ContentPresenter x:Name="DialogFooter" Grid.Row="2" Content="{TemplateBinding Footer}" Margin="{TemplateBinding FooterMargin}" />
+                            </Grid>
+                        </Border>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Footer" Value="{x:Null}">
+                            <Setter TargetName="DialogFooter" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
+                        <Trigger Property="ShowCloseButton" Value="True">
+                            <Setter TargetName="PART_Close" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="controls:ControlOptions.HighContrast" Value="True">
+                            <Setter TargetName="DialogSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                            <Setter TargetName="DialogSurface" Property="BorderBrush" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                            <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                        </Trigger>
+                        <Trigger Property="controls:ControlOptions.HighContrast" Value="True">
+                            <Setter TargetName="ContrastPart0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                            <Setter TargetName="DialogSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                            <Setter TargetName="DialogSurface" Property="BorderBrush" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsOpen" Value="True">
+                <Setter Property="Visibility" Value="Visible" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+    <Style TargetType="controls:OperationsTable">
+        <Setter Property="controls:ControlOptions.HighContrast" Value="{DynamicResource {x:Static SystemParameters.HighContrastKey}}" />
+        <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="RowBackground" Value="Transparent" />
+        <Setter Property="HeadersVisibility" Value="Column" />
+        <Setter Property="GridLinesVisibility" Value="None" />
+        <Setter Property="ColumnHeaderHeight" Value="48" />
+        <Setter Property="MinRowHeight" Value="48" />
+        <Setter Property="FontFamily" Value="Noto Kufi Arabic, Segoe UI" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto" />
+        <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
+        <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling" />
+        <Setter Property="EmptyContent" Value="لا توجد بيانات" />
+        <Setter Property="ColumnHeaderStyle">
+            <Setter.Value>
+                <Style TargetType="DataGridColumnHeader">
+                    <Setter Property="ContentTemplate">
+                        <Setter.Value>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=DataGridColumnHeader}}" />
+                            </DataTemplate>
+                        </Setter.Value>
+                    </Setter>
+                    <Setter Property="Focusable" Value="True" />
+                    <Setter Property="IsTabStop" Value="True" />
+                    <Setter Property="Background" Value="#F7F3EF" />
+                    <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                    <Setter Property="HorizontalContentAlignment" Value="Center" />
+                    <Setter Property="Padding" Value="10,8" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                    <Setter Property="FontSize" Value="10" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+                    <Setter Property="BorderThickness" Value="0,0,0,1" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
+                            <Setter Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                            <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="CellStyle">
+            <Setter.Value>
+                <Style TargetType="DataGridCell">
+                    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                    <Setter Property="BorderBrush" Value="Transparent" />
+                    <Setter Property="BorderThickness" Value="1" />
+                    <Setter Property="Background" Value="White" />
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="DataGridCell">
+                                <Grid Background="{TemplateBinding Background}">
+                                    <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+                                    <Border BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" IsHitTestVisible="False" />
+                                </Grid>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                    <Style.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="#FBF4EC" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter Property="BorderBrush" Value="{DynamicResource CopperBrush}" />
+                            <Setter Property="BorderThickness" Value="2" />
+                        </Trigger>
+                        <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
+                            <Setter Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                            <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                        </DataTrigger>
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource Self}}" Value="True" />
+                                <Condition Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True" />
+                            </MultiDataTrigger.Conditions>
+                            <Setter Property="Background" Value="{DynamicResource {x:Static SystemColors.HighlightBrushKey}}" />
+                            <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.HighlightTextBrushKey}}" />
+                        </MultiDataTrigger>
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition Binding="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource Self}}" Value="True" />
+                                <Condition Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True" />
+                            </MultiDataTrigger.Conditions>
+                            <Setter Property="BorderBrush" Value="{DynamicResource {x:Static SystemColors.HighlightBrushKey}}" />
+                        </MultiDataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="controls:OperationsTable">
+                    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+                        <Grid>
+                            <ScrollViewer x:Name="DG_ScrollViewer" Focusable="False">
+                                <ScrollViewer.Template>
+                                    <ControlTemplate TargetType="ScrollViewer">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="*" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+                                            <DataGridColumnHeadersPresenter x:Name="PART_ColumnHeadersPresenter" />
+                                            <ScrollContentPresenter x:Name="PART_ScrollContentPresenter" Grid.Row="1" CanContentScroll="{TemplateBinding CanContentScroll}" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" />
+                                            <ScrollBar x:Name="PART_VerticalScrollBar" Grid.Column="1" Grid.Row="1" Orientation="Vertical" Maximum="{TemplateBinding ScrollableHeight}" ViewportSize="{TemplateBinding ViewportHeight}" Value="{Binding VerticalOffset, RelativeSource={RelativeSource TemplatedParent}, Mode=OneWay}" Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}" />
+                                            <ScrollBar x:Name="PART_HorizontalScrollBar" Grid.Row="2" Orientation="Horizontal" Maximum="{TemplateBinding ScrollableWidth}" ViewportSize="{TemplateBinding ViewportWidth}" Value="{Binding HorizontalOffset, RelativeSource={RelativeSource TemplatedParent}, Mode=OneWay}" Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}" />
+                                        </Grid>
+                                    </ControlTemplate>
+                                </ScrollViewer.Template>
+                                <ItemsPresenter SnapsToDevicePixels="True" />
+                            </ScrollViewer>
+                            <ContentPresenter x:Name="EmptySlot" Content="{TemplateBinding EmptyContent}" Margin="0,48,0,0" Visibility="Collapsed" VerticalAlignment="Top" />
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="HasItems" Value="False">
+                            <Setter TargetName="EmptySlot" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsRowInvocationEnabled" Value="True">
+                <Setter Property="Cursor" Value="Hand" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+</ResourceDictionary>

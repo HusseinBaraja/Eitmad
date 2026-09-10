@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 using Eitmad.WindowsShell.Features.RawMaterials;
 
 namespace Eitmad.WindowsShell.Tests.Rendered;
@@ -49,10 +50,33 @@ public sealed class RawMaterialsRenderedTests
             Assert.IsNotNull(action.ContextMenu);
             Assert.IsTrue(action.ContextMenu.IsOpen);
             Assert.AreSame(action, action.ContextMenu.PlacementTarget);
+            Assert.IsFalse(view.ViewModel.IsEditorOpen);
             Assert.AreEqual(PlacementMode.Right, action.ContextMenu.Placement);
             CollectionAssert.AreEquivalent(
                 new[] { "تعديل", "تكرار", "أرشفة" },
                 action.ContextMenu.Items.OfType<MenuItem>().Select(item => item.Header).Cast<string>().ToArray());
+        });
+    }
+
+    [TestMethod]
+    public void PointerRowActivationOpensTheExistingMaterial()
+    {
+        WpfTestHost.Run(1338, 753, window =>
+        {
+            WpfTestHost.FindByName<Button>(window, "MaterialsNavButton")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var view = WpfTestHost.Descendants<RawMaterialsView>(window).Single();
+            var table = WpfTestHost.FindByName<DataGrid>(view, "MaterialsTable");
+            var row = WpfTestHost.Descendants<DataGridRow>(table).First();
+            row.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left)
+            {
+                RoutedEvent = Mouse.PreviewMouseUpEvent
+            });
+            WpfTestHost.PumpDispatcher();
+
+            Assert.IsTrue(view.ViewModel.IsEditorOpen);
+            Assert.AreEqual(((RawMaterialListItem)row.DataContext).Name, view.ViewModel.EditorName);
         });
     }
 }

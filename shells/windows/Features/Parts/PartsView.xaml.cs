@@ -1,8 +1,8 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
+using Eitmad.WindowsShell.Controls;
 using Button = System.Windows.Controls.Button;
 using MenuItem = System.Windows.Controls.MenuItem;
 using TextBox = System.Windows.Controls.TextBox;
@@ -12,19 +12,11 @@ namespace Eitmad.WindowsShell.Features.Parts;
 
 public partial class PartsView : UserControl
 {
-    private readonly DispatcherTimer feedbackTimer;
-
     public PartsView()
     {
         InitializeComponent();
         ViewModel = new PartsViewModel();
         DataContext = ViewModel;
-        feedbackTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
-        feedbackTimer.Tick += (_, _) =>
-        {
-            feedbackTimer.Stop();
-            ViewModel.ClearFeedback();
-        };
     }
 
     public PartsViewModel ViewModel { get; }
@@ -35,13 +27,13 @@ public partial class PartsView : UserControl
         Dispatcher.BeginInvoke(EditorNameBox.Focus, DispatcherPriority.Input);
     }
 
-    private void PartRowClick(object sender, MouseButtonEventArgs eventArgs)
+    private void PartRowInvoked(object sender, RowInvokedEventArgs eventArgs) =>
+        OpenEditor((PartListItem)eventArgs.Item);
+
+    private void OpenEditor(PartListItem part)
     {
-        if (sender is FrameworkElement { DataContext: PartListItem part })
-        {
-            ViewModel.BeginEdit(part);
-            Dispatcher.BeginInvoke(EditorNameBox.Focus, DispatcherPriority.Input);
-        }
+        ViewModel.BeginEdit(part);
+        Dispatcher.BeginInvoke(EditorNameBox.Focus, DispatcherPriority.Input);
     }
 
     private static PartListItem? PartFromMenuItem(object sender) =>
@@ -61,8 +53,7 @@ public partial class PartsView : UserControl
     {
         if (PartFromMenuItem(sender) is { } part)
         {
-            ViewModel.BeginEdit(part);
-            Dispatcher.BeginInvoke(EditorNameBox.Focus, DispatcherPriority.Input);
+            OpenEditor(part);
         }
     }
 
@@ -119,7 +110,7 @@ public partial class PartsView : UserControl
     private void OpenMaterialPickerClick(object sender, RoutedEventArgs eventArgs)
     {
         ViewModel.OpenMaterialPicker();
-        Dispatcher.BeginInvoke(MaterialSearchBox.Focus, DispatcherPriority.Input);
+
     }
 
     private void CloseMaterialPickerClick(object sender, RoutedEventArgs eventArgs) => ViewModel.CloseMaterialPicker();
@@ -144,8 +135,7 @@ public partial class PartsView : UserControl
 
     private void RestartFeedbackTimer()
     {
-        feedbackTimer.Stop();
-        feedbackTimer.Start();
+        Feedback.RestartDuration();
     }
 
     private static IEnumerable<T> VisualDescendants<T>(DependencyObject parent) where T : DependencyObject
@@ -164,4 +154,5 @@ public partial class PartsView : UserControl
             }
         }
     }
+    private void FeedbackDismissed(object sender, RoutedEventArgs e) => ViewModel.ClearFeedback();
 }

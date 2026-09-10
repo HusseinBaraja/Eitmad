@@ -7,15 +7,12 @@ using Eitmad.WindowsShell.Features.Operations;
 using Brush = System.Windows.Media.Brush;
 using Brushes = System.Windows.Media.Brushes;
 using Button = System.Windows.Controls.Button;
-using Color = System.Windows.Media.Color;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 
 namespace Eitmad.WindowsShell;
 
 public partial class MainWindow : Window
 {
-    private const string SearchPlaceholder = "ابحث عن عروض أسعار، عملاء، منتجات، أو أوامر عمل...";
-    private readonly DispatcherTimer toastTimer;
     private Button selectedNavButton;
 
     /// <summary>Initializes the dashboard preview and its transient interactions.</summary>
@@ -25,12 +22,6 @@ public partial class MainWindow : Window
         DataContext = viewModel;
         selectedNavButton = HomeNavButton;
         SetNavigationTone(selectedNavButton, true);
-        toastTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
-        toastTimer.Tick += (_, _) =>
-        {
-            toastTimer.Stop();
-            InteractionToast.Visibility = Visibility.Collapsed;
-        };
     }
 
     /// <summary>Selects a preview destination and updates the dashboard heading.</summary>
@@ -106,7 +97,7 @@ public partial class MainWindow : Window
     {
         PreviewPanelTitle.Text = sender is Button { Tag: string title } ? title : "عرض سعر جديد";
         InteractionPanel.Visibility = Visibility.Visible;
-        CustomerNameBox.Focus();
+        Dispatcher.BeginInvoke(CustomerNameBox.Focus, DispatcherPriority.Input);
     }
 
     /// <summary>Closes the quotation preview panel without saving state.</summary>
@@ -127,30 +118,10 @@ public partial class MainWindow : Window
         ShowToast("تم فحص المسودة محلياً؛ الحفظ معطل في وضع المعاينة");
     }
 
-    /// <summary>Removes the Arabic search placeholder when input starts.</summary>
-    private void SearchGotFocus(object sender, KeyboardFocusChangedEventArgs eventArgs)
-    {
-        if (SearchBox.Text == SearchPlaceholder)
-        {
-            SearchBox.Clear();
-            SearchBox.Foreground = (Brush)FindResource("InkBrush");
-        }
-    }
-
-    /// <summary>Restores the Arabic search placeholder when input is empty.</summary>
-    private void SearchLostFocus(object sender, KeyboardFocusChangedEventArgs eventArgs)
-    {
-        if (string.IsNullOrWhiteSpace(SearchBox.Text))
-        {
-            SearchBox.Text = SearchPlaceholder;
-            SearchBox.Foreground = new SolidColorBrush(Color.FromRgb(0x8D, 0x87, 0x81));
-        }
-    }
-
     /// <summary>Reports a local preview response for a submitted search term.</summary>
     private void SearchKeyDown(object sender, KeyEventArgs eventArgs)
     {
-        if (eventArgs.Key != Key.Enter || string.IsNullOrWhiteSpace(SearchBox.Text) || SearchBox.Text == SearchPlaceholder)
+        if (eventArgs.Key != Key.Enter || string.IsNullOrWhiteSpace(SearchBox.Text))
         {
             return;
         }
@@ -162,11 +133,11 @@ public partial class MainWindow : Window
     /// <summary>Shows transient preview feedback.</summary>
     private void ShowToast(string message)
     {
-        InteractionToastText.Text = message;
-        InteractionToast.Visibility = Visibility.Visible;
-        toastTimer.Stop();
-        toastTimer.Start();
+        InteractionToast.Message = message;
+        InteractionToast.RestartDuration();
     }
+
+    private void DismissToast(object sender, RoutedEventArgs e) => InteractionToast.Message = string.Empty;
 
     /// <summary>Applies selected or unselected navigation colors.</summary>
     private static void SetNavigationTone(Button button, bool selected)

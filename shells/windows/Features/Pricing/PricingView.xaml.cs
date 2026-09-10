@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
+using Eitmad.WindowsShell.Controls;
 using Button = System.Windows.Controls.Button;
 using UserControl = System.Windows.Controls.UserControl;
 
@@ -8,29 +9,25 @@ namespace Eitmad.WindowsShell.Features.Pricing;
 
 public partial class PricingView : UserControl
 {
-    private readonly DispatcherTimer feedbackTimer;
-
     public PricingView()
     {
         InitializeComponent();
         ViewModel = new PricingViewModel();
         DataContext = ViewModel;
-        feedbackTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
-        feedbackTimer.Tick += (_, _) =>
-        {
-            feedbackTimer.Stop();
-            ViewModel.ClearFeedback();
-        };
     }
 
     public PricingViewModel ViewModel { get; }
+
+    private void PriceRowInvoked(object sender, RowInvokedEventArgs eventArgs) =>
+        OpenEditor((PricingListItem)eventArgs.Item);
+
+    private void OpenEditor(PricingListItem item) => ViewModel.BeginEdit(item);
 
     private void EditPriceClick(object sender, RoutedEventArgs eventArgs)
     {
         if (sender is Button { DataContext: PricingListItem item })
         {
-            ViewModel.BeginEdit(item);
-            Dispatcher.BeginInvoke(PriceInput.Focus, DispatcherPriority.Input);
+            OpenEditor(item);
         }
     }
 
@@ -38,8 +35,8 @@ public partial class PricingView : UserControl
     {
         if (ViewModel.SaveEditor())
         {
-            feedbackTimer.Stop();
-            feedbackTimer.Start();
+
+            Feedback.RestartDuration();
         }
         else
         {
@@ -48,4 +45,5 @@ public partial class PricingView : UserControl
     }
 
     private void CancelPriceClick(object sender, RoutedEventArgs eventArgs) => ViewModel.CancelEditor();
+    private void FeedbackDismissed(object sender, RoutedEventArgs e) => ViewModel.ClearFeedback();
 }

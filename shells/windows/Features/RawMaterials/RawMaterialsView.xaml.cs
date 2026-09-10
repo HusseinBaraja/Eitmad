@@ -1,7 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
 using System.Windows.Threading;
+using Eitmad.WindowsShell.Controls;
 using Button = System.Windows.Controls.Button;
 using ComboBox = System.Windows.Controls.ComboBox;
 using MenuItem = System.Windows.Controls.MenuItem;
@@ -11,19 +11,11 @@ namespace Eitmad.WindowsShell.Features.RawMaterials;
 
 public partial class RawMaterialsView : UserControl
 {
-    private readonly DispatcherTimer feedbackTimer;
-
     public RawMaterialsView()
     {
         InitializeComponent();
         ViewModel = new RawMaterialsViewModel();
         DataContext = ViewModel;
-        feedbackTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
-        feedbackTimer.Tick += (_, _) =>
-        {
-            feedbackTimer.Stop();
-            ViewModel.ClearFeedback();
-        };
     }
 
     public RawMaterialsViewModel ViewModel { get; }
@@ -34,13 +26,13 @@ public partial class RawMaterialsView : UserControl
         Dispatcher.BeginInvoke(EditorNameBox.Focus, DispatcherPriority.Input);
     }
 
-    private void RawMaterialRowClick(object sender, MouseButtonEventArgs eventArgs)
+    private void RawMaterialRowInvoked(object sender, RowInvokedEventArgs eventArgs) =>
+        OpenEditor((RawMaterialListItem)eventArgs.Item);
+
+    private void OpenEditor(RawMaterialListItem material)
     {
-        if (sender is FrameworkElement { DataContext: RawMaterialListItem material })
-        {
-            ViewModel.BeginEdit(material);
-            Dispatcher.BeginInvoke(EditorNameBox.Focus, DispatcherPriority.Input);
-        }
+        ViewModel.BeginEdit(material);
+        Dispatcher.BeginInvoke(EditorNameBox.Focus, DispatcherPriority.Input);
     }
 
     private static RawMaterialListItem? MaterialFromMenuItem(object sender) =>
@@ -60,8 +52,7 @@ public partial class RawMaterialsView : UserControl
     {
         if (MaterialFromMenuItem(sender) is { } material)
         {
-            ViewModel.BeginEdit(material);
-            Dispatcher.BeginInvoke(EditorNameBox.Focus, DispatcherPriority.Input);
+            OpenEditor(material);
         }
     }
 
@@ -112,7 +103,6 @@ public partial class RawMaterialsView : UserControl
                 ViewModel.BeginAddCategory();
             }
 
-            Dispatcher.BeginInvoke(ReferenceNameBox.Focus, DispatcherPriority.Input);
             eventArgs.Handled = true;
         }
     }
@@ -137,7 +127,7 @@ public partial class RawMaterialsView : UserControl
 
     private static void CloseOwningDropdown(Button button)
     {
-        if (button.TemplatedParent is ComboBox comboBox)
+        if (button.DataContext is ComboBox comboBox)
         {
             comboBox.IsDropDownOpen = false;
         }
@@ -148,7 +138,7 @@ public partial class RawMaterialsView : UserControl
         if (sender is Button { DataContext: RawMaterialReferenceOption reference })
         {
             ViewModel.BeginEditReference(reference);
-            Dispatcher.BeginInvoke(ReferenceNameBox.Focus, DispatcherPriority.Input);
+
         }
     }
 
@@ -174,7 +164,7 @@ public partial class RawMaterialsView : UserControl
 
     private void RestartFeedbackTimer()
     {
-        feedbackTimer.Stop();
-        feedbackTimer.Start();
+        Feedback.RestartDuration();
     }
+    private void FeedbackDismissed(object sender, RoutedEventArgs e) => ViewModel.ClearFeedback();
 }

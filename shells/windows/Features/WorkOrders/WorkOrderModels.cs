@@ -131,7 +131,8 @@ public sealed class WorkOrderListItem : INotifyPropertyChanged
 
     public string FurnitureCountLabel => $"عدد قطع الأثاث: {Furniture.Count.ToString(CultureInfo.InvariantCulture)}";
 
-    public string QuantityLabel => Furniture.Sum(item => item.Quantity).ToString(CultureInfo.InvariantCulture);
+    public int TotalQuantity => Furniture.Sum(item => item.Quantity);
+    public string QuantityLabel => TotalQuantity.ToString(CultureInfo.InvariantCulture);
 
     public string DueDateLabel => $"{DueDate.Day.ToString(CultureInfo.InvariantCulture)} {ArabicMonths[DueDate.Month - 1]} {DueDate.Year.ToString(CultureInfo.InvariantCulture)}";
 

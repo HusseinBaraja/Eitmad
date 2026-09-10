@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using Eitmad.WindowsShell.Controls;
 using Button = System.Windows.Controls.Button;
 using MenuItem = System.Windows.Controls.MenuItem;
 using TextBox = System.Windows.Controls.TextBox;
@@ -14,22 +15,23 @@ namespace Eitmad.WindowsShell.Features.Furniture;
 
 public partial class FurnitureView : UserControl
 {
-    private readonly DispatcherTimer feedbackTimer;
-
     public FurnitureView()
     {
         InitializeComponent();
         ViewModel = new FurnitureViewModel();
         DataContext = ViewModel;
-        feedbackTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
-        feedbackTimer.Tick += (_, _) =>
-        {
-            feedbackTimer.Stop();
-            ViewModel.ClearFeedback();
-        };
     }
 
     public FurnitureViewModel ViewModel { get; }
+
+    private void FurnitureRowInvoked(object sender, RowInvokedEventArgs eventArgs) =>
+        OpenEditor((FurnitureListItem)eventArgs.Item);
+
+    private void OpenEditor(FurnitureListItem item)
+    {
+        ViewModel.BeginEdit(item);
+        Dispatcher.BeginInvoke(FurnitureNameBox.Focus, DispatcherPriority.Input);
+    }
 
     private void AddFurnitureClick(object sender, RoutedEventArgs eventArgs)
     {
@@ -92,8 +94,7 @@ public partial class FurnitureView : UserControl
     {
         if (FurnitureFromMenuItem(sender) is { } item)
         {
-            ViewModel.BeginEdit(item);
-            Dispatcher.BeginInvoke(FurnitureNameBox.Focus, DispatcherPriority.Input);
+            OpenEditor(item);
         }
     }
 
@@ -178,7 +179,7 @@ public partial class FurnitureView : UserControl
     private void OpenPartPickerClick(object sender, RoutedEventArgs eventArgs)
     {
         ViewModel.OpenPartPicker();
-        Dispatcher.BeginInvoke(PartSearchBox.Focus, DispatcherPriority.Input);
+
     }
 
     private void ClosePartPickerClick(object sender, RoutedEventArgs eventArgs) => ViewModel.ClosePartPicker();
@@ -202,7 +203,7 @@ public partial class FurnitureView : UserControl
     private void AddVariantClick(object sender, RoutedEventArgs eventArgs)
     {
         ViewModel.BeginAddVariant();
-        Dispatcher.BeginInvoke(VariantNameBox.Focus, DispatcherPriority.Input);
+
     }
 
     private void EditVariantClick(object sender, RoutedEventArgs eventArgs)
@@ -210,7 +211,7 @@ public partial class FurnitureView : UserControl
         if (sender is Button { DataContext: FurnitureVariant variant })
         {
             ViewModel.BeginEditVariant(variant);
-            Dispatcher.BeginInvoke(VariantNameBox.Focus, DispatcherPriority.Input);
+
         }
     }
 
@@ -238,7 +239,7 @@ public partial class FurnitureView : UserControl
     private void AddColorClick(object sender, RoutedEventArgs eventArgs)
     {
         ViewModel.BeginAddColor();
-        Dispatcher.BeginInvoke(ColorNameBox.Focus, DispatcherPriority.Input);
+
     }
 
     private void SaveColorClick(object sender, RoutedEventArgs eventArgs) => ViewModel.SaveColor();
@@ -256,7 +257,7 @@ public partial class FurnitureView : UserControl
     private void AddHandleClick(object sender, RoutedEventArgs eventArgs)
     {
         ViewModel.BeginAddHandle();
-        Dispatcher.BeginInvoke(HandleNameBox.Focus, DispatcherPriority.Input);
+
     }
 
     private void SaveHandleClick(object sender, RoutedEventArgs eventArgs) => ViewModel.SaveHandle();
@@ -273,8 +274,7 @@ public partial class FurnitureView : UserControl
 
     private void RestartFeedbackTimer()
     {
-        feedbackTimer.Stop();
-        feedbackTimer.Start();
+        Feedback.RestartDuration();
     }
 
     private static TextBox? FindInvalidTextBox(DependencyObject root)
@@ -295,4 +295,5 @@ public partial class FurnitureView : UserControl
 
         return null;
     }
+    private void FeedbackDismissed(object sender, RoutedEventArgs e) => ViewModel.ClearFeedback();
 }

@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using Eitmad.WindowsShell.Controls;
 using Button = System.Windows.Controls.Button;
 using ComboBox = System.Windows.Controls.ComboBox;
 using MenuItem = System.Windows.Controls.MenuItem;
@@ -14,22 +15,23 @@ namespace Eitmad.WindowsShell.Features.Products;
 
 public partial class ProductsView : UserControl
 {
-    private readonly DispatcherTimer feedbackTimer;
-
     public ProductsView()
     {
         InitializeComponent();
         ViewModel = new ProductsViewModel();
         DataContext = ViewModel;
-        feedbackTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
-        feedbackTimer.Tick += (_, _) =>
-        {
-            feedbackTimer.Stop();
-            ViewModel.ClearFeedback();
-        };
     }
 
     public ProductsViewModel ViewModel { get; }
+
+    private void ProductRowInvoked(object sender, RowInvokedEventArgs eventArgs) =>
+        OpenEditor((ProductListItem)eventArgs.Item);
+
+    private void OpenEditor(ProductListItem product)
+    {
+        ViewModel.BeginEdit(product);
+        Dispatcher.BeginInvoke(ProductNameBox.Focus, DispatcherPriority.Input);
+    }
 
     private void AddProductClick(object sender, RoutedEventArgs eventArgs)
     {
@@ -41,8 +43,7 @@ public partial class ProductsView : UserControl
     {
         if (ProductFromMenuItem(sender) is { } product)
         {
-            ViewModel.BeginEdit(product);
-            Dispatcher.BeginInvoke(ProductNameBox.Focus, DispatcherPriority.Input);
+            OpenEditor(product);
         }
     }
 
@@ -152,7 +153,7 @@ public partial class ProductsView : UserControl
         {
             CloseOwningDropdown(button);
             ViewModel.BeginAddCategory();
-            Dispatcher.BeginInvoke(CategoryNameBox.Focus, DispatcherPriority.Input);
+
             eventArgs.Handled = true;
         }
     }
@@ -169,7 +170,7 @@ public partial class ProductsView : UserControl
 
     private static void CloseOwningDropdown(Button button)
     {
-        if (button.TemplatedParent is ComboBox comboBox)
+        if (button.DataContext is ComboBox comboBox)
         {
             comboBox.IsDropDownOpen = false;
         }
@@ -180,7 +181,7 @@ public partial class ProductsView : UserControl
         if (sender is Button { DataContext: ProductCategoryOption category })
         {
             ViewModel.BeginEditCategory(category);
-            Dispatcher.BeginInvoke(CategoryNameBox.Focus, DispatcherPriority.Input);
+
         }
     }
 
@@ -206,7 +207,7 @@ public partial class ProductsView : UserControl
 
     private void RestartFeedbackTimer()
     {
-        feedbackTimer.Stop();
-        feedbackTimer.Start();
+        Feedback.RestartDuration();
     }
+    private void FeedbackDismissed(object sender, RoutedEventArgs e) => ViewModel.ClearFeedback();
 }

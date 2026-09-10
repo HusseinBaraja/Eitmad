@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
+using Eitmad.WindowsShell.Controls;
 using Button = System.Windows.Controls.Button;
 using UserControl = System.Windows.Controls.UserControl;
 
@@ -17,12 +18,20 @@ public partial class OrdersView : UserControl
 
     public OrdersViewModel ViewModel { get; }
 
+    private void OrderRowInvoked(object sender, RowInvokedEventArgs eventArgs) =>
+        OpenOrder((OrderListItem)eventArgs.Item);
+
+    private void OpenOrder(OrderListItem order)
+    {
+        ViewModel.OpenOrder(order);
+        Dispatcher.BeginInvoke(BackToOrdersButton.Focus, DispatcherPriority.Input);
+    }
+
     private void OpenOrderClick(object sender, RoutedEventArgs eventArgs)
     {
         if (sender is Button { DataContext: OrderListItem order })
         {
-            ViewModel.OpenOrder(order);
-            Dispatcher.BeginInvoke(BackToOrdersButton.Focus, DispatcherPriority.Input);
+            OpenOrder(order);
         }
     }
 

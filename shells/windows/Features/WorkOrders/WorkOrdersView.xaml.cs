@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
+using Eitmad.WindowsShell.Controls;
 using Button = System.Windows.Controls.Button;
 using UserControl = System.Windows.Controls.UserControl;
 
@@ -8,29 +9,29 @@ namespace Eitmad.WindowsShell.Features.WorkOrders;
 
 public partial class WorkOrdersView : UserControl
 {
-    private readonly DispatcherTimer feedbackTimer;
-
     public WorkOrdersView()
     {
         InitializeComponent();
         ViewModel = new WorkOrdersViewModel();
         DataContext = ViewModel;
-        feedbackTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
-        feedbackTimer.Tick += (_, _) =>
-        {
-            feedbackTimer.Stop();
-            ViewModel.ClearFeedback();
-        };
     }
 
     public WorkOrdersViewModel ViewModel { get; }
+
+    private void WorkOrderRowInvoked(object sender, RowInvokedEventArgs eventArgs) =>
+        OpenWorkOrder((WorkOrderListItem)eventArgs.Item);
+
+    private void OpenWorkOrder(WorkOrderListItem workOrder)
+    {
+        ViewModel.OpenWorkOrder(workOrder);
+        Dispatcher.BeginInvoke(BackToWorkOrdersButton.Focus, DispatcherPriority.Input);
+    }
 
     private void OpenWorkOrderClick(object sender, RoutedEventArgs eventArgs)
     {
         if (sender is Button { DataContext: WorkOrderListItem workOrder })
         {
-            ViewModel.OpenWorkOrder(workOrder);
-            Dispatcher.BeginInvoke(BackToWorkOrdersButton.Focus, DispatcherPriority.Input);
+            OpenWorkOrder(workOrder);
         }
     }
 
@@ -47,7 +48,8 @@ public partial class WorkOrdersView : UserControl
             return;
         }
 
-        feedbackTimer.Stop();
-        feedbackTimer.Start();
+
+        Feedback.RestartDuration();
     }
+    private void FeedbackDismissed(object sender, RoutedEventArgs e) => ViewModel.ClearFeedback();
 }

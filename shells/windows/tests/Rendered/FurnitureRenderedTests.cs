@@ -10,6 +10,52 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 public sealed class FurnitureRenderedTests
 {
     [TestMethod]
+    public void PricingMarginRendersAndUpdatesWithSellingPrice()
+    {
+        WpfTestHost.Run(1338, 753, window =>
+        {
+            WpfTestHost.FindByName<Button>(window, "FurnitureNavButton")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            var view = WpfTestHost.Descendants<FurnitureView>(window).Single();
+            view.ViewModel.BeginEdit(view.ViewModel.VisibleFurniture.First(item => item.Name == "خزانة السكينة"));
+            Assert.IsTrue(view.ViewModel.MoveToParts());
+            Assert.IsTrue(view.ViewModel.MoveToVariants());
+            Assert.IsTrue(view.ViewModel.MoveToOptions());
+            Assert.IsTrue(view.ViewModel.MoveToPricing());
+            WpfTestHost.CompleteLayout(window);
+
+            var pricing = WpfTestHost.FindByName<StackPanel>(view, "PricingStep");
+            var variant = view.ViewModel.Variants.First(item => item.Name == "صغير");
+            var margin = WpfTestHost.Descendants<Eitmad.WindowsShell.Controls.AmountDisplay>(pricing)
+                .Single(control => ReferenceEquals(control.DataContext, variant)
+                    && control.GetBindingExpression(Eitmad.WindowsShell.Controls.AmountDisplay.AmountTextProperty)?.ParentBinding.Path.Path == "MarginLabel");
+            Assert.IsNotNull(margin.Template, "The margin must retain its shared display template.");
+            Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(margin).Any(text => text.Text == "40,000" && text.IsVisible));
+
+            var input = WpfTestHost.Descendants<TextBox>(pricing)
+                .Single(box => ReferenceEquals(box.DataContext, variant));
+            input.Text = "150000";
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(margin).Any(text => text.Text == "-10,000" && text.IsVisible));
+            Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(pricing).Any(text => text.Text == "خسارة متوقعة" && text.IsVisible));
+            CaptureSteps(window, "pricing");
+        });
+    }
+
+    private static void CaptureSteps(MainWindow window, string size)
+    {
+        var directory = Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR");
+        if (string.IsNullOrEmpty(directory)) return;
+        System.IO.Directory.CreateDirectory(directory);
+        var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap((int)window.ActualWidth, (int)window.ActualHeight, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+        bitmap.Render(window);
+        var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+        encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+        using var stream = System.IO.File.Create(System.IO.Path.Combine(directory, $"furniture-steps-{size}.png"));
+        encoder.Save(stream);
+    }
+
+    [TestMethod]
     public void ManagerListAndSixStepEditorRenderAccessibleInteractions()
     {
         WpfTestHost.Run(1338, 753, window =>
@@ -28,6 +74,16 @@ public sealed class FurnitureRenderedTests
             WpfTestHost.CompleteLayout(view);
             Assert.IsTrue(view.ViewModel.IsEditorOpen);
             Assert.AreEqual(1, view.ViewModel.CurrentStep);
+            CaptureSteps(window, "normal");
+            if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR")))
+            {
+                window.Width = 1100;
+                WpfTestHost.CompleteLayout(window);
+                CaptureSteps(window, "compact");
+                window.Width = 1338;
+                WpfTestHost.CompleteLayout(window);
+            }
+
             var name = WpfTestHost.FindByName<TextBox>(view, "FurnitureNameBox");
             Assert.IsTrue(name.IsKeyboardFocusWithin);
             Assert.IsTrue(WpfTestHost.FindByAutomationName<Button>(view, "اختيار صورة المنتج").IsEnabled);
@@ -74,6 +130,7 @@ public sealed class FurnitureRenderedTests
             Assert.HasCount(3, view.ViewModel.Handles);
             Assert.AreEqual("مشمول", view.ViewModel.Colors[0].PriceAdjustmentLabel);
             Assert.AreEqual("+10,000 YER", view.ViewModel.Colors[2].PriceAdjustmentLabel);
+            CaptureSteps(window, "options");
             Assert.IsTrue(WpfTestHost.FindByAutomationName<Button>(view, "إضافة لون").IsEnabled);
             Assert.IsTrue(WpfTestHost.FindByAutomationName<Button>(view, "إضافة مقبض").IsEnabled);
 

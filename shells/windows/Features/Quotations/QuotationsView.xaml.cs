@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
+using Eitmad.WindowsShell.Controls;
 using Button = System.Windows.Controls.Button;
 using UserControl = System.Windows.Controls.UserControl;
 
@@ -17,12 +18,20 @@ public partial class QuotationsView : UserControl
 
     public QuotationsViewModel ViewModel { get; }
 
+    private void QuotationRowInvoked(object sender, RowInvokedEventArgs eventArgs) =>
+        OpenQuotation((QuotationListItem)eventArgs.Item);
+
+    private void OpenQuotation(QuotationListItem quotation)
+    {
+        ViewModel.OpenQuotation(quotation);
+        Dispatcher.BeginInvoke(BackToQuotationsButton.Focus, DispatcherPriority.Input);
+    }
+
     private void OpenQuotationClick(object sender, RoutedEventArgs eventArgs)
     {
         if (sender is Button { DataContext: QuotationListItem quotation })
         {
-            ViewModel.OpenQuotation(quotation);
-            Dispatcher.BeginInvoke(BackToQuotationsButton.Focus, DispatcherPriority.Input);
+            OpenQuotation(quotation);
         }
     }
 

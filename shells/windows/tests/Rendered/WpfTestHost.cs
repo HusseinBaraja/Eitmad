@@ -101,6 +101,10 @@ internal static class WpfTestHost
             {
                 Source = new Uri("pack://application:,,,/Eitmad.WindowsShell;component/Resources/OperationsIcons.xaml"),
             });
+            application.Resources.MergedDictionaries.Add(new ResourceDictionary
+            {
+                Source = new Uri("pack://application:,,,/Eitmad.WindowsShell;component/Resources/OperationsControls.xaml"),
+            });
             ready.SetResult(Dispatcher.CurrentDispatcher);
             Dispatcher.Run();
         })
