@@ -72,6 +72,8 @@ public class OperationsTable : DataGrid
         if (!IsRowInvocationEnabled || eventArgs.ChangedButton != MouseButton.Left ||
             eventArgs.OriginalSource is not DependencyObject source ||
             FindAncestor<ButtonBase>(source) is not null ||
+            FindAncestor<TextBoxBase>(source) is not null ||
+            FindAncestor<ComboBox>(source) is not null ||
             FindAncestor<DataGridRow>(source) is not { DataContext: { } item })
         {
             return;

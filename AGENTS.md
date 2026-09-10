@@ -162,7 +162,7 @@ If none applies, report no documentation impact and do not edit documentation or
 
 ## Git and Review
 
-* Never commit to `main`. Before committing work on `main`, create a descriptive branch without a tool or vendor prefix unless the user explicitly says not to create a branch.
+* Before any commit, if the current branch is `main`, create a descriptive branch without a tool or vendor prefix. Commit directly to `main` only when the user explicitly authorizes that exception.
 * Preserve user changes and keep unrelated files out of commits.
 * Create local commits at suitable checkpoints during authorized work, using agent judgment without asking for routine confirmation. Commit a coherent, verified change when a meaningful milestone or the task is complete. Keep one concern per commit, avoid incomplete checkpoints, and follow an explicit user instruction to defer or omit commits.
 * Before each commit, use `.agents/skills/caveman-commit/SKILL.md`, then keep the message compliant with the `conventional-commit` skill.

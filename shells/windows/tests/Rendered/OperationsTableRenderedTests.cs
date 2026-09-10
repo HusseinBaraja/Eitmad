@@ -227,6 +227,29 @@ public sealed class OperationsTableRenderedTests
     }
 
     [TestMethod]
+    public void PointerInsideEditorDoesNotInvokeRow()
+    {
+        WpfTestHost.Run(900, 700, window =>
+        {
+            var row = new Row("أحمد", 2, DateTime.Today);
+            var table = new OperationsTable { ItemsSource = new[] { row }, IsReadOnly = false, IsRowInvocationEnabled = true };
+            var editor = new FrameworkElementFactory(typeof(TextBox));
+            editor.SetBinding(TextBox.TextProperty, new Binding(nameof(Row.Name)) { Mode = BindingMode.TwoWay });
+            table.Columns.Add(new DataGridTemplateColumn { CellTemplate = new DataTemplate { VisualTree = editor } });
+            var invocations = 0;
+            table.RowInvoked += (_, _) => invocations++;
+            window.Content = table;
+            WpfTestHost.CompleteLayout(window);
+            var textBox = WpfTestHost.Descendants<TextBox>(table).Single();
+            textBox.RaiseEvent(new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, 0, System.Windows.Input.MouseButton.Left)
+            {
+                RoutedEvent = System.Windows.Input.Mouse.PreviewMouseUpEvent,
+            });
+            Assert.AreEqual(0, invocations);
+        });
+    }
+
+    [TestMethod]
     public void CompletedEditOutsideTableRefreshesSortAndPreservesSelection()
     {
         WpfTestHost.Run(900, 700, window =>

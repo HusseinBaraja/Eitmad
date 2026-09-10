@@ -56,7 +56,8 @@ public class FormField : ContentControl
     private static UIElement? FindInput(DependencyObject? root)
     {
         if (root is null) return null;
-        if (root is System.Windows.Controls.TextBox or System.Windows.Controls.ComboBox or DatePicker or System.Windows.Controls.CheckBox) return (UIElement)root;
+        if (root is System.Windows.Controls.Primitives.TextBoxBase or System.Windows.Controls.ComboBox or DatePicker
+            or System.Windows.Controls.Primitives.ToggleButton or PasswordBox or Slider) return (UIElement)root;
         for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
             if (FindInput(VisualTreeHelper.GetChild(root, i)) is UIElement input) return input;
         return null;

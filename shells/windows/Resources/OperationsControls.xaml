@@ -664,6 +664,9 @@
             <Trigger Property="Message" Value="">
                 <Setter Property="Visibility" Value="Collapsed" />
             </Trigger>
+            <Trigger Property="Message" Value="{x:Null}">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </Trigger>
             <Trigger Property="IsFloating" Value="True">
                 <Setter Property="HorizontalAlignment" Value="Center" />
                 <Setter Property="VerticalAlignment" Value="Bottom" />
@@ -689,7 +692,7 @@
         <Setter Property="ItemTemplate">
             <Setter.Value>
                 <DataTemplate>
-                    <Border x:Name="Step" Background="#F5F1ED" BorderBrush="#E3DDD7" BorderThickness="1" CornerRadius="10" Padding="10,9" Margin="4">
+                    <Border x:Name="Step" Background="#F5F1ED" BorderBrush="#E3DDD7" BorderThickness="1" CornerRadius="10" Padding="10,9" Margin="4" controls:StepIndicator.State="{Binding Path=(controls:StepIndicator.State), RelativeSource={RelativeSource AncestorType=ContentPresenter}}">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                             <Border x:Name="Circle" Width="22" Height="22" CornerRadius="11" Background="#E5D5C5">
                                 <TextBlock x:Name="Number" Text="{Binding Path=(controls:StepIndicator.Number), RelativeSource={RelativeSource AncestorType=ContentPresenter}}" TextAlignment="Center" VerticalAlignment="Center" FlowDirection="LeftToRight" FontSize="10" FontWeight="Bold" />
@@ -698,7 +701,7 @@
                         </StackPanel>
                     </Border>
                     <DataTemplate.Triggers>
-                        <DataTrigger Binding="{Binding Path=(controls:StepIndicator.State), RelativeSource={RelativeSource Self}}" Value="الحالية">
+                        <DataTrigger Binding="{Binding Path=(controls:StepIndicator.State), ElementName=Step}" Value="الحالية">
                             <Setter TargetName="Step" Property="Background" Value="#6F3B0D" />
                             <Setter TargetName="Step" Property="BorderBrush" Value="#6F3B0D" />
                             <Setter TargetName="Label" Property="Foreground" Value="White" />
@@ -713,7 +716,7 @@
                         <MultiDataTrigger>
                             <MultiDataTrigger.Conditions>
                                 <Condition Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:StepIndicator}}" Value="True" />
-                                <Condition Binding="{Binding Path=(controls:StepIndicator.State), RelativeSource={RelativeSource Self}}" Value="الحالية" />
+                                <Condition Binding="{Binding Path=(controls:StepIndicator.State), ElementName=Step}" Value="الحالية" />
                             </MultiDataTrigger.Conditions>
                             <Setter TargetName="Step" Property="Background" Value="{DynamicResource {x:Static SystemColors.HighlightBrushKey}}" />
                             <Setter TargetName="Label" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.HighlightTextBrushKey}}" />

@@ -82,7 +82,7 @@
                                 </ContentPresenter.Resources>
                             </ContentPresenter>
                         </Grid>
-                        <Border x:Name="FocusRing" BorderBrush="{TemplateBinding Foreground}" BorderThickness="1" Margin="3" CornerRadius="5" Visibility="Collapsed" IsHitTestVisible="False" />
+                        <Border x:Name="FocusRing" BorderBrush="{TemplateBinding Foreground}" BorderThickness="1" Margin="3" CornerRadius="{Binding Path=(controls:ControlOptions.CornerRadius), RelativeSource={RelativeSource TemplatedParent}}" Visibility="Collapsed" IsHitTestVisible="False" />
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="controls:ControlOptions.Icon" Value="{x:Null}">
@@ -148,7 +148,7 @@
         <Setter Property="controls:ControlOptions.CornerRadius" Value="9" />
     </Style>
     <Style x:Key="IconButton" TargetType="Button" BasedOn="{StaticResource ActionButton}">
-        <Setter Property="controls:ControlOptions.ShowFocusRing" Value="False" />
+        <Setter Property="controls:ControlOptions.ShowFocusRing" Value="True" />
         <Setter Property="Width" Value="42" />
         <Setter Property="Height" Value="42" />
         <Setter Property="Background" Value="White" />
