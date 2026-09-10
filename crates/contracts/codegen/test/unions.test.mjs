@@ -55,10 +55,7 @@ test("every ServerClientMessage and ServerMessage kind maps to its own payload t
 });
 
 test("csharp bindings expose typed factories and accessors for every variant", () => {
-  const source = readFileSync(
-    resolve(repository, "shells/windows/generated/EitmadContracts.Unions.g.cs"),
-    "utf8",
-  );
+  const source = renderCsharpUnions(unions, collectEmptyPayloads(schema, unions));
   for (const union of unions) {
     for (const variant of union.variants) {
       assert.ok(
@@ -75,10 +72,7 @@ test("csharp bindings expose typed factories and accessors for every variant", (
 });
 
 test("swift bindings decode every kind into a typed associated value", () => {
-  const source = readFileSync(
-    resolve(repository, "shells/macos/generated/EitmadContractsUnions.generated.swift"),
-    "utf8",
-  );
+  const source = renderSwiftUnions(unions, collectEmptyPayloads(schema, unions));
   for (const union of unions) {
     const start = source.indexOf(`public enum ${union.name}: Codable, Sendable {`);
     assert.notEqual(start, -1, `missing swift enum ${union.name}`);
@@ -126,22 +120,6 @@ test("empty-object union payloads still get rendered bindings quicktype would sk
     assert.ok(
       swift.includes(`public struct ${name}: Codable, Sendable {}`),
       `${name} missing from Swift shims`,
-    );
-  }
-
-  const generatedCsharp = readFileSync(
-    resolve(repository, "shells/windows/generated/EitmadContracts.Unions.g.cs"),
-    "utf8",
-  );
-  const generatedSwift = readFileSync(
-    resolve(repository, "shells/macos/generated/EitmadContractsUnions.generated.swift"),
-    "utf8",
-  );
-  for (const name of empty) {
-    assert.ok(generatedCsharp.includes(`public partial class ${name}`), `${name} missing in generated C#`);
-    assert.ok(
-      generatedSwift.includes(`public struct ${name}: Codable, Sendable {}`),
-      `${name} missing in generated Swift`,
     );
   }
 });

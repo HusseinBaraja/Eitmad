@@ -42,19 +42,19 @@ try {
     temporary,
   ]);
 
-  const schema = join(temporary, "contract-v1.schema.json");
+  const schema = JSON.parse(readFileSync(join(temporary, "contract-v1.schema.json"), "utf8"));
   const csharp = join(temporary, "EitmadContracts.g.cs");
   const swift = join(temporary, "EitmadContracts.generated.swift");
   const csharpUnions = join(temporary, "EitmadContracts.Unions.g.cs");
   const swiftUnions = join(temporary, "EitmadContractsUnions.generated.swift");
 
-  const unions = collectUnions(readSchema(schema));
-  const emptyPayloads = collectEmptyPayloads(readSchema(schema), unions);
+  const unions = collectUnions(schema);
+  const emptyPayloads = collectEmptyPayloads(schema, unions);
   writeFileSync(csharpUnions, normalize(renderCsharpUnions(unions, emptyPayloads)));
   writeFileSync(swiftUnions, normalize(renderSwiftUnions(unions, emptyPayloads)));
 
   const reducedSchemaPath = join(temporary, "contract-v1.reduced-schema.json");
-  writeFileSync(reducedSchemaPath, JSON.stringify(reduceSchema(readSchema(schema), unions)));
+  writeFileSync(reducedSchemaPath, JSON.stringify(reduceSchema(schema, unions)));
 
   runQuicktype([
     "--src-lang",
@@ -115,10 +115,10 @@ try {
     ["ProtocolIds.generated.swift", "shells/macos/generated/ProtocolIds.generated.swift"],
   ]);
 
-  for (const [sourceName, targetName] of outputs) {
-    const generated = normalize(readFileSync(join(temporary, sourceName), "utf8"));
-    const target = join(repository, targetName);
-    if (mode === "generate") {
+  if (mode === "generate") {
+    for (const [sourceName, targetName] of outputs) {
+      const generated = normalize(readFileSync(join(temporary, sourceName), "utf8"));
+      const target = join(repository, targetName);
       mkdirSync(dirname(target), { recursive: true });
       writeFileSync(target, generated);
     }
@@ -136,10 +136,6 @@ try {
 function runQuicktype(arguments_) {
   const executable = join(codegenDirectory, "node_modules", "quicktype", "dist", "index.js");
   run(process.execPath, [executable, "--telemetry", "disable", ...arguments_]);
-}
-
-function readSchema(path) {
-  return JSON.parse(readFileSync(path, "utf8"));
 }
 
 function run(command, arguments_) {
