@@ -613,7 +613,7 @@ mod tests {
     }
 
     #[test]
-    fn bootstrap_result_has_no_debug_surface() {
+    fn activation_tokens_have_a_bounded_url_safe_encoding() {
         let token = random_activation_token();
         assert!(token.len() >= 42);
         assert!(!token.contains('='));

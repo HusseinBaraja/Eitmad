@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "server platform maintainers"
-last_verified: "2026-08-27"
+last_verified: "2026-09-10"
 review_triggers:
   - "server identity, authorization, storage, synchronization, licensing, update assignment, or deployment boundaries change"
 keywords:
@@ -19,7 +19,7 @@ keywords:
 
 # Extend the modular server authority safely
 
-`eitmad-server` is the initial combined deployment for the control, sync, relay, update, and administration planes. The Rust crates keep explicit ownership seams so a plane can move to a separate service later without moving product authority into a shell.
+`eitmad-server` is the initial combined deployment for the control, sync, relay, update, and administration planes. The five planes are library crates; `server/host` owns the server executable. The Rust crates keep explicit ownership seams so a plane can move to a separate service later without moving product authority into a shell.
 
 ## Purpose and current scope
 
@@ -163,7 +163,7 @@ Use [server troubleshooting](../../troubleshooting/server-authentication-and-syn
 
 ## Tests and verification
 
-Focused unit and static migration tests cover token secrecy, password hashing, Arabic identifiers, overflow-safe device proof, forced RLS, the complete append-only server audit envelope, durable sync, relay lifecycle and denial, signed manifest changes, channels, incompatible clients, backup status, administration authorization, router authentication, generated bindings, and the three-pool connection budget. Existing `eitmad-sync` tests cover complete local-first and server-authoritative flows, duplicate delivery, conflicts, unauthorized remote changes, compatibility, and WAN relay fallback.
+Focused unit tests cover password hashing, Arabic identifiers, device-proof time bounds, server audit envelopes, sync fingerprints and snapshot chunks, relay lifecycle and denial, signed manifest changes, channels, incompatible clients, backup status, administration authorization, router authentication, and the three-pool connection budget. Contract checks verify generated bindings. The repository policy check verifies the migration inventory and immutable SQL bytes. SQL text scans do not prove table creation, append-only enforcement, or tenant RLS; these require the live PostgreSQL exercise below. Existing `eitmad-sync` tests cover complete local-first and server-authoritative flows, duplicate delivery, conflicts, unauthorized remote changes, compatibility, and WAN relay fallback.
 
 Run:
 

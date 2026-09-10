@@ -835,11 +835,9 @@ dependencies = [
  "eitmad-server-audit",
  "hmac",
  "rand 0.9.3",
- "serde",
  "serde_json",
  "sha2",
  "thiserror",
- "tokio",
  "unicode-normalization",
  "uuid",
 ]

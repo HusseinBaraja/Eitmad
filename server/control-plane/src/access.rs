@@ -198,17 +198,3 @@ impl ServerAccessService {
             .map_err(|_| AccessError::Unavailable)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn access_requirements_keep_members_and_owners_distinct() {
-        assert_ne!(
-            AccessRequirement::TenantMember,
-            AccessRequirement::TenantOwner
-        );
-        assert_eq!(ServerAuditOutcome::Denied.as_str(), "denied");
-    }
-}

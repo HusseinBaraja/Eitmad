@@ -408,12 +408,12 @@ mod tests {
     }
 
     #[test]
-    fn snapshots_are_bounded_and_checksums_are_stable() {
+    fn snapshot_chunks_preserve_records_and_have_content_sensitive_checksums() {
         let records = (1..=501).map(record).collect::<Vec<_>>();
         let chunks = build_chunks(SnapshotId::new(Uuid::from_u128(5)), &records).unwrap();
         assert_eq!(chunks.len(), 2);
-        assert_eq!(chunks[0].records.len(), 500);
-        assert_eq!(chunks[1].records.len(), 1);
-        assert_eq!(checksum(&records).unwrap(), checksum(&records).unwrap());
+        assert_eq!(chunks[0].records, records[..500]);
+        assert_eq!(chunks[1].records, records[500..]);
+        assert_ne!(chunks[0].checksum, chunks[1].checksum);
     }
 }
