@@ -9,7 +9,7 @@ use rusqlite::{OptionalExtension as _, params};
 
 use crate::{AuthorityStore, StorageError, migrations::Migration};
 
-pub(crate) const MIGRATIONS: &[Migration] = &[Migration::additive(
+pub(crate) const MIGRATIONS: &[Migration] = &[Migration::new(
     5,
     "identity.foundation.v1",
     "identity",

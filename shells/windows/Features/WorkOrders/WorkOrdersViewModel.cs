@@ -1,7 +1,5 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
-using System.Text;
-using Eitmad.WindowsShell.Features.Operations;
 
 namespace Eitmad.WindowsShell.Features.WorkOrders;
 
@@ -214,7 +212,7 @@ public sealed class WorkOrdersViewModel : ObservableObject
 
     private void RefreshVisibleWorkOrders()
     {
-        var normalizedSearch = NormalizeArabic(SearchText.Trim());
+        var normalizedSearch = PreviewText.NormalizeSearch(SearchText.Trim());
         var today = DateOnly.FromDateTime(DateTime.Today);
         var filtered = workOrders.Where(workOrder =>
             MatchesSearch(workOrder, normalizedSearch)
@@ -233,11 +231,11 @@ public sealed class WorkOrdersViewModel : ObservableObject
 
     private static bool MatchesSearch(WorkOrderListItem workOrder, string normalizedSearch) =>
         string.IsNullOrEmpty(normalizedSearch)
-        || NormalizeArabic(workOrder.Number).Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase)
-        || NormalizeArabic(workOrder.OrderNumber).Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase)
-        || NormalizeArabic(workOrder.Customer).Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase)
-        || NormalizeArabic(workOrder.AssignedTo).Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase)
-        || workOrder.Furniture.Any(item => NormalizeArabic(item.Name).Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase));
+        || PreviewText.NormalizeSearch(workOrder.Number).Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase)
+        || PreviewText.NormalizeSearch(workOrder.OrderNumber).Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase)
+        || PreviewText.NormalizeSearch(workOrder.Customer).Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase)
+        || PreviewText.NormalizeSearch(workOrder.AssignedTo).Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase)
+        || workOrder.Furniture.Any(item => PreviewText.NormalizeSearch(item.Name).Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase));
 
     private bool MatchesStatus(WorkOrderListItem workOrder) => SelectedStatus switch
     {
@@ -257,26 +255,4 @@ public sealed class WorkOrdersViewModel : ObservableObject
         NextSevenDays => workOrder.DueDate >= today && workOrder.DueDate <= today.AddDays(7),
         _ => false,
     };
-
-    private static string NormalizeArabic(string value)
-    {
-        var normalized = new StringBuilder(value.Length);
-        foreach (var character in value.Normalize(NormalizationForm.FormD))
-        {
-            if (CharUnicodeInfo.GetUnicodeCategory(character) == UnicodeCategory.NonSpacingMark || character == '\u0640')
-            {
-                continue;
-            }
-
-            normalized.Append(character switch
-            {
-                '\u0622' or '\u0623' or '\u0625' => '\u0627',
-                '\u0649' => '\u064A',
-                '\u0629' => '\u0647',
-                _ => character,
-            });
-        }
-
-        return normalized.ToString().Normalize(NormalizationForm.FormC);
-    }
 }

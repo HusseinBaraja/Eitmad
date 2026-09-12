@@ -2,7 +2,7 @@
 
 use crate::migrations::Migration;
 
-pub(crate) const MIGRATIONS: &[Migration] = &[Migration::additive(
+pub(crate) const MIGRATIONS: &[Migration] = &[Migration::new(
     6,
     "audit.authorization-envelope.v2",
     "audit",

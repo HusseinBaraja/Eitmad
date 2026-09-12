@@ -97,7 +97,7 @@ def build_server(output: Path, version: str) -> Path:
         raise SystemExit("server packaging requires the declared Linux build host")
     plan = load_plan()["artifacts"]["server"]
     run("cargo", "build", "--locked", "--release", "-p", plan["rust_package"])
-    executable = ROOT / "target" / "release" / ("eitmad-server.exe" if os.name == "nt" else "eitmad-server")
+    executable = ROOT / "target" / "release" / "eitmad-server"
     destination = output / f"eitmad-server-{version}-{plan['runtime']}.tar.gz"
     epoch = int(os.environ.get("SOURCE_DATE_EPOCH", "1577836800"))
     tar_bytes = io.BytesIO()

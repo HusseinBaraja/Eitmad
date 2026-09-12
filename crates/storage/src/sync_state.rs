@@ -6,7 +6,7 @@ use rusqlite::{OptionalExtension as _, params};
 
 use crate::{AuthorityStore, StorageError, insert_audit, migrations::Migration, scope_parts};
 
-pub(crate) const MIGRATIONS: &[Migration] = &[Migration::additive(
+pub(crate) const MIGRATIONS: &[Migration] = &[Migration::new(
     7,
     "sync.scoped-state.v1",
     "sync",

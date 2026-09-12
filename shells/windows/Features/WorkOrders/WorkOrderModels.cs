@@ -1,6 +1,4 @@
-using System.ComponentModel;
 using System.Globalization;
-using System.Runtime.CompilerServices;
 
 namespace Eitmad.WindowsShell.Features.WorkOrders;
 
@@ -45,7 +43,7 @@ public sealed record WorkOrderFurnitureItem(
 }
 
 /// <summary>Represents one synthetic manager work order and its observable preview status.</summary>
-public sealed class WorkOrderListItem : INotifyPropertyChanged
+public sealed class WorkOrderListItem : ObservableObject
 {
     private static readonly string[] ArabicMonths =
     [
@@ -78,8 +76,6 @@ public sealed class WorkOrderListItem : INotifyPropertyChanged
         Parts = parts;
         Notes = notes;
     }
-
-    public event PropertyChangedEventHandler? PropertyChanged;
 
     public Guid Id { get; }
 
@@ -120,8 +116,6 @@ public sealed class WorkOrderListItem : INotifyPropertyChanged
             Raise(nameof(NextStatusActionLabel));
         }
     }
-
-    public string CustomerOrderLabel => $"الطلب {OrderNumber} — {Customer}";
 
     public string DetailNumberLabel => $"#{Number[3..]}";
 
@@ -181,7 +175,4 @@ public sealed class WorkOrderListItem : INotifyPropertyChanged
         Status = next;
         return true;
     }
-
-    private void Raise([CallerMemberName] string? propertyName = null) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }

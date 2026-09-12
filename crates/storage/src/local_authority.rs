@@ -9,7 +9,7 @@ use uuid::Uuid;
 
 use crate::{AuthorityStore, StorageError, migrations::Migration};
 
-pub(crate) const MIGRATIONS: &[Migration] = &[Migration::additive(
+pub(crate) const MIGRATIONS: &[Migration] = &[Migration::new(
     9,
     "identity.local-authority.v1",
     "identity",

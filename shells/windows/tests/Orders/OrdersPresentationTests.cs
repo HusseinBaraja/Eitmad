@@ -6,11 +6,13 @@ namespace Eitmad.WindowsShell.Tests.Orders;
 public sealed class OrdersPresentationTests
 {
     [TestMethod]
-    public void SearchStatusAndDateFiltersComposeAcrossManagerRows()
+    [DataRow("المها")]
+    [DataRow("ٱلـمَهَا")]
+    public void SearchStatusAndDateFiltersComposeAcrossManagerRows(string search)
     {
         var viewModel = new OrdersViewModel();
 
-        viewModel.SearchText = "المها";
+        viewModel.SearchText = search;
         Assert.HasCount(1, viewModel.VisibleOrders);
         Assert.AreEqual("ORD-2026-0087", viewModel.VisibleOrders[0].Number);
 

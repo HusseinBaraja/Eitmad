@@ -1,8 +1,5 @@
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Globalization;
-using System.Runtime.CompilerServices;
-using System.Text;
 using System.Windows.Media;
 
 namespace Eitmad.WindowsShell.Features.Products;
@@ -11,7 +8,7 @@ namespace Eitmad.WindowsShell.Features.Products;
 /// Owns transient ready-made product list and editor state for the Windows preview.
 /// Durable validation, authorization, audit, storage, and synchronization remain Rust responsibilities.
 /// </summary>
-public sealed class ProductsViewModel : INotifyPropertyChanged
+public sealed class ProductsViewModel : ObservableObject
 {
     public const string AllCategories = "كل الفئات";
     public const string AllStatuses = "كل الحالات";
@@ -85,8 +82,6 @@ public sealed class ProductsViewModel : INotifyPropertyChanged
         details[products[3].Id] = new("مصباح قراءة معدني جاهز.", string.Empty, null, string.Empty, []);
         RefreshVisibleProducts();
     }
-
-    public event PropertyChangedEventHandler? PropertyChanged;
 
     public ObservableCollection<ProductListItem> VisibleProducts { get; }
 
@@ -654,7 +649,7 @@ public sealed class ProductsViewModel : INotifyPropertyChanged
 
     private void RefreshVisibleProducts()
     {
-        var normalizedSearch = NormalizeSearchText(SearchText.Trim());
+        var normalizedSearch = PreviewText.NormalizeSearch(SearchText.Trim());
         var matches = products.Where(product =>
             MatchesSearch(product, normalizedSearch)
             && (SelectedCategory == AllCategories || product.Category == SelectedCategory)
@@ -674,9 +669,9 @@ public sealed class ProductsViewModel : INotifyPropertyChanged
 
     private static bool MatchesSearch(ProductListItem product, string search) =>
         search.Length == 0
-        || NormalizeSearchText(product.Name).Contains(search, StringComparison.CurrentCultureIgnoreCase)
-        || NormalizeSearchText(product.Category).Contains(search, StringComparison.CurrentCultureIgnoreCase)
-        || NormalizeSearchText(product.VariantSummary).Contains(search, StringComparison.CurrentCultureIgnoreCase);
+        || PreviewText.NormalizeSearch(product.Name).Contains(search, StringComparison.CurrentCultureIgnoreCase)
+        || PreviewText.NormalizeSearch(product.Category).Contains(search, StringComparison.CurrentCultureIgnoreCase)
+        || PreviewText.NormalizeSearch(product.VariantSummary).Contains(search, StringComparison.CurrentCultureIgnoreCase);
 
     private static string ThumbnailForCategory(string category) => category switch
     {
@@ -685,46 +680,4 @@ public sealed class ProductsViewModel : INotifyPropertyChanged
         "الإضاءة" => "Lamp",
         _ => "Vase",
     };
-
-    private static string NormalizeSearchText(string value)
-    {
-        var decomposed = value.Normalize(NormalizationForm.FormD);
-        var normalized = new StringBuilder(decomposed.Length);
-        foreach (var character in decomposed)
-        {
-            var category = CharUnicodeInfo.GetUnicodeCategory(character);
-            if (character == '\u0640'
-                || category is UnicodeCategory.NonSpacingMark
-                    or UnicodeCategory.SpacingCombiningMark
-                    or UnicodeCategory.EnclosingMark)
-            {
-                continue;
-            }
-
-            normalized.Append(character switch
-            {
-                '\u0622' or '\u0623' or '\u0625' or '\u0671' => '\u0627',
-                '\u0649' => '\u064A',
-                '\u0629' => '\u0647',
-                _ => character,
-            });
-        }
-
-        return normalized.ToString();
-    }
-
-    private bool Set<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
-    {
-        if (EqualityComparer<T>.Default.Equals(field, value))
-        {
-            return false;
-        }
-
-        field = value;
-        Raise(propertyName);
-        return true;
-    }
-
-    private void Raise([CallerMemberName] string? propertyName = null) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }

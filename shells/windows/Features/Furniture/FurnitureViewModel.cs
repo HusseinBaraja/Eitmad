@@ -1,14 +1,12 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
-using System.Runtime.CompilerServices;
-using System.Text;
 using System.Windows.Media;
 
 namespace Eitmad.WindowsShell.Features.Furniture;
 
 /// <summary>Owns transient list and six-step furniture editor state for the Windows preview.</summary>
-public sealed class FurnitureViewModel : INotifyPropertyChanged
+public sealed class FurnitureViewModel : ObservableObject
 {
     public const string AllCategories = "كل الفئات";
     public const string AllStatuses = "كل الحالات";
@@ -101,8 +99,6 @@ public sealed class FurnitureViewModel : INotifyPropertyChanged
         RefreshVisibleFurniture();
         RefreshPartOptions();
     }
-
-    public event PropertyChangedEventHandler? PropertyChanged;
 
     public IReadOnlyList<string> CategoryOptions { get; }
 
@@ -964,14 +960,14 @@ public sealed class FurnitureViewModel : INotifyPropertyChanged
 
     private void RefreshPartOptions()
     {
-        var search = NormalizeSearchText(PartSearchText.Trim());
+        var search = PreviewText.NormalizeSearch(PartSearchText.Trim());
         var selectedIds = SelectedParts.Select(item => item.Part.Id).ToHashSet();
         FilteredParts.Clear();
         foreach (var part in availableParts.Where(item =>
                      !selectedIds.Contains(item.Id)
                      && (search.Length == 0
-                         || NormalizeSearchText(item.Name).Contains(search, StringComparison.CurrentCultureIgnoreCase)
-                         || NormalizeSearchText(item.Category).Contains(search, StringComparison.CurrentCultureIgnoreCase))))
+                         || PreviewText.NormalizeSearch(item.Name).Contains(search, StringComparison.CurrentCultureIgnoreCase)
+                         || PreviewText.NormalizeSearch(item.Category).Contains(search, StringComparison.CurrentCultureIgnoreCase))))
         {
             FilteredParts.Add(part);
         }
@@ -981,11 +977,11 @@ public sealed class FurnitureViewModel : INotifyPropertyChanged
 
     private void RefreshVisibleFurniture()
     {
-        var search = NormalizeSearchText(SearchText.Trim());
+        var search = PreviewText.NormalizeSearch(SearchText.Trim());
         var matches = furniture.Where(item =>
             (search.Length == 0
-             || NormalizeSearchText(item.Name).Contains(search, StringComparison.CurrentCultureIgnoreCase)
-             || NormalizeSearchText(item.Category).Contains(search, StringComparison.CurrentCultureIgnoreCase))
+             || PreviewText.NormalizeSearch(item.Name).Contains(search, StringComparison.CurrentCultureIgnoreCase)
+             || PreviewText.NormalizeSearch(item.Category).Contains(search, StringComparison.CurrentCultureIgnoreCase))
             && (SelectedCategory == AllCategories || item.Category == SelectedCategory)
             && (SelectedStatus == AllStatuses
                 || (SelectedStatus == ActiveStatus && !item.IsArchived && !item.IsDraft)
@@ -1001,46 +997,4 @@ public sealed class FurnitureViewModel : INotifyPropertyChanged
         Raise(nameof(HasNoVisibleFurniture));
         Raise(nameof(VisibleCountLabel));
     }
-
-    private static string NormalizeSearchText(string value)
-    {
-        var decomposed = value.Normalize(NormalizationForm.FormD);
-        var normalized = new StringBuilder(decomposed.Length);
-        foreach (var character in decomposed)
-        {
-            var category = CharUnicodeInfo.GetUnicodeCategory(character);
-            if (character == '\u0640'
-                || category is UnicodeCategory.NonSpacingMark
-                    or UnicodeCategory.SpacingCombiningMark
-                    or UnicodeCategory.EnclosingMark)
-            {
-                continue;
-            }
-
-            normalized.Append(character switch
-            {
-                '\u0622' or '\u0623' or '\u0625' or '\u0671' => '\u0627',
-                '\u0649' => '\u064A',
-                '\u0629' => '\u0647',
-                _ => character,
-            });
-        }
-
-        return normalized.ToString();
-    }
-
-    private bool Set<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
-    {
-        if (EqualityComparer<T>.Default.Equals(field, value))
-        {
-            return false;
-        }
-
-        field = value;
-        Raise(propertyName);
-        return true;
-    }
-
-    private void Raise([CallerMemberName] string? propertyName = null) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }

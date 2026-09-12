@@ -78,7 +78,7 @@ public sealed class WindowsEngineBridge : IEngineShellBridge
     public async Task<IEngineSubscription> SubscribeAsync(
         Subscription subscription,
         CancellationToken cancellationToken = default) =>
-        new WindowsEngineSubscription(await supervisor.SubscribeAsync(subscription, cancellationToken));
+        await supervisor.SubscribeAsync(subscription, cancellationToken);
 
     public ValueTask DisposeAsync() => supervisor.DisposeAsync();
 
@@ -93,21 +93,5 @@ public sealed class WindowsEngineBridge : IEngineShellBridge
         }
 
         return Path.Combine(AppContext.BaseDirectory, "eitmad-engine-cli.exe");
-    }
-
-    private sealed class WindowsEngineSubscription(SupervisedEngineSubscription subscription) : IEngineSubscription
-    {
-        public event Action? ResyncRequired
-        {
-            add => subscription.ResyncRequired += value;
-            remove => subscription.ResyncRequired -= value;
-        }
-
-        public IAsyncEnumerable<EventEnvelope> ReadAllAsync(CancellationToken cancellationToken = default) =>
-            subscription.ReadAllAsync(cancellationToken);
-
-        public void Acknowledge(EventEnvelope delivered) => subscription.Acknowledge(delivered);
-
-        public ValueTask DisposeAsync() => subscription.DisposeAsync();
     }
 }

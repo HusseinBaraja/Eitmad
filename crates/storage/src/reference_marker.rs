@@ -19,7 +19,7 @@ use crate::{
 
 pub const MAX_REFERENCE_MARKER_SYNC_BATCH: u32 = 50;
 
-pub(crate) const MIGRATIONS: &[Migration] = &[Migration::additive(
+pub(crate) const MIGRATIONS: &[Migration] = &[Migration::new(
     8,
     "reference-marker.initial.v1",
     "reference-marker",

@@ -6,11 +6,13 @@ namespace Eitmad.WindowsShell.Tests.WorkOrders;
 public sealed class WorkOrdersPresentationTests
 {
     [TestMethod]
-    public void SearchStatusAndDueDateFiltersComposeAcrossProductionRows()
+    [DataRow("خزانه")]
+    [DataRow("خَـزٱنه")]
+    public void SearchStatusAndDueDateFiltersComposeAcrossProductionRows(string search)
     {
         var viewModel = new WorkOrdersViewModel();
 
-        viewModel.SearchText = "خزانه";
+        viewModel.SearchText = search;
         Assert.HasCount(2, viewModel.VisibleWorkOrders);
 
         viewModel.SearchText = "هدى";

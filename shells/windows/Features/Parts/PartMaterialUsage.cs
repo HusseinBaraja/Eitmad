@@ -1,6 +1,4 @@
-using System.ComponentModel;
 using System.Globalization;
-using System.Runtime.CompilerServices;
 
 namespace Eitmad.WindowsShell.Features.Parts;
 
@@ -11,7 +9,7 @@ public sealed record PartMaterialOption(Guid Id, string Name, string Unit, decim
 }
 
 /// <summary>Owns the transient usage amount and calculated cost for one selected material.</summary>
-public sealed class PartMaterialUsage : INotifyPropertyChanged
+public sealed class PartMaterialUsage : ObservableObject
 {
     private decimal quantity;
 
@@ -20,8 +18,6 @@ public sealed class PartMaterialUsage : INotifyPropertyChanged
         Material = material;
         this.quantity = quantity;
     }
-
-    public event PropertyChangedEventHandler? PropertyChanged;
 
     public PartMaterialOption Material { get; }
 
@@ -65,7 +61,4 @@ public sealed class PartMaterialUsage : INotifyPropertyChanged
     }
 
     public PartMaterialUsage Copy() => new(Material, Quantity);
-
-    private void Raise([CallerMemberName] string? propertyName = null) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }

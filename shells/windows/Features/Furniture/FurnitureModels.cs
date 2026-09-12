@@ -1,7 +1,4 @@
-using System.ComponentModel;
 using System.Globalization;
-using System.Runtime.CompilerServices;
-using System.Text;
 using System.Windows.Media;
 using MediaColor = System.Windows.Media.Color;
 using MediaColorConverter = System.Windows.Media.ColorConverter;
@@ -68,7 +65,7 @@ public sealed record FurniturePartOption(Guid Id, string Name, string Category, 
 }
 
 /// <summary>Owns the local quantity and calculated row total for a selected part.</summary>
-public sealed class FurniturePartUsage : INotifyPropertyChanged
+public sealed class FurniturePartUsage : ObservableObject
 {
     private decimal quantity;
 
@@ -77,8 +74,6 @@ public sealed class FurniturePartUsage : INotifyPropertyChanged
         Part = part;
         this.quantity = quantity;
     }
-
-    public event PropertyChangedEventHandler? PropertyChanged;
 
     public FurniturePartOption Part { get; }
 
@@ -122,13 +117,10 @@ public sealed class FurniturePartUsage : INotifyPropertyChanged
     }
 
     public FurniturePartUsage Copy() => new(Part, Quantity);
-
-    private void Raise([CallerMemberName] string? propertyName = null) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }
 
 /// <summary>Represents one fixed manager-defined furniture size in the preview.</summary>
-public sealed class FurnitureVariant : INotifyPropertyChanged
+public sealed class FurnitureVariant : ObservableObject
 {
     private decimal sellingPrice;
 
@@ -149,8 +141,6 @@ public sealed class FurnitureVariant : INotifyPropertyChanged
         CalculatedCost = calculatedCost;
         this.sellingPrice = sellingPrice ?? calculatedCost;
     }
-
-    public event PropertyChangedEventHandler? PropertyChanged;
 
     public Guid Id { get; }
 
@@ -189,7 +179,7 @@ public sealed class FurnitureVariant : INotifyPropertyChanged
         get => SellingPrice.ToString("N0", CultureInfo.InvariantCulture);
         set
         {
-            if (!decimal.TryParse(NormalizeNumericInput(value), NumberStyles.Number, CultureInfo.InvariantCulture, out var parsed)
+            if (!decimal.TryParse(PreviewText.NormalizeNumericInput(value), NumberStyles.Number, CultureInfo.InvariantCulture, out var parsed)
                 || parsed < 0m)
             {
                 throw new FormatException("أدخل سعر بيع صالحاً يساوي صفراً أو أكثر.");
@@ -217,31 +207,10 @@ public sealed class FurnitureVariant : INotifyPropertyChanged
         new(Guid.NewGuid(), name, Width, Height, Depth, CalculatedCost, SellingPrice);
 
     private static string Format(decimal value) => value.ToString("0.##", CultureInfo.InvariantCulture);
-
-    private static string NormalizeNumericInput(string value)
-    {
-        var normalized = new StringBuilder(value.Length);
-        foreach (var character in value)
-        {
-            normalized.Append(character switch
-            {
-                >= '\u0660' and <= '\u0669' => (char)('0' + character - '\u0660'),
-                >= '\u06F0' and <= '\u06F9' => (char)('0' + character - '\u06F0'),
-                '\u066B' => '.',
-                '\u066C' => ',',
-                _ => character,
-            });
-        }
-
-        return normalized.ToString();
-    }
-
-    private void Raise([CallerMemberName] string? propertyName = null) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }
 
 /// <summary>Represents one selectable furniture color in the transient options preview.</summary>
-public sealed class FurnitureColorOption : INotifyPropertyChanged
+public sealed class FurnitureColorOption : ObservableObject
 {
     private bool isActive;
 
@@ -253,8 +222,6 @@ public sealed class FurnitureColorOption : INotifyPropertyChanged
         PriceAdjustment = priceAdjustment;
         this.isActive = isActive;
     }
-
-    public event PropertyChangedEventHandler? PropertyChanged;
 
     public Guid Id { get; }
 
@@ -292,13 +259,10 @@ public sealed class FurnitureColorOption : INotifyPropertyChanged
     public string ToggleActionLabel => IsActive ? "تعطيل" : "تفعيل";
 
     public FurnitureColorOption Copy() => new(Guid.NewGuid(), Name, SwatchHex, PriceAdjustment, IsActive);
-
-    private void Raise([CallerMemberName] string? propertyName = null) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }
 
 /// <summary>Represents one selectable furniture handle in the transient options preview.</summary>
-public sealed class FurnitureHandleOption : INotifyPropertyChanged
+public sealed class FurnitureHandleOption : ObservableObject
 {
     private bool isActive;
 
@@ -310,8 +274,6 @@ public sealed class FurnitureHandleOption : INotifyPropertyChanged
         PriceAdjustment = priceAdjustment;
         this.isActive = isActive;
     }
-
-    public event PropertyChangedEventHandler? PropertyChanged;
 
     public Guid Id { get; }
 
@@ -361,7 +323,4 @@ public sealed class FurnitureHandleOption : INotifyPropertyChanged
     public string ToggleActionLabel => IsActive ? "تعطيل" : "تفعيل";
 
     public FurnitureHandleOption Copy() => new(Guid.NewGuid(), Name, HandleKind, PriceAdjustment, IsActive);
-
-    private void Raise([CallerMemberName] string? propertyName = null) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }

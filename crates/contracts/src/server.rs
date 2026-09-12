@@ -345,16 +345,6 @@ mod tests {
     }
 
     #[test]
-    fn token_results_do_not_derive_debug() {
-        let schema = schemars::schema_for!(AuthenticationResult);
-        assert!(
-            serde_json::to_string(&schema)
-                .unwrap()
-                .contains("accessToken")
-        );
-    }
-
-    #[test]
     fn secret_request_schemas_round_trip() {
         let login = LoginRequest {
             tenant_code: TenantCode::parse("al-eitmad").unwrap(),

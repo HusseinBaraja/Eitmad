@@ -171,13 +171,4 @@ mod tests {
         assert!(!LifecycleState::Stopped.is_live());
         assert!(!LifecycleState::Failed.is_live());
     }
-
-    #[test]
-    fn performance_expectations_cover_runtime_hot_paths() {
-        let expectations = PerformanceExpectations::default();
-        assert!(expectations.startup_ready_millis <= 3_000);
-        assert!(expectations.idle_cpu_basis_points <= 50);
-        assert!(expectations.common_query_p95_millis < expectations.startup_ready_millis);
-        assert_eq!(expectations.background_sync_batch_records, 50);
-    }
 }

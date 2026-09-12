@@ -1,7 +1,5 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
-using System.Text;
-using Eitmad.WindowsShell.Features.Operations;
 
 namespace Eitmad.WindowsShell.Features.Quotations;
 
@@ -159,7 +157,7 @@ public sealed class QuotationsViewModel : ObservableObject
 
     private void RefreshVisibleQuotations()
     {
-        var normalizedSearch = NormalizeArabic(SearchText.Trim());
+        var normalizedSearch = PreviewText.NormalizeSearch(SearchText.Trim());
         var today = DateOnly.FromDateTime(DateTime.Today);
         var filtered = quotations.Where(quotation =>
             MatchesSearch(quotation, normalizedSearch)
@@ -178,8 +176,8 @@ public sealed class QuotationsViewModel : ObservableObject
 
     private static bool MatchesSearch(QuotationListItem quotation, string normalizedSearch) =>
         string.IsNullOrEmpty(normalizedSearch)
-        || NormalizeArabic(quotation.Number).Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase)
-        || NormalizeArabic(quotation.Customer).Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase);
+        || PreviewText.NormalizeSearch(quotation.Number).Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase)
+        || PreviewText.NormalizeSearch(quotation.Customer).Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase);
 
     private bool MatchesStatus(QuotationListItem quotation) => SelectedStatus switch
     {
@@ -199,26 +197,4 @@ public sealed class QuotationsViewModel : ObservableObject
         LastThirtyDays => quotation.Date >= today.AddDays(-29),
         _ => false,
     };
-
-    private static string NormalizeArabic(string value)
-    {
-        var normalized = new StringBuilder(value.Length);
-        foreach (var character in value.Normalize(NormalizationForm.FormD))
-        {
-            if (CharUnicodeInfo.GetUnicodeCategory(character) == UnicodeCategory.NonSpacingMark || character == '\u0640')
-            {
-                continue;
-            }
-
-            normalized.Append(character switch
-            {
-                '\u0622' or '\u0623' or '\u0625' => '\u0627',
-                '\u0649' => '\u064A',
-                '\u0629' => '\u0647',
-                _ => character,
-            });
-        }
-
-        return normalized.ToString().Normalize(NormalizationForm.FormC);
-    }
 }

@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-07-11"
+last_verified: "2026-09-12"
 review_triggers:
   - "documentation requirements, language policy, audit automation, or review workflow changes"
 keywords:
@@ -51,7 +51,8 @@ Accept a change only when each page answers a real reader task and matches curre
 
 ## Verification and handoff
 
-- [ ] `audit_docs.py`, focused product tests, and the workspace check suite pass.
+- [ ] The changed-page audit passes, or the full audit passes when shared navigation, indexes, or the documentation system changed.
+- [ ] Focused product tests pass when product behavior changed; workspace and release gates run only when the change requires them.
 - [ ] Reviewed sources, commands, platforms, and remaining gaps are recorded.
 - [ ] The change states the next review trigger.
 

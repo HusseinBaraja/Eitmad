@@ -1,12 +1,10 @@
-using System.ComponentModel;
 using System.Globalization;
-using System.Runtime.CompilerServices;
 using System.Windows.Media;
 
 namespace Eitmad.WindowsShell.Features.Products;
 
 /// <summary>Represents one ready-made product row in the transient manager preview.</summary>
-public sealed class ProductListItem : INotifyPropertyChanged
+public sealed class ProductListItem : ObservableObject
 {
     private bool isArchived;
 
@@ -31,8 +29,6 @@ public sealed class ProductListItem : INotifyPropertyChanged
         Image = image;
         this.isArchived = isArchived;
     }
-
-    public event PropertyChangedEventHandler? PropertyChanged;
 
     public Guid Id { get; }
 
@@ -85,13 +81,10 @@ public sealed class ProductListItem : INotifyPropertyChanged
     public string SellingPriceLabel => SellingPrice.ToString("N0", CultureInfo.InvariantCulture);
 
     public string StatusLabel => IsArchived ? "مؤرشف" : "نشط";
-
-    private void Raise([CallerMemberName] string? propertyName = null) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }
 
 /// <summary>Represents one supplier-defined ready-made option and its direct pricing.</summary>
-public sealed class ProductVariant : INotifyPropertyChanged
+public sealed class ProductVariant : ObservableObject
 {
     private string name;
     private decimal purchaseCost;
@@ -104,8 +97,6 @@ public sealed class ProductVariant : INotifyPropertyChanged
         this.purchaseCost = purchaseCost;
         this.sellingPrice = sellingPrice;
     }
-
-    public event PropertyChangedEventHandler? PropertyChanged;
 
     public Guid Id { get; }
 
@@ -146,25 +137,10 @@ public sealed class ProductVariant : INotifyPropertyChanged
     public string MarginLabel => Margin.ToString("N0", CultureInfo.InvariantCulture);
 
     public ProductVariant Copy() => new(Guid.NewGuid(), Name, PurchaseCost, SellingPrice);
-
-    private bool Set<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
-    {
-        if (EqualityComparer<T>.Default.Equals(field, value))
-        {
-            return false;
-        }
-
-        field = value;
-        Raise(propertyName);
-        return true;
-    }
-
-    private void Raise([CallerMemberName] string? propertyName = null) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }
 
 /// <summary>Represents one transient product category in the established inline category interaction.</summary>
-public sealed class ProductCategoryOption : INotifyPropertyChanged
+public sealed class ProductCategoryOption : ObservableObject
 {
     private string name;
     private bool isArchived;
@@ -173,8 +149,6 @@ public sealed class ProductCategoryOption : INotifyPropertyChanged
     {
         this.name = name;
     }
-
-    public event PropertyChangedEventHandler? PropertyChanged;
 
     public string Name
     {
@@ -198,21 +172,6 @@ public sealed class ProductCategoryOption : INotifyPropertyChanged
     public bool CanArchive => !IsArchived;
 
     public string StatusLabel => IsArchived ? "مؤرشفة" : string.Empty;
-
-    private bool Set<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
-    {
-        if (EqualityComparer<T>.Default.Equals(field, value))
-        {
-            return false;
-        }
-
-        field = value;
-        Raise(propertyName);
-        return true;
-    }
-
-    private void Raise([CallerMemberName] string? propertyName = null) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }
 
 /// <summary>Keeps presentation-only details that are not projected in the manager list row.</summary>

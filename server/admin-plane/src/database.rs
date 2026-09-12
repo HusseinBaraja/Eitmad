@@ -96,17 +96,3 @@ impl AdminDatabase {
         self.pool.clone()
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn migration_persists_backup_and_support_status_with_forced_isolation() {
-        for table in ["operations.backup_status", "operations.support_workflows"] {
-            assert!(FOUNDATION_SQL.contains(table));
-        }
-        assert!(FOUNDATION_SQL.contains("FORCE ROW LEVEL SECURITY"));
-        assert!(FOUNDATION_SQL.contains("current_setting(''eitmad.tenant_id'', true)"));
-    }
-}

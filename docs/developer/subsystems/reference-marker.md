@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "reference marker maintainers"
-last_verified: "2026-09-01"
+last_verified: "2026-09-12"
 review_triggers:
   - "reference marker contracts, permissions, migration, sync projection, event, or Windows view changes"
 keywords:
@@ -32,7 +32,7 @@ The primary reader is an engineer who needs a safe example before adding a real 
 | SQLite migration and atomic repository | `crates/storage/src/reference_marker.rs` |
 | IPC dispatch and durable event publication | `crates/engine-runtime` |
 | Generated C# binding and Windows process/IPC adapter | `shells/windows/generated` and `platform-adapters/windows` |
-| Arabic display and ephemeral input state | `shells/windows/Features/Operations` and `MainWindow.xaml` |
+| Shell-side projection and command seam, not currently exposed by XAML | `shells/windows/Features/Operations` |
 
 Rust remains authoritative. The Windows shell cannot validate labels, decide permission, open SQLite, create sync records, or write audit rows.
 
@@ -78,13 +78,13 @@ Every committed marker mutation creates one shared `ChangeRecord` with `ChangeOp
 
 `reference_marker_sync_batch` accepts `1..=50`; it never loads the entire outbox. Failed transport does not delete work. This slice supplies durable local-first behavior and the common sync record. It does not add a production scheduler, remote domain registration, or conflict UI. A future connector must use the shared sync transport and preserve ordering, idempotency, scope, cancellation, retry, and conflict rules.
 
-## Windows Arabic and RTL behavior
+## Windows shell seam
 
-The operations center displays **الميزة المرجعية**, **حفظ العلامة**, **بانتظار المزامنة**, and **متزامن**. The input and label use RTL flow. Technical constraints use isolated LTR text. The mixed example `مرجع REF-١٢` verifies Arabic letters, Latin letters, and Arabic-Indic digits without changing stored text.
+`OperationsViewModel` and `OperationsCoordinator` retain the reference-marker projection, typed save command, Arabic state strings, and mixed-direction sample `مرجع REF-١٢`. Current `MainWindow.xaml` does not bind a marker input, save action, status, or list, so the operations center does not expose reference-marker controls. Treat this as an implemented shell seam, not a user-visible workflow.
 
-On connection, the coordinator issues configuration, sync, update, and marker snapshot queries concurrently. It owns seven resumable subscriptions. A marker event updates the visible revision status and triggers one bounded marker query. A successful marker command uses its typed result immediately. The shell does not claim server confirmation while `syncState` is `pending`.
+On connection, the coordinator starts configuration and marker snapshot queries, plus sync and update snapshot queries when their capabilities were negotiated. `EnsureSubscriptionsAsync` defines four desired streams: configuration, sync, update, and reference markers. It starts each stream only when the engine negotiated its capability and the stream was not already rejected as unsupported. A marker event refreshes one bounded marker query. A successful marker command applies its typed result directly if a future XAML surface invokes the existing command seam.
 
-Keyboard traversal, Arabic screen-reader announcements, high contrast, and 200% text scaling still require release-candidate verification. This gap is owned by Windows UI maintainers.
+If the controls become visible, verify keyboard traversal, Arabic screen-reader announcements, high contrast, and 200% text scaling as part of that UI change.
 
 ## Failure modes
 

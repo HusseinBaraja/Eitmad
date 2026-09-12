@@ -48,6 +48,8 @@ pub const SENSITIVE_DEBUG_PERMISSION: &str = "eitmad.permission.observability.se
 pub const REFERENCE_MARKER_READ_PERMISSION: &str = "eitmad.permission.reference-marker.read.v1";
 pub const REFERENCE_MARKER_WRITE_PERMISSION: &str = "eitmad.permission.reference-marker.write.v1";
 
+const GRANT_RELATIONSHIP_OPERATION: &str = "eitmad.authorization.relationship.grant.v1";
+const REVOKE_RELATIONSHIP_OPERATION: &str = "eitmad.authorization.relationship.revoke.v1";
 const ORGANIZATION_SCOPE: &str = "organization";
 
 const POLICY_PERMISSIONS: &[&str] = &[
@@ -269,11 +271,11 @@ impl AuthorizationService {
         context: &MutationContext,
         command: &GrantScopeRelationship,
     ) -> Result<RelationshipMutationResult, AuthorizationError> {
-        self.authorize_mutation(context, command_kind_grant())?;
+        self.authorize_mutation(context, GRANT_RELATIONSHIP_OPERATION)?;
         if !registered_relation(&command.relation) {
             self.audit_failure(
                 context,
-                command_kind_grant(),
+                GRANT_RELATIONSHIP_OPERATION,
                 AuditOutcome::Invalid,
                 "eitmad.error.authorization-relation-invalid.v1",
             )?;
@@ -290,7 +292,7 @@ impl AuthorizationService {
         );
         let audit = audit_record(
             context,
-            command_kind_grant(),
+            GRANT_RELATIONSHIP_OPERATION,
             grant_audit_targets(relationship_id, &command.subject, &command.relation),
         );
         map_relationship_outcome(
@@ -300,7 +302,7 @@ impl AuthorizationService {
                 relationship_id,
                 &command.subject,
                 &command.relation,
-                command_kind_grant(),
+                GRANT_RELATIONSHIP_OPERATION,
                 &idempotency,
                 &audit,
                 Some(&publication),
@@ -320,11 +322,11 @@ impl AuthorizationService {
         context: &MutationContext,
         command: &RevokeScopeRelationship,
     ) -> Result<RelationshipMutationResult, AuthorizationError> {
-        self.authorize_mutation(context, command_kind_revoke())?;
+        self.authorize_mutation(context, REVOKE_RELATIONSHIP_OPERATION)?;
         let idempotency = durable_idempotency(context, command)?;
         let audit = audit_record(
             context,
-            command_kind_revoke(),
+            REVOKE_RELATIONSHIP_OPERATION,
             vec![command.relationship_id.value().to_string()],
         );
         let publication = policy_publication(
@@ -340,7 +342,7 @@ impl AuthorizationService {
                 command.expected_policy_version,
                 command.relationship_id,
                 &relation_id(OWNER_RELATION),
-                command_kind_revoke(),
+                REVOKE_RELATIONSHIP_OPERATION,
                 &idempotency,
                 &audit,
                 Some(&publication),
@@ -557,14 +559,6 @@ fn permission_id(value: &str) -> PermissionId {
 
 fn relation_id(value: &str) -> RelationId {
     RelationId::parse(value).expect("static relation ID is valid")
-}
-
-const fn command_kind_grant() -> &'static str {
-    "eitmad.authorization.relationship.grant.v1"
-}
-
-const fn command_kind_revoke() -> &'static str {
-    "eitmad.authorization.relationship.revoke.v1"
 }
 
 #[must_use]

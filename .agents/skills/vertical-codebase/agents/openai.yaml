@@ -1,0 +1,4 @@
+interface:
+  display_name: "Vertical Codebase"
+  short_description: "Organize code by product vertical."
+  default_prompt: "Use $vertical-codebase to choose the right vertical home for this change, colocate related code, and keep public boundaries explicit."
