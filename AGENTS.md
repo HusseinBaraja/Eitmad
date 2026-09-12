@@ -47,7 +47,7 @@ Never use subagents in the user's projects. Do all work directly in the primary 
 * Never revert, overwrite, delete, or reformat unrelated user work. Do not use destructive Git commands without explicit authorization for the exact operation.
 * Repository documentation prose is English. Application UI and user-facing search terms are Arabic-first.
 
-Use the [repository ownership map](docs/developer/repository-layout.md), [target architecture](docs/architecture/target-architecture.md), [decision records](docs/decisions/index.md), and [glossary](docs/glossary.md) for detail. Do not restate them in new files.
+Consult the applicable authority when the task touches it: the [repository ownership map](docs/developer/repository-layout.md) for placement, the [target architecture](docs/architecture/target-architecture.md) for system boundaries, the [decision records](docs/decisions/index.md) for durable choices, and the [glossary](docs/glossary.md) for domain or Arabic terms. Do not restate them in new files.
 
 ## Scope, Work Method, and Stop Rules
 
@@ -69,7 +69,7 @@ For implementation:
 2. Mark only the applicable boundaries: Rust behavior, contract, authorization and audit, storage and sync, native shell, Arabic UI, operations, or documentation.
 3. Inspect the owner and its focused evidence.
 4. Implement the smallest correct patch. Update direct callers and generated artifacts with it.
-5. Run the smallest proof that can detect a defect in the changed behavior.
+5. Run the smallest applicable proof defined in [Tests and Verification](#tests-and-verification).
 6. Inspect the final diff once for unrelated edits, temporary files, debug code, and accidental generated output.
 7. Stop when the requested outcome is complete and the applicable focused proof passes.
 
@@ -156,16 +156,16 @@ Applicable checks must pass without new warnings. Fix the cause; do not silence 
 
 ## Documentation Impact
 
-Use `.agents/skills/maintain-project-documentation/SKILL.md` once when a change affects a user workflow or Arabic term; a public contract; authorization, audit, privacy, or scope; durable data, sync, recovery, installation, update, or operations; ownership or a durable decision; or a reusable troubleshooting path.
+Assess documentation impact when a change affects a user workflow or Arabic term; a public contract; authorization, audit, privacy, or scope; durable data, sync, recovery, installation, update, or operations; ownership or a durable decision; or a reusable troubleshooting path. Use `.agents/skills/maintain-project-documentation/SKILL.md` only when that assessment identifies a required documentation change.
 
 If none applies, report no documentation impact and do not edit documentation or run a broad documentation audit. If it applies, update only affected canonical pages, indexes, glossary terms, decisions, and troubleshooting paths. Link to authority instead of copying it. Create a dedicated subsystem page only for a major capability with a real reader task.
 
 ## Git and Review
 
-* Before any commit, if the current branch is `main`, create a descriptive branch without a tool or vendor prefix. Commit directly to `main` only when the user explicitly authorizes that exception.
+* Before any commit, if the current branch is `main`, create a descriptive branch. Never use the `codex/` prefix. Commit directly to `main` only when the user explicitly authorizes that exception.
 * Preserve user changes and keep unrelated files out of commits.
 * Create local commits at suitable checkpoints during authorized work, using agent judgment without asking for routine confirmation. Commit a coherent, verified change when a meaningful milestone or the task is complete. Keep one concern per commit, avoid incomplete checkpoints, and follow an explicit user instruction to defer or omit commits.
-* Before each commit, use `.agents/skills/caveman-commit/SKILL.md`, then keep the message compliant with the `conventional-commit` skill.
+* Commit messages must follow Conventional Commits, use an imperative summary, and describe one concern.
 * A local commit does not authorize remote changes. Do not push, rebase, create a pull request, merge, or otherwise modify remote state unless the user asks for that action.
 * When publishing, push the active branch first and create only a regular ready-for-review pull request unless the user requests another state.
 * Keep one concern per pull request. If its summary needs an unrelated “also,” split it.
@@ -181,4 +181,4 @@ Workflow-specific review rules, including rules for a named review service or bo
 * `tests/`: cross-boundary and contract conformance.
 * `docs/`: canonical project knowledge.
 
-Start from [README.md](README.md), the [documentation index](docs/index.md), and the [operations index](docs/operations/index.md). Use `rg` and `rg --files` to find exact owners before broad inspection.
+Use [README.md](README.md) for setup and product orientation, the [documentation index](docs/index.md) for documentation discovery, and the [operations index](docs/operations/index.md) for operation, deployment, or release work. Use `rg` and `rg --files` to find exact owners before broad inspection.

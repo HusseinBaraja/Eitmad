@@ -136,7 +136,7 @@ In a healthy development environment, every applicable command should exit with 
 
 ## Recover
 
-If a command fails, stop. Do not hide the warning or bypass the test. Fix the authoritative source or canonical document, then rerun the failed command and the full suite. If CI reports `E0658` while a local stable build passes, inspect the reported syntax for a feature unavailable in Rust `1.85.1` and reproduce with the minimum-version check above. Preserve `eitmad.sqlite3` and its SQLite companion files before any recovery attempt; never edit or downgrade them manually.
+If a command fails, stop. Do not hide the warning or bypass the test. Fix the authoritative source or canonical document, then rerun the failed check and its direct dependent check. Rerun the full suite only for a release, CI or workspace-wide change, or evidence of broader impact. If CI reports `E0658` while a local stable build passes, inspect the reported syntax for a feature unavailable in Rust `1.85.1` and reproduce with the minimum-version check above. Preserve `eitmad.sqlite3` and its SQLite companion files before any recovery attempt; never edit or downgrade them manually.
 
 ## Related tasks
 

@@ -1,6 +1,6 @@
 ---
 name: maintain-project-documentation
-description: Create, rebuild, review, and maintain Eitmad documentation as a searchable, tested documentation system inspired by Zulip. Use for documenting features, vertical Rust subsystems, architecture, contracts, user workflows, operations, troubleshooting, errors, incidents, onboarding, releases, migrations, or issue-resolution knowledge; reorganizing docs; auditing documentation quality or freshness; and deciding which documentation must change with code.
+description: Create, restructure, audit, or substantially update Eitmad documentation. Use when documentation is the requested deliverable or AGENTS.md identifies a required canonical documentation change.
 ---
 
 # Maintain Project Documentation
@@ -9,14 +9,15 @@ Build documentation that lets an unfamiliar contributor understand the system, l
 
 ## Read the relevant guidance
 
-Always read [references/documentation-system.md](references/documentation-system.md). Then read only what the task needs:
+Read only what the task needs:
 
+- For new pages, navigation, indexes, taxonomy, or documentation-system changes, read [references/documentation-system.md](references/documentation-system.md).
 - For drafting or editing pages, read [references/writing-and-page-patterns.md](references/writing-and-page-patterns.md).
 - For bugs, errors, diagnostics, support knowledge, or issue discovery, read [references/issue-search-and-troubleshooting.md](references/issue-search-and-troubleshooting.md).
-- For review, automation, migration, or release readiness, read [references/quality-gates.md](references/quality-gates.md).
-- For the research basis and limits of the Zulip comparison, read [references/zulip-research.md](references/zulip-research.md).
+- For documentation-system review, migration, or release readiness, read [references/quality-gates.md](references/quality-gates.md).
+- Read [references/zulip-research.md](references/zulip-research.md) only when the user asks about the Zulip comparison or its research basis.
 
-Treat existing project documentation as legacy unless the user explicitly adopts part of it. Derive truth from current code, tests, contracts, schemas, configuration, accepted decisions, and verified runtime behavior.
+Treat canonical project documentation as current guidance. Verify behavioral claims against current code, tests, contracts, schemas, configuration, accepted decisions, and verified runtime behavior. Repair confirmed discrepancies instead of ignoring the canonical page.
 
 ## Workflow
 
@@ -67,19 +68,19 @@ In the same logical change:
 
 ### 6. Verify like code
 
-Run focused product tests plus documentation checks. Run:
+Run product tests only when product behavior changed. For an ordinary documentation change, audit only the changed pages:
+
+```powershell
+python .agents/skills/maintain-project-documentation/scripts/audit_docs.py --root docs --files <changed-pages>
+```
+
+Run the full documentation audit only when shared navigation, indexes, or the documentation system changed:
 
 ```powershell
 python .agents/skills/maintain-project-documentation/scripts/audit_docs.py --root docs
 ```
 
-When migrating incrementally, pass changed files after `--files` so legacy failures do not hide new-page quality:
-
-```powershell
-python .agents/skills/maintain-project-documentation/scripts/audit_docs.py --root docs --files docs/developer/example.md
-```
-
-Build and preview the rendered site when a documentation renderer exists. Verify navigation, search terms, anchors, code blocks, diagrams, Arabic shaping, RTL/LTR isolation, narrow screens, and copy/paste. Run every safe command in a task guide. Do not claim verification that was not performed.
+Build and preview the rendered site only when layout, navigation, diagrams, Arabic presentation, or generated-site behavior changed. Verify only the affected behavior. Run safe commands whose documented behavior changed. Do not claim verification that was not performed.
 
 ### 7. Report the documentation change
 
@@ -95,4 +96,4 @@ Summarize the reader outcome, sources checked, pages added or changed, validatio
 - Every state-changing flow documents authorization, scope, audit, failure, and recovery.
 - Every cross-boundary flow documents versions, compatibility, retry, and partial failure.
 - No page exists only to satisfy a checklist; each page must answer a real reader question.
-- A feature is incomplete until an unfamiliar engineer can find its authority, tests, failure modes, and extension boundary.
+- Documentation for a major capability is incomplete until an unfamiliar engineer can find its authority, tests, failure modes, and extension boundary.
