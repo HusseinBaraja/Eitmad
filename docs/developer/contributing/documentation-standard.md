@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "task"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-07-11"
+last_verified: "2026-09-12"
 review_triggers:
   - "feature completion, documentation structure, language policy, or quality gates change"
 keywords:
@@ -86,12 +86,20 @@ In the same logical change:
 
 ## Verify
 
-Run:
+For an ordinary documentation change, audit only the changed pages. For example:
+
+```powershell
+python .agents/skills/maintain-project-documentation/scripts/audit_docs.py --root docs --files docs/developer/subsystems/reference-marker.md
+```
+
+Run the full audit only when shared navigation, indexes, or the documentation system changed:
 
 ```powershell
 python .agents/skills/maintain-project-documentation/scripts/audit_docs.py --root docs
 ```
 
-Then run focused product tests and every safe command in the guide. Build the preview when a renderer exists. Verify links, search, Arabic shaping, RTL/LTR behavior, and copy/paste where Arabic UI examples appear. Record what was actually verified and any remaining gaps.
+The checker validates required frontmatter and allowed values, `last_verified` dates, placeholders in active pages, duplicate heading anchors, and Markdown links and anchors. It does not inspect image links, validate code behavior or documented command existence, or prove safety or graph reachability. Perform a small semantic review against the source owner for the claims changed in the page.
+
+Run focused product tests only when product behavior changed. Exercise safe documented commands whose behavior changed, and build a preview only when layout, rendered navigation, diagrams, Arabic presentation, or generated-site behavior changed. Record what was actually verified and any remaining gaps.
 
 Use the [documentation review checklist](documentation-review-checklist.md) and [freshness policy](documentation-freshness-policy.md) before handoff.

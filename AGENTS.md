@@ -127,6 +127,8 @@ If the required rendering environment is unavailable, complete the available bui
 
 Tests are risk controls, not a quantity target. Run relevant existing tests first. Add or update a test only when existing evidence cannot detect a credible regression in changed consequential behavior.
 
+Use the [focused check selection table](docs/developer/index.md#choose-the-smallest-normal-proof) for concrete commands that exist in this checkout.
+
 A credible regression usually concerns:
 
 * domain calculations, validation, and state transitions;

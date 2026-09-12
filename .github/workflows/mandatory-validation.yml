@@ -41,7 +41,7 @@ jobs:
           python scripts/ci/check_repository_policy.py --base "$BASE_SHA"
       - name: Test repository policy rules
         run: python -m unittest discover -s scripts/ci/tests -v
-      - name: Audit documentation metadata, links, safety, and reachability
+      - name: Audit documentation metadata, dates, placeholders, headings, and links
         run: python .agents/skills/maintain-project-documentation/scripts/audit_docs.py --root docs
 
   rust-quality:

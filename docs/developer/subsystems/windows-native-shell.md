@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Windows UI maintainers"
-last_verified: "2026-09-10"
+last_verified: "2026-09-12"
 review_triggers:
   - "Windows shell UI, state mapping, configuration patches, subscriptions, tray behavior, or ownership boundaries change"
 keywords:
@@ -61,7 +61,7 @@ The Windows WPF application is an Arabic-first presentation adapter over the sup
 | Engine path and runtime selection, private launch bootstrap, Job Object containment, retry, IPC reconnect, and subscription reattachment | `platform-adapters/windows/Shell` and `platform-adapters/windows/ProcessSupervision` |
 | Arabic presentation, RTL layout, view state, navigation, tray, and accessibility | `shells/windows` |
 
-The shell has no database client, configuration file writer, domain validator, permission decision, sync algorithm, update policy, secret reader, or external API client. `shells/windows/tests` scans production C# source for these ownership violations. Add new product behavior to its Rust vertical, then expose a versioned typed contract.
+The shell has no database client, configuration file writer, domain validator, permission decision, sync algorithm, update policy, secret reader, or external API client. `scripts/ci/check_repository_policy.py` scans shell source for these ownership violations; the Windows shell test project verifies presentation and adapter behavior. Add new product behavior to its Rust vertical, then expose a versioned typed contract.
 
 The furniture operations dashboard currently marks itself **وضع المعاينة**. Its sales, quotation, product, material, work-order, and department values are visual fixtures that define layout and Arabic copy only. They are not live records, they do not authorize an action, and they must not be treated as saved or synchronized state. Replace each fixture with a Rust-owned typed query and subscription before changing the footer to a connected state. Keep state-changing controls disabled or without commands until Rust supplies validation, ReBAC, scope, audit, storage, and idempotency behavior.
 

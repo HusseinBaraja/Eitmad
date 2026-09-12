@@ -1,11 +1,11 @@
 ---
 title: "Start developing Eitmad"
-description: "Find each component's authority, run workspace checks, and document changes in the correct vertical."
+description: "Find each component's authority, choose the smallest valid check, and document changes in the correct vertical."
 audience: "developer"
 page_type: "tutorial"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-09-02"
+last_verified: "2026-09-12"
 review_triggers:
   - "workspace layout, local app startup, contributor checks, or ownership rules change"
 keywords:
@@ -18,7 +18,7 @@ keywords:
 
 # Start developing Eitmad
 
-This path leads to the correct change location and the foundation checks that must pass before handoff.
+This path leads to the correct change location and the smallest proof that must pass before handoff.
 
 ## Before you start
 
@@ -29,31 +29,8 @@ Read `AGENTS.md` at the repository root, then review:
 - [Feature documentation standard](contributing/documentation-standard.md)
 - [Arabic-first feature checklist](contributing/arabic-first-feature-checklist.md)
 - [Domain glossary](../glossary.md)
-- [Authoritative contract layer](subsystems/contract-layer.md)
-- [Engine runtime lifecycle](subsystems/engine-runtime.md)
-- [Typed local IPC](subsystems/local-ipc.md)
-- [Rust-owned configuration](subsystems/configuration.md)
-- [Scoped authorization and audit](subsystems/authorization.md)
-- [Privacy-preserving observability](subsystems/privacy-preserving-observability.md)
-- [Rust-owned secret storage](subsystems/secret-storage.md)
-- [Rust-owned local storage](subsystems/local-storage.md)
-- [Dual-mode synchronization and shared transports](subsystems/synchronization.md)
-- [Modular PostgreSQL server authority](subsystems/server-authority.md)
-- [WAN relay coordination](subsystems/wan-relay-coordination.md)
-- [Signed update distribution](subsystems/update-distribution.md)
-- [Least-privilege server administration](subsystems/server-administration.md)
-- [Persistent tenant identity](subsystems/identity-foundation.md)
-- [Windows engine process supervision](subsystems/windows-process-supervision.md)
-- [Arabic-first Windows operations shell](subsystems/windows-native-shell.md)
-- [Parts list vertical](subsystems/parts.md)
-- [Furniture manager flow](subsystems/furniture.md)
-- [Ready-made Products manager flow](subsystems/products.md)
-- [Quick Pricing manager flow](subsystems/pricing.md)
-- [Quotation review flow](subsystems/quotations.md)
-- [Order review flow](subsystems/orders.md)
-- [Work order review flow](subsystems/work-orders.md)
-- [Reference marker complete vertical](subsystems/reference-marker.md)
-- [Build the first real product](build-first-product.md)
+
+Then read only the subsystem page that owns the change. Use [Build the first real product](build-first-product.md) only when adding a complete product vertical.
 
 ## 1. Run the local Windows app
 
@@ -77,13 +54,24 @@ Define commands, queries, subscriptions, errors, versions, and capabilities, fol
 
 Keep unit tests near the capability they verify. Use `tests/` only for cross-boundary flows. Cover relevant success, denial, and failure paths.
 
+### Choose the smallest normal proof
+
+The commands below exist in this checkout and show one concrete focused example. Replace the example crate, test class, or documentation path with the owner of the change. Run broader gates only for a release, CI or workspace-wide change, or evidence of wider impact.
+
+| Changed boundary | Smallest normal proof | Additional proof only when needed |
+| --- | --- | --- |
+| One preview page | Build the shell, then run its affected presentation and rendered test classes. For example: `dotnet build shells/windows/Eitmad.WindowsShell.csproj --configuration Release --nologo` and `dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --configuration Release --nologo --filter "FullyQualifiedName~RawMaterialsPresentationTests\|FullyQualifiedName~RawMaterialsRenderedTests"` | Inspect the affected synthetic capture; check keyboard and OS behavior when interactions changed |
+| Rust capability behavior | Format and test the affected crate. For example: `cargo fmt --package eitmad-reference-marker -- --check` and `cargo test -p eitmad-reference-marker` | Test the direct dependent integration boundary when public behavior changed |
+| Rust contracts or generated bindings | Generate intended outputs with `npm run contracts:generate --prefix crates/contracts/codegen`, then run `npm run contracts:verify --prefix crates/contracts/codegen` | Run the affected consuming runtime or shell path; leave all-platform gates to CI |
+| One documentation page | Run `python .agents/skills/maintain-project-documentation/scripts/audit_docs.py --root docs --files docs/developer/subsystems/reference-marker.md`, then compare its behavior claims with the named source owner | Run the full documentation audit only for shared navigation or documentation-system changes |
+
 ## 5. Update the knowledge graph
 
 Follow `.agents/skills/maintain-project-documentation/SKILL.md` after feature behavior is complete and before considering the feature done. Update the canonical page, index, glossary, ADR, and troubleshooting knowledge where applicable.
 
 ## 6. Verify
 
-Run the [foundation checks](../operations/index.md). Expected result: formatting, checks, builds, and tests complete without warnings; `eitmad-engine-cli` and the Windows supervisor run cleanly; and the documentation audit passes.
+Run the selected focused proof and inspect the final diff. Use the [release guide](../operations/validate-release-candidate.md) only for release checks.
 
 ## What you learned
 
