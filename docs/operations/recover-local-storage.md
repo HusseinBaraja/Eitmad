@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "Rust storage maintainers"
-last_verified: "2026-08-27"
+last_verified: "2026-09-12"
 review_triggers:
   - "backup, restore, migration, corruption, recovery artifact, retention, or export policy changes"
 keywords:
@@ -26,6 +26,14 @@ Rust provides stopped-engine recovery hooks and tenant-scoped export primitives.
 - Preserve the full private runtime directory and available disk space.
 - Treat live databases, backups, recovery artifacts, and exports as sensitive.
 - Never copy an open SQLite file, delete WAL/SHM companions, edit migration rows, or use SQLite repair commands on the only copy.
+
+## Before real operational use
+
+Complete scheduled backups, retention, protected backup storage, and a usable restore procedure for local SQLite and server PostgreSQL data. These are readiness requirements, not capabilities supplied by the local hooks below. Define acceptable data loss and recovery time, keep a recoverable copy outside the source device's failure boundary, and make backup failures visible to the operator. Apply authorization, audit, encryption, and key-recovery policy to the backup workflow.
+
+Prove the restore procedure in an isolated environment with synthetic data. Check recovered business records, audit history, and pending synchronization work, and verify that reconnecting does not repeat accepted business effects or silently lose pending work. Record the recovery time and result before using the workflow with real operational data.
+
+Synchronization is not a backup: it can distribute an accidental deletion or an incorrect change. Retain recoverable history independently of the current synchronized state. Use these requirements when [building the first product workflow](../developer/build-first-product.md#6-add-storage-and-migration-safety).
 
 ## Backup and migration protection
 

@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "tutorial"
 status: "active"
 owner: "product and Rust domain maintainers"
-last_verified: "2026-08-27"
+last_verified: "2026-09-12"
 review_triggers:
   - "the first-product workflow, authority rules, contracts, sync, Arabic gate, or release gates change"
 keywords:
@@ -33,6 +33,8 @@ Choose one mode per domain:
 
 Give every record an explicit tenant and scope. Define whether the scope is organization, workspace, site, workshop, or another reviewed kind. Scope filtering must occur before records, counts, search suggestions, events, or errors can reveal existence.
 
+For each action, state whether it can complete offline, remain pending for server confirmation, or require a connection. A locally saved draft is not a confirmed stock reservation or final financial posting. Two disconnected devices must not both receive an unconditional reservation for the same last item. Use central confirmation for such decisions unless an explicit domain allocation rule can preserve the invariant offline. Define rejection and conflict recovery before implementing the action, using the shared [synchronization semantics](subsystems/synchronization.md).
+
 ## 3. Define authorization before behavior
 
 Define versioned actions, objects, relations, conditions, and permissions in Rust. State which roles can create, view, change, approve, cancel, export, or administer the feature. Deny missing rules by default. Test owner, manager, member, absent relation, cross-scope, cross-tenant, revoked, stale-session, and audit-unavailable outcomes.
@@ -57,6 +59,8 @@ Add the next immutable local or server migration. Include tenant/scope keys, for
 
 Test fresh creation, supported upgrade, preserved Arabic and mixed text, migration rollback, changed checksum, schema drift, newer-version rejection, backup creation, restore, and old-binary compatibility. Document the exact rollback or forward-recovery rule.
 
+Before real operational use, complete the [backup and recovery readiness requirements](../operations/recover-local-storage.md#before-real-operational-use). Storage library hooks alone do not provide an operator recovery workflow.
+
 ## 7. Connect synchronization
 
 Register one domain schema and handler. Define payload bounds, authority mode, offline behavior, cache freshness, retry, idempotency window, conflict policy, snapshot behavior, and event projection. Never add a feature-specific LAN protocol or a generic last-write-wins rule.
@@ -76,6 +80,8 @@ Use only generated bindings. Offer the feature capability, consume the negotiate
 Place Windows presentation in the feature folder. Add macOS and Linux presentation only after their native shells exist. Platform adapters own installation, lifecycle, protected OS prompts, and native update mechanics; they do not own product decisions.
 
 ## 10. Verify the complete slice
+
+Prove one real business workflow through the Arabic UI, Rust engine, local SQLite storage, synchronization, and server PostgreSQL storage before expanding general infrastructure. Use synthetic Arabic data. Exercise disconnection, engine restart, duplicate delivery, and conflicting edits from two devices. Confirm that accepted work survives restart, retries do not repeat its business effect, and pending, confirmed, rejected, and conflicted states match the chosen authority rules. Record the focused evidence and any unimplemented path in the feature page; foundation tests alone do not prove this workflow.
 
 Add focused tests for success, invalid input, denial, tenant isolation, audit failure, idempotent replay, revision conflict, migration, recovery, sync conflict or server denial, compatibility, Arabic/mixed text, RTL, accessibility surfaces, and resource bounds. Run the full [base readiness checklist](../operations/base-application-readiness-checklist.md), the real engine path, and the release-impact checks for the target platform.
 
