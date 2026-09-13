@@ -66,8 +66,9 @@ public partial class MainWindow : Window
         var showProducts = destination == "المنتجات";
         var showQuotations = destination == "عروض الأسعار";
         var showOrders = destination == "الطلبات";
+        var showUsers = destination == "المستخدمون";
         var showWorkOrders = destination == "أوامر العمل";
-        DashboardSurface.Visibility = showRawMaterials || showParts || showFurniture || showPricing || showProducts || showQuotations || showOrders || showWorkOrders ? Visibility.Collapsed : Visibility.Visible;
+        DashboardSurface.Visibility = showRawMaterials || showParts || showFurniture || showPricing || showProducts || showQuotations || showOrders || showWorkOrders || showUsers ? Visibility.Collapsed : Visibility.Visible;
         RawMaterialsSurface.Visibility = showRawMaterials ? Visibility.Visible : Visibility.Collapsed;
         PartsSurface.Visibility = showParts ? Visibility.Visible : Visibility.Collapsed;
         FurnitureSurface.Visibility = showFurniture ? Visibility.Visible : Visibility.Collapsed;
@@ -76,7 +77,8 @@ public partial class MainWindow : Window
         QuotationsSurface.Visibility = showQuotations ? Visibility.Visible : Visibility.Collapsed;
         OrdersSurface.Visibility = showOrders ? Visibility.Visible : Visibility.Collapsed;
         WorkOrdersSurface.Visibility = showWorkOrders ? Visibility.Visible : Visibility.Collapsed;
-        if (!showRawMaterials && !showParts && !showFurniture && !showPricing && !showProducts && !showQuotations && !showOrders && !showWorkOrders)
+        UsersSurface.Visibility = showUsers ? Visibility.Visible : Visibility.Collapsed;
+        if (!showUsers && !showRawMaterials && !showParts && !showFurniture && !showPricing && !showProducts && !showQuotations && !showOrders && !showWorkOrders)
         {
             DashboardTitle.Text = destination == "الرئيسية" ? "لوحة التحكم" : destination;
             ShowToast($"تم فتح {destination} في وضع المعاينة");

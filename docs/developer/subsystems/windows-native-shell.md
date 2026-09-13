@@ -123,6 +123,14 @@ An expired or engine-generation cursor causes the supervisor to open a fresh str
 
 This process preserves Rust authority. A failed configuration query clears the prior entries and revision, displays **غير متاح**, and disables configuration submission instead of presenting stale values. Command failures are caught at the WPF command boundary and mapped to recovery state so they cannot escape through the dispatcher.
 
+## Users list preview
+
+The **المستخدمون** destination uses `Features/Users` for a synthetic, non-persistent list. It shows only name, role, status, and actions. Arabic-normalized name search combines with role and status filters. The three presentation roles are **مدير**, **موظف الاستقبال**, and **النجار**; they do not define authorization policy.
+
+Add and edit use the shared `DialogHost` with name and role fields. Deactivation requires confirmation, retains the row as **غير نشط**, and disables its deactivation action. Cancel leaves the fixture unchanged. The page and dialogs label changes as preview-only: no account is created and no actual access is changed. Real account commands, scope checks, authorization, and audit must remain in Rust when this page is connected.
+
+The page reuses `PageHeader`, `FormField`, `AdaptiveFieldsPanel`, `OperationsTable`, `StatusBadge`, `EmptyState`, and existing input and button styles. Run the focused `UsersPresentationTests` and `UsersRenderedTests` classes. Set `EITMAD_USERS_CAPTURE` to a PNG path to capture the synthetic list during the rendered test.
+
 ## Engine failure, tray, and shutdown
 
 The shell maps process and channel mechanics separately. Rust `LifecycleSnapshot` remains the source for health and readiness. Windows `EngineSupervisionState` and `EngineIpcHealthState` supply launch, reconnect, and retry UX.
