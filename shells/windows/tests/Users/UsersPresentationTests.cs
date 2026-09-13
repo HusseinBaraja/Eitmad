@@ -29,6 +29,25 @@ public sealed class UsersPresentationTests
         Assert.IsTrue(new UsersViewModel().VisibleUsers[1].IsActive);
     }
     [TestMethod]
+    public void EditChangesNameRoleAndStatusButPreservesUsername()
+    {
+        var vm = new UsersViewModel();
+        var user = vm.VisibleUsers.Last();
+        vm.BeginEdit(user);
+        Assert.IsTrue(vm.IsEditing);
+        vm.EditorName = "سالم حسن";
+        vm.EditorUsername = "changed";
+        vm.EditorRole = "موظف الاستقبال";
+        vm.EditorStatus = "نشط";
+        Assert.IsTrue(vm.ApplyPreview());
+        var edited = vm.VisibleUsers.Last();
+        Assert.AreEqual(user.Username, edited.Username);
+        Assert.AreEqual("سالم حسن", edited.Name);
+        Assert.AreEqual("موظف الاستقبال", edited.Role);
+        Assert.IsTrue(edited.IsActive);
+        Assert.IsTrue(vm.IsListVisible);
+    }
+    [TestMethod]
     public void AddRequiresNameAndOneOfTheThreeRoles()
     {
         var vm = new UsersViewModel(); vm.BeginEdit();
@@ -36,7 +55,12 @@ public sealed class UsersPresentationTests
         vm.EditorName = "سالم أحمد"; vm.EditorRole = "غير معروف";
         Assert.IsFalse(vm.ApplyPreview());
         vm.EditorRole = "النجار";
+        Assert.IsFalse(vm.ApplyPreview());
+        vm.EditorUsername = "s.ahmad";
+        vm.EditorStatus = "غير نشط";
         Assert.IsTrue(vm.ApplyPreview());
+        Assert.AreEqual("s.ahmad", vm.VisibleUsers.Last().Username);
+        Assert.IsFalse(vm.VisibleUsers.Last().IsActive);
         Assert.AreEqual(5, vm.VisibleUsers.Count);
     }
 }

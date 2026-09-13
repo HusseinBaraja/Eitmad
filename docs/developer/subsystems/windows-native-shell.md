@@ -127,9 +127,9 @@ This process preserves Rust authority. A failed configuration query clears the p
 
 The **المستخدمون** destination uses `Features/Users` for a synthetic, non-persistent list. It shows only name, role, status, and actions. Arabic-normalized name search combines with role and status filters. The three presentation roles are **مدير**, **موظف الاستقبال**, and **النجار**; they do not define authorization policy.
 
-Add and edit use the shared `DialogHost` with name and role fields. Deactivation requires confirmation, retains the row as **غير نشط**, and disables its deactivation action. Cancel leaves the fixture unchanged. The page and dialogs label changes as preview-only: no account is created and no actual access is changed. Real account commands, scope checks, authorization, and audit must remain in Rust when this page is connected.
+Add and edit reuse one small page with name, username, role, and status fields. Username is read-only during edit; name, role, and active status can change. **حفظ** applies the temporary fixture and returns to the list; **إلغاء** returns without changes. There is no permission matrix. Deactivation requires confirmation, retains the row as **غير نشط**, and disables its deactivation action. Cancel leaves the fixture unchanged. The editor page and deactivation dialog label changes as preview-only: no account is created and no actual access is changed. Real account commands, scope checks, authorization, and audit must remain in Rust when this page is connected.
 
-The page reuses `PageHeader`, `FormField`, `AdaptiveFieldsPanel`, `OperationsTable`, `StatusBadge`, `EmptyState`, and existing input and button styles. Run the focused `UsersPresentationTests` and `UsersRenderedTests` classes. Set `EITMAD_USERS_CAPTURE` to a PNG path to capture the synthetic list during the rendered test.
+The page reuses `PageHeader`, `FormField`, `AdaptiveFieldsPanel`, `OperationsTable`, `StatusBadge`, `EmptyState`, and existing input and button styles. Run the focused `UsersPresentationTests` and `UsersRenderedTests` classes. Set `EITMAD_USERS_CAPTURE` to a PNG path to capture the synthetic list during the rendered test. Set `EITMAD_USER_EDITOR_CAPTURE` to capture the edit page.
 
 ## Engine failure, tray, and shutdown
 

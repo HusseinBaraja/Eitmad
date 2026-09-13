@@ -3,7 +3,7 @@ using System.Collections.ObjectModel;
 namespace Eitmad.WindowsShell.Features.Users;
 
 // Synthetic presentation state only. Account authority remains in Rust.
-public sealed record UserPreview(string Name, string Role, bool IsActive = true)
+public sealed record UserPreview(string Name, string Role, bool IsActive = true, string Username = "")
 {
     public string Status => IsActive ? "نشط" : "غير نشط";
 }
@@ -12,14 +12,15 @@ public sealed class UsersViewModel : ObservableObject
 {
     private readonly List<UserPreview> users =
     [
-        new("محمد سالم", "مدير"),
-        new("أحمد علي", "موظف الاستقبال"),
-        new("خالد حسن", "النجار"),
-        new("عمر سعيد", "النجار", false),
+        new("محمد سالم", "مدير", Username: "m.salem"),
+        new("أحمد علي", "موظف الاستقبال", Username: "a.ali"),
+        new("خالد حسن", "النجار", Username: "k.hassan"),
+        new("عمر سعيد", "النجار", false, "o.saeed"),
     ];
     public IReadOnlyList<string> Roles { get; } = ["مدير", "موظف الاستقبال", "النجار"];
     public IReadOnlyList<string> RoleOptions { get; } = ["كل الأدوار", "مدير", "موظف الاستقبال", "النجار"];
     public IReadOnlyList<string> StatusOptions { get; } = ["كل الحالات", "نشط", "غير نشط"];
+    public IReadOnlyList<string> EditorStatuses { get; } = ["نشط", "غير نشط"];
     public ObservableCollection<UserPreview> VisibleUsers { get; } = [];
     private string searchText = "", selectedRole = "كل الأدوار", selectedStatus = "كل الحالات";
     public string SearchText { get => searchText; set { if (Set(ref searchText, value)) Refresh(); } }
@@ -28,7 +29,12 @@ public sealed class UsersViewModel : ObservableObject
     private bool isEditorOpen, isDeactivationOpen;
     private string editorName = "", editorRole = "مدير", editorError = "", editorTitle = "", deactivationName = "";
     private UserPreview? editing, deactivating;
-    public bool IsEditorOpen { get => isEditorOpen; private set => Set(ref isEditorOpen, value); }
+    public bool IsEditorOpen { get => isEditorOpen; private set { if (Set(ref isEditorOpen, value)) Raise(nameof(IsListVisible)); } }
+    public bool IsListVisible => !IsEditorOpen;
+    public bool IsEditing => editing is not null;
+    private string editorUsername = "", editorStatus = "نشط";
+    public string EditorUsername { get => editorUsername; set => Set(ref editorUsername, value); }
+    public string EditorStatus { get => editorStatus; set => Set(ref editorStatus, value); }
     public bool IsDeactivationOpen { get => isDeactivationOpen; private set => Set(ref isDeactivationOpen, value); }
     public string EditorName { get => editorName; set => Set(ref editorName, value); }
     public string EditorRole { get => editorRole; set => Set(ref editorRole, value); }
@@ -49,22 +55,25 @@ public sealed class UsersViewModel : ObservableObject
     public void BeginEdit(UserPreview? user = null)
     {
         editing = user;
+        Raise(nameof(IsEditing));
+        EditorUsername = user?.Username ?? "";
+        EditorStatus = user?.Status ?? EditorStatuses[0];
         EditorName = user?.Name ?? "";
         EditorRole = user?.Role ?? Roles[0];
         EditorError = "";
         EditorTitle = user is null ? "إضافة مستخدم" : "تعديل المستخدم";
         IsEditorOpen = true;
     }
-    public void CancelEditor() { IsEditorOpen = false; editing = null; }
+    public void CancelEditor() { IsEditorOpen = false; editing = null; Raise(nameof(IsEditing)); }
     public bool ApplyPreview()
     {
         if (!IsEditorOpen) return false;
-        if (string.IsNullOrWhiteSpace(EditorName) || !Roles.Contains(EditorRole))
+        if (string.IsNullOrWhiteSpace(EditorName) || string.IsNullOrWhiteSpace(EditorUsername) || !Roles.Contains(EditorRole) || !EditorStatuses.Contains(EditorStatus))
         {
-            EditorError = "أدخل الاسم واختر الدور.";
+            EditorError = "أدخل الاسم واسم المستخدم واختر الدور والحالة.";
             return false;
         }
-        var replacement = new UserPreview(EditorName.Trim(), EditorRole, editing?.IsActive ?? true);
+        var replacement = new UserPreview(EditorName.Trim(), EditorRole, EditorStatus == "نشط", editing?.Username ?? EditorUsername.Trim());
         if (editing is null) users.Add(replacement);
         else users[users.IndexOf(editing)] = replacement;
         CancelEditor();

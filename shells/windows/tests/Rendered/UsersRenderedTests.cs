@@ -10,7 +10,7 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 public sealed class UsersRenderedTests
 {
     [TestMethod]
-    public void UsersNavigationFiltersAndDialogsWorkInTheRenderedShell()
+    public void UsersNavigationFiltersAndEditorPageWorkInTheRenderedShell()
     {
         WpfTestHost.Run(1338, 753, window =>
         {
@@ -35,7 +35,25 @@ public sealed class UsersRenderedTests
             edit.Focus(); edit.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(view);
             Assert.IsTrue(WpfTestHost.FindByName<TextBox>(view, "UserNameInput").IsKeyboardFocusWithin);
-            WpfTestHost.Descendants<DialogHost>(view).Single(dialog => dialog.IsOpen).RequestClose();
+            Assert.IsFalse(table.IsVisible);
+            Assert.IsTrue(WpfTestHost.FindByName<TextBox>(view, "UsernameInput").IsReadOnly);
+            Assert.IsFalse(WpfTestHost.Descendants<DialogHost>(view).Any(dialog => dialog.IsOpen));
+            var name = WpfTestHost.FindByName<TextBox>(view, "UserNameInput");
+            name.MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.Next));
+            Assert.IsTrue(WpfTestHost.FindByName<TextBox>(view, "UsernameInput").IsKeyboardFocusWithin);
+            var role = WpfTestHost.FindByName<ComboBox>(view, "UserRoleInput");
+            role.Focus(); role.IsDropDownOpen = true; WpfTestHost.CompleteLayout(view);
+            Assert.IsTrue(role.IsDropDownOpen);
+            role.IsDropDownOpen = false;
+            var editorCapture = Environment.GetEnvironmentVariable("EITMAD_USER_EDITOR_CAPTURE");
+            if (!string.IsNullOrEmpty(editorCapture))
+            {
+                var bitmap = new RenderTargetBitmap((int)window.ActualWidth, (int)window.ActualHeight, 96, 96, PixelFormats.Pbgra32);
+                bitmap.Render(window);
+                var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
+                using var stream = File.Create(editorCapture); encoder.Save(stream);
+            }
+            WpfTestHost.FindByAutomationName<Button>(view, "إلغاء تعديل المستخدم").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(view);
             Assert.IsTrue(edit.IsKeyboardFocusWithin);
             WpfTestHost.FindByAutomationName<Button>(view, "تعطيل المستخدم أحمد علي").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -44,6 +62,17 @@ public sealed class UsersRenderedTests
             WpfTestHost.FindByAutomationName<Button>(view, "تأكيد التعطيل في المعاينة").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(view);
             Assert.IsFalse(view.ViewModel.VisibleUsers.Single().IsActive);
+            WpfTestHost.FindByAutomationName<Button>(view, "إضافة مستخدم").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(view);
+            Assert.IsFalse(WpfTestHost.FindByName<TextBox>(view, "UsernameInput").IsReadOnly);
+            WpfTestHost.FindByName<TextBox>(view, "UserNameInput").Text = "أحمد سالم";
+            WpfTestHost.FindByName<TextBox>(view, "UsernameInput").Text = "a.salem";
+            WpfTestHost.FindByName<ComboBox>(view, "UserRoleInput").SelectedItem = "النجار";
+            WpfTestHost.FindByName<ComboBox>(view, "UserStatusInput").SelectedItem = "غير نشط";
+            WpfTestHost.FindByAutomationName<Button>(view, "حفظ").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(view);
+            Assert.IsTrue(table.IsVisible);
+            Assert.IsTrue(view.ViewModel.VisibleUsers.Any(user => user.Username == "a.salem" && !user.IsActive && user.Role == "النجار"));
         });
     }
 }
