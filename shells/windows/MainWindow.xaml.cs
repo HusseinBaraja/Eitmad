@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
+using Eitmad.WindowsShell.Features.Authentication;
 using Eitmad.WindowsShell.Features.Operations;
 using Brush = System.Windows.Media.Brush;
 using Brushes = System.Windows.Media.Brushes;
@@ -14,14 +15,75 @@ namespace Eitmad.WindowsShell;
 public partial class MainWindow : Window
 {
     private Button selectedNavButton;
+    private PreviewAccountRole currentRole = PreviewAccountRole.Manager;
+
+    public static RoutedUICommand SwitchAccountCommand { get; } = new(
+        "تبديل الحساب التجريبي",
+        nameof(SwitchAccountCommand),
+        typeof(MainWindow));
 
     /// <summary>Initializes the dashboard preview and its transient interactions.</summary>
-    public MainWindow(OperationsViewModel viewModel)
+    public MainWindow(OperationsViewModel viewModel, bool showSignIn = true)
     {
         InitializeComponent();
         DataContext = viewModel;
         selectedNavButton = HomeNavButton;
         SetNavigationTone(selectedNavButton, true);
+        SignInSurface.Visibility = showSignIn ? Visibility.Visible : Visibility.Collapsed;
+        ResponsiveRoot.Visibility = showSignIn ? Visibility.Collapsed : Visibility.Visible;
+        Title = showSignIn ? "الاعتماد · تسجيل الدخول" : "الاعتماد · لوحة التحكم";
+    }
+
+    /// <summary>Shows the shell surface that belongs to the selected preview account.</summary>
+    private void PreviewSignedIn(object sender, PreviewSignedInEventArgs eventArgs)
+    {
+        SignInSurface.Visibility = Visibility.Collapsed;
+        ShowAccount(eventArgs.Role);
+    }
+
+    /// <summary>Allows the development-only account switch after preview sign-in.</summary>
+    private void CanSwitchAccount(object sender, CanExecuteRoutedEventArgs eventArgs) =>
+        eventArgs.CanExecute = SignInSurface.Visibility != Visibility.Visible;
+
+    /// <summary>Handles the Alt+K development shortcut.</summary>
+    private void SwitchAccountExecuted(object sender, ExecutedRoutedEventArgs eventArgs) => SwitchAccount();
+
+    /// <summary>Handles the manager toolbar account switch.</summary>
+    private void SwitchAccountClick(object sender, RoutedEventArgs eventArgs) => SwitchAccount();
+
+    /// <summary>Handles the receptionist header account switch.</summary>
+    private void ReceptionistAccountSwitchRequested(object? sender, EventArgs eventArgs) => SwitchAccount();
+
+    private void SwitchAccount()
+    {
+        if (SignInSurface.Visibility == Visibility.Visible)
+        {
+            return;
+        }
+
+        ShowAccount(currentRole == PreviewAccountRole.Manager
+            ? PreviewAccountRole.Receptionist
+            : PreviewAccountRole.Manager);
+    }
+
+    private void ShowAccount(PreviewAccountRole role)
+    {
+        currentRole = role;
+        var showManager = role == PreviewAccountRole.Manager;
+        ResponsiveRoot.Visibility = showManager ? Visibility.Visible : Visibility.Collapsed;
+        ReceptionistSurface.Visibility = showManager ? Visibility.Collapsed : Visibility.Visible;
+        Title = showManager ? "الاعتماد · لوحة التحكم" : "الاعتماد · الرئيسية";
+
+        if (!showManager)
+        {
+            InteractionPanel.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        SetNavigationTone(selectedNavButton, false);
+        selectedNavButton = HomeNavButton;
+        SetNavigationTone(selectedNavButton, true);
+        ShowDestination("الرئيسية");
     }
 
     /// <summary>Selects a preview destination and updates the dashboard heading.</summary>

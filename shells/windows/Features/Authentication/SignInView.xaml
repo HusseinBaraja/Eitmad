@@ -1,0 +1,182 @@
+<UserControl x:Class="Eitmad.WindowsShell.Features.Authentication.SignInView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
+             xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls"
+             FlowDirection="RightToLeft"
+             Language="ar-YE"
+             Background="{StaticResource CanvasBrush}">
+    <UserControl.Resources>
+        <Style x:Key="DevelopmentAccountButton" TargetType="Button" BasedOn="{StaticResource ActionButton}">
+            <Setter Property="Height" Value="54" />
+            <Setter Property="Background" Value="#FCF8F3" />
+            <Setter Property="BorderBrush" Value="#E4D4C4" />
+            <Setter Property="controls:ControlOptions.HoverBackground" Value="#F5E8DB" />
+            <Setter Property="controls:ControlOptions.HoverBorderBrush" Value="#B8783E" />
+            <Setter Property="controls:ControlOptions.CornerRadius" Value="9" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="14,8" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid FlowDirection="LeftToRight">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="0.88*" MinWidth="285" />
+            <ColumnDefinition Width="1.12*" MinWidth="390" />
+        </Grid.ColumnDefinitions>
+
+        <Grid Grid.Column="0" ClipToBounds="True">
+            <Grid.Background>
+                <ImageBrush ImageSource="/Eitmad.WindowsShell;component/Resources/ShowroomHero.png"
+                            Stretch="UniformToFill"
+                            AlignmentX="Left"
+                            AlignmentY="Center" />
+            </Grid.Background>
+            <Rectangle>
+                <Rectangle.Fill>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#1A201713" />
+                        <GradientStop Color="#D92B170A" Offset="1" />
+                    </LinearGradientBrush>
+                </Rectangle.Fill>
+            </Rectangle>
+            <StackPanel Margin="44" VerticalAlignment="Bottom" FlowDirection="RightToLeft">
+                <Border Width="54" Height="4" CornerRadius="2" Background="#E5B277" HorizontalAlignment="Right" Margin="0,0,0,18" />
+                <TextBlock Text="عملٌ منظّم يبدأ من هنا"
+                           Foreground="White"
+                           FontSize="28"
+                           FontWeight="Bold"
+                           TextAlignment="Right" />
+                <TextBlock Text="واجهة عربية واضحة لاستقبال العملاء وإدارة أعمال صناعة الأثاث."
+                           Foreground="#F3E9DE"
+                           FontSize="14"
+                           LineHeight="25"
+                           TextAlignment="Right"
+                           Margin="0,12,0,0" />
+            </StackPanel>
+        </Grid>
+
+        <ScrollViewer Grid.Column="1"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled"
+                      PanningMode="VerticalOnly"
+                      Background="#FFFDFC">
+            <Grid MinHeight="560" FlowDirection="RightToLeft">
+                <StackPanel Width="420" Margin="48,34" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" FlowDirection="RightToLeft">
+                        <Viewbox Width="46" Height="39" Stretch="Uniform">
+                            <Canvas Width="76" Height="62">
+                                <Path Fill="#4B260B" Data="M 4,50 L 21,8 L 34,50 L 23,42 L 17,60 Z" />
+                                <Path Fill="#8A572A" Data="M 23,50 L 39,1 L 51,50 L 40,42 L 33,61 Z" />
+                                <Path Fill="#B08051" Data="M 44,50 L 59,12 L 73,50 L 61,43 L 55,61 Z" />
+                            </Canvas>
+                        </Viewbox>
+                        <StackPanel Margin="12,-3,0,0">
+                            <TextBlock Text="الاعتماد" FontSize="25" FontWeight="Bold" Foreground="#704019" />
+                            <TextBlock Text="لصناعة الأثاث" FontSize="11" Foreground="#704019" Margin="1,-3,0,0" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <TextBlock Text="تسجيل الدخول" FontSize="30" FontWeight="Bold" Margin="0,30,0,0" />
+                    <TextBlock Text="أدخل بيانات حسابك للانتقال إلى مساحة العمل."
+                               Foreground="{StaticResource MutedBrush}"
+                               FontSize="13"
+                               Margin="0,8,0,25" />
+
+                    <controls:FormField Label="اسم المستخدم" IsRequired="True">
+                        <TextBox x:Name="UsernameBox"
+                                 Style="{StaticResource TextInput}"
+                                 Height="48"
+                                 Padding="14,10"
+                                 FontSize="14"
+                                 FlowDirection="LeftToRight"
+                                 TextAlignment="Left"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Hidden"
+                                 ScrollViewer.VerticalScrollBarVisibility="Hidden"
+                                 automation:AutomationProperties.Name="اسم المستخدم"
+                                 KeyDown="CredentialKeyDown" />
+                    </controls:FormField>
+
+                    <controls:FormField Label="كلمة المرور" IsRequired="True" Margin="0,17,0,0">
+                        <Border Height="48" Background="White" BorderBrush="#D8D1CA" BorderThickness="1" CornerRadius="8">
+                            <PasswordBox x:Name="PasswordInput"
+                                         Background="Transparent"
+                                         BorderThickness="0"
+                                         Padding="14,9"
+                                         FontFamily="Segoe UI"
+                                         FontSize="16"
+                                         FlowDirection="LeftToRight"
+                                         automation:AutomationProperties.Name="كلمة المرور"
+                                         KeyDown="CredentialKeyDown" />
+                        </Border>
+                    </controls:FormField>
+
+                    <TextBlock x:Name="SignInError"
+                               Text="بيانات الدخول غير صحيحة. استخدم أحد حسابات التطوير أدناه."
+                               Foreground="{StaticResource DangerBrush}"
+                               FontSize="11"
+                               Margin="0,10,0,0"
+                               Visibility="Collapsed"
+                               automation:AutomationProperties.LiveSetting="Assertive" />
+
+                    <Button x:Name="SignInButton"
+                            Content="دخول"
+                            Height="48"
+                            Margin="0,18,0,0"
+                            Style="{StaticResource PrimaryButton}"
+                            FontSize="14"
+                            Click="SignInClick"
+                            automation:AutomationProperties.Name="تسجيل الدخول" />
+
+                    <Grid Margin="0,24,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition />
+                        </Grid.ColumnDefinitions>
+                        <Border BorderBrush="{StaticResource LineBrush}" BorderThickness="0,1,0,0" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Text="حسابات التطوير" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="12,0" />
+                        <Border Grid.Column="2" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,1,0,0" VerticalAlignment="Center" />
+                    </Grid>
+
+                    <Grid FlowDirection="LeftToRight">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition />
+                            <ColumnDefinition Width="10" />
+                            <ColumnDefinition />
+                        </Grid.ColumnDefinitions>
+                        <Button x:Name="ManagerAccountButton"
+                                Grid.Column="0"
+                                Style="{StaticResource DevelopmentAccountButton}"
+                                Tag="admin"
+                                Click="SelectDevelopmentAccountClick"
+                                automation:AutomationProperties.Name="استخدام حساب المدير التجريبي">
+                            <StackPanel FlowDirection="RightToLeft">
+                                <TextBlock Text="المدير" FontWeight="SemiBold" FontSize="12" />
+                                <TextBlock Text="admin / admin" FontFamily="Segoe UI" FontSize="10" Foreground="{StaticResource MutedBrush}" FlowDirection="LeftToRight" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="ReceptionistAccountButton"
+                                Grid.Column="2"
+                                Style="{StaticResource DevelopmentAccountButton}"
+                                Tag="rec"
+                                Click="SelectDevelopmentAccountClick"
+                                automation:AutomationProperties.Name="استخدام حساب موظف الاستقبال التجريبي">
+                            <StackPanel FlowDirection="RightToLeft">
+                                <TextBlock Text="موظف الاستقبال" FontWeight="SemiBold" FontSize="12" />
+                                <TextBlock Text="rec / rec" FontFamily="Segoe UI" FontSize="10" Foreground="{StaticResource MutedBrush}" FlowDirection="LeftToRight" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+
+                    <Border Margin="0,18,0,0" Padding="12,9" Background="#F6EEE6" CornerRadius="8">
+                        <TextBlock Text="وضع تطوير: هذه الواجهة لا تنشئ جلسة ولا تحفظ بيانات."
+                                   Foreground="#704019"
+                                   FontSize="10"
+                                   TextAlignment="Center" />
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

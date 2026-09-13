@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 using System.Windows.Media;
 using Eitmad.WindowsShell.Layout;
 
@@ -19,6 +20,47 @@ public sealed class MainWindowRenderedTests
             Assert.AreEqual(WindowStyle.SingleBorderWindow, window.WindowStyle);
             Assert.AreEqual(ResizeMode.CanResize, window.ResizeMode);
         });
+    }
+
+    [TestMethod]
+    public void PreviewSignInOpensReceptionistHomeAndAltKSwitchesToManager()
+    {
+        WpfTestHost.Run(1338, 753, window =>
+        {
+            var signIn = WpfTestHost.FindByName<FrameworkElement>(window, "SignInSurface");
+            Assert.AreEqual(Visibility.Visible, signIn.Visibility);
+            Assert.AreEqual(Visibility.Collapsed, WpfTestHost.FindByName<Grid>(window, "ResponsiveRoot").Visibility);
+
+            var receptionistAccount = WpfTestHost.FindByName<Button>(window, "ReceptionistAccountButton");
+            receptionistAccount.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.FindByName<Button>(window, "SignInButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+
+            Assert.AreEqual(Visibility.Collapsed, signIn.Visibility);
+            Assert.AreEqual(Visibility.Visible, WpfTestHost.FindByName<FrameworkElement>(window, "ReceptionistSurface").Visibility);
+            Assert.IsFalse(WpfTestHost.FindByName<Border>(window, "Sidebar").IsVisible);
+
+            var shortcut = window.InputBindings.OfType<KeyBinding>().Single(binding => binding.Key == Key.K);
+            Assert.AreEqual(ModifierKeys.Alt, shortcut.Modifiers);
+            MainWindow.SwitchAccountCommand.Execute(null, window);
+            WpfTestHost.CompleteLayout(window);
+
+            Assert.AreEqual(Visibility.Collapsed, WpfTestHost.FindByName<FrameworkElement>(window, "ReceptionistSurface").Visibility);
+            Assert.AreEqual(Visibility.Visible, WpfTestHost.FindByName<Grid>(window, "ResponsiveRoot").Visibility);
+        }, showSignIn: true);
+    }
+
+    [TestMethod]
+    public void ReceptionistActionsStackAtCompactWindowWidth()
+    {
+        WpfTestHost.Run(780, 745, window =>
+        {
+            WpfTestHost.FindByName<Button>(window, "ReceptionistAccountButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.FindByName<Button>(window, "SignInButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+
+            Assert.AreEqual(1, WpfTestHost.FindByName<UniformGrid>(window, "ReceptionistActionsGrid").Columns);
+        }, showSignIn: true);
     }
 
     [TestMethod]

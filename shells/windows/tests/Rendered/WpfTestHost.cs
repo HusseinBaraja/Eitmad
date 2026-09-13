@@ -10,11 +10,11 @@ internal static class WpfTestHost
 {
     private static readonly Lazy<Dispatcher> TestDispatcher = new(StartDispatcher);
 
-    public static void Run(double width, double height, Action<MainWindow> test)
+    public static void Run(double width, double height, Action<MainWindow> test, bool showSignIn = false)
     {
         TestDispatcher.Value.Invoke(() =>
         {
-            var window = new MainWindow(new OperationsViewModel())
+            var window = new MainWindow(new OperationsViewModel(), showSignIn)
             {
                 Width = width,
                 Height = height,

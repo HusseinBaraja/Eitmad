@@ -1,4 +1,10 @@
-<Window x:Class="Eitmad.WindowsShell.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:operations="clr-namespace:Eitmad.WindowsShell.Features.Operations" xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls" xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore" xmlns:layout="clr-namespace:Eitmad.WindowsShell.Layout" xmlns:furniture="clr-namespace:Eitmad.WindowsShell.Features.Furniture" xmlns:orders="clr-namespace:Eitmad.WindowsShell.Features.Orders" xmlns:parts="clr-namespace:Eitmad.WindowsShell.Features.Parts" xmlns:pricing="clr-namespace:Eitmad.WindowsShell.Features.Pricing" xmlns:products="clr-namespace:Eitmad.WindowsShell.Features.Products" xmlns:quotations="clr-namespace:Eitmad.WindowsShell.Features.Quotations" xmlns:rawMaterials="clr-namespace:Eitmad.WindowsShell.Features.RawMaterials" xmlns:users="clr-namespace:Eitmad.WindowsShell.Features.Users" xmlns:workOrders="clr-namespace:Eitmad.WindowsShell.Features.WorkOrders" Title="الاعتماد · لوحة التحكم" Width="1338" Height="753" MinWidth="720" MinHeight="560" WindowStartupLocation="CenterScreen" WindowStyle="SingleBorderWindow" ResizeMode="CanResize" Background="{StaticResource CanvasBrush}" FlowDirection="RightToLeft" Language="ar-YE" UseLayoutRounding="True" SnapsToDevicePixels="True">
+<Window x:Class="Eitmad.WindowsShell.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:Eitmad.WindowsShell" xmlns:authentication="clr-namespace:Eitmad.WindowsShell.Features.Authentication" xmlns:reception="clr-namespace:Eitmad.WindowsShell.Features.Reception" xmlns:operations="clr-namespace:Eitmad.WindowsShell.Features.Operations" xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls" xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore" xmlns:layout="clr-namespace:Eitmad.WindowsShell.Layout" xmlns:furniture="clr-namespace:Eitmad.WindowsShell.Features.Furniture" xmlns:orders="clr-namespace:Eitmad.WindowsShell.Features.Orders" xmlns:parts="clr-namespace:Eitmad.WindowsShell.Features.Parts" xmlns:pricing="clr-namespace:Eitmad.WindowsShell.Features.Pricing" xmlns:products="clr-namespace:Eitmad.WindowsShell.Features.Products" xmlns:quotations="clr-namespace:Eitmad.WindowsShell.Features.Quotations" xmlns:rawMaterials="clr-namespace:Eitmad.WindowsShell.Features.RawMaterials" xmlns:users="clr-namespace:Eitmad.WindowsShell.Features.Users" xmlns:workOrders="clr-namespace:Eitmad.WindowsShell.Features.WorkOrders" Title="الاعتماد · تسجيل الدخول" Width="1338" Height="753" MinWidth="720" MinHeight="560" WindowStartupLocation="CenterScreen" WindowStyle="SingleBorderWindow" ResizeMode="CanResize" Background="{StaticResource CanvasBrush}" FlowDirection="RightToLeft" Language="ar-YE" UseLayoutRounding="True" SnapsToDevicePixels="True">
+    <Window.InputBindings>
+        <KeyBinding Key="K" Modifiers="Alt" Command="{x:Static local:MainWindow.SwitchAccountCommand}" />
+    </Window.InputBindings>
+    <Window.CommandBindings>
+        <CommandBinding Command="{x:Static local:MainWindow.SwitchAccountCommand}" Executed="SwitchAccountExecuted" CanExecute="CanSwitchAccount" />
+    </Window.CommandBindings>
     <Window.Resources>
         <Style x:Key="MetricLabel" TargetType="TextBlock">
             <Setter Property="FontSize" Value="15" />
@@ -66,6 +72,7 @@
             </Style.Triggers>
         </Style>
     </Window.Resources>
+    <Grid x:Name="ShellHost">
     <Grid x:Name="ResponsiveRoot" FlowDirection="LeftToRight" layout:ResponsiveLayout.IsEnabled="True">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
@@ -139,8 +146,8 @@
                                 <TextBlock Text="3" Foreground="White" FontSize="9" TextAlignment="Center" VerticalAlignment="Center" />
                             </Border>
                         </Grid>
-                        <Button Style="{StaticResource IconButton}" Tag="الملف الشخصي" Click="PreviewActionClick">
-                            <Path Data="{StaticResource IconProfile}" Style="{StaticResource ToolbarVectorIcon}" />
+                        <Button x:Name="ManagerSwitchAccountButton" Style="{StaticResource IconButton}" Tag="تبديل إلى حساب موظف الاستقبال · Alt+K" Click="SwitchAccountClick">
+                            <Path Data="{StaticResource IconUsers}" Style="{StaticResource ToolbarVectorIcon}" />
                         </Button>
                     </StackPanel>
                     <Button Grid.Column="0" Height="44" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTip="عرض سعر جديد" Tag="عرض سعر جديد" Click="OpenPreviewPanelClick">
@@ -888,5 +895,13 @@
             </Grid>
         </Border>
         <TextBlock Visibility="Collapsed" Text="CNC-04 · Windows / Rust · مرجع REF-١٢" />
+    </Grid>
+        <reception:ReceptionistHomeView x:Name="ReceptionistSurface"
+                                        Panel.ZIndex="20"
+                                        Visibility="Collapsed"
+                                        AccountSwitchRequested="ReceptionistAccountSwitchRequested" />
+        <authentication:SignInView x:Name="SignInSurface"
+                                   Panel.ZIndex="50"
+                                   SignedIn="PreviewSignedIn" />
     </Grid>
 </Window>
