@@ -10,6 +10,45 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 public sealed class UsersRenderedTests
 {
     [TestMethod]
+    [DataRow(720d)]
+    [DataRow(1338d)]
+    public void EditorUsesAvailableWidthAndKeepsEnlargedControlsReachable(double width)
+    {
+        WpfTestHost.Run(width, 753, window =>
+        {
+            WpfTestHost.FindByName<Button>(window, "UsersNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            var view = WpfTestHost.Descendants<UsersView>(window).Single();
+            view.ViewModel.BeginEdit(view.ViewModel.VisibleUsers[0]);
+            WpfTestHost.CompleteLayout(view);
+            var content = WpfTestHost.FindByName<StackPanel>(view, "EditorContent");
+            // The old left-aligned StackPanel shrank to the text's desired width.
+            Assert.AreEqual(Math.Min(640, view.ActualWidth - 56), content.ActualWidth, 2);
+            var role = WpfTestHost.FindByName<ComboBox>(view, "UserRoleInput");
+            var status = WpfTestHost.FindByName<ComboBox>(view, "UserStatusInput");
+            var rolePoint = role.TranslatePoint(new Point(), content);
+            var statusPoint = status.TranslatePoint(new Point(), content);
+            if (width == 720) Assert.IsTrue(statusPoint.Y > rolePoint.Y + role.ActualHeight);
+            else Assert.AreEqual(rolePoint.Y, statusPoint.Y, 1);
+            foreach (var control in WpfTestHost.Descendants<Control>(content)) control.FontSize *= 1.5;
+            foreach (var text in WpfTestHost.Descendants<TextBlock>(content)) text.FontSize *= 1.5;
+            WpfTestHost.CompleteLayout(view);
+            var save = WpfTestHost.FindByAutomationName<Button>(view, "حفظ");
+            save.BringIntoView();
+            WpfTestHost.CompleteLayout(view);
+            var point = save.TranslatePoint(new Point(), view);
+            Assert.IsTrue(point.X >= 0 && point.X + save.ActualWidth <= view.ActualWidth);
+            Assert.IsTrue(point.Y >= 0 && point.Y + save.ActualHeight <= view.ActualHeight);
+            var captureDirectory = Environment.GetEnvironmentVariable("EITMAD_USER_LAYOUT_CAPTURES");
+            if (!string.IsNullOrEmpty(captureDirectory))
+            {
+                var bitmap = new RenderTargetBitmap((int)window.ActualWidth, (int)window.ActualHeight, 96, 96, PixelFormats.Pbgra32);
+                bitmap.Render(window);
+                var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
+                using var stream = File.Create(Path.Combine(captureDirectory, $"user-editor-{width}.png")); encoder.Save(stream);
+            }
+        });
+    }
+    [TestMethod]
     public void UsersNavigationFiltersAndEditorPageWorkInTheRenderedShell()
     {
         WpfTestHost.Run(1338, 753, window =>
