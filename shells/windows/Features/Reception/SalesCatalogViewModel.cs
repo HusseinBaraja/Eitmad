@@ -66,9 +66,28 @@ public sealed class SalesCatalogViewModel : ObservableObject
         SelectedCategory = "الكل";
     }
 
+    private bool isReviewingQuotation;
+    public bool IsReviewingQuotation { get => isReviewingQuotation; set => Set(ref isReviewingQuotation, value); }
+    private FurnitureSelectionViewModel? selection;
+    public FurnitureSelectionViewModel? Selection { get => selection; private set { Set(ref selection, value); Raise(nameof(IsSelecting)); } }
+    public bool IsSelecting => Selection is not null;
+    public ObservableCollection<PreviewQuotationLine> QuotationLines { get; } = [];
+    public string QuotationLabel => $"عرض السعر · {QuotationLines.Count} عناصر";
+    public void CloseSelection() => Selection = null;
+    public bool AddSelection()
+    {
+        if (Selection is not { CanAdd: true } current) return false;
+        QuotationLines.Add(new(current.Item.Name, current.SelectedSize!.Name, current.SelectedColor?.Name,
+            current.SelectedHandle?.Name, current.Quantity, current.UnitPrice, current.LineTotal));
+        Raise(nameof(QuotationLabel));
+        return true;
+    }
+
     public void Select(SalesCatalogItem item)
     {
-        if (VisibleItems.Contains(item))
+        if (!VisibleItems.Contains(item)) return;
+        Selection = furniture.GetSalesSelection(item.Id);
+        if (Selection is null)
             SelectionNotice = $"تم اختيار {item.Name} للمعاينة فقط. إعداد الصنف غير متاح بعد.";
     }
 

@@ -109,6 +109,16 @@ public sealed class FurnitureViewModel : ObservableObject
                 ? variants.Min(variant => variant.SellingPrice) : item.SellingPrice, true, item.ThumbnailKind,
             productImages.TryGetValue(item.Id, out var image) ? image.Image : null));
 
+    public Reception.FurnitureSelectionViewModel? GetSalesSelection(Guid id)
+    {
+        var item = GetSalesCatalogItems().FirstOrDefault(item => item.Id == id);
+        if (item is null) return null;
+        return new(item,
+            productVariants.GetValueOrDefault(id, []).Select(v => new Reception.SalesSize(v.Id, v.Name, v.DimensionsLabel, v.SellingPrice)).ToArray(),
+            productColors.GetValueOrDefault(id, []).Where(c => c.IsActive).Select(c => new Reception.SalesOption(c.Id, c.Name, c.PriceAdjustment, c.SwatchBrush)).ToArray(),
+            productHandles.GetValueOrDefault(id, []).Where(h => h.IsActive).Select(h => new Reception.SalesOption(h.Id, h.Name, h.PriceAdjustment, h.HandleBrush)).ToArray());
+    }
+
     public IReadOnlyList<string> EditorCategoryOptions { get; }
 
     public IReadOnlyList<string> StatusOptions { get; }

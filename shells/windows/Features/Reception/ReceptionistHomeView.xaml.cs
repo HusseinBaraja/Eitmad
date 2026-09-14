@@ -11,14 +11,29 @@ public partial class ReceptionistHomeView : UserControl
 
     public event EventHandler? AccountSwitchRequested;
 
-    public void SetCatalogSources(Features.Furniture.FurnitureViewModel furniture, Features.Products.ProductsViewModel products) =>
-        CatalogContent.DataContext = new SalesCatalogViewModel(furniture, products);
+    public void SetCatalogSources(Features.Furniture.FurnitureViewModel furniture, Features.Products.ProductsViewModel products)
+    {
+        var catalog = new SalesCatalogViewModel(furniture, products);
+        CatalogContent.DataContext = catalog;
+        ReceptionistTitleBar.PrimaryActionButton.Width = 220;
+        System.Windows.Automation.AutomationProperties.SetName(ReceptionistTitleBar.PrimaryActionButton, "فتح عرض السعر");
+        ReceptionistTitleBar.SetBinding(Controls.ShellTitleBar.PrimaryActionLabelProperty,
+            new System.Windows.Data.Binding(nameof(SalesCatalogViewModel.QuotationLabel)) { Source = catalog });
+    }
 
     private void SharedAccountSwitchRequested(object? sender, EventArgs eventArgs) =>
         AccountSwitchRequested?.Invoke(this, EventArgs.Empty);
 
-    private void TitleBarActionRequested(object? sender, Controls.ShellActionEventArgs eventArgs) =>
+    private void TitleBarActionRequested(object? sender, Controls.ShellActionEventArgs eventArgs)
+    {
+        if (eventArgs.IsPrimary)
+        {
+            if (!CatalogContent.IsVisible) Navigate("المنتجات");
+            ((SalesCatalogViewModel)CatalogContent.DataContext).IsReviewingQuotation = true;
+            return;
+        }
         ShowPreviewFeedback(eventArgs.Action);
+    }
 
     private void TitleBarSearchSubmitted(object? sender, Controls.ShellSearchEventArgs eventArgs) =>
         ShowNotice($"نتائج المعاينة عن: {eventArgs.Query}");
@@ -67,3 +82,4 @@ public partial class ReceptionistHomeView : UserControl
 
     private void DismissNotice(object sender, RoutedEventArgs eventArgs) => ReceptionistNotice.Message = string.Empty;
 }
+

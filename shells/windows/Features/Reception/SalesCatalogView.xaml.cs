@@ -12,9 +12,17 @@ public partial class SalesCatalogView : UserControl
         ((SalesCatalogViewModel)DataContext).ClearFilters();
         CatalogSearch.Focus();
     }
+    private Button? lastSelectionButton;
+    public void RestoreSelectionFocus() => Dispatcher.BeginInvoke(new Action(() => lastSelectionButton?.Focus()));
+    private void CloseQuotationClick(object sender, RoutedEventArgs e) => ((SalesCatalogViewModel)DataContext).IsReviewingQuotation = false;
     private void SelectClick(object sender, RoutedEventArgs e)
     {
         if (sender is Button { DataContext: SalesCatalogItem item })
+        {
+            lastSelectionButton = (Button)sender;
             ((SalesCatalogViewModel)DataContext).Select(item);
+            if (((SalesCatalogViewModel)DataContext).IsSelecting)
+                Dispatcher.BeginInvoke(new Action(() => SelectionView.BackButton.Focus()));
+        }
     }
 }
