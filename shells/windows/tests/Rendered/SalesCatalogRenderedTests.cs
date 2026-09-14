@@ -12,6 +12,60 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 public sealed class SalesCatalogRenderedTests
 {
     [TestMethod]
+    public void FurnitureOptionRowsScrollThePageOverCardsAndEmptySpace()
+    {
+        WpfTestHost.Run(1338, 900, window =>
+        {
+            var reception = WpfTestHost.FindByName<ReceptionistHomeView>(window, "ReceptionistSurface");
+            reception.Visibility = Visibility.Visible;
+            WpfTestHost.FindByName<Grid>(window, "ResponsiveRoot").Visibility = Visibility.Collapsed;
+            WpfTestHost.CompleteLayout(window);
+            WpfTestHost.FindByName<Button>(reception, "ProductsAction").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var catalog = WpfTestHost.FindByName<SalesCatalogView>(reception, "CatalogContent");
+            WpfTestHost.FindByAutomationName<Button>(catalog, "اختيار خزانة السكينة")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var detail = WpfTestHost.FindByName<FurnitureSelectionView>(catalog, "SelectionView");
+            var page = WpfTestHost.Descendants<ScrollViewer>(detail).First();
+
+            foreach (var name in new[] { "SizesList", "ColorsList", "HandlesList" })
+            {
+                var list = WpfTestHost.FindByName<ListBox>(detail, name);
+                var card = (ListBoxItem)list.ItemContainerGenerator.ContainerFromIndex(0);
+                list.SelectedIndex = 0;
+                card.BringIntoView();
+                WpfTestHost.CompleteLayout(window);
+                var cardPoint = card.TranslatePoint(new Point(card.ActualWidth / 2, card.ActualHeight / 2), list);
+                var emptyPoint = new Point(list.ActualWidth - 2, cardPoint.Y);
+                foreach (var point in new[] { cardPoint, emptyPoint })
+                {
+                    var target = list.InputHitTest(point) as DependencyObject;
+                    Assert.IsNotNull(target);
+                    if (point == emptyPoint)
+                        Assert.IsFalse(WpfTestHost.Descendants<ListBoxItem>(list).Any(item => item.IsAncestorOf(target) || item == target), "The regression must cover empty row space.");
+                    var source = target as UIElement ?? WpfTestHost.Ancestor<UIElement>(target);
+                    foreach (var delta in new[] { -120, 120 })
+                    {
+                        page.ScrollToVerticalOffset(page.ScrollableHeight / 2);
+                        WpfTestHost.CompleteLayout(window);
+                        var before = page.VerticalOffset;
+                        source.RaiseEvent(new MouseWheelEventArgs(Mouse.PrimaryDevice, Environment.TickCount, delta)
+                        {
+                            RoutedEvent = Mouse.MouseWheelEvent,
+                        });
+                        WpfTestHost.CompleteLayout(window);
+                        Assert.IsTrue(delta < 0 ? page.VerticalOffset > before : page.VerticalOffset < before,
+                            $"{name}: wheel {delta} at {point} must scroll the page.");
+                        Assert.AreEqual(0, list.SelectedIndex, "Scrolling must preserve the selected option.");
+                    }
+                }
+            }
+            Capture(window, "selection-scroll");
+        });
+    }
+
+    [TestMethod]
     public void ReceptionCatalogSupportsNavigationSearchClearAndKeyboardSelection()
     {
         WpfTestHost.Run(1338, 900, window =>

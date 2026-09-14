@@ -17,8 +17,12 @@
   </DataTemplate>
   <Style x:Key="Options" TargetType="ListBox">
    <Setter Property="BorderThickness" Value="0"/><Setter Property="Background" Value="Transparent"/>
-   <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
-   <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled"/>
+   <!-- The page owns scrolling. A nested ScrollViewer consumes wheel events even with disabled scrollbars. -->
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBox">
+    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}">
+     <ItemsPresenter/>
+    </Border>
+   </ControlTemplate></Setter.Value></Setter>
    <Setter Property="ItemContainerStyle" Value="{StaticResource OptionCard}"/>
    <Setter Property="ItemsPanel"><Setter.Value><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></Setter.Value></Setter>
   </Style>
