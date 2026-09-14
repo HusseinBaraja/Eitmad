@@ -95,7 +95,29 @@
                                  ScrollViewer.HorizontalScrollBarVisibility="Hidden"
                                  ScrollViewer.VerticalScrollBarVisibility="Hidden"
                                  automation:AutomationProperties.Name="اسم المستخدم"
-                                 KeyDown="CredentialKeyDown" />
+                                 KeyDown="CredentialKeyDown">
+                            <TextBox.Template>
+                                <ControlTemplate TargetType="TextBox">
+                                    <Border x:Name="UsernameChrome" Background="{TemplateBinding Background}"
+                                            BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                                            CornerRadius="8">
+                                        <!-- WPF applies TextBox.Padding to this host; the border must not repeat it. -->
+                                        <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center"
+                                                      Focusable="False" HorizontalScrollBarVisibility="Hidden"
+                                                      VerticalScrollBarVisibility="Hidden" />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                            <Setter TargetName="UsernameChrome" Property="BorderBrush" Value="#A35E1E" />
+                                            <Setter TargetName="UsernameChrome" Property="BorderThickness" Value="1.5" />
+                                        </Trigger>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="UsernameChrome" Property="Background" Value="#FFFEFC" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </TextBox.Template>
+                        </TextBox>
                     </controls:FormField>
 
                     <controls:FormField Label="كلمة المرور" IsRequired="True" Margin="0,17,0,0">
