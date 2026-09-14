@@ -68,11 +68,12 @@
         </StackPanel>
         <TextBlock Grid.Row="4" Text="{Binding SelectionNotice}" Margin="0,8,0,0" AutomationProperties.LiveSetting="Polite" Style="{StaticResource CatalogText}"/>
     </Grid>
-        <reception:FurnitureSelectionView x:Name="SelectionView" DataContext="{Binding Selection}" Visibility="{Binding DataContext.IsSelecting, Converter={StaticResource BooleanToVisibility}, RelativeSource={RelativeSource AncestorType=reception:SalesCatalogView}}" />
+        <reception:FurnitureSelectionView x:Name="SelectionView" DataContext="{Binding Selection}" Visibility="{Binding DataContext.IsSelectingFurniture, Converter={StaticResource BooleanToVisibility}, RelativeSource={RelativeSource AncestorType=reception:SalesCatalogView}}" />
+        <reception:ProductSelectionView x:Name="ProductSelectionView" DataContext="{Binding ProductSelection}" Visibility="{Binding DataContext.IsSelectingProduct, Converter={StaticResource BooleanToVisibility}, RelativeSource={RelativeSource AncestorType=reception:SalesCatalogView}}" />
         <Border Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" Visibility="{Binding IsReviewingQuotation, Converter={StaticResource BooleanToVisibility}}" Padding="28">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Top">
-                    <Button Content="متابعة اختيار الأثاث" Click="CloseQuotationClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" AutomationProperties.Name="متابعة اختيار الأثاث"/>
+                    <Button Content="متابعة اختيار المنتجات" Click="CloseQuotationClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" AutomationProperties.Name="متابعة اختيار المنتجات"/>
                     <TextBlock Text="{Binding QuotationLabel}" FontSize="28" FontWeight="Bold" Margin="0,18,0,6"/>
                     <TextBlock Text="معاينة مؤقتة — لا يتم حفظ عرض السعر" Margin="0,0,0,18"/>
                 </StackPanel>

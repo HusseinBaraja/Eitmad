@@ -341,3 +341,5 @@ dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --filter 'Full
 ```
 
 Audit this guide with the focused documentation command in the [documentation standard](../contributing/documentation-standard.md). No Rust workspace check is needed for these shell-only controls.
+
+Ready-made product selection uses `ProductSelectionView` in the receptionist catalog. It shows the image, name, description, selling price or selectable variant cards, and shared quantity stepper. A variant must be selected when available. **إضافة إلى عرض السعر** adds a snapshot to the same temporary quotation collection used by furniture and keeps the selection open. Purchase cost, margin, supplier details, and manufacturing options are excluded. `SalesSelectionStyles.xaml` shares the existing furniture card presentation without changing its behavior. This remains a synthetic preview; no authorization, audit, or durable save is performed.

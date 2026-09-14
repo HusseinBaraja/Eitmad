@@ -1,0 +1,56 @@
+<UserControl x:Class="Eitmad.WindowsShell.Features.Reception.ProductSelectionView"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls" FlowDirection="RightToLeft" Language="ar-YE">
+ <UserControl.Resources><ResourceDictionary><ResourceDictionary.MergedDictionaries><ResourceDictionary Source="../../Resources/SalesCatalogVisuals.xaml"/><ResourceDictionary Source="../../Resources/SalesSelectionStyles.xaml"/></ResourceDictionary.MergedDictionaries>
+  <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+   <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}"/>
+  </Style>
+ </ResourceDictionary></UserControl.Resources>
+ <Grid Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}">
+ <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+ <StackPanel Margin="28,18" TextBlock.Foreground="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}">
+  <Button x:Name="BackButton" Content="العودة إلى المنتجات" HorizontalAlignment="Right" Style="{StaticResource SecondaryButton}" Click="BackClick" AutomationProperties.Name="العودة إلى المنتجات"/>
+  <TextBlock Text="معاينة ببيانات تجريبية — عرض السعر مؤقت ولا يتم حفظه" Margin="0,12"/>
+  <Grid Margin="0,0,0,18">
+   <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="3*"/></Grid.ColumnDefinitions>
+   <Border Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}" CornerRadius="12" Height="250" Margin="0,0,20,0">
+    <Grid DataContext="{Binding Item}">
+     <ContentControl Content="{Binding}" Style="{StaticResource CatalogIllustration}" Focusable="False" IsHitTestVisible="False"/>
+     <Image Source="{Binding Image}" Stretch="Uniform" FlowDirection="LeftToRight"/>
+    </Grid>
+   </Border>
+   <StackPanel Grid.Column="1" VerticalAlignment="Center">
+    <TextBlock Text="{Binding Item.Name}" FontSize="30" FontWeight="Bold" TextWrapping="Wrap"/>
+    <TextBlock Text="{Binding Item.Description}" FontSize="16" Margin="0,10,0,0" TextWrapping="Wrap"/>
+   </StackPanel>
+  </Grid>
+  <StackPanel Visibility="{Binding HasVariants, Converter={StaticResource BooleanToVisibility}}">
+   <TextBlock Text="اختر النوع / المقاس" FontSize="22" FontWeight="Bold" Margin="0,0,0,12"/>
+   <ListBox x:Name="VariantsList" Style="{StaticResource Options}" ItemsSource="{Binding Variants}" SelectedItem="{Binding SelectedVariant}" AutomationProperties.Name="اختر النوع / المقاس">
+    <ListBox.ItemTemplate><DataTemplate><StackPanel>
+     <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource OptionTitle}"/>
+     <TextBlock Text="{Binding PriceLabel}" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" FlowDirection="LeftToRight" FontSize="20" FontWeight="Bold" Margin="0,12,0,0"/>
+    </StackPanel></DataTemplate></ListBox.ItemTemplate>
+   </ListBox>
+  </StackPanel>
+  <StackPanel Visibility="{Binding HasNoVariants, Converter={StaticResource BooleanToVisibility}}">
+   <TextBlock Text="سعر البيع" FontSize="18"/>
+   <TextBlock Text="{Binding Item.PriceLabel}" FlowDirection="LeftToRight" TextAlignment="Right" FontSize="28" FontWeight="Bold" Margin="0,8,0,0"/>
+  </StackPanel>
+  <Border BorderBrush="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}" BorderThickness="0,1,0,0" Margin="0,18,0,0" Padding="0,20,0,0">
+   <StackPanel>
+    <DockPanel><TextBlock Text="الكمية" Margin="0,0,16,0" FontSize="20" VerticalAlignment="Center"/><controls:QuantityStepper x:Name="QuantityControl" Value="{Binding Quantity}" HorizontalAlignment="Left"/></DockPanel>
+    <Grid Margin="0,18,0,12" FlowDirection="LeftToRight">
+     <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+     <TextBlock Grid.Column="1" Text="الإجمالي" FlowDirection="RightToLeft" FontSize="24" FontWeight="Bold"/>
+     <controls:AmountDisplay AmountText="{Binding LineTotalLabel}" UnitText="YER" UnitPlacement="After" FontSize="24" FontWeight="Bold" HorizontalAlignment="Left"/>
+    </Grid>
+    <TextBlock Text="{Binding Guidance}" Margin="0,0,0,8"/>
+    <Button x:Name="AddButton" Content="إضافة إلى عرض السعر" Style="{StaticResource PrimaryButton}" MinHeight="52" IsEnabled="{Binding CanAdd}" Click="AddClick" AutomationProperties.Name="إضافة إلى عرض السعر"/>
+   </StackPanel>
+  </Border>
+ </StackPanel>
+ </ScrollViewer>
+ <controls:FeedbackNotice x:Name="AddedNotice" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="28,12" Tone="Success" IsFloating="True" DisplayDuration="00:00:04"/>
+ </Grid>
+</UserControl>

@@ -8,6 +8,35 @@ namespace Eitmad.WindowsShell.Tests.Products;
 public sealed class SalesCatalogPresentationTests
 {
     [TestMethod]
+    public void ReadyMadeSelectionsRequireVariantsAndKeepQuotationSnapshots()
+    {
+        var model = new SalesCatalogViewModel(new FurnitureViewModel(), new ProductsViewModel());
+        model.Select(model.VisibleItems.Single(item => item.Name == "مرتبة طبية"));
+        var detail = model.ProductSelection!;
+        Assert.IsFalse(model.AddProductSelection());
+        detail.SelectedVariant = detail.Variants[1];
+        detail.Quantity = 2;
+        Assert.IsTrue(model.AddProductSelection());
+        Assert.AreEqual(210_000m, model.QuotationLines.Single().LineTotal);
+        Assert.AreEqual("مزدوج", model.QuotationLines.Single().Variant);
+        Assert.IsNull(model.QuotationLines.Single().Color);
+        detail.SelectedVariant = detail.Variants[2];
+        Assert.AreEqual(210_000m, model.QuotationLines.Single().LineTotal);
+        detail.Quantity = 0;
+        Assert.AreEqual(2, detail.Quantity);
+        model.CloseSelection();
+        model.Select(model.VisibleItems.Single(item => item.Name == "وسادة فندقية"));
+        Assert.IsFalse(model.ProductSelection!.HasVariants);
+        Assert.IsTrue(model.AddProductSelection());
+        Assert.AreEqual(12_000m, model.QuotationLines.Last().UnitPrice);
+        Assert.AreEqual(string.Empty, model.QuotationLines.Last().Variant);
+        var item = model.ProductSelection.Item;
+        var variant = new SalesProductVariant(Guid.NewGuid(), "قياسي", decimal.MaxValue);
+        var overflow = new ProductSelectionViewModel(item, [variant]) { SelectedVariant = variant, Quantity = 2 };
+        Assert.IsFalse(overflow.CanAdd);
+    }
+
+    [TestMethod]
     public void CatalogCombinesActiveItemsAndComposesArabicSearchWithCategories()
     {
         var model = new SalesCatalogViewModel(new FurnitureViewModel(), new ProductsViewModel());

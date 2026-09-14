@@ -97,6 +97,15 @@ public sealed class ProductsViewModel : ObservableObject
                 item.ThumbnailKind, item.Image);
         });
 
+    public Reception.ProductSelectionViewModel? GetSalesSelection(Guid id)
+    {
+        var item = GetSalesCatalogItems().FirstOrDefault(item => item.Id == id);
+        if (item is null) return null;
+        var variants = details.GetValueOrDefault(id)?.Variants ?? [];
+        return new(item, variants.Select(variant =>
+            new Reception.SalesProductVariant(variant.Id, variant.Name, variant.SellingPrice)).ToArray());
+    }
+
     public ObservableCollection<ProductVariant> Variants { get; }
 
     public ObservableCollection<ProductCategoryOption> Categories { get; }

@@ -69,11 +69,23 @@ public sealed class SalesCatalogViewModel : ObservableObject
     private bool isReviewingQuotation;
     public bool IsReviewingQuotation { get => isReviewingQuotation; set => Set(ref isReviewingQuotation, value); }
     private FurnitureSelectionViewModel? selection;
-    public FurnitureSelectionViewModel? Selection { get => selection; private set { Set(ref selection, value); Raise(nameof(IsSelecting)); } }
-    public bool IsSelecting => Selection is not null;
+    public FurnitureSelectionViewModel? Selection { get => selection; private set { Set(ref selection, value); Raise(nameof(IsSelecting)); Raise(nameof(IsSelectingFurniture)); } }
+    private ProductSelectionViewModel? productSelection;
+    public ProductSelectionViewModel? ProductSelection { get => productSelection; private set { Set(ref productSelection, value); Raise(nameof(IsSelecting)); Raise(nameof(IsSelectingProduct)); } }
+    public bool IsSelectingProduct => ProductSelection is not null;
+    public bool IsSelectingFurniture => Selection is not null;
+    public bool IsSelecting => IsSelectingFurniture || IsSelectingProduct;
     public ObservableCollection<PreviewQuotationLine> QuotationLines { get; } = [];
     public string QuotationLabel => $"عرض السعر · {QuotationLines.Count} عناصر";
-    public void CloseSelection() => Selection = null;
+    public void CloseSelection() { Selection = null; ProductSelection = null; }
+    public bool AddProductSelection()
+    {
+        if (ProductSelection is not { CanAdd: true } current) return false;
+        QuotationLines.Add(new(current.Item.Name, current.SelectedVariant?.Name ?? string.Empty,
+            null, null, current.Quantity, current.UnitPrice, current.LineTotal));
+        Raise(nameof(QuotationLabel));
+        return true;
+    }
     public bool AddSelection()
     {
         if (Selection is not { CanAdd: true } current) return false;
@@ -87,7 +99,8 @@ public sealed class SalesCatalogViewModel : ObservableObject
     {
         if (!VisibleItems.Contains(item)) return;
         Selection = furniture.GetSalesSelection(item.Id);
-        if (Selection is null)
+        ProductSelection = Selection is null ? products.GetSalesSelection(item.Id) : null;
+        if (!IsSelecting)
             SelectionNotice = $"تم اختيار {item.Name} للمعاينة فقط. إعداد الصنف غير متاح بعد.";
     }
 
