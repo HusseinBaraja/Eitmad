@@ -102,6 +102,13 @@ public sealed class FurnitureViewModel : ObservableObject
 
     public IReadOnlyList<string> CategoryOptions { get; }
 
+    public IEnumerable<Reception.SalesCatalogItem> GetSalesCatalogItems() =>
+        furniture.Where(item => !item.IsArchived && !item.IsDraft).Select(item => new Reception.SalesCatalogItem(
+            item.Id, item.Name, item.Category, productDescriptions.GetValueOrDefault(item.Id, "تصميم أثاث ثابت المقاسات للاستخدام اليومي."),
+            item.VariantCountLabel, productVariants.TryGetValue(item.Id, out var variants) && variants.Count > 0
+                ? variants.Min(variant => variant.SellingPrice) : item.SellingPrice, true, item.ThumbnailKind,
+            productImages.TryGetValue(item.Id, out var image) ? image.Image : null));
+
     public IReadOnlyList<string> EditorCategoryOptions { get; }
 
     public IReadOnlyList<string> StatusOptions { get; }

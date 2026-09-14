@@ -11,6 +11,9 @@ public partial class ReceptionistHomeView : UserControl
 
     public event EventHandler? AccountSwitchRequested;
 
+    public void SetCatalogSources(Features.Furniture.FurnitureViewModel furniture, Features.Products.ProductsViewModel products) =>
+        CatalogContent.DataContext = new SalesCatalogViewModel(furniture, products);
+
     private void SharedAccountSwitchRequested(object? sender, EventArgs eventArgs) =>
         AccountSwitchRequested?.Invoke(this, EventArgs.Empty);
 
@@ -21,7 +24,22 @@ public partial class ReceptionistHomeView : UserControl
         ShowNotice($"نتائج المعاينة عن: {eventArgs.Query}");
 
     private void SidebarNavigationRequested(object? sender, Controls.NavigationRequestedEventArgs eventArgs) =>
-        ShowNotice($"تم فتح {eventArgs.Destination} في وضع المعاينة");
+        Navigate(eventArgs.Destination);
+
+    private void Navigate(string destination)
+    {
+        if (destination is not ("المنتجات" or "الرئيسية"))
+        {
+            ShowNotice($"تم اختيار {destination} في وضع المعاينة");
+            return;
+        }
+        var catalog = destination == "المنتجات";
+        if (catalog) ((SalesCatalogViewModel)CatalogContent.DataContext).Reload();
+        CatalogContent.Visibility = catalog ? Visibility.Visible : Visibility.Collapsed;
+        HomeContent.Visibility = catalog ? Visibility.Collapsed : Visibility.Visible;
+        ReceptionistTitleBar.Title = destination;
+        ReceptionistSidebar.SelectDestination(destination);
+    }
 
     private void ActionClick(object sender, RoutedEventArgs eventArgs)
     {
@@ -33,10 +51,13 @@ public partial class ReceptionistHomeView : UserControl
         ShowPreviewFeedback(action);
     }
 
-    private void ShowPreviewFeedback(string action) =>
+    private void ShowPreviewFeedback(string action)
+    {
+        if (action == "المنتجات") { Navigate(action); return; }
         ShowNotice(action == "عرض سعر جديد"
             ? "واجهة إنشاء عرض السعر ستُربط في المرحلة التالية"
             : $"تم اختيار {action} في وضع المعاينة");
+    }
 
     private void ShowNotice(string message)
     {

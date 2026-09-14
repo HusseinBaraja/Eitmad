@@ -4,6 +4,7 @@
              xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
              xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls"
              xmlns:layout="clr-namespace:Eitmad.WindowsShell.Layout"
+             xmlns:reception="clr-namespace:Eitmad.WindowsShell.Features.Reception"
              FlowDirection="RightToLeft"
              Language="ar-YE"
              Background="{StaticResource CanvasBrush}">
@@ -52,7 +53,7 @@
                                 ActionRequested="TitleBarActionRequested"
                                 SearchSubmitted="TitleBarSearchSubmitted" />
 
-        <ScrollViewer Grid.Row="1" Grid.Column="0" FlowDirection="RightToLeft" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
+        <ScrollViewer x:Name="HomeContent" Grid.Row="1" Grid.Column="0" FlowDirection="RightToLeft" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
             <StackPanel Margin="38,28,38,34" MaxWidth="1180">
                 <TextBlock Text="أهلاً بك" FontSize="29" FontWeight="Bold" />
                 <TextBlock Text="ابدأ خدمة العميل من الإجراء الذي تحتاجه."
@@ -181,6 +182,7 @@
                                  IsFloating="True"
                                  DisplayDuration="00:00:02.5"
                                  Dismissed="DismissNotice" />
+        <reception:SalesCatalogView x:Name="CatalogContent" Grid.Row="1" Visibility="Collapsed" />
         <controls:ShellSidebar x:Name="ReceptionistSidebar" Grid.RowSpan="2" Grid.Column="1" IsReceptionist="True" NavigationRequested="SidebarNavigationRequested" />
     </Grid>
 </UserControl>

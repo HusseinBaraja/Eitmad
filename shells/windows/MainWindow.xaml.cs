@@ -21,6 +21,7 @@ public partial class MainWindow : Window
     public MainWindow(OperationsViewModel viewModel, bool showSignIn = true)
     {
         InitializeComponent();
+        ReceptionistSurface.SetCatalogSources(FurnitureSurface.ViewModel, ProductsSurface.ViewModel);
         DataContext = viewModel;
         SignInSurface.Visibility = showSignIn ? Visibility.Visible : Visibility.Collapsed;
         ResponsiveRoot.Visibility = showSignIn ? Visibility.Collapsed : Visibility.Visible;
