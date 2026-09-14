@@ -12,6 +12,48 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 public sealed class SalesCatalogRenderedTests
 {
     [TestMethod]
+    public void CurrentQuotationRendersAndReusesSelectionEditor()
+    {
+        WpfTestHost.Run(1338, 1000, window =>
+        {
+            var reception = WpfTestHost.FindByName<ReceptionistHomeView>(window, "ReceptionistSurface");
+            reception.Visibility = Visibility.Visible;
+            WpfTestHost.FindByName<Grid>(window, "ResponsiveRoot").Visibility = Visibility.Collapsed;
+            WpfTestHost.CompleteLayout(window);
+            WpfTestHost.FindByName<Button>(reception, "ProductsAction").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var catalog = WpfTestHost.FindByName<SalesCatalogView>(reception, "CatalogContent");
+            var model = (SalesCatalogViewModel)catalog.DataContext;
+            model.Select(model.VisibleItems.First());
+            model.Selection!.SelectedSize = model.Selection.Sizes[0];
+            model.Selection.SelectedColor = model.Selection.Colors[0];
+            model.Selection.SelectedHandle = model.Selection.Handles[0];
+            model.AddSelection(); model.CloseSelection();
+            model.IsReviewingQuotation = true;
+            WpfTestHost.CompleteLayout(window);
+            var quotation = WpfTestHost.FindByName<CurrentQuotationView>(catalog, "QuotationView");
+            Assert.IsTrue(quotation.IsVisible);
+            Capture(window, "current-quotation");
+            var edit = WpfTestHost.FindByAutomationName<Button>(quotation, "تعديل " + model.QuotationLines[0].Name);
+            edit.Focus(); Assert.IsTrue(edit.IsKeyboardFocusWithin);
+            edit.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsFalse(quotation.IsVisible);
+            var selection = WpfTestHost.FindByName<FurnitureSelectionView>(catalog, "SelectionView");
+            Assert.IsTrue(selection.IsVisible);
+            WpfTestHost.FindByAutomationName<Button>(selection, "حفظ التعديلات").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsTrue(quotation.IsVisible);
+            WpfTestHost.FindByAutomationName<Button>(quotation, "عميل جديد").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsTrue(WpfTestHost.FindByName<TextBox>(quotation, "CustomerNameInput").IsKeyboardFocusWithin);
+            var scroll = WpfTestHost.Descendants<ScrollViewer>(quotation).First();
+            scroll.ScrollToBottom(); WpfTestHost.CompleteLayout(window);
+            Capture(window, "current-quotation-totals");
+        });
+    }
+
+    [TestMethod]
     public void ReadyMadeDetailsRenderAndAddBothProductTypes()
     {
         WpfTestHost.Run(1338, 1000, window =>

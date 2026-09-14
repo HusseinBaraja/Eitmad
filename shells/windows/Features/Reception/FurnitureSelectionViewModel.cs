@@ -12,9 +12,6 @@ public sealed record SalesOption(Guid Id, string Name, decimal Price, Brush Swat
 {
     public string PriceLabel => Price == 0 ? "مشمول" : "+" + FurnitureSelectionViewModel.Money(Price);
 }
-public sealed record PreviewQuotationLine(string Name, string Variant, string? Color, string? Handle,
-    int Quantity, decimal UnitPrice, decimal LineTotal);
-
 public sealed class FurnitureSelectionViewModel : ObservableObject
 {
     private SalesSize? selectedSize;
@@ -26,6 +23,9 @@ public sealed class FurnitureSelectionViewModel : ObservableObject
     {
         Item = item; Sizes = sizes; Colors = colors; Handles = handles;
     }
+    public bool IsEditing { get; init; }
+    public string ActionLabel => IsEditing ? "حفظ التعديلات" : "إضافة إلى عرض السعر";
+    public string BackLabel => IsEditing ? "إلغاء" : "العودة إلى المنتجات";
     public SalesCatalogItem Item { get; }
     public IReadOnlyList<SalesSize> Sizes { get; }
     public IReadOnlyList<SalesOption> Colors { get; }

@@ -8,6 +8,45 @@ namespace Eitmad.WindowsShell.Tests.Products;
 public sealed class SalesCatalogPresentationTests
 {
     [TestMethod]
+    public void CurrentQuotationEditingCancellationTotalsAndCustomerFlow()
+    {
+        var model = new SalesCatalogViewModel(new FurnitureViewModel(), new ProductsViewModel());
+        model.Select(model.VisibleItems.Single(item => item.Name == "مرتبة طبية"));
+        model.ProductSelection!.SelectedVariant = model.ProductSelection.Variants[1];
+        model.AddProductSelection();
+        var original = model.QuotationLines.Single();
+        model.EditLine(original);
+        Assert.AreEqual(original.Variant, model.ProductSelection!.SelectedVariant!.Name);
+        model.ProductSelection.Quantity = 3;
+        model.CloseSelection();
+        Assert.AreEqual(1, original.Quantity);
+        Assert.IsTrue(model.IsReviewingQuotation);
+        model.EditLine(original);
+        model.ProductSelection!.Quantity = 2;
+        model.AddProductSelection();
+        Assert.AreEqual(original.Id, model.QuotationLines.Single().Id);
+        Assert.AreEqual(210_000m, model.Subtotal);
+        Assert.IsTrue(model.IsReviewingQuotation);
+        model.DuplicateLine(model.QuotationLines.Single());
+        Assert.AreNotEqual(model.QuotationLines[0].Id, model.QuotationLines[1].Id);
+        Assert.AreEqual(420_000m, model.FinalTotal);
+        model.RemoveLine(model.QuotationLines[0]);
+        Assert.IsFalse(model.ReviewSave());
+        model.CustomerName = "عميل";
+        Assert.HasCount(1, model.CustomerMatches);
+        model.AttachCustomer(model.CustomerMatches[0]);
+        model.BeginNewCustomer();
+        Assert.IsFalse(model.SaveNewCustomer());
+        model.CancelNewCustomer();
+        Assert.AreEqual("عميل تجريبي", model.CustomerName);
+        model.BeginNewCustomer();
+        model.CustomerName = "عميل معاينة جديد"; model.Phone = "000000001";
+        Assert.IsTrue(model.SaveNewCustomer());
+        Assert.IsTrue(model.ReviewSave());
+        Assert.IsTrue(model.QuotationNotice.Contains("لم تُحفظ"));
+    }
+
+    [TestMethod]
     public void ReadyMadeSelectionsRequireVariantsAndKeepQuotationSnapshots()
     {
         var model = new SalesCatalogViewModel(new FurnitureViewModel(), new ProductsViewModel());

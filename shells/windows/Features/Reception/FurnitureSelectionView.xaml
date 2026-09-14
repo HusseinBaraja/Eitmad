@@ -9,7 +9,7 @@
  <Grid Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}">
  <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
  <StackPanel Margin="28,18" TextBlock.Foreground="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}">
-  <Button x:Name="BackButton" Content="العودة إلى المنتجات" HorizontalAlignment="Right" Style="{StaticResource SecondaryButton}" Click="BackClick" AutomationProperties.Name="العودة إلى المنتجات"/>
+  <Button x:Name="BackButton" Content="{Binding BackLabel}" HorizontalAlignment="Right" Style="{StaticResource SecondaryButton}" Click="BackClick" AutomationProperties.Name="{Binding BackLabel}"/>
   <TextBlock Text="معاينة ببيانات تجريبية — عرض السعر مؤقت ولا يتم حفظه" Margin="0,12"/>
   <Grid Margin="0,0,0,18">
    <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="3*"/></Grid.ColumnDefinitions>
@@ -73,7 +73,7 @@
      <TextBlock Grid.Row="5" Text="الإجمالي" FontSize="26" FontWeight="Bold"/><TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding LineTotalLabel}" FontSize="26" FontWeight="Bold" FlowDirection="LeftToRight"/>
     </Grid>
     <TextBlock Text="{Binding Guidance}" Margin="0,0,0,8"/>
-    <Button x:Name="AddButton" Content="إضافة إلى عرض السعر" Style="{StaticResource PrimaryButton}" MinHeight="52" IsEnabled="{Binding CanAdd}" Click="AddClick" AutomationProperties.Name="إضافة إلى عرض السعر"/>
+    <Button x:Name="AddButton" Content="{Binding ActionLabel}" Style="{StaticResource PrimaryButton}" MinHeight="52" IsEnabled="{Binding CanAdd}" Click="AddClick" AutomationProperties.Name="{Binding ActionLabel}"/>
    </StackPanel>
   </Border>
  </StackPanel>

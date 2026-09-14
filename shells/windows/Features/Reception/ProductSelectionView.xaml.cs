@@ -23,7 +23,9 @@ public partial class ProductSelectionView : UserControl
     }
     private void AddClick(object sender, RoutedEventArgs e)
     {
+        var editing = ((ProductSelectionViewModel)DataContext).IsEditing;
         if (!((SalesCatalogViewModel)Catalog.DataContext).AddProductSelection()) return;
+        if (editing) { Catalog.RestoreQuotationFocus(); return; }
         var selection = (ProductSelectionViewModel)DataContext;
         AddedNotice.Message = $"تمت الإضافة إلى عرض السعر (معاينة فقط)\n{selection.Item.Name} · {selection.SelectedVariant?.Name ?? string.Empty} · الكمية: {selection.Quantity}";
         AddedNotice.RestartDuration();

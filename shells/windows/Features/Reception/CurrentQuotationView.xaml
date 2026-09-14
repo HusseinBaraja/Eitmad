@@ -1,0 +1,67 @@
+<UserControl x:Class="Eitmad.WindowsShell.Features.Reception.CurrentQuotationView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls" FlowDirection="RightToLeft" Language="ar-YE" Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}">
+ <UserControl.Resources><ResourceDictionary><ResourceDictionary.MergedDictionaries><ResourceDictionary Source="../../Resources/SalesCatalogVisuals.xaml"/></ResourceDictionary.MergedDictionaries></ResourceDictionary></UserControl.Resources>
+ <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+ <StackPanel Margin="28,20">
+  <Button x:Name="ContinueButton" Content="متابعة اختيار المنتجات" HorizontalAlignment="Right" Style="{StaticResource SecondaryButton}" Click="ContinueClick" AutomationProperties.Name="متابعة اختيار المنتجات"/>
+  <TextBlock Text="عرض السعر" FontSize="28" FontWeight="Bold" Margin="0,18,0,0"/>
+  <TextBlock Text="{Binding QuotationHeading}" FontSize="18" Margin="0,4,0,8"/>
+  <TextBlock Text="معاينة ببيانات تجريبية — لا يتم حفظ عرض السعر أو بيانات العميل" TextWrapping="Wrap" Margin="0,0,0,20"/>
+  <TextBlock Text="عرض السعر فارغ. تابع اختيار المنتجات لإضافة الأصناف." TextWrapping="Wrap" FontSize="20" Margin="0,20" Visibility="{Binding IsQuotationEmpty, Converter={StaticResource BooleanToVisibility}}"/>
+  <ItemsControl ItemsSource="{Binding QuotationLines}">
+   <ItemsControl.ItemTemplate><DataTemplate>
+    <Border BorderBrush="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}" BorderThickness="0,0,0,1" Padding="0,16">
+     <Grid>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="104"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+      <Grid Width="88" Height="88" VerticalAlignment="Top" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
+       <ContentControl Content="{Binding Item}" Style="{StaticResource CatalogIllustration}" Focusable="False" IsHitTestVisible="False"/>
+       <Image Source="{Binding Item.Image}" Stretch="Uniform" FlowDirection="LeftToRight"/>
+      </Grid>
+      <StackPanel Grid.Column="1">
+       <TextBlock Text="{Binding Name}" FontSize="21" FontWeight="SemiBold" TextWrapping="Wrap"/>
+       <TextBlock Text="{Binding Options}" TextWrapping="Wrap" Margin="0,4"/>
+       <TextBlock Text="{Binding Dimensions}" FlowDirection="LeftToRight" TextAlignment="Right"/>
+       <WrapPanel Margin="0,10,0,0">
+        <StackPanel MinWidth="100" Margin="0,0,0,8"><TextBlock Text="الكمية"/><TextBlock Text="{Binding Quantity}" FontSize="18"/></StackPanel>
+        <StackPanel MinWidth="160" Margin="0,0,0,8"><TextBlock Text="سعر الوحدة"/><controls:AmountDisplay AmountText="{Binding UnitPrice, StringFormat=N0}" UnitText="YER" FontSize="18" HorizontalAlignment="Right"/></StackPanel>
+        <StackPanel MinWidth="170" Margin="0,0,0,8"><TextBlock Text="الإجمالي"/><controls:AmountDisplay AmountText="{Binding LineTotal, StringFormat=N0}" UnitText="YER" FontSize="22" FontWeight="Bold" HorizontalAlignment="Right"/></StackPanel>
+       </WrapPanel>
+       <WrapPanel>
+        <Button Content="تعديل" Style="{StaticResource SecondaryButton}" Click="EditClick" AutomationProperties.Name="{Binding Name, StringFormat=تعديل {0}}" Margin="0,4,0,0"/>
+        <Button Content="تكرار" Style="{StaticResource SecondaryButton}" Click="DuplicateClick" AutomationProperties.Name="{Binding Name, StringFormat=تكرار {0}}" Margin="8,4,0,0"/>
+        <Button Content="إزالة" Style="{StaticResource SecondaryButton}" Click="RemoveClick" AutomationProperties.Name="{Binding Name, StringFormat=إزالة {0}}" Margin="8,4,0,0"/>
+       </WrapPanel>
+      </StackPanel>
+     </Grid>
+    </Border>
+   </DataTemplate></ItemsControl.ItemTemplate>
+  </ItemsControl>
+  <StackPanel Margin="0,28,0,0">
+   <TextBlock Text="بيانات العميل" FontSize="23" FontWeight="Bold"/>
+   <TextBlock Text="الاسم ورقم الهاتف مطلوبان عند حفظ عرض السعر" Margin="0,6,0,12" TextWrapping="Wrap"/>
+   <Button Content="+ عميل جديد" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Click="NewCustomerClick" AutomationProperties.Name="عميل جديد"/>
+   <TextBlock Text="عميل جديد — معاينة مؤقتة" FontSize="18" FontWeight="Bold" Margin="0,12" Visibility="{Binding IsNewCustomer, Converter={StaticResource BooleanToVisibility}}"/>
+   <WrapPanel Margin="0,12,0,0">
+    <controls:FormField Label="اسم العميل" Width="300" Margin="0,0,0,12"><TextBox x:Name="CustomerNameInput" Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" AutomationProperties.Name="اسم العميل"/></controls:FormField>
+    <controls:FormField Label="رقم الهاتف" Width="260" Margin="12,0,0,12"><TextBox Text="{Binding Phone, UpdateSourceTrigger=PropertyChanged}" FlowDirection="LeftToRight" Style="{StaticResource TextInput}" AutomationProperties.Name="رقم الهاتف"/></controls:FormField>
+   </WrapPanel>
+   <ItemsControl ItemsSource="{Binding CustomerMatches}"><ItemsControl.ItemTemplate><DataTemplate><Button Content="{Binding Label}" HorizontalAlignment="Right" Style="{StaticResource SecondaryButton}" Click="AttachCustomerClick" AutomationProperties.Name="{Binding Name, StringFormat=اختيار العميل {0}}" Margin="0,0,0,8"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+   <controls:FormField Label="العنوان (اختياري)" Margin="0,0,0,12"><TextBox Text="{Binding Address, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" AutomationProperties.Name="العنوان"/></controls:FormField>
+   <controls:FormField Label="ملاحظات (اختياري)"><TextBox Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="72" AutomationProperties.Name="ملاحظات"/></controls:FormField>
+   <WrapPanel Margin="0,12,0,0" Visibility="{Binding IsNewCustomer, Converter={StaticResource BooleanToVisibility}}">
+    <Button Content="حفظ" Style="{StaticResource PrimaryButton}" Click="SaveCustomerClick" AutomationProperties.Name="حفظ العميل"/>
+    <Button Content="إلغاء" Style="{StaticResource SecondaryButton}" Click="CancelCustomerClick" AutomationProperties.Name="إلغاء العميل الجديد" Margin="8,0,0,0"/>
+   </WrapPanel>
+  </StackPanel>
+  <Border BorderBrush="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}" BorderThickness="0,2,0,0" Padding="0,20" Margin="0,28,0,0">
+   <StackPanel>
+    <Grid Margin="0,0,0,16" FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Grid.Column="1" Text="المجموع الفرعي" FlowDirection="RightToLeft" FontSize="18"/><controls:AmountDisplay AmountText="{Binding Subtotal, StringFormat=N0}" UnitText="YER" FontSize="20" HorizontalAlignment="Left"/></Grid>
+    <Grid Margin="0,0,0,16" FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Grid.Column="1" Text="الخصم" FlowDirection="RightToLeft" FontSize="18"/><controls:AmountDisplay AmountText="{Binding Discount, StringFormat=N0}" UnitText="YER" FontSize="20" HorizontalAlignment="Left"/></Grid>
+    <TextBlock Text="الإجمالي النهائي" FontSize="22" FontWeight="Bold"/>
+    <controls:AmountDisplay AmountText="{Binding FinalTotal, StringFormat=N0}" UnitText="YER" FontSize="36" FontWeight="Bold" HorizontalAlignment="Left" Margin="0,8,0,18"/>
+    <Button Content="حفظ عرض السعر" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Click="SaveQuotationClick" AutomationProperties.Name="حفظ عرض السعر"/>
+    <TextBlock Text="{Binding QuotationNotice}" TextWrapping="Wrap" Margin="0,12,0,0" AutomationProperties.LiveSetting="Polite"/>
+   </StackPanel>
+  </Border>
+ </StackPanel>
+ </ScrollViewer>
+</UserControl>

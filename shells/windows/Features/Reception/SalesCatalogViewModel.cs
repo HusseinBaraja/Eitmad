@@ -16,7 +16,7 @@ public sealed record SalesCatalogItem(Guid Id, string Name, string Category, str
 }
 
 /// <summary>Filters preview presentation state. Production catalog queries remain Rust-owned.</summary>
-public sealed class SalesCatalogViewModel : ObservableObject
+public sealed partial class SalesCatalogViewModel : ObservableObject
 {
     private readonly FurnitureViewModel furniture;
     private readonly ProductsViewModel products;
@@ -29,6 +29,7 @@ public sealed class SalesCatalogViewModel : ObservableObject
     {
         this.furniture = furniture;
         this.products = products;
+        QuotationLines.CollectionChanged += (_, _) => RefreshQuotation();
         Reload();
     }
 
@@ -77,20 +78,18 @@ public sealed class SalesCatalogViewModel : ObservableObject
     public bool IsSelecting => IsSelectingFurniture || IsSelectingProduct;
     public ObservableCollection<PreviewQuotationLine> QuotationLines { get; } = [];
     public string QuotationLabel => $"عرض السعر · {QuotationLines.Count} عناصر";
-    public void CloseSelection() { Selection = null; ProductSelection = null; }
+    public void CloseSelection() { Selection = null; ProductSelection = null; if (editingLine is not null) IsReviewingQuotation = true; editingLine = null; }
     public bool AddProductSelection()
     {
         if (ProductSelection is not { CanAdd: true } current) return false;
-        QuotationLines.Add(new(current.Item.Name, current.SelectedVariant?.Name ?? string.Empty,
-            null, null, current.Quantity, current.UnitPrice, current.LineTotal));
+        StoreLine(new PreviewQuotationLine(current));
         Raise(nameof(QuotationLabel));
         return true;
     }
     public bool AddSelection()
     {
         if (Selection is not { CanAdd: true } current) return false;
-        QuotationLines.Add(new(current.Item.Name, current.SelectedSize!.Name, current.SelectedColor?.Name,
-            current.SelectedHandle?.Name, current.Quantity, current.UnitPrice, current.LineTotal));
+        StoreLine(new PreviewQuotationLine(current));
         Raise(nameof(QuotationLabel));
         return true;
     }

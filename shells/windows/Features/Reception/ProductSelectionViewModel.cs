@@ -19,6 +19,9 @@ public sealed class ProductSelectionViewModel : ObservableObject
         Variants = variants;
     }
 
+    public bool IsEditing { get; init; }
+    public string ActionLabel => IsEditing ? "حفظ التعديلات" : "إضافة إلى عرض السعر";
+    public string BackLabel => IsEditing ? "إلغاء" : "العودة إلى المنتجات";
     public SalesCatalogItem Item { get; }
     public IReadOnlyList<SalesProductVariant> Variants { get; }
     public bool HasVariants => Variants.Count > 0;

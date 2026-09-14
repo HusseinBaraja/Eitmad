@@ -19,7 +19,9 @@ public partial class FurnitureSelectionView : UserControl
     }
     private void AddClick(object sender, RoutedEventArgs e)
     {
+        var editing = ((FurnitureSelectionViewModel)DataContext).IsEditing;
         if (!((SalesCatalogViewModel)Catalog.DataContext).AddSelection()) return;
+        if (editing) { Catalog.RestoreQuotationFocus(); return; }
         var selection = (FurnitureSelectionViewModel)DataContext;
         AddedNotice.Message = $"تمت الإضافة إلى عرض السعر (معاينة فقط)\n{selection.Item.Name} · {selection.SelectedSize!.Name} · الكمية: {selection.Quantity}";
         AddedNotice.RestartDuration();

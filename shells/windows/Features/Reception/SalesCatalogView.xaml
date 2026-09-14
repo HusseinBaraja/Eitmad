@@ -4,7 +4,7 @@
     </ResourceDictionary.MergedDictionaries></ResourceDictionary></UserControl.Resources>
     <Grid>
     <Grid x:Name="CatalogListing" Margin="28,20">
-        <Grid.Style><Style TargetType="Grid"><Style.Triggers><DataTrigger Binding="{Binding IsSelecting}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></Grid.Style>
+        <Grid.Style><Style TargetType="Grid"><Style.Triggers><DataTrigger Binding="{Binding IsReviewingQuotation}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger><DataTrigger Binding="{Binding IsSelecting}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></Grid.Style>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -70,29 +70,6 @@
     </Grid>
         <reception:FurnitureSelectionView x:Name="SelectionView" DataContext="{Binding Selection}" Visibility="{Binding DataContext.IsSelectingFurniture, Converter={StaticResource BooleanToVisibility}, RelativeSource={RelativeSource AncestorType=reception:SalesCatalogView}}" />
         <reception:ProductSelectionView x:Name="ProductSelectionView" DataContext="{Binding ProductSelection}" Visibility="{Binding DataContext.IsSelectingProduct, Converter={StaticResource BooleanToVisibility}, RelativeSource={RelativeSource AncestorType=reception:SalesCatalogView}}" />
-        <Border Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" Visibility="{Binding IsReviewingQuotation, Converter={StaticResource BooleanToVisibility}}" Padding="28">
-            <DockPanel>
-                <StackPanel DockPanel.Dock="Top">
-                    <Button Content="متابعة اختيار المنتجات" Click="CloseQuotationClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" AutomationProperties.Name="متابعة اختيار المنتجات"/>
-                    <TextBlock Text="{Binding QuotationLabel}" FontSize="28" FontWeight="Bold" Margin="0,18,0,6"/>
-                    <TextBlock Text="معاينة مؤقتة — لا يتم حفظ عرض السعر" Margin="0,0,0,18"/>
-                </StackPanel>
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <ItemsControl ItemsSource="{Binding QuotationLines}">
-                        <ItemsControl.ItemTemplate><DataTemplate>
-                            <Border BorderThickness="0,0,0,1" BorderBrush="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}" Padding="0,14">
-                                <StackPanel>
-                                    <TextBlock Text="{Binding Name}" FontSize="20" FontWeight="SemiBold"/>
-                                    <TextBlock Text="{Binding Variant}"/>
-                                    <TextBlock Text="{Binding Color}"/><TextBlock Text="{Binding Handle}"/>
-                                    <TextBlock Text="{Binding Quantity, StringFormat=الكمية: {0}}"/>
-                                    <TextBlock Text="{Binding LineTotal, StringFormat={}{0:N0} YER}" FlowDirection="LeftToRight" HorizontalAlignment="Left" FontSize="20"/>
-                                </StackPanel>
-                            </Border>
-                        </DataTemplate></ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </ScrollViewer>
-            </DockPanel>
-        </Border>
+        <reception:CurrentQuotationView x:Name="QuotationView" Visibility="{Binding IsReviewingQuotation, Converter={StaticResource BooleanToVisibility}}"/>
     </Grid>
 </UserControl>

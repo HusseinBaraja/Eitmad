@@ -13,7 +13,13 @@ public partial class SalesCatalogView : UserControl
         CatalogSearch.Focus();
     }
     private Button? lastSelectionButton;
-    public void RestoreSelectionFocus() => Dispatcher.BeginInvoke(new Action(() => lastSelectionButton?.Focus()));
+    public void RestoreQuotationFocus() => Dispatcher.BeginInvoke(new Action(() => QuotationView.ContinueButton.Focus()));
+    public void RestoreSelectionFocus()
+    {
+        if (((SalesCatalogViewModel)DataContext).IsReviewingQuotation) RestoreQuotationFocus();
+        else Dispatcher.BeginInvoke(new Action(() => lastSelectionButton?.Focus()));
+    }
+    public void FocusEditor() => Dispatcher.BeginInvoke(new Action(() => (((SalesCatalogViewModel)DataContext).IsSelectingProduct ? ProductSelectionView.BackButton : SelectionView.BackButton).Focus()));
     private void CloseQuotationClick(object sender, RoutedEventArgs e) => ((SalesCatalogViewModel)DataContext).IsReviewingQuotation = false;
     private void SelectClick(object sender, RoutedEventArgs e)
     {

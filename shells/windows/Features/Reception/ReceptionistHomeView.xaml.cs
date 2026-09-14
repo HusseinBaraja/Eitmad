@@ -69,9 +69,8 @@ public partial class ReceptionistHomeView : UserControl
     private void ShowPreviewFeedback(string action)
     {
         if (action == "المنتجات") { Navigate(action); return; }
-        ShowNotice(action == "عرض سعر جديد"
-            ? "واجهة إنشاء عرض السعر ستُربط في المرحلة التالية"
-            : $"تم اختيار {action} في وضع المعاينة");
+        if (action == "عرض سعر جديد") { Navigate("المنتجات"); ((SalesCatalogViewModel)CatalogContent.DataContext).IsReviewingQuotation = true; CatalogContent.RestoreQuotationFocus(); return; }
+        ShowNotice($"تم اختيار {action} في وضع المعاينة");
     }
 
     private void ShowNotice(string message)
