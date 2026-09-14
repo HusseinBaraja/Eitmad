@@ -49,7 +49,31 @@ public sealed class SalesCatalogRenderedTests
             Assert.IsTrue(WpfTestHost.FindByName<TextBox>(quotation, "CustomerNameInput").IsKeyboardFocusWithin);
             var scroll = WpfTestHost.Descendants<ScrollViewer>(quotation).First();
             scroll.ScrollToBottom(); WpfTestHost.CompleteLayout(window);
-            Capture(window, "current-quotation-totals");
+            var discount = WpfTestHost.FindByAutomationName<TextBox>(quotation, "نسبة الخصم");
+            discount.Focus(); Assert.IsTrue(discount.IsKeyboardFocusWithin);
+            discount.Text = "5";
+            WpfTestHost.CompleteLayout(window);
+            var save = WpfTestHost.FindByAutomationName<Button>(quotation, "حفظ عرض السعر");
+            Assert.IsTrue(save.IsEnabled);
+            Capture(window, "discount-allowed");
+            discount.Text = "10";
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsFalse(save.IsEnabled);
+            var request = WpfTestHost.FindByAutomationName<Button>(quotation, "طلب موافقة");
+            Assert.IsTrue(request.IsVisible);
+            request.Focus(); Assert.IsTrue(request.IsKeyboardFocusWithin);
+            Capture(window, "discount-request");
+            request.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var draft = WpfTestHost.FindByAutomationName<Button>(quotation, "حفظ كمسودة");
+            Assert.IsTrue(draft.IsKeyboardFocusWithin);
+            Assert.IsTrue(draft.IsEnabled);
+            Assert.IsFalse(request.IsVisible);
+            Assert.IsFalse(save.IsEnabled);
+            draft.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.IsTrue(model.IsDiscountPending);
+            scroll.ScrollToBottom(); WpfTestHost.CompleteLayout(window);
+            Capture(window, "discount-pending");
         });
     }
 

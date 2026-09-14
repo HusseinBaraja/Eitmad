@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Quotation capability maintainers"
-last_verified: "2026-09-14"
+last_verified: "2026-09-15"
 review_triggers:
   - "Quotation contracts, approval rules, or Windows quotation UI behavior change"
 keywords:
@@ -41,7 +41,7 @@ For a fixture marked **موافقة الخصم مطلوبة**, the detail shows 
 
 `Features/Reception/CurrentQuotationView.xaml` presents a full quotation page without a side cart. `CurrentQuotation.cs` holds temporary line snapshots and synthetic customer form state alongside `SalesCatalogViewModel`. Rows show the catalog image or shared illustration, selected options, furniture dimensions, quantity, unit price, and total. Edit reuses the furniture or ready-made selection screen with preselected options; save replaces the original line, and cancel preserves it. Duplicate creates a separate line identity. Remove updates totals and the empty state.
 
-The bottom summary shows subtotal, zero discount, and a prominent final total. No discount policy or discount entry is implemented. The heading supports an existing number, but new previews have no assigned number.
+The bottom summary reuses `FormField`, `AmountDisplay`, and `StatusBadge` for one percentage input, immediate whole-YER discount value, and total. `QuotationDiscountPreview.cs` uses a synthetic 5% limit, not a manager-configured production policy. Arabic and Persian digits are accepted; invalid input blocks both save actions. Above the fixture limit, **يتطلب موافقة المدير** offers **طلب موافقة**. Requesting changes the temporary state to **بانتظار موافقة المدير**, keeps review and **حفظ كمسودة** available, and blocks quotation finalization. The total is labeled as the requested discount total. Changing the percentage or quotation lines invalidates the pending request. No price override or manager pricing rules are exposed. Requests and draft saves explicitly report that nothing was sent or persisted; the manager preview is not connected to this state. The heading supports an existing number, but new previews have no assigned number.
 
 Customer name and phone are checked only when saving a new customer preview or attempting quotation save. Address and notes are optional. Name or phone searches offer synthetic customer matches inline. **+ عميل جديد** reuses the inline fields; cancel restores the previous fields, while save attaches the temporary customer. These checks illustrate the proposed workflow and are not authoritative domain validation. Quotation save reports that durable saving is unavailable and does not assign a number or claim success. All state is discarded when the shell closes.
 

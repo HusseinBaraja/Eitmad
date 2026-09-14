@@ -48,8 +48,7 @@ public sealed partial class SalesCatalogViewModel
     public string QuotationHeading => string.IsNullOrWhiteSpace(QuotationNumber) ? "عرض سعر جديد" : QuotationNumber;
     public bool IsQuotationEmpty => QuotationLines.Count == 0;
     public decimal Subtotal => QuotationLines.Sum(line => line.LineTotal);
-    // No discount policy exists in the engine yet. The preview starts without a discount.
-    public decimal Discount => 0;
+    public decimal Discount => IsDiscountValid ? decimal.Round(Subtotal * (discountPercent / 100m), 0, MidpointRounding.AwayFromZero) : 0;
     public decimal FinalTotal => Subtotal - Discount;
     public string CustomerName { get => customerName; set { if (Set(ref customerName, value)) MatchCustomers(); } }
     public string Phone { get => phone; set { if (Set(ref phone, value)) MatchCustomers(); } }
@@ -96,12 +95,14 @@ public sealed partial class SalesCatalogViewModel
     }
     public bool ReviewSave()
     {
+        if (!CanSaveQuotation) { QuotationNotice = DiscountError.Length > 0 ? DiscountError : DiscountStatus; return false; }
         if (IsQuotationEmpty) { QuotationNotice = "أضف صنفاً إلى عرض السعر أولاً"; return false; }
         if (!CheckCustomer()) return false;
         QuotationNotice = "المعاينة مكتملة — حفظ عرض السعر غير متاح بعد، ولم تُحفظ البيانات"; return true;
     }
     private void RefreshQuotation()
     {
+        InvalidateDiscountRequest();
         foreach (var property in new[] { nameof(QuotationLabel), nameof(IsQuotationEmpty), nameof(Subtotal), nameof(FinalTotal) }) Raise(property);
         QuotationNotice = "";
     }

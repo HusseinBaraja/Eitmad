@@ -8,6 +8,46 @@ namespace Eitmad.WindowsShell.Tests.Products;
 public sealed class SalesCatalogPresentationTests
 {
     [TestMethod]
+    public void DiscountPreviewGatesSavingAndInvalidatesChangedRequests()
+    {
+        var model = new SalesCatalogViewModel(new FurnitureViewModel(), new ProductsViewModel());
+        model.Select(model.VisibleItems.Single(item => item.Name == "وسادة فندقية"));
+        model.AddProductSelection();
+        model.CustomerName = "عميل تجريبي"; model.Phone = "000000000";
+        model.DiscountInput = "٥";
+        Assert.AreEqual(600m, model.Discount);
+        Assert.AreEqual(11_400m, model.FinalTotal);
+        Assert.IsTrue(model.ReviewSave());
+        model.DiscountInput = "٥٫٥";
+        Assert.AreEqual(660m, model.Discount);
+        Assert.IsTrue(model.CanRequestDiscountApproval);
+        Assert.IsFalse(model.ReviewSave());
+        model.RequestDiscountApproval();
+        Assert.IsTrue(model.IsDiscountPending);
+        Assert.IsFalse(model.CanRequestDiscountApproval);
+        Assert.IsTrue(model.ReviewDraftSave());
+        Assert.IsTrue(model.IsDiscountPending);
+        Assert.IsFalse(model.ReviewSave());
+        model.DuplicateLine(model.QuotationLines[0]);
+        Assert.IsFalse(model.IsDiscountPending);
+        Assert.AreEqual(1320m, model.Discount);
+        model.RequestDiscountApproval();
+        model.DiscountInput = "۶";
+        Assert.IsFalse(model.IsDiscountPending);
+        foreach (var invalid in new[] { "", "abc", "-1", "101", "1,5" })
+        {
+            model.DiscountInput = invalid;
+            Assert.IsFalse(model.CanSaveQuotation);
+            Assert.IsFalse(model.ReviewDraftSave());
+            Assert.IsFalse(model.CanRequestDiscountApproval);
+            Assert.AreEqual("—", model.FinalTotalLabel);
+        }
+        model.DiscountInput = "0";
+        Assert.AreEqual(model.Subtotal, model.FinalTotal);
+        Assert.IsTrue(model.ReviewSave());
+    }
+
+    [TestMethod]
     public void CurrentQuotationEditingCancellationTotalsAndCustomerFlow()
     {
         var model = new SalesCatalogViewModel(new FurnitureViewModel(), new ProductsViewModel());
