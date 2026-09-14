@@ -1,20 +1,15 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Media;
 using System.Windows.Threading;
 using Eitmad.WindowsShell.Features.Authentication;
 using Eitmad.WindowsShell.Features.Operations;
-using Brush = System.Windows.Media.Brush;
-using Brushes = System.Windows.Media.Brushes;
 using Button = System.Windows.Controls.Button;
-using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 
 namespace Eitmad.WindowsShell;
 
 public partial class MainWindow : Window
 {
-    private Button selectedNavButton;
     private PreviewAccountRole currentRole = PreviewAccountRole.Manager;
 
     public static RoutedUICommand SwitchAccountCommand { get; } = new(
@@ -27,8 +22,6 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         DataContext = viewModel;
-        selectedNavButton = HomeNavButton;
-        SetNavigationTone(selectedNavButton, true);
         SignInSurface.Visibility = showSignIn ? Visibility.Visible : Visibility.Collapsed;
         ResponsiveRoot.Visibility = showSignIn ? Visibility.Collapsed : Visibility.Visible;
         Title = showSignIn ? "الاعتماد · تسجيل الدخول" : "الاعتماد · لوحة التحكم";
@@ -48,11 +41,27 @@ public partial class MainWindow : Window
     /// <summary>Handles the Alt+K development shortcut.</summary>
     private void SwitchAccountExecuted(object sender, ExecutedRoutedEventArgs eventArgs) => SwitchAccount();
 
-    /// <summary>Handles the manager toolbar account switch.</summary>
-    private void SwitchAccountClick(object sender, RoutedEventArgs eventArgs) => SwitchAccount();
-
     /// <summary>Handles the receptionist header account switch.</summary>
     private void ReceptionistAccountSwitchRequested(object? sender, EventArgs eventArgs) => SwitchAccount();
+
+    private void ManagerTitleBarAccountSwitchRequested(object? sender, EventArgs eventArgs) => SwitchAccount();
+
+    private void ManagerSidebarNavigationRequested(object? sender, Controls.NavigationRequestedEventArgs eventArgs) =>
+        ShowDestination(eventArgs.Destination);
+
+    private void ManagerTitleBarActionRequested(object? sender, Controls.ShellActionEventArgs eventArgs)
+    {
+        if (eventArgs.IsPrimary)
+        {
+            OpenPreviewPanel(eventArgs.Action);
+            return;
+        }
+
+        ShowToast($"تم اختيار {eventArgs.Action}");
+    }
+
+    private void ManagerTitleBarSearchSubmitted(object? sender, Controls.ShellSearchEventArgs eventArgs) =>
+        ShowToast($"نتائج المعاينة عن: {eventArgs.Query}");
 
     private void SwitchAccount()
     {
@@ -80,41 +89,21 @@ public partial class MainWindow : Window
             return;
         }
 
-        SetNavigationTone(selectedNavButton, false);
-        selectedNavButton = HomeNavButton;
-        SetNavigationTone(selectedNavButton, true);
+        ManagerSidebar.SelectHome();
         ShowDestination("الرئيسية");
-    }
-
-    /// <summary>Selects a preview destination and updates the dashboard heading.</summary>
-    private void NavigationClick(object sender, RoutedEventArgs eventArgs)
-    {
-        if (sender is not Button button || button.Tag is not string destination)
-        {
-            return;
-        }
-
-        SetNavigationTone(selectedNavButton, false);
-        selectedNavButton = button;
-        SetNavigationTone(button, true);
-        ShowDestination(destination);
     }
 
     /// <summary>Opens the raw-material list from the dashboard shortcut.</summary>
     private void OpenRawMaterialsFromActionClick(object sender, RoutedEventArgs eventArgs)
     {
-        SetNavigationTone(selectedNavButton, false);
-        selectedNavButton = MaterialsNavButton;
-        SetNavigationTone(selectedNavButton, true);
+        ManagerSidebar.SelectDestination("الخامات");
         ShowDestination("الخامات");
     }
 
     /// <summary>Opens the parts list from the dashboard shortcut.</summary>
     private void OpenPartsFromActionClick(object sender, RoutedEventArgs eventArgs)
     {
-        SetNavigationTone(selectedNavButton, false);
-        selectedNavButton = PartsNavButton;
-        SetNavigationTone(selectedNavButton, true);
+        ManagerSidebar.SelectDestination("القطع");
         ShowDestination("القطع");
     }
 
@@ -142,24 +131,19 @@ public partial class MainWindow : Window
         UsersSurface.Visibility = showUsers ? Visibility.Visible : Visibility.Collapsed;
         if (!showUsers && !showRawMaterials && !showParts && !showFurniture && !showPricing && !showProducts && !showQuotations && !showOrders && !showWorkOrders)
         {
-            DashboardTitle.Text = destination == "الرئيسية" ? "لوحة التحكم" : destination;
+            ManagerTitleBar.Title = destination == "الرئيسية" ? "لوحة التحكم" : destination;
             ShowToast($"تم فتح {destination} في وضع المعاينة");
         }
     }
 
-    /// <summary>Reports a bounded preview response for a dashboard action.</summary>
     private void PreviewActionClick(object sender, RoutedEventArgs eventArgs)
     {
-        if (sender is Button { Tag: string action })
-        {
-            ShowToast($"تم اختيار {action}");
-        }
+        if (sender is Button { Tag: string action }) ShowToast($"تم اختيار {action}");
     }
 
-    /// <summary>Opens the non-persistent quotation preview panel.</summary>
-    private void OpenPreviewPanelClick(object sender, RoutedEventArgs eventArgs)
+    private void OpenPreviewPanel(string title)
     {
-        PreviewPanelTitle.Text = sender is Button { Tag: string title } ? title : "عرض سعر جديد";
+        PreviewPanelTitle.Text = title;
         InteractionPanel.Visibility = Visibility.Visible;
         Dispatcher.BeginInvoke(CustomerNameBox.Focus, DispatcherPriority.Input);
     }
@@ -182,18 +166,6 @@ public partial class MainWindow : Window
         ShowToast("تم فحص المسودة محلياً؛ الحفظ معطل في وضع المعاينة");
     }
 
-    /// <summary>Reports a local preview response for a submitted search term.</summary>
-    private void SearchKeyDown(object sender, KeyEventArgs eventArgs)
-    {
-        if (eventArgs.Key != Key.Enter || string.IsNullOrWhiteSpace(SearchBox.Text))
-        {
-            return;
-        }
-
-        ShowToast($"نتائج المعاينة عن: {SearchBox.Text.Trim()}");
-        eventArgs.Handled = true;
-    }
-
     /// <summary>Shows transient preview feedback.</summary>
     private void ShowToast(string message)
     {
@@ -202,60 +174,5 @@ public partial class MainWindow : Window
     }
 
     private void DismissToast(object sender, RoutedEventArgs e) => InteractionToast.Message = string.Empty;
-
-    /// <summary>Applies selected or unselected navigation colors.</summary>
-    private static void SetNavigationTone(Button button, bool selected)
-    {
-        var content = button.Content as DependencyObject ?? button;
-        if (selected)
-        {
-            button.SetResourceReference(Button.BackgroundProperty, "NavSelectedBrush");
-            SetNavigationContentTone(content, Brushes.White);
-            return;
-        }
-
-        button.ClearValue(Button.BackgroundProperty);
-        foreach (var text in VisualDescendants<TextBlock>(content))
-        {
-            text.ClearValue(TextBlock.ForegroundProperty);
-        }
-
-        foreach (var icon in VisualDescendants<System.Windows.Shapes.Path>(content))
-        {
-            icon.ClearValue(System.Windows.Shapes.Shape.FillProperty);
-        }
-    }
-
-    /// <summary>Applies one tone to navigation text and vector icons.</summary>
-    private static void SetNavigationContentTone(DependencyObject content, Brush tone)
-    {
-        foreach (var text in VisualDescendants<TextBlock>(content))
-        {
-            text.Foreground = tone;
-        }
-
-        foreach (var icon in VisualDescendants<System.Windows.Shapes.Path>(content))
-        {
-            icon.Fill = tone;
-        }
-    }
-
-    /// <summary>Enumerates matching descendants in a WPF visual tree.</summary>
-    private static IEnumerable<T> VisualDescendants<T>(DependencyObject parent) where T : DependencyObject
-    {
-        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
-        {
-            var child = VisualTreeHelper.GetChild(parent, index);
-            if (child is T match)
-            {
-                yield return match;
-            }
-
-            foreach (var descendant in VisualDescendants<T>(child))
-            {
-                yield return descendant;
-            }
-        }
-    }
 
 }

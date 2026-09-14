@@ -37,7 +37,7 @@ public sealed class SharedControlsRenderedTests
                 WpfTestHost.CompleteLayout(window);
                 var header = WpfTestHost.Descendants<PageHeader>(window).Single(element => element.IsVisible);
                 Assert.AreEqual(headerHeight, header.ActualHeight, destination);
-                Assert.AreEqual(WpfTestHost.FindByName<TextBlock>(window, "DashboardTitle").FontSize, header.FontSize, destination);
+                Assert.AreEqual(WpfTestHost.FindByName<TextBlock>(window, "TitleText").FontSize, header.FontSize, destination);
                 var search = WpfTestHost.Descendants<TextBox>(window).Single(element => element.IsVisible && element.Name.EndsWith("SearchBox", StringComparison.Ordinal));
                 var panel = OwningLayoutPanel(search);
                 var fields = panel.Children.Cast<FrameworkElement>()

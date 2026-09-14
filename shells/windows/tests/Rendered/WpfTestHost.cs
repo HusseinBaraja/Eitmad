@@ -39,8 +39,11 @@ internal static class WpfTestHost
         });
     }
 
-    public static T FindByName<T>(DependencyObject root, string name) where T : FrameworkElement =>
-        Descendants<T>(root).Single(element => element.Name == name);
+    public static T FindByName<T>(DependencyObject root, string name) where T : FrameworkElement
+    {
+        var matches = Descendants<T>(root).Where(element => element.Name == name).ToList();
+        return matches.Count == 1 ? matches[0] : matches.Single(element => element.IsVisible);
+    }
 
     public static T FindByAutomationName<T>(DependencyObject root, string name) where T : DependencyObject =>
         Descendants<T>(root).First(element => AutomationProperties.GetName(element) == name);

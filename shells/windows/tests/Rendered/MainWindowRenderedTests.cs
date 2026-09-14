@@ -1,9 +1,13 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using Eitmad.WindowsShell.Layout;
+using Eitmad.WindowsShell.Controls;
+using Eitmad.WindowsShell.Features.Reception;
 
 namespace Eitmad.WindowsShell.Tests.Rendered;
 
@@ -38,7 +42,13 @@ public sealed class MainWindowRenderedTests
 
             Assert.AreEqual(Visibility.Collapsed, signIn.Visibility);
             Assert.AreEqual(Visibility.Visible, WpfTestHost.FindByName<FrameworkElement>(window, "ReceptionistSurface").Visibility);
-            Assert.IsFalse(WpfTestHost.FindByName<Border>(window, "Sidebar").IsVisible);
+            var receptionist = WpfTestHost.FindByName<ReceptionistHomeView>(window, "ReceptionistSurface");
+            var receptionistSidebar = WpfTestHost.Descendants<ShellSidebar>(receptionist).Single();
+            Assert.IsTrue(receptionistSidebar.IsVisible);
+            Assert.IsTrue(receptionistSidebar.IsReceptionist);
+            Assert.AreEqual(1, WpfTestHost.Descendants<Button>(receptionistSidebar).Count(button => button.IsVisible && button.Tag is string));
+            Assert.AreEqual("الرئيسية", WpfTestHost.Descendants<Button>(receptionistSidebar).Single(button => button.IsVisible && button.Tag is string).Tag);
+            Assert.AreEqual(1, WpfTestHost.Descendants<ShellTitleBar>(receptionist).Count());
 
             var shortcut = window.InputBindings.OfType<KeyBinding>().Single(binding => binding.Key == Key.K);
             Assert.AreEqual(ModifierKeys.Alt, shortcut.Modifiers);
@@ -61,6 +71,44 @@ public sealed class MainWindowRenderedTests
 
             Assert.AreEqual(1, WpfTestHost.FindByName<UniformGrid>(window, "ReceptionistActionsGrid").Columns);
         }, showSignIn: true);
+    }
+
+    [TestMethod]
+    public void ManagerAndReceptionistUseMatchingSharedChromeGeometry()
+    {
+        WpfTestHost.Run(1338, 753, window =>
+        {
+            var managerTitleBar = WpfTestHost.FindByName<ShellTitleBar>(window, "ManagerTitleBar");
+            var managerSidebar = WpfTestHost.FindByName<ShellSidebar>(window, "ManagerSidebar");
+            var managerTitleHeight = managerTitleBar.ActualHeight;
+            var managerSidebarWidth = managerSidebar.ActualWidth;
+            CaptureSharedChrome(window, "manager");
+
+            var receptionistSurface = WpfTestHost.FindByName<ReceptionistHomeView>(window, "ReceptionistSurface");
+            receptionistSurface.Visibility = Visibility.Visible;
+            WpfTestHost.FindByName<Grid>(window, "ResponsiveRoot").Visibility = Visibility.Collapsed;
+            WpfTestHost.CompleteLayout(window);
+
+            var receptionistTitleBar = WpfTestHost.FindByName<ShellTitleBar>(receptionistSurface, "ReceptionistTitleBar");
+            var receptionistSidebar = WpfTestHost.FindByName<ShellSidebar>(receptionistSurface, "ReceptionistSidebar");
+            Assert.AreEqual(managerTitleHeight, receptionistTitleBar.ActualHeight, 0.1);
+            Assert.AreEqual(managerSidebarWidth, receptionistSidebar.ActualWidth, 0.1);
+            CaptureSharedChrome(window, "receptionist");
+        });
+    }
+
+    private static void CaptureSharedChrome(FrameworkElement element, string role)
+    {
+        var directory = Environment.GetEnvironmentVariable("EITMAD_SHARED_CHROME_CAPTURE_DIR");
+        if (string.IsNullOrWhiteSpace(directory)) return;
+
+        Directory.CreateDirectory(directory);
+        var bitmap = new RenderTargetBitmap((int)Math.Ceiling(element.ActualWidth), (int)Math.Ceiling(element.ActualHeight), 96, 96, PixelFormats.Pbgra32);
+        bitmap.Render(element);
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        using var stream = File.Create(Path.Combine(directory, $"shared-chrome-{role}.png"));
+        encoder.Save(stream);
     }
 
     [TestMethod]

@@ -11,8 +11,17 @@ public partial class ReceptionistHomeView : UserControl
 
     public event EventHandler? AccountSwitchRequested;
 
-    private void SwitchAccountClick(object sender, RoutedEventArgs eventArgs) =>
+    private void SharedAccountSwitchRequested(object? sender, EventArgs eventArgs) =>
         AccountSwitchRequested?.Invoke(this, EventArgs.Empty);
+
+    private void TitleBarActionRequested(object? sender, Controls.ShellActionEventArgs eventArgs) =>
+        ShowPreviewFeedback(eventArgs.Action);
+
+    private void TitleBarSearchSubmitted(object? sender, Controls.ShellSearchEventArgs eventArgs) =>
+        ShowNotice($"نتائج المعاينة عن: {eventArgs.Query}");
+
+    private void SidebarNavigationRequested(object? sender, Controls.NavigationRequestedEventArgs eventArgs) =>
+        ShowNotice($"تم فتح {eventArgs.Destination} في وضع المعاينة");
 
     private void ActionClick(object sender, RoutedEventArgs eventArgs)
     {
@@ -21,9 +30,17 @@ public partial class ReceptionistHomeView : UserControl
             return;
         }
 
-        ReceptionistNotice.Message = action == "عرض سعر جديد"
+        ShowPreviewFeedback(action);
+    }
+
+    private void ShowPreviewFeedback(string action) =>
+        ShowNotice(action == "عرض سعر جديد"
             ? "واجهة إنشاء عرض السعر ستُربط في المرحلة التالية"
-            : $"تم اختيار {action} في وضع المعاينة";
+            : $"تم اختيار {action} في وضع المعاينة");
+
+    private void ShowNotice(string message)
+    {
+        ReceptionistNotice.Message = message;
         ReceptionistNotice.RestartDuration();
     }
 
