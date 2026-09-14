@@ -14,6 +14,7 @@ public sealed class SignInRenderedTests
         WpfTestHost.Run(1338, 753, window =>
         {
             var input = WpfTestHost.FindByName<TextBox>(window, "UsernameBox");
+            WpfTestHost.FindByName<PasswordBox>(window, "PasswordInput").Password = "sample";
             foreach (var text in new[] { "admin", "مستخدم.تجريبي" })
             {
                 input.Text = text;

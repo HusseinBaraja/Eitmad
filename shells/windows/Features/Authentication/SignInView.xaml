@@ -89,8 +89,9 @@
                                  Height="48"
                                  Padding="14,0"
                                  FontSize="14"
-                                 FlowDirection="LeftToRight"
+                                 FlowDirection="RightToLeft"
                                  TextAlignment="Left"
+                                 HorizontalContentAlignment="Left"
                                  ScrollViewer.HorizontalScrollBarVisibility="Hidden"
                                  ScrollViewer.VerticalScrollBarVisibility="Hidden"
                                  automation:AutomationProperties.Name="اسم المستخدم"
@@ -105,7 +106,8 @@
                                          Padding="14,9"
                                          FontFamily="Segoe UI"
                                          FontSize="16"
-                                         FlowDirection="LeftToRight"
+                                         FlowDirection="RightToLeft"
+                                         HorizontalContentAlignment="Left"
                                          automation:AutomationProperties.Name="كلمة المرور"
                                          KeyDown="CredentialKeyDown" />
                         </Border>
