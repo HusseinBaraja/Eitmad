@@ -87,7 +87,7 @@
                         <TextBox x:Name="UsernameBox"
                                  Style="{StaticResource TextInput}"
                                  Height="48"
-                                 Padding="14,10"
+                                 Padding="14,0"
                                  FontSize="14"
                                  FlowDirection="LeftToRight"
                                  TextAlignment="Left"
