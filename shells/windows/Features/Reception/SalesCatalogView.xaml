@@ -16,21 +16,7 @@
             <TextBlock Text="المنتجات" FontSize="28" FontWeight="Bold" Style="{StaticResource CatalogText}"/>
             <TextBlock Text="معاينة ببيانات تجريبية — لا يتم حفظ الاختيار" Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" Margin="0,4,0,16" Style="{StaticResource CatalogText}"/>
         </StackPanel>
-        <Grid Grid.Row="1">
-            <TextBox x:Name="CatalogSearch" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" MinHeight="54" FontSize="17" AutomationProperties.Name="ابحث عن منتج"/>
-            <TextBlock Text="ابحث عن منتج..." Margin="16,0" VerticalAlignment="Center" FontSize="17" IsHitTestVisible="False" Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}">
-                <TextBlock.Style>
-                    <Style TargetType="TextBlock" BasedOn="{StaticResource CatalogText}">
-                        <Setter Property="Visibility" Value="Collapsed"/>
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding SearchText}" Value="">
-                                <Setter Property="Visibility" Value="Visible"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </TextBlock.Style>
-            </TextBlock>
-        </Grid>
+        <TextBox Grid.Row="1" x:Name="CatalogSearch" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SearchInput}" controls:ControlOptions.Placeholder="ابحث عن منتج..." AutomationProperties.Name="ابحث عن منتج"/>
         <ListBox Grid.Row="2" ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}" BorderThickness="0" Background="Transparent" Margin="0,14,0,16" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="فئات المنتجات">
             <ListBox.ItemsPanel>
                 <ItemsPanelTemplate>
