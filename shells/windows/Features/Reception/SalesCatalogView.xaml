@@ -119,25 +119,10 @@
                 </ItemsPanelTemplate>
             </ListBox.ItemsPanel>
             <ListBox.ItemContainerStyle>
-                <Style TargetType="ListBoxItem">
-                    <Setter Property="Padding" Value="15,9"/>
-                    <Setter Property="Margin" Value="0,0,6,6"/>
-                    <Setter Property="FontSize" Value="14"/>
-                    <Setter Property="AutomationProperties.Name" Value="{Binding}"/>
-                    <Style.Triggers>
-                        <Trigger Property="IsSelected" Value="True">
-                            <Setter Property="FontWeight" Value="Bold"/>
-                            <Setter Property="BorderThickness" Value="0,0,0,2"/>
-                            <Setter Property="BorderBrush" Value="{DynamicResource {x:Static SystemColors.HighlightBrushKey}}"/>
-                        </Trigger>
-                    </Style.Triggers>
+                <Style TargetType="ListBoxItem" BasedOn="{StaticResource FilterChip}">
+                    <Setter Property="AutomationProperties.Name" Value="{Binding}" />
                 </Style>
             </ListBox.ItemContainerStyle>
-            <ListBox.ItemTemplate>
-                <DataTemplate>
-                    <TextBlock Text="{Binding}" Style="{StaticResource CatalogText}"/>
-                </DataTemplate>
-            </ListBox.ItemTemplate>
         </ListBox>
         <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <ItemsControl ItemsSource="{Binding VisibleItems}">
