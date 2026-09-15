@@ -37,6 +37,16 @@ Opening a row shows quotation metadata, furniture lines with variant, color, han
 
 For a fixture marked **موافقة الخصم مطلوبة**, the detail shows **موافقة** and **رفض**. These actions update only the local `DiscountApprovalDecision` preview and are hidden for quotations without a pending approval. They do not change quotation status or claim manager authorization.
 
+## Receptionist list and existing quotation detail
+
+The receptionist home card and sidebar open a separate `QuotationsView` configured through `ConfigureReceptionist`. It reuses the manager table, filters, metadata, and totals without exposing manager approval controls. The list has number, customer, date, total, status, and open columns. Search also matches synthetic phone numbers, including Arabic digits. Status and relative-date filters compose with search; **بانتظار الموافقة** is a separate receptionist status.
+
+**+ عرض سعر جديد** opens an empty Current Quotation preview in a native window and preserves the current catalog selection. Draft and active rows offer **تعديل**, **طباعة**, and **تحويل إلى طلب**. Edit creates a detached fixture projection through `QuotationPreviewProjection` and reuses the existing catalog and Current Quotation controls. Edits are temporary and are discarded when that window closes. Printing reuses the customer document and native print preview with the quotation number and original date. Conversion reports that it is unavailable and does not create an order or change status.
+
+Waiting-approval rows are read-only and explain that printing is available after approval. Converted rows show **تم التحويل إلى طلب**, hide edit, print, and conversion, and offer **فتح الطلب** for a synthetic related order detail. Cancelled and expired rows have no modification actions. These are presentation rules for fixtures, not authorization. Production status, linked-order identity, conversion, immutable converted records, and audit must come from Rust.
+
+`ReceptionQuotationsRenderedTests` checks receptionist navigation, phone search, status-based actions, and isolation from manager approval controls. Synthetic captures cover list, active, waiting, and converted states.
+
 ## Receptionist current quotation preview
 
 `Features/Reception/CurrentQuotationView.xaml` presents a full quotation page without a side cart. `CurrentQuotation.cs` holds temporary line snapshots and synthetic customer form state alongside `SalesCatalogViewModel`. Rows show the catalog image or shared illustration, selected options, furniture dimensions, quantity, unit price, and total. Edit reuses the furniture or ready-made selection screen with preselected options; save replaces the original line, and cancel preserves it. Duplicate creates a separate line identity. Remove updates totals and the empty state.

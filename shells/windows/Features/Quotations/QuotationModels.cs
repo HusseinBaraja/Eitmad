@@ -6,6 +6,7 @@ public enum QuotationStatus
 {
     Draft,
     Active,
+    WaitingApproval,
     Converted,
     Cancelled,
     Expired,
@@ -51,8 +52,10 @@ public sealed class QuotationListItem : ObservableObject
         QuotationStatus status,
         decimal discount,
         IReadOnlyList<QuotationLineItem> items,
-        bool requiresDiscountApproval = false)
+        bool requiresDiscountApproval = false,
+        string phone = "000000000")
     {
+        Phone = phone;
         Id = id;
         Number = number;
         Customer = customer;
@@ -62,6 +65,12 @@ public sealed class QuotationListItem : ObservableObject
         Items = items;
         RequiresDiscountApproval = requiresDiscountApproval;
     }
+
+    public string Phone { get; }
+
+    public bool CanEdit => Status is QuotationStatus.Draft or QuotationStatus.Active;
+    public bool IsWaitingApproval => Status == QuotationStatus.WaitingApproval;
+    public bool CanPrint => CanEdit;
 
     public Guid Id { get; }
 
@@ -127,6 +136,7 @@ public sealed class QuotationListItem : ObservableObject
     {
         QuotationStatus.Draft => "مسودة",
         QuotationStatus.Active => "نشط",
+        QuotationStatus.WaitingApproval => "بانتظار الموافقة",
         QuotationStatus.Converted => "محوّل",
         QuotationStatus.Cancelled => "ملغي",
         QuotationStatus.Expired => "منتهي",

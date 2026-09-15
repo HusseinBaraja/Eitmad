@@ -4,6 +4,7 @@
              xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
              xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls"
              xmlns:layout="clr-namespace:Eitmad.WindowsShell.Layout"
+             xmlns:quotations="clr-namespace:Eitmad.WindowsShell.Features.Quotations"
              xmlns:reception="clr-namespace:Eitmad.WindowsShell.Features.Reception"
              FlowDirection="RightToLeft"
              Language="ar-YE"
@@ -182,6 +183,7 @@
                                  IsFloating="True"
                                  DisplayDuration="00:00:02.5"
                                  Dismissed="DismissNotice" />
+        <quotations:QuotationsView x:Name="ReceptionQuotations" Grid.Row="1" Visibility="Collapsed"/>
         <reception:SalesCatalogView x:Name="CatalogContent" Grid.Row="1" Visibility="Collapsed" />
         <controls:ShellSidebar x:Name="ReceptionistSidebar" Grid.RowSpan="2" Grid.Column="1" IsReceptionist="True" NavigationRequested="SidebarNavigationRequested" />
     </Grid>

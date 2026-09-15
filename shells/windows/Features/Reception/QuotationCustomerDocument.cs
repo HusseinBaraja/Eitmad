@@ -15,6 +15,12 @@ public static class QuotationCustomerDocument
     {
         if (!model.CanPreviewCustomer || !model.CheckRequiredFields())
             throw new InvalidOperationException("Quotation preview is incomplete.");
+        return CreateExistingPreview(model, date);
+    }
+
+    // Only for the synthetic, already-reviewed quotation projection.
+    public static FlowDocument CreateExistingPreview(SalesCatalogViewModel model, DateTime date)
+    {
         var document = new FlowDocument
         {
             FlowDirection = FlowDirection.RightToLeft,

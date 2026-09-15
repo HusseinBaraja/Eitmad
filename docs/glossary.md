@@ -46,7 +46,7 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | طلب العميل | Customer request | The initial expression of a customer's need; it may precede pricing or commitment. |
 | عرض السعر | Quotation | A priced proposal with scope, validity, terms, and versioned line items. |
 | بند عرض السعر | Quotation line | A priced unit of product, service, material, or adjustment within a quotation. |
-| حالة عرض السعر | Quotation status | **Provisional UI terms.** The manager preview uses **مسودة**, **نشط**, **محوّل**, **ملغي**, and **منتهي**. These fixtures do not define the production lifecycle. |
+| حالة عرض السعر | Quotation status | **Provisional UI terms.** The manager preview uses **مسودة**, **نشط**, **محوّل**, **ملغي**, and **منتهي**. The receptionist preview also uses **بانتظار الموافقة** for Waiting Approval. These fixtures do not define the production lifecycle. |
 | موافقة الخصم | Discount approval | **Provisional UI term.** A manager decision on a quotation discount that exceeds an approval threshold. The current **موافقة** and **رفض** actions change transient preview state only. |
 | الطلب | Order | A confirmed commercial request accepted for fulfillment. Avoid using this term for every incoming request. |
 | حالة الطلب | Order status | **Provisional UI terms.** The manager preview uses **جديد**, **قيد الإنتاج**, **جاهز**, **تم التسليم**, and **ملغي**. These fixtures do not define the production lifecycle. |

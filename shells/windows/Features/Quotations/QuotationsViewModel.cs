@@ -22,8 +22,9 @@ public sealed class QuotationsViewModel : ObservableObject
     private string selectedDate = AllDates;
     private QuotationListItem? selectedQuotation;
 
-    public QuotationsViewModel()
+    public QuotationsViewModel(bool isReceptionist = false)
     {
+        IsReceptionist = isReceptionist;
         var today = DateOnly.FromDateTime(DateTime.Today);
         quotations =
         [
@@ -73,11 +74,22 @@ public sealed class QuotationsViewModel : ObservableObject
                 [new("مكتبة جدارية", "عرض 240 سم", "أبيض", "معدن أسود", 5, 235_000m)]),
         ];
 
-        StatusOptions = [AllStatuses, DraftStatus, ActiveStatus, ConvertedStatus, ClosedStatus];
+        if (isReceptionist)
+            quotations.Add(new(Guid.NewGuid(), "QT-2026-0143", "عميل تجريبي للموافقة", today,
+                QuotationStatus.WaitingApproval, 12_000m,
+                [new("طاولة ضيافة", "طقم 6 مقاعد", "جوزي", "نحاسي", 1, 100_000m)], phone: "000000043"));
+        StatusOptions = isReceptionist
+            ? [AllStatuses, DraftStatus, ActiveStatus, "بانتظار الموافقة", ConvertedStatus, ClosedStatus]
+            : [AllStatuses, DraftStatus, ActiveStatus, ConvertedStatus, ClosedStatus];
         DateOptions = [AllDates, Today, LastSevenDays, LastThirtyDays];
         VisibleQuotations = [];
         RefreshVisibleQuotations();
     }
+
+    public string ListSubtitle => IsReceptionist ? "بيانات تجريبية للمعاينة فقط" : "راجع عروض العملاء وحالاتها من مكان واحد";
+    public bool IsReceptionist { get; }
+    public bool ShowManagerApproval => !IsReceptionist && SelectedQuotation?.RequiresDiscountApproval == true;
+    public string SearchName => IsReceptionist ? "البحث برقم عرض السعر أو العميل أو رقم الهاتف" : "البحث برقم عرض السعر أو العميل";
 
     public IReadOnlyList<string> StatusOptions { get; }
 
@@ -128,6 +140,7 @@ public sealed class QuotationsViewModel : ObservableObject
         {
             if (Set(ref selectedQuotation, value))
             {
+                Raise(nameof(ShowManagerApproval));
                 Raise(nameof(IsListVisible));
                 Raise(nameof(IsDetailVisible));
             }
@@ -151,9 +164,9 @@ public sealed class QuotationsViewModel : ObservableObject
 
     public void CloseQuotation() => SelectedQuotation = null;
 
-    public void ApproveDiscount() => SelectedQuotation?.DecideDiscount(DiscountApprovalDecision.Approved);
+    public void ApproveDiscount() { if (!IsReceptionist) SelectedQuotation?.DecideDiscount(DiscountApprovalDecision.Approved); }
 
-    public void RejectDiscount() => SelectedQuotation?.DecideDiscount(DiscountApprovalDecision.Rejected);
+    public void RejectDiscount() { if (!IsReceptionist) SelectedQuotation?.DecideDiscount(DiscountApprovalDecision.Rejected); }
 
     private void RefreshVisibleQuotations()
     {
@@ -174,16 +187,18 @@ public sealed class QuotationsViewModel : ObservableObject
         Raise(nameof(VisibleCountLabel));
     }
 
-    private static bool MatchesSearch(QuotationListItem quotation, string normalizedSearch) =>
+    private bool MatchesSearch(QuotationListItem quotation, string normalizedSearch) =>
         string.IsNullOrEmpty(normalizedSearch)
         || PreviewText.NormalizeSearch(quotation.Number).Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase)
-        || PreviewText.NormalizeSearch(quotation.Customer).Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase);
+        || PreviewText.NormalizeSearch(quotation.Customer).Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase)
+        || (IsReceptionist && PreviewText.NormalizeNumericInput(quotation.Phone).Contains(PreviewText.NormalizeNumericInput(normalizedSearch), StringComparison.OrdinalIgnoreCase));
 
     private bool MatchesStatus(QuotationListItem quotation) => SelectedStatus switch
     {
         AllStatuses => true,
         DraftStatus => quotation.Status == QuotationStatus.Draft,
         ActiveStatus => quotation.Status == QuotationStatus.Active,
+        "بانتظار الموافقة" => quotation.Status == QuotationStatus.WaitingApproval,
         ConvertedStatus => quotation.Status == QuotationStatus.Converted,
         ClosedStatus => quotation.Status is QuotationStatus.Cancelled or QuotationStatus.Expired,
         _ => false,

@@ -15,6 +15,8 @@ public partial class ReceptionistHomeView : UserControl
     {
         var catalog = new SalesCatalogViewModel(furniture, products);
         CatalogContent.DataContext = catalog;
+        ((Button)ReceptionistSidebar.FindName("QuotationsNavButton")).Visibility = Visibility.Visible;
+        ReceptionQuotations.ConfigureReceptionist(quotation => QuotationPreviewProjection.Create(quotation, furniture, products));
         ReceptionistTitleBar.PrimaryActionButton.Width = 220;
         System.Windows.Automation.AutomationProperties.SetName(ReceptionistTitleBar.PrimaryActionButton, "فتح عرض السعر");
         ReceptionistTitleBar.SetBinding(Controls.ShellTitleBar.PrimaryActionLabelProperty,
@@ -43,7 +45,7 @@ public partial class ReceptionistHomeView : UserControl
 
     private void Navigate(string destination)
     {
-        if (destination is not ("المنتجات" or "الرئيسية"))
+        if (destination is not ("المنتجات" or "الرئيسية" or "عروض الأسعار"))
         {
             ShowNotice($"تم اختيار {destination} في وضع المعاينة");
             return;
@@ -51,7 +53,8 @@ public partial class ReceptionistHomeView : UserControl
         var catalog = destination == "المنتجات";
         if (catalog) ((SalesCatalogViewModel)CatalogContent.DataContext).Reload();
         CatalogContent.Visibility = catalog ? Visibility.Visible : Visibility.Collapsed;
-        HomeContent.Visibility = catalog ? Visibility.Collapsed : Visibility.Visible;
+        ReceptionQuotations.Visibility = destination == "عروض الأسعار" ? Visibility.Visible : Visibility.Collapsed;
+        HomeContent.Visibility = destination == "الرئيسية" ? Visibility.Visible : Visibility.Collapsed;
         ReceptionistTitleBar.Title = destination;
         ReceptionistSidebar.SelectDestination(destination);
     }
@@ -68,7 +71,7 @@ public partial class ReceptionistHomeView : UserControl
 
     private void ShowPreviewFeedback(string action)
     {
-        if (action == "المنتجات") { Navigate(action); return; }
+        if (action is "المنتجات" or "عروض الأسعار") { Navigate(action); return; }
         if (action == "عرض سعر جديد") { Navigate("المنتجات"); ((SalesCatalogViewModel)CatalogContent.DataContext).IsReviewingQuotation = true; CatalogContent.RestoreQuotationFocus(); return; }
         ShowNotice($"تم اختيار {action} في وضع المعاينة");
     }
