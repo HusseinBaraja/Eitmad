@@ -12,6 +12,65 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 public sealed class ReceptionQuotationsRenderedTests
 {
     [TestMethod]
+    public void ConversionConfirmsSnapshotAndCancelPreservesQuotation()
+    {
+        WpfTestHost.Run(1338, 900, window =>
+        {
+            var view = new QuotationsView();
+            view.ConfigureReceptionist(_ => throw new InvalidOperationException("Conversion must not reopen the editor."));
+            window.Content = view;
+            var quotation = view.ViewModel.VisibleQuotations.Single(row => row.IsActive);
+            view.ViewModel.OpenQuotation(quotation);
+            WpfTestHost.CompleteLayout(window);
+            var trigger = WpfTestHost.FindByAutomationName<Button>(view, "تحويل عرض السعر إلى طلب");
+            trigger.Focus();
+            trigger.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var dialog = WpfTestHost.FindByName<Eitmad.WindowsShell.Controls.DialogHost>(view, "ConversionDialog");
+            var cancel = WpfTestHost.FindByName<Button>(view, "CancelConversionButton");
+            Assert.IsTrue(dialog.IsOpen);
+            Assert.IsTrue(cancel.IsKeyboardFocused);
+            Assert.AreSame(quotation, dialog.DataContext);
+            Capture(window, "conversion-confirmation");
+            cancel.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsFalse(dialog.IsOpen);
+            Assert.IsTrue(trigger.IsKeyboardFocused);
+            trigger.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            dialog.RequestClose();
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsFalse(dialog.IsOpen);
+            trigger.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            Exception? failure = null;
+            var inspected = false;
+            window.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.ApplicationIdle, new Action(() =>
+            {
+                var child = window.OwnedWindows.Cast<Window>().Single();
+                try
+                {
+                    var orders = (Eitmad.WindowsShell.Features.Orders.OrdersView)child.Content;
+                    var order = orders.ViewModel.SelectedOrder!;
+                    Assert.AreEqual(quotation.Customer, order.Customer);
+                    Assert.AreEqual(quotation.Discount, order.Discount);
+                    Assert.AreEqual(quotation.FinalTotal, order.FinalTotal);
+                    CollectionAssert.AreEqual(quotation.Items.Select(line => (line.FurnitureName, line.Variant, line.Color, line.Handle, line.Quantity, line.UnitPrice)).ToArray(),
+                        order.Items.Select(line => (line.Product, line.Variant, line.Color, line.Handle, line.Quantity, line.SellingPrice)).ToArray());
+                    Assert.IsTrue(WpfTestHost.FindByName<Button>(orders, "BackToOrdersButton").IsKeyboardFocused);
+                    inspected = true;
+                }
+                catch (Exception exception) { failure = exception; }
+                finally { child.Close(); }
+            }));
+            WpfTestHost.FindByName<Button>(view, "ConfirmConversionButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            if (failure is not null) throw failure;
+            Assert.IsTrue(inspected);
+            Assert.AreEqual(QuotationStatus.Active, quotation.Status);
+        });
+    }
+
+    [TestMethod]
     public void ReceptionListFiltersAndDetailActionsRespectStatus()
     {
         WpfTestHost.Run(1338, 900, window =>

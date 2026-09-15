@@ -384,5 +384,30 @@
                 </StackPanel>
             </ScrollViewer>
         </Grid>
+        <controls:DialogHost x:Name="ConversionDialog" Panel.ZIndex="20" Title="تحويل إلى طلب" PreferredWidth="520"
+                             CloseRequested="CancelConversionClick" InitialFocusTarget="{Binding ElementName=CancelConversionButton}">
+            <controls:DialogHost.Footer>
+                <WrapPanel>
+                    <Button x:Name="ConfirmConversionButton" Content="تأكيد وإنشاء الطلب" Style="{StaticResource PrimaryButton}"
+                            Margin="0,0,0,8" Click="ConfirmConversionClick" automation:AutomationProperties.Name="تأكيد وإنشاء الطلب"/>
+                    <Button x:Name="CancelConversionButton" Content="إلغاء" Style="{StaticResource SecondaryButton}"
+                            Margin="8,0,0,8" Click="CancelConversionClick" automation:AutomationProperties.Name="إلغاء"/>
+                </WrapPanel>
+            </controls:DialogHost.Footer>
+            <StackPanel>
+                <TextBlock Text="سيتم إنشاء طلب جديد من عرض السعر الحالي." TextWrapping="Wrap" Margin="0,0,0,20"/>
+                <controls:FormField Label="العميل" Margin="0,0,0,12">
+                    <TextBlock Text="{Binding Customer}" TextWrapping="Wrap" FontSize="17" FontWeight="SemiBold"/>
+                </controls:FormField>
+                <controls:FormField Label="عدد البنود" Margin="0,0,0,12">
+                    <TextBlock Text="{Binding Items.Count}" FlowDirection="LeftToRight" HorizontalAlignment="Left" FontSize="17"/>
+                </controls:FormField>
+                <controls:FormField Label="الإجمالي النهائي" Margin="0,0,0,16">
+                    <controls:AmountDisplay AmountText="{Binding FinalTotalLabel}" FontSize="24" FontWeight="Bold"/>
+                </controls:FormField>
+                <TextBlock Text="تنتقل بيانات العميل والبنود والخيارات والكميات والأسعار والخصم دون إعادة إدخال." TextWrapping="Wrap" Margin="0,0,0,12"/>
+                <controls:FeedbackNotice Message="معاينة فقط — ستُعرض تفاصيل طلب تجريبي دون حفظه أو تغيير عرض السعر." Tone="Information"/>
+            </StackPanel>
+        </controls:DialogHost>
     </Grid>
 </UserControl>

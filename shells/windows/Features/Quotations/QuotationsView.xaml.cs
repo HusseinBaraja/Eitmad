@@ -49,8 +49,22 @@ public partial class QuotationsView : UserControl
 
     private void ConvertQuotationClick(object sender, RoutedEventArgs e)
     {
-        if (!ViewModel.IsReceptionist || ViewModel.SelectedQuotation is not { CanEdit: true }) return;
-        ReceptionActionNotice.Text = "التحويل إلى طلب غير متاح في المعاينة — لم يتم إنشاء طلب أو تغيير عرض السعر";
+        if (!ViewModel.IsReceptionist || ViewModel.SelectedQuotation is not { CanEdit: true } quotation) return;
+        ConversionDialog.DataContext = quotation;
+        ConversionDialog.IsOpen = true;
+    }
+
+    private void CancelConversionClick(object sender, RoutedEventArgs e) => ConversionDialog.IsOpen = false;
+
+    private void ConfirmConversionClick(object sender, RoutedEventArgs e)
+    {
+        if (!ConversionDialog.IsOpen || ConversionDialog.DataContext is not QuotationListItem { CanEdit: true } quotation) return;
+        ConversionDialog.IsOpen = false;
+        var view = new Features.Orders.OrdersView();
+        view.ViewModel.OpenOrder(new(Guid.NewGuid(), "معاينة غير محفوظة", quotation.Customer,
+            DateOnly.FromDateTime(DateTime.Today), Features.Orders.OrderStatus.New, quotation.Discount,
+            quotation.Items.Select(line => new Features.Orders.OrderLineItem(line.FurnitureName, line.Variant, "—", line.Color, line.Handle, line.Quantity, line.UnitPrice)).ToArray()));
+        ShowPreviewWindow(view, "تفاصيل الطلب — معاينة فقط، لم يتم حفظ طلب");
     }
 
     private void OpenLinkedOrderClick(object sender, RoutedEventArgs e)
@@ -73,6 +87,7 @@ public partial class QuotationsView : UserControl
         {
             if (content is PrintPreview printContent) printContent.PrintButton.Focus();
             if (content is Features.Reception.SalesCatalogView catalog) catalog.RestoreQuotationFocus();
+            if (content is Features.Orders.OrdersView orders) orders.BackToOrdersButton.Focus();
         };
         window.Closed += (_, _) => { if (ViewModel.IsListVisible) QuotationSearchBox.Focus(); else BackToQuotationsButton.Focus(); };
         window.ShowDialog();
