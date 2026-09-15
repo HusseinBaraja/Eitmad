@@ -25,5 +25,27 @@ public partial class CurrentQuotationView : UserControl
     private void CancelCustomerClick(object sender, RoutedEventArgs e) { Model.CancelNewCustomer(); CustomerNameInput.Focus(); }
     private void RequestApprovalClick(object sender, RoutedEventArgs e) { Model.RequestDiscountApproval(); SaveDraftButton.Focus(); }
     private void SaveDraftClick(object sender, RoutedEventArgs e) => Model.ReviewDraftSave();
-    private void SaveQuotationClick(object sender, RoutedEventArgs e) { if (!Model.ReviewSave()) { CustomerNameInput.BringIntoView(); CustomerNameInput.Focus(); } }
+    private void SaveQuotationClick(object sender, RoutedEventArgs e) { if (!Model.ReviewSave()) FocusMissingField(); }
+    private void FocusMissingField()
+    {
+        FrameworkElement target = Model.IsQuotationEmpty ? ContinueButton : Model.CustomerNameError.Length > 0 ? CustomerNameInput : Model.PhoneError.Length > 0 ? PhoneInput : DiscountInput;
+        target.BringIntoView(); target.Focus();
+    }
+    private void PrintPreviewClick(object sender, RoutedEventArgs e)
+    {
+        if (!Model.CanPreviewCustomer) return;
+        if (!Model.CheckRequiredFields()) { FocusMissingField(); return; }
+        var preview = new Controls.PrintPreview { Document = QuotationCustomerDocument.Create(Model, DateTime.Today) };
+        var window = new Window
+        {
+            Title = "معاينة عرض السعر", Content = preview, Owner = Window.GetWindow(this),
+            Width = 900, Height = 850, MinWidth = 640, MinHeight = 480,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            FlowDirection = System.Windows.FlowDirection.RightToLeft, Language = Language,
+        };
+        preview.BackRequested += (_, _) => window.Close();
+        window.Loaded += (_, _) => preview.PrintButton.Focus();
+        window.Closed += (_, _) => { PrintPreviewButton.BringIntoView(); PrintPreviewButton.Focus(); };
+        window.ShowDialog();
+    }
 }

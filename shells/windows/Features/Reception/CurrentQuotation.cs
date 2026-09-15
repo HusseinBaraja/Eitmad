@@ -50,8 +50,12 @@ public sealed partial class SalesCatalogViewModel
     public decimal Subtotal => QuotationLines.Sum(line => line.LineTotal);
     public decimal Discount => IsDiscountValid ? decimal.Round(Subtotal * (discountPercent / 100m), 0, MidpointRounding.AwayFromZero) : 0;
     public decimal FinalTotal => Subtotal - Discount;
-    public string CustomerName { get => customerName; set { if (Set(ref customerName, value)) MatchCustomers(); } }
-    public string Phone { get => phone; set { if (Set(ref phone, value)) MatchCustomers(); } }
+    private bool showRequiredErrors;
+    public string CustomerNameError => showRequiredErrors && string.IsNullOrWhiteSpace(CustomerName) ? "أدخل اسم العميل" : "";
+    public string PhoneError => showRequiredErrors && string.IsNullOrWhiteSpace(Phone) ? "أدخل رقم الهاتف" : "";
+    public string ItemsError => showRequiredErrors && IsQuotationEmpty ? "أضف صنفاً واحداً على الأقل" : "";
+    public string CustomerName { get => customerName; set { if (Set(ref customerName, value)) { MatchCustomers(); Raise(nameof(CustomerNameError)); } } }
+    public string Phone { get => phone; set { if (Set(ref phone, value)) { MatchCustomers(); Raise(nameof(PhoneError)); } } }
     public string Address { get => address; set => Set(ref address, value); }
     public string Notes { get => notes; set => Set(ref notes, value); }
     public bool IsNewCustomer { get => isNewCustomer; private set => Set(ref isNewCustomer, value); }
@@ -90,20 +94,33 @@ public sealed partial class SalesCatalogViewModel
     }
     private bool CheckCustomer()
     {
+        showRequiredErrors = true;
+        Raise(nameof(CustomerNameError)); Raise(nameof(PhoneError));
         if (!string.IsNullOrWhiteSpace(CustomerName) && !string.IsNullOrWhiteSpace(Phone)) return true;
         QuotationNotice = "أدخل اسم العميل ورقم الهاتف للمتابعة"; return false;
     }
     public bool ReviewSave()
     {
+        if (!CheckRequiredFields()) return false;
         if (!CanSaveQuotation) { QuotationNotice = DiscountError.Length > 0 ? DiscountError : DiscountStatus; return false; }
-        if (IsQuotationEmpty) { QuotationNotice = "أضف صنفاً إلى عرض السعر أولاً"; return false; }
-        if (!CheckCustomer()) return false;
         QuotationNotice = "المعاينة مكتملة — حفظ عرض السعر غير متاح بعد، ولم تُحفظ البيانات"; return true;
     }
+    public bool CheckRequiredFields()
+    {
+        var customerValid = CheckCustomer();
+        Raise(nameof(ItemsError));
+        if (!customerValid || IsQuotationEmpty)
+        {
+            QuotationNotice = "أكمل الحقول المطلوبة وأضف صنفاً واحداً على الأقل";
+            return false;
+        }
+        return true;
+    }
+    public bool CanPreviewCustomer => CanSaveQuotation && !IsQuotationEmpty;
     private void RefreshQuotation()
     {
         InvalidateDiscountRequest();
-        foreach (var property in new[] { nameof(QuotationLabel), nameof(IsQuotationEmpty), nameof(Subtotal), nameof(FinalTotal) }) Raise(property);
+        foreach (var property in new[] { nameof(QuotationLabel), nameof(IsQuotationEmpty), nameof(Subtotal), nameof(FinalTotal), nameof(ItemsError), nameof(CanPreviewCustomer) }) Raise(property);
         QuotationNotice = "";
     }
     private void StoreLine(PreviewQuotationLine line)

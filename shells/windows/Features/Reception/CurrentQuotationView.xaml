@@ -8,7 +8,7 @@
   <TextBlock Text="{Binding QuotationHeading}" FontSize="18" Margin="0,4,0,8"/>
   <TextBlock Text="معاينة ببيانات تجريبية — لا يتم حفظ عرض السعر أو بيانات العميل" TextWrapping="Wrap" Margin="0,0,0,20"/>
   <TextBlock Text="عرض السعر فارغ. تابع اختيار المنتجات لإضافة الأصناف." TextWrapping="Wrap" FontSize="20" Margin="0,20" Visibility="{Binding IsQuotationEmpty, Converter={StaticResource BooleanToVisibility}}"/>
-  <ItemsControl ItemsSource="{Binding QuotationLines}">
+  <controls:FormField Label="الأصناف" ErrorText="{Binding ItemsError}"><ItemsControl ItemsSource="{Binding QuotationLines}">
    <ItemsControl.ItemTemplate><DataTemplate>
     <Border BorderBrush="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}" BorderThickness="0,0,0,1" Padding="0,16">
      <Grid>
@@ -35,15 +35,15 @@
      </Grid>
     </Border>
    </DataTemplate></ItemsControl.ItemTemplate>
-  </ItemsControl>
+  </ItemsControl></controls:FormField>
   <StackPanel Margin="0,28,0,0">
    <TextBlock Text="بيانات العميل" FontSize="23" FontWeight="Bold"/>
    <TextBlock Text="الاسم ورقم الهاتف مطلوبان عند حفظ عرض السعر" Margin="0,6,0,12" TextWrapping="Wrap"/>
    <Button Content="+ عميل جديد" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Click="NewCustomerClick" AutomationProperties.Name="عميل جديد"/>
    <TextBlock Text="عميل جديد — معاينة مؤقتة" FontSize="18" FontWeight="Bold" Margin="0,12" Visibility="{Binding IsNewCustomer, Converter={StaticResource BooleanToVisibility}}"/>
    <WrapPanel Margin="0,12,0,0">
-    <controls:FormField Label="اسم العميل" Width="300" Margin="0,0,0,12"><TextBox x:Name="CustomerNameInput" Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" AutomationProperties.Name="اسم العميل"/></controls:FormField>
-    <controls:FormField Label="رقم الهاتف" Width="260" Margin="12,0,0,12"><TextBox Text="{Binding Phone, UpdateSourceTrigger=PropertyChanged}" FlowDirection="LeftToRight" Style="{StaticResource TextInput}" AutomationProperties.Name="رقم الهاتف"/></controls:FormField>
+    <controls:FormField Label="اسم العميل" IsRequired="True" ErrorText="{Binding CustomerNameError}" Width="300" Margin="0,0,0,12"><TextBox x:Name="CustomerNameInput" Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" AutomationProperties.Name="اسم العميل"/></controls:FormField>
+    <controls:FormField Label="رقم الهاتف" IsRequired="True" ErrorText="{Binding PhoneError}" Width="260" Margin="12,0,0,12"><TextBox x:Name="PhoneInput" Text="{Binding Phone, UpdateSourceTrigger=PropertyChanged}" FlowDirection="LeftToRight" Style="{StaticResource TextInput}" AutomationProperties.Name="رقم الهاتف"/></controls:FormField>
    </WrapPanel>
    <ItemsControl ItemsSource="{Binding CustomerMatches}"><ItemsControl.ItemTemplate><DataTemplate><Button Content="{Binding Label}" HorizontalAlignment="Right" Style="{StaticResource SecondaryButton}" Click="AttachCustomerClick" AutomationProperties.Name="{Binding Name, StringFormat=اختيار العميل {0}}" Margin="0,0,0,8"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
    <controls:FormField Label="العنوان (اختياري)" Margin="0,0,0,12"><TextBox Text="{Binding Address, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" AutomationProperties.Name="العنوان"/></controls:FormField>
@@ -72,6 +72,7 @@
     <controls:AmountDisplay AmountText="{Binding FinalTotalLabel}" UnitText="YER" FontSize="36" FontWeight="Bold" HorizontalAlignment="Left" Margin="0,8,0,18"/>
     <WrapPanel HorizontalAlignment="Left">
      <Button Content="حفظ عرض السعر" Style="{StaticResource PrimaryButton}" Click="SaveQuotationClick" IsEnabled="{Binding CanSaveQuotation}" AutomationProperties.Name="حفظ عرض السعر"/>
+     <Button x:Name="PrintPreviewButton" Content="طباعة" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="PrintPreviewClick" IsEnabled="{Binding CanPreviewCustomer}" AutomationProperties.Name="طباعة"/>
      <Button x:Name="SaveDraftButton" Content="حفظ كمسودة" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="SaveDraftClick" IsEnabled="{Binding CanSaveDraft}" AutomationProperties.Name="حفظ كمسودة"/>
     </WrapPanel>
     <TextBlock Text="{Binding QuotationNotice}" TextWrapping="Wrap" Margin="0,12,0,0" AutomationProperties.LiveSetting="Polite"/>

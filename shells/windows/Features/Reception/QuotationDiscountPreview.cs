@@ -63,6 +63,6 @@ public sealed partial class SalesCatalogViewModel
         foreach (var property in new[] { nameof(IsDiscountValid), nameof(DiscountError), nameof(Discount),
             nameof(DiscountAmountLabel), nameof(FinalTotal), nameof(FinalTotalLabel), nameof(RequiresDiscountApproval),
             nameof(IsDiscountPending), nameof(CanRequestDiscountApproval), nameof(CanSaveQuotation),
-            nameof(CanSaveDraft), nameof(DiscountStatus), nameof(TotalHeading) }) Raise(property);
+            nameof(CanSaveDraft), nameof(DiscountStatus), nameof(TotalHeading), nameof(CanPreviewCustomer) }) Raise(property);
     }
 }
