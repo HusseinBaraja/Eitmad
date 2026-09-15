@@ -23,8 +23,9 @@ public sealed class OrdersViewModel : ObservableObject
     private string selectedDate = AllDates;
     private OrderListItem? selectedOrder;
 
-    public OrdersViewModel()
+    public OrdersViewModel(bool isReceptionist = false)
     {
+        IsReceptionist = isReceptionist;
         var today = DateOnly.FromDateTime(DateTime.Today);
         orders =
         [
@@ -73,11 +74,35 @@ public sealed class OrdersViewModel : ObservableObject
                 [new("مكتبة جدارية", "خمسة أقسام", "240 × 230 × 40 سم", "أبيض", "معدن أسود", 5, 240_000m)]),
         ];
 
+        if (isReceptionist)
+        {
+            var quotations = new Features.Quotations.QuotationsViewModel(true).VisibleQuotations;
+            for (var index = 0; index < orders.Count; index++)
+            {
+                var order = orders[index];
+                orders[index] = order with
+                {
+                    Phone = $"0000000{87 - index:00}",
+                    OriginalQuotation = quotations.Single(item => item.Customer == order.Customer),
+                    Items = order.Items.Select(line => line with { ThumbnailKind = index switch
+                    { 1 => "Bed", 2 => "Table", 3 => "Chair", _ => "Wardrobe" } }).ToArray(),
+                };
+            }
+            orders[1] = orders[1] with { Items = [.. orders[1].Items,
+                new("مرتبة الراحة", "مزدوج", "", "", "", 2, 45_000m, false, "Mattress")] };
+        }
+
         StatusOptions = [AllStatuses, NewStatus, InProductionStatus, ReadyStatus, DeliveredStatus, CancelledStatus];
         DateOptions = [AllDates, Today, LastSevenDays, LastThirtyDays];
         VisibleOrders = [];
         RefreshVisibleOrders();
     }
+
+    public bool IsReceptionist { get; }
+    public bool IsManager => !IsReceptionist;
+    public string ListSubtitle => IsReceptionist ? "بيانات تجريبية للمعاينة فقط" : "راجع طلبات العملاء وتقدمها من مكان واحد";
+    public string SearchName => IsReceptionist ? "البحث برقم الطلب أو العميل أو رقم الهاتف" : "البحث برقم الطلب أو العميل";
+    public string DetailSubtitle => IsReceptionist ? "بيانات تجريبية للمعاينة فقط" : "مراجعة بيانات الطلب وبنود الأثاث";
 
     public IReadOnlyList<string> StatusOptions { get; }
 
@@ -170,10 +195,11 @@ public sealed class OrdersViewModel : ObservableObject
         Raise(nameof(VisibleCountLabel));
     }
 
-    private static bool MatchesSearch(OrderListItem order, string normalizedSearch) =>
+    private bool MatchesSearch(OrderListItem order, string normalizedSearch) =>
         string.IsNullOrEmpty(normalizedSearch)
         || PreviewText.NormalizeSearch(order.Number).Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase)
-        || PreviewText.NormalizeSearch(order.Customer).Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase);
+        || PreviewText.NormalizeSearch(order.Customer).Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase)
+        || (IsReceptionist && PreviewText.NormalizeNumericInput(order.Phone).Contains(PreviewText.NormalizeNumericInput(normalizedSearch), StringComparison.OrdinalIgnoreCase));
 
     private bool MatchesStatus(OrderListItem order) => SelectedStatus switch
     {

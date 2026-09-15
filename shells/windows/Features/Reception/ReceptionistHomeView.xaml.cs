@@ -7,7 +7,11 @@ namespace Eitmad.WindowsShell.Features.Reception;
 
 public partial class ReceptionistHomeView : UserControl
 {
-    public ReceptionistHomeView() => InitializeComponent();
+    public ReceptionistHomeView()
+    {
+        InitializeComponent();
+        ((Button)ReceptionistSidebar.FindName("OrdersNavButton")).Visibility = Visibility.Visible;
+    }
 
     public event EventHandler? AccountSwitchRequested;
 
@@ -45,15 +49,22 @@ public partial class ReceptionistHomeView : UserControl
 
     private void Navigate(string destination)
     {
-        if (destination is not ("المنتجات" or "الرئيسية" or "عروض الأسعار"))
+        if (destination is not ("المنتجات" or "الرئيسية" or "عروض الأسعار" or "الطلبات"))
         {
             ShowNotice($"تم اختيار {destination} في وضع المعاينة");
             return;
+        }
+        if (destination == "الطلبات" && ReceptionOrders.Content is null)
+        {
+            var orders = new Features.Orders.OrdersView();
+            orders.ConfigureReceptionist();
+            ReceptionOrders.Content = orders;
         }
         var catalog = destination == "المنتجات";
         if (catalog) ((SalesCatalogViewModel)CatalogContent.DataContext).Reload();
         CatalogContent.Visibility = catalog ? Visibility.Visible : Visibility.Collapsed;
         ReceptionQuotations.Visibility = destination == "عروض الأسعار" ? Visibility.Visible : Visibility.Collapsed;
+        ReceptionOrders.Visibility = destination == "الطلبات" ? Visibility.Visible : Visibility.Collapsed;
         HomeContent.Visibility = destination == "الرئيسية" ? Visibility.Visible : Visibility.Collapsed;
         ReceptionistTitleBar.Title = destination;
         ReceptionistSidebar.SelectDestination(destination);
@@ -71,7 +82,7 @@ public partial class ReceptionistHomeView : UserControl
 
     private void ShowPreviewFeedback(string action)
     {
-        if (action is "المنتجات" or "عروض الأسعار") { Navigate(action); return; }
+        if (action is "المنتجات" or "عروض الأسعار" or "الطلبات") { Navigate(action); return; }
         if (action == "عرض سعر جديد") { Navigate("المنتجات"); ((SalesCatalogViewModel)CatalogContent.DataContext).IsReviewingQuotation = true; CatalogContent.RestoreQuotationFocus(); return; }
         ShowNotice($"تم اختيار {action} في وضع المعاينة");
     }

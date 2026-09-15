@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Order capability maintainers"
-last_verified: "2026-09-03"
+last_verified: "2026-09-15"
 review_triggers:
   - "Order contracts, lifecycle rules, or Windows order UI behavior change"
 keywords:
@@ -21,7 +21,7 @@ keywords:
 
 # Extend the order review flow safely
 
-The Windows **الطلبات** page gives a manager a synthetic order list and a read-only detail view. It is a review surface only: it has no order status action and no carpenter workflow.
+The Windows **الطلبات** page gives managers and receptionists a synthetic order list and a read-only detail view. It is a review surface only: it has no order status action and no carpenter workflow.
 
 ## Ownership and current boundary
 
@@ -36,6 +36,16 @@ The list shows **رقم الطلب**, **العميل**, **التاريخ**, **ا
 Opening an order shows its metadata and each product line with variant, dimensions, color, handle, quantity, and selling price. The read-only detail then shows subtotal, discount, and final total. `YER` values stay inside explicit LTR boundaries within the Arabic layout.
 
 There is deliberately no **تغيير حالة الطلب** action and no **فتح سير عمل النجّار** action. Manufacturing progression belongs to the separate Work Orders capability.
+
+## Receptionist workflow
+
+The receptionist home card and sidebar open a separate `OrdersView` configured with `ConfigureReceptionist`. This reuses the shared page header, filters, operations table, status badges, feedback notice, catalog illustrations, amount display, and print preview. Manager configuration keeps its existing behavior.
+
+Search also matches synthetic phone numbers with Arabic or Latin digits. All five status filters compose with date and search. The customer detail shows furniture and ready-made Products with images or synthetic catalog illustrations, variants, quantities, and selling prices. Only furniture shows dimensions, color, and handle. Subtotal, discount, and final total follow the items. Production costing, raw materials, and Parts are absent.
+
+A Ready order shows **الطلب جاهز** above the actions and metadata. **طباعة** opens the shared native print preview using `OrderCustomerDocument`, an explicit customer-only projection. **عرض السعر الأصلي** opens the linked quotation fixture with its own number, date, items, and prices. The action is disabled if no original quotation is supplied. The preview does not provide a customer-contact action. Closing a document returns focus to its action; returning to the list preserves filters and focuses search.
+
+The quotation conversion preview opens this customer detail, and the existing converted quotation opens the matching Ready order fixture. All records remain synthetic; these links are not a production relationship or authorization implementation.
 
 ## Failure and recovery
 
@@ -52,6 +62,8 @@ dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --filter "Full
 ```
 
 `OrdersPresentationTests` covers Arabic search, status and date filter composition, all visible status labels, calculated totals, and list/detail transitions. `OrdersRenderedTests` creates the real WPF window at standard and compact sizes and checks the list, read-only detail, focus, required fields, scrolling, and absence of status or carpenter actions.
+
+`ReceptionOrdersRenderedTests` covers receptionist navigation, Arabic-digit phone search with status and date filters, Ready visibility, mixed item types, document opening and return focus, and a compact detail. It captures synthetic screens under the temporary `eitmad-reception-orders` directory. Physical printer output and OS high-contrast mode are not verified by these checks.
 
 ## Future Rust vertical
 
