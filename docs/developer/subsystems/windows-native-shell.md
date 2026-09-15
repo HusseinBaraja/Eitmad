@@ -125,6 +125,14 @@ An expired or engine-generation cursor causes the supervisor to open a fresh str
 
 This process preserves Rust authority. A failed configuration query clears the prior entries and revision, displays **غير متاح**, and disables configuration submission instead of presenting stale values. Command failures are caught at the WPF command boundary and mapped to recovery state so they cannot escape through the dispatcher.
 
+## Customer history preview
+
+The receptionist can open **تفاصيل العميل** from an order or quotation detail. `Features/Customers/CustomerDetailView` shows name, phone, address, notes, and compact **عروض الأسعار** and **الطلبات** tables. Each history row includes its reference, date, item names, status, and total. Empty sections have explicit empty states. The receptionist sidebar has no Customers entry, so there is no standalone Customers list or new-customer action.
+
+`CustomerPreviewDirectory` projects the existing synthetic receptionist fixtures once per reception session. Fixture names establish initial associations; record-ID mappings keep history attached after contact edits. The shared `PageHeader`, `OperationsTable`, `FormField`, and `DialogHost` controls retain their existing behavior. The customer editor stages four contact fields, applies changes only in memory, and discards cancelled input. Returning restores the source record and keyboard focus. Closing the app discards edits. Production customer lookup, validation, scope, authorization, audit, storage, and sync remain Rust responsibilities.
+
+Run `dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --configuration Release --nologo --filter FullyQualifiedName~CustomersRenderedTests` to check record navigation, shared customer identity, editing, cancellation, history retention, and focus restoration. Synthetic captures are written to the temporary `eitmad-customers` directory. Normal and compact layout and table system-color styling are checked; actual OS high contrast, OS text scaling, and screen-reader behavior remain unverified.
+
 ## Users list preview
 
 The **المستخدمون** destination uses `Features/Users` for a synthetic, non-persistent list. It shows only name, role, status, and actions. Arabic-normalized name search combines with role and status filters. The three presentation roles are **مدير**, **موظف الاستقبال**, and **النجار**; they do not define authorization policy.

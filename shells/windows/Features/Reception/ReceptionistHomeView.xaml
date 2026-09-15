@@ -6,6 +6,7 @@
              xmlns:layout="clr-namespace:Eitmad.WindowsShell.Layout"
              xmlns:quotations="clr-namespace:Eitmad.WindowsShell.Features.Quotations"
              xmlns:reception="clr-namespace:Eitmad.WindowsShell.Features.Reception"
+             xmlns:customers="clr-namespace:Eitmad.WindowsShell.Features.Customers"
              FlowDirection="RightToLeft"
              Language="ar-YE"
              Background="{StaticResource CanvasBrush}">
@@ -186,6 +187,7 @@
         <quotations:QuotationsView x:Name="ReceptionQuotations" Grid.Row="1" Visibility="Collapsed"/>
         <ContentControl x:Name="ReceptionOrders" Grid.Row="1" Visibility="Collapsed"/>
         <reception:SalesCatalogView x:Name="CatalogContent" Grid.Row="1" Visibility="Collapsed" />
+        <customers:CustomerDetailView x:Name="CustomerDetail" Grid.Row="1" Visibility="Collapsed" BackRequested="CustomerBackRequested"/>
         <controls:ShellSidebar x:Name="ReceptionistSidebar" Grid.RowSpan="2" Grid.Column="1" IsReceptionist="True" NavigationRequested="SidebarNavigationRequested" />
     </Grid>
 </UserControl>

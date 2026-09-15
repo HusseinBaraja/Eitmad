@@ -17,6 +17,12 @@ public partial class QuotationsView : UserControl
     }
 
     public QuotationsViewModel ViewModel { get; private set; }
+    public event Action<Guid>? CustomerRequested;
+
+    private void CustomerClick(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.IsReceptionist && ViewModel.SelectedQuotation is { } quotation) CustomerRequested?.Invoke(quotation.Id);
+    }
     private Func<QuotationListItem?, Features.Reception.SalesCatalogViewModel>? createPreview;
 
     public void ConfigureReceptionist(Func<QuotationListItem?, Features.Reception.SalesCatalogViewModel> factory)

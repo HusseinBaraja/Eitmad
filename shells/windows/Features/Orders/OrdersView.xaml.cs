@@ -17,6 +17,12 @@ public partial class OrdersView : UserControl
     }
 
     public OrdersViewModel ViewModel { get; private set; }
+    public event Action<Guid>? CustomerRequested;
+
+    private void CustomerClick(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.IsReceptionist && ViewModel.SelectedOrder is { } order) CustomerRequested?.Invoke(order.Id);
+    }
 
     public void ConfigureReceptionist()
     {

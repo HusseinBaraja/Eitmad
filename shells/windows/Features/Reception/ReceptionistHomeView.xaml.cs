@@ -7,10 +7,15 @@ namespace Eitmad.WindowsShell.Features.Reception;
 
 public partial class ReceptionistHomeView : UserControl
 {
+    private readonly Features.Customers.CustomerPreviewDirectory customers = new();
+    private string customerReturnDestination = "الطلبات";
+    private IInputElement? customerReturnFocus;
+
     public ReceptionistHomeView()
     {
         InitializeComponent();
         ((Button)ReceptionistSidebar.FindName("OrdersNavButton")).Visibility = Visibility.Visible;
+        ReceptionQuotations.CustomerRequested += id => OpenCustomer(customers.ForQuotation(id), "عروض الأسعار");
     }
 
     public event EventHandler? AccountSwitchRequested;
@@ -58,9 +63,11 @@ public partial class ReceptionistHomeView : UserControl
         {
             var orders = new Features.Orders.OrdersView();
             orders.ConfigureReceptionist();
+            orders.CustomerRequested += id => OpenCustomer(customers.ForOrder(id), "الطلبات");
             ReceptionOrders.Content = orders;
         }
         var catalog = destination == "المنتجات";
+        CustomerDetail.Visibility = Visibility.Collapsed;
         if (catalog) ((SalesCatalogViewModel)CatalogContent.DataContext).Reload();
         CatalogContent.Visibility = catalog ? Visibility.Visible : Visibility.Collapsed;
         ReceptionQuotations.Visibility = destination == "عروض الأسعار" ? Visibility.Visible : Visibility.Collapsed;
@@ -68,6 +75,25 @@ public partial class ReceptionistHomeView : UserControl
         HomeContent.Visibility = destination == "الرئيسية" ? Visibility.Visible : Visibility.Collapsed;
         ReceptionistTitleBar.Title = destination;
         ReceptionistSidebar.SelectDestination(destination);
+    }
+
+    private void OpenCustomer(Features.Customers.CustomerPreview customer, string returnDestination)
+    {
+        customerReturnDestination = returnDestination;
+        customerReturnFocus = System.Windows.Input.Keyboard.FocusedElement;
+        ReceptionOrders.Visibility = Visibility.Collapsed;
+        ReceptionQuotations.Visibility = Visibility.Collapsed;
+        CustomerDetail.DataContext = customer;
+        CustomerDetail.Visibility = Visibility.Visible;
+        ReceptionistTitleBar.Title = "تفاصيل العميل";
+        Dispatcher.BeginInvoke(CustomerDetail.BackButton.Focus, System.Windows.Threading.DispatcherPriority.Input);
+    }
+
+    private void CustomerBackRequested(object? sender, EventArgs e)
+    {
+        Navigate(customerReturnDestination);
+        if (customerReturnFocus is { } target)
+            Dispatcher.BeginInvoke(() => System.Windows.Input.Keyboard.Focus(target), System.Windows.Threading.DispatcherPriority.Input);
     }
 
     private void ActionClick(object sender, RoutedEventArgs eventArgs)

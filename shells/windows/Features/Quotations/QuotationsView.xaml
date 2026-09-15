@@ -207,6 +207,7 @@
                             <StackPanel Width="250" Margin="0,0,0,9">
                                 <TextBlock Text="العميل" Style="{StaticResource MetadataLabel}" />
                                 <TextBlock Text="{Binding SelectedQuotation.Customer}" Style="{StaticResource MetadataValue}" />
+                                <Button Content="تفاصيل العميل" Style="{StaticResource InlineActionButton}" HorizontalAlignment="Left" Click="CustomerClick" Visibility="{Binding IsReceptionist, Converter={StaticResource BooleanToVisibility}}" AutomationProperties.Name="فتح تفاصيل عميل عرض السعر"/>
                             </StackPanel>
                             <StackPanel Width="160" Margin="0,0,0,9">
                                 <TextBlock Text="التاريخ" Style="{StaticResource MetadataLabel}" />
