@@ -10,6 +10,8 @@ public partial class ReceptionistHomeView : UserControl
     private readonly Features.Customers.CustomerPreviewDirectory customers = new();
     private string customerReturnDestination = "الطلبات";
     private IInputElement? customerReturnFocus;
+    public ReceptionHandoffPreview Handoffs { get; private set; } = null!;
+    public Features.Orders.OrdersView PreviewOrders { get; private set; } = null!;
 
     public ReceptionistHomeView()
     {
@@ -25,11 +27,34 @@ public partial class ReceptionistHomeView : UserControl
         var catalog = new SalesCatalogViewModel(furniture, products);
         CatalogContent.DataContext = catalog;
         ((Button)ReceptionistSidebar.FindName("QuotationsNavButton")).Visibility = Visibility.Visible;
-        ReceptionQuotations.ConfigureReceptionist(quotation => QuotationPreviewProjection.Create(quotation, furniture, products));
+        ReceptionQuotations.ConfigureReceptionist(quotation => Handoffs.Attach(QuotationPreviewProjection.Create(quotation, furniture, products)));
+        Handoffs = new(ReceptionQuotations.ViewModel.PreviewQuotations);
+        Handoffs.Quotations.CollectionChanged += (_, e) =>
+        {
+            if (e.NewItems is not null)
+                foreach (Features.Quotations.QuotationListItem quotation in e.NewItems) customers.IncludeQuotation(quotation);
+        };
+        ReceptionQuotations.ViewModel.UsePreviewQuotations(Handoffs.Quotations);
+        Handoffs.Attach(catalog);
+        PreviewOrders = new Features.Orders.OrdersView();
+        PreviewOrders.ConfigureReceptionist();
+        PreviewOrders.CustomerRequested += id => OpenCustomer(customers.ForOrder(id), "الطلبات");
+        ReceptionOrders.Content = PreviewOrders;
+        ReadyOrdersList.ItemsSource = PreviewOrders.ViewModel.NewReadyOrders;
+        ReadyCountLabel.SetBinding(System.Windows.Controls.TextBlock.TextProperty,
+            new System.Windows.Data.Binding(nameof(Features.Orders.OrdersViewModel.ReadyCount)) { Source = PreviewOrders.ViewModel });
         ReceptionistTitleBar.PrimaryActionButton.Width = 220;
         System.Windows.Automation.AutomationProperties.SetName(ReceptionistTitleBar.PrimaryActionButton, "فتح عرض السعر");
         ReceptionistTitleBar.SetBinding(Controls.ShellTitleBar.PrimaryActionLabelProperty,
             new System.Windows.Data.Binding(nameof(SalesCatalogViewModel.QuotationLabel)) { Source = catalog });
+    }
+
+    private void OpenReadyOrderClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { DataContext: Features.Orders.OrderListItem order }) return;
+        Navigate("الطلبات");
+        PreviewOrders.ViewModel.OpenOrder(order);
+        Dispatcher.BeginInvoke(PreviewOrders.BackToOrdersButton.Focus, System.Windows.Threading.DispatcherPriority.Input);
     }
 
     private void SharedAccountSwitchRequested(object? sender, EventArgs eventArgs) =>

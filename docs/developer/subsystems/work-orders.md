@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Work Orders capability maintainers"
-last_verified: "2026-09-03"
+last_verified: "2026-09-16"
 review_triggers:
   - "Work Order contracts, manufacturing lifecycle rules, or Windows Work Orders UI behavior change"
 keywords:
@@ -33,9 +33,11 @@ Rust does not yet provide a Work Orders capability. The preview has no work-orde
 
 The scan-first list shows **رقم أمر العمل**, **العميل / الطلب**, a Furniture summary, total **الكمية**, **مسند إلى**, **موعد التسليم**, **الحالة**, and **فتح**. Search matches the work-order number, related order, customer, Furniture, and assigned carpenter after Arabic normalization. Status filters expose **جديد**, **قيد التنفيذ**, **مكتمل**, and **ملغي**. Due-date filters cover **متأخر**, **اليوم**, and **خلال 7 أيام**.
 
+The composed main window pairs each work-order fixture with a customer order. Furniture specifications come from that order; Parts remain synthetic fixtures. Newly created work previews have no prepared Parts and state this in their notes. The **الطلب المرتبط** number opens the exact manager order detail and moves focus to its back action.
+
 Opening a row shows the related order, customer, carpenter, due date, and one illustrated specification card for every Furniture item. Each card includes fixed dimensions, color, handle, and item quantity. The detail then shows the required **الأجزاء المطلوبة** and prominent **ملاحظات الطلب**.
 
-The one status action advances **جديد** → **قيد التنفيذ** → **مكتمل**. It reports **المعاينة المحلية فقط** and does not authorize, audit, persist, or synchronize a production change. Completed and cancelled rows cannot advance.
+The one status action advances **جديد** → **قيد التنفيذ** → **مكتمل**. It reports **المعاينة المحلية فقط** and does not authorize, audit, persist, or synchronize a production change. Completed and cancelled rows cannot advance. In this single-work-order-per-order fixture, starting work displays In Production on the customer order. Completing it displays Ready and adds a receptionist Home notice. This is temporary presentation state, not a production readiness rule. Multiple work orders, inspection, delivery requirements, and authoritative completion still require Rust-owned contracts and behavior.
 
 ## Failure and recovery
 
@@ -49,7 +51,7 @@ Run the focused shell checks:
 dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --filter "FullyQualifiedName~WorkOrders"
 ```
 
-`WorkOrdersPresentationTests` covers Arabic search, status and due-date filter composition, multi-Furniture detail projection, required Parts, status progression, and terminal-state gating. `WorkOrdersRenderedTests` creates the real WPF window at standard and compact sizes and checks manufacturing content, Arabic accessible names, scrollable wide tables, detail focus, and the absence of costing fields.
+`WorkOrdersPresentationTests` covers Arabic search, status and due-date filter composition, multi-Furniture detail projection, required Parts, status progression, and terminal-state gating. `WorkOrdersRenderedTests` creates the real WPF window at standard and compact sizes and checks manufacturing content, Arabic accessible names, scrollable wide tables, detail focus, and the absence of costing fields. `PreviewHandoffRenderedTests` checks the linked order and receptionist completion notice; see the [Order review guide](orders.md) for that path.
 
 ## Future Rust vertical
 

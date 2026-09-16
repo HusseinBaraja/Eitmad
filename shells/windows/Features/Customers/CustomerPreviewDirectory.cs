@@ -29,6 +29,13 @@ public sealed class CustomerPreviewDirectory
         }
     }
 
+    public void IncludeQuotation(QuotationListItem quotation)
+    {
+        byQuotation[quotation.Id] = new(new(quotation.Customer, quotation.Phone, quotation.Address, quotation.Notes),
+            [new(quotation.Number, quotation.Date, string.Join("، ", quotation.Items.Select(item => item.FurnitureName)),
+                quotation.StatusLabel, quotation.FinalTotalLabel)], []);
+    }
+
     public CustomerPreview ForOrder(Guid id) => byOrder[id];
     public CustomerPreview ForQuotation(Guid id) => byQuotation[id];
 }

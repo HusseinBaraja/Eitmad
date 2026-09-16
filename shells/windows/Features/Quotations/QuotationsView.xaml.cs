@@ -55,7 +55,7 @@ public partial class QuotationsView : UserControl
 
     private void ConvertQuotationClick(object sender, RoutedEventArgs e)
     {
-        if (!ViewModel.IsReceptionist || ViewModel.SelectedQuotation is not { CanEdit: true } quotation) return;
+        if (!ViewModel.IsReceptionist || ViewModel.SelectedQuotation is not { CanPrint: true } quotation) return;
         ConversionDialog.DataContext = quotation;
         ConversionDialog.IsOpen = true;
     }
@@ -64,13 +64,13 @@ public partial class QuotationsView : UserControl
 
     private void ConfirmConversionClick(object sender, RoutedEventArgs e)
     {
-        if (!ConversionDialog.IsOpen || ConversionDialog.DataContext is not QuotationListItem { CanEdit: true } quotation) return;
+        if (!ConversionDialog.IsOpen || ConversionDialog.DataContext is not QuotationListItem { CanPrint: true } quotation) return;
         ConversionDialog.IsOpen = false;
         var view = new Features.Orders.OrdersView();
         view.ConfigureReceptionist();
         view.ViewModel.OpenOrder(new(Guid.NewGuid(), "معاينة غير محفوظة", quotation.Customer,
             DateOnly.FromDateTime(DateTime.Today), Features.Orders.OrderStatus.New, quotation.Discount,
-            quotation.Items.Select(line => new Features.Orders.OrderLineItem(line.FurnitureName, line.Variant, "—", line.Color, line.Handle, line.Quantity, line.UnitPrice)).ToArray(), quotation.Phone, quotation));
+            quotation.Items.Select(line => new Features.Orders.OrderLineItem(line.FurnitureName, line.Variant, line.Dimensions, line.Color, line.Handle, line.Quantity, line.UnitPrice, line.IsFurniture, line.ThumbnailKind, line.Image)).ToArray(), quotation.Phone, quotation));
         ShowPreviewWindow(view, "تفاصيل الطلب — معاينة فقط، لم يتم حفظ طلب");
     }
 
@@ -127,7 +127,7 @@ public partial class QuotationsView : UserControl
         Dispatcher.BeginInvoke(QuotationSearchBox.Focus, DispatcherPriority.Input);
     }
 
-    private void ApproveDiscountClick(object sender, RoutedEventArgs eventArgs) => ViewModel.ApproveDiscount();
+    private void ApproveDiscountClick(object sender, RoutedEventArgs eventArgs) { ViewModel.ApproveDiscount(); BackToQuotationsButton.Focus(); }
 
-    private void RejectDiscountClick(object sender, RoutedEventArgs eventArgs) => ViewModel.RejectDiscount();
+    private void RejectDiscountClick(object sender, RoutedEventArgs eventArgs) { ViewModel.RejectDiscount(); BackToQuotationsButton.Focus(); }
 }

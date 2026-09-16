@@ -18,6 +18,12 @@ public partial class WorkOrdersView : UserControl
 
     public WorkOrdersViewModel ViewModel { get; }
 
+    public event Action<string>? OrderRequested;
+    private void OpenOrderClick(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.SelectedWorkOrder is { } workOrder) OrderRequested?.Invoke(workOrder.OrderNumber);
+    }
+
     private void WorkOrderRowInvoked(object sender, RowInvokedEventArgs eventArgs) =>
         OpenWorkOrder((WorkOrderListItem)eventArgs.Item);
 

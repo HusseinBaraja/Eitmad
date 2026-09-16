@@ -35,8 +35,8 @@ public sealed class WorkOrdersRenderedTests
             Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(view).Any(text => text.Text == "أمر عمل"));
             Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(view).Any(text => text.Text == "#024" && text.FlowDirection == FlowDirection.LeftToRight));
             Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(view).Any(text => text.Text == "عدد قطع الأثاث: 2"));
-            Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(view).Any(text => text.Text == "خزانة كبيرة"));
-            Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(view).Any(text => text.Text == "مكتب عمل"));
+            Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(view).Any(text => text.Text == "خزانة السكينة"));
+            Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(view).Any(text => text.Text == "مكتب العمل الهادئ"));
             Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(view).Any(text => text.Text == "الأجزاء المطلوبة"));
             Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(view).Any(text => text.Text == "ملاحظات الطلب"));
             Assert.AreEqual(2, WpfTestHost.Descendants<Canvas>(view).Count(canvas => canvas.IsVisible));

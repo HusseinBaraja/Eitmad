@@ -162,12 +162,19 @@
             </controls:PageHeader>
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                 <StackPanel Margin="32,22,32,30">
-                    <StackPanel Visibility="{Binding IsReceptionist, Converter={StaticResource BooleanToVisibility}}">
+                    <StackPanel>
                         <controls:FeedbackNotice x:Name="ReadyOrderNotice" Message="الطلب جاهز" Tone="Success" FontSize="26" FontWeight="Bold" Padding="20" Margin="0,0,0,16" Visibility="{Binding SelectedOrder.IsReady, Converter={StaticResource BooleanToVisibility}}" />
                         <WrapPanel Margin="0,0,0,16">
-                            <Button x:Name="PrintOrderButton" Content="طباعة" Style="{StaticResource SecondaryButton}" Click="PrintOrderClick" AutomationProperties.Name="طباعة الطلب" Margin="0,0,8,8"/>
+                            <Button x:Name="PrintOrderButton" Visibility="{Binding IsReceptionist, Converter={StaticResource BooleanToVisibility}}" Content="طباعة" Style="{StaticResource SecondaryButton}" Click="PrintOrderClick" AutomationProperties.Name="طباعة الطلب" Margin="0,0,8,8"/>
                             <Button x:Name="OriginalQuotationButton" Content="عرض السعر الأصلي" Style="{StaticResource SecondaryButton}" Click="OriginalQuotationClick" IsEnabled="{Binding SelectedOrder.HasOriginalQuotation}" AutomationProperties.Name="عرض السعر الأصلي" Margin="0,0,0,8"/>
                         </WrapPanel>
+                    </StackPanel>
+                    <StackPanel Visibility="{Binding IsReceptionist, Converter={StaticResource BooleanToVisibility}}">
+                        <StackPanel Visibility="{Binding SelectedOrder.IsNewlyReady, Converter={StaticResource BooleanToVisibility}}" Margin="0,0,0,16">
+                            <controls:FeedbackNotice Message="{Binding SelectedOrder.ReadyNotice}" Tone="Success"/>
+                            <WrapPanel Margin="0,8,0,0"><TextBlock Text="أمر العمل المكتمل"/><TextBlock Text="{Binding SelectedOrder.ReadyFromWorkOrder}" FlowDirection="LeftToRight" Margin="10,0,0,0"/></WrapPanel>
+                            <Button Content="تمت مراجعة التنبيه" Click="AcknowledgeReadyClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,8,0,0" AutomationProperties.Name="تمت مراجعة تنبيه جاهزية الطلب"/>
+                        </StackPanel>
                     </StackPanel>
                     <Border Style="{StaticResource Card}" Padding="20">
                         <Grid>
@@ -199,6 +206,16 @@
                             </Border>
                         </Grid>
                     </Border>
+                    <StackPanel Visibility="{Binding IsManager, Converter={StaticResource BooleanToVisibility}}" Margin="0,16,0,0">
+                        <Border Style="{StaticResource Card}" Padding="16" Visibility="{Binding SelectedOrder.CanShowProduction, Converter={StaticResource BooleanToVisibility}}">
+                            <StackPanel>
+                                <TextBlock Text="أوامر العمل" FontSize="18" FontWeight="SemiBold"/>
+                                <WrapPanel Margin="0,6,0,0"><TextBlock Text="{Binding ProductionNumber}" FlowDirection="LeftToRight"/><TextBlock Text="{Binding ProductionSummary}" Margin="10,0,0,0"/></WrapPanel>
+                                <TextBlock Text="راجع تصنيع الأثاث المرتبط بهذا الطلب. المنتجات الجاهزة لا تحتاج إلى أمر عمل." TextWrapping="Wrap" Margin="0,6,0,10"/>
+                                <Button Content="{Binding ProductionAction}" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Click="ProductionClick" AutomationProperties.Name="فتح تصنيع الطلب"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
                     <Border Visibility="{Binding IsManager, Converter={StaticResource BooleanToVisibility}}" Style="{StaticResource Card}" ClipToBounds="True" Margin="0,16,0,0">
                         <Grid>
                             <Grid.RowDefinitions>

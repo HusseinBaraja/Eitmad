@@ -36,9 +36,10 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <controls:PageHeader Grid.Row="0" Title="عروض الأسعار" Subtitle="{Binding ListSubtitle}" ContainsButton="{Binding IsReceptionist}" ButtonText="+ عرض سعر جديد" ButtonClick="NewQuotationClick"></controls:PageHeader>
+            <controls:PageHeader Grid.Row="0" Title="{Binding ListTitle}" Subtitle="{Binding ListSubtitle}" ContainsButton="{Binding IsReceptionist}" ButtonText="+ عرض سعر جديد" ButtonClick="NewQuotationClick"></controls:PageHeader>
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                 <StackPanel Margin="32,22,32,30">
+                    <CheckBox Content="طلبات الخصم المعلقة فقط" IsChecked="{Binding ApprovalsOnly}" Margin="0,0,0,14" AutomationProperties.Name="عرض طلبات الخصم المعلقة فقط"/>
                     <layout:AdaptiveFieldsPanel MinItemWidth="220" Margin="0,0,0,16">
                         <controls:FormField Label="البحث">
                             <TextBox x:Name="QuotationSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" automation:AutomationProperties.Name="{Binding SearchName}" Style="{StaticResource SearchInput}" />
@@ -55,9 +56,15 @@
                             <StackPanel FlowDirection="RightToLeft">
                                 <controls:OperationsTable x:Name="QuotationTable" ItemsSource="{Binding VisibleQuotations}" SelectedValuePath="Id" MaxHeight="460" IsRowInvocationEnabled="True" RowInvoked="QuotationRowInvoked" automation:AutomationProperties.Name="رقم عرض السعر">
                                     <controls:OperationsTable.EmptyContent>
-                                        <controls:EmptyState Heading="لا توجد عروض أسعار مطابقة" Description="غيّر البحث أو عوامل التصفية." />
+                                        <controls:EmptyState Heading="{Binding EmptyTitle}" Description="{Binding EmptyDescription}" />
                                     </controls:OperationsTable.EmptyContent>
                                     <DataGrid.Columns>
+                                        <DataGridTemplateColumn Header="المتابعة" Width="1.3*" MinWidth="145">
+                                            <DataGridTemplateColumn.CellTemplate><DataTemplate>
+                                                <TextBlock Text="{Binding ReceptionActivity}" Style="{StaticResource TableBody}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                            </DataTemplate></DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+
                                         <DataGridTemplateColumn Header="رقم عرض السعر" Width="1.18*" MinWidth="120" SortMemberPath="Number">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
@@ -182,12 +189,25 @@
             </controls:PageHeader>
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                 <StackPanel Margin="32,22,32,30">
+                    <Border x:Name="ApprovalSection" Style="{StaticResource Card}" Padding="20" Margin="0,0,0,16" Visibility="{Binding ShowManagerApproval, Converter={StaticResource BooleanToVisibility}}">
+                        <StackPanel>
+                            <TextBlock Text="موافقة الخصم مطلوبة" FontSize="18" FontWeight="SemiBold"/>
+                            <TextBlock Text="طلب من الاستقبال — راجع البنود والإجماليات. القرار مؤقت لهذه المعاينة فقط." TextWrapping="Wrap" Margin="0,6,0,8"/>
+                            <TextBlock Text="{Binding SelectedQuotation.DiscountDetailLabel}" FlowDirection="LeftToRight" TextAlignment="Right" FontSize="18" FontWeight="SemiBold"/>
+                            <WrapPanel Margin="0,12,0,0" Visibility="{Binding SelectedQuotation.HasPendingDiscountApproval, Converter={StaticResource BooleanToVisibility}}">
+                                <Button Content="موافقة" Style="{StaticResource PrimaryButton}" Click="ApproveDiscountClick" automation:AutomationProperties.Name="الموافقة على خصم عرض السعر" Margin="0,0,0,6"/>
+                                <Button Content="رفض" Style="{StaticResource SecondaryButton}" Click="RejectDiscountClick" automation:AutomationProperties.Name="رفض خصم عرض السعر" Margin="10,0,0,6"/>
+                            </WrapPanel>
+                            <TextBlock Text="{Binding SelectedQuotation.ApprovalDecisionLabel}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                        </StackPanel>
+                    </Border>
+                    <controls:FeedbackNotice Message="{Binding SelectedQuotation.ApprovalDecisionLabel}" Visibility="{Binding SelectedQuotation.HasApprovalDecision, Converter={StaticResource BooleanToVisibility}}" Margin="0,0,0,12"/>
                     <StackPanel Visibility="{Binding IsReceptionist, Converter={StaticResource BooleanToVisibility}}" Margin="0,0,0,16">
                         <TextBlock Text="معاينة ببيانات تجريبية — الحفظ والتحويل غير متاحين بعد" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,12"/>
                         <WrapPanel DataContext="{Binding SelectedQuotation}">
                             <Button Content="تعديل" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" Click="EditQuotationClick" Visibility="{Binding CanEdit, Converter={StaticResource BooleanToVisibility}}" automation:AutomationProperties.Name="تعديل عرض السعر"/>
                             <Button Content="طباعة" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" Click="PrintQuotationClick" Visibility="{Binding CanPrint, Converter={StaticResource BooleanToVisibility}}" automation:AutomationProperties.Name="طباعة عرض السعر"/>
-                            <Button Content="تحويل إلى طلب" Style="{StaticResource PrimaryButton}" Margin="0,0,8,8" Click="ConvertQuotationClick" Visibility="{Binding CanEdit, Converter={StaticResource BooleanToVisibility}}" automation:AutomationProperties.Name="تحويل عرض السعر إلى طلب"/>
+                            <Button Content="تحويل إلى طلب" Style="{StaticResource PrimaryButton}" Margin="0,0,8,8" Click="ConvertQuotationClick" Visibility="{Binding CanPrint, Converter={StaticResource BooleanToVisibility}}" automation:AutomationProperties.Name="تحويل عرض السعر إلى طلب"/>
                             <Button Content="فتح الطلب" Style="{StaticResource PrimaryButton}" Click="OpenLinkedOrderClick" Visibility="{Binding IsConverted, Converter={StaticResource BooleanToVisibility}}" automation:AutomationProperties.Name="فتح الطلب"/>
                         </WrapPanel>
                         <controls:FeedbackNotice Message="بانتظار موافقة المدير — العرض للقراءة فقط. تتاح الطباعة بعد الموافقة." Tone="Warning" Visibility="{Binding SelectedQuotation.IsWaitingApproval, Converter={StaticResource BooleanToVisibility}}"/>
@@ -228,6 +248,7 @@
                                 <StackPanel FlowDirection="RightToLeft">
                                     <controls:OperationsTable ItemsSource="{Binding SelectedQuotation.Items}" MaxHeight="460" automation:AutomationProperties.Name="الأثاث">
                                         <DataGrid.Columns>
+
                                             <DataGridTemplateColumn Header="الأثاث" Width="1.4*" MinWidth="160" SortMemberPath="FurnitureName">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
@@ -330,26 +351,6 @@
                                     </controls:OperationsTable>
                                 </StackPanel>
                             </Grid>
-                        </Grid>
-                    </Border>
-                    <Border x:Name="ApprovalSection" Style="{StaticResource Card}" Background="#FFF9EC" BorderBrush="#E3C980" Padding="20" Margin="0,16,0,0" Visibility="{Binding ShowManagerApproval, Converter={StaticResource BooleanToVisibility}}">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Text="موافقة الخصم مطلوبة" FontSize="16" FontWeight="Bold" Foreground="#73520D" />
-                                <TextBlock Text="يتجاوز هذا الخصم حد الموافقة. راجع الإجماليات قبل اتخاذ القرار." Foreground="#7A6742" FontSize="11" Margin="0,6,0,0" />
-                                <TextBlock Text="{Binding SelectedQuotation.DiscountDetailLabel}" FlowDirection="LeftToRight" TextAlignment="Right" FontSize="15" FontWeight="SemiBold" Foreground="#73520D" Margin="0,10,0,0" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" FlowDirection="LeftToRight" Margin="24,0,0,0" VerticalAlignment="Center" Visibility="{Binding SelectedQuotation.HasPendingDiscountApproval, Converter={StaticResource BooleanToVisibility}}">
-                                <Button Content="موافقة" Style="{StaticResource ApprovalButton}" Click="ApproveDiscountClick" automation:AutomationProperties.Name="الموافقة على خصم عرض السعر" />
-                                <Button Content="رفض" Style="{StaticResource RejectButton}" Margin="9,0,0,0" Click="RejectDiscountClick" automation:AutomationProperties.Name="رفض خصم عرض السعر" />
-                            </StackPanel>
-                            <Border Grid.Column="1" Background="#F4EBD6" CornerRadius="8" Padding="14,9" Margin="24,0,0,0" VerticalAlignment="Center" Visibility="{Binding SelectedQuotation.HasApprovalDecision, Converter={StaticResource BooleanToVisibility}}">
-                                <TextBlock Text="{Binding SelectedQuotation.ApprovalDecisionLabel}" Foreground="#654A17" FontSize="10" />
-                            </Border>
                         </Grid>
                     </Border>
                     <Border Style="{StaticResource Card}" Width="430" HorizontalAlignment="Left" Padding="22" Margin="0,16,0,0">

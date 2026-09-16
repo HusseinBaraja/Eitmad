@@ -63,6 +63,20 @@
                            FontSize="14"
                            Margin="0,7,0,22" />
 
+                <Border Style="{StaticResource Card}" Padding="18" Margin="0,0,0,18">
+                    <StackPanel>
+                        <TextBlock Text="طلبات جاهزة حديثاً" FontSize="20" FontWeight="SemiBold"/>
+                        <TextBlock Text="تنبيهات إكمال التصنيع في هذه المعاينة فقط" Foreground="{StaticResource MutedBrush}" Margin="0,6,0,8"/>
+                        <TextBlock Text="لا توجد تنبيهات جديدة" Foreground="{StaticResource MutedBrush}">
+                            <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Items.Count, ElementName=ReadyOrdersList}" Value="0"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                        </TextBlock>
+                        <ItemsControl x:Name="ReadyOrdersList"><ItemsControl.ItemTemplate><DataTemplate>
+                            <Button Style="{StaticResource SecondaryButton}" Click="OpenReadyOrderClick" HorizontalContentAlignment="Stretch" Margin="0,6,0,0" AutomationProperties.Name="{Binding Number, StringFormat=مراجعة الطلب الجاهز {0}}">
+                                <StackPanel><TextBlock Text="{Binding Number}" FlowDirection="LeftToRight" TextAlignment="Right"/><TextBlock Text="{Binding Customer}"/><TextBlock Text="{Binding ReadyNotice}" TextWrapping="Wrap"/><TextBlock Text="{Binding ReadyFromWorkOrder}" FlowDirection="LeftToRight" TextAlignment="Right"/></StackPanel>
+                            </Button>
+                        </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                    </StackPanel>
+                </Border>
                 <Button x:Name="NewQuotationAction"
                         Height="176"
                         Margin="0,0,0,14"
@@ -162,7 +176,7 @@
                         <Grid Margin="18,12">
                             <StackPanel HorizontalAlignment="Center">
                                 <TextBlock Text="طلبات جاهزة للعميل" FontSize="12" Foreground="{StaticResource MutedBrush}" />
-                                <TextBlock Text="٢" FontSize="25" FontWeight="SemiBold" Margin="0,5,0,0" TextAlignment="Center" />
+                                <TextBlock x:Name="ReadyCountLabel" FontSize="25" FontWeight="SemiBold" Margin="0,5,0,0" TextAlignment="Center" />
                             </StackPanel>
                         </Grid>
                     </UniformGrid>

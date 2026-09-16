@@ -22,6 +22,30 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         ReceptionistSurface.SetCatalogSources(FurnitureSurface.ViewModel, ProductsSurface.ViewModel);
+        QuotationsSurface.ViewModel.UsePreviewQuotations(ReceptionistSurface.Handoffs.Quotations);
+        var receptionOrders = ReceptionistSurface.PreviewOrders.ViewModel;
+        receptionOrders.UsePreviewOrders(receptionOrders.PreviewOrders);
+        OrdersSurface.ViewModel.UsePreviewOrders(receptionOrders.PreviewOrders);
+        WorkOrdersSurface.ViewModel.UseOrderFixtures(receptionOrders.PreviewOrders);
+        OrdersSurface.ViewModel.FindProduction = WorkOrdersSurface.ViewModel.ForOrder;
+        OrdersSurface.ProductionRequested += order =>
+        {
+            WorkOrdersSurface.ViewModel.OpenOrderProduction(order);
+            ManagerSidebar.SelectDestination("أوامر العمل");
+            ShowDestination("أوامر العمل");
+            Dispatcher.BeginInvoke(WorkOrdersSurface.BackToWorkOrdersButton.Focus, DispatcherPriority.Input);
+        };
+        WorkOrdersSurface.OrderRequested += number =>
+        {
+            var order = receptionOrders.PreviewOrders.FirstOrDefault(item => item.Number == number);
+            if (order is null) return;
+            OrdersSurface.ViewModel.OpenOrder(order);
+            ManagerSidebar.SelectDestination("الطلبات");
+            ShowDestination("الطلبات");
+            Dispatcher.BeginInvoke(OrdersSurface.BackToOrdersButton.Focus, DispatcherPriority.Input);
+        };
+        WorkOrdersSurface.ViewModel.PreviewStatusChanged += work => receptionOrders.PreviewProductionStatus(work.OrderNumber,
+            work.IsCompleted ? Features.Orders.OrderStatus.Ready : Features.Orders.OrderStatus.InProduction, work.Number);
         DataContext = viewModel;
         SignInSurface.Visibility = showSignIn ? Visibility.Visible : Visibility.Collapsed;
         ResponsiveRoot.Visibility = showSignIn ? Visibility.Collapsed : Visibility.Visible;
@@ -111,12 +135,13 @@ public partial class MainWindow : Window
     /// <summary>Switches between the dashboard preview and dedicated management pages.</summary>
     private void ShowDestination(string destination)
     {
+        if (destination == "عروض الأسعار") QuotationsSurface.ViewModel.ApprovalsOnly = false;
         var showRawMaterials = destination == "الخامات";
         var showParts = destination == "القطع";
         var showFurniture = destination == "الأثاث";
         var showPricing = destination == "التسعير";
         var showProducts = destination == "المنتجات";
-        var showQuotations = destination == "عروض الأسعار";
+        var showQuotations = destination is "عروض الأسعار" or "الموافقات";
         var showOrders = destination == "الطلبات";
         var showUsers = destination == "المستخدمون";
         var showWorkOrders = destination == "أوامر العمل";
@@ -139,7 +164,16 @@ public partial class MainWindow : Window
 
     private void PreviewActionClick(object sender, RoutedEventArgs eventArgs)
     {
-        if (sender is Button { Tag: string action }) ShowToast($"تم اختيار {action}");
+        if (sender is not Button { Tag: string action }) return;
+        if (action == "الموافقات")
+        {
+            QuotationsSurface.ViewModel.OpenApprovals();
+            ManagerSidebar.SelectDestination("عروض الأسعار");
+            ShowDestination("الموافقات");
+            Dispatcher.BeginInvoke(QuotationsSurface.QuotationSearchBox.Focus, DispatcherPriority.Input);
+            return;
+        }
+        ShowToast($"تم اختيار {action}");
     }
 
     private void OpenPreviewPanel(string title)

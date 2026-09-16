@@ -29,7 +29,7 @@ public partial class CurrentQuotationView : UserControl
     private void AttachCustomerClick(object sender, RoutedEventArgs e) => Model.AttachCustomer((PreviewCustomer)((Button)sender).DataContext);
     private void SaveCustomerClick(object sender, RoutedEventArgs e) { Model.SaveNewCustomer(); CustomerNameInput.Focus(); }
     private void CancelCustomerClick(object sender, RoutedEventArgs e) { Model.CancelNewCustomer(); CustomerNameInput.Focus(); }
-    private void RequestApprovalClick(object sender, RoutedEventArgs e) { Model.RequestDiscountApproval(); SaveDraftButton.Focus(); }
+    private void RequestApprovalClick(object sender, RoutedEventArgs e) { Model.RequestDiscountApproval(); if (Model.IsDiscountPending) SaveDraftButton.Focus(); else FocusMissingField(); }
     private void SaveDraftClick(object sender, RoutedEventArgs e) { if (!Model.ReviewDraftSave()) FocusMissingField(); }
     private void SaveQuotationClick(object sender, RoutedEventArgs e) { if (!Model.ReviewSave()) FocusMissingField(); }
     private void FocusMissingField()

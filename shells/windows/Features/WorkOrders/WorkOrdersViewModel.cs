@@ -102,6 +102,49 @@ public sealed class WorkOrdersViewModel : ObservableObject
         RefreshVisibleWorkOrders();
     }
 
+    public event Action<WorkOrderListItem>? PreviewStatusChanged;
+    public IReadOnlyList<WorkOrderListItem> PreviewWorkOrders => workOrders;
+    public void UseOrderFixtures(IEnumerable<Features.Orders.OrderListItem> orders)
+    {
+        var partsByOrder = new[] { workOrders[0].Parts, workOrders[2].Parts, workOrders[1].Parts,
+            (IReadOnlyList<WorkOrderPart>)[], workOrders[4].Parts };
+        workOrders.Clear();
+        var number = 24;
+        foreach (var order in orders.Where(order => order.Items.Any(item => item.IsFurniture)))
+        {
+            var status = order.Status switch
+            {
+                Features.Orders.OrderStatus.InProduction => WorkOrderStatus.InProgress,
+                Features.Orders.OrderStatus.Ready or Features.Orders.OrderStatus.Delivered => WorkOrderStatus.Completed,
+                Features.Orders.OrderStatus.Cancelled => WorkOrderStatus.Cancelled,
+                _ => WorkOrderStatus.New,
+            };
+            workOrders.Add(CreateOrderFixture(order, $"WO-{number:000}", status, partsByOrder.ElementAtOrDefault(24 - number)));
+            number--;
+        }
+        RefreshVisibleWorkOrders();
+    }
+    private static WorkOrderListItem CreateOrderFixture(Features.Orders.OrderListItem order, string number, WorkOrderStatus status, IReadOnlyList<WorkOrderPart>? parts = null) =>
+        new(Guid.NewGuid(), number, order.Number, order.Customer, "نجار تجريبي", DateOnly.FromDateTime(DateTime.Today).AddDays(7), status,
+            order.Items.Where(item => item.IsFurniture).Select(item => new WorkOrderFurnitureItem(item.Product,
+                item.Variant, item.Dimensions, item.Color, item.Handle, item.Quantity,
+                item.ThumbnailKind == "Bed" ? FurnitureIllustration.Bed : item.ThumbnailKind == "Table" ? FurnitureIllustration.Table : FurnitureIllustration.Wardrobe)).ToArray(),
+            parts ?? [], parts is { Count: > 0 } ? "مواصفات وأجزاء تجريبية مرتبطة بالطلب — لا يوجد حفظ فعلي" : "معاينة مرتبطة بالطلب — قائمة الأجزاء لم تُجهّز بعد");
+
+    public WorkOrderListItem? ForOrder(string number) => workOrders.FirstOrDefault(item => item.OrderNumber == number);
+    public void OpenOrderProduction(Features.Orders.OrderListItem order)
+    {
+        if (!order.CanShowProduction) return;
+        var item = ForOrder(order.Number);
+        if (item is null)
+        {
+            item = CreateOrderFixture(order, $"WO-{100 + workOrders.Count:000}", WorkOrderStatus.New);
+            workOrders.Add(item);
+            RefreshVisibleWorkOrders();
+        }
+        OpenWorkOrder(item);
+    }
+
     public IReadOnlyList<string> StatusOptions { get; }
 
     public IReadOnlyList<string> DueDateOptions { get; }
@@ -205,6 +248,7 @@ public sealed class WorkOrdersViewModel : ObservableObject
 
         FeedbackMessage = $"تغيّرت الحالة إلى «{SelectedWorkOrder.StatusLabel}» في المعاينة المحلية فقط.";
         RefreshVisibleWorkOrders();
+        PreviewStatusChanged?.Invoke(SelectedWorkOrder);
         return true;
     }
 

@@ -44,7 +44,8 @@ public sealed partial class SalesCatalogViewModel
     private PreviewCustomer? previousCustomer;
     private readonly List<PreviewCustomer> customers = [new("عميل تجريبي", "000000000", "عنوان تجريبي", "")];
     public ObservableCollection<PreviewCustomer> CustomerMatches { get; } = [];
-    public string QuotationNumber { get; init; } = "";
+    private string quotationNumber = "";
+    public string QuotationNumber { get => quotationNumber; set { if (Set(ref quotationNumber, value)) Raise(nameof(QuotationHeading)); } }
     public string QuotationHeading => string.IsNullOrWhiteSpace(QuotationNumber) ? "عرض سعر جديد" : QuotationNumber;
     public bool IsQuotationEmpty => QuotationLines.Count == 0;
     public decimal Subtotal => QuotationLines.Sum(line => line.LineTotal);
@@ -54,10 +55,10 @@ public sealed partial class SalesCatalogViewModel
     public string CustomerNameError => showRequiredErrors && string.IsNullOrWhiteSpace(CustomerName) ? "أدخل اسم العميل" : "";
     public string PhoneError => showRequiredErrors && string.IsNullOrWhiteSpace(Phone) ? "أدخل رقم الهاتف" : "";
     public string ItemsError => showRequiredErrors && IsQuotationEmpty ? "أضف صنفاً واحداً على الأقل" : "";
-    public string CustomerName { get => customerName; set { if (Set(ref customerName, value)) { MatchCustomers(); Raise(nameof(CustomerNameError)); } } }
-    public string Phone { get => phone; set { if (Set(ref phone, value)) { MatchCustomers(); Raise(nameof(PhoneError)); } } }
-    public string Address { get => address; set => Set(ref address, value); }
-    public string Notes { get => notes; set => Set(ref notes, value); }
+    public string CustomerName { get => customerName; set { if (Set(ref customerName, value)) { InvalidateDiscountRequest(); MatchCustomers(); Raise(nameof(CustomerNameError)); } } }
+    public string Phone { get => phone; set { if (Set(ref phone, value)) { InvalidateDiscountRequest(); MatchCustomers(); Raise(nameof(PhoneError)); } } }
+    public string Address { get => address; set { if (Set(ref address, value)) InvalidateDiscountRequest(); } }
+    public string Notes { get => notes; set { if (Set(ref notes, value)) InvalidateDiscountRequest(); } }
     public bool IsNewCustomer { get => isNewCustomer; private set => Set(ref isNewCustomer, value); }
     public string QuotationNotice { get => quotationNotice; private set => Set(ref quotationNotice, value); }
     private void MatchCustomers()
@@ -103,6 +104,7 @@ public sealed partial class SalesCatalogViewModel
     {
         if (!CheckRequiredFields()) return false;
         if (!CanSaveQuotation) { QuotationNotice = DiscountError.Length > 0 ? DiscountError : DiscountStatus; return false; }
+        PublishPreview?.Invoke(this, false);
         QuotationNotice = "المعاينة مكتملة — حفظ عرض السعر غير متاح بعد، ولم تُحفظ البيانات"; return true;
     }
     public bool CheckRequiredFields()

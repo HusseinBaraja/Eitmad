@@ -67,7 +67,7 @@
     <Grid Margin="0,0,0,16" FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Grid.Column="1" Text="قيمة الخصم" FlowDirection="RightToLeft" FontSize="18"/><controls:AmountDisplay AmountText="{Binding DiscountAmountLabel}" UnitText="YER" FontSize="20" HorizontalAlignment="Left"/></Grid>
     <StackPanel Margin="0,0,0,16" Visibility="{Binding RequiresDiscountApproval, Converter={StaticResource BooleanToVisibility}}">
      <controls:StatusBadge Text="{Binding DiscountStatus}" Tone="Neutral" HorizontalAlignment="Right" AutomationProperties.LiveSetting="Polite"/>
-     <TextBlock Text="يمكنك مراجعة العرض وحفظه كمسودة حتى الموافقة على الخصم" TextWrapping="Wrap" Margin="0,8"/>
+     <TextBlock Text="{Binding DiscountGuidance}" TextWrapping="Wrap" Margin="0,8"/>
      <Button Content="طلب موافقة" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Click="RequestApprovalClick" AutomationProperties.Name="طلب موافقة" Visibility="{Binding CanRequestDiscountApproval, Converter={StaticResource BooleanToVisibility}}"/>
     </StackPanel>
     <TextBlock Text="{Binding TotalHeading}" FontSize="22" FontWeight="Bold"/>

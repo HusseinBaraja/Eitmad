@@ -17,7 +17,7 @@ public sealed class OrdersViewModel : ObservableObject
     public const string LastSevenDays = "آخر 7 أيام";
     public const string LastThirtyDays = "آخر 30 يوماً";
 
-    private readonly List<OrderListItem> orders;
+    private ObservableCollection<OrderListItem> orders;
     private string searchText = string.Empty;
     private string selectedStatus = AllStatuses;
     private string selectedDate = AllDates;
@@ -74,7 +74,6 @@ public sealed class OrdersViewModel : ObservableObject
                 [new("مكتبة جدارية", "خمسة أقسام", "240 × 230 × 40 سم", "أبيض", "معدن أسود", 5, 240_000m)]),
         ];
 
-        if (isReceptionist)
         {
             var quotations = new Features.Quotations.QuotationsViewModel(true).VisibleQuotations;
             for (var index = 0; index < orders.Count; index++)
@@ -84,7 +83,7 @@ public sealed class OrdersViewModel : ObservableObject
                 {
                     Phone = $"0000000{87 - index:00}",
                     OriginalQuotation = quotations.Single(item => item.Customer == order.Customer),
-                    Items = order.Items.Select(line => line with { ThumbnailKind = index switch
+                    Items = order.Items.Select(line => line with { ThumbnailKind = line.Product == "مكتب العمل الهادئ" ? "Table" : index switch
                     { 1 => "Bed", 2 => "Table", 3 => "Chair", _ => "Wardrobe" } }).ToArray(),
                 };
             }
@@ -95,6 +94,44 @@ public sealed class OrdersViewModel : ObservableObject
         StatusOptions = [AllStatuses, NewStatus, InProductionStatus, ReadyStatus, DeliveredStatus, CancelledStatus];
         DateOptions = [AllDates, Today, LastSevenDays, LastThirtyDays];
         VisibleOrders = [];
+        RefreshVisibleOrders();
+    }
+
+    public Func<string, Features.WorkOrders.WorkOrderListItem?>? FindProduction { get; set; }
+    public string ProductionAction => SelectedOrder is { } order && FindProduction?.Invoke(order.Number) is not null ? "فتح أمر العمل" : "بدء أمر عمل تجريبي";
+    public string ProductionNumber => SelectedOrder is { } order ? FindProduction?.Invoke(order.Number)?.Number ?? "" : "";
+    public string ProductionSummary => SelectedOrder is { } order && FindProduction?.Invoke(order.Number) is { } work ? work.StatusLabel : "لا يوجد أمر عمل لهذا الطلب في المعاينة";
+    public ObservableCollection<OrderListItem> PreviewOrders => orders;
+    public ObservableCollection<OrderListItem> NewReadyOrders { get; } = [];
+    public int ReadyCount => orders.Count(order => order.IsReady);
+    public void UsePreviewOrders(ObservableCollection<OrderListItem> items)
+    {
+        orders = items;
+        orders.CollectionChanged += (_, _) =>
+        {
+            if (SelectedOrder is { } selected) SelectedOrder = orders.FirstOrDefault(order => order.Id == selected.Id);
+            RefreshVisibleOrders();
+        };
+        RefreshVisibleOrders();
+    }
+    public void PreviewProductionStatus(string number, OrderStatus status, string workNumber)
+    {
+        var order = orders.FirstOrDefault(item => item.Number == number);
+        if (order is null || order.Status == status) return;
+        var updated = order with { Status = status, ReadyFromWorkOrder = status == OrderStatus.Ready ? workNumber : "" };
+        orders[orders.IndexOf(order)] = updated;
+        if (status == OrderStatus.Ready) NewReadyOrders.Add(updated);
+        RefreshVisibleOrders();
+    }
+    public void AcknowledgeReady()
+    {
+        if (SelectedOrder is not { } order) return;
+        var notice = NewReadyOrders.FirstOrDefault(item => item.Id == order.Id);
+        if (notice is not null) NewReadyOrders.Remove(notice);
+        if (order.ReadyFromWorkOrder.Length == 0) return;
+        var updated = order with { ReadyFromWorkOrder = "" };
+        orders[orders.IndexOf(order)] = updated;
+        SelectedOrder = updated;
         RefreshVisibleOrders();
     }
 
@@ -153,6 +190,7 @@ public sealed class OrdersViewModel : ObservableObject
         {
             if (Set(ref selectedOrder, value))
             {
+                Raise(nameof(ProductionAction)); Raise(nameof(ProductionSummary)); Raise(nameof(ProductionNumber));
                 Raise(nameof(IsListVisible));
                 Raise(nameof(IsDetailVisible));
             }
@@ -191,6 +229,7 @@ public sealed class OrdersViewModel : ObservableObject
             VisibleOrders.Add(order);
         }
 
+        Raise(nameof(ReadyCount));
         Raise(nameof(HasNoVisibleOrders));
         Raise(nameof(VisibleCountLabel));
     }

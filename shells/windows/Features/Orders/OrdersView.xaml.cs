@@ -30,6 +30,13 @@ public partial class OrdersView : UserControl
         DataContext = ViewModel;
     }
 
+    public event Action<OrderListItem>? ProductionRequested;
+    private void ProductionClick(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.SelectedOrder is { } order) ProductionRequested?.Invoke(order);
+    }
+    private void AcknowledgeReadyClick(object sender, RoutedEventArgs e) { ViewModel.AcknowledgeReady(); BackToOrdersButton.Focus(); }
+
     private void PrintOrderClick(object sender, RoutedEventArgs e)
     {
         if (!ViewModel.IsReceptionist || ViewModel.SelectedOrder is not { } order) return;
@@ -38,7 +45,7 @@ public partial class OrdersView : UserControl
 
     private void OriginalQuotationClick(object sender, RoutedEventArgs e)
     {
-        if (!ViewModel.IsReceptionist || ViewModel.SelectedOrder?.OriginalQuotation is not { } quotation) return;
+        if (ViewModel.SelectedOrder?.OriginalQuotation is not { } quotation) return;
         ShowDocument(OrderCustomerDocument.CreateQuotation(quotation), "عرض السعر الأصلي — بيانات تجريبية");
     }
 

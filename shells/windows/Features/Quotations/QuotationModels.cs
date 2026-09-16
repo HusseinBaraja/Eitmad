@@ -28,6 +28,10 @@ public sealed record QuotationLineItem(
     int Quantity,
     decimal UnitPrice)
 {
+    public bool IsFurniture { get; init; } = true;
+    public string Dimensions { get; init; } = "";
+    public string ThumbnailKind { get; init; } = "wardrobe";
+    public System.Windows.Media.ImageSource? Image { get; init; }
     public decimal Total => checked(Quantity * UnitPrice);
 
     public string QuantityLabel => Quantity.ToString(CultureInfo.InvariantCulture);
@@ -67,10 +71,14 @@ public sealed class QuotationListItem : ObservableObject
     }
 
     public string Phone { get; }
+    public string Address { get; init; } = "";
+    public string Notes { get; init; } = "";
 
-    public bool CanEdit => Status is QuotationStatus.Draft or QuotationStatus.Active;
-    public bool IsWaitingApproval => Status == QuotationStatus.WaitingApproval;
-    public bool CanPrint => CanEdit;
+    public bool CanEdit => !HasPendingDiscountApproval && (Status is QuotationStatus.Draft or QuotationStatus.Active or QuotationStatus.WaitingApproval);
+    public bool IsWaitingApproval => HasPendingDiscountApproval;
+    public bool NeedsApprovalToComplete { get; init; }
+    public bool CanPrint => CanEdit && (!NeedsApprovalToComplete && !RequiresDiscountApproval || ApprovalDecision == DiscountApprovalDecision.Approved);
+    public string ReceptionActivity { get; init; } = "عينة مستقلة";
 
     public Guid Id { get; }
 
@@ -103,6 +111,7 @@ public sealed class QuotationListItem : ObservableObject
             Raise(nameof(HasPendingDiscountApproval));
             Raise(nameof(HasApprovalDecision));
             Raise(nameof(ApprovalDecisionLabel));
+            Raise(nameof(IsWaitingApproval)); Raise(nameof(CanEdit)); Raise(nameof(CanPrint)); Raise(nameof(StatusLabel));
         }
     }
 
@@ -132,7 +141,7 @@ public sealed class QuotationListItem : ObservableObject
 
     public string FinalTotalLabel => FormatMoney(FinalTotal);
 
-    public string StatusLabel => Status switch
+    public string StatusLabel => HasApprovalDecision ? (ApprovalDecision == DiscountApprovalDecision.Approved ? "الخصم مقبول" : "الخصم مرفوض") : HasPendingDiscountApproval ? "بانتظار الموافقة" : Status switch
     {
         QuotationStatus.Draft => "مسودة",
         QuotationStatus.Active => "نشط",
@@ -152,7 +161,7 @@ public sealed class QuotationListItem : ObservableObject
 
     public void DecideDiscount(DiscountApprovalDecision decision)
     {
-        if (!RequiresDiscountApproval || decision == DiscountApprovalDecision.None)
+        if (!HasPendingDiscountApproval || decision == DiscountApprovalDecision.None)
         {
             return;
         }

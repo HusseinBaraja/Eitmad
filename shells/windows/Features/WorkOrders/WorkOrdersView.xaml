@@ -228,7 +228,7 @@
                         <WrapPanel>
                             <StackPanel Width="210" Margin="0,0,0,8">
                                 <TextBlock Text="الطلب المرتبط" Style="{StaticResource MetadataLabel}" />
-                                <TextBlock Text="{Binding SelectedWorkOrder.OrderNumber}" Style="{StaticResource MetadataValue}" FlowDirection="LeftToRight" TextAlignment="Right" />
+                                <Button Content="{Binding SelectedWorkOrder.OrderNumber}" Style="{StaticResource InlineActionButton}" FlowDirection="LeftToRight" HorizontalAlignment="Left" Click="OpenOrderClick" automation:AutomationProperties.Name="فتح الطلب المرتبط" />
                             </StackPanel>
                             <StackPanel Width="250" Margin="0,0,0,8">
                                 <TextBlock Text="العميل" Style="{StaticResource MetadataLabel}" />
