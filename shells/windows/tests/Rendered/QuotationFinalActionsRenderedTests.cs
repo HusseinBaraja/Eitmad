@@ -25,6 +25,7 @@ public sealed class QuotationFinalActionsRenderedTests
             window.Content = view;
             WpfTestHost.CompleteLayout(window);
             var save = WpfTestHost.FindByAutomationName<Button>(view, "حفظ عرض السعر");
+            var draft = WpfTestHost.FindByAutomationName<Button>(view, "حفظ كمسودة");
             save.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.IsTrue(model.ItemsError.Length > 0);
             Assert.IsTrue(model.CustomerNameError.Length > 0);
@@ -32,6 +33,9 @@ public sealed class QuotationFinalActionsRenderedTests
             Assert.IsTrue(WpfTestHost.FindByName<Button>(view, "ContinueButton").IsKeyboardFocusWithin);
             model.Select(model.VisibleItems.Single(item => item.Name == "وسادة فندقية"));
             model.AddProductSelection(); model.CloseSelection();
+            draft.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsTrue(WpfTestHost.FindByName<TextBox>(view, "CustomerNameInput").IsKeyboardFocusWithin);
             save.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
             Assert.IsTrue(WpfTestHost.FindByName<TextBox>(view, "CustomerNameInput").IsKeyboardFocusWithin);

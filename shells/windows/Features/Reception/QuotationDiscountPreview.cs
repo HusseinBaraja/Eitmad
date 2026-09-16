@@ -46,6 +46,7 @@ public sealed partial class SalesCatalogViewModel
 
     public bool ReviewDraftSave()
     {
+        if (!CheckRequiredFields()) return false;
         if (!CanSaveDraft) return false;
         QuotationNotice = "معاينة المسودة فقط — الحفظ غير متاح بعد، ولم تُحفظ البيانات";
         return true;

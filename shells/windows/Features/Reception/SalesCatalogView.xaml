@@ -3,6 +3,10 @@
         <ResourceDictionary Source="../../Resources/SalesCatalogVisuals.xaml"/>
     </ResourceDictionary.MergedDictionaries></ResourceDictionary></UserControl.Resources>
     <Grid>
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+    <controls:PageHeader Title="المنتجات" ContainsButton="True" ButtonText="{Binding QuotationLabel}" ButtonClick="OpenQuotationClick"
+        Visibility="{Binding ShowQuotationHeader, RelativeSource={RelativeSource AncestorType=reception:SalesCatalogView}, Converter={StaticResource BooleanToVisibility}}"/>
+    <Grid Grid.Row="1">
     <Grid x:Name="CatalogListing" Margin="28,20">
         <Grid.Style><Style TargetType="Grid"><Style.Triggers><DataTrigger Binding="{Binding IsReviewingQuotation}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger><DataTrigger Binding="{Binding IsSelecting}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></Grid.Style>
         <Grid.RowDefinitions>
@@ -71,5 +75,6 @@
         <reception:FurnitureSelectionView x:Name="SelectionView" DataContext="{Binding Selection}" Visibility="{Binding DataContext.IsSelectingFurniture, Converter={StaticResource BooleanToVisibility}, RelativeSource={RelativeSource AncestorType=reception:SalesCatalogView}}" />
         <reception:ProductSelectionView x:Name="ProductSelectionView" DataContext="{Binding ProductSelection}" Visibility="{Binding DataContext.IsSelectingProduct, Converter={StaticResource BooleanToVisibility}, RelativeSource={RelativeSource AncestorType=reception:SalesCatalogView}}" />
         <reception:CurrentQuotationView x:Name="QuotationView" Visibility="{Binding IsReviewingQuotation, Converter={StaticResource BooleanToVisibility}}"/>
+    </Grid>
     </Grid>
 </UserControl>

@@ -14,7 +14,9 @@
      <Grid>
       <Grid.ColumnDefinitions><ColumnDefinition Width="104"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
       <Grid Width="88" Height="88" VerticalAlignment="Top" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
-       <ContentControl Content="{Binding Item}" Style="{StaticResource CatalogIllustration}" Focusable="False" IsHitTestVisible="False"/>
+       <Viewbox>
+        <ContentControl Width="200" Height="188" DataContext="{Binding Item}" Content="{Binding}" Style="{StaticResource CatalogIllustration}" Focusable="False" IsHitTestVisible="False"/>
+       </Viewbox>
        <Image Source="{Binding Item.Image}" Stretch="Uniform" FlowDirection="LeftToRight"/>
       </Grid>
       <StackPanel Grid.Column="1">

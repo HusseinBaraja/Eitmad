@@ -37,13 +37,13 @@ public partial class QuotationsView : UserControl
     private void NewQuotationClick(object sender, RoutedEventArgs e)
     {
         if (ViewModel.IsReceptionist && createPreview is not null)
-            ShowPreviewWindow(new Features.Reception.SalesCatalogView { DataContext = createPreview(null) }, "عرض سعر جديد — معاينة فقط");
+            ShowPreviewWindow(new Features.Reception.SalesCatalogView { DataContext = createPreview(null), ShowQuotationHeader = true }, "عرض سعر جديد — معاينة فقط");
     }
 
     private void EditQuotationClick(object sender, RoutedEventArgs e)
     {
         if (!ViewModel.IsReceptionist || ViewModel.SelectedQuotation is not { CanEdit: true } quotation || createPreview is null) return;
-        ShowPreviewWindow(new Features.Reception.SalesCatalogView { DataContext = createPreview(quotation) }, "تعديل عرض السعر — معاينة فقط");
+        ShowPreviewWindow(new Features.Reception.SalesCatalogView { DataContext = createPreview(quotation), ShowQuotationHeader = true }, "تعديل عرض السعر — معاينة فقط");
     }
 
     private void PrintQuotationClick(object sender, RoutedEventArgs e)
@@ -92,7 +92,11 @@ public partial class QuotationsView : UserControl
         window.Loaded += (_, _) =>
         {
             if (content is PrintPreview printContent) printContent.PrintButton.Focus();
-            if (content is Features.Reception.SalesCatalogView catalog) catalog.RestoreQuotationFocus();
+            if (content is Features.Reception.SalesCatalogView catalog)
+            {
+                if (((Features.Reception.SalesCatalogViewModel)catalog.DataContext).IsReviewingQuotation) catalog.RestoreQuotationFocus();
+                else catalog.RestoreCatalogFocus();
+            }
             if (content is Features.Orders.OrdersView orders) orders.BackToOrdersButton.Focus();
         };
         window.Closed += (_, _) => { if (ViewModel.IsListVisible) QuotationSearchBox.Focus(); else BackToQuotationsButton.Focus(); };

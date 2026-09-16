@@ -41,6 +41,7 @@ public partial class ReceptionistHomeView : UserControl
         {
             if (!CatalogContent.IsVisible) Navigate("المنتجات");
             ((SalesCatalogViewModel)CatalogContent.DataContext).IsReviewingQuotation = true;
+            CatalogContent.RestoreQuotationFocus();
             return;
         }
         ShowPreviewFeedback(eventArgs.Action);
@@ -109,7 +110,15 @@ public partial class ReceptionistHomeView : UserControl
     private void ShowPreviewFeedback(string action)
     {
         if (action is "المنتجات" or "عروض الأسعار" or "الطلبات") { Navigate(action); return; }
-        if (action == "عرض سعر جديد") { Navigate("المنتجات"); ((SalesCatalogViewModel)CatalogContent.DataContext).IsReviewingQuotation = true; CatalogContent.RestoreQuotationFocus(); return; }
+        if (action == "عرض سعر جديد")
+        {
+            Navigate("المنتجات");
+            var catalog = (SalesCatalogViewModel)CatalogContent.DataContext;
+            catalog.CloseSelection();
+            catalog.IsReviewingQuotation = false;
+            CatalogContent.RestoreCatalogFocus();
+            return;
+        }
         ShowNotice($"تم اختيار {action} في وضع المعاينة");
     }
 

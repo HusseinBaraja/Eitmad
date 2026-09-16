@@ -8,6 +8,26 @@ namespace Eitmad.WindowsShell.Tests.Products;
 public sealed class SalesCatalogPresentationTests
 {
     [TestMethod]
+    public void DraftSaveRequiresCustomerNameAndPhoneAfterBrowsing()
+    {
+        var model = new SalesCatalogViewModel(new FurnitureViewModel(), new ProductsViewModel());
+        model.Select(model.VisibleItems.Single(item => item.Name == "وسادة فندقية"));
+        Assert.IsTrue(model.AddProductSelection());
+        Assert.IsFalse(model.IsReviewingQuotation);
+        Assert.IsFalse(model.ReviewDraftSave());
+        Assert.AreEqual("أدخل اسم العميل", model.CustomerNameError);
+        model.CustomerName = "عميل تجريبي";
+        Assert.IsFalse(model.ReviewDraftSave());
+        Assert.AreEqual("أدخل رقم الهاتف", model.PhoneError);
+        model.Phone = "000000000";
+        model.DiscountInput = "10";
+        model.RequestDiscountApproval();
+        Assert.IsTrue(model.ReviewDraftSave());
+        Assert.IsTrue(model.IsDiscountPending);
+        Assert.IsFalse(model.ReviewSave());
+    }
+
+    [TestMethod]
     public void DiscountPreviewGatesSavingAndInvalidatesChangedRequests()
     {
         var model = new SalesCatalogViewModel(new FurnitureViewModel(), new ProductsViewModel());

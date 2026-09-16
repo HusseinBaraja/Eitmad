@@ -12,6 +12,45 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 public sealed class SalesCatalogRenderedTests
 {
     [TestMethod]
+    public void HomeStartsWithCatalogAndReviewRestoresSelectionFocus()
+    {
+        WpfTestHost.Run(1338, 900, window =>
+        {
+            var reception = WpfTestHost.FindByName<ReceptionistHomeView>(window, "ReceptionistSurface");
+            reception.Visibility = Visibility.Visible;
+            WpfTestHost.FindByName<Grid>(window, "ResponsiveRoot").Visibility = Visibility.Collapsed;
+            WpfTestHost.CompleteLayout(window);
+            Capture(window, "home");
+            WpfTestHost.FindByName<Button>(reception, "NewQuotationAction").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var catalog = WpfTestHost.FindByName<SalesCatalogView>(reception, "CatalogContent");
+            var model = (SalesCatalogViewModel)catalog.DataContext;
+            Assert.IsFalse(model.IsReviewingQuotation);
+            Assert.IsTrue(WpfTestHost.FindByName<TextBox>(catalog, "CatalogSearch").IsKeyboardFocusWithin);
+            Assert.AreEqual("", model.CustomerName);
+            Assert.AreEqual("", model.Phone);
+            WpfTestHost.FindByAutomationName<Button>(catalog, "اختيار وسادة فندقية").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var detail = WpfTestHost.FindByName<ProductSelectionView>(catalog, "ProductSelectionView");
+            WpfTestHost.FindByName<Button>(detail, "AddButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.IsFalse(model.IsReviewingQuotation);
+            WpfTestHost.FindByAutomationName<Button>(reception, "فتح عرض السعر").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var continueButton = WpfTestHost.FindByAutomationName<Button>(catalog, "متابعة اختيار المنتجات");
+            Assert.IsTrue(continueButton.IsKeyboardFocusWithin);
+            continueButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsTrue(WpfTestHost.FindByName<Button>(detail, "BackButton").IsKeyboardFocusWithin);
+            WpfTestHost.FindByName<Button>(reception, "HomeNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.FindByName<Button>(reception, "NewQuotationAction").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsFalse(model.IsSelecting);
+            Assert.HasCount(1, model.QuotationLines);
+            Assert.IsTrue(WpfTestHost.FindByName<TextBox>(catalog, "CatalogSearch").IsKeyboardFocusWithin);
+        });
+    }
+
+    [TestMethod]
     public void CurrentQuotationRendersAndReusesSelectionEditor()
     {
         WpfTestHost.Run(1338, 1000, window =>

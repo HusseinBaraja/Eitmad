@@ -12,6 +12,55 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 public sealed class ReceptionQuotationsRenderedTests
 {
     [TestMethod]
+    public void NewQuotationWindowStartsInCatalogAndCanReturnToReview()
+    {
+        WpfTestHost.Run(1338, 900, window =>
+        {
+            var view = new QuotationsView();
+            view.ConfigureReceptionist(quotation => QuotationPreviewProjection.Create(quotation,
+                new Features.Furniture.FurnitureViewModel(), new Features.Products.ProductsViewModel()));
+            window.Content = view;
+            WpfTestHost.CompleteLayout(window);
+            Exception? failure = null;
+            var inspected = false;
+            window.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.ApplicationIdle, new Action(() =>
+            {
+                var child = window.OwnedWindows.Cast<Window>().Single();
+                try
+                {
+                    var catalog = (SalesCatalogView)child.Content;
+                    var model = (SalesCatalogViewModel)catalog.DataContext;
+                    WpfTestHost.CompleteLayout(child);
+                    Assert.IsFalse(model.IsReviewingQuotation);
+                    Assert.IsTrue(WpfTestHost.FindByName<TextBox>(catalog, "CatalogSearch").IsKeyboardFocusWithin);
+                    WpfTestHost.FindByAutomationName<Button>(catalog, "اختيار وسادة فندقية").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    WpfTestHost.CompleteLayout(child);
+                    var detail = WpfTestHost.FindByName<ProductSelectionView>(catalog, "ProductSelectionView");
+                    WpfTestHost.FindByName<Button>(detail, "AddButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    WpfTestHost.CompleteLayout(child);
+                    Assert.IsFalse(model.IsReviewingQuotation);
+                    Capture(child, "new-catalog-selection");
+                    var header = WpfTestHost.Descendants<Controls.PageHeader>(catalog).Single();
+                    WpfTestHost.Descendants<Button>(header).Single(button => button.IsVisible).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    WpfTestHost.CompleteLayout(child);
+                    Assert.IsTrue(model.IsReviewingQuotation);
+                    var continueButton = WpfTestHost.FindByAutomationName<Button>(catalog, "متابعة اختيار المنتجات");
+                    Assert.IsTrue(continueButton.IsKeyboardFocusWithin);
+                    continueButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    WpfTestHost.CompleteLayout(child);
+                    Assert.IsTrue(WpfTestHost.FindByName<Button>(detail, "BackButton").IsKeyboardFocusWithin);
+                    inspected = true;
+                }
+                catch (Exception exception) { failure = exception; }
+                finally { child.Close(); }
+            }));
+            WpfTestHost.FindByAutomationName<Button>(view, "+ عرض سعر جديد").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            if (failure is not null) throw failure;
+            Assert.IsTrue(inspected);
+        });
+    }
+
+    [TestMethod]
     public void ConversionConfirmsSnapshotAndCancelPreservesQuotation()
     {
         WpfTestHost.Run(1338, 900, window =>

@@ -10,7 +10,7 @@ public static class QuotationPreviewProjection
     public static SalesCatalogViewModel Create(QuotationListItem? quotation,
         Features.Furniture.FurnitureViewModel furniture, Features.Products.ProductsViewModel products)
     {
-        if (quotation is null) return new SalesCatalogViewModel(furniture, products) { IsReviewingQuotation = true };
+        if (quotation is null) return new SalesCatalogViewModel(furniture, products);
         var model = new SalesCatalogViewModel(furniture, products)
         {
             QuotationNumber = quotation.Number, CustomerName = quotation.Customer,

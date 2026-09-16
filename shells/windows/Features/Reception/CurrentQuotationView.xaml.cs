@@ -9,7 +9,13 @@ public partial class CurrentQuotationView : UserControl
 {
     public CurrentQuotationView() => InitializeComponent();
     private SalesCatalogViewModel Model => (SalesCatalogViewModel)DataContext;
-    private void ContinueClick(object sender, RoutedEventArgs e) { Model.IsReviewingQuotation = false; }
+    private void ContinueClick(object sender, RoutedEventArgs e)
+    {
+        Model.IsReviewingQuotation = false;
+        DependencyObject? parent = VisualTreeHelper.GetParent(this);
+        while (parent is not null && parent is not SalesCatalogView) parent = VisualTreeHelper.GetParent(parent);
+        (parent as SalesCatalogView)?.RestoreSelectionFocus();
+    }
     private void EditClick(object sender, RoutedEventArgs e)
     {
         Model.EditLine((PreviewQuotationLine)((Button)sender).DataContext);
@@ -24,7 +30,7 @@ public partial class CurrentQuotationView : UserControl
     private void SaveCustomerClick(object sender, RoutedEventArgs e) { Model.SaveNewCustomer(); CustomerNameInput.Focus(); }
     private void CancelCustomerClick(object sender, RoutedEventArgs e) { Model.CancelNewCustomer(); CustomerNameInput.Focus(); }
     private void RequestApprovalClick(object sender, RoutedEventArgs e) { Model.RequestDiscountApproval(); SaveDraftButton.Focus(); }
-    private void SaveDraftClick(object sender, RoutedEventArgs e) => Model.ReviewDraftSave();
+    private void SaveDraftClick(object sender, RoutedEventArgs e) { if (!Model.ReviewDraftSave()) FocusMissingField(); }
     private void SaveQuotationClick(object sender, RoutedEventArgs e) { if (!Model.ReviewSave()) FocusMissingField(); }
     private void FocusMissingField()
     {
