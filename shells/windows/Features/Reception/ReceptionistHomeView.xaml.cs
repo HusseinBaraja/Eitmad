@@ -85,13 +85,6 @@ public partial class ReceptionistHomeView : UserControl
             ShowNotice($"تم اختيار {destination} في وضع المعاينة");
             return;
         }
-        if (destination == "الطلبات" && ReceptionOrders.Content is null)
-        {
-            var orders = new Features.Orders.OrdersView();
-            orders.ConfigureReceptionist();
-            orders.CustomerRequested += id => OpenCustomer(customers.ForOrder(id), "الطلبات");
-            ReceptionOrders.Content = orders;
-        }
         var catalog = destination == "المنتجات";
         CustomerDetail.Visibility = Visibility.Collapsed;
         if (catalog) ((SalesCatalogViewModel)CatalogContent.DataContext).Reload();

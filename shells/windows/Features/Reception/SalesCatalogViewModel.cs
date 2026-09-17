@@ -83,14 +83,12 @@ public sealed partial class SalesCatalogViewModel : ObservableObject
     {
         if (ProductSelection is not { CanAdd: true } current) return false;
         StoreLine(new PreviewQuotationLine(current));
-        Raise(nameof(QuotationLabel));
         return true;
     }
     public bool AddSelection()
     {
         if (Selection is not { CanAdd: true } current) return false;
         StoreLine(new PreviewQuotationLine(current));
-        Raise(nameof(QuotationLabel));
         return true;
     }
 

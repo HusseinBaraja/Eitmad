@@ -100,7 +100,13 @@ public sealed class QuotationsViewModel : ObservableObject
         RefreshVisibleQuotations();
     }
     private void ObserveDecision(QuotationListItem item) =>
-        System.ComponentModel.PropertyChangedEventManager.AddHandler(item, (_, _) => { Raise(nameof(ShowManagerApproval)); RefreshVisibleQuotations(); }, nameof(QuotationListItem.ApprovalDecision));
+        System.ComponentModel.PropertyChangedEventManager.AddHandler(item, ApprovalDecisionChanged, nameof(QuotationListItem.ApprovalDecision));
+
+    private void ApprovalDecisionChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        Raise(nameof(ShowManagerApproval));
+        RefreshVisibleQuotations();
+    }
     private bool approvalsOnly;
     public bool ApprovalsOnly { get => approvalsOnly; set { if (Set(ref approvalsOnly, value)) { Raise(nameof(ListTitle)); Raise(nameof(EmptyTitle)); Raise(nameof(EmptyDescription)); RefreshVisibleQuotations(); } } }
     public string EmptyTitle => ApprovalsOnly ? "لا توجد طلبات خصم معلقة" : "لا توجد عروض أسعار مطابقة";
@@ -189,9 +195,9 @@ public sealed class QuotationsViewModel : ObservableObject
 
     public void CloseQuotation() => SelectedQuotation = null;
 
-    public void ApproveDiscount() { if (IsReceptionist) return; SelectedQuotation?.DecideDiscount(DiscountApprovalDecision.Approved); Raise(nameof(ShowManagerApproval)); RefreshVisibleQuotations(); }
+    public void ApproveDiscount() { if (IsReceptionist) return; SelectedQuotation?.DecideDiscount(DiscountApprovalDecision.Approved); }
 
-    public void RejectDiscount() { if (IsReceptionist) return; SelectedQuotation?.DecideDiscount(DiscountApprovalDecision.Rejected); Raise(nameof(ShowManagerApproval)); RefreshVisibleQuotations(); }
+    public void RejectDiscount() { if (IsReceptionist) return; SelectedQuotation?.DecideDiscount(DiscountApprovalDecision.Rejected); }
 
     private void RefreshVisibleQuotations()
     {
