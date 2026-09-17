@@ -1,7 +1,4 @@
-using System.IO;
 using System.Windows.Controls;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
 
 namespace Eitmad.WindowsShell.Tests.Rendered;
 
@@ -25,15 +22,7 @@ public sealed class SignInRenderedTests
                     $"Username line is clipped: extent {host.ExtentHeight}, viewport {host.ViewportHeight}.");
             }
 
-            var directory = Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR");
-            if (string.IsNullOrEmpty(directory)) return;
-            Directory.CreateDirectory(directory);
-            var bitmap = new RenderTargetBitmap((int)window.ActualWidth, (int)window.ActualHeight, 96, 96, PixelFormats.Pbgra32);
-            bitmap.Render(window);
-            var encoder = new PngBitmapEncoder();
-            encoder.Frames.Add(BitmapFrame.Create(bitmap));
-            using var stream = File.Create(Path.Combine(directory, "sign-in.png"));
-            encoder.Save(stream);
+            WpfTestHost.Capture(window, "sign-in");
         }, showSignIn: true);
     }
 }

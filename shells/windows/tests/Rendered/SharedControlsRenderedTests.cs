@@ -1,4 +1,3 @@
-using System.IO;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
@@ -6,7 +5,6 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using Eitmad.WindowsShell.Controls;
 using Eitmad.WindowsShell.Features.Products;
 using Eitmad.WindowsShell.Features.RawMaterials;
@@ -30,7 +28,7 @@ public sealed class SharedControlsRenderedTests
             Assert.IsFalse(string.IsNullOrWhiteSpace(ControlOptions.GetPlaceholder(dashboardSearch)));
             var searchIcon = (Geometry)window.FindResource("IconSearch");
             Assert.HasCount(1, WpfTestHost.Descendants<System.Windows.Shapes.Path>((Border)dashboardSearch.Parent).Where(path => path.IsVisible && Equals(path.Data, searchIcon)));
-            Capture(window, $"dashboard-{width}");
+            WpfTestHost.Capture(window, $"dashboard-{width}");
             foreach (var destination in new[] { "Materials", "Parts", "Furniture", "Pricing", "Products", "Quotations", "Orders", "WorkOrders" })
             {
                 WpfTestHost.FindByName<Button>(window, destination + "NavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -65,7 +63,7 @@ public sealed class SharedControlsRenderedTests
                     for (var other = index + 1; other < bounds.Length; other++)
                         Assert.IsFalse(bounds[index].IntersectsWith(bounds[other]), destination);
                 }
-                Capture(window, $"{destination}-{width}");
+                WpfTestHost.Capture(window, $"{destination}-{width}");
             }
         });
     }
@@ -103,7 +101,7 @@ public sealed class SharedControlsRenderedTests
             Keyboard.Focus(add);
             WpfTestHost.PumpDispatcher();
             Assert.IsTrue(add.IsKeyboardFocusWithin);
-            Capture((FrameworkElement)popup.Child, "unit-popup");
+            WpfTestHost.Capture((FrameworkElement)popup.Child, "unit-popup");
             add.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
             Assert.IsFalse(unit.IsDropDownOpen);
@@ -123,7 +121,7 @@ public sealed class SharedControlsRenderedTests
             items[0].IsSelected = true;
             WpfTestHost.CompleteLayout(window);
             Assert.AreEqual(category.SelectedValue, products.ViewModel.EditorCategory);
-            Capture((FrameworkElement)popup.Child, "category-popup");
+            WpfTestHost.Capture((FrameworkElement)popup.Child, "category-popup");
             WpfTestHost.FindByAutomationName<Button>(popup.Child, "إضافة فئة جديدة").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
             Assert.IsFalse(category.IsDropDownOpen);
@@ -170,27 +168,11 @@ public sealed class SharedControlsRenderedTests
             WpfTestHost.CompleteLayout(window);
             Assert.AreEqual(Visibility.Visible, ((ContentPresenter)button.Template.FindName("ActionText", button)).Visibility);
             Assert.AreEqual(SystemColors.WindowBrush, ((Border)search.Template.FindName("InputChrome", search)).Background);
-            Capture(window, "large-text-system-colors");
+            WpfTestHost.Capture(window, "large-text-system-colors");
             button.IsEnabled = false;
             search.Focus();
             WpfTestHost.CompleteLayout(window);
             Assert.IsFalse(button.Focus());
         });
-    }
-
-    // Opt-in artifacts for a visual review; routine test runs do not write images.
-    private static void Capture(FrameworkElement element, string name)
-    {
-        var directory = Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR");
-        if (string.IsNullOrEmpty(directory)) return;
-        Directory.CreateDirectory(directory);
-        // Include the presentation root's direction transform when capturing a popup.
-        element = PresentationSource.FromVisual(element)?.RootVisual as FrameworkElement ?? element;
-        var bitmap = new RenderTargetBitmap((int)Math.Ceiling(element.ActualWidth), (int)Math.Ceiling(element.ActualHeight), 96, 96, PixelFormats.Pbgra32);
-        bitmap.Render(element);
-        var encoder = new PngBitmapEncoder();
-        encoder.Frames.Add(BitmapFrame.Create(bitmap));
-        using var stream = File.Create(Path.Combine(directory, name + ".png"));
-        encoder.Save(stream);
     }
 }

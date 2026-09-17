@@ -47,17 +47,7 @@ public sealed class OperationsTableRenderedTests
                     table.BringIntoView();
                 }
                 WpfTestHost.CompleteLayout(window);
-                var directory = Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR");
-                if (!string.IsNullOrEmpty(directory))
-                {
-                    System.IO.Directory.CreateDirectory(directory);
-                    var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap((int)window.ActualWidth, (int)window.ActualHeight, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
-                    bitmap.Render(window);
-                    var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
-                    encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
-                    using var stream = System.IO.File.Create(System.IO.Path.Combine(directory, $"table-{name}-{width}.png"));
-                    encoder.Save(stream);
-                }
+                WpfTestHost.Capture(window, $"table-{name}-{width}");
             }
             Check("dashboard");
             foreach (var page in new[] { "Materials", "Parts", "Furniture", "Pricing", "Products", "Quotations", "Orders", "WorkOrders" })

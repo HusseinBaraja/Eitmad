@@ -1,8 +1,6 @@
-using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using Eitmad.WindowsShell.Features.Quotations;
 using Eitmad.WindowsShell.Features.Reception;
 
@@ -39,7 +37,7 @@ public sealed class ReceptionQuotationsRenderedTests
                     WpfTestHost.FindByName<Button>(detail, "AddButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                     WpfTestHost.CompleteLayout(child);
                     Assert.IsFalse(model.IsReviewingQuotation);
-                    Capture(child, "new-catalog-selection");
+                    WpfTestHost.Capture(child, "quotation-new-catalog-selection");
                     var header = WpfTestHost.Descendants<Controls.PageHeader>(catalog).Single();
                     WpfTestHost.Descendants<Button>(header).Single(button => button.IsVisible).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                     WpfTestHost.CompleteLayout(child);
@@ -80,7 +78,7 @@ public sealed class ReceptionQuotationsRenderedTests
             Assert.IsTrue(dialog.IsOpen);
             Assert.IsTrue(cancel.IsKeyboardFocused);
             Assert.AreSame(quotation, dialog.DataContext);
-            Capture(window, "conversion-confirmation");
+            WpfTestHost.Capture(window, "quotation-conversion-confirmation");
             cancel.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
             Assert.IsFalse(dialog.IsOpen);
@@ -133,7 +131,7 @@ public sealed class ReceptionQuotationsRenderedTests
             var view = WpfTestHost.FindByName<QuotationsView>(reception, "ReceptionQuotations");
             Assert.IsTrue(view.IsVisible);
             Assert.IsTrue(view.ViewModel.IsReceptionist);
-            Capture(window, "list");
+            WpfTestHost.Capture(window, "quotation-list");
             var rows = view.ViewModel.VisibleQuotations.ToArray();
             view.ViewModel.SearchText = "٠٠٠٠٠٠٠٤٣";
             Assert.AreEqual(QuotationStatus.WaitingApproval, view.ViewModel.VisibleQuotations.Single().Status);
@@ -146,21 +144,8 @@ public sealed class ReceptionQuotationsRenderedTests
                 Assert.AreEqual(row.CanPrint, WpfTestHost.FindByAutomationName<Button>(view, "طباعة عرض السعر").IsVisible);
                 Assert.AreEqual(row.IsConverted, WpfTestHost.FindByAutomationName<Button>(view, "فتح الطلب").IsVisible);
                 Assert.AreEqual(Visibility.Collapsed, WpfTestHost.FindByName<Border>(view, "ApprovalSection").Visibility);
-                if (row.IsConverted || row.IsWaitingApproval || row.IsActive) Capture(window, row.Status.ToString());
+                if (row.IsConverted || row.IsWaitingApproval || row.IsActive) WpfTestHost.Capture(window, "quotation-" + row.Status);
             }
         });
-    }
-
-    private static void Capture(FrameworkElement element, string name)
-    {
-        var directory = Environment.GetEnvironmentVariable("EITMAD_QUOTATION_CAPTURE_DIR");
-        if (string.IsNullOrEmpty(directory)) return;
-        Directory.CreateDirectory(directory);
-        var bitmap = new RenderTargetBitmap((int)element.ActualWidth, (int)element.ActualHeight, 96, 96, PixelFormats.Pbgra32);
-        bitmap.Render(element);
-        var encoder = new PngBitmapEncoder();
-        encoder.Frames.Add(BitmapFrame.Create(bitmap));
-        using var stream = File.Create(Path.Combine(directory, name + ".png"));
-        encoder.Save(stream);
     }
 }

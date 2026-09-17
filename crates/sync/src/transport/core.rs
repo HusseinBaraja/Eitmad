@@ -349,14 +349,6 @@ impl<D: ConnectionDriver> TransportCore<D> {
         self.health.last_failure = Some(failure);
     }
 
-    pub(crate) fn record_external_failure(
-        &mut self,
-        failure: TransportFailure,
-        now: UnixMillis,
-    ) -> TransportFailure {
-        self.record_failure(failure, now)
-    }
-
     pub(crate) fn allow_immediate_retry(&mut self) {
         self.health.next_retry_at = None;
     }
@@ -408,7 +400,7 @@ impl<D: ConnectionDriver> TransportCore<D> {
         })
     }
 
-    fn record_failure(
+    pub(crate) fn record_failure(
         &mut self,
         mut failure: TransportFailure,
         now: UnixMillis,

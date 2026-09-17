@@ -31,17 +31,7 @@ public sealed class CompositionControlsRenderedTests
             header.ButtonClick += (_, _) => clicks++;
             button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.AreEqual(1, clicks);
-            var directory = Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR");
-            if (!string.IsNullOrEmpty(directory))
-            {
-                System.IO.Directory.CreateDirectory(directory);
-                var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap((int)window.ActualWidth, (int)window.ActualHeight, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
-                bitmap.Render(window);
-                var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
-                encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
-                using var stream = System.IO.File.Create(System.IO.Path.Combine(directory, "page-header.png"));
-                encoder.Save(stream);
-            }
+            WpfTestHost.Capture(window, "page-header");
             window.Width = 780;
             WpfTestHost.CompleteLayout(window);
             Assert.IsTrue(button.TransformToAncestor(window).Transform(new Point(button.ActualWidth, 0)).X < title.TransformToAncestor(window).Transform(new Point()).X);
@@ -88,17 +78,7 @@ public sealed class CompositionControlsRenderedTests
             Assert.AreEqual(System.Windows.Media.Brushes.White, amountText.Foreground);
             Assert.AreEqual(System.Windows.Media.Brushes.White, WpfTestHost.Descendants<TextBlock>(notice).First(text => text.Text == notice.Message).Foreground);
             Assert.AreEqual(System.Windows.Media.Brushes.White, ((TextBlock)field.Template.FindName("Error", field)).Foreground);
-            var directory = Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR");
-            if (!string.IsNullOrEmpty(directory))
-            {
-                System.IO.Directory.CreateDirectory(directory);
-                var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap((int)window.ActualWidth, (int)window.ActualHeight, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
-                bitmap.Render(window);
-                var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
-                encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
-                using var stream = System.IO.File.Create(System.IO.Path.Combine(directory, "compositions-large-system-colors.png"));
-                encoder.Save(stream);
-            }
+            WpfTestHost.Capture(window, "compositions-large-system-colors");
         });
     }
 

@@ -42,7 +42,7 @@ public partial class SalesCatalogView : UserControl
             lastSelectionButton = (Button)sender;
             ((SalesCatalogViewModel)DataContext).Select(item);
             if (((SalesCatalogViewModel)DataContext).IsSelecting)
-                Dispatcher.BeginInvoke(new Action(() => (((SalesCatalogViewModel)DataContext).IsSelectingProduct ? ProductSelectionView.BackButton : SelectionView.BackButton).Focus()));
+                FocusEditor();
         }
     }
 }

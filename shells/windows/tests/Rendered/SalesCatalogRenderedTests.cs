@@ -1,9 +1,7 @@
-using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using Eitmad.WindowsShell.Features.Reception;
 
 namespace Eitmad.WindowsShell.Tests.Rendered;
@@ -20,7 +18,7 @@ public sealed class SalesCatalogRenderedTests
             reception.Visibility = Visibility.Visible;
             WpfTestHost.FindByName<Grid>(window, "ResponsiveRoot").Visibility = Visibility.Collapsed;
             WpfTestHost.CompleteLayout(window);
-            Capture(window, "home");
+            WpfTestHost.Capture(window, "catalog-home");
             WpfTestHost.FindByName<Button>(reception, "NewQuotationAction").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
             var catalog = WpfTestHost.FindByName<SalesCatalogView>(reception, "CatalogContent");
@@ -72,7 +70,7 @@ public sealed class SalesCatalogRenderedTests
             WpfTestHost.CompleteLayout(window);
             var quotation = WpfTestHost.FindByName<CurrentQuotationView>(catalog, "QuotationView");
             Assert.IsTrue(quotation.IsVisible);
-            Capture(window, "current-quotation");
+            WpfTestHost.Capture(window, "catalog-current-quotation");
             var edit = WpfTestHost.FindByAutomationName<Button>(quotation, "تعديل " + model.QuotationLines[0].Name);
             edit.Focus(); Assert.IsTrue(edit.IsKeyboardFocusWithin);
             edit.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -86,6 +84,8 @@ public sealed class SalesCatalogRenderedTests
             WpfTestHost.FindByAutomationName<Button>(quotation, "عميل جديد").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
             Assert.IsTrue(WpfTestHost.FindByName<TextBox>(quotation, "CustomerNameInput").IsKeyboardFocusWithin);
+            model.CustomerName = "عميل تجريبي";
+            model.Phone = "000000000";
             var scroll = WpfTestHost.Descendants<ScrollViewer>(quotation).First();
             scroll.ScrollToBottom(); WpfTestHost.CompleteLayout(window);
             var discount = WpfTestHost.FindByAutomationName<TextBox>(quotation, "نسبة الخصم");
@@ -94,14 +94,14 @@ public sealed class SalesCatalogRenderedTests
             WpfTestHost.CompleteLayout(window);
             var save = WpfTestHost.FindByAutomationName<Button>(quotation, "حفظ عرض السعر");
             Assert.IsTrue(save.IsEnabled);
-            Capture(window, "discount-allowed");
+            WpfTestHost.Capture(window, "catalog-discount-allowed");
             discount.Text = "10";
             WpfTestHost.CompleteLayout(window);
             Assert.IsFalse(save.IsEnabled);
             var request = WpfTestHost.FindByAutomationName<Button>(quotation, "طلب موافقة");
             Assert.IsTrue(request.IsVisible);
             request.Focus(); Assert.IsTrue(request.IsKeyboardFocusWithin);
-            Capture(window, "discount-request");
+            WpfTestHost.Capture(window, "catalog-discount-request");
             request.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
             var draft = WpfTestHost.FindByAutomationName<Button>(quotation, "حفظ كمسودة");
@@ -112,7 +112,7 @@ public sealed class SalesCatalogRenderedTests
             draft.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.IsTrue(model.IsDiscountPending);
             scroll.ScrollToBottom(); WpfTestHost.CompleteLayout(window);
-            Capture(window, "discount-pending");
+            WpfTestHost.Capture(window, "catalog-discount-pending");
         });
     }
 
@@ -153,7 +153,7 @@ public sealed class SalesCatalogRenderedTests
                 WpfTestHost.FindByAutomationName<Button>(detail, "زيادة الكمية").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 WpfTestHost.CompleteLayout(window);
                 Assert.IsTrue(add.IsEnabled);
-                Capture(window, model.ProductSelection.HasVariants ? "product-variants" : "product-simple");
+                WpfTestHost.Capture(window, "catalog-" + (model.ProductSelection.HasVariants ? "product-variants" : "product-simple"));
                 add.BringIntoView();
                 WpfTestHost.CompleteLayout(window);
                 add.Focus();
@@ -218,7 +218,7 @@ public sealed class SalesCatalogRenderedTests
                     }
                 }
             }
-            Capture(window, "selection-scroll");
+            WpfTestHost.Capture(window, "catalog-selection-scroll");
         });
     }
 
@@ -237,7 +237,7 @@ public sealed class SalesCatalogRenderedTests
             Assert.IsTrue(catalog.IsVisible);
             Assert.AreEqual(FlowDirection.RightToLeft, catalog.FlowDirection);
             Assert.AreEqual("الكل", WpfTestHost.FindByAutomationName<ListBox>(catalog, "فئات المنتجات").SelectedItem);
-            Capture(window, "normal");
+            WpfTestHost.Capture(window, "catalog-normal");
             var search = WpfTestHost.FindByName<TextBox>(catalog, "CatalogSearch");
             search.Focus();
             Assert.IsTrue(search.IsKeyboardFocusWithin);
@@ -253,7 +253,7 @@ public sealed class SalesCatalogRenderedTests
             categories.SelectedItem = "المراتب";
             WpfTestHost.CompleteLayout(window);
             Assert.HasCount(1, ((SalesCatalogViewModel)catalog.DataContext).VisibleItems);
-            Capture(window, "retail");
+            WpfTestHost.Capture(window, "catalog-retail");
             var select = WpfTestHost.FindByAutomationName<Button>(catalog, "اختيار مرتبة طبية");
             select.Focus();
             Assert.IsTrue(select.IsKeyboardFocusWithin);
@@ -263,7 +263,7 @@ public sealed class SalesCatalogRenderedTests
             ((SalesCatalogViewModel)catalog.DataContext).ClearFilters();
             window.Width = 1000;
             WpfTestHost.CompleteLayout(window);
-            Capture(window, "compact");
+            WpfTestHost.Capture(window, "catalog-compact");
             WpfTestHost.FindByName<Button>(reception, "HomeNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
             Assert.IsFalse(catalog.IsVisible);
@@ -279,7 +279,7 @@ public sealed class SalesCatalogRenderedTests
             catalog.Resources[SystemColors.ControlTextBrushKey] = Brushes.White;
             catalog.Resources[SystemColors.GrayTextBrushKey] = Brushes.White;
             WpfTestHost.CompleteLayout(window);
-            Capture(window, "system-colors");
+            WpfTestHost.Capture(window, "catalog-system-colors");
         });
     }
 
@@ -313,7 +313,7 @@ public sealed class SalesCatalogRenderedTests
             Assert.IsTrue(card.IsKeyboardFocusWithin);
             Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(card).Any(t => t.Text == "✓" && t.IsVisible));
             Assert.IsFalse(WpfTestHost.Descendants<TextBox>(detail).Any());
-            Capture(window, "selection");
+            WpfTestHost.Capture(window, "catalog-selection");
             var increase = WpfTestHost.FindByAutomationName<Button>(detail, "زيادة الكمية");
             increase.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
@@ -329,7 +329,7 @@ public sealed class SalesCatalogRenderedTests
             Assert.HasCount(1, model.QuotationLines);
             var title = WpfTestHost.FindByName<Eitmad.WindowsShell.Controls.ShellTitleBar>(reception, "ReceptionistTitleBar");
             Assert.AreEqual(model.QuotationLabel, title.PrimaryActionLabel);
-            Capture(window, "selection-total");
+            WpfTestHost.Capture(window, "catalog-selection-total");
             WpfTestHost.FindByAutomationName<Button>(reception, "فتح عرض السعر").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
             Assert.IsTrue(model.IsReviewingQuotation);
@@ -342,31 +342,18 @@ public sealed class SalesCatalogRenderedTests
             Assert.AreEqual(2, model.Selection!.Quantity);
             window.Width = 1000;
             WpfTestHost.CompleteLayout(window);
-            Capture(window, "selection-compact");
+            WpfTestHost.Capture(window, "catalog-selection-compact");
             detail.Resources[SystemParameters.HighContrastKey] = true;
             detail.Resources[SystemColors.WindowBrushKey] = Brushes.Black;
             detail.Resources[SystemColors.WindowTextBrushKey] = Brushes.White;
             detail.Resources[SystemColors.ControlBrushKey] = Brushes.Black;
             detail.Resources[SystemColors.ControlTextBrushKey] = Brushes.White;
             WpfTestHost.CompleteLayout(window);
-            Capture(window, "selection-system-colors");
+            WpfTestHost.Capture(window, "catalog-selection-system-colors");
             WpfTestHost.FindByName<Button>(detail, "BackButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
             Assert.IsFalse(detail.IsVisible);
             Assert.IsTrue(select.IsKeyboardFocusWithin);
         });
-    }
-
-    private static void Capture(FrameworkElement element, string size)
-    {
-        var directory = Environment.GetEnvironmentVariable("EITMAD_CATALOG_CAPTURE_DIR");
-        if (string.IsNullOrWhiteSpace(directory)) return;
-        Directory.CreateDirectory(directory);
-        var bitmap = new RenderTargetBitmap((int)element.ActualWidth, (int)element.ActualHeight, 96, 96, PixelFormats.Pbgra32);
-        bitmap.Render(element);
-        var encoder = new PngBitmapEncoder();
-        encoder.Frames.Add(BitmapFrame.Create(bitmap));
-        using var stream = File.Create(Path.Combine(directory, $"catalog-{size}.png"));
-        encoder.Save(stream);
     }
 }

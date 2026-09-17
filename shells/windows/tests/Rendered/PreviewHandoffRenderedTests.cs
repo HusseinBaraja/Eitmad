@@ -1,8 +1,5 @@
-using System.IO;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using Eitmad.WindowsShell.Features.Reception;
 using Eitmad.WindowsShell.Features.Quotations;
 using Eitmad.WindowsShell.Features.Orders;
@@ -54,18 +51,18 @@ public sealed class PreviewHandoffRenderedTests
             Assert.IsTrue(manager.IsVisible);
             Assert.IsTrue(manager.ViewModel.ApprovalsOnly);
             Assert.IsTrue(manager.ViewModel.VisibleQuotations.Contains(request));
-            Capture(window, $"inbox-{width}");
+            WpfTestHost.Capture(window, $"handoff-inbox-{width}");
             manager.ViewModel.OpenQuotation(request);
             WpfTestHost.CompleteLayout(window);
             var approve = WpfTestHost.FindByAutomationName<Button>(manager, "الموافقة على خصم عرض السعر");
             Assert.IsTrue(approve.Focus());
             Assert.IsTrue(approve.IsKeyboardFocused);
-            Capture(window, $"approval-{width}");
+            WpfTestHost.Capture(window, $"handoff-approval-{width}");
             if (width == 780)
             {
                 window.SetValue(Controls.ControlOptions.HighContrastProperty, true);
                 WpfTestHost.CompleteLayout(window);
-                Capture(window, "approval-system-colors");
+                WpfTestHost.Capture(window, "handoff-approval-system-colors");
                 window.ClearValue(Controls.ControlOptions.HighContrastProperty);
             }
             approve.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -89,7 +86,7 @@ public sealed class PreviewHandoffRenderedTests
             WpfTestHost.CompleteLayout(window);
             var save = WpfTestHost.FindByAutomationName<Button>(detail, "حفظ عرض السعر");
             save.BringIntoView(); WpfTestHost.CompleteLayout(window);
-            Capture(window, $"approved-editor-{width}");
+            WpfTestHost.Capture(window, $"handoff-approved-editor-{width}");
             editor.DiscountInput = "11";
             Assert.IsFalse(editor.CanSaveQuotation);
             editor.RequestDiscountApproval();
@@ -102,7 +99,7 @@ public sealed class PreviewHandoffRenderedTests
             Assert.IsTrue(editor.ReviewDraftSave());
             Assert.IsTrue(editor.IsDiscountRejected);
             WpfTestHost.CompleteLayout(window);
-            Capture(window, $"rejected-editor-{width}");
+            WpfTestHost.Capture(window, $"handoff-rejected-editor-{width}");
             editor.RequestDiscountApproval();
             var oldRequest = reception.Handoffs.Quotations.Single(item => item.Id == editor.PreviewId);
             editor.DuplicateLine(editor.QuotationLines[0]);
@@ -130,7 +127,7 @@ public sealed class PreviewHandoffRenderedTests
             WpfTestHost.CompleteLayout(window);
             Assert.IsNotNull(order.OriginalQuotation);
             Assert.IsTrue(WpfTestHost.FindByName<Button>(orders, "OriginalQuotationButton").IsEnabled);
-            Capture(window, "order-production");
+            WpfTestHost.Capture(window, "handoff-order-production");
             WpfTestHost.FindByAutomationName<Button>(orders, "فتح تصنيع الطلب").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
             Assert.IsTrue(work.IsVisible);
@@ -140,7 +137,7 @@ public sealed class PreviewHandoffRenderedTests
             Assert.AreEqual(order.Items.Count(item => item.IsFurniture), production.Furniture.Count);
             Assert.IsFalse(production.Furniture.Any(item => item.Name == "مرتبة الراحة"));
             Assert.IsTrue(WpfTestHost.FindByName<Button>(work, "BackToWorkOrdersButton").IsKeyboardFocused);
-            Capture(window, "work-order-link");
+            WpfTestHost.Capture(window, "handoff-work-order-link");
             var back = WpfTestHost.FindByAutomationName<Button>(work, "فتح الطلب المرتبط");
             Assert.IsTrue(back.Focus());
             back.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -161,28 +158,17 @@ public sealed class PreviewHandoffRenderedTests
             MainWindow.SwitchAccountCommand.Execute(null, window);
             WpfTestHost.CompleteLayout(window);
             Assert.IsTrue(reception.IsVisible);
-            Capture(window, "ready-home");
+            WpfTestHost.Capture(window, "handoff-ready-home");
             var ready = WpfTestHost.FindByAutomationName<Button>(reception, $"مراجعة الطلب الجاهز {order.Number}");
             Assert.IsTrue(ready.Focus());
             ready.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
             Assert.AreEqual(order.Id, reception.PreviewOrders.ViewModel.SelectedOrder!.Id);
-            Capture(window, "newly-ready-order");
+            WpfTestHost.Capture(window, "handoff-newly-ready-order");
             WpfTestHost.FindByAutomationName<Button>(reception.PreviewOrders, "تمت مراجعة تنبيه جاهزية الطلب").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.AreEqual(0, reception.PreviewOrders.ViewModel.NewReadyOrders.Count);
             Assert.IsTrue(reception.PreviewOrders.ViewModel.SelectedOrder.IsReady);
             Assert.IsFalse(reception.PreviewOrders.ViewModel.SelectedOrder.IsNewlyReady);
         });
-    }
-
-    private static void Capture(FrameworkElement element, string name)
-    {
-        var directory = Environment.GetEnvironmentVariable("EITMAD_HANDOFF_CAPTURE_DIR");
-        if (string.IsNullOrEmpty(directory)) return;
-        Directory.CreateDirectory(directory);
-        var bitmap = new RenderTargetBitmap((int)element.ActualWidth, (int)element.ActualHeight, 96, 96, PixelFormats.Pbgra32);
-        bitmap.Render(element);
-        var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
-        using var stream = File.Create(Path.Combine(directory, name + ".png")); encoder.Save(stream);
     }
 }

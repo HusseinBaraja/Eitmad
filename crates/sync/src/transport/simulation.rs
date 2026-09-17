@@ -44,20 +44,8 @@ impl SimulatedTransport {
         self.core.driver_mut().connect_failures.push_back(failure);
     }
 
-    pub fn fail_next_send(&mut self, failure: TransportFailure) {
-        self.core.driver_mut().send_failures.push_back(failure);
-    }
-
-    pub fn fail_next_receive(&mut self, failure: TransportFailure) {
-        self.core.driver_mut().receive_failures.push_back(failure);
-    }
-
     pub fn authenticate_next_connection_as(&mut self, identity: AuthenticationIdentity) {
         self.core.driver_mut().authenticated_as = identity;
-    }
-
-    pub fn set_remote_hello(&mut self, hello: PeerHello) {
-        self.core.driver_mut().remote_hello = hello;
     }
 }
 
@@ -112,8 +100,6 @@ struct SimulatedDriver {
     incoming: VecDeque<SyncTransportFrame>,
     outgoing: VecDeque<SyncTransportFrame>,
     connect_failures: VecDeque<TransportFailure>,
-    send_failures: VecDeque<TransportFailure>,
-    receive_failures: VecDeque<TransportFailure>,
 }
 
 impl SimulatedDriver {
@@ -125,8 +111,6 @@ impl SimulatedDriver {
             incoming: VecDeque::new(),
             outgoing: VecDeque::new(),
             connect_failures: VecDeque::new(),
-            send_failures: VecDeque::new(),
-            receive_failures: VecDeque::new(),
         }
     }
 
@@ -170,9 +154,6 @@ impl ConnectionDriver for SimulatedDriver {
         if !self.connected {
             return Err(Self::disconnected(FailurePhase::Send));
         }
-        if let Some(failure) = self.send_failures.pop_front() {
-            return Err(failure);
-        }
         self.outgoing.push_back(frame.clone());
         Ok(())
     }
@@ -180,9 +161,6 @@ impl ConnectionDriver for SimulatedDriver {
     fn receive(&mut self) -> Result<Option<SyncTransportFrame>, TransportFailure> {
         if !self.connected {
             return Err(Self::disconnected(FailurePhase::Receive));
-        }
-        if let Some(failure) = self.receive_failures.pop_front() {
-            return Err(failure);
         }
         Ok(self.incoming.pop_front())
     }

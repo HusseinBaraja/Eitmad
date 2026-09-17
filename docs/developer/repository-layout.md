@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-07-18"
+last_verified: "2026-09-17"
 review_triggers:
   - "a workspace member, platform, server plane, test suite, or ownership boundary changes"
 keywords:
@@ -32,8 +32,6 @@ Place behavior that changes together in the nearest vertical product capability.
 | `crates/authorization/` | Direct principal-to-scope relationships and compiled ReBAC policy v1 | [Authorization guide](subsystems/authorization.md) |
 | `crates/update-policy/` | Update eligibility, compatibility, and migration safety | `crates/update-policy/OWNERSHIP.md` |
 | `crates/observability-audit/` | Redacted diagnostics and mutation audit | `crates/observability-audit/OWNERSHIP.md` |
-| `crates/external-integrations/` | Named external-service adapters | `crates/external-integrations/OWNERSHIP.md` |
-| `crates/extensions/` | Extension capabilities and host isolation | `crates/extensions/OWNERSHIP.md` |
 | `shells/` | Thin native shells; Windows uses C# | `shells/OWNERSHIP.md` |
 | `platform-adapters/` | Replaceable OS mechanics; Windows engine process supervision is implemented | [Windows process supervision](subsystems/windows-process-supervision.md) |
 | `server/*-plane/` | Separate control, sync, relay, update, and admin boundaries | `server/OWNERSHIP.md` |
@@ -51,6 +49,6 @@ Place behavior that changes together in the nearest vertical product capability.
 
 ## Verification
 
-This map matches the current `Cargo.toml` members, runtime composition, and ownership files as of 2026-07-18. Empty source files do not imply implemented behavior.
+This map matches the current `Cargo.toml` members, runtime composition, and ownership files as of 2026-09-17. External providers and extension hosts have no implementation crate yet. Add a named Rust capability when a concrete integration needs it; apply the [target architecture](../architecture/target-architecture.md) and [authorization gate](subsystems/authorization.md#boundary-enforcement).
 
 Next, [run the foundation checks](../operations/index.md).

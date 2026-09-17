@@ -1,8 +1,5 @@
-using System.IO;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using Eitmad.WindowsShell.Controls;
 using Eitmad.WindowsShell.Features.Customers;
 using Eitmad.WindowsShell.Features.Reception;
@@ -37,7 +34,7 @@ public sealed class CustomersRenderedTests
             var customer = (CustomerPreview)detail.DataContext;
             Assert.IsTrue(customer.Orders.Any(row => row.Number == order.Number));
             Assert.IsTrue(WpfTestHost.FindByName<Button>(detail, "BackButton").IsKeyboardFocusWithin);
-            Capture(window, "reception-detail");
+            WpfTestHost.Capture(window, "customers-reception-detail");
             WpfTestHost.FindByName<Button>(detail, "BackButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
             Assert.IsTrue(open.IsKeyboardFocusWithin);
@@ -63,7 +60,7 @@ public sealed class CustomersRenderedTests
             var view = new CustomerDetailView { DataContext = customer };
             window.Content = view;
             WpfTestHost.CompleteLayout(window);
-            Capture(window, "detail");
+            WpfTestHost.Capture(window, "customers-detail");
             var edit = WpfTestHost.FindByName<Button>(view, "EditButton");
             edit.Focus();
             edit.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -82,7 +79,7 @@ public sealed class CustomersRenderedTests
             Assert.IsTrue(WpfTestHost.FindByName<DialogHost>(view, "Dialog").IsOpen);
             name.Text = "عائلة الصبري — بيانات تجريبية";
             WpfTestHost.CompleteLayout(window);
-            Capture(window, "editor");
+            WpfTestHost.Capture(window, "customers-editor");
             WpfTestHost.FindByName<Button>(view, "ApplyButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
             Assert.AreEqual("عائلة الصبري — بيانات تجريبية", customer.Name);
@@ -90,23 +87,11 @@ public sealed class CustomersRenderedTests
             Assert.AreEqual("QUO-2026-0084", customer.Quotations.Single().Number);
             window.Width = 780;
             WpfTestHost.CompleteLayout(window);
-            Capture(window, "compact-detail");
+            WpfTestHost.Capture(window, "customers-compact-detail");
             foreach (var table in WpfTestHost.Descendants<OperationsTable>(view)) ControlOptions.SetHighContrast(table, true);
             WpfTestHost.CompleteLayout(window);
-            Capture(window, "contrast-detail");
+            WpfTestHost.Capture(window, "customers-contrast-detail");
         });
-    }
-
-    internal static void Capture(FrameworkElement element, string name)
-    {
-        var directory = Path.Combine(Path.GetTempPath(), "eitmad-customers");
-        Directory.CreateDirectory(directory);
-        var bitmap = new RenderTargetBitmap((int)element.ActualWidth, (int)element.ActualHeight, 96, 96, PixelFormats.Pbgra32);
-        bitmap.Render(element);
-        var encoder = new PngBitmapEncoder();
-        encoder.Frames.Add(BitmapFrame.Create(bitmap));
-        using var stream = File.Create(Path.Combine(directory, name + ".png"));
-        encoder.Save(stream);
     }
 }
 

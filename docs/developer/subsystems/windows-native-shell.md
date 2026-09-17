@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Windows UI maintainers"
-last_verified: "2026-09-12"
+last_verified: "2026-09-17"
 review_triggers:
   - "Windows shell UI, state mapping, configuration patches, subscriptions, tray behavior, or ownership boundaries change"
 keywords:
@@ -139,7 +139,7 @@ The **المستخدمون** destination uses `Features/Users` for a synthetic, 
 
 Add and edit reuse one small page with name, username, role, and status fields. Username is read-only during edit; name, role, and active status can change. **حفظ** applies the temporary fixture and returns to the list; **إلغاء** returns without changes. There is no permission matrix. Deactivation requires confirmation, retains the row as **غير نشط**, and disables its deactivation action. Cancel leaves the fixture unchanged. The editor page and deactivation dialog label changes as preview-only: no account is created and no actual access is changed. Real account commands, scope checks, authorization, and audit must remain in Rust when this page is connected.
 
-The page reuses `PageHeader`, `FormField`, `AdaptiveFieldsPanel`, `OperationsTable`, `StatusBadge`, `EmptyState`, and existing input and button styles. Run the focused `UsersPresentationTests` and `UsersRenderedTests` classes. Set `EITMAD_USERS_CAPTURE` to a PNG path to capture the synthetic list during the rendered test. Set `EITMAD_USER_EDITOR_CAPTURE` to capture the edit page.
+The page reuses `PageHeader`, `FormField`, `AdaptiveFieldsPanel`, `OperationsTable`, `StatusBadge`, `EmptyState`, and existing input and button styles. Run the focused `UsersPresentationTests` and `UsersRenderedTests` classes. Set `EITMAD_UI_CAPTURE_DIR` to a local output directory to capture the synthetic list and edit page during the rendered tests.
 
 ## Engine failure, tray, and shutdown
 
@@ -204,7 +204,7 @@ For example, declare the `layout`, `controls`, and `automation` namespaces as th
 
 Keep status-state mappings in their feature styles, based on `StatusSurface` and `StatusLabel`. Keep popup placement separate from text direction: row menus use physical LTR placement and Arabic menu items use RTL shaping. The shared row menus currently contain flat actions; they do not define submenu or checkable-item templates.
 
-The focused `SharedControlsRenderedTests` cover all eight list search bindings and filter bounds at normal and compact widths, selector footer ownership and editor focus, editable selector text, optional button text, larger input text, and system-color template states. Existing rendered feature tests cover navigation, editing, row menus, and preview behavior. For optional synthetic review images, set `EITMAD_UI_CAPTURE_DIR` to a local output directory before running the focused tests. These checks do not certify a production release or replace full Windows high-contrast, text-scaling, and screen-reader verification.
+The focused `SharedControlsRenderedTests` cover all eight list search bindings and filter bounds at normal and compact widths, selector footer ownership and editor focus, editable selector text, optional button text, larger input text, and system-color template states. Existing rendered feature tests cover navigation, editing, row menus, and preview behavior. All rendered tests use `WpfTestHost.Capture` for optional synthetic review images. Set `EITMAD_UI_CAPTURE_DIR` to a local output directory before running the focused tests; without it, tests do not write screenshots. These checks do not certify a production release or replace full Windows high-contrast, text-scaling, and screen-reader verification.
 
 ## Responsive shell layout
 

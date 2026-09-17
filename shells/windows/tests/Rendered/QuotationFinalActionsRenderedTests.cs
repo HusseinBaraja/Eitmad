@@ -1,9 +1,7 @@
-using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Eitmad.WindowsShell.Controls;
 using Eitmad.WindowsShell.Features.Reception;
@@ -39,7 +37,7 @@ public sealed class QuotationFinalActionsRenderedTests
             save.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
             Assert.IsTrue(WpfTestHost.FindByName<TextBox>(view, "CustomerNameInput").IsKeyboardFocusWithin);
-            Capture(window, "required-fields");
+            WpfTestHost.Capture(window, "quotation-required-fields");
             model.CustomerName = "عميل تجريبي";
             save.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.IsTrue(WpfTestHost.FindByName<TextBox>(view, "PhoneInput").IsKeyboardFocusWithin);
@@ -54,7 +52,7 @@ public sealed class QuotationFinalActionsRenderedTests
             WpfTestHost.CompleteLayout(window);
             WpfTestHost.Descendants<ScrollViewer>(view).First().ScrollToBottom();
             WpfTestHost.CompleteLayout(window);
-            Capture(window, "final-actions");
+            WpfTestHost.Capture(window, "quotation-final-actions");
             Exception? failure = null;
             window.Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(() =>
             {
@@ -68,7 +66,7 @@ public sealed class QuotationFinalActionsRenderedTests
                     Assert.IsFalse(text.Contains(model.Notes));
                     Assert.IsTrue(text.Contains(model.FinalTotal.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) + " YER"));
                     Assert.IsTrue(text.Contains(model.QuotationLines[1].Options));
-                    Capture(modal, "customer-preview");
+                    WpfTestHost.Capture(modal, "quotation-customer-preview");
                     var back = WpfTestHost.FindByAutomationName<Button>(preview, "رجوع");
                     back.Focus(); Assert.IsTrue(back.IsKeyboardFocusWithin);
                     back.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -91,15 +89,5 @@ public sealed class QuotationFinalActionsRenderedTests
             Assert.IsFalse(model.CanPreviewCustomer);
             Assert.ThrowsExactly<InvalidOperationException>(() => QuotationCustomerDocument.Create(model, DateTime.Today));
         });
-    }
-    private static void Capture(FrameworkElement element, string name)
-    {
-        var directory = Environment.GetEnvironmentVariable("EITMAD_CATALOG_CAPTURE_DIR");
-        if (string.IsNullOrEmpty(directory)) return;
-        Directory.CreateDirectory(directory);
-        var bitmap = new RenderTargetBitmap((int)element.ActualWidth, (int)element.ActualHeight, 96, 96, PixelFormats.Pbgra32);
-        bitmap.Render(element);
-        var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
-        using var stream = File.Create(Path.Combine(directory, name + ".png")); encoder.Save(stream);
     }
 }

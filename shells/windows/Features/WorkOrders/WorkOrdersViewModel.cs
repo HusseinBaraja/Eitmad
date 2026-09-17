@@ -103,7 +103,6 @@ public sealed class WorkOrdersViewModel : ObservableObject
     }
 
     public event Action<WorkOrderListItem>? PreviewStatusChanged;
-    public IReadOnlyList<WorkOrderListItem> PreviewWorkOrders => workOrders;
     public void UseOrderFixtures(IEnumerable<Features.Orders.OrderListItem> orders)
     {
         var partsByOrder = new[] { workOrders[0].Parts, workOrders[2].Parts, workOrders[1].Parts,

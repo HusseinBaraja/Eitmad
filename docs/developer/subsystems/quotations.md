@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Quotation capability maintainers"
-last_verified: "2026-09-16"
+last_verified: "2026-09-17"
 review_triggers:
   - "Quotation contracts, approval rules, or Windows quotation UI behavior change"
 keywords:
@@ -61,7 +61,7 @@ The final actions remain on this review page. Save attempts show all missing ite
 
 Run `QuotationFinalActionsRenderedTests` for inline-error focus, preview and return focus, customer-only content, discount gating, and multi-page pagination. Physical printer output requires a separate manual check.
 
-Run `SalesCatalogPresentationTests` and `SalesCatalogRenderedTests` in the Windows test project for snapshot editing, cancellation, duplicate identity, totals, customer selection, and the rendered selection-to-quotation path. Set `EITMAD_CATALOG_CAPTURE_DIR` to capture the affected synthetic screens.
+Run `SalesCatalogPresentationTests` and `SalesCatalogRenderedTests` in the Windows test project for snapshot editing, cancellation, duplicate identity, totals, customer selection, and the rendered selection-to-quotation path. Set `EITMAD_UI_CAPTURE_DIR` to capture the affected synthetic screens.
 
 ## Failure and recovery
 
@@ -69,7 +69,7 @@ Closing the detail returns to the list. Closing the shell discards all local quo
 
 ## Tests and verification
 
-`PreviewHandoffRenderedTests` covers the temporary request, inbox, approved and rejected outcomes, reopening an approved editor, draft gating, replacement without duplicate rows, preservation of ready-made item type and customer fields, and rejection of an old decision after item edits. It captures normal and compact layouts when `EITMAD_HANDOFF_CAPTURE_DIR` is set.
+`PreviewHandoffRenderedTests` covers the temporary request, inbox, approved and rejected outcomes, reopening an approved editor, draft gating, replacement without duplicate rows, preservation of ready-made item type and customer fields, and rejection of an old decision after item edits. It captures normal and compact layouts when `EITMAD_UI_CAPTURE_DIR` is set.
 
 Run the focused shell checks:
 

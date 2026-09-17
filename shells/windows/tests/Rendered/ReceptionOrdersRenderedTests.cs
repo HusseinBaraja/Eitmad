@@ -1,9 +1,6 @@
-using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using Eitmad.WindowsShell.Controls;
 using Eitmad.WindowsShell.Features.Orders;
 using Eitmad.WindowsShell.Features.Reception;
@@ -27,7 +24,7 @@ public sealed class ReceptionOrdersRenderedTests
             var view = WpfTestHost.Descendants<OrdersView>(reception).Single();
             Assert.IsTrue(view.IsVisible);
             Assert.IsTrue(view.ViewModel.IsReceptionist);
-            Capture(window, "list");
+            WpfTestHost.Capture(window, "reception-orders-list");
             view.ViewModel.SearchText = "٠٠٠٠٠٠٠٨٥";
             view.ViewModel.SelectedStatus = OrdersViewModel.ReadyStatus;
             view.ViewModel.SelectedDate = OrdersViewModel.LastSevenDays;
@@ -38,7 +35,7 @@ public sealed class ReceptionOrdersRenderedTests
             Assert.IsTrue(WpfTestHost.FindByName<Button>(view, "BackToOrdersButton").IsKeyboardFocusWithin);
             Assert.IsTrue(WpfTestHost.FindByName<FeedbackNotice>(view, "ReadyOrderNotice").IsVisible);
             Assert.AreEqual("الطلب جاهز", WpfTestHost.FindByName<FeedbackNotice>(view, "ReadyOrderNotice").Message);
-            Capture(window, "ready");
+            WpfTestHost.Capture(window, "reception-orders-ready");
             InspectDocument(WpfTestHost.FindByName<Button>(view, "PrintOrderButton"), ready.Number);
             InspectDocument(WpfTestHost.FindByName<Button>(view, "OriginalQuotationButton"), ready.OriginalQuotation!.Number);
             WpfTestHost.FindByName<Button>(view, "BackToOrdersButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -52,7 +49,7 @@ public sealed class ReceptionOrdersRenderedTests
             WpfTestHost.CompleteLayout(window);
             Assert.IsFalse(WpfTestHost.FindByName<FeedbackNotice>(view, "ReadyOrderNotice").IsVisible);
             Assert.IsTrue(mixed.Items.Any(item => !item.IsFurniture));
-            Capture(window, "mixed-items");
+            WpfTestHost.Capture(window, "reception-orders-mixed-items");
             var printed = OrderCustomerDocument.Create(mixed);
             var text = new TextRange(printed.ContentStart, printed.ContentEnd).Text;
             Assert.IsTrue(text.Contains("مرتبة الراحة"));
@@ -99,22 +96,10 @@ public sealed class ReceptionOrdersRenderedTests
             Assert.IsTrue(WpfTestHost.FindByName<FeedbackNotice>(view, "ReadyOrderNotice").IsVisible);
             Assert.IsTrue(WpfTestHost.FindByName<Button>(view, "PrintOrderButton").Focus());
             Assert.IsTrue(WpfTestHost.FindByName<Button>(view, "OriginalQuotationButton").IsEnabled);
-            Capture(window, "compact-ready");
+            WpfTestHost.Capture(window, "reception-orders-compact-ready");
             ControlOptions.SetHighContrast(view, true);
             WpfTestHost.CompleteLayout(window);
-            Capture(window, "high-contrast-ready");
+            WpfTestHost.Capture(window, "reception-orders-high-contrast-ready");
         });
-    }
-
-    private static void Capture(FrameworkElement element, string name)
-    {
-        var directory = Path.Combine(Path.GetTempPath(), "eitmad-reception-orders");
-        Directory.CreateDirectory(directory);
-        var bitmap = new RenderTargetBitmap((int)element.ActualWidth, (int)element.ActualHeight, 96, 96, PixelFormats.Pbgra32);
-        bitmap.Render(element);
-        var encoder = new PngBitmapEncoder();
-        encoder.Frames.Add(BitmapFrame.Create(bitmap));
-        using var stream = File.Create(Path.Combine(directory, name + ".png"));
-        encoder.Save(stream);
     }
 }

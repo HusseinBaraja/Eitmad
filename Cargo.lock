@@ -881,24 +881,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "eitmad-extensions"
-version = "0.0.0"
-dependencies = [
- "eitmad-authorization",
- "eitmad-contracts",
- "eitmad-observability-audit",
-]
-
-[[package]]
-name = "eitmad-external-integrations"
-version = "0.0.0"
-dependencies = [
- "eitmad-authorization",
- "eitmad-contracts",
- "eitmad-observability-audit",
-]
-
-[[package]]
 name = "eitmad-observability-audit"
 version = "0.0.0"
 dependencies = [

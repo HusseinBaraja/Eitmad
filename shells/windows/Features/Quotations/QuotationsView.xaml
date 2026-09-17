@@ -13,22 +13,6 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
-        <Style x:Key="ApprovalButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-            <Setter Property="Height" Value="42" />
-            <Setter Property="MinWidth" Value="105" />
-        </Style>
-        <Style x:Key="RejectButton" TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
-            <Setter Property="Height" Value="42" />
-            <Setter Property="MinWidth" Value="105" />
-            <Setter Property="Padding" Value="18,8" />
-            <Setter Property="Background" Value="White" />
-            <Setter Property="Foreground" Value="#9A382B" />
-            <Setter Property="BorderBrush" Value="#C98980" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="FontFamily" Value="Noto Kufi Arabic, Segoe UI" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Cursor" Value="Hand" />
-        </Style>
     </UserControl.Resources>
     <Grid layout:ResponsiveLayout.IsEnabled="True">
         <Grid x:Name="ListSurface" Visibility="{Binding IsListVisible, Converter={StaticResource BooleanToVisibility}}">

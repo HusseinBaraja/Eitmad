@@ -146,5 +146,4 @@ public sealed partial class SalesCatalogViewModel
         IsReviewingQuotation = false;
     }
     public void DuplicateLine(PreviewQuotationLine line) { if (QuotationLines.Contains(line)) QuotationLines.Insert(QuotationLines.IndexOf(line) + 1, line with { Id = Guid.NewGuid() }); }
-    public void RemoveLine(PreviewQuotationLine line) => QuotationLines.Remove(line);
 }

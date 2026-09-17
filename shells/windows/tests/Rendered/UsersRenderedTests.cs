@@ -1,8 +1,5 @@
-using System.IO;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using Eitmad.WindowsShell.Controls;
 using Eitmad.WindowsShell.Features.Users;
 namespace Eitmad.WindowsShell.Tests.Rendered;
@@ -38,14 +35,7 @@ public sealed class UsersRenderedTests
             var point = save.TranslatePoint(new Point(), view);
             Assert.IsTrue(point.X >= 0 && point.X + save.ActualWidth <= view.ActualWidth);
             Assert.IsTrue(point.Y >= 0 && point.Y + save.ActualHeight <= view.ActualHeight);
-            var captureDirectory = Environment.GetEnvironmentVariable("EITMAD_USER_LAYOUT_CAPTURES");
-            if (!string.IsNullOrEmpty(captureDirectory))
-            {
-                var bitmap = new RenderTargetBitmap((int)window.ActualWidth, (int)window.ActualHeight, 96, 96, PixelFormats.Pbgra32);
-                bitmap.Render(window);
-                var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
-                using var stream = File.Create(Path.Combine(captureDirectory, $"user-editor-{width}.png")); encoder.Save(stream);
-            }
+            WpfTestHost.Capture(window, $"user-editor-{width}");
         });
     }
     [TestMethod]
@@ -59,14 +49,7 @@ public sealed class UsersRenderedTests
             var table = WpfTestHost.FindByName<OperationsTable>(view, "UsersTable");
             Assert.IsTrue(view.IsVisible);
             Assert.AreEqual(4, table.Items.Count);
-            var capture = Environment.GetEnvironmentVariable("EITMAD_USERS_CAPTURE");
-            if (!string.IsNullOrEmpty(capture))
-            {
-                var bitmap = new RenderTargetBitmap((int)window.ActualWidth, (int)window.ActualHeight, 96, 96, PixelFormats.Pbgra32);
-                bitmap.Render(window);
-                var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
-                using var stream = File.Create(capture); encoder.Save(stream);
-            }
+            WpfTestHost.Capture(window, "users-list");
             var search = WpfTestHost.FindByName<TextBox>(view, "UsersSearchBox");
             search.Text = "احمد"; WpfTestHost.CompleteLayout(view);
             Assert.AreEqual(1, table.Items.Count);
@@ -84,14 +67,7 @@ public sealed class UsersRenderedTests
             role.Focus(); role.IsDropDownOpen = true; WpfTestHost.CompleteLayout(view);
             Assert.IsTrue(role.IsDropDownOpen);
             role.IsDropDownOpen = false;
-            var editorCapture = Environment.GetEnvironmentVariable("EITMAD_USER_EDITOR_CAPTURE");
-            if (!string.IsNullOrEmpty(editorCapture))
-            {
-                var bitmap = new RenderTargetBitmap((int)window.ActualWidth, (int)window.ActualHeight, 96, 96, PixelFormats.Pbgra32);
-                bitmap.Render(window);
-                var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
-                using var stream = File.Create(editorCapture); encoder.Save(stream);
-            }
+            WpfTestHost.Capture(window, "users-editor");
             WpfTestHost.FindByAutomationName<Button>(view, "إلغاء تعديل المستخدم").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(view);
             Assert.IsTrue(edit.IsKeyboardFocusWithin);

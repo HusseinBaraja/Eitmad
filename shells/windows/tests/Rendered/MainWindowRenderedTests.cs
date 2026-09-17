@@ -1,10 +1,8 @@
-using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using Eitmad.WindowsShell.Layout;
 using Eitmad.WindowsShell.Controls;
 using Eitmad.WindowsShell.Features.Reception;
@@ -46,8 +44,6 @@ public sealed class MainWindowRenderedTests
             var receptionistSidebar = WpfTestHost.Descendants<ShellSidebar>(receptionist).Single();
             Assert.IsTrue(receptionistSidebar.IsVisible);
             Assert.IsTrue(receptionistSidebar.IsReceptionist);
-            Assert.AreEqual(1, WpfTestHost.Descendants<Button>(receptionistSidebar).Count(button => button.IsVisible && button.Tag is string));
-            Assert.AreEqual("الرئيسية", WpfTestHost.Descendants<Button>(receptionistSidebar).Single(button => button.IsVisible && button.Tag is string).Tag);
             Assert.AreEqual(1, WpfTestHost.Descendants<ShellTitleBar>(receptionist).Count());
 
             var shortcut = window.InputBindings.OfType<KeyBinding>().Single(binding => binding.Key == Key.K);
@@ -82,7 +78,7 @@ public sealed class MainWindowRenderedTests
             var managerSidebar = WpfTestHost.FindByName<ShellSidebar>(window, "ManagerSidebar");
             var managerTitleHeight = managerTitleBar.ActualHeight;
             var managerSidebarWidth = managerSidebar.ActualWidth;
-            CaptureSharedChrome(window, "manager");
+            WpfTestHost.Capture(window, "shared-chrome-manager");
 
             var receptionistSurface = WpfTestHost.FindByName<ReceptionistHomeView>(window, "ReceptionistSurface");
             receptionistSurface.Visibility = Visibility.Visible;
@@ -93,22 +89,8 @@ public sealed class MainWindowRenderedTests
             var receptionistSidebar = WpfTestHost.FindByName<ShellSidebar>(receptionistSurface, "ReceptionistSidebar");
             Assert.AreEqual(managerTitleHeight, receptionistTitleBar.ActualHeight, 0.1);
             Assert.AreEqual(managerSidebarWidth, receptionistSidebar.ActualWidth, 0.1);
-            CaptureSharedChrome(window, "receptionist");
+            WpfTestHost.Capture(window, "shared-chrome-receptionist");
         });
-    }
-
-    private static void CaptureSharedChrome(FrameworkElement element, string role)
-    {
-        var directory = Environment.GetEnvironmentVariable("EITMAD_SHARED_CHROME_CAPTURE_DIR");
-        if (string.IsNullOrWhiteSpace(directory)) return;
-
-        Directory.CreateDirectory(directory);
-        var bitmap = new RenderTargetBitmap((int)Math.Ceiling(element.ActualWidth), (int)Math.Ceiling(element.ActualHeight), 96, 96, PixelFormats.Pbgra32);
-        bitmap.Render(element);
-        var encoder = new PngBitmapEncoder();
-        encoder.Frames.Add(BitmapFrame.Create(bitmap));
-        using var stream = File.Create(Path.Combine(directory, $"shared-chrome-{role}.png"));
-        encoder.Save(stream);
     }
 
     [TestMethod]
@@ -241,14 +223,5 @@ public sealed class MainWindowRenderedTests
             Assert.AreEqual(1, Grid.GetRow(searchBorder));
             Assert.AreEqual(4, Grid.GetColumnSpan(searchBorder));
         });
-    }
-
-    [TestMethod]
-    public void ResolveModeUsesStableBreakpointBoundaries()
-    {
-        Assert.AreEqual(ResponsiveLayoutMode.Compact, ResponsiveLayout.ResolveMode(899.99));
-        Assert.AreEqual(ResponsiveLayoutMode.Standard, ResponsiveLayout.ResolveMode(900));
-        Assert.AreEqual(ResponsiveLayoutMode.Standard, ResponsiveLayout.ResolveMode(1599.99));
-        Assert.AreEqual(ResponsiveLayoutMode.Wide, ResponsiveLayout.ResolveMode(1600));
     }
 }

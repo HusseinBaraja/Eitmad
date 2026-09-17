@@ -90,7 +90,7 @@ public sealed class SalesCatalogPresentationTests
         model.DuplicateLine(model.QuotationLines.Single());
         Assert.AreNotEqual(model.QuotationLines[0].Id, model.QuotationLines[1].Id);
         Assert.AreEqual(420_000m, model.FinalTotal);
-        model.RemoveLine(model.QuotationLines[0]);
+        model.QuotationLines.Remove(model.QuotationLines[0]);
         Assert.IsFalse(model.ReviewSave());
         model.CustomerName = "عميل";
         Assert.HasCount(1, model.CustomerMatches);

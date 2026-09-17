@@ -24,7 +24,7 @@ public partial class CurrentQuotationView : UserControl
         ((SalesCatalogView)parent).FocusEditor();
     }
     private void DuplicateClick(object sender, RoutedEventArgs e) => Model.DuplicateLine((PreviewQuotationLine)((Button)sender).DataContext);
-    private void RemoveClick(object sender, RoutedEventArgs e) { Model.RemoveLine((PreviewQuotationLine)((Button)sender).DataContext); ContinueButton.Focus(); }
+    private void RemoveClick(object sender, RoutedEventArgs e) { Model.QuotationLines.Remove((PreviewQuotationLine)((Button)sender).DataContext); ContinueButton.Focus(); }
     private void NewCustomerClick(object sender, RoutedEventArgs e) { if (!Model.IsNewCustomer) Model.BeginNewCustomer(); CustomerNameInput.Focus(); }
     private void AttachCustomerClick(object sender, RoutedEventArgs e) => Model.AttachCustomer((PreviewCustomer)((Button)sender).DataContext);
     private void SaveCustomerClick(object sender, RoutedEventArgs e) { Model.SaveNewCustomer(); CustomerNameInput.Focus(); }
