@@ -24,7 +24,6 @@ public partial class MainWindow : Window
         ReceptionistSurface.SetCatalogSources(FurnitureSurface.ViewModel, ProductsSurface.ViewModel);
         QuotationsSurface.ViewModel.UsePreviewQuotations(ReceptionistSurface.Handoffs.Quotations);
         var receptionOrders = ReceptionistSurface.PreviewOrders.ViewModel;
-        receptionOrders.UsePreviewOrders(receptionOrders.PreviewOrders);
         OrdersSurface.ViewModel.UsePreviewOrders(receptionOrders.PreviewOrders);
         WorkOrdersSurface.ViewModel.UseOrderFixtures(receptionOrders.PreviewOrders);
         OrdersSurface.ViewModel.FindProduction = WorkOrdersSurface.ViewModel.ForOrder;

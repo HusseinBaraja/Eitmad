@@ -120,6 +120,7 @@ public sealed class OrdersViewModel : ObservableObject
         if (order is null || order.Status == status) return;
         var updated = order with { Status = status, ReadyFromWorkOrder = status == OrderStatus.Ready ? workNumber : "" };
         orders[orders.IndexOf(order)] = updated;
+        if (SelectedOrder?.Id == order.Id) SelectedOrder = updated;
         if (status == OrderStatus.Ready) NewReadyOrders.Add(updated);
         RefreshVisibleOrders();
     }
