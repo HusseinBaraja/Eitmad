@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Order capability maintainers"
-last_verified: "2026-09-16"
+last_verified: "2026-09-19"
 review_triggers:
   - "Order contracts, lifecycle rules, or Windows order UI behavior change"
 keywords:
@@ -22,6 +22,8 @@ keywords:
 # Extend the order review flow safely
 
 The Windows **الطلبات** page gives managers and receptionists a synthetic order list and a read-only detail view. It includes navigation to the source quotation and manufacturing preview, without a direct order status action.
+
+Production conversion, derived status, cancellation, numbering, visibility, permission, delivery, and offline behavior is accepted in the [Manager and Receptionist workflow specification](manager-receptionist-workflows.md). This page describes the current preview only.
 
 ## Ownership and current boundary
 
@@ -69,6 +71,6 @@ dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --filter "Full
 
 ## Future Rust vertical
 
-When orders become authoritative, define versioned typed order commands, queries, and subscriptions in Rust and generate or validate native bindings. Rust must own order lifecycle, relationships to customers and furniture, relationship-based manager authorization, explicit scope, atomic mutation and audit, durable storage, idempotency, synchronization, and typed recovery. Keep carpenter operations in the Work Orders vertical and preserve the read-only review boundary here.
+When orders become authoritative, implement the accepted workflow specification, define versioned typed order commands, queries, and subscriptions in Rust, and generate or validate native bindings. Rust must own order lifecycle, relationships to customers and furniture, relationship-based authorization, explicit scope, atomic mutation and audit, durable storage, idempotency, synchronization, and typed recovery. Keep production operations in the Work Orders vertical and preserve the read-only review boundary here.
 
 Return to the [Windows shell subsystem guide](windows-native-shell.md) for shared layout and trust-boundary rules.

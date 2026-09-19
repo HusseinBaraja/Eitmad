@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Quotation capability maintainers"
-last_verified: "2026-09-17"
+last_verified: "2026-09-19"
 review_triggers:
   - "Quotation contracts, approval rules, or Windows quotation UI behavior change"
 keywords:
@@ -22,6 +22,8 @@ keywords:
 # Extend the quotation review flow safely
 
 The Windows **عروض الأسعار** page gives a manager a synthetic quotation review list and a read-only detail view. It supports a temporary discount decision for fixtures that require review; it does not create or authorize a quotation.
+
+Production lifecycle, `5.00%` threshold, approval fingerprint, price snapshot, validity, numbering, permission, and offline behavior is accepted in the [Manager and Receptionist workflow specification](manager-receptionist-workflows.md). This page describes the current preview only; preview `Active`, approval, conversion, and `QT-PREVIEW` behavior does not override the accepted specification.
 
 ## Ownership and current boundary
 
@@ -81,6 +83,6 @@ dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --filter "Full
 
 ## Future Rust vertical
 
-When quotations become authoritative, define versioned typed quotation commands, queries, and subscriptions in Rust and generate or validate native bindings. Rust must own quotation lifecycle, discount policy, relationship-based manager authorization, explicit scope, atomic approval and audit, durable storage, idempotency, synchronization, and typed recovery. Preserve the read-only detail shape and Arabic mixed-direction amount handling while keeping WPF as a thin adapter.
+When quotations become authoritative, implement the accepted workflow specification, define versioned typed quotation commands, queries, and subscriptions in Rust, and generate or validate native bindings. Rust must own quotation lifecycle, discount policy, relationship-based authorization, explicit scope, atomic approval and audit, durable storage, idempotency, synchronization, and typed recovery. Preserve the read-only detail shape and Arabic mixed-direction amount handling while keeping WPF as a thin adapter.
 
 Return to the [Windows shell subsystem guide](windows-native-shell.md) for shared layout and trust-boundary rules.

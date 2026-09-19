@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Windows UI maintainers"
-last_verified: "2026-09-02"
+last_verified: "2026-09-19"
 review_triggers:
   - "Furniture contracts, Rust projections, pricing rules, or Windows Furniture UI behavior change"
 keywords:
@@ -30,6 +30,8 @@ keywords:
 # Extend the Furniture manager flow safely
 
 The Windows **الأثاث** page gives managers a compact product table and a complete six-step furniture editor preview. The page is local presentation state. Search, filters, image selection, part quantities, calculated values, variants, colors, handles, prices, margins, draft or published status, duplicate, and archive state are discarded when the shell closes.
+
+Production catalog, unit, pricing, scope, permission, publication, and offline behavior is accepted in the [Manager and Receptionist workflow specification](manager-receptionist-workflows.md). This page describes the current preview only.
 
 ## Ownership and current boundary
 
@@ -72,6 +74,6 @@ dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --filter "Full
 
 `FurniturePresentationTests` verifies Arabic search normalization, composed state changes, part totals, fixed variants, visible option price adjustments, active-state toggles, selling-price margins, Review entry, and local draft completion. `FurnitureRenderedTests` instantiates the real WPF window, navigates to **الأثاث**, verifies Arabic accessible names and keyboard focus, selects a part, adds a variant, opens Options, adds a color and handle, edits Pricing, opens Review, and publishes back to the Furniture list. A manual rendered check at `1338 × 753` verifies the compact manager table, large image preview, part-cost summary, side-by-side variant cards, option surfaces, pricing rows, and the final read-only summary.
 
-When Rust gains the Furniture vertical, add typed contracts and generated C# bindings before replacing the fixture boundary. Keep thumbnails and selected images as presentation inputs, map all authoritative state and errors from Rust, and preserve the current Arabic labels, fixed-variant distinction, bidirectional isolation, keyboard path, and non-destructive archive behavior.
+When Rust gains the Furniture vertical, implement the accepted workflow specification, then add typed contracts and generated C# bindings before replacing the fixture boundary. Keep thumbnails and selected images as presentation inputs, map all authoritative state and errors from Rust, and preserve the current Arabic labels, fixed-variant distinction, bidirectional isolation, keyboard path, and non-destructive archive behavior where they do not conflict with the accepted specification.
 
 Return to the [Windows shell subsystem guide](windows-native-shell.md) for shared layout and trust-boundary rules.

@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Products capability maintainers"
-last_verified: "2026-09-03"
+last_verified: "2026-09-19"
 review_triggers:
   - "Product contracts, category ownership, pricing rules, or Windows Products UI behavior change"
 keywords:
@@ -22,6 +22,8 @@ keywords:
 The Windows **المنتجات** page lets a manager maintain ready-made items that the company purchases and sells as-is. It is separate from **الأثاث**: a Product does not have raw materials, furniture parts, construction details, calculated manufacturing cost, or the six-step Furniture editor.
 
 The current page is a local presentation preview. Search, filters, categories, image previews, direct prices, supplier variants, notes, duplicate state, and archive state are discarded when the shell closes.
+
+Production catalog, pricing, scope, permission, publication, and offline behavior is accepted in the [Manager and Receptionist workflow specification](manager-receptionist-workflows.md). This page describes the current preview only.
 
 ## Ownership and boundary
 
@@ -71,6 +73,6 @@ Perform one rendered check at `1338 × 753` after a visible UI change. Verify th
 
 ## Extend the capability
 
-When Rust gains the Products vertical, define the typed contracts and generated C# bindings before replacing the fixture boundary. Preserve the Product/Furniture distinction, direct supplier cost, optional fixed variants, Arabic labels, mixed-direction value isolation, keyboard path, and non-destructive archive behavior.
+When Rust gains the Products vertical, implement the accepted workflow specification and define the typed contracts and generated C# bindings before replacing the fixture boundary. Preserve the Product/Furniture distinction, direct supplier cost, optional fixed variants, Arabic labels, mixed-direction value isolation, keyboard path, and non-destructive archive behavior.
 
 Related concepts: [Furniture manager flow](furniture.md), [Arabic-first feature checklist](../contributing/arabic-first-feature-checklist.md), and [approved terminology](../../glossary.md).

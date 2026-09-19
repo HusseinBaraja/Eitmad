@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-08-27"
+last_verified: "2026-09-19"
 review_triggers:
   - "a documentation collection or canonical entry point changes"
 keywords:
@@ -25,6 +25,7 @@ No user workflow is ready to document. When the first product flow exists, Engli
 
 - [Start developing Eitmad](developer/index.md): contribution setup, ownership boundaries, tests, and feature documentation.
 - [Build the first real product](developer/build-first-product.md): required domain, scope, authorization, contract, storage, sync, Arabic, shell, test, and documentation sequence.
+- [Implement Manager and Receptionist workflows](developer/subsystems/manager-receptionist-workflows.md): accepted permissions, visibility, customer, catalog, pricing, quotation, approval, fulfillment, delivery, and offline behavior.
 - [Extend Rust-owned configuration](developer/subsystems/configuration.md): defaults, validation, revisions, redaction, import/export, and events.
 - [Extend scoped authorization and audit](developer/subsystems/authorization.md): tuples, roles, inheritance, conditions, isolation, boundary gates, and complete redacted audit.
 - [Extend persistent tenant identity](developer/subsystems/identity-foundation.md): device, account, session, scope topology, offline behavior, and audit attribution.

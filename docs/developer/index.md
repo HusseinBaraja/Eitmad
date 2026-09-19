@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "tutorial"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-09-12"
+last_verified: "2026-09-19"
 review_triggers:
   - "workspace layout, local app startup, contributor checks, or ownership rules change"
 keywords:
@@ -31,6 +31,8 @@ Read `AGENTS.md` at the repository root, then review:
 - [Domain glossary](../glossary.md)
 
 Then read only the subsystem page that owns the change. Use [Build the first real product](build-first-product.md) only when adding a complete product vertical.
+
+For customer, catalog, pricing, quotation, order, work-order, or delivery implementation, use the [Manager and Receptionist workflow specification](subsystems/manager-receptionist-workflows.md) as the accepted product behavior. The existing Windows feature pages describe preview presentation only.
 
 ## 1. Run the local Windows app
 

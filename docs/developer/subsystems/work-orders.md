@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Work Orders capability maintainers"
-last_verified: "2026-09-16"
+last_verified: "2026-09-19"
 review_triggers:
   - "Work Order contracts, manufacturing lifecycle rules, or Windows Work Orders UI behavior change"
 keywords:
@@ -22,6 +22,8 @@ keywords:
 # Extend the Work Orders review flow safely
 
 The Windows **أوامر العمل** page gives a manager a synthetic manufacturing review list and a detail view for production staff. One Work Order can contain multiple Furniture items. The page does not show selling price, cost, profit, or margin.
+
+Production creation, `Planned → InProgress → Completed` transitions, cancellation, numbering, permission, Order derivation, and server-confirmation behavior is accepted in the [Manager and Receptionist workflow specification](manager-receptionist-workflows.md). This page describes the current preview only.
 
 ## Ownership and current boundary
 
@@ -55,6 +57,6 @@ dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --filter "Full
 
 ## Future Rust vertical
 
-When Work Orders become authoritative, define versioned typed commands, queries, and subscriptions in Rust and generate or validate native bindings. Rust must own the order-to-work-order relationship, Furniture and Parts projections, relationship-based manager and carpenter authorization, explicit record scope, atomic status mutation and audit, durable storage, idempotency, synchronization, and typed recovery. Preserve multi-Furniture cards, the separation from Products and Orders, and the Arabic mixed-direction layout in the shell adapter.
+When Work Orders become authoritative, implement the accepted workflow specification, define versioned typed commands, queries, and subscriptions in Rust, and generate or validate native bindings. Rust must own the order-to-work-order relationship, Furniture and Parts projections, relationship-based authorization, explicit record scope, atomic status mutation and audit, durable storage, idempotency, synchronization, and typed recovery. Preserve multi-Furniture cards, the separation from Products and Orders, and the Arabic mixed-direction layout in the shell adapter.
 
 Return to the [Windows shell subsystem guide](windows-native-shell.md) for shared layout and trust-boundary rules.
