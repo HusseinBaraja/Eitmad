@@ -13,7 +13,7 @@ public sealed class CustomerPreview(PreviewCustomer contact, IReadOnlyList<Custo
     public string Phone => Contact.Phone;
     public string Address => string.IsNullOrWhiteSpace(Contact.Address) ? "غير مضاف" : Contact.Address;
     public string Notes => string.IsNullOrWhiteSpace(Contact.Notes) ? "لا توجد ملاحظات" : Contact.Notes;
-    public IReadOnlyList<CustomerHistoryItem> Quotations { get; } = quotations;
+    public IReadOnlyList<CustomerHistoryItem> Quotations { get; private set; } = quotations;
     public IReadOnlyList<CustomerHistoryItem> Orders { get; } = orders;
 
     public void ApplyPreview(PreviewCustomer value)
@@ -23,6 +23,13 @@ public sealed class CustomerPreview(PreviewCustomer contact, IReadOnlyList<Custo
         Raise(nameof(Phone));
         Raise(nameof(Address));
         Raise(nameof(Notes));
+    }
+
+    public void IncludeQuotation(PreviewCustomer value, CustomerHistoryItem quotation)
+    {
+        ApplyPreview(value);
+        Quotations = [quotation, .. Quotations.Where(item => item.Number != quotation.Number)];
+        Raise(nameof(Quotations));
     }
 }
 

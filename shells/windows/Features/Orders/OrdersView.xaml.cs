@@ -52,7 +52,7 @@ public partial class OrdersView : UserControl
     private void ShowDocument(System.Windows.Documents.FlowDocument document, string title)
     {
         var previousFocus = System.Windows.Input.Keyboard.FocusedElement;
-        var preview = new PrintPreview { Document = document };
+        var preview = new PrintPreview { Document = document, JobName = title };
         var window = new Window { Title = title, Content = preview, Owner = Window.GetWindow(this),
             Width = 1000, Height = 780, MinWidth = 640, MinHeight = 480,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,

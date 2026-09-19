@@ -1,5 +1,6 @@
 using Eitmad.WindowsShell.Features.Orders;
 using Eitmad.WindowsShell.Features.Quotations;
+using Eitmad.WindowsShell.Features.Reception;
 
 namespace Eitmad.WindowsShell.Features.Customers;
 
@@ -31,9 +32,15 @@ public sealed class CustomerPreviewDirectory
 
     public void IncludeQuotation(QuotationListItem quotation)
     {
-        byQuotation[quotation.Id] = new(new(quotation.Customer, quotation.Phone, quotation.Address, quotation.Notes),
-            [new(quotation.Number, quotation.Date, string.Join("، ", quotation.Items.Select(item => item.FurnitureName)),
-                quotation.StatusLabel, quotation.FinalTotalLabel)], []);
+        var contact = new PreviewCustomer(quotation.Customer, quotation.Phone, quotation.Address, quotation.Notes);
+        var history = new CustomerHistoryItem(quotation.Number, quotation.Date,
+            string.Join("، ", quotation.Items.Select(item => item.FurnitureName)),
+            quotation.StatusLabel, quotation.FinalTotalLabel);
+        var customer = byQuotation.GetValueOrDefault(quotation.Id)
+            ?? byOrder.Values.Concat(byQuotation.Values).FirstOrDefault(item => item.Name == quotation.Customer)
+            ?? new CustomerPreview(contact, [], []);
+        customer.IncludeQuotation(contact, history);
+        byQuotation[quotation.Id] = customer;
     }
 
     public CustomerPreview ForOrder(Guid id) => byOrder[id];

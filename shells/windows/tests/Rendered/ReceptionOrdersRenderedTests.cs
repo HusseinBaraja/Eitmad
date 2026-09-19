@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using Eitmad.WindowsShell.Controls;
 using Eitmad.WindowsShell.Features.Orders;
+using Eitmad.WindowsShell.Features.Quotations;
 using Eitmad.WindowsShell.Features.Reception;
 
 namespace Eitmad.WindowsShell.Tests.Rendered;
@@ -36,8 +37,8 @@ public sealed class ReceptionOrdersRenderedTests
             Assert.IsTrue(WpfTestHost.FindByName<FeedbackNotice>(view, "ReadyOrderNotice").IsVisible);
             Assert.AreEqual("الطلب جاهز", WpfTestHost.FindByName<FeedbackNotice>(view, "ReadyOrderNotice").Message);
             WpfTestHost.Capture(window, "reception-orders-ready");
-            InspectDocument(WpfTestHost.FindByName<Button>(view, "PrintOrderButton"), ready.Number);
-            InspectDocument(WpfTestHost.FindByName<Button>(view, "OriginalQuotationButton"), ready.OriginalQuotation!.Number);
+            InspectDocument(WpfTestHost.FindByName<Button>(view, "PrintOrderButton"), ready.Number, "معاينة الطلب");
+            InspectDocument(WpfTestHost.FindByName<Button>(view, "OriginalQuotationButton"), ready.OriginalQuotation!.Number, "عرض السعر الأصلي — بيانات تجريبية");
             WpfTestHost.FindByName<Button>(view, "BackToOrdersButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
             Assert.IsTrue(WpfTestHost.FindByName<TextBox>(view, "OrderSearchBox").IsKeyboardFocusWithin);
@@ -57,7 +58,7 @@ public sealed class ReceptionOrdersRenderedTests
             Assert.IsFalse(text.Contains("المواد الخام"));
             Assert.IsFalse(text.Contains("الأجزاء"));
 
-            void InspectDocument(Button trigger, string number)
+            void InspectDocument(Button trigger, string number, string jobName)
             {
                 Exception? failure = null;
                 var inspected = false;
@@ -69,6 +70,7 @@ public sealed class ReceptionOrdersRenderedTests
                     {
                         var preview = (PrintPreview)child.Content;
                         Assert.IsTrue(WpfTestHost.FindByName<Button>(preview, "PrintButton").IsKeyboardFocusWithin);
+                        Assert.AreEqual(jobName, preview.JobName);
                         Assert.IsTrue(new TextRange(preview.Document.ContentStart, preview.Document.ContentEnd).Text.Contains(number));
                         inspected = true;
                     }
@@ -81,6 +83,35 @@ public sealed class ReceptionOrdersRenderedTests
                 Assert.IsTrue(trigger.IsKeyboardFocusWithin);
             }
         });
+    }
+
+    [TestMethod]
+    public void OriginalQuotationDocumentPreservesItemTypeAndDimensions()
+    {
+        var product = new QuotationLineItem("مرتبة", "مفرد", "لون غير صالح", "مقبض غير صالح", 1, 10_000)
+        {
+            IsFurniture = false,
+            Dimensions = "مقاس غير صالح",
+        };
+        var productText = DocumentText(new QuotationListItem(Guid.NewGuid(), "QT-1", "عميل", new(2026, 9, 19),
+            QuotationStatus.Active, 0, [product]));
+        Assert.IsFalse(productText.Contains(product.Color));
+        Assert.IsFalse(productText.Contains(product.Handle));
+        Assert.IsFalse(productText.Contains(product.Dimensions));
+
+        var furniture = new QuotationLineItem("خزانة", "كبير", "بني", "ذهبي", 1, 20_000)
+        {
+            Dimensions = "200 × 100 سم",
+        };
+        var furnitureText = DocumentText(new QuotationListItem(Guid.NewGuid(), "QT-2", "عميل", new(2026, 9, 19),
+            QuotationStatus.Active, 0, [furniture]));
+        Assert.IsTrue(furnitureText.Contains(furniture.Dimensions));
+
+        static string DocumentText(QuotationListItem quotation)
+        {
+            var document = OrderCustomerDocument.CreateQuotation(quotation);
+            return new TextRange(document.ContentStart, document.ContentEnd).Text;
+        }
     }
 
     [TestMethod]

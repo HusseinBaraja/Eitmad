@@ -9,6 +9,7 @@ public partial class PrintPreview : System.Windows.Controls.UserControl
 {
     public PrintPreview() => InitializeComponent();
     public FlowDocument Document { get => (FlowDocument)Pages.Document; set => Pages.Document = value; }
+    public string JobName { get; set; } = "عرض السعر";
     public event EventHandler? BackRequested;
     private void BackClick(object sender, RoutedEventArgs e) => BackRequested?.Invoke(this, EventArgs.Empty);
     private void PrintClick(object sender, RoutedEventArgs e)
@@ -23,7 +24,7 @@ public partial class PrintPreview : System.Windows.Controls.UserControl
             {
                 Document.PageWidth = dialog.PrintableAreaWidth;
                 Document.PageHeight = dialog.PrintableAreaHeight;
-                dialog.PrintDocument(((IDocumentPaginatorSource)Document).DocumentPaginator, "عرض السعر");
+                dialog.PrintDocument(((IDocumentPaginatorSource)Document).DocumentPaginator, JobName);
                 PrintStatus.Text = "تم إرسال المستند إلى الطابعة";
             }
             finally { Document.PageWidth = width; Document.PageHeight = height; }

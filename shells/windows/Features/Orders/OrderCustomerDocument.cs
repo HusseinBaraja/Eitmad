@@ -14,7 +14,8 @@ public static class OrderCustomerDocument
     public static FlowDocument CreateQuotation(QuotationListItem quotation) => Build(new(
         quotation.Id, quotation.Number, quotation.Customer, quotation.Date, OrderStatus.New,
         quotation.Discount, quotation.Items.Select(line => new OrderLineItem(line.FurnitureName,
-            line.Variant, "", line.Color, line.Handle, line.Quantity, line.UnitPrice)).ToArray(), quotation.Phone),
+            line.Variant, line.Dimensions, line.Color, line.Handle, line.Quantity, line.UnitPrice,
+            line.IsFurniture, line.ThumbnailKind, line.Image)).ToArray(), quotation.Phone),
         "عرض السعر الأصلي", false);
 
     private static FlowDocument Build(OrderListItem order, string title, bool showStatus)

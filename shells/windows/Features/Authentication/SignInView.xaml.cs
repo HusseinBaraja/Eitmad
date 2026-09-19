@@ -50,8 +50,10 @@ public partial class SignInView : UserControl
         var password = PasswordInput.Password;
         var role = (username, password) switch
         {
+#if PREVIEW_ACCOUNTS
             ("admin", "admin") => PreviewAccountRole.Manager,
             ("rec", "rec") => PreviewAccountRole.Receptionist,
+#endif
             _ => (PreviewAccountRole?)null,
         };
 

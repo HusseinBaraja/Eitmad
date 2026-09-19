@@ -6,7 +6,11 @@ namespace Eitmad.WindowsShell.Features.Reception;
 
 public partial class FurnitureSelectionView : UserControl
 {
-    public FurnitureSelectionView() => InitializeComponent();
+    public FurnitureSelectionView()
+    {
+        InitializeComponent();
+        DataContextChanged += (_, _) => AddedNotice.Message = string.Empty;
+    }
     private SalesCatalogView Catalog
     {
         get { DependencyObject parent = this; while (parent is not SalesCatalogView) parent = VisualTreeHelper.GetParent(parent); return (SalesCatalogView)parent; }

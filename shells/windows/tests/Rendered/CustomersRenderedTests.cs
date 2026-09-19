@@ -12,6 +12,25 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 public sealed class CustomersRenderedTests
 {
     [TestMethod]
+    public void RepublishedQuotationKeepsCustomerIdentityAndOrderHistory()
+    {
+        var directory = new CustomerPreviewDirectory();
+        var original = new OrdersViewModel(true).VisibleOrders.First(order => order.OriginalQuotation is not null)
+            .OriginalQuotation!;
+        var customer = directory.ForQuotation(original.Id);
+        Assert.IsTrue(customer.Orders.Count > 0);
+        var replacement = new QuotationListItem(original.Id, original.Number, original.Customer,
+            original.Date, original.Status, original.Discount, original.Items, phone: "000000099");
+
+        directory.IncludeQuotation(replacement);
+
+        Assert.AreSame(customer, directory.ForQuotation(original.Id));
+        Assert.IsTrue(customer.Orders.Count > 0);
+        Assert.AreEqual("000000099", customer.Phone);
+        Assert.HasCount(1, customer.Quotations.Where(item => item.Number == original.Number));
+    }
+
+    [TestMethod]
     public void ReceptionRecordsOpenSameCustomerAndRestoreFocus()
     {
         WpfTestHost.Run(1338, 900, window =>

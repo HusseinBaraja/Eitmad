@@ -68,6 +68,7 @@ public partial class QuotationsView : UserControl
         ConversionDialog.IsOpen = false;
         var view = new Features.Orders.OrdersView();
         view.ConfigureReceptionist();
+        view.CustomerRequested += _ => CustomerRequested?.Invoke(quotation.Id);
         view.ViewModel.OpenOrder(new(Guid.NewGuid(), "معاينة غير محفوظة", quotation.Customer,
             DateOnly.FromDateTime(DateTime.Today), Features.Orders.OrderStatus.New, quotation.Discount,
             quotation.Items.Select(line => new Features.Orders.OrderLineItem(line.FurnitureName, line.Variant, line.Dimensions, line.Color, line.Handle, line.Quantity, line.UnitPrice, line.IsFurniture, line.ThumbnailKind, line.Image)).ToArray(), quotation.Phone, quotation));
@@ -79,6 +80,7 @@ public partial class QuotationsView : UserControl
         if (!ViewModel.IsReceptionist || ViewModel.SelectedQuotation is not { IsConverted: true } quotation) return;
         var view = new Features.Orders.OrdersView();
         view.ConfigureReceptionist();
+        view.CustomerRequested += _ => CustomerRequested?.Invoke(quotation.Id);
         view.ViewModel.OpenOrder(view.ViewModel.VisibleOrders.Single(order => order.OriginalQuotation?.Id == quotation.Id));
         ShowPreviewWindow(view, "الطلب المرتبط — بيانات تجريبية");
     }
