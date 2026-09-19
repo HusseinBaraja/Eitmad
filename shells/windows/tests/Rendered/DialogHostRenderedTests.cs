@@ -1,6 +1,3 @@
-using System.IO;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using Eitmad.WindowsShell.Features.Products;
 using Eitmad.WindowsShell.Features.RawMaterials;
 using Eitmad.WindowsShell.Features.Parts;
@@ -235,15 +232,7 @@ public sealed class DialogHostRenderedTests
         var bounds = surface.TransformToAncestor(dialog).TransformBounds(new Rect(surface.RenderSize));
         Assert.IsTrue(bounds.Left >= 23 && bounds.Right <= dialog.ActualWidth - 23, name);
         Assert.IsTrue(bounds.Top >= 23 && bounds.Bottom <= dialog.ActualHeight - 23, name);
-        var directory = Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR");
-        if (string.IsNullOrEmpty(directory)) return;
-        Directory.CreateDirectory(directory);
-        var bitmap = new RenderTargetBitmap((int)Math.Ceiling(window.ActualWidth), (int)Math.Ceiling(window.ActualHeight), 96, 96, PixelFormats.Pbgra32);
-        bitmap.Render(window);
-        var encoder = new PngBitmapEncoder();
-        encoder.Frames.Add(BitmapFrame.Create(bitmap));
-        using var stream = File.Create(Path.Combine(directory, $"dialog-{name}-{width}.png"));
-        encoder.Save(stream);
+        WpfTestHost.Capture(window, $"dialog-{name}-{width}");
     }
     private static void RaiseKey(UIElement target, Key key) => target.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(target), 0, key) { RoutedEvent = Keyboard.KeyDownEvent });
 }

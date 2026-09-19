@@ -19,7 +19,10 @@ public sealed record OrderLineItem(
     string Color,
     string Handle,
     int Quantity,
-    decimal SellingPrice)
+    decimal SellingPrice,
+    bool IsFurniture = true,
+    string ThumbnailKind = "Wardrobe",
+    System.Windows.Media.ImageSource? Image = null)
 {
     public decimal Total => checked(Quantity * SellingPrice);
 
@@ -38,8 +41,16 @@ public sealed record OrderListItem(
     DateOnly Date,
     OrderStatus Status,
     decimal Discount,
-    IReadOnlyList<OrderLineItem> Items)
+    IReadOnlyList<OrderLineItem> Items,
+    string Phone = "",
+    Features.Quotations.QuotationListItem? OriginalQuotation = null)
 {
+    public string ReadyFromWorkOrder { get; init; } = "";
+    public bool IsNewlyReady => ReadyFromWorkOrder.Length > 0;
+    public string ReadyNotice => "جاهز حديثاً — اكتمل التصنيع. راجع الطلب للتواصل مع العميل. معاينة فقط.";
+    public bool CanShowProduction => Items.Any(item => item.IsFurniture) && Status is not OrderStatus.Cancelled and not OrderStatus.Delivered;
+    public bool HasOriginalQuotation => OriginalQuotation is not null;
+
     public decimal Subtotal => Items.Sum(item => item.Total);
 
     public decimal FinalTotal => Subtotal - Discount;

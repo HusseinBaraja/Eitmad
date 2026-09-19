@@ -1,0 +1,21 @@
+<UserControl x:Class="Eitmad.WindowsShell.Features.Customers.CustomerEditorView"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls"
+ FlowDirection="RightToLeft" Language="ar-YE">
+ <controls:DialogHost x:Name="Dialog" PreferredWidth="560" ShowCloseButton="True" CloseRequested="CancelClick" InitialFocusTarget="{Binding ElementName=NameInput}">
+  <StackPanel>
+   <TextBlock Text="معاينة فقط — التغييرات مؤقتة ولا تُحفظ بعد إغلاق التطبيق." FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,20"/>
+   <controls:FormField x:Name="NameField" Label="الاسم"><TextBox x:Name="NameInput" Style="{StaticResource TextInput}" TextChanged="NameChanged" AutomationProperties.Name="اسم العميل"/></controls:FormField>
+   <controls:FormField Label="رقم الهاتف" Margin="0,16,0,0"><TextBox x:Name="PhoneInput" FlowDirection="LeftToRight" Style="{StaticResource TextInput}" AutomationProperties.Name="رقم هاتف العميل"/></controls:FormField>
+   <controls:FormField Label="العنوان" Margin="0,16,0,0"><TextBox x:Name="AddressInput" Style="{StaticResource TextInput}" AutomationProperties.Name="عنوان العميل"/></controls:FormField>
+   <controls:FormField Label="ملاحظات" Margin="0,16,0,0"><TextBox x:Name="NotesInput" Style="{StaticResource TextInput}" Height="90" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" AutomationProperties.Name="ملاحظات العميل"/></controls:FormField>
+  </StackPanel>
+  <controls:DialogHost.Footer>
+   <StackPanel Orientation="Horizontal">
+    <Button x:Name="ApplyButton" Content="تطبيق في المعاينة" Style="{StaticResource PrimaryButton}" Click="ApplyClick" AutomationProperties.Name="تطبيق بيانات العميل في المعاينة"/>
+    <Button Content="إلغاء" Style="{StaticResource SecondaryButton}" Click="CancelClick" Margin="12,0,0,0" AutomationProperties.Name="إلغاء تعديل العميل"/>
+   </StackPanel>
+  </controls:DialogHost.Footer>
+ </controls:DialogHost>
+</UserControl>

@@ -1,73 +1,150 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Media;
 using System.Windows.Threading;
+using Eitmad.WindowsShell.Features.Authentication;
 using Eitmad.WindowsShell.Features.Operations;
-using Brush = System.Windows.Media.Brush;
-using Brushes = System.Windows.Media.Brushes;
 using Button = System.Windows.Controls.Button;
-using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 
 namespace Eitmad.WindowsShell;
 
 public partial class MainWindow : Window
 {
-    private Button selectedNavButton;
+    private PreviewAccountRole currentRole = PreviewAccountRole.Manager;
+
+    public static RoutedUICommand SwitchAccountCommand { get; } = new(
+        "تبديل الحساب التجريبي",
+        nameof(SwitchAccountCommand),
+        typeof(MainWindow));
 
     /// <summary>Initializes the dashboard preview and its transient interactions.</summary>
-    public MainWindow(OperationsViewModel viewModel)
+    public MainWindow(OperationsViewModel viewModel, bool showSignIn = true)
     {
         InitializeComponent();
+        ReceptionistSurface.SetCatalogSources(FurnitureSurface.ViewModel, ProductsSurface.ViewModel);
+        QuotationsSurface.ViewModel.UsePreviewQuotations(ReceptionistSurface.Handoffs.Quotations);
+        var receptionOrders = ReceptionistSurface.PreviewOrders.ViewModel;
+        OrdersSurface.ViewModel.UsePreviewOrders(receptionOrders.PreviewOrders);
+        WorkOrdersSurface.ViewModel.UseOrderFixtures(receptionOrders.PreviewOrders);
+        OrdersSurface.ViewModel.FindProduction = WorkOrdersSurface.ViewModel.ForOrder;
+        OrdersSurface.ProductionRequested += order =>
+        {
+            WorkOrdersSurface.ViewModel.OpenOrderProduction(order);
+            ManagerSidebar.SelectDestination("أوامر العمل");
+            ShowDestination("أوامر العمل");
+            Dispatcher.BeginInvoke(WorkOrdersSurface.BackToWorkOrdersButton.Focus, DispatcherPriority.Input);
+        };
+        WorkOrdersSurface.OrderRequested += number =>
+        {
+            var order = receptionOrders.PreviewOrders.FirstOrDefault(item => item.Number == number);
+            if (order is null) return;
+            OrdersSurface.ViewModel.OpenOrder(order);
+            ManagerSidebar.SelectDestination("الطلبات");
+            ShowDestination("الطلبات");
+            Dispatcher.BeginInvoke(OrdersSurface.BackToOrdersButton.Focus, DispatcherPriority.Input);
+        };
+        WorkOrdersSurface.ViewModel.PreviewStatusChanged += work => receptionOrders.PreviewProductionStatus(work.OrderNumber,
+            work.IsCompleted ? Features.Orders.OrderStatus.Ready : Features.Orders.OrderStatus.InProduction, work.Number);
         DataContext = viewModel;
-        selectedNavButton = HomeNavButton;
-        SetNavigationTone(selectedNavButton, true);
+        SignInSurface.Visibility = showSignIn ? Visibility.Visible : Visibility.Collapsed;
+        ResponsiveRoot.Visibility = showSignIn ? Visibility.Collapsed : Visibility.Visible;
+        Title = showSignIn ? "الاعتماد · تسجيل الدخول" : "الاعتماد · لوحة التحكم";
     }
 
-    /// <summary>Selects a preview destination and updates the dashboard heading.</summary>
-    private void NavigationClick(object sender, RoutedEventArgs eventArgs)
+    /// <summary>Shows the shell surface that belongs to the selected preview account.</summary>
+    private void PreviewSignedIn(object sender, PreviewSignedInEventArgs eventArgs)
     {
-        if (sender is not Button button || button.Tag is not string destination)
+        SignInSurface.Visibility = Visibility.Collapsed;
+        ShowAccount(eventArgs.Role);
+    }
+
+    /// <summary>Allows the development-only account switch after preview sign-in.</summary>
+    private void CanSwitchAccount(object sender, CanExecuteRoutedEventArgs eventArgs) =>
+        eventArgs.CanExecute = SignInSurface.Visibility != Visibility.Visible;
+
+    /// <summary>Handles the Alt+K development shortcut.</summary>
+    private void SwitchAccountExecuted(object sender, ExecutedRoutedEventArgs eventArgs) => SwitchAccount();
+
+    /// <summary>Handles the receptionist header account switch.</summary>
+    private void ReceptionistAccountSwitchRequested(object? sender, EventArgs eventArgs) => SwitchAccount();
+
+    private void ManagerTitleBarAccountSwitchRequested(object? sender, EventArgs eventArgs) => SwitchAccount();
+
+    private void ManagerSidebarNavigationRequested(object? sender, Controls.NavigationRequestedEventArgs eventArgs) =>
+        ShowDestination(eventArgs.Destination);
+
+    private void ManagerTitleBarActionRequested(object? sender, Controls.ShellActionEventArgs eventArgs)
+    {
+        if (eventArgs.IsPrimary)
+        {
+            OpenPreviewPanel(eventArgs.Action);
+            return;
+        }
+
+        ShowToast($"تم اختيار {eventArgs.Action}");
+    }
+
+    private void ManagerTitleBarSearchSubmitted(object? sender, Controls.ShellSearchEventArgs eventArgs) =>
+        ShowToast($"نتائج المعاينة عن: {eventArgs.Query}");
+
+    private void SwitchAccount()
+    {
+        if (SignInSurface.Visibility == Visibility.Visible)
         {
             return;
         }
 
-        SetNavigationTone(selectedNavButton, false);
-        selectedNavButton = button;
-        SetNavigationTone(button, true);
-        ShowDestination(destination);
+        ShowAccount(currentRole == PreviewAccountRole.Manager
+            ? PreviewAccountRole.Receptionist
+            : PreviewAccountRole.Manager);
+    }
+
+    private void ShowAccount(PreviewAccountRole role)
+    {
+        currentRole = role;
+        var showManager = role == PreviewAccountRole.Manager;
+        ResponsiveRoot.Visibility = showManager ? Visibility.Visible : Visibility.Collapsed;
+        ReceptionistSurface.Visibility = showManager ? Visibility.Collapsed : Visibility.Visible;
+        Title = showManager ? "الاعتماد · لوحة التحكم" : "الاعتماد · الرئيسية";
+
+        if (!showManager)
+        {
+            InteractionPanel.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        ManagerSidebar.SelectHome();
+        ShowDestination("الرئيسية");
     }
 
     /// <summary>Opens the raw-material list from the dashboard shortcut.</summary>
     private void OpenRawMaterialsFromActionClick(object sender, RoutedEventArgs eventArgs)
     {
-        SetNavigationTone(selectedNavButton, false);
-        selectedNavButton = MaterialsNavButton;
-        SetNavigationTone(selectedNavButton, true);
+        ManagerSidebar.SelectDestination("الخامات");
         ShowDestination("الخامات");
     }
 
     /// <summary>Opens the parts list from the dashboard shortcut.</summary>
     private void OpenPartsFromActionClick(object sender, RoutedEventArgs eventArgs)
     {
-        SetNavigationTone(selectedNavButton, false);
-        selectedNavButton = PartsNavButton;
-        SetNavigationTone(selectedNavButton, true);
+        ManagerSidebar.SelectDestination("القطع");
         ShowDestination("القطع");
     }
 
     /// <summary>Switches between the dashboard preview and dedicated management pages.</summary>
     private void ShowDestination(string destination)
     {
+        if (destination == "عروض الأسعار") QuotationsSurface.ViewModel.ApprovalsOnly = false;
         var showRawMaterials = destination == "الخامات";
         var showParts = destination == "القطع";
         var showFurniture = destination == "الأثاث";
         var showPricing = destination == "التسعير";
         var showProducts = destination == "المنتجات";
-        var showQuotations = destination == "عروض الأسعار";
+        var showQuotations = destination is "عروض الأسعار" or "الموافقات";
         var showOrders = destination == "الطلبات";
+        var showUsers = destination == "المستخدمون";
         var showWorkOrders = destination == "أوامر العمل";
-        DashboardSurface.Visibility = showRawMaterials || showParts || showFurniture || showPricing || showProducts || showQuotations || showOrders || showWorkOrders ? Visibility.Collapsed : Visibility.Visible;
+        DashboardSurface.Visibility = showRawMaterials || showParts || showFurniture || showPricing || showProducts || showQuotations || showOrders || showWorkOrders || showUsers ? Visibility.Collapsed : Visibility.Visible;
         RawMaterialsSurface.Visibility = showRawMaterials ? Visibility.Visible : Visibility.Collapsed;
         PartsSurface.Visibility = showParts ? Visibility.Visible : Visibility.Collapsed;
         FurnitureSurface.Visibility = showFurniture ? Visibility.Visible : Visibility.Collapsed;
@@ -76,26 +153,31 @@ public partial class MainWindow : Window
         QuotationsSurface.Visibility = showQuotations ? Visibility.Visible : Visibility.Collapsed;
         OrdersSurface.Visibility = showOrders ? Visibility.Visible : Visibility.Collapsed;
         WorkOrdersSurface.Visibility = showWorkOrders ? Visibility.Visible : Visibility.Collapsed;
-        if (!showRawMaterials && !showParts && !showFurniture && !showPricing && !showProducts && !showQuotations && !showOrders && !showWorkOrders)
+        UsersSurface.Visibility = showUsers ? Visibility.Visible : Visibility.Collapsed;
+        if (!showUsers && !showRawMaterials && !showParts && !showFurniture && !showPricing && !showProducts && !showQuotations && !showOrders && !showWorkOrders)
         {
-            DashboardTitle.Text = destination == "الرئيسية" ? "لوحة التحكم" : destination;
+            ManagerTitleBar.Title = destination == "الرئيسية" ? "لوحة التحكم" : destination;
             ShowToast($"تم فتح {destination} في وضع المعاينة");
         }
     }
 
-    /// <summary>Reports a bounded preview response for a dashboard action.</summary>
     private void PreviewActionClick(object sender, RoutedEventArgs eventArgs)
     {
-        if (sender is Button { Tag: string action })
+        if (sender is not Button { Tag: string action }) return;
+        if (action == "الموافقات")
         {
-            ShowToast($"تم اختيار {action}");
+            QuotationsSurface.ViewModel.OpenApprovals();
+            ManagerSidebar.SelectDestination("عروض الأسعار");
+            ShowDestination("الموافقات");
+            Dispatcher.BeginInvoke(QuotationsSurface.QuotationSearchBox.Focus, DispatcherPriority.Input);
+            return;
         }
+        ShowToast($"تم اختيار {action}");
     }
 
-    /// <summary>Opens the non-persistent quotation preview panel.</summary>
-    private void OpenPreviewPanelClick(object sender, RoutedEventArgs eventArgs)
+    private void OpenPreviewPanel(string title)
     {
-        PreviewPanelTitle.Text = sender is Button { Tag: string title } ? title : "عرض سعر جديد";
+        PreviewPanelTitle.Text = title;
         InteractionPanel.Visibility = Visibility.Visible;
         Dispatcher.BeginInvoke(CustomerNameBox.Focus, DispatcherPriority.Input);
     }
@@ -118,18 +200,6 @@ public partial class MainWindow : Window
         ShowToast("تم فحص المسودة محلياً؛ الحفظ معطل في وضع المعاينة");
     }
 
-    /// <summary>Reports a local preview response for a submitted search term.</summary>
-    private void SearchKeyDown(object sender, KeyEventArgs eventArgs)
-    {
-        if (eventArgs.Key != Key.Enter || string.IsNullOrWhiteSpace(SearchBox.Text))
-        {
-            return;
-        }
-
-        ShowToast($"نتائج المعاينة عن: {SearchBox.Text.Trim()}");
-        eventArgs.Handled = true;
-    }
-
     /// <summary>Shows transient preview feedback.</summary>
     private void ShowToast(string message)
     {
@@ -138,60 +208,5 @@ public partial class MainWindow : Window
     }
 
     private void DismissToast(object sender, RoutedEventArgs e) => InteractionToast.Message = string.Empty;
-
-    /// <summary>Applies selected or unselected navigation colors.</summary>
-    private static void SetNavigationTone(Button button, bool selected)
-    {
-        var content = button.Content as DependencyObject ?? button;
-        if (selected)
-        {
-            button.SetResourceReference(Button.BackgroundProperty, "NavSelectedBrush");
-            SetNavigationContentTone(content, Brushes.White);
-            return;
-        }
-
-        button.ClearValue(Button.BackgroundProperty);
-        foreach (var text in VisualDescendants<TextBlock>(content))
-        {
-            text.ClearValue(TextBlock.ForegroundProperty);
-        }
-
-        foreach (var icon in VisualDescendants<System.Windows.Shapes.Path>(content))
-        {
-            icon.ClearValue(System.Windows.Shapes.Shape.FillProperty);
-        }
-    }
-
-    /// <summary>Applies one tone to navigation text and vector icons.</summary>
-    private static void SetNavigationContentTone(DependencyObject content, Brush tone)
-    {
-        foreach (var text in VisualDescendants<TextBlock>(content))
-        {
-            text.Foreground = tone;
-        }
-
-        foreach (var icon in VisualDescendants<System.Windows.Shapes.Path>(content))
-        {
-            icon.Fill = tone;
-        }
-    }
-
-    /// <summary>Enumerates matching descendants in a WPF visual tree.</summary>
-    private static IEnumerable<T> VisualDescendants<T>(DependencyObject parent) where T : DependencyObject
-    {
-        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
-        {
-            var child = VisualTreeHelper.GetChild(parent, index);
-            if (child is T match)
-            {
-                yield return match;
-            }
-
-            foreach (var descendant in VisualDescendants<T>(child))
-            {
-                yield return descendant;
-            }
-        }
-    }
 
 }

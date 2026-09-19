@@ -38,21 +38,8 @@ public sealed class FurnitureRenderedTests
             WpfTestHost.CompleteLayout(window);
             Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(margin).Any(text => text.Text == "-10,000" && text.IsVisible));
             Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(pricing).Any(text => text.Text == "خسارة متوقعة" && text.IsVisible));
-            CaptureSteps(window, "pricing");
+            WpfTestHost.Capture(window, "furniture-steps-pricing");
         });
-    }
-
-    private static void CaptureSteps(MainWindow window, string size)
-    {
-        var directory = Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR");
-        if (string.IsNullOrEmpty(directory)) return;
-        System.IO.Directory.CreateDirectory(directory);
-        var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap((int)window.ActualWidth, (int)window.ActualHeight, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
-        bitmap.Render(window);
-        var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
-        encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
-        using var stream = System.IO.File.Create(System.IO.Path.Combine(directory, $"furniture-steps-{size}.png"));
-        encoder.Save(stream);
     }
 
     [TestMethod]
@@ -74,12 +61,12 @@ public sealed class FurnitureRenderedTests
             WpfTestHost.CompleteLayout(view);
             Assert.IsTrue(view.ViewModel.IsEditorOpen);
             Assert.AreEqual(1, view.ViewModel.CurrentStep);
-            CaptureSteps(window, "normal");
+            WpfTestHost.Capture(window, "furniture-steps-normal");
             if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR")))
             {
                 window.Width = 1100;
                 WpfTestHost.CompleteLayout(window);
-                CaptureSteps(window, "compact");
+                WpfTestHost.Capture(window, "furniture-steps-compact");
                 window.Width = 1338;
                 WpfTestHost.CompleteLayout(window);
             }
@@ -130,7 +117,7 @@ public sealed class FurnitureRenderedTests
             Assert.HasCount(3, view.ViewModel.Handles);
             Assert.AreEqual("مشمول", view.ViewModel.Colors[0].PriceAdjustmentLabel);
             Assert.AreEqual("+10,000 YER", view.ViewModel.Colors[2].PriceAdjustmentLabel);
-            CaptureSteps(window, "options");
+            WpfTestHost.Capture(window, "furniture-steps-options");
             Assert.IsTrue(WpfTestHost.FindByAutomationName<Button>(view, "إضافة لون").IsEnabled);
             Assert.IsTrue(WpfTestHost.FindByAutomationName<Button>(view, "إضافة مقبض").IsEnabled);
 

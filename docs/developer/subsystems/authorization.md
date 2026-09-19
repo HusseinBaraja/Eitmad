@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust authorization, security, and audit maintainers"
-last_verified: "2026-08-19"
+last_verified: "2026-09-17"
 review_triggers:
   - "an actor, tuple, relation, permission rule, boundary, scope, audit field, or extension point changes"
 keywords:
@@ -30,7 +30,7 @@ Rust now provides a deny-by-default policy-v2 evaluator and one audit gate for c
 | Immutable policy-v2 graph and `can(actor, action, object)` | `crates/authorization/src/policy.rs` |
 | Common authorization/audit gate | `crates/authorization/src/boundary.rs` |
 | Query and command dispatch enforcement | `crates/engine-runtime/src/dispatcher.rs` |
-| Sync, provider, and plugin boundary adapters | `crates/sync`, `crates/external-integrations`, and `crates/extensions` |
+| Sync boundary adapter | `crates/sync` |
 | Audit envelope, redaction, completeness, and extension markers | `crates/observability-audit/src/lib.rs` |
 | Append-only audit persistence and migration | `crates/storage/src/audit.rs` and `crates/storage/src/lib.rs` |
 | Canonical remote-server audit persistence and migration | `server/audit` |
@@ -72,7 +72,7 @@ These controls prevent a matching UUID, role, or parent edge in one workspace fr
 
 ## Boundary enforcement
 
-`AuthorizationGate::authorize` covers five explicit boundary kinds: command, query, sync, external adapter, and plugin capability, and durably records denials without invoking product work. `AuthorizationGate::execute_read` is restricted to read-only callbacks and records their result after execution. `SyncAuthorization`, `ExternalActionAuthorization`, and `PluginCapabilityAuthorization` force their correct boundary kind before delegation. Unsupported engine commands are rejected and audited; all query outcomes are audited, and an audit persistence failure withholds the query response.
+`AuthorizationGate::authorize` covers five explicit boundary kinds: command, query, sync, external adapter, and plugin capability, and durably records denials without invoking product work. `AuthorizationGate::execute_read` is restricted to read-only callbacks and records their result after execution. `SyncAuthorization` forces the sync boundary kind before delegation. External-adapter and plugin-capability audit kinds are supported by the gate and its denial tests; no provider or plugin host is implemented yet. Unsupported engine commands are rejected and audited; all query outcomes are audited, and an audit persistence failure withholds the query response.
 
 State-changing product code may use `authorize` for the decision but must keep mutation state, idempotency, publication, and its successful or failed audit result in one domain transaction. It must not place an irreversible provider call inside `execute_read` or use a post-action audit call to claim atomicity. Existing configuration and direct relationship mutations already commit their audit with authoritative state.
 

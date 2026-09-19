@@ -16,9 +16,6 @@ public enum ResponsiveLayoutMode
 /// </summary>
 public static class ResponsiveLayout
 {
-    public const double StandardMinimumWidth = 900;
-    public const double WideMinimumWidth = 1600;
-
     public static readonly DependencyProperty IsEnabledProperty = DependencyProperty.RegisterAttached(
         "IsEnabled",
         typeof(bool),
@@ -43,19 +40,6 @@ public static class ResponsiveLayout
 
     public static ResponsiveLayoutMode GetMode(DependencyObject element) =>
         (ResponsiveLayoutMode)element.GetValue(ModeProperty);
-
-    /// <summary>Maps a device-independent page width to one stable layout mode.</summary>
-    public static ResponsiveLayoutMode ResolveMode(double width)
-    {
-        if (width >= WideMinimumWidth)
-        {
-            return ResponsiveLayoutMode.Wide;
-        }
-
-        return width >= StandardMinimumWidth
-            ? ResponsiveLayoutMode.Standard
-            : ResponsiveLayoutMode.Compact;
-    }
 
     private static void OnIsEnabledChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs eventArgs)
     {
@@ -94,7 +78,12 @@ public static class ResponsiveLayout
 
     private static void UpdateMode(FrameworkElement element)
     {
-        var mode = ResolveMode(element.ActualWidth);
+        var mode = element.ActualWidth switch
+        {
+            >= 1600 => ResponsiveLayoutMode.Wide,
+            >= 900 => ResponsiveLayoutMode.Standard,
+            _ => ResponsiveLayoutMode.Compact,
+        };
         if (GetMode(element) != mode)
         {
             element.SetValue(ModePropertyKey, mode);

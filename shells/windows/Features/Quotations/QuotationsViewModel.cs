@@ -16,14 +16,15 @@ public sealed class QuotationsViewModel : ObservableObject
     public const string LastSevenDays = "آخر 7 أيام";
     public const string LastThirtyDays = "آخر 30 يوماً";
 
-    private readonly List<QuotationListItem> quotations;
+    private ObservableCollection<QuotationListItem> quotations;
     private string searchText = string.Empty;
     private string selectedStatus = AllStatuses;
     private string selectedDate = AllDates;
     private QuotationListItem? selectedQuotation;
 
-    public QuotationsViewModel()
+    public QuotationsViewModel(bool isReceptionist = false)
     {
+        IsReceptionist = isReceptionist;
         var today = DateOnly.FromDateTime(DateTime.Today);
         quotations =
         [
@@ -73,11 +74,53 @@ public sealed class QuotationsViewModel : ObservableObject
                 [new("مكتبة جدارية", "عرض 240 سم", "أبيض", "معدن أسود", 5, 235_000m)]),
         ];
 
-        StatusOptions = [AllStatuses, DraftStatus, ActiveStatus, ConvertedStatus, ClosedStatus];
+        if (isReceptionist)
+            quotations.Add(new(Guid.Parse("7d438102-f09d-4e1a-b0e5-d4f72d540143"), "QT-2026-0143", "عميل تجريبي للموافقة", today,
+                QuotationStatus.WaitingApproval, 12_000m,
+                [new("طاولة ضيافة", "طقم 6 مقاعد", "جوزي", "نحاسي", 1, 100_000m)], requiresDiscountApproval: true, phone: "000000043"));
+        StatusOptions = isReceptionist
+            ? [AllStatuses, DraftStatus, ActiveStatus, "بانتظار الموافقة", ConvertedStatus, ClosedStatus]
+            : [AllStatuses, "بانتظار الموافقة", DraftStatus, ActiveStatus, ConvertedStatus, ClosedStatus];
         DateOptions = [AllDates, Today, LastSevenDays, LastThirtyDays];
         VisibleQuotations = [];
         RefreshVisibleQuotations();
     }
+
+    public ObservableCollection<QuotationListItem> PreviewQuotations => quotations;
+    public void UsePreviewQuotations(ObservableCollection<QuotationListItem> items)
+    {
+        quotations = items;
+        quotations.CollectionChanged += (_, e) =>
+        {
+            if (SelectedQuotation is { } selected) SelectedQuotation = quotations.FirstOrDefault(item => item.Id == selected.Id);
+            if (e.NewItems is not null) foreach (QuotationListItem item in e.NewItems) ObserveDecision(item);
+            RefreshVisibleQuotations();
+        };
+        foreach (var item in quotations) ObserveDecision(item);
+        RefreshVisibleQuotations();
+    }
+    private void ObserveDecision(QuotationListItem item) =>
+        System.ComponentModel.PropertyChangedEventManager.AddHandler(item, ApprovalDecisionChanged, nameof(QuotationListItem.ApprovalDecision));
+
+    private void ApprovalDecisionChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        Raise(nameof(ShowManagerApproval));
+        RefreshVisibleQuotations();
+    }
+    private bool approvalsOnly;
+    public bool ApprovalsOnly { get => approvalsOnly; set { if (Set(ref approvalsOnly, value)) { Raise(nameof(ListTitle)); Raise(nameof(EmptyTitle)); Raise(nameof(EmptyDescription)); RefreshVisibleQuotations(); } } }
+    public string EmptyTitle => ApprovalsOnly ? "لا توجد طلبات خصم معلقة" : "لا توجد عروض أسعار مطابقة";
+    public string EmptyDescription => ApprovalsOnly ? "تظهر هنا طلبات الاستقبال المؤقتة في هذه الجلسة. راجع عوامل التصفية أيضاً." : "غيّر البحث أو عوامل التصفية.";
+    public string ListTitle => ApprovalsOnly ? "موافقات الخصم" : "عروض الأسعار";
+    public void OpenApprovals()
+    {
+        CloseQuotation(); SearchText = ""; SelectedDate = AllDates; SelectedStatus = AllStatuses; ApprovalsOnly = true;
+    }
+
+    public string ListSubtitle => IsReceptionist ? "بيانات تجريبية للمعاينة فقط" : "معاينة مؤقتة — عروض الاستقبال وطلبات الخصم في هذه الجلسة فقط";
+    public bool IsReceptionist { get; }
+    public bool ShowManagerApproval => !IsReceptionist && SelectedQuotation?.HasPendingDiscountApproval == true;
+    public string SearchName => IsReceptionist ? "البحث برقم عرض السعر أو العميل أو رقم الهاتف" : "البحث برقم عرض السعر أو العميل";
 
     public IReadOnlyList<string> StatusOptions { get; }
 
@@ -128,6 +171,7 @@ public sealed class QuotationsViewModel : ObservableObject
         {
             if (Set(ref selectedQuotation, value))
             {
+                Raise(nameof(ShowManagerApproval));
                 Raise(nameof(IsListVisible));
                 Raise(nameof(IsDetailVisible));
             }
@@ -151,9 +195,9 @@ public sealed class QuotationsViewModel : ObservableObject
 
     public void CloseQuotation() => SelectedQuotation = null;
 
-    public void ApproveDiscount() => SelectedQuotation?.DecideDiscount(DiscountApprovalDecision.Approved);
+    public void ApproveDiscount() { if (IsReceptionist) return; SelectedQuotation?.DecideDiscount(DiscountApprovalDecision.Approved); }
 
-    public void RejectDiscount() => SelectedQuotation?.DecideDiscount(DiscountApprovalDecision.Rejected);
+    public void RejectDiscount() { if (IsReceptionist) return; SelectedQuotation?.DecideDiscount(DiscountApprovalDecision.Rejected); }
 
     private void RefreshVisibleQuotations()
     {
@@ -161,6 +205,7 @@ public sealed class QuotationsViewModel : ObservableObject
         var today = DateOnly.FromDateTime(DateTime.Today);
         var filtered = quotations.Where(quotation =>
             MatchesSearch(quotation, normalizedSearch)
+            && (!ApprovalsOnly || quotation.HasPendingDiscountApproval)
             && MatchesStatus(quotation)
             && MatchesDate(quotation, today));
 
@@ -174,16 +219,18 @@ public sealed class QuotationsViewModel : ObservableObject
         Raise(nameof(VisibleCountLabel));
     }
 
-    private static bool MatchesSearch(QuotationListItem quotation, string normalizedSearch) =>
+    private bool MatchesSearch(QuotationListItem quotation, string normalizedSearch) =>
         string.IsNullOrEmpty(normalizedSearch)
         || PreviewText.NormalizeSearch(quotation.Number).Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase)
-        || PreviewText.NormalizeSearch(quotation.Customer).Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase);
+        || PreviewText.NormalizeSearch(quotation.Customer).Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase)
+        || (IsReceptionist && PreviewText.NormalizeNumericInput(quotation.Phone).Contains(PreviewText.NormalizeNumericInput(normalizedSearch), StringComparison.OrdinalIgnoreCase));
 
     private bool MatchesStatus(QuotationListItem quotation) => SelectedStatus switch
     {
         AllStatuses => true,
         DraftStatus => quotation.Status == QuotationStatus.Draft,
         ActiveStatus => quotation.Status == QuotationStatus.Active,
+        "بانتظار الموافقة" => quotation.HasPendingDiscountApproval,
         ConvertedStatus => quotation.Status == QuotationStatus.Converted,
         ClosedStatus => quotation.Status is QuotationStatus.Cancelled or QuotationStatus.Expired,
         _ => false,

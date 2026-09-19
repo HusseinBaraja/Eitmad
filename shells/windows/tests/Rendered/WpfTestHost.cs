@@ -1,6 +1,8 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Eitmad.WindowsShell.Features.Operations;
 
@@ -10,11 +12,11 @@ internal static class WpfTestHost
 {
     private static readonly Lazy<Dispatcher> TestDispatcher = new(StartDispatcher);
 
-    public static void Run(double width, double height, Action<MainWindow> test)
+    public static void Run(double width, double height, Action<MainWindow> test, bool showSignIn = false)
     {
         TestDispatcher.Value.Invoke(() =>
         {
-            var window = new MainWindow(new OperationsViewModel())
+            var window = new MainWindow(new OperationsViewModel(), showSignIn)
             {
                 Width = width,
                 Height = height,
@@ -39,8 +41,11 @@ internal static class WpfTestHost
         });
     }
 
-    public static T FindByName<T>(DependencyObject root, string name) where T : FrameworkElement =>
-        Descendants<T>(root).Single(element => element.Name == name);
+    public static T FindByName<T>(DependencyObject root, string name) where T : FrameworkElement
+    {
+        var matches = Descendants<T>(root).Where(element => element.Name == name).ToList();
+        return matches.Count == 1 ? matches[0] : matches.Single(element => element.IsVisible);
+    }
 
     public static T FindByAutomationName<T>(DependencyObject root, string name) where T : DependencyObject =>
         Descendants<T>(root).First(element => AutomationProperties.GetName(element) == name);
@@ -75,6 +80,23 @@ internal static class WpfTestHost
         }
 
         throw new InvalidOperationException($"No {typeof(T).Name} ancestor was found.");
+    }
+
+    public static void Capture(FrameworkElement element, string name)
+    {
+        var directory = Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR");
+        if (string.IsNullOrWhiteSpace(directory)) return;
+
+        Directory.CreateDirectory(directory);
+        // Popup roots carry the RTL transform that is absent on their child alone.
+        element = PresentationSource.FromVisual(element)?.RootVisual as FrameworkElement ?? element;
+        var bitmap = new RenderTargetBitmap((int)Math.Ceiling(element.ActualWidth),
+            (int)Math.Ceiling(element.ActualHeight), 96, 96, PixelFormats.Pbgra32);
+        bitmap.Render(element);
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        using var stream = File.Create(Path.Combine(directory, name + ".png"));
+        encoder.Save(stream);
     }
 
     public static void CompleteLayout(FrameworkElement root)

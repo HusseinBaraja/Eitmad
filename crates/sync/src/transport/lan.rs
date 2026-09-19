@@ -77,7 +77,7 @@ impl<D: LanDiscovery, N: ConnectionDriver> SyncTransport for LanAdapter<D, N> {
     fn connect(&mut self, now: UnixMillis) -> Result<NegotiatedSession, TransportFailure> {
         let report = match self.discovery.discover() {
             Ok(report) => report,
-            Err(failure) => return Err(self.core.record_external_failure(failure, now)),
+            Err(failure) => return Err(self.core.record_failure(failure, now)),
         };
         let Some(peer) = report.peers.iter().min_by(|left, right| {
             (left.priority, &left.peer_id).cmp(&(right.priority, &right.peer_id))
@@ -92,7 +92,7 @@ impl<D: LanDiscovery, N: ConnectionDriver> SyncTransport for LanAdapter<D, N> {
                 FailurePhase::Discovery,
                 RetryAdvice::After { delay_ms: 1_000 },
             );
-            return Err(self.core.record_external_failure(failure, now));
+            return Err(self.core.record_failure(failure, now));
         };
         let target = ConnectionTarget::Lan {
             peer_id: peer.peer_id.clone(),

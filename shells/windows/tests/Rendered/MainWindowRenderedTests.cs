@@ -1,8 +1,11 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 using System.Windows.Media;
 using Eitmad.WindowsShell.Layout;
+using Eitmad.WindowsShell.Controls;
+using Eitmad.WindowsShell.Features.Reception;
 
 namespace Eitmad.WindowsShell.Tests.Rendered;
 
@@ -18,6 +21,75 @@ public sealed class MainWindowRenderedTests
             Assert.AreEqual("ar-ye", window.Language.IetfLanguageTag.ToLowerInvariant());
             Assert.AreEqual(WindowStyle.SingleBorderWindow, window.WindowStyle);
             Assert.AreEqual(ResizeMode.CanResize, window.ResizeMode);
+        });
+    }
+
+    [TestMethod]
+    public void PreviewSignInOpensReceptionistHomeAndAltKSwitchesToManager()
+    {
+        WpfTestHost.Run(1338, 753, window =>
+        {
+            var signIn = WpfTestHost.FindByName<FrameworkElement>(window, "SignInSurface");
+            Assert.AreEqual(Visibility.Visible, signIn.Visibility);
+            Assert.AreEqual(Visibility.Collapsed, WpfTestHost.FindByName<Grid>(window, "ResponsiveRoot").Visibility);
+
+            var receptionistAccount = WpfTestHost.FindByName<Button>(window, "ReceptionistAccountButton");
+            receptionistAccount.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.FindByName<Button>(window, "SignInButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+
+            Assert.AreEqual(Visibility.Collapsed, signIn.Visibility);
+            Assert.AreEqual(Visibility.Visible, WpfTestHost.FindByName<FrameworkElement>(window, "ReceptionistSurface").Visibility);
+            var receptionist = WpfTestHost.FindByName<ReceptionistHomeView>(window, "ReceptionistSurface");
+            var receptionistSidebar = WpfTestHost.Descendants<ShellSidebar>(receptionist).Single();
+            Assert.IsTrue(receptionistSidebar.IsVisible);
+            Assert.IsTrue(receptionistSidebar.IsReceptionist);
+            Assert.AreEqual(1, WpfTestHost.Descendants<ShellTitleBar>(receptionist).Count());
+
+            var shortcut = window.InputBindings.OfType<KeyBinding>().Single(binding => binding.Key == Key.K);
+            Assert.AreEqual(ModifierKeys.Alt, shortcut.Modifiers);
+            MainWindow.SwitchAccountCommand.Execute(null, window);
+            WpfTestHost.CompleteLayout(window);
+
+            Assert.AreEqual(Visibility.Collapsed, WpfTestHost.FindByName<FrameworkElement>(window, "ReceptionistSurface").Visibility);
+            Assert.AreEqual(Visibility.Visible, WpfTestHost.FindByName<Grid>(window, "ResponsiveRoot").Visibility);
+        }, showSignIn: true);
+    }
+
+    [TestMethod]
+    public void ReceptionistActionsStackAtCompactWindowWidth()
+    {
+        WpfTestHost.Run(780, 745, window =>
+        {
+            WpfTestHost.FindByName<Button>(window, "ReceptionistAccountButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.FindByName<Button>(window, "SignInButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+
+            Assert.AreEqual(1, WpfTestHost.FindByName<UniformGrid>(window, "ReceptionistActionsGrid").Columns);
+        }, showSignIn: true);
+    }
+
+    [TestMethod]
+    public void ManagerAndReceptionistUseMatchingSharedChromeGeometry()
+    {
+        WpfTestHost.Run(1338, 753, window =>
+        {
+            var managerTitleBar = WpfTestHost.FindByName<ShellTitleBar>(window, "ManagerTitleBar");
+            var managerSidebar = WpfTestHost.FindByName<ShellSidebar>(window, "ManagerSidebar");
+            var managerTitleHeight = managerTitleBar.ActualHeight;
+            var managerSidebarWidth = managerSidebar.ActualWidth;
+            WpfTestHost.Capture(window, "shared-chrome-manager");
+
+            var receptionistSurface = WpfTestHost.FindByName<ReceptionistHomeView>(window, "ReceptionistSurface");
+            receptionistSurface.Visibility = Visibility.Visible;
+            WpfTestHost.FindByName<Grid>(window, "ResponsiveRoot").Visibility = Visibility.Collapsed;
+            WpfTestHost.CompleteLayout(window);
+
+            var receptionistTitleBar = WpfTestHost.FindByName<ShellTitleBar>(receptionistSurface, "ReceptionistTitleBar");
+            var receptionistSidebar = WpfTestHost.FindByName<ShellSidebar>(receptionistSurface, "ReceptionistSidebar");
+            Assert.AreEqual(managerTitleHeight, receptionistTitleBar.ActualHeight, 0.1);
+            Assert.AreEqual(managerSidebarWidth, receptionistSidebar.ActualWidth, 0.1);
+            WpfTestHost.Capture(window, "shared-chrome-receptionist");
         });
     }
 
@@ -151,14 +223,5 @@ public sealed class MainWindowRenderedTests
             Assert.AreEqual(1, Grid.GetRow(searchBorder));
             Assert.AreEqual(4, Grid.GetColumnSpan(searchBorder));
         });
-    }
-
-    [TestMethod]
-    public void ResolveModeUsesStableBreakpointBoundaries()
-    {
-        Assert.AreEqual(ResponsiveLayoutMode.Compact, ResponsiveLayout.ResolveMode(899.99));
-        Assert.AreEqual(ResponsiveLayoutMode.Standard, ResponsiveLayout.ResolveMode(900));
-        Assert.AreEqual(ResponsiveLayoutMode.Standard, ResponsiveLayout.ResolveMode(1599.99));
-        Assert.AreEqual(ResponsiveLayoutMode.Wide, ResponsiveLayout.ResolveMode(1600));
     }
 }

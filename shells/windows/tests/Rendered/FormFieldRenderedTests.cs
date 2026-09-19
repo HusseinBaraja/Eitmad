@@ -69,17 +69,7 @@ public sealed class FormFieldRenderedTests
                 var input = WpfTestHost.Descendants<TextBox>(window).Single(box => box.IsVisible && box.Name == inputName);
                 Assert.IsNotNull(AutomationProperties.GetLabeledBy(input), page);
                 Assert.IsNotNull(input.GetBindingExpression(TextBox.TextProperty), page);
-                var directory = Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR");
-                if (!string.IsNullOrEmpty(directory))
-                {
-                    System.IO.Directory.CreateDirectory(directory);
-                    var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap((int)window.ActualWidth, (int)window.ActualHeight, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
-                    bitmap.Render(window);
-                    var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
-                    encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
-                    using var file = System.IO.File.Create(System.IO.Path.Combine(directory, $"form-{page}-{width}.png"));
-                    encoder.Save(file);
-                }
+                WpfTestHost.Capture(window, $"form-{page}-{width}");
             }
         });
     }

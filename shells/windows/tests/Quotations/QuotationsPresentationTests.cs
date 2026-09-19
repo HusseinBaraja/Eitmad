@@ -6,6 +6,30 @@ namespace Eitmad.WindowsShell.Tests.Quotations;
 public sealed class QuotationsPresentationTests
 {
     [TestMethod]
+    public void ReceptionPreviewPreservesSourceAndApprovalBoundary()
+    {
+        var model = new QuotationsViewModel(true);
+        var furniture = new Features.Furniture.FurnitureViewModel();
+        var products = new Features.Products.ProductsViewModel();
+        foreach (var row in model.VisibleQuotations.Where(row => row.CanEdit))
+        {
+            var editor = Features.Reception.QuotationPreviewProjection.Create(row, furniture, products);
+            Assert.AreEqual(row.Number, editor.QuotationNumber);
+            Assert.AreEqual(row.Subtotal, editor.Subtotal);
+            Assert.AreEqual(row.Discount, editor.Discount);
+            Assert.AreEqual(row.FinalTotal, editor.FinalTotal);
+            editor.QuotationLines.Clear();
+            Assert.IsTrue(row.Items.Count > 0);
+            model.OpenQuotation(row);
+            model.ApproveDiscount();
+            Assert.AreEqual(DiscountApprovalDecision.None, row.ApprovalDecision);
+        }
+        var empty = Features.Reception.QuotationPreviewProjection.Create(null, furniture, products);
+        Assert.IsTrue(empty.IsQuotationEmpty);
+        Assert.AreEqual("", empty.QuotationNumber);
+    }
+
+    [TestMethod]
     [DataRow("المها")]
     [DataRow("ٱلـمَهَا")]
     public void SearchStatusAndDateFiltersComposeAcrossManagerRows(string search)

@@ -46,6 +46,7 @@ Never use subagents in the user's projects. Do all work directly in the primary 
 * Never expose secrets, bootstrap tokens, authorization graphs, raw IPC frames, or customer data in UI, examples, screenshots, or logs.
 * Never revert, overwrite, delete, or reformat unrelated user work. Do not use destructive Git commands without explicit authorization for the exact operation.
 * Repository documentation prose is English. Application UI and user-facing search terms are Arabic-first.
+* Your thinking and responses should be in English, Arabic is only for the work done in the app itself.
 
 Consult the applicable authority when the task touches it: the [repository ownership map](docs/developer/repository-layout.md) for placement, the [target architecture](docs/architecture/target-architecture.md) for system boundaries, the [decision records](docs/decisions/index.md) for durable choices, and the [glossary](docs/glossary.md) for domain or Arabic terms. Do not restate them in new files.
 

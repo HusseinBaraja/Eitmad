@@ -85,6 +85,27 @@ public sealed class ProductsViewModel : ObservableObject
 
     public ObservableCollection<ProductListItem> VisibleProducts { get; }
 
+    public IEnumerable<Reception.SalesCatalogItem> GetSalesCatalogItems() =>
+        products.Where(item => !item.IsArchived).Select(item =>
+        {
+            var detail = details.GetValueOrDefault(item.Id);
+            var count = detail?.Variants.Count ?? 0;
+            var variants = count > 1 ? $"{count} خيارات" : item.VariantSummary;
+            return new Reception.SalesCatalogItem(item.Id, item.Name, item.Category,
+                detail?.Description ?? string.Empty, variants,
+                count > 0 ? detail!.Variants.Min(variant => variant.SellingPrice) : item.SellingPrice, count > 1,
+                item.ThumbnailKind, item.Image);
+        });
+
+    public Reception.ProductSelectionViewModel? GetSalesSelection(Guid id)
+    {
+        var item = GetSalesCatalogItems().FirstOrDefault(item => item.Id == id);
+        if (item is null) return null;
+        var variants = details.GetValueOrDefault(id)?.Variants ?? [];
+        return new(item, variants.Select(variant =>
+            new Reception.SalesProductVariant(variant.Id, variant.Name, variant.SellingPrice)).ToArray());
+    }
+
     public ObservableCollection<ProductVariant> Variants { get; }
 
     public ObservableCollection<ProductCategoryOption> Categories { get; }

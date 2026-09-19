@@ -269,6 +269,41 @@ fn lan_partial_discovery_connects_to_reachable_peer_as_degraded() {
 }
 
 #[test]
+fn lan_discovery_failure_records_health_and_backoff() {
+    let mut adapter = lan_adapter(Err(failure(
+        TransportFailureKind::DriverUnavailable,
+        FailurePhase::Discovery,
+    )));
+
+    let failure = adapter.connect(UnixMillis(0)).unwrap_err();
+
+    assert_eq!(failure.kind, TransportFailureKind::DriverUnavailable);
+    assert_eq!(failure.retry, RetryAdvice::After { delay_ms: 250 });
+    assert_eq!(adapter.health().status, HealthStatus::Offline);
+    assert_eq!(adapter.health().next_retry_at, Some(UnixMillis(250)));
+    assert_eq!(adapter.health().last_failure.as_ref(), Some(&failure));
+}
+
+#[test]
+fn lan_empty_discovery_records_no_peer_or_partial_network() {
+    for (partial_failures, expected) in [
+        (0, TransportFailureKind::NoLanPeer),
+        (1, TransportFailureKind::PartialNetwork),
+    ] {
+        let mut adapter = lan_adapter(Ok(LanDiscoveryReport {
+            peers: vec![],
+            partial_failures,
+        }));
+
+        let failure = adapter.connect(UnixMillis(0)).unwrap_err();
+
+        assert_eq!(failure.kind, expected);
+        assert_eq!(failure.phase, FailurePhase::Discovery);
+        assert_eq!(adapter.health().last_failure.as_ref(), Some(&failure));
+    }
+}
+
+#[test]
 fn lan_selects_the_lowest_numeric_priority() {
     let device_id = DeviceId::new(Uuid::from_u128(202));
     let driver = ScriptedDriver::new(AuthenticationIdentity::Device(device_id), hello(1));
@@ -519,6 +554,20 @@ fn lan_peer(peer_id: &str, endpoint: &str, priority: u16) -> LanPeer {
         endpoint: endpoint.to_owned(),
         priority,
     }
+}
+
+fn lan_adapter(
+    discovery: Result<LanDiscoveryReport, TransportFailure>,
+) -> LanAdapter<StaticDiscovery, ScriptedDriver> {
+    let device_id = DeviceId::new(Uuid::from_u128(204));
+    LanAdapter::new(
+        StaticDiscovery(discovery),
+        ScriptedDriver::new(AuthenticationIdentity::Device(device_id), hello(1)),
+        hello(1),
+        device_auth(device_id),
+        RetryPolicy::default(),
+    )
+    .unwrap()
 }
 
 struct StaticDiscovery(Result<LanDiscoveryReport, TransportFailure>);
