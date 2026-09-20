@@ -12,6 +12,7 @@ use crate::{
 pub const CAPABILITIES: &[&str] = &[
     "eitmad.capability.engine-lifecycle.v1",
     "eitmad.capability.local-ipc.v1",
+    "eitmad.capability.desktop-user-session.v1",
     "eitmad.capability.local-ipc-subscriptions.v1",
     "eitmad.capability.authorization-policy-events.v1",
     "eitmad.capability.authorization-scopes.v1",
@@ -30,6 +31,10 @@ pub const CAPABILITIES: &[&str] = &[
 ];
 
 pub const IPC_MESSAGES: &[&str] = &[
+    "eitmad.ipc.desktop-session-response.v1",
+    "eitmad.ipc.desktop-session-state.v1",
+    "eitmad.ipc.desktop-sign-in.v1",
+    "eitmad.ipc.desktop-sign-out.v1",
     "eitmad.ipc.command-response.v1",
     "eitmad.ipc.command.v1",
     "eitmad.ipc.failure.v1",
@@ -100,6 +105,7 @@ pub const ERROR_CODES: &[&str] = &[
     "eitmad.error.ipc-engine-stopping.v1",
     "eitmad.error.ipc-payload-too-large.v1",
     "eitmad.error.ipc-session-invalid.v1",
+    "eitmad.error.desktop-authentication-failed.v1",
     "eitmad.error.ipc-subscription-resync-required.v1",
     "eitmad.error.ipc-subscription-unsupported.v1",
     "eitmad.error.ipc-deadline-exceeded.v1",
@@ -149,6 +155,7 @@ pub const MESSAGE_IDS: &[&str] = &[
     "eitmad.message.ipc-engine-stopping.v1",
     "eitmad.message.ipc-payload-too-large.v1",
     "eitmad.message.ipc-session-invalid.v1",
+    "eitmad.message.desktop-authentication-failed.v1",
     "eitmad.message.ipc-subscription-resync-required.v1",
     "eitmad.message.ipc-subscription-unsupported.v1",
     "eitmad.message.ipc-deadline-exceeded.v1",
@@ -193,6 +200,8 @@ pub const CONFIG_KEYS: &[&str] = &["eitmad.config.locale.primary.v1"];
 pub const RELATIONS: &[&str] = &[
     "eitmad.relation.organization.config-manager.v1",
     "eitmad.relation.organization.member.v1",
+    "eitmad.relation.organization.manager.v1",
+    "eitmad.relation.organization.receptionist.v1",
     "eitmad.relation.organization.owner.v1",
 ];
 pub const DOMAIN_SCHEMA_IDS: &[&str] = &[

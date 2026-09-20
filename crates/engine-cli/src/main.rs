@@ -10,6 +10,7 @@ use std::{
 
 use clap::{Parser, Subcommand, ValueEnum};
 use eitmad_contracts::{
+    identity::{AuthenticatedIdentity, PrincipalId, PrincipalKind},
     observability::{
         ComponentId, DataClassification, ObservationEventId, ObservationFieldName,
         ObservationSeverity, ObservationValueKind,
@@ -18,8 +19,8 @@ use eitmad_contracts::{
     transport::{CorrelationId, UnixMillis},
 };
 use eitmad_engine_runtime::{
-    AuthorityStoreComponent, AuthorityStoreHandle, AuthorityStoreHealthCheck, ProductDispatcher,
-    RuntimeBuilder, RuntimeDirectoryHealthCheck, RuntimeFailure, ShutdownReason,
+    AuthorityStoreComponent, AuthorityStoreHandle, AuthorityStoreHealthCheck, DesktopAuthenticator,
+    ProductDispatcher, RuntimeBuilder, RuntimeDirectoryHealthCheck, RuntimeFailure, ShutdownReason,
     default_runtime_directory,
     local_ipc::{EventBroker, LocalIpcConfiguration, LocalIpcServer},
 };
@@ -187,6 +188,7 @@ async fn run(
     let ipc_task = ipc_configuration.map(|configuration| {
         tokio::spawn(
             LocalIpcServer::new(configuration, dispatcher, ipc_shutdown_sender.clone())
+                .with_desktop_auth(DesktopAuthenticator::new(store.clone()))
                 .with_event_broker(event_broker)
                 .run(ipc_cancel_receiver),
         )
@@ -237,9 +239,19 @@ async fn prepare_local_ipc(
     let bootstrap_token = read_ipc_bootstrap_token()
         .await
         .map_err(|_| LocalIpcStartupError::Authentication)?;
-    let authorization = store
+    let mut authorization = store
         .local_authorization_context(current_time())
         .map_err(|_| LocalIpcStartupError::Identity)?;
+    let device_id = authorization
+        .identity
+        .device_id
+        .ok_or(LocalIpcStartupError::Identity)?;
+    authorization.identity = AuthenticatedIdentity {
+        principal_id: PrincipalId::new(device_id.value()),
+        principal_kind: PrincipalKind::Device,
+        device_id: Some(device_id),
+        service_id: None,
+    };
     Ok(Some(LocalIpcConfiguration::authenticated(
         pipe_name,
         bootstrap_token,

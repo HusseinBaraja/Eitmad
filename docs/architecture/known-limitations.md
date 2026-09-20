@@ -35,8 +35,8 @@ These limits are deliberate and visible. A caller must not infer unavailable sta
 
 - Signed manifest policy, rollout, revocation, compatibility evaluation, update server routes, and immutable manifest storage exist.
 - The desktop has no manifest retrieval coordinator, durable client update state, package download, native installer handoff, interruption recovery, or outcome reconciliation.
-- Protocol 1.6 local IPC is a coordinated engine-and-adapter change. A 1.5 shell cannot be mixed with a 1.6 engine.
-- An engine older than storage version 9 cannot open a migrated local database. Rollback requires the complete validated pre-v9 artifact.
+- Protocol 1.7 local IPC is a coordinated engine-and-adapter change. An older shell cannot dispatch product work through a 1.7 engine.
+- An engine older than storage version 10 cannot open a migrated local database. Rollback requires the complete validated pre-v10 artifact.
 
 ## Platforms and deployment
 

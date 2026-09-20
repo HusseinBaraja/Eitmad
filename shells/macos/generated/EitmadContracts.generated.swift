@@ -4631,12 +4631,16 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
     public let eventSyncStatusEvent: SyncStatus?
     public let eventUpdateStateEvent: UpdateState?
     public let ipcClientMessageIPCCommand: CommandEnvelope?
+    public let ipcClientMessageIPCDesktopSessionState: DesktopSessionRequest?
+    public let ipcClientMessageIPCDesktopSignIn: DesktopSignInRequest?
+    public let ipcClientMessageIPCDesktopSignOut: DesktopSessionRequest?
     public let ipcClientMessageIPCHandshake: HandshakeRequest?
     public let ipcClientMessageIPCQuery: QueryEnvelope?
     public let ipcClientMessageIPCShutdown: ShutdownRequest?
     public let ipcClientMessageIPCSubscribe: SubscriptionEnvelope?
     public let ipcClientMessageIPCUnsubscribe: UnsubscribeRequest?
     public let ipcServerMessageIPCCommandResponse: CommandResponseEnvelope?
+    public let ipcServerMessageIPCDesktopSessionResponse: DesktopSessionResponse?
     public let ipcServerMessageIPCEvent: EventEnvelope?
     public let ipcServerMessageIPCFailure: IPCFailureResponse?
     public let ipcServerMessageIPCHandshakeResponse: HandshakeResponse?
@@ -4695,12 +4699,16 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         case eventSyncStatusEvent = "Event_SyncStatusEvent"
         case eventUpdateStateEvent = "Event_UpdateStateEvent"
         case ipcClientMessageIPCCommand = "IpcClientMessage_IpcCommand"
+        case ipcClientMessageIPCDesktopSessionState = "IpcClientMessage_IpcDesktopSessionState"
+        case ipcClientMessageIPCDesktopSignIn = "IpcClientMessage_IpcDesktopSignIn"
+        case ipcClientMessageIPCDesktopSignOut = "IpcClientMessage_IpcDesktopSignOut"
         case ipcClientMessageIPCHandshake = "IpcClientMessage_IpcHandshake"
         case ipcClientMessageIPCQuery = "IpcClientMessage_IpcQuery"
         case ipcClientMessageIPCShutdown = "IpcClientMessage_IpcShutdown"
         case ipcClientMessageIPCSubscribe = "IpcClientMessage_IpcSubscribe"
         case ipcClientMessageIPCUnsubscribe = "IpcClientMessage_IpcUnsubscribe"
         case ipcServerMessageIPCCommandResponse = "IpcServerMessage_IpcCommandResponse"
+        case ipcServerMessageIPCDesktopSessionResponse = "IpcServerMessage_IpcDesktopSessionResponse"
         case ipcServerMessageIPCEvent = "IpcServerMessage_IpcEvent"
         case ipcServerMessageIPCFailure = "IpcServerMessage_IpcFailure"
         case ipcServerMessageIPCHandshakeResponse = "IpcServerMessage_IpcHandshakeResponse"
@@ -4752,7 +4760,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         case syncMessageSyncSnapshotRequired = "SyncMessage_SyncSnapshotRequired"
     }
 
-    public init(commandAuthorizationRelationshipGrant: GrantScopeRelationship?, commandAuthorizationRelationshipRevoke: RevokeScopeRelationship?, commandConfigUpdate: UpdateConfiguration?, commandOperationCancel: CancelOperation?, commandReferenceMarkerUpsert: UpsertReferenceMarker?, commandUpdateReportInstallerOutcome: ReportInstallerOutcome?, eventAuthorizationPolicyChangedEvent: AuthorizationPolicyChangeNotice?, eventBackgroundJobStatusEvent: BackgroundJobStatus?, eventConfigChangedEvent: ConfigSnapshot?, eventErrorEvent: ScopedError?, eventNotificationEvent: Notification?, eventPermissionsChangedEvent: EffectivePermissions?, eventRecordChangedEvent: RecordChangeNotice?, eventReferenceMarkerChangedEvent: ReferenceMarkerChangeNotice?, eventSyncStatusEvent: SyncStatus?, eventUpdateStateEvent: UpdateState?, ipcClientMessageIPCCommand: CommandEnvelope?, ipcClientMessageIPCHandshake: HandshakeRequest?, ipcClientMessageIPCQuery: QueryEnvelope?, ipcClientMessageIPCShutdown: ShutdownRequest?, ipcClientMessageIPCSubscribe: SubscriptionEnvelope?, ipcClientMessageIPCUnsubscribe: UnsubscribeRequest?, ipcServerMessageIPCCommandResponse: CommandResponseEnvelope?, ipcServerMessageIPCEvent: EventEnvelope?, ipcServerMessageIPCFailure: IPCFailureResponse?, ipcServerMessageIPCHandshakeResponse: HandshakeResponse?, ipcServerMessageIPCQueryResponse: QueryResponseEnvelope?, ipcServerMessageIPCShutdownResponse: ShutdownResponse?, ipcServerMessageIPCSubscribeResponse: SubscriptionResponseEnvelope?, ipcServerMessageIPCSubscriptionClosed: SubscriptionClosedEnvelope?, ipcServerMessageIPCUnsubscribeResponse: UnsubscribeResponse?, queryAuthorizationRelationshipsList: ListScopeRelationships?, queryConfigGet: [String: JSONAny]?, queryPermissionsGetEffective: [String: JSONAny]?, queryReferenceMarkerList: ListReferenceMarkers?, querySyncGetStatus: [String: JSONAny]?, queryUpdateGetState: [String: JSONAny]?, queryResultConfiguration: ConfigSnapshot?, queryResultEffectivePermissions: EffectivePermissions?, queryResultReferenceMarkers: ReferenceMarkerPage?, queryResultScopeRelationships: RelationshipPage?, queryResultSyncStatus: SyncStatus?, queryResultUpdateState: UpdateState?, serverClientMessageServerAcknowledge: ServerSubscriptionAcknowledgement?, serverClientMessageServerHello: ServerConnectionHello?, serverClientMessageServerSubscribe: ServerSubscriptionRequest?, serverClientMessageServerSync: SyncTransportFrame?, serverMessageServerEvent: ServerSubscriptionEvent?, serverMessageServerFailure: ServerFailure?, serverMessageServerHelloAccepted: PeerHello?, serverMessageServerSyncMessage: [String: JSONAny]?, subscriptionAuthorizationPolicyChangedSubscribe: [String: JSONAny]?, subscriptionBackgroundJobStatusSubscribe: [String: JSONAny]?, subscriptionConfigChangedSubscribe: [String: JSONAny]?, subscriptionErrorSubscribe: [String: JSONAny]?, subscriptionNotificationSubscribe: [String: JSONAny]?, subscriptionPermissionsChangedSubscribe: [String: JSONAny]?, subscriptionRecordChangedSubscribe: [String: JSONAny]?, subscriptionReferenceMarkerChangedSubscribe: [String: JSONAny]?, subscriptionSyncStatusSubscribe: [String: JSONAny]?, subscriptionUpdateStateSubscribe: [String: JSONAny]?, syncMessageSyncAcknowledge: BatchAcknowledgement?, syncMessageSyncBackpressure: RetryAfter?, syncMessageSyncChanges: ChangeBatch?, syncMessageSyncConflict: ConflictNotice?, syncMessageSyncNegotiate: SyncNegotiation?, syncMessageSyncPull: PullRequest?, syncMessageSyncReconcile: ReconciliationDelivery?, syncMessageSyncSnapshotChunk: SnapshotChunk?, syncMessageSyncSnapshotComplete: SnapshotCompletion?, syncMessageSyncSnapshotManifest: SnapshotManifest?, syncMessageSyncSnapshotRequired: SnapshotRequired?) {
+    public init(commandAuthorizationRelationshipGrant: GrantScopeRelationship?, commandAuthorizationRelationshipRevoke: RevokeScopeRelationship?, commandConfigUpdate: UpdateConfiguration?, commandOperationCancel: CancelOperation?, commandReferenceMarkerUpsert: UpsertReferenceMarker?, commandUpdateReportInstallerOutcome: ReportInstallerOutcome?, eventAuthorizationPolicyChangedEvent: AuthorizationPolicyChangeNotice?, eventBackgroundJobStatusEvent: BackgroundJobStatus?, eventConfigChangedEvent: ConfigSnapshot?, eventErrorEvent: ScopedError?, eventNotificationEvent: Notification?, eventPermissionsChangedEvent: EffectivePermissions?, eventRecordChangedEvent: RecordChangeNotice?, eventReferenceMarkerChangedEvent: ReferenceMarkerChangeNotice?, eventSyncStatusEvent: SyncStatus?, eventUpdateStateEvent: UpdateState?, ipcClientMessageIPCCommand: CommandEnvelope?, ipcClientMessageIPCDesktopSessionState: DesktopSessionRequest?, ipcClientMessageIPCDesktopSignIn: DesktopSignInRequest?, ipcClientMessageIPCDesktopSignOut: DesktopSessionRequest?, ipcClientMessageIPCHandshake: HandshakeRequest?, ipcClientMessageIPCQuery: QueryEnvelope?, ipcClientMessageIPCShutdown: ShutdownRequest?, ipcClientMessageIPCSubscribe: SubscriptionEnvelope?, ipcClientMessageIPCUnsubscribe: UnsubscribeRequest?, ipcServerMessageIPCCommandResponse: CommandResponseEnvelope?, ipcServerMessageIPCDesktopSessionResponse: DesktopSessionResponse?, ipcServerMessageIPCEvent: EventEnvelope?, ipcServerMessageIPCFailure: IPCFailureResponse?, ipcServerMessageIPCHandshakeResponse: HandshakeResponse?, ipcServerMessageIPCQueryResponse: QueryResponseEnvelope?, ipcServerMessageIPCShutdownResponse: ShutdownResponse?, ipcServerMessageIPCSubscribeResponse: SubscriptionResponseEnvelope?, ipcServerMessageIPCSubscriptionClosed: SubscriptionClosedEnvelope?, ipcServerMessageIPCUnsubscribeResponse: UnsubscribeResponse?, queryAuthorizationRelationshipsList: ListScopeRelationships?, queryConfigGet: [String: JSONAny]?, queryPermissionsGetEffective: [String: JSONAny]?, queryReferenceMarkerList: ListReferenceMarkers?, querySyncGetStatus: [String: JSONAny]?, queryUpdateGetState: [String: JSONAny]?, queryResultConfiguration: ConfigSnapshot?, queryResultEffectivePermissions: EffectivePermissions?, queryResultReferenceMarkers: ReferenceMarkerPage?, queryResultScopeRelationships: RelationshipPage?, queryResultSyncStatus: SyncStatus?, queryResultUpdateState: UpdateState?, serverClientMessageServerAcknowledge: ServerSubscriptionAcknowledgement?, serverClientMessageServerHello: ServerConnectionHello?, serverClientMessageServerSubscribe: ServerSubscriptionRequest?, serverClientMessageServerSync: SyncTransportFrame?, serverMessageServerEvent: ServerSubscriptionEvent?, serverMessageServerFailure: ServerFailure?, serverMessageServerHelloAccepted: PeerHello?, serverMessageServerSyncMessage: [String: JSONAny]?, subscriptionAuthorizationPolicyChangedSubscribe: [String: JSONAny]?, subscriptionBackgroundJobStatusSubscribe: [String: JSONAny]?, subscriptionConfigChangedSubscribe: [String: JSONAny]?, subscriptionErrorSubscribe: [String: JSONAny]?, subscriptionNotificationSubscribe: [String: JSONAny]?, subscriptionPermissionsChangedSubscribe: [String: JSONAny]?, subscriptionRecordChangedSubscribe: [String: JSONAny]?, subscriptionReferenceMarkerChangedSubscribe: [String: JSONAny]?, subscriptionSyncStatusSubscribe: [String: JSONAny]?, subscriptionUpdateStateSubscribe: [String: JSONAny]?, syncMessageSyncAcknowledge: BatchAcknowledgement?, syncMessageSyncBackpressure: RetryAfter?, syncMessageSyncChanges: ChangeBatch?, syncMessageSyncConflict: ConflictNotice?, syncMessageSyncNegotiate: SyncNegotiation?, syncMessageSyncPull: PullRequest?, syncMessageSyncReconcile: ReconciliationDelivery?, syncMessageSyncSnapshotChunk: SnapshotChunk?, syncMessageSyncSnapshotComplete: SnapshotCompletion?, syncMessageSyncSnapshotManifest: SnapshotManifest?, syncMessageSyncSnapshotRequired: SnapshotRequired?) {
         self.commandAuthorizationRelationshipGrant = commandAuthorizationRelationshipGrant
         self.commandAuthorizationRelationshipRevoke = commandAuthorizationRelationshipRevoke
         self.commandConfigUpdate = commandConfigUpdate
@@ -4770,12 +4778,16 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         self.eventSyncStatusEvent = eventSyncStatusEvent
         self.eventUpdateStateEvent = eventUpdateStateEvent
         self.ipcClientMessageIPCCommand = ipcClientMessageIPCCommand
+        self.ipcClientMessageIPCDesktopSessionState = ipcClientMessageIPCDesktopSessionState
+        self.ipcClientMessageIPCDesktopSignIn = ipcClientMessageIPCDesktopSignIn
+        self.ipcClientMessageIPCDesktopSignOut = ipcClientMessageIPCDesktopSignOut
         self.ipcClientMessageIPCHandshake = ipcClientMessageIPCHandshake
         self.ipcClientMessageIPCQuery = ipcClientMessageIPCQuery
         self.ipcClientMessageIPCShutdown = ipcClientMessageIPCShutdown
         self.ipcClientMessageIPCSubscribe = ipcClientMessageIPCSubscribe
         self.ipcClientMessageIPCUnsubscribe = ipcClientMessageIPCUnsubscribe
         self.ipcServerMessageIPCCommandResponse = ipcServerMessageIPCCommandResponse
+        self.ipcServerMessageIPCDesktopSessionResponse = ipcServerMessageIPCDesktopSessionResponse
         self.ipcServerMessageIPCEvent = ipcServerMessageIPCEvent
         self.ipcServerMessageIPCFailure = ipcServerMessageIPCFailure
         self.ipcServerMessageIPCHandshakeResponse = ipcServerMessageIPCHandshakeResponse
@@ -4864,12 +4876,16 @@ public extension UnionPayloadKeepAlive {
         eventSyncStatusEvent: SyncStatus?? = nil,
         eventUpdateStateEvent: UpdateState?? = nil,
         ipcClientMessageIPCCommand: CommandEnvelope?? = nil,
+        ipcClientMessageIPCDesktopSessionState: DesktopSessionRequest?? = nil,
+        ipcClientMessageIPCDesktopSignIn: DesktopSignInRequest?? = nil,
+        ipcClientMessageIPCDesktopSignOut: DesktopSessionRequest?? = nil,
         ipcClientMessageIPCHandshake: HandshakeRequest?? = nil,
         ipcClientMessageIPCQuery: QueryEnvelope?? = nil,
         ipcClientMessageIPCShutdown: ShutdownRequest?? = nil,
         ipcClientMessageIPCSubscribe: SubscriptionEnvelope?? = nil,
         ipcClientMessageIPCUnsubscribe: UnsubscribeRequest?? = nil,
         ipcServerMessageIPCCommandResponse: CommandResponseEnvelope?? = nil,
+        ipcServerMessageIPCDesktopSessionResponse: DesktopSessionResponse?? = nil,
         ipcServerMessageIPCEvent: EventEnvelope?? = nil,
         ipcServerMessageIPCFailure: IPCFailureResponse?? = nil,
         ipcServerMessageIPCHandshakeResponse: HandshakeResponse?? = nil,
@@ -4938,12 +4954,16 @@ public extension UnionPayloadKeepAlive {
             eventSyncStatusEvent: eventSyncStatusEvent ?? self.eventSyncStatusEvent,
             eventUpdateStateEvent: eventUpdateStateEvent ?? self.eventUpdateStateEvent,
             ipcClientMessageIPCCommand: ipcClientMessageIPCCommand ?? self.ipcClientMessageIPCCommand,
+            ipcClientMessageIPCDesktopSessionState: ipcClientMessageIPCDesktopSessionState ?? self.ipcClientMessageIPCDesktopSessionState,
+            ipcClientMessageIPCDesktopSignIn: ipcClientMessageIPCDesktopSignIn ?? self.ipcClientMessageIPCDesktopSignIn,
+            ipcClientMessageIPCDesktopSignOut: ipcClientMessageIPCDesktopSignOut ?? self.ipcClientMessageIPCDesktopSignOut,
             ipcClientMessageIPCHandshake: ipcClientMessageIPCHandshake ?? self.ipcClientMessageIPCHandshake,
             ipcClientMessageIPCQuery: ipcClientMessageIPCQuery ?? self.ipcClientMessageIPCQuery,
             ipcClientMessageIPCShutdown: ipcClientMessageIPCShutdown ?? self.ipcClientMessageIPCShutdown,
             ipcClientMessageIPCSubscribe: ipcClientMessageIPCSubscribe ?? self.ipcClientMessageIPCSubscribe,
             ipcClientMessageIPCUnsubscribe: ipcClientMessageIPCUnsubscribe ?? self.ipcClientMessageIPCUnsubscribe,
             ipcServerMessageIPCCommandResponse: ipcServerMessageIPCCommandResponse ?? self.ipcServerMessageIPCCommandResponse,
+            ipcServerMessageIPCDesktopSessionResponse: ipcServerMessageIPCDesktopSessionResponse ?? self.ipcServerMessageIPCDesktopSessionResponse,
             ipcServerMessageIPCEvent: ipcServerMessageIPCEvent ?? self.ipcServerMessageIPCEvent,
             ipcServerMessageIPCFailure: ipcServerMessageIPCFailure ?? self.ipcServerMessageIPCFailure,
             ipcServerMessageIPCHandshakeResponse: ipcServerMessageIPCHandshakeResponse ?? self.ipcServerMessageIPCHandshakeResponse,
@@ -6027,6 +6047,119 @@ public extension UpdateState {
     }
 }
 
+// MARK: - DesktopSessionRequest
+public struct DesktopSessionRequest: Codable, Sendable {
+    public let correlationID, requestID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case correlationID = "correlationId"
+        case requestID = "requestId"
+    }
+
+    public init(correlationID: String, requestID: String) {
+        self.correlationID = correlationID
+        self.requestID = requestID
+    }
+}
+
+// MARK: DesktopSessionRequest convenience initializers and mutators
+
+public extension DesktopSessionRequest {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(DesktopSessionRequest.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        correlationID: String? = nil,
+        requestID: String? = nil
+    ) -> DesktopSessionRequest {
+        return DesktopSessionRequest(
+            correlationID: correlationID ?? self.correlationID,
+            requestID: requestID ?? self.requestID
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+/// Password input is transient and must never be logged or persisted by a shell.
+// MARK: - DesktopSignInRequest
+public struct DesktopSignInRequest: Codable, Sendable {
+    public let correlationID, password, requestID, username: String
+
+    public enum CodingKeys: String, CodingKey {
+        case correlationID = "correlationId"
+        case password
+        case requestID = "requestId"
+        case username
+    }
+
+    public init(correlationID: String, password: String, requestID: String, username: String) {
+        self.correlationID = correlationID
+        self.password = password
+        self.requestID = requestID
+        self.username = username
+    }
+}
+
+// MARK: DesktopSignInRequest convenience initializers and mutators
+
+public extension DesktopSignInRequest {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(DesktopSignInRequest.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        correlationID: String? = nil,
+        password: String? = nil,
+        requestID: String? = nil,
+        username: String? = nil
+    ) -> DesktopSignInRequest {
+        return DesktopSignInRequest(
+            correlationID: correlationID ?? self.correlationID,
+            password: password ?? self.password,
+            requestID: requestID ?? self.requestID,
+            username: username ?? self.username
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
 // MARK: - HandshakeRequest
 public struct HandshakeRequest: Codable, Sendable {
     public let bootstrapToken, correlationID: String
@@ -6195,6 +6328,127 @@ public extension UnsubscribeRequest {
     func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
         return String(data: try self.jsonData(), encoding: encoding)
     }
+}
+
+// MARK: - DesktopSessionResponse
+public struct DesktopSessionResponse: Codable, Sendable {
+    public let correlationID: String
+    public let error: ContractError?
+    public let requestID: String
+    public let state: DesktopSessionState?
+    public let status: DesktopSessionStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case correlationID = "correlationId"
+        case error
+        case requestID = "requestId"
+        case state, status
+    }
+
+    public init(correlationID: String, error: ContractError?, requestID: String, state: DesktopSessionState?, status: DesktopSessionStatus) {
+        self.correlationID = correlationID
+        self.error = error
+        self.requestID = requestID
+        self.state = state
+        self.status = status
+    }
+}
+
+// MARK: DesktopSessionResponse convenience initializers and mutators
+
+public extension DesktopSessionResponse {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(DesktopSessionResponse.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        correlationID: String? = nil,
+        error: ContractError?? = nil,
+        requestID: String? = nil,
+        state: DesktopSessionState?? = nil,
+        status: DesktopSessionStatus? = nil
+    ) -> DesktopSessionResponse {
+        return DesktopSessionResponse(
+            correlationID: correlationID ?? self.correlationID,
+            error: error ?? self.error,
+            requestID: requestID ?? self.requestID,
+            state: state ?? self.state,
+            status: status ?? self.status
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - DesktopSessionState
+public struct DesktopSessionState: Codable, Sendable {
+    public let authorization: AuthorizationContext?
+    public let expiresAt: Int?
+
+    public init(authorization: AuthorizationContext?, expiresAt: Int?) {
+        self.authorization = authorization
+        self.expiresAt = expiresAt
+    }
+}
+
+// MARK: DesktopSessionState convenience initializers and mutators
+
+public extension DesktopSessionState {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(DesktopSessionState.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        authorization: AuthorizationContext?? = nil,
+        expiresAt: Int?? = nil
+    ) -> DesktopSessionState {
+        return DesktopSessionState(
+            authorization: authorization ?? self.authorization,
+            expiresAt: expiresAt ?? self.expiresAt
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+public enum DesktopSessionStatus: String, Codable, Sendable {
+    case active = "active"
+    case failed = "failed"
+    case signedOut = "signedOut"
 }
 
 // MARK: - IPCFailureResponse

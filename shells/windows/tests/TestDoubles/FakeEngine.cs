@@ -71,6 +71,15 @@ internal sealed class FakeEngine : IEngineShellBridge
 
     public bool SupportsCapability(string capability) => SupportedCapabilities.Contains(capability);
 
+    public Task<DesktopSessionState> SignInAsync(string username, string password, CancellationToken cancellationToken = default) =>
+        Task.FromException<DesktopSessionState>(new NotSupportedException());
+
+    public Task<DesktopSessionState?> GetSessionStateAsync(CancellationToken cancellationToken = default) =>
+        Task.FromException<DesktopSessionState?>(new NotSupportedException());
+
+    public Task SignOutAsync(CancellationToken cancellationToken = default) =>
+        Task.FromException(new NotSupportedException());
+
     public bool WasQueried(string kind)
     {
         lock (queriedKinds)

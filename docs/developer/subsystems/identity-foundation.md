@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust identity and storage maintainers"
-last_verified: "2026-08-19"
+last_verified: "2026-09-20"
 review_triggers:
   - "identity topology, session lifecycle, tenant isolation, offline policy, or audit attribution changes"
 keywords:
@@ -30,7 +30,9 @@ The public storage boundary accepts typed IDs from `eitmad-contracts`. It never 
 
 A persisted session may be `Online` or `Offline`. Connectivity does not bypass expiry or closure: `PersistentSession::is_locally_usable_at` requires an issued, unexpired, open session. `refresh_session` moves the last-seen time forward and records connectivity only for an active, unexpired session. `close_session` is tenant-scoped and idempotent.
 
-No credential, bearer token, refresh token, password, or secret is stored in the identity tables. Persistence supplies identity continuity and attribution, not authentication proof. Production session issuance still requires a trusted authenticator and authorization path.
+No bearer token, refresh token, or password is stored in the identity tables. Storage version 10 adds `desktop_accounts` for separate, provisioned Manager and Receptionist accounts and their Argon2 password verifiers. The installation owner is a provisioning identity; the process handshake projects a device principal without its owner relation. `DesktopAuthenticator` verifies a password, then issues a separate eight-hour durable user session. Offline sign-in requires the password. Session validation checks the account, device, tenant, scope, expiry, and closure before IPC dispatch. Sign-in or sign-out commits the session change and a user-attributed audit record in one transaction.
+
+`AuthorityStore::provision_desktop_account` is a trusted Rust import boundary for a verified account. It rejects the installation owner's user ID, revokes prior sessions when a verifier is replaced, and records the provisioning actor in audit. The current engine does not yet import accounts from the server control plane; a new installation has no ordinary sign-in account until a trusted importer provisions one.
 
 ## Audit attribution
 
@@ -43,7 +45,7 @@ Identity authority uses opaque UUIDs and does not branch on language. Future dis
 ## Failure modes and recovery
 
 - A missing referenced identity or cross-tenant reference rolls back the transaction and returns sanitized `StorageError`.
-- An expired or closed session cannot be refreshed and returns `false` without changing state.
+- An expired or closed session cannot be refreshed and returns `false` without changing state. IPC commands and queries also fail before dispatch.
 - Corrupt, drifted, newer, or out-of-window storage prevents readiness before identity access.
 - Offline operation never fabricates a tenant or silently moves a session between scopes.
 

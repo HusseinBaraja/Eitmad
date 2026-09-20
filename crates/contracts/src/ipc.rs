@@ -8,7 +8,7 @@ use crate::{
     transport::{
         CommandEnvelope, CommandOutcome, CommandResponseEnvelope, CorrelationId, EventEnvelope,
         QueryEnvelope, QueryOutcome, QueryResponseEnvelope, RequestId, SubscriptionClosedEnvelope,
-        SubscriptionEnvelope, SubscriptionOutcome, SubscriptionResponseEnvelope,
+        SubscriptionEnvelope, SubscriptionOutcome, SubscriptionResponseEnvelope, UnixMillis,
         UnsubscribeRequest, UnsubscribeResponse,
     },
     versioning::{NegotiatedSession, NegotiationRejection, PeerHello},
@@ -31,6 +31,60 @@ pub struct HandshakeAccepted {
     pub engine: PeerHello,
     pub negotiated: NegotiatedSession,
     pub authorization: AuthorizationContext,
+}
+
+/// Password input is transient and must never be logged or persisted by a shell.
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct DesktopSignInRequest {
+    pub request_id: RequestId,
+    pub correlation_id: CorrelationId,
+    pub username: String,
+    pub password: String,
+}
+
+impl std::fmt::Debug for DesktopSignInRequest {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("DesktopSignInRequest")
+            .field("request_id", &self.request_id)
+            .field("correlation_id", &self.correlation_id)
+            .field("username", &"[redacted]")
+            .field("password", &"[redacted]")
+            .finish()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct DesktopSessionState {
+    pub authorization: Option<AuthorizationContext>,
+    pub expires_at: Option<UnixMillis>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct DesktopSessionRequest {
+    pub request_id: RequestId,
+    pub correlation_id: CorrelationId,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum DesktopSessionStatus {
+    Active,
+    SignedOut,
+    Failed,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct DesktopSessionResponse {
+    pub request_id: RequestId,
+    pub correlation_id: CorrelationId,
+    pub status: DesktopSessionStatus,
+    pub state: Option<DesktopSessionState>,
+    pub error: Option<ContractError>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -83,6 +137,12 @@ pub struct IpcFailureResponse {
 pub enum IpcClientMessage {
     #[serde(rename = "eitmad.ipc.handshake.v1")]
     Handshake(HandshakeRequest),
+    #[serde(rename = "eitmad.ipc.desktop-sign-in.v1")]
+    DesktopSignIn(DesktopSignInRequest),
+    #[serde(rename = "eitmad.ipc.desktop-session-state.v1")]
+    DesktopSessionState(DesktopSessionRequest),
+    #[serde(rename = "eitmad.ipc.desktop-sign-out.v1")]
+    DesktopSignOut(DesktopSessionRequest),
     #[serde(rename = "eitmad.ipc.command.v1")]
     Command(CommandEnvelope),
     #[serde(rename = "eitmad.ipc.query.v1")]
@@ -100,6 +160,8 @@ pub enum IpcClientMessage {
 pub enum IpcServerMessage {
     #[serde(rename = "eitmad.ipc.handshake-response.v1")]
     Handshake(HandshakeResponse),
+    #[serde(rename = "eitmad.ipc.desktop-session-response.v1")]
+    DesktopSession(DesktopSessionResponse),
     #[serde(rename = "eitmad.ipc.command-response.v1")]
     Command(CommandResponseEnvelope),
     #[serde(rename = "eitmad.ipc.query-response.v1")]
@@ -124,6 +186,11 @@ impl IpcServerMessage {
     pub fn redacted_for_external_boundary(&self) -> Self {
         let mut message = self.clone();
         match &mut message {
+            Self::DesktopSession(response) => {
+                if let Some(error) = &mut response.error {
+                    *error = error.redacted_for_external_boundary();
+                }
+            }
             Self::Command(response) => {
                 if let CommandOutcome::Failed(error) = &mut response.outcome {
                     *error = error.redacted_for_external_boundary();

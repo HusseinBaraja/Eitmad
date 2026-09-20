@@ -1390,6 +1390,18 @@ namespace Eitmad.Contracts
         public CommandEnvelope IpcClientMessageIpcCommand { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("IpcClientMessage_IpcDesktopSessionState")]
+        public DesktopSessionRequest IpcClientMessageIpcDesktopSessionState { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("IpcClientMessage_IpcDesktopSignIn")]
+        public DesktopSignInRequest IpcClientMessageIpcDesktopSignIn { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("IpcClientMessage_IpcDesktopSignOut")]
+        public DesktopSessionRequest IpcClientMessageIpcDesktopSignOut { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("IpcClientMessage_IpcHandshake")]
         public HandshakeRequest IpcClientMessageIpcHandshake { get; set; }
 
@@ -1412,6 +1424,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("IpcServerMessage_IpcCommandResponse")]
         public CommandResponseEnvelope IpcServerMessageIpcCommandResponse { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("IpcServerMessage_IpcDesktopSessionResponse")]
+        public DesktopSessionResponse IpcServerMessageIpcDesktopSessionResponse { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("IpcServerMessage_IpcEvent")]
@@ -1833,6 +1849,33 @@ namespace Eitmad.Contracts
         public UpdateStatePayload Payload { get; set; }
     }
 
+    public partial class DesktopSessionRequest
+    {
+        [JsonPropertyName("correlationId")]
+        public Guid CorrelationId { get; set; }
+
+        [JsonPropertyName("requestId")]
+        public Guid RequestId { get; set; }
+    }
+
+    /// <summary>
+    /// Password input is transient and must never be logged or persisted by a shell.
+    /// </summary>
+    public partial class DesktopSignInRequest
+    {
+        [JsonPropertyName("correlationId")]
+        public Guid CorrelationId { get; set; }
+
+        [JsonPropertyName("password")]
+        public string Password { get; set; }
+
+        [JsonPropertyName("requestId")]
+        public Guid RequestId { get; set; }
+
+        [JsonPropertyName("username")]
+        public string Username { get; set; }
+    }
+
     public partial class HandshakeRequest
     {
         [JsonPropertyName("bootstrapToken")]
@@ -1867,6 +1910,33 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("subscriptionId")]
         public Guid SubscriptionId { get; set; }
+    }
+
+    public partial class DesktopSessionResponse
+    {
+        [JsonPropertyName("correlationId")]
+        public Guid CorrelationId { get; set; }
+
+        [JsonPropertyName("error")]
+        public ContractError Error { get; set; }
+
+        [JsonPropertyName("requestId")]
+        public Guid RequestId { get; set; }
+
+        [JsonPropertyName("state")]
+        public DesktopSessionState State { get; set; }
+
+        [JsonPropertyName("status")]
+        public DesktopSessionStatus Status { get; set; }
+    }
+
+    public partial class DesktopSessionState
+    {
+        [JsonPropertyName("authorization")]
+        public AuthorizationContext Authorization { get; set; }
+
+        [JsonPropertyName("expiresAt")]
+        public long? ExpiresAt { get; set; }
     }
 
     public partial class IpcFailureResponse
@@ -2576,6 +2646,8 @@ namespace Eitmad.Contracts
 
     public enum ChangeOperation { Tombstone, Upsert };
 
+    public enum DesktopSessionStatus { Active, Failed, SignedOut };
+
     public enum FluffyKind { AuthenticationFailed, AuthenticationRequired, Negotiation };
 
     public enum SubscriptionCloseReason { AuthorizationRevoked, Backpressure, ClientRequested, EngineStopping };
@@ -2689,6 +2761,7 @@ namespace Eitmad.Contracts
                 BackgroundJobStateConverter.Singleton,
                 NotificationSeverityConverter.Singleton,
                 ChangeOperationConverter.Singleton,
+                DesktopSessionStatusConverter.Singleton,
                 FluffyKindConverter.Singleton,
                 SubscriptionCloseReasonConverter.Singleton,
                 MergeStrategyConverter.Singleton,
@@ -4611,6 +4684,45 @@ namespace Eitmad.Contracts
         }
 
         public static readonly ChangeOperationConverter Singleton = new ChangeOperationConverter();
+    }
+
+    internal class DesktopSessionStatusConverter : JsonConverter<DesktopSessionStatus>
+    {
+        public override bool CanConvert(Type t) => t == typeof(DesktopSessionStatus);
+
+        public override DesktopSessionStatus Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "active":
+                    return DesktopSessionStatus.Active;
+                case "failed":
+                    return DesktopSessionStatus.Failed;
+                case "signedOut":
+                    return DesktopSessionStatus.SignedOut;
+            }
+            throw new Exception("Cannot unmarshal type DesktopSessionStatus");
+        }
+
+        public override void Write(Utf8JsonWriter writer, DesktopSessionStatus value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case DesktopSessionStatus.Active:
+                    JsonSerializer.Serialize(writer, "active", options);
+                    return;
+                case DesktopSessionStatus.Failed:
+                    JsonSerializer.Serialize(writer, "failed", options);
+                    return;
+                case DesktopSessionStatus.SignedOut:
+                    JsonSerializer.Serialize(writer, "signedOut", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type DesktopSessionStatus");
+        }
+
+        public static readonly DesktopSessionStatusConverter Singleton = new DesktopSessionStatusConverter();
     }
 
     internal class FluffyKindConverter : JsonConverter<FluffyKind>

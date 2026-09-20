@@ -5,12 +5,14 @@
 
 mod authority;
 mod authority_store;
+mod desktop_auth;
 mod dispatcher;
 pub mod local_ipc;
 
 pub use authority_store::{
     AuthorityStoreComponent, AuthorityStoreHandle, AuthorityStoreHealthCheck,
 };
+pub use desktop_auth::{DesktopAuthenticationError, DesktopAuthenticator};
 pub use dispatcher::ProductDispatcher;
 
 use std::{

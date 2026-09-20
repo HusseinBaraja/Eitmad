@@ -1265,6 +1265,120 @@
         "secret"
       ]
     },
+    "DesktopSessionRequest": {
+      "type": "object",
+      "properties": {
+        "correlationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "requestId",
+        "correlationId"
+      ]
+    },
+    "DesktopSessionResponse": {
+      "type": "object",
+      "properties": {
+        "correlationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ContractError"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "state": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/DesktopSessionState"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "$ref": "#/definitions/DesktopSessionStatus"
+        }
+      },
+      "required": [
+        "requestId",
+        "correlationId",
+        "status"
+      ]
+    },
+    "DesktopSessionState": {
+      "type": "object",
+      "properties": {
+        "authorization": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/AuthorizationContext"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expiresAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        }
+      }
+    },
+    "DesktopSessionStatus": {
+      "type": "string",
+      "enum": [
+        "active",
+        "signedOut",
+        "failed"
+      ]
+    },
+    "DesktopSignInRequest": {
+      "description": "Password input is transient and must never be logged or persisted by a shell.",
+      "type": "object",
+      "properties": {
+        "correlationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "password": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "username": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "requestId",
+        "correlationId",
+        "username",
+        "password"
+      ]
+    },
     "DiagnosticReport": {
       "type": "object",
       "properties": {
@@ -2196,6 +2310,54 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "eitmad.ipc.desktop-sign-in.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/DesktopSignInRequest"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.ipc.desktop-session-state.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/DesktopSessionRequest"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.ipc.desktop-sign-out.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/DesktopSessionRequest"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "eitmad.ipc.command.v1"
             },
             "payload": {
@@ -2302,6 +2464,22 @@
             },
             "payload": {
               "$ref": "#/definitions/HandshakeResponse"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.ipc.desktop-session-response.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/DesktopSessionResponse"
             }
           },
           "required": [

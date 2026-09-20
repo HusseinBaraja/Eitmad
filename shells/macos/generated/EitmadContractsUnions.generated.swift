@@ -143,6 +143,9 @@ public enum Event: Codable, Sendable {
 }
 public enum IpcClientMessage: Codable, Sendable {
     case ipcHandshake(HandshakeRequest)
+    case ipcDesktopSignIn(DesktopSignInRequest)
+    case ipcDesktopSessionState(DesktopSessionRequest)
+    case ipcDesktopSignOut(DesktopSessionRequest)
     case ipcCommand(CommandEnvelope)
     case ipcQuery(QueryEnvelope)
     case ipcSubscribe(SubscriptionEnvelope)
@@ -151,6 +154,9 @@ public enum IpcClientMessage: Codable, Sendable {
 
     private enum Kind: String, Codable, Sendable {
         case ipcHandshake = "eitmad.ipc.handshake.v1"
+        case ipcDesktopSignIn = "eitmad.ipc.desktop-sign-in.v1"
+        case ipcDesktopSessionState = "eitmad.ipc.desktop-session-state.v1"
+        case ipcDesktopSignOut = "eitmad.ipc.desktop-sign-out.v1"
         case ipcCommand = "eitmad.ipc.command.v1"
         case ipcQuery = "eitmad.ipc.query.v1"
         case ipcSubscribe = "eitmad.ipc.subscribe.v1"
@@ -167,6 +173,9 @@ public enum IpcClientMessage: Codable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         switch try container.decode(Kind.self, forKey: .kind) {
         case .ipcHandshake: self = .ipcHandshake(try container.decode(HandshakeRequest.self, forKey: .payload))
+        case .ipcDesktopSignIn: self = .ipcDesktopSignIn(try container.decode(DesktopSignInRequest.self, forKey: .payload))
+        case .ipcDesktopSessionState: self = .ipcDesktopSessionState(try container.decode(DesktopSessionRequest.self, forKey: .payload))
+        case .ipcDesktopSignOut: self = .ipcDesktopSignOut(try container.decode(DesktopSessionRequest.self, forKey: .payload))
         case .ipcCommand: self = .ipcCommand(try container.decode(CommandEnvelope.self, forKey: .payload))
         case .ipcQuery: self = .ipcQuery(try container.decode(QueryEnvelope.self, forKey: .payload))
         case .ipcSubscribe: self = .ipcSubscribe(try container.decode(SubscriptionEnvelope.self, forKey: .payload))
@@ -180,6 +189,15 @@ public enum IpcClientMessage: Codable, Sendable {
         switch self {
         case .ipcHandshake(let payload):
             try container.encode(Kind.ipcHandshake, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .ipcDesktopSignIn(let payload):
+            try container.encode(Kind.ipcDesktopSignIn, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .ipcDesktopSessionState(let payload):
+            try container.encode(Kind.ipcDesktopSessionState, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .ipcDesktopSignOut(let payload):
+            try container.encode(Kind.ipcDesktopSignOut, forKey: .kind)
             try container.encode(payload, forKey: .payload)
         case .ipcCommand(let payload):
             try container.encode(Kind.ipcCommand, forKey: .kind)
@@ -201,6 +219,7 @@ public enum IpcClientMessage: Codable, Sendable {
 }
 public enum IpcServerMessage: Codable, Sendable {
     case ipcHandshakeResponse(HandshakeResponse)
+    case ipcDesktopSessionResponse(DesktopSessionResponse)
     case ipcCommandResponse(CommandResponseEnvelope)
     case ipcQueryResponse(QueryResponseEnvelope)
     case ipcSubscribeResponse(SubscriptionResponseEnvelope)
@@ -212,6 +231,7 @@ public enum IpcServerMessage: Codable, Sendable {
 
     private enum Kind: String, Codable, Sendable {
         case ipcHandshakeResponse = "eitmad.ipc.handshake-response.v1"
+        case ipcDesktopSessionResponse = "eitmad.ipc.desktop-session-response.v1"
         case ipcCommandResponse = "eitmad.ipc.command-response.v1"
         case ipcQueryResponse = "eitmad.ipc.query-response.v1"
         case ipcSubscribeResponse = "eitmad.ipc.subscribe-response.v1"
@@ -231,6 +251,7 @@ public enum IpcServerMessage: Codable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         switch try container.decode(Kind.self, forKey: .kind) {
         case .ipcHandshakeResponse: self = .ipcHandshakeResponse(try container.decode(HandshakeResponse.self, forKey: .payload))
+        case .ipcDesktopSessionResponse: self = .ipcDesktopSessionResponse(try container.decode(DesktopSessionResponse.self, forKey: .payload))
         case .ipcCommandResponse: self = .ipcCommandResponse(try container.decode(CommandResponseEnvelope.self, forKey: .payload))
         case .ipcQueryResponse: self = .ipcQueryResponse(try container.decode(QueryResponseEnvelope.self, forKey: .payload))
         case .ipcSubscribeResponse: self = .ipcSubscribeResponse(try container.decode(SubscriptionResponseEnvelope.self, forKey: .payload))
@@ -247,6 +268,9 @@ public enum IpcServerMessage: Codable, Sendable {
         switch self {
         case .ipcHandshakeResponse(let payload):
             try container.encode(Kind.ipcHandshakeResponse, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .ipcDesktopSessionResponse(let payload):
+            try container.encode(Kind.ipcDesktopSessionResponse, forKey: .kind)
             try container.encode(payload, forKey: .payload)
         case .ipcCommandResponse(let payload):
             try container.encode(Kind.ipcCommandResponse, forKey: .kind)

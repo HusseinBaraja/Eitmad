@@ -21,6 +21,7 @@ public sealed class EngineIpcClient : IAsyncDisposable
     private readonly CancellationTokenSource lifetime = new();
     private readonly Task reader;
     private bool disposed;
+    private AuthorizationContext processAuthorization = null!;
 
     private EngineIpcClient(NamedPipeClientStream pipe)
     {
@@ -105,6 +106,7 @@ public sealed class EngineIpcClient : IAsyncDisposable
 
             client.Authorization = handshake.Outcome.Payload.Authorization
                 ?? throw ProtocolViolation("The engine omitted the negotiated authorization session.");
+            client.processAuthorization = client.Authorization;
             client.NegotiatedSession = handshake.Outcome.Payload.Negotiated
                 ?? throw ProtocolViolation("The engine omitted protocol negotiation details.");
             return client;
@@ -114,6 +116,62 @@ public sealed class EngineIpcClient : IAsyncDisposable
             await client.DisposeAsync().ConfigureAwait(false);
             throw;
         }
+    }
+
+    public async Task<DesktopSessionState> SignInAsync(
+        string username,
+        string password,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(username);
+        ArgumentException.ThrowIfNullOrWhiteSpace(password);
+        var requestId = Guid.NewGuid();
+        var response = await SendFrameAsync(
+            IpcClientMessage.IpcDesktopSignInKind,
+            new DesktopSignInRequest { RequestId = requestId, CorrelationId = Guid.NewGuid(), Username = username, Password = password },
+            requestId, DefaultRequestTimeout, cancellationToken, commandOutcomeUnknown: false).ConfigureAwait(false);
+        EnsureKind(response, IpcServerMessage.IpcDesktopSessionResponseKind);
+        var result = response.AsIpcDesktopSessionResponse()
+            ?? throw ProtocolViolation("The engine returned an invalid desktop session response.");
+        if (result.Status != DesktopSessionStatus.Active || result.State?.Authorization is null)
+        {
+            throw new EngineIpcException(EngineIpcFailureKind.AuthenticationRejected,
+                "The engine rejected desktop sign-in.", result.Error);
+        }
+        Authorization = result.State.Authorization;
+        return result.State;
+    }
+
+    public async Task<DesktopSessionState?> GetSessionStateAsync(CancellationToken cancellationToken = default)
+    {
+        var result = await SendDesktopSessionRequestAsync(IpcClientMessage.IpcDesktopSessionStateKind, cancellationToken)
+            .ConfigureAwait(false);
+        if (result.Status == DesktopSessionStatus.Failed)
+            throw new EngineIpcException(EngineIpcFailureKind.AuthenticationRejected,
+                "The engine could not read the desktop session.", result.Error);
+        Authorization = result.State?.Authorization ?? processAuthorization;
+        return result.State;
+    }
+
+    public async Task SignOutAsync(CancellationToken cancellationToken = default)
+    {
+        var result = await SendDesktopSessionRequestAsync(IpcClientMessage.IpcDesktopSignOutKind, cancellationToken)
+            .ConfigureAwait(false);
+        if (result.Status != DesktopSessionStatus.SignedOut)
+            throw new EngineIpcException(EngineIpcFailureKind.AuthenticationRejected,
+                "The engine could not close the desktop session.", result.Error);
+        Authorization = processAuthorization;
+    }
+
+    private async Task<DesktopSessionResponse> SendDesktopSessionRequestAsync(string kind, CancellationToken cancellationToken)
+    {
+        var requestId = Guid.NewGuid();
+        var response = await SendFrameAsync(kind,
+            new DesktopSessionRequest { RequestId = requestId, CorrelationId = Guid.NewGuid() },
+            requestId, DefaultRequestTimeout, cancellationToken, commandOutcomeUnknown: false).ConfigureAwait(false);
+        EnsureKind(response, IpcServerMessage.IpcDesktopSessionResponseKind);
+        return response.AsIpcDesktopSessionResponse()
+            ?? throw ProtocolViolation("The engine returned an invalid desktop session response.");
     }
 
     public async Task<CommandResponseEnvelope> SendCommandAsync(
@@ -454,6 +512,7 @@ public sealed class EngineIpcClient : IAsyncDisposable
     private static Guid? RequestIdOf(IpcServerMessage message) => message.Kind switch
     {
         IpcServerMessage.IpcHandshakeResponseKind => message.AsIpcHandshakeResponse()?.RequestId,
+        IpcServerMessage.IpcDesktopSessionResponseKind => message.AsIpcDesktopSessionResponse()?.RequestId,
         IpcServerMessage.IpcCommandResponseKind => message.AsIpcCommandResponse()?.RequestId,
         IpcServerMessage.IpcQueryResponseKind => message.AsIpcQueryResponse()?.RequestId,
         IpcServerMessage.IpcSubscribeResponseKind => message.AsIpcSubscribeResponse()?.RequestId,

@@ -59,6 +59,22 @@ impl StoredLocalAuthority {
 }
 
 impl AuthorityStore {
+    /// Returns the installation organization after local identity bootstrap.
+    pub fn local_organization_id(&self) -> Result<OrganizationId, StorageError> {
+        self.read_transaction(|connection| {
+            let value: String = connection
+                .query_row(
+                    "SELECT organization_id FROM local_installation_authority WHERE singleton = 1",
+                    [],
+                    |row| row.get(0),
+                )
+                .map_err(|_| StorageError)?;
+            Ok(OrganizationId::new(
+                Uuid::parse_str(&value).map_err(|_| StorageError)?,
+            ))
+        })
+    }
+
     /// Loads the installation identity or creates it with its durable owner relation.
     ///
     /// The native shell receives only the returned session projection. It never

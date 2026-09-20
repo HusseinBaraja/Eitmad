@@ -3,6 +3,10 @@ import Foundation
 
 public enum ProtocolIds {
     public enum IpcMessages {
+        public static let eitmadIpcDesktopSessionResponseV1 = "eitmad.ipc.desktop-session-response.v1"
+        public static let eitmadIpcDesktopSessionStateV1 = "eitmad.ipc.desktop-session-state.v1"
+        public static let eitmadIpcDesktopSignInV1 = "eitmad.ipc.desktop-sign-in.v1"
+        public static let eitmadIpcDesktopSignOutV1 = "eitmad.ipc.desktop-sign-out.v1"
         public static let eitmadIpcCommandResponseV1 = "eitmad.ipc.command-response.v1"
         public static let eitmadIpcCommandV1 = "eitmad.ipc.command.v1"
         public static let eitmadIpcFailureV1 = "eitmad.ipc.failure.v1"
@@ -92,6 +96,7 @@ public enum ProtocolIds {
     public enum Capabilities {
         public static let eitmadCapabilityEngineLifecycleV1 = "eitmad.capability.engine-lifecycle.v1"
         public static let eitmadCapabilityLocalIpcV1 = "eitmad.capability.local-ipc.v1"
+        public static let eitmadCapabilityDesktopUserSessionV1 = "eitmad.capability.desktop-user-session.v1"
         public static let eitmadCapabilityLocalIpcSubscriptionsV1 = "eitmad.capability.local-ipc-subscriptions.v1"
         public static let eitmadCapabilityAuthorizationPolicyEventsV1 = "eitmad.capability.authorization-policy-events.v1"
         public static let eitmadCapabilityAuthorizationScopesV1 = "eitmad.capability.authorization-scopes.v1"
@@ -148,6 +153,8 @@ public enum ProtocolIds {
     public enum Relations {
         public static let eitmadRelationOrganizationConfigManagerV1 = "eitmad.relation.organization.config-manager.v1"
         public static let eitmadRelationOrganizationMemberV1 = "eitmad.relation.organization.member.v1"
+        public static let eitmadRelationOrganizationManagerV1 = "eitmad.relation.organization.manager.v1"
+        public static let eitmadRelationOrganizationReceptionistV1 = "eitmad.relation.organization.receptionist.v1"
         public static let eitmadRelationOrganizationOwnerV1 = "eitmad.relation.organization.owner.v1"
     }
 
@@ -174,6 +181,7 @@ public enum ProtocolIds {
         public static let eitmadErrorIpcEngineStoppingV1 = "eitmad.error.ipc-engine-stopping.v1"
         public static let eitmadErrorIpcPayloadTooLargeV1 = "eitmad.error.ipc-payload-too-large.v1"
         public static let eitmadErrorIpcSessionInvalidV1 = "eitmad.error.ipc-session-invalid.v1"
+        public static let eitmadErrorDesktopAuthenticationFailedV1 = "eitmad.error.desktop-authentication-failed.v1"
         public static let eitmadErrorIpcSubscriptionResyncRequiredV1 = "eitmad.error.ipc-subscription-resync-required.v1"
         public static let eitmadErrorIpcSubscriptionUnsupportedV1 = "eitmad.error.ipc-subscription-unsupported.v1"
         public static let eitmadErrorIpcDeadlineExceededV1 = "eitmad.error.ipc-deadline-exceeded.v1"
@@ -223,6 +231,7 @@ public enum ProtocolIds {
         public static let eitmadMessageIpcEngineStoppingV1 = "eitmad.message.ipc-engine-stopping.v1"
         public static let eitmadMessageIpcPayloadTooLargeV1 = "eitmad.message.ipc-payload-too-large.v1"
         public static let eitmadMessageIpcSessionInvalidV1 = "eitmad.message.ipc-session-invalid.v1"
+        public static let eitmadMessageDesktopAuthenticationFailedV1 = "eitmad.message.desktop-authentication-failed.v1"
         public static let eitmadMessageIpcSubscriptionResyncRequiredV1 = "eitmad.message.ipc-subscription-resync-required.v1"
         public static let eitmadMessageIpcSubscriptionUnsupportedV1 = "eitmad.message.ipc-subscription-unsupported.v1"
         public static let eitmadMessageIpcDeadlineExceededV1 = "eitmad.message.ipc-deadline-exceeded.v1"

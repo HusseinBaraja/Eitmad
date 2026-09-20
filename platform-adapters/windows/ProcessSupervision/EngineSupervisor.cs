@@ -111,6 +111,15 @@ public sealed class EngineSupervisor : IAsyncDisposable
             cancellationToken);
     }
 
+    public Task<DesktopSessionState> SignInAsync(string username, string password, CancellationToken cancellationToken = default) =>
+        GetConnectedClient().SignInAsync(username, password, cancellationToken);
+
+    public Task<DesktopSessionState?> GetSessionStateAsync(CancellationToken cancellationToken = default) =>
+        GetConnectedClient().GetSessionStateAsync(cancellationToken);
+
+    public Task SignOutAsync(CancellationToken cancellationToken = default) =>
+        GetConnectedClient().SignOutAsync(cancellationToken);
+
     public Task<CommandResponseEnvelope> SubmitConfigurationPatchAsync(
         UpdateConfiguration patch,
         Guid idempotencyKey,
@@ -666,7 +675,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
         {
             PeerKind = PeerKind.Shell,
             ProductVersion = "0.0.0",
-            Protocols = [new SupportedProtocol { Major = 1, MinimumMinor = 0, MaximumMinor = 6 }],
+            Protocols = [new SupportedProtocol { Major = 1, MinimumMinor = 7, MaximumMinor = 7 }],
             Capabilities =
             [
                 ProtocolIds.Capabilities.EitmadCapabilityLocalIpcV1,

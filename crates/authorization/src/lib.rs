@@ -37,6 +37,8 @@ use uuid::Uuid;
 pub const OWNER_RELATION: &str = "eitmad.relation.organization.owner.v1";
 pub const CONFIG_MANAGER_RELATION: &str = "eitmad.relation.organization.config-manager.v1";
 pub const MEMBER_RELATION: &str = "eitmad.relation.organization.member.v1";
+pub const MANAGER_RELATION: &str = "eitmad.relation.organization.manager.v1";
+pub const RECEPTIONIST_RELATION: &str = "eitmad.relation.organization.receptionist.v1";
 
 pub const CONFIG_READ_PERMISSION: &str = "eitmad.permission.config.read.v1";
 pub const CONFIG_WRITE_PERMISSION: &str = "eitmad.permission.config.write.v1";
@@ -149,9 +151,12 @@ impl AuthorizationService {
                 .iter()
                 .any(|relationship| relationship.relation.as_str() == CONFIG_MANAGER_RELATION);
         let member = manager
-            || relationships
-                .iter()
-                .any(|relationship| relationship.relation.as_str() == MEMBER_RELATION);
+            || relationships.iter().any(|relationship| {
+                matches!(
+                    relationship.relation.as_str(),
+                    MEMBER_RELATION | MANAGER_RELATION | RECEPTIONIST_RELATION
+                )
+            });
         let permissions = POLICY_PERMISSIONS
             .iter()
             .map(|permission| EffectivePermission {
@@ -432,7 +437,11 @@ impl SensitiveDebugPermissionGate for AuthorizationService {
 fn registered_relation(relation: &RelationId) -> bool {
     matches!(
         relation.as_str(),
-        OWNER_RELATION | CONFIG_MANAGER_RELATION | MEMBER_RELATION
+        OWNER_RELATION
+            | CONFIG_MANAGER_RELATION
+            | MEMBER_RELATION
+            | MANAGER_RELATION
+            | RECEPTIONIST_RELATION
     )
 }
 

@@ -184,6 +184,30 @@ public partial class IpcClientMessage
     public HandshakeRequest? AsIpcHandshake() =>
         Kind == IpcHandshakeKind ? PayloadAs<HandshakeRequest>() : null;
 
+    public const string IpcDesktopSignInKind = "eitmad.ipc.desktop-sign-in.v1";
+
+    public static IpcClientMessage ForIpcDesktopSignIn(DesktopSignInRequest payload) =>
+        new() { Kind = IpcDesktopSignInKind, Payload = payload };
+
+    public DesktopSignInRequest? AsIpcDesktopSignIn() =>
+        Kind == IpcDesktopSignInKind ? PayloadAs<DesktopSignInRequest>() : null;
+
+    public const string IpcDesktopSessionStateKind = "eitmad.ipc.desktop-session-state.v1";
+
+    public static IpcClientMessage ForIpcDesktopSessionState(DesktopSessionRequest payload) =>
+        new() { Kind = IpcDesktopSessionStateKind, Payload = payload };
+
+    public DesktopSessionRequest? AsIpcDesktopSessionState() =>
+        Kind == IpcDesktopSessionStateKind ? PayloadAs<DesktopSessionRequest>() : null;
+
+    public const string IpcDesktopSignOutKind = "eitmad.ipc.desktop-sign-out.v1";
+
+    public static IpcClientMessage ForIpcDesktopSignOut(DesktopSessionRequest payload) =>
+        new() { Kind = IpcDesktopSignOutKind, Payload = payload };
+
+    public DesktopSessionRequest? AsIpcDesktopSignOut() =>
+        Kind == IpcDesktopSignOutKind ? PayloadAs<DesktopSessionRequest>() : null;
+
     public const string IpcCommandKind = "eitmad.ipc.command.v1";
 
     public static IpcClientMessage ForIpcCommand(CommandEnvelope payload) =>
@@ -248,6 +272,14 @@ public partial class IpcServerMessage
 
     public HandshakeResponse? AsIpcHandshakeResponse() =>
         Kind == IpcHandshakeResponseKind ? PayloadAs<HandshakeResponse>() : null;
+
+    public const string IpcDesktopSessionResponseKind = "eitmad.ipc.desktop-session-response.v1";
+
+    public static IpcServerMessage ForIpcDesktopSessionResponse(DesktopSessionResponse payload) =>
+        new() { Kind = IpcDesktopSessionResponseKind, Payload = payload };
+
+    public DesktopSessionResponse? AsIpcDesktopSessionResponse() =>
+        Kind == IpcDesktopSessionResponseKind ? PayloadAs<DesktopSessionResponse>() : null;
 
     public const string IpcCommandResponseKind = "eitmad.ipc.command-response.v1";
 

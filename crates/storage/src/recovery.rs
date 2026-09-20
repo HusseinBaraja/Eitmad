@@ -340,7 +340,9 @@ mod tests {
         let connection = Connection::open(store.path()).unwrap();
         connection
             .execute_batch(
-                "DROP TABLE local_installation_authority;
+                "DROP TABLE desktop_accounts;
+                 DELETE FROM schema_migrations WHERE version = 10;
+                 DROP TABLE local_installation_authority;
                  DELETE FROM schema_migrations WHERE version = 9;
                  DROP TABLE reference_marker_sync_outbox;
                  DROP TABLE reference_markers;
