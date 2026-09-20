@@ -10,17 +10,31 @@ namespace Eitmad.WindowsShell;
 
 public partial class MainWindow : Window
 {
-    private PreviewAccountRole currentRole = PreviewAccountRole.Manager;
+    private readonly IDesktopSessionController? sessions;
+    private bool sessionActive;
+    private bool switchingAccount;
 
     public static RoutedUICommand SwitchAccountCommand { get; } = new(
-        "تبديل الحساب التجريبي",
+        "تبديل الحساب",
         nameof(SwitchAccountCommand),
         typeof(MainWindow));
 
+    public event EventHandler<SessionEndReason?>? AccountSessionCleared;
+
     /// <summary>Initializes the dashboard preview and its transient interactions.</summary>
-    public MainWindow(OperationsViewModel viewModel, bool showSignIn = true)
+    public MainWindow(
+        OperationsViewModel viewModel,
+        IDesktopSessionController? sessions = null,
+        bool showSignIn = true)
     {
         InitializeComponent();
+        this.sessions = sessions;
+        if (sessions is not null) SignInSurface.AuthenticateAsync = sessions.SignInAsync;
+        if (sessions is not null) sessions.SessionEnded += SessionEnded;
+        Closed += (_, _) =>
+        {
+            if (this.sessions is not null) this.sessions.SessionEnded -= SessionEnded;
+        };
         ReceptionistSurface.SetCatalogSources(FurnitureSurface.ViewModel, ProductsSurface.ViewModel);
         QuotationsSurface.ViewModel.UsePreviewQuotations(ReceptionistSurface.Handoffs.Quotations);
         var receptionOrders = ReceptionistSurface.PreviewOrders.ViewModel;
@@ -51,24 +65,25 @@ public partial class MainWindow : Window
         Title = showSignIn ? "الاعتماد · تسجيل الدخول" : "الاعتماد · لوحة التحكم";
     }
 
-    /// <summary>Shows the shell surface that belongs to the selected preview account.</summary>
-    private void PreviewSignedIn(object sender, PreviewSignedInEventArgs eventArgs)
+    /// <summary>Shows the shell surface allowed by Rust-returned effective permissions.</summary>
+    private void SessionSignedIn(object sender, AuthenticatedSurface surface)
     {
         SignInSurface.Visibility = Visibility.Collapsed;
-        ShowAccount(eventArgs.Role);
+        sessionActive = true;
+        ShowAccount(surface);
     }
 
-    /// <summary>Allows the development-only account switch after preview sign-in.</summary>
+    /// <summary>Allows sign-out and account switching only during an active user session.</summary>
     private void CanSwitchAccount(object sender, CanExecuteRoutedEventArgs eventArgs) =>
-        eventArgs.CanExecute = SignInSurface.Visibility != Visibility.Visible;
+        eventArgs.CanExecute = sessionActive && !switchingAccount && sessions is not null;
 
-    /// <summary>Handles the Alt+K development shortcut.</summary>
-    private void SwitchAccountExecuted(object sender, ExecutedRoutedEventArgs eventArgs) => SwitchAccount();
+    /// <summary>Handles the Alt+K account-switch shortcut.</summary>
+    private void SwitchAccountExecuted(object sender, ExecutedRoutedEventArgs eventArgs) => _ = SwitchAccountAsync();
 
     /// <summary>Handles the receptionist header account switch.</summary>
-    private void ReceptionistAccountSwitchRequested(object? sender, EventArgs eventArgs) => SwitchAccount();
+    private void ReceptionistAccountSwitchRequested(object? sender, EventArgs eventArgs) => _ = SwitchAccountAsync();
 
-    private void ManagerTitleBarAccountSwitchRequested(object? sender, EventArgs eventArgs) => SwitchAccount();
+    private void ManagerTitleBarAccountSwitchRequested(object? sender, EventArgs eventArgs) => _ = SwitchAccountAsync();
 
     private void ManagerSidebarNavigationRequested(object? sender, Controls.NavigationRequestedEventArgs eventArgs) =>
         ShowDestination(eventArgs.Destination);
@@ -87,22 +102,34 @@ public partial class MainWindow : Window
     private void ManagerTitleBarSearchSubmitted(object? sender, Controls.ShellSearchEventArgs eventArgs) =>
         ShowToast($"نتائج المعاينة عن: {eventArgs.Query}");
 
-    private void SwitchAccount()
+    private async Task SwitchAccountAsync()
     {
-        if (SignInSurface.Visibility == Visibility.Visible)
+        if (!sessionActive || switchingAccount || sessions is null)
         {
             return;
         }
-
-        ShowAccount(currentRole == PreviewAccountRole.Manager
-            ? PreviewAccountRole.Receptionist
-            : PreviewAccountRole.Manager);
+        switchingAccount = true;
+        CommandManager.InvalidateRequerySuggested();
+        HideAccountSurfaces();
+        try
+        {
+            await sessions.SignOutAsync();
+            ShowSignIn();
+        }
+        catch (Eitmad.Platform.Windows.LocalIpc.EngineIpcException)
+        {
+            ShowSignIn(SessionEndReason.ConnectionLost);
+        }
+        finally
+        {
+            switchingAccount = false;
+            CommandManager.InvalidateRequerySuggested();
+        }
     }
 
-    private void ShowAccount(PreviewAccountRole role)
+    private void ShowAccount(AuthenticatedSurface surface)
     {
-        currentRole = role;
-        var showManager = role == PreviewAccountRole.Manager;
+        var showManager = surface == AuthenticatedSurface.Manager;
         ResponsiveRoot.Visibility = showManager ? Visibility.Visible : Visibility.Collapsed;
         ReceptionistSurface.Visibility = showManager ? Visibility.Collapsed : Visibility.Visible;
         Title = showManager ? "الاعتماد · لوحة التحكم" : "الاعتماد · الرئيسية";
@@ -115,6 +142,26 @@ public partial class MainWindow : Window
 
         ManagerSidebar.SelectHome();
         ShowDestination("الرئيسية");
+    }
+
+    private void SessionEnded(object? sender, SessionEndedEventArgs eventArgs) =>
+        Dispatcher.Invoke(() => ShowSignIn(eventArgs.Reason));
+
+    private void ShowSignIn(SessionEndReason? reason = null)
+    {
+        sessionActive = false;
+        HideAccountSurfaces();
+        SignInSurface.Reset(reason);
+        SignInSurface.Visibility = Visibility.Visible;
+        Title = "الاعتماد · تسجيل الدخول";
+        AccountSessionCleared?.Invoke(this, reason);
+    }
+
+    private void HideAccountSurfaces()
+    {
+        ResponsiveRoot.Visibility = Visibility.Collapsed;
+        ReceptionistSurface.Visibility = Visibility.Collapsed;
+        InteractionPanel.Visibility = Visibility.Collapsed;
     }
 
     /// <summary>Opens the raw-material list from the dashboard shortcut.</summary>

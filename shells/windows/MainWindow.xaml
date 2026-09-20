@@ -73,7 +73,7 @@
             </Grid.RowDefinitions>
             <controls:ShellTitleBar x:Name="ManagerTitleBar" Grid.Row="0"
                                     Title="لوحة التحكم"
-                                    SwitchAccountHint="تبديل إلى حساب موظف الاستقبال · Alt+K"
+                                    SwitchAccountHint="تسجيل الخروج وتبديل الحساب · Alt+K"
                                     AccountSwitchRequested="ManagerTitleBarAccountSwitchRequested"
                                     ActionRequested="ManagerTitleBarActionRequested"
                                     SearchSubmitted="ManagerTitleBarSearchSubmitted" />
@@ -587,6 +587,6 @@
                                         AccountSwitchRequested="ReceptionistAccountSwitchRequested" />
         <authentication:SignInView x:Name="SignInSurface"
                                    Panel.ZIndex="50"
-                                   SignedIn="PreviewSignedIn" />
+                                   SignedIn="SessionSignedIn" />
     </Grid>
 </Window>

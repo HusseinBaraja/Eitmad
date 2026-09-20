@@ -12,9 +12,6 @@
     <RootNamespace>Eitmad.WindowsShell</RootNamespace>
     <ApplicationIcon />
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)' != 'Release' Or '$(PreviewAccounts)' == 'true'">
-    <DefineConstants>$(DefineConstants);PREVIEW_ACCOUNTS</DefineConstants>
-  </PropertyGroup>
   <ItemGroup>
     <Compile Remove="generated\**\*.cs" />
     <Compile Remove="tests\**\*.cs" />

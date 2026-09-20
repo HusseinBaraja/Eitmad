@@ -50,7 +50,7 @@
         <controls:ShellTitleBar x:Name="ReceptionistTitleBar" Grid.Row="0" Grid.Column="0"
                                 Title="الرئيسية"
                                 SearchPlaceholder="ابحث عن عروض الأسعار، العملاء، المنتجات، أو الطلبات..."
-                                SwitchAccountHint="تبديل إلى حساب المدير · Alt+K"
+                                SwitchAccountHint="تسجيل الخروج وتبديل الحساب · Alt+K"
                                 AccountSwitchRequested="SharedAccountSwitchRequested"
                                 ActionRequested="TitleBarActionRequested"
                                 SearchSubmitted="TitleBarSearchSubmitted" />

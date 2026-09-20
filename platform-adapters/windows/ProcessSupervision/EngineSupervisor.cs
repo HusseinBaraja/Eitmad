@@ -111,14 +111,36 @@ public sealed class EngineSupervisor : IAsyncDisposable
             cancellationToken);
     }
 
-    public Task<DesktopSessionState> SignInAsync(string username, string password, CancellationToken cancellationToken = default) =>
-        GetConnectedClient().SignInAsync(username, password, cancellationToken);
+    public async Task<DesktopSessionState> SignInAsync(string username, string password, CancellationToken cancellationToken = default)
+    {
+        var client = GetConnectedClient();
+        await ClearSessionSubscriptionsAsync().ConfigureAwait(false);
+        return await client.SignInAsync(username, password, cancellationToken).ConfigureAwait(false);
+    }
 
     public Task<DesktopSessionState?> GetSessionStateAsync(CancellationToken cancellationToken = default) =>
         GetConnectedClient().GetSessionStateAsync(cancellationToken);
 
-    public Task SignOutAsync(CancellationToken cancellationToken = default) =>
-        GetConnectedClient().SignOutAsync(cancellationToken);
+    public async Task SignOutAsync(CancellationToken cancellationToken = default)
+    {
+        var client = GetConnectedClient();
+        await ClearSessionSubscriptionsAsync().ConfigureAwait(false);
+        await client.SignOutAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task ClearSessionSubscriptionsAsync()
+    {
+        SupervisedEngineSubscription[] active;
+        lock (gate)
+        {
+            active = subscriptions.Values.ToArray();
+            subscriptions.Clear();
+        }
+        foreach (var subscription in active)
+        {
+            await subscription.DisposeAsync().ConfigureAwait(false);
+        }
+    }
 
     public Task<CommandResponseEnvelope> SubmitConfigurationPatchAsync(
         UpdateConfiguration patch,

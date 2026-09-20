@@ -16,6 +16,7 @@ public enum EngineIpcFailureKind
     SubscriptionUnsupported,
     ResyncRequired,
     SubscriptionBackpressure,
+    SessionChanged,
 }
 
 public sealed class EngineIpcException : Exception

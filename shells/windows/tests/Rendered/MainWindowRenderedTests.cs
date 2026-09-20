@@ -25,17 +25,17 @@ public sealed class MainWindowRenderedTests
     }
 
     [TestMethod]
-    public void PreviewSignInOpensReceptionistHomeAndAltKSwitchesToManager()
+    public void AuthenticatedReceptionistOpensReceptionSurfaceAndSwitchReturnsToSignIn()
     {
         WpfTestHost.Run(1338, 753, window =>
         {
+            var cleared = 0;
+            window.AccountSessionCleared += (_, _) => cleared++;
             var signIn = WpfTestHost.FindByName<FrameworkElement>(window, "SignInSurface");
             Assert.AreEqual(Visibility.Visible, signIn.Visibility);
             Assert.AreEqual(Visibility.Collapsed, WpfTestHost.FindByName<Grid>(window, "ResponsiveRoot").Visibility);
 
-            var receptionistAccount = WpfTestHost.FindByName<Button>(window, "ReceptionistAccountButton");
-            receptionistAccount.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            WpfTestHost.FindByName<Button>(window, "SignInButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.SignIn(window, "receptionist");
             WpfTestHost.CompleteLayout(window);
 
             Assert.AreEqual(Visibility.Collapsed, signIn.Visibility);
@@ -52,7 +52,9 @@ public sealed class MainWindowRenderedTests
             WpfTestHost.CompleteLayout(window);
 
             Assert.AreEqual(Visibility.Collapsed, WpfTestHost.FindByName<FrameworkElement>(window, "ReceptionistSurface").Visibility);
-            Assert.AreEqual(Visibility.Visible, WpfTestHost.FindByName<Grid>(window, "ResponsiveRoot").Visibility);
+            Assert.AreEqual(Visibility.Collapsed, WpfTestHost.FindByName<Grid>(window, "ResponsiveRoot").Visibility);
+            Assert.AreEqual(Visibility.Visible, signIn.Visibility);
+            Assert.AreEqual(1, cleared);
         }, showSignIn: true);
     }
 
@@ -61,8 +63,7 @@ public sealed class MainWindowRenderedTests
     {
         WpfTestHost.Run(780, 745, window =>
         {
-            WpfTestHost.FindByName<Button>(window, "ReceptionistAccountButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            WpfTestHost.FindByName<Button>(window, "SignInButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.SignIn(window, "receptionist");
             WpfTestHost.CompleteLayout(window);
 
             Assert.AreEqual(1, WpfTestHost.FindByName<UniformGrid>(window, "ReceptionistActionsGrid").Columns);

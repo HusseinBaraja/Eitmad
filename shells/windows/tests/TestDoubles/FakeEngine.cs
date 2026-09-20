@@ -20,6 +20,7 @@ internal sealed class FakeEngine : IEngineShellBridge
         null);
     private int queryCount;
     private int stopCount;
+    private DesktopSessionState? desktopSession;
 
     public event Action<EngineSupervisionSnapshot>? StateChanged;
 
@@ -61,6 +62,9 @@ internal sealed class FakeEngine : IEngineShellBridge
             }
         }
     }
+    public int SignOutCount { get; private set; }
+    public long? SessionExpiry { get; set; }
+    public Dictionary<string, (string Password, string Permission)> Accounts { get; } = [];
     public IReadOnlySet<string> SupportedCapabilities { get; init; } = new HashSet<string>
     {
         ProtocolIds.Capabilities.EitmadCapabilityConfigV1,
@@ -71,14 +75,42 @@ internal sealed class FakeEngine : IEngineShellBridge
 
     public bool SupportsCapability(string capability) => SupportedCapabilities.Contains(capability);
 
-    public Task<DesktopSessionState> SignInAsync(string username, string password, CancellationToken cancellationToken = default) =>
-        Task.FromException<DesktopSessionState>(new NotSupportedException());
+    public Task<DesktopSessionState> SignInAsync(string username, string password, CancellationToken cancellationToken = default)
+    {
+        if (!Accounts.TryGetValue(username, out var account) || account.Password != password)
+            return Task.FromException<DesktopSessionState>(new EngineIpcException(
+                EngineIpcFailureKind.AuthenticationRejected, "Synthetic rejection."));
+        desktopSession = new DesktopSessionState
+        {
+            Authorization = new AuthorizationContext
+            {
+                SessionId = Guid.NewGuid(),
+                TenantId = Guid.NewGuid(),
+                Scope = new ScopeRef { Kind = "organization", Id = Guid.NewGuid() },
+                Identity = new AuthenticatedIdentity
+                {
+                    PrincipalId = Guid.NewGuid(),
+                    PrincipalKind = PrincipalKind.User,
+                },
+            },
+            ExpiresAt = SessionExpiry ?? DateTimeOffset.UtcNow.AddHours(8).ToUnixTimeMilliseconds(),
+        };
+        CurrentPermission = account.Permission;
+        return Task.FromResult(desktopSession);
+    }
 
     public Task<DesktopSessionState?> GetSessionStateAsync(CancellationToken cancellationToken = default) =>
-        Task.FromException<DesktopSessionState?>(new NotSupportedException());
+        Task.FromResult(desktopSession);
 
-    public Task SignOutAsync(CancellationToken cancellationToken = default) =>
-        Task.FromException(new NotSupportedException());
+    public Task SignOutAsync(CancellationToken cancellationToken = default)
+    {
+        desktopSession = null;
+        CurrentPermission = null;
+        SignOutCount++;
+        return Task.CompletedTask;
+    }
+
+    private string? CurrentPermission { get; set; }
 
     public bool WasQueried(string kind)
     {
@@ -150,6 +182,13 @@ internal sealed class FakeEngine : IEngineShellBridge
 
         var result = query.Kind switch
         {
+            Query.PermissionsGetEffectiveKind => QueryResult.ForEffectivePermissions(new EffectivePermissions
+            {
+                PolicyVersion = 1,
+                Permissions = CurrentPermission is null
+                    ? []
+                    : [new EffectivePermission { Permission = CurrentPermission, Decision = PermissionDecision.Granted }],
+            }),
             Query.ConfigGetKind => QueryResult.ForConfiguration(Configuration(revision)),
             Query.SyncGetStatusKind => QueryResult.ForSyncStatus(new SyncStatus
             {

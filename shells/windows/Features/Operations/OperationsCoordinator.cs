@@ -24,6 +24,7 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
     private long observedGeneration = -1;
     private long sessionVersion;
     private bool connected;
+    private bool sessionActive;
     private bool disposed;
 
     public OperationsCoordinator(
@@ -48,6 +49,41 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
     }
 
     public Task StopAsync(CancellationToken cancellationToken = default) => engine.StopAsync(cancellationToken);
+
+    public async Task ActivateSessionAsync(CancellationToken cancellationToken = default)
+    {
+        long version;
+        lock (subscriptionStateLock)
+        {
+            sessionActive = true;
+            version = ++sessionVersion;
+        }
+        await RestoreSessionAsync(version, cancellationToken);
+    }
+
+    public async Task DeactivateSessionAsync(CancellationToken cancellationToken = default)
+    {
+        lock (subscriptionStateLock)
+        {
+            sessionActive = false;
+            sessionVersion++;
+        }
+        await sessionRefresh.WaitAsync(cancellationToken);
+        try
+        {
+            foreach (var subscription in subscriptions.Values)
+            {
+                await subscription.DisposeAsync();
+            }
+            subscriptions.Clear();
+            eventOrder.ResetAll();
+            dispatcher.Invoke(viewModel.ClearAccountState);
+        }
+        finally
+        {
+            sessionRefresh.Release();
+        }
+    }
 
     public async ValueTask DisposeAsync()
     {
@@ -93,8 +129,8 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
             {
                 sessionVersion++;
             }
-            restore = nowConnected && !connected;
-            invalidate = !nowConnected && wasConnected;
+            restore = sessionActive && nowConnected && !connected;
+            invalidate = sessionActive && !nowConnected && wasConnected;
             connected = nowConnected;
             version = sessionVersion;
         }
@@ -108,7 +144,7 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
 
     private bool IsSessionCurrent(long version)
     {
-        lock (subscriptionStateLock) return !disposed && connected && sessionVersion == version;
+        lock (subscriptionStateLock) return !disposed && sessionActive && connected && sessionVersion == version;
     }
 
     private async Task RestoreSessionAsync(long version, CancellationToken cancellationToken)

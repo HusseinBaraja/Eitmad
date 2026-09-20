@@ -53,6 +53,8 @@ sequenceDiagram
 
 The handshake is mandatory. The Windows shell advertises protocol `1.7` for desktop user sessions. Older protocol versions cannot dispatch product work. The process handshake proves possession of the supervised launch token and returns a Rust-owned device principal without user permissions. Typed `desktop-sign-in`, `desktop-session-state`, and `desktop-sign-out` messages require protocol `1.7`. Rust verifies a provisioned account password before returning a distinct user context and session expiry. Commands, queries, and subscriptions require that exact connection-bound user context and a live durable session. Sign-out, expiry, or revocation blocks later dispatch. The shell keeps the user context in memory and never stores credentials or tokens.
 
+A desktop session transition is also a client isolation boundary. Before sign-in or sign-out, the Windows adapter fails pending account requests, completes and removes active subscription queues, removes early-event buffers, and clears supervisor subscription registrations. The shell then clears account-specific snapshots before another surface becomes visible. A late response from the prior authorization is ignored because its pending request registration no longer exists. The next account creates fresh queries and subscriptions with its own Rust-returned authorization context.
+
 ## Subscription streams and payload ownership
 
 Rust currently defines streams for configuration, effective permissions, authorization-policy revisions, sync status/progress, update state, record-change metadata, background jobs, notifications, and asynchronous errors. Record events carry scope, record ID, schema ID, operation, revision, and change time—not encoded domain payloads. The consuming vertical must query its authoritative projection after a fresh or forced resync.
@@ -71,7 +73,7 @@ Replay is in-memory and valid only for the current engine generation. The broker
 
 ## Backpressure and drop policy
 
-The engine live channel and each Windows consumer queue hold 256 events. Configuration, permission, authorization-policy, sync, and update status are replaceable state: if their cursor is evicted during lag, the broker delivers the newest retained value. Background-job status, record changes, notifications, and errors are discrete and are never silently dropped because one scope can contain multiple independent records or jobs. If a discrete gap cannot be replayed, Rust sends `SubscriptionClosed` with reason `backpressure`; the Windows client fails the connection so supervision reconnects and resubscribes from the last processed cursor.
+The engine live channel and each Windows consumer queue hold 256 events. Configuration, permission, authorization-policy, sync, and update status are replaceable state: if their cursor is evicted during lag, the broker delivers the newest retained value. Background-job status, record changes, notifications, and errors are discrete and are never silently dropped because one scope can contain multiple independent records or jobs. If a discrete gap cannot be replayed, Rust sends `SubscriptionClosed` with reason `backpressure`; the Windows client completes that bounded stream with a typed failure so its owner can replace the stream and authoritative snapshot.
 
 Slow shells never block authoritative producers. Repeated backpressure therefore reduces shell availability, not engine correctness. A vertical must reduce event frequency or add a query/page boundary instead of increasing bounds ad hoc.
 

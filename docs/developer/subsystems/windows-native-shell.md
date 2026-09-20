@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Windows UI maintainers"
-last_verified: "2026-09-17"
+last_verified: "2026-09-20"
 review_triggers:
   - "Windows shell UI, state mapping, configuration patches, subscriptions, tray behavior, or ownership boundaries change"
 keywords:
@@ -45,6 +45,9 @@ keywords:
   - "أوامر العمل"
   - "WorkOrdersView"
   - "ملاحظات الطلب"
+  - "تسجيل الدخول"
+  - "انتهت الجلسة"
+  - "DesktopSessionController"
 ---
 
 # Extend the Windows operations shell safely
@@ -62,6 +65,14 @@ The Windows WPF application is an Arabic-first presentation adapter over the sup
 | Arabic presentation, RTL layout, view state, navigation, tray, and accessibility | `shells/windows` |
 
 The shell has no database client, configuration file writer, domain validator, permission decision, sync algorithm, update policy, secret reader, or external API client. `scripts/ci/check_repository_policy.py` scans shell source for these ownership violations; the Windows shell test project verifies presentation and adapter behavior. Add new product behavior to its Rust vertical, then expose a versioned typed contract.
+
+## Authenticated startup and account switching
+
+The application starts the supervised engine but does not start account queries or subscriptions before authentication. `SignInView` sends the entered username and password asynchronously through `DesktopSessionController` and clears the `PasswordBox` immediately. It shows Arabic pending, rejection, expired-session, missing-permission, and engine-connection states without displaying contract details or retaining the password.
+
+After Rust returns a user session, the controller queries `GetEffectivePermissions`. A granted `eitmad.permission.catalog.draft.write.v1` opens the Manager surface. A granted `eitmad.permission.quotation.draft.write.v1` opens the Receptionist surface. Usernames and shell state never select a role. An account with neither routing permission is signed out and remains on **تسجيل الدخول**.
+
+The title-bar account action and `Alt+K` now sign out instead of toggling preview roles. The shell hides both account surfaces first, disposes account subscriptions, clears configuration, reference markers, jobs, notifications, errors, and then requests Rust sign-out. `ShellLifetime` replaces the complete window and its presentation models before showing **تسجيل الدخول**, which removes temporary quotation, customer, catalog, editor, and selection state from the previous account. Session expiry or engine connection loss follows the same clearing path and shows **انتهت الجلسة. سجّل الدخول من جديد.** or **تعذر الاتصال بمحرك الاعتماد. تحقق من تشغيله ثم أعد المحاولة.** A replacement account always starts with fresh Rust-authorized queries and subscriptions.
 
 The furniture operations dashboard currently marks itself **وضع المعاينة**. Its sales, quotation, product, material, work-order, and department values are visual fixtures that define layout and Arabic copy only. They are not live records, they do not authorize an action, and they must not be treated as saved or synchronized state. Replace each fixture with a Rust-owned typed query and subscription before changing the footer to a connected state. Keep state-changing controls disabled or without commands until Rust supplies validation, ReBAC, scope, audit, storage, and idempotency behavior.
 
@@ -93,11 +104,16 @@ sequenceDiagram
     participant Engine as "Rust engine"
     UI->>Adapter: Create(command-line arguments)
     Adapter-->>UI: already-authorized typed bridge
-    UI->>Coordinator: Start shell session with bridge
+    UI->>Coordinator: Start engine supervision
     Coordinator->>Adapter: StartAsync()
     Adapter->>Engine: supervised process + negotiated typed IPC
     Engine-->>Adapter: LifecycleSnapshot Ready
     Adapter-->>Coordinator: Connected supervision snapshot
+    UI->>Engine: desktop-sign-in
+    Engine-->>UI: user session + expiry
+    UI->>Engine: GetEffectivePermissions
+    Engine-->>UI: effective permission set
+    UI->>Coordinator: activate account data session
     Coordinator->>Adapter: check negotiated capabilities
     Coordinator->>Engine: supported typed snapshot queries
     Engine-->>Coordinator: typed snapshots

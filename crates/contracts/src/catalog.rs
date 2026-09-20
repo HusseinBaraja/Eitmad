@@ -85,6 +85,8 @@ pub const PERMISSIONS: &[&str] = &[
     "eitmad.permission.update.report-installer.v1",
     "eitmad.permission.reference-marker.read.v1",
     "eitmad.permission.reference-marker.write.v1",
+    "eitmad.permission.catalog.draft.write.v1",
+    "eitmad.permission.quotation.draft.write.v1",
 ];
 
 pub const ERROR_CODES: &[&str] = &[

@@ -144,6 +144,8 @@ public enum ProtocolIds {
         public static let eitmadPermissionUpdateReportInstallerV1 = "eitmad.permission.update.report-installer.v1"
         public static let eitmadPermissionReferenceMarkerReadV1 = "eitmad.permission.reference-marker.read.v1"
         public static let eitmadPermissionReferenceMarkerWriteV1 = "eitmad.permission.reference-marker.write.v1"
+        public static let eitmadPermissionCatalogDraftWriteV1 = "eitmad.permission.catalog.draft.write.v1"
+        public static let eitmadPermissionQuotationDraftWriteV1 = "eitmad.permission.quotation.draft.write.v1"
     }
 
     public enum ConfigKeys {

@@ -72,6 +72,7 @@ public sealed class OperationsCoordinatorTests
         await coordinator.StartAsync();
 
         engine.Connect();
+        await coordinator.ActivateSessionAsync();
         await TestData.Eventually(() => engine.QueryCount >= 4 && engine.SubscriptionCount == 4);
         engine.Disconnect();
         engine.Connect();
@@ -89,6 +90,7 @@ public sealed class OperationsCoordinatorTests
         await using var coordinator = new OperationsCoordinator(engine, model, new ImmediateDispatcher());
         await coordinator.StartAsync();
         engine.Connect();
+        await coordinator.ActivateSessionAsync();
         await TestData.Eventually(() => engine.QueryCount >= 4);
 
         engine.SignalResync(ProtocolIds.Subscriptions.EitmadSyncStatusSubscribeV1);
@@ -105,6 +107,7 @@ public sealed class OperationsCoordinatorTests
         await using var coordinator = new OperationsCoordinator(engine, model, new ImmediateDispatcher());
         await coordinator.StartAsync();
         engine.Connect();
+        await coordinator.ActivateSessionAsync();
         await TestData.Eventually(() => engine.SubscriptionCount == 4 && !model.ShowConnectionBanner);
         model.SelectedLocale = "en-US";
         model.ReferenceMarkerLabel = "مسودة لم تحفظ";
@@ -132,6 +135,7 @@ public sealed class OperationsCoordinatorTests
         await using var coordinator = new OperationsCoordinator(engine, model, new ImmediateDispatcher());
         await coordinator.StartAsync();
         engine.Connect();
+        await coordinator.ActivateSessionAsync();
 
         await TestData.Eventually(() => !model.ShowConnectionBanner && model.SyncCard.Value == "تعذرت");
     }
@@ -144,6 +148,7 @@ public sealed class OperationsCoordinatorTests
         await using var coordinator = new OperationsCoordinator(engine, model, new ImmediateDispatcher());
         await coordinator.StartAsync();
         engine.Connect();
+        await coordinator.ActivateSessionAsync();
         await TestData.Eventually(() => engine.SubscriptionCount == 4 && !model.ShowConnectionBanner);
 
         await engine.StopAsync();
@@ -167,6 +172,7 @@ public sealed class OperationsCoordinatorTests
         await using var coordinator = new OperationsCoordinator(engine, model, new ImmediateDispatcher());
         await coordinator.StartAsync();
         engine.Connect();
+        var activation = coordinator.ActivateSessionAsync();
         await TestData.Eventually(() => engine.QueryCount >= 4);
 
         await engine.StopAsync();
@@ -174,6 +180,7 @@ public sealed class OperationsCoordinatorTests
         engine.ConfigurationRevision = 2;
         engine.Connect();
         releaseOldQuery.SetResult();
+        await activation;
 
         await TestData.Eventually(() => engine.QueryCount >= 8 && model.ConfigRevision == 2 && !model.ShowConnectionBanner);
         Assert.AreEqual(2L, model.ConfigRevision);
@@ -195,6 +202,7 @@ public sealed class OperationsCoordinatorTests
         await coordinator.StartAsync();
 
         engine.Connect();
+        await coordinator.ActivateSessionAsync();
 
         await TestData.Eventually(() => engine.QueryCount == 2 && engine.SubscriptionCount == 2);
         Assert.IsFalse(engine.WasQueried(Query.SyncGetStatusKind));
@@ -213,6 +221,7 @@ public sealed class OperationsCoordinatorTests
         await coordinator.StartAsync();
 
         engine.Connect();
+        await coordinator.ActivateSessionAsync();
 
         await TestData.Eventually(() => engine.QueryCount >= 4);
         Assert.AreEqual(-1L, model.ConfigRevision);

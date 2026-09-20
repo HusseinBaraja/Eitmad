@@ -18,7 +18,7 @@ keywords:
 
 # Extend persistent identity safely
 
-Rust owns stable identity IDs and their local persistence. Storage version 5 adds device, user, account, tenant, organization, workspace, and session records in `crates/storage/src/identity.rs`; native shells may assert synthetic development identities but do not own or write this topology.
+Rust owns stable identity IDs and their local persistence. Storage version 5 adds device, user, account, tenant, organization, workspace, and session records in `crates/storage/src/identity.rs`; native shells do not assert or write this topology.
 
 ## Model and ownership
 
@@ -33,6 +33,8 @@ A persisted session may be `Online` or `Offline`. Connectivity does not bypass e
 No bearer token, refresh token, or password is stored in the identity tables. Storage version 10 adds `desktop_accounts` for separate, provisioned Manager and Receptionist accounts and their Argon2 password verifiers. The installation owner is a provisioning identity; the process handshake projects a device principal without its owner relation. `DesktopAuthenticator` verifies a password, then issues a separate eight-hour durable user session. Offline sign-in requires the password. Session validation checks the account, device, tenant, scope, expiry, and closure before IPC dispatch. Sign-in or sign-out commits the session change and a user-attributed audit record in one transaction.
 
 `AuthorityStore::provision_desktop_account` is a trusted Rust import boundary for a verified account. It rejects the installation owner's user ID, revokes prior sessions when a verifier is replaced, and records the provisioning actor in audit. The current engine does not yet import accounts from the server control plane; a new installation has no ordinary sign-in account until a trusted importer provisions one.
+
+Manager and Receptionist relationships produce distinct effective routing permissions. `eitmad.permission.catalog.draft.write.v1` selects the existing Manager surface, while `eitmad.permission.quotation.draft.write.v1` selects the existing Receptionist surface. The WPF shell reads these Rust-returned permissions after sign-in. It does not infer a role from a username or accept a shell-owned role switch.
 
 ## Audit attribution
 

@@ -392,6 +392,32 @@ public sealed class OperationsViewModel : ObservableObject
         ShowUnavailable("تعذر تحديث حالة المحرك", "أعد الاتصال بالمحرك قبل الحفظ.", "Warning");
     }
 
+    public void ClearAccountState()
+    {
+        lastEventTime.Clear();
+        configRevision = -1;
+        localeEdited = false;
+        markerEdited = false;
+        referenceMarkersAvailable = false;
+        referenceMarkerRevision = -1;
+        IsSavingConfiguration = false;
+        IsSavingReferenceMarker = false;
+        Configuration.Clear();
+        Jobs.Clear();
+        Activity.Clear();
+        ReferenceMarkers.Clear();
+        Set(ref selectedLocale, "ar-YE", nameof(SelectedLocale));
+        Set(ref referenceMarkerLabel, "مرجع REF-١٢", nameof(ReferenceMarkerLabel));
+        ReferenceMarkerStatus = "بانتظار جلسة مستخدم";
+        SyncCard = new("المزامنة", "بانتظار تسجيل الدخول", "لا توجد حالة تخص حسابًا حاليًا", "Muted");
+        UpdateCard = new("التحديثات", "بانتظار تسجيل الدخول", "لا توجد حالة تخص حسابًا حاليًا", "Muted");
+        ShowUnavailable("يلزم تسجيل الدخول", "لن تظهر بيانات أي حساب قبل إنشاء جلسة جديدة.", "Muted");
+        Raise(nameof(ConfigRevision));
+        Raise(nameof(ConfigurationRevisionLabel));
+        SaveConfigurationCommand.Refresh();
+        SaveReferenceMarkerCommand.Refresh();
+    }
+
     private async Task SaveConfigurationAsync()
     {
         if (SubmitConfigurationPatch is null || !CanSaveConfiguration)

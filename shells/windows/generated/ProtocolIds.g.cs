@@ -157,6 +157,8 @@ public static class ProtocolIds
         public const string EitmadPermissionUpdateReportInstallerV1 = "eitmad.permission.update.report-installer.v1";
         public const string EitmadPermissionReferenceMarkerReadV1 = "eitmad.permission.reference-marker.read.v1";
         public const string EitmadPermissionReferenceMarkerWriteV1 = "eitmad.permission.reference-marker.write.v1";
+        public const string EitmadPermissionCatalogDraftWriteV1 = "eitmad.permission.catalog.draft.write.v1";
+        public const string EitmadPermissionQuotationDraftWriteV1 = "eitmad.permission.quotation.draft.write.v1";
     }
 
     public static class ConfigKeys

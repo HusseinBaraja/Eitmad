@@ -16,17 +16,29 @@ public partial class App : System.Windows.Application
         var bridge = WindowsEngineBridge.Create(e.Args);
         var viewModel = new OperationsViewModel();
         var coordinator = new OperationsCoordinator(bridge, viewModel, new WpfShellDispatcher(Dispatcher));
-        var window = new MainWindow(viewModel);
-        lifetime = new ShellLifetime(this, window, coordinator);
+        var sessions = new Features.Authentication.DesktopSessionController(bridge, coordinator);
+        var window = CreateWindow(viewModel, sessions);
+        lifetime = new ShellLifetime(this, window, sessions);
         lifetime.Start();
+
+        MainWindow CreateWindow(OperationsViewModel model, Features.Authentication.DesktopSessionController controller)
+        {
+            var created = new MainWindow(model, controller);
+            created.AccountSessionCleared += (_, _) =>
+            {
+                if (lifetime is not null) lifetime.ReplaceWindow(CreateWindow(model, controller));
+            };
+            return created;
+        }
 
         try
         {
-            await coordinator.StartAsync();
+            await sessions.StartAsync();
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidOperationException)
         {
             viewModel.ObserveStartupFailure(error.Message);
+            window.SignInSurface.ShowConnectionFailure();
         }
     }
 

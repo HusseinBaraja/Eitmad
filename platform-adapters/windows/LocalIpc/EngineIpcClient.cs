@@ -14,6 +14,7 @@ public sealed class EngineIpcClient : IAsyncDisposable
 
     private readonly NamedPipeClientStream pipe;
     private readonly SemaphoreSlim writeLock = new(1, 1);
+    private readonly SemaphoreSlim sessionChangeLock = new(1, 1);
     private readonly ConcurrentDictionary<Guid, TaskCompletionSource<IpcServerMessage>> pending = new();
     private readonly ConcurrentDictionary<Guid, EngineSubscription> subscriptions = new();
     private readonly ConcurrentDictionary<Guid, ConcurrentQueue<EventEnvelope>> earlySubscriptionEvents = new();
@@ -125,21 +126,31 @@ public sealed class EngineIpcClient : IAsyncDisposable
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(username);
         ArgumentException.ThrowIfNullOrWhiteSpace(password);
-        var requestId = Guid.NewGuid();
-        var response = await SendFrameAsync(
-            IpcClientMessage.IpcDesktopSignInKind,
-            new DesktopSignInRequest { RequestId = requestId, CorrelationId = Guid.NewGuid(), Username = username, Password = password },
-            requestId, DefaultRequestTimeout, cancellationToken, commandOutcomeUnknown: false).ConfigureAwait(false);
-        EnsureKind(response, IpcServerMessage.IpcDesktopSessionResponseKind);
-        var result = response.AsIpcDesktopSessionResponse()
-            ?? throw ProtocolViolation("The engine returned an invalid desktop session response.");
-        if (result.Status != DesktopSessionStatus.Active || result.State?.Authorization is null)
+        await sessionChangeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            throw new EngineIpcException(EngineIpcFailureKind.AuthenticationRejected,
-                "The engine rejected desktop sign-in.", result.Error);
+            ClearSessionActivity();
+            var requestId = Guid.NewGuid();
+            var response = await SendFrameAsync(
+                IpcClientMessage.IpcDesktopSignInKind,
+                new DesktopSignInRequest { RequestId = requestId, CorrelationId = Guid.NewGuid(), Username = username, Password = password },
+                requestId, DefaultRequestTimeout, cancellationToken, commandOutcomeUnknown: false).ConfigureAwait(false);
+            EnsureKind(response, IpcServerMessage.IpcDesktopSessionResponseKind);
+            var result = response.AsIpcDesktopSessionResponse()
+                ?? throw ProtocolViolation("The engine returned an invalid desktop session response.");
+            if (result.Status != DesktopSessionStatus.Active || result.State?.Authorization is null)
+            {
+                Authorization = processAuthorization;
+                throw new EngineIpcException(EngineIpcFailureKind.AuthenticationRejected,
+                    "The engine rejected desktop sign-in.", result.Error);
+            }
+            Authorization = result.State.Authorization;
+            return result.State;
         }
-        Authorization = result.State.Authorization;
-        return result.State;
+        finally
+        {
+            sessionChangeLock.Release();
+        }
     }
 
     public async Task<DesktopSessionState?> GetSessionStateAsync(CancellationToken cancellationToken = default)
@@ -149,18 +160,43 @@ public sealed class EngineIpcClient : IAsyncDisposable
         if (result.Status == DesktopSessionStatus.Failed)
             throw new EngineIpcException(EngineIpcFailureKind.AuthenticationRejected,
                 "The engine could not read the desktop session.", result.Error);
+        if (result.State?.Authorization is null)
+        {
+            ClearSessionActivity();
+        }
         Authorization = result.State?.Authorization ?? processAuthorization;
         return result.State;
     }
 
     public async Task SignOutAsync(CancellationToken cancellationToken = default)
     {
-        var result = await SendDesktopSessionRequestAsync(IpcClientMessage.IpcDesktopSignOutKind, cancellationToken)
-            .ConfigureAwait(false);
-        if (result.Status != DesktopSessionStatus.SignedOut)
-            throw new EngineIpcException(EngineIpcFailureKind.AuthenticationRejected,
-                "The engine could not close the desktop session.", result.Error);
-        Authorization = processAuthorization;
+        await sessionChangeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            ClearSessionActivity();
+            var result = await SendDesktopSessionRequestAsync(IpcClientMessage.IpcDesktopSignOutKind, cancellationToken)
+                .ConfigureAwait(false);
+            if (result.Status != DesktopSessionStatus.SignedOut)
+                throw new EngineIpcException(EngineIpcFailureKind.AuthenticationRejected,
+                    "The engine could not close the desktop session.", result.Error);
+            Authorization = processAuthorization;
+        }
+        finally
+        {
+            sessionChangeLock.Release();
+        }
+    }
+
+    internal void ClearSessionActivity()
+    {
+        var error = new EngineIpcException(
+            EngineIpcFailureKind.SessionChanged,
+            "The desktop session changed before the operation completed.");
+        FailPending(error);
+        lock (subscriptionHandoff)
+        {
+            earlySubscriptionEvents.Clear();
+        }
     }
 
     private async Task<DesktopSessionResponse> SendDesktopSessionRequestAsync(string kind, CancellationToken cancellationToken)
@@ -461,7 +497,7 @@ public sealed class EngineIpcClient : IAsyncDisposable
                     {
                         subscription.Complete(error);
                     }
-                    throw error;
+                    continue;
                 }
                 var requestId = RequestIdOf(message);
                 if (requestId is { } id && pending.TryRemove(id, out var completion))
@@ -568,6 +604,7 @@ public sealed class EngineIpcClient : IAsyncDisposable
         }
         lifetime.Dispose();
         writeLock.Dispose();
+        sessionChangeLock.Dispose();
         foreach (var subscription in subscriptions.Values)
         {
             subscription.Complete();
