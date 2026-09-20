@@ -1,4 +1,5 @@
 using Eitmad.Contracts;
+using Eitmad.Platform.Windows.LocalIpc;
 using Eitmad.Platform.Windows.ProcessSupervision;
 using Eitmad.Platform.Windows.Shell;
 
@@ -34,6 +35,10 @@ internal sealed class FakeEngine : IEngineShellBridge
     }
 
     public bool FailConfigurationQuery { get; init; }
+    public bool ThrowQueries { get; set; }
+    public long ConfigurationRevision { get; set; } = 1;
+    public Func<Query, Task>? QueryBarrier { get; set; }
+    public Action<Subscription, FakeSubscription>? SubscribeHook { get; set; }
     public int QueryCount => Volatile.Read(ref queryCount);
     public int SubscriptionCount
     {
@@ -107,17 +112,22 @@ internal sealed class FakeEngine : IEngineShellBridge
         return Task.CompletedTask;
     }
 
-    public Task<QueryResponseEnvelope> QueryAsync(Query query, CancellationToken cancellationToken = default)
+    public async Task<QueryResponseEnvelope> QueryAsync(Query query, CancellationToken cancellationToken = default)
     {
+        var revision = ConfigurationRevision;
         Interlocked.Increment(ref queryCount);
         lock (queriedKinds)
         {
             queriedKinds.Add(query.Kind);
         }
 
+        if (QueryBarrier is { } barrier) await barrier(query);
+        if (ThrowQueries)
+            throw new EngineIpcException(EngineIpcFailureKind.ConnectionLost, "Synthetic IPC failure.");
+
         if (FailConfigurationQuery && query.Kind == Query.ConfigGetKind)
         {
-            return Task.FromResult(new QueryResponseEnvelope
+            return new QueryResponseEnvelope
             {
                 RequestId = Guid.NewGuid(),
                 CorrelationId = Guid.NewGuid(),
@@ -126,12 +136,12 @@ internal sealed class FakeEngine : IEngineShellBridge
                     Status = CommandOutcomeStatus.Failed,
                     Payload = new QueryResult { Code = "CONFIG_UNAVAILABLE" },
                 },
-            });
+            };
         }
 
         var result = query.Kind switch
         {
-            Query.ConfigGetKind => QueryResult.ForConfiguration(Configuration()),
+            Query.ConfigGetKind => QueryResult.ForConfiguration(Configuration(revision)),
             Query.SyncGetStatusKind => QueryResult.ForSyncStatus(new SyncStatus
             {
                 Kind = SyncStatusKind.Current,
@@ -145,12 +155,12 @@ internal sealed class FakeEngine : IEngineShellBridge
             Query.ReferenceMarkerListKind => QueryResult.ForReferenceMarkers(new ReferenceMarkerPage { Items = [] }),
             _ => throw new InvalidOperationException("Unexpected fake query."),
         };
-        return Task.FromResult(new QueryResponseEnvelope
+        return new QueryResponseEnvelope
         {
             RequestId = Guid.NewGuid(),
             CorrelationId = Guid.NewGuid(),
             Outcome = new QueryOutcome { Status = CommandOutcomeStatus.Succeeded, Payload = result },
-        });
+        };
     }
 
     public Task<CommandResponseEnvelope> SubmitConfigurationPatchAsync(
@@ -199,11 +209,21 @@ internal sealed class FakeEngine : IEngineShellBridge
         Subscription subscription,
         CancellationToken cancellationToken = default)
     {
-        var item = new FakeSubscription();
+        FakeSubscription? item = null;
+        item = new FakeSubscription(() =>
+        {
+            lock (stateLock)
+            {
+                if (subscriptions.TryGetValue(subscription.Kind, out var current) && ReferenceEquals(current, item))
+                    subscriptions.Remove(subscription.Kind);
+            }
+        });
         lock (stateLock)
         {
             subscriptions.Add(subscription.Kind, item);
         }
+
+        SubscribeHook?.Invoke(subscription, item);
 
         return Task.FromResult<IEngineSubscription>(item);
     }
@@ -288,9 +308,9 @@ internal sealed class FakeEngine : IEngineShellBridge
         }
     }
 
-    private static ConfigSnapshot Configuration() => new()
+    private static ConfigSnapshot Configuration(long revision) => new()
     {
-        Revision = 1,
+        Revision = revision,
         SchemaVersion = 1,
         Scope = new ScopeRef { Kind = "organization", Id = Guid.NewGuid() },
         Entries =

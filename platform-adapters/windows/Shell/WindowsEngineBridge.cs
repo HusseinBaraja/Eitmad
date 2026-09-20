@@ -1,4 +1,5 @@
 using Eitmad.Contracts;
+using Eitmad.Platform.Windows.LocalIpc;
 using Eitmad.Platform.Windows.ProcessSupervision;
 
 namespace Eitmad.Platform.Windows.Shell;
@@ -78,9 +79,35 @@ public sealed class WindowsEngineBridge : IEngineShellBridge
     public async Task<IEngineSubscription> SubscribeAsync(
         Subscription subscription,
         CancellationToken cancellationToken = default) =>
-        await supervisor.SubscribeAsync(subscription, cancellationToken);
+        new ShellSubscription(supervisor, await supervisor.SubscribeAsync(subscription, cancellationToken));
 
     public ValueTask DisposeAsync() => supervisor.DisposeAsync();
+
+    private sealed class ShellSubscription(EngineSupervisor supervisor, SupervisedEngineSubscription inner)
+        : IEngineSubscription
+    {
+        private int disposed;
+
+        public event Action? ResyncRequired
+        {
+            add => inner.ResyncRequired += value;
+            remove => inner.ResyncRequired -= value;
+        }
+
+        public IAsyncEnumerable<EventEnvelope> ReadAllAsync(CancellationToken cancellationToken = default) =>
+            inner.ReadAllAsync(cancellationToken);
+
+        public void Acknowledge(EventEnvelope delivered) => inner.Acknowledge(delivered);
+
+        public async ValueTask DisposeAsync()
+        {
+            if (Interlocked.Exchange(ref disposed, 1) == 0)
+            {
+                try { await supervisor.UnsubscribeAsync(inner); }
+                catch (EngineIpcException) { }
+            }
+        }
+    }
 
     private static string ResolveEnginePath(IReadOnlyList<string> arguments)
     {

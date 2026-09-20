@@ -20,7 +20,7 @@ public enum EngineIpcFailureKind
 
 public sealed class EngineIpcException : Exception
 {
-    internal EngineIpcException(
+    public EngineIpcException(
         EngineIpcFailureKind kind,
         string message,
         ContractError? contractError = null,

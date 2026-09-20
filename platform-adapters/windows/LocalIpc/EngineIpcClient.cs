@@ -17,6 +17,7 @@ public sealed class EngineIpcClient : IAsyncDisposable
     private readonly ConcurrentDictionary<Guid, TaskCompletionSource<IpcServerMessage>> pending = new();
     private readonly ConcurrentDictionary<Guid, EngineSubscription> subscriptions = new();
     private readonly ConcurrentDictionary<Guid, ConcurrentQueue<EventEnvelope>> earlySubscriptionEvents = new();
+    private readonly object subscriptionHandoff = new();
     private readonly CancellationTokenSource lifetime = new();
     private readonly Task reader;
     private bool disposed;
@@ -196,16 +197,27 @@ public sealed class EngineIpcClient : IAsyncDisposable
             }
 
             var subscription = new EngineSubscription(subscriptionId, streamCursor, resumed);
-            if (!subscriptions.TryAdd(subscriptionId, subscription))
+            lock (subscriptionHandoff)
             {
-                throw ProtocolViolation("The engine reused an active subscription identifier.");
-            }
-            while (earlyEvents.TryDequeue(out var delivered))
-            {
-                if (delivered.SubscriptionId != subscriptionId || !subscription.TryPublish(delivered))
+                if (!subscriptions.TryAdd(subscriptionId, subscription))
                 {
-                    throw ProtocolViolation("The engine emitted an invalid early subscription event.");
+                    throw ProtocolViolation("The engine reused an active subscription identifier.");
                 }
+                try
+                {
+                    while (earlyEvents.TryDequeue(out var delivered))
+                    {
+                        if (delivered.SubscriptionId != subscriptionId || !subscription.TryPublish(delivered))
+                            throw ProtocolViolation("The engine emitted an invalid early subscription event.");
+                    }
+                }
+                catch
+                {
+                    subscriptions.TryRemove(subscriptionId, out _);
+                    subscription.Complete();
+                    throw;
+                }
+                earlySubscriptionEvents.TryRemove(request.CorrelationId, out _);
             }
 
             return subscription;
@@ -362,21 +374,21 @@ public sealed class EngineIpcClient : IAsyncDisposable
                 {
                     var delivered = message.AsIpcEvent()
                         ?? throw ProtocolViolation("The engine emitted an invalid event frame.");
-                    if (!subscriptions.TryGetValue(delivered.SubscriptionId, out var subscription))
+                    lock (subscriptionHandoff)
                     {
-                        if (earlySubscriptionEvents.TryGetValue(delivered.CorrelationId, out var earlyEvents)
-                            && earlyEvents.Count < EngineSubscription.Capacity)
+                        if (earlySubscriptionEvents.TryGetValue(delivered.CorrelationId, out var earlyEvents))
                         {
+                            if (earlyEvents.Count >= EngineSubscription.Capacity)
+                                throw ProtocolViolation("The engine exceeded the early subscription event capacity.");
                             earlyEvents.Enqueue(delivered);
                             continue;
                         }
-                        throw ProtocolViolation("The engine emitted an event for an unknown subscription.");
-                    }
-                    if (!subscription.TryPublish(delivered))
-                    {
-                        throw new EngineIpcException(
-                            EngineIpcFailureKind.SubscriptionBackpressure,
-                            "The shell event consumer exceeded its bounded subscription queue.");
+                        if (!subscriptions.TryGetValue(delivered.SubscriptionId, out var subscription))
+                            throw ProtocolViolation("The engine emitted an event for an unknown subscription.");
+                        if (!subscription.TryPublish(delivered))
+                            throw new EngineIpcException(
+                                EngineIpcFailureKind.SubscriptionBackpressure,
+                                "The shell event consumer exceeded its bounded subscription queue.");
                     }
                     continue;
                 }

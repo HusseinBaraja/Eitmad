@@ -22,6 +22,7 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
     private readonly object subscriptionStateLock = new();
     private readonly HashSet<string> unsupportedStreams = [];
     private long observedGeneration = -1;
+    private long sessionVersion;
     private bool connected;
     private bool disposed;
 
@@ -58,11 +59,13 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
         disposed = true;
         lifetime.Cancel();
         engine.StateChanged -= ObserveSupervision;
+        await sessionRefresh.WaitAsync();
         foreach (var subscription in subscriptions.Values)
         {
             await subscription.DisposeAsync();
         }
         subscriptions.Clear();
+        sessionRefresh.Release();
         sessionRefresh.Dispose();
         lifetime.Dispose();
         await engine.DisposeAsync();
@@ -70,45 +73,65 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
 
     private void ObserveSupervision(EngineSupervisionSnapshot snapshot)
     {
+        bool restore;
+        bool nowConnected;
+        bool invalidate;
+        long version;
         lock (subscriptionStateLock)
         {
+            var wasConnected = connected;
             if (snapshot.Generation != observedGeneration)
             {
                 observedGeneration = snapshot.Generation;
                 unsupportedStreams.Clear();
+                sessionVersion++;
+                connected = false;
             }
+            nowConnected = snapshot.IpcHealth == EngineIpcHealthState.Connected
+                && snapshot.LastLifecycle?.Ready == true;
+            if (!nowConnected && connected)
+            {
+                sessionVersion++;
+            }
+            restore = nowConnected && !connected;
+            invalidate = !nowConnected && wasConnected;
+            connected = nowConnected;
+            version = sessionVersion;
         }
-        dispatcher.Invoke(() => viewModel.ObserveSupervision(snapshot));
-        var nowConnected = snapshot.IpcHealth == EngineIpcHealthState.Connected
-            && snapshot.LastLifecycle?.Ready == true;
-        if (!nowConnected)
+        dispatcher.Invoke(() =>
         {
-            connected = false;
-            return;
-        }
-
-        if (!connected)
-        {
-            connected = true;
-            _ = RestoreSessionAsync(lifetime.Token);
-        }
+            viewModel.ObserveSupervision(snapshot);
+            if (invalidate) viewModel.ObserveSnapshotsUnavailable();
+        });
+        if (restore) _ = RestoreSessionAsync(version, lifetime.Token);
     }
 
-    private async Task RestoreSessionAsync(CancellationToken cancellationToken)
+    private bool IsSessionCurrent(long version)
     {
-        await sessionRefresh.WaitAsync(cancellationToken);
+        lock (subscriptionStateLock) return !disposed && connected && sessionVersion == version;
+    }
+
+    private async Task RestoreSessionAsync(long version, CancellationToken cancellationToken)
+    {
+        try { await sessionRefresh.WaitAsync(cancellationToken); }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { return; }
         try
         {
-            await RefreshSnapshotsAsync(cancellationToken);
-            dispatcher.Invoke(viewModel.MarkSnapshotsCurrent);
-            await EnsureSubscriptionsAsync(cancellationToken);
+            if (!IsSessionCurrent(version)) return;
+            foreach (var subscription in subscriptions.Values) await subscription.DisposeAsync();
+            subscriptions.Clear();
+            eventOrder.ResetAll();
+            await EnsureSubscriptionsAsync(version, cancellationToken);
+            if (!IsSessionCurrent(version)) return;
+            if (await RefreshSnapshotsAsync(version, cancellationToken) && IsSessionCurrent(version))
+                dispatcher.Invoke(() => { if (IsSessionCurrent(version)) viewModel.MarkSnapshotsCurrent(); });
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
         }
         catch (EngineIpcException)
         {
-            connected = false;
+            if (IsSessionCurrent(version)) dispatcher.Invoke(viewModel.ObserveSnapshotsUnavailable);
         }
         finally
         {
@@ -116,7 +139,7 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
         }
     }
 
-    private async Task EnsureSubscriptionsAsync(CancellationToken cancellationToken)
+    private async Task EnsureSubscriptionsAsync(long version, CancellationToken cancellationToken)
     {
         var desired = new (string Stream, string Capability, Subscription Contract)[]
         {
@@ -138,13 +161,13 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
             }
             try
             {
-                await EnsureSubscriptionAsync(item.Stream, item.Contract, cancellationToken);
+                await EnsureSubscriptionAsync(item.Stream, item.Contract, version, cancellationToken);
             }
             catch (EngineIpcException error) when (error.Kind == EngineIpcFailureKind.SubscriptionUnsupported)
             {
                 lock (subscriptionStateLock)
                 {
-                    unsupportedStreams.Add(item.Stream);
+                    if (sessionVersion == version) unsupportedStreams.Add(item.Stream);
                 }
             }
         }
@@ -153,6 +176,7 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
     private async Task EnsureSubscriptionAsync(
         string stream,
         Subscription contract,
+        long version,
         CancellationToken cancellationToken)
     {
         if (subscriptions.ContainsKey(stream))
@@ -161,31 +185,39 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
         }
 
         var subscription = await engine.SubscribeAsync(contract, cancellationToken);
-        subscription.ResyncRequired += () => _ = ResynchronizeAsync(stream, lifetime.Token);
+        if (!IsSessionCurrent(version))
+        {
+            await subscription.DisposeAsync();
+            return;
+        }
+        subscription.ResyncRequired += () => _ = ResynchronizeAsync(stream, version, lifetime.Token);
         subscriptions.Add(stream, subscription);
-        _ = PumpAsync(stream, subscription, lifetime.Token);
+        _ = PumpAsync(stream, subscription, version, lifetime.Token);
     }
 
     private async Task PumpAsync(
         string stream,
         IEngineSubscription subscription,
+        long version,
         CancellationToken cancellationToken)
     {
         try
         {
             await foreach (var delivered in subscription.ReadAllAsync(cancellationToken))
             {
-                if (!eventOrder.TryAccept(stream, delivered))
+                await sessionRefresh.WaitAsync(cancellationToken);
+                try
                 {
-                    continue;
+                    if (!IsSessionCurrent(version) || !eventOrder.TryAccept(stream, delivered)) continue;
+                    var contract = DecodeEvent(delivered);
+                    dispatcher.Invoke(() => ApplyEvent(contract, delivered.OccurredAt));
+                    subscription.Acknowledge(delivered);
+                    if (contract.AsReferenceMarkerChangedEvent() is not null)
+                        await RefreshReferenceMarkersAsync(version, cancellationToken);
                 }
-
-                var contract = DecodeEvent(delivered);
-                dispatcher.Invoke(() => ApplyEvent(contract, delivered.OccurredAt));
-                subscription.Acknowledge(delivered);
-                if (contract.AsReferenceMarkerChangedEvent() is not null)
+                finally
                 {
-                    await RefreshReferenceMarkersAsync(cancellationToken);
+                    sessionRefresh.Release();
                 }
             }
         }
@@ -194,34 +226,36 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
         }
         catch (EngineIpcException)
         {
-            connected = false;
+            if (IsSessionCurrent(version)) dispatcher.Invoke(viewModel.ObserveSnapshotsUnavailable);
         }
     }
 
-    private async Task ResynchronizeAsync(string stream, CancellationToken cancellationToken)
+    private async Task ResynchronizeAsync(string stream, long version, CancellationToken cancellationToken)
     {
-        eventOrder.Reset(stream);
-        dispatcher.Invoke(() => viewModel.BeginResynchronization(stream));
+        try { await sessionRefresh.WaitAsync(cancellationToken); }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { return; }
         try
         {
+            if (!IsSessionCurrent(version)) return;
+            eventOrder.Reset(stream);
+            dispatcher.Invoke(() => viewModel.BeginResynchronization(stream));
             if (stream is "configuration" or "sync" or "update" or "reference-markers")
             {
-                await RefreshSnapshotsAsync(cancellationToken);
+                if (await RefreshSnapshotsAsync(version, cancellationToken) && IsSessionCurrent(version))
+                    dispatcher.Invoke(() => { if (IsSessionCurrent(version)) viewModel.MarkSnapshotsCurrent(); });
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return;
         }
         catch (EngineIpcException)
         {
-            connected = false;
+            if (IsSessionCurrent(version)) dispatcher.Invoke(viewModel.ObserveSnapshotsUnavailable);
         }
-
-        dispatcher.Invoke(viewModel.MarkSnapshotsCurrent);
+        finally { sessionRefresh.Release(); }
     }
 
-    private async Task RefreshSnapshotsAsync(CancellationToken cancellationToken)
+    private async Task<bool> RefreshSnapshotsAsync(long version, CancellationToken cancellationToken)
     {
         var configurationTask = engine.QueryAsync(Query.ForConfigGet(new GetConfiguration()), cancellationToken);
         var syncTask = engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilitySyncV1)
@@ -237,10 +271,20 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
         if (syncTask is not null) pending.Add(syncTask);
         if (updateTask is not null) pending.Add(updateTask);
         await Task.WhenAll(pending);
+        if (!IsSessionCurrent(version)) return false;
         var configuration = await configurationTask;
         var referenceMarkers = await referenceMarkersTask;
+        var current = configuration.Outcome.Status == CommandOutcomeStatus.Succeeded
+            && configuration.Outcome.Payload.AsConfiguration() is not null
+            && referenceMarkers.Outcome.Status == CommandOutcomeStatus.Succeeded
+            && referenceMarkers.Outcome.Payload.AsReferenceMarkers() is not null
+            && (syncTask is null || syncTask.Result.Outcome.Status == CommandOutcomeStatus.Succeeded
+                && syncTask.Result.Outcome.Payload.AsSyncStatus() is not null)
+            && (updateTask is null || updateTask.Result.Outcome.Status == CommandOutcomeStatus.Succeeded
+                && updateTask.Result.Outcome.Payload.AsUpdateState() is not null);
         dispatcher.Invoke(() =>
         {
+            if (!IsSessionCurrent(version)) return;
             if (configuration.Outcome.Status == CommandOutcomeStatus.Succeeded
                 && configuration.Outcome.Payload.AsConfiguration() is { } configSnapshot)
             {
@@ -284,6 +328,7 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
                 viewModel.ObserveReferenceMarkersUnavailable();
             }
         });
+        return current;
     }
 
     private async Task SubmitConfigurationPatchAsync(UpdateConfiguration patch, Guid idempotencyKey)
@@ -332,7 +377,7 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
         }
     }
 
-    private async Task RefreshReferenceMarkersAsync(CancellationToken cancellationToken)
+    private async Task RefreshReferenceMarkersAsync(long version, CancellationToken cancellationToken)
     {
         var response = await engine.QueryAsync(
             Query.ForReferenceMarkerList(new ListReferenceMarkers { Limit = 20 }),
@@ -340,11 +385,11 @@ public sealed class OperationsCoordinator : IShellLifetimeCoordinator
         if (response.Outcome.Status == CommandOutcomeStatus.Succeeded
             && response.Outcome.Payload.AsReferenceMarkers() is { } page)
         {
-            dispatcher.Invoke(() => viewModel.ObserveReferenceMarkers(page));
+            dispatcher.Invoke(() => { if (IsSessionCurrent(version)) viewModel.ObserveReferenceMarkers(page); });
         }
         else
         {
-            dispatcher.Invoke(viewModel.ObserveReferenceMarkersUnavailable);
+            dispatcher.Invoke(() => { if (IsSessionCurrent(version)) viewModel.ObserveReferenceMarkersUnavailable(); });
         }
     }
 

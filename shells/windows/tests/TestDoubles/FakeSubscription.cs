@@ -6,7 +6,10 @@ namespace Eitmad.WindowsShell.Tests.TestDoubles;
 
 internal sealed class FakeSubscription : IEngineSubscription
 {
+    private readonly Action onDispose;
     private readonly Channel<EventEnvelope> events = Channel.CreateUnbounded<EventEnvelope>();
+
+    public FakeSubscription(Action onDispose) => this.onDispose = onDispose;
 
     public event Action? ResyncRequired;
 
@@ -24,6 +27,7 @@ internal sealed class FakeSubscription : IEngineSubscription
     public ValueTask DisposeAsync()
     {
         events.Writer.TryComplete();
+        onDispose();
         return ValueTask.CompletedTask;
     }
 }
