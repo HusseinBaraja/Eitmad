@@ -222,24 +222,39 @@ impl CommandDispatcher for ProductDispatcher {
             }
             Command::CreateDesktopAccount(command) => {
                 require_protocol_1_8(&context).map_err(|error| *error)?;
-                self.accounts
+                let account = self
+                    .accounts
                     .create(&mutation, &command)
-                    .map(CommandResult::DesktopAccountCreated)
-                    .map_err(|error| desktop_account_error(error, &context))
+                    .map_err(|error| desktop_account_error(error, &context))?;
+                self.publish_pending(&context, mutation.idempotency_key)
+                    .map_err(|()| {
+                        desktop_account_error(DesktopAccountError::Unavailable, &context)
+                    })?;
+                Ok(CommandResult::DesktopAccountCreated(account))
             }
             Command::UpdateDesktopAccount(command) => {
                 require_protocol_1_8(&context).map_err(|error| *error)?;
-                self.accounts
+                let account = self
+                    .accounts
                     .update(&mutation, &command)
-                    .map(CommandResult::DesktopAccountUpdated)
-                    .map_err(|error| desktop_account_error(error, &context))
+                    .map_err(|error| desktop_account_error(error, &context))?;
+                self.publish_pending(&context, mutation.idempotency_key)
+                    .map_err(|()| {
+                        desktop_account_error(DesktopAccountError::Unavailable, &context)
+                    })?;
+                Ok(CommandResult::DesktopAccountUpdated(account))
             }
             Command::DeactivateDesktopAccount(command) => {
                 require_protocol_1_8(&context).map_err(|error| *error)?;
-                self.accounts
+                let account = self
+                    .accounts
                     .deactivate(&mutation, &command)
-                    .map(CommandResult::DesktopAccountDeactivated)
-                    .map_err(|error| desktop_account_error(error, &context))
+                    .map_err(|error| desktop_account_error(error, &context))?;
+                self.publish_pending(&context, mutation.idempotency_key)
+                    .map_err(|()| {
+                        desktop_account_error(DesktopAccountError::Unavailable, &context)
+                    })?;
+                Ok(CommandResult::DesktopAccountDeactivated(account))
             }
             Command::CancelOperation(_) | Command::ReportInstallerOutcome(_) => self
                 .authorization
@@ -623,6 +638,7 @@ mod tests {
     use std::sync::atomic::{AtomicBool, Ordering};
 
     use eitmad_contracts::{
+        accounts::{AccountPassword, CreateDesktopAccount, DesktopAccountRole},
         authorization::{RelationId, RelationshipSubject},
         commands::{
             CancelOperation, GrantScopeRelationship, UpdateConfiguration, UpsertReferenceMarker,
@@ -976,6 +992,72 @@ mod tests {
             panic!("relationship result expected")
         };
         assert!(!replay.changed);
+        assert!(
+            tokio::time::timeout(std::time::Duration::from_millis(20), events.recv())
+                .await
+                .is_err()
+        );
+    }
+
+    #[tokio::test]
+    async fn desktop_account_access_mutation_publishes_policy_event_not_on_replay() {
+        let directory = TempDir::new().unwrap();
+        let store = AuthorityStore::open(directory.path()).unwrap();
+        let auth = store.local_authorization_context(UnixMillis(1)).unwrap();
+        let broker = EventBroker::new();
+        let dispatcher = ProductDispatcher::new(store, broker.clone());
+        let command_context = |idempotency| DispatchContext {
+            authorization: auth.clone(),
+            correlation_id: CorrelationId::new(Uuid::from_u128(3)),
+            causation_id: None,
+            idempotency_key: Some(IdempotencyKey::new(Uuid::from_u128(idempotency))),
+            protocol_version: PROTOCOL_VERSION,
+            deadline: UnixMillis(i64::MAX),
+        };
+        dispatcher
+            .dispatch_command(
+                command_context(74),
+                Command::GrantScopeRelationship(GrantScopeRelationship {
+                    expected_policy_version: 1,
+                    subject: RelationshipSubject {
+                        principal_id: auth.identity.principal_id,
+                        principal_kind: auth.identity.principal_kind,
+                    },
+                    relation: RelationId::parse("eitmad.relation.organization.manager.v1").unwrap(),
+                }),
+            )
+            .await
+            .unwrap();
+        let (_, mut events) = broker
+            .subscribe(
+                auth.scope.clone(),
+                Subscription::AuthorizationPolicy(AuthorizationPolicyChanges {}),
+                None,
+            )
+            .unwrap();
+        let command = Command::CreateDesktopAccount(CreateDesktopAccount {
+            display_name: "سارة أحمد".to_owned(),
+            username: "reception".to_owned(),
+            password: AccountPassword::new("reception-password-1"),
+            role: DesktopAccountRole::Receptionist,
+        });
+
+        let first = dispatcher
+            .dispatch_command(command_context(75), command.clone())
+            .await
+            .unwrap();
+        assert!(matches!(first, CommandResult::DesktopAccountCreated(_)));
+        let published = events.recv().await.unwrap();
+        let Event::AuthorizationPolicyChanged(notice) = published.event else {
+            panic!("policy event expected")
+        };
+        assert_eq!(notice.policy_version, 3);
+
+        let replay = dispatcher
+            .dispatch_command(command_context(75), command)
+            .await
+            .unwrap();
+        assert!(matches!(replay, CommandResult::DesktopAccountCreated(_)));
         assert!(
             tokio::time::timeout(std::time::Duration::from_millis(20), events.recv())
                 .await

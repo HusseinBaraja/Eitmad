@@ -1,5 +1,7 @@
 use eitmad_contracts::{
     accounts::{DesktopAccountPage, DesktopAccountRole, DesktopAccountSummary},
+    authorization::AuthorizationPolicyChangeNotice,
+    events::Event,
     identity::{
         AccountId, AuthorizationContext, OrganizationId, PrincipalKind, ScopeId, ScopeKind,
         ScopeRef, TenantId, UserId,
@@ -12,8 +14,8 @@ use unicode_normalization::UnicodeNormalization as _;
 use uuid::Uuid;
 
 use crate::{
-    AuthorityStore, DurableIdempotency, PersistentSession, StorageError, insert_audit,
-    insert_idempotency, load_idempotency, migrations::Migration,
+    AuthorityStore, DurableIdempotency, DurablePublication, PersistentSession, StorageError,
+    insert_audit, insert_idempotency, insert_publication, load_idempotency, migrations::Migration,
 };
 
 pub(crate) const MIGRATIONS: &[Migration] = &[
@@ -533,13 +535,27 @@ impl AuthorityStore {
                         DesktopRole::from(mutation.account.role).relation()],
                 ).map_err(|_| StorageError)?;
             }
-            if access_changed {
+            let policy_version = if access_changed {
                 connection.execute(
                     "UPDATE authorization_scopes SET policy_version = policy_version + 1
                      WHERE scope_kind = 'organization' AND scope_id = ?1",
-                    [tenant],
+                    [tenant.as_str()],
                 ).map_err(|_| StorageError)?;
-            }
+                Some(
+                    connection
+                        .query_row(
+                            "SELECT policy_version FROM authorization_scopes
+                             WHERE scope_kind = 'organization' AND scope_id = ?1",
+                            [tenant.as_str()],
+                            |row| row.get::<_, i64>(0),
+                        )
+                        .map_err(|_| StorageError)?
+                        .try_into()
+                        .map_err(|_| StorageError)?,
+                )
+            } else {
+                None
+            };
 
             let stored = connection.query_row(
                 "SELECT account_id, user_id, display_name, canonical_username, role, active, revision
@@ -555,6 +571,22 @@ impl AuthorityStore {
             audit.resulting_revision = Some(stored.revision);
             insert_audit(connection, &audit)?;
             insert_idempotency(connection, &scope, mutation.operation, mutation.idempotency)?;
+            if let Some(policy_version) = policy_version {
+                insert_publication(
+                    connection,
+                    &scope,
+                    mutation.idempotency.key,
+                    &DurablePublication {
+                        event: Event::AuthorizationPolicyChanged(
+                            AuthorizationPolicyChangeNotice {
+                                scope: scope.clone(),
+                                policy_version,
+                            },
+                        ),
+                        policy_changed: true,
+                    },
+                )?;
+            }
             Ok(DesktopAccountCommitOutcome::Committed(stored))
         })
     }
