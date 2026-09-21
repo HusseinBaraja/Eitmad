@@ -169,21 +169,32 @@ public sealed class OperationsCoordinatorTests
                 await releaseOldQuery.Task;
         };
         var model = new OperationsViewModel();
+        var staleSnapshotApplied = false;
+        model.PropertyChanged += (_, _) =>
+        {
+            if (model.ConfigRevision == 9) staleSnapshotApplied = true;
+        };
         await using var coordinator = new OperationsCoordinator(engine, model, new ImmediateDispatcher());
         await coordinator.StartAsync();
         engine.Connect();
         var activation = coordinator.ActivateSessionAsync();
-        await TestData.Eventually(() => engine.QueryCount >= 4);
-
-        await engine.StopAsync();
-        await engine.StartAsync();
-        engine.ConfigurationRevision = 2;
-        engine.Connect();
-        releaseOldQuery.SetResult();
+        try
+        {
+            await TestData.Eventually(() => engine.QueryCount >= 4);
+            await engine.StopAsync();
+            await engine.StartAsync();
+            engine.ConfigurationRevision = 2;
+            engine.Connect();
+        }
+        finally
+        {
+            releaseOldQuery.TrySetResult();
+        }
         await activation;
 
         await TestData.Eventually(() => engine.QueryCount >= 8 && model.ConfigRevision == 2 && !model.ShowConnectionBanner);
         Assert.AreEqual(2L, model.ConfigRevision);
+        Assert.IsFalse(staleSnapshotApplied, "An old snapshot must never become visible, even briefly.");
     }
 
     [TestMethod]

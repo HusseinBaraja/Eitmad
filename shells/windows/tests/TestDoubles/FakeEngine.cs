@@ -235,12 +235,16 @@ internal sealed class FakeEngine : IEngineShellBridge
         });
 
     public Func<Command, CommandResponseEnvelope>? CommandHandler { get; set; }
+    public Command? LastCommand { get; private set; }
 
     public Task<CommandResponseEnvelope> SubmitCommandAsync(
         Command command,
         Guid idempotencyKey,
-        CancellationToken cancellationToken = default) =>
-        Task.FromResult(CommandHandler?.Invoke(command) ?? ApplyDesktopAccountCommand(command));
+        CancellationToken cancellationToken = default)
+    {
+        LastCommand = command;
+        return Task.FromResult(CommandHandler?.Invoke(command) ?? ApplyDesktopAccountCommand(command));
+    }
 
     private CommandResponseEnvelope ApplyDesktopAccountCommand(Command command)
     {

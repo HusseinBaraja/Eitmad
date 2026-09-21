@@ -166,7 +166,7 @@ fn invalid_cli_usage_exits_two() {
 #[test]
 fn debug_seed_provisions_distinct_accounts_and_is_idempotent() {
     let directory = TempDir::new().expect("temp directory");
-    for _ in 0..2 {
+    let seed = || {
         let output = Command::new(binary())
             .args(["seed-development-accounts", "--runtime-directory"])
             .arg(directory.path())
@@ -175,7 +175,8 @@ fn debug_seed_provisions_distinct_accounts_and_is_idempotent() {
         assert!(output.status.success());
         assert!(output.stdout.is_empty());
         assert!(output.stderr.is_empty());
-    }
+    };
+    seed();
 
     let store = AuthorityStore::open(directory.path()).expect("open authority store");
     let owner = store
@@ -194,6 +195,23 @@ fn debug_seed_provisions_distinct_accounts_and_is_idempotent() {
     assert_eq!(receptionist.role, DesktopRole::Receptionist);
     assert_ne!(manager.account_id, receptionist.account_id);
     assert_ne!(manager.user_id, receptionist.user_id);
+
+    let accounts_before = store.list_desktop_accounts(owner.tenant_id).unwrap();
+    seed();
+    assert_eq!(
+        store.list_desktop_accounts(owner.tenant_id).unwrap(),
+        accounts_before
+    );
+    for (username, original) in [("admin", &manager), ("rec", &receptionist)] {
+        let reseeded = store
+            .desktop_account(owner.tenant_id, username)
+            .unwrap()
+            .unwrap();
+        assert!(
+            reseeded.password_hash == original.password_hash,
+            "Reseeding replaced credentials"
+        );
+    }
 
     let device_id = owner.identity.device_id.expect("installation device");
     let mut process = owner;

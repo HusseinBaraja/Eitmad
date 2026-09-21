@@ -1047,7 +1047,10 @@ mod tests {
             .await
             .unwrap();
         assert!(matches!(first, CommandResult::DesktopAccountCreated(_)));
-        let published = events.recv().await.unwrap();
+        let published = tokio::time::timeout(std::time::Duration::from_secs(1), events.recv())
+            .await
+            .expect("account mutation did not publish a policy event")
+            .unwrap();
         let Event::AuthorizationPolicyChanged(notice) = published.event else {
             panic!("policy event expected")
         };
@@ -1057,7 +1060,7 @@ mod tests {
             .dispatch_command(command_context(75), command)
             .await
             .unwrap();
-        assert!(matches!(replay, CommandResult::DesktopAccountCreated(_)));
+        assert_eq!(replay, first);
         assert!(
             tokio::time::timeout(std::time::Duration::from_millis(20), events.recv())
                 .await
