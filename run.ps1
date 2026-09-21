@@ -20,6 +20,15 @@ try {
     }
 
     $enginePath = Join-Path $cargoMetadata.target_directory "debug\eitmad-engine-cli.exe"
+    & $enginePath seed-development-accounts
+    if ($LASTEXITCODE -ne 0) {
+        throw "Development account provisioning failed with exit code $LASTEXITCODE."
+    }
+
+    Write-Host "Development accounts:"
+    Write-Host "  Manager      test.manager / Eitmad-Manager-2026!"
+    Write-Host "  Receptionist test.receptionist / Eitmad-Reception-2026!"
+
     & dotnet run --project $shellProject -- --engine $enginePath
     if ($LASTEXITCODE -ne 0) {
         throw "The Windows app stopped with exit code $LASTEXITCODE."

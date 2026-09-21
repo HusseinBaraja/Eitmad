@@ -8,7 +8,11 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+#[cfg(debug_assertions)]
+use argon2::{Argon2, PasswordHasher as _, password_hash::SaltString};
 use clap::{Parser, Subcommand, ValueEnum};
+#[cfg(debug_assertions)]
+use eitmad_contracts::identity::{AccountId, UserId};
 use eitmad_contracts::{
     identity::{AuthenticatedIdentity, PrincipalId, PrincipalKind},
     observability::{
@@ -28,6 +32,8 @@ use eitmad_observability_audit::{
     ObservationContract, ObservationFieldContract, ObservationValue, RedactionContext,
 };
 use eitmad_storage::AuthorityStore;
+#[cfg(debug_assertions)]
+use eitmad_storage::{DesktopAccount, DesktopRole};
 use serde::Serialize;
 use tokio::{
     io::AsyncReadExt as _,
@@ -76,6 +82,13 @@ enum Command {
         #[arg(long, value_name = "PATH")]
         runtime_directory: Option<PathBuf>,
     },
+    /// Provision synthetic desktop accounts for local development.
+    #[cfg(debug_assertions)]
+    SeedDevelopmentAccounts {
+        /// Override the platform runtime-data directory.
+        #[arg(long, value_name = "PATH")]
+        runtime_directory: Option<PathBuf>,
+    },
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -104,7 +117,90 @@ async fn main() -> ExitCode {
             .await
         }
         Command::Diagnose { runtime_directory } => diagnose(runtime_directory).await,
+        #[cfg(debug_assertions)]
+        Command::SeedDevelopmentAccounts { runtime_directory } => {
+            seed_development_accounts(runtime_directory)
+        }
     }
+}
+
+#[cfg(debug_assertions)]
+fn seed_development_accounts(runtime_directory: Option<PathBuf>) -> ExitCode {
+    let Some(directory) = resolve_or_emit_runtime_directory(runtime_directory) else {
+        return ExitCode::from(EXIT_RUNTIME_FAILURE);
+    };
+    let result = (|| {
+        let store = AuthorityStore::open(&directory)?;
+        let now = current_time();
+        let installer = store.local_authorization_context(now)?;
+        let organization_id = store.local_organization_id()?;
+        seed_development_account(
+            &store,
+            &installer,
+            DesktopAccount {
+                account_id: AccountId::new(uuid::uuid!("e17ad000-0000-4000-8000-000000000001")),
+                user_id: UserId::new(uuid::uuid!("e17ad000-0000-4000-8000-000000000011")),
+                tenant_id: installer.tenant_id,
+                organization_id,
+                password_hash: String::new(),
+                role: DesktopRole::Manager,
+            },
+            "test.manager",
+            "Eitmad-Manager-2026!",
+            now,
+        )?;
+        seed_development_account(
+            &store,
+            &installer,
+            DesktopAccount {
+                account_id: AccountId::new(uuid::uuid!("e17ad000-0000-4000-8000-000000000002")),
+                user_id: UserId::new(uuid::uuid!("e17ad000-0000-4000-8000-000000000012")),
+                tenant_id: installer.tenant_id,
+                organization_id,
+                password_hash: String::new(),
+                role: DesktopRole::Receptionist,
+            },
+            "test.receptionist",
+            "Eitmad-Reception-2026!",
+            now,
+        )
+    })();
+    match result {
+        Ok(()) => ExitCode::from(EXIT_SUCCESS),
+        Err(_) => {
+            eprintln!("{{\"code\":\"eitmad.error.development-account-seed-failed.v1\"}}");
+            ExitCode::from(EXIT_RUNTIME_FAILURE)
+        }
+    }
+}
+
+#[cfg(debug_assertions)]
+fn seed_development_account(
+    store: &AuthorityStore,
+    installer: &eitmad_contracts::identity::AuthorizationContext,
+    mut account: DesktopAccount,
+    username: &str,
+    password: &str,
+    now: UnixMillis,
+) -> Result<(), eitmad_storage::StorageError> {
+    if let Some(existing) = store.desktop_account(installer.tenant_id, username)? {
+        return if existing.account_id == account.account_id
+            && existing.user_id == account.user_id
+            && existing.role == account.role
+        {
+            Ok(())
+        } else {
+            Err(eitmad_storage::StorageError)
+        };
+    }
+    let salt_uuid = uuid::Uuid::new_v4();
+    let salt =
+        SaltString::encode_b64(salt_uuid.as_bytes()).map_err(|_| eitmad_storage::StorageError)?;
+    account.password_hash = Argon2::default()
+        .hash_password(password.as_bytes(), &salt)
+        .map_err(|_| eitmad_storage::StorageError)?
+        .to_string();
+    store.provision_desktop_account(installer, &account, username, now)
 }
 
 async fn run(

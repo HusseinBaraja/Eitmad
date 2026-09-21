@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust identity and storage maintainers"
-last_verified: "2026-09-20"
+last_verified: "2026-09-21"
 review_triggers:
   - "identity topology, session lifecycle, tenant isolation, offline policy, or audit attribution changes"
 keywords:
@@ -32,7 +32,7 @@ A persisted session may be `Online` or `Offline`. Connectivity does not bypass e
 
 No bearer token, refresh token, or password is stored in the identity tables. Storage version 10 adds `desktop_accounts` for separate, provisioned Manager and Receptionist accounts and their Argon2 password verifiers. The installation owner is a provisioning identity; the process handshake projects a device principal without its owner relation. `DesktopAuthenticator` verifies a password, then issues a separate eight-hour durable user session. Offline sign-in requires the password. Session validation checks the account, device, tenant, scope, expiry, and closure before IPC dispatch. Sign-in or sign-out commits the session change and a user-attributed audit record in one transaction.
 
-`AuthorityStore::provision_desktop_account` is a trusted Rust import boundary for a verified account. It rejects the installation owner's user ID, revokes prior sessions when a verifier is replaced, and records the provisioning actor in audit. The current engine does not yet import accounts from the server control plane; a new installation has no ordinary sign-in account until a trusted importer provisions one.
+`AuthorityStore::provision_desktop_account` is a trusted Rust import boundary for a verified account. It rejects the installation owner's user ID, revokes prior sessions when a verifier is replaced, and records the provisioning actor in audit. The current engine does not yet import accounts from the server control plane; a new installation has no ordinary sign-in account until a trusted importer provisions one. Debug builds expose the explicit `seed-development-accounts` command for synthetic local testing. `run.ps1` invokes it before starting the Windows shell. The command is absent from release builds, does not replace existing accounts, and does not print password verifiers or entered secrets.
 
 Manager and Receptionist relationships produce distinct effective routing permissions. `eitmad.permission.catalog.draft.write.v1` selects the existing Manager surface, while `eitmad.permission.quotation.draft.write.v1` selects the existing Receptionist surface. The WPF shell reads these Rust-returned permissions after sign-in. It does not infer a role from a username or accept a shell-owned role switch.
 

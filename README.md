@@ -15,13 +15,13 @@ Start with:
 
 ## Run the admin dashboard on Windows
 
-Install the .NET 8 SDK and the stable Rust toolchain. From the repository root, build the Rust engine and start the native Windows dashboard with one command:
+Install the .NET 8 SDK and the stable Rust toolchain. From the repository root, build the debug Rust engine, provision the synthetic development accounts, and start the native Windows dashboard with one command:
 
 ```powershell
 .\run.ps1
 ```
 
-The **لوحة التحكم** window opens in **وضع المعاينة**. Closing the window keeps the app in the system tray. Use **إنهاء الاعتماد** in the tray menu to stop the shell and engine. For design and ownership details, see the [Windows operations shell guide](docs/developer/subsystems/windows-native-shell.md).
+Use `test.manager` with `Eitmad-Manager-2026!` or `test.receptionist` with `Eitmad-Reception-2026!` on the sign-in screen. These synthetic accounts are available only after the explicit debug seed command that `run.ps1` runs. Release builds do not contain that command. Closing the window keeps the app in the system tray. Use **إنهاء الاعتماد** in the tray menu to stop the shell and engine. For design and ownership details, see the [Windows operations shell guide](docs/developer/subsystems/windows-native-shell.md).
 
 ## Furniture editor flow
 

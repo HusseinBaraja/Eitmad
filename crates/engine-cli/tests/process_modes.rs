@@ -10,6 +10,14 @@ use std::{
 use serde_json::Value;
 use tempfile::TempDir;
 
+use eitmad_contracts::{
+    identity::{AuthenticatedIdentity, PrincipalId, PrincipalKind},
+    transport::{CorrelationId, UnixMillis},
+};
+use eitmad_engine_runtime::DesktopAuthenticator;
+use eitmad_storage::{AuthorityStore, DesktopRole};
+use uuid::Uuid;
+
 fn binary() -> &'static str {
     env!("CARGO_BIN_EXE_eitmad-engine-cli")
 }
@@ -153,4 +161,83 @@ fn invalid_cli_usage_exits_two() {
         .output()
         .expect("run invalid command");
     assert_eq!(output.status.code(), Some(2));
+}
+
+#[test]
+fn debug_seed_provisions_distinct_accounts_and_is_idempotent() {
+    let directory = TempDir::new().expect("temp directory");
+    for _ in 0..2 {
+        let output = Command::new(binary())
+            .args(["seed-development-accounts", "--runtime-directory"])
+            .arg(directory.path())
+            .output()
+            .expect("seed development accounts");
+        assert!(output.status.success());
+        assert!(output.stdout.is_empty());
+        assert!(output.stderr.is_empty());
+    }
+
+    let store = AuthorityStore::open(directory.path()).expect("open authority store");
+    let owner = store
+        .local_authorization_context(eitmad_contracts::transport::UnixMillis(1))
+        .expect("local authority");
+    let manager = store
+        .desktop_account(owner.tenant_id, "test.manager")
+        .expect("manager lookup")
+        .expect("manager account");
+    let receptionist = store
+        .desktop_account(owner.tenant_id, "test.receptionist")
+        .expect("receptionist lookup")
+        .expect("receptionist account");
+
+    assert_eq!(manager.role, DesktopRole::Manager);
+    assert_eq!(receptionist.role, DesktopRole::Receptionist);
+    assert_ne!(manager.account_id, receptionist.account_id);
+    assert_ne!(manager.user_id, receptionist.user_id);
+    assert!(!manager.password_hash.contains("Eitmad-Manager-2026!"));
+    assert!(
+        !receptionist
+            .password_hash
+            .contains("Eitmad-Reception-2026!")
+    );
+
+    let device_id = owner.identity.device_id.expect("installation device");
+    let mut process = owner;
+    process.identity = AuthenticatedIdentity {
+        principal_id: PrincipalId::new(device_id.value()),
+        principal_kind: PrincipalKind::Device,
+        device_id: Some(device_id),
+        service_id: None,
+    };
+    let authenticator = DesktopAuthenticator::new(store);
+    let manager_session = authenticator
+        .sign_in(
+            &process,
+            "test.manager",
+            "Eitmad-Manager-2026!",
+            CorrelationId::new(Uuid::new_v4()),
+            UnixMillis(2_000_000_000_000),
+        )
+        .expect("manager sign-in");
+    let receptionist_session = authenticator
+        .sign_in(
+            &process,
+            "test.receptionist",
+            "Eitmad-Reception-2026!",
+            CorrelationId::new(Uuid::new_v4()),
+            UnixMillis(2_000_000_000_001),
+        )
+        .expect("receptionist sign-in");
+    assert_ne!(
+        manager_session
+            .authorization
+            .expect("manager authorization")
+            .identity
+            .principal_id,
+        receptionist_session
+            .authorization
+            .expect("receptionist authorization")
+            .identity
+            .principal_id
+    );
 }

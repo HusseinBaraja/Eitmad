@@ -846,6 +846,7 @@ dependencies = [
 name = "eitmad-engine-cli"
 version = "0.0.0"
 dependencies = [
+ "argon2",
  "clap",
  "eitmad-contracts",
  "eitmad-engine-runtime",
