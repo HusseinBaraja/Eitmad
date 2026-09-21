@@ -113,11 +113,12 @@ This is native software. Apply native platform conventions before web convention
 
 ### Focused UI verification
 
-For a user-visible UI change, inspect the real rendered affected screen once after implementation is stable when a suitable Windows rendering environment is available. Use synthetic Arabic data.
+For a user-visible UI change, inspect the real rendered affected screen at all baseline sizes after implementation is stable when a suitable Windows rendering environment is available. Use synthetic Arabic data.
 
 If the required rendering environment is unavailable, complete the available build and static verification, state that rendered verification was not performed, and continue other safe in-scope work. Never claim visual, RTL, focus, or accessibility behavior that was not verified.
 
-* Capture the primary verification screenshot with the application full-screen, not in a small window. Add one compact or wide size only when responsive behavior changed.
+* Capture responsiveness screenshots at all three baseline sizes with Windows display scaling set to 100%: full-screen on a `1920 × 1080` display, the default `1338 × 753` application window, and the minimum `720 × 560` application window. Do not substitute only a small window for the full-screen check.
+* If the environment cannot provide an exact baseline size, use the nearest supported size and report the actual dimensions and display scaling.
 * Check keyboard, focus, popup placement, and accessible names only for new or changed interactions.
 * Check high contrast or text scaling only when colors, typography, sizing, or custom templates changed.
 * Use a rendered check for visual quality. XAML string scans and snapshots do not prove layout, shaping, focus, or usability.
