@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "explanation"
 status: "active"
 owner: "security and Rust engine maintainers"
-last_verified: "2026-08-27"
+last_verified: "2026-09-20"
 review_triggers:
   - "local peer authentication, pipe discovery, identity, authorization, transport, or production packaging changes"
 keywords:
@@ -16,7 +16,7 @@ keywords:
 
 # Threat-model Windows local IPC
 
-The named pipe is an untrusted process boundary. The supervised bootstrap proves possession of the inherited parent-child channel, and Rust owns identity plus every command, query, and subscription authorization decision.
+The named pipe is an untrusted process boundary. The supervised bootstrap proves possession of the inherited parent-child channel. It does not authenticate a person. Rust owns user sign-in, session validity, and every command, query, and subscription authorization decision.
 
 ## Assets and actors
 
@@ -27,9 +27,10 @@ Protected assets are domain data, scope boundaries, session identity, command in
 | Threat | Current control | Residual risk |
 | --- | --- | --- |
 | Connect to a guessed pipe | Unique endpoint plus 256-bit token sent only through inherited standard input | Same-account malware or a privileged debugger can inspect parent memory or handles |
-| Assert another tenant or role | Protocol 1.6 has no client authorization fields; Rust verifies the persisted installation identity and owner relation | The installation owner is not a human sign-in session |
-| Replay a request on another connection | Exact engine-returned session and authorization context are required | The process-lifetime bootstrap token permits approved same-generation reconnect |
-| Protocol downgrade or drift | Mandatory `PeerHello`, highest common version across `1.0–1.6`, required authorization-scope capability, operation/capability gates, generated bindings | The 1.6 handshake shape requires a coordinated engine and shell rollout |
+| Assert another tenant or role | The handshake returns a device principal without the installation owner relation. Protocol 1.7 sign-in resolves a provisioned account in Rust and returns its distinct user principal. Protocol 1.8 account operations authorize the Manager relationship in Rust | Control-plane account import remains a trusted Rust operation |
+| Replay a request on another connection | Exact engine-returned user context is bound to the signed-in connection and checked against the durable session before dispatch | The process-lifetime bootstrap token permits approved same-generation reconnect, but cannot grant user authority |
+| Protocol downgrade or drift | Mandatory `PeerHello`, generated bindings, a protocol 1.7 gate on desktop sessions, and a protocol 1.8 gate on account administration | Old shell versions need an update before account administration |
+| Reuse an expired or revoked session | Rust checks issue, expiry, closure, device, account activity, tenant, and scope before each request and event delivery; sign-out closes the durable session | A command already running at an independent revocation boundary can finish unless its product transaction rechecks session validity |
 | Deliver state after access revocation | Policy-change signal plus authorization immediately before every event delivery | Storage unavailability closes the stream fail-safe and may reduce availability |
 | Memory exhaustion | 8 MiB frame cap, 1,024-entry/16 MiB replay cap, and 256-event delivery queues | Repeated allowed-size traffic still consumes bounded work |
 | Request starvation | Per-request deadlines, concurrent dispatch, bounded shutdown | Domain handlers must implement their own resource bounds |
@@ -41,7 +42,7 @@ Protected assets are domain data, scope boundaries, session identity, command in
 
 ## Residual release requirements
 
-The base app no longer trusts shell identity. Before a shared-machine or multi-user product release, add human sign-in, session rotation and revocation, hostile same-user process tests, and an explicit OS-account support policy. Keep Windows pipe ACL hardening as defense in depth. Do not add identity, tenant, workspace, scope, role, or permission assertions back to the shell contract.
+The backend accepts locally provisioned Argon2 password verifiers and issues eight-hour durable user sessions. Offline sign-in requires the password; it never resumes a session silently. It stores no password or bearer token in shell state or logs. A production path that imports verified server accounts, account disabling and password rotation, hostile same-user process tests, and an explicit OS-account support policy are still required before shared-machine release. Keep Windows pipe ACL hardening as defense in depth. Do not add identity, tenant, workspace, scope, role, or permission assertions back to the shell contract.
 
 No Arabic customer text is interpreted during authentication. Canonical UTF-8 payloads remain opaque to the transport, presentation bidi controls are not added, and structured subscription failures expose no policy graph, cursor owner, or customer data.
 

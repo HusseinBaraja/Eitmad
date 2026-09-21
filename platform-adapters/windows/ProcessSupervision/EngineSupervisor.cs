@@ -111,6 +111,37 @@ public sealed class EngineSupervisor : IAsyncDisposable
             cancellationToken);
     }
 
+    public async Task<DesktopSessionState> SignInAsync(string username, string password, CancellationToken cancellationToken = default)
+    {
+        var client = GetConnectedClient();
+        await ClearSessionSubscriptionsAsync().ConfigureAwait(false);
+        return await client.SignInAsync(username, password, cancellationToken).ConfigureAwait(false);
+    }
+
+    public Task<DesktopSessionState?> GetSessionStateAsync(CancellationToken cancellationToken = default) =>
+        GetConnectedClient().GetSessionStateAsync(cancellationToken);
+
+    public async Task SignOutAsync(CancellationToken cancellationToken = default)
+    {
+        var client = GetConnectedClient();
+        await ClearSessionSubscriptionsAsync().ConfigureAwait(false);
+        await client.SignOutAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task ClearSessionSubscriptionsAsync()
+    {
+        SupervisedEngineSubscription[] active;
+        lock (gate)
+        {
+            active = subscriptions.Values.ToArray();
+            subscriptions.Clear();
+        }
+        foreach (var subscription in active)
+        {
+            await subscription.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+
     public Task<CommandResponseEnvelope> SubmitConfigurationPatchAsync(
         UpdateConfiguration patch,
         Guid idempotencyKey,
@@ -136,6 +167,35 @@ public sealed class EngineSupervisor : IAsyncDisposable
                 Deadline = DeadlineAfter(requestTimeout),
                 IdempotencyKey = idempotencyKey,
                 Command = ToPayloadDictionary(Command.ForConfigUpdate(patch)),
+            },
+            requestTimeout,
+            cancellationToken);
+    }
+
+    public Task<CommandResponseEnvelope> SubmitCommandAsync(
+        Command command,
+        Guid idempotencyKey,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        if (idempotencyKey == Guid.Empty)
+        {
+            throw new ArgumentException("The command requires a non-empty idempotency key.", nameof(idempotencyKey));
+        }
+
+        var client = GetConnectedClient();
+        var requestTimeout = timeout ?? EngineIpcClient.DefaultRequestTimeout;
+        return client.SendCommandAsync(
+            new CommandEnvelope
+            {
+                ProtocolVersion = SessionProtocol(client),
+                RequestId = Guid.NewGuid(),
+                CorrelationId = Guid.NewGuid(),
+                Authorization = client.Authorization,
+                Deadline = DeadlineAfter(requestTimeout),
+                IdempotencyKey = idempotencyKey,
+                Command = ToPayloadDictionary(command),
             },
             requestTimeout,
             cancellationToken);
@@ -666,7 +726,15 @@ public sealed class EngineSupervisor : IAsyncDisposable
         {
             PeerKind = PeerKind.Shell,
             ProductVersion = "0.0.0",
-            Protocols = [new SupportedProtocol { Major = 1, MinimumMinor = 0, MaximumMinor = 6 }],
+            Protocols =
+            [
+                new SupportedProtocol
+                {
+                    Major = ProtocolIds.Version.Major,
+                    MinimumMinor = ProtocolIds.Version.Minor,
+                    MaximumMinor = ProtocolIds.Version.Minor,
+                },
+            ],
             Capabilities =
             [
                 ProtocolIds.Capabilities.EitmadCapabilityLocalIpcV1,
@@ -675,6 +743,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
                 ProtocolIds.Capabilities.EitmadCapabilityConfigV1,
                 ProtocolIds.Capabilities.EitmadCapabilityPermissionsV1,
                 ProtocolIds.Capabilities.EitmadCapabilityReferenceMarkerV1,
+                ProtocolIds.Capabilities.EitmadCapabilityDesktopAccountManagementV1,
             ],
             RequiredCapabilities =
             [

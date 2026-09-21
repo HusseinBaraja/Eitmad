@@ -1,4 +1,5 @@
 using Eitmad.Contracts;
+using Eitmad.Platform.Windows.LocalIpc;
 using Eitmad.Platform.Windows.ProcessSupervision;
 using Eitmad.Platform.Windows.Shell;
 
@@ -19,6 +20,7 @@ internal sealed class FakeEngine : IEngineShellBridge
         null);
     private int queryCount;
     private int stopCount;
+    private DesktopSessionState? desktopSession;
 
     public event Action<EngineSupervisionSnapshot>? StateChanged;
 
@@ -34,6 +36,11 @@ internal sealed class FakeEngine : IEngineShellBridge
     }
 
     public bool FailConfigurationQuery { get; init; }
+    public bool ThrowQueries { get; set; }
+    public long ConfigurationRevision { get; set; } = 1;
+    public Func<Query, Task>? QueryBarrier { get; set; }
+    public List<DesktopAccountSummary> DesktopAccounts { get; } = [];
+    public Action<Subscription, FakeSubscription>? SubscribeHook { get; set; }
     public int QueryCount => Volatile.Read(ref queryCount);
     public int SubscriptionCount
     {
@@ -56,15 +63,62 @@ internal sealed class FakeEngine : IEngineShellBridge
             }
         }
     }
+    public int SignOutCount { get; private set; }
+    public long? SessionExpiry { get; set; }
+    public Dictionary<string, (string Password, DesktopAccountRole Role)> Accounts { get; } = [];
     public IReadOnlySet<string> SupportedCapabilities { get; init; } = new HashSet<string>
     {
         ProtocolIds.Capabilities.EitmadCapabilityConfigV1,
         ProtocolIds.Capabilities.EitmadCapabilitySyncV1,
         ProtocolIds.Capabilities.EitmadCapabilityUpdateV1,
         ProtocolIds.Capabilities.EitmadCapabilityReferenceMarkerV1,
+        ProtocolIds.Capabilities.EitmadCapabilityDesktopAccountManagementV1,
     };
 
     public bool SupportsCapability(string capability) => SupportedCapabilities.Contains(capability);
+
+    public Task<DesktopSessionState> SignInAsync(string username, string password, CancellationToken cancellationToken = default)
+    {
+        if (!Accounts.TryGetValue(username, out var account) || account.Password != password)
+            return Task.FromException<DesktopSessionState>(new EngineIpcException(
+                EngineIpcFailureKind.AuthenticationRejected, "Synthetic rejection."));
+        desktopSession = new DesktopSessionState
+        {
+            Authorization = new AuthorizationContext
+            {
+                SessionId = Guid.NewGuid(),
+                TenantId = Guid.NewGuid(),
+                Scope = new ScopeRef { Kind = "organization", Id = Guid.NewGuid() },
+                Identity = new AuthenticatedIdentity
+                {
+                    PrincipalId = Guid.NewGuid(),
+                    PrincipalKind = PrincipalKind.User,
+                },
+            },
+            AccountRole = account.Role,
+            ExpiresAt = SessionExpiry ?? DateTimeOffset.UtcNow.AddHours(8).ToUnixTimeMilliseconds(),
+        };
+        CurrentPermission = account.Role switch
+        {
+            DesktopAccountRole.Manager => ProtocolIds.Permissions.EitmadPermissionCatalogDraftWriteV1,
+            DesktopAccountRole.Receptionist => ProtocolIds.Permissions.EitmadPermissionQuotationDraftWriteV1,
+            _ => null,
+        };
+        return Task.FromResult(desktopSession);
+    }
+
+    public Task<DesktopSessionState?> GetSessionStateAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(desktopSession);
+
+    public Task SignOutAsync(CancellationToken cancellationToken = default)
+    {
+        desktopSession = null;
+        CurrentPermission = null;
+        SignOutCount++;
+        return Task.CompletedTask;
+    }
+
+    private string? CurrentPermission { get; set; }
 
     public bool WasQueried(string kind)
     {
@@ -107,17 +161,22 @@ internal sealed class FakeEngine : IEngineShellBridge
         return Task.CompletedTask;
     }
 
-    public Task<QueryResponseEnvelope> QueryAsync(Query query, CancellationToken cancellationToken = default)
+    public async Task<QueryResponseEnvelope> QueryAsync(Query query, CancellationToken cancellationToken = default)
     {
+        var revision = ConfigurationRevision;
         Interlocked.Increment(ref queryCount);
         lock (queriedKinds)
         {
             queriedKinds.Add(query.Kind);
         }
 
+        if (QueryBarrier is { } barrier) await barrier(query);
+        if (ThrowQueries)
+            throw new EngineIpcException(EngineIpcFailureKind.ConnectionLost, "Synthetic IPC failure.");
+
         if (FailConfigurationQuery && query.Kind == Query.ConfigGetKind)
         {
-            return Task.FromResult(new QueryResponseEnvelope
+            return new QueryResponseEnvelope
             {
                 RequestId = Guid.NewGuid(),
                 CorrelationId = Guid.NewGuid(),
@@ -126,12 +185,19 @@ internal sealed class FakeEngine : IEngineShellBridge
                     Status = CommandOutcomeStatus.Failed,
                     Payload = new QueryResult { Code = "CONFIG_UNAVAILABLE" },
                 },
-            });
+            };
         }
 
         var result = query.Kind switch
         {
-            Query.ConfigGetKind => QueryResult.ForConfiguration(Configuration()),
+            Query.PermissionsGetEffectiveKind => QueryResult.ForEffectivePermissions(new EffectivePermissions
+            {
+                PolicyVersion = 1,
+                Permissions = CurrentPermission is null
+                    ? []
+                    : [new EffectivePermission { Permission = CurrentPermission, Decision = PermissionDecision.Granted }],
+            }),
+            Query.ConfigGetKind => QueryResult.ForConfiguration(Configuration(revision)),
             Query.SyncGetStatusKind => QueryResult.ForSyncStatus(new SyncStatus
             {
                 Kind = SyncStatusKind.Current,
@@ -143,14 +209,18 @@ internal sealed class FakeEngine : IEngineShellBridge
                 Payload = new UpdateStatePayload(),
             }),
             Query.ReferenceMarkerListKind => QueryResult.ForReferenceMarkers(new ReferenceMarkerPage { Items = [] }),
+            Query.DesktopAccountListKind => QueryResult.ForDesktopAccounts(new DesktopAccountPage
+            {
+                Accounts = DesktopAccounts.ToArray(),
+            }),
             _ => throw new InvalidOperationException("Unexpected fake query."),
         };
-        return Task.FromResult(new QueryResponseEnvelope
+        return new QueryResponseEnvelope
         {
             RequestId = Guid.NewGuid(),
             CorrelationId = Guid.NewGuid(),
             Outcome = new QueryOutcome { Status = CommandOutcomeStatus.Succeeded, Payload = result },
-        });
+        };
     }
 
     public Task<CommandResponseEnvelope> SubmitConfigurationPatchAsync(
@@ -163,6 +233,58 @@ internal sealed class FakeEngine : IEngineShellBridge
             CorrelationId = Guid.NewGuid(),
             Outcome = new CommandOutcome { Status = CommandOutcomeStatus.Succeeded, Payload = new CommandResult() },
         });
+
+    public Func<Command, CommandResponseEnvelope>? CommandHandler { get; set; }
+
+    public Task<CommandResponseEnvelope> SubmitCommandAsync(
+        Command command,
+        Guid idempotencyKey,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(CommandHandler?.Invoke(command) ?? ApplyDesktopAccountCommand(command));
+
+    private CommandResponseEnvelope ApplyDesktopAccountCommand(Command command)
+    {
+        if (command.AsDesktopAccountCreate() is { } create)
+        {
+            DesktopAccounts.Add(new DesktopAccountSummary
+            {
+                AccountId = Guid.NewGuid(),
+                UserId = Guid.NewGuid(),
+                DisplayName = create.DisplayName,
+                Username = create.Username,
+                Role = create.Role,
+                Active = true,
+                Revision = 1,
+            });
+        }
+        else if (command.AsDesktopAccountUpdate() is { } update)
+        {
+            var index = DesktopAccounts.FindIndex(account => account.AccountId == update.AccountId);
+            if (index >= 0)
+            {
+                var current = DesktopAccounts[index];
+                current.DisplayName = update.DisplayName;
+                current.Role = update.Role;
+                current.Revision++;
+            }
+        }
+        else if (command.AsDesktopAccountDeactivate() is { } deactivate)
+        {
+            var account = DesktopAccounts.Single(item => item.AccountId == deactivate.AccountId);
+            account.Active = false;
+            account.Revision++;
+        }
+        return new CommandResponseEnvelope
+        {
+            RequestId = Guid.NewGuid(),
+            CorrelationId = Guid.NewGuid(),
+            Outcome = new CommandOutcome
+            {
+                Status = CommandOutcomeStatus.Succeeded,
+                Payload = new CommandResult(),
+            },
+        };
+    }
 
     public Task<CommandResponseEnvelope> SubmitReferenceMarkerAsync(
         UpsertReferenceMarker marker,
@@ -199,11 +321,21 @@ internal sealed class FakeEngine : IEngineShellBridge
         Subscription subscription,
         CancellationToken cancellationToken = default)
     {
-        var item = new FakeSubscription();
+        FakeSubscription? item = null;
+        item = new FakeSubscription(() =>
+        {
+            lock (stateLock)
+            {
+                if (subscriptions.TryGetValue(subscription.Kind, out var current) && ReferenceEquals(current, item))
+                    subscriptions.Remove(subscription.Kind);
+            }
+        });
         lock (stateLock)
         {
             subscriptions.Add(subscription.Kind, item);
         }
+
+        SubscribeHook?.Invoke(subscription, item);
 
         return Task.FromResult<IEngineSubscription>(item);
     }
@@ -288,9 +420,9 @@ internal sealed class FakeEngine : IEngineShellBridge
         }
     }
 
-    private static ConfigSnapshot Configuration() => new()
+    private static ConfigSnapshot Configuration(long revision) => new()
     {
-        Revision = 1,
+        Revision = revision,
         SchemaVersion = 1,
         Scope = new ScopeRef { Kind = "organization", Id = Guid.NewGuid() },
         Entries =

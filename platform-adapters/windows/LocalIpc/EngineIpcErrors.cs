@@ -16,11 +16,12 @@ public enum EngineIpcFailureKind
     SubscriptionUnsupported,
     ResyncRequired,
     SubscriptionBackpressure,
+    SessionChanged,
 }
 
 public sealed class EngineIpcException : Exception
 {
-    internal EngineIpcException(
+    public EngineIpcException(
         EngineIpcFailureKind kind,
         string message,
         ContractError? contractError = null,

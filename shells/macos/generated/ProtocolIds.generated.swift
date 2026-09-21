@@ -2,7 +2,16 @@
 import Foundation
 
 public enum ProtocolIds {
+    public enum Version {
+        public static let major = 1
+        public static let minor = 8
+    }
+
     public enum IpcMessages {
+        public static let eitmadIpcDesktopSessionResponseV1 = "eitmad.ipc.desktop-session-response.v1"
+        public static let eitmadIpcDesktopSessionStateV1 = "eitmad.ipc.desktop-session-state.v1"
+        public static let eitmadIpcDesktopSignInV1 = "eitmad.ipc.desktop-sign-in.v1"
+        public static let eitmadIpcDesktopSignOutV1 = "eitmad.ipc.desktop-sign-out.v1"
         public static let eitmadIpcCommandResponseV1 = "eitmad.ipc.command-response.v1"
         public static let eitmadIpcCommandV1 = "eitmad.ipc.command.v1"
         public static let eitmadIpcFailureV1 = "eitmad.ipc.failure.v1"
@@ -27,6 +36,9 @@ public enum ProtocolIds {
         public static let eitmadOperationCancelV1 = "eitmad.operation.cancel.v1"
         public static let eitmadUpdateReportInstallerOutcomeV1 = "eitmad.update.report-installer-outcome.v1"
         public static let eitmadReferenceMarkerUpsertV1 = "eitmad.reference-marker.upsert.v1"
+        public static let eitmadDesktopAccountCreateV1 = "eitmad.desktop-account.create.v1"
+        public static let eitmadDesktopAccountUpdateV1 = "eitmad.desktop-account.update.v1"
+        public static let eitmadDesktopAccountDeactivateV1 = "eitmad.desktop-account.deactivate.v1"
     }
 
     public enum Queries {
@@ -36,6 +48,7 @@ public enum ProtocolIds {
         public static let eitmadUpdateGetStateV1 = "eitmad.update.get-state.v1"
         public static let eitmadSyncGetStatusV1 = "eitmad.sync.get-status.v1"
         public static let eitmadReferenceMarkerListV1 = "eitmad.reference-marker.list.v1"
+        public static let eitmadDesktopAccountListV1 = "eitmad.desktop-account.list.v1"
     }
 
     public enum Subscriptions {
@@ -92,6 +105,7 @@ public enum ProtocolIds {
     public enum Capabilities {
         public static let eitmadCapabilityEngineLifecycleV1 = "eitmad.capability.engine-lifecycle.v1"
         public static let eitmadCapabilityLocalIpcV1 = "eitmad.capability.local-ipc.v1"
+        public static let eitmadCapabilityDesktopUserSessionV1 = "eitmad.capability.desktop-user-session.v1"
         public static let eitmadCapabilityLocalIpcSubscriptionsV1 = "eitmad.capability.local-ipc-subscriptions.v1"
         public static let eitmadCapabilityAuthorizationPolicyEventsV1 = "eitmad.capability.authorization-policy-events.v1"
         public static let eitmadCapabilityAuthorizationScopesV1 = "eitmad.capability.authorization-scopes.v1"
@@ -107,6 +121,7 @@ public enum ProtocolIds {
         public static let eitmadCapabilityServerAdministrationV1 = "eitmad.capability.server-administration.v1"
         public static let eitmadCapabilityUpdateV1 = "eitmad.capability.update.v1"
         public static let eitmadCapabilityReferenceMarkerV1 = "eitmad.capability.reference-marker.v1"
+        public static let eitmadCapabilityDesktopAccountManagementV1 = "eitmad.capability.desktop-account-management.v1"
     }
 
     public enum Permissions {
@@ -139,6 +154,9 @@ public enum ProtocolIds {
         public static let eitmadPermissionUpdateReportInstallerV1 = "eitmad.permission.update.report-installer.v1"
         public static let eitmadPermissionReferenceMarkerReadV1 = "eitmad.permission.reference-marker.read.v1"
         public static let eitmadPermissionReferenceMarkerWriteV1 = "eitmad.permission.reference-marker.write.v1"
+        public static let eitmadPermissionCatalogDraftWriteV1 = "eitmad.permission.catalog.draft.write.v1"
+        public static let eitmadPermissionQuotationDraftWriteV1 = "eitmad.permission.quotation.draft.write.v1"
+        public static let eitmadPermissionDesktopAccountsManageV1 = "eitmad.permission.desktop-accounts.manage.v1"
     }
 
     public enum ConfigKeys {
@@ -148,6 +166,8 @@ public enum ProtocolIds {
     public enum Relations {
         public static let eitmadRelationOrganizationConfigManagerV1 = "eitmad.relation.organization.config-manager.v1"
         public static let eitmadRelationOrganizationMemberV1 = "eitmad.relation.organization.member.v1"
+        public static let eitmadRelationOrganizationManagerV1 = "eitmad.relation.organization.manager.v1"
+        public static let eitmadRelationOrganizationReceptionistV1 = "eitmad.relation.organization.receptionist.v1"
         public static let eitmadRelationOrganizationOwnerV1 = "eitmad.relation.organization.owner.v1"
     }
 
@@ -174,6 +194,7 @@ public enum ProtocolIds {
         public static let eitmadErrorIpcEngineStoppingV1 = "eitmad.error.ipc-engine-stopping.v1"
         public static let eitmadErrorIpcPayloadTooLargeV1 = "eitmad.error.ipc-payload-too-large.v1"
         public static let eitmadErrorIpcSessionInvalidV1 = "eitmad.error.ipc-session-invalid.v1"
+        public static let eitmadErrorDesktopAuthenticationFailedV1 = "eitmad.error.desktop-authentication-failed.v1"
         public static let eitmadErrorIpcSubscriptionResyncRequiredV1 = "eitmad.error.ipc-subscription-resync-required.v1"
         public static let eitmadErrorIpcSubscriptionUnsupportedV1 = "eitmad.error.ipc-subscription-unsupported.v1"
         public static let eitmadErrorIpcDeadlineExceededV1 = "eitmad.error.ipc-deadline-exceeded.v1"
@@ -201,6 +222,10 @@ public enum ProtocolIds {
         public static let eitmadErrorUpdateInstallerFailedV1 = "eitmad.error.update-installer-failed.v1"
         public static let eitmadErrorReferenceMarkerRevisionConflictV1 = "eitmad.error.reference-marker-revision-conflict.v1"
         public static let eitmadErrorReferenceMarkerUnavailableV1 = "eitmad.error.reference-marker-unavailable.v1"
+        public static let eitmadErrorDesktopAccountInvalidV1 = "eitmad.error.desktop-account-invalid.v1"
+        public static let eitmadErrorDesktopAccountRevisionConflictV1 = "eitmad.error.desktop-account-revision-conflict.v1"
+        public static let eitmadErrorDesktopAccountLastManagerV1 = "eitmad.error.desktop-account-last-manager.v1"
+        public static let eitmadErrorDesktopAccountUnavailableV1 = "eitmad.error.desktop-account-unavailable.v1"
     }
 
     public enum MessageIds {
@@ -223,6 +248,7 @@ public enum ProtocolIds {
         public static let eitmadMessageIpcEngineStoppingV1 = "eitmad.message.ipc-engine-stopping.v1"
         public static let eitmadMessageIpcPayloadTooLargeV1 = "eitmad.message.ipc-payload-too-large.v1"
         public static let eitmadMessageIpcSessionInvalidV1 = "eitmad.message.ipc-session-invalid.v1"
+        public static let eitmadMessageDesktopAuthenticationFailedV1 = "eitmad.message.desktop-authentication-failed.v1"
         public static let eitmadMessageIpcSubscriptionResyncRequiredV1 = "eitmad.message.ipc-subscription-resync-required.v1"
         public static let eitmadMessageIpcSubscriptionUnsupportedV1 = "eitmad.message.ipc-subscription-unsupported.v1"
         public static let eitmadMessageIpcDeadlineExceededV1 = "eitmad.message.ipc-deadline-exceeded.v1"
@@ -251,6 +277,10 @@ public enum ProtocolIds {
         public static let eitmadMessageUpdateInstallerFailedV1 = "eitmad.message.update-installer-failed.v1"
         public static let eitmadMessageReferenceMarkerRevisionConflictV1 = "eitmad.message.reference-marker-revision-conflict.v1"
         public static let eitmadMessageReferenceMarkerUnavailableV1 = "eitmad.message.reference-marker-unavailable.v1"
+        public static let eitmadMessageDesktopAccountInvalidV1 = "eitmad.message.desktop-account-invalid.v1"
+        public static let eitmadMessageDesktopAccountRevisionConflictV1 = "eitmad.message.desktop-account-revision-conflict.v1"
+        public static let eitmadMessageDesktopAccountLastManagerV1 = "eitmad.message.desktop-account-last-manager.v1"
+        public static let eitmadMessageDesktopAccountUnavailableV1 = "eitmad.message.desktop-account-unavailable.v1"
     }
 
     public enum ErrorParameterNames {

@@ -6,19 +6,6 @@
              FlowDirection="RightToLeft"
              Language="ar-YE"
              Background="{StaticResource CanvasBrush}">
-    <UserControl.Resources>
-        <Style x:Key="DevelopmentAccountButton" TargetType="Button" BasedOn="{StaticResource ActionButton}">
-            <Setter Property="Height" Value="54" />
-            <Setter Property="Background" Value="#FCF8F3" />
-            <Setter Property="BorderBrush" Value="#E4D4C4" />
-            <Setter Property="controls:ControlOptions.HoverBackground" Value="#F5E8DB" />
-            <Setter Property="controls:ControlOptions.HoverBorderBrush" Value="#B8783E" />
-            <Setter Property="controls:ControlOptions.CornerRadius" Value="9" />
-            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <Setter Property="Padding" Value="14,8" />
-        </Style>
-    </UserControl.Resources>
-
     <Grid FlowDirection="LeftToRight">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="0.88*" MinWidth="285" />
@@ -136,7 +123,7 @@
                     </controls:FormField>
 
                     <TextBlock x:Name="SignInError"
-                               Text="بيانات الدخول غير صحيحة. استخدم أحد حسابات التطوير أدناه."
+                               Text="بيانات الدخول غير صحيحة."
                                Foreground="{StaticResource DangerBrush}"
                                FontSize="11"
                                Margin="0,10,0,0"
@@ -151,50 +138,12 @@
                             FontSize="14"
                             Click="SignInClick"
                             automation:AutomationProperties.Name="تسجيل الدخول" />
-
-                    <Grid Margin="0,24,0,12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition />
-                        </Grid.ColumnDefinitions>
-                        <Border BorderBrush="{StaticResource LineBrush}" BorderThickness="0,1,0,0" VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="1" Text="حسابات التطوير" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="12,0" />
-                        <Border Grid.Column="2" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,1,0,0" VerticalAlignment="Center" />
-                    </Grid>
-
-                    <Grid FlowDirection="LeftToRight">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition />
-                            <ColumnDefinition Width="10" />
-                            <ColumnDefinition />
-                        </Grid.ColumnDefinitions>
-                        <Button x:Name="ManagerAccountButton"
-                                Grid.Column="0"
-                                Style="{StaticResource DevelopmentAccountButton}"
-                                Tag="admin"
-                                Click="SelectDevelopmentAccountClick"
-                                automation:AutomationProperties.Name="استخدام حساب المدير التجريبي">
-                            <StackPanel FlowDirection="RightToLeft">
-                                <TextBlock Text="المدير" FontWeight="SemiBold" FontSize="12" />
-                                <TextBlock Text="admin / admin" FontFamily="Segoe UI" FontSize="10" Foreground="{StaticResource MutedBrush}" FlowDirection="LeftToRight" />
-                            </StackPanel>
-                        </Button>
-                        <Button x:Name="ReceptionistAccountButton"
-                                Grid.Column="2"
-                                Style="{StaticResource DevelopmentAccountButton}"
-                                Tag="rec"
-                                Click="SelectDevelopmentAccountClick"
-                                automation:AutomationProperties.Name="استخدام حساب موظف الاستقبال التجريبي">
-                            <StackPanel FlowDirection="RightToLeft">
-                                <TextBlock Text="موظف الاستقبال" FontWeight="SemiBold" FontSize="12" />
-                                <TextBlock Text="rec / rec" FontFamily="Segoe UI" FontSize="10" Foreground="{StaticResource MutedBrush}" FlowDirection="LeftToRight" />
-                            </StackPanel>
-                        </Button>
-                    </Grid>
-
-                    <Border Margin="0,18,0,0" Padding="12,9" Background="#F6EEE6" CornerRadius="8">
-                        <TextBlock Text="وضع تطوير: هذه الواجهة لا تنشئ جلسة ولا تحفظ بيانات."
+                    <TextBlock x:Name="SignInProgress" Text="يتم التحقق من الحساب وإنشاء جلسة آمنة…"
+                               Visibility="Collapsed" Foreground="{StaticResource MutedBrush}" FontSize="11"
+                               Margin="0,12,0,0" TextAlignment="Center"
+                               automation:AutomationProperties.LiveSetting="Polite" />
+                    <Border Margin="0,22,0,0" Padding="12,9" Background="#F6EEE6" CornerRadius="8">
+                        <TextBlock Text="تُرسل بيانات الدخول مباشرة إلى محرك Rust ولا يحفظها التطبيق."
                                    Foreground="#704019"
                                    FontSize="10"
                                    TextAlignment="Center" />

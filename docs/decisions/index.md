@@ -1,11 +1,11 @@
 ---
 title: "Review architectural decisions"
-description: "Find decisions about Rust authority, shells, IPC, storage, synchronization, security, Arabic UX, and updates."
+description: "Find decisions about Rust authority, shells, IPC, storage, synchronization, security, Arabic UX, updates, and product workflows."
 audience: "architecture"
 page_type: "reference"
 status: "active"
 owner: "architecture maintainers"
-last_verified: "2026-08-26"
+last_verified: "2026-09-19"
 review_triggers:
   - "an ADR is proposed, accepted, rejected, or superseded"
 keywords:
@@ -64,3 +64,4 @@ Accepted ADRs are immutable historical records except for typo fixes, link repai
 | [ADR-0025](0025-modular-server-authority-foundation.md) | Deploy modular server authority as one process first | Accepted | 2026-08-22 | None |
 | [ADR-0026](0026-compose-authorized-operational-server-planes.md) | Compose authorized relay, update, and administration planes | Accepted | 2026-08-24 | None |
 | [ADR-0027](0027-mandatory-release-evidence.md) | Require one mandatory release evidence chain | Accepted | 2026-08-26 | None |
+| [ADR-0028](0028-manager-receptionist-sales-workflows.md) | Define Manager and Receptionist sales workflows | Accepted | 2026-09-19 | None |

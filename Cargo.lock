@@ -846,6 +846,7 @@ dependencies = [
 name = "eitmad-engine-cli"
 version = "0.0.0"
 dependencies = [
+ "argon2",
  "clap",
  "eitmad-contracts",
  "eitmad-engine-runtime",
@@ -862,6 +863,7 @@ dependencies = [
 name = "eitmad-engine-runtime"
 version = "0.0.0"
 dependencies = [
+ "argon2",
  "async-trait",
  "eitmad-authorization",
  "eitmad-configuration",
@@ -874,6 +876,7 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
+ "sha2",
  "subtle",
  "tempfile",
  "tokio",
@@ -992,6 +995,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "tempfile",
+ "unicode-normalization",
  "uuid",
 ]
 

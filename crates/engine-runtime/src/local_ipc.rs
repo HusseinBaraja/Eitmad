@@ -8,6 +8,7 @@ pub use subscriptions::{
 
 use std::{collections::HashMap, io, sync::Arc, time::Duration};
 
+use crate::{DesktopAuthenticationError, DesktopAuthenticator};
 use async_trait::async_trait;
 use eitmad_contracts::{
     PROTOCOL_VERSION,
@@ -16,9 +17,10 @@ use eitmad_contracts::{
     events::Subscription,
     identity::{AuthorizationContext, SessionId},
     ipc::{
-        HandshakeAccepted, HandshakeOutcome, HandshakeRejection, HandshakeRequest,
-        HandshakeResponse, IpcClientMessage, IpcFailureResponse, IpcServerMessage,
-        MAX_IPC_FRAME_BYTES, ShutdownResponse,
+        DesktopSessionRequest, DesktopSessionResponse, DesktopSessionState, DesktopSessionStatus,
+        DesktopSignInRequest, HandshakeAccepted, HandshakeOutcome, HandshakeRejection,
+        HandshakeRequest, HandshakeResponse, IpcClientMessage, IpcFailureResponse,
+        IpcServerMessage, MAX_IPC_FRAME_BYTES, ShutdownResponse,
     },
     queries::{Query, QueryResult},
     transport::{
@@ -157,6 +159,32 @@ impl LocalIpcConfiguration {
 struct Session {
     negotiated: NegotiatedSession,
     authorization: AuthorizationContext,
+    user_authorization: Option<AuthorizationContext>,
+}
+
+enum DesktopSessionOutcome {
+    Active(DesktopSessionState),
+    SignedOut,
+    Failed(ContractError),
+}
+
+fn desktop_session_response(
+    request_id: eitmad_contracts::transport::RequestId,
+    correlation_id: CorrelationId,
+    outcome: DesktopSessionOutcome,
+) -> IpcServerMessage {
+    let (status, state, error) = match outcome {
+        DesktopSessionOutcome::Active(state) => (DesktopSessionStatus::Active, Some(state), None),
+        DesktopSessionOutcome::SignedOut => (DesktopSessionStatus::SignedOut, None, None),
+        DesktopSessionOutcome::Failed(error) => (DesktopSessionStatus::Failed, None, Some(error)),
+    };
+    IpcServerMessage::DesktopSession(DesktopSessionResponse {
+        request_id,
+        correlation_id,
+        status,
+        state,
+        error,
+    })
 }
 
 pub struct LocalIpcServer {
@@ -164,6 +192,7 @@ pub struct LocalIpcServer {
     dispatcher: Arc<dyn IpcDispatcher>,
     shutdown_requests: mpsc::Sender<()>,
     event_broker: EventBroker,
+    desktop_auth: Option<DesktopAuthenticator>,
 }
 
 impl LocalIpcServer {
@@ -178,12 +207,19 @@ impl LocalIpcServer {
             dispatcher,
             shutdown_requests,
             event_broker: EventBroker::new(),
+            desktop_auth: None,
         }
     }
 
     #[must_use]
     pub fn with_event_broker(mut self, event_broker: EventBroker) -> Self {
         self.event_broker = event_broker;
+        self
+    }
+
+    #[must_use]
+    pub fn with_desktop_auth(mut self, desktop_auth: DesktopAuthenticator) -> Self {
+        self.desktop_auth = Some(desktop_auth);
         self
     }
 
@@ -273,6 +309,7 @@ impl LocalIpcServer {
                     let Some(message) = spawn_request(
                         &mut pending,
                         &self.dispatcher,
+                        self.desktop_auth.as_ref(),
                         session.as_ref(),
                         message,
                     ) else {
@@ -280,6 +317,12 @@ impl LocalIpcServer {
                     };
 
                     match message {
+                        IpcClientMessage::DesktopSignOut(_) | IpcClientMessage::DesktopSignIn(_) | IpcClientMessage::Handshake(_) if session.is_some() => {
+                            if !close_all_subscriptions(&mut writer, &mut subscriptions).await? { return Ok(()); }
+                            if !drain_pending(&mut writer, &mut pending).await? { return Ok(()); }
+                            let response = self.handle_message(message, &mut session).await;
+                            if !write_frame_or_close(&mut writer, &response).await? { return Ok(()); }
+                        }
                         IpcClientMessage::Subscribe(request) if session.is_some() => {
                             let response = self.subscribe(
                                 session.as_ref(),
@@ -300,12 +343,8 @@ impl LocalIpcServer {
                             if !close_all_subscriptions(&mut writer, &mut subscriptions).await? {
                                 return Ok(());
                             }
-                            while let Some(result) = pending.join_next().await {
-                                if let Ok(response) = result {
-                                    if !write_frame_or_close(&mut writer, &response).await? {
-                                        return Ok(());
-                                    }
-                                }
+                            if !drain_pending(&mut writer, &mut pending).await? {
+                                return Ok(());
                             }
                             let response = IpcServerMessage::Shutdown(ShutdownResponse {
                                 request_id: request.request_id,
@@ -343,15 +382,27 @@ impl LocalIpcServer {
     ) -> IpcServerMessage {
         match message {
             IpcClientMessage::Handshake(request) => {
+                if let (Some(previous), Some(auth)) = (
+                    session
+                        .as_ref()
+                        .and_then(|value| value.user_authorization.as_ref()),
+                    self.desktop_auth.as_ref(),
+                ) {
+                    let _ = auth.sign_out(previous, request.correlation_id, now());
+                }
                 let response = self.handshake(request);
                 if let HandshakeOutcome::Accepted(accepted) = &response.outcome {
                     *session = Some(Session {
                         negotiated: accepted.negotiated.clone(),
                         authorization: accepted.authorization.clone(),
+                        user_authorization: None,
                     });
                 }
                 IpcServerMessage::Handshake(response)
             }
+            IpcClientMessage::DesktopSignIn(request) => self.sign_in(session, &request),
+            IpcClientMessage::DesktopSessionState(request) => self.session_state(session, &request),
+            IpcClientMessage::DesktopSignOut(request) => self.sign_out(session, &request),
             IpcClientMessage::Command(request) => {
                 IpcServerMessage::Command(self.command(session.as_ref(), request).await)
             }
@@ -379,6 +430,97 @@ impl LocalIpcServer {
                 accepted: session.is_some(),
             }),
         }
+    }
+
+    fn sign_in(
+        &self,
+        session: &mut Option<Session>,
+        request: &DesktopSignInRequest,
+    ) -> IpcServerMessage {
+        let outcome = match (session.as_mut(), self.desktop_auth.as_ref()) {
+            (Some(connection), Some(auth)) if connection.negotiated.protocol.minor >= 7 => {
+                if let Some(previous) = connection.user_authorization.take() {
+                    let _ = auth.sign_out(&previous, request.correlation_id, now());
+                }
+                match auth.sign_in(
+                    &connection.authorization,
+                    &request.username,
+                    &request.password,
+                    request.correlation_id,
+                    now(),
+                ) {
+                    Ok(state) => {
+                        connection
+                            .user_authorization
+                            .clone_from(&state.authorization);
+                        DesktopSessionOutcome::Active(state)
+                    }
+                    Err(error) => DesktopSessionOutcome::Failed(desktop_auth_error(
+                        error,
+                        request.correlation_id,
+                    )),
+                }
+            }
+            _ => DesktopSessionOutcome::Failed(session_invalid(request.correlation_id)),
+        };
+        desktop_session_response(request.request_id, request.correlation_id, outcome)
+    }
+
+    fn session_state(
+        &self,
+        session: &mut Option<Session>,
+        request: &DesktopSessionRequest,
+    ) -> IpcServerMessage {
+        let outcome = match (session.as_mut(), self.desktop_auth.as_ref()) {
+            (Some(connection), Some(auth)) if connection.negotiated.protocol.minor >= 7 => {
+                match connection.user_authorization.as_ref() {
+                    Some(authorization) => match auth.active(authorization, now()) {
+                        Ok(true) => match auth.session_state(authorization) {
+                            Ok(state) => DesktopSessionOutcome::Active(state),
+                            Err(error) => DesktopSessionOutcome::Failed(desktop_auth_error(
+                                error,
+                                request.correlation_id,
+                            )),
+                        },
+                        Ok(false) => {
+                            connection.user_authorization = None;
+                            DesktopSessionOutcome::SignedOut
+                        }
+                        Err(error) => DesktopSessionOutcome::Failed(desktop_auth_error(
+                            error,
+                            request.correlation_id,
+                        )),
+                    },
+                    None => DesktopSessionOutcome::SignedOut,
+                }
+            }
+            _ => DesktopSessionOutcome::Failed(session_invalid(request.correlation_id)),
+        };
+        desktop_session_response(request.request_id, request.correlation_id, outcome)
+    }
+
+    fn sign_out(
+        &self,
+        session: &mut Option<Session>,
+        request: &DesktopSessionRequest,
+    ) -> IpcServerMessage {
+        let outcome = match (session.as_mut(), self.desktop_auth.as_ref()) {
+            (Some(connection), Some(auth)) if connection.negotiated.protocol.minor >= 7 => {
+                if let Some(authorization) = connection.user_authorization.take() {
+                    match auth.sign_out(&authorization, request.correlation_id, now()) {
+                        Ok(()) => DesktopSessionOutcome::SignedOut,
+                        Err(error) => DesktopSessionOutcome::Failed(desktop_auth_error(
+                            error,
+                            request.correlation_id,
+                        )),
+                    }
+                } else {
+                    DesktopSessionOutcome::SignedOut
+                }
+            }
+            _ => DesktopSessionOutcome::Failed(session_invalid(request.correlation_id)),
+        };
+        desktop_session_response(request.request_id, request.correlation_id, outcome)
     }
 
     fn handshake(&self, request: HandshakeRequest) -> HandshakeResponse {
@@ -420,7 +562,13 @@ impl LocalIpcServer {
         session: Option<&Session>,
         request: eitmad_contracts::transport::CommandEnvelope,
     ) -> CommandResponseEnvelope {
-        dispatch_command(Arc::clone(&self.dispatcher), session, request).await
+        dispatch_command(
+            Arc::clone(&self.dispatcher),
+            self.desktop_auth.as_ref(),
+            session,
+            request,
+        )
+        .await
     }
 
     async fn query(
@@ -428,7 +576,13 @@ impl LocalIpcServer {
         session: Option<&Session>,
         request: eitmad_contracts::transport::QueryEnvelope,
     ) -> QueryResponseEnvelope {
-        dispatch_query(Arc::clone(&self.dispatcher), session, request).await
+        dispatch_query(
+            Arc::clone(&self.dispatcher),
+            self.desktop_auth.as_ref(),
+            session,
+            request,
+        )
+        .await
     }
 
     async fn subscribe(
@@ -438,6 +592,13 @@ impl LocalIpcServer {
         deliveries: &mpsc::Sender<SubscriptionDelivery>,
         subscriptions: &mut HashMap<SubscriptionId, ActiveSubscription>,
     ) -> SubscriptionResponseEnvelope {
+        if self.desktop_auth.is_none() && !cfg!(test) {
+            return SubscriptionResponseEnvelope {
+                request_id: request.request_id,
+                correlation_id: request.correlation_id,
+                outcome: SubscriptionOutcome::Failed(session_invalid(request.correlation_id)),
+            };
+        }
         let failure = validate_subscription(session, &request);
         let outcome = if let Some(error) = failure {
             SubscriptionOutcome::Failed(error)
@@ -447,6 +608,17 @@ impl LocalIpcServer {
                 correlation_id: request.correlation_id,
                 protocol_version: request.protocol_version,
             };
+            if self
+                .desktop_auth
+                .as_ref()
+                .is_some_and(|auth| auth.active(&request.authorization, now()) != Ok(true))
+            {
+                return SubscriptionResponseEnvelope {
+                    request_id: request.request_id,
+                    correlation_id: request.correlation_id,
+                    outcome: SubscriptionOutcome::Failed(session_invalid(request.correlation_id)),
+                };
+            }
             match self
                 .dispatcher
                 .authorize_subscription(context.clone(), &request.subscription)
@@ -478,6 +650,7 @@ impl LocalIpcServer {
                                 correlation_id: request.correlation_id,
                                 deliveries: deliveries.clone(),
                                 dispatcher: Arc::clone(&self.dispatcher),
+                                desktop_auth: self.desktop_auth.clone(),
                                 context: context.clone(),
                                 subscription: subscription.clone(),
                                 policy_changes,
@@ -512,6 +685,7 @@ impl LocalIpcServer {
 fn spawn_request(
     pending: &mut tokio::task::JoinSet<IpcServerMessage>,
     dispatcher: &Arc<dyn IpcDispatcher>,
+    desktop_auth: Option<&DesktopAuthenticator>,
     session: Option<&Session>,
     message: IpcClientMessage,
 ) -> Option<IpcClientMessage> {
@@ -519,9 +693,16 @@ fn spawn_request(
         IpcClientMessage::Command(request) if session.is_some() => {
             let dispatcher = Arc::clone(dispatcher);
             let active_session = session.cloned();
+            let desktop_auth = desktop_auth.cloned();
             pending.spawn(async move {
                 IpcServerMessage::Command(
-                    dispatch_command(dispatcher, active_session.as_ref(), request).await,
+                    dispatch_command(
+                        dispatcher,
+                        desktop_auth.as_ref(),
+                        active_session.as_ref(),
+                        request,
+                    )
+                    .await,
                 )
             });
             None
@@ -529,9 +710,16 @@ fn spawn_request(
         IpcClientMessage::Query(request) if session.is_some() => {
             let dispatcher = Arc::clone(dispatcher);
             let active_session = session.cloned();
+            let desktop_auth = desktop_auth.cloned();
             pending.spawn(async move {
                 IpcServerMessage::Query(
-                    dispatch_query(dispatcher, active_session.as_ref(), request).await,
+                    dispatch_query(
+                        dispatcher,
+                        desktop_auth.as_ref(),
+                        active_session.as_ref(),
+                        request,
+                    )
+                    .await,
                 )
             });
             None
@@ -774,6 +962,7 @@ struct SubscriptionPump {
     correlation_id: CorrelationId,
     deliveries: mpsc::Sender<SubscriptionDelivery>,
     dispatcher: Arc<dyn IpcDispatcher>,
+    desktop_auth: Option<DesktopAuthenticator>,
     context: SubscriptionContext,
     subscription: Subscription,
     policy_changes: tokio::sync::broadcast::Receiver<eitmad_contracts::identity::ScopeRef>,
@@ -855,10 +1044,14 @@ async fn pump_subscription(mut pump: SubscriptionPump) {
 
 async fn reauthorize_subscription(pump: &SubscriptionPump) -> bool {
     if pump
-        .dispatcher
-        .authorize_subscription(pump.context.clone(), &pump.subscription)
-        .await
-        .is_ok()
+        .desktop_auth
+        .as_ref()
+        .is_none_or(|auth| auth.active(&pump.context.authorization, now()) == Ok(true))
+        && pump
+            .dispatcher
+            .authorize_subscription(pump.context.clone(), &pump.subscription)
+            .await
+            .is_ok()
     {
         true
     } else {
@@ -901,10 +1094,12 @@ async fn send_authorization_revoked(
 
 async fn dispatch_command(
     dispatcher: Arc<dyn IpcDispatcher>,
+    desktop_auth: Option<&DesktopAuthenticator>,
     session: Option<&Session>,
     request: eitmad_contracts::transport::CommandEnvelope,
 ) -> CommandResponseEnvelope {
     let error = validate_request(
+        desktop_auth,
         session,
         &request.authorization,
         request.protocol_version,
@@ -945,10 +1140,12 @@ async fn dispatch_command(
 
 async fn dispatch_query(
     dispatcher: Arc<dyn IpcDispatcher>,
+    desktop_auth: Option<&DesktopAuthenticator>,
     session: Option<&Session>,
     request: eitmad_contracts::transport::QueryEnvelope,
 ) -> QueryResponseEnvelope {
     let error = validate_request(
+        desktop_auth,
         session,
         &request.authorization,
         request.protocol_version,
@@ -985,16 +1182,28 @@ async fn dispatch_query(
 }
 
 fn validate_request(
+    desktop_auth: Option<&DesktopAuthenticator>,
     session: Option<&Session>,
     authorization: &AuthorizationContext,
     protocol: eitmad_contracts::versioning::ProtocolVersion,
     deadline: UnixMillis,
     correlation_id: CorrelationId,
 ) -> Option<ContractError> {
+    if desktop_auth.is_none() && !cfg!(test) {
+        return Some(session_invalid(correlation_id));
+    }
     let Some(session) = session else {
         return Some(session_invalid(correlation_id));
     };
-    if &session.authorization != authorization || session.negotiated.protocol != protocol {
+    let expected = if desktop_auth.is_some() {
+        session.user_authorization.as_ref()
+    } else {
+        Some(&session.authorization)
+    };
+    if expected != Some(authorization) || session.negotiated.protocol != protocol {
+        return Some(session_invalid(correlation_id));
+    }
+    if desktop_auth.is_some_and(|auth| auth.active(authorization, now()) != Ok(true)) {
         return Some(session_invalid(correlation_id));
     }
     (duration_until(deadline).is_zero()).then(|| deadline_exceeded(correlation_id, deadline))
@@ -1015,7 +1224,11 @@ fn validate_subscription(
         && session.negotiated.capabilities.iter().any(|capability| {
             capability.as_str() == "eitmad.capability.authorization-policy-events.v1"
         });
-    if session.authorization != request.authorization
+    if session
+        .user_authorization
+        .as_ref()
+        .unwrap_or(&session.authorization)
+        != &request.authorization
         || session.negotiated.protocol != request.protocol_version
     {
         Some(session_invalid(request.correlation_id))
@@ -1058,6 +1271,10 @@ fn default_engine_hello() -> PeerHello {
             maximum_minor: PROTOCOL_VERSION.minor,
         }],
         capabilities: vec![
+            eitmad_contracts::transport::CapabilityId::parse(
+                "eitmad.capability.desktop-user-session.v1",
+            )
+            .expect("static capability is valid"),
             eitmad_contracts::transport::CapabilityId::parse("eitmad.capability.local-ipc.v1")
                 .expect("static capability is valid"),
             eitmad_contracts::transport::CapabilityId::parse(
@@ -1078,6 +1295,10 @@ fn default_engine_hello() -> PeerHello {
                 .expect("static capability is valid"),
             eitmad_contracts::transport::CapabilityId::parse(
                 "eitmad.capability.reference-marker.v1",
+            )
+            .expect("static capability is valid"),
+            eitmad_contracts::transport::CapabilityId::parse(
+                "eitmad.capability.desktop-account-management.v1",
             )
             .expect("static capability is valid"),
         ],
@@ -1105,6 +1326,28 @@ fn session_invalid(correlation_id: CorrelationId) -> ContractError {
         RetryDisposition::Never,
         None,
     )
+}
+
+fn desktop_auth_error(
+    error: DesktopAuthenticationError,
+    correlation_id: CorrelationId,
+) -> ContractError {
+    match error {
+        DesktopAuthenticationError::Failed => contract_error(
+            "eitmad.error.desktop-authentication-failed.v1",
+            "eitmad.message.desktop-authentication-failed.v1",
+            correlation_id,
+            RetryDisposition::Never,
+            None,
+        ),
+        DesktopAuthenticationError::Unavailable => contract_error(
+            "eitmad.error.authorization-unavailable.v1",
+            "eitmad.message.authorization-unavailable.v1",
+            correlation_id,
+            RetryDisposition::SafeAfterDelay(1_000),
+            None,
+        ),
+    }
 }
 
 fn deadline_exceeded(correlation_id: CorrelationId, deadline: UnixMillis) -> ContractError {
@@ -1260,6 +1503,23 @@ where
     write_serialized_frame_or_close(writer, &value.redacted_for_external_boundary()).await
 }
 
+async fn drain_pending<W>(
+    writer: &mut W,
+    pending: &mut tokio::task::JoinSet<IpcServerMessage>,
+) -> io::Result<bool>
+where
+    W: AsyncWrite + Unpin,
+{
+    while let Some(result) = pending.join_next().await {
+        if let Ok(response) = result {
+            if !write_frame_or_close(writer, &response).await? {
+                return Ok(false);
+            }
+        }
+    }
+    Ok(true)
+}
+
 async fn write_serialized_frame_or_close<W, T>(writer: &mut W, value: &T) -> io::Result<bool>
 where
     W: AsyncWrite + Unpin,
@@ -1281,7 +1541,10 @@ where
 
 #[cfg(test)]
 mod tests {
+    use argon2::{Argon2, PasswordHasher as _, password_hash::SaltString};
+    use eitmad_storage::{AuthorityStore, DesktopAccount, DesktopRole};
     use std::sync::atomic::{AtomicBool, Ordering};
+    use tempfile::tempdir;
 
     use super::*;
     use eitmad_contracts::{
@@ -1549,6 +1812,140 @@ mod tests {
         LocalIpcServer::new(configuration(token), Arc::new(TestDispatcher), shutdown)
     }
 
+    fn signed_in_service_fixture() -> (
+        tempfile::TempDir,
+        AuthorityStore,
+        AuthorizationContext,
+        eitmad_contracts::identity::UserId,
+        LocalIpcServer,
+        Option<Session>,
+    ) {
+        let directory = tempdir().unwrap();
+        let store = AuthorityStore::open(directory.path()).unwrap();
+        let issued_at = now();
+        let owner = store.local_authorization_context(issued_at).unwrap();
+        let salt = SaltString::encode_b64(&[7_u8; 16]).unwrap();
+        let password_hash = Argon2::default()
+            .hash_password(b"synthetic correct horse battery", &salt)
+            .unwrap()
+            .to_string();
+        let user_id = eitmad_contracts::identity::UserId::new(uuid::Uuid::new_v4());
+        store
+            .provision_desktop_account(
+                &owner,
+                &DesktopAccount {
+                    account_id: eitmad_contracts::identity::AccountId::new(uuid::Uuid::new_v4()),
+                    user_id,
+                    tenant_id: owner.tenant_id,
+                    organization_id: store.local_organization_id().unwrap(),
+                    password_hash,
+                    role: DesktopRole::Receptionist,
+                },
+                "استقبال",
+                issued_at,
+            )
+            .unwrap();
+        let device_id = owner.identity.device_id.unwrap();
+        let mut process = owner.clone();
+        process.identity.principal_id =
+            eitmad_contracts::identity::PrincipalId::new(device_id.value());
+        process.identity.principal_kind = eitmad_contracts::identity::PrincipalKind::Device;
+        let (shutdown, _) = mpsc::channel(1);
+        let auth = DesktopAuthenticator::new(store.clone());
+        let dispatcher = Arc::new(crate::ProductDispatcher::new(
+            store.clone(),
+            EventBroker::new(),
+        ));
+        let service = LocalIpcServer::new(
+            LocalIpcConfiguration::authenticated("test".to_owned(), "token".to_owned(), process),
+            dispatcher,
+            shutdown,
+        )
+        .with_desktop_auth(auth);
+        let response = service.handshake(handshake(PROTOCOL_VERSION, "token"));
+        let HandshakeOutcome::Accepted(accepted) = response.outcome else {
+            panic!("transport handshake failed")
+        };
+        let connection = Some(Session {
+            negotiated: accepted.negotiated,
+            authorization: accepted.authorization,
+            user_authorization: None,
+        });
+        (directory, store, owner, user_id, service, connection)
+    }
+
+    #[tokio::test]
+    async fn signed_in_user_is_audited_and_revoked_session_rejects_commands() {
+        let (_directory, store, owner, user_id, service, mut connection) =
+            signed_in_service_fixture();
+        let sign_in = service
+            .handle_message(
+                IpcClientMessage::DesktopSignIn(eitmad_contracts::ipc::DesktopSignInRequest {
+                    request_id: RequestId::new(uuid::Uuid::new_v4()),
+                    correlation_id: CorrelationId::new(uuid::Uuid::new_v4()),
+                    username: "استقبال".to_owned(),
+                    password: "synthetic correct horse battery".to_owned(),
+                }),
+                &mut connection,
+            )
+            .await;
+        let IpcServerMessage::DesktopSession(DesktopSessionResponse {
+            status: DesktopSessionStatus::Active,
+            state: Some(state),
+            ..
+        }) = sign_in
+        else {
+            panic!("sign-in failed")
+        };
+        assert_eq!(
+            state.account_role,
+            eitmad_contracts::accounts::DesktopAccountRole::Receptionist
+        );
+        let user = state.authorization.unwrap();
+        assert_eq!(user.identity.principal_id.value(), user_id.value());
+        assert_ne!(user.identity.principal_id, owner.identity.principal_id);
+        let request = eitmad_contracts::transport::QueryEnvelope {
+            protocol_version: PROTOCOL_VERSION,
+            request_id: RequestId::new(uuid::Uuid::new_v4()),
+            correlation_id: CorrelationId::new(uuid::Uuid::new_v4()),
+            causation_id: None,
+            authorization: user.clone(),
+            deadline: UnixMillis(now().0 + 30_000),
+            query: Query::Configuration(eitmad_contracts::queries::GetConfiguration {}),
+        };
+        let read = service.query(connection.as_ref(), request.clone()).await;
+        assert!(matches!(read.outcome, QueryOutcome::Succeeded(_)));
+        let database = rusqlite::Connection::open(store.path()).unwrap();
+        let audited: String = database
+            .query_row(
+                "SELECT principal_id FROM mutation_audit WHERE correlation_id = ?1",
+                [request.correlation_id.value().to_string()],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(audited, user_id.value().to_string());
+        store
+            .close_session(user.tenant_id, user.session_id, now())
+            .unwrap();
+        let command = eitmad_contracts::transport::CommandEnvelope {
+            protocol_version: PROTOCOL_VERSION,
+            request_id: RequestId::new(uuid::Uuid::new_v4()),
+            correlation_id: CorrelationId::new(uuid::Uuid::new_v4()),
+            causation_id: None,
+            idempotency_key: IdempotencyKey::new(uuid::Uuid::new_v4()),
+            authorization: user,
+            deadline: UnixMillis(now().0 + 30_000),
+            command: Command::CancelOperation(eitmad_contracts::commands::CancelOperation {
+                operation_id: eitmad_contracts::transport::OperationId::new(uuid::Uuid::new_v4()),
+            }),
+        };
+        let denied = service.command(connection.as_ref(), command).await;
+        let CommandOutcome::Failed(error) = denied.outcome else {
+            panic!("revoked session dispatched")
+        };
+        assert_eq!(error.code.as_str(), "eitmad.error.ipc-session-invalid.v1");
+    }
+
     #[test]
     fn handshake_requires_explicit_bootstrap_authentication() {
         let response = service(None).handshake(handshake(PROTOCOL_VERSION, "token"));
@@ -1621,6 +2018,7 @@ mod tests {
         let session = Session {
             negotiated: accepted.negotiated,
             authorization: accepted.authorization.clone(),
+            user_authorization: None,
         };
         let request = eitmad_contracts::transport::QueryEnvelope {
             protocol_version: PROTOCOL_VERSION,
@@ -1647,6 +2045,7 @@ mod tests {
         let session = Session {
             negotiated: accepted.negotiated,
             authorization: accepted.authorization.clone(),
+            user_authorization: None,
         };
         let scope = accepted.authorization.scope.clone();
         let correlation_id = CorrelationId::new(uuid::Uuid::new_v4());
@@ -1745,6 +2144,7 @@ mod tests {
             correlation_id,
             deliveries,
             dispatcher: Arc::new(TestDispatcher),
+            desktop_auth: None,
             context: SubscriptionContext {
                 authorization: AuthorizationContext {
                     session_id: SessionId::new(uuid::Uuid::new_v4()),
@@ -1788,6 +2188,7 @@ mod tests {
             correlation_id,
             deliveries,
             dispatcher,
+            desktop_auth: None,
             context: SubscriptionContext {
                 authorization: AuthorizationContext {
                     session_id: SessionId::new(uuid::Uuid::new_v4()),
@@ -2009,6 +2410,7 @@ mod tests {
         let session = Session {
             negotiated: accepted.negotiated,
             authorization: accepted.authorization.clone(),
+            user_authorization: None,
         };
         let request = SubscriptionEnvelope {
             protocol_version: PROTOCOL_VERSION,
@@ -2059,6 +2461,7 @@ mod tests {
         let session = Session {
             negotiated: accepted.negotiated,
             authorization: accepted.authorization.clone(),
+            user_authorization: None,
         };
         let request = SubscriptionEnvelope {
             protocol_version: ProtocolVersion { major: 1, minor: 0 },
@@ -2088,6 +2491,7 @@ mod tests {
         let session = Session {
             negotiated: accepted.negotiated,
             authorization: accepted.authorization.clone(),
+            user_authorization: None,
         };
         let request = SubscriptionEnvelope {
             protocol_version: protocol,
@@ -2116,6 +2520,7 @@ mod tests {
         let session = Session {
             negotiated: accepted.negotiated,
             authorization: accepted.authorization.clone(),
+            user_authorization: None,
         };
         let operation_id = OperationId::new(uuid::Uuid::new_v4());
         let request = eitmad_contracts::transport::CommandEnvelope {
@@ -2176,6 +2581,7 @@ mod tests {
         let session = Session {
             negotiated: accepted.negotiated,
             authorization: accepted.authorization.clone(),
+            user_authorization: None,
         };
         let request = eitmad_contracts::transport::QueryEnvelope {
             protocol_version: PROTOCOL_VERSION,
@@ -2208,6 +2614,7 @@ mod tests {
         let session = Session {
             negotiated: accepted.negotiated,
             authorization: accepted.authorization.clone(),
+            user_authorization: None,
         };
         let request = eitmad_contracts::transport::CommandEnvelope {
             protocol_version: PROTOCOL_VERSION,

@@ -6,8 +6,18 @@ namespace Eitmad.Contracts;
 
 public static class ProtocolIds
 {
+    public static class Version
+    {
+        public const long Major = 1;
+        public const long Minor = 8;
+    }
+
     public static class IpcMessages
     {
+        public const string EitmadIpcDesktopSessionResponseV1 = "eitmad.ipc.desktop-session-response.v1";
+        public const string EitmadIpcDesktopSessionStateV1 = "eitmad.ipc.desktop-session-state.v1";
+        public const string EitmadIpcDesktopSignInV1 = "eitmad.ipc.desktop-sign-in.v1";
+        public const string EitmadIpcDesktopSignOutV1 = "eitmad.ipc.desktop-sign-out.v1";
         public const string EitmadIpcCommandResponseV1 = "eitmad.ipc.command-response.v1";
         public const string EitmadIpcCommandV1 = "eitmad.ipc.command.v1";
         public const string EitmadIpcFailureV1 = "eitmad.ipc.failure.v1";
@@ -33,6 +43,9 @@ public static class ProtocolIds
         public const string EitmadOperationCancelV1 = "eitmad.operation.cancel.v1";
         public const string EitmadUpdateReportInstallerOutcomeV1 = "eitmad.update.report-installer-outcome.v1";
         public const string EitmadReferenceMarkerUpsertV1 = "eitmad.reference-marker.upsert.v1";
+        public const string EitmadDesktopAccountCreateV1 = "eitmad.desktop-account.create.v1";
+        public const string EitmadDesktopAccountUpdateV1 = "eitmad.desktop-account.update.v1";
+        public const string EitmadDesktopAccountDeactivateV1 = "eitmad.desktop-account.deactivate.v1";
     }
 
     public static class Queries
@@ -43,6 +56,7 @@ public static class ProtocolIds
         public const string EitmadUpdateGetStateV1 = "eitmad.update.get-state.v1";
         public const string EitmadSyncGetStatusV1 = "eitmad.sync.get-status.v1";
         public const string EitmadReferenceMarkerListV1 = "eitmad.reference-marker.list.v1";
+        public const string EitmadDesktopAccountListV1 = "eitmad.desktop-account.list.v1";
     }
 
     public static class Subscriptions
@@ -104,6 +118,7 @@ public static class ProtocolIds
     {
         public const string EitmadCapabilityEngineLifecycleV1 = "eitmad.capability.engine-lifecycle.v1";
         public const string EitmadCapabilityLocalIpcV1 = "eitmad.capability.local-ipc.v1";
+        public const string EitmadCapabilityDesktopUserSessionV1 = "eitmad.capability.desktop-user-session.v1";
         public const string EitmadCapabilityLocalIpcSubscriptionsV1 = "eitmad.capability.local-ipc-subscriptions.v1";
         public const string EitmadCapabilityAuthorizationPolicyEventsV1 = "eitmad.capability.authorization-policy-events.v1";
         public const string EitmadCapabilityAuthorizationScopesV1 = "eitmad.capability.authorization-scopes.v1";
@@ -119,6 +134,7 @@ public static class ProtocolIds
         public const string EitmadCapabilityServerAdministrationV1 = "eitmad.capability.server-administration.v1";
         public const string EitmadCapabilityUpdateV1 = "eitmad.capability.update.v1";
         public const string EitmadCapabilityReferenceMarkerV1 = "eitmad.capability.reference-marker.v1";
+        public const string EitmadCapabilityDesktopAccountManagementV1 = "eitmad.capability.desktop-account-management.v1";
     }
 
     public static class Permissions
@@ -152,6 +168,9 @@ public static class ProtocolIds
         public const string EitmadPermissionUpdateReportInstallerV1 = "eitmad.permission.update.report-installer.v1";
         public const string EitmadPermissionReferenceMarkerReadV1 = "eitmad.permission.reference-marker.read.v1";
         public const string EitmadPermissionReferenceMarkerWriteV1 = "eitmad.permission.reference-marker.write.v1";
+        public const string EitmadPermissionCatalogDraftWriteV1 = "eitmad.permission.catalog.draft.write.v1";
+        public const string EitmadPermissionQuotationDraftWriteV1 = "eitmad.permission.quotation.draft.write.v1";
+        public const string EitmadPermissionDesktopAccountsManageV1 = "eitmad.permission.desktop-accounts.manage.v1";
     }
 
     public static class ConfigKeys
@@ -163,6 +182,8 @@ public static class ProtocolIds
     {
         public const string EitmadRelationOrganizationConfigManagerV1 = "eitmad.relation.organization.config-manager.v1";
         public const string EitmadRelationOrganizationMemberV1 = "eitmad.relation.organization.member.v1";
+        public const string EitmadRelationOrganizationManagerV1 = "eitmad.relation.organization.manager.v1";
+        public const string EitmadRelationOrganizationReceptionistV1 = "eitmad.relation.organization.receptionist.v1";
         public const string EitmadRelationOrganizationOwnerV1 = "eitmad.relation.organization.owner.v1";
     }
 
@@ -191,6 +212,7 @@ public static class ProtocolIds
         public const string EitmadErrorIpcEngineStoppingV1 = "eitmad.error.ipc-engine-stopping.v1";
         public const string EitmadErrorIpcPayloadTooLargeV1 = "eitmad.error.ipc-payload-too-large.v1";
         public const string EitmadErrorIpcSessionInvalidV1 = "eitmad.error.ipc-session-invalid.v1";
+        public const string EitmadErrorDesktopAuthenticationFailedV1 = "eitmad.error.desktop-authentication-failed.v1";
         public const string EitmadErrorIpcSubscriptionResyncRequiredV1 = "eitmad.error.ipc-subscription-resync-required.v1";
         public const string EitmadErrorIpcSubscriptionUnsupportedV1 = "eitmad.error.ipc-subscription-unsupported.v1";
         public const string EitmadErrorIpcDeadlineExceededV1 = "eitmad.error.ipc-deadline-exceeded.v1";
@@ -218,6 +240,10 @@ public static class ProtocolIds
         public const string EitmadErrorUpdateInstallerFailedV1 = "eitmad.error.update-installer-failed.v1";
         public const string EitmadErrorReferenceMarkerRevisionConflictV1 = "eitmad.error.reference-marker-revision-conflict.v1";
         public const string EitmadErrorReferenceMarkerUnavailableV1 = "eitmad.error.reference-marker-unavailable.v1";
+        public const string EitmadErrorDesktopAccountInvalidV1 = "eitmad.error.desktop-account-invalid.v1";
+        public const string EitmadErrorDesktopAccountRevisionConflictV1 = "eitmad.error.desktop-account-revision-conflict.v1";
+        public const string EitmadErrorDesktopAccountLastManagerV1 = "eitmad.error.desktop-account-last-manager.v1";
+        public const string EitmadErrorDesktopAccountUnavailableV1 = "eitmad.error.desktop-account-unavailable.v1";
     }
 
     public static class MessageIds
@@ -241,6 +267,7 @@ public static class ProtocolIds
         public const string EitmadMessageIpcEngineStoppingV1 = "eitmad.message.ipc-engine-stopping.v1";
         public const string EitmadMessageIpcPayloadTooLargeV1 = "eitmad.message.ipc-payload-too-large.v1";
         public const string EitmadMessageIpcSessionInvalidV1 = "eitmad.message.ipc-session-invalid.v1";
+        public const string EitmadMessageDesktopAuthenticationFailedV1 = "eitmad.message.desktop-authentication-failed.v1";
         public const string EitmadMessageIpcSubscriptionResyncRequiredV1 = "eitmad.message.ipc-subscription-resync-required.v1";
         public const string EitmadMessageIpcSubscriptionUnsupportedV1 = "eitmad.message.ipc-subscription-unsupported.v1";
         public const string EitmadMessageIpcDeadlineExceededV1 = "eitmad.message.ipc-deadline-exceeded.v1";
@@ -269,6 +296,10 @@ public static class ProtocolIds
         public const string EitmadMessageUpdateInstallerFailedV1 = "eitmad.message.update-installer-failed.v1";
         public const string EitmadMessageReferenceMarkerRevisionConflictV1 = "eitmad.message.reference-marker-revision-conflict.v1";
         public const string EitmadMessageReferenceMarkerUnavailableV1 = "eitmad.message.reference-marker-unavailable.v1";
+        public const string EitmadMessageDesktopAccountInvalidV1 = "eitmad.message.desktop-account-invalid.v1";
+        public const string EitmadMessageDesktopAccountRevisionConflictV1 = "eitmad.message.desktop-account-revision-conflict.v1";
+        public const string EitmadMessageDesktopAccountLastManagerV1 = "eitmad.message.desktop-account-last-manager.v1";
+        public const string EitmadMessageDesktopAccountUnavailableV1 = "eitmad.message.desktop-account-unavailable.v1";
     }
 
     public static class ErrorParameterNames

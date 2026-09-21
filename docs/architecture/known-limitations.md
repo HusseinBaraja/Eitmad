@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "reference"
 status: "active"
 owner: "architecture maintainers"
-last_verified: "2026-08-27"
+last_verified: "2026-09-21"
 review_triggers:
   - "a listed limitation is implemented, removed, split, or becomes release-critical"
 keywords:
@@ -21,7 +21,7 @@ These limits are deliberate and visible. A caller must not infer unavailable sta
 ## Product and identity
 
 - No real furniture business domain is implemented or registered on the server.
-- Local installation authority trusts one Windows-account boundary. It has no human login, role switching, multi-user session rotation, or remote revocation workflow.
+- Local installation authority trusts one Windows-account boundary. It supports password sign-in and durable user sessions, but it does not import accounts from the server control plane and has no role switching, multi-user session rotation, or remote revocation workflow.
 - The reference-marker vertical is a foundation example, not a production workflow.
 
 ## Sync and networking
@@ -35,8 +35,8 @@ These limits are deliberate and visible. A caller must not infer unavailable sta
 
 - Signed manifest policy, rollout, revocation, compatibility evaluation, update server routes, and immutable manifest storage exist.
 - The desktop has no manifest retrieval coordinator, durable client update state, package download, native installer handoff, interruption recovery, or outcome reconciliation.
-- Protocol 1.6 local IPC is a coordinated engine-and-adapter change. A 1.5 shell cannot be mixed with a 1.6 engine.
-- An engine older than storage version 9 cannot open a migrated local database. Rollback requires the complete validated pre-v9 artifact.
+- Protocol 1.8 local IPC is a coordinated engine-and-adapter change. An older shell cannot use Manager account administration through a 1.8 engine.
+- An engine older than storage version 11 cannot open a migrated local database. Rollback requires the complete validated pre-v11 artifact.
 
 ## Platforms and deployment
 

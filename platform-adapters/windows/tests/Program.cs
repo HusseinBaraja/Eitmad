@@ -3,29 +3,37 @@ using Eitmad.Contracts;
 using Eitmad.Platform.Windows.LocalIpc;
 using Eitmad.Platform.Windows.ProcessSupervision;
 
-var tests = new SupervisionScenarios();
-await tests.UnavailableEngineIsTyped();
-await tests.TypedRequestsRequireConnectedEngine();
-await tests.ConfigurationPatchRequiresIdempotency();
-tests.FrameLimitMatchesRustContract();
-tests.SubscriptionQueueIsBounded();
-tests.SubscriptionAcknowledgementNeverRegresses();
-await tests.SupervisedSubscriptionSurvivesReattach();
-await tests.SupervisedSubscriptionRecoversAfterQueueOverflow();
-await tests.IntentionalStopNeverRestarts();
-await tests.UnexpectedDeathRestartsOnce();
-await tests.FourthConsecutiveFailureExhaustsRestarts();
-await tests.StaleExitCannotReplaceCurrentGeneration();
-await tests.CleanShutdownAvoidsForcedTermination();
-await tests.ShutdownTimeoutTerminatesProcessGroup();
-await tests.TerminationFailureStillCompletesCleanup();
-
-if (args is ["--engine", var enginePath])
+try
 {
-    await tests.RealEngineStartsAndStopsCleanly(enginePath);
-}
+    var tests = new SupervisionScenarios();
+    await tests.UnavailableEngineIsTyped();
+    await tests.TypedRequestsRequireConnectedEngine();
+    await tests.ConfigurationPatchRequiresIdempotency();
+    tests.FrameLimitMatchesRustContract();
+    tests.SubscriptionQueueIsBounded();
+    tests.SubscriptionAcknowledgementNeverRegresses();
+    await tests.SupervisedSubscriptionSurvivesReattach();
+    await tests.SupervisedSubscriptionRecoversAfterQueueOverflow();
+    await tests.IntentionalStopNeverRestarts();
+    await tests.UnexpectedDeathRestartsOnce();
+    await tests.FourthConsecutiveFailureExhaustsRestarts();
+    await tests.StaleExitCannotReplaceCurrentGeneration();
+    await tests.CleanShutdownAvoidsForcedTermination();
+    await tests.ShutdownTimeoutTerminatesProcessGroup();
+    await tests.TerminationFailureStillCompletesCleanup();
 
-Console.WriteLine("Windows process supervision scenarios passed.");
+    if (args is ["--engine", var enginePath])
+    {
+        await tests.RealEngineStartsAndStopsCleanly(enginePath);
+    }
+
+    Console.WriteLine("Windows process supervision scenarios passed.");
+}
+catch (Exception error)
+{
+    Console.Error.WriteLine(error);
+    Environment.ExitCode = 1;
+}
 
 internal sealed class SupervisionScenarios
 {
@@ -302,6 +310,7 @@ internal sealed class SupervisionScenarios
         Directory.CreateDirectory(runtimeDirectory);
         try
         {
+            await SeedDevelopmentAccounts(enginePath, runtimeDirectory);
             await using var supervisor = new EngineSupervisor();
             var request = new EngineLaunchRequest(enginePath, runtimeDirectory);
             var lifecycleStates = new List<Eitmad.Contracts.LifecycleState>();
@@ -317,7 +326,15 @@ internal sealed class SupervisionScenarios
             await Eventually(() => supervisor.Snapshot.LastLifecycle?.Ready == true, TimeSpan.FromSeconds(10));
             await Eventually(() => supervisor.IpcConnected, TimeSpan.FromSeconds(10));
             Assert.Equal(EngineIpcHealthState.Connected, supervisor.Snapshot.IpcHealth, "real engine IPC health");
-            Assert.Equal(6L, supervisor.Snapshot.LastLifecycle?.Identity.ProtocolVersion.Minor, "real engine protocol version");
+            Assert.Equal(
+                ProtocolIds.Version.Minor,
+                supervisor.Snapshot.LastLifecycle?.Identity.ProtocolVersion.Minor,
+                "real engine protocol version");
+            var desktopSession = await supervisor.SignInAsync("admin", "admin");
+            Assert.Equal(
+                DesktopAccountRole.Manager,
+                desktopSession.AccountRole,
+                "real engine desktop account role");
             Assert.True(
                 supervisor.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityConfigV1),
                 "real config capability negotiated");
@@ -363,7 +380,11 @@ internal sealed class SupervisionScenarios
                     ],
                 },
                 Guid.NewGuid());
-            Assert.Equal(CommandOutcomeStatus.Succeeded, patchResponse.Outcome.Status, "real typed configuration patch");
+            Assert.Equal(CommandOutcomeStatus.Failed, patchResponse.Outcome.Status, "manager configuration write denial");
+            Assert.Equal(
+                ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1,
+                patchResponse.Outcome.Payload.Code,
+                "manager configuration write denial code");
             await supervisor.StopAsync();
 
             Assert.Equal(EngineSupervisionState.Stopped, supervisor.Snapshot.State, "real engine stopped state");
@@ -384,6 +405,24 @@ internal sealed class SupervisionScenarios
         {
             Directory.Delete(runtimeDirectory, recursive: true);
         }
+    }
+
+    private static async Task SeedDevelopmentAccounts(string enginePath, string runtimeDirectory)
+    {
+        var start = new System.Diagnostics.ProcessStartInfo(enginePath)
+        {
+            CreateNoWindow = true,
+            RedirectStandardError = true,
+            RedirectStandardOutput = true,
+            UseShellExecute = false,
+        };
+        start.ArgumentList.Add("seed-development-accounts");
+        start.ArgumentList.Add("--runtime-directory");
+        start.ArgumentList.Add(runtimeDirectory);
+        using var process = System.Diagnostics.Process.Start(start)
+            ?? throw new InvalidOperationException("Development account seed process did not start.");
+        await process.WaitForExitAsync();
+        Assert.Equal(0, process.ExitCode, "development account seed exit code");
     }
 
     private static PeerHello DevelopmentPeer() => new()

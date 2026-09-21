@@ -62,6 +62,30 @@ public partial class Command
     public UpsertReferenceMarker? AsReferenceMarkerUpsert() =>
         Kind == ReferenceMarkerUpsertKind ? PayloadAs<UpsertReferenceMarker>() : null;
 
+    public const string DesktopAccountCreateKind = "eitmad.desktop-account.create.v1";
+
+    public static Command ForDesktopAccountCreate(CreateDesktopAccount payload) =>
+        new() { Kind = DesktopAccountCreateKind, Payload = payload };
+
+    public CreateDesktopAccount? AsDesktopAccountCreate() =>
+        Kind == DesktopAccountCreateKind ? PayloadAs<CreateDesktopAccount>() : null;
+
+    public const string DesktopAccountUpdateKind = "eitmad.desktop-account.update.v1";
+
+    public static Command ForDesktopAccountUpdate(UpdateDesktopAccount payload) =>
+        new() { Kind = DesktopAccountUpdateKind, Payload = payload };
+
+    public UpdateDesktopAccount? AsDesktopAccountUpdate() =>
+        Kind == DesktopAccountUpdateKind ? PayloadAs<UpdateDesktopAccount>() : null;
+
+    public const string DesktopAccountDeactivateKind = "eitmad.desktop-account.deactivate.v1";
+
+    public static Command ForDesktopAccountDeactivate(DeactivateDesktopAccount payload) =>
+        new() { Kind = DesktopAccountDeactivateKind, Payload = payload };
+
+    public DeactivateDesktopAccount? AsDesktopAccountDeactivate() =>
+        Kind == DesktopAccountDeactivateKind ? PayloadAs<DeactivateDesktopAccount>() : null;
+
     internal T? PayloadAs<T>() => Payload switch
     {
         T typed => typed,
@@ -184,6 +208,30 @@ public partial class IpcClientMessage
     public HandshakeRequest? AsIpcHandshake() =>
         Kind == IpcHandshakeKind ? PayloadAs<HandshakeRequest>() : null;
 
+    public const string IpcDesktopSignInKind = "eitmad.ipc.desktop-sign-in.v1";
+
+    public static IpcClientMessage ForIpcDesktopSignIn(DesktopSignInRequest payload) =>
+        new() { Kind = IpcDesktopSignInKind, Payload = payload };
+
+    public DesktopSignInRequest? AsIpcDesktopSignIn() =>
+        Kind == IpcDesktopSignInKind ? PayloadAs<DesktopSignInRequest>() : null;
+
+    public const string IpcDesktopSessionStateKind = "eitmad.ipc.desktop-session-state.v1";
+
+    public static IpcClientMessage ForIpcDesktopSessionState(DesktopSessionRequest payload) =>
+        new() { Kind = IpcDesktopSessionStateKind, Payload = payload };
+
+    public DesktopSessionRequest? AsIpcDesktopSessionState() =>
+        Kind == IpcDesktopSessionStateKind ? PayloadAs<DesktopSessionRequest>() : null;
+
+    public const string IpcDesktopSignOutKind = "eitmad.ipc.desktop-sign-out.v1";
+
+    public static IpcClientMessage ForIpcDesktopSignOut(DesktopSessionRequest payload) =>
+        new() { Kind = IpcDesktopSignOutKind, Payload = payload };
+
+    public DesktopSessionRequest? AsIpcDesktopSignOut() =>
+        Kind == IpcDesktopSignOutKind ? PayloadAs<DesktopSessionRequest>() : null;
+
     public const string IpcCommandKind = "eitmad.ipc.command.v1";
 
     public static IpcClientMessage ForIpcCommand(CommandEnvelope payload) =>
@@ -248,6 +296,14 @@ public partial class IpcServerMessage
 
     public HandshakeResponse? AsIpcHandshakeResponse() =>
         Kind == IpcHandshakeResponseKind ? PayloadAs<HandshakeResponse>() : null;
+
+    public const string IpcDesktopSessionResponseKind = "eitmad.ipc.desktop-session-response.v1";
+
+    public static IpcServerMessage ForIpcDesktopSessionResponse(DesktopSessionResponse payload) =>
+        new() { Kind = IpcDesktopSessionResponseKind, Payload = payload };
+
+    public DesktopSessionResponse? AsIpcDesktopSessionResponse() =>
+        Kind == IpcDesktopSessionResponseKind ? PayloadAs<DesktopSessionResponse>() : null;
 
     public const string IpcCommandResponseKind = "eitmad.ipc.command-response.v1";
 
@@ -378,6 +434,14 @@ public partial class Query
     public ListReferenceMarkers? AsReferenceMarkerList() =>
         Kind == ReferenceMarkerListKind ? PayloadAs<ListReferenceMarkers>() : null;
 
+    public const string DesktopAccountListKind = "eitmad.desktop-account.list.v1";
+
+    public static Query ForDesktopAccountList(ListDesktopAccounts payload) =>
+        new() { Kind = DesktopAccountListKind, Payload = payload };
+
+    public ListDesktopAccounts? AsDesktopAccountList() =>
+        Kind == DesktopAccountListKind ? PayloadAs<ListDesktopAccounts>() : null;
+
     internal T? PayloadAs<T>() => Payload switch
     {
         T typed => typed,
@@ -442,6 +506,14 @@ public partial class QueryResult
 
     public ReferenceMarkerPage? AsReferenceMarkers() =>
         Kind == ReferenceMarkersKind ? PayloadAs<ReferenceMarkerPage>() : null;
+
+    public const string DesktopAccountsKind = "desktopAccounts";
+
+    public static QueryResult ForDesktopAccounts(DesktopAccountPage payload) =>
+        new() { Kind = DesktopAccountsKind, Payload = payload };
+
+    public DesktopAccountPage? AsDesktopAccounts() =>
+        Kind == DesktopAccountsKind ? PayloadAs<DesktopAccountPage>() : null;
 
     internal T? PayloadAs<T>() => Payload switch
     {
@@ -780,6 +852,10 @@ public partial class GetSyncStatus
 }
 
 public partial class GetUpdateState
+{
+}
+
+public partial class ListDesktopAccounts
 {
 }
 

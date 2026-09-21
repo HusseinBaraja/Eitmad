@@ -1,10 +1,13 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Automation;
+using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Eitmad.WindowsShell.Features.Operations;
+using Eitmad.WindowsShell.Features.Authentication;
+using Eitmad.Platform.Windows.Shell;
 
 namespace Eitmad.WindowsShell.Tests.Rendered;
 
@@ -12,11 +15,20 @@ internal static class WpfTestHost
 {
     private static readonly Lazy<Dispatcher> TestDispatcher = new(StartDispatcher);
 
-    public static void Run(double width, double height, Action<MainWindow> test, bool showSignIn = false)
+    public static void Run(
+        double width,
+        double height,
+        Action<MainWindow> test,
+        bool showSignIn = false,
+        IEngineShellBridge? engine = null)
     {
         TestDispatcher.Value.Invoke(() =>
         {
-            var window = new MainWindow(new OperationsViewModel(), showSignIn)
+            var window = new MainWindow(
+                new OperationsViewModel(),
+                showSignIn ? new RenderedSessionController() : null,
+                showSignIn: showSignIn,
+                engine: engine)
             {
                 Width = width,
                 Height = height,
@@ -39,6 +51,14 @@ internal static class WpfTestHost
                 PumpDispatcher();
             }
         });
+    }
+
+    internal static void SignIn(MainWindow window, string username)
+    {
+        FindByName<TextBox>(window, "UsernameBox").Text = username;
+        FindByName<PasswordBox>(window, "PasswordInput").Password = "synthetic-password";
+        FindByName<Button>(window, "SignInButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        PumpDispatcher();
     }
 
     public static T FindByName<T>(DependencyObject root, string name) where T : FrameworkElement
@@ -137,5 +157,26 @@ internal static class WpfTestHost
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
         return ready.Task.GetAwaiter().GetResult();
+    }
+
+    private sealed class RenderedSessionController : IDesktopSessionController
+    {
+        public event EventHandler<SessionEndedEventArgs>? SessionEnded
+        {
+            add { }
+            remove { }
+        }
+
+        public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task<AuthenticatedSurface> SignInAsync(
+            string username,
+            string password,
+            CancellationToken cancellationToken = default) => Task.FromResult(
+                username == "receptionist" ? AuthenticatedSurface.Receptionist : AuthenticatedSurface.Manager);
+
+        public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task StopAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }

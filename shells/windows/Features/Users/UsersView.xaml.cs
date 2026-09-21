@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Threading;
+using Eitmad.Platform.Windows.Shell;
 using Button = System.Windows.Controls.Button;
 using UserControl = System.Windows.Controls.UserControl;
 
@@ -7,8 +8,17 @@ namespace Eitmad.WindowsShell.Features.Users;
 
 public partial class UsersView : UserControl
 {
-    public UsersView() { InitializeComponent(); DataContext = ViewModel; }
+    public UsersView()
+    {
+        InitializeComponent();
+        DataContext = ViewModel;
+        IsVisibleChanged += async (_, _) =>
+        {
+            if (IsVisible) await ViewModel.LoadAsync();
+        };
+    }
     public UsersViewModel ViewModel { get; } = new();
+    public void Attach(IEngineShellBridge engine) => ViewModel.Attach(engine);
     private System.Windows.Controls.Control? editorReturnTarget;
     private void OpenEditor(object sender, UserPreview? user = null)
     {
@@ -27,9 +37,19 @@ public partial class UsersView : UserControl
     { if (sender is Button { DataContext: UserPreview user }) OpenEditor(sender, user); }
     private void DeactivateClick(object sender, RoutedEventArgs e)
     { if (sender is Button { DataContext: UserPreview user }) ViewModel.BeginDeactivation(user); }
-    private void ApplyClick(object sender, RoutedEventArgs e)
-    { if (!ViewModel.ApplyPreview()) UserNameInput.Focus(); else RestoreListFocus(); }
+    private async void ApplyClick(object sender, RoutedEventArgs e)
+    {
+        if (!await ViewModel.ApplyAsync(UserPasswordInput.Password)) UserNameInput.Focus();
+        else
+        {
+            UserPasswordInput.Clear();
+            RestoreListFocus();
+        }
+    }
     private void CancelEditClick(object sender, RoutedEventArgs e) { ViewModel.CancelEditor(); RestoreListFocus(); }
     private void CancelDeactivateClick(object sender, RoutedEventArgs e) => ViewModel.CancelDeactivation();
-    private void ConfirmDeactivateClick(object sender, RoutedEventArgs e) => ViewModel.DeactivatePreview();
+    private async void ConfirmDeactivateClick(object sender, RoutedEventArgs e)
+    {
+        if (await ViewModel.DeactivateAsync()) RestoreListFocus();
+    }
 }

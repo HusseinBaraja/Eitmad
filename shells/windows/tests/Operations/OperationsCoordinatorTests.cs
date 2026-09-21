@@ -72,6 +72,7 @@ public sealed class OperationsCoordinatorTests
         await coordinator.StartAsync();
 
         engine.Connect();
+        await coordinator.ActivateSessionAsync();
         await TestData.Eventually(() => engine.QueryCount >= 4 && engine.SubscriptionCount == 4);
         engine.Disconnect();
         engine.Connect();
@@ -89,12 +90,100 @@ public sealed class OperationsCoordinatorTests
         await using var coordinator = new OperationsCoordinator(engine, model, new ImmediateDispatcher());
         await coordinator.StartAsync();
         engine.Connect();
+        await coordinator.ActivateSessionAsync();
         await TestData.Eventually(() => engine.QueryCount >= 4);
 
         engine.SignalResync(ProtocolIds.Subscriptions.EitmadSyncStatusSubscribeV1);
 
         await TestData.Eventually(() => engine.QueryCount >= 8);
         Assert.IsFalse(model.ShowConnectionBanner);
+    }
+
+    [TestMethod]
+    public async Task FailedResynchronizationKeepsWarningAndEditorDraft()
+    {
+        var engine = new FakeEngine();
+        var model = new OperationsViewModel();
+        await using var coordinator = new OperationsCoordinator(engine, model, new ImmediateDispatcher());
+        await coordinator.StartAsync();
+        engine.Connect();
+        await coordinator.ActivateSessionAsync();
+        await TestData.Eventually(() => engine.SubscriptionCount == 4 && !model.ShowConnectionBanner);
+        model.SelectedLocale = "en-US";
+        model.ReferenceMarkerLabel = "مسودة لم تحفظ";
+
+        engine.ThrowQueries = true;
+        engine.SignalResync(ProtocolIds.Subscriptions.EitmadSyncStatusSubscribeV1);
+
+        await TestData.Eventually(() => model.ConnectionBanner == "تعذر تحديث حالة المحرك");
+        Assert.IsTrue(model.ShowConnectionBanner);
+        Assert.AreEqual(-1L, model.ConfigRevision);
+        Assert.AreEqual("en-US", model.SelectedLocale);
+        Assert.AreEqual("مسودة لم تحفظ", model.ReferenceMarkerLabel);
+    }
+
+    [TestMethod]
+    public async Task ChangeDuringSubscriptionSetupIsAppliedAfterSnapshot()
+    {
+        var engine = new FakeEngine();
+        engine.SubscribeHook = (contract, subscription) =>
+        {
+            if (contract.Kind == Subscription.SyncStatusSubscribeKind)
+                subscription.Publish(TestData.SyncEvent(SyncStatusKind.Failed));
+        };
+        var model = new OperationsViewModel();
+        await using var coordinator = new OperationsCoordinator(engine, model, new ImmediateDispatcher());
+        await coordinator.StartAsync();
+        engine.Connect();
+        await coordinator.ActivateSessionAsync();
+
+        await TestData.Eventually(() => !model.ShowConnectionBanner && model.SyncCard.Value == "تعذرت");
+    }
+
+    [TestMethod]
+    public async Task EngineRestartReplacesSubscriptionsWithoutDuplicates()
+    {
+        var engine = new FakeEngine();
+        var model = new OperationsViewModel();
+        await using var coordinator = new OperationsCoordinator(engine, model, new ImmediateDispatcher());
+        await coordinator.StartAsync();
+        engine.Connect();
+        await coordinator.ActivateSessionAsync();
+        await TestData.Eventually(() => engine.SubscriptionCount == 4 && !model.ShowConnectionBanner);
+
+        await engine.StopAsync();
+        await engine.StartAsync();
+        engine.Connect();
+
+        await TestData.Eventually(() => engine.QueryCount >= 8 && engine.SubscriptionCount == 4 && !model.ShowConnectionBanner);
+    }
+
+    [TestMethod]
+    public async Task DelayedPreviousGenerationSnapshotIsRejected()
+    {
+        var releaseOldQuery = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var engine = new FakeEngine { ConfigurationRevision = 9 };
+        engine.QueryBarrier = async query =>
+        {
+            if (query.Kind == Query.ConfigGetKind && engine.ConfigurationRevision == 9)
+                await releaseOldQuery.Task;
+        };
+        var model = new OperationsViewModel();
+        await using var coordinator = new OperationsCoordinator(engine, model, new ImmediateDispatcher());
+        await coordinator.StartAsync();
+        engine.Connect();
+        var activation = coordinator.ActivateSessionAsync();
+        await TestData.Eventually(() => engine.QueryCount >= 4);
+
+        await engine.StopAsync();
+        await engine.StartAsync();
+        engine.ConfigurationRevision = 2;
+        engine.Connect();
+        releaseOldQuery.SetResult();
+        await activation;
+
+        await TestData.Eventually(() => engine.QueryCount >= 8 && model.ConfigRevision == 2 && !model.ShowConnectionBanner);
+        Assert.AreEqual(2L, model.ConfigRevision);
     }
 
     [TestMethod]
@@ -113,6 +202,7 @@ public sealed class OperationsCoordinatorTests
         await coordinator.StartAsync();
 
         engine.Connect();
+        await coordinator.ActivateSessionAsync();
 
         await TestData.Eventually(() => engine.QueryCount == 2 && engine.SubscriptionCount == 2);
         Assert.IsFalse(engine.WasQueried(Query.SyncGetStatusKind));
@@ -131,6 +221,7 @@ public sealed class OperationsCoordinatorTests
         await coordinator.StartAsync();
 
         engine.Connect();
+        await coordinator.ActivateSessionAsync();
 
         await TestData.Eventually(() => engine.QueryCount >= 4);
         Assert.AreEqual(-1L, model.ConfigRevision);
@@ -154,6 +245,20 @@ public sealed class OperationsCoordinatorTests
 
 internal static class TestData
 {
+    public static EventEnvelope SyncEvent(SyncStatusKind kind) => new()
+    {
+        SubscriptionId = Guid.NewGuid(),
+        CorrelationId = Guid.NewGuid(),
+        Cursor = Guid.NewGuid(),
+        Sequence = 1,
+        OccurredAt = 1_800_000_000_000,
+        Event = new Dictionary<string, object>
+        {
+            ["kind"] = Eitmad.Contracts.Event.SyncStatusEventKind,
+            ["payload"] = new SyncStatus { Kind = kind, Payload = new SyncStatusPayload { Reason = "synthetic" } },
+        },
+    };
+
     public static ScopeRef Scope() => new() { Kind = "organization", Id = Guid.NewGuid() };
 
     public static ConfigSnapshot Configuration(long revision, string locale) => new()

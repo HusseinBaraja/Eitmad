@@ -15,13 +15,13 @@ Start with:
 
 ## Run the admin dashboard on Windows
 
-Install the .NET 8 SDK and the stable Rust toolchain. From the repository root, build the Rust engine and start the native Windows dashboard with one command:
+Install the .NET 8 SDK and the stable Rust toolchain. From the repository root, build the debug Rust engine, provision the synthetic development accounts, and start the native Windows dashboard with one command:
 
 ```powershell
 .\run.ps1
 ```
 
-The **لوحة التحكم** window opens in **وضع المعاينة**. Closing the window keeps the app in the system tray. Use **إنهاء الاعتماد** in the tray menu to stop the shell and engine. For design and ownership details, see the [Windows operations shell guide](docs/developer/subsystems/windows-native-shell.md).
+Use `admin` with `admin` or `rec` with `rec` on the sign-in screen. These short synthetic credentials are accepted only by debug builds after the explicit seed command that `run.ps1` runs. Release builds do not contain that command and keep the 12-character password minimum. Closing the window keeps the app in the system tray. Use **إنهاء الاعتماد** in the tray menu to stop the shell and engine. For design and ownership details, see the [Windows operations shell guide](docs/developer/subsystems/windows-native-shell.md).
 
 ## Furniture editor flow
 

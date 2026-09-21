@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "reference"
 status: "active"
 owner: "architecture and security maintainers"
-last_verified: "2026-08-27"
+last_verified: "2026-09-21"
 review_triggers:
   - "a critical foundation control, production blocker, supported platform, protocol, storage version, or release gate changes"
 keywords:
@@ -39,9 +39,9 @@ The verified local evidence includes:
 - `cargo fmt --all -- --check`;
 - strict Clippy for changed crates and the full workspace release gate;
 - `cargo test --workspace --all-targets`, including authorization, isolation, audit, migration, sync, update, secret, IPC, and server tests;
-- real Windows engine supervision, protocol 1.6 negotiation, configuration query, configuration subscription, Arabic configuration write, and clean stop;
+- real Windows engine supervision, protocol 1.8 negotiation, Manager desktop sign-in and role projection, configuration query, configuration subscription, Arabic configuration write, and clean stop;
 - generated Rust, C#, Swift, fixture, and reference drift checks;
-- C# contract conformance and Windows Arabic/RTL shell tests;
+- C# contract conformance, Manager account-administration shell tests, and Windows Arabic/RTL shell tests;
 - repository ownership, unsafe logging, migration checksum, Arabic root direction, and documentation-impact policy;
 - focused and full documentation audits;
 - npm high-severity audit, NuGet vulnerable-package checks, and RustSec audit with no remaining advisory or warning;
@@ -53,14 +53,14 @@ Swift compilation, Linux server artifact creation, live PostgreSQL isolation, na
 
 | Area | Result | Evidence and disposition |
 | --- | --- | --- |
-| Rust ownership leaks | Closed | The shell-supplied development identity and ephemeral-owner bypass were removed. Rust now creates and verifies the stable local installation identity and owner relation in storage version 9. |
+| Rust ownership leaks | Closed | The shell-supplied development identity and ephemeral-owner bypass were removed. Rust creates the stable installation identity, projects only its device identity to the process transport, and issues separate user sessions from storage version 11 accounts. |
 | Duplicated contracts | Pass | Rust owns protocol types and identifiers. C# and Swift bindings, fixtures, and reference pages are generated and checked for drift. |
 | Direct UI database, config, or secret access | Pass | Shell policy and tests reject database clients, config file ownership, secret APIs, external API clients, and generic command submission. The Windows bridge selects only process path and runtime location. |
 | Missing authorization | Closed | Implemented commands, queries, subscriptions, sync traffic, server routes, relay, update publication, and administration execute through Rust checks. Unsupported work is not advertised as a capability. |
 | Tenant isolation | Pass for implemented storage; live proof required for release | SQLite records use explicit scope and transaction checks. PostgreSQL migrations force row-level security on tenant tables and tests check policy presence and cross-tenant denial. A staging database must still prove deployment roles and RLS. |
 | Unsafe audit records | Closed | Local mutations and reads use complete redacted envelopes. Server migration 4 supplies one canonical actor, scope, target, correlation, causation, idempotency, outcome, and error envelope. Denied, invalid, and pre-handler sync outcomes are mandatory audit events. |
 | Sync gaps | Foundation present; product wiring deferred | One bounded local-first/server-authoritative engine and one transport contract exist. The base executable does not advertise local sync status because no production connector or product domain is wired. Reference-marker changes remain in a bounded durable outbox. |
-| Compatibility gaps | Closed for current boundaries | Protocol 1.6 removes client authorization assertions. The server accepts 1.4–1.6. The Windows shell consumes negotiated capability intersections and does not send unsupported sync or update traffic. The 1.6 local handshake requires a coordinated package rollout. |
+| Compatibility gaps | Closed for current boundaries | Protocol 1.7 separates process authentication from desktop user sessions and protocol 1.8 adds Manager account administration. The server accepts 1.4–1.6. The Windows shell consumes negotiated capability intersections and does not send unsupported operations. Local protocol 1.8 requires a coordinated engine and shell rollout. |
 | Update and migration risk | Safe foundation; production updater blocked | Signed manifest, rollout, compatibility, revocation, immutable migrations, checksums, pre-migration SQLite backup, restore, and server migration order exist. Native installation, interruption reconciliation, and production signing are not implemented. |
 | Arabic and RTL | Pass for the current Windows foundation; product coverage required | The WPF root is Arabic and RTL, mixed identifiers use LTR isolation, bidi controls are rejected at identity boundaries, and Arabic/mixed contract fixtures pass. Arabic search profiles, reports, documents, and full accessibility proof need the first product domain. |
 | Documentation | Pass | Canonical subsystem, ADR, operations, release, troubleshooting, glossary, and generated contract pages are indexed and pass the complete documentation audit. |

@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Pricing capability maintainers"
-last_verified: "2026-09-03"
+last_verified: "2026-09-19"
 review_triggers:
   - "Pricing contracts, price validation, or Windows Pricing UI behavior change"
 keywords:
@@ -22,6 +22,8 @@ keywords:
 # Extend the quick Pricing manager flow safely
 
 The Windows **التسعير** page lets a manager review synthetic product variants and change a selling-price preview. It is a focused pricing surface, not the Furniture editor: it does not show raw materials, parts, or construction details.
+
+Production `YER` precision, Arabic **ر.ي** display, price revision, permission, snapshot, and server-confirmation behavior is accepted in the [Manager and Receptionist workflow specification](manager-receptionist-workflows.md). This page describes the current preview only.
 
 ## Ownership and current boundary
 
@@ -55,6 +57,6 @@ dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --filter "Full
 
 ## Future Rust vertical
 
-When Pricing becomes authoritative, define its versioned typed commands, queries, and subscriptions in Rust and generate or validate the native bindings. Rust must own price and currency rules, relationship-based manager authorization, explicit record scope, atomic mutation and audit, durable storage, idempotency, synchronization, and typed failure recovery. Keep the WPF page a thin projection and preserve the Arabic labels, LTR amount isolation, keyboard path, and explicit local-preview state.
+When Pricing becomes authoritative, implement the accepted workflow specification, define its versioned typed commands, queries, and subscriptions in Rust, and generate or validate the native bindings. Rust must own price and currency rules, relationship-based Manager authorization, explicit record scope, atomic mutation and audit, durable storage, idempotency, synchronization, and typed failure recovery. Keep the WPF page a thin projection and preserve the Arabic labels, LTR amount isolation, keyboard path, and explicit local-preview state.
 
 Return to the [Windows shell subsystem guide](windows-native-shell.md) for shared layout and trust-boundary rules.

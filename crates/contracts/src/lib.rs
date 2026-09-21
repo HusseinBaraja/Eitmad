@@ -7,6 +7,7 @@
 #[macro_use]
 mod macros;
 
+pub mod accounts;
 pub mod administration;
 pub mod authorization;
 pub mod background_jobs;

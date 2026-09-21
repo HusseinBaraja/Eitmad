@@ -96,8 +96,13 @@ try {
   prependGeneratedHeader(swift, "// Generated from Rust contracts. Do not edit.\n");
 
   const registry = JSON.parse(readFileSync(join(temporary, "protocol-v1.json"), "utf8"));
-  writeFileSync(join(temporary, "ProtocolIds.g.cs"), renderCsharpIds(registry));
-  writeFileSync(join(temporary, "ProtocolIds.generated.swift"), renderSwiftIds(registry));
+  const fixture = JSON.parse(readFileSync(join(temporary, "protocol-v1.fixture.json"), "utf8"));
+  const protocolVersion = fixture.query.protocolVersion;
+  writeFileSync(join(temporary, "ProtocolIds.g.cs"), renderCsharpIds(registry, protocolVersion));
+  writeFileSync(
+    join(temporary, "ProtocolIds.generated.swift"),
+    renderSwiftIds(registry, protocolVersion),
+  );
 
   const outputs = new Map([
     ["contract-v1.schema.json", "crates/contracts/generated/contract-v1.schema.json"],
@@ -187,7 +192,7 @@ function swiftConstantName(identifier) {
   return pascal[0].toLowerCase() + pascal.slice(1);
 }
 
-function renderCsharpIds(registry) {
+function renderCsharpIds(registry, protocolVersion) {
   const lines = [
     "// Generated from Rust contracts. Do not edit.",
     "using System;",
@@ -197,6 +202,12 @@ function renderCsharpIds(registry) {
     "",
     "public static class ProtocolIds",
     "{",
+    "    public static class Version",
+    "    {",
+    `        public const long Major = ${protocolVersion.major};`,
+    `        public const long Minor = ${protocolVersion.minor};`,
+    "    }",
+    "",
   ];
   for (const [group, identifiers] of protocolGroups(registry)) {
     lines.push(`    public static class ${group}`, "    {");
@@ -226,12 +237,17 @@ function renderCsharpIds(registry) {
   return `${lines.join("\n")}\n`;
 }
 
-function renderSwiftIds(registry) {
+function renderSwiftIds(registry, protocolVersion) {
   const lines = [
     "// Generated from Rust contracts. Do not edit.",
     "import Foundation",
     "",
     "public enum ProtocolIds {",
+    "    public enum Version {",
+    `        public static let major = ${protocolVersion.major}`,
+    `        public static let minor = ${protocolVersion.minor}`,
+    "    }",
+    "",
   ];
   for (const [group, identifiers] of protocolGroups(registry)) {
     lines.push(`    public enum ${group} {`);

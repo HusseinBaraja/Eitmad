@@ -1,66 +1,95 @@
+using Eitmad.Contracts;
 using Eitmad.WindowsShell.Features.Users;
+using Eitmad.WindowsShell.Tests.TestDoubles;
+
 namespace Eitmad.WindowsShell.Tests.Users;
+
 [TestClass]
 public sealed class UsersPresentationTests
 {
-    [TestMethod]
-    public void SearchAndFiltersCombineWithoutChangingNames()
+    private static FakeEngine Engine()
     {
-        var vm = new UsersViewModel { SearchText = "احمد", SelectedRole = "موظف الاستقبال", SelectedStatus = "نشط" };
+        var engine = new FakeEngine();
+        engine.DesktopAccounts.AddRange([
+            new DesktopAccountSummary { AccountId = Guid.NewGuid(), UserId = Guid.NewGuid(), DisplayName = "محمد سالم", Username = "m.salem", Role = DesktopAccountRole.Manager, Active = true, Revision = 1 },
+            new DesktopAccountSummary { AccountId = Guid.NewGuid(), UserId = Guid.NewGuid(), DisplayName = "أحمد علي", Username = "a.ali", Role = DesktopAccountRole.Receptionist, Active = true, Revision = 3 },
+            new DesktopAccountSummary { AccountId = Guid.NewGuid(), UserId = Guid.NewGuid(), DisplayName = "عمر سعيد", Username = "o.saeed", Role = DesktopAccountRole.Receptionist, Active = false, Revision = 2 },
+        ]);
+        return engine;
+    }
+
+    [TestMethod]
+    public async Task SearchAndFiltersUseRustReturnedAccounts()
+    {
+        var vm = new UsersViewModel();
+        vm.Attach(Engine());
+        Assert.IsTrue(await vm.LoadAsync());
+        vm.SearchText = "احمد";
+        vm.SelectedRole = "موظف الاستقبال";
+        vm.SelectedStatus = "نشط";
         Assert.AreEqual("أحمد علي", vm.VisibleUsers.Single().Name);
         vm.SelectedStatus = "غير نشط";
         Assert.AreEqual(0, vm.VisibleUsers.Count);
     }
+
     [TestMethod]
-    public void CancelPreservesPreviewAndDeactivationRetainsTheUser()
+    public async Task CreateEditAndDeactivateUseTypedEngineOperations()
     {
+        var engine = Engine();
         var vm = new UsersViewModel();
-        var user = vm.VisibleUsers[1];
-        vm.BeginEdit(user); vm.EditorName = "تغيير"; vm.CancelEditor();
-        Assert.AreEqual(user, vm.VisibleUsers[1]);
-        vm.BeginDeactivation(user); vm.CancelDeactivation();
-        Assert.IsTrue(vm.VisibleUsers[1].IsActive);
-        vm.BeginDeactivation(user); vm.DeactivatePreview();
-        Assert.AreEqual(4, vm.VisibleUsers.Count);
-        Assert.IsFalse(vm.VisibleUsers.Single(item => item.Name == user.Name).IsActive);
-        vm.BeginEdit(vm.VisibleUsers[1]); vm.EditorRole = "النجار";
-        Assert.IsTrue(vm.ApplyPreview());
-        Assert.IsFalse(vm.VisibleUsers[1].IsActive);
-        Assert.IsTrue(new UsersViewModel().VisibleUsers[1].IsActive);
-    }
-    [TestMethod]
-    public void EditChangesNameRoleAndStatusButPreservesUsername()
-    {
-        var vm = new UsersViewModel();
-        var user = vm.VisibleUsers.Last();
-        vm.BeginEdit(user);
-        Assert.IsTrue(vm.IsEditing);
-        vm.EditorName = "سالم حسن";
-        vm.EditorUsername = "changed";
-        vm.EditorRole = "موظف الاستقبال";
-        vm.EditorStatus = "نشط";
-        Assert.IsTrue(vm.ApplyPreview());
-        var edited = vm.VisibleUsers.Last();
-        Assert.AreEqual(user.Username, edited.Username);
-        Assert.AreEqual("سالم حسن", edited.Name);
-        Assert.AreEqual("موظف الاستقبال", edited.Role);
-        Assert.IsTrue(edited.IsActive);
-        Assert.IsTrue(vm.IsListVisible);
-    }
-    [TestMethod]
-    public void AddRequiresNameAndOneOfTheThreeRoles()
-    {
-        var vm = new UsersViewModel(); vm.BeginEdit();
-        Assert.IsFalse(vm.ApplyPreview());
-        vm.EditorName = "سالم أحمد"; vm.EditorRole = "غير معروف";
-        Assert.IsFalse(vm.ApplyPreview());
-        vm.EditorRole = "النجار";
-        Assert.IsFalse(vm.ApplyPreview());
+        vm.Attach(engine);
+        await vm.LoadAsync();
+
+        vm.BeginEdit();
+        vm.EditorName = "سالم أحمد";
         vm.EditorUsername = "s.ahmad";
-        vm.EditorStatus = "غير نشط";
-        Assert.IsTrue(vm.ApplyPreview());
-        Assert.AreEqual("s.ahmad", vm.VisibleUsers.Last().Username);
-        Assert.IsFalse(vm.VisibleUsers.Last().IsActive);
-        Assert.AreEqual(5, vm.VisibleUsers.Count);
+        vm.EditorRole = "موظف الاستقبال";
+        Assert.IsTrue(await vm.ApplyAsync("temporary-password"));
+        var created = vm.VisibleUsers.Single(user => user.Username == "s.ahmad");
+        Assert.IsTrue(created.IsActive);
+
+        vm.BeginEdit(created);
+        vm.EditorName = "سالم محمد";
+        vm.EditorUsername = "cannot-change";
+        vm.EditorRole = "مدير";
+        Assert.IsTrue(await vm.ApplyAsync(""));
+        var edited = vm.VisibleUsers.Single(user => user.AccountId == created.AccountId);
+        Assert.AreEqual("s.ahmad", edited.Username);
+        Assert.AreEqual("سالم محمد", edited.Name);
+        Assert.AreEqual("مدير", edited.Role);
+        Assert.AreEqual(2, edited.Revision);
+
+        vm.BeginDeactivation(edited);
+        Assert.IsTrue(await vm.DeactivateAsync());
+        Assert.IsFalse(vm.VisibleUsers.Single(user => user.AccountId == created.AccountId).IsActive);
+    }
+
+    [TestMethod]
+    public async Task ValidationAndLastManagerFailureKeepTheEditorState()
+    {
+        var engine = Engine();
+        var vm = new UsersViewModel();
+        vm.Attach(engine);
+        await vm.LoadAsync();
+        vm.BeginEdit();
+        Assert.IsFalse(await vm.ApplyAsync("short"));
+        Assert.IsTrue(vm.IsEditorOpen);
+
+        engine.CommandHandler = _ => new CommandResponseEnvelope
+        {
+            RequestId = Guid.NewGuid(),
+            CorrelationId = Guid.NewGuid(),
+            Outcome = new CommandOutcome
+            {
+                Status = CommandOutcomeStatus.Failed,
+                Payload = new CommandResult { Code = ProtocolIds.ErrorCodes.EitmadErrorDesktopAccountLastManagerV1 },
+            },
+        };
+        vm.CancelEditor();
+        var manager = vm.VisibleUsers.Single(user => user.Role == "مدير");
+        vm.BeginDeactivation(manager);
+        Assert.IsFalse(await vm.DeactivateAsync());
+        StringAssert.Contains(vm.EditorError, "مدير نشط");
+        Assert.IsTrue(vm.IsDeactivationOpen);
     }
 }

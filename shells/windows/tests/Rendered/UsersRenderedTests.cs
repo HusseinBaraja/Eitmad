@@ -2,10 +2,22 @@ using System.Windows;
 using System.Windows.Controls;
 using Eitmad.WindowsShell.Controls;
 using Eitmad.WindowsShell.Features.Users;
+using Eitmad.Contracts;
+using Eitmad.WindowsShell.Tests.TestDoubles;
 namespace Eitmad.WindowsShell.Tests.Rendered;
 [TestClass]
 public sealed class UsersRenderedTests
 {
+    private static FakeEngine Engine()
+    {
+        var engine = new FakeEngine();
+        engine.DesktopAccounts.AddRange([
+            new DesktopAccountSummary { AccountId = Guid.NewGuid(), UserId = Guid.NewGuid(), DisplayName = "محمد سالم", Username = "m.salem", Role = DesktopAccountRole.Manager, Active = true, Revision = 1 },
+            new DesktopAccountSummary { AccountId = Guid.NewGuid(), UserId = Guid.NewGuid(), DisplayName = "أحمد علي", Username = "a.ali", Role = DesktopAccountRole.Receptionist, Active = true, Revision = 1 },
+        ]);
+        return engine;
+    }
+
     [TestMethod]
     [DataRow(720d)]
     [DataRow(1338d)]
@@ -15,17 +27,14 @@ public sealed class UsersRenderedTests
         {
             WpfTestHost.FindByName<Button>(window, "UsersNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             var view = WpfTestHost.Descendants<UsersView>(window).Single();
-            view.ViewModel.BeginEdit(view.ViewModel.VisibleUsers[0]);
+            view.ViewModel.BeginEdit();
             WpfTestHost.CompleteLayout(view);
             var content = WpfTestHost.FindByName<StackPanel>(view, "EditorContent");
             // The old left-aligned StackPanel shrank to the text's desired width.
             Assert.AreEqual(Math.Min(640, view.ActualWidth - 56), content.ActualWidth, 2);
             var role = WpfTestHost.FindByName<ComboBox>(view, "UserRoleInput");
-            var status = WpfTestHost.FindByName<ComboBox>(view, "UserStatusInput");
             var rolePoint = role.TranslatePoint(new Point(), content);
-            var statusPoint = status.TranslatePoint(new Point(), content);
-            if (width == 720) Assert.IsTrue(statusPoint.Y > rolePoint.Y + role.ActualHeight);
-            else Assert.AreEqual(rolePoint.Y, statusPoint.Y, 1);
+            Assert.IsTrue(rolePoint.Y >= 0);
             foreach (var control in WpfTestHost.Descendants<Control>(content)) control.FontSize *= 1.5;
             foreach (var text in WpfTestHost.Descendants<TextBlock>(content)) text.FontSize *= 1.5;
             WpfTestHost.CompleteLayout(view);
@@ -36,7 +45,7 @@ public sealed class UsersRenderedTests
             Assert.IsTrue(point.X >= 0 && point.X + save.ActualWidth <= view.ActualWidth);
             Assert.IsTrue(point.Y >= 0 && point.Y + save.ActualHeight <= view.ActualHeight);
             WpfTestHost.Capture(window, $"user-editor-{width}");
-        });
+        }, engine: Engine());
     }
     [TestMethod]
     public void UsersNavigationFiltersAndEditorPageWorkInTheRenderedShell()
@@ -48,7 +57,7 @@ public sealed class UsersRenderedTests
             var view = WpfTestHost.Descendants<UsersView>(window).Single();
             var table = WpfTestHost.FindByName<OperationsTable>(view, "UsersTable");
             Assert.IsTrue(view.IsVisible);
-            Assert.AreEqual(4, table.Items.Count);
+            Assert.AreEqual(2, table.Items.Count);
             WpfTestHost.Capture(window, "users-list");
             var search = WpfTestHost.FindByName<TextBox>(view, "UsersSearchBox");
             search.Text = "احمد"; WpfTestHost.CompleteLayout(view);
@@ -74,7 +83,7 @@ public sealed class UsersRenderedTests
             WpfTestHost.FindByAutomationName<Button>(view, "تعطيل المستخدم أحمد علي").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(view);
             Assert.IsTrue(WpfTestHost.FindByName<Button>(view, "CancelDeactivateButton").IsKeyboardFocusWithin);
-            WpfTestHost.FindByAutomationName<Button>(view, "تأكيد التعطيل في المعاينة").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.FindByAutomationName<Button>(view, "تأكيد تعطيل المستخدم").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(view);
             Assert.IsFalse(view.ViewModel.VisibleUsers.Single().IsActive);
             WpfTestHost.FindByAutomationName<Button>(view, "إضافة مستخدم").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -82,12 +91,12 @@ public sealed class UsersRenderedTests
             Assert.IsFalse(WpfTestHost.FindByName<TextBox>(view, "UsernameInput").IsReadOnly);
             WpfTestHost.FindByName<TextBox>(view, "UserNameInput").Text = "أحمد سالم";
             WpfTestHost.FindByName<TextBox>(view, "UsernameInput").Text = "a.salem";
-            WpfTestHost.FindByName<ComboBox>(view, "UserRoleInput").SelectedItem = "النجار";
-            WpfTestHost.FindByName<ComboBox>(view, "UserStatusInput").SelectedItem = "غير نشط";
+            WpfTestHost.FindByName<PasswordBox>(view, "UserPasswordInput").Password = "synthetic-password";
+            WpfTestHost.FindByName<ComboBox>(view, "UserRoleInput").SelectedItem = "موظف الاستقبال";
             WpfTestHost.FindByAutomationName<Button>(view, "حفظ").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(view);
             Assert.IsTrue(table.IsVisible);
-            Assert.IsTrue(view.ViewModel.VisibleUsers.Any(user => user.Username == "a.salem" && !user.IsActive && user.Role == "النجار"));
-        });
+            Assert.IsTrue(view.ViewModel.VisibleUsers.Any(user => user.Username == "a.salem" && user.IsActive && user.Role == "موظف الاستقبال"));
+        }, engine: Engine());
     }
 }

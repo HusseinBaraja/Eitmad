@@ -30,7 +30,8 @@ public sealed class PreviewHandoffRenderedTests
             Assert.IsFalse(draft.CanPrint);
             Assert.IsFalse(draft.HasPendingDiscountApproval);
             StringAssert.Contains(draft.ReceptionActivity, "جديد");
-            MainWindow.SwitchAccountCommand.Execute(null, window);
+            WpfTestHost.FindByName<Grid>(window, "ResponsiveRoot").Visibility = Visibility.Collapsed;
+            reception.Visibility = Visibility.Visible;
             WpfTestHost.CompleteLayout(window);
             WpfTestHost.FindByName<Button>(reception, "QuotationsAction").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             var receptionQuotes = WpfTestHost.FindByName<QuotationsView>(reception, "ReceptionQuotations");
@@ -41,7 +42,8 @@ public sealed class PreviewHandoffRenderedTests
             var customerDetail = WpfTestHost.FindByName<Features.Customers.CustomerDetailView>(reception, "CustomerDetail");
             Assert.AreEqual(editor.CustomerName, ((Features.Customers.CustomerPreview)customerDetail.DataContext).Name);
             WpfTestHost.FindByName<Button>(customerDetail, "BackButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            MainWindow.SwitchAccountCommand.Execute(null, window);
+            reception.Visibility = Visibility.Collapsed;
+            WpfTestHost.FindByName<Grid>(window, "ResponsiveRoot").Visibility = Visibility.Visible;
             WpfTestHost.CompleteLayout(window);
             editor.RequestDiscountApproval();
             var request = reception.Handoffs.Quotations.Single(item => item.Id == editor.PreviewId);
@@ -155,7 +157,8 @@ public sealed class PreviewHandoffRenderedTests
             Assert.AreEqual(order.Id, notice.Id);
             Assert.IsTrue(notice.IsReady);
             Assert.AreEqual(production.Number, notice.ReadyFromWorkOrder);
-            MainWindow.SwitchAccountCommand.Execute(null, window);
+            WpfTestHost.FindByName<Grid>(window, "ResponsiveRoot").Visibility = Visibility.Collapsed;
+            reception.Visibility = Visibility.Visible;
             WpfTestHost.CompleteLayout(window);
             Assert.IsTrue(reception.IsVisible);
             WpfTestHost.Capture(window, "handoff-ready-home");

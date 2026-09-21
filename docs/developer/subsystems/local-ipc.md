@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust engine and Windows platform maintainers"
-last_verified: "2026-08-27"
+last_verified: "2026-09-21"
 review_triggers:
   - "local IPC framing, authentication, dispatch, timeout, payload, or shutdown behavior changes"
 keywords:
@@ -40,18 +40,23 @@ sequenceDiagram
     participant IPC as "Rust LocalIpcServer"
     participant Domain as "Rust dispatcher"
     Shell->>IPC: PeerHello + ephemeral bootstrap token
-    IPC->>IPC: load and verify Rust-owned installation identity and owner relation
-    IPC-->>Shell: negotiated protocol + Rust-owned authorization context
+    IPC->>IPC: verify token and load Rust-owned installation device identity
+    IPC-->>Shell: negotiated protocol + Rust-owned device context
+    Shell->>IPC: desktop sign-in credentials
+    IPC->>IPC: verify account and establish user session
+    IPC-->>Shell: user authorization context + role + expiry
     Shell->>IPC: typed command/query/subscription envelope
-    IPC->>IPC: validate session, version, scope context, and deadline
-    IPC->>Domain: dispatch with authorization context
+    IPC->>IPC: validate user session, version, scope context, and deadline
+    IPC->>Domain: dispatch with user authorization context
     Domain-->>IPC: typed result or ContractError
     IPC-->>Shell: correlated response
     Domain->>IPC: publish authorized scoped event
     IPC-->>Shell: ordered EventEnvelope
 ```
 
-The handshake is mandatory. Rust and the Windows shell advertise protocol `1.0–1.6`. Protocol `1.0` remains command/query-only; subscriptions require protocol `1.1` plus `eitmad.capability.local-ipc-subscriptions.v1`. Relationship administration and authorization-policy streams require `1.2`; policy streams also require `eitmad.capability.authorization-policy-events.v1`. Protocol `1.6` removes shell-supplied identity fields from the handshake. Every accepted protocol version requires `eitmad.capability.authorization-scopes.v1` and a Rust-assigned tenant. Workspace context remains optional across the compatibility window. An unscoped peer is rejected before normal traffic. For each accepted connection, the engine creates a new `SessionId` and returns it with the engine-owned identity, tenant, workspace, and scope. Later envelopes must reproduce that exact context.
+The handshake is mandatory. The Windows shell advertises protocol `1.8`. The process handshake proves possession of the supervised launch token and returns a Rust-owned device principal without user permissions. Typed `desktop-sign-in`, `desktop-session-state`, and `desktop-sign-out` messages require protocol `1.7`; desktop-account management requires protocol `1.8` and `eitmad.capability.desktop-account-management.v1`. Rust verifies a provisioned account password before returning a distinct user context and session expiry. Commands, queries, and subscriptions require that exact connection-bound user context and a live durable session. Sign-out, expiry, account deactivation, or a role-changing session revocation blocks later dispatch. The shell keeps the user context in memory and never stores credentials or tokens.
+
+A desktop session transition is also a client isolation boundary. Before sign-in or sign-out, the Windows adapter fails pending account requests, completes and removes active subscription queues, removes early-event buffers, and clears supervisor subscription registrations. The shell then clears account-specific snapshots before another surface becomes visible. A late response from the prior authorization is ignored because its pending request registration no longer exists. The next account creates fresh queries and subscriptions with its own Rust-returned authorization context.
 
 ## Subscription streams and payload ownership
 
@@ -71,13 +76,13 @@ Replay is in-memory and valid only for the current engine generation. The broker
 
 ## Backpressure and drop policy
 
-The engine live channel and each Windows consumer queue hold 256 events. Configuration, permission, authorization-policy, sync, and update status are replaceable state: if their cursor is evicted during lag, the broker delivers the newest retained value. Background-job status, record changes, notifications, and errors are discrete and are never silently dropped because one scope can contain multiple independent records or jobs. If a discrete gap cannot be replayed, Rust sends `SubscriptionClosed` with reason `backpressure`; the Windows client fails the connection so supervision reconnects and resubscribes from the last processed cursor.
+The engine live channel and each Windows consumer queue hold 256 events. Configuration, permission, authorization-policy, sync, and update status are replaceable state: if their cursor is evicted during lag, the broker delivers the newest retained value. Background-job status, record changes, notifications, and errors are discrete and are never silently dropped because one scope can contain multiple independent records or jobs. If a discrete gap cannot be replayed, Rust sends `SubscriptionClosed` with reason `backpressure`; the Windows client completes that bounded stream with a typed failure so its owner can replace the stream and authoritative snapshot.
 
 Slow shells never block authoritative producers. Repeated backpressure therefore reduces shell availability, not engine correctness. A vertical must reduce event frequency or add a query/page boundary instead of increasing bounds ad hoc.
 
-The Windows launcher creates a 256-bit ephemeral bootstrap token and writes it through inherited standard input. The token is absent from command arguments, environment variables, logs, and persisted configuration. The engine rejects a missing or incorrect token with constant-time comparison. It then loads or atomically creates storage migration 9's stable installation identity and durable owner relationship. The handshake request has no principal, tenant, workspace, scope, role, or permission assertion.
+The Windows launcher creates a 256-bit ephemeral bootstrap token and writes it through inherited standard input. The token is absent from command arguments, environment variables, logs, and persisted configuration. The engine rejects a missing or incorrect token with constant-time comparison. It then loads or atomically creates storage migration 9's stable installation identity and durable owner relationship. The handshake request has no principal, tenant, workspace, scope, role, or permission assertion. The engine projects the installation device, not the installation owner, to this connection.
 
-This proves possession of the supervised launch channel; it is not human-user authentication. A privileged debugger or malware in the same Windows account can still inspect process memory or handles. A shared-machine or multi-user product must add reviewed sign-in, session rotation, revocation, and OS-account policy before release. It must not restore shell-supplied authorization fields.
+This proves possession of the supervised launch channel; it is not human-user authentication. A privileged debugger or malware in the same Windows account can still inspect process memory or handles. Before shared-machine release, connect the trusted server account import, account disabling, and password rotation path and define the OS-account support policy. Do not restore shell-supplied authorization fields.
 
 ## Framing, concurrency, and large payloads
 

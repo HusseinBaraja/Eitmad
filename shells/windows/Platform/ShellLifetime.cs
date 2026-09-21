@@ -7,7 +7,7 @@ namespace Eitmad.WindowsShell.Platform;
 public sealed class ShellLifetime : IDisposable
 {
     private readonly System.Windows.Application application;
-    private readonly Window window;
+    private Window window;
     private readonly IShellLifetimeCoordinator coordinator;
     private readonly TrayIcon tray;
     private int shutdownStarted;
@@ -28,6 +28,19 @@ public sealed class ShellLifetime : IDisposable
         window.Closing += HideOnClose;
         window.Show();
         tray.Show();
+    }
+
+    public void ReplaceWindow(Window replacement)
+    {
+        ArgumentNullException.ThrowIfNull(replacement);
+        var previous = window;
+        previous.Closing -= HideOnClose;
+        window = replacement;
+        application.MainWindow = replacement;
+        replacement.Closing += HideOnClose;
+        replacement.Show();
+        replacement.Activate();
+        previous.Close();
     }
 
     public async Task ShutdownAsync()

@@ -8,8 +8,13 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+#[cfg(debug_assertions)]
+use argon2::{Argon2, PasswordHasher as _, password_hash::SaltString};
 use clap::{Parser, Subcommand, ValueEnum};
+#[cfg(debug_assertions)]
+use eitmad_contracts::identity::{AccountId, UserId};
 use eitmad_contracts::{
+    identity::{AuthenticatedIdentity, PrincipalId, PrincipalKind},
     observability::{
         ComponentId, DataClassification, ObservationEventId, ObservationFieldName,
         ObservationSeverity, ObservationValueKind,
@@ -18,8 +23,8 @@ use eitmad_contracts::{
     transport::{CorrelationId, UnixMillis},
 };
 use eitmad_engine_runtime::{
-    AuthorityStoreComponent, AuthorityStoreHandle, AuthorityStoreHealthCheck, ProductDispatcher,
-    RuntimeBuilder, RuntimeDirectoryHealthCheck, RuntimeFailure, ShutdownReason,
+    AuthorityStoreComponent, AuthorityStoreHandle, AuthorityStoreHealthCheck, DesktopAuthenticator,
+    ProductDispatcher, RuntimeBuilder, RuntimeDirectoryHealthCheck, RuntimeFailure, ShutdownReason,
     default_runtime_directory,
     local_ipc::{EventBroker, LocalIpcConfiguration, LocalIpcServer},
 };
@@ -27,6 +32,8 @@ use eitmad_observability_audit::{
     ObservationContract, ObservationFieldContract, ObservationValue, RedactionContext,
 };
 use eitmad_storage::AuthorityStore;
+#[cfg(debug_assertions)]
+use eitmad_storage::{DesktopAccount, DesktopRole};
 use serde::Serialize;
 use tokio::{
     io::AsyncReadExt as _,
@@ -75,6 +82,13 @@ enum Command {
         #[arg(long, value_name = "PATH")]
         runtime_directory: Option<PathBuf>,
     },
+    /// Provision synthetic desktop accounts for local development.
+    #[cfg(debug_assertions)]
+    SeedDevelopmentAccounts {
+        /// Override the platform runtime-data directory.
+        #[arg(long, value_name = "PATH")]
+        runtime_directory: Option<PathBuf>,
+    },
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -103,7 +117,89 @@ async fn main() -> ExitCode {
             .await
         }
         Command::Diagnose { runtime_directory } => diagnose(runtime_directory).await,
+        #[cfg(debug_assertions)]
+        Command::SeedDevelopmentAccounts { runtime_directory } => {
+            seed_development_accounts(runtime_directory)
+        }
     }
+}
+
+#[cfg(debug_assertions)]
+fn seed_development_accounts(runtime_directory: Option<PathBuf>) -> ExitCode {
+    let Some(directory) = resolve_or_emit_runtime_directory(runtime_directory) else {
+        return ExitCode::from(EXIT_RUNTIME_FAILURE);
+    };
+    let result = (|| {
+        let store = AuthorityStore::open(&directory)?;
+        let now = current_time();
+        let installer = store.local_authorization_context(now)?;
+        let organization_id = store.local_organization_id()?;
+        seed_development_account(
+            &store,
+            &installer,
+            DesktopAccount {
+                account_id: AccountId::new(uuid::uuid!("e17ad000-0000-4000-8000-000000000003")),
+                user_id: UserId::new(uuid::uuid!("e17ad000-0000-4000-8000-000000000013")),
+                tenant_id: installer.tenant_id,
+                organization_id,
+                password_hash: String::new(),
+                role: DesktopRole::Manager,
+            },
+            "admin",
+            "admin",
+            now,
+        )?;
+        seed_development_account(
+            &store,
+            &installer,
+            DesktopAccount {
+                account_id: AccountId::new(uuid::uuid!("e17ad000-0000-4000-8000-000000000004")),
+                user_id: UserId::new(uuid::uuid!("e17ad000-0000-4000-8000-000000000014")),
+                tenant_id: installer.tenant_id,
+                organization_id,
+                password_hash: String::new(),
+                role: DesktopRole::Receptionist,
+            },
+            "rec",
+            "rec",
+            now,
+        )
+    })();
+    if result.is_ok() {
+        ExitCode::from(EXIT_SUCCESS)
+    } else {
+        eprintln!("{{\"code\":\"eitmad.error.development-account-seed-failed.v1\"}}");
+        ExitCode::from(EXIT_RUNTIME_FAILURE)
+    }
+}
+
+#[cfg(debug_assertions)]
+fn seed_development_account(
+    store: &AuthorityStore,
+    installer: &eitmad_contracts::identity::AuthorizationContext,
+    mut account: DesktopAccount,
+    username: &str,
+    password: &str,
+    now: UnixMillis,
+) -> Result<(), eitmad_storage::StorageError> {
+    if let Some(existing) = store.desktop_account(installer.tenant_id, username)? {
+        return if existing.account_id == account.account_id
+            && existing.user_id == account.user_id
+            && existing.role == account.role
+        {
+            Ok(())
+        } else {
+            Err(eitmad_storage::StorageError)
+        };
+    }
+    let salt_uuid = uuid::Uuid::new_v4();
+    let salt =
+        SaltString::encode_b64(salt_uuid.as_bytes()).map_err(|_| eitmad_storage::StorageError)?;
+    account.password_hash = Argon2::default()
+        .hash_password(password.as_bytes(), &salt)
+        .map_err(|_| eitmad_storage::StorageError)?
+        .to_string();
+    store.provision_desktop_account(installer, &account, username, now)
 }
 
 async fn run(
@@ -187,6 +283,7 @@ async fn run(
     let ipc_task = ipc_configuration.map(|configuration| {
         tokio::spawn(
             LocalIpcServer::new(configuration, dispatcher, ipc_shutdown_sender.clone())
+                .with_desktop_auth(DesktopAuthenticator::new(store.clone()))
                 .with_event_broker(event_broker)
                 .run(ipc_cancel_receiver),
         )
@@ -237,9 +334,19 @@ async fn prepare_local_ipc(
     let bootstrap_token = read_ipc_bootstrap_token()
         .await
         .map_err(|_| LocalIpcStartupError::Authentication)?;
-    let authorization = store
+    let mut authorization = store
         .local_authorization_context(current_time())
         .map_err(|_| LocalIpcStartupError::Identity)?;
+    let device_id = authorization
+        .identity
+        .device_id
+        .ok_or(LocalIpcStartupError::Identity)?;
+    authorization.identity = AuthenticatedIdentity {
+        principal_id: PrincipalId::new(device_id.value()),
+        principal_kind: PrincipalKind::Device,
+        device_id: Some(device_id),
+        service_id: None,
+    };
     Ok(Some(LocalIpcConfiguration::authenticated(
         pipe_name,
         bootstrap_token,

@@ -23,10 +23,10 @@ Use `Pass` only with current evidence. `Blocked` prevents the named release targ
 - **Pass:** work is on a feature branch and the audit checkpoints are committed.
 - **Pass:** Rust owns contracts, identity, authorization, config, storage, sync semantics, update policy, audit, and server authority.
 - **Pass:** native shells have no direct database, config-file, secret, external API, or domain-validation authority.
-- **Pass:** local IPC uses protocol 1.6, a private process bootstrap token, Rust-owned identity, exact session context, bounded frames, bounded concurrency, and capability negotiation.
+- **Pass:** local IPC uses protocol 1.8, a private process bootstrap token, a separate Rust-authenticated business user session, exact session context, bounded frames, bounded concurrency, and capability negotiation.
 - **Pass:** implemented commands, queries, subscriptions, server routes, and sync operations authorize in Rust and fail closed when audit persistence fails.
 - **Pass:** every implemented record family has explicit tenant/scope ownership; SQLite checks scope and PostgreSQL migrations force tenant RLS.
-- **Pass:** local storage version 9 has immutable checksummed migrations, pre-migration backups, drift checks, integrity checks, restore rollback, and recovery documentation.
+- **Pass:** local storage version 11 has immutable checksummed migrations, pre-migration backups, drift checks, integrity checks, restore rollback, and recovery documentation.
 - **Pass:** Rust, generated contracts, C# conformance, Windows shell, real engine, repository policy, release scripts, and documentation audits pass.
 - **Pass:** npm, NuGet, and RustSec checks report no current vulnerability or warning.
 - **Pass:** the current Windows surface is Arabic-first, root RTL, mixed-direction aware, and tested with Arabic fixtures.

@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "product maintainers"
-last_verified: "2026-09-03"
+last_verified: "2026-09-19"
 review_triggers:
   - "a domain term, UI label, contract concept, or workshop synonym changes"
 keywords:
@@ -32,11 +32,13 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | الفرع | Branch | A customer-facing or administrative location within the organization. |
 | الورشة | Workshop | A production location where furniture is prepared or manufactured. |
 | الإدارة | Management | Users responsible for oversight, policy, approvals, and operational decisions. |
-| موظف الاستقبال | Receptionist | A user who receives customer requests and records initial details. |
+| المدير | Manager | A user with explicit organization-wide oversight permissions for catalog publication, pricing, approvals, quotation validity, cancellation, and production progression. The role does not implicitly include Receptionist mutations. |
+| موظف الاستقبال | Receptionist | A branch-assigned user who maintains customer contact data, prepares and issues quotations within policy, records customer acceptance, converts accepted quotations, and records delivery. |
 | النجار | Carpenter | A craftsperson performing furniture manufacturing or modification work. |
 | فني التركيب | Installer | A user who delivers or installs work at the customer site. |
 | مشرف الورشة | Workshop supervisor | A user coordinating and supervising production work in a workshop. |
-| العميل | Customer | A person or organization requesting or purchasing work. |
+| العميل | Customer | A person or organization requesting or purchasing work. Name and one phone are required; phone is searchable but is not a unique identity. |
+| حالة العميل | Customer status | **نشط** (Active) permits new quotations, **مؤرشف** (Archived) preserves history but blocks new use, and **مدمج** (Merged) redirects to one canonical customer. |
 | المورّد | Supplier | A party supplying materials or services. |
 
 ## Sales and work lifecycle
@@ -46,18 +48,19 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | طلب العميل | Customer request | The initial expression of a customer's need; it may precede pricing or commitment. |
 | عرض السعر | Quotation | A priced proposal with scope, validity, terms, and versioned line items. |
 | بند عرض السعر | Quotation line | A priced unit of product, service, material, or adjustment within a quotation. |
-| حالة عرض السعر | Quotation status | **Provisional UI terms.** The manager preview uses **مسودة**, **نشط**, **محوّل**, **ملغي**, and **منتهي**. The receptionist preview also uses **بانتظار الموافقة** for Waiting Approval. These fixtures do not define the production lifecycle. |
-| موافقة الخصم | Discount approval | **Provisional UI term.** A manager decision on a quotation discount that exceeds an approval threshold. The current **موافقة** and **رفض** actions change transient preview state only. **الخصم مقبول** and **الخصم مرفوض** are provisional result labels in both role views; they do not establish production authorization. |
+| حالة عرض السعر | Quotation status | The accepted states are **مسودة** (Draft), **بانتظار الموافقة** (Pending Approval), **صادر** (Issued), **مقبول** (Accepted), **محوّل** (Converted), **منتهي** (Expired), and **ملغي** (Cancelled). Current preview labels remain non-authoritative until Rust implements them. |
+| موافقة الخصم | Discount approval | A Manager decision on the immutable fingerprint of a quotation discount above `5.00%`. The approver cannot be the requester, and a commercial fingerprint change invalidates the decision. |
+| لقطة السعر | Price snapshot | The immutable catalog revision, selected options, dimensions, quantity, base price, adjustments, effective unit price, currency, and display names captured for a quotation line. |
 | الطلب | Order | A confirmed commercial request accepted for fulfillment. Avoid using this term for every incoming request. |
-| حالة الطلب | Order status | **Provisional UI terms.** The manager preview uses **جديد**, **قيد الإنتاج**, **جاهز**, **تم التسليم**, and **ملغي**. These fixtures do not define the production lifecycle. |
-| أمر العمل | Work order | An instruction to manufacture one or more specified Furniture items for a related Order. Ready-made Products do not become Work orders. The current Windows manager workflow is a transient preview. |
-| حالة أمر العمل | Work order status | **Provisional UI terms.** The manager preview uses **جديد**, **قيد التنفيذ**, **مكتمل**, and **ملغي**. Its status action changes transient preview state only. |
+| حالة الطلب | Order status | The accepted states are **مؤكد** (Confirmed), **قيد الإنتاج** (In Production), **جاهز** (Ready), **تم التسليم** (Delivered), and **ملغي** (Cancelled). Rust derives all except cancellation and delivery. |
+| أمر العمل | Work order | An instruction to manufacture one or more specified Furniture items for a related Order. Ready-made Products do not become Work Orders. |
+| حالة أمر العمل | Work order status | The accepted states are **مخطط** (Planned), **قيد التنفيذ** (In Progress), **مكتمل** (Completed), and **ملغي** (Cancelled). Completed and Cancelled are terminal in version 1. |
 | مهمة | Task | An assignable unit of work within a larger workflow or work order. |
 | الحالة | Status | A controlled lifecycle value, not free-form progress text. |
 | الأولوية | Priority | An explicit ordering signal for operational attention; it does not override authorization or safety. |
 | الموافقة | Approval | An authorized decision allowing a controlled transition or exception. |
 | الإلغاء | Cancellation | A controlled stop to future fulfillment while preserving history. It is not deletion. |
-| التسليم | Delivery | Transfer of completed items to a customer or destination. |
+| التسليم | Delivery | A server-confirmed Receptionist record of transferring one Ready Order to a named recipient. It does not record payment. |
 | التركيب | Installation | On-site assembly or fitting of furniture. |
 | إعادة العمل | Rework | Additional work required to correct or revise an item after an earlier production step. |
 
@@ -80,7 +83,7 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | الجزء / الأجزاء | Part / parts | A furniture component listed for production use, with a category, cost, and count of products that use it. The current Windows **الأجزاء** page is a preview fixture; its durable lifecycle and authority are not yet defined. |
 | الفئة / التصنيف | Raw-material category | A grouping used to organize raw materials. The current field label is **الفئة**; inline actions use **إضافة تصنيف جديد** and **إدارة التصنيفات**. The preview values are not durable domain records. |
 | فئة الجزء | Part category | A preview-only grouping used on the current Windows **الأجزاء** page. Part categories are separate from raw-material categories and do not use the raw-material category reference set or its lifecycle. |
-| الوحدة | Unit | The named measure used for a raw-material quantity, with a short name such as `m²`. The preview action is **إضافة وحدة جديدة**; conversion and durable validation remain undefined. |
+| الوحدة | Unit | A versioned measure with an explicit dimension and exact rational conversion to a canonical unit. BOM quantities use an exact decimal with at most six fractional digits and an active Unit ID. |
 | لوح خشبي | Board / panel | A sheet material used in furniture production. Exact material type remains a separate attribute. |
 | الإكسسوارات | Hardware / accessories | Hinges, handles, rails, fasteners, and similar furniture components. User terminology is provisional by context. |
 | التشطيب | Finish | The final surface treatment, color, coating, edge treatment, or appearance. |
@@ -95,12 +98,13 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 
 | Arabic term | English term | Working definition |
 | --- | --- | --- |
-| التسعير | Pricing | The controlled calculation or selection of a selling price. The current manager-facing **التسعير** page is a transient Windows preview for product variants; it does not persist or authorize a price change. |
+| التسعير | Pricing | The Manager-controlled publication of a whole-YER selling price for one catalog revision and variant. The current Windows page remains a transient preview. |
 | التكلفة | Cost | Resource value consumed or expected to be consumed; the precise cost model is domain-specific. |
 | السعر | Price | The amount offered or charged to a customer, excluding or including adjustments as explicitly defined. |
-| سعر البيع | Selling price | The manager-set amount offered for one product variant. The current **تعديل سعر البيع** action updates only in-memory preview state. |
-| هامش الربح / الهامش المحسوب | Margin / calculated margin | The preview difference between selling price and displayed cost for one product variant. Its production definition and cost authority remain undefined. |
-| الخصم | Discount | A controlled reduction from a price with reason and authorization where required. |
+| سعر البيع | Selling price | A positive whole-YER amount published by a Manager for one catalog revision and variant. Changing it creates a new revision and does not rewrite issued documents. |
+| هامش الربح / الهامش المحسوب | Margin / calculated margin | Selling price minus current cost. It is internal information and is not shown to Receptionists or customers. |
+| الخصم | Discount | One quotation-level percentage stored in basis points. `0.00%` through `5.00%` needs no approval; a larger discount needs Manager approval. |
+| الريال اليمني | Yemeni rial | The only commercial currency in the Manager and Receptionist workflow. Contracts store `YER` whole-rial integers; Arabic UI and customer documents display **ر.ي**. |
 | الضريبة | Tax | A statutory amount calculated under a versioned jurisdiction rule. |
 | العربون | Deposit | An amount received toward a future order balance. Legal/accounting treatment requires domain confirmation. |
 | الدفعة | Payment | A recorded transfer of value against an obligation. |

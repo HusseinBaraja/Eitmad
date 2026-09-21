@@ -12,6 +12,7 @@ use crate::{
 pub const CAPABILITIES: &[&str] = &[
     "eitmad.capability.engine-lifecycle.v1",
     "eitmad.capability.local-ipc.v1",
+    "eitmad.capability.desktop-user-session.v1",
     "eitmad.capability.local-ipc-subscriptions.v1",
     "eitmad.capability.authorization-policy-events.v1",
     "eitmad.capability.authorization-scopes.v1",
@@ -27,9 +28,14 @@ pub const CAPABILITIES: &[&str] = &[
     "eitmad.capability.server-administration.v1",
     "eitmad.capability.update.v1",
     "eitmad.capability.reference-marker.v1",
+    "eitmad.capability.desktop-account-management.v1",
 ];
 
 pub const IPC_MESSAGES: &[&str] = &[
+    "eitmad.ipc.desktop-session-response.v1",
+    "eitmad.ipc.desktop-session-state.v1",
+    "eitmad.ipc.desktop-sign-in.v1",
+    "eitmad.ipc.desktop-sign-out.v1",
     "eitmad.ipc.command-response.v1",
     "eitmad.ipc.command.v1",
     "eitmad.ipc.failure.v1",
@@ -80,6 +86,9 @@ pub const PERMISSIONS: &[&str] = &[
     "eitmad.permission.update.report-installer.v1",
     "eitmad.permission.reference-marker.read.v1",
     "eitmad.permission.reference-marker.write.v1",
+    "eitmad.permission.catalog.draft.write.v1",
+    "eitmad.permission.quotation.draft.write.v1",
+    "eitmad.permission.desktop-accounts.manage.v1",
 ];
 
 pub const ERROR_CODES: &[&str] = &[
@@ -100,6 +109,7 @@ pub const ERROR_CODES: &[&str] = &[
     "eitmad.error.ipc-engine-stopping.v1",
     "eitmad.error.ipc-payload-too-large.v1",
     "eitmad.error.ipc-session-invalid.v1",
+    "eitmad.error.desktop-authentication-failed.v1",
     "eitmad.error.ipc-subscription-resync-required.v1",
     "eitmad.error.ipc-subscription-unsupported.v1",
     "eitmad.error.ipc-deadline-exceeded.v1",
@@ -127,6 +137,10 @@ pub const ERROR_CODES: &[&str] = &[
     "eitmad.error.update-installer-failed.v1",
     "eitmad.error.reference-marker-revision-conflict.v1",
     "eitmad.error.reference-marker-unavailable.v1",
+    "eitmad.error.desktop-account-invalid.v1",
+    "eitmad.error.desktop-account-revision-conflict.v1",
+    "eitmad.error.desktop-account-last-manager.v1",
+    "eitmad.error.desktop-account-unavailable.v1",
 ];
 
 pub const MESSAGE_IDS: &[&str] = &[
@@ -149,6 +163,7 @@ pub const MESSAGE_IDS: &[&str] = &[
     "eitmad.message.ipc-engine-stopping.v1",
     "eitmad.message.ipc-payload-too-large.v1",
     "eitmad.message.ipc-session-invalid.v1",
+    "eitmad.message.desktop-authentication-failed.v1",
     "eitmad.message.ipc-subscription-resync-required.v1",
     "eitmad.message.ipc-subscription-unsupported.v1",
     "eitmad.message.ipc-deadline-exceeded.v1",
@@ -177,6 +192,10 @@ pub const MESSAGE_IDS: &[&str] = &[
     "eitmad.message.update-installer-failed.v1",
     "eitmad.message.reference-marker-revision-conflict.v1",
     "eitmad.message.reference-marker-unavailable.v1",
+    "eitmad.message.desktop-account-invalid.v1",
+    "eitmad.message.desktop-account-revision-conflict.v1",
+    "eitmad.message.desktop-account-last-manager.v1",
+    "eitmad.message.desktop-account-unavailable.v1",
 ];
 
 pub const ERROR_PARAMETER_NAMES: &[&str] = &[
@@ -193,6 +212,8 @@ pub const CONFIG_KEYS: &[&str] = &["eitmad.config.locale.primary.v1"];
 pub const RELATIONS: &[&str] = &[
     "eitmad.relation.organization.config-manager.v1",
     "eitmad.relation.organization.member.v1",
+    "eitmad.relation.organization.manager.v1",
+    "eitmad.relation.organization.receptionist.v1",
     "eitmad.relation.organization.owner.v1",
 ];
 pub const DOMAIN_SCHEMA_IDS: &[&str] = &[

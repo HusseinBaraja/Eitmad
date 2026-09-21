@@ -37,6 +37,8 @@ use uuid::Uuid;
 pub const OWNER_RELATION: &str = "eitmad.relation.organization.owner.v1";
 pub const CONFIG_MANAGER_RELATION: &str = "eitmad.relation.organization.config-manager.v1";
 pub const MEMBER_RELATION: &str = "eitmad.relation.organization.member.v1";
+pub const MANAGER_RELATION: &str = "eitmad.relation.organization.manager.v1";
+pub const RECEPTIONIST_RELATION: &str = "eitmad.relation.organization.receptionist.v1";
 
 pub const CONFIG_READ_PERMISSION: &str = "eitmad.permission.config.read.v1";
 pub const CONFIG_WRITE_PERMISSION: &str = "eitmad.permission.config.write.v1";
@@ -47,6 +49,9 @@ pub const PERMISSIONS_READ_PERMISSION: &str = "eitmad.permission.permissions.rea
 pub const SENSITIVE_DEBUG_PERMISSION: &str = "eitmad.permission.observability.sensitive-debug.v1";
 pub const REFERENCE_MARKER_READ_PERMISSION: &str = "eitmad.permission.reference-marker.read.v1";
 pub const REFERENCE_MARKER_WRITE_PERMISSION: &str = "eitmad.permission.reference-marker.write.v1";
+pub const CATALOG_DRAFT_WRITE_PERMISSION: &str = "eitmad.permission.catalog.draft.write.v1";
+pub const QUOTATION_DRAFT_WRITE_PERMISSION: &str = "eitmad.permission.quotation.draft.write.v1";
+pub const DESKTOP_ACCOUNTS_MANAGE_PERMISSION: &str = "eitmad.permission.desktop-accounts.manage.v1";
 
 const GRANT_RELATIONSHIP_OPERATION: &str = "eitmad.authorization.relationship.grant.v1";
 const REVOKE_RELATIONSHIP_OPERATION: &str = "eitmad.authorization.relationship.revoke.v1";
@@ -62,6 +67,9 @@ const POLICY_PERMISSIONS: &[&str] = &[
     REFERENCE_MARKER_READ_PERMISSION,
     REFERENCE_MARKER_WRITE_PERMISSION,
     SENSITIVE_DEBUG_PERMISSION,
+    CATALOG_DRAFT_WRITE_PERMISSION,
+    QUOTATION_DRAFT_WRITE_PERMISSION,
+    DESKTOP_ACCOUNTS_MANAGE_PERMISSION,
 ];
 
 #[derive(Clone, Debug)]
@@ -144,19 +152,40 @@ impl AuthorizationService {
         let owner = relationships
             .iter()
             .any(|relationship| relationship.relation.as_str() == OWNER_RELATION);
-        let manager = owner
+        let config_manager = owner
             || relationships
                 .iter()
                 .any(|relationship| relationship.relation.as_str() == CONFIG_MANAGER_RELATION);
-        let member = manager
-            || relationships
-                .iter()
-                .any(|relationship| relationship.relation.as_str() == MEMBER_RELATION);
+        let manager = relationships
+            .iter()
+            .any(|relationship| relationship.relation.as_str() == MANAGER_RELATION);
+        let receptionist = relationships
+            .iter()
+            .any(|relationship| relationship.relation.as_str() == RECEPTIONIST_RELATION);
+        let member = config_manager
+            || relationships.iter().any(|relationship| {
+                matches!(
+                    relationship.relation.as_str(),
+                    MEMBER_RELATION | MANAGER_RELATION | RECEPTIONIST_RELATION
+                )
+            });
         let permissions = POLICY_PERMISSIONS
             .iter()
             .map(|permission| EffectivePermission {
                 permission: permission_id(permission),
-                decision: if grants(permission, owner, manager, member) {
+                decision: if match *permission {
+                    AUTHORIZATION_MANAGE_PERMISSION | SENSITIVE_DEBUG_PERMISSION => owner,
+                    CONFIG_WRITE_PERMISSION
+                    | CONFIG_IMPORT_PERMISSION
+                    | CONFIG_EXPORT_PERMISSION
+                    | REFERENCE_MARKER_WRITE_PERMISSION => config_manager,
+                    CONFIG_READ_PERMISSION
+                    | PERMISSIONS_READ_PERMISSION
+                    | REFERENCE_MARKER_READ_PERMISSION => member,
+                    CATALOG_DRAFT_WRITE_PERMISSION | DESKTOP_ACCOUNTS_MANAGE_PERMISSION => manager,
+                    QUOTATION_DRAFT_WRITE_PERMISSION => receptionist,
+                    _ => false,
+                } {
                     PermissionDecision::Granted
                 } else {
                     PermissionDecision::Denied
@@ -408,20 +437,6 @@ impl AuthorizationService {
     }
 }
 
-fn grants(permission: &str, owner: bool, manager: bool, member: bool) -> bool {
-    match permission {
-        AUTHORIZATION_MANAGE_PERMISSION | SENSITIVE_DEBUG_PERMISSION => owner,
-        CONFIG_WRITE_PERMISSION
-        | CONFIG_IMPORT_PERMISSION
-        | CONFIG_EXPORT_PERMISSION
-        | REFERENCE_MARKER_WRITE_PERMISSION => manager,
-        CONFIG_READ_PERMISSION | PERMISSIONS_READ_PERMISSION | REFERENCE_MARKER_READ_PERMISSION => {
-            member
-        }
-        _ => false,
-    }
-}
-
 impl SensitiveDebugPermissionGate for AuthorizationService {
     fn may_manage_sensitive_debug(&self, authorization: &AuthorizationContext) -> bool {
         self.authorize(authorization, SENSITIVE_DEBUG_PERMISSION)
@@ -432,7 +447,11 @@ impl SensitiveDebugPermissionGate for AuthorizationService {
 fn registered_relation(relation: &RelationId) -> bool {
     matches!(
         relation.as_str(),
-        OWNER_RELATION | CONFIG_MANAGER_RELATION | MEMBER_RELATION
+        OWNER_RELATION
+            | CONFIG_MANAGER_RELATION
+            | MEMBER_RELATION
+            | MANAGER_RELATION
+            | RECEPTIONIST_RELATION
     )
 }
 
@@ -698,6 +717,51 @@ mod tests {
         );
         assert_eq!(
             service.authorize(&authorization(3, 10), REFERENCE_MARKER_WRITE_PERMISSION),
+            Err(AuthorizationError::Denied)
+        );
+    }
+
+    #[test]
+    fn desktop_roles_return_distinct_routing_permissions() {
+        let (_directory, service) = service();
+        bootstrap(&service, 1, 10);
+        let manager = service
+            .grant_relationship(
+                &mutation(1, 10, 103),
+                &GrantScopeRelationship {
+                    expected_policy_version: 1,
+                    subject: subject(2),
+                    relation: relation_id(MANAGER_RELATION),
+                },
+            )
+            .unwrap();
+        service
+            .grant_relationship(
+                &mutation(1, 10, 104),
+                &GrantScopeRelationship {
+                    expected_policy_version: manager.policy_version,
+                    subject: subject(3),
+                    relation: relation_id(RECEPTIONIST_RELATION),
+                },
+            )
+            .unwrap();
+
+        assert!(
+            service
+                .authorize(&authorization(2, 10), CATALOG_DRAFT_WRITE_PERMISSION)
+                .is_ok()
+        );
+        assert_eq!(
+            service.authorize(&authorization(2, 10), QUOTATION_DRAFT_WRITE_PERMISSION),
+            Err(AuthorizationError::Denied)
+        );
+        assert!(
+            service
+                .authorize(&authorization(3, 10), QUOTATION_DRAFT_WRITE_PERMISSION)
+                .is_ok()
+        );
+        assert_eq!(
+            service.authorize(&authorization(3, 10), CATALOG_DRAFT_WRITE_PERMISSION),
             Err(AuthorizationError::Denied)
         );
     }

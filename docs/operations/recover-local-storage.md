@@ -39,7 +39,7 @@ Synchronization is not a backup: it can distribute an accidental deletion or an 
 
 `AuthorityStore::backup_to` uses SQLite online backup, includes committed WAL data, writes an owner-private temporary file, runs full `PRAGMA integrity_check`, proves migration/schema compatibility on an in-memory copy, then atomically publishes the requested path. Existing destinations are rejected.
 
-Before any pending migration from supported storage versions 2–8, startup creates and validates `eitmad.pre-migration-vN-to-v9.sqlite3`. A retry for the same source and target versions validates and reuses that one artifact. Failure to create or validate it stops startup before migration SQL. Each migration runs in its own transaction; SQL or history failure rolls back that migration and leaves the snapshot discoverable through `AuthorityStore::recovery_artifacts`.
+Before any pending migration from supported storage versions 2–10, startup creates and validates `eitmad.pre-migration-vN-to-v11.sqlite3`. A retry for the same source and target versions validates and reuses that one artifact. Failure to create or validate it stops startup before migration SQL. Each migration runs in its own transaction; SQL or history failure rolls back that migration and leaves the snapshot discoverable through `AuthorityStore::recovery_artifacts`.
 
 ## Validate and restore
 

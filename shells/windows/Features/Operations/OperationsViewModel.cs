@@ -13,6 +13,9 @@ public sealed class OperationsViewModel : ObservableObject
     private static readonly Guid ReferenceMarkerId = new("8b8ab1ab-731b-46f5-926a-3b5b2f8f6310");
     private readonly Dictionary<string, long> lastEventTime = [];
     private long configRevision = -1;
+    private bool localeEdited;
+    private bool markerEdited;
+    private bool referenceMarkersAvailable;
     private string selectedLocale = "ar-YE";
     private string connectionBanner = "جاري تشغيل محرك الاعتماد…";
     private string connectionDetail = "يتم الآن إنشاء قناة آمنة محلية";
@@ -62,6 +65,7 @@ public sealed class OperationsViewModel : ObservableObject
     public string ConfigurationRevisionLabel => configRevision < 0 ? "غير متاح" : $"الإصدار {configRevision}";
     public bool CanSaveConfiguration => configRevision >= 0 && !IsSavingConfiguration;
     public bool CanSaveReferenceMarker => SubmitReferenceMarker is not null
+        && referenceMarkersAvailable
         && !IsSavingReferenceMarker
         && !string.IsNullOrWhiteSpace(ReferenceMarkerLabel);
     public bool IsSavingReferenceMarker
@@ -79,7 +83,11 @@ public sealed class OperationsViewModel : ObservableObject
         get => referenceMarkerLabel;
         set
         {
-            if (Set(ref referenceMarkerLabel, value)) SaveReferenceMarkerCommand.Refresh();
+            if (Set(ref referenceMarkerLabel, value))
+            {
+                markerEdited = true;
+                SaveReferenceMarkerCommand.Refresh();
+            }
         }
     }
 
@@ -90,6 +98,7 @@ public sealed class OperationsViewModel : ObservableObject
         {
             if (Set(ref selectedLocale, value))
             {
+                localeEdited = true;
                 SaveConfigurationCommand.Refresh();
             }
         }
@@ -132,8 +141,7 @@ public sealed class OperationsViewModel : ObservableObject
         switch (snapshot.IpcHealth)
         {
             case EngineIpcHealthState.Connected when lifecycle?.Ready == true:
-                ShowConnectionBanner = false;
-                ConnectionTone = "Success";
+                ShowUnavailable("نحدّث الحالة من المصدر…", "بانتظار لقطة المحرك والاشتراكات.", "Pending");
                 break;
             case EngineIpcHealthState.ReconnectExhausted:
                 ShowUnavailable("تعذر استعادة الاتصال بالمحرك", "أغلق التطبيق وافتحه من جديد. بياناتك بقيت لدى محرك Rust.", "Danger");
@@ -182,7 +190,7 @@ public sealed class OperationsViewModel : ObservableObject
                 entry.RestartRequirement));
             if (entry.Key == LocaleKey && entry.Value.Value?.String is { Length: > 0 } locale)
             {
-                SelectedLocale = locale;
+                if (!localeEdited) Set(ref selectedLocale, locale);
             }
         }
 
@@ -202,6 +210,7 @@ public sealed class OperationsViewModel : ObservableObject
 
     public void ObserveReferenceMarkers(ReferenceMarkerPage page)
     {
+        referenceMarkersAvailable = true;
         ReferenceMarkers.Clear();
         foreach (var marker in page.Items ?? [])
         {
@@ -214,7 +223,7 @@ public sealed class OperationsViewModel : ObservableObject
             if (marker.Id == ReferenceMarkerId)
             {
                 referenceMarkerRevision = marker.Revision;
-                ReferenceMarkerLabel = marker.Label;
+                if (!markerEdited) Set(ref referenceMarkerLabel, marker.Label);
             }
         }
         ReferenceMarkerStatus = ReferenceMarkers.Count == 0 ? "لا توجد علامة محفوظة" : "اللقطة محدّثة";
@@ -223,6 +232,7 @@ public sealed class OperationsViewModel : ObservableObject
 
     public void ObserveReferenceMarker(ReferenceMarker marker)
     {
+        referenceMarkersAvailable = true;
         ReplaceById(
             ReferenceMarkers,
             new ReferenceMarkerItem(
@@ -235,7 +245,7 @@ public sealed class OperationsViewModel : ObservableObject
         if (marker.Id == ReferenceMarkerId)
         {
             referenceMarkerRevision = marker.Revision;
-            ReferenceMarkerLabel = marker.Label;
+            if (!markerEdited) Set(ref referenceMarkerLabel, marker.Label);
         }
         ReferenceMarkerStatus = "تم تحديث العلامة";
         SaveReferenceMarkerCommand.Refresh();
@@ -251,8 +261,11 @@ public sealed class OperationsViewModel : ObservableObject
 
     public void ObserveReferenceMarkersUnavailable()
     {
+        referenceMarkersAvailable = false;
+        referenceMarkerRevision = -1;
         ReferenceMarkers.Clear();
         ReferenceMarkerStatus = "الميزة المرجعية غير متاحة";
+        SaveReferenceMarkerCommand.Refresh();
     }
 
     public void ObserveSync(SyncStatus status, long observedAt = long.MaxValue)
@@ -369,6 +382,42 @@ public sealed class OperationsViewModel : ObservableObject
         ConnectionTone = "Success";
     }
 
+    public void ObserveSnapshotsUnavailable()
+    {
+        lastEventTime.Clear();
+        ObserveConfigurationUnavailable();
+        ObserveSyncUnavailable("تعذر قراءة حالة المحرك");
+        ObserveUpdateUnavailable("تعذر قراءة حالة المحرك");
+        ObserveReferenceMarkersUnavailable();
+        ShowUnavailable("تعذر تحديث حالة المحرك", "أعد الاتصال بالمحرك قبل الحفظ.", "Warning");
+    }
+
+    public void ClearAccountState()
+    {
+        lastEventTime.Clear();
+        configRevision = -1;
+        localeEdited = false;
+        markerEdited = false;
+        referenceMarkersAvailable = false;
+        referenceMarkerRevision = -1;
+        IsSavingConfiguration = false;
+        IsSavingReferenceMarker = false;
+        Configuration.Clear();
+        Jobs.Clear();
+        Activity.Clear();
+        ReferenceMarkers.Clear();
+        Set(ref selectedLocale, "ar-YE", nameof(SelectedLocale));
+        Set(ref referenceMarkerLabel, "مرجع REF-١٢", nameof(ReferenceMarkerLabel));
+        ReferenceMarkerStatus = "بانتظار جلسة مستخدم";
+        SyncCard = new("المزامنة", "بانتظار تسجيل الدخول", "لا توجد حالة تخص حسابًا حاليًا", "Muted");
+        UpdateCard = new("التحديثات", "بانتظار تسجيل الدخول", "لا توجد حالة تخص حسابًا حاليًا", "Muted");
+        ShowUnavailable("يلزم تسجيل الدخول", "لن تظهر بيانات أي حساب قبل إنشاء جلسة جديدة.", "Muted");
+        Raise(nameof(ConfigRevision));
+        Raise(nameof(ConfigurationRevisionLabel));
+        SaveConfigurationCommand.Refresh();
+        SaveReferenceMarkerCommand.Refresh();
+    }
+
     private async Task SaveConfigurationAsync()
     {
         if (SubmitConfigurationPatch is null || !CanSaveConfiguration)
@@ -378,6 +427,7 @@ public sealed class OperationsViewModel : ObservableObject
 
         IsSavingConfiguration = true;
         SaveConfigurationCommand.Refresh();
+        var submittedLocale = selectedLocale;
         try
         {
             await SubmitConfigurationPatch(
@@ -392,12 +442,13 @@ public sealed class OperationsViewModel : ObservableObject
                             Value = new ConfigWriteValue
                             {
                                 Kind = ConfigWriteValueKind.Text,
-                                Value = selectedLocale,
+                                Value = submittedLocale,
                             },
                         },
                     ],
                 },
                 Guid.NewGuid());
+            if (selectedLocale == submittedLocale) localeEdited = false;
         }
         catch (Exception error) when (error is InvalidOperationException or IOException or EngineIpcException)
         {
@@ -426,6 +477,7 @@ public sealed class OperationsViewModel : ObservableObject
         }
 
         IsSavingReferenceMarker = true;
+        var submittedLabel = ReferenceMarkerLabel;
         try
         {
             await SubmitReferenceMarker(
@@ -433,9 +485,10 @@ public sealed class OperationsViewModel : ObservableObject
                 {
                     MarkerId = ReferenceMarkerId,
                     ExpectedRevision = referenceMarkerRevision < 0 ? null : referenceMarkerRevision,
-                    Label = ReferenceMarkerLabel,
+                    Label = submittedLabel,
                 },
                 Guid.NewGuid());
+            if (ReferenceMarkerLabel == submittedLabel) markerEdited = false;
         }
         catch (Exception error) when (error is InvalidOperationException or IOException or EngineIpcException)
         {

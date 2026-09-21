@@ -21,6 +21,10 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## IPC messages
 
+- `eitmad.ipc.desktop-session-response.v1`
+- `eitmad.ipc.desktop-session-state.v1`
+- `eitmad.ipc.desktop-sign-in.v1`
+- `eitmad.ipc.desktop-sign-out.v1`
 - `eitmad.ipc.command-response.v1`
 - `eitmad.ipc.command.v1`
 - `eitmad.ipc.failure.v1`
@@ -45,6 +49,9 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.operation.cancel.v1`
 - `eitmad.update.report-installer-outcome.v1`
 - `eitmad.reference-marker.upsert.v1`
+- `eitmad.desktop-account.create.v1`
+- `eitmad.desktop-account.update.v1`
+- `eitmad.desktop-account.deactivate.v1`
 
 ## Queries
 
@@ -54,6 +61,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.update.get-state.v1`
 - `eitmad.sync.get-status.v1`
 - `eitmad.reference-marker.list.v1`
+- `eitmad.desktop-account.list.v1`
 
 ## Subscriptions
 
@@ -110,6 +118,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 - `eitmad.capability.engine-lifecycle.v1`
 - `eitmad.capability.local-ipc.v1`
+- `eitmad.capability.desktop-user-session.v1`
 - `eitmad.capability.local-ipc-subscriptions.v1`
 - `eitmad.capability.authorization-policy-events.v1`
 - `eitmad.capability.authorization-scopes.v1`
@@ -125,6 +134,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.capability.server-administration.v1`
 - `eitmad.capability.update.v1`
 - `eitmad.capability.reference-marker.v1`
+- `eitmad.capability.desktop-account-management.v1`
 
 ## Permissions
 
@@ -157,6 +167,9 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.permission.update.report-installer.v1`
 - `eitmad.permission.reference-marker.read.v1`
 - `eitmad.permission.reference-marker.write.v1`
+- `eitmad.permission.catalog.draft.write.v1`
+- `eitmad.permission.quotation.draft.write.v1`
+- `eitmad.permission.desktop-accounts.manage.v1`
 
 ## Configuration keys
 
@@ -166,6 +179,8 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 - `eitmad.relation.organization.config-manager.v1`
 - `eitmad.relation.organization.member.v1`
+- `eitmad.relation.organization.manager.v1`
+- `eitmad.relation.organization.receptionist.v1`
 - `eitmad.relation.organization.owner.v1`
 
 ## Schema identifiers
@@ -192,6 +207,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.error.ipc-engine-stopping.v1`
 - `eitmad.error.ipc-payload-too-large.v1`
 - `eitmad.error.ipc-session-invalid.v1`
+- `eitmad.error.desktop-authentication-failed.v1`
 - `eitmad.error.ipc-subscription-resync-required.v1`
 - `eitmad.error.ipc-subscription-unsupported.v1`
 - `eitmad.error.ipc-deadline-exceeded.v1`
@@ -219,6 +235,10 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.error.update-installer-failed.v1`
 - `eitmad.error.reference-marker-revision-conflict.v1`
 - `eitmad.error.reference-marker-unavailable.v1`
+- `eitmad.error.desktop-account-invalid.v1`
+- `eitmad.error.desktop-account-revision-conflict.v1`
+- `eitmad.error.desktop-account-last-manager.v1`
+- `eitmad.error.desktop-account-unavailable.v1`
 
 ## Localization message identifiers
 
@@ -241,6 +261,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.message.ipc-engine-stopping.v1`
 - `eitmad.message.ipc-payload-too-large.v1`
 - `eitmad.message.ipc-session-invalid.v1`
+- `eitmad.message.desktop-authentication-failed.v1`
 - `eitmad.message.ipc-subscription-resync-required.v1`
 - `eitmad.message.ipc-subscription-unsupported.v1`
 - `eitmad.message.ipc-deadline-exceeded.v1`
@@ -269,6 +290,10 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.message.update-installer-failed.v1`
 - `eitmad.message.reference-marker-revision-conflict.v1`
 - `eitmad.message.reference-marker-unavailable.v1`
+- `eitmad.message.desktop-account-invalid.v1`
+- `eitmad.message.desktop-account-revision-conflict.v1`
+- `eitmad.message.desktop-account-last-manager.v1`
+- `eitmad.message.desktop-account-unavailable.v1`
 
 ## Error parameter names
 
