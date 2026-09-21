@@ -2,6 +2,7 @@
 
 use std::sync::Arc;
 
+use crate::accounts::{DesktopAccountError, DesktopAccountService};
 use async_trait::async_trait;
 use eitmad_authorization::{
     AUTHORIZATION_MANAGE_PERMISSION, AccessAuditContext, AuthorizationError, AuthorizationService,
@@ -31,6 +32,7 @@ pub struct ProductDispatcher {
     authorization: AuthorizationService,
     configuration: ConfigurationService,
     reference_markers: ReferenceMarkerService,
+    accounts: DesktopAccountService,
     events: Arc<dyn ProductEventPublisher>,
 }
 
@@ -73,11 +75,13 @@ impl ProductDispatcher {
         let authorization = AuthorizationService::new(store.clone());
         let configuration = ConfigurationService::new(store.clone(), authorization.clone());
         let reference_markers = ReferenceMarkerService::new(store.clone(), authorization.clone());
+        let accounts = DesktopAccountService::new(store.clone(), authorization.clone());
         Self {
             store,
             authorization,
             configuration,
             reference_markers,
+            accounts,
             events,
         }
     }
@@ -216,6 +220,27 @@ impl CommandDispatcher for ProductDispatcher {
                     })?;
                 Ok(CommandResult::ReferenceMarkerUpserted(outcome.marker))
             }
+            Command::CreateDesktopAccount(command) => {
+                require_protocol_1_8(&context).map_err(|error| *error)?;
+                self.accounts
+                    .create(&mutation, &command)
+                    .map(CommandResult::DesktopAccountCreated)
+                    .map_err(|error| desktop_account_error(error, &context))
+            }
+            Command::UpdateDesktopAccount(command) => {
+                require_protocol_1_8(&context).map_err(|error| *error)?;
+                self.accounts
+                    .update(&mutation, &command)
+                    .map(CommandResult::DesktopAccountUpdated)
+                    .map_err(|error| desktop_account_error(error, &context))
+            }
+            Command::DeactivateDesktopAccount(command) => {
+                require_protocol_1_8(&context).map_err(|error| *error)?;
+                self.accounts
+                    .deactivate(&mutation, &command)
+                    .map(CommandResult::DesktopAccountDeactivated)
+                    .map_err(|error| desktop_account_error(error, &context))
+            }
             Command::CancelOperation(_) | Command::ReportInstallerOutcome(_) => self
                 .authorization
                 .audit_access_result(
@@ -268,6 +293,13 @@ impl QueryDispatcher for ProductDispatcher {
                 .list(&context.authorization, &query)
                 .map(QueryResult::ReferenceMarkers)
                 .map_err(|error| reference_marker_error(error, &context)),
+            Query::DesktopAccounts(query) => {
+                require_protocol_1_8(&context).map_err(|error| *error)?;
+                self.accounts
+                    .list(&context.authorization, &query)
+                    .map(QueryResult::DesktopAccounts)
+                    .map_err(|error| desktop_account_error(error, &context))
+            }
             Query::UpdateState(_) | Query::SyncStatus(_) => Err(unsupported(&context)),
         };
         let (outcome, error_code) = match &result {
@@ -364,6 +396,49 @@ fn reference_marker_error(
         ReferenceMarkerError::UnsupportedScope | ReferenceMarkerError::IdempotencyMismatch => {
             unsupported(context)
         }
+    }
+}
+
+fn desktop_account_error(
+    error_value: DesktopAccountError,
+    context: &DispatchContext,
+) -> ContractError {
+    match error_value {
+        DesktopAccountError::Denied => contract_error(
+            "eitmad.error.authorization-denied.v1",
+            "eitmad.message.authorization-denied.v1",
+            context.correlation_id,
+            RetryDisposition::Never,
+            None,
+        ),
+        DesktopAccountError::Invalid | DesktopAccountError::IdempotencyMismatch => contract_error(
+            "eitmad.error.desktop-account-invalid.v1",
+            "eitmad.message.desktop-account-invalid.v1",
+            context.correlation_id,
+            RetryDisposition::Never,
+            None,
+        ),
+        DesktopAccountError::RevisionConflict { expected, actual } => contract_error(
+            "eitmad.error.desktop-account-revision-conflict.v1",
+            "eitmad.message.desktop-account-revision-conflict.v1",
+            context.correlation_id,
+            RetryDisposition::SafeImmediately,
+            Some(ErrorDetail::RevisionConflict { expected, actual }),
+        ),
+        DesktopAccountError::LastUsableManager => contract_error(
+            "eitmad.error.desktop-account-last-manager.v1",
+            "eitmad.message.desktop-account-last-manager.v1",
+            context.correlation_id,
+            RetryDisposition::Never,
+            None,
+        ),
+        DesktopAccountError::Unavailable => contract_error(
+            "eitmad.error.desktop-account-unavailable.v1",
+            "eitmad.message.desktop-account-unavailable.v1",
+            context.correlation_id,
+            RetryDisposition::SafeAfterDelay(1_000),
+            None,
+        ),
     }
 }
 
@@ -506,6 +581,12 @@ fn unsupported(context: &DispatchContext) -> ContractError {
 
 fn require_protocol_1_2(context: &DispatchContext) -> Result<(), Box<ContractError>> {
     (context.protocol_version.minor >= 2)
+        .then_some(())
+        .ok_or_else(|| Box::new(unsupported(context)))
+}
+
+fn require_protocol_1_8(context: &DispatchContext) -> Result<(), Box<ContractError>> {
+    (context.protocol_version.minor >= 8)
         .then_some(())
         .ok_or_else(|| Box::new(unsupported(context)))
 }

@@ -31,6 +31,12 @@ impl DesktopAuthenticator {
         Self { store }
     }
 
+    /// Verifies a local desktop credential and starts a bounded user session.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Failed` for invalid credentials or context and `Unavailable` when session storage
+    /// cannot be accessed.
     pub fn sign_in(
         &self,
         process: &AuthorizationContext,
@@ -120,6 +126,12 @@ impl DesktopAuthenticator {
         })
     }
 
+    /// Checks whether the stored session and its account remain usable.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Failed` for an invalid authorization context and `Unavailable` when account or
+    /// session storage cannot be accessed.
     pub fn active(
         &self,
         authorization: &AuthorizationContext,
@@ -157,6 +169,11 @@ impl DesktopAuthenticator {
             .map_err(|_| DesktopAuthenticationError::Unavailable)
     }
 
+    /// Returns the persisted state for an authenticated desktop session.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Failed` when the session is absent and `Unavailable` when storage cannot be read.
     pub fn session_state(
         &self,
         authorization: &AuthorizationContext,
@@ -172,6 +189,11 @@ impl DesktopAuthenticator {
         })
     }
 
+    /// Closes an authenticated desktop session.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Unavailable` when the session closure cannot be persisted.
     pub fn sign_out(
         &self,
         authorization: &AuthorizationContext,
@@ -214,7 +236,7 @@ mod tests {
         id: u128,
         role: DesktopRole,
     ) -> DesktopAccount {
-        let salt = SaltString::encode_b64(&[id as u8; 16]).unwrap();
+        let salt = SaltString::encode_b64(&id.to_le_bytes()).unwrap();
         let password_hash = Argon2::default()
             .hash_password(b"correct horse battery", &salt)
             .unwrap()
@@ -229,8 +251,14 @@ mod tests {
         }
     }
 
-    #[test]
-    fn distinct_user_sessions_reject_wrong_password_expiry_and_revocation() {
+    fn account_fixture() -> (
+        tempfile::TempDir,
+        AuthorityStore,
+        AuthorizationContext,
+        AuthorizationContext,
+        DesktopAccount,
+        DesktopAccount,
+    ) {
         let directory = tempdir().unwrap();
         let store = AuthorityStore::open(directory.path()).unwrap();
         let owner = store.local_authorization_context(UnixMillis(100)).unwrap();
@@ -250,6 +278,43 @@ mod tests {
             301,
             DesktopRole::Receptionist,
         );
+        (directory, store, owner, process, manager, receptionist)
+    }
+
+    fn assert_session_audits(
+        store: &AuthorityStore,
+        manager: &DesktopAccount,
+        receptionist: &DesktopAccount,
+    ) {
+        let database = rusqlite::Connection::open(store.path()).unwrap();
+        let signed_in: i64 = database
+            .query_row(
+                "SELECT COUNT(*) FROM mutation_audit
+                 WHERE operation = 'eitmad.desktop.session.sign-in.v1'
+                   AND principal_id IN (?1, ?2)",
+                [
+                    manager.user_id.value().to_string(),
+                    receptionist.user_id.value().to_string(),
+                ],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let signed_out: i64 = database
+            .query_row(
+                "SELECT COUNT(*) FROM mutation_audit
+                 WHERE operation = 'eitmad.desktop.session.sign-out.v1'
+                   AND principal_id = ?1",
+                [receptionist.user_id.value().to_string()],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(signed_in, 2);
+        assert_eq!(signed_out, 1);
+    }
+
+    #[test]
+    fn distinct_user_sessions_reject_wrong_password_expiry_and_revocation() {
+        let (directory, store, owner, process, manager, receptionist) = account_fixture();
         assert!(
             store
                 .provision_desktop_account(
@@ -336,29 +401,6 @@ mod tests {
             auth.active(&receptionist_identity, UnixMillis(106)),
             Ok(false)
         );
-        let database = rusqlite::Connection::open(store.path()).unwrap();
-        let signed_in: i64 = database
-            .query_row(
-                "SELECT COUNT(*) FROM mutation_audit
-                 WHERE operation = 'eitmad.desktop.session.sign-in.v1'
-                   AND principal_id IN (?1, ?2)",
-                [
-                    manager.user_id.value().to_string(),
-                    receptionist.user_id.value().to_string(),
-                ],
-                |row| row.get(0),
-            )
-            .unwrap();
-        let signed_out: i64 = database
-            .query_row(
-                "SELECT COUNT(*) FROM mutation_audit
-                 WHERE operation = 'eitmad.desktop.session.sign-out.v1'
-                   AND principal_id = ?1",
-                [receptionist.user_id.value().to_string()],
-                |row| row.get(0),
-            )
-            .unwrap();
-        assert_eq!(signed_in, 2);
-        assert_eq!(signed_out, 1);
+        assert_session_audits(&store, &manager, &receptionist);
     }
 }

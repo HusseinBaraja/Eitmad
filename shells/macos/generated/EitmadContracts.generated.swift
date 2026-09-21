@@ -1500,6 +1500,9 @@ public enum LifecycleStage: String, Codable, Sendable {
 
 public enum PurpleKind: String, Codable, Sendable {
     case configurationUpdated = "configurationUpdated"
+    case desktopAccountCreated = "desktopAccountCreated"
+    case desktopAccountDeactivated = "desktopAccountDeactivated"
+    case desktopAccountUpdated = "desktopAccountUpdated"
     case installerOutcomeRecorded = "installerOutcomeRecorded"
     case operationCancelled = "operationCancelled"
     case referenceMarkerUpserted = "referenceMarkerUpserted"
@@ -1651,14 +1654,23 @@ public struct PayloadClass: Codable, Sendable {
     public let id, label: String?
     public let syncState: ReferenceMarkerSyncState?
     public let updatedAt: Int?
+    public let accountID: String?
+    public let active: Bool?
+    public let displayName: String?
+    public let role: DesktopAccountRole?
+    public let userID, username: String?
 
     public enum CodingKeys: String, CodingKey {
         case entries, revision, schemaVersion, scope, changed, policyVersion, relationship
         case operationID = "operation_id"
         case kind, payload, id, label, syncState, updatedAt
+        case accountID = "accountId"
+        case active, displayName, role
+        case userID = "userId"
+        case username
     }
 
-    public init(entries: [ConfigEntry]?, revision: Int?, schemaVersion: Int?, scope: ScopeRef?, changed: Bool?, policyVersion: Int?, relationship: ScopeRelationship?, operationID: String?, kind: UpdateStateKind?, payload: UpdateStatePayload?, id: String?, label: String?, syncState: ReferenceMarkerSyncState?, updatedAt: Int?) {
+    public init(entries: [ConfigEntry]?, revision: Int?, schemaVersion: Int?, scope: ScopeRef?, changed: Bool?, policyVersion: Int?, relationship: ScopeRelationship?, operationID: String?, kind: UpdateStateKind?, payload: UpdateStatePayload?, id: String?, label: String?, syncState: ReferenceMarkerSyncState?, updatedAt: Int?, accountID: String?, active: Bool?, displayName: String?, role: DesktopAccountRole?, userID: String?, username: String?) {
         self.entries = entries
         self.revision = revision
         self.schemaVersion = schemaVersion
@@ -1673,6 +1685,12 @@ public struct PayloadClass: Codable, Sendable {
         self.label = label
         self.syncState = syncState
         self.updatedAt = updatedAt
+        self.accountID = accountID
+        self.active = active
+        self.displayName = displayName
+        self.role = role
+        self.userID = userID
+        self.username = username
     }
 }
 
@@ -1708,7 +1726,13 @@ public extension PayloadClass {
         id: String?? = nil,
         label: String?? = nil,
         syncState: ReferenceMarkerSyncState?? = nil,
-        updatedAt: Int?? = nil
+        updatedAt: Int?? = nil,
+        accountID: String?? = nil,
+        active: Bool?? = nil,
+        displayName: String?? = nil,
+        role: DesktopAccountRole?? = nil,
+        userID: String?? = nil,
+        username: String?? = nil
     ) -> PayloadClass {
         return PayloadClass(
             entries: entries ?? self.entries,
@@ -1724,7 +1748,13 @@ public extension PayloadClass {
             id: id ?? self.id,
             label: label ?? self.label,
             syncState: syncState ?? self.syncState,
-            updatedAt: updatedAt ?? self.updatedAt
+            updatedAt: updatedAt ?? self.updatedAt,
+            accountID: accountID ?? self.accountID,
+            active: active ?? self.active,
+            displayName: displayName ?? self.displayName,
+            role: role ?? self.role,
+            userID: userID ?? self.userID,
+            username: username ?? self.username
         )
     }
 
@@ -2096,6 +2126,11 @@ public extension RelationshipSubject {
     func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
         return String(data: try self.jsonData(), encoding: encoding)
     }
+}
+
+public enum DesktopAccountRole: String, Codable, Sendable {
+    case manager = "manager"
+    case receptionist = "receptionist"
 }
 
 public enum ReferenceMarkerSyncState: String, Codable, Sendable {
@@ -4617,6 +4652,9 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
     public let commandAuthorizationRelationshipGrant: GrantScopeRelationship?
     public let commandAuthorizationRelationshipRevoke: RevokeScopeRelationship?
     public let commandConfigUpdate: UpdateConfiguration?
+    public let commandDesktopAccountCreate: CreateDesktopAccount?
+    public let commandDesktopAccountDeactivate: DeactivateDesktopAccount?
+    public let commandDesktopAccountUpdate: UpdateDesktopAccount?
     public let commandOperationCancel: CancelOperation?
     public let commandReferenceMarkerUpsert: UpsertReferenceMarker?
     public let commandUpdateReportInstallerOutcome: ReportInstallerOutcome?
@@ -4650,10 +4688,11 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
     public let ipcServerMessageIPCSubscriptionClosed: SubscriptionClosedEnvelope?
     public let ipcServerMessageIPCUnsubscribeResponse: UnsubscribeResponse?
     public let queryAuthorizationRelationshipsList: ListScopeRelationships?
-    public let queryConfigGet, queryPermissionsGetEffective: [String: JSONAny]?
+    public let queryConfigGet, queryDesktopAccountList, queryPermissionsGetEffective: [String: JSONAny]?
     public let queryReferenceMarkerList: ListReferenceMarkers?
     public let querySyncGetStatus, queryUpdateGetState: [String: JSONAny]?
     public let queryResultConfiguration: ConfigSnapshot?
+    public let queryResultDesktopAccounts: DesktopAccountPage?
     public let queryResultEffectivePermissions: EffectivePermissions?
     public let queryResultReferenceMarkers: ReferenceMarkerPage?
     public let queryResultScopeRelationships: RelationshipPage?
@@ -4685,6 +4724,9 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         case commandAuthorizationRelationshipGrant = "Command_AuthorizationRelationshipGrant"
         case commandAuthorizationRelationshipRevoke = "Command_AuthorizationRelationshipRevoke"
         case commandConfigUpdate = "Command_ConfigUpdate"
+        case commandDesktopAccountCreate = "Command_DesktopAccountCreate"
+        case commandDesktopAccountDeactivate = "Command_DesktopAccountDeactivate"
+        case commandDesktopAccountUpdate = "Command_DesktopAccountUpdate"
         case commandOperationCancel = "Command_OperationCancel"
         case commandReferenceMarkerUpsert = "Command_ReferenceMarkerUpsert"
         case commandUpdateReportInstallerOutcome = "Command_UpdateReportInstallerOutcome"
@@ -4719,11 +4761,13 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         case ipcServerMessageIPCUnsubscribeResponse = "IpcServerMessage_IpcUnsubscribeResponse"
         case queryAuthorizationRelationshipsList = "Query_AuthorizationRelationshipsList"
         case queryConfigGet = "Query_ConfigGet"
+        case queryDesktopAccountList = "Query_DesktopAccountList"
         case queryPermissionsGetEffective = "Query_PermissionsGetEffective"
         case queryReferenceMarkerList = "Query_ReferenceMarkerList"
         case querySyncGetStatus = "Query_SyncGetStatus"
         case queryUpdateGetState = "Query_UpdateGetState"
         case queryResultConfiguration = "QueryResult_Configuration"
+        case queryResultDesktopAccounts = "QueryResult_DesktopAccounts"
         case queryResultEffectivePermissions = "QueryResult_EffectivePermissions"
         case queryResultReferenceMarkers = "QueryResult_ReferenceMarkers"
         case queryResultScopeRelationships = "QueryResult_ScopeRelationships"
@@ -4760,10 +4804,13 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         case syncMessageSyncSnapshotRequired = "SyncMessage_SyncSnapshotRequired"
     }
 
-    public init(commandAuthorizationRelationshipGrant: GrantScopeRelationship?, commandAuthorizationRelationshipRevoke: RevokeScopeRelationship?, commandConfigUpdate: UpdateConfiguration?, commandOperationCancel: CancelOperation?, commandReferenceMarkerUpsert: UpsertReferenceMarker?, commandUpdateReportInstallerOutcome: ReportInstallerOutcome?, eventAuthorizationPolicyChangedEvent: AuthorizationPolicyChangeNotice?, eventBackgroundJobStatusEvent: BackgroundJobStatus?, eventConfigChangedEvent: ConfigSnapshot?, eventErrorEvent: ScopedError?, eventNotificationEvent: Notification?, eventPermissionsChangedEvent: EffectivePermissions?, eventRecordChangedEvent: RecordChangeNotice?, eventReferenceMarkerChangedEvent: ReferenceMarkerChangeNotice?, eventSyncStatusEvent: SyncStatus?, eventUpdateStateEvent: UpdateState?, ipcClientMessageIPCCommand: CommandEnvelope?, ipcClientMessageIPCDesktopSessionState: DesktopSessionRequest?, ipcClientMessageIPCDesktopSignIn: DesktopSignInRequest?, ipcClientMessageIPCDesktopSignOut: DesktopSessionRequest?, ipcClientMessageIPCHandshake: HandshakeRequest?, ipcClientMessageIPCQuery: QueryEnvelope?, ipcClientMessageIPCShutdown: ShutdownRequest?, ipcClientMessageIPCSubscribe: SubscriptionEnvelope?, ipcClientMessageIPCUnsubscribe: UnsubscribeRequest?, ipcServerMessageIPCCommandResponse: CommandResponseEnvelope?, ipcServerMessageIPCDesktopSessionResponse: DesktopSessionResponse?, ipcServerMessageIPCEvent: EventEnvelope?, ipcServerMessageIPCFailure: IPCFailureResponse?, ipcServerMessageIPCHandshakeResponse: HandshakeResponse?, ipcServerMessageIPCQueryResponse: QueryResponseEnvelope?, ipcServerMessageIPCShutdownResponse: ShutdownResponse?, ipcServerMessageIPCSubscribeResponse: SubscriptionResponseEnvelope?, ipcServerMessageIPCSubscriptionClosed: SubscriptionClosedEnvelope?, ipcServerMessageIPCUnsubscribeResponse: UnsubscribeResponse?, queryAuthorizationRelationshipsList: ListScopeRelationships?, queryConfigGet: [String: JSONAny]?, queryPermissionsGetEffective: [String: JSONAny]?, queryReferenceMarkerList: ListReferenceMarkers?, querySyncGetStatus: [String: JSONAny]?, queryUpdateGetState: [String: JSONAny]?, queryResultConfiguration: ConfigSnapshot?, queryResultEffectivePermissions: EffectivePermissions?, queryResultReferenceMarkers: ReferenceMarkerPage?, queryResultScopeRelationships: RelationshipPage?, queryResultSyncStatus: SyncStatus?, queryResultUpdateState: UpdateState?, serverClientMessageServerAcknowledge: ServerSubscriptionAcknowledgement?, serverClientMessageServerHello: ServerConnectionHello?, serverClientMessageServerSubscribe: ServerSubscriptionRequest?, serverClientMessageServerSync: SyncTransportFrame?, serverMessageServerEvent: ServerSubscriptionEvent?, serverMessageServerFailure: ServerFailure?, serverMessageServerHelloAccepted: PeerHello?, serverMessageServerSyncMessage: [String: JSONAny]?, subscriptionAuthorizationPolicyChangedSubscribe: [String: JSONAny]?, subscriptionBackgroundJobStatusSubscribe: [String: JSONAny]?, subscriptionConfigChangedSubscribe: [String: JSONAny]?, subscriptionErrorSubscribe: [String: JSONAny]?, subscriptionNotificationSubscribe: [String: JSONAny]?, subscriptionPermissionsChangedSubscribe: [String: JSONAny]?, subscriptionRecordChangedSubscribe: [String: JSONAny]?, subscriptionReferenceMarkerChangedSubscribe: [String: JSONAny]?, subscriptionSyncStatusSubscribe: [String: JSONAny]?, subscriptionUpdateStateSubscribe: [String: JSONAny]?, syncMessageSyncAcknowledge: BatchAcknowledgement?, syncMessageSyncBackpressure: RetryAfter?, syncMessageSyncChanges: ChangeBatch?, syncMessageSyncConflict: ConflictNotice?, syncMessageSyncNegotiate: SyncNegotiation?, syncMessageSyncPull: PullRequest?, syncMessageSyncReconcile: ReconciliationDelivery?, syncMessageSyncSnapshotChunk: SnapshotChunk?, syncMessageSyncSnapshotComplete: SnapshotCompletion?, syncMessageSyncSnapshotManifest: SnapshotManifest?, syncMessageSyncSnapshotRequired: SnapshotRequired?) {
+    public init(commandAuthorizationRelationshipGrant: GrantScopeRelationship?, commandAuthorizationRelationshipRevoke: RevokeScopeRelationship?, commandConfigUpdate: UpdateConfiguration?, commandDesktopAccountCreate: CreateDesktopAccount?, commandDesktopAccountDeactivate: DeactivateDesktopAccount?, commandDesktopAccountUpdate: UpdateDesktopAccount?, commandOperationCancel: CancelOperation?, commandReferenceMarkerUpsert: UpsertReferenceMarker?, commandUpdateReportInstallerOutcome: ReportInstallerOutcome?, eventAuthorizationPolicyChangedEvent: AuthorizationPolicyChangeNotice?, eventBackgroundJobStatusEvent: BackgroundJobStatus?, eventConfigChangedEvent: ConfigSnapshot?, eventErrorEvent: ScopedError?, eventNotificationEvent: Notification?, eventPermissionsChangedEvent: EffectivePermissions?, eventRecordChangedEvent: RecordChangeNotice?, eventReferenceMarkerChangedEvent: ReferenceMarkerChangeNotice?, eventSyncStatusEvent: SyncStatus?, eventUpdateStateEvent: UpdateState?, ipcClientMessageIPCCommand: CommandEnvelope?, ipcClientMessageIPCDesktopSessionState: DesktopSessionRequest?, ipcClientMessageIPCDesktopSignIn: DesktopSignInRequest?, ipcClientMessageIPCDesktopSignOut: DesktopSessionRequest?, ipcClientMessageIPCHandshake: HandshakeRequest?, ipcClientMessageIPCQuery: QueryEnvelope?, ipcClientMessageIPCShutdown: ShutdownRequest?, ipcClientMessageIPCSubscribe: SubscriptionEnvelope?, ipcClientMessageIPCUnsubscribe: UnsubscribeRequest?, ipcServerMessageIPCCommandResponse: CommandResponseEnvelope?, ipcServerMessageIPCDesktopSessionResponse: DesktopSessionResponse?, ipcServerMessageIPCEvent: EventEnvelope?, ipcServerMessageIPCFailure: IPCFailureResponse?, ipcServerMessageIPCHandshakeResponse: HandshakeResponse?, ipcServerMessageIPCQueryResponse: QueryResponseEnvelope?, ipcServerMessageIPCShutdownResponse: ShutdownResponse?, ipcServerMessageIPCSubscribeResponse: SubscriptionResponseEnvelope?, ipcServerMessageIPCSubscriptionClosed: SubscriptionClosedEnvelope?, ipcServerMessageIPCUnsubscribeResponse: UnsubscribeResponse?, queryAuthorizationRelationshipsList: ListScopeRelationships?, queryConfigGet: [String: JSONAny]?, queryDesktopAccountList: [String: JSONAny]?, queryPermissionsGetEffective: [String: JSONAny]?, queryReferenceMarkerList: ListReferenceMarkers?, querySyncGetStatus: [String: JSONAny]?, queryUpdateGetState: [String: JSONAny]?, queryResultConfiguration: ConfigSnapshot?, queryResultDesktopAccounts: DesktopAccountPage?, queryResultEffectivePermissions: EffectivePermissions?, queryResultReferenceMarkers: ReferenceMarkerPage?, queryResultScopeRelationships: RelationshipPage?, queryResultSyncStatus: SyncStatus?, queryResultUpdateState: UpdateState?, serverClientMessageServerAcknowledge: ServerSubscriptionAcknowledgement?, serverClientMessageServerHello: ServerConnectionHello?, serverClientMessageServerSubscribe: ServerSubscriptionRequest?, serverClientMessageServerSync: SyncTransportFrame?, serverMessageServerEvent: ServerSubscriptionEvent?, serverMessageServerFailure: ServerFailure?, serverMessageServerHelloAccepted: PeerHello?, serverMessageServerSyncMessage: [String: JSONAny]?, subscriptionAuthorizationPolicyChangedSubscribe: [String: JSONAny]?, subscriptionBackgroundJobStatusSubscribe: [String: JSONAny]?, subscriptionConfigChangedSubscribe: [String: JSONAny]?, subscriptionErrorSubscribe: [String: JSONAny]?, subscriptionNotificationSubscribe: [String: JSONAny]?, subscriptionPermissionsChangedSubscribe: [String: JSONAny]?, subscriptionRecordChangedSubscribe: [String: JSONAny]?, subscriptionReferenceMarkerChangedSubscribe: [String: JSONAny]?, subscriptionSyncStatusSubscribe: [String: JSONAny]?, subscriptionUpdateStateSubscribe: [String: JSONAny]?, syncMessageSyncAcknowledge: BatchAcknowledgement?, syncMessageSyncBackpressure: RetryAfter?, syncMessageSyncChanges: ChangeBatch?, syncMessageSyncConflict: ConflictNotice?, syncMessageSyncNegotiate: SyncNegotiation?, syncMessageSyncPull: PullRequest?, syncMessageSyncReconcile: ReconciliationDelivery?, syncMessageSyncSnapshotChunk: SnapshotChunk?, syncMessageSyncSnapshotComplete: SnapshotCompletion?, syncMessageSyncSnapshotManifest: SnapshotManifest?, syncMessageSyncSnapshotRequired: SnapshotRequired?) {
         self.commandAuthorizationRelationshipGrant = commandAuthorizationRelationshipGrant
         self.commandAuthorizationRelationshipRevoke = commandAuthorizationRelationshipRevoke
         self.commandConfigUpdate = commandConfigUpdate
+        self.commandDesktopAccountCreate = commandDesktopAccountCreate
+        self.commandDesktopAccountDeactivate = commandDesktopAccountDeactivate
+        self.commandDesktopAccountUpdate = commandDesktopAccountUpdate
         self.commandOperationCancel = commandOperationCancel
         self.commandReferenceMarkerUpsert = commandReferenceMarkerUpsert
         self.commandUpdateReportInstallerOutcome = commandUpdateReportInstallerOutcome
@@ -4798,11 +4845,13 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         self.ipcServerMessageIPCUnsubscribeResponse = ipcServerMessageIPCUnsubscribeResponse
         self.queryAuthorizationRelationshipsList = queryAuthorizationRelationshipsList
         self.queryConfigGet = queryConfigGet
+        self.queryDesktopAccountList = queryDesktopAccountList
         self.queryPermissionsGetEffective = queryPermissionsGetEffective
         self.queryReferenceMarkerList = queryReferenceMarkerList
         self.querySyncGetStatus = querySyncGetStatus
         self.queryUpdateGetState = queryUpdateGetState
         self.queryResultConfiguration = queryResultConfiguration
+        self.queryResultDesktopAccounts = queryResultDesktopAccounts
         self.queryResultEffectivePermissions = queryResultEffectivePermissions
         self.queryResultReferenceMarkers = queryResultReferenceMarkers
         self.queryResultScopeRelationships = queryResultScopeRelationships
@@ -4862,6 +4911,9 @@ public extension UnionPayloadKeepAlive {
         commandAuthorizationRelationshipGrant: GrantScopeRelationship?? = nil,
         commandAuthorizationRelationshipRevoke: RevokeScopeRelationship?? = nil,
         commandConfigUpdate: UpdateConfiguration?? = nil,
+        commandDesktopAccountCreate: CreateDesktopAccount?? = nil,
+        commandDesktopAccountDeactivate: DeactivateDesktopAccount?? = nil,
+        commandDesktopAccountUpdate: UpdateDesktopAccount?? = nil,
         commandOperationCancel: CancelOperation?? = nil,
         commandReferenceMarkerUpsert: UpsertReferenceMarker?? = nil,
         commandUpdateReportInstallerOutcome: ReportInstallerOutcome?? = nil,
@@ -4896,11 +4948,13 @@ public extension UnionPayloadKeepAlive {
         ipcServerMessageIPCUnsubscribeResponse: UnsubscribeResponse?? = nil,
         queryAuthorizationRelationshipsList: ListScopeRelationships?? = nil,
         queryConfigGet: [String: JSONAny]?? = nil,
+        queryDesktopAccountList: [String: JSONAny]?? = nil,
         queryPermissionsGetEffective: [String: JSONAny]?? = nil,
         queryReferenceMarkerList: ListReferenceMarkers?? = nil,
         querySyncGetStatus: [String: JSONAny]?? = nil,
         queryUpdateGetState: [String: JSONAny]?? = nil,
         queryResultConfiguration: ConfigSnapshot?? = nil,
+        queryResultDesktopAccounts: DesktopAccountPage?? = nil,
         queryResultEffectivePermissions: EffectivePermissions?? = nil,
         queryResultReferenceMarkers: ReferenceMarkerPage?? = nil,
         queryResultScopeRelationships: RelationshipPage?? = nil,
@@ -4940,6 +4994,9 @@ public extension UnionPayloadKeepAlive {
             commandAuthorizationRelationshipGrant: commandAuthorizationRelationshipGrant ?? self.commandAuthorizationRelationshipGrant,
             commandAuthorizationRelationshipRevoke: commandAuthorizationRelationshipRevoke ?? self.commandAuthorizationRelationshipRevoke,
             commandConfigUpdate: commandConfigUpdate ?? self.commandConfigUpdate,
+            commandDesktopAccountCreate: commandDesktopAccountCreate ?? self.commandDesktopAccountCreate,
+            commandDesktopAccountDeactivate: commandDesktopAccountDeactivate ?? self.commandDesktopAccountDeactivate,
+            commandDesktopAccountUpdate: commandDesktopAccountUpdate ?? self.commandDesktopAccountUpdate,
             commandOperationCancel: commandOperationCancel ?? self.commandOperationCancel,
             commandReferenceMarkerUpsert: commandReferenceMarkerUpsert ?? self.commandReferenceMarkerUpsert,
             commandUpdateReportInstallerOutcome: commandUpdateReportInstallerOutcome ?? self.commandUpdateReportInstallerOutcome,
@@ -4974,11 +5031,13 @@ public extension UnionPayloadKeepAlive {
             ipcServerMessageIPCUnsubscribeResponse: ipcServerMessageIPCUnsubscribeResponse ?? self.ipcServerMessageIPCUnsubscribeResponse,
             queryAuthorizationRelationshipsList: queryAuthorizationRelationshipsList ?? self.queryAuthorizationRelationshipsList,
             queryConfigGet: queryConfigGet ?? self.queryConfigGet,
+            queryDesktopAccountList: queryDesktopAccountList ?? self.queryDesktopAccountList,
             queryPermissionsGetEffective: queryPermissionsGetEffective ?? self.queryPermissionsGetEffective,
             queryReferenceMarkerList: queryReferenceMarkerList ?? self.queryReferenceMarkerList,
             querySyncGetStatus: querySyncGetStatus ?? self.querySyncGetStatus,
             queryUpdateGetState: queryUpdateGetState ?? self.queryUpdateGetState,
             queryResultConfiguration: queryResultConfiguration ?? self.queryResultConfiguration,
+            queryResultDesktopAccounts: queryResultDesktopAccounts ?? self.queryResultDesktopAccounts,
             queryResultEffectivePermissions: queryResultEffectivePermissions ?? self.queryResultEffectivePermissions,
             queryResultReferenceMarkers: queryResultReferenceMarkers ?? self.queryResultReferenceMarkers,
             queryResultScopeRelationships: queryResultScopeRelationships ?? self.queryResultScopeRelationships,
@@ -5281,6 +5340,174 @@ public enum ConfigWriteValueKind: String, Codable, Sendable {
     case secretReference = "secretReference"
     case text = "text"
     case textList = "textList"
+}
+
+// MARK: - CreateDesktopAccount
+public struct CreateDesktopAccount: Codable, Sendable {
+    public let displayName, password: String
+    public let role: DesktopAccountRole
+    public let username: String
+
+    public init(displayName: String, password: String, role: DesktopAccountRole, username: String) {
+        self.displayName = displayName
+        self.password = password
+        self.role = role
+        self.username = username
+    }
+}
+
+// MARK: CreateDesktopAccount convenience initializers and mutators
+
+public extension CreateDesktopAccount {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(CreateDesktopAccount.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        displayName: String? = nil,
+        password: String? = nil,
+        role: DesktopAccountRole? = nil,
+        username: String? = nil
+    ) -> CreateDesktopAccount {
+        return CreateDesktopAccount(
+            displayName: displayName ?? self.displayName,
+            password: password ?? self.password,
+            role: role ?? self.role,
+            username: username ?? self.username
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - DeactivateDesktopAccount
+public struct DeactivateDesktopAccount: Codable, Sendable {
+    public let accountID: String
+    public let expectedRevision: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case accountID = "accountId"
+        case expectedRevision
+    }
+
+    public init(accountID: String, expectedRevision: Int) {
+        self.accountID = accountID
+        self.expectedRevision = expectedRevision
+    }
+}
+
+// MARK: DeactivateDesktopAccount convenience initializers and mutators
+
+public extension DeactivateDesktopAccount {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(DeactivateDesktopAccount.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        accountID: String? = nil,
+        expectedRevision: Int? = nil
+    ) -> DeactivateDesktopAccount {
+        return DeactivateDesktopAccount(
+            accountID: accountID ?? self.accountID,
+            expectedRevision: expectedRevision ?? self.expectedRevision
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - UpdateDesktopAccount
+public struct UpdateDesktopAccount: Codable, Sendable {
+    public let accountID, displayName: String
+    public let expectedRevision: Int
+    public let role: DesktopAccountRole
+
+    public enum CodingKeys: String, CodingKey {
+        case accountID = "accountId"
+        case displayName, expectedRevision, role
+    }
+
+    public init(accountID: String, displayName: String, expectedRevision: Int, role: DesktopAccountRole) {
+        self.accountID = accountID
+        self.displayName = displayName
+        self.expectedRevision = expectedRevision
+        self.role = role
+    }
+}
+
+// MARK: UpdateDesktopAccount convenience initializers and mutators
+
+public extension UpdateDesktopAccount {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(UpdateDesktopAccount.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        accountID: String? = nil,
+        displayName: String? = nil,
+        expectedRevision: Int? = nil,
+        role: DesktopAccountRole? = nil
+    ) -> UpdateDesktopAccount {
+        return UpdateDesktopAccount(
+            accountID: accountID ?? self.accountID,
+            displayName: displayName ?? self.displayName,
+            expectedRevision: expectedRevision ?? self.expectedRevision,
+            role: role ?? self.role
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
 }
 
 // MARK: - CancelOperation
@@ -7242,6 +7469,124 @@ public extension ListReferenceMarkers {
         return ListReferenceMarkers(
             after: after ?? self.after,
             limit: limit ?? self.limit
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - DesktopAccountPage
+public struct DesktopAccountPage: Codable, Sendable {
+    public let accounts: [DesktopAccountSummary]
+
+    public init(accounts: [DesktopAccountSummary]) {
+        self.accounts = accounts
+    }
+}
+
+// MARK: DesktopAccountPage convenience initializers and mutators
+
+public extension DesktopAccountPage {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(DesktopAccountPage.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        accounts: [DesktopAccountSummary]? = nil
+    ) -> DesktopAccountPage {
+        return DesktopAccountPage(
+            accounts: accounts ?? self.accounts
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - DesktopAccountSummary
+public struct DesktopAccountSummary: Codable, Sendable {
+    public let accountID: String
+    public let active: Bool
+    public let displayName: String
+    public let revision: Int
+    public let role: DesktopAccountRole
+    public let userID, username: String
+
+    public enum CodingKeys: String, CodingKey {
+        case accountID = "accountId"
+        case active, displayName, revision, role
+        case userID = "userId"
+        case username
+    }
+
+    public init(accountID: String, active: Bool, displayName: String, revision: Int, role: DesktopAccountRole, userID: String, username: String) {
+        self.accountID = accountID
+        self.active = active
+        self.displayName = displayName
+        self.revision = revision
+        self.role = role
+        self.userID = userID
+        self.username = username
+    }
+}
+
+// MARK: DesktopAccountSummary convenience initializers and mutators
+
+public extension DesktopAccountSummary {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(DesktopAccountSummary.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        accountID: String? = nil,
+        active: Bool? = nil,
+        displayName: String? = nil,
+        revision: Int? = nil,
+        role: DesktopAccountRole? = nil,
+        userID: String? = nil,
+        username: String? = nil
+    ) -> DesktopAccountSummary {
+        return DesktopAccountSummary(
+            accountID: accountID ?? self.accountID,
+            active: active ?? self.active,
+            displayName: displayName ?? self.displayName,
+            revision: revision ?? self.revision,
+            role: role ?? self.role,
+            userID: userID ?? self.userID,
+            username: username ?? self.username
         )
     }
 

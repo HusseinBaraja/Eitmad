@@ -62,6 +62,30 @@ public partial class Command
     public UpsertReferenceMarker? AsReferenceMarkerUpsert() =>
         Kind == ReferenceMarkerUpsertKind ? PayloadAs<UpsertReferenceMarker>() : null;
 
+    public const string DesktopAccountCreateKind = "eitmad.desktop-account.create.v1";
+
+    public static Command ForDesktopAccountCreate(CreateDesktopAccount payload) =>
+        new() { Kind = DesktopAccountCreateKind, Payload = payload };
+
+    public CreateDesktopAccount? AsDesktopAccountCreate() =>
+        Kind == DesktopAccountCreateKind ? PayloadAs<CreateDesktopAccount>() : null;
+
+    public const string DesktopAccountUpdateKind = "eitmad.desktop-account.update.v1";
+
+    public static Command ForDesktopAccountUpdate(UpdateDesktopAccount payload) =>
+        new() { Kind = DesktopAccountUpdateKind, Payload = payload };
+
+    public UpdateDesktopAccount? AsDesktopAccountUpdate() =>
+        Kind == DesktopAccountUpdateKind ? PayloadAs<UpdateDesktopAccount>() : null;
+
+    public const string DesktopAccountDeactivateKind = "eitmad.desktop-account.deactivate.v1";
+
+    public static Command ForDesktopAccountDeactivate(DeactivateDesktopAccount payload) =>
+        new() { Kind = DesktopAccountDeactivateKind, Payload = payload };
+
+    public DeactivateDesktopAccount? AsDesktopAccountDeactivate() =>
+        Kind == DesktopAccountDeactivateKind ? PayloadAs<DeactivateDesktopAccount>() : null;
+
     internal T? PayloadAs<T>() => Payload switch
     {
         T typed => typed,
@@ -410,6 +434,14 @@ public partial class Query
     public ListReferenceMarkers? AsReferenceMarkerList() =>
         Kind == ReferenceMarkerListKind ? PayloadAs<ListReferenceMarkers>() : null;
 
+    public const string DesktopAccountListKind = "eitmad.desktop-account.list.v1";
+
+    public static Query ForDesktopAccountList(ListDesktopAccounts payload) =>
+        new() { Kind = DesktopAccountListKind, Payload = payload };
+
+    public ListDesktopAccounts? AsDesktopAccountList() =>
+        Kind == DesktopAccountListKind ? PayloadAs<ListDesktopAccounts>() : null;
+
     internal T? PayloadAs<T>() => Payload switch
     {
         T typed => typed,
@@ -474,6 +506,14 @@ public partial class QueryResult
 
     public ReferenceMarkerPage? AsReferenceMarkers() =>
         Kind == ReferenceMarkersKind ? PayloadAs<ReferenceMarkerPage>() : null;
+
+    public const string DesktopAccountsKind = "desktopAccounts";
+
+    public static QueryResult ForDesktopAccounts(DesktopAccountPage payload) =>
+        new() { Kind = DesktopAccountsKind, Payload = payload };
+
+    public DesktopAccountPage? AsDesktopAccounts() =>
+        Kind == DesktopAccountsKind ? PayloadAs<DesktopAccountPage>() : null;
 
     internal T? PayloadAs<T>() => Payload switch
     {
@@ -812,6 +852,10 @@ public partial class GetSyncStatus
 }
 
 public partial class GetUpdateState
+{
+}
+
+public partial class ListDesktopAccounts
 {
 }
 

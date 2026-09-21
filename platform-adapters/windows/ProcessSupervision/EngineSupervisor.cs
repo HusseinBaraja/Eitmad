@@ -172,6 +172,35 @@ public sealed class EngineSupervisor : IAsyncDisposable
             cancellationToken);
     }
 
+    public Task<CommandResponseEnvelope> SubmitCommandAsync(
+        Command command,
+        Guid idempotencyKey,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        if (idempotencyKey == Guid.Empty)
+        {
+            throw new ArgumentException("The command requires a non-empty idempotency key.", nameof(idempotencyKey));
+        }
+
+        var client = GetConnectedClient();
+        var requestTimeout = timeout ?? EngineIpcClient.DefaultRequestTimeout;
+        return client.SendCommandAsync(
+            new CommandEnvelope
+            {
+                ProtocolVersion = SessionProtocol(client),
+                RequestId = Guid.NewGuid(),
+                CorrelationId = Guid.NewGuid(),
+                Authorization = client.Authorization,
+                Deadline = DeadlineAfter(requestTimeout),
+                IdempotencyKey = idempotencyKey,
+                Command = ToPayloadDictionary(command),
+            },
+            requestTimeout,
+            cancellationToken);
+    }
+
     public Task<CommandResponseEnvelope> SubmitReferenceMarkerAsync(
         UpsertReferenceMarker marker,
         Guid idempotencyKey,
@@ -697,7 +726,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
         {
             PeerKind = PeerKind.Shell,
             ProductVersion = "0.0.0",
-            Protocols = [new SupportedProtocol { Major = 1, MinimumMinor = 7, MaximumMinor = 7 }],
+            Protocols = [new SupportedProtocol { Major = 1, MinimumMinor = 8, MaximumMinor = 8 }],
             Capabilities =
             [
                 ProtocolIds.Capabilities.EitmadCapabilityLocalIpcV1,
@@ -706,6 +735,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
                 ProtocolIds.Capabilities.EitmadCapabilityConfigV1,
                 ProtocolIds.Capabilities.EitmadCapabilityPermissionsV1,
                 ProtocolIds.Capabilities.EitmadCapabilityReferenceMarkerV1,
+                ProtocolIds.Capabilities.EitmadCapabilityDesktopAccountManagementV1,
             ],
             RequiredCapabilities =
             [

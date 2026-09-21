@@ -7,6 +7,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Eitmad.WindowsShell.Features.Operations;
 using Eitmad.WindowsShell.Features.Authentication;
+using Eitmad.Platform.Windows.Shell;
 
 namespace Eitmad.WindowsShell.Tests.Rendered;
 
@@ -14,14 +15,20 @@ internal static class WpfTestHost
 {
     private static readonly Lazy<Dispatcher> TestDispatcher = new(StartDispatcher);
 
-    public static void Run(double width, double height, Action<MainWindow> test, bool showSignIn = false)
+    public static void Run(
+        double width,
+        double height,
+        Action<MainWindow> test,
+        bool showSignIn = false,
+        IEngineShellBridge? engine = null)
     {
         TestDispatcher.Value.Invoke(() =>
         {
             var window = new MainWindow(
                 new OperationsViewModel(),
                 showSignIn ? new RenderedSessionController() : null,
-                showSignIn: showSignIn)
+                showSignIn: showSignIn,
+                engine: engine)
             {
                 Width = width,
                 Height = height,

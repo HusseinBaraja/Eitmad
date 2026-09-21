@@ -3,12 +3,14 @@
 //! This crate owns process lifecycle behavior. External wire shapes remain in
 //! `eitmad-contracts`, and launchers remain thin adapters over this API.
 
+mod accounts;
 mod authority;
 mod authority_store;
 mod desktop_auth;
 mod dispatcher;
 pub mod local_ipc;
 
+pub use accounts::{DesktopAccountError, DesktopAccountService};
 pub use authority_store::{
     AuthorityStoreComponent, AuthorityStoreHandle, AuthorityStoreHealthCheck,
 };

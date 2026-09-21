@@ -23,7 +23,7 @@ public partial class App : System.Windows.Application
 
         MainWindow CreateWindow(OperationsViewModel model, Features.Authentication.DesktopSessionController controller)
         {
-            var created = new MainWindow(model, controller);
+            var created = new MainWindow(model, controller, engine: bridge);
             created.AccountSessionCleared += (_, _) =>
             {
                 if (lifetime is not null) lifetime.ReplaceWindow(CreateWindow(model, controller));

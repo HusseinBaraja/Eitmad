@@ -552,6 +552,30 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("updatedAt")]
         public long? UpdatedAt { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("accountId")]
+        public Guid? AccountId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("active")]
+        public bool? Active { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("displayName")]
+        public string DisplayName { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("role")]
+        public DesktopAccountRole? Role { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("userId")]
+        public Guid? UserId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("username")]
+        public string Username { get; set; }
     }
 
     public partial class ConfigEntry
@@ -1334,6 +1358,18 @@ namespace Eitmad.Contracts
         public UpdateConfiguration CommandConfigUpdate { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Command_DesktopAccountCreate")]
+        public CreateDesktopAccount CommandDesktopAccountCreate { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Command_DesktopAccountDeactivate")]
+        public DeactivateDesktopAccount CommandDesktopAccountDeactivate { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Command_DesktopAccountUpdate")]
+        public UpdateDesktopAccount CommandDesktopAccountUpdate { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Command_OperationCancel")]
         public CancelOperation CommandOperationCancel { get; set; }
 
@@ -1470,6 +1506,10 @@ namespace Eitmad.Contracts
         public Dictionary<string, object> QueryConfigGet { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Query_DesktopAccountList")]
+        public Dictionary<string, object> QueryDesktopAccountList { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Query_PermissionsGetEffective")]
         public Dictionary<string, object> QueryPermissionsGetEffective { get; set; }
 
@@ -1488,6 +1528,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_Configuration")]
         public ConfigSnapshot QueryResultConfiguration { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("QueryResult_DesktopAccounts")]
+        public DesktopAccountPage QueryResultDesktopAccounts { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_EffectivePermissions")]
@@ -1672,6 +1716,45 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("value")]
         public ConfigReadValueValue Value { get; set; }
+    }
+
+    public partial class CreateDesktopAccount
+    {
+        [JsonPropertyName("displayName")]
+        public string DisplayName { get; set; }
+
+        [JsonPropertyName("password")]
+        public string Password { get; set; }
+
+        [JsonPropertyName("role")]
+        public DesktopAccountRole Role { get; set; }
+
+        [JsonPropertyName("username")]
+        public string Username { get; set; }
+    }
+
+    public partial class DeactivateDesktopAccount
+    {
+        [JsonPropertyName("accountId")]
+        public Guid AccountId { get; set; }
+
+        [JsonPropertyName("expectedRevision")]
+        public long ExpectedRevision { get; set; }
+    }
+
+    public partial class UpdateDesktopAccount
+    {
+        [JsonPropertyName("accountId")]
+        public Guid AccountId { get; set; }
+
+        [JsonPropertyName("displayName")]
+        public string DisplayName { get; set; }
+
+        [JsonPropertyName("expectedRevision")]
+        public long ExpectedRevision { get; set; }
+
+        [JsonPropertyName("role")]
+        public DesktopAccountRole Role { get; set; }
     }
 
     public partial class CancelOperation
@@ -2133,6 +2216,36 @@ namespace Eitmad.Contracts
         public long Limit { get; set; }
     }
 
+    public partial class DesktopAccountPage
+    {
+        [JsonPropertyName("accounts")]
+        public DesktopAccountSummary[] Accounts { get; set; }
+    }
+
+    public partial class DesktopAccountSummary
+    {
+        [JsonPropertyName("accountId")]
+        public Guid AccountId { get; set; }
+
+        [JsonPropertyName("active")]
+        public bool Active { get; set; }
+
+        [JsonPropertyName("displayName")]
+        public string DisplayName { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("role")]
+        public DesktopAccountRole Role { get; set; }
+
+        [JsonPropertyName("userId")]
+        public Guid UserId { get; set; }
+
+        [JsonPropertyName("username")]
+        public string Username { get; set; }
+    }
+
     public partial class ReferenceMarkerPage
     {
         [JsonPropertyName("items")]
@@ -2582,7 +2695,7 @@ namespace Eitmad.Contracts
 
     public enum LifecycleStage { AuthorityLock, ComponentShutdown, ComponentStartup, ProcessIdentity, ReadinessCheck };
 
-    public enum PurpleKind { ConfigurationUpdated, InstallerOutcomeRecorded, OperationCancelled, ReferenceMarkerUpserted, RelationshipGranted, RelationshipRevoked };
+    public enum PurpleKind { ConfigurationUpdated, DesktopAccountCreated, DesktopAccountDeactivated, DesktopAccountUpdated, InstallerOutcomeRecorded, OperationCancelled, ReferenceMarkerUpserted, RelationshipGranted, RelationshipRevoked };
 
     public enum ErrorParameterValueKind { Identifier, Integer, Text };
 
@@ -2593,6 +2706,8 @@ namespace Eitmad.Contracts
     public enum ConfigReadValueKind { Boolean, Decimal, Integer, Redacted, SecretReference, Text, TextList };
 
     public enum UpdateStateKind { Available, Checking, Downloading, Failed, Idle, InstallationHandoff, Installing, Paused, Preflight, Ready, RecoveryRequired, Revoked, Succeeded, Verifying };
+
+    public enum DesktopAccountRole { Manager, Receptionist };
 
     public enum ReferenceMarkerSyncState { Confirmed, Pending };
 
@@ -2735,6 +2850,7 @@ namespace Eitmad.Contracts
                 ConfigReadValueKindConverter.Singleton,
                 ConfigReadValueValueConverter.Singleton,
                 UpdateStateKindConverter.Singleton,
+                DesktopAccountRoleConverter.Singleton,
                 ReferenceMarkerSyncStateConverter.Singleton,
                 RetryDispositionKindConverter.Singleton,
                 CommandOutcomeStatusConverter.Singleton,
@@ -3200,6 +3316,12 @@ namespace Eitmad.Contracts
             {
                 case "configurationUpdated":
                     return PurpleKind.ConfigurationUpdated;
+                case "desktopAccountCreated":
+                    return PurpleKind.DesktopAccountCreated;
+                case "desktopAccountDeactivated":
+                    return PurpleKind.DesktopAccountDeactivated;
+                case "desktopAccountUpdated":
+                    return PurpleKind.DesktopAccountUpdated;
                 case "installerOutcomeRecorded":
                     return PurpleKind.InstallerOutcomeRecorded;
                 case "operationCancelled":
@@ -3220,6 +3342,15 @@ namespace Eitmad.Contracts
             {
                 case PurpleKind.ConfigurationUpdated:
                     JsonSerializer.Serialize(writer, "configurationUpdated", options);
+                    return;
+                case PurpleKind.DesktopAccountCreated:
+                    JsonSerializer.Serialize(writer, "desktopAccountCreated", options);
+                    return;
+                case PurpleKind.DesktopAccountDeactivated:
+                    JsonSerializer.Serialize(writer, "desktopAccountDeactivated", options);
+                    return;
+                case PurpleKind.DesktopAccountUpdated:
+                    JsonSerializer.Serialize(writer, "desktopAccountUpdated", options);
                     return;
                 case PurpleKind.InstallerOutcomeRecorded:
                     JsonSerializer.Serialize(writer, "installerOutcomeRecorded", options);
@@ -3600,6 +3731,40 @@ namespace Eitmad.Contracts
         }
 
         public static readonly UpdateStateKindConverter Singleton = new UpdateStateKindConverter();
+    }
+
+    internal class DesktopAccountRoleConverter : JsonConverter<DesktopAccountRole>
+    {
+        public override bool CanConvert(Type t) => t == typeof(DesktopAccountRole);
+
+        public override DesktopAccountRole Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "manager":
+                    return DesktopAccountRole.Manager;
+                case "receptionist":
+                    return DesktopAccountRole.Receptionist;
+            }
+            throw new Exception("Cannot unmarshal type DesktopAccountRole");
+        }
+
+        public override void Write(Utf8JsonWriter writer, DesktopAccountRole value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case DesktopAccountRole.Manager:
+                    JsonSerializer.Serialize(writer, "manager", options);
+                    return;
+                case DesktopAccountRole.Receptionist:
+                    JsonSerializer.Serialize(writer, "receptionist", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type DesktopAccountRole");
+        }
+
+        public static readonly DesktopAccountRoleConverter Singleton = new DesktopAccountRoleConverter();
     }
 
     internal class ReferenceMarkerSyncStateConverter : JsonConverter<ReferenceMarkerSyncState>

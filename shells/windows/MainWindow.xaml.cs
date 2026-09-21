@@ -4,6 +4,7 @@ using System.Windows.Input;
 using System.Windows.Threading;
 using Eitmad.WindowsShell.Features.Authentication;
 using Eitmad.WindowsShell.Features.Operations;
+using Eitmad.Platform.Windows.Shell;
 using Button = System.Windows.Controls.Button;
 
 namespace Eitmad.WindowsShell;
@@ -25,10 +26,12 @@ public partial class MainWindow : Window
     public MainWindow(
         OperationsViewModel viewModel,
         IDesktopSessionController? sessions = null,
-        bool showSignIn = true)
+        bool showSignIn = true,
+        IEngineShellBridge? engine = null)
     {
         InitializeComponent();
         this.sessions = sessions;
+        if (engine is not null) UsersSurface.Attach(engine);
         if (sessions is not null) SignInSurface.AuthenticateAsync = sessions.SignInAsync;
         if (sessions is not null) sessions.SessionEnded += SessionEnded;
         Closed += (_, _) =>

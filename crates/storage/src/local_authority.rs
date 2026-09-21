@@ -60,6 +60,10 @@ impl StoredLocalAuthority {
 
 impl AuthorityStore {
     /// Returns the installation organization after local identity bootstrap.
+    ///
+    /// # Errors
+    ///
+    /// Returns a sanitized storage error when bootstrap state is missing or malformed.
     pub fn local_organization_id(&self) -> Result<OrganizationId, StorageError> {
         self.read_transaction(|connection| {
             let value: String = connection

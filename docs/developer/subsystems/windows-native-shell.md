@@ -149,13 +149,15 @@ The receptionist can open **تفاصيل العميل** from an order or quotati
 
 Run `dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --configuration Release --nologo --filter FullyQualifiedName~CustomersRenderedTests` to check record navigation, shared customer identity, editing, cancellation, history retention, and focus restoration. Set `EITMAD_UI_CAPTURE_DIR` to the destination directory when synthetic captures are required; without it, the test does not write screenshots. Normal and compact layout and table system-color styling are checked; actual OS high contrast, OS text scaling, and screen-reader behavior remain unverified.
 
-## Users list preview
+## Manage desktop users
 
-The **المستخدمون** destination uses `Features/Users` for a synthetic, non-persistent list. It shows only name, role, status, and actions. Arabic-normalized name search combines with role and status filters. The three presentation roles are **مدير**, **موظف الاستقبال**, and **النجار**; they do not define authorization policy.
+The Manager-only **المستخدمون** destination uses `Features/Users` to query the Rust desktop-account authority. It shows display name, role, active state, and actions. Arabic-normalized search matches display name or username and composes with role and status filters. The supported account roles are **مدير** and **موظف الاستقبال**. The shell labels returned roles but never uses those labels as authorization evidence.
 
-Add and edit reuse one small page with name, username, role, and status fields. Username is read-only during edit; name, role, and active status can change. **حفظ** applies the temporary fixture and returns to the list; **إلغاء** returns without changes. There is no permission matrix. Deactivation requires confirmation, retains the row as **غير نشط**, and disables its deactivation action. Cancel leaves the fixture unchanged. The editor page and deactivation dialog label changes as preview-only: no account is created and no actual access is changed. Real account commands, scope checks, authorization, and audit must remain in Rust when this page is connected.
+Add and edit reuse one page. Creation requires a display name, immutable username, supported role, and a temporary password of at least 12 characters. The password crosses only the authenticated local IPC command and is never retained by the shell. Edit changes display name or role with the returned account revision. Deactivation requires confirmation, keeps the row as **غير نشط**, closes the account's active sessions, and prevents another sign-in. Rust rejects stale revisions and a change that would remove the last active Manager. The shell keeps the editor open and maps stable failure identifiers to Arabic guidance.
 
-The page reuses `PageHeader`, `FormField`, `AdaptiveFieldsPanel`, `OperationsTable`, `StatusBadge`, `EmptyState`, and existing input and button styles. Run the focused `UsersPresentationTests` and `UsersRenderedTests` classes. Set `EITMAD_UI_CAPTURE_DIR` to a local output directory to capture the synthetic list and edit page during the rendered tests.
+Protocol `1.8` adds `eitmad.capability.desktop-account-management.v1`, the typed create, update, deactivate, and list operations, and `eitmad.permission.desktop-accounts.manage.v1`. The Manager relationship grants that permission; a Receptionist request is denied in Rust. Each mutation is audited atomically with account and relationship state. The shell does not open storage, mutate relationships, or infer success before a successful response.
+
+The page reuses `PageHeader`, `FormField`, `AdaptiveFieldsPanel`, `OperationsTable`, `StatusBadge`, `EmptyState`, and existing input and button styles. Run the focused `UsersPresentationTests` and `UsersRenderedTests` classes. Set `EITMAD_UI_CAPTURE_DIR` only when a synthetic rendered capture is required.
 
 ## Engine failure, tray, and shutdown
 

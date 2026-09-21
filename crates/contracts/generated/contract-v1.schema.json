@@ -151,6 +151,10 @@
     "catalog"
   ],
   "definitions": {
+    "AccountPassword": {
+      "description": "A secret-bearing password value. Debug output is always redacted.",
+      "type": "string"
+    },
     "AuthenticatedIdentity": {
       "type": "object",
       "properties": {
@@ -599,6 +603,54 @@
             "kind",
             "payload"
           ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.desktop-account.create.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/CreateDesktopAccount"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.desktop-account.update.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/UpdateDesktopAccount"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.desktop-account.deactivate.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/DeactivateDesktopAccount"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
         }
       ]
     },
@@ -861,6 +913,54 @@
             },
             "payload": {
               "$ref": "#/definitions/ReferenceMarker"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "desktopAccountCreated"
+            },
+            "payload": {
+              "$ref": "#/definitions/DesktopAccountSummary"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "desktopAccountUpdated"
+            },
+            "payload": {
+              "$ref": "#/definitions/DesktopAccountSummary"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "desktopAccountDeactivated"
+            },
+            "payload": {
+              "$ref": "#/definitions/DesktopAccountSummary"
             }
           },
           "required": [
@@ -1257,12 +1357,113 @@
         "correlationId"
       ]
     },
+    "CreateDesktopAccount": {
+      "type": "object",
+      "properties": {
+        "displayName": {
+          "type": "string"
+        },
+        "password": {
+          "$ref": "#/definitions/AccountPassword"
+        },
+        "role": {
+          "$ref": "#/definitions/DesktopAccountRole"
+        },
+        "username": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "displayName",
+        "username",
+        "password",
+        "role"
+      ]
+    },
     "DataClassification": {
       "type": "string",
       "enum": [
         "metadata",
         "sensitive",
         "secret"
+      ]
+    },
+    "DeactivateDesktopAccount": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "accountId",
+        "expectedRevision"
+      ]
+    },
+    "DesktopAccountPage": {
+      "type": "object",
+      "properties": {
+        "accounts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DesktopAccountSummary"
+          }
+        }
+      },
+      "required": [
+        "accounts"
+      ]
+    },
+    "DesktopAccountRole": {
+      "type": "string",
+      "enum": [
+        "manager",
+        "receptionist"
+      ]
+    },
+    "DesktopAccountSummary": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "role": {
+          "$ref": "#/definitions/DesktopAccountRole"
+        },
+        "userId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "username": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "accountId",
+        "userId",
+        "displayName",
+        "username",
+        "role",
+        "active",
+        "revision"
       ]
     },
     "DesktopSessionRequest": {
@@ -2686,6 +2887,9 @@
         "failed"
       ]
     },
+    "ListDesktopAccounts": {
+      "type": "object"
+    },
     "ListReferenceMarkers": {
       "type": "object",
       "properties": {
@@ -3399,6 +3603,22 @@
             "kind",
             "payload"
           ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.desktop-account.list.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ListDesktopAccounts"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
         }
       ]
     },
@@ -3591,6 +3811,22 @@
             },
             "payload": {
               "$ref": "#/definitions/ReferenceMarkerPage"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "desktopAccounts"
+            },
+            "payload": {
+              "$ref": "#/definitions/DesktopAccountPage"
             }
           },
           "required": [
@@ -6025,6 +6261,32 @@
       "required": [
         "expectedRevision",
         "changes"
+      ]
+    },
+    "UpdateDesktopAccount": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "role": {
+          "$ref": "#/definitions/DesktopAccountRole"
+        }
+      },
+      "required": [
+        "accountId",
+        "expectedRevision",
+        "displayName",
+        "role"
       ]
     },
     "UpdateIneligibilityReason": {

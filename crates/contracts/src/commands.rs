@@ -2,6 +2,9 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    accounts::{
+        CreateDesktopAccount, DeactivateDesktopAccount, DesktopAccountSummary, UpdateDesktopAccount,
+    },
     authorization::{RelationId, RelationshipId, RelationshipMutationResult, RelationshipSubject},
     config::{ConfigChange, ConfigSnapshot},
     reference_marker::{ReferenceMarker, ReferenceMarkerId, ReferenceMarkerLabel},
@@ -60,7 +63,10 @@ tagged_contract! {
         RevokeScopeRelationship(RevokeScopeRelationship) => "eitmad.authorization.relationship.revoke.v1",
         CancelOperation(CancelOperation) => "eitmad.operation.cancel.v1",
         ReportInstallerOutcome(ReportInstallerOutcome) => "eitmad.update.report-installer-outcome.v1",
-        UpsertReferenceMarker(UpsertReferenceMarker) => "eitmad.reference-marker.upsert.v1"
+        UpsertReferenceMarker(UpsertReferenceMarker) => "eitmad.reference-marker.upsert.v1",
+        CreateDesktopAccount(CreateDesktopAccount) => "eitmad.desktop-account.create.v1",
+        UpdateDesktopAccount(UpdateDesktopAccount) => "eitmad.desktop-account.update.v1",
+        DeactivateDesktopAccount(DeactivateDesktopAccount) => "eitmad.desktop-account.deactivate.v1"
     }
 }
 
@@ -73,4 +79,7 @@ pub enum CommandResult {
     OperationCancelled { operation_id: OperationId },
     InstallerOutcomeRecorded(UpdateState),
     ReferenceMarkerUpserted(ReferenceMarker),
+    DesktopAccountCreated(DesktopAccountSummary),
+    DesktopAccountUpdated(DesktopAccountSummary),
+    DesktopAccountDeactivated(DesktopAccountSummary),
 }

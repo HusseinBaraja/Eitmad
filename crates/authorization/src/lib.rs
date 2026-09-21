@@ -51,6 +51,7 @@ pub const REFERENCE_MARKER_READ_PERMISSION: &str = "eitmad.permission.reference-
 pub const REFERENCE_MARKER_WRITE_PERMISSION: &str = "eitmad.permission.reference-marker.write.v1";
 pub const CATALOG_DRAFT_WRITE_PERMISSION: &str = "eitmad.permission.catalog.draft.write.v1";
 pub const QUOTATION_DRAFT_WRITE_PERMISSION: &str = "eitmad.permission.quotation.draft.write.v1";
+pub const DESKTOP_ACCOUNTS_MANAGE_PERMISSION: &str = "eitmad.permission.desktop-accounts.manage.v1";
 
 const GRANT_RELATIONSHIP_OPERATION: &str = "eitmad.authorization.relationship.grant.v1";
 const REVOKE_RELATIONSHIP_OPERATION: &str = "eitmad.authorization.relationship.revoke.v1";
@@ -68,6 +69,7 @@ const POLICY_PERMISSIONS: &[&str] = &[
     SENSITIVE_DEBUG_PERMISSION,
     CATALOG_DRAFT_WRITE_PERMISSION,
     QUOTATION_DRAFT_WRITE_PERMISSION,
+    DESKTOP_ACCOUNTS_MANAGE_PERMISSION,
 ];
 
 #[derive(Clone, Debug)]
@@ -171,14 +173,19 @@ impl AuthorizationService {
             .iter()
             .map(|permission| EffectivePermission {
                 permission: permission_id(permission),
-                decision: if grants(
-                    permission,
-                    owner,
-                    config_manager,
-                    manager,
-                    receptionist,
-                    member,
-                ) {
+                decision: if match *permission {
+                    AUTHORIZATION_MANAGE_PERMISSION | SENSITIVE_DEBUG_PERMISSION => owner,
+                    CONFIG_WRITE_PERMISSION
+                    | CONFIG_IMPORT_PERMISSION
+                    | CONFIG_EXPORT_PERMISSION
+                    | REFERENCE_MARKER_WRITE_PERMISSION => config_manager,
+                    CONFIG_READ_PERMISSION
+                    | PERMISSIONS_READ_PERMISSION
+                    | REFERENCE_MARKER_READ_PERMISSION => member,
+                    CATALOG_DRAFT_WRITE_PERMISSION | DESKTOP_ACCOUNTS_MANAGE_PERMISSION => manager,
+                    QUOTATION_DRAFT_WRITE_PERMISSION => receptionist,
+                    _ => false,
+                } {
                     PermissionDecision::Granted
                 } else {
                     PermissionDecision::Denied
@@ -427,29 +434,6 @@ impl AuthorizationService {
         self.store
             .append_audit(&record)
             .map_err(|_| AuthorizationError::Unavailable)
-    }
-}
-
-fn grants(
-    permission: &str,
-    owner: bool,
-    config_manager: bool,
-    manager: bool,
-    receptionist: bool,
-    member: bool,
-) -> bool {
-    match permission {
-        AUTHORIZATION_MANAGE_PERMISSION | SENSITIVE_DEBUG_PERMISSION => owner,
-        CONFIG_WRITE_PERMISSION
-        | CONFIG_IMPORT_PERMISSION
-        | CONFIG_EXPORT_PERMISSION
-        | REFERENCE_MARKER_WRITE_PERMISSION => config_manager,
-        CONFIG_READ_PERMISSION | PERMISSIONS_READ_PERMISSION | REFERENCE_MARKER_READ_PERMISSION => {
-            member
-        }
-        CATALOG_DRAFT_WRITE_PERMISSION => manager,
-        QUOTATION_DRAFT_WRITE_PERMISSION => receptionist,
-        _ => false,
     }
 }
 

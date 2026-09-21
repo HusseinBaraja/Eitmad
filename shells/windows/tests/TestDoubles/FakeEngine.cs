@@ -39,6 +39,7 @@ internal sealed class FakeEngine : IEngineShellBridge
     public bool ThrowQueries { get; set; }
     public long ConfigurationRevision { get; set; } = 1;
     public Func<Query, Task>? QueryBarrier { get; set; }
+    public List<DesktopAccountSummary> DesktopAccounts { get; } = [];
     public Action<Subscription, FakeSubscription>? SubscribeHook { get; set; }
     public int QueryCount => Volatile.Read(ref queryCount);
     public int SubscriptionCount
@@ -71,6 +72,7 @@ internal sealed class FakeEngine : IEngineShellBridge
         ProtocolIds.Capabilities.EitmadCapabilitySyncV1,
         ProtocolIds.Capabilities.EitmadCapabilityUpdateV1,
         ProtocolIds.Capabilities.EitmadCapabilityReferenceMarkerV1,
+        ProtocolIds.Capabilities.EitmadCapabilityDesktopAccountManagementV1,
     };
 
     public bool SupportsCapability(string capability) => SupportedCapabilities.Contains(capability);
@@ -201,6 +203,10 @@ internal sealed class FakeEngine : IEngineShellBridge
                 Payload = new UpdateStatePayload(),
             }),
             Query.ReferenceMarkerListKind => QueryResult.ForReferenceMarkers(new ReferenceMarkerPage { Items = [] }),
+            Query.DesktopAccountListKind => QueryResult.ForDesktopAccounts(new DesktopAccountPage
+            {
+                Accounts = DesktopAccounts.ToArray(),
+            }),
             _ => throw new InvalidOperationException("Unexpected fake query."),
         };
         return new QueryResponseEnvelope
@@ -221,6 +227,58 @@ internal sealed class FakeEngine : IEngineShellBridge
             CorrelationId = Guid.NewGuid(),
             Outcome = new CommandOutcome { Status = CommandOutcomeStatus.Succeeded, Payload = new CommandResult() },
         });
+
+    public Func<Command, CommandResponseEnvelope>? CommandHandler { get; set; }
+
+    public Task<CommandResponseEnvelope> SubmitCommandAsync(
+        Command command,
+        Guid idempotencyKey,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(CommandHandler?.Invoke(command) ?? ApplyDesktopAccountCommand(command));
+
+    private CommandResponseEnvelope ApplyDesktopAccountCommand(Command command)
+    {
+        if (command.AsDesktopAccountCreate() is { } create)
+        {
+            DesktopAccounts.Add(new DesktopAccountSummary
+            {
+                AccountId = Guid.NewGuid(),
+                UserId = Guid.NewGuid(),
+                DisplayName = create.DisplayName,
+                Username = create.Username,
+                Role = create.Role,
+                Active = true,
+                Revision = 1,
+            });
+        }
+        else if (command.AsDesktopAccountUpdate() is { } update)
+        {
+            var index = DesktopAccounts.FindIndex(account => account.AccountId == update.AccountId);
+            if (index >= 0)
+            {
+                var current = DesktopAccounts[index];
+                current.DisplayName = update.DisplayName;
+                current.Role = update.Role;
+                current.Revision++;
+            }
+        }
+        else if (command.AsDesktopAccountDeactivate() is { } deactivate)
+        {
+            var account = DesktopAccounts.Single(item => item.AccountId == deactivate.AccountId);
+            account.Active = false;
+            account.Revision++;
+        }
+        return new CommandResponseEnvelope
+        {
+            RequestId = Guid.NewGuid(),
+            CorrelationId = Guid.NewGuid(),
+            Outcome = new CommandOutcome
+            {
+                Status = CommandOutcomeStatus.Succeeded,
+                Payload = new CommandResult(),
+            },
+        };
+    }
 
     public Task<CommandResponseEnvelope> SubmitReferenceMarkerAsync(
         UpsertReferenceMarker marker,

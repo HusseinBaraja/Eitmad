@@ -8,6 +8,9 @@ public enum Command: Codable, Sendable {
     case operationCancel(CancelOperation)
     case updateReportInstallerOutcome(ReportInstallerOutcome)
     case referenceMarkerUpsert(UpsertReferenceMarker)
+    case desktopAccountCreate(CreateDesktopAccount)
+    case desktopAccountUpdate(UpdateDesktopAccount)
+    case desktopAccountDeactivate(DeactivateDesktopAccount)
 
     private enum Kind: String, Codable, Sendable {
         case configUpdate = "eitmad.config.update.v1"
@@ -16,6 +19,9 @@ public enum Command: Codable, Sendable {
         case operationCancel = "eitmad.operation.cancel.v1"
         case updateReportInstallerOutcome = "eitmad.update.report-installer-outcome.v1"
         case referenceMarkerUpsert = "eitmad.reference-marker.upsert.v1"
+        case desktopAccountCreate = "eitmad.desktop-account.create.v1"
+        case desktopAccountUpdate = "eitmad.desktop-account.update.v1"
+        case desktopAccountDeactivate = "eitmad.desktop-account.deactivate.v1"
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -32,6 +38,9 @@ public enum Command: Codable, Sendable {
         case .operationCancel: self = .operationCancel(try container.decode(CancelOperation.self, forKey: .payload))
         case .updateReportInstallerOutcome: self = .updateReportInstallerOutcome(try container.decode(ReportInstallerOutcome.self, forKey: .payload))
         case .referenceMarkerUpsert: self = .referenceMarkerUpsert(try container.decode(UpsertReferenceMarker.self, forKey: .payload))
+        case .desktopAccountCreate: self = .desktopAccountCreate(try container.decode(CreateDesktopAccount.self, forKey: .payload))
+        case .desktopAccountUpdate: self = .desktopAccountUpdate(try container.decode(UpdateDesktopAccount.self, forKey: .payload))
+        case .desktopAccountDeactivate: self = .desktopAccountDeactivate(try container.decode(DeactivateDesktopAccount.self, forKey: .payload))
         }
     }
 
@@ -55,6 +64,15 @@ public enum Command: Codable, Sendable {
             try container.encode(payload, forKey: .payload)
         case .referenceMarkerUpsert(let payload):
             try container.encode(Kind.referenceMarkerUpsert, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .desktopAccountCreate(let payload):
+            try container.encode(Kind.desktopAccountCreate, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .desktopAccountUpdate(let payload):
+            try container.encode(Kind.desktopAccountUpdate, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .desktopAccountDeactivate(let payload):
+            try container.encode(Kind.desktopAccountDeactivate, forKey: .kind)
             try container.encode(payload, forKey: .payload)
         }
     }
@@ -306,6 +324,7 @@ public enum Query: Codable, Sendable {
     case updateGetState(GetUpdateState)
     case syncGetStatus(GetSyncStatus)
     case referenceMarkerList(ListReferenceMarkers)
+    case desktopAccountList(ListDesktopAccounts)
 
     private enum Kind: String, Codable, Sendable {
         case configGet = "eitmad.config.get.v1"
@@ -314,6 +333,7 @@ public enum Query: Codable, Sendable {
         case updateGetState = "eitmad.update.get-state.v1"
         case syncGetStatus = "eitmad.sync.get-status.v1"
         case referenceMarkerList = "eitmad.reference-marker.list.v1"
+        case desktopAccountList = "eitmad.desktop-account.list.v1"
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -330,6 +350,7 @@ public enum Query: Codable, Sendable {
         case .updateGetState: self = .updateGetState(try container.decode(GetUpdateState.self, forKey: .payload))
         case .syncGetStatus: self = .syncGetStatus(try container.decode(GetSyncStatus.self, forKey: .payload))
         case .referenceMarkerList: self = .referenceMarkerList(try container.decode(ListReferenceMarkers.self, forKey: .payload))
+        case .desktopAccountList: self = .desktopAccountList(try container.decode(ListDesktopAccounts.self, forKey: .payload))
         }
     }
 
@@ -354,6 +375,9 @@ public enum Query: Codable, Sendable {
         case .referenceMarkerList(let payload):
             try container.encode(Kind.referenceMarkerList, forKey: .kind)
             try container.encode(payload, forKey: .payload)
+        case .desktopAccountList(let payload):
+            try container.encode(Kind.desktopAccountList, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
         }
     }
 }
@@ -364,6 +388,7 @@ public enum QueryResult: Codable, Sendable {
     case updateState(UpdateState)
     case syncStatus(SyncStatus)
     case referenceMarkers(ReferenceMarkerPage)
+    case desktopAccounts(DesktopAccountPage)
 
     private enum Kind: String, Codable, Sendable {
         case configuration = "configuration"
@@ -372,6 +397,7 @@ public enum QueryResult: Codable, Sendable {
         case updateState = "updateState"
         case syncStatus = "syncStatus"
         case referenceMarkers = "referenceMarkers"
+        case desktopAccounts = "desktopAccounts"
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -388,6 +414,7 @@ public enum QueryResult: Codable, Sendable {
         case .updateState: self = .updateState(try container.decode(UpdateState.self, forKey: .payload))
         case .syncStatus: self = .syncStatus(try container.decode(SyncStatus.self, forKey: .payload))
         case .referenceMarkers: self = .referenceMarkers(try container.decode(ReferenceMarkerPage.self, forKey: .payload))
+        case .desktopAccounts: self = .desktopAccounts(try container.decode(DesktopAccountPage.self, forKey: .payload))
         }
     }
 
@@ -411,6 +438,9 @@ public enum QueryResult: Codable, Sendable {
             try container.encode(payload, forKey: .payload)
         case .referenceMarkers(let payload):
             try container.encode(Kind.referenceMarkers, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .desktopAccounts(let payload):
+            try container.encode(Kind.desktopAccounts, forKey: .kind)
             try container.encode(payload, forKey: .payload)
         }
     }
@@ -685,6 +715,7 @@ public struct GetConfiguration: Codable, Sendable {}
 public struct GetEffectivePermissions: Codable, Sendable {}
 public struct GetSyncStatus: Codable, Sendable {}
 public struct GetUpdateState: Codable, Sendable {}
+public struct ListDesktopAccounts: Codable, Sendable {}
 public struct Notifications: Codable, Sendable {}
 public struct PermissionChanges: Codable, Sendable {}
 public struct RecordChanges: Codable, Sendable {}

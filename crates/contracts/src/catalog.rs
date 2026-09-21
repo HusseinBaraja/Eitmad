@@ -28,6 +28,7 @@ pub const CAPABILITIES: &[&str] = &[
     "eitmad.capability.server-administration.v1",
     "eitmad.capability.update.v1",
     "eitmad.capability.reference-marker.v1",
+    "eitmad.capability.desktop-account-management.v1",
 ];
 
 pub const IPC_MESSAGES: &[&str] = &[
@@ -87,6 +88,7 @@ pub const PERMISSIONS: &[&str] = &[
     "eitmad.permission.reference-marker.write.v1",
     "eitmad.permission.catalog.draft.write.v1",
     "eitmad.permission.quotation.draft.write.v1",
+    "eitmad.permission.desktop-accounts.manage.v1",
 ];
 
 pub const ERROR_CODES: &[&str] = &[
@@ -135,6 +137,10 @@ pub const ERROR_CODES: &[&str] = &[
     "eitmad.error.update-installer-failed.v1",
     "eitmad.error.reference-marker-revision-conflict.v1",
     "eitmad.error.reference-marker-unavailable.v1",
+    "eitmad.error.desktop-account-invalid.v1",
+    "eitmad.error.desktop-account-revision-conflict.v1",
+    "eitmad.error.desktop-account-last-manager.v1",
+    "eitmad.error.desktop-account-unavailable.v1",
 ];
 
 pub const MESSAGE_IDS: &[&str] = &[
@@ -186,6 +192,10 @@ pub const MESSAGE_IDS: &[&str] = &[
     "eitmad.message.update-installer-failed.v1",
     "eitmad.message.reference-marker-revision-conflict.v1",
     "eitmad.message.reference-marker-unavailable.v1",
+    "eitmad.message.desktop-account-invalid.v1",
+    "eitmad.message.desktop-account-revision-conflict.v1",
+    "eitmad.message.desktop-account-last-manager.v1",
+    "eitmad.message.desktop-account-unavailable.v1",
 ];
 
 pub const ERROR_PARAMETER_NAMES: &[&str] = &[
