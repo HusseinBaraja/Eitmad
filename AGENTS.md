@@ -127,7 +127,11 @@ If the required rendering environment is unavailable, complete the available bui
 
 ## Tests and Verification
 
-Tests are risk controls, not a quantity target. Run relevant existing tests first. Add or update a test only when existing evidence cannot detect a credible regression in changed consequential behavior.
+Tests are risk controls, not a quantity or coverage target. Match verification effort to the risk and complexity of the change. Start with the smallest relevant test set and prefer the cheapest test that gives strong evidence of correctness. Expand verification only when a test fails, the change is high-risk, confidence is low, or the change can affect a broader suite. Do not rerun an unchanged expensive suite unless the change can affect it.
+
+Before implementing non-trivial behavior, write only the important acceptance criteria and likely failure modes. Do not produce an exhaustive failure list.
+
+Run relevant existing tests first. Add or update a test only when existing evidence cannot detect a credible regression in changed consequential behavior. Every new test must protect a meaningful behavior, invariant, regression, boundary, contract, or failure mode. Do not add tests that only mirror constants, literal strings, implementation details, obvious code paths, static copy, spacing, color, a trivial property, simple delegation, generated output, or framework behavior. Do not use brittle source-text assertions when behavior or focused rendering is the real proof.
 
 Use the [focused check selection table](docs/developer/index.md#choose-the-smallest-normal-proof) for concrete commands that exist in this checkout.
 
@@ -141,9 +145,14 @@ A credible regression usually concerns:
 * non-trivial UI state, command availability, reconnect, or failure recovery;
 * a reproduced defect with a stable regression check.
 
-Before adding a test, identify the accepted behavior, the regression that existing evidence misses, and the smallest stable boundary that can detect it.
+Before adding a test, identify the accepted behavior, the regression that existing evidence misses, and the lowest stable boundary that can detect it. Generate expected results independently of the implementation under test. Prefer existing fixtures, reference outputs, invariants, and test helpers before creating verification infrastructure.
 
-Do not add a test only for static copy, spacing, color, a trivial property, simple delegation, generated output, framework behavior, or an implementation detail. Do not use brittle source-text assertions when behavior or focused rendering is the real proof.
+Choose the test level by the behavior under test:
+
+* Use focused unit or property tests for deterministic logic, algorithms, parsers, state transitions, and invariants.
+* Use integration tests only when the change crosses an important system boundary.
+* Use end-to-end tests only for critical user-visible workflows, high-risk changes, or behavior that cannot be verified reliably at a lower level. Reuse an existing end-to-end flow when it already covers the behavior.
+* For a bug fix, add a regression test when the bug is important or likely to recur. Do not add one for a trivial one-off mistake with no meaningful recurrence risk. Put the test at the lowest stable boundary that reproduces the real failure.
 
 Use the smallest applicable verification:
 
@@ -154,9 +163,11 @@ Use the smallest applicable verification:
 * Cross-boundary runtime change: run one integrated engine-and-shell path after focused component checks pass.
 * Documentation: audit changed pages when supported. Use the full documentation audit only for shared navigation, indexes, or documentation-system changes.
 
-Do not run repository-wide checks, the full application, every platform suite, or a release checklist for a focused change. Run full gates only for a release, an explicit request, CI or workspace configuration, or a change that can affect most workspace members. CI owns exhaustive repository validation.
+For a trivial, local, low-risk change, run only the smallest useful check. Do not run repository-wide checks, end-to-end tests, the full application, every platform suite, or a release checklist unless the change needs them. Run full gates only for a release, an explicit request, CI or workspace configuration, or a change that can affect most workspace members. CI owns exhaustive repository validation.
 
-Applicable checks must pass without new warnings. Fix the cause; do not silence it. After failure, rerun the failed check and its direct dependent check, not the complete suite. Once applicable focused checks pass, broaden or repeat testing only when a new change, failure, or unresolved concern justifies it. Do not claim an application run, platform, RTL, visual, or accessibility state that was not verified.
+Produce screenshots, videos, traces, or other verification artifacts only when they add useful evidence. Do not produce them for routine low-risk changes.
+
+Applicable checks must pass without new warnings. Fix the cause; do not silence it. After failure, rerun the failed check and its direct dependent check, not the complete suite. Stop verification when the available evidence is sufficient to show that the requested behavior is correct. Do not continue only to increase confidence marginally. Do not claim an application run, platform, RTL, visual, or accessibility state that was not verified.
 
 ## Documentation Impact
 
