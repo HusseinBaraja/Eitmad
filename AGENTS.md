@@ -117,7 +117,7 @@ For a user-visible UI change, inspect the real rendered affected screen once aft
 
 If the required rendering environment is unavailable, complete the available build and static verification, state that rendered verification was not performed, and continue other safe in-scope work. Never claim visual, RTL, focus, or accessibility behavior that was not verified.
 
-* Check the normal size. Add one compact or wide size only when responsive behavior changed.
+* Capture the primary verification screenshot with the application full-screen, not in a small window. Add one compact or wide size only when responsive behavior changed.
 * Check keyboard, focus, popup placement, and accessible names only for new or changed interactions.
 * Check high contrast or text scaling only when colors, typography, sizing, or custom templates changed.
 * Use a rendered check for visual quality. XAML string scans and snapshots do not prove layout, shaping, focus, or usability.
