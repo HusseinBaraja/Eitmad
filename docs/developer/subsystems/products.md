@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Products capability maintainers"
-last_verified: "2026-09-19"
+last_verified: "2026-09-21"
 review_triggers:
   - "Product contracts, category ownership, pricing rules, or Windows Products UI behavior change"
 keywords:
@@ -69,7 +69,7 @@ dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --filter "Full
 
 `ProductsPresentationTests` verifies Arabic search normalization, composed filters, culture-independent YER labels, direct and variant pricing, calculated margins, duplicate, confirmed archive, the inline category interaction, rejected image feedback, and category-to-thumbnail mapping. `ProductsRenderedTests` instantiates the real WPF window, opens **المنتجات**, verifies the manager list and compact action menu, opens **إضافة منتج**, checks keyboard focus and accessible names, and exposes the archive confirmation.
 
-Perform one rendered check at `1338 × 753` after a visible UI change. Verify the compact table, mixed-direction YER values, short form, pricing emphasis, variants switch, popup placement, and archive confirmation. Add a compact-width pass only when responsive behavior changes.
+Follow the [repository-wide focused UI verification rule](https://github.com/HusseinBaraja/Eitmad/blob/main/AGENTS.md#focused-ui-verification) after a visible UI change. For Products, verify the compact table, mixed-direction YER values, short form, pricing emphasis, variants switch, popup placement, and archive confirmation.
 
 ## Extend the capability
 

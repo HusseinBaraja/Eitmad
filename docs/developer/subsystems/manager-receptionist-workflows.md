@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "sales and fulfillment capability maintainers"
-last_verified: "2026-09-19"
+last_verified: "2026-09-21"
 review_triggers:
   - "Manager or Receptionist permissions, record visibility, money, catalog, quotation, order, work-order, delivery, or offline behavior changes"
 keywords:
@@ -81,34 +81,34 @@ Search and subscriptions enforce the same scope as direct reads. Counts, suggest
 
 ## Action and permission matrix
 
-Permission identifiers below are the required semantic actions. The Rust contract catalog must register versioned identifiers such as `eitmad.permission.customer.read.v1` when implementation starts.
+The table defines the required versioned permission identifiers. The Rust contract catalog must register each identifier before its operation is implemented.
 
 | Operation | Required permission | Manager | Receptionist | Authority and confirmation |
 | --- | --- | --- | --- | --- |
-| Read active catalog and prices | `catalog.read` | Organization | Organization | Authorized Rust query; confirmed cache can be shown offline with freshness |
-| Create or edit catalog draft | `catalog.draft.write` | Organization | Denied | Local-first draft; no Receptionist visibility |
-| Publish or archive catalog entry | `catalog.publish` | Organization | Denied | Server confirmation |
-| Change a published selling price | `pricing.write` | Organization | Denied | Server confirmation |
-| Read customer | `customer.read` | All branches | Assigned branches | Authorized Rust query; scoped offline cache allowed |
-| Create or edit customer contact | `customer.write` | All branches | Assigned branches | Local-first contact change |
-| Add a customer branch association | `customer.branch.assign` | All branches | Denied | Server confirmation |
-| Merge, archive, or restore customer | `customer.manage` | All branches | Denied | Server confirmation |
-| Create or edit quotation draft | `quotation.draft.write` | Denied | Assigned branches | Local-first draft |
-| Request discount approval | `quotation.approval.request` | Denied | Assigned branches | Server confirmation |
-| Approve or reject discount | `quotation.approval.decide` | All branches | Denied | Server confirmation; approver differs from requester |
-| Manage default or per-quotation validity | `quotation.validity.manage` | All branches | Denied | Server confirmation |
-| Issue quotation; approval is required above `5.00%` | `quotation.issue` | Denied | Assigned branches | Server confirmation |
-| Record customer acceptance | `quotation.accept` | Denied | Assigned branches | Server confirmation |
-| Convert accepted quotation to order | `quotation.convert` | Denied | Assigned branches | Server confirmation |
-| Cancel draft quotation | `quotation.draft.write` | Denied | Assigned branches | Local-first while still a draft |
-| Cancel issued or accepted quotation | `quotation.cancel` | All branches | Denied | Server confirmation |
-| Read order | `order.read` | All branches | Assigned branches | Authorized Rust query; confirmed cache can be shown offline |
-| Cancel order before delivery | `order.cancel` | All branches | Denied | Server confirmation |
-| Read full work order | `work-order.read` | All branches | Denied | Authorized Rust query |
-| Read readiness summary | `order.read` | All branches | Assigned branches | Authorized Rust order projection |
-| Start or complete work order | `work-order.transition` | All branches | Denied | Server confirmation |
-| Record delivery | `delivery.record` | Denied | Assigned branches | Server confirmation |
-| Print issued quotation or confirmed order | Same read permission as source record | Allowed | Allowed in scope | Local OS action from a confirmed immutable snapshot; printing is not a state transition |
+| Read active catalog and prices | `eitmad.permission.catalog.read.v1` | Organization | Organization | Authorized Rust query; confirmed cache can be shown offline with freshness |
+| Create or edit catalog draft | `eitmad.permission.catalog.draft.write.v1` | Organization | Denied | Local-first draft; no Receptionist visibility |
+| Publish or archive catalog entry | `eitmad.permission.catalog.publish.v1` | Organization | Denied | Server confirmation |
+| Change a published selling price | `eitmad.permission.pricing.write.v1` | Organization | Denied | Server confirmation |
+| Read customer | `eitmad.permission.customer.read.v1` | All branches | Assigned branches | Authorized Rust query; scoped offline cache allowed |
+| Create or edit customer contact | `eitmad.permission.customer.write.v1` | All branches | Assigned branches | Local-first contact change |
+| Add a customer branch association | `eitmad.permission.customer.branch.assign.v1` | All branches | Denied | Server confirmation |
+| Merge, archive, or restore customer | `eitmad.permission.customer.manage.v1` | All branches | Denied | Server confirmation |
+| Create or edit quotation draft | `eitmad.permission.quotation.draft.write.v1` | Denied | Assigned branches | Local-first draft |
+| Request discount approval | `eitmad.permission.quotation.approval.request.v1` | Denied | Assigned branches | Server confirmation |
+| Approve or reject discount | `eitmad.permission.quotation.approval.decide.v1` | All branches | Denied | Server confirmation; approver differs from requester |
+| Manage default or per-quotation validity | `eitmad.permission.quotation.validity.manage.v1` | All branches | Denied | Server confirmation |
+| Issue quotation; approval is required above `5.00%` | `eitmad.permission.quotation.issue.v1` | Denied | Assigned branches | Server confirmation |
+| Record customer acceptance | `eitmad.permission.quotation.accept.v1` | Denied | Assigned branches | Server confirmation |
+| Convert accepted quotation to order | `eitmad.permission.quotation.convert.v1` | Denied | Assigned branches | Server confirmation |
+| Cancel draft quotation | `eitmad.permission.quotation.draft.write.v1` | Denied | Assigned branches | Local-first while still a draft |
+| Cancel issued or accepted quotation | `eitmad.permission.quotation.cancel.v1` | All branches | Denied | Server confirmation |
+| Read order | `eitmad.permission.order.read.v1` | All branches | Assigned branches | Authorized Rust query; confirmed cache can be shown offline |
+| Cancel order before delivery | `eitmad.permission.order.cancel.v1` | All branches | Denied | Server confirmation |
+| Read full work order | `eitmad.permission.work-order.read.v1` | All branches | Denied | Authorized Rust query |
+| Read readiness summary | `eitmad.permission.order.read.v1` | All branches | Assigned branches | Authorized Rust order projection |
+| Start or complete work order | `eitmad.permission.work-order.transition.v1` | All branches | Denied | Server confirmation |
+| Record delivery | `eitmad.permission.delivery.record.v1` | Denied | Assigned branches | Server confirmation |
+| Print issued quotation or confirmed order | `eitmad.permission.quotation.read.v1` or `eitmad.permission.order.read.v1` for the source record | Allowed | Allowed in scope | Local OS action from a confirmed immutable snapshot; printing is not a state transition |
 
 If one principal has both role relationships, Rust grants the union of their explicit permissions. The approval rule still prohibits that principal from approving a request they submitted.
 

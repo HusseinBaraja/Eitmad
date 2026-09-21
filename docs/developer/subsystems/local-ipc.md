@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust engine and Windows platform maintainers"
-last_verified: "2026-09-20"
+last_verified: "2026-09-21"
 review_triggers:
   - "local IPC framing, authentication, dispatch, timeout, payload, or shutdown behavior changes"
 keywords:
@@ -40,11 +40,14 @@ sequenceDiagram
     participant IPC as "Rust LocalIpcServer"
     participant Domain as "Rust dispatcher"
     Shell->>IPC: PeerHello + ephemeral bootstrap token
-    IPC->>IPC: load and verify Rust-owned installation identity and owner relation
-    IPC-->>Shell: negotiated protocol + Rust-owned authorization context
+    IPC->>IPC: verify token and load Rust-owned installation device identity
+    IPC-->>Shell: negotiated protocol + Rust-owned device context
+    Shell->>IPC: desktop sign-in credentials
+    IPC->>IPC: verify account and establish user session
+    IPC-->>Shell: user authorization context + role + expiry
     Shell->>IPC: typed command/query/subscription envelope
-    IPC->>IPC: validate session, version, scope context, and deadline
-    IPC->>Domain: dispatch with authorization context
+    IPC->>IPC: validate user session, version, scope context, and deadline
+    IPC->>Domain: dispatch with user authorization context
     Domain-->>IPC: typed result or ContractError
     IPC-->>Shell: correlated response
     Domain->>IPC: publish authorized scoped event

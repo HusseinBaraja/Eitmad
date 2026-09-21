@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "reference"
 status: "active"
 owner: "architecture maintainers"
-last_verified: "2026-08-27"
+last_verified: "2026-09-21"
 review_triggers:
   - "a listed limitation is implemented, removed, split, or becomes release-critical"
 keywords:
@@ -21,7 +21,7 @@ These limits are deliberate and visible. A caller must not infer unavailable sta
 ## Product and identity
 
 - No real furniture business domain is implemented or registered on the server.
-- Local installation authority trusts one Windows-account boundary. It has no human login, role switching, multi-user session rotation, or remote revocation workflow.
+- Local installation authority trusts one Windows-account boundary. It supports password sign-in and durable user sessions, but it does not import accounts from the server control plane and has no role switching, multi-user session rotation, or remote revocation workflow.
 - The reference-marker vertical is a foundation example, not a production workflow.
 
 ## Sync and networking

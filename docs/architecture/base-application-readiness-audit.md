@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "reference"
 status: "active"
 owner: "architecture and security maintainers"
-last_verified: "2026-08-27"
+last_verified: "2026-09-21"
 review_triggers:
   - "a critical foundation control, production blocker, supported platform, protocol, storage version, or release gate changes"
 keywords:
@@ -39,9 +39,9 @@ The verified local evidence includes:
 - `cargo fmt --all -- --check`;
 - strict Clippy for changed crates and the full workspace release gate;
 - `cargo test --workspace --all-targets`, including authorization, isolation, audit, migration, sync, update, secret, IPC, and server tests;
-- real Windows engine supervision, protocol 1.6 negotiation, configuration query, configuration subscription, Arabic configuration write, and clean stop;
+- real Windows engine supervision, protocol 1.8 negotiation, Manager desktop sign-in and role projection, configuration query, configuration subscription, Arabic configuration write, and clean stop;
 - generated Rust, C#, Swift, fixture, and reference drift checks;
-- C# contract conformance and Windows Arabic/RTL shell tests;
+- C# contract conformance, Manager account-administration shell tests, and Windows Arabic/RTL shell tests;
 - repository ownership, unsafe logging, migration checksum, Arabic root direction, and documentation-impact policy;
 - focused and full documentation audits;
 - npm high-severity audit, NuGet vulnerable-package checks, and RustSec audit with no remaining advisory or warning;
