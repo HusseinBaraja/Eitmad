@@ -68,7 +68,7 @@ public sealed class DesktopSessionControllerTests
     }
 
     [TestMethod]
-    public async Task ExpiryClearsStateAndRequiresAuthenticationAgain()
+    public async Task ExpiryClearsStateAndSignsOut()
     {
         var engine = new FakeEngine
         {
@@ -82,17 +82,26 @@ public sealed class DesktopSessionControllerTests
         sessions.SessionEnded += (_, eventArgs) => ended.TrySetResult(eventArgs.Reason);
         await sessions.StartAsync();
         engine.Connect();
-        await sessions.SignInAsync("manager", "correct-password");
-        viewModel.ObserveNotification(new Notification
+        engine.QueryBarrier = query =>
         {
-            NotificationId = Guid.NewGuid(),
-            MessageId = ProtocolIds.MessageIds.EitmadNotificationSyncCompleteV1,
-            Parameters = [],
-            Severity = NotificationSeverity.Information,
-        }, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+            if (query.Kind == Query.ConfigGetKind)
+            {
+                viewModel.ObserveNotification(new Notification
+                {
+                    NotificationId = Guid.NewGuid(),
+                    MessageId = ProtocolIds.MessageIds.EitmadNotificationSyncCompleteV1,
+                    Parameters = [],
+                    Severity = NotificationSeverity.Information,
+                }, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+                Assert.AreEqual(1, viewModel.Activity.Count);
+            }
+            return Task.CompletedTask;
+        };
+        await sessions.SignInAsync("manager", "correct-password");
 
         Assert.AreEqual(SessionEndReason.Expired, await ended.Task.WaitAsync(TimeSpan.FromSeconds(2)));
         Assert.AreEqual(0, viewModel.Activity.Count);
         Assert.AreEqual(0, engine.SubscriptionCount);
+        Assert.AreEqual(1, engine.SignOutCount);
     }
 }
