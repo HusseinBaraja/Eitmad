@@ -183,11 +183,66 @@ def changed_files(base: str) -> set[str]:
     return set(output.splitlines())
 
 
+def is_test_path(path: str) -> bool:
+    parts = Path(path).parts
+    return "test" in parts or "tests" in parts
+
+
+def rust_test_module_start(content: str) -> int | None:
+    for line_number, line in enumerate(content.splitlines(), start=1):
+        if line.strip() == "#[cfg(test)]":
+            return line_number
+    return None
+
+
+def rust_changes_are_test_only(base: str, path: str) -> bool:
+    current_start = rust_test_module_start((ROOT / path).read_text(encoding="utf-8"))
+    try:
+        base_content = subprocess.check_output(
+            ["git", "show", f"{base}:{path}"], cwd=ROOT, text=True
+        )
+    except subprocess.CalledProcessError:
+        return False
+    base_start = rust_test_module_start(base_content)
+    if current_start is None or base_start is None:
+        return False
+
+    diff = subprocess.check_output(
+        ["git", "diff", "--unified=0", f"{base}...HEAD", "--", path],
+        cwd=ROOT,
+        text=True,
+    )
+    hunks = re.findall(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@", diff, re.MULTILINE)
+    return bool(hunks) and all(
+        (int(old_count or "1") == 0 or int(old_line) >= base_start)
+        and (int(new_count or "1") == 0 or int(new_line) >= current_start)
+        for old_line, old_count, new_line, new_count in hunks
+    )
+
+
+def behavior_changed(base: str, changed: set[str]) -> bool:
+    behavior_roots = (
+        "crates/",
+        "server/",
+        "shells/",
+        "platform-adapters/",
+        "deploy/",
+        ".github/",
+    )
+    for path in changed:
+        if not path.startswith(behavior_roots) or is_test_path(path):
+            continue
+        if path.endswith(".rs") and rust_changes_are_test_only(base, path):
+            continue
+        return True
+    return False
+
+
 def check_documentation_impact(base: str | None, errors: list[str]) -> None:
     if not base:
         return
     changed = changed_files(base)
-    behavior = any(path.startswith(("crates/", "server/", "shells/", "platform-adapters/", "deploy/", ".github/")) for path in changed)
+    behavior = behavior_changed(base, changed)
     docs = any(path.startswith("docs/") for path in changed)
     if behavior and not docs:
         errors.append("behavior, delivery, or CI changed without a documentation change")

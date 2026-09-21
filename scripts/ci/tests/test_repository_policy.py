@@ -129,6 +129,33 @@ class RepositoryPolicyTests(unittest.TestCase):
             self.assertEqual(3, len(errors))
             self.assertTrue(all("direct configuration access" in error for error in errors))
 
+    def test_documentation_impact_ignores_test_only_changes(self) -> None:
+        changed = {
+            "crates/contracts/codegen/test/platform-bindings.test.mjs",
+            "shells/windows/tests/Users/UsersPresentationTests.cs",
+            "crates/engine-runtime/src/dispatcher.rs",
+        }
+        with (
+            patch.object(policy, "changed_files", return_value=changed),
+            patch.object(policy, "rust_changes_are_test_only", return_value=True),
+        ):
+            errors: list[str] = []
+            policy.check_documentation_impact("base", errors)
+        self.assertEqual([], errors)
+
+    def test_documentation_impact_rejects_production_changes_without_docs(self) -> None:
+        with (
+            patch.object(
+                policy,
+                "changed_files",
+                return_value={"crates/engine-runtime/src/dispatcher.rs"},
+            ),
+            patch.object(policy, "rust_changes_are_test_only", return_value=False),
+        ):
+            errors: list[str] = []
+            policy.check_documentation_impact("base", errors)
+        self.assertEqual(["behavior, delivery, or CI changed without a documentation change"], errors)
+
     def test_unsafe_logging_rejects_secret_field_without_redaction(self) -> None:
         with tempfile.TemporaryDirectory() as temp_value:
             root = Path(temp_value)
