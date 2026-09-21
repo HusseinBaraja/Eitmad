@@ -39,7 +39,12 @@ impl DesktopAuthenticator {
         correlation_id: CorrelationId,
         now: UnixMillis,
     ) -> Result<DesktopSessionState, DesktopAuthenticationError> {
-        if !(12..=256).contains(&password.chars().count()) || password.len() > 1_024 {
+        let password_characters = password.chars().count();
+        if password_characters > 256 || password.len() > 1_024 {
+            return Err(DesktopAuthenticationError::Failed);
+        }
+        #[cfg(not(debug_assertions))]
+        if password_characters < 12 {
             return Err(DesktopAuthenticationError::Failed);
         }
         let device_id = process
@@ -58,6 +63,10 @@ impl DesktopAuthenticator {
             .desktop_account(process.tenant_id, username)
             .map_err(|_| DesktopAuthenticationError::Unavailable)?
             .ok_or(DesktopAuthenticationError::Failed)?;
+        #[cfg(debug_assertions)]
+        if password_characters < 12 && !is_seeded_development_account(&account) {
+            return Err(DesktopAuthenticationError::Failed);
+        }
         let hash = PasswordHash::new(&account.password_hash)
             .map_err(|_| DesktopAuthenticationError::Failed)?;
         Argon2::default()
@@ -173,6 +182,15 @@ impl DesktopAuthenticator {
             .close_desktop_session(authorization, now, correlation_id)
             .map_err(|_| DesktopAuthenticationError::Unavailable)
     }
+}
+
+#[cfg(debug_assertions)]
+fn is_seeded_development_account(account: &eitmad_storage::DesktopAccount) -> bool {
+    matches!(
+        account.account_id.value(),
+        id if id == uuid::uuid!("e17ad000-0000-4000-8000-000000000003")
+            || id == uuid::uuid!("e17ad000-0000-4000-8000-000000000004")
+    )
 }
 
 #[cfg(test)]

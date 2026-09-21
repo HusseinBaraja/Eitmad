@@ -138,30 +138,30 @@ fn seed_development_accounts(runtime_directory: Option<PathBuf>) -> ExitCode {
             &store,
             &installer,
             DesktopAccount {
-                account_id: AccountId::new(uuid::uuid!("e17ad000-0000-4000-8000-000000000001")),
-                user_id: UserId::new(uuid::uuid!("e17ad000-0000-4000-8000-000000000011")),
+                account_id: AccountId::new(uuid::uuid!("e17ad000-0000-4000-8000-000000000003")),
+                user_id: UserId::new(uuid::uuid!("e17ad000-0000-4000-8000-000000000013")),
                 tenant_id: installer.tenant_id,
                 organization_id,
                 password_hash: String::new(),
                 role: DesktopRole::Manager,
             },
-            "test.manager",
-            "Eitmad-Manager-2026!",
+            "admin",
+            "admin",
             now,
         )?;
         seed_development_account(
             &store,
             &installer,
             DesktopAccount {
-                account_id: AccountId::new(uuid::uuid!("e17ad000-0000-4000-8000-000000000002")),
-                user_id: UserId::new(uuid::uuid!("e17ad000-0000-4000-8000-000000000012")),
+                account_id: AccountId::new(uuid::uuid!("e17ad000-0000-4000-8000-000000000004")),
+                user_id: UserId::new(uuid::uuid!("e17ad000-0000-4000-8000-000000000014")),
                 tenant_id: installer.tenant_id,
                 organization_id,
                 password_hash: String::new(),
                 role: DesktopRole::Receptionist,
             },
-            "test.receptionist",
-            "Eitmad-Reception-2026!",
+            "rec",
+            "rec",
             now,
         )
     })();

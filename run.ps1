@@ -26,8 +26,8 @@ try {
     }
 
     Write-Host "Development accounts:"
-    Write-Host "  Manager      test.manager / Eitmad-Manager-2026!"
-    Write-Host "  Receptionist test.receptionist / Eitmad-Reception-2026!"
+    Write-Host "  Manager      admin / admin"
+    Write-Host "  Receptionist rec / rec"
 
     & dotnet run --project $shellProject -- --engine $enginePath
     if ($LASTEXITCODE -ne 0) {

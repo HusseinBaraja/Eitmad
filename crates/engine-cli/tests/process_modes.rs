@@ -182,11 +182,11 @@ fn debug_seed_provisions_distinct_accounts_and_is_idempotent() {
         .local_authorization_context(eitmad_contracts::transport::UnixMillis(1))
         .expect("local authority");
     let manager = store
-        .desktop_account(owner.tenant_id, "test.manager")
+        .desktop_account(owner.tenant_id, "admin")
         .expect("manager lookup")
         .expect("manager account");
     let receptionist = store
-        .desktop_account(owner.tenant_id, "test.receptionist")
+        .desktop_account(owner.tenant_id, "rec")
         .expect("receptionist lookup")
         .expect("receptionist account");
 
@@ -194,12 +194,8 @@ fn debug_seed_provisions_distinct_accounts_and_is_idempotent() {
     assert_eq!(receptionist.role, DesktopRole::Receptionist);
     assert_ne!(manager.account_id, receptionist.account_id);
     assert_ne!(manager.user_id, receptionist.user_id);
-    assert!(!manager.password_hash.contains("Eitmad-Manager-2026!"));
-    assert!(
-        !receptionist
-            .password_hash
-            .contains("Eitmad-Reception-2026!")
-    );
+    assert!(!manager.password_hash.contains("admin"));
+    assert!(!receptionist.password_hash.contains("rec"));
 
     let device_id = owner.identity.device_id.expect("installation device");
     let mut process = owner;
@@ -213,8 +209,8 @@ fn debug_seed_provisions_distinct_accounts_and_is_idempotent() {
     let manager_session = authenticator
         .sign_in(
             &process,
-            "test.manager",
-            "Eitmad-Manager-2026!",
+            "admin",
+            "admin",
             CorrelationId::new(Uuid::new_v4()),
             UnixMillis(2_000_000_000_000),
         )
@@ -222,8 +218,8 @@ fn debug_seed_provisions_distinct_accounts_and_is_idempotent() {
     let receptionist_session = authenticator
         .sign_in(
             &process,
-            "test.receptionist",
-            "Eitmad-Reception-2026!",
+            "rec",
+            "rec",
             CorrelationId::new(Uuid::new_v4()),
             UnixMillis(2_000_000_000_001),
         )

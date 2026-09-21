@@ -21,7 +21,7 @@ Install the .NET 8 SDK and the stable Rust toolchain. From the repository root, 
 .\run.ps1
 ```
 
-Use `test.manager` with `Eitmad-Manager-2026!` or `test.receptionist` with `Eitmad-Reception-2026!` on the sign-in screen. These synthetic accounts are available only after the explicit debug seed command that `run.ps1` runs. Release builds do not contain that command. Closing the window keeps the app in the system tray. Use **إنهاء الاعتماد** in the tray menu to stop the shell and engine. For design and ownership details, see the [Windows operations shell guide](docs/developer/subsystems/windows-native-shell.md).
+Use `admin` with `admin` or `rec` with `rec` on the sign-in screen. These short synthetic credentials are accepted only by debug builds after the explicit seed command that `run.ps1` runs. Release builds do not contain that command and keep the 12-character password minimum. Closing the window keeps the app in the system tray. Use **إنهاء الاعتماد** in the tray menu to stop the shell and engine. For design and ownership details, see the [Windows operations shell guide](docs/developer/subsystems/windows-native-shell.md).
 
 ## Furniture editor flow
 
