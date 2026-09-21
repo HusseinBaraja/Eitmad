@@ -45,6 +45,9 @@ public sealed class UsersPresentationTests
         vm.EditorUsername = "s.ahmad";
         vm.EditorRole = "موظف الاستقبال";
         Assert.IsTrue(await vm.ApplyAsync("temporary-password"));
+        var createCommand = engine.LastCommand?.AsDesktopAccountCreate();
+        Assert.IsNotNull(createCommand);
+        Assert.IsTrue(createCommand.Password == "temporary-password");
         var created = vm.VisibleUsers.Single(user => user.Username == "s.ahmad");
         Assert.IsTrue(created.IsActive);
 
@@ -53,6 +56,10 @@ public sealed class UsersPresentationTests
         vm.EditorUsername = "cannot-change";
         vm.EditorRole = "مدير";
         Assert.IsTrue(await vm.ApplyAsync(""));
+        var updateCommand = engine.LastCommand?.AsDesktopAccountUpdate();
+        Assert.IsNotNull(updateCommand);
+        Assert.AreEqual(created.AccountId, updateCommand.AccountId);
+        Assert.AreEqual(1L, updateCommand.ExpectedRevision);
         var edited = vm.VisibleUsers.Single(user => user.AccountId == created.AccountId);
         Assert.AreEqual("s.ahmad", edited.Username);
         Assert.AreEqual("سالم محمد", edited.Name);
@@ -61,6 +68,10 @@ public sealed class UsersPresentationTests
 
         vm.BeginDeactivation(edited);
         Assert.IsTrue(await vm.DeactivateAsync());
+        var deactivateCommand = engine.LastCommand?.AsDesktopAccountDeactivate();
+        Assert.IsNotNull(deactivateCommand);
+        Assert.AreEqual(edited.AccountId, deactivateCommand.AccountId);
+        Assert.AreEqual(2L, deactivateCommand.ExpectedRevision);
         Assert.IsFalse(vm.VisibleUsers.Single(user => user.AccountId == created.AccountId).IsActive);
     }
 
