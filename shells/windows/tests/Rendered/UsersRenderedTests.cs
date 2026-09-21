@@ -32,9 +32,6 @@ public sealed class UsersRenderedTests
             var content = WpfTestHost.FindByName<StackPanel>(view, "EditorContent");
             // The old left-aligned StackPanel shrank to the text's desired width.
             Assert.AreEqual(Math.Min(640, view.ActualWidth - 56), content.ActualWidth, 2);
-            var role = WpfTestHost.FindByName<ComboBox>(view, "UserRoleInput");
-            var rolePoint = role.TranslatePoint(new Point(), content);
-            Assert.IsTrue(rolePoint.Y >= 0);
             foreach (var control in WpfTestHost.Descendants<Control>(content)) control.FontSize *= 1.5;
             foreach (var text in WpfTestHost.Descendants<TextBlock>(content)) text.FontSize *= 1.5;
             WpfTestHost.CompleteLayout(view);

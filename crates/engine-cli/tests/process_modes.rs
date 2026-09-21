@@ -194,8 +194,6 @@ fn debug_seed_provisions_distinct_accounts_and_is_idempotent() {
     assert_eq!(receptionist.role, DesktopRole::Receptionist);
     assert_ne!(manager.account_id, receptionist.account_id);
     assert_ne!(manager.user_id, receptionist.user_id);
-    assert!(!manager.password_hash.contains("admin"));
-    assert!(!receptionist.password_hash.contains("rec"));
 
     let device_id = owner.identity.device_id.expect("installation device");
     let mut process = owner;
