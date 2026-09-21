@@ -524,38 +524,12 @@ impl AuthorityStore {
                 AccountApply::Rejected(outcome) => return Ok(outcome),
             };
 
-            if access_changed && mutation.account.active {
-                connection.execute(
-                    "INSERT OR IGNORE INTO scope_relationships
-                     (relationship_id, scope_kind, scope_id, principal_id, principal_kind, relation)
-                     VALUES (?1, 'organization', ?2, ?3, ?4, ?5)",
-                    params![Uuid::new_v4().to_string(), tenant,
-                        mutation.account.user_id.value().to_string(),
-                        serde_json::to_string(&PrincipalKind::User).map_err(|_| StorageError)?,
-                        DesktopRole::from(mutation.account.role).relation()],
-                ).map_err(|_| StorageError)?;
-            }
-            let policy_version = if access_changed {
-                connection.execute(
-                    "UPDATE authorization_scopes SET policy_version = policy_version + 1
-                     WHERE scope_kind = 'organization' AND scope_id = ?1",
-                    [tenant.as_str()],
-                ).map_err(|_| StorageError)?;
-                Some(
-                    connection
-                        .query_row(
-                            "SELECT policy_version FROM authorization_scopes
-                             WHERE scope_kind = 'organization' AND scope_id = ?1",
-                            [tenant.as_str()],
-                            |row| row.get::<_, i64>(0),
-                        )
-                        .map_err(|_| StorageError)?
-                        .try_into()
-                        .map_err(|_| StorageError)?,
-                )
-            } else {
-                None
-            };
+            let policy_version = apply_account_access(
+                connection,
+                &tenant,
+                mutation.account,
+                access_changed,
+            )?;
 
             let stored = connection.query_row(
                 "SELECT account_id, user_id, display_name, canonical_username, role, active, revision
@@ -565,31 +539,93 @@ impl AuthorityStore {
                     row.get::<_, String>(3)?, row.get::<_, String>(4)?, row.get::<_, bool>(5)?, row.get::<_, i64>(6)?)),
             ).map_err(|_| StorageError)?;
             let stored = decode_account_summary(stored)?;
-            let mut audit = mutation.audit.clone();
-            audit.outcome = AuditOutcome::Succeeded;
-            audit.previous_revision = actual_revision;
-            audit.resulting_revision = Some(stored.revision);
-            insert_audit(connection, &audit)?;
-            insert_idempotency(connection, &scope, mutation.operation, mutation.idempotency)?;
-            if let Some(policy_version) = policy_version {
-                insert_publication(
-                    connection,
-                    &scope,
-                    mutation.idempotency.key,
-                    &DurablePublication {
-                        event: Event::AuthorizationPolicyChanged(
-                            AuthorizationPolicyChangeNotice {
-                                scope: scope.clone(),
-                                policy_version,
-                            },
-                        ),
-                        policy_changed: true,
-                    },
-                )?;
-            }
+            finish_account_commit(
+                connection,
+                &scope,
+                mutation,
+                actual_revision,
+                policy_version,
+                &stored,
+            )?;
             Ok(DesktopAccountCommitOutcome::Committed(stored))
         })
     }
+}
+
+fn apply_account_access(
+    connection: &rusqlite::Connection,
+    tenant: &str,
+    account: &DesktopAccountSummary,
+    access_changed: bool,
+) -> Result<Option<u64>, StorageError> {
+    if !access_changed {
+        return Ok(None);
+    }
+    if account.active {
+        connection
+            .execute(
+                "INSERT OR IGNORE INTO scope_relationships
+                 (relationship_id, scope_kind, scope_id, principal_id, principal_kind, relation)
+                 VALUES (?1, 'organization', ?2, ?3, ?4, ?5)",
+                params![
+                    Uuid::new_v4().to_string(),
+                    tenant,
+                    account.user_id.value().to_string(),
+                    serde_json::to_string(&PrincipalKind::User).map_err(|_| StorageError)?,
+                    DesktopRole::from(account.role).relation()
+                ],
+            )
+            .map_err(|_| StorageError)?;
+    }
+    connection
+        .execute(
+            "UPDATE authorization_scopes SET policy_version = policy_version + 1
+             WHERE scope_kind = 'organization' AND scope_id = ?1",
+            [tenant],
+        )
+        .map_err(|_| StorageError)?;
+    connection
+        .query_row(
+            "SELECT policy_version FROM authorization_scopes
+             WHERE scope_kind = 'organization' AND scope_id = ?1",
+            [tenant],
+            |row| row.get::<_, i64>(0),
+        )
+        .map_err(|_| StorageError)?
+        .try_into()
+        .map(Some)
+        .map_err(|_| StorageError)
+}
+
+fn finish_account_commit(
+    connection: &rusqlite::Connection,
+    scope: &ScopeRef,
+    mutation: &DesktopAccountMutation<'_>,
+    previous_revision: Option<u64>,
+    policy_version: Option<u64>,
+    account: &DesktopAccountSummary,
+) -> Result<(), StorageError> {
+    let mut audit = mutation.audit.clone();
+    audit.outcome = AuditOutcome::Succeeded;
+    audit.previous_revision = previous_revision;
+    audit.resulting_revision = Some(account.revision);
+    insert_audit(connection, &audit)?;
+    insert_idempotency(connection, scope, mutation.operation, mutation.idempotency)?;
+    if let Some(policy_version) = policy_version {
+        insert_publication(
+            connection,
+            scope,
+            mutation.idempotency.key,
+            &DurablePublication {
+                event: Event::AuthorizationPolicyChanged(AuthorizationPolicyChangeNotice {
+                    scope: scope.clone(),
+                    policy_version,
+                }),
+                policy_changed: true,
+            },
+        )?;
+    }
+    Ok(())
 }
 
 enum AccountApply {
