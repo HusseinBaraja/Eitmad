@@ -6626,10 +6626,12 @@ public extension DesktopSessionResponse {
 
 // MARK: - DesktopSessionState
 public struct DesktopSessionState: Codable, Sendable {
+    public let accountRole: DesktopAccountRole
     public let authorization: AuthorizationContext?
     public let expiresAt: Int?
 
-    public init(authorization: AuthorizationContext?, expiresAt: Int?) {
+    public init(accountRole: DesktopAccountRole, authorization: AuthorizationContext?, expiresAt: Int?) {
+        self.accountRole = accountRole
         self.authorization = authorization
         self.expiresAt = expiresAt
     }
@@ -6654,10 +6656,12 @@ public extension DesktopSessionState {
     }
 
     func with(
+        accountRole: DesktopAccountRole? = nil,
         authorization: AuthorizationContext?? = nil,
         expiresAt: Int?? = nil
     ) -> DesktopSessionState {
         return DesktopSessionState(
+            accountRole: accountRole ?? self.accountRole,
             authorization: authorization ?? self.authorization,
             expiresAt: expiresAt ?? self.expiresAt
         )

@@ -2015,6 +2015,9 @@ namespace Eitmad.Contracts
 
     public partial class DesktopSessionState
     {
+        [JsonPropertyName("accountRole")]
+        public DesktopAccountRole AccountRole { get; set; }
+
         [JsonPropertyName("authorization")]
         public AuthorizationContext Authorization { get; set; }
 

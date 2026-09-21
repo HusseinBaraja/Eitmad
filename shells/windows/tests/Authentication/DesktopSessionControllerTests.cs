@@ -12,8 +12,8 @@ public sealed class DesktopSessionControllerTests
     public async Task ManagerAndReceptionistSwitchWithoutRetainingAccountState()
     {
         var engine = new FakeEngine();
-        engine.Accounts.Add("manager", ("manager-password", ProtocolIds.Permissions.EitmadPermissionCatalogDraftWriteV1));
-        engine.Accounts.Add("reception", ("reception-password", ProtocolIds.Permissions.EitmadPermissionQuotationDraftWriteV1));
+        engine.Accounts.Add("manager", ("manager-password", DesktopAccountRole.Manager));
+        engine.Accounts.Add("reception", ("reception-password", DesktopAccountRole.Receptionist));
         var viewModel = new OperationsViewModel();
         var operations = new OperationsCoordinator(engine, viewModel, new ImmediateDispatcher());
         await using var sessions = new DesktopSessionController(engine, operations);
@@ -47,7 +47,7 @@ public sealed class DesktopSessionControllerTests
     public async Task RejectedCredentialsNeverActivateAccountData()
     {
         var engine = new FakeEngine();
-        engine.Accounts.Add("manager", ("correct-password", ProtocolIds.Permissions.EitmadPermissionCatalogDraftWriteV1));
+        engine.Accounts.Add("manager", ("correct-password", DesktopAccountRole.Manager));
         var viewModel = new OperationsViewModel();
         var operations = new OperationsCoordinator(engine, viewModel, new ImmediateDispatcher());
         await using var sessions = new DesktopSessionController(engine, operations);
@@ -74,7 +74,7 @@ public sealed class DesktopSessionControllerTests
         {
             SessionExpiry = DateTimeOffset.UtcNow.AddMilliseconds(150).ToUnixTimeMilliseconds(),
         };
-        engine.Accounts.Add("manager", ("correct-password", ProtocolIds.Permissions.EitmadPermissionCatalogDraftWriteV1));
+        engine.Accounts.Add("manager", ("correct-password", DesktopAccountRole.Manager));
         var viewModel = new OperationsViewModel();
         var operations = new OperationsCoordinator(engine, viewModel, new ImmediateDispatcher());
         await using var sessions = new DesktopSessionController(engine, operations);

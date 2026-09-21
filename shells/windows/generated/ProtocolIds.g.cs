@@ -6,6 +6,12 @@ namespace Eitmad.Contracts;
 
 public static class ProtocolIds
 {
+    public static class Version
+    {
+        public const long Major = 1;
+        public const long Minor = 8;
+    }
+
     public static class IpcMessages
     {
         public const string EitmadIpcDesktopSessionResponseV1 = "eitmad.ipc.desktop-session-response.v1";

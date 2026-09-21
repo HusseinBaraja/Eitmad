@@ -2,6 +2,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    accounts::DesktopAccountRole,
     errors::ContractError,
     events::Event,
     identity::AuthorizationContext,
@@ -59,6 +60,7 @@ impl std::fmt::Debug for DesktopSignInRequest {
 #[serde(rename_all = "camelCase")]
 pub struct DesktopSessionState {
     pub authorization: Option<AuthorizationContext>,
+    pub account_role: DesktopAccountRole,
     pub expires_at: Option<UnixMillis>,
 }
 

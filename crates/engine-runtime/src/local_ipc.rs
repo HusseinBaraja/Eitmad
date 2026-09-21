@@ -1511,10 +1511,10 @@ where
     W: AsyncWrite + Unpin,
 {
     while let Some(result) = pending.join_next().await {
-        if let Ok(response) = result
-            && !write_frame_or_close(writer, &response).await?
-        {
-            return Ok(false);
+        if let Ok(response) = result {
+            if !write_frame_or_close(writer, &response).await? {
+                return Ok(false);
+            }
         }
     }
     Ok(true)
@@ -1826,7 +1826,7 @@ mod tests {
         let owner = store.local_authorization_context(issued_at).unwrap();
         let salt = SaltString::encode_b64(&[7_u8; 16]).unwrap();
         let password_hash = Argon2::default()
-            .hash_password(b"correct horse battery", &salt)
+            .hash_password(b"synthetic correct horse battery", &salt)
             .unwrap()
             .to_string();
         let user_id = eitmad_contracts::identity::UserId::new(uuid::Uuid::new_v4());
@@ -1884,7 +1884,7 @@ mod tests {
                     request_id: RequestId::new(uuid::Uuid::new_v4()),
                     correlation_id: CorrelationId::new(uuid::Uuid::new_v4()),
                     username: "استقبال".to_owned(),
-                    password: "correct horse battery".to_owned(),
+                    password: "synthetic correct horse battery".to_owned(),
                 }),
                 &mut connection,
             )
@@ -1897,6 +1897,10 @@ mod tests {
         else {
             panic!("sign-in failed")
         };
+        assert_eq!(
+            state.account_role,
+            eitmad_contracts::accounts::DesktopAccountRole::Receptionist
+        );
         let user = state.authorization.unwrap();
         assert_eq!(user.identity.principal_id.value(), user_id.value());
         assert_ne!(user.identity.principal_id, owner.identity.principal_id);

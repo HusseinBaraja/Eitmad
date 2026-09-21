@@ -122,6 +122,7 @@ impl DesktopAuthenticator {
                     id: ScopeId::new(account.tenant_id.value()),
                 },
             }),
+            account_role: account.role.into(),
             expires_at: Some(expires_at),
         })
     }
@@ -183,8 +184,18 @@ impl DesktopAuthenticator {
             .read_session(authorization.tenant_id, authorization.session_id)
             .map_err(|_| DesktopAuthenticationError::Unavailable)?
             .ok_or(DesktopAuthenticationError::Failed)?;
+        let account_role = self
+            .store
+            .desktop_account_role(
+                session.tenant_id,
+                session.account_id,
+                UserId::new(session.user_id.value()),
+            )
+            .map_err(|_| DesktopAuthenticationError::Unavailable)?
+            .ok_or(DesktopAuthenticationError::Failed)?;
         Ok(DesktopSessionState {
             authorization: Some(authorization.clone()),
+            account_role,
             expires_at: Some(session.expires_at),
         })
     }
@@ -380,6 +391,14 @@ mod tests {
                 UnixMillis(103),
             )
             .unwrap();
+        assert_eq!(
+            manager_session.account_role,
+            eitmad_contracts::accounts::DesktopAccountRole::Manager
+        );
+        assert_eq!(
+            receptionist_session.account_role,
+            eitmad_contracts::accounts::DesktopAccountRole::Receptionist
+        );
         let manager_identity = manager_session.authorization.unwrap();
         let receptionist_identity = receptionist_session.authorization.unwrap();
         assert_ne!(
@@ -391,6 +410,10 @@ mod tests {
             owner.identity.principal_id
         );
         assert_eq!(auth.active(&manager_identity, UnixMillis(104)), Ok(true));
+        assert_eq!(
+            auth.session_state(&manager_identity).unwrap().account_role,
+            eitmad_contracts::accounts::DesktopAccountRole::Manager
+        );
         assert_eq!(
             auth.active(&manager_identity, manager_session.expires_at.unwrap()),
             Ok(false)

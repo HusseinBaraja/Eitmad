@@ -69,13 +69,7 @@ public sealed class DesktopSessionController : IDesktopSessionController
             var session = await engine.SignInAsync(username, password, cancellationToken);
             try
             {
-                var response = await engine.QueryAsync(
-                    Query.ForPermissionsGetEffective(new GetEffectivePermissions()),
-                    cancellationToken);
-                var permissions = response.Outcome.Status == CommandOutcomeStatus.Succeeded
-                    ? response.Outcome.Payload.AsEffectivePermissions()
-                    : null;
-                var surface = ResolveSurface(permissions ?? throw new SessionPermissionException());
+                var surface = ResolveSurface(session.AccountRole);
                 active = true;
                 await operations.ActivateSessionAsync(cancellationToken);
                 ScheduleExpiry(session.ExpiresAt);
@@ -123,18 +117,12 @@ public sealed class DesktopSessionController : IDesktopSessionController
         transition.Dispose();
     }
 
-    private static AuthenticatedSurface ResolveSurface(EffectivePermissions permissions)
+    private static AuthenticatedSurface ResolveSurface(DesktopAccountRole role) => role switch
     {
-        var granted = (permissions.Permissions ?? [])
-            .Where(permission => permission.Decision == PermissionDecision.Granted)
-            .Select(permission => permission.Permission)
-            .ToHashSet(StringComparer.Ordinal);
-        if (granted.Contains(ProtocolIds.Permissions.EitmadPermissionCatalogDraftWriteV1))
-            return AuthenticatedSurface.Manager;
-        if (granted.Contains(ProtocolIds.Permissions.EitmadPermissionQuotationDraftWriteV1))
-            return AuthenticatedSurface.Receptionist;
-        throw new SessionPermissionException();
-    }
+        DesktopAccountRole.Manager => AuthenticatedSurface.Manager,
+        DesktopAccountRole.Receptionist => AuthenticatedSurface.Receptionist,
+        _ => throw new SessionPermissionException(),
+    };
 
     private async Task DeactivateLocalStateAsync(CancellationToken cancellationToken)
     {

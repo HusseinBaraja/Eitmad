@@ -1527,6 +1527,9 @@
     "DesktopSessionState": {
       "type": "object",
       "properties": {
+        "accountRole": {
+          "$ref": "#/definitions/DesktopAccountRole"
+        },
         "authorization": {
           "anyOf": [
             {
@@ -1544,7 +1547,10 @@
           ],
           "format": "int64"
         }
-      }
+      },
+      "required": [
+        "accountRole"
+      ]
     },
     "DesktopSessionStatus": {
       "type": "string",

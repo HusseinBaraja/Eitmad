@@ -36,7 +36,7 @@ No bearer token, refresh token, or password is stored in the identity tables. St
 
 The current engine does not yet import accounts from the server control plane. A new installation has no ordinary sign-in account until a trusted importer provisions the first Manager. Debug builds expose the explicit `seed-development-accounts` command for synthetic local testing. `run.ps1` invokes it before starting the Windows shell. Debug authentication accepts short passwords only for the two fixed seeded account IDs; all other accounts and release authentication keep the 12-character minimum. The seed command is absent from release builds, does not replace existing accounts, and does not print password verifiers or entered secrets.
 
-Manager and Receptionist relationships produce distinct effective routing permissions. `eitmad.permission.catalog.draft.write.v1` selects the existing Manager surface, while `eitmad.permission.quotation.draft.write.v1` selects the existing Receptionist surface. The WPF shell reads these Rust-returned permissions after sign-in. It does not infer a role from a username or accept a shell-owned role switch.
+Manager and Receptionist relationships produce distinct effective permissions. An active `DesktopSessionState` also carries the current Rust-owned `DesktopAccountRole`. The WPF shell maps that role to the existing Manager or Receptionist surface; it does not interpret permission decisions, infer a role from a username, or accept a shell-owned role switch. Rust still authorizes every command and query independently of the visible surface.
 
 ## Audit attribution
 

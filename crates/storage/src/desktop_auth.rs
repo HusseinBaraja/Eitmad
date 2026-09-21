@@ -380,6 +380,40 @@ impl AuthorityStore {
         })
     }
 
+    /// Returns the current role for one exact active desktop account and user pair.
+    ///
+    /// # Errors
+    ///
+    /// Returns a sanitized storage error when durable state is malformed or cannot be read.
+    pub fn desktop_account_role(
+        &self,
+        tenant_id: TenantId,
+        account_id: AccountId,
+        user_id: UserId,
+    ) -> Result<Option<DesktopAccountRole>, StorageError> {
+        self.read_transaction(|connection| {
+            connection
+                .query_row(
+                    "SELECT role FROM desktop_accounts WHERE tenant_id = ?1
+                     AND account_id = ?2 AND user_id = ?3 AND active = 1",
+                    params![
+                        tenant_id.value().to_string(),
+                        account_id.value().to_string(),
+                        user_id.value().to_string()
+                    ],
+                    |row| row.get::<_, String>(0),
+                )
+                .optional()
+                .map_err(|_| StorageError)?
+                .map(|role| match role.as_str() {
+                    "manager" => Ok(DesktopAccountRole::Manager),
+                    "receptionist" => Ok(DesktopAccountRole::Receptionist),
+                    _ => Err(StorageError),
+                })
+                .transpose()
+        })
+    }
+
     /// Lists the bounded account projection for one tenant.
     ///
     /// # Errors

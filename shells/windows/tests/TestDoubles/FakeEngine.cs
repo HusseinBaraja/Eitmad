@@ -65,7 +65,7 @@ internal sealed class FakeEngine : IEngineShellBridge
     }
     public int SignOutCount { get; private set; }
     public long? SessionExpiry { get; set; }
-    public Dictionary<string, (string Password, string Permission)> Accounts { get; } = [];
+    public Dictionary<string, (string Password, DesktopAccountRole Role)> Accounts { get; } = [];
     public IReadOnlySet<string> SupportedCapabilities { get; init; } = new HashSet<string>
     {
         ProtocolIds.Capabilities.EitmadCapabilityConfigV1,
@@ -95,9 +95,15 @@ internal sealed class FakeEngine : IEngineShellBridge
                     PrincipalKind = PrincipalKind.User,
                 },
             },
+            AccountRole = account.Role,
             ExpiresAt = SessionExpiry ?? DateTimeOffset.UtcNow.AddHours(8).ToUnixTimeMilliseconds(),
         };
-        CurrentPermission = account.Permission;
+        CurrentPermission = account.Role switch
+        {
+            DesktopAccountRole.Manager => ProtocolIds.Permissions.EitmadPermissionCatalogDraftWriteV1,
+            DesktopAccountRole.Receptionist => ProtocolIds.Permissions.EitmadPermissionQuotationDraftWriteV1,
+            _ => null,
+        };
         return Task.FromResult(desktopSession);
     }
 

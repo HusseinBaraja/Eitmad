@@ -2,6 +2,11 @@
 import Foundation
 
 public enum ProtocolIds {
+    public enum Version {
+        public static let major = 1
+        public static let minor = 8
+    }
+
     public enum IpcMessages {
         public static let eitmadIpcDesktopSessionResponseV1 = "eitmad.ipc.desktop-session-response.v1"
         public static let eitmadIpcDesktopSessionStateV1 = "eitmad.ipc.desktop-session-state.v1"

@@ -91,7 +91,7 @@ public sealed class UsersRenderedTests
             Assert.IsFalse(WpfTestHost.FindByName<TextBox>(view, "UsernameInput").IsReadOnly);
             WpfTestHost.FindByName<TextBox>(view, "UserNameInput").Text = "أحمد سالم";
             WpfTestHost.FindByName<TextBox>(view, "UsernameInput").Text = "a.salem";
-            WpfTestHost.FindByName<PasswordBox>(view, "UserPasswordInput").Password = "temporary-password";
+            WpfTestHost.FindByName<PasswordBox>(view, "UserPasswordInput").Password = "synthetic-password";
             WpfTestHost.FindByName<ComboBox>(view, "UserRoleInput").SelectedItem = "موظف الاستقبال";
             WpfTestHost.FindByAutomationName<Button>(view, "حفظ").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(view);

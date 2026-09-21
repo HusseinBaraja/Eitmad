@@ -165,12 +165,11 @@ fn seed_development_accounts(runtime_directory: Option<PathBuf>) -> ExitCode {
             now,
         )
     })();
-    match result {
-        Ok(()) => ExitCode::from(EXIT_SUCCESS),
-        Err(_) => {
-            eprintln!("{{\"code\":\"eitmad.error.development-account-seed-failed.v1\"}}");
-            ExitCode::from(EXIT_RUNTIME_FAILURE)
-        }
+    if result.is_ok() {
+        ExitCode::from(EXIT_SUCCESS)
+    } else {
+        eprintln!("{{\"code\":\"eitmad.error.development-account-seed-failed.v1\"}}");
+        ExitCode::from(EXIT_RUNTIME_FAILURE)
     }
 }
 

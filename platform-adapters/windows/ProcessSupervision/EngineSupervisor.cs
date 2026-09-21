@@ -726,7 +726,15 @@ public sealed class EngineSupervisor : IAsyncDisposable
         {
             PeerKind = PeerKind.Shell,
             ProductVersion = "0.0.0",
-            Protocols = [new SupportedProtocol { Major = 1, MinimumMinor = 8, MaximumMinor = 8 }],
+            Protocols =
+            [
+                new SupportedProtocol
+                {
+                    Major = ProtocolIds.Version.Major,
+                    MinimumMinor = ProtocolIds.Version.Minor,
+                    MaximumMinor = ProtocolIds.Version.Minor,
+                },
+            ],
             Capabilities =
             [
                 ProtocolIds.Capabilities.EitmadCapabilityLocalIpcV1,
