@@ -220,7 +220,8 @@ impl CustomerService {
         request_hash: [u8; 32],
     ) -> Result<CustomerMutationResult, CustomerError> {
         let normalized_name = normalize_arabic_name(customer.name.as_str());
-        let normalized_phone = normalize_phone(customer.phone.as_str());
+        let normalized_phone =
+            normalize_phone(customer.phone.as_str()).ok_or(CustomerError::Unavailable)?;
         let change_id = ChangeId::new(Uuid::new_v4());
         let change = sync_change(context, customer, expected_revision, change_id)?;
         let idempotency = DurableIdempotency {
@@ -420,12 +421,10 @@ pub fn normalize_arabic_name(value: &str) -> String {
             '\u{0629}' => '\u{0647}',
             '\u{06a9}' => '\u{0643}',
             '\u{0660}'..='\u{0669}' => {
-                char::from_u32(u32::from('0') + u32::from(character) - 0x0660)
-                    .expect("Arabic digit maps to ASCII")
+                char::from_u32(u32::from('0') + u32::from(character) - 0x0660).unwrap_or(character)
             }
             '\u{06f0}'..='\u{06f9}' => {
-                char::from_u32(u32::from('0') + u32::from(character) - 0x06f0)
-                    .expect("Persian digit maps to ASCII")
+                char::from_u32(u32::from('0') + u32::from(character) - 0x06f0).unwrap_or(character)
             }
             _ => character,
         };
@@ -436,10 +435,10 @@ pub fn normalize_arabic_name(value: &str) -> String {
     normalized
 }
 
-/// Normalizes a validated phone for search without changing its display value.
+/// Normalizes a phone for search without changing its display value.
 #[must_use]
-pub fn normalize_phone(value: &str) -> String {
-    normalize_phone_search(value).expect("validated phone uses the accepted search alphabet")
+pub fn normalize_phone(value: &str) -> Option<String> {
+    normalize_phone_search(value)
 }
 
 fn normalize_phone_search(value: &str) -> Option<String> {
@@ -449,12 +448,10 @@ fn normalize_phone_search(value: &str) -> Option<String> {
             '+' if index == 0 => normalized.push('+'),
             '0'..='9' => normalized.push(character),
             '\u{0660}'..='\u{0669}' => normalized.push(
-                char::from_u32(u32::from('0') + u32::from(character) - 0x0660)
-                    .expect("Arabic digit maps to ASCII"),
+                char::from_u32(u32::from('0') + u32::from(character) - 0x0660).unwrap_or(character),
             ),
             '\u{06f0}'..='\u{06f9}' => normalized.push(
-                char::from_u32(u32::from('0') + u32::from(character) - 0x06f0)
-                    .expect("Persian digit maps to ASCII"),
+                char::from_u32(u32::from('0') + u32::from(character) - 0x06f0).unwrap_or(character),
             ),
             ' ' | '-' | '(' | ')' => {}
             _ => return None,
@@ -597,7 +594,7 @@ mod tests {
         ] {
             service
                 .create(
-                    &mutation(authorization.clone(), key, key as i64),
+                    &mutation(authorization.clone(), key, i64::try_from(key).unwrap()),
                     &create_command(name, phone),
                 )
                 .unwrap();
@@ -798,6 +795,10 @@ mod tests {
             normalize_arabic_name(" إِعـتماد  کاظم یحیى "),
             "اعتماد كاظم يحيي"
         );
-        assert_eq!(normalize_phone("+۹۶۷ (٧٧٧) 123-٤٥٦"), "+967777123456");
+        assert_eq!(
+            normalize_phone("+۹۶۷ (٧٧٧) 123-٤٥٦"),
+            Some("+967777123456".to_owned())
+        );
+        assert_eq!(normalize_phone("+967 777 ext. 5"), None);
     }
 }

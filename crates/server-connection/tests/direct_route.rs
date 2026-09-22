@@ -12,9 +12,9 @@ use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use ed25519_dalek::SigningKey;
 use eitmad_contracts::{
     config::SecretReferenceId,
-    identity::{DeviceId, ScopeId, ScopeKind, ScopeRef},
+    identity::{AccountId, DeviceId, ScopeId, ScopeKind, ScopeRef},
     secrets::{SecretId, SecretKind},
-    server::{ActivateAccountRequest, DevicePublicKey, TenantCode},
+    server::{ActivateAccountRequest, AuthenticationResult, DevicePublicKey, TenantCode},
     sync::{BatchAcknowledgement, PullRequest, SyncMessage, SyncMode},
     sync_transport::{
         SyncCancellationReason, SyncFrameId, SyncStreamId, SyncTransportFrame, SyncTransportPayload,
@@ -193,25 +193,86 @@ fn cancel_then_pull(
     }
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-#[ignore = "requires a disposable PostgreSQL database and a generated trusted development certificate"]
-async fn real_server_authentication_tls_sync_and_reconnect() {
-    let database_url = env::var("EITMAD_DIRECT_TEST_DATABASE_URL")
-        .expect("set EITMAD_DIRECT_TEST_DATABASE_URL to an empty disposable PostgreSQL database");
-    let certificate = required_path("EITMAD_DIRECT_TEST_CERTIFICATE");
-    let private_key = required_path("EITMAD_DIRECT_TEST_PRIVATE_KEY");
-    let trusted_certificate = required_path("EITMAD_DIRECT_TEST_TRUSTED_CERTIFICATE");
-    let wrong_certificate = required_path("EITMAD_DIRECT_TEST_WRONG_CERTIFICATE");
-    let control_database = ControlDatabase::connect(&database_url, 4).await.unwrap();
+fn sync_and_acknowledge(
+    mut transport: WanAdapter<DirectServerDriver>,
+) -> WanAdapter<DirectServerDriver> {
+    let negotiated = transport
+        .connect(eitmad_control_plane::unix_millis_now())
+        .unwrap();
+    let request = frame(negotiated.protocol);
+    transport
+        .send(&request, eitmad_control_plane::unix_millis_now())
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let batch = loop {
+        assert!(Instant::now() < deadline, "sync response deadline elapsed");
+        match transport.receive(eitmad_control_plane::unix_millis_now()) {
+            Ok(ReceiveOutcome::NoFrame) => {}
+            Ok(ReceiveOutcome::Frame(reply)) => {
+                let SyncTransportPayload::Message(SyncMessage::Changes(batch)) = reply.payload
+                else {
+                    panic!("expected a real change batch");
+                };
+                break batch;
+            }
+            other => panic!("unexpected sync response: {other:?}"),
+        }
+    };
+    let acknowledgement = BatchAcknowledgement {
+        delivery_id: batch.delivery_id,
+        checkpoint: batch.checkpoint,
+        accepted_records: u32::try_from(batch.records.len()).unwrap(),
+    };
+    let mut acknowledge_frame = frame(negotiated.protocol);
+    acknowledge_frame.payload =
+        SyncTransportPayload::Message(SyncMessage::Acknowledge(acknowledgement.clone()));
+    transport
+        .send(&acknowledge_frame, eitmad_control_plane::unix_millis_now())
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        assert!(
+            Instant::now() < deadline,
+            "acknowledgement deadline elapsed"
+        );
+        match transport.receive(eitmad_control_plane::unix_millis_now()) {
+            Ok(ReceiveOutcome::NoFrame) => {}
+            Ok(ReceiveOutcome::Frame(reply)) => {
+                assert_eq!(
+                    reply.payload,
+                    SyncTransportPayload::Message(SyncMessage::Acknowledge(acknowledgement))
+                );
+                break;
+            }
+            other => panic!("unexpected acknowledgement response: {other:?}"),
+        }
+    }
+    cancel_then_pull(transport)
+}
+
+struct ProvisionedServer {
+    state: ServerState,
+    address: SocketAddr,
+    handle: axum_server::Handle<SocketAddr>,
+    authentication: AuthenticationResult,
+    device_id: DeviceId,
+    scope: ScopeRef,
+}
+
+async fn provision_server(
+    database_url: &str,
+    certificate: &Path,
+    private_key: &Path,
+) -> ProvisionedServer {
+    let control_database = ControlDatabase::connect(database_url, 4).await.unwrap();
     control_database.migrate().await.unwrap();
-    let sync_database = SyncDatabase::connect(&database_url, 4).await.unwrap();
+    let sync_database = SyncDatabase::connect(database_url, 4).await.unwrap();
     sync_database.migrate().await.unwrap();
     AuditDatabase::from_pool(control_database.pool())
         .migrate()
         .await
         .unwrap();
     let control = ControlPlane::new(control_database.pool(), TokenKey::new([9; 32]));
-    let now = eitmad_control_plane::unix_millis_now();
     let bootstrap = control
         .identity
         .bootstrap(
@@ -222,13 +283,12 @@ async fn real_server_authentication_tls_sync_and_reconnect() {
                 owner_username: "owner".to_owned(),
             },
             CorrelationId::new(Uuid::new_v4()),
-            now,
+            eitmad_control_plane::unix_millis_now(),
         )
         .await
         .unwrap();
     let device_id = DeviceId::new(Uuid::new_v4());
-    let signing_seed = [11; 32];
-    let signing = SigningKey::from_bytes(&signing_seed);
+    let signing = SigningKey::from_bytes(&[11; 32]);
     let authentication = control
         .authentication
         .activate(
@@ -247,7 +307,6 @@ async fn real_server_authentication_tls_sync_and_reconnect() {
         )
         .await
         .unwrap();
-    let account_id = authentication.session.account_id;
     let scope = ScopeRef {
         kind: ScopeKind::parse("organization").unwrap(),
         id: ScopeId::new(bootstrap.organization_id.value()),
@@ -255,11 +314,171 @@ async fn real_server_authentication_tls_sync_and_reconnect() {
     let registry =
         DomainRegistry::new([Arc::new(TestDomain) as Arc<dyn DomainSyncHandler>]).unwrap();
     let state = ServerState::new(control, SyncCoordinator::new(&sync_database, registry));
-    let address: SocketAddr = {
+    let address = {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         listener.local_addr().unwrap()
     };
-    let handle = start_server(address, state.clone(), &certificate, &private_key).await;
+    let handle = start_server(address, state.clone(), certificate, private_key).await;
+    ProvisionedServer {
+        state,
+        address,
+        handle,
+        authentication,
+        device_id,
+        scope,
+    }
+}
+
+struct RejectedConnectionInputs<'a> {
+    endpoint: &'a str,
+    scope: &'a ScopeRef,
+    trusted_certificate: &'a Path,
+    wrong_certificate: &'a Path,
+    store: &'a SecretStore,
+    invalid_id: &'a SecretId,
+    credential_id: &'a SecretId,
+    account_id: AccountId,
+    device_id: DeviceId,
+}
+
+async fn assert_rejected_connections(inputs: RejectedConnectionInputs<'_>) {
+    let config = DirectServerConfig::new(
+        inputs.endpoint,
+        inputs.scope.clone(),
+        schema_id(),
+        1,
+        inputs.trusted_certificate,
+    )
+    .unwrap();
+    let wan_endpoint = config.wan_endpoint();
+    let auth = TransportAuthentication::AccountDevice {
+        account_id: inputs.account_id,
+        device_id: inputs.device_id,
+        credential: inputs.invalid_id.clone(),
+    };
+    let bad_driver = DirectServerDriver::new(config, inputs.store.clone(), hello());
+    let mut bad_transport = WanAdapter::new(
+        wan_endpoint,
+        bad_driver,
+        hello(),
+        auth,
+        RetryPolicy::default(),
+    )
+    .unwrap();
+    let failure = tokio::task::spawn_blocking(move || {
+        bad_transport
+            .connect(eitmad_control_plane::unix_millis_now())
+            .unwrap_err()
+    })
+    .await
+    .unwrap();
+    assert_eq!(failure.kind, TransportFailureKind::AuthenticationFailed);
+
+    let wrong_config = DirectServerConfig::new(
+        inputs.endpoint,
+        inputs.scope.clone(),
+        schema_id(),
+        1,
+        inputs.wrong_certificate,
+    )
+    .unwrap();
+    let wrong_endpoint = wrong_config.wan_endpoint();
+    let wrong_driver = DirectServerDriver::new(wrong_config, inputs.store.clone(), hello());
+    let mut wrong_transport = WanAdapter::new(
+        wrong_endpoint,
+        wrong_driver,
+        hello(),
+        TransportAuthentication::AccountDevice {
+            account_id: inputs.account_id,
+            device_id: inputs.device_id,
+            credential: inputs.credential_id.clone(),
+        },
+        RetryPolicy::default(),
+    )
+    .unwrap();
+    let failure = tokio::task::spawn_blocking(move || {
+        wrong_transport
+            .connect(eitmad_control_plane::unix_millis_now())
+            .unwrap_err()
+    })
+    .await
+    .unwrap();
+    assert_eq!(failure.kind, TransportFailureKind::EncryptionRequired);
+}
+
+async fn assert_reconnect_after_shutdown(
+    transport: WanAdapter<DirectServerDriver>,
+    handle: axum_server::Handle<SocketAddr>,
+    state: ServerState,
+    address: SocketAddr,
+    certificate: &Path,
+    private_key: &Path,
+) {
+    handle.graceful_shutdown(Some(Duration::from_secs(1)));
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let (mut transport, failure) = tokio::task::spawn_blocking(move || {
+        let mut transport = transport;
+        let failure = transport
+            .receive(eitmad_control_plane::unix_millis_now())
+            .unwrap_err();
+        (transport, failure)
+    })
+    .await
+    .unwrap();
+    assert_eq!(failure.kind, TransportFailureKind::ServerUnavailable);
+    assert_eq!(transport.health().status, HealthStatus::Offline);
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    let _second_handle = start_server(address, state, certificate, private_key).await;
+    let retry_at = transport.health().next_retry_at.unwrap();
+    transport = tokio::task::spawn_blocking(move || {
+        let negotiated = transport.connect(UnixMillis(retry_at.0)).unwrap();
+        transport
+            .send(&frame(negotiated.protocol), UnixMillis(retry_at.0))
+            .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            assert!(
+                Instant::now() < deadline,
+                "reconnected sync response deadline elapsed"
+            );
+            match transport.receive(eitmad_control_plane::unix_millis_now()) {
+                Ok(ReceiveOutcome::NoFrame) => {}
+                Ok(ReceiveOutcome::Frame(reply)) => {
+                    assert!(matches!(
+                        reply.payload,
+                        SyncTransportPayload::Message(SyncMessage::Changes(_))
+                    ));
+                    break;
+                }
+                other => panic!("unexpected sync response after reconnect: {other:?}"),
+            }
+        }
+        transport
+    })
+    .await
+    .unwrap();
+    transport.disconnect(eitmad_control_plane::unix_millis_now());
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires a disposable PostgreSQL database and a generated trusted development certificate"]
+async fn real_server_authentication_tls_sync_and_reconnect() {
+    let database_url = env::var("EITMAD_DIRECT_TEST_DATABASE_URL")
+        .expect("set EITMAD_DIRECT_TEST_DATABASE_URL to an empty disposable PostgreSQL database");
+    let certificate = required_path("EITMAD_DIRECT_TEST_CERTIFICATE");
+    let private_key = required_path("EITMAD_DIRECT_TEST_PRIVATE_KEY");
+    let trusted_certificate = required_path("EITMAD_DIRECT_TEST_TRUSTED_CERTIFICATE");
+    let wrong_certificate = required_path("EITMAD_DIRECT_TEST_WRONG_CERTIFICATE");
+    let ProvisionedServer {
+        state,
+        address,
+        handle,
+        authentication,
+        device_id,
+        scope,
+    } = provision_server(&database_url, &certificate, &private_key).await;
+    let signing_seed = [11; 32];
+    let account_id = authentication.session.account_id;
     let endpoint = format!("https://localhost:{}/", address.port());
     let workspace = tempfile::tempdir().unwrap();
     let store =
@@ -279,62 +498,18 @@ async fn real_server_authentication_tls_sync_and_reconnect() {
     );
     store_session(&store, &invalid_id, invalid_authentication, signing_seed).unwrap();
     store_session(&store, &credential_id, authentication, signing_seed).unwrap();
-    let config = DirectServerConfig::new(
-        &endpoint,
-        scope.clone(),
-        schema_id(),
-        1,
-        &trusted_certificate,
-    )
-    .unwrap();
-    let wan_endpoint = config.wan_endpoint();
-    let auth = TransportAuthentication::AccountDevice {
+    assert_rejected_connections(RejectedConnectionInputs {
+        endpoint: &endpoint,
+        scope: &scope,
+        trusted_certificate: &trusted_certificate,
+        wrong_certificate: &wrong_certificate,
+        store: &store,
+        invalid_id: &invalid_id,
+        credential_id: &credential_id,
         account_id,
         device_id,
-        credential: invalid_id.clone(),
-    };
-    let bad_driver = DirectServerDriver::new(config, store.clone(), hello());
-    let mut bad_transport = WanAdapter::new(
-        wan_endpoint.clone(),
-        bad_driver,
-        hello(),
-        auth,
-        RetryPolicy::default(),
-    )
-    .unwrap();
-    let failure = tokio::task::spawn_blocking(move || {
-        bad_transport
-            .connect(eitmad_control_plane::unix_millis_now())
-            .unwrap_err()
     })
-    .await
-    .unwrap();
-    assert_eq!(failure.kind, TransportFailureKind::AuthenticationFailed);
-    let wrong_config =
-        DirectServerConfig::new(&endpoint, scope.clone(), schema_id(), 1, &wrong_certificate)
-            .unwrap();
-    let wrong_endpoint = wrong_config.wan_endpoint();
-    let wrong_driver = DirectServerDriver::new(wrong_config, store.clone(), hello());
-    let mut wrong_transport = WanAdapter::new(
-        wrong_endpoint,
-        wrong_driver,
-        hello(),
-        TransportAuthentication::AccountDevice {
-            account_id,
-            device_id,
-            credential: credential_id.clone(),
-        },
-        RetryPolicy::default(),
-    )
-    .unwrap();
-    let failure = tokio::task::spawn_blocking(move || {
-        wrong_transport
-            .connect(eitmad_control_plane::unix_millis_now())
-            .unwrap_err()
-    })
-    .await
-    .unwrap();
-    assert_eq!(failure.kind, TransportFailureKind::EncryptionRequired);
+    .await;
     expiring_authentication.tokens.access_expires_at =
         UnixMillis(eitmad_control_plane::unix_millis_now().0 - 1);
     store_session(
@@ -347,6 +522,7 @@ async fn real_server_authentication_tls_sync_and_reconnect() {
     let old_material = store.get(&credential_id).unwrap().unwrap();
     let config =
         DirectServerConfig::new(&endpoint, scope, schema_id(), 1, &trusted_certificate).unwrap();
+    let wan_endpoint = config.wan_endpoint();
     let driver = DirectServerDriver::new(config, store.clone(), hello());
     let mut transport = WanAdapter::new(
         wan_endpoint,
@@ -360,110 +536,23 @@ async fn real_server_authentication_tls_sync_and_reconnect() {
         RetryPolicy::default(),
     )
     .unwrap();
-    transport = tokio::task::spawn_blocking(move || {
-        let negotiated = transport
-            .connect(eitmad_control_plane::unix_millis_now())
-            .unwrap();
-        let request = frame(negotiated.protocol);
-        transport
-            .send(&request, eitmad_control_plane::unix_millis_now())
-            .unwrap();
-        let deadline = Instant::now() + Duration::from_secs(10);
-        let batch = loop {
-            assert!(Instant::now() < deadline, "sync response deadline elapsed");
-            match transport.receive(eitmad_control_plane::unix_millis_now()) {
-                Ok(ReceiveOutcome::NoFrame) => continue,
-                Ok(ReceiveOutcome::Frame(reply)) => {
-                    let SyncTransportPayload::Message(SyncMessage::Changes(batch)) = reply.payload
-                    else {
-                        panic!("expected a real change batch");
-                    };
-                    break batch;
-                }
-                other => panic!("unexpected sync response: {other:?}"),
-            }
-        };
-        let acknowledgement = BatchAcknowledgement {
-            delivery_id: batch.delivery_id,
-            checkpoint: batch.checkpoint,
-            accepted_records: u32::try_from(batch.records.len()).unwrap(),
-        };
-        let mut acknowledge_frame = frame(negotiated.protocol);
-        acknowledge_frame.payload =
-            SyncTransportPayload::Message(SyncMessage::Acknowledge(acknowledgement.clone()));
-        transport
-            .send(&acknowledge_frame, eitmad_control_plane::unix_millis_now())
-            .unwrap();
-        let deadline = Instant::now() + Duration::from_secs(10);
-        loop {
-            assert!(
-                Instant::now() < deadline,
-                "acknowledgement deadline elapsed"
-            );
-            match transport.receive(eitmad_control_plane::unix_millis_now()) {
-                Ok(ReceiveOutcome::NoFrame) => continue,
-                Ok(ReceiveOutcome::Frame(reply)) => {
-                    assert_eq!(
-                        reply.payload,
-                        SyncTransportPayload::Message(SyncMessage::Acknowledge(acknowledgement))
-                    );
-                    break;
-                }
-                other => panic!("unexpected acknowledgement response: {other:?}"),
-            }
-        }
-        cancel_then_pull(transport)
-    })
-    .await
-    .unwrap();
+    transport = tokio::task::spawn_blocking(move || sync_and_acknowledge(transport))
+        .await
+        .unwrap();
     assert_ne!(
         old_material.expose_secret(),
         store.get(&credential_id).unwrap().unwrap().expose_secret(),
         "refresh must replace the stored token pair"
     );
-    handle.graceful_shutdown(Some(Duration::from_secs(1)));
-    tokio::time::sleep(Duration::from_millis(100)).await;
-    let (mut transport, failure) = tokio::task::spawn_blocking(move || {
-        let failure = transport
-            .receive(eitmad_control_plane::unix_millis_now())
-            .unwrap_err();
-        (transport, failure)
-    })
-    .await
-    .unwrap();
-    assert_eq!(failure.kind, TransportFailureKind::ServerUnavailable);
-    assert_eq!(transport.health().status, HealthStatus::Offline);
-    tokio::time::sleep(Duration::from_millis(200)).await;
-    let _second_handle = start_server(address, state, &certificate, &private_key).await;
-    let retry_at = transport.health().next_retry_at.unwrap();
-    transport = tokio::task::spawn_blocking(move || {
-        let negotiated = transport.connect(UnixMillis(retry_at.0)).unwrap();
-        transport
-            .send(&frame(negotiated.protocol), UnixMillis(retry_at.0))
-            .unwrap();
-        let deadline = Instant::now() + Duration::from_secs(10);
-        loop {
-            assert!(
-                Instant::now() < deadline,
-                "reconnected sync response deadline elapsed"
-            );
-            match transport.receive(eitmad_control_plane::unix_millis_now()) {
-                Ok(ReceiveOutcome::NoFrame) => continue,
-                Ok(ReceiveOutcome::Frame(reply)) => {
-                    assert!(matches!(
-                        reply.payload,
-                        SyncTransportPayload::Message(SyncMessage::Changes(_))
-                    ));
-                    break;
-                }
-                other => panic!("unexpected sync response after reconnect: {other:?}"),
-            }
-        }
-        transport
-    })
-    .await
-    .unwrap();
-    transport.disconnect(eitmad_control_plane::unix_millis_now());
+    assert_reconnect_after_shutdown(
+        transport,
+        handle,
+        state,
+        address,
+        &certificate,
+        &private_key,
+    )
+    .await;
     store.delete(&credential_id).unwrap();
     store.delete(&invalid_id).unwrap();
 }

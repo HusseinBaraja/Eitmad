@@ -10,7 +10,7 @@ use eitmad_authorization::{
 };
 use eitmad_configuration::{ConfigurationError, ConfigurationService};
 use eitmad_contracts::{
-    commands::{Command, CommandResult},
+    commands::{Command, CommandResult, CreateCustomer, UpdateCustomer},
     errors::{ContractError, ErrorCode, ErrorDetail, MessageId, RetryDisposition},
     events::{Event, Subscription},
     queries::{Query, QueryResult},
@@ -112,6 +112,61 @@ impl ProductDispatcher {
             idempotency_key,
             occurred_at: now(),
         })
+    }
+
+    fn create_customer(
+        &self,
+        context: &DispatchContext,
+        mutation: &MutationContext,
+        command: &CreateCustomer,
+    ) -> Result<CommandResult, Box<ContractError>> {
+        require_protocol_1_9(context)?;
+        let result = self
+            .customers
+            .create(mutation, command)
+            .map_err(|error| Box::new(customer_error(error, context)))?;
+        self.publish_pending(context, mutation.idempotency_key)
+            .map_err(|()| Box::new(customer_error(CustomerError::Unavailable, context)))?;
+        Ok(CommandResult::CustomerCreated(result))
+    }
+
+    fn update_customer(
+        &self,
+        context: &DispatchContext,
+        mutation: &MutationContext,
+        command: &UpdateCustomer,
+    ) -> Result<CommandResult, Box<ContractError>> {
+        require_protocol_1_9(context)?;
+        let result = self
+            .customers
+            .update(mutation, command)
+            .map_err(|error| Box::new(customer_error(error, context)))?;
+        self.publish_pending(context, mutation.idempotency_key)
+            .map_err(|()| Box::new(customer_error(CustomerError::Unavailable, context)))?;
+        Ok(CommandResult::CustomerUpdated(result))
+    }
+
+    fn reject_unsupported_command(
+        &self,
+        context: &DispatchContext,
+        operation: &str,
+    ) -> Result<CommandResult, Box<ContractError>> {
+        self.authorization
+            .audit_access_result(
+                &AccessAuditContext {
+                    authorization: context.authorization.clone(),
+                    correlation_id: context.correlation_id,
+                    causation_id: context.causation_id,
+                    occurred_at: now(),
+                },
+                operation,
+                "command-scope",
+                AuditOutcome::Invalid,
+                Some("eitmad.error.contract-invalid.v1"),
+                Vec::new(),
+            )
+            .map_err(|error| Box::new(authorization_error(error, context)))?;
+        Err(Box::new(unsupported(context)))
     }
 
     fn publish_pending(
@@ -224,26 +279,12 @@ impl CommandDispatcher for ProductDispatcher {
                     })?;
                 Ok(CommandResult::ReferenceMarkerUpserted(outcome.marker))
             }
-            Command::CreateCustomer(command) => {
-                require_protocol_1_9(&context).map_err(|error| *error)?;
-                let result = self
-                    .customers
-                    .create(&mutation, &command)
-                    .map_err(|error| customer_error(error, &context))?;
-                self.publish_pending(&context, mutation.idempotency_key)
-                    .map_err(|()| customer_error(CustomerError::Unavailable, &context))?;
-                Ok(CommandResult::CustomerCreated(result))
-            }
-            Command::UpdateCustomer(command) => {
-                require_protocol_1_9(&context).map_err(|error| *error)?;
-                let result = self
-                    .customers
-                    .update(&mutation, &command)
-                    .map_err(|error| customer_error(error, &context))?;
-                self.publish_pending(&context, mutation.idempotency_key)
-                    .map_err(|()| customer_error(CustomerError::Unavailable, &context))?;
-                Ok(CommandResult::CustomerUpdated(result))
-            }
+            Command::CreateCustomer(command) => self
+                .create_customer(&context, &mutation, &command)
+                .map_err(|error| *error),
+            Command::UpdateCustomer(command) => self
+                .update_customer(&context, &mutation, &command)
+                .map_err(|error| *error),
             Command::CreateDesktopAccount(command) => {
                 require_protocol_1_8(&context).map_err(|error| *error)?;
                 let account = self
@@ -281,22 +322,8 @@ impl CommandDispatcher for ProductDispatcher {
                 Ok(CommandResult::DesktopAccountDeactivated(account))
             }
             Command::CancelOperation(_) | Command::ReportInstallerOutcome(_) => self
-                .authorization
-                .audit_access_result(
-                    &AccessAuditContext {
-                        authorization: context.authorization.clone(),
-                        correlation_id: context.correlation_id,
-                        causation_id: context.causation_id,
-                        occurred_at: now(),
-                    },
-                    operation,
-                    "command-scope",
-                    AuditOutcome::Invalid,
-                    Some("eitmad.error.contract-invalid.v1"),
-                    Vec::new(),
-                )
-                .map_err(|error| authorization_error(error, &context))
-                .and(Err(unsupported(&context))),
+                .reject_unsupported_command(&context, operation)
+                .map_err(|error| *error),
         }
     }
 }
@@ -392,19 +419,11 @@ impl QueryDispatcher for ProductDispatcher {
             Subscription::Customers(_) if context.protocol_version.minor >= 9 => {
                 CUSTOMER_READ_PERMISSION
             }
-            Subscription::Customers(_) => {
-                return Err(contract_error(
-                    "eitmad.error.ipc-subscription-unsupported.v1",
-                    "eitmad.message.ipc-subscription-unsupported.v1",
-                    context.correlation_id,
-                    RetryDisposition::Never,
-                    None,
-                ));
-            }
             Subscription::AuthorizationPolicy(_) if context.protocol_version.minor >= 2 => {
                 AUTHORIZATION_MANAGE_PERMISSION
             }
-            Subscription::AuthorizationPolicy(_)
+            Subscription::Customers(_)
+            | Subscription::AuthorizationPolicy(_)
             | Subscription::UpdateState(_)
             | Subscription::SyncStatus(_)
             | Subscription::RecordChanges(_)
