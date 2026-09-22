@@ -40,6 +40,7 @@ internal sealed class FakeEngine : IEngineShellBridge
     public long ConfigurationRevision { get; set; } = 1;
     public Func<Query, Task>? QueryBarrier { get; set; }
     public List<DesktopAccountSummary> DesktopAccounts { get; } = [];
+    public List<Customer> Customers { get; } = [];
     public Action<Subscription, FakeSubscription>? SubscribeHook { get; set; }
     public int QueryCount => Volatile.Read(ref queryCount);
     public int SubscriptionCount
@@ -73,6 +74,7 @@ internal sealed class FakeEngine : IEngineShellBridge
         ProtocolIds.Capabilities.EitmadCapabilityUpdateV1,
         ProtocolIds.Capabilities.EitmadCapabilityReferenceMarkerV1,
         ProtocolIds.Capabilities.EitmadCapabilityDesktopAccountManagementV1,
+        ProtocolIds.Capabilities.EitmadCapabilityCustomerV1,
     };
 
     public bool SupportsCapability(string capability) => SupportedCapabilities.Contains(capability);
@@ -213,6 +215,15 @@ internal sealed class FakeEngine : IEngineShellBridge
             {
                 Accounts = DesktopAccounts.ToArray(),
             }),
+            Query.CustomerGetKind => QueryResult.ForCustomer(Customers.Single(customer =>
+                customer.Id == query.AsCustomerGet()!.CustomerId)),
+            Query.CustomerSearchKind => QueryResult.ForCustomers(new CustomerPage
+            {
+                Items = Customers.Where(customer =>
+                    customer.Name.Contains(query.AsCustomerSearch()!.Term, StringComparison.OrdinalIgnoreCase)
+                    || customer.Phone.Contains(query.AsCustomerSearch()!.Term, StringComparison.Ordinal))
+                    .Take((int)query.AsCustomerSearch()!.Limit).ToArray(),
+            }),
             _ => throw new InvalidOperationException("Unexpected fake query."),
         };
         return new QueryResponseEnvelope
@@ -243,11 +254,12 @@ internal sealed class FakeEngine : IEngineShellBridge
         CancellationToken cancellationToken = default)
     {
         LastCommand = command;
-        return Task.FromResult(CommandHandler?.Invoke(command) ?? ApplyDesktopAccountCommand(command));
+        return Task.FromResult(CommandHandler?.Invoke(command) ?? ApplyCommand(command));
     }
 
-    private CommandResponseEnvelope ApplyDesktopAccountCommand(Command command)
+    private CommandResponseEnvelope ApplyCommand(Command command)
     {
+        Customer? changedCustomer = null;
         if (command.AsDesktopAccountCreate() is { } create)
         {
             DesktopAccounts.Add(new DesktopAccountSummary
@@ -278,6 +290,45 @@ internal sealed class FakeEngine : IEngineShellBridge
             account.Active = false;
             account.Revision++;
         }
+        else if (command.AsCustomerCreate() is { } createCustomer)
+        {
+            changedCustomer = new Customer
+            {
+                Id = Guid.NewGuid(),
+                Scope = new ScopeRef { Kind = "branch", Id = Guid.NewGuid() },
+                Name = createCustomer.Name,
+                Phone = createCustomer.Phone,
+                Address = createCustomer.Address,
+                Notes = createCustomer.Notes,
+                Status = CustomerStatus.Active,
+                Revision = 1,
+                SyncState = ErSyncState.Pending,
+                UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            };
+            Customers.Add(changedCustomer);
+        }
+        else if (command.AsCustomerUpdate() is { } updateCustomer)
+        {
+            var index = Customers.FindIndex(customer => customer.Id == updateCustomer.CustomerId);
+            if (index < 0) return FailedCustomer(ProtocolIds.ErrorCodes.EitmadErrorCustomerNotFoundV1);
+            var current = Customers[index];
+            if (current.Revision != updateCustomer.ExpectedRevision)
+                return FailedCustomer(ProtocolIds.ErrorCodes.EitmadErrorCustomerRevisionConflictV1);
+            changedCustomer = new Customer
+            {
+                Id = current.Id,
+                Scope = current.Scope,
+                Name = updateCustomer.Name,
+                Phone = updateCustomer.Phone,
+                Address = updateCustomer.Address,
+                Notes = updateCustomer.Notes,
+                Status = current.Status,
+                Revision = current.Revision + 1,
+                SyncState = ErSyncState.Pending,
+                UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            };
+            Customers[index] = changedCustomer;
+        }
         return new CommandResponseEnvelope
         {
             RequestId = Guid.NewGuid(),
@@ -285,10 +336,27 @@ internal sealed class FakeEngine : IEngineShellBridge
             Outcome = new CommandOutcome
             {
                 Status = CommandOutcomeStatus.Succeeded,
-                Payload = new CommandResult(),
+                Payload = changedCustomer is null
+                    ? new CommandResult()
+                    : new CommandResult
+                    {
+                        Kind = changedCustomer.Revision == 1 ? PurpleKind.CustomerCreated : PurpleKind.CustomerUpdated,
+                        Payload = new PayloadClass { Customer = changedCustomer, PotentialDuplicateIds = [] },
+                    },
             },
         };
     }
+
+    private static CommandResponseEnvelope FailedCustomer(string code) => new()
+    {
+        RequestId = Guid.NewGuid(),
+        CorrelationId = Guid.NewGuid(),
+        Outcome = new CommandOutcome
+        {
+            Status = CommandOutcomeStatus.Failed,
+            Payload = new CommandResult { Code = code },
+        },
+    };
 
     public Task<CommandResponseEnvelope> SubmitReferenceMarkerAsync(
         UpsertReferenceMarker marker,
@@ -314,7 +382,7 @@ internal sealed class FakeEngine : IEngineShellBridge
                             Kind = "organization",
                             Id = Guid.Parse("2ef36635-1d9d-4bd5-b0e4-fc4a67dfac90"),
                         },
-                        SyncState = ReferenceMarkerSyncState.Pending,
+                        SyncState = ErSyncState.Pending,
                         UpdatedAt = 1_800_000_000_001,
                     },
                 },

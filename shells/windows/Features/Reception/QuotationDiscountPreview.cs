@@ -69,7 +69,7 @@ public sealed partial class SalesCatalogViewModel
         if (!CheckRequiredFields()) return false;
         if (!CanSaveDraft) return false;
         PublishPreview?.Invoke(this, discountPending);
-        QuotationNotice = "معاينة المسودة فقط — الحفظ غير متاح بعد، ولم تُحفظ البيانات";
+        QuotationNotice = "معاينة المسودة فقط — الحفظ غير متاح بعد، ولم يُحفظ عرض السعر";
         return true;
     }
 

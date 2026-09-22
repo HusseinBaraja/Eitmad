@@ -5,6 +5,7 @@ use crate::{
     accounts::{DesktopAccountPage, ListDesktopAccounts},
     authorization::{RelationshipId, RelationshipPage},
     config::ConfigSnapshot,
+    customer::{Customer, CustomerPage, GetCustomer, SearchCustomers},
     permissions::EffectivePermissions,
     reference_marker::{ListReferenceMarkers, ReferenceMarkerPage},
     sync::SyncStatus,
@@ -77,6 +78,8 @@ tagged_contract! {
         UpdateState(GetUpdateState) => "eitmad.update.get-state.v1",
         SyncStatus(GetSyncStatus) => "eitmad.sync.get-status.v1",
         ReferenceMarkers(ListReferenceMarkers) => "eitmad.reference-marker.list.v1",
+        Customer(GetCustomer) => "eitmad.customer.get.v1",
+        Customers(SearchCustomers) => "eitmad.customer.search.v1",
         DesktopAccounts(ListDesktopAccounts) => "eitmad.desktop-account.list.v1"
     }
 }
@@ -90,6 +93,8 @@ pub enum QueryResult {
     UpdateState(UpdateState),
     SyncStatus(SyncStatus),
     ReferenceMarkers(ReferenceMarkerPage),
+    Customer(Customer),
+    Customers(CustomerPage),
     DesktopAccounts(DesktopAccountPage),
 }
 
