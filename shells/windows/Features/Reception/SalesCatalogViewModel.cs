@@ -25,10 +25,12 @@ public sealed partial class SalesCatalogViewModel : ObservableObject
     private string selectedCategory = "الكل";
     private string selectionNotice = string.Empty;
 
-    public SalesCatalogViewModel(FurnitureViewModel furniture, ProductsViewModel products)
+    public SalesCatalogViewModel(FurnitureViewModel furniture, ProductsViewModel products,
+        Features.Customers.CustomerClient? customerClient = null)
     {
         this.furniture = furniture;
         this.products = products;
+        if (customerClient is not null) AttachCustomerClient(customerClient);
         QuotationLines.CollectionChanged += (_, _) => RefreshQuotation();
         Reload();
     }

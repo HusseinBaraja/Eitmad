@@ -1776,6 +1776,16 @@
             }
           ]
         },
+        "customerAuthorization": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/AuthorizationContext"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "expiresAt": {
           "type": [
             "integer",

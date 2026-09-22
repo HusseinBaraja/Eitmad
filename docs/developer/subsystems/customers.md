@@ -20,7 +20,7 @@ keywords:
 
 The customer capability provides durable, branch-scoped contact create, update, get, bounded search, and change notification. Rust owns customer identity, validation, optimistic revisions, ReBAC checks, derived search forms, audit, SQLite state, idempotency replay, event publication, and local-first sync work.
 
-This slice implements contact create and edit only. It does not implement archive, restore, merge, extra branch association, quotation attachment, or a Windows customer adapter. Those operations remain controlled by the [accepted Manager and Receptionist workflow](manager-receptionist-workflows.md).
+This slice implements contact create and edit plus the Windows projection for customer selection and details. It does not implement archive, restore, merge, extra branch association, or durable quotation attachment. Those operations remain controlled by the [accepted Manager and Receptionist workflow](manager-receptionist-workflows.md).
 
 ## Ownership and authority
 
@@ -29,15 +29,16 @@ This slice implements contact create and edit only. It does not implement archiv
 | Customer orchestration, normalization, audit construction, and sync projection | `crates/customer` |
 | Typed values, commands, queries, subscription, event, errors, capability, and schema | `crates/contracts` |
 | Manager and Receptionist permission decision in an exact branch scope | `crates/authorization` |
-| Storage version 12 migration and atomic repository | `crates/storage/src/customer.rs` |
+| Storage version 12 customer migration, version 13 local branch binding, and atomic repository | `crates/storage/src/customer.rs` and `crates/storage/src/local_authority.rs` |
 | Command, query, subscription authorization, publication, and recovery | `crates/engine-runtime` |
 | Generated C# and Swift types | `shells/windows/generated` and `shells/macos/generated` |
+| Windows customer selection, detail, and unsaved editor input | `shells/windows/Features/Customers` and `shells/windows/Features/Reception` |
 
-Each customer has a stable UUID and one owning `branch` scope. `CreateCustomer` assigns the UUID in Rust and creates revision `1` with `Active` status. `UpdateCustomer` keeps that identity and status and requires the exact current revision. The current local installation handshake supplies an organization scope, so a future branch-selection session boundary must provide an engine-owned branch authorization context before a Windows surface can call these contracts.
+Each customer has a stable UUID and one owning `branch` scope. `CreateCustomer` assigns the UUID in Rust and creates revision `1` with `Active` status. `UpdateCustomer` keeps that identity and status and requires the exact current revision. A local installation currently has one durable engine-created branch. Rust binds active Manager and Receptionist accounts to that branch and issues a second, branch-scoped authorization with the signed-in session. The organization authorization remains in use for organization work. The Windows IPC adapter selects the branch authorization only for customer commands, queries, and subscriptions; WPF never chooses a branch ID. The engine rejects a different branch ID, expired session, inactive account, or missing branch relationship.
 
 ## Contracts and bounds
 
-Protocol `1.9` advertises optional capability `eitmad.capability.customer.v1` and schema `eitmad.schema.customer.v1` version `1`.
+Protocol `1.9` advertises optional capability `eitmad.capability.customer.v1` and schema `eitmad.schema.customer.v1` version `1`. `DesktopSessionState.customerAuthorization` carries the additional engine-issued branch context for customer work; it is absent when the account has no local branch relationship.
 
 | Interaction | Identifier | Result |
 | --- | --- | --- |
@@ -51,6 +52,14 @@ Protocol `1.9` advertises optional capability `eitmad.capability.customer.v1` an
 Name and one phone are required. Address and notes are optional. Contract values reject surrounding whitespace, unsafe control or bidirectional formatting characters, and values above their declared UTF-8 byte limits. Search pages accept `1..=100` items and use customer UUID order for a stable cursor. An empty term returns a bounded scoped page.
 
 `CustomerMutationResult.potentialDuplicateIds` is advisory. It lists at most ten same-scope records with the same normalized phone. It does not reject creation, establish phone uniqueness, choose a canonical record, or merge identities.
+
+## Windows projection
+
+The Receptionist quotation editor sends bounded name or phone searches through `CustomerClient`. A new keystroke cancels the previous request, and a monotonically increasing request version discards a response that completes after a newer search. WPF keeps only unsaved form text, the selected customer identity, and the current rendered result set. It does not keep a customer directory or persist contact data.
+
+Creating and editing use the generated `CreateCustomer` and `UpdateCustomer` contracts. The editor sends the Rust-returned revision with every update. `eitmad.error.customer-revision-conflict.v1` keeps the unsaved fields open and tells the user in Arabic that no change was saved; the shell does not retry with a newer revision or overwrite the concurrent record. Rust contract-validation fields map to the affected Arabic inputs. Authorization, missing-record, and unavailable failures have separate Arabic messages.
+
+`eitmad.customer.changed.subscribe.v1` refreshes an open customer detail by UUID and refreshes relevant search suggestions. The compact event contains no contact text. Order and quotation fixtures can open the existing detail view only after a scoped Rust lookup identifies one exact name and phone or a temporary quotation carries the selected customer UUID. This preserves the accepted navigation and appearance without adding a Customers destination.
 
 ## Arabic-name and phone search
 

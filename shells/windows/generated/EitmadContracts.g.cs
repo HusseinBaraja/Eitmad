@@ -2148,6 +2148,9 @@ namespace Eitmad.Contracts
         [JsonPropertyName("authorization")]
         public AuthorizationContext Authorization { get; set; }
 
+        [JsonPropertyName("customerAuthorization")]
+        public AuthorizationContext CustomerAuthorization { get; set; }
+
         [JsonPropertyName("expiresAt")]
         public long? ExpiresAt { get; set; }
     }
