@@ -1,9 +1,11 @@
 using System.Windows;
 using System.Windows.Controls;
+using Eitmad.Contracts;
 using Eitmad.WindowsShell.Features.Reception;
 using Eitmad.WindowsShell.Features.Quotations;
 using Eitmad.WindowsShell.Features.Orders;
 using Eitmad.WindowsShell.Features.WorkOrders;
+using Eitmad.WindowsShell.Tests.TestDoubles;
 
 namespace Eitmad.WindowsShell.Tests.Rendered;
 
@@ -15,6 +17,20 @@ public sealed class PreviewHandoffRenderedTests
     [DataRow(780)]
     public void ReceptionRequestReachesInboxAndDecisionsGateTheExactEditor(double width)
     {
+        var engine = new FakeEngine();
+        engine.Customers.Add(new Customer
+        {
+            Id = Guid.NewGuid(),
+            Scope = new ScopeRef { Kind = "branch", Id = Guid.NewGuid() },
+            Name = "عميل اختبار الموافقة",
+            Phone = "000000001",
+            Address = "عنوان تجريبي",
+            Notes = "ملاحظة داخلية",
+            Status = CustomerStatus.Active,
+            Revision = 1,
+            SyncState = ErSyncState.Pending,
+            UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+        });
         WpfTestHost.Run(width, 900, window =>
         {
             var reception = WpfTestHost.FindByName<ReceptionistHomeView>(window, "ReceptionistSurface");
@@ -40,7 +56,9 @@ public sealed class PreviewHandoffRenderedTests
             WpfTestHost.FindByAutomationName<Button>(receptionQuotes, "فتح تفاصيل عميل عرض السعر").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
             var customerDetail = WpfTestHost.FindByName<Features.Customers.CustomerDetailView>(reception, "CustomerDetail");
-            Assert.AreEqual(editor.CustomerName, ((Features.Customers.CustomerPreview)customerDetail.DataContext).Name);
+            var customer = (Features.Customers.CustomerPreview)customerDetail.DataContext;
+            Assert.AreEqual(engine.Customers[0].Id, customer.Id);
+            Assert.AreEqual(editor.CustomerName, customer.Name);
             WpfTestHost.FindByName<Button>(customerDetail, "BackButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             reception.Visibility = Visibility.Collapsed;
             WpfTestHost.FindByName<Grid>(window, "ResponsiveRoot").Visibility = Visibility.Visible;
@@ -112,7 +130,7 @@ public sealed class PreviewHandoffRenderedTests
             Assert.IsFalse(editor.IsDiscountPending);
             Assert.AreEqual(1, reception.Handoffs.Quotations.Count(item => item.Id == editor.PreviewId));
             StringAssert.Contains(reception.Handoffs.Quotations.Single(item => item.Id == editor.PreviewId).ReceptionActivity, "عُدّل");
-        });
+        }, engine: engine);
     }
 
     [TestMethod]

@@ -5,6 +5,7 @@ use crate::{
     authorization::AuthorizationPolicyChangeNotice,
     background_jobs::BackgroundJobStatus,
     config::ConfigSnapshot,
+    customer::CustomerChangeNotice,
     errors::ContractError,
     identity::ScopeRef,
     notifications::Notification,
@@ -44,6 +45,9 @@ pub struct Errors {}
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct ReferenceMarkerChanges {}
 
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct CustomerChanges {}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ScopedError {
@@ -63,7 +67,8 @@ tagged_contract! {
         BackgroundJobs(BackgroundJobChanges) => "eitmad.background-job.status.subscribe.v1",
         Notifications(Notifications) => "eitmad.notification.subscribe.v1",
         Errors(Errors) => "eitmad.error.subscribe.v1",
-        ReferenceMarkers(ReferenceMarkerChanges) => "eitmad.reference-marker.changed.subscribe.v1"
+        ReferenceMarkers(ReferenceMarkerChanges) => "eitmad.reference-marker.changed.subscribe.v1",
+        Customers(CustomerChanges) => "eitmad.customer.changed.subscribe.v1"
     }
 }
 
@@ -79,7 +84,8 @@ tagged_contract! {
         BackgroundJobChanged(BackgroundJobStatus) => "eitmad.background-job.status.event.v1",
         NotificationRaised(Notification) => "eitmad.notification.event.v1",
         ErrorRaised(ScopedError) => "eitmad.error.event.v1",
-        ReferenceMarkerChanged(ReferenceMarkerChangeNotice) => "eitmad.reference-marker.changed.event.v1"
+        ReferenceMarkerChanged(ReferenceMarkerChangeNotice) => "eitmad.reference-marker.changed.event.v1",
+        CustomerChanged(CustomerChangeNotice) => "eitmad.customer.changed.event.v1"
     }
 }
 
@@ -111,6 +117,7 @@ impl Event {
             Self::NotificationRaised(_) => "eitmad.notification.subscribe.v1",
             Self::ErrorRaised(_) => "eitmad.error.subscribe.v1",
             Self::ReferenceMarkerChanged(_) => "eitmad.reference-marker.changed.subscribe.v1",
+            Self::CustomerChanged(_) => "eitmad.customer.changed.subscribe.v1",
         }
     }
 }

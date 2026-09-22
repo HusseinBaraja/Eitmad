@@ -10,7 +10,7 @@ use crate::{
     versioning::ProtocolVersion,
 };
 
-pub const PROTOCOL_VERSION: ProtocolVersion = ProtocolVersion { major: 1, minor: 8 };
+pub const PROTOCOL_VERSION: ProtocolVersion = ProtocolVersion { major: 1, minor: 9 };
 pub const MAX_PAGE_SIZE: u32 = 500;
 
 uuid_id!(RequestId);

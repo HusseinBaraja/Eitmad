@@ -12,6 +12,7 @@ namespace Eitmad.WindowsShell;
 public partial class MainWindow : Window
 {
     private readonly IDesktopSessionController? sessions;
+    private readonly Features.Customers.CustomerClient? customerClient;
     private bool sessionActive;
     private bool switchingAccount;
 
@@ -31,12 +32,18 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         this.sessions = sessions;
-        if (engine is not null) UsersSurface.Attach(engine);
+        if (engine is not null)
+        {
+            UsersSurface.Attach(engine);
+            customerClient = new Features.Customers.CustomerClient(engine);
+            ReceptionistSurface.AttachCustomerClient(customerClient);
+        }
         if (sessions is not null) SignInSurface.AuthenticateAsync = sessions.SignInAsync;
         if (sessions is not null) sessions.SessionEnded += SessionEnded;
         Closed += (_, _) =>
         {
             if (this.sessions is not null) this.sessions.SessionEnded -= SessionEnded;
+            if (customerClient is not null) _ = customerClient.DisposeAsync();
         };
         ReceptionistSurface.SetCatalogSources(FurnitureSurface.ViewModel, ProductsSurface.ViewModel);
         QuotationsSurface.ViewModel.UsePreviewQuotations(ReceptionistSurface.Handoffs.Quotations);
@@ -69,11 +76,12 @@ public partial class MainWindow : Window
     }
 
     /// <summary>Shows the shell surface allowed by Rust-returned effective permissions.</summary>
-    private void SessionSignedIn(object sender, AuthenticatedSurface surface)
+    private async void SessionSignedIn(object sender, AuthenticatedSurface surface)
     {
         SignInSurface.Visibility = Visibility.Collapsed;
         sessionActive = true;
         ShowAccount(surface);
+        if (surface == AuthenticatedSurface.Receptionist) await ReceptionistSurface.ActivateCustomersAsync();
     }
 
     /// <summary>Allows sign-out and account switching only during an active user session.</summary>
@@ -116,6 +124,7 @@ public partial class MainWindow : Window
         HideAccountSurfaces();
         try
         {
+            await ReceptionistSurface.DeactivateCustomersAsync();
             await sessions.SignOutAsync();
             ShowSignIn();
         }
@@ -148,7 +157,11 @@ public partial class MainWindow : Window
     }
 
     private void SessionEnded(object? sender, SessionEndedEventArgs eventArgs) =>
-        Dispatcher.Invoke(() => ShowSignIn(eventArgs.Reason));
+        Dispatcher.Invoke(() =>
+        {
+            _ = ReceptionistSurface.DeactivateCustomersAsync();
+            ShowSignIn(eventArgs.Reason);
+        });
 
     private void ShowSignIn(SessionEndReason? reason = null)
     {

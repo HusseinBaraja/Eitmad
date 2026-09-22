@@ -7,7 +7,8 @@ namespace Eitmad.WindowsShell.Features.Reception;
 
 public partial class ReceptionistHomeView : UserControl
 {
-    private readonly Features.Customers.CustomerPreviewDirectory customers = new();
+    private Features.Customers.CustomerClient? customerClient;
+    private CancellationTokenSource? customerLoadCancellation;
     private string customerReturnDestination = "الطلبات";
     private IInputElement? customerReturnFocus;
     public ReceptionHandoffPreview Handoffs { get; private set; } = null!;
@@ -17,28 +18,42 @@ public partial class ReceptionistHomeView : UserControl
     {
         InitializeComponent();
         ((Button)ReceptionistSidebar.FindName("OrdersNavButton")).Visibility = Visibility.Visible;
-        ReceptionQuotations.CustomerRequested += id => OpenCustomer(customers.ForQuotation(id), "عروض الأسعار");
+        ReceptionQuotations.CustomerRequested += id => _ = OpenQuotationCustomerAsync(id);
     }
 
     public event EventHandler? AccountSwitchRequested;
 
+    public void AttachCustomerClient(Features.Customers.CustomerClient client)
+    {
+        if (ReferenceEquals(customerClient, client)) return;
+        if (customerClient is not null) customerClient.Changed -= CustomerChanged;
+        customerClient = client;
+        customerClient.Changed += CustomerChanged;
+        CustomerDetail.Attach(client);
+    }
+
+    public Task ActivateCustomersAsync(CancellationToken cancellationToken = default) =>
+        customerClient?.ActivateAsync(cancellationToken) ?? Task.CompletedTask;
+
+    public Task DeactivateCustomersAsync() => customerClient?.DeactivateAsync() ?? Task.CompletedTask;
+
     public void SetCatalogSources(Features.Furniture.FurnitureViewModel furniture, Features.Products.ProductsViewModel products)
     {
-        var catalog = new SalesCatalogViewModel(furniture, products);
+        var catalog = new SalesCatalogViewModel(furniture, products, customerClient);
         CatalogContent.DataContext = catalog;
         ((Button)ReceptionistSidebar.FindName("QuotationsNavButton")).Visibility = Visibility.Visible;
-        ReceptionQuotations.ConfigureReceptionist(quotation => Handoffs.Attach(QuotationPreviewProjection.Create(quotation, furniture, products)));
-        Handoffs = new(ReceptionQuotations.ViewModel.PreviewQuotations);
-        Handoffs.Quotations.CollectionChanged += (_, e) =>
+        ReceptionQuotations.ConfigureReceptionist(quotation =>
         {
-            if (e.NewItems is not null)
-                foreach (Features.Quotations.QuotationListItem quotation in e.NewItems) customers.IncludeQuotation(quotation);
-        };
+            var editor = QuotationPreviewProjection.Create(quotation, furniture, products);
+            if (customerClient is not null) editor.AttachCustomerClient(customerClient);
+            return Handoffs.Attach(editor);
+        });
+        Handoffs = new(ReceptionQuotations.ViewModel.PreviewQuotations);
         ReceptionQuotations.ViewModel.UsePreviewQuotations(Handoffs.Quotations);
         Handoffs.Attach(catalog);
         PreviewOrders = new Features.Orders.OrdersView();
         PreviewOrders.ConfigureReceptionist();
-        PreviewOrders.CustomerRequested += id => OpenCustomer(customers.ForOrder(id), "الطلبات");
+        PreviewOrders.CustomerRequested += id => _ = OpenOrderCustomerAsync(id);
         ReceptionOrders.Content = PreviewOrders;
         ReadyOrdersList.ItemsSource = PreviewOrders.ViewModel.NewReadyOrders;
         ReadyCountLabel.SetBinding(System.Windows.Controls.TextBlock.TextProperty,
@@ -96,8 +111,44 @@ public partial class ReceptionistHomeView : UserControl
         ReceptionistSidebar.SelectDestination(destination);
     }
 
-    private void OpenCustomer(Features.Customers.CustomerPreview customer, string returnDestination)
+    private async Task OpenQuotationCustomerAsync(Guid id)
     {
+        var quotation = ReceptionQuotations.ViewModel.PreviewQuotations.FirstOrDefault(item => item.Id == id);
+        if (quotation is null) return;
+        await OpenCustomerAsync(quotation.CustomerId, quotation.Customer, quotation.Phone, "عروض الأسعار");
+    }
+
+    private async Task OpenOrderCustomerAsync(Guid id)
+    {
+        var order = PreviewOrders.ViewModel.PreviewOrders.FirstOrDefault(item => item.Id == id);
+        if (order is null) return;
+        await OpenCustomerAsync(order.CustomerId, order.Customer, order.Phone, "الطلبات");
+    }
+
+    private async Task OpenCustomerAsync(Guid? customerId, string name, string phone, string returnDestination)
+    {
+        if (customerClient is null)
+        {
+            ShowNotice("تعذر الاتصال ببيانات العملاء. حاول مرة أخرى.");
+            return;
+        }
+        customerLoadCancellation?.Cancel();
+        customerLoadCancellation?.Dispose();
+        customerLoadCancellation = new CancellationTokenSource();
+        var cancellationToken = customerLoadCancellation.Token;
+        var result = customerId is { } id
+            ? await customerClient.GetAsync(id, cancellationToken)
+            : await FindExactCustomerAsync(name, phone, cancellationToken);
+        if (cancellationToken.IsCancellationRequested) return;
+        if (!result.Succeeded)
+        {
+            ShowNotice(result.Failure == Features.Customers.CustomerFailureKind.NotFound
+                ? "لم يُحفظ هذا العميل بعد. اختره أو أنشئه من عرض السعر أولاً."
+                : Features.Customers.CustomerClient.ArabicMessage(result.Failure));
+            return;
+        }
+        var customer = Features.Customers.CustomerHistoryProjection.Create(result.Value!,
+            ReceptionQuotations.ViewModel.PreviewQuotations, PreviewOrders.ViewModel.PreviewOrders);
         customerReturnDestination = returnDestination;
         customerReturnFocus = System.Windows.Input.Keyboard.FocusedElement;
         ReceptionOrders.Visibility = Visibility.Collapsed;
@@ -105,7 +156,36 @@ public partial class ReceptionistHomeView : UserControl
         CustomerDetail.DataContext = customer;
         CustomerDetail.Visibility = Visibility.Visible;
         ReceptionistTitleBar.Title = "تفاصيل العميل";
-        Dispatcher.BeginInvoke(CustomerDetail.BackButton.Focus, System.Windows.Threading.DispatcherPriority.Input);
+        await Dispatcher.BeginInvoke(CustomerDetail.BackButton.Focus, System.Windows.Threading.DispatcherPriority.Input);
+    }
+
+    private async Task<Features.Customers.CustomerResult<Eitmad.Contracts.Customer>> FindExactCustomerAsync(
+        string name, string phone, CancellationToken cancellationToken)
+    {
+        var result = await customerClient!.SearchAsync(phone.Length > 0 ? phone : name, cancellationToken);
+        if (!result.Succeeded)
+            return Features.Customers.CustomerResult<Eitmad.Contracts.Customer>.Failed(result.Failure, result.InvalidFields);
+        var match = result.Value!.FirstOrDefault(customer =>
+            string.Equals(customer.Name, name, StringComparison.Ordinal)
+            && string.Equals(customer.Phone, phone, StringComparison.Ordinal));
+        return match is null
+            ? Features.Customers.CustomerResult<Eitmad.Contracts.Customer>.Failed(Features.Customers.CustomerFailureKind.NotFound)
+            : Features.Customers.CustomerResult<Eitmad.Contracts.Customer>.Success(match);
+    }
+
+    private void CustomerChanged(object? sender, Guid? customerId)
+    {
+        if (CustomerDetail.DataContext is not Features.Customers.CustomerPreview current
+            || customerId is not null && customerId != current.Id) return;
+        _ = RefreshOpenCustomerAsync(current.Id);
+    }
+
+    private async Task RefreshOpenCustomerAsync(Guid customerId)
+    {
+        if (customerClient is null) return;
+        var result = await customerClient.GetAsync(customerId);
+        if (result.Succeeded && CustomerDetail.DataContext is Features.Customers.CustomerPreview current
+            && current.Id == customerId) current.Observe(result.Value!);
     }
 
     private void CustomerBackRequested(object? sender, EventArgs e)
