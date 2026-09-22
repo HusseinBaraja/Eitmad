@@ -1,16 +1,13 @@
 using System.Windows;
-using Eitmad.Contracts;
+using Eitmad.WindowsShell.Features.Reception;
 using UserControl = System.Windows.Controls.UserControl;
 
 namespace Eitmad.WindowsShell.Features.Customers;
 
-/// <summary>Stages unsaved input and submits it through the typed Rust customer command.</summary>
+/// <summary>Reuses the shared modal for a temporary contact draft. Cancel never changes the contact.</summary>
 public partial class CustomerEditorView : UserControl
 {
-    private Customer? customer;
-    private CustomerClient? client;
-    private Action<Customer>? observe;
-    private CancellationTokenSource? saveCancellation;
+    private Action<PreviewCustomer>? apply;
     public CustomerEditorView() => InitializeComponent();
 
     private void NameChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
@@ -18,76 +15,36 @@ public partial class CustomerEditorView : UserControl
         if (!string.IsNullOrWhiteSpace(NameInput.Text)) NameField.ErrorText = "";
     }
 
-    public void Open(Customer current, CustomerClient customerClient, Action<Customer> observeCustomer)
+    public void Open(PreviewCustomer? contact, Action<PreviewCustomer> applyPreview)
     {
-        customer = current;
-        client = customerClient;
-        observe = observeCustomer;
-        Dialog.Title = "تعديل بيانات العميل";
-        NameInput.Text = current.Name;
-        PhoneInput.Text = current.Phone;
-        AddressInput.Text = current.Address ?? "";
-        NotesInput.Text = current.Notes ?? "";
+        apply = applyPreview;
+        Dialog.Title = contact is null ? "عميل جديد" : "تعديل بيانات العميل";
+        NameInput.Text = contact?.Name ?? "";
+        PhoneInput.Text = contact?.Phone ?? "";
+        AddressInput.Text = contact?.Address ?? "";
+        NotesInput.Text = contact?.Notes ?? "";
         NameField.ErrorText = "";
-        PhoneField.ErrorText = "";
-        EditorError.Text = "";
-        ApplyButton.IsEnabled = true;
         Dialog.IsOpen = true;
     }
 
     private void CancelClick(object sender, RoutedEventArgs e)
     {
-        saveCancellation?.Cancel();
         Dialog.IsOpen = false;
-        ClearTarget();
+        apply = null;
     }
 
-    private async void ApplyClick(object sender, RoutedEventArgs e)
+    private void ApplyClick(object sender, RoutedEventArgs e)
     {
-        if (customer is null || client is null) return;
-        saveCancellation?.Cancel();
-        saveCancellation?.Dispose();
-        saveCancellation = new CancellationTokenSource();
-        var cancellation = saveCancellation;
-        ApplyButton.IsEnabled = false;
-        EditorError.Text = "";
-        NameField.ErrorText = "";
-        PhoneField.ErrorText = "";
-        CustomerResult<Customer> result;
-        try
+        // Only a preview input guard. Rust will own production validation.
+        if (string.IsNullOrWhiteSpace(NameInput.Text))
         {
-            result = await client.UpdateAsync(customer, NameInput.Text, PhoneInput.Text,
-                AddressInput.Text, NotesInput.Text, cancellation.Token);
-        }
-        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
-        {
+            NameField.ErrorText = "أدخل اسم العميل للمعاينة.";
+            NameInput.Focus();
             return;
         }
-        ApplyButton.IsEnabled = true;
-        if (result.Succeeded)
-        {
-            observe?.Invoke(result.Value!);
-            Dialog.IsOpen = false;
-            ClearTarget();
-            return;
-        }
-        EditorError.Text = CustomerClient.ArabicMessage(result.Failure);
-        if (result.Failure == CustomerFailureKind.Validation)
-        {
-            if (result.InvalidFields.Count == 0 || result.InvalidFields.Contains("name"))
-                NameField.ErrorText = "تحقق من اسم العميل.";
-            if (result.InvalidFields.Count == 0 || result.InvalidFields.Contains("phone"))
-                PhoneField.ErrorText = "تحقق من رقم الهاتف.";
-        }
-        (NameField.ErrorText.Length > 0 ? NameInput : PhoneInput).Focus();
-    }
-
-    private void ClearTarget()
-    {
-        customer = null;
-        client = null;
-        observe = null;
-        saveCancellation?.Dispose();
-        saveCancellation = null;
+        var callback = apply;
+        Dialog.IsOpen = false;
+        apply = null;
+        callback?.Invoke(new(NameInput.Text, PhoneInput.Text, AddressInput.Text, NotesInput.Text));
     }
 }

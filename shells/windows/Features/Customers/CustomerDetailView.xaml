@@ -19,7 +19,7 @@
  </UserControl.Resources>
  <Grid>
   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-  <controls:PageHeader Title="تفاصيل العميل" Subtitle="بيانات الاتصال محفوظة في محرك الاعتماد">
+  <controls:PageHeader Title="تفاصيل العميل" Subtitle="بيانات تجريبية للمعاينة فقط">
    <Button x:Name="BackButton" Content="العودة" Style="{StaticResource InlineActionButton}" Click="BackClick" AutomationProperties.Name="العودة من تفاصيل العميل"/>
   </controls:PageHeader>
   <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">

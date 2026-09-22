@@ -122,12 +122,6 @@ impl DesktopAuthenticator {
                     id: ScopeId::new(account.tenant_id.value()),
                 },
             }),
-            customer_authorization: self.customer_authorization(
-                account.tenant_id,
-                account.user_id,
-                session_id,
-                device_id,
-            )?,
             account_role: account.role.into(),
             expires_at: Some(expires_at),
         })
@@ -162,21 +156,8 @@ impl DesktopAuthenticator {
             || session.user_id.value() != authorization.identity.principal_id.value()
             || session.tenant_id != authorization.tenant_id
             || authorization.workspace_id.is_some()
-            || !matches!(authorization.scope.kind.as_str(), "organization" | "branch")
-        {
-            return Ok(false);
-        }
-        if authorization.scope.kind.as_str() == "organization"
-            && authorization.scope.id.value() != authorization.tenant_id.value()
-        {
-            return Ok(false);
-        }
-        if authorization.scope.kind.as_str() == "branch"
-            && self
-                .store
-                .desktop_customer_branch(session.tenant_id, session.user_id)
-                .map_err(|_| DesktopAuthenticationError::Unavailable)?
-                != Some(authorization.scope.clone())
+            || authorization.scope.kind.as_str() != "organization"
+            || authorization.scope.id.value() != authorization.tenant_id.value()
         {
             return Ok(false);
         }
@@ -214,40 +195,9 @@ impl DesktopAuthenticator {
             .ok_or(DesktopAuthenticationError::Failed)?;
         Ok(DesktopSessionState {
             authorization: Some(authorization.clone()),
-            customer_authorization: self.customer_authorization(
-                session.tenant_id,
-                session.user_id,
-                session.session_id,
-                session.device_id,
-            )?,
             account_role,
             expires_at: Some(session.expires_at),
         })
-    }
-
-    fn customer_authorization(
-        &self,
-        tenant_id: eitmad_contracts::identity::TenantId,
-        user_id: UserId,
-        session_id: SessionId,
-        device_id: eitmad_contracts::identity::DeviceId,
-    ) -> Result<Option<AuthorizationContext>, DesktopAuthenticationError> {
-        Ok(self
-            .store
-            .desktop_customer_branch(tenant_id, user_id)
-            .map_err(|_| DesktopAuthenticationError::Unavailable)?
-            .map(|scope| AuthorizationContext {
-                session_id,
-                identity: AuthenticatedIdentity {
-                    principal_id: PrincipalId::new(user_id.value()),
-                    principal_kind: PrincipalKind::User,
-                    device_id: Some(device_id),
-                    service_id: None,
-                },
-                tenant_id,
-                workspace_id: None,
-                scope,
-            }))
     }
 
     /// Closes an authenticated desktop session.
@@ -279,16 +229,9 @@ fn is_seeded_development_account(account: &eitmad_storage::DesktopAccount) -> bo
 #[cfg(test)]
 mod tests {
     use argon2::{PasswordHasher as _, password_hash::SaltString};
-    use eitmad_authorization::{AuthorizationService, MutationContext};
-    use eitmad_contracts::commands::{CreateCustomer, UpdateCustomer};
-    use eitmad_contracts::customer::{
-        CustomerName, CustomerPhone, CustomerSearchTerm, SearchCustomers,
-    };
     use eitmad_contracts::identity::{
         AccountId, AuthenticatedIdentity, DeviceId, PrincipalKind, UserId,
     };
-    use eitmad_contracts::transport::IdempotencyKey;
-    use eitmad_customer::{CustomerError, CustomerService};
     use eitmad_storage::{DesktopAccount, DesktopRole};
     use tempfile::tempdir;
 
@@ -482,108 +425,5 @@ mod tests {
             Ok(false)
         );
         assert_session_audits(&store, &manager, &receptionist);
-    }
-
-    #[test]
-    fn signed_in_receptionist_creates_then_finds_and_safely_edits_after_restart() {
-        let (directory, store, owner, process, _manager, receptionist) = account_fixture();
-        store
-            .provision_desktop_account(&owner, &receptionist, "استقبال", UnixMillis(100))
-            .unwrap();
-        let session = DesktopAuthenticator::new(store.clone())
-            .sign_in(
-                &process,
-                "استقبال",
-                "correct horse battery",
-                correlation(50),
-                UnixMillis(101),
-            )
-            .unwrap();
-        let branch = session.customer_authorization.unwrap();
-        assert_eq!(branch.scope.kind.as_str(), "branch");
-        assert_eq!(
-            DesktopAuthenticator::new(store.clone()).active(&branch, UnixMillis(102)),
-            Ok(true)
-        );
-        let mut unrelated_branch = branch.clone();
-        unrelated_branch.scope.id = ScopeId::new(Uuid::new_v4());
-        assert_eq!(
-            DesktopAuthenticator::new(store.clone()).active(&unrelated_branch, UnixMillis(102)),
-            Ok(false)
-        );
-        let service = CustomerService::new(store.clone(), AuthorizationService::new(store.clone()));
-        let created = service
-            .create(
-                &MutationContext {
-                    authorization: branch.clone(),
-                    correlation_id: correlation(51),
-                    causation_id: None,
-                    idempotency_key: IdempotencyKey::new(Uuid::new_v4()),
-                    occurred_at: UnixMillis(102),
-                },
-                &CreateCustomer {
-                    name: CustomerName::parse("عميل تجريبي").unwrap(),
-                    phone: CustomerPhone::parse("+967777123456").unwrap(),
-                    address: None,
-                    notes: None,
-                },
-            )
-            .unwrap()
-            .customer;
-        drop(service);
-        drop(store);
-
-        let reopened = AuthorityStore::open(directory.path()).unwrap();
-        let auth = DesktopAuthenticator::new(reopened.clone());
-        assert_eq!(auth.active(&branch, UnixMillis(103)), Ok(true));
-        let service = CustomerService::new(reopened.clone(), AuthorizationService::new(reopened));
-        let found = service
-            .search(
-                &branch,
-                &SearchCustomers::new(CustomerSearchTerm::parse("عميل").unwrap(), None, 20)
-                    .unwrap(),
-            )
-            .unwrap();
-        assert_eq!(found.items.len(), 1);
-        assert_eq!(found.items[0].id, created.id);
-        let updated = service
-            .update(
-                &MutationContext {
-                    authorization: branch.clone(),
-                    correlation_id: correlation(52),
-                    causation_id: None,
-                    idempotency_key: IdempotencyKey::new(Uuid::new_v4()),
-                    occurred_at: UnixMillis(104),
-                },
-                &UpdateCustomer {
-                    customer_id: created.id,
-                    expected_revision: created.revision,
-                    name: CustomerName::parse("عميل تجريبي محدث").unwrap(),
-                    phone: created.phone.clone(),
-                    address: None,
-                    notes: None,
-                },
-            )
-            .unwrap()
-            .customer;
-        assert_eq!(updated.revision, 2);
-        let stale = service.update(
-            &MutationContext {
-                authorization: branch,
-                correlation_id: correlation(53),
-                causation_id: None,
-                idempotency_key: IdempotencyKey::new(Uuid::new_v4()),
-                occurred_at: UnixMillis(105),
-            },
-            &UpdateCustomer {
-                customer_id: created.id,
-                expected_revision: created.revision,
-                name: CustomerName::parse("تعديل قديم").unwrap(),
-                phone: created.phone,
-                address: None,
-                notes: None,
-            },
-        );
-        assert!(matches!(stale, Err(CustomerError::RevisionConflict { .. })));
     }
 }

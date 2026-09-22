@@ -27,9 +27,9 @@ public partial class CurrentQuotationView : UserControl
     private void RemoveClick(object sender, RoutedEventArgs e) { Model.QuotationLines.Remove((PreviewQuotationLine)((Button)sender).DataContext); ContinueButton.Focus(); }
     private void NewCustomerClick(object sender, RoutedEventArgs e) { if (!Model.IsNewCustomer) Model.BeginNewCustomer(); CustomerNameInput.Focus(); }
     private void AttachCustomerClick(object sender, RoutedEventArgs e) => Model.AttachCustomer((PreviewCustomer)((Button)sender).DataContext);
-    private async void SaveCustomerClick(object sender, RoutedEventArgs e)
+    private void SaveCustomerClick(object sender, RoutedEventArgs e)
     {
-        if (await Model.SaveNewCustomerAsync()) CustomerNameInput.Focus();
+        if (Model.SaveNewCustomer()) CustomerNameInput.Focus();
         else (Model.CustomerNameError.Length > 0 ? CustomerNameInput : PhoneInput).Focus();
     }
     private void CancelCustomerClick(object sender, RoutedEventArgs e) { Model.CancelNewCustomer(); CustomerNameInput.Focus(); }

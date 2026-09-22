@@ -1200,7 +1200,7 @@ fn validate_request(
     } else {
         Some(&session.authorization)
     };
-    if !authorization_matches(expected, authorization) || session.negotiated.protocol != protocol {
+    if expected != Some(authorization) || session.negotiated.protocol != protocol {
         return Some(session_invalid(correlation_id));
     }
     if desktop_auth.is_some_and(|auth| auth.active(authorization, now()) != Ok(true)) {
@@ -1224,15 +1224,12 @@ fn validate_subscription(
         && session.negotiated.capabilities.iter().any(|capability| {
             capability.as_str() == "eitmad.capability.authorization-policy-events.v1"
         });
-    if !authorization_matches(
-        Some(
-            session
-                .user_authorization
-                .as_ref()
-                .unwrap_or(&session.authorization),
-        ),
-        &request.authorization,
-    ) || session.negotiated.protocol != request.protocol_version
+    if session
+        .user_authorization
+        .as_ref()
+        .unwrap_or(&session.authorization)
+        != &request.authorization
+        || session.negotiated.protocol != request.protocol_version
     {
         Some(session_invalid(request.correlation_id))
     } else if !capability_negotiated
@@ -1243,21 +1240,6 @@ fn validate_subscription(
     } else {
         None
     }
-}
-
-fn authorization_matches(
-    expected: Option<&AuthorizationContext>,
-    actual: &AuthorizationContext,
-) -> bool {
-    expected.is_some_and(|expected| {
-        expected == actual
-            || (expected.scope.kind.as_str() == "organization"
-                && actual.scope.kind.as_str() == "branch"
-                && expected.session_id == actual.session_id
-                && expected.identity == actual.identity
-                && expected.tenant_id == actual.tenant_id
-                && expected.workspace_id == actual.workspace_id)
-    })
 }
 
 fn duration_until(deadline: UnixMillis) -> Duration {
@@ -1315,8 +1297,6 @@ fn default_engine_hello() -> PeerHello {
                 "eitmad.capability.reference-marker.v1",
             )
             .expect("static capability is valid"),
-            eitmad_contracts::transport::CapabilityId::parse("eitmad.capability.customer.v1")
-                .expect("static capability is valid"),
             eitmad_contracts::transport::CapabilityId::parse(
                 "eitmad.capability.desktop-account-management.v1",
             )
@@ -1328,22 +1308,13 @@ fn default_engine_hello() -> PeerHello {
             )
             .expect("static capability is valid"),
         ],
-        schemas: vec![
-            SchemaSupport {
-                schema_id: SchemaId::parse("eitmad.schema.reference-marker.v1")
-                    .expect("static schema ID is valid"),
-                minimum_version: 1,
-                maximum_version: 1,
-                required: false,
-            },
-            SchemaSupport {
-                schema_id: SchemaId::parse("eitmad.schema.customer.v1")
-                    .expect("static schema ID is valid"),
-                minimum_version: 1,
-                maximum_version: 1,
-                required: false,
-            },
-        ],
+        schemas: vec![SchemaSupport {
+            schema_id: SchemaId::parse("eitmad.schema.reference-marker.v1")
+                .expect("static schema ID is valid"),
+            minimum_version: 1,
+            maximum_version: 1,
+            required: false,
+        }],
     }
 }
 

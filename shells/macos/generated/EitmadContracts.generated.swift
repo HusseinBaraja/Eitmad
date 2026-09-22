@@ -1500,8 +1500,6 @@ public enum LifecycleStage: String, Codable, Sendable {
 
 public enum PurpleKind: String, Codable, Sendable {
     case configurationUpdated = "configurationUpdated"
-    case customerCreated = "customerCreated"
-    case customerUpdated = "customerUpdated"
     case desktopAccountCreated = "desktopAccountCreated"
     case desktopAccountDeactivated = "desktopAccountDeactivated"
     case desktopAccountUpdated = "desktopAccountUpdated"
@@ -1654,10 +1652,8 @@ public struct PayloadClass: Codable, Sendable {
     public let kind: UpdateStateKind?
     public let payload: UpdateStatePayload?
     public let id, label: String?
-    public let syncState: ErSyncState?
+    public let syncState: ReferenceMarkerSyncState?
     public let updatedAt: Int?
-    public let customer: Customer?
-    public let potentialDuplicateIDS: [String]?
     public let accountID: String?
     public let active: Bool?
     public let displayName: String?
@@ -1667,15 +1663,14 @@ public struct PayloadClass: Codable, Sendable {
     public enum CodingKeys: String, CodingKey {
         case entries, revision, schemaVersion, scope, changed, policyVersion, relationship
         case operationID = "operation_id"
-        case kind, payload, id, label, syncState, updatedAt, customer
-        case potentialDuplicateIDS = "potentialDuplicateIds"
+        case kind, payload, id, label, syncState, updatedAt
         case accountID = "accountId"
         case active, displayName, role
         case userID = "userId"
         case username
     }
 
-    public init(entries: [ConfigEntry]?, revision: Int?, schemaVersion: Int?, scope: ScopeRef?, changed: Bool?, policyVersion: Int?, relationship: ScopeRelationship?, operationID: String?, kind: UpdateStateKind?, payload: UpdateStatePayload?, id: String?, label: String?, syncState: ErSyncState?, updatedAt: Int?, customer: Customer?, potentialDuplicateIDS: [String]?, accountID: String?, active: Bool?, displayName: String?, role: DesktopAccountRole?, userID: String?, username: String?) {
+    public init(entries: [ConfigEntry]?, revision: Int?, schemaVersion: Int?, scope: ScopeRef?, changed: Bool?, policyVersion: Int?, relationship: ScopeRelationship?, operationID: String?, kind: UpdateStateKind?, payload: UpdateStatePayload?, id: String?, label: String?, syncState: ReferenceMarkerSyncState?, updatedAt: Int?, accountID: String?, active: Bool?, displayName: String?, role: DesktopAccountRole?, userID: String?, username: String?) {
         self.entries = entries
         self.revision = revision
         self.schemaVersion = schemaVersion
@@ -1690,8 +1685,6 @@ public struct PayloadClass: Codable, Sendable {
         self.label = label
         self.syncState = syncState
         self.updatedAt = updatedAt
-        self.customer = customer
-        self.potentialDuplicateIDS = potentialDuplicateIDS
         self.accountID = accountID
         self.active = active
         self.displayName = displayName
@@ -1732,10 +1725,8 @@ public extension PayloadClass {
         payload: UpdateStatePayload?? = nil,
         id: String?? = nil,
         label: String?? = nil,
-        syncState: ErSyncState?? = nil,
+        syncState: ReferenceMarkerSyncState?? = nil,
         updatedAt: Int?? = nil,
-        customer: Customer?? = nil,
-        potentialDuplicateIDS: [String]?? = nil,
         accountID: String?? = nil,
         active: Bool?? = nil,
         displayName: String?? = nil,
@@ -1758,8 +1749,6 @@ public extension PayloadClass {
             label: label ?? self.label,
             syncState: syncState ?? self.syncState,
             updatedAt: updatedAt ?? self.updatedAt,
-            customer: customer ?? self.customer,
-            potentialDuplicateIDS: potentialDuplicateIDS ?? self.potentialDuplicateIDS,
             accountID: accountID ?? self.accountID,
             active: active ?? self.active,
             displayName: displayName ?? self.displayName,
@@ -1776,96 +1765,6 @@ public extension PayloadClass {
     func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
         return String(data: try self.jsonData(), encoding: encoding)
     }
-}
-
-// MARK: - Customer
-public struct Customer: Codable, Sendable {
-    public let address: String?
-    public let id, name: String
-    public let notes: String?
-    public let phone: String
-    public let revision: Int
-    public let scope: ScopeRef
-    public let status: CustomerStatus
-    public let syncState: ErSyncState
-    public let updatedAt: Int
-
-    public init(address: String?, id: String, name: String, notes: String?, phone: String, revision: Int, scope: ScopeRef, status: CustomerStatus, syncState: ErSyncState, updatedAt: Int) {
-        self.address = address
-        self.id = id
-        self.name = name
-        self.notes = notes
-        self.phone = phone
-        self.revision = revision
-        self.scope = scope
-        self.status = status
-        self.syncState = syncState
-        self.updatedAt = updatedAt
-    }
-}
-
-// MARK: Customer convenience initializers and mutators
-
-public extension Customer {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(Customer.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        address: String?? = nil,
-        id: String? = nil,
-        name: String? = nil,
-        notes: String?? = nil,
-        phone: String? = nil,
-        revision: Int? = nil,
-        scope: ScopeRef? = nil,
-        status: CustomerStatus? = nil,
-        syncState: ErSyncState? = nil,
-        updatedAt: Int? = nil
-    ) -> Customer {
-        return Customer(
-            address: address ?? self.address,
-            id: id ?? self.id,
-            name: name ?? self.name,
-            notes: notes ?? self.notes,
-            phone: phone ?? self.phone,
-            revision: revision ?? self.revision,
-            scope: scope ?? self.scope,
-            status: status ?? self.status,
-            syncState: syncState ?? self.syncState,
-            updatedAt: updatedAt ?? self.updatedAt
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
-public enum CustomerStatus: String, Codable, Sendable {
-    case active = "active"
-    case archived = "archived"
-    case merged = "merged"
-}
-
-public enum ErSyncState: String, Codable, Sendable {
-    case confirmed = "confirmed"
-    case pending = "pending"
 }
 
 // MARK: - ConfigEntry
@@ -2232,6 +2131,11 @@ public extension RelationshipSubject {
 public enum DesktopAccountRole: String, Codable, Sendable {
     case manager = "manager"
     case receptionist = "receptionist"
+}
+
+public enum ReferenceMarkerSyncState: String, Codable, Sendable {
+    case confirmed = "confirmed"
+    case pending = "pending"
 }
 
 // MARK: - RetryDisposition
@@ -4748,8 +4652,6 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
     public let commandAuthorizationRelationshipGrant: GrantScopeRelationship?
     public let commandAuthorizationRelationshipRevoke: RevokeScopeRelationship?
     public let commandConfigUpdate: UpdateConfiguration?
-    public let commandCustomerCreate: CreateCustomer?
-    public let commandCustomerUpdate: UpdateCustomer?
     public let commandDesktopAccountCreate: CreateDesktopAccount?
     public let commandDesktopAccountDeactivate: DeactivateDesktopAccount?
     public let commandDesktopAccountUpdate: UpdateDesktopAccount?
@@ -4759,7 +4661,6 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
     public let eventAuthorizationPolicyChangedEvent: AuthorizationPolicyChangeNotice?
     public let eventBackgroundJobStatusEvent: BackgroundJobStatus?
     public let eventConfigChangedEvent: ConfigSnapshot?
-    public let eventCustomerChangedEvent: CustomerChangeNotice?
     public let eventErrorEvent: ScopedError?
     public let eventNotificationEvent: Notification?
     public let eventPermissionsChangedEvent: EffectivePermissions?
@@ -4787,15 +4688,10 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
     public let ipcServerMessageIPCSubscriptionClosed: SubscriptionClosedEnvelope?
     public let ipcServerMessageIPCUnsubscribeResponse: UnsubscribeResponse?
     public let queryAuthorizationRelationshipsList: ListScopeRelationships?
-    public let queryConfigGet: [String: JSONAny]?
-    public let queryCustomerGet: GetCustomer?
-    public let queryCustomerSearch: SearchCustomers?
-    public let queryDesktopAccountList, queryPermissionsGetEffective: [String: JSONAny]?
+    public let queryConfigGet, queryDesktopAccountList, queryPermissionsGetEffective: [String: JSONAny]?
     public let queryReferenceMarkerList: ListReferenceMarkers?
     public let querySyncGetStatus, queryUpdateGetState: [String: JSONAny]?
     public let queryResultConfiguration: ConfigSnapshot?
-    public let queryResultCustomer: Customer?
-    public let queryResultCustomers: CustomerPage?
     public let queryResultDesktopAccounts: DesktopAccountPage?
     public let queryResultEffectivePermissions: EffectivePermissions?
     public let queryResultReferenceMarkers: ReferenceMarkerPage?
@@ -4810,8 +4706,8 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
     public let serverMessageServerFailure: ServerFailure?
     public let serverMessageServerHelloAccepted: PeerHello?
     public let serverMessageServerSyncMessage, subscriptionAuthorizationPolicyChangedSubscribe, subscriptionBackgroundJobStatusSubscribe, subscriptionConfigChangedSubscribe: [String: JSONAny]?
-    public let subscriptionCustomerChangedSubscribe, subscriptionErrorSubscribe, subscriptionNotificationSubscribe, subscriptionPermissionsChangedSubscribe: [String: JSONAny]?
-    public let subscriptionRecordChangedSubscribe, subscriptionReferenceMarkerChangedSubscribe, subscriptionSyncStatusSubscribe, subscriptionUpdateStateSubscribe: [String: JSONAny]?
+    public let subscriptionErrorSubscribe, subscriptionNotificationSubscribe, subscriptionPermissionsChangedSubscribe, subscriptionRecordChangedSubscribe: [String: JSONAny]?
+    public let subscriptionReferenceMarkerChangedSubscribe, subscriptionSyncStatusSubscribe, subscriptionUpdateStateSubscribe: [String: JSONAny]?
     public let syncMessageSyncAcknowledge: BatchAcknowledgement?
     public let syncMessageSyncBackpressure: RetryAfter?
     public let syncMessageSyncChanges: ChangeBatch?
@@ -4828,8 +4724,6 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         case commandAuthorizationRelationshipGrant = "Command_AuthorizationRelationshipGrant"
         case commandAuthorizationRelationshipRevoke = "Command_AuthorizationRelationshipRevoke"
         case commandConfigUpdate = "Command_ConfigUpdate"
-        case commandCustomerCreate = "Command_CustomerCreate"
-        case commandCustomerUpdate = "Command_CustomerUpdate"
         case commandDesktopAccountCreate = "Command_DesktopAccountCreate"
         case commandDesktopAccountDeactivate = "Command_DesktopAccountDeactivate"
         case commandDesktopAccountUpdate = "Command_DesktopAccountUpdate"
@@ -4839,7 +4733,6 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         case eventAuthorizationPolicyChangedEvent = "Event_AuthorizationPolicyChangedEvent"
         case eventBackgroundJobStatusEvent = "Event_BackgroundJobStatusEvent"
         case eventConfigChangedEvent = "Event_ConfigChangedEvent"
-        case eventCustomerChangedEvent = "Event_CustomerChangedEvent"
         case eventErrorEvent = "Event_ErrorEvent"
         case eventNotificationEvent = "Event_NotificationEvent"
         case eventPermissionsChangedEvent = "Event_PermissionsChangedEvent"
@@ -4868,16 +4761,12 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         case ipcServerMessageIPCUnsubscribeResponse = "IpcServerMessage_IpcUnsubscribeResponse"
         case queryAuthorizationRelationshipsList = "Query_AuthorizationRelationshipsList"
         case queryConfigGet = "Query_ConfigGet"
-        case queryCustomerGet = "Query_CustomerGet"
-        case queryCustomerSearch = "Query_CustomerSearch"
         case queryDesktopAccountList = "Query_DesktopAccountList"
         case queryPermissionsGetEffective = "Query_PermissionsGetEffective"
         case queryReferenceMarkerList = "Query_ReferenceMarkerList"
         case querySyncGetStatus = "Query_SyncGetStatus"
         case queryUpdateGetState = "Query_UpdateGetState"
         case queryResultConfiguration = "QueryResult_Configuration"
-        case queryResultCustomer = "QueryResult_Customer"
-        case queryResultCustomers = "QueryResult_Customers"
         case queryResultDesktopAccounts = "QueryResult_DesktopAccounts"
         case queryResultEffectivePermissions = "QueryResult_EffectivePermissions"
         case queryResultReferenceMarkers = "QueryResult_ReferenceMarkers"
@@ -4895,7 +4784,6 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         case subscriptionAuthorizationPolicyChangedSubscribe = "Subscription_AuthorizationPolicyChangedSubscribe"
         case subscriptionBackgroundJobStatusSubscribe = "Subscription_BackgroundJobStatusSubscribe"
         case subscriptionConfigChangedSubscribe = "Subscription_ConfigChangedSubscribe"
-        case subscriptionCustomerChangedSubscribe = "Subscription_CustomerChangedSubscribe"
         case subscriptionErrorSubscribe = "Subscription_ErrorSubscribe"
         case subscriptionNotificationSubscribe = "Subscription_NotificationSubscribe"
         case subscriptionPermissionsChangedSubscribe = "Subscription_PermissionsChangedSubscribe"
@@ -4916,12 +4804,10 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         case syncMessageSyncSnapshotRequired = "SyncMessage_SyncSnapshotRequired"
     }
 
-    public init(commandAuthorizationRelationshipGrant: GrantScopeRelationship?, commandAuthorizationRelationshipRevoke: RevokeScopeRelationship?, commandConfigUpdate: UpdateConfiguration?, commandCustomerCreate: CreateCustomer?, commandCustomerUpdate: UpdateCustomer?, commandDesktopAccountCreate: CreateDesktopAccount?, commandDesktopAccountDeactivate: DeactivateDesktopAccount?, commandDesktopAccountUpdate: UpdateDesktopAccount?, commandOperationCancel: CancelOperation?, commandReferenceMarkerUpsert: UpsertReferenceMarker?, commandUpdateReportInstallerOutcome: ReportInstallerOutcome?, eventAuthorizationPolicyChangedEvent: AuthorizationPolicyChangeNotice?, eventBackgroundJobStatusEvent: BackgroundJobStatus?, eventConfigChangedEvent: ConfigSnapshot?, eventCustomerChangedEvent: CustomerChangeNotice?, eventErrorEvent: ScopedError?, eventNotificationEvent: Notification?, eventPermissionsChangedEvent: EffectivePermissions?, eventRecordChangedEvent: RecordChangeNotice?, eventReferenceMarkerChangedEvent: ReferenceMarkerChangeNotice?, eventSyncStatusEvent: SyncStatus?, eventUpdateStateEvent: UpdateState?, ipcClientMessageIPCCommand: CommandEnvelope?, ipcClientMessageIPCDesktopSessionState: DesktopSessionRequest?, ipcClientMessageIPCDesktopSignIn: DesktopSignInRequest?, ipcClientMessageIPCDesktopSignOut: DesktopSessionRequest?, ipcClientMessageIPCHandshake: HandshakeRequest?, ipcClientMessageIPCQuery: QueryEnvelope?, ipcClientMessageIPCShutdown: ShutdownRequest?, ipcClientMessageIPCSubscribe: SubscriptionEnvelope?, ipcClientMessageIPCUnsubscribe: UnsubscribeRequest?, ipcServerMessageIPCCommandResponse: CommandResponseEnvelope?, ipcServerMessageIPCDesktopSessionResponse: DesktopSessionResponse?, ipcServerMessageIPCEvent: EventEnvelope?, ipcServerMessageIPCFailure: IPCFailureResponse?, ipcServerMessageIPCHandshakeResponse: HandshakeResponse?, ipcServerMessageIPCQueryResponse: QueryResponseEnvelope?, ipcServerMessageIPCShutdownResponse: ShutdownResponse?, ipcServerMessageIPCSubscribeResponse: SubscriptionResponseEnvelope?, ipcServerMessageIPCSubscriptionClosed: SubscriptionClosedEnvelope?, ipcServerMessageIPCUnsubscribeResponse: UnsubscribeResponse?, queryAuthorizationRelationshipsList: ListScopeRelationships?, queryConfigGet: [String: JSONAny]?, queryCustomerGet: GetCustomer?, queryCustomerSearch: SearchCustomers?, queryDesktopAccountList: [String: JSONAny]?, queryPermissionsGetEffective: [String: JSONAny]?, queryReferenceMarkerList: ListReferenceMarkers?, querySyncGetStatus: [String: JSONAny]?, queryUpdateGetState: [String: JSONAny]?, queryResultConfiguration: ConfigSnapshot?, queryResultCustomer: Customer?, queryResultCustomers: CustomerPage?, queryResultDesktopAccounts: DesktopAccountPage?, queryResultEffectivePermissions: EffectivePermissions?, queryResultReferenceMarkers: ReferenceMarkerPage?, queryResultScopeRelationships: RelationshipPage?, queryResultSyncStatus: SyncStatus?, queryResultUpdateState: UpdateState?, serverClientMessageServerAcknowledge: ServerSubscriptionAcknowledgement?, serverClientMessageServerHello: ServerConnectionHello?, serverClientMessageServerSubscribe: ServerSubscriptionRequest?, serverClientMessageServerSync: SyncTransportFrame?, serverMessageServerEvent: ServerSubscriptionEvent?, serverMessageServerFailure: ServerFailure?, serverMessageServerHelloAccepted: PeerHello?, serverMessageServerSyncMessage: [String: JSONAny]?, subscriptionAuthorizationPolicyChangedSubscribe: [String: JSONAny]?, subscriptionBackgroundJobStatusSubscribe: [String: JSONAny]?, subscriptionConfigChangedSubscribe: [String: JSONAny]?, subscriptionCustomerChangedSubscribe: [String: JSONAny]?, subscriptionErrorSubscribe: [String: JSONAny]?, subscriptionNotificationSubscribe: [String: JSONAny]?, subscriptionPermissionsChangedSubscribe: [String: JSONAny]?, subscriptionRecordChangedSubscribe: [String: JSONAny]?, subscriptionReferenceMarkerChangedSubscribe: [String: JSONAny]?, subscriptionSyncStatusSubscribe: [String: JSONAny]?, subscriptionUpdateStateSubscribe: [String: JSONAny]?, syncMessageSyncAcknowledge: BatchAcknowledgement?, syncMessageSyncBackpressure: RetryAfter?, syncMessageSyncChanges: ChangeBatch?, syncMessageSyncConflict: ConflictNotice?, syncMessageSyncNegotiate: SyncNegotiation?, syncMessageSyncPull: PullRequest?, syncMessageSyncReconcile: ReconciliationDelivery?, syncMessageSyncSnapshotChunk: SnapshotChunk?, syncMessageSyncSnapshotComplete: SnapshotCompletion?, syncMessageSyncSnapshotManifest: SnapshotManifest?, syncMessageSyncSnapshotRequired: SnapshotRequired?) {
+    public init(commandAuthorizationRelationshipGrant: GrantScopeRelationship?, commandAuthorizationRelationshipRevoke: RevokeScopeRelationship?, commandConfigUpdate: UpdateConfiguration?, commandDesktopAccountCreate: CreateDesktopAccount?, commandDesktopAccountDeactivate: DeactivateDesktopAccount?, commandDesktopAccountUpdate: UpdateDesktopAccount?, commandOperationCancel: CancelOperation?, commandReferenceMarkerUpsert: UpsertReferenceMarker?, commandUpdateReportInstallerOutcome: ReportInstallerOutcome?, eventAuthorizationPolicyChangedEvent: AuthorizationPolicyChangeNotice?, eventBackgroundJobStatusEvent: BackgroundJobStatus?, eventConfigChangedEvent: ConfigSnapshot?, eventErrorEvent: ScopedError?, eventNotificationEvent: Notification?, eventPermissionsChangedEvent: EffectivePermissions?, eventRecordChangedEvent: RecordChangeNotice?, eventReferenceMarkerChangedEvent: ReferenceMarkerChangeNotice?, eventSyncStatusEvent: SyncStatus?, eventUpdateStateEvent: UpdateState?, ipcClientMessageIPCCommand: CommandEnvelope?, ipcClientMessageIPCDesktopSessionState: DesktopSessionRequest?, ipcClientMessageIPCDesktopSignIn: DesktopSignInRequest?, ipcClientMessageIPCDesktopSignOut: DesktopSessionRequest?, ipcClientMessageIPCHandshake: HandshakeRequest?, ipcClientMessageIPCQuery: QueryEnvelope?, ipcClientMessageIPCShutdown: ShutdownRequest?, ipcClientMessageIPCSubscribe: SubscriptionEnvelope?, ipcClientMessageIPCUnsubscribe: UnsubscribeRequest?, ipcServerMessageIPCCommandResponse: CommandResponseEnvelope?, ipcServerMessageIPCDesktopSessionResponse: DesktopSessionResponse?, ipcServerMessageIPCEvent: EventEnvelope?, ipcServerMessageIPCFailure: IPCFailureResponse?, ipcServerMessageIPCHandshakeResponse: HandshakeResponse?, ipcServerMessageIPCQueryResponse: QueryResponseEnvelope?, ipcServerMessageIPCShutdownResponse: ShutdownResponse?, ipcServerMessageIPCSubscribeResponse: SubscriptionResponseEnvelope?, ipcServerMessageIPCSubscriptionClosed: SubscriptionClosedEnvelope?, ipcServerMessageIPCUnsubscribeResponse: UnsubscribeResponse?, queryAuthorizationRelationshipsList: ListScopeRelationships?, queryConfigGet: [String: JSONAny]?, queryDesktopAccountList: [String: JSONAny]?, queryPermissionsGetEffective: [String: JSONAny]?, queryReferenceMarkerList: ListReferenceMarkers?, querySyncGetStatus: [String: JSONAny]?, queryUpdateGetState: [String: JSONAny]?, queryResultConfiguration: ConfigSnapshot?, queryResultDesktopAccounts: DesktopAccountPage?, queryResultEffectivePermissions: EffectivePermissions?, queryResultReferenceMarkers: ReferenceMarkerPage?, queryResultScopeRelationships: RelationshipPage?, queryResultSyncStatus: SyncStatus?, queryResultUpdateState: UpdateState?, serverClientMessageServerAcknowledge: ServerSubscriptionAcknowledgement?, serverClientMessageServerHello: ServerConnectionHello?, serverClientMessageServerSubscribe: ServerSubscriptionRequest?, serverClientMessageServerSync: SyncTransportFrame?, serverMessageServerEvent: ServerSubscriptionEvent?, serverMessageServerFailure: ServerFailure?, serverMessageServerHelloAccepted: PeerHello?, serverMessageServerSyncMessage: [String: JSONAny]?, subscriptionAuthorizationPolicyChangedSubscribe: [String: JSONAny]?, subscriptionBackgroundJobStatusSubscribe: [String: JSONAny]?, subscriptionConfigChangedSubscribe: [String: JSONAny]?, subscriptionErrorSubscribe: [String: JSONAny]?, subscriptionNotificationSubscribe: [String: JSONAny]?, subscriptionPermissionsChangedSubscribe: [String: JSONAny]?, subscriptionRecordChangedSubscribe: [String: JSONAny]?, subscriptionReferenceMarkerChangedSubscribe: [String: JSONAny]?, subscriptionSyncStatusSubscribe: [String: JSONAny]?, subscriptionUpdateStateSubscribe: [String: JSONAny]?, syncMessageSyncAcknowledge: BatchAcknowledgement?, syncMessageSyncBackpressure: RetryAfter?, syncMessageSyncChanges: ChangeBatch?, syncMessageSyncConflict: ConflictNotice?, syncMessageSyncNegotiate: SyncNegotiation?, syncMessageSyncPull: PullRequest?, syncMessageSyncReconcile: ReconciliationDelivery?, syncMessageSyncSnapshotChunk: SnapshotChunk?, syncMessageSyncSnapshotComplete: SnapshotCompletion?, syncMessageSyncSnapshotManifest: SnapshotManifest?, syncMessageSyncSnapshotRequired: SnapshotRequired?) {
         self.commandAuthorizationRelationshipGrant = commandAuthorizationRelationshipGrant
         self.commandAuthorizationRelationshipRevoke = commandAuthorizationRelationshipRevoke
         self.commandConfigUpdate = commandConfigUpdate
-        self.commandCustomerCreate = commandCustomerCreate
-        self.commandCustomerUpdate = commandCustomerUpdate
         self.commandDesktopAccountCreate = commandDesktopAccountCreate
         self.commandDesktopAccountDeactivate = commandDesktopAccountDeactivate
         self.commandDesktopAccountUpdate = commandDesktopAccountUpdate
@@ -4931,7 +4817,6 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         self.eventAuthorizationPolicyChangedEvent = eventAuthorizationPolicyChangedEvent
         self.eventBackgroundJobStatusEvent = eventBackgroundJobStatusEvent
         self.eventConfigChangedEvent = eventConfigChangedEvent
-        self.eventCustomerChangedEvent = eventCustomerChangedEvent
         self.eventErrorEvent = eventErrorEvent
         self.eventNotificationEvent = eventNotificationEvent
         self.eventPermissionsChangedEvent = eventPermissionsChangedEvent
@@ -4960,16 +4845,12 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         self.ipcServerMessageIPCUnsubscribeResponse = ipcServerMessageIPCUnsubscribeResponse
         self.queryAuthorizationRelationshipsList = queryAuthorizationRelationshipsList
         self.queryConfigGet = queryConfigGet
-        self.queryCustomerGet = queryCustomerGet
-        self.queryCustomerSearch = queryCustomerSearch
         self.queryDesktopAccountList = queryDesktopAccountList
         self.queryPermissionsGetEffective = queryPermissionsGetEffective
         self.queryReferenceMarkerList = queryReferenceMarkerList
         self.querySyncGetStatus = querySyncGetStatus
         self.queryUpdateGetState = queryUpdateGetState
         self.queryResultConfiguration = queryResultConfiguration
-        self.queryResultCustomer = queryResultCustomer
-        self.queryResultCustomers = queryResultCustomers
         self.queryResultDesktopAccounts = queryResultDesktopAccounts
         self.queryResultEffectivePermissions = queryResultEffectivePermissions
         self.queryResultReferenceMarkers = queryResultReferenceMarkers
@@ -4987,7 +4868,6 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         self.subscriptionAuthorizationPolicyChangedSubscribe = subscriptionAuthorizationPolicyChangedSubscribe
         self.subscriptionBackgroundJobStatusSubscribe = subscriptionBackgroundJobStatusSubscribe
         self.subscriptionConfigChangedSubscribe = subscriptionConfigChangedSubscribe
-        self.subscriptionCustomerChangedSubscribe = subscriptionCustomerChangedSubscribe
         self.subscriptionErrorSubscribe = subscriptionErrorSubscribe
         self.subscriptionNotificationSubscribe = subscriptionNotificationSubscribe
         self.subscriptionPermissionsChangedSubscribe = subscriptionPermissionsChangedSubscribe
@@ -5031,8 +4911,6 @@ public extension UnionPayloadKeepAlive {
         commandAuthorizationRelationshipGrant: GrantScopeRelationship?? = nil,
         commandAuthorizationRelationshipRevoke: RevokeScopeRelationship?? = nil,
         commandConfigUpdate: UpdateConfiguration?? = nil,
-        commandCustomerCreate: CreateCustomer?? = nil,
-        commandCustomerUpdate: UpdateCustomer?? = nil,
         commandDesktopAccountCreate: CreateDesktopAccount?? = nil,
         commandDesktopAccountDeactivate: DeactivateDesktopAccount?? = nil,
         commandDesktopAccountUpdate: UpdateDesktopAccount?? = nil,
@@ -5042,7 +4920,6 @@ public extension UnionPayloadKeepAlive {
         eventAuthorizationPolicyChangedEvent: AuthorizationPolicyChangeNotice?? = nil,
         eventBackgroundJobStatusEvent: BackgroundJobStatus?? = nil,
         eventConfigChangedEvent: ConfigSnapshot?? = nil,
-        eventCustomerChangedEvent: CustomerChangeNotice?? = nil,
         eventErrorEvent: ScopedError?? = nil,
         eventNotificationEvent: Notification?? = nil,
         eventPermissionsChangedEvent: EffectivePermissions?? = nil,
@@ -5071,16 +4948,12 @@ public extension UnionPayloadKeepAlive {
         ipcServerMessageIPCUnsubscribeResponse: UnsubscribeResponse?? = nil,
         queryAuthorizationRelationshipsList: ListScopeRelationships?? = nil,
         queryConfigGet: [String: JSONAny]?? = nil,
-        queryCustomerGet: GetCustomer?? = nil,
-        queryCustomerSearch: SearchCustomers?? = nil,
         queryDesktopAccountList: [String: JSONAny]?? = nil,
         queryPermissionsGetEffective: [String: JSONAny]?? = nil,
         queryReferenceMarkerList: ListReferenceMarkers?? = nil,
         querySyncGetStatus: [String: JSONAny]?? = nil,
         queryUpdateGetState: [String: JSONAny]?? = nil,
         queryResultConfiguration: ConfigSnapshot?? = nil,
-        queryResultCustomer: Customer?? = nil,
-        queryResultCustomers: CustomerPage?? = nil,
         queryResultDesktopAccounts: DesktopAccountPage?? = nil,
         queryResultEffectivePermissions: EffectivePermissions?? = nil,
         queryResultReferenceMarkers: ReferenceMarkerPage?? = nil,
@@ -5098,7 +4971,6 @@ public extension UnionPayloadKeepAlive {
         subscriptionAuthorizationPolicyChangedSubscribe: [String: JSONAny]?? = nil,
         subscriptionBackgroundJobStatusSubscribe: [String: JSONAny]?? = nil,
         subscriptionConfigChangedSubscribe: [String: JSONAny]?? = nil,
-        subscriptionCustomerChangedSubscribe: [String: JSONAny]?? = nil,
         subscriptionErrorSubscribe: [String: JSONAny]?? = nil,
         subscriptionNotificationSubscribe: [String: JSONAny]?? = nil,
         subscriptionPermissionsChangedSubscribe: [String: JSONAny]?? = nil,
@@ -5122,8 +4994,6 @@ public extension UnionPayloadKeepAlive {
             commandAuthorizationRelationshipGrant: commandAuthorizationRelationshipGrant ?? self.commandAuthorizationRelationshipGrant,
             commandAuthorizationRelationshipRevoke: commandAuthorizationRelationshipRevoke ?? self.commandAuthorizationRelationshipRevoke,
             commandConfigUpdate: commandConfigUpdate ?? self.commandConfigUpdate,
-            commandCustomerCreate: commandCustomerCreate ?? self.commandCustomerCreate,
-            commandCustomerUpdate: commandCustomerUpdate ?? self.commandCustomerUpdate,
             commandDesktopAccountCreate: commandDesktopAccountCreate ?? self.commandDesktopAccountCreate,
             commandDesktopAccountDeactivate: commandDesktopAccountDeactivate ?? self.commandDesktopAccountDeactivate,
             commandDesktopAccountUpdate: commandDesktopAccountUpdate ?? self.commandDesktopAccountUpdate,
@@ -5133,7 +5003,6 @@ public extension UnionPayloadKeepAlive {
             eventAuthorizationPolicyChangedEvent: eventAuthorizationPolicyChangedEvent ?? self.eventAuthorizationPolicyChangedEvent,
             eventBackgroundJobStatusEvent: eventBackgroundJobStatusEvent ?? self.eventBackgroundJobStatusEvent,
             eventConfigChangedEvent: eventConfigChangedEvent ?? self.eventConfigChangedEvent,
-            eventCustomerChangedEvent: eventCustomerChangedEvent ?? self.eventCustomerChangedEvent,
             eventErrorEvent: eventErrorEvent ?? self.eventErrorEvent,
             eventNotificationEvent: eventNotificationEvent ?? self.eventNotificationEvent,
             eventPermissionsChangedEvent: eventPermissionsChangedEvent ?? self.eventPermissionsChangedEvent,
@@ -5162,16 +5031,12 @@ public extension UnionPayloadKeepAlive {
             ipcServerMessageIPCUnsubscribeResponse: ipcServerMessageIPCUnsubscribeResponse ?? self.ipcServerMessageIPCUnsubscribeResponse,
             queryAuthorizationRelationshipsList: queryAuthorizationRelationshipsList ?? self.queryAuthorizationRelationshipsList,
             queryConfigGet: queryConfigGet ?? self.queryConfigGet,
-            queryCustomerGet: queryCustomerGet ?? self.queryCustomerGet,
-            queryCustomerSearch: queryCustomerSearch ?? self.queryCustomerSearch,
             queryDesktopAccountList: queryDesktopAccountList ?? self.queryDesktopAccountList,
             queryPermissionsGetEffective: queryPermissionsGetEffective ?? self.queryPermissionsGetEffective,
             queryReferenceMarkerList: queryReferenceMarkerList ?? self.queryReferenceMarkerList,
             querySyncGetStatus: querySyncGetStatus ?? self.querySyncGetStatus,
             queryUpdateGetState: queryUpdateGetState ?? self.queryUpdateGetState,
             queryResultConfiguration: queryResultConfiguration ?? self.queryResultConfiguration,
-            queryResultCustomer: queryResultCustomer ?? self.queryResultCustomer,
-            queryResultCustomers: queryResultCustomers ?? self.queryResultCustomers,
             queryResultDesktopAccounts: queryResultDesktopAccounts ?? self.queryResultDesktopAccounts,
             queryResultEffectivePermissions: queryResultEffectivePermissions ?? self.queryResultEffectivePermissions,
             queryResultReferenceMarkers: queryResultReferenceMarkers ?? self.queryResultReferenceMarkers,
@@ -5189,7 +5054,6 @@ public extension UnionPayloadKeepAlive {
             subscriptionAuthorizationPolicyChangedSubscribe: subscriptionAuthorizationPolicyChangedSubscribe ?? self.subscriptionAuthorizationPolicyChangedSubscribe,
             subscriptionBackgroundJobStatusSubscribe: subscriptionBackgroundJobStatusSubscribe ?? self.subscriptionBackgroundJobStatusSubscribe,
             subscriptionConfigChangedSubscribe: subscriptionConfigChangedSubscribe ?? self.subscriptionConfigChangedSubscribe,
-            subscriptionCustomerChangedSubscribe: subscriptionCustomerChangedSubscribe ?? self.subscriptionCustomerChangedSubscribe,
             subscriptionErrorSubscribe: subscriptionErrorSubscribe ?? self.subscriptionErrorSubscribe,
             subscriptionNotificationSubscribe: subscriptionNotificationSubscribe ?? self.subscriptionNotificationSubscribe,
             subscriptionPermissionsChangedSubscribe: subscriptionPermissionsChangedSubscribe ?? self.subscriptionPermissionsChangedSubscribe,
@@ -5476,132 +5340,6 @@ public enum ConfigWriteValueKind: String, Codable, Sendable {
     case secretReference = "secretReference"
     case text = "text"
     case textList = "textList"
-}
-
-// MARK: - CreateCustomer
-public struct CreateCustomer: Codable, Sendable {
-    public let address: String?
-    public let name: String
-    public let notes: String?
-    public let phone: String
-
-    public init(address: String?, name: String, notes: String?, phone: String) {
-        self.address = address
-        self.name = name
-        self.notes = notes
-        self.phone = phone
-    }
-}
-
-// MARK: CreateCustomer convenience initializers and mutators
-
-public extension CreateCustomer {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(CreateCustomer.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        address: String?? = nil,
-        name: String? = nil,
-        notes: String?? = nil,
-        phone: String? = nil
-    ) -> CreateCustomer {
-        return CreateCustomer(
-            address: address ?? self.address,
-            name: name ?? self.name,
-            notes: notes ?? self.notes,
-            phone: phone ?? self.phone
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
-// MARK: - UpdateCustomer
-public struct UpdateCustomer: Codable, Sendable {
-    public let address: String?
-    public let customerID: String
-    public let expectedRevision: Int
-    public let name: String
-    public let notes: String?
-    public let phone: String
-
-    public enum CodingKeys: String, CodingKey {
-        case address
-        case customerID = "customerId"
-        case expectedRevision, name, notes, phone
-    }
-
-    public init(address: String?, customerID: String, expectedRevision: Int, name: String, notes: String?, phone: String) {
-        self.address = address
-        self.customerID = customerID
-        self.expectedRevision = expectedRevision
-        self.name = name
-        self.notes = notes
-        self.phone = phone
-    }
-}
-
-// MARK: UpdateCustomer convenience initializers and mutators
-
-public extension UpdateCustomer {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(UpdateCustomer.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        address: String?? = nil,
-        customerID: String? = nil,
-        expectedRevision: Int? = nil,
-        name: String? = nil,
-        notes: String?? = nil,
-        phone: String? = nil
-    ) -> UpdateCustomer {
-        return UpdateCustomer(
-            address: address ?? self.address,
-            customerID: customerID ?? self.customerID,
-            expectedRevision: expectedRevision ?? self.expectedRevision,
-            name: name ?? self.name,
-            notes: notes ?? self.notes,
-            phone: phone ?? self.phone
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
 }
 
 // MARK: - CreateDesktopAccount
@@ -6207,72 +5945,6 @@ public extension ConfigSnapshot {
             entries: entries ?? self.entries,
             revision: revision ?? self.revision,
             schemaVersion: schemaVersion ?? self.schemaVersion,
-            scope: scope ?? self.scope
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
-// MARK: - CustomerChangeNotice
-public struct CustomerChangeNotice: Codable, Sendable {
-    public let changedAt: Int
-    public let changeID, customerID: String
-    public let revision: Int
-    public let scope: ScopeRef
-
-    public enum CodingKeys: String, CodingKey {
-        case changedAt
-        case changeID = "changeId"
-        case customerID = "customerId"
-        case revision, scope
-    }
-
-    public init(changedAt: Int, changeID: String, customerID: String, revision: Int, scope: ScopeRef) {
-        self.changedAt = changedAt
-        self.changeID = changeID
-        self.customerID = customerID
-        self.revision = revision
-        self.scope = scope
-    }
-}
-
-// MARK: CustomerChangeNotice convenience initializers and mutators
-
-public extension CustomerChangeNotice {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(CustomerChangeNotice.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        changedAt: Int? = nil,
-        changeID: String? = nil,
-        customerID: String? = nil,
-        revision: Int? = nil,
-        scope: ScopeRef? = nil
-    ) -> CustomerChangeNotice {
-        return CustomerChangeNotice(
-            changedAt: changedAt ?? self.changedAt,
-            changeID: changeID ?? self.changeID,
-            customerID: customerID ?? self.customerID,
-            revision: revision ?? self.revision,
             scope: scope ?? self.scope
         )
     }
@@ -6955,13 +6627,12 @@ public extension DesktopSessionResponse {
 // MARK: - DesktopSessionState
 public struct DesktopSessionState: Codable, Sendable {
     public let accountRole: DesktopAccountRole
-    public let authorization, customerAuthorization: AuthorizationContext?
+    public let authorization: AuthorizationContext?
     public let expiresAt: Int?
 
-    public init(accountRole: DesktopAccountRole, authorization: AuthorizationContext?, customerAuthorization: AuthorizationContext?, expiresAt: Int?) {
+    public init(accountRole: DesktopAccountRole, authorization: AuthorizationContext?, expiresAt: Int?) {
         self.accountRole = accountRole
         self.authorization = authorization
-        self.customerAuthorization = customerAuthorization
         self.expiresAt = expiresAt
     }
 }
@@ -6987,13 +6658,11 @@ public extension DesktopSessionState {
     func with(
         accountRole: DesktopAccountRole? = nil,
         authorization: AuthorizationContext?? = nil,
-        customerAuthorization: AuthorizationContext?? = nil,
         expiresAt: Int?? = nil
     ) -> DesktopSessionState {
         return DesktopSessionState(
             accountRole: accountRole ?? self.accountRole,
             authorization: authorization ?? self.authorization,
-            customerAuthorization: customerAuthorization ?? self.customerAuthorization,
             expiresAt: expiresAt ?? self.expiresAt
         )
     }
@@ -7768,106 +7437,6 @@ public extension ListScopeRelationships {
     }
 }
 
-// MARK: - GetCustomer
-public struct GetCustomer: Codable, Sendable {
-    public let customerID: String
-
-    public enum CodingKeys: String, CodingKey {
-        case customerID = "customerId"
-    }
-
-    public init(customerID: String) {
-        self.customerID = customerID
-    }
-}
-
-// MARK: GetCustomer convenience initializers and mutators
-
-public extension GetCustomer {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(GetCustomer.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        customerID: String? = nil
-    ) -> GetCustomer {
-        return GetCustomer(
-            customerID: customerID ?? self.customerID
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
-// MARK: - SearchCustomers
-public struct SearchCustomers: Codable, Sendable {
-    public let after: String?
-    public let limit: Int
-    public let term: String
-
-    public init(after: String?, limit: Int, term: String) {
-        self.after = after
-        self.limit = limit
-        self.term = term
-    }
-}
-
-// MARK: SearchCustomers convenience initializers and mutators
-
-public extension SearchCustomers {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(SearchCustomers.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        after: String?? = nil,
-        limit: Int? = nil,
-        term: String? = nil
-    ) -> SearchCustomers {
-        return SearchCustomers(
-            after: after ?? self.after,
-            limit: limit ?? self.limit,
-            term: term ?? self.term
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
 // MARK: - ListReferenceMarkers
 public struct ListReferenceMarkers: Codable, Sendable {
     public let after: String?
@@ -7904,54 +7473,6 @@ public extension ListReferenceMarkers {
         return ListReferenceMarkers(
             after: after ?? self.after,
             limit: limit ?? self.limit
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
-// MARK: - CustomerPage
-public struct CustomerPage: Codable, Sendable {
-    public let items: [Customer]
-    public let next: String?
-
-    public init(items: [Customer], next: String?) {
-        self.items = items
-        self.next = next
-    }
-}
-
-// MARK: CustomerPage convenience initializers and mutators
-
-public extension CustomerPage {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(CustomerPage.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        items: [Customer]? = nil,
-        next: String?? = nil
-    ) -> CustomerPage {
-        return CustomerPage(
-            items: items ?? self.items,
-            next: next ?? self.next
         )
     }
 
@@ -8135,10 +7656,10 @@ public struct ReferenceMarker: Codable, Sendable {
     public let id, label: String
     public let revision: Int
     public let scope: ScopeRef
-    public let syncState: ErSyncState
+    public let syncState: ReferenceMarkerSyncState
     public let updatedAt: Int
 
-    public init(id: String, label: String, revision: Int, scope: ScopeRef, syncState: ErSyncState, updatedAt: Int) {
+    public init(id: String, label: String, revision: Int, scope: ScopeRef, syncState: ReferenceMarkerSyncState, updatedAt: Int) {
         self.id = id
         self.label = label
         self.revision = revision
@@ -8171,7 +7692,7 @@ public extension ReferenceMarker {
         label: String? = nil,
         revision: Int? = nil,
         scope: ScopeRef? = nil,
-        syncState: ErSyncState? = nil,
+        syncState: ReferenceMarkerSyncState? = nil,
         updatedAt: Int? = nil
     ) -> ReferenceMarker {
         return ReferenceMarker(

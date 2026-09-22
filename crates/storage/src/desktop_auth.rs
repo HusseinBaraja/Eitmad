@@ -301,7 +301,6 @@ impl AuthorityStore {
                     WHERE scope_kind = 'organization' AND scope_id = ?1", params![tenant])
                     .map_err(|_| StorageError)?;
             }
-            grant_branch_access(connection, &tenant, &user, account.role)?;
             let audit = MutationAuditRecord {
                 audit_id: Uuid::new_v4(), occurred_at: created_at,
                 principal_id: installer.identity.principal_id,
@@ -380,40 +379,6 @@ impl AuthorityStore {
                     |row| row.get(0),
                 )
                 .map_err(|_| StorageError)
-        })
-    }
-
-    /// Returns the one local branch only when the active user has an exact branch relation.
-    ///
-    /// # Errors
-    /// Returns a sanitized storage error when the branch state cannot be read.
-    pub fn desktop_customer_branch(
-        &self,
-        tenant_id: TenantId,
-        user_id: UserId,
-    ) -> Result<Option<ScopeRef>, StorageError> {
-        self.read_transaction(|connection| {
-            let branch: Option<String> = connection
-                .query_row(
-                    "SELECT b.branch_id FROM local_desktop_branch b
-                 JOIN scope_relationships r ON r.scope_kind = 'branch' AND r.scope_id = b.branch_id
-                 JOIN desktop_accounts a ON a.user_id = r.principal_id AND a.tenant_id = b.tenant_id
-                 WHERE b.singleton = 1 AND b.tenant_id = ?1 AND a.user_id = ?2 AND a.active = 1
-                   AND r.principal_kind = '\"user\"'
-                   AND r.relation = 'eitmad.relation.organization.' || a.role || '.v1'",
-                    params![tenant_id.value().to_string(), user_id.value().to_string()],
-                    |row| row.get(0),
-                )
-                .optional()
-                .map_err(|_| StorageError)?;
-            branch
-                .map(|value| {
-                    Ok(ScopeRef {
-                        kind: ScopeKind::parse("branch").map_err(|_| StorageError)?,
-                        id: ScopeId::new(Uuid::parse_str(&value).map_err(|_| StorageError)?),
-                    })
-                })
-                .transpose()
         })
     }
 
@@ -611,19 +576,6 @@ fn apply_account_access(
                 ],
             )
             .map_err(|_| StorageError)?;
-        grant_branch_access(
-            connection,
-            tenant,
-            &account.user_id.value().to_string(),
-            DesktopRole::from(account.role),
-        )?;
-    } else {
-        connection.execute(
-            "DELETE FROM scope_relationships WHERE scope_kind = 'branch'
-             AND scope_id = (SELECT branch_id FROM local_desktop_branch WHERE singleton = 1 AND tenant_id = ?1)
-             AND principal_id = ?2",
-            params![tenant, account.user_id.value().to_string()],
-        ).map_err(|_| StorageError)?;
     }
     connection
         .execute(
@@ -844,51 +796,8 @@ fn update_account_state(
                 params![tenant, mutation.account.user_id.value().to_string()],
             )
             .map_err(|_| StorageError)?;
-        connection.execute(
-            "DELETE FROM scope_relationships WHERE scope_kind = 'branch'
-             AND scope_id = (SELECT branch_id FROM local_desktop_branch WHERE singleton = 1 AND tenant_id = ?1)
-             AND principal_id = ?2",
-            params![tenant, mutation.account.user_id.value().to_string()],
-        ).map_err(|_| StorageError)?;
     }
     Ok(AccountApply::Applied { access_changed })
-}
-
-fn grant_branch_access(
-    connection: &rusqlite::Connection,
-    tenant: &str,
-    user: &str,
-    role: DesktopRole,
-) -> Result<(), StorageError> {
-    let branch: String = connection
-        .query_row(
-            "SELECT branch_id FROM local_desktop_branch WHERE singleton = 1 AND tenant_id = ?1",
-            [tenant],
-            |row| row.get(0),
-        )
-        .map_err(|_| StorageError)?;
-    connection
-        .execute(
-            "INSERT OR IGNORE INTO scope_relationships
-         (relationship_id, scope_kind, scope_id, principal_id, principal_kind, relation)
-         VALUES (?1, 'branch', ?2, ?3, ?4, ?5)",
-            params![
-                Uuid::new_v4().to_string(),
-                branch,
-                user,
-                serde_json::to_string(&PrincipalKind::User).map_err(|_| StorageError)?,
-                role.relation()
-            ],
-        )
-        .map_err(|_| StorageError)?;
-    connection
-        .execute(
-            "UPDATE authorization_scopes SET policy_version = policy_version + 1
-         WHERE scope_kind = 'branch' AND scope_id = ?1",
-            [branch],
-        )
-        .map_err(|_| StorageError)?;
-    Ok(())
 }
 
 fn decode_account_summary(

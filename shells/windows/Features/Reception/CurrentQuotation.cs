@@ -31,13 +31,9 @@ public sealed record PreviewQuotationLine
     public decimal LineTotal => Furniture?.LineTotal ?? Product!.LineTotal;
 }
 
-public sealed record PreviewCustomer(string Name, string Phone, string Address, string Notes, Guid? Id = null, long Revision = 0)
+public sealed record PreviewCustomer(string Name, string Phone, string Address, string Notes)
 {
     public string Label => Name + " — " + Phone;
-
-    public static PreviewCustomer FromContract(Eitmad.Contracts.Customer customer) =>
-        new(customer.Name, customer.Phone, customer.Address ?? string.Empty, customer.Notes ?? string.Empty,
-            customer.Id, customer.Revision);
 }
 
 public sealed partial class SalesCatalogViewModel
@@ -46,14 +42,7 @@ public sealed partial class SalesCatalogViewModel
     private string customerName = "", phone = "", address = "", notes = "", quotationNotice = "";
     private bool isNewCustomer;
     private PreviewCustomer? previousCustomer;
-    private Features.Customers.CustomerClient? customerClient;
-    private CancellationTokenSource? customerSearchCancellation;
-    private long customerSearchVersion;
-    private bool applyingCustomer;
-    private bool isCustomerBusy;
-    private string customerOperationError = string.Empty;
-    private IReadOnlySet<string> invalidCustomerFields = new HashSet<string>();
-    public PreviewCustomer? SelectedCustomer { get; private set; }
+    private readonly List<PreviewCustomer> customers = [new("عميل تجريبي", "000000000", "عنوان تجريبي", "")];
     public ObservableCollection<PreviewCustomer> CustomerMatches { get; } = [];
     private string quotationNumber = "";
     public string QuotationNumber { get => quotationNumber; set { if (Set(ref quotationNumber, value)) Raise(nameof(QuotationHeading)); } }
@@ -63,93 +52,34 @@ public sealed partial class SalesCatalogViewModel
     public decimal Discount => IsDiscountValid ? decimal.Round(Subtotal * (discountPercent / 100m), 0, MidpointRounding.AwayFromZero) : 0;
     public decimal FinalTotal => Subtotal - Discount;
     private bool showRequiredErrors;
-    public string CustomerNameError => showRequiredErrors && string.IsNullOrWhiteSpace(CustomerName)
-        ? "أدخل اسم العميل"
-        : invalidCustomerFields.Contains("name") ? "تحقق من اسم العميل" : "";
-    public string PhoneError => showRequiredErrors && string.IsNullOrWhiteSpace(Phone)
-        ? "أدخل رقم الهاتف"
-        : invalidCustomerFields.Contains("phone") ? "تحقق من رقم الهاتف" : "";
+    public string CustomerNameError => showRequiredErrors && string.IsNullOrWhiteSpace(CustomerName) ? "أدخل اسم العميل" : "";
+    public string PhoneError => showRequiredErrors && string.IsNullOrWhiteSpace(Phone) ? "أدخل رقم الهاتف" : "";
     public string ItemsError => showRequiredErrors && IsQuotationEmpty ? "أضف صنفاً واحداً على الأقل" : "";
-    public bool IsCustomerBusy { get => isCustomerBusy; private set => Set(ref isCustomerBusy, value); }
-    public string CustomerOperationError { get => customerOperationError; private set => Set(ref customerOperationError, value); }
-    public string CustomerName { get => customerName; set { if (Set(ref customerName, value)) { InvalidateDiscountRequest(); CustomerInputChanged(value); Raise(nameof(CustomerNameError)); } } }
-    public string Phone { get => phone; set { if (Set(ref phone, value)) { InvalidateDiscountRequest(); CustomerInputChanged(value); Raise(nameof(PhoneError)); } } }
+    public string CustomerName { get => customerName; set { if (Set(ref customerName, value)) { InvalidateDiscountRequest(); MatchCustomers(); Raise(nameof(CustomerNameError)); } } }
+    public string Phone { get => phone; set { if (Set(ref phone, value)) { InvalidateDiscountRequest(); MatchCustomers(); Raise(nameof(PhoneError)); } } }
     public string Address { get => address; set { if (Set(ref address, value)) InvalidateDiscountRequest(); } }
     public string Notes { get => notes; set { if (Set(ref notes, value)) InvalidateDiscountRequest(); } }
     public bool IsNewCustomer { get => isNewCustomer; private set => Set(ref isNewCustomer, value); }
     public string QuotationNotice { get => quotationNotice; private set => Set(ref quotationNotice, value); }
-    public void AttachCustomerClient(Features.Customers.CustomerClient client)
+    private void MatchCustomers()
     {
-        if (ReferenceEquals(customerClient, client)) return;
-        if (customerClient is not null) customerClient.Changed -= CustomerChanged;
-        customerClient = client;
-        customerClient.Changed += CustomerChanged;
-    }
-
-    private void CustomerInputChanged(string value)
-    {
-        if (applyingCustomer) return;
-        SelectedCustomer = null;
-        invalidCustomerFields = new HashSet<string>();
-        CustomerOperationError = string.Empty;
-        QueueCustomerSearch(value);
-    }
-
-    private void QueueCustomerSearch(string value)
-    {
-        customerSearchCancellation?.Cancel();
-        customerSearchCancellation?.Dispose();
-        customerSearchCancellation = new CancellationTokenSource();
-        var version = ++customerSearchVersion;
-        if (IsNewCustomer || string.IsNullOrWhiteSpace(value) || customerClient is null)
-        {
-            CustomerMatches.Clear();
-            IsCustomerBusy = false;
-            return;
-        }
-        _ = SearchCustomersAsync(value.Trim(), version, customerSearchCancellation.Token);
-    }
-
-    private async Task SearchCustomersAsync(string term, long version, CancellationToken cancellationToken)
-    {
-        IsCustomerBusy = true;
-        try
-        {
-            var result = await customerClient!.SearchAsync(term, cancellationToken);
-            if (cancellationToken.IsCancellationRequested || version != customerSearchVersion) return;
-            CustomerMatches.Clear();
-            if (result.Succeeded)
-                foreach (var customer in result.Value!) CustomerMatches.Add(PreviewCustomer.FromContract(customer));
-            else CustomerOperationError = Features.Customers.CustomerClient.ArabicMessage(result.Failure);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-        }
-        finally
-        {
-            if (version == customerSearchVersion) IsCustomerBusy = false;
-        }
+        CustomerMatches.Clear();
+        if (IsNewCustomer) return;
+        var name = PreviewText.NormalizeSearch(CustomerName.Trim());
+        foreach (var customer in customers.Where(c => (name.Length > 0 && PreviewText.NormalizeSearch(c.Name).Contains(name, StringComparison.OrdinalIgnoreCase)) || (Phone.Trim().Length > 0 && c.Phone.Contains(Phone.Trim(), StringComparison.Ordinal)))) CustomerMatches.Add(customer);
     }
     public void AttachCustomer(PreviewCustomer customer)
     {
-        applyingCustomer = true;
         CustomerName = customer.Name; Phone = customer.Phone; Address = customer.Address; Notes = customer.Notes;
-        applyingCustomer = false;
-        SelectedCustomer = customer;
-        invalidCustomerFields = new HashSet<string>();
-        Raise(nameof(CustomerNameError));
-        Raise(nameof(PhoneError));
         CustomerMatches.Clear();
-        CustomerOperationError = string.Empty;
-        QuotationNotice = "تم اختيار العميل";
+        QuotationNotice = "تم اختيار العميل للمعاينة فقط";
     }
     public void BeginNewCustomer()
     {
         previousCustomer = new(CustomerName, Phone, Address, Notes);
         IsNewCustomer = true;
-        SelectedCustomer = null;
         CustomerName = Phone = Address = Notes = "";
-        CustomerMatches.Clear(); CustomerOperationError = QuotationNotice = "";
+        CustomerMatches.Clear(); QuotationNotice = "";
     }
     public void CancelNewCustomer()
     {
@@ -157,57 +87,11 @@ public sealed partial class SalesCatalogViewModel
         if (previousCustomer is not null) AttachCustomer(previousCustomer);
         QuotationNotice = "";
     }
-    public async Task<bool> SaveNewCustomerAsync(CancellationToken cancellationToken = default)
+    public bool SaveNewCustomer()
     {
         if (!CheckCustomer()) return false;
-        if (customerClient is null)
-        {
-            CustomerOperationError = "تعذر الاتصال ببيانات العملاء. حاول مرة أخرى.";
-            return false;
-        }
-        IsCustomerBusy = true;
-        CustomerOperationError = string.Empty;
-        var result = await customerClient.CreateAsync(CustomerName, Phone, Address, Notes, cancellationToken);
-        IsCustomerBusy = false;
-        if (!result.Succeeded)
-        {
-            invalidCustomerFields = result.InvalidFields;
-            CustomerOperationError = Features.Customers.CustomerClient.ArabicMessage(result.Failure);
-            Raise(nameof(CustomerNameError));
-            Raise(nameof(PhoneError));
-            return false;
-        }
-        IsNewCustomer = false;
-        AttachCustomer(PreviewCustomer.FromContract(result.Value!));
-        return true;
-    }
-
-    private void CustomerChanged(object? sender, Guid? customerId)
-    {
-        if (IsNewCustomer) return;
-        if (SelectedCustomer?.Id is { } selectedId && (customerId is null || customerId == selectedId))
-        {
-            _ = RefreshSelectedCustomerAsync(selectedId);
-        }
-        var term = CustomerName.Length > 0 ? CustomerName : Phone;
-        if (term.Length > 0) QueueCustomerSearch(term);
-    }
-
-    private async Task RefreshSelectedCustomerAsync(Guid selectedId)
-    {
-        if (customerClient is null) return;
-        var result = await customerClient.GetAsync(selectedId);
-        if (SelectedCustomer?.Id != selectedId) return;
-        if (!result.Succeeded)
-        {
-            SelectedCustomer = null;
-            CustomerOperationError = Features.Customers.CustomerClient.ArabicMessage(result.Failure);
-            return;
-        }
-        var previousRevision = SelectedCustomer.Revision;
-        AttachCustomer(PreviewCustomer.FromContract(result.Value!));
-        if (result.Value!.Revision > previousRevision)
-            QuotationNotice = "تغيرت بيانات العميل. راجع أحدث البيانات قبل المتابعة.";
+        var customer = new PreviewCustomer(CustomerName, Phone, Address, Notes);
+        customers.Add(customer); IsNewCustomer = false; AttachCustomer(customer); return true;
     }
     private bool CheckCustomer()
     {
@@ -221,7 +105,7 @@ public sealed partial class SalesCatalogViewModel
         if (!CheckRequiredFields()) return false;
         if (!CanSaveQuotation) { QuotationNotice = DiscountError.Length > 0 ? DiscountError : DiscountStatus; return false; }
         PublishPreview?.Invoke(this, false);
-        QuotationNotice = "المعاينة مكتملة — حفظ عرض السعر غير متاح بعد، ولم يُحفظ عرض السعر"; return true;
+        QuotationNotice = "المعاينة مكتملة — حفظ عرض السعر غير متاح بعد، ولم تُحفظ البيانات"; return true;
     }
     public bool CheckRequiredFields()
     {

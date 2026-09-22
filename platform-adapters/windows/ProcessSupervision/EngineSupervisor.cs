@@ -103,8 +103,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
                 ProtocolVersion = SessionProtocol(client),
                 RequestId = requestId,
                 CorrelationId = Guid.NewGuid(),
-                Authorization = query.Kind is Query.CustomerGetKind or Query.CustomerSearchKind
-                    ? client.AuthorizationForCustomer : client.Authorization,
+                Authorization = client.Authorization,
                 Deadline = DeadlineAfter(requestTimeout),
                 Query = ToPayloadDictionary(query),
             },
@@ -193,8 +192,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
                 ProtocolVersion = SessionProtocol(client),
                 RequestId = Guid.NewGuid(),
                 CorrelationId = Guid.NewGuid(),
-                Authorization = command.Kind is Command.CustomerCreateKind or Command.CustomerUpdateKind
-                    ? client.AuthorizationForCustomer : client.Authorization,
+                Authorization = client.Authorization,
                 Deadline = DeadlineAfter(requestTimeout),
                 IdempotencyKey = idempotencyKey,
                 Command = ToPayloadDictionary(command),
@@ -861,8 +859,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
             },
             RequestId = Guid.NewGuid(),
             CorrelationId = Guid.NewGuid(),
-            Authorization = contract.Kind == Subscription.CustomerChangedSubscribeKind
-                ? client.AuthorizationForCustomer : client.Authorization,
+            Authorization = client.Authorization,
             Subscription = ToPayloadDictionary(contract),
             ResumeAfter = resumeAfter,
         };

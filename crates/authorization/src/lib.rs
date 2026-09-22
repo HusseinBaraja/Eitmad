@@ -49,8 +49,6 @@ pub const PERMISSIONS_READ_PERMISSION: &str = "eitmad.permission.permissions.rea
 pub const SENSITIVE_DEBUG_PERMISSION: &str = "eitmad.permission.observability.sensitive-debug.v1";
 pub const REFERENCE_MARKER_READ_PERMISSION: &str = "eitmad.permission.reference-marker.read.v1";
 pub const REFERENCE_MARKER_WRITE_PERMISSION: &str = "eitmad.permission.reference-marker.write.v1";
-pub const CUSTOMER_READ_PERMISSION: &str = "eitmad.permission.customer.read.v1";
-pub const CUSTOMER_WRITE_PERMISSION: &str = "eitmad.permission.customer.write.v1";
 pub const CATALOG_DRAFT_WRITE_PERMISSION: &str = "eitmad.permission.catalog.draft.write.v1";
 pub const QUOTATION_DRAFT_WRITE_PERMISSION: &str = "eitmad.permission.quotation.draft.write.v1";
 pub const DESKTOP_ACCOUNTS_MANAGE_PERMISSION: &str = "eitmad.permission.desktop-accounts.manage.v1";
@@ -58,7 +56,6 @@ pub const DESKTOP_ACCOUNTS_MANAGE_PERMISSION: &str = "eitmad.permission.desktop-
 const GRANT_RELATIONSHIP_OPERATION: &str = "eitmad.authorization.relationship.grant.v1";
 const REVOKE_RELATIONSHIP_OPERATION: &str = "eitmad.authorization.relationship.revoke.v1";
 const ORGANIZATION_SCOPE: &str = "organization";
-const BRANCH_SCOPE: &str = "branch";
 
 const POLICY_PERMISSIONS: &[&str] = &[
     AUTHORIZATION_MANAGE_PERMISSION,
@@ -69,8 +66,6 @@ const POLICY_PERMISSIONS: &[&str] = &[
     PERMISSIONS_READ_PERMISSION,
     REFERENCE_MARKER_READ_PERMISSION,
     REFERENCE_MARKER_WRITE_PERMISSION,
-    CUSTOMER_READ_PERMISSION,
-    CUSTOMER_WRITE_PERMISSION,
     SENSITIVE_DEBUG_PERMISSION,
     CATALOG_DRAFT_WRITE_PERMISSION,
     QUOTATION_DRAFT_WRITE_PERMISSION,
@@ -174,28 +169,20 @@ impl AuthorizationService {
                     MEMBER_RELATION | MANAGER_RELATION | RECEPTIONIST_RELATION
                 )
             });
-        let organization_scope = context.scope.kind.as_str() == ORGANIZATION_SCOPE;
-        let branch_scope = context.scope.kind.as_str() == BRANCH_SCOPE;
         let permissions = POLICY_PERMISSIONS
             .iter()
             .map(|permission| EffectivePermission {
                 permission: permission_id(permission),
                 decision: if match *permission {
-                    AUTHORIZATION_MANAGE_PERMISSION => owner,
-                    SENSITIVE_DEBUG_PERMISSION => owner && organization_scope,
+                    AUTHORIZATION_MANAGE_PERMISSION | SENSITIVE_DEBUG_PERMISSION => owner,
                     CONFIG_WRITE_PERMISSION
                     | CONFIG_IMPORT_PERMISSION
                     | CONFIG_EXPORT_PERMISSION
-                    | REFERENCE_MARKER_WRITE_PERMISSION => config_manager && organization_scope,
+                    | REFERENCE_MARKER_WRITE_PERMISSION => config_manager,
                     CONFIG_READ_PERMISSION
                     | PERMISSIONS_READ_PERMISSION
-                    | REFERENCE_MARKER_READ_PERMISSION => member && organization_scope,
-                    CATALOG_DRAFT_WRITE_PERMISSION | DESKTOP_ACCOUNTS_MANAGE_PERMISSION => {
-                        manager && organization_scope
-                    }
-                    CUSTOMER_READ_PERMISSION | CUSTOMER_WRITE_PERMISSION => {
-                        (manager || receptionist) && branch_scope
-                    }
+                    | REFERENCE_MARKER_READ_PERMISSION => member,
+                    CATALOG_DRAFT_WRITE_PERMISSION | DESKTOP_ACCOUNTS_MANAGE_PERMISSION => manager,
                     QUOTATION_DRAFT_WRITE_PERMISSION => receptionist,
                     _ => false,
                 } {
@@ -469,18 +456,15 @@ fn registered_relation(relation: &RelationId) -> bool {
 }
 
 fn validate_scope(scope: &ScopeRef) -> Result<(), AuthorizationError> {
-    matches!(scope.kind.as_str(), ORGANIZATION_SCOPE | BRANCH_SCOPE)
+    (scope.kind.as_str() == ORGANIZATION_SCOPE)
         .then_some(())
         .ok_or(AuthorizationError::UnsupportedScope)
 }
 
 fn validate_context_scope(context: &AuthorizationContext) -> Result<(), AuthorizationError> {
     validate_scope(&context.scope)?;
-    ((context.scope.kind.as_str() == ORGANIZATION_SCOPE
-        && context.tenant_id.value() == context.scope.id.value())
-        || context.scope.kind.as_str() == BRANCH_SCOPE)
+    (context.tenant_id.value() == context.scope.id.value() && context.workspace_id.is_none())
         .then_some(())
-        .filter(|()| context.workspace_id.is_none())
         .ok_or(AuthorizationError::Denied)
 }
 

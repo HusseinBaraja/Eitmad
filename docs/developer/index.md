@@ -34,8 +34,6 @@ Then read only the subsystem page that owns the change. Use [Build the first rea
 
 For customer, catalog, pricing, quotation, order, work-order, or delivery implementation, use the [Manager and Receptionist workflow specification](subsystems/manager-receptionist-workflows.md) as the accepted product behavior. The existing Windows feature pages describe preview presentation only.
 
-The implemented Rust customer contact boundary is documented in [Maintain customer contact records](subsystems/customers.md).
-
 ## 1. Run the local Windows app
 
 Install the .NET 8 SDK and the stable Rust toolchain. From the repository root, build the Rust engine and start the Windows shell with one command:

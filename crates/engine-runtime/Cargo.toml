@@ -15,7 +15,6 @@ argon2 = "=0.5.3"
 eitmad-authorization = { path = "../authorization" }
 eitmad-configuration = { path = "../configuration" }
 eitmad-contracts = { path = "../contracts" }
-eitmad-customer = { path = "../customer" }
 eitmad-observability-audit = { path = "../observability-audit" }
 eitmad-reference-marker = { path = "../reference-marker" }
 eitmad-storage = { path = "../storage" }

@@ -62,22 +62,6 @@ public partial class Command
     public UpsertReferenceMarker? AsReferenceMarkerUpsert() =>
         Kind == ReferenceMarkerUpsertKind ? PayloadAs<UpsertReferenceMarker>() : null;
 
-    public const string CustomerCreateKind = "eitmad.customer.create.v1";
-
-    public static Command ForCustomerCreate(CreateCustomer payload) =>
-        new() { Kind = CustomerCreateKind, Payload = payload };
-
-    public CreateCustomer? AsCustomerCreate() =>
-        Kind == CustomerCreateKind ? PayloadAs<CreateCustomer>() : null;
-
-    public const string CustomerUpdateKind = "eitmad.customer.update.v1";
-
-    public static Command ForCustomerUpdate(UpdateCustomer payload) =>
-        new() { Kind = CustomerUpdateKind, Payload = payload };
-
-    public UpdateCustomer? AsCustomerUpdate() =>
-        Kind == CustomerUpdateKind ? PayloadAs<UpdateCustomer>() : null;
-
     public const string DesktopAccountCreateKind = "eitmad.desktop-account.create.v1";
 
     public static Command ForDesktopAccountCreate(CreateDesktopAccount payload) =>
@@ -198,14 +182,6 @@ public partial class Event
 
     public ReferenceMarkerChangeNotice? AsReferenceMarkerChangedEvent() =>
         Kind == ReferenceMarkerChangedEventKind ? PayloadAs<ReferenceMarkerChangeNotice>() : null;
-
-    public const string CustomerChangedEventKind = "eitmad.customer.changed.event.v1";
-
-    public static Event ForCustomerChangedEvent(CustomerChangeNotice payload) =>
-        new() { Kind = CustomerChangedEventKind, Payload = payload };
-
-    public CustomerChangeNotice? AsCustomerChangedEvent() =>
-        Kind == CustomerChangedEventKind ? PayloadAs<CustomerChangeNotice>() : null;
 
     internal T? PayloadAs<T>() => Payload switch
     {
@@ -458,22 +434,6 @@ public partial class Query
     public ListReferenceMarkers? AsReferenceMarkerList() =>
         Kind == ReferenceMarkerListKind ? PayloadAs<ListReferenceMarkers>() : null;
 
-    public const string CustomerGetKind = "eitmad.customer.get.v1";
-
-    public static Query ForCustomerGet(GetCustomer payload) =>
-        new() { Kind = CustomerGetKind, Payload = payload };
-
-    public GetCustomer? AsCustomerGet() =>
-        Kind == CustomerGetKind ? PayloadAs<GetCustomer>() : null;
-
-    public const string CustomerSearchKind = "eitmad.customer.search.v1";
-
-    public static Query ForCustomerSearch(SearchCustomers payload) =>
-        new() { Kind = CustomerSearchKind, Payload = payload };
-
-    public SearchCustomers? AsCustomerSearch() =>
-        Kind == CustomerSearchKind ? PayloadAs<SearchCustomers>() : null;
-
     public const string DesktopAccountListKind = "eitmad.desktop-account.list.v1";
 
     public static Query ForDesktopAccountList(ListDesktopAccounts payload) =>
@@ -546,22 +506,6 @@ public partial class QueryResult
 
     public ReferenceMarkerPage? AsReferenceMarkers() =>
         Kind == ReferenceMarkersKind ? PayloadAs<ReferenceMarkerPage>() : null;
-
-    public const string CustomerKind = "customer";
-
-    public static QueryResult ForCustomer(Customer payload) =>
-        new() { Kind = CustomerKind, Payload = payload };
-
-    public Customer? AsCustomer() =>
-        Kind == CustomerKind ? PayloadAs<Customer>() : null;
-
-    public const string CustomersKind = "customers";
-
-    public static QueryResult ForCustomers(CustomerPage payload) =>
-        new() { Kind = CustomersKind, Payload = payload };
-
-    public CustomerPage? AsCustomers() =>
-        Kind == CustomersKind ? PayloadAs<CustomerPage>() : null;
 
     public const string DesktopAccountsKind = "desktopAccounts";
 
@@ -766,14 +710,6 @@ public partial class Subscription
     public ReferenceMarkerChanges? AsReferenceMarkerChangedSubscribe() =>
         Kind == ReferenceMarkerChangedSubscribeKind ? PayloadAs<ReferenceMarkerChanges>() : null;
 
-    public const string CustomerChangedSubscribeKind = "eitmad.customer.changed.subscribe.v1";
-
-    public static Subscription ForCustomerChangedSubscribe(CustomerChanges payload) =>
-        new() { Kind = CustomerChangedSubscribeKind, Payload = payload };
-
-    public CustomerChanges? AsCustomerChangedSubscribe() =>
-        Kind == CustomerChangedSubscribeKind ? PayloadAs<CustomerChanges>() : null;
-
     internal T? PayloadAs<T>() => Payload switch
     {
         T typed => typed,
@@ -896,10 +832,6 @@ public partial class BackgroundJobChanges
 }
 
 public partial class ConfigurationChanges
-{
-}
-
-public partial class CustomerChanges
 {
 }
 

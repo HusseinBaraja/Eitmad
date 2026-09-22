@@ -6,7 +6,7 @@
   <controls:StatusBadge Text="بانتظار موافقة المدير" Tone="Neutral" HorizontalAlignment="Right" Margin="0,12,0,0" Visibility="{Binding IsDiscountPending, Converter={StaticResource BooleanToVisibility}}"/>
   <TextBlock Text="عرض السعر" FontSize="28" FontWeight="Bold" Margin="0,18,0,0"/>
   <TextBlock Text="{Binding QuotationHeading}" FontSize="18" Margin="0,4,0,8"/>
-   <TextBlock Text="معاينة عرض السعر — بيانات العميل تُحفظ في محرك الاعتماد" TextWrapping="Wrap" Margin="0,0,0,20"/>
+  <TextBlock Text="معاينة ببيانات تجريبية — لا يتم حفظ عرض السعر أو بيانات العميل" TextWrapping="Wrap" Margin="0,0,0,20"/>
   <TextBlock Text="عرض السعر فارغ. تابع اختيار المنتجات لإضافة الأصناف." TextWrapping="Wrap" FontSize="20" Margin="0,20" Visibility="{Binding IsQuotationEmpty, Converter={StaticResource BooleanToVisibility}}"/>
   <controls:FormField Label="الأصناف" ErrorText="{Binding ItemsError}"><ItemsControl ItemsSource="{Binding QuotationLines}">
    <ItemsControl.ItemTemplate><DataTemplate>
@@ -42,22 +42,12 @@
    <TextBlock Text="بيانات العميل" FontSize="23" FontWeight="Bold"/>
    <TextBlock Text="الاسم ورقم الهاتف مطلوبان عند حفظ عرض السعر" Margin="0,6,0,12" TextWrapping="Wrap"/>
    <Button Content="+ عميل جديد" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Click="NewCustomerClick" AutomationProperties.Name="عميل جديد"/>
-   <TextBlock Text="عميل جديد" FontSize="18" FontWeight="Bold" Margin="0,12" Visibility="{Binding IsNewCustomer, Converter={StaticResource BooleanToVisibility}}"/>
+   <TextBlock Text="عميل جديد — معاينة مؤقتة" FontSize="18" FontWeight="Bold" Margin="0,12" Visibility="{Binding IsNewCustomer, Converter={StaticResource BooleanToVisibility}}"/>
    <WrapPanel Margin="0,12,0,0">
     <controls:FormField Label="اسم العميل" IsRequired="True" ErrorText="{Binding CustomerNameError}" Width="300" Margin="0,0,0,12"><TextBox x:Name="CustomerNameInput" Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" AutomationProperties.Name="اسم العميل"/></controls:FormField>
     <controls:FormField Label="رقم الهاتف" IsRequired="True" ErrorText="{Binding PhoneError}" Width="260" Margin="12,0,0,12"><TextBox x:Name="PhoneInput" Text="{Binding Phone, UpdateSourceTrigger=PropertyChanged}" FlowDirection="LeftToRight" Style="{StaticResource TextInput}" AutomationProperties.Name="رقم الهاتف"/></controls:FormField>
    </WrapPanel>
-   <ItemsControl ItemsSource="{Binding CustomerMatches}"><ItemsControl.ItemTemplate><DataTemplate>
-    <Button HorizontalAlignment="Right" Style="{StaticResource SecondaryButton}" Click="AttachCustomerClick" AutomationProperties.Name="{Binding Name, StringFormat=اختيار العميل {0}}" Margin="0,0,0,8">
-     <StackPanel Orientation="Horizontal" FlowDirection="RightToLeft">
-      <TextBlock Text="{Binding Name}"/>
-      <TextBlock Text=" — " />
-      <TextBlock Text="{Binding Phone}" FlowDirection="LeftToRight"/>
-     </StackPanel>
-    </Button>
-   </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
-   <TextBlock Text="جارٍ البحث…" Visibility="{Binding IsCustomerBusy, Converter={StaticResource BooleanToVisibility}}" Margin="0,0,0,8" AutomationProperties.LiveSetting="Polite"/>
-   <TextBlock Text="{Binding CustomerOperationError}" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" Margin="0,0,0,8" AutomationProperties.LiveSetting="Assertive"/>
+   <ItemsControl ItemsSource="{Binding CustomerMatches}"><ItemsControl.ItemTemplate><DataTemplate><Button Content="{Binding Label}" HorizontalAlignment="Right" Style="{StaticResource SecondaryButton}" Click="AttachCustomerClick" AutomationProperties.Name="{Binding Name, StringFormat=اختيار العميل {0}}" Margin="0,0,0,8"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
    <controls:FormField Label="العنوان (اختياري)" Margin="0,0,0,12"><TextBox Text="{Binding Address, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" AutomationProperties.Name="العنوان"/></controls:FormField>
    <controls:FormField Label="ملاحظات (اختياري)"><TextBox Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="72" AutomationProperties.Name="ملاحظات"/></controls:FormField>
    <WrapPanel Margin="0,12,0,0" Visibility="{Binding IsNewCustomer, Converter={StaticResource BooleanToVisibility}}">

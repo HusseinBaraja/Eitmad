@@ -344,20 +344,6 @@ internal sealed class SupervisionScenarios
             Assert.False(
                 supervisor.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityUpdateV1),
                 "unwired update capability is not negotiated");
-            Assert.True(desktopSession.CustomerAuthorization?.Scope.Kind == "branch",
-                "engine-issued customer branch scope");
-            await using var customerSubscription = await supervisor.SubscribeAsync(
-                Subscription.ForCustomerChangedSubscribe(new CustomerChanges()));
-            var createdResponse = await supervisor.SubmitCommandAsync(
-                Command.ForCustomerCreate(new CreateCustomer
-                {
-                    Name = "عميل تجريبي", Phone = "+967777123456",
-                    Address = null!, Notes = null!,
-                }), Guid.NewGuid());
-            Assert.Equal(CommandOutcomeStatus.Succeeded, createdResponse.Outcome.Status,
-                "real customer create succeeds in branch scope");
-            var created = createdResponse.Outcome.Payload.Payload?.Customer
-                ?? throw new InvalidOperationException("Real engine omitted the created customer.");
 
             var configurationResponse = await supervisor.QueryAsync(Query.ForConfigGet(new GetConfiguration()));
             if (configurationResponse.Outcome.Status != CommandOutcomeStatus.Succeeded)
@@ -414,35 +400,6 @@ internal sealed class SupervisionScenarios
                 ],
                 lifecycleStates,
                 "real engine lifecycle sequence");
-            await supervisor.StartAsync(request);
-            await Eventually(() => supervisor.IpcConnected, TimeSpan.FromSeconds(10));
-            await supervisor.SignInAsync("admin", "admin");
-            var searchResponse = await supervisor.QueryAsync(Query.ForCustomerSearch(new SearchCustomers
-            {
-                Term = "تجريبي", Limit = 20,
-            }));
-            Assert.Equal(CommandOutcomeStatus.Succeeded, searchResponse.Outcome.Status,
-                "real customer search after engine restart");
-            var found = searchResponse.Outcome.Payload.AsCustomers()?.Items.SingleOrDefault()
-                ?? throw new InvalidOperationException("Real engine did not find the persisted customer.");
-            Assert.Equal(created.Id, found.Id, "stable customer identity after restart");
-            var customerUpdateResponse = await supervisor.SubmitCommandAsync(Command.ForCustomerUpdate(new UpdateCustomer
-            {
-                CustomerId = found.Id, ExpectedRevision = found.Revision,
-                Name = "عميل تجريبي محدث", Phone = found.Phone,
-                Address = "عدن", Notes = null!,
-            }), Guid.NewGuid());
-            Assert.Equal(CommandOutcomeStatus.Succeeded, customerUpdateResponse.Outcome.Status,
-                "real customer update after restart");
-            var staleResponse = await supervisor.SubmitCommandAsync(Command.ForCustomerUpdate(new UpdateCustomer
-            {
-                CustomerId = found.Id, ExpectedRevision = found.Revision,
-                Name = "تعديل قديم", Phone = found.Phone,
-                Address = null!, Notes = null!,
-            }), Guid.NewGuid());
-            Assert.Equal(ProtocolIds.ErrorCodes.EitmadErrorCustomerRevisionConflictV1,
-                staleResponse.Outcome.Payload.Code, "stale edit cannot overwrite current customer");
-            await supervisor.StopAsync();
         }
         finally
         {

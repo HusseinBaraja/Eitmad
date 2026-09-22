@@ -7,10 +7,6 @@ use crate::{
     },
     authorization::{RelationId, RelationshipId, RelationshipMutationResult, RelationshipSubject},
     config::{ConfigChange, ConfigSnapshot},
-    customer::{
-        CustomerAddress, CustomerId, CustomerMutationResult, CustomerName, CustomerNotes,
-        CustomerPhone,
-    },
     reference_marker::{ReferenceMarker, ReferenceMarkerId, ReferenceMarkerLabel},
     transport::{OperationId, UpdateHandoffId},
     updates::{InstallerOutcome, UpdateState},
@@ -59,26 +55,6 @@ pub struct UpsertReferenceMarker {
     pub label: ReferenceMarkerLabel,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct CreateCustomer {
-    pub name: CustomerName,
-    pub phone: CustomerPhone,
-    pub address: Option<CustomerAddress>,
-    pub notes: Option<CustomerNotes>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct UpdateCustomer {
-    pub customer_id: CustomerId,
-    pub expected_revision: u64,
-    pub name: CustomerName,
-    pub phone: CustomerPhone,
-    pub address: Option<CustomerAddress>,
-    pub notes: Option<CustomerNotes>,
-}
-
 tagged_contract! {
     /// Authoritative state-changing requests.
     pub enum Command {
@@ -88,8 +64,6 @@ tagged_contract! {
         CancelOperation(CancelOperation) => "eitmad.operation.cancel.v1",
         ReportInstallerOutcome(ReportInstallerOutcome) => "eitmad.update.report-installer-outcome.v1",
         UpsertReferenceMarker(UpsertReferenceMarker) => "eitmad.reference-marker.upsert.v1",
-        CreateCustomer(CreateCustomer) => "eitmad.customer.create.v1",
-        UpdateCustomer(UpdateCustomer) => "eitmad.customer.update.v1",
         CreateDesktopAccount(CreateDesktopAccount) => "eitmad.desktop-account.create.v1",
         UpdateDesktopAccount(UpdateDesktopAccount) => "eitmad.desktop-account.update.v1",
         DeactivateDesktopAccount(DeactivateDesktopAccount) => "eitmad.desktop-account.deactivate.v1"
@@ -105,8 +79,6 @@ pub enum CommandResult {
     OperationCancelled { operation_id: OperationId },
     InstallerOutcomeRecorded(UpdateState),
     ReferenceMarkerUpserted(ReferenceMarker),
-    CustomerCreated(CustomerMutationResult),
-    CustomerUpdated(CustomerMutationResult),
     DesktopAccountCreated(DesktopAccountSummary),
     DesktopAccountUpdated(DesktopAccountSummary),
     DesktopAccountDeactivated(DesktopAccountSummary),

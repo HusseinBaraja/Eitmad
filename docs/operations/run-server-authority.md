@@ -119,24 +119,3 @@ Do not delete operation history until a complete snapshot covers it and retained
 On 2026-08-24, `check-config` passed with synthetic loopback, manifest-directory, and trusted-public-key configuration. Rust tests, strict Clippy, and generated contract verification passed. Live `migrate`, `bootstrap`, `serve`, RLS, backup/restore, and HTTP/WebSocket integration still require a deployment environment with PostgreSQL.
 
 For failures, use [server authentication and sync failures](../troubleshooting/server-authentication-and-sync.md) or [relay, update, and administration failures](../troubleshooting/server-plane-failures.md). For design ownership, use [the modular server authority](../developer/subsystems/server-authority.md).
-
-## Run the direct desktop connection test
-
-Use a new, empty, disposable PostgreSQL database that the test role can migrate. The test bootstraps one synthetic Arabic tenant and must not run against product data. The local certificate tool creates a seven-day CA, a `localhost` server certificate and key, and an unrelated CA for the rejection check. It writes only to the ignored `target/direct-route-cert` directory. Do not commit those files.
-
-```powershell
-dotnet run --project tools/dev-certificate/Eitmad.DevCertificate.csproj --configuration Release -- target/direct-route-cert
-```
-
-Set `EITMAD_DIRECT_TEST_DATABASE_URL` to the disposable database URL through the local secret channel, then run:
-
-```powershell
-$certDir = (Resolve-Path target/direct-route-cert).Path
-$env:EITMAD_DIRECT_TEST_CERTIFICATE = Join-Path $certDir 'server-cert.pem'
-$env:EITMAD_DIRECT_TEST_PRIVATE_KEY = Join-Path $certDir 'server-key.pem'
-$env:EITMAD_DIRECT_TEST_TRUSTED_CERTIFICATE = Join-Path $certDir 'trusted-ca.pem'
-$env:EITMAD_DIRECT_TEST_WRONG_CERTIFICATE = Join-Path $certDir 'wrong-ca.pem'
-cargo test -p eitmad-server-connection --test direct_route real_server_authentication_tls_sync_and_reconnect -- --ignored --exact
-```
-
-The test starts the real HTTPS/WebSocket host with a registered synthetic sync schema. It requires a valid signed device proof and token, receives and acknowledges a real `SyncMessage::Changes` from PostgreSQL, delivers cancellation, rejects an invalid token and unrelated CA, rotates an expiring token pair, stops the server, observes transport loss, and reconnects after the shared backoff. A missing database or certificate path fails the command; it is not a skipped success. The test does not exercise discovery or relay routing.

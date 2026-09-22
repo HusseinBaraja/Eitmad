@@ -71,7 +71,6 @@ public sealed class QuotationListItem : ObservableObject
     }
 
     public string Phone { get; }
-    public Guid? CustomerId { get; init; }
     public string Address { get; init; } = "";
     public string Notes { get; init; } = "";
 

@@ -60,7 +60,6 @@ impl std::fmt::Debug for DesktopSignInRequest {
 #[serde(rename_all = "camelCase")]
 pub struct DesktopSessionState {
     pub authorization: Option<AuthorizationContext>,
-    pub customer_authorization: Option<AuthorizationContext>,
     pub account_role: DesktopAccountRole,
     pub expires_at: Option<UnixMillis>,
 }

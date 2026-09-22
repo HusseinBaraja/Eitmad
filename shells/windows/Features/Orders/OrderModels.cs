@@ -45,7 +45,6 @@ public sealed record OrderListItem(
     string Phone = "",
     Features.Quotations.QuotationListItem? OriginalQuotation = null)
 {
-    public Guid? CustomerId { get; init; }
     public string ReadyFromWorkOrder { get; init; } = "";
     public bool IsNewlyReady => ReadyFromWorkOrder.Length > 0;
     public string ReadyNotice => "جاهز حديثاً — اكتمل التصنيع. راجع الطلب للتواصل مع العميل. معاينة فقط.";

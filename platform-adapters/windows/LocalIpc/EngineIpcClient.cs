@@ -31,8 +31,6 @@ public sealed class EngineIpcClient : IAsyncDisposable
     }
 
     public AuthorizationContext Authorization { get; private set; } = null!;
-    private AuthorizationContext? customerAuthorization;
-    public AuthorizationContext AuthorizationForCustomer => customerAuthorization ?? Authorization;
     public NegotiatedSession NegotiatedSession { get; private set; } = null!;
     public Task Completion => reader;
 
@@ -143,12 +141,10 @@ public sealed class EngineIpcClient : IAsyncDisposable
             if (result.Status != DesktopSessionStatus.Active || result.State?.Authorization is null)
             {
                 Authorization = processAuthorization;
-                customerAuthorization = null;
                 throw new EngineIpcException(EngineIpcFailureKind.AuthenticationRejected,
                     "The engine rejected desktop sign-in.", result.Error);
             }
             Authorization = result.State.Authorization;
-            customerAuthorization = result.State.CustomerAuthorization;
             return result.State;
         }
         finally
@@ -169,7 +165,6 @@ public sealed class EngineIpcClient : IAsyncDisposable
             ClearSessionActivity();
         }
         Authorization = result.State?.Authorization ?? processAuthorization;
-        customerAuthorization = result.State?.CustomerAuthorization;
         return result.State;
     }
 
@@ -185,7 +180,6 @@ public sealed class EngineIpcClient : IAsyncDisposable
                 throw new EngineIpcException(EngineIpcFailureKind.AuthenticationRejected,
                     "The engine could not close the desktop session.", result.Error);
             Authorization = processAuthorization;
-            customerAuthorization = null;
         }
         finally
         {
