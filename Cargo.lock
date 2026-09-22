@@ -1004,6 +1004,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "eitmad-server-connection"
+version = "0.0.0"
+dependencies = [
+ "async-trait",
+ "axum-server",
+ "base64",
+ "ed25519-dalek",
+ "eitmad-contracts",
+ "eitmad-control-plane",
+ "eitmad-secret-storage",
+ "eitmad-server",
+ "eitmad-server-audit",
+ "eitmad-sync",
+ "eitmad-sync-plane",
+ "rustls",
+ "semver",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tungstenite",
+ "url",
+ "uuid",
+ "zeroize",
+]
+
+[[package]]
 name = "eitmad-storage"
 version = "0.0.0"
 dependencies = [
@@ -2247,6 +2274,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0283386ce02abc0151e1761d08802dfe86c173b0b494af5cbc086574e453da06"
 dependencies = [
  "aws-lc-rs",
+ "log",
  "once_cell",
  "ring",
  "rustls-pki-types",
@@ -2970,8 +2998,11 @@ dependencies = [
  "httparse",
  "log",
  "rand 0.9.3",
+ "rustls",
+ "rustls-pki-types",
  "sha1",
  "thiserror",
+ "webpki-roots 0.26.11",
 ]
 
 [[package]]

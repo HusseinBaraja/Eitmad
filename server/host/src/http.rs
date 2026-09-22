@@ -34,7 +34,8 @@ use eitmad_contracts::{
     transport::{CapabilityId, CorrelationId, SchemaId},
     updates::{ReleaseVersion, SignedUpdateManifest, UpdateCheckOutcome, UpdateClientProfile},
     versioning::{
-        NegotiationOutcome, PeerHello, PeerKind, SchemaSupport, SupportedProtocol, negotiate,
+        NegotiatedSession, NegotiationOutcome, PeerHello, PeerKind, SchemaSupport,
+        SupportedProtocol, negotiate,
     },
 };
 use eitmad_control_plane::{
@@ -679,6 +680,8 @@ async fn connect(
     let schema_id = SchemaId::parse(query.schema_id)
         .map_err(|_| ApiError::bad_request("eitmad.error.contract-invalid.v1"))?;
     Ok(upgrade
+        .max_message_size(1024 * 1024)
+        .max_frame_size(1024 * 1024)
         .on_upgrade(move |socket| {
             stream_session(
                 socket,
@@ -717,7 +720,7 @@ async fn stream_session(
         proof,
         session,
     } = context;
-    let mut negotiated = false;
+    let mut negotiated: Option<NegotiatedSession> = None;
     let mut revalidation = tokio::time::interval(SESSION_REVALIDATION_INTERVAL);
     revalidation.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     revalidation.reset();
@@ -748,17 +751,15 @@ async fn stream_session(
             }
             continue;
         };
-        if !negotiated {
+        if negotiated.is_none() {
             let ServerClientMessage::Hello(hello) = message else {
                 let _ =
                     send_failure(&mut socket, "eitmad.error.server-client-incompatible.v1").await;
                 break;
             };
+            let outcome = negotiate(&state.server_hello, &hello.peer);
             if hello.api_version != eitmad_contracts::server::SERVER_API_VERSION
-                || !matches!(
-                    negotiate(&state.server_hello, &hello.peer),
-                    NegotiationOutcome::Accepted(_)
-                )
+                || !matches!(outcome, NegotiationOutcome::Accepted(_))
             {
                 let _ =
                     send_failure(&mut socket, "eitmad.error.server-client-incompatible.v1").await;
@@ -773,19 +774,20 @@ async fn stream_session(
             {
                 break;
             }
-            negotiated = true;
+            let NegotiationOutcome::Accepted(session) = outcome else {
+                break;
+            };
+            negotiated = Some(session);
             continue;
         }
-        let result = handle_stream_message(
-            &mut socket,
-            &state,
-            &session,
-            &scope,
-            &schema_id,
+        let request_context = StreamRequestContext {
+            session: &session,
+            scope: &scope,
+            schema_id: &schema_id,
             schema_version,
-            message,
-        )
-        .await;
+            negotiated: negotiated.as_ref().expect("hello negotiated"),
+        };
+        let result = handle_stream_message(&mut socket, &state, &request_context, message).await;
         if let Err(error) = result {
             if send_failure(&mut socket, error.code.as_str())
                 .await
@@ -796,24 +798,30 @@ async fn stream_session(
         }
     }
 }
+
+struct StreamRequestContext<'a> {
+    session: &'a eitmad_contracts::server::AuthenticatedServerSession,
+    scope: &'a ScopeRef,
+    schema_id: &'a SchemaId,
+    schema_version: u32,
+    negotiated: &'a NegotiatedSession,
+}
+
 async fn handle_stream_message(
     socket: &mut WebSocket,
     state: &ServerState,
-    session: &eitmad_contracts::server::AuthenticatedServerSession,
-    scope: &ScopeRef,
-    schema_id: &SchemaId,
-    schema_version: u32,
+    context: &StreamRequestContext<'_>,
     message: ServerClientMessage,
 ) -> Result<(), ApiError> {
     match message {
-        ServerClientMessage::Subscribe(request) if request.schema_id == *schema_id => {
+        ServerClientMessage::Subscribe(request) if request.schema_id == *context.schema_id => {
             let page = state
                 .sync
                 .subscription_page(eitmad_sync_plane::SubscriptionPageRequest {
-                    session,
-                    scope,
+                    session: context.session,
+                    scope: context.scope,
                     schema_id: &request.schema_id,
-                    schema_version,
+                    schema_version: context.schema_version,
                     resume_after: request.resume_after,
                     maximum_events: u32::try_from(eitmad_contracts::sync::MAX_SYNC_BATCH_RECORDS)
                         .unwrap_or(u32::MAX),
@@ -829,61 +837,87 @@ async fn handle_stream_message(
             }
             Ok(())
         }
-        ServerClientMessage::Hello(_) | ServerClientMessage::Subscribe(_) => Err(
-            ApiError::bad_request("eitmad.error.server-client-incompatible.v1"),
-        ),
         ServerClientMessage::Acknowledge(_) => Err(ApiError::bad_request(
             "eitmad.error.server-subscription-ack-unsupported.v1",
         )),
-        ServerClientMessage::Sync(frame) => match frame.payload {
-            SyncTransportPayload::Message(SyncMessage::Pull(request)) => match state
-                .sync
-                .pull(eitmad_sync_plane::PullPageRequest {
-                    session,
-                    scope,
-                    schema_id,
-                    schema_version,
-                    after: request.after,
-                    maximum_records: request.maximum_records,
-                    correlation_id: frame.correlation_id,
-                    now: unix_millis_now(),
-                })
-                .await
-            {
-                Ok(batch) => {
-                    send_server_message(socket, &ServerMessage::Sync(SyncMessage::Changes(batch)))
-                        .await
-                        .map_err(|()| ApiError::unavailable())
-                }
-                Err(OperationError::SnapshotRequired) => {
-                    send_snapshot(
-                        socket,
-                        state,
-                        session,
-                        scope,
-                        schema_id,
-                        schema_version,
-                        frame.correlation_id,
-                    )
+        ServerClientMessage::Sync(frame)
+            if frame.protocol_version == context.negotiated.protocol =>
+        {
+            handle_sync_frame(socket, state, context, frame).await
+        }
+        ServerClientMessage::Hello(_)
+        | ServerClientMessage::Subscribe(_)
+        | ServerClientMessage::Sync(_) => Err(ApiError::bad_request(
+            "eitmad.error.server-client-incompatible.v1",
+        )),
+    }
+}
+
+async fn handle_sync_frame(
+    socket: &mut WebSocket,
+    state: &ServerState,
+    context: &StreamRequestContext<'_>,
+    frame: eitmad_contracts::sync_transport::SyncTransportFrame,
+) -> Result<(), ApiError> {
+    match frame.payload {
+        SyncTransportPayload::Message(SyncMessage::Pull(request)) => match state
+            .sync
+            .pull(eitmad_sync_plane::PullPageRequest {
+                session: context.session,
+                scope: context.scope,
+                schema_id: context.schema_id,
+                schema_version: context.schema_version,
+                after: request.after,
+                maximum_records: request.maximum_records,
+                correlation_id: frame.correlation_id,
+                now: unix_millis_now(),
+            })
+            .await
+        {
+            Ok(batch) => {
+                send_server_message(socket, &ServerMessage::Sync(SyncMessage::Changes(batch)))
                     .await
-                }
-                Err(error) => Err(map_operation(error)),
-            },
-            SyncTransportPayload::Message(SyncMessage::Acknowledge(acknowledgement)) => state
+                    .map_err(|()| ApiError::unavailable())
+            }
+            Err(OperationError::SnapshotRequired) => {
+                send_snapshot(
+                    socket,
+                    state,
+                    context.session,
+                    context.scope,
+                    context.schema_id,
+                    context.schema_version,
+                    frame.correlation_id,
+                )
+                .await
+            }
+            Err(error) => Err(map_operation(error)),
+        },
+        SyncTransportPayload::Message(SyncMessage::Acknowledge(acknowledgement)) => {
+            state
                 .sync
                 .acknowledge(eitmad_sync_plane::AcknowledgeRequest {
-                    session,
-                    scope,
-                    schema_id,
-                    schema_version,
+                    session: context.session,
+                    scope: context.scope,
+                    schema_id: context.schema_id,
+                    schema_version: context.schema_version,
                     acknowledgement: &acknowledgement,
                     correlation_id: frame.correlation_id,
                     now: unix_millis_now(),
                 })
                 .await
-                .map_err(map_operation),
-            _ => Err(ApiError::bad_request("eitmad.error.contract-invalid.v1")),
-        },
+                .map_err(map_operation)?;
+            send_server_message(
+                socket,
+                &ServerMessage::Sync(SyncMessage::Acknowledge(acknowledgement)),
+            )
+            .await
+            .map_err(|()| ApiError::unavailable())
+        }
+        SyncTransportPayload::Cancel(cancellation) if cancellation.stream_id == frame.stream_id => {
+            Ok(())
+        }
+        _ => Err(ApiError::bad_request("eitmad.error.contract-invalid.v1")),
     }
 }
 

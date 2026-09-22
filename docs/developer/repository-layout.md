@@ -30,6 +30,7 @@ Place behavior that changes together in the nearest vertical product capability.
 | `crates/customer/` | Branch-scoped customer contact validation, search normalization, audit orchestration, and local-first sync projection | [Customer capability](subsystems/customers.md) |
 | `crates/storage/` | SQLite setup, feature migrations, drift checks, transactions, scoped repositories, and recovery hooks | [Local storage guide](subsystems/local-storage.md) |
 | `crates/sync/` | Unified synchronization protocol | `crates/sync/OWNERSHIP.md` |
+| `crates/server-connection/` | Rust desktop engine direct TLS/WebSocket connection, device proof, and token lifecycle | `crates/server-connection/OWNERSHIP.md` |
 | `crates/authorization/` | Direct principal-to-scope relationships and compiled ReBAC policy v1 | [Authorization guide](subsystems/authorization.md) |
 | `crates/update-policy/` | Update eligibility, compatibility, and migration safety | `crates/update-policy/OWNERSHIP.md` |
 | `crates/observability-audit/` | Redacted diagnostics and mutation audit | `crates/observability-audit/OWNERSHIP.md` |
