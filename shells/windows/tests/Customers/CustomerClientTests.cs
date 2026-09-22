@@ -127,6 +127,28 @@ public sealed class CustomerClientTests
     }
 
     [TestMethod]
+    public async Task SubscriptionReadFailureResubscribesWithoutEngineGenerationChange()
+    {
+        await using var engine = new FakeEngine();
+        FakeSubscription? first = null;
+        var subscriptions = 0;
+        engine.SubscribeHook = (_, subscription) =>
+        {
+            first ??= subscription;
+            subscriptions++;
+        };
+        await using var client = new CustomerClient(engine);
+        var refreshes = 0;
+        client.Changed += (_, id) => { if (id is null) refreshes++; };
+        await client.ActivateAsync();
+
+        first!.FailRead();
+
+        await EventuallyAsync(() => refreshes == 1 && subscriptions == 2);
+        Assert.AreEqual(1, engine.SubscriptionCount);
+    }
+
+    [TestMethod]
     public async Task SelectedCustomerRefreshesFromSubscriptionWithoutLosingSelection()
     {
         await using var engine = new FakeEngine();
@@ -136,6 +158,12 @@ public sealed class CustomerClientTests
         await client.ActivateAsync();
         var model = new SalesCatalogViewModel(new FurnitureViewModel(), new ProductsViewModel(), client);
         model.AttachCustomer(PreviewCustomer.FromContract(original));
+        model.Select(model.VisibleItems.Single(item => item.Name == "وسادة فندقية"));
+        Assert.IsTrue(model.AddProductSelection());
+        model.DiscountInput = "10";
+        model.RequestDiscountApproval();
+        Assert.IsTrue(model.IsDiscountPending);
+        var pendingNotice = model.QuotationNotice;
         engine.Customers[0] = new Customer
         {
             Id = original.Id, Scope = original.Scope, Name = original.Name,
@@ -160,6 +188,81 @@ public sealed class CustomerClientTests
         await EventuallyAsync(() => model.SelectedCustomer?.Revision == 2);
         Assert.AreEqual("700000002", model.Phone);
         Assert.AreEqual(original.Id, model.SelectedCustomer!.Id);
+        Assert.IsTrue(model.IsDiscountPending);
+        Assert.AreNotEqual(pendingNotice, model.QuotationNotice);
+        StringAssert.Contains(model.QuotationNotice, "تغيرت بيانات العميل");
+    }
+
+    [TestMethod]
+    public async Task MissingCustomerAndNormalizedSearchUseTypedResults()
+    {
+        await using var engine = new FakeEngine();
+        engine.Customers.Add(Customer("إعـتماد القيسي", "+٩٦٧ (٧٧٧) ١٢٣-٤٥٦"));
+        await using var client = new CustomerClient(engine);
+
+        var byName = await client.SearchAsync("اعتماد القيسي");
+        var byPhone = await client.SearchAsync("+967777123456");
+        var missing = await client.GetAsync(Guid.NewGuid());
+
+        Assert.AreEqual(engine.Customers.Single().Id, byName.Value!.Single().Id);
+        Assert.AreEqual(engine.Customers.Single().Id, byPhone.Value!.Single().Id);
+        Assert.AreEqual(CustomerFailureKind.NotFound, missing.Failure);
+    }
+
+    [TestMethod]
+    public async Task ReopenedQuotationRefreshDoesNotReportSyntheticRevisionAsCustomerChange()
+    {
+        await using var engine = new FakeEngine();
+        var original = Customer("عميل تجريبي", "700000001");
+        engine.Customers.Add(original);
+        await using var client = new CustomerClient(engine);
+        await client.ActivateAsync();
+        var model = new SalesCatalogViewModel(new FurnitureViewModel(), new ProductsViewModel(), client);
+        model.AttachCustomer(new PreviewCustomer(original.Name, original.Phone, "", "", original.Id));
+        var notice = model.QuotationNotice;
+
+        engine.Publish(Subscription.CustomerChangedSubscribeKind, new EventEnvelope
+        {
+            SubscriptionId = Guid.NewGuid(), CorrelationId = Guid.NewGuid(),
+            Cursor = Guid.NewGuid(), Sequence = 1, OccurredAt = original.UpdatedAt,
+            Event = new Dictionary<string, object>
+            {
+                ["kind"] = Event.CustomerChangedEventKind,
+                ["payload"] = new CustomerChangeNotice
+                {
+                    CustomerId = original.Id, Scope = original.Scope, Revision = original.Revision,
+                    ChangedAt = original.UpdatedAt, ChangeId = Guid.NewGuid(),
+                },
+            },
+        });
+
+        await EventuallyAsync(() => model.SelectedCustomer?.Revision == 1);
+        Assert.AreEqual(notice, model.QuotationNotice);
+    }
+
+    [TestMethod]
+    public async Task NewCustomerSaveRejectsInvalidPhoneAndDuplicateSubmission()
+    {
+        await using var engine = new FakeEngine();
+        await using var client = new CustomerClient(engine);
+        var model = new SalesCatalogViewModel(new FurnitureViewModel(), new ProductsViewModel(), client);
+        model.BeginNewCustomer();
+        model.CustomerName = "عميل تجريبي";
+        model.Phone = "invalid";
+        Assert.IsFalse(await model.SaveNewCustomerAsync());
+        Assert.IsNull(engine.LastCommand);
+        Assert.AreEqual("تحقق من رقم الهاتف", model.PhoneError);
+
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        engine.CommandBarrier = _ => release.Task;
+        model.Phone = "777000001";
+        var first = model.SaveNewCustomerAsync();
+        Assert.IsTrue(model.IsCustomerSaveBusy);
+        Assert.IsFalse(await model.SaveNewCustomerAsync());
+        release.SetResult();
+        Assert.IsTrue(await first);
+        Assert.AreEqual(1, engine.Customers.Count);
+        Assert.IsFalse(model.IsCustomerSaveBusy);
     }
 
     [TestMethod]

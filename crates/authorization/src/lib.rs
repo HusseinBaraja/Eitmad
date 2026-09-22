@@ -196,7 +196,7 @@ impl AuthorizationService {
                     CUSTOMER_READ_PERMISSION | CUSTOMER_WRITE_PERMISSION => {
                         (manager || receptionist) && branch_scope
                     }
-                    QUOTATION_DRAFT_WRITE_PERMISSION => receptionist,
+                    QUOTATION_DRAFT_WRITE_PERMISSION => receptionist && organization_scope,
                     _ => false,
                 } {
                     PermissionDecision::Granted

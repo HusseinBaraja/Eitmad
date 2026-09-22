@@ -51,6 +51,7 @@ public sealed partial class SalesCatalogViewModel
     private long customerSearchVersion;
     private bool applyingCustomer;
     private bool isCustomerBusy;
+    private bool isCustomerSaveBusy;
     private string customerOperationError = string.Empty;
     private IReadOnlySet<string> invalidCustomerFields = new HashSet<string>();
     public PreviewCustomer? SelectedCustomer { get; private set; }
@@ -71,11 +72,12 @@ public sealed partial class SalesCatalogViewModel
         : invalidCustomerFields.Contains("phone") ? "تحقق من رقم الهاتف" : "";
     public string ItemsError => showRequiredErrors && IsQuotationEmpty ? "أضف صنفاً واحداً على الأقل" : "";
     public bool IsCustomerBusy { get => isCustomerBusy; private set => Set(ref isCustomerBusy, value); }
+    public bool IsCustomerSaveBusy { get => isCustomerSaveBusy; private set => Set(ref isCustomerSaveBusy, value); }
     public string CustomerOperationError { get => customerOperationError; private set => Set(ref customerOperationError, value); }
-    public string CustomerName { get => customerName; set { if (Set(ref customerName, value)) { InvalidateDiscountRequest(); CustomerInputChanged(value); Raise(nameof(CustomerNameError)); } } }
-    public string Phone { get => phone; set { if (Set(ref phone, value)) { InvalidateDiscountRequest(); CustomerInputChanged(value); Raise(nameof(PhoneError)); } } }
-    public string Address { get => address; set { if (Set(ref address, value)) InvalidateDiscountRequest(); } }
-    public string Notes { get => notes; set { if (Set(ref notes, value)) InvalidateDiscountRequest(); } }
+    public string CustomerName { get => customerName; set { if (Set(ref customerName, value)) { if (!applyingCustomer) InvalidateDiscountRequest(); CustomerInputChanged(value); Raise(nameof(CustomerNameError)); } } }
+    public string Phone { get => phone; set { if (Set(ref phone, value)) { if (!applyingCustomer) InvalidateDiscountRequest(); CustomerInputChanged(value); Raise(nameof(PhoneError)); } } }
+    public string Address { get => address; set { if (Set(ref address, value) && !applyingCustomer) InvalidateDiscountRequest(); } }
+    public string Notes { get => notes; set { if (Set(ref notes, value) && !applyingCustomer) InvalidateDiscountRequest(); } }
     public bool IsNewCustomer { get => isNewCustomer; private set => Set(ref isNewCustomer, value); }
     public string QuotationNotice { get => quotationNotice; private set => Set(ref quotationNotice, value); }
     public void AttachCustomerClient(Features.Customers.CustomerClient client)
@@ -130,8 +132,9 @@ public sealed partial class SalesCatalogViewModel
             if (version == customerSearchVersion) IsCustomerBusy = false;
         }
     }
-    public void AttachCustomer(PreviewCustomer customer)
+    public void AttachCustomer(PreviewCustomer customer, bool preserveDiscountRequest = false)
     {
+        if (!preserveDiscountRequest) InvalidateDiscountRequest();
         applyingCustomer = true;
         CustomerName = customer.Name; Phone = customer.Phone; Address = customer.Address; Notes = customer.Notes;
         applyingCustomer = false;
@@ -159,27 +162,36 @@ public sealed partial class SalesCatalogViewModel
     }
     public async Task<bool> SaveNewCustomerAsync(CancellationToken cancellationToken = default)
     {
+        if (IsCustomerSaveBusy) return false;
         if (!CheckCustomer()) return false;
         if (customerClient is null)
         {
             CustomerOperationError = "تعذر الاتصال ببيانات العملاء. حاول مرة أخرى.";
             return false;
         }
+        IsCustomerSaveBusy = true;
         IsCustomerBusy = true;
-        CustomerOperationError = string.Empty;
-        var result = await customerClient.CreateAsync(CustomerName, Phone, Address, Notes, cancellationToken);
-        IsCustomerBusy = false;
-        if (!result.Succeeded)
+        try
         {
-            invalidCustomerFields = result.InvalidFields;
-            CustomerOperationError = Features.Customers.CustomerClient.ArabicMessage(result.Failure);
-            Raise(nameof(CustomerNameError));
-            Raise(nameof(PhoneError));
-            return false;
+            CustomerOperationError = string.Empty;
+            var result = await customerClient.CreateAsync(CustomerName, Phone, Address, Notes, cancellationToken);
+            if (!result.Succeeded)
+            {
+                invalidCustomerFields = result.InvalidFields;
+                CustomerOperationError = Features.Customers.CustomerClient.ArabicMessage(result.Failure);
+                Raise(nameof(CustomerNameError));
+                Raise(nameof(PhoneError));
+                return false;
+            }
+            IsNewCustomer = false;
+            AttachCustomer(PreviewCustomer.FromContract(result.Value!));
+            return true;
         }
-        IsNewCustomer = false;
-        AttachCustomer(PreviewCustomer.FromContract(result.Value!));
-        return true;
+        finally
+        {
+            IsCustomerSaveBusy = false;
+            IsCustomerBusy = false;
+        }
     }
 
     private void CustomerChanged(object? sender, Guid? customerId)
@@ -205,16 +217,25 @@ public sealed partial class SalesCatalogViewModel
             return;
         }
         var previousRevision = SelectedCustomer.Revision;
-        AttachCustomer(PreviewCustomer.FromContract(result.Value!));
-        if (result.Value!.Revision > previousRevision)
+        var previousNotice = QuotationNotice;
+        AttachCustomer(PreviewCustomer.FromContract(result.Value!), preserveDiscountRequest: true);
+        if (previousRevision > 0 && result.Value!.Revision > previousRevision)
             QuotationNotice = "تغيرت بيانات العميل. راجع أحدث البيانات قبل المتابعة.";
+        else QuotationNotice = previousNotice;
     }
     private bool CheckCustomer()
     {
         showRequiredErrors = true;
         Raise(nameof(CustomerNameError)); Raise(nameof(PhoneError));
-        if (!string.IsNullOrWhiteSpace(CustomerName) && !string.IsNullOrWhiteSpace(Phone)) return true;
-        QuotationNotice = "أدخل اسم العميل ورقم الهاتف للمتابعة"; return false;
+        var nameValid = Features.Customers.CustomerInputValidation.IsNameValid(CustomerName);
+        var phoneValid = Features.Customers.CustomerInputValidation.IsPhoneValid(Phone);
+        if (nameValid && phoneValid) return true;
+        var invalidFields = new HashSet<string>();
+        if (!nameValid && !string.IsNullOrWhiteSpace(CustomerName)) invalidFields.Add("name");
+        if (!phoneValid && !string.IsNullOrWhiteSpace(Phone)) invalidFields.Add("phone");
+        invalidCustomerFields = invalidFields;
+        Raise(nameof(CustomerNameError)); Raise(nameof(PhoneError));
+        QuotationNotice = "تحقق من اسم العميل ورقم الهاتف للمتابعة"; return false;
     }
     public bool ReviewSave()
     {

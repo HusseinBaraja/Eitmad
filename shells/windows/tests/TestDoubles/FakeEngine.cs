@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using Eitmad.Contracts;
 using Eitmad.Platform.Windows.LocalIpc;
 using Eitmad.Platform.Windows.ProcessSupervision;
@@ -190,6 +192,20 @@ internal sealed class FakeEngine : IEngineShellBridge
             };
         }
 
+        if (query.AsCustomerGet() is { } getCustomer &&
+            Customers.All(customer => customer.Id != getCustomer.CustomerId))
+        {
+            return new QueryResponseEnvelope
+            {
+                RequestId = Guid.NewGuid(),
+                CorrelationId = Guid.NewGuid(),
+                Outcome = new QueryOutcome
+                {
+                    Status = CommandOutcomeStatus.Failed,
+                    Payload = new QueryResult { Code = ProtocolIds.ErrorCodes.EitmadErrorCustomerNotFoundV1 },
+                },
+            };
+        }
         var result = query.Kind switch
         {
             Query.PermissionsGetEffectiveKind => QueryResult.ForEffectivePermissions(new EffectivePermissions
@@ -219,9 +235,7 @@ internal sealed class FakeEngine : IEngineShellBridge
                 customer.Id == query.AsCustomerGet()!.CustomerId)),
             Query.CustomerSearchKind => QueryResult.ForCustomers(new CustomerPage
             {
-                Items = Customers.Where(customer =>
-                    customer.Name.Contains(query.AsCustomerSearch()!.Term, StringComparison.OrdinalIgnoreCase)
-                    || customer.Phone.Contains(query.AsCustomerSearch()!.Term, StringComparison.Ordinal))
+                Items = Customers.Where(customer => CustomerMatchesTerm(customer, query.AsCustomerSearch()!.Term))
                     .Take((int)query.AsCustomerSearch()!.Limit).ToArray(),
             }),
             _ => throw new InvalidOperationException("Unexpected fake query."),
@@ -232,6 +246,62 @@ internal sealed class FakeEngine : IEngineShellBridge
             CorrelationId = Guid.NewGuid(),
             Outcome = new QueryOutcome { Status = CommandOutcomeStatus.Succeeded, Payload = result },
         };
+    }
+
+    private static string NormalizeCustomerName(string value)
+    {
+        var result = new StringBuilder(value.Length);
+        var pendingSpace = false;
+        foreach (var character in value.Normalize(NormalizationForm.FormD))
+        {
+            var category = CharUnicodeInfo.GetUnicodeCategory(character);
+            if (category is UnicodeCategory.NonSpacingMark or UnicodeCategory.SpacingCombiningMark
+                or UnicodeCategory.EnclosingMark || character is '\u0640' or '\u200c' or '\u200d') continue;
+            if (char.IsWhiteSpace(character))
+            {
+                pendingSpace = result.Length > 0;
+                continue;
+            }
+            if (pendingSpace) result.Append(' ');
+            pendingSpace = false;
+            result.Append(char.ToLowerInvariant(character switch
+            {
+                '\u0622' or '\u0623' or '\u0625' or '\u0671' => '\u0627',
+                '\u0649' or '\u06cc' => '\u064a',
+                '\u0629' => '\u0647',
+                '\u06a9' => '\u0643',
+                >= '\u0660' and <= '\u0669' => (char)('0' + character - '\u0660'),
+                >= '\u06f0' and <= '\u06f9' => (char)('0' + character - '\u06f0'),
+                _ => character,
+            }));
+        }
+        return result.ToString();
+    }
+
+    private static bool CustomerMatchesTerm(Customer customer, string term)
+    {
+        if (NormalizeCustomerName(customer.Name).Contains(NormalizeCustomerName(term), StringComparison.OrdinalIgnoreCase))
+            return true;
+        var normalizedPhone = NormalizeCustomerPhone(term);
+        return normalizedPhone is not null
+            && NormalizeCustomerPhone(customer.Phone)?.Contains(normalizedPhone, StringComparison.Ordinal) == true;
+    }
+
+    private static string? NormalizeCustomerPhone(string value)
+    {
+        var digits = new StringBuilder(value.Length);
+        for (var index = 0; index < value.Length; index++)
+        {
+            var character = value[index];
+            if (character is >= '0' and <= '9' || character == '+' && index == 0)
+                digits.Append(character);
+            else if (character is >= '\u0660' and <= '\u0669')
+                digits.Append((char)('0' + character - '\u0660'));
+            else if (character is >= '\u06f0' and <= '\u06f9')
+                digits.Append((char)('0' + character - '\u06f0'));
+            else if (character is not (' ' or '-' or '(' or ')')) return null;
+        }
+        return digits.Length > 0 && digits.ToString() != "+" ? digits.ToString() : null;
     }
 
     public Task<CommandResponseEnvelope> SubmitConfigurationPatchAsync(
@@ -246,15 +316,17 @@ internal sealed class FakeEngine : IEngineShellBridge
         });
 
     public Func<Command, CommandResponseEnvelope>? CommandHandler { get; set; }
+    public Func<Command, Task>? CommandBarrier { get; set; }
     public Command? LastCommand { get; private set; }
 
-    public Task<CommandResponseEnvelope> SubmitCommandAsync(
+    public async Task<CommandResponseEnvelope> SubmitCommandAsync(
         Command command,
         Guid idempotencyKey,
         CancellationToken cancellationToken = default)
     {
         LastCommand = command;
-        return Task.FromResult(CommandHandler?.Invoke(command) ?? ApplyCommand(command));
+        if (CommandBarrier is not null) await CommandBarrier(command);
+        return CommandHandler?.Invoke(command) ?? ApplyCommand(command);
     }
 
     private CommandResponseEnvelope ApplyCommand(Command command)

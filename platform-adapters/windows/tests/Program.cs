@@ -338,6 +338,9 @@ internal sealed class SupervisionScenarios
             Assert.True(
                 supervisor.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityConfigV1),
                 "real config capability negotiated");
+            Assert.True(
+                supervisor.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityCustomerV1),
+                "real customer capability negotiated");
             Assert.False(
                 supervisor.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilitySyncV1),
                 "unwired sync capability is not negotiated");

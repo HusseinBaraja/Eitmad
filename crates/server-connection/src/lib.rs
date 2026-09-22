@@ -474,15 +474,15 @@ impl ConnectionDriver for DirectServerDriver {
             Err(failure) if failure.kind == TransportFailureKind::RetryNotReady => return Ok(None),
             Err(failure) => return Err(failure),
         };
-        let pending = self
-            .pending
-            .as_mut()
-            .ok_or_else(|| unavailable(FailurePhase::Receive))?;
         let message = match response {
             ServerMessage::Sync(message) => message,
             ServerMessage::Failure(failure) => return Err(map_server_failure(&failure)),
             _ => return Err(unavailable(FailurePhase::Receive)),
         };
+        let pending = self
+            .pending
+            .as_mut()
+            .ok_or_else(|| unavailable(FailurePhase::Receive))?;
         let valid_response = match (&pending.request.payload, &message, pending.next_sequence) {
             (
                 SyncTransportPayload::Message(SyncMessage::Pull(_)),

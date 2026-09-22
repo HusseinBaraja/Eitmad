@@ -49,10 +49,19 @@ public partial class CustomerEditorView : UserControl
         saveCancellation?.Dispose();
         saveCancellation = new CancellationTokenSource();
         var cancellation = saveCancellation;
-        ApplyButton.IsEnabled = false;
         EditorError.Text = "";
         NameField.ErrorText = "";
         PhoneField.ErrorText = "";
+        if (!CustomerInputValidation.IsNameValid(NameInput.Text))
+            NameField.ErrorText = "تحقق من اسم العميل.";
+        if (!CustomerInputValidation.IsPhoneValid(PhoneInput.Text))
+            PhoneField.ErrorText = "تحقق من رقم الهاتف.";
+        if (NameField.ErrorText.Length > 0 || PhoneField.ErrorText.Length > 0)
+        {
+            (NameField.ErrorText.Length > 0 ? NameInput : PhoneInput).Focus();
+            return;
+        }
+        ApplyButton.IsEnabled = false;
         CustomerResult<Customer> result;
         try
         {

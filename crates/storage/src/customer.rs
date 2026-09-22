@@ -346,7 +346,7 @@ fn persist_customer_change_on(
             "INSERT INTO customers
                  (scope_kind, scope_id, customer_id, name, normalized_name, phone,
                   normalized_phone, address, notes, status, revision, updated_at, sync_state)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 'active', ?10, ?11, 'pending')
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 'pending')
              ON CONFLICT(scope_kind, scope_id, customer_id) DO UPDATE SET
                name = excluded.name,
                normalized_name = excluded.normalized_name,
@@ -354,6 +354,7 @@ fn persist_customer_change_on(
                normalized_phone = excluded.normalized_phone,
                address = excluded.address,
                notes = excluded.notes,
+               status = excluded.status,
                revision = excluded.revision,
                updated_at = excluded.updated_at,
                sync_state = excluded.sync_state",
@@ -371,6 +372,11 @@ fn persist_customer_change_on(
                     .as_ref()
                     .map(CustomerAddress::as_str),
                 commit.customer.notes.as_ref().map(CustomerNotes::as_str),
+                match commit.customer.status {
+                    CustomerStatus::Active => "active",
+                    CustomerStatus::Archived => "archived",
+                    CustomerStatus::Merged => "merged",
+                },
                 i64::try_from(commit.customer.revision).map_err(|_| StorageError)?,
                 commit.customer.updated_at.0,
             ],

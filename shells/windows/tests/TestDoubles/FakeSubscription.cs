@@ -1,3 +1,4 @@
+using System.IO;
 using System.Threading.Channels;
 using Eitmad.Contracts;
 using Eitmad.Platform.Windows.Shell;
@@ -21,6 +22,8 @@ internal sealed class FakeSubscription : IEngineSubscription
     }
 
     public void Publish(EventEnvelope envelope) => events.Writer.TryWrite(envelope);
+
+    public void FailRead() => events.Writer.TryComplete(new IOException("Synthetic subscription read failure."));
 
     public void SignalResync() => ResyncRequired?.Invoke();
 

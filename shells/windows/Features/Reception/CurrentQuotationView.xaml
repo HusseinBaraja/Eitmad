@@ -61,7 +61,17 @@
    <controls:FormField Label="العنوان (اختياري)" Margin="0,0,0,12"><TextBox Text="{Binding Address, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" AutomationProperties.Name="العنوان"/></controls:FormField>
    <controls:FormField Label="ملاحظات (اختياري)"><TextBox Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="72" AutomationProperties.Name="ملاحظات"/></controls:FormField>
    <WrapPanel Margin="0,12,0,0" Visibility="{Binding IsNewCustomer, Converter={StaticResource BooleanToVisibility}}">
-    <Button Content="حفظ" Style="{StaticResource PrimaryButton}" Click="SaveCustomerClick" AutomationProperties.Name="حفظ العميل"/>
+    <Button Content="حفظ" Click="SaveCustomerClick" AutomationProperties.Name="حفظ العميل">
+     <Button.Style>
+      <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+       <Style.Triggers>
+        <DataTrigger Binding="{Binding IsCustomerSaveBusy}" Value="True">
+         <Setter Property="IsEnabled" Value="False"/>
+        </DataTrigger>
+       </Style.Triggers>
+      </Style>
+     </Button.Style>
+    </Button>
     <Button Content="إلغاء" Style="{StaticResource SecondaryButton}" Click="CancelCustomerClick" AutomationProperties.Name="إلغاء العميل الجديد" Margin="8,0,0,0"/>
    </WrapPanel>
   </StackPanel>

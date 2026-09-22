@@ -282,9 +282,12 @@ impl CustomerService {
         {
             Ok(()) => Ok(()),
             Err(AuthorizationError::Denied) => {
-                let id = customer_id.unwrap_or_else(|| CustomerId::new(Uuid::new_v4()));
+                let record = match customer_id {
+                    Some(id) => audit_record(context, operation, id),
+                    None => audit_record_without_customer(context, operation),
+                };
                 self.store
-                    .append_audit(&audit_record(context, operation, id).with_outcome(
+                    .append_audit(&record.with_outcome(
                         AuditOutcome::Denied,
                         Some("eitmad.error.authorization-denied.v1".to_owned()),
                     ))
@@ -378,6 +381,25 @@ fn audit_record(
         "address".to_owned(),
         "notes".to_owned(),
     ];
+    record
+}
+
+fn audit_record_without_customer(
+    context: &MutationContext,
+    operation: &str,
+) -> MutationAuditRecord {
+    let mut record = MutationAuditRecord::from_authorization(
+        &context.authorization,
+        context.occurred_at,
+        context.correlation_id,
+        operation,
+        AuditTarget {
+            kind: "customer".to_owned(),
+            identifiers: Vec::new(),
+        },
+    );
+    record.causation_id = context.causation_id;
+    record.idempotency_key = Some(context.idempotency_key);
     record
 }
 
@@ -661,6 +683,17 @@ mod tests {
             ),
             Err(CustomerError::Denied)
         );
+        let connection = Connection::open(directory.path().join("eitmad.sqlite3")).unwrap();
+        let target: String = connection
+            .query_row(
+                "SELECT target FROM mutation_audit WHERE operation = ?1 ORDER BY rowid DESC LIMIT 1",
+                [CREATE_OPERATION],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let target: serde_json::Value = serde_json::from_str(&target).unwrap();
+        assert_eq!(target["kind"], "customer");
+        assert_eq!(target["identifiers"], serde_json::json!([]));
         assert_eq!(
             service
                 .search(

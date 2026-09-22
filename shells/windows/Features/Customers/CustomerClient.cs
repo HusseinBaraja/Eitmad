@@ -288,7 +288,22 @@ public sealed class CustomerClient : IAsyncDisposable
         }
         catch (Exception error) when (error is EngineIpcException or IOException or InvalidDataException)
         {
+            await DropSubscriptionAsync();
             SignalFullRefresh();
+            await RetrySubscriptionAsync();
+        }
+    }
+
+    private async Task RetrySubscriptionAsync()
+    {
+        foreach (var delay in new[] { 250, 500, 1_000, 2_000 })
+        {
+            await Task.Delay(delay);
+            lock (stateLock)
+            {
+                if (!active || disposed || subscription is not null) return;
+            }
+            await RefreshSubscriptionAsync(CancellationToken.None);
         }
     }
 

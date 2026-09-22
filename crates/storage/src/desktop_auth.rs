@@ -624,6 +624,14 @@ fn apply_account_access(
              AND principal_id = ?2",
             params![tenant, account.user_id.value().to_string()],
         ).map_err(|_| StorageError)?;
+        connection
+            .execute(
+                "UPDATE authorization_scopes SET policy_version = policy_version + 1
+             WHERE scope_kind = 'branch' AND scope_id =
+               (SELECT branch_id FROM local_desktop_branch WHERE singleton = 1 AND tenant_id = ?1)",
+                [tenant],
+            )
+            .map_err(|_| StorageError)?;
     }
     connection
         .execute(
