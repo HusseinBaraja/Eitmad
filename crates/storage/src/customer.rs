@@ -311,6 +311,36 @@ fn commit_customer_on(
         Some(commit.customer.id),
     )?;
 
+    persist_customer_change_on(transaction, commit, scope_kind, &scope_id, &customer_id)?;
+
+    let mut success = commit.audit.clone();
+    success.outcome = AuditOutcome::Succeeded;
+    success.previous_revision = actual_revision;
+    success.resulting_revision = Some(commit.customer.revision);
+    insert_audit(transaction, &success)?;
+    let result = CustomerMutationResult {
+        customer: commit.customer.clone(),
+        potential_duplicate_ids,
+    };
+    let mut idempotency = commit.idempotency.clone();
+    idempotency.response_json = serde_json::to_vec(&result).map_err(|_| StorageError)?;
+    insert_idempotency(transaction, scope, commit.operation, &idempotency)?;
+    insert_publication(
+        transaction,
+        scope,
+        commit.idempotency.key,
+        commit.publication,
+    )?;
+    Ok(CustomerCommitOutcome::Committed(result))
+}
+
+fn persist_customer_change_on(
+    transaction: &rusqlite::Connection,
+    commit: &CustomerCommit<'_>,
+    scope_kind: &str,
+    scope_id: &str,
+    customer_id: &str,
+) -> Result<(), StorageError> {
     transaction
         .execute(
             "INSERT INTO customers
@@ -362,25 +392,7 @@ fn commit_customer_on(
         )
         .map_err(|_| StorageError)?;
 
-    let mut success = commit.audit.clone();
-    success.outcome = AuditOutcome::Succeeded;
-    success.previous_revision = actual_revision;
-    success.resulting_revision = Some(commit.customer.revision);
-    insert_audit(transaction, &success)?;
-    let result = CustomerMutationResult {
-        customer: commit.customer.clone(),
-        potential_duplicate_ids,
-    };
-    let mut idempotency = commit.idempotency.clone();
-    idempotency.response_json = serde_json::to_vec(&result).map_err(|_| StorageError)?;
-    insert_idempotency(transaction, scope, commit.operation, &idempotency)?;
-    insert_publication(
-        transaction,
-        scope,
-        commit.idempotency.key,
-        commit.publication,
-    )?;
-    Ok(CustomerCommitOutcome::Committed(result))
+    Ok(())
 }
 
 fn duplicate_candidates_on(
