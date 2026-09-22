@@ -15,6 +15,7 @@ use eitmad_contracts::{
     events::{Event, Subscription},
     queries::{Query, QueryResult},
 };
+use eitmad_customer::{CUSTOMER_READ_PERMISSION, CustomerError, CustomerService};
 use eitmad_observability_audit::AuditOutcome;
 use eitmad_reference_marker::{
     REFERENCE_MARKER_READ_PERMISSION, ReferenceMarkerError, ReferenceMarkerService,
@@ -32,6 +33,7 @@ pub struct ProductDispatcher {
     authorization: AuthorizationService,
     configuration: ConfigurationService,
     reference_markers: ReferenceMarkerService,
+    customers: CustomerService,
     accounts: DesktopAccountService,
     events: Arc<dyn ProductEventPublisher>,
 }
@@ -75,12 +77,14 @@ impl ProductDispatcher {
         let authorization = AuthorizationService::new(store.clone());
         let configuration = ConfigurationService::new(store.clone(), authorization.clone());
         let reference_markers = ReferenceMarkerService::new(store.clone(), authorization.clone());
+        let customers = CustomerService::new(store.clone(), authorization.clone());
         let accounts = DesktopAccountService::new(store.clone(), authorization.clone());
         Self {
             store,
             authorization,
             configuration,
             reference_markers,
+            customers,
             accounts,
             events,
         }
@@ -220,6 +224,26 @@ impl CommandDispatcher for ProductDispatcher {
                     })?;
                 Ok(CommandResult::ReferenceMarkerUpserted(outcome.marker))
             }
+            Command::CreateCustomer(command) => {
+                require_protocol_1_9(&context).map_err(|error| *error)?;
+                let result = self
+                    .customers
+                    .create(&mutation, &command)
+                    .map_err(|error| customer_error(error, &context))?;
+                self.publish_pending(&context, mutation.idempotency_key)
+                    .map_err(|()| customer_error(CustomerError::Unavailable, &context))?;
+                Ok(CommandResult::CustomerCreated(result))
+            }
+            Command::UpdateCustomer(command) => {
+                require_protocol_1_9(&context).map_err(|error| *error)?;
+                let result = self
+                    .customers
+                    .update(&mutation, &command)
+                    .map_err(|error| customer_error(error, &context))?;
+                self.publish_pending(&context, mutation.idempotency_key)
+                    .map_err(|()| customer_error(CustomerError::Unavailable, &context))?;
+                Ok(CommandResult::CustomerUpdated(result))
+            }
             Command::CreateDesktopAccount(command) => {
                 require_protocol_1_8(&context).map_err(|error| *error)?;
                 let account = self
@@ -308,6 +332,20 @@ impl QueryDispatcher for ProductDispatcher {
                 .list(&context.authorization, &query)
                 .map(QueryResult::ReferenceMarkers)
                 .map_err(|error| reference_marker_error(error, &context)),
+            Query::Customer(query) => {
+                require_protocol_1_9(&context).map_err(|error| *error)?;
+                self.customers
+                    .get(&context.authorization, &query)
+                    .map(QueryResult::Customer)
+                    .map_err(|error| customer_error(error, &context))
+            }
+            Query::Customers(query) => {
+                require_protocol_1_9(&context).map_err(|error| *error)?;
+                self.customers
+                    .search(&context.authorization, &query)
+                    .map(QueryResult::Customers)
+                    .map_err(|error| customer_error(error, &context))
+            }
             Query::DesktopAccounts(query) => {
                 require_protocol_1_8(&context).map_err(|error| *error)?;
                 self.accounts
@@ -351,6 +389,18 @@ impl QueryDispatcher for ProductDispatcher {
             Subscription::Configuration(_) => CONFIG_READ_PERMISSION,
             Subscription::Permissions(_) => PERMISSIONS_READ_PERMISSION,
             Subscription::ReferenceMarkers(_) => REFERENCE_MARKER_READ_PERMISSION,
+            Subscription::Customers(_) if context.protocol_version.minor >= 9 => {
+                CUSTOMER_READ_PERMISSION
+            }
+            Subscription::Customers(_) => {
+                return Err(contract_error(
+                    "eitmad.error.ipc-subscription-unsupported.v1",
+                    "eitmad.message.ipc-subscription-unsupported.v1",
+                    context.correlation_id,
+                    RetryDisposition::Never,
+                    None,
+                ));
+            }
             Subscription::AuthorizationPolicy(_) if context.protocol_version.minor >= 2 => {
                 AUTHORIZATION_MANAGE_PERMISSION
             }
@@ -409,6 +459,48 @@ fn reference_marker_error(
             None,
         ),
         ReferenceMarkerError::UnsupportedScope | ReferenceMarkerError::IdempotencyMismatch => {
+            unsupported(context)
+        }
+    }
+}
+
+fn customer_error(error_value: CustomerError, context: &DispatchContext) -> ContractError {
+    match error_value {
+        CustomerError::Denied => contract_error(
+            "eitmad.error.authorization-denied.v1",
+            "eitmad.message.authorization-denied.v1",
+            context.correlation_id,
+            RetryDisposition::Never,
+            None,
+        ),
+        CustomerError::NotFound => contract_error(
+            "eitmad.error.customer-not-found.v1",
+            "eitmad.message.customer-not-found.v1",
+            context.correlation_id,
+            RetryDisposition::Never,
+            None,
+        ),
+        CustomerError::RevisionConflict {
+            expected_revision,
+            actual_revision,
+        } => contract_error(
+            "eitmad.error.customer-revision-conflict.v1",
+            "eitmad.message.customer-revision-conflict.v1",
+            context.correlation_id,
+            RetryDisposition::SafeImmediately,
+            Some(ErrorDetail::RevisionConflict {
+                expected: expected_revision.unwrap_or(0),
+                actual: actual_revision.unwrap_or(0),
+            }),
+        ),
+        CustomerError::Unavailable => contract_error(
+            "eitmad.error.customer-unavailable.v1",
+            "eitmad.message.customer-unavailable.v1",
+            context.correlation_id,
+            RetryDisposition::SafeAfterDelay(1_000),
+            None,
+        ),
+        CustomerError::UnsupportedScope | CustomerError::IdempotencyMismatch => {
             unsupported(context)
         }
     }
@@ -606,6 +698,12 @@ fn require_protocol_1_8(context: &DispatchContext) -> Result<(), Box<ContractErr
         .ok_or_else(|| Box::new(unsupported(context)))
 }
 
+fn require_protocol_1_9(context: &DispatchContext) -> Result<(), Box<ContractError>> {
+    (context.protocol_version.major == 1 && context.protocol_version.minor >= 9)
+        .then_some(())
+        .ok_or_else(|| Box::new(unsupported(context)))
+}
+
 fn error(
     code: &str,
     message: &str,
@@ -641,11 +739,14 @@ mod tests {
         accounts::{AccountPassword, CreateDesktopAccount, DesktopAccountRole},
         authorization::{RelationId, RelationshipSubject},
         commands::{
-            CancelOperation, GrantScopeRelationship, UpdateConfiguration, UpsertReferenceMarker,
+            CancelOperation, CreateCustomer, GrantScopeRelationship, UpdateConfiguration,
+            UpsertReferenceMarker,
         },
         config::{ConfigChange, ConfigKey, ConfigWriteValue},
+        customer::{CustomerName, CustomerPhone, CustomerSearchTerm, SearchCustomers},
         events::{
-            AuthorizationPolicyChanges, ConfigurationChanges, ReferenceMarkerChanges, Subscription,
+            AuthorizationPolicyChanges, ConfigurationChanges, CustomerChanges,
+            ReferenceMarkerChanges, Subscription,
         },
         identity::{
             AuthenticatedIdentity, AuthorizationContext, PrincipalId, PrincipalKind, ScopeId,
@@ -713,6 +814,21 @@ mod tests {
             protocol_version: PROTOCOL_VERSION,
             deadline: UnixMillis(i64::MAX),
         }
+    }
+
+    fn branch_authorization() -> AuthorizationContext {
+        let mut authorization = authorization();
+        authorization.scope = ScopeRef {
+            kind: ScopeKind::parse("branch").unwrap(),
+            id: ScopeId::new(Uuid::from_u128(500)),
+        };
+        authorization
+    }
+
+    fn branch_context(idempotency: u128) -> DispatchContext {
+        let mut context = context(idempotency);
+        context.authorization = branch_authorization();
+        context
     }
 
     fn dispatcher() -> (TempDir, ProductDispatcher, EventBroker) {
@@ -905,6 +1021,94 @@ mod tests {
         assert_eq!(page.items, vec![marker]);
         assert_eq!(
             last_audit_outcome(&dispatcher, "eitmad.reference-marker.list.v1"),
+            AuditOutcome::Succeeded
+        );
+    }
+
+    #[tokio::test]
+    async fn routes_customer_create_search_and_compact_event() {
+        let (_directory, dispatcher, broker) = dispatcher();
+        let authorization = branch_authorization();
+        dispatcher
+            .authorization()
+            .bootstrap_owner(
+                &MutationContext {
+                    authorization: authorization.clone(),
+                    correlation_id: CorrelationId::new(Uuid::from_u128(501)),
+                    causation_id: None,
+                    idempotency_key: IdempotencyKey::new(Uuid::from_u128(502)),
+                    occurred_at: UnixMillis(1),
+                },
+                &RelationshipSubject {
+                    principal_id: authorization.identity.principal_id,
+                    principal_kind: authorization.identity.principal_kind,
+                },
+            )
+            .unwrap();
+        dispatcher
+            .authorization()
+            .grant_relationship(
+                &MutationContext {
+                    authorization: authorization.clone(),
+                    correlation_id: CorrelationId::new(Uuid::from_u128(503)),
+                    causation_id: None,
+                    idempotency_key: IdempotencyKey::new(Uuid::from_u128(504)),
+                    occurred_at: UnixMillis(2),
+                },
+                &GrantScopeRelationship {
+                    expected_policy_version: 1,
+                    subject: RelationshipSubject {
+                        principal_id: authorization.identity.principal_id,
+                        principal_kind: authorization.identity.principal_kind,
+                    },
+                    relation: RelationId::parse(eitmad_authorization::MANAGER_RELATION).unwrap(),
+                },
+            )
+            .unwrap();
+        let (_, mut events) = broker
+            .subscribe(
+                authorization.scope.clone(),
+                Subscription::Customers(CustomerChanges {}),
+                None,
+            )
+            .unwrap();
+
+        let result = dispatcher
+            .dispatch_command(
+                branch_context(505),
+                Command::CreateCustomer(CreateCustomer {
+                    name: CustomerName::parse("إعـتماد القيسي").unwrap(),
+                    phone: CustomerPhone::parse("+٩٦٧ ٧٧٧ ١٢٣ ٤٥٦").unwrap(),
+                    address: None,
+                    notes: None,
+                }),
+            )
+            .await
+            .unwrap();
+        let CommandResult::CustomerCreated(created) = result else {
+            panic!("customer result expected")
+        };
+        let Event::CustomerChanged(notice) = events.recv().await.unwrap().event else {
+            panic!("customer event expected")
+        };
+        assert_eq!(notice.customer_id, created.customer.id);
+
+        let result = dispatcher
+            .dispatch_query(
+                branch_context(506),
+                Query::Customers(
+                    SearchCustomers::new(CustomerSearchTerm::parse("اعتماد").unwrap(), None, 10)
+                        .unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+        let QueryResult::Customers(page) = result else {
+            panic!("customer page expected")
+        };
+        assert_eq!(page.items, vec![created.customer]);
+        assert_eq!(
+            last_audit_outcome(&dispatcher, "eitmad.customer.search.v1"),
             AuditOutcome::Succeeded
         );
     }

@@ -4,6 +4,7 @@ members = [
     "crates/authorization",
     "crates/configuration",
     "crates/contracts",
+    "crates/customer",
     "crates/engine-cli",
     "crates/engine-runtime",
     "crates/observability-audit",

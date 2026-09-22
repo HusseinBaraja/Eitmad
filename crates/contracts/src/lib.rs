@@ -14,6 +14,7 @@ pub mod background_jobs;
 pub mod catalog;
 pub mod commands;
 pub mod config;
+pub mod customer;
 pub mod errors;
 pub mod events;
 pub mod identity;

@@ -41,9 +41,9 @@ Generated files have a `Do not edit` header. Linux bindings remain blocked on th
 
 | Interaction | Required context | Foundation operations |
 | --- | --- | --- |
-| Command | Version, request/correlation/causation IDs, authenticated session, tenant, optional workspace, scope, deadline, idempotency key | Update configuration; upsert a reference marker; grant/revoke scoped relationships; placeholder operation/update commands |
-| Query | Version, request/correlation/causation IDs, authenticated session, tenant, optional workspace, scope, deadline | Read configuration, paged reference markers, effective permissions, and relationships; placeholder update and sync state |
-| Subscription | Version, request/correlation IDs, authenticated session, tenant, optional workspace, scope, optional resume cursor | Configuration, reference-marker changes, permission, authorization-policy, sync, record, job, notification, update, and error streams |
+| Command | Version, request/correlation/causation IDs, authenticated session, tenant, optional workspace, scope, deadline, idempotency key | Update configuration; create/update a customer; upsert a reference marker; grant/revoke scoped relationships; placeholder operation/update commands |
+| Query | Version, request/correlation/causation IDs, authenticated session, tenant, optional workspace, scope, deadline | Read configuration, get/search customers, paged reference markers, effective permissions, and relationships; placeholder update and sync state |
+| Subscription | Version, request/correlation IDs, authenticated session, tenant, optional workspace, scope, optional resume cursor | Configuration, customer changes, reference-marker changes, permission, authorization-policy, sync, record, job, notification, update, and error streams |
 | Event | Subscription/correlation IDs, sequence, cursor, occurrence time | Typed state, metadata, progress, notification, and error values |
 
 The identity, tenant, workspace, and scope fields are assertions to verify against the authenticated channel, not credentials and not proof of authorization. Rust must authorize and audit every boundary operation; state-changing verticals keep state and audit atomic.
@@ -56,7 +56,7 @@ The foreground CLI emits lifecycle snapshots as newline-delimited JSON on child 
 
 ## Wire and compatibility rules
 
-- Protocol v1 uses UTF-8 JSON with camel-case fields and explicit `kind`/`payload` tags. The current minor is `1.6`.
+- Protocol v1 uses UTF-8 JSON with camel-case fields and explicit `kind`/`payload` tags. The current minor is `1.9`.
 - Local IPC frames add a four-byte little-endian length and enforce an 8 MiB maximum.
 - UUIDs are lowercase hyphenated strings. Times are Unix milliseconds. Canonical values remain locale-independent.
 - Unknown object fields are accepted for additive minor-version evolution.
@@ -66,6 +66,7 @@ The foreground CLI emits lifecycle snapshots as newline-delimited JSON on child 
 - `SecretId` and secret lifecycle are Rust-internal authority types, not protocol-v1 operations. Shells never receive secret material or call an OS credential store for product secrets.
 - Sync domain payloads are registered schema/version identifiers plus encoded bytes. A domain vertical must define the payload schema before use.
 - Reference markers require `eitmad.capability.reference-marker.v1` and schema `eitmad.schema.reference-marker.v1`. Their list query is paged and their change event carries only identifiers and revision metadata.
+- Customers require `eitmad.capability.customer.v1` and schema `eitmad.schema.customer.v1`. Get and bounded search enforce the exact branch scope, and change events carry no contact text.
 - Sync deliveries carry independent delivery IDs and idempotency keys. Consumers preserve record authority and cache freshness labels instead of presenting optimistic or stale data as canonical.
 - Simulation, LAN, direct WAN, and relay WAN carry the same `SyncTransportFrame` and complete `SyncTransportPayload`; message payloads use the shared `SyncMessage`. Route adapters cannot define another wire protocol or change reconciliation meaning.
 - Observation event, field, component, severity, classification, and value-kind contracts are exported in the JSON schema and exercised by the C# and Swift conformance fixture. Diagnostic values still reach sinks only through the Rust-owned redaction boundary.

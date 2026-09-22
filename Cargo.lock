@@ -843,6 +843,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "eitmad-customer"
+version = "0.0.0"
+dependencies = [
+ "base64",
+ "eitmad-authorization",
+ "eitmad-contracts",
+ "eitmad-observability-audit",
+ "eitmad-storage",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "unicode-normalization",
+ "uuid",
+]
+
+[[package]]
 name = "eitmad-engine-cli"
 version = "0.0.0"
 dependencies = [
@@ -868,6 +886,7 @@ dependencies = [
  "eitmad-authorization",
  "eitmad-configuration",
  "eitmad-contracts",
+ "eitmad-customer",
  "eitmad-observability-audit",
  "eitmad-reference-marker",
  "eitmad-storage",
