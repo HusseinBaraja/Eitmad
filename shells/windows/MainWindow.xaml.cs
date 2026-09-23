@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -81,7 +82,16 @@ public partial class MainWindow : Window
         SignInSurface.Visibility = Visibility.Collapsed;
         sessionActive = true;
         ShowAccount(surface);
-        if (surface == AuthenticatedSurface.Receptionist) await ReceptionistSurface.ActivateCustomersAsync();
+        if (surface != AuthenticatedSurface.Receptionist) return;
+        try
+        {
+            await ReceptionistSurface.ActivateCustomersAsync();
+        }
+        catch (Exception error) when (error is Eitmad.Platform.Windows.LocalIpc.EngineIpcException
+            or IOException or ObjectDisposedException)
+        {
+            ShowToast(Features.Customers.CustomerClient.ArabicMessage(Features.Customers.CustomerFailureKind.Unavailable));
+        }
     }
 
     /// <summary>Allows sign-out and account switching only during an active user session.</summary>

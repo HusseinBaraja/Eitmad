@@ -418,10 +418,15 @@ async fn assert_reconnect_after_shutdown(
     tokio::time::sleep(Duration::from_millis(100)).await;
     let (mut transport, failure) = tokio::task::spawn_blocking(move || {
         let mut transport = transport;
-        let failure = transport
-            .receive(eitmad_control_plane::unix_millis_now())
-            .unwrap_err();
-        (transport, failure)
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            assert!(Instant::now() < deadline, "transport loss deadline elapsed");
+            match transport.receive(eitmad_control_plane::unix_millis_now()) {
+                Ok(ReceiveOutcome::NoFrame) => {}
+                Err(failure) => break (transport, failure),
+                other => panic!("unexpected frame after shutdown: {other:?}"),
+            }
+        }
     })
     .await
     .unwrap();

@@ -434,7 +434,11 @@ impl ConnectionDriver for DirectServerDriver {
             SyncTransportPayload::Message(SyncMessage::Pull(_) | SyncMessage::Acknowledge(_))
                 | SyncTransportPayload::Cancel(_)
         ) {
-            return Err(unavailable(FailurePhase::Send));
+            return Err(TransportFailure::new(
+                TransportFailureKind::CapabilityMismatch,
+                FailurePhase::Send,
+                RetryAdvice::Never,
+            ));
         }
         let encoded = serde_json::to_string(&ServerClientMessage::Sync(frame.clone()))
             .map_err(|_| unavailable(FailurePhase::Send))?;
@@ -572,9 +576,16 @@ fn connect_tls(url: &Url, config: &Arc<ClientConfig>) -> Result<TlsStream, Trans
                 let mut connection = ClientConnection::new(Arc::clone(config), name)
                     .map_err(|_| encryption_failure())?;
                 let mut stream = stream;
-                connection
-                    .complete_io(&mut stream)
-                    .map_err(|_| encryption_failure())?;
+                connection.complete_io(&mut stream).map_err(|error| {
+                    if error
+                        .get_ref()
+                        .is_some_and(|source| source.is::<rustls::Error>())
+                    {
+                        encryption_failure()
+                    } else {
+                        unavailable(FailurePhase::Connect)
+                    }
+                })?;
                 return Ok(StreamOwned::new(connection, stream));
             }
             Err(error) => last_error = Some(error),
