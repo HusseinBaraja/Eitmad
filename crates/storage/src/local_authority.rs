@@ -30,6 +30,18 @@ pub(crate) const MIGRATIONS: &[Migration] = &[Migration::new(
      );",
 )];
 
+pub(crate) const BRANCH_MIGRATIONS: &[Migration] = &[Migration::new(
+    13,
+    "identity.local-desktop-branch.v1",
+    "identity",
+    "CREATE TABLE local_desktop_branch (
+         singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+         tenant_id TEXT NOT NULL,
+         branch_id TEXT NOT NULL UNIQUE,
+         FOREIGN KEY (tenant_id) REFERENCES identity_tenants(tenant_id)
+     );",
+)];
+
 struct StoredLocalAuthority {
     tenant: TenantId,
     user: UserId,
@@ -117,10 +129,80 @@ impl AuthorityStore {
                 None => create(connection, now)?,
             };
             verify(connection, &authority)?;
+            ensure_local_branch(connection, &authority, now)?;
             Ok(authority)
         })?;
         authority.authorization_context()
     }
+}
+
+fn ensure_local_branch(
+    connection: &rusqlite::Connection,
+    authority: &StoredLocalAuthority,
+    now: UnixMillis,
+) -> Result<(), StorageError> {
+    let existing: Option<String> = connection
+        .query_row(
+            "SELECT branch_id FROM local_desktop_branch WHERE singleton = 1",
+            [],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(|_| StorageError)?;
+    if existing.is_some() {
+        return Ok(());
+    }
+    let branch = Uuid::new_v4().to_string();
+    connection.execute(
+        "INSERT INTO authorization_scopes (scope_kind, scope_id, policy_schema_version, policy_version)
+         VALUES ('branch', ?1, 1, 1)", [&branch],
+    ).map_err(|_| StorageError)?;
+    connection
+        .execute(
+            "INSERT INTO local_desktop_branch (singleton, tenant_id, branch_id) VALUES (1, ?1, ?2)",
+            params![authority.tenant.value().to_string(), branch],
+        )
+        .map_err(|_| StorageError)?;
+    connection
+        .execute(
+            "INSERT INTO scope_relationships
+         (relationship_id, scope_kind, scope_id, principal_id, principal_kind, relation)
+         SELECT lower(hex(randomblob(16))), 'branch', ?1, user_id, '\"user\"',
+                'eitmad.relation.organization.' || role || '.v1'
+         FROM desktop_accounts WHERE tenant_id = ?2 AND active = 1",
+            params![branch, authority.tenant.value().to_string()],
+        )
+        .map_err(|_| StorageError)?;
+    let authorization = authority.authorization_context()?;
+    crate::insert_audit(
+        connection,
+        &MutationAuditRecord {
+            audit_id: Uuid::new_v4(),
+            occurred_at: now,
+            principal_id: authorization.identity.principal_id,
+            principal_kind: PrincipalKind::User,
+            session_id: authorization.session_id,
+            device_id: authorization.identity.device_id,
+            tenant_id: authority.tenant,
+            workspace_id: None,
+            scope: authorization.scope,
+            correlation_id: CorrelationId::new(Uuid::new_v4()),
+            causation_id: None,
+            idempotency_key: None,
+            operation: "eitmad.authorization.local-branch.bootstrap.v1".to_owned(),
+            target: AuditTarget {
+                kind: "branch".to_owned(),
+                identifiers: vec![branch.clone()],
+            },
+            outcome: AuditOutcome::Succeeded,
+            previous_revision: None,
+            resulting_revision: Some(1),
+            changed_identifiers: vec![branch],
+            redacted_error: None,
+            extension_points: Vec::new(),
+        },
+    )?;
+    Ok(())
 }
 
 fn create(

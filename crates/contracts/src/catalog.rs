@@ -28,6 +28,7 @@ pub const CAPABILITIES: &[&str] = &[
     "eitmad.capability.server-administration.v1",
     "eitmad.capability.update.v1",
     "eitmad.capability.reference-marker.v1",
+    "eitmad.capability.customer.v1",
     "eitmad.capability.desktop-account-management.v1",
 ];
 
@@ -86,6 +87,8 @@ pub const PERMISSIONS: &[&str] = &[
     "eitmad.permission.update.report-installer.v1",
     "eitmad.permission.reference-marker.read.v1",
     "eitmad.permission.reference-marker.write.v1",
+    "eitmad.permission.customer.read.v1",
+    "eitmad.permission.customer.write.v1",
     "eitmad.permission.catalog.draft.write.v1",
     "eitmad.permission.quotation.draft.write.v1",
     "eitmad.permission.desktop-accounts.manage.v1",
@@ -137,6 +140,9 @@ pub const ERROR_CODES: &[&str] = &[
     "eitmad.error.update-installer-failed.v1",
     "eitmad.error.reference-marker-revision-conflict.v1",
     "eitmad.error.reference-marker-unavailable.v1",
+    "eitmad.error.customer-not-found.v1",
+    "eitmad.error.customer-revision-conflict.v1",
+    "eitmad.error.customer-unavailable.v1",
     "eitmad.error.desktop-account-invalid.v1",
     "eitmad.error.desktop-account-revision-conflict.v1",
     "eitmad.error.desktop-account-last-manager.v1",
@@ -192,6 +198,9 @@ pub const MESSAGE_IDS: &[&str] = &[
     "eitmad.message.update-installer-failed.v1",
     "eitmad.message.reference-marker-revision-conflict.v1",
     "eitmad.message.reference-marker-unavailable.v1",
+    "eitmad.message.customer-not-found.v1",
+    "eitmad.message.customer-revision-conflict.v1",
+    "eitmad.message.customer-unavailable.v1",
     "eitmad.message.desktop-account-invalid.v1",
     "eitmad.message.desktop-account-revision-conflict.v1",
     "eitmad.message.desktop-account-last-manager.v1",
@@ -219,6 +228,7 @@ pub const RELATIONS: &[&str] = &[
 pub const DOMAIN_SCHEMA_IDS: &[&str] = &[
     "eitmad.schema.protocol.v1",
     "eitmad.schema.reference-marker.v1",
+    "eitmad.schema.customer.v1",
 ];
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]

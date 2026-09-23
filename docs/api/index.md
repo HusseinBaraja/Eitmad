@@ -41,9 +41,9 @@ Generated files have a `Do not edit` header. Linux bindings remain blocked on th
 
 | Interaction | Required context | Foundation operations |
 | --- | --- | --- |
-| Command | Version, request/correlation/causation IDs, authenticated session, tenant, optional workspace, scope, deadline, idempotency key | Update configuration; upsert a reference marker; grant/revoke scoped relationships; placeholder operation/update commands |
-| Query | Version, request/correlation/causation IDs, authenticated session, tenant, optional workspace, scope, deadline | Read configuration, paged reference markers, effective permissions, and relationships; placeholder update and sync state |
-| Subscription | Version, request/correlation IDs, authenticated session, tenant, optional workspace, scope, optional resume cursor | Configuration, reference-marker changes, permission, authorization-policy, sync, record, job, notification, update, and error streams |
+| Command | Version, request/correlation/causation IDs, authenticated session, tenant, optional workspace, scope, deadline, idempotency key | Update configuration; create/update a customer; upsert a reference marker; grant/revoke scoped relationships; placeholder operation/update commands |
+| Query | Version, request/correlation/causation IDs, authenticated session, tenant, optional workspace, scope, deadline | Read configuration, get/search customers, paged reference markers, effective permissions, and relationships; placeholder update and sync state |
+| Subscription | Version, request/correlation IDs, authenticated session, tenant, optional workspace, scope, optional resume cursor | Configuration, customer changes, reference-marker changes, permission, authorization-policy, sync, record, job, notification, update, and error streams |
 | Event | Subscription/correlation IDs, sequence, cursor, occurrence time | Typed state, metadata, progress, notification, and error values |
 
 The identity, tenant, workspace, and scope fields are assertions to verify against the authenticated channel, not credentials and not proof of authorization. Rust must authorize and audit every boundary operation; state-changing verticals keep state and audit atomic.
@@ -56,7 +56,7 @@ The foreground CLI emits lifecycle snapshots as newline-delimited JSON on child 
 
 ## Wire and compatibility rules
 
-- Protocol v1 uses UTF-8 JSON with camel-case fields and explicit `kind`/`payload` tags. The current minor is `1.6`.
+- Protocol v1 uses UTF-8 JSON with camel-case fields and explicit `kind`/`payload` tags. The current minor is `1.9`.
 - Local IPC frames add a four-byte little-endian length and enforce an 8 MiB maximum.
 - UUIDs are lowercase hyphenated strings. Times are Unix milliseconds. Canonical values remain locale-independent.
 - Unknown object fields are accepted for additive minor-version evolution.
@@ -66,6 +66,7 @@ The foreground CLI emits lifecycle snapshots as newline-delimited JSON on child 
 - `SecretId` and secret lifecycle are Rust-internal authority types, not protocol-v1 operations. Shells never receive secret material or call an OS credential store for product secrets.
 - Sync domain payloads are registered schema/version identifiers plus encoded bytes. A domain vertical must define the payload schema before use.
 - Reference markers require `eitmad.capability.reference-marker.v1` and schema `eitmad.schema.reference-marker.v1`. Their list query is paged and their change event carries only identifiers and revision metadata.
+- Customers require `eitmad.capability.customer.v1` and schema `eitmad.schema.customer.v1`. Get and bounded search enforce the exact branch scope, and change events carry no contact text.
 - Sync deliveries carry independent delivery IDs and idempotency keys. Consumers preserve record authority and cache freshness labels instead of presenting optimistic or stale data as canonical.
 - Simulation, LAN, direct WAN, and relay WAN carry the same `SyncTransportFrame` and complete `SyncTransportPayload`; message payloads use the shared `SyncMessage`. Route adapters cannot define another wire protocol or change reconciliation meaning.
 - Observation event, field, component, severity, classification, and value-kind contracts are exported in the JSON schema and exercised by the C# and Swift conformance fixture. Diagnostic values still reach sinks only through the Rust-owned redaction boundary.
@@ -87,13 +88,13 @@ Each peer sends supported protocol major/minor ranges, available and required ca
 - a capability required by either peer but absent from the other;
 - a required schema with no overlapping version.
 
-The encoded window is `1.0–1.6`. Protocol `1.0` supports command/query traffic, `1.1` adds local IPC subscriptions, `1.2` adds relationship administration and authorization-policy events, `1.3` adds decodable tenant/workspace fields, and `1.4` adds the remote server boundary, device proof, snapshots, and resumable server subscriptions. Protocol `1.5` adds relay, signed update, and administration types and capabilities. Protocol `1.6` removes shell-supplied authorization from the local handshake and carries only the bootstrap token plus peer negotiation. Local IPC requires `eitmad.capability.authorization-scopes.v1` and a Rust-assigned tenant for every accepted version. A remote sync connection requires at least `1.4`; operational planes consume the `1.5` types and accept protocol `1.6`. The local 1.6 handshake requires a coordinated engine and adapter rollout. See the [protocol 1.6 release](../releases/protocol-1-6-local-authority.md).
+The encoded window is `1.0–1.9`. Protocol `1.0` supports command/query traffic, `1.1` adds local IPC subscriptions, `1.2` adds relationship administration and authorization-policy events, `1.3` adds decodable tenant/workspace fields, and `1.4` adds the remote server boundary, device proof, snapshots, and resumable server subscriptions. Protocol `1.5` adds relay, signed update, and administration types and capabilities. Protocol `1.6` removes shell-supplied authorization from the local handshake and carries only the bootstrap token plus peer negotiation. Protocol `1.7` separates process authentication from desktop user sessions. Protocol `1.8` adds typed desktop account administration. Protocol `1.9` adds typed customer contacts and change subscriptions. Local IPC requires `eitmad.capability.authorization-scopes.v1` and a Rust-assigned tenant for every accepted version. A remote sync connection requires at least `1.4`; the server currently accepts `1.4–1.6`. The local `1.7–1.9` operations require a coordinated engine and adapter rollout. See the [protocol 1.6 release](../releases/protocol-1-6-local-authority.md) and [customer release](../releases/storage-v13-customers.md).
 
 Event cursors are opaque, scoped, and valid only in the current engine generation's bounded replay window. Per-subscription sequence numbers order delivered events but do not establish global order. When a close envelope can be delivered, `clientRequested` follows explicit unsubscribe, `engineStopping` precedes shutdown, and `backpressure` identifies an unreplayable discrete gap. For authorization revocation, protocol `1.2` sends `SubscriptionClosed` with `authorizationRevoked`; revoked `1.0` and `1.1` connections terminate without a close envelope. See [typed local IPC](../developer/subsystems/local-ipc.md) for replay, duplicate delivery, backpressure, reauthorization, and resync rules.
 
 ## Implemented configuration and authorization authority
 
-The real engine dispatcher currently executes configuration query/update, effective-permission query, relationship grant/revoke/list, and configuration/authorization subscriptions. Existing unrelated placeholder operations return `eitmad.error.contract-invalid.v1` until their Rust verticals exist. Configuration import/export remain Rust service APIs and have no shell IPC operation.
+The real engine dispatcher currently executes configuration query/update, effective-permission query, relationship grant/revoke/list, reference-marker upsert/list, desktop account create/update/deactivate/list, customer create/update/get/search, and their supported change subscriptions. Existing unrelated placeholder operations return `eitmad.error.contract-invalid.v1` until their Rust verticals exist. Configuration import/export remain Rust service APIs and have no shell IPC operation.
 
 Configuration snapshots are revisioned, redacted, stable-key projections. Relationship mutations use a separate optimistic policy revision. Rust also defines scoped object, tuple, condition, permission-rule, request, and decision types for engine-owned boundaries, but they are not part of the current generated IPC root and no generic tuple-management operation exists. Read [configuration authority](../developer/subsystems/configuration.md) and [authorization/audit authority](../developer/subsystems/authorization.md) before consuming these contracts.
 

@@ -30,6 +30,7 @@ public sealed class ReceptionHandoffPreview
             }).ToArray(),
             requestApproval || editor.IsDiscountApproved || editor.IsDiscountRejected, editor.Phone)
         {
+            CustomerId = editor.SelectedCustomer?.Id,
             Address = editor.Address, Notes = editor.Notes,
             NeedsApprovalToComplete = editor.RequiresDiscountApproval,
             ReceptionActivity = requestApproval ? "طلب خصم من الاستقبال" : previous is null ? "جديد من الاستقبال" : "عُدّل في الاستقبال",

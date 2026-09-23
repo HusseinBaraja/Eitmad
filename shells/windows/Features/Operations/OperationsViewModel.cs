@@ -218,7 +218,7 @@ public sealed class OperationsViewModel : ObservableObject
                 marker.Id,
                 marker.Label,
                 marker.Revision,
-                marker.SyncState == ReferenceMarkerSyncState.Confirmed ? "متزامن" : "بانتظار المزامنة",
+                marker.SyncState == ErSyncState.Confirmed ? "متزامن" : "بانتظار المزامنة",
                 DateTimeOffset.FromUnixTimeMilliseconds(marker.UpdatedAt).ToString("HH:mm", CultureInfo.GetCultureInfo("ar-YE"))));
             if (marker.Id == ReferenceMarkerId)
             {
@@ -239,7 +239,7 @@ public sealed class OperationsViewModel : ObservableObject
                 marker.Id,
                 marker.Label,
                 marker.Revision,
-                marker.SyncState == ReferenceMarkerSyncState.Confirmed ? "متزامن" : "بانتظار المزامنة",
+                marker.SyncState == ErSyncState.Confirmed ? "متزامن" : "بانتظار المزامنة",
                 DateTimeOffset.FromUnixTimeMilliseconds(marker.UpdatedAt).ToString("HH:mm", CultureInfo.GetCultureInfo("ar-YE"))),
             value => value.Id);
         if (marker.Id == ReferenceMarkerId)

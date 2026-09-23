@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using Eitmad.Contracts;
 using Eitmad.Platform.Windows.LocalIpc;
 using Eitmad.Platform.Windows.ProcessSupervision;
@@ -40,6 +42,8 @@ internal sealed class FakeEngine : IEngineShellBridge
     public long ConfigurationRevision { get; set; } = 1;
     public Func<Query, Task>? QueryBarrier { get; set; }
     public List<DesktopAccountSummary> DesktopAccounts { get; } = [];
+    public List<Customer> Customers { get; } = [];
+    public ScopeRef CustomerBranch { get; } = new() { Kind = "branch", Id = Guid.NewGuid() };
     public Action<Subscription, FakeSubscription>? SubscribeHook { get; set; }
     public int QueryCount => Volatile.Read(ref queryCount);
     public int SubscriptionCount
@@ -73,6 +77,7 @@ internal sealed class FakeEngine : IEngineShellBridge
         ProtocolIds.Capabilities.EitmadCapabilityUpdateV1,
         ProtocolIds.Capabilities.EitmadCapabilityReferenceMarkerV1,
         ProtocolIds.Capabilities.EitmadCapabilityDesktopAccountManagementV1,
+        ProtocolIds.Capabilities.EitmadCapabilityCustomerV1,
     };
 
     public bool SupportsCapability(string capability) => SupportedCapabilities.Contains(capability);
@@ -188,6 +193,20 @@ internal sealed class FakeEngine : IEngineShellBridge
             };
         }
 
+        if (query.AsCustomerGet() is { } getCustomer &&
+            Customers.All(customer => customer.Id != getCustomer.CustomerId || !IsAuthorizedCustomer(customer)))
+        {
+            return new QueryResponseEnvelope
+            {
+                RequestId = Guid.NewGuid(),
+                CorrelationId = Guid.NewGuid(),
+                Outcome = new QueryOutcome
+                {
+                    Status = CommandOutcomeStatus.Failed,
+                    Payload = new QueryResult { Code = ProtocolIds.ErrorCodes.EitmadErrorCustomerNotFoundV1 },
+                },
+            };
+        }
         var result = query.Kind switch
         {
             Query.PermissionsGetEffectiveKind => QueryResult.ForEffectivePermissions(new EffectivePermissions
@@ -213,6 +232,14 @@ internal sealed class FakeEngine : IEngineShellBridge
             {
                 Accounts = DesktopAccounts.ToArray(),
             }),
+            Query.CustomerGetKind => QueryResult.ForCustomer(Customers.Single(customer =>
+                customer.Id == query.AsCustomerGet()!.CustomerId && IsAuthorizedCustomer(customer))),
+            Query.CustomerSearchKind => QueryResult.ForCustomers(new CustomerPage
+            {
+                Items = Customers.Where(customer => IsAuthorizedCustomer(customer)
+                    && CustomerMatchesTerm(customer, query.AsCustomerSearch()!.Term))
+                    .Take((int)query.AsCustomerSearch()!.Limit).ToArray(),
+            }),
             _ => throw new InvalidOperationException("Unexpected fake query."),
         };
         return new QueryResponseEnvelope
@@ -221,6 +248,65 @@ internal sealed class FakeEngine : IEngineShellBridge
             CorrelationId = Guid.NewGuid(),
             Outcome = new QueryOutcome { Status = CommandOutcomeStatus.Succeeded, Payload = result },
         };
+    }
+
+    private static string NormalizeCustomerName(string value)
+    {
+        var result = new StringBuilder(value.Length);
+        var pendingSpace = false;
+        foreach (var character in value.Normalize(NormalizationForm.FormD))
+        {
+            var category = CharUnicodeInfo.GetUnicodeCategory(character);
+            if (category is UnicodeCategory.NonSpacingMark or UnicodeCategory.SpacingCombiningMark
+                or UnicodeCategory.EnclosingMark || character is '\u0640' or '\u200c' or '\u200d') continue;
+            if (char.IsWhiteSpace(character))
+            {
+                pendingSpace = result.Length > 0;
+                continue;
+            }
+            if (pendingSpace) result.Append(' ');
+            pendingSpace = false;
+            result.Append(char.ToLowerInvariant(character switch
+            {
+                '\u0622' or '\u0623' or '\u0625' or '\u0671' => '\u0627',
+                '\u0649' or '\u06cc' => '\u064a',
+                '\u0629' => '\u0647',
+                '\u06a9' => '\u0643',
+                >= '\u0660' and <= '\u0669' => (char)('0' + character - '\u0660'),
+                >= '\u06f0' and <= '\u06f9' => (char)('0' + character - '\u06f0'),
+                _ => character,
+            }));
+        }
+        return result.ToString();
+    }
+
+    private bool IsAuthorizedCustomer(Customer customer) =>
+        customer.Scope.Kind == CustomerBranch.Kind && customer.Scope.Id == CustomerBranch.Id;
+
+    private static bool CustomerMatchesTerm(Customer customer, string term)
+    {
+        if (NormalizeCustomerName(customer.Name).Contains(NormalizeCustomerName(term), StringComparison.OrdinalIgnoreCase))
+            return true;
+        var normalizedPhone = NormalizeCustomerPhone(term);
+        return normalizedPhone is not null
+            && NormalizeCustomerPhone(customer.Phone)?.Contains(normalizedPhone, StringComparison.Ordinal) == true;
+    }
+
+    private static string? NormalizeCustomerPhone(string value)
+    {
+        var digits = new StringBuilder(value.Length);
+        for (var index = 0; index < value.Length; index++)
+        {
+            var character = value[index];
+            if (character is >= '0' and <= '9' || character == '+' && index == 0)
+                digits.Append(character);
+            else if (character is >= '\u0660' and <= '\u0669')
+                digits.Append((char)('0' + character - '\u0660'));
+            else if (character is >= '\u06f0' and <= '\u06f9')
+                digits.Append((char)('0' + character - '\u06f0'));
+            else if (character is not (' ' or '-' or '(' or ')')) return null;
+        }
+        return digits.Length > 0 && digits.ToString() != "+" ? digits.ToString() : null;
     }
 
     public Task<CommandResponseEnvelope> SubmitConfigurationPatchAsync(
@@ -235,19 +321,22 @@ internal sealed class FakeEngine : IEngineShellBridge
         });
 
     public Func<Command, CommandResponseEnvelope>? CommandHandler { get; set; }
+    public Func<Command, Task>? CommandBarrier { get; set; }
     public Command? LastCommand { get; private set; }
 
-    public Task<CommandResponseEnvelope> SubmitCommandAsync(
+    public async Task<CommandResponseEnvelope> SubmitCommandAsync(
         Command command,
         Guid idempotencyKey,
         CancellationToken cancellationToken = default)
     {
         LastCommand = command;
-        return Task.FromResult(CommandHandler?.Invoke(command) ?? ApplyDesktopAccountCommand(command));
+        if (CommandBarrier is not null) await CommandBarrier(command);
+        return CommandHandler?.Invoke(command) ?? ApplyCommand(command);
     }
 
-    private CommandResponseEnvelope ApplyDesktopAccountCommand(Command command)
+    private CommandResponseEnvelope ApplyCommand(Command command)
     {
+        Customer? changedCustomer = null;
         if (command.AsDesktopAccountCreate() is { } create)
         {
             DesktopAccounts.Add(new DesktopAccountSummary
@@ -278,6 +367,46 @@ internal sealed class FakeEngine : IEngineShellBridge
             account.Active = false;
             account.Revision++;
         }
+        else if (command.AsCustomerCreate() is { } createCustomer)
+        {
+            changedCustomer = new Customer
+            {
+                Id = Guid.NewGuid(),
+                Scope = CustomerBranch,
+                Name = createCustomer.Name,
+                Phone = createCustomer.Phone,
+                Address = createCustomer.Address,
+                Notes = createCustomer.Notes,
+                Status = CustomerStatus.Active,
+                Revision = 1,
+                SyncState = ErSyncState.Pending,
+                UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            };
+            Customers.Add(changedCustomer);
+        }
+        else if (command.AsCustomerUpdate() is { } updateCustomer)
+        {
+            var index = Customers.FindIndex(customer => customer.Id == updateCustomer.CustomerId
+                && IsAuthorizedCustomer(customer));
+            if (index < 0) return FailedCustomer(ProtocolIds.ErrorCodes.EitmadErrorCustomerNotFoundV1);
+            var current = Customers[index];
+            if (current.Revision != updateCustomer.ExpectedRevision)
+                return FailedCustomer(ProtocolIds.ErrorCodes.EitmadErrorCustomerRevisionConflictV1);
+            changedCustomer = new Customer
+            {
+                Id = current.Id,
+                Scope = current.Scope,
+                Name = updateCustomer.Name,
+                Phone = updateCustomer.Phone,
+                Address = updateCustomer.Address,
+                Notes = updateCustomer.Notes,
+                Status = current.Status,
+                Revision = current.Revision + 1,
+                SyncState = ErSyncState.Pending,
+                UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            };
+            Customers[index] = changedCustomer;
+        }
         return new CommandResponseEnvelope
         {
             RequestId = Guid.NewGuid(),
@@ -285,10 +414,27 @@ internal sealed class FakeEngine : IEngineShellBridge
             Outcome = new CommandOutcome
             {
                 Status = CommandOutcomeStatus.Succeeded,
-                Payload = new CommandResult(),
+                Payload = changedCustomer is null
+                    ? new CommandResult()
+                    : new CommandResult
+                    {
+                        Kind = changedCustomer.Revision == 1 ? PurpleKind.CustomerCreated : PurpleKind.CustomerUpdated,
+                        Payload = new PayloadClass { Customer = changedCustomer, PotentialDuplicateIds = [] },
+                    },
             },
         };
     }
+
+    private static CommandResponseEnvelope FailedCustomer(string code) => new()
+    {
+        RequestId = Guid.NewGuid(),
+        CorrelationId = Guid.NewGuid(),
+        Outcome = new CommandOutcome
+        {
+            Status = CommandOutcomeStatus.Failed,
+            Payload = new CommandResult { Code = code },
+        },
+    };
 
     public Task<CommandResponseEnvelope> SubmitReferenceMarkerAsync(
         UpsertReferenceMarker marker,
@@ -314,7 +460,7 @@ internal sealed class FakeEngine : IEngineShellBridge
                             Kind = "organization",
                             Id = Guid.Parse("2ef36635-1d9d-4bd5-b0e4-fc4a67dfac90"),
                         },
-                        SyncState = ReferenceMarkerSyncState.Pending,
+                        SyncState = ErSyncState.Pending,
                         UpdatedAt = 1_800_000_000_001,
                     },
                 },

@@ -38,6 +38,9 @@ public static class QuotationPreviewProjection
         model.DiscountInput = (quotation.Subtotal == 0 ? 0 : quotation.Discount / quotation.Subtotal * 100m)
             .ToString(CultureInfo.InvariantCulture);
         model.PreviewId = quotation.Id;
+        if (quotation.CustomerId is { } customerId)
+            model.AttachCustomer(new PreviewCustomer(quotation.Customer, quotation.Phone, quotation.Address,
+                quotation.Notes, customerId));
         model.ObserveApproval(quotation);
         return model;
     }

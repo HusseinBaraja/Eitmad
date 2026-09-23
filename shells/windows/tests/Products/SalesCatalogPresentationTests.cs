@@ -1,6 +1,8 @@
 using Eitmad.WindowsShell.Features.Furniture;
 using Eitmad.WindowsShell.Features.Products;
 using Eitmad.WindowsShell.Features.Reception;
+using Eitmad.WindowsShell.Features.Customers;
+using Eitmad.WindowsShell.Tests.TestDoubles;
 
 namespace Eitmad.WindowsShell.Tests.Products;
 
@@ -68,9 +70,11 @@ public sealed class SalesCatalogPresentationTests
     }
 
     [TestMethod]
-    public void CurrentQuotationEditingCancellationTotalsAndCustomerFlow()
+    public async Task CurrentQuotationEditingCancellationTotalsAndCustomerFlow()
     {
-        var model = new SalesCatalogViewModel(new FurnitureViewModel(), new ProductsViewModel());
+        await using var engine = new FakeEngine();
+        await using var customers = new CustomerClient(engine);
+        var model = new SalesCatalogViewModel(new FurnitureViewModel(), new ProductsViewModel(), customers);
         model.Select(model.VisibleItems.Single(item => item.Name == "مرتبة طبية"));
         model.ProductSelection!.SelectedVariant = model.ProductSelection.Variants[1];
         model.AddProductSelection();
@@ -92,18 +96,16 @@ public sealed class SalesCatalogPresentationTests
         Assert.AreEqual(420_000m, model.FinalTotal);
         model.QuotationLines.Remove(model.QuotationLines[0]);
         Assert.IsFalse(model.ReviewSave());
-        model.CustomerName = "عميل";
-        Assert.HasCount(1, model.CustomerMatches);
-        model.AttachCustomer(model.CustomerMatches[0]);
+        model.AttachCustomer(new PreviewCustomer("عميل تجريبي", "000000000", "عنوان تجريبي", ""));
         model.BeginNewCustomer();
-        Assert.IsFalse(model.SaveNewCustomer());
+        Assert.IsFalse(await model.SaveNewCustomerAsync());
         model.CancelNewCustomer();
         Assert.AreEqual("عميل تجريبي", model.CustomerName);
         model.BeginNewCustomer();
         model.CustomerName = "عميل معاينة جديد"; model.Phone = "000000001";
-        Assert.IsTrue(model.SaveNewCustomer());
+        Assert.IsTrue(await model.SaveNewCustomerAsync());
         Assert.IsTrue(model.ReviewSave());
-        Assert.IsTrue(model.QuotationNotice.Contains("لم تُحفظ"));
+        Assert.IsTrue(model.QuotationNotice.Contains("لم يُحفظ عرض السعر"));
     }
 
     [TestMethod]

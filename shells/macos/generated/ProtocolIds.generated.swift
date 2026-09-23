@@ -4,7 +4,7 @@ import Foundation
 public enum ProtocolIds {
     public enum Version {
         public static let major = 1
-        public static let minor = 8
+        public static let minor = 9
     }
 
     public enum IpcMessages {
@@ -36,6 +36,8 @@ public enum ProtocolIds {
         public static let eitmadOperationCancelV1 = "eitmad.operation.cancel.v1"
         public static let eitmadUpdateReportInstallerOutcomeV1 = "eitmad.update.report-installer-outcome.v1"
         public static let eitmadReferenceMarkerUpsertV1 = "eitmad.reference-marker.upsert.v1"
+        public static let eitmadCustomerCreateV1 = "eitmad.customer.create.v1"
+        public static let eitmadCustomerUpdateV1 = "eitmad.customer.update.v1"
         public static let eitmadDesktopAccountCreateV1 = "eitmad.desktop-account.create.v1"
         public static let eitmadDesktopAccountUpdateV1 = "eitmad.desktop-account.update.v1"
         public static let eitmadDesktopAccountDeactivateV1 = "eitmad.desktop-account.deactivate.v1"
@@ -48,6 +50,8 @@ public enum ProtocolIds {
         public static let eitmadUpdateGetStateV1 = "eitmad.update.get-state.v1"
         public static let eitmadSyncGetStatusV1 = "eitmad.sync.get-status.v1"
         public static let eitmadReferenceMarkerListV1 = "eitmad.reference-marker.list.v1"
+        public static let eitmadCustomerGetV1 = "eitmad.customer.get.v1"
+        public static let eitmadCustomerSearchV1 = "eitmad.customer.search.v1"
         public static let eitmadDesktopAccountListV1 = "eitmad.desktop-account.list.v1"
     }
 
@@ -62,6 +66,7 @@ public enum ProtocolIds {
         public static let eitmadNotificationSubscribeV1 = "eitmad.notification.subscribe.v1"
         public static let eitmadErrorSubscribeV1 = "eitmad.error.subscribe.v1"
         public static let eitmadReferenceMarkerChangedSubscribeV1 = "eitmad.reference-marker.changed.subscribe.v1"
+        public static let eitmadCustomerChangedSubscribeV1 = "eitmad.customer.changed.subscribe.v1"
     }
 
     public enum Events {
@@ -75,6 +80,7 @@ public enum ProtocolIds {
         public static let eitmadNotificationEventV1 = "eitmad.notification.event.v1"
         public static let eitmadErrorEventV1 = "eitmad.error.event.v1"
         public static let eitmadReferenceMarkerChangedEventV1 = "eitmad.reference-marker.changed.event.v1"
+        public static let eitmadCustomerChangedEventV1 = "eitmad.customer.changed.event.v1"
     }
 
     public enum SyncMessages {
@@ -121,6 +127,7 @@ public enum ProtocolIds {
         public static let eitmadCapabilityServerAdministrationV1 = "eitmad.capability.server-administration.v1"
         public static let eitmadCapabilityUpdateV1 = "eitmad.capability.update.v1"
         public static let eitmadCapabilityReferenceMarkerV1 = "eitmad.capability.reference-marker.v1"
+        public static let eitmadCapabilityCustomerV1 = "eitmad.capability.customer.v1"
         public static let eitmadCapabilityDesktopAccountManagementV1 = "eitmad.capability.desktop-account-management.v1"
     }
 
@@ -154,6 +161,8 @@ public enum ProtocolIds {
         public static let eitmadPermissionUpdateReportInstallerV1 = "eitmad.permission.update.report-installer.v1"
         public static let eitmadPermissionReferenceMarkerReadV1 = "eitmad.permission.reference-marker.read.v1"
         public static let eitmadPermissionReferenceMarkerWriteV1 = "eitmad.permission.reference-marker.write.v1"
+        public static let eitmadPermissionCustomerReadV1 = "eitmad.permission.customer.read.v1"
+        public static let eitmadPermissionCustomerWriteV1 = "eitmad.permission.customer.write.v1"
         public static let eitmadPermissionCatalogDraftWriteV1 = "eitmad.permission.catalog.draft.write.v1"
         public static let eitmadPermissionQuotationDraftWriteV1 = "eitmad.permission.quotation.draft.write.v1"
         public static let eitmadPermissionDesktopAccountsManageV1 = "eitmad.permission.desktop-accounts.manage.v1"
@@ -174,6 +183,7 @@ public enum ProtocolIds {
     public enum SchemaIds {
         public static let eitmadSchemaProtocolV1 = "eitmad.schema.protocol.v1"
         public static let eitmadSchemaReferenceMarkerV1 = "eitmad.schema.reference-marker.v1"
+        public static let eitmadSchemaCustomerV1 = "eitmad.schema.customer.v1"
     }
 
     public enum ErrorCodes {
@@ -222,6 +232,9 @@ public enum ProtocolIds {
         public static let eitmadErrorUpdateInstallerFailedV1 = "eitmad.error.update-installer-failed.v1"
         public static let eitmadErrorReferenceMarkerRevisionConflictV1 = "eitmad.error.reference-marker-revision-conflict.v1"
         public static let eitmadErrorReferenceMarkerUnavailableV1 = "eitmad.error.reference-marker-unavailable.v1"
+        public static let eitmadErrorCustomerNotFoundV1 = "eitmad.error.customer-not-found.v1"
+        public static let eitmadErrorCustomerRevisionConflictV1 = "eitmad.error.customer-revision-conflict.v1"
+        public static let eitmadErrorCustomerUnavailableV1 = "eitmad.error.customer-unavailable.v1"
         public static let eitmadErrorDesktopAccountInvalidV1 = "eitmad.error.desktop-account-invalid.v1"
         public static let eitmadErrorDesktopAccountRevisionConflictV1 = "eitmad.error.desktop-account-revision-conflict.v1"
         public static let eitmadErrorDesktopAccountLastManagerV1 = "eitmad.error.desktop-account-last-manager.v1"
@@ -277,6 +290,9 @@ public enum ProtocolIds {
         public static let eitmadMessageUpdateInstallerFailedV1 = "eitmad.message.update-installer-failed.v1"
         public static let eitmadMessageReferenceMarkerRevisionConflictV1 = "eitmad.message.reference-marker-revision-conflict.v1"
         public static let eitmadMessageReferenceMarkerUnavailableV1 = "eitmad.message.reference-marker-unavailable.v1"
+        public static let eitmadMessageCustomerNotFoundV1 = "eitmad.message.customer-not-found.v1"
+        public static let eitmadMessageCustomerRevisionConflictV1 = "eitmad.message.customer-revision-conflict.v1"
+        public static let eitmadMessageCustomerUnavailableV1 = "eitmad.message.customer-unavailable.v1"
         public static let eitmadMessageDesktopAccountInvalidV1 = "eitmad.message.desktop-account-invalid.v1"
         public static let eitmadMessageDesktopAccountRevisionConflictV1 = "eitmad.message.desktop-account-revision-conflict.v1"
         public static let eitmadMessageDesktopAccountLastManagerV1 = "eitmad.message.desktop-account-last-manager.v1"

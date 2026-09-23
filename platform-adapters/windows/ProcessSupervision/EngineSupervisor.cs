@@ -103,7 +103,8 @@ public sealed class EngineSupervisor : IAsyncDisposable
                 ProtocolVersion = SessionProtocol(client),
                 RequestId = requestId,
                 CorrelationId = Guid.NewGuid(),
-                Authorization = client.Authorization,
+                Authorization = query.Kind is Query.CustomerGetKind or Query.CustomerSearchKind
+                    ? client.AuthorizationForCustomer : client.Authorization,
                 Deadline = DeadlineAfter(requestTimeout),
                 Query = ToPayloadDictionary(query),
             },
@@ -192,7 +193,8 @@ public sealed class EngineSupervisor : IAsyncDisposable
                 ProtocolVersion = SessionProtocol(client),
                 RequestId = Guid.NewGuid(),
                 CorrelationId = Guid.NewGuid(),
-                Authorization = client.Authorization,
+                Authorization = command.Kind is Command.CustomerCreateKind or Command.CustomerUpdateKind
+                    ? client.AuthorizationForCustomer : client.Authorization,
                 Deadline = DeadlineAfter(requestTimeout),
                 IdempotencyKey = idempotencyKey,
                 Command = ToPayloadDictionary(command),
@@ -743,6 +745,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
                 ProtocolIds.Capabilities.EitmadCapabilityConfigV1,
                 ProtocolIds.Capabilities.EitmadCapabilityPermissionsV1,
                 ProtocolIds.Capabilities.EitmadCapabilityReferenceMarkerV1,
+                ProtocolIds.Capabilities.EitmadCapabilityCustomerV1,
                 ProtocolIds.Capabilities.EitmadCapabilityDesktopAccountManagementV1,
             ],
             RequiredCapabilities =
@@ -755,6 +758,13 @@ public sealed class EngineSupervisor : IAsyncDisposable
                 new SchemaSupport
                 {
                     SchemaId = ProtocolIds.SchemaIds.EitmadSchemaReferenceMarkerV1,
+                    MinimumVersion = 1,
+                    MaximumVersion = 1,
+                    SchemaSupportRequired = false,
+                },
+                new SchemaSupport
+                {
+                    SchemaId = ProtocolIds.SchemaIds.EitmadSchemaCustomerV1,
                     MinimumVersion = 1,
                     MaximumVersion = 1,
                     SchemaSupportRequired = false,
@@ -859,7 +869,8 @@ public sealed class EngineSupervisor : IAsyncDisposable
             },
             RequestId = Guid.NewGuid(),
             CorrelationId = Guid.NewGuid(),
-            Authorization = client.Authorization,
+            Authorization = contract.Kind == Subscription.CustomerChangedSubscribeKind
+                ? client.AuthorizationForCustomer : client.Authorization,
             Subscription = ToPayloadDictionary(contract),
             ResumeAfter = resumeAfter,
         };
