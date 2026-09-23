@@ -579,7 +579,7 @@ fn connect_tls(url: &Url, config: &Arc<ClientConfig>) -> Result<TlsStream, Trans
                 connection.complete_io(&mut stream).map_err(|error| {
                     if error
                         .get_ref()
-                        .is_some_and(|source| source.is::<rustls::Error>())
+                        .is_some_and(<dyn std::error::Error + Send + Sync>::is::<rustls::Error>)
                     {
                         encryption_failure()
                     } else {
