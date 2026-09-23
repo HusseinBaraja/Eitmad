@@ -47,11 +47,14 @@ public sealed class CustomerClient : IAsyncDisposable
         string term,
         CancellationToken cancellationToken = default)
     {
+        var trimmed = term.Trim();
+        if (!CustomerInputValidation.IsSearchTermValid(trimmed))
+            return CustomerResult<IReadOnlyList<Customer>>.Failed(CustomerFailureKind.Validation);
         try
         {
             var response = await engine.QueryAsync(Query.ForCustomerSearch(new SearchCustomers
             {
-                Term = term.Trim(),
+                Term = trimmed,
                 Limit = SearchLimit,
             }), cancellationToken);
             return response.Outcome.Status == CommandOutcomeStatus.Succeeded
@@ -105,7 +108,8 @@ public sealed class CustomerClient : IAsyncDisposable
         string phone,
         string address,
         string notes,
-        CancellationToken cancellationToken = default) => SubmitAsync(
+        CancellationToken cancellationToken = default) => ValidatedSubmitAsync(
+            address, notes,
             Command.ForCustomerCreate(new CreateCustomer
             {
                 Name = name,
@@ -120,7 +124,8 @@ public sealed class CustomerClient : IAsyncDisposable
         string phone,
         string address,
         string notes,
-        CancellationToken cancellationToken = default) => SubmitAsync(
+        CancellationToken cancellationToken = default) => ValidatedSubmitAsync(
+            address, notes,
             Command.ForCustomerUpdate(new UpdateCustomer
             {
                 CustomerId = current.Id,
@@ -167,6 +172,17 @@ public sealed class CustomerClient : IAsyncDisposable
         CustomerFailureKind.NotFound => "لم يعد سجل العميل متاحاً.",
         _ => "تعذر الاتصال ببيانات العملاء. حاول مرة أخرى.",
     };
+
+    private Task<CustomerResult<Customer>> ValidatedSubmitAsync(
+        string address, string notes, Command command, CancellationToken cancellationToken)
+    {
+        var normalizedAddress = EmptyToNull(address);
+        var normalizedNotes = EmptyToNull(notes);
+        if (normalizedAddress is not null && !CustomerInputValidation.IsAddressValid(normalizedAddress)
+            || normalizedNotes is not null && !CustomerInputValidation.IsNotesValid(normalizedNotes))
+            return Task.FromResult(CustomerResult<Customer>.Failed(CustomerFailureKind.Validation));
+        return SubmitAsync(command, cancellationToken);
+    }
 
     private async Task<CustomerResult<Customer>> SubmitAsync(Command command, CancellationToken cancellationToken)
     {
@@ -316,7 +332,7 @@ public sealed class CustomerClient : IAsyncDisposable
         else context.Post(_ => Changed?.Invoke(this, customerId), null);
     }
 
-    private static string? EmptyToNull(string value) => string.IsNullOrWhiteSpace(value) ? null : value;
+    private static string? EmptyToNull(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static CustomerFailureKind MapFailure(string? code) => code switch
     {

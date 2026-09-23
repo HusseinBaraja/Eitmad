@@ -109,8 +109,10 @@ public sealed partial class SalesCatalogViewModel
             IsCustomerBusy = false;
             return;
         }
-        _ = SearchCustomersAsync(value.Trim(), version, customerSearchCancellation.Token);
+        LastCustomerSearch = SearchCustomersAsync(value.Trim(), version, customerSearchCancellation.Token);
     }
+
+    internal Task LastCustomerSearch { get; private set; } = Task.CompletedTask;
 
     private async Task SearchCustomersAsync(string term, long version, CancellationToken cancellationToken)
     {
@@ -135,6 +137,9 @@ public sealed partial class SalesCatalogViewModel
     public void AttachCustomer(PreviewCustomer customer, bool preserveDiscountRequest = false)
     {
         if (!preserveDiscountRequest) InvalidateDiscountRequest();
+        customerSearchCancellation?.Cancel();
+        customerSearchVersion++;
+        IsCustomerBusy = false;
         applyingCustomer = true;
         CustomerName = customer.Name; Phone = customer.Phone; Address = customer.Address; Notes = customer.Notes;
         applyingCustomer = false;
@@ -200,7 +205,9 @@ public sealed partial class SalesCatalogViewModel
         if (SelectedCustomer?.Id is { } selectedId && (customerId is null || customerId == selectedId))
         {
             _ = RefreshSelectedCustomerAsync(selectedId);
+            return;
         }
+        if (SelectedCustomer is not null) return;
         var term = CustomerName.Length > 0 ? CustomerName : Phone;
         if (term.Length > 0) QueueCustomerSearch(term);
     }

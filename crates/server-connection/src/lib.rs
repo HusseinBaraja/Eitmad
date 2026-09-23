@@ -707,10 +707,12 @@ fn authentication_failure() -> TransportFailure {
 
 fn map_server_failure(failure: &ServerFailure) -> TransportFailure {
     let code = failure.code.as_str();
+    if code == "eitmad.error.server-token-expired.v1" {
+        return unavailable(FailurePhase::Authentication);
+    }
     if matches!(
         code,
         "eitmad.error.server-authentication-failed.v1"
-            | "eitmad.error.server-token-expired.v1"
             | "eitmad.error.server-device-proof-invalid.v1"
     ) {
         return authentication_failure();
@@ -744,6 +746,22 @@ fn unavailable(phase: FailurePhase) -> TransportFailure {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use eitmad_contracts::{server::ServerErrorCode, transport::CorrelationId};
+
+    #[test]
+    fn expired_access_token_retries_but_revoked_session_stops() {
+        let failure = |code| ServerFailure {
+            code: ServerErrorCode::parse(code).unwrap(),
+            correlation_id: CorrelationId::new(Uuid::new_v4()),
+            retry_after_ms: None,
+        };
+        let expired = map_server_failure(&failure("eitmad.error.server-token-expired.v1"));
+        assert_eq!(expired.kind, TransportFailureKind::ServerUnavailable);
+        assert!(matches!(expired.retry, RetryAdvice::After { .. }));
+        let revoked = map_server_failure(&failure("eitmad.error.server-authentication-failed.v1"));
+        assert_eq!(revoked.kind, TransportFailureKind::AuthenticationFailed);
+        assert_eq!(revoked.retry, RetryAdvice::Never);
+    }
 
     #[test]
     fn refresh_response_parser_accepts_bounded_chunked_json_and_rejects_truncation() {

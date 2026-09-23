@@ -43,6 +43,7 @@ internal sealed class FakeEngine : IEngineShellBridge
     public Func<Query, Task>? QueryBarrier { get; set; }
     public List<DesktopAccountSummary> DesktopAccounts { get; } = [];
     public List<Customer> Customers { get; } = [];
+    public ScopeRef CustomerBranch { get; } = new() { Kind = "branch", Id = Guid.NewGuid() };
     public Action<Subscription, FakeSubscription>? SubscribeHook { get; set; }
     public int QueryCount => Volatile.Read(ref queryCount);
     public int SubscriptionCount
@@ -193,7 +194,7 @@ internal sealed class FakeEngine : IEngineShellBridge
         }
 
         if (query.AsCustomerGet() is { } getCustomer &&
-            Customers.All(customer => customer.Id != getCustomer.CustomerId))
+            Customers.All(customer => customer.Id != getCustomer.CustomerId || !IsAuthorizedCustomer(customer)))
         {
             return new QueryResponseEnvelope
             {
@@ -232,10 +233,11 @@ internal sealed class FakeEngine : IEngineShellBridge
                 Accounts = DesktopAccounts.ToArray(),
             }),
             Query.CustomerGetKind => QueryResult.ForCustomer(Customers.Single(customer =>
-                customer.Id == query.AsCustomerGet()!.CustomerId)),
+                customer.Id == query.AsCustomerGet()!.CustomerId && IsAuthorizedCustomer(customer))),
             Query.CustomerSearchKind => QueryResult.ForCustomers(new CustomerPage
             {
-                Items = Customers.Where(customer => CustomerMatchesTerm(customer, query.AsCustomerSearch()!.Term))
+                Items = Customers.Where(customer => IsAuthorizedCustomer(customer)
+                    && CustomerMatchesTerm(customer, query.AsCustomerSearch()!.Term))
                     .Take((int)query.AsCustomerSearch()!.Limit).ToArray(),
             }),
             _ => throw new InvalidOperationException("Unexpected fake query."),
@@ -277,6 +279,9 @@ internal sealed class FakeEngine : IEngineShellBridge
         }
         return result.ToString();
     }
+
+    private bool IsAuthorizedCustomer(Customer customer) =>
+        customer.Scope.Kind == CustomerBranch.Kind && customer.Scope.Id == CustomerBranch.Id;
 
     private static bool CustomerMatchesTerm(Customer customer, string term)
     {
@@ -367,7 +372,7 @@ internal sealed class FakeEngine : IEngineShellBridge
             changedCustomer = new Customer
             {
                 Id = Guid.NewGuid(),
-                Scope = new ScopeRef { Kind = "branch", Id = Guid.NewGuid() },
+                Scope = CustomerBranch,
                 Name = createCustomer.Name,
                 Phone = createCustomer.Phone,
                 Address = createCustomer.Address,
@@ -381,7 +386,8 @@ internal sealed class FakeEngine : IEngineShellBridge
         }
         else if (command.AsCustomerUpdate() is { } updateCustomer)
         {
-            var index = Customers.FindIndex(customer => customer.Id == updateCustomer.CustomerId);
+            var index = Customers.FindIndex(customer => customer.Id == updateCustomer.CustomerId
+                && IsAuthorizedCustomer(customer));
             if (index < 0) return FailedCustomer(ProtocolIds.ErrorCodes.EitmadErrorCustomerNotFoundV1);
             var current = Customers[index];
             if (current.Revision != updateCustomer.ExpectedRevision)

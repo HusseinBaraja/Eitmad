@@ -127,6 +127,42 @@ public sealed class CustomerClientTests
     }
 
     [TestMethod]
+    public async Task InvalidOptionalTextAndSearchNeverReachTheEngine()
+    {
+        await using var engine = new FakeEngine();
+        await using var client = new CustomerClient(engine);
+
+        Assert.AreEqual(CustomerFailureKind.Validation,
+            (await client.CreateAsync("عميل", "700000001", "عنوان\u200f", "")).Failure);
+        Assert.AreEqual(CustomerFailureKind.Validation,
+            (await client.CreateAsync("عميل", "700000001", "", new string('م', 1_100))).Failure);
+        Assert.AreEqual(CustomerFailureKind.Validation,
+            (await client.SearchAsync("عميل\u200f")).Failure);
+        Assert.IsNull(engine.LastCommand);
+        Assert.IsFalse(engine.WasQueried(Query.CustomerSearchKind));
+
+        var created = await client.CreateAsync("عميل", "700000001", " عنوان ", " ملاحظة\n");
+        Assert.IsTrue(created.Succeeded);
+        Assert.AreEqual("عنوان", created.Value!.Address);
+        Assert.AreEqual("ملاحظة", created.Value.Notes);
+    }
+
+    [TestMethod]
+    public async Task FakeEngineLimitsCustomersToItsAuthorizedBranch()
+    {
+        await using var engine = new FakeEngine();
+        var foreign = Customer(engine, "عميل فرع آخر", "700000002");
+        foreign.Scope = new ScopeRef { Kind = "branch", Id = Guid.NewGuid() };
+        engine.Customers.Add(foreign);
+        await using var client = new CustomerClient(engine);
+
+        Assert.AreEqual(CustomerFailureKind.NotFound, (await client.GetAsync(foreign.Id)).Failure);
+        Assert.AreEqual(0, (await client.SearchAsync("عميل فرع آخر")).Value!.Count);
+        Assert.AreEqual(CustomerFailureKind.NotFound,
+            (await client.UpdateAsync(foreign, foreign.Name, foreign.Phone, "", "")).Failure);
+    }
+
+    [TestMethod]
     public async Task SubscriptionReadFailureResubscribesWithoutEngineGenerationChange()
     {
         await using var engine = new FakeEngine();
@@ -152,7 +188,7 @@ public sealed class CustomerClientTests
     public async Task SelectedCustomerRefreshesFromSubscriptionWithoutLosingSelection()
     {
         await using var engine = new FakeEngine();
-        var original = Customer("عميل تجريبي", "700000001");
+        var original = Customer(engine, "عميل تجريبي", "700000001");
         engine.Customers.Add(original);
         await using var client = new CustomerClient(engine);
         await client.ActivateAsync();
@@ -197,7 +233,7 @@ public sealed class CustomerClientTests
     public async Task MissingCustomerAndNormalizedSearchUseTypedResults()
     {
         await using var engine = new FakeEngine();
-        engine.Customers.Add(Customer("إعـتماد القيسي", "+٩٦٧ (٧٧٧) ١٢٣-٤٥٦"));
+        engine.Customers.Add(Customer(engine, "إعـتماد القيسي", "+٩٦٧ (٧٧٧) ١٢٣-٤٥٦"));
         await using var client = new CustomerClient(engine);
 
         var byName = await client.SearchAsync("اعتماد القيسي");
@@ -213,7 +249,7 @@ public sealed class CustomerClientTests
     public async Task ReopenedQuotationRefreshDoesNotReportSyntheticRevisionAsCustomerChange()
     {
         await using var engine = new FakeEngine();
-        var original = Customer("عميل تجريبي", "700000001");
+        var original = Customer(engine, "عميل تجريبي", "700000001");
         engine.Customers.Add(original);
         await using var client = new CustomerClient(engine);
         await client.ActivateAsync();
@@ -269,8 +305,8 @@ public sealed class CustomerClientTests
     public async Task LaterCustomerSearchDiscardsAnObsoleteResponse()
     {
         await using var engine = new FakeEngine();
-        engine.Customers.Add(Customer("عميل قديم", "700000001"));
-        engine.Customers.Add(Customer("عميل جديد", "700000002"));
+        engine.Customers.Add(Customer(engine, "عميل قديم", "700000001"));
+        engine.Customers.Add(Customer(engine, "عميل جديد", "700000002"));
         var oldSearch = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var newSearch = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         engine.QueryBarrier = query => query.AsCustomerSearch()?.Term switch
@@ -283,13 +319,14 @@ public sealed class CustomerClientTests
         var model = new SalesCatalogViewModel(new FurnitureViewModel(), new ProductsViewModel(), client);
 
         model.CustomerName = "قديم";
+        var obsoleteSearch = model.LastCustomerSearch;
         model.CustomerName = "جديد";
         newSearch.SetResult();
         await EventuallyAsync(() => model.CustomerMatches.Count == 1);
         Assert.AreEqual("عميل جديد", model.CustomerMatches.Single().Name);
 
         oldSearch.SetResult();
-        await Task.Delay(20);
+        await obsoleteSearch;
         Assert.AreEqual("عميل جديد", model.CustomerMatches.Single().Name);
     }
 
@@ -303,10 +340,10 @@ public sealed class CustomerClientTests
         }
     }
 
-    private static Customer Customer(string name, string phone) => new()
+    private static Customer Customer(FakeEngine engine, string name, string phone) => new()
     {
         Id = Guid.NewGuid(),
-        Scope = new ScopeRef { Kind = "branch", Id = Guid.NewGuid() },
+        Scope = engine.CustomerBranch,
         Name = name,
         Phone = phone,
         Address = null!,

@@ -38,7 +38,7 @@ public sealed class CustomersRenderedTests
     {
         var order = new OrdersViewModel(true).VisibleOrders.First();
         var engine = new FakeEngine();
-        engine.Customers.Add(ContractCustomer(order.Customer, order.Phone));
+        engine.Customers.Add(ContractCustomer(order.Customer, order.Phone, scope: engine.CustomerBranch));
         WpfTestHost.Run(1338, 900, window =>
         {
             var reception = WpfTestHost.FindByName<ReceptionistHomeView>(window, "ReceptionistSurface");
@@ -73,7 +73,7 @@ public sealed class CustomersRenderedTests
     public void ReceptionCustomerSelectionRendersRustSearchResults(int width, int height)
     {
         var engine = new FakeEngine();
-        engine.Customers.Add(ContractCustomer("مؤسسة الاعتماد للأثاث", "+967 777 123 456", "صنعاء", ""));
+        engine.Customers.Add(ContractCustomer("مؤسسة الاعتماد للأثاث", "+967 777 123 456", "صنعاء", "", engine.CustomerBranch));
         WpfTestHost.Run(width, height, window =>
         {
             var reception = WpfTestHost.FindByName<ReceptionistHomeView>(window, "ReceptionistSurface");
@@ -98,7 +98,7 @@ public sealed class CustomersRenderedTests
     {
         var engine = new FakeEngine();
         var contract = ContractCustomer("منزل عائلة الصبري", "000000084",
-            "عدن، المنصورة — عنوان تجريبي", "الاتصال قبل توصيل الأثاث.");
+            "عدن، المنصورة — عنوان تجريبي", "الاتصال قبل توصيل الأثاث.", engine.CustomerBranch);
         engine.Customers.Add(contract);
         WpfTestHost.Run(width, height, window =>
         {
@@ -136,10 +136,10 @@ public sealed class CustomersRenderedTests
         }, engine: engine);
     }
 
-    private static Customer ContractCustomer(string name, string phone, string? address = null, string? notes = null) => new()
+    private static Customer ContractCustomer(string name, string phone, string? address = null, string? notes = null, ScopeRef? scope = null) => new()
     {
         Id = Guid.NewGuid(),
-        Scope = new ScopeRef { Kind = "branch", Id = Guid.NewGuid() },
+        Scope = scope ?? new ScopeRef { Kind = "branch", Id = Guid.NewGuid() },
         Name = name,
         Phone = phone,
         Address = address!,

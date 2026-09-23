@@ -157,11 +157,21 @@ public partial class MainWindow : Window
     }
 
     private void SessionEnded(object? sender, SessionEndedEventArgs eventArgs) =>
-        Dispatcher.Invoke(() =>
+        Dispatcher.Invoke(() => _ = CompleteSessionEndAsync(eventArgs.Reason));
+
+    private async Task CompleteSessionEndAsync(SessionEndReason reason)
+    {
+        SignInSurface.IsEnabled = false;
+        try
         {
-            _ = ReceptionistSurface.DeactivateCustomersAsync();
-            ShowSignIn(eventArgs.Reason);
-        });
+            await ReceptionistSurface.DeactivateCustomersAsync();
+        }
+        finally
+        {
+            ShowSignIn(reason);
+            SignInSurface.IsEnabled = true;
+        }
+    }
 
     private void ShowSignIn(SessionEndReason? reason = null)
     {

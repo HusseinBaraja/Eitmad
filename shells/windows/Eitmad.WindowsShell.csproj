@@ -13,6 +13,7 @@
     <ApplicationIcon />
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="Eitmad.WindowsShell.Tests" />
     <Compile Remove="generated\**\*.cs" />
     <Compile Remove="tests\**\*.cs" />
     <ProjectReference Include="..\..\platform-adapters\windows\Eitmad.Platform.Windows.csproj" />

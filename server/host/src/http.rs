@@ -727,8 +727,8 @@ async fn stream_session(
     loop {
         let received = tokio::select! {
             _ = revalidation.tick() => {
-                if authenticate_access(&state, &token, &proof).await.is_err() {
-                    let _ = send_failure(&mut socket, "eitmad.error.server-authentication-failed.v1")
+                if let Err(error) = authenticate_access(&state, &token, &proof).await {
+                    let _ = send_failure(&mut socket, error.code.as_str())
                         .await;
                     break;
                 }

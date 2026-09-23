@@ -21,7 +21,7 @@ public sealed class PreviewHandoffRenderedTests
         engine.Customers.Add(new Customer
         {
             Id = Guid.NewGuid(),
-            Scope = new ScopeRef { Kind = "branch", Id = Guid.NewGuid() },
+            Scope = engine.CustomerBranch,
             Name = "عميل اختبار الموافقة",
             Phone = "000000001",
             Address = "عنوان تجريبي",
