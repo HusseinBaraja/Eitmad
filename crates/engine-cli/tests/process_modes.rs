@@ -14,7 +14,7 @@ use eitmad_contracts::{
     identity::{AuthenticatedIdentity, PrincipalId, PrincipalKind},
     transport::{CorrelationId, UnixMillis},
 };
-use eitmad_engine_runtime::DesktopAuthenticator;
+use eitmad_engine_runtime::{DEFAULT_STARTUP_TIMEOUT, DesktopAuthenticator};
 use eitmad_storage::{AuthorityStore, DesktopRole};
 use uuid::Uuid;
 
@@ -54,7 +54,7 @@ fn spawn_supervised(
 
 fn next_state(receiver: &Receiver<Value>) -> String {
     receiver
-        .recv_timeout(Duration::from_secs(10))
+        .recv_timeout(DEFAULT_STARTUP_TIMEOUT + Duration::from_secs(30))
         .expect("lifecycle output before timeout")["state"]
         .as_str()
         .expect("state string")
