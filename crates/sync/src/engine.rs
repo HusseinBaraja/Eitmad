@@ -13,7 +13,8 @@ use eitmad_contracts::{
     },
     transport::{IdempotencyKey, SchemaId, UnixMillis},
     versioning::{
-        NegotiatedSession, NegotiationOutcome, NegotiationRejection, PeerHello, negotiate,
+        NegotiatedSchema, NegotiatedSession, NegotiationOutcome, NegotiationRejection, PeerHello,
+        negotiate,
     },
 };
 use eitmad_observability_audit::{
@@ -384,8 +385,7 @@ impl SyncEngine {
         audit: &BoundaryAuditContext,
         session: &NegotiatedSession,
         remote_mode: SyncMode,
-        schema_id: &SchemaId,
-        schema_version: u32,
+        schema: &NegotiatedSchema,
     ) -> Result<(), SyncEngineError> {
         self.validate_actor(actor)?;
         self.authorization
@@ -397,11 +397,11 @@ impl SyncEngine {
         if !session
             .schemas
             .iter()
-            .any(|schema| &schema.schema_id == schema_id && schema.version == schema_version)
+            .any(|negotiated| negotiated == schema)
         {
             return Err(SyncEngineError::IncompatiblePeer(
                 NegotiationRejection::IncompatibleSchema {
-                    schema_id: schema_id.clone(),
+                    schema_id: schema.schema_id.clone(),
                 },
             ));
         }

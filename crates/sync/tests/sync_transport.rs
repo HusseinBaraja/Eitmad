@@ -508,10 +508,10 @@ fn frame(sequence: u64, value: u128) -> SyncTransportFrame {
         stream_id: SyncStreamId::new(Uuid::from_u128(104)),
         sequence,
         end_of_stream: false,
-        payload: SyncTransportPayload::Message(SyncMessage::Pull(PullRequest {
+        payload: SyncTransportPayload::Message(Box::new(SyncMessage::Pull(PullRequest {
             after: None,
             maximum_records: 100,
-        })),
+        }))),
     }
 }
 

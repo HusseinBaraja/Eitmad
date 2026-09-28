@@ -199,7 +199,7 @@ fn committed_domain_change_replays_after_restart_without_a_second_queue_entry() 
             .unwrap(),
         LocalChangeOutcome::Replayed(change.clone())
     );
-    assert_eq!(reopened.pending_changes(), &[change.clone()]);
+    assert_eq!(reopened.pending_changes(), std::slice::from_ref(&change));
     let mut changed = change;
     changed.payload = Some(payload("تغيير مختلف"));
     assert_eq!(

@@ -8,7 +8,7 @@ use eitmad_contracts::{
 use eitmad_server_audit::{
     ServerAuditEnvelope, ServerAuditEvent, ServerAuditOutcome, append as append_audit,
 };
-use sqlx::PgPool;
+use sqlx::{PgPool, Postgres, Transaction};
 
 use crate::database::tenant_transaction;
 
@@ -50,31 +50,13 @@ impl BranchService {
         now: UnixMillis,
     ) -> Result<RegisteredBranch, BranchError> {
         let scope = ScopeRef {
-            kind: ScopeKind::parse("branch").expect("static branch scope"),
+            kind: ScopeKind::parse("branch").map_err(|_| BranchError::Invalid)?,
             id: request.branch_id,
         };
         let mut transaction = tenant_transaction(&self.pool, session.tenant_id)
             .await
             .map_err(|_| BranchError::Unavailable)?;
-        let allowed = sqlx::query_scalar::<_, bool>(
-            "SELECT EXISTS (
-                SELECT 1 FROM control.organizations o
-                JOIN control.relationship_tuples r
-                  ON r.tenant_id = o.tenant_id
-                 AND r.object_kind = 'organization'
-                 AND r.object_id = o.organization_id
-                WHERE o.tenant_id = $1 AND o.organization_id = $2
-                  AND r.subject_principal_id = $3 AND r.subject_kind = 'user'
-                  AND r.relation = $4
-            )",
-        )
-        .bind(session.tenant_id.value())
-        .bind(request.organization_id.value())
-        .bind(session.user_id.value())
-        .bind(OWNER_RELATION)
-        .fetch_one(&mut *transaction)
-        .await
-        .map_err(|_| BranchError::Unavailable)?;
+        let allowed = is_organization_owner(&mut transaction, session, request).await?;
         if !allowed {
             append_audit(
                 &mut transaction,
@@ -162,6 +144,32 @@ impl BranchService {
             branch_id: request.branch_id,
         })
     }
+}
+
+async fn is_organization_owner(
+    transaction: &mut Transaction<'_, Postgres>,
+    session: &AuthenticatedServerSession,
+    request: &RegisterBranchRequest,
+) -> Result<bool, BranchError> {
+    sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS (
+            SELECT 1 FROM control.organizations o
+            JOIN control.relationship_tuples r
+              ON r.tenant_id = o.tenant_id
+             AND r.object_kind = 'organization'
+             AND r.object_id = o.organization_id
+            WHERE o.tenant_id = $1 AND o.organization_id = $2
+              AND r.subject_principal_id = $3 AND r.subject_kind = 'user'
+              AND r.relation = $4
+        )",
+    )
+    .bind(session.tenant_id.value())
+    .bind(request.organization_id.value())
+    .bind(session.user_id.value())
+    .bind(OWNER_RELATION)
+    .fetch_one(&mut **transaction)
+    .await
+    .map_err(|_| BranchError::Unavailable)
 }
 
 fn audit<'a>(

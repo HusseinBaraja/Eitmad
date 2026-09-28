@@ -790,16 +790,34 @@ mod tests {
                 .unwrap()
         );
 
+        assert_concurrent_edit_preserved(
+            &first,
+            second,
+            &first_actor,
+            &second_actor,
+            &created.customer,
+            &second_directory,
+        );
+    }
+
+    fn assert_concurrent_edit_preserved(
+        first: &CustomerService,
+        second: CustomerService,
+        first_actor: &AuthorizationContext,
+        second_actor: &AuthorizationContext,
+        customer: &Customer,
+        second_directory: &TempDir,
+    ) {
         let second_edit = second
             .update(
                 &mutation(second_actor.clone(), 200, 20),
                 &UpdateCustomer {
-                    customer_id: created.customer.id,
+                    customer_id: customer.id,
                     expected_revision: 1,
                     name: CustomerName::parse("اسم الجهاز الثاني").unwrap(),
-                    phone: created.customer.phone.clone(),
-                    address: created.customer.address.clone(),
-                    notes: created.customer.notes.clone(),
+                    phone: customer.phone.clone(),
+                    address: customer.address.clone(),
+                    notes: customer.notes.clone(),
                 },
             )
             .unwrap();
@@ -807,12 +825,12 @@ mod tests {
             .update(
                 &mutation(first_actor.clone(), 201, 21),
                 &UpdateCustomer {
-                    customer_id: created.customer.id,
+                    customer_id: customer.id,
                     expected_revision: 1,
                     name: CustomerName::parse("اسم الجهاز الأول").unwrap(),
-                    phone: created.customer.phone.clone(),
-                    address: created.customer.address.clone(),
-                    notes: created.customer.notes.clone(),
+                    phone: customer.phone.clone(),
+                    address: customer.address.clone(),
+                    notes: customer.notes.clone(),
                 },
             )
             .unwrap();
@@ -820,7 +838,7 @@ mod tests {
         assert!(
             !second
                 .project_confirmed(
-                    &second_actor,
+                    second_actor,
                     &first_change,
                     CorrelationId::new(Uuid::from_u128(903))
                 )
@@ -828,8 +846,8 @@ mod tests {
         );
         second
             .mark_sync_exception(
-                &second_actor,
-                created.customer.id,
+                second_actor,
+                customer.id,
                 CustomerSyncState::Conflicted,
                 CorrelationId::new(Uuid::from_u128(904)),
                 UnixMillis(22),
@@ -840,9 +858,9 @@ mod tests {
         let second = CustomerService::new(reopened.clone(), AuthorizationService::new(reopened));
         let preserved = second
             .get(
-                &second_actor,
+                second_actor,
                 &GetCustomer {
-                    customer_id: created.customer.id,
+                    customer_id: customer.id,
                 },
             )
             .unwrap();

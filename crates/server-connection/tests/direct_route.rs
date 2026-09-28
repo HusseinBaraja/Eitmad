@@ -24,17 +24,17 @@ use eitmad_contracts::{
     commands::{CreateCustomer, GrantScopeRelationship, UpdateCustomer},
     config::SecretReferenceId,
     customer::{
-        CustomerId, CustomerName, CustomerPhone, CustomerSyncPayload, CustomerSyncState,
+        Customer, CustomerId, CustomerName, CustomerPhone, CustomerSyncPayload, CustomerSyncState,
         GetCustomer,
     },
     identity::{
-        AccountId, AuthenticatedIdentity, AuthorizationContext, DeviceId, PrincipalId,
-        PrincipalKind, ScopeId, ScopeKind, ScopeRef, SessionId,
+        AccountId, AuthenticatedIdentity, AuthorizationContext, DeviceId, OrganizationId,
+        PrincipalId, PrincipalKind, ScopeId, ScopeKind, ScopeRef, SessionId, TenantId,
     },
     secrets::{SecretId, SecretKind},
     server::{
-        ActivateAccountRequest, AuthenticationResult, DevicePublicKey, LoginRequest,
-        RegisterBranchRequest, TenantCode,
+        ActivateAccountRequest, AuthenticatedServerSession, AuthenticationResult, DevicePublicKey,
+        LoginRequest, RegisterBranchRequest, TenantCode,
     },
     sync::{
         BatchAcknowledgement, ChangeId, ChangeOperation, ChangeRecord, EncodedDomainPayload,
@@ -184,7 +184,7 @@ fn customer_change(
 
 fn exchange(transport: &mut WanAdapter<DirectServerDriver>, message: SyncMessage) -> SyncMessage {
     let mut request = frame(transport.negotiated_session().unwrap().protocol);
-    request.payload = SyncTransportPayload::Message(message);
+    request.payload = SyncTransportPayload::Message(Box::new(message));
     transport
         .send(&request, eitmad_control_plane::unix_millis_now())
         .unwrap();
@@ -200,7 +200,7 @@ fn exchange(transport: &mut WanAdapter<DirectServerDriver>, message: SyncMessage
                 let SyncTransportPayload::Message(message) = reply.payload else {
                     panic!("expected sync message")
                 };
-                return message;
+                return *message;
             }
             other => panic!("unexpected customer response: {other:?}"),
         }
@@ -216,10 +216,10 @@ fn frame(protocol: eitmad_contracts::versioning::ProtocolVersion) -> SyncTranspo
         stream_id: SyncStreamId::new(Uuid::new_v4()),
         sequence: 0,
         end_of_stream: false,
-        payload: SyncTransportPayload::Message(SyncMessage::Pull(PullRequest {
+        payload: SyncTransportPayload::Message(Box::new(SyncMessage::Pull(PullRequest {
             after: None,
             maximum_records: 10,
-        })),
+        }))),
     }
 }
 
@@ -279,8 +279,8 @@ fn cancel_then_pull(
             Ok(ReceiveOutcome::NoFrame) => {}
             Ok(ReceiveOutcome::Frame(reply)) => {
                 assert!(matches!(
-                    reply.payload,
-                    SyncTransportPayload::Message(SyncMessage::Changes(_))
+                    reply.payload.as_message(),
+                    Some(SyncMessage::Changes(_))
                 ));
                 return transport;
             }
@@ -305,8 +305,10 @@ fn sync_and_acknowledge(
         match transport.receive(eitmad_control_plane::unix_millis_now()) {
             Ok(ReceiveOutcome::NoFrame) => {}
             Ok(ReceiveOutcome::Frame(reply)) => {
-                let SyncTransportPayload::Message(SyncMessage::Changes(batch)) = reply.payload
-                else {
+                let SyncTransportPayload::Message(message) = reply.payload else {
+                    panic!("expected a real change batch");
+                };
+                let SyncMessage::Changes(batch) = *message else {
                     panic!("expected a real change batch");
                 };
                 break batch;
@@ -321,7 +323,7 @@ fn sync_and_acknowledge(
     };
     let mut acknowledge_frame = frame(negotiated.protocol);
     acknowledge_frame.payload =
-        SyncTransportPayload::Message(SyncMessage::Acknowledge(acknowledgement.clone()));
+        SyncTransportPayload::Message(Box::new(SyncMessage::Acknowledge(acknowledgement.clone())));
     transport
         .send(&acknowledge_frame, eitmad_control_plane::unix_millis_now())
         .unwrap();
@@ -336,7 +338,9 @@ fn sync_and_acknowledge(
             Ok(ReceiveOutcome::Frame(reply)) => {
                 assert_eq!(
                     reply.payload,
-                    SyncTransportPayload::Message(SyncMessage::Acknowledge(acknowledgement))
+                    SyncTransportPayload::Message(Box::new(SyncMessage::Acknowledge(
+                        acknowledgement
+                    )))
                 );
                 break;
             }
@@ -364,20 +368,7 @@ async fn provision_server(
     certificate: &Path,
     private_key: &Path,
 ) -> ProvisionedServer {
-    let control_database = ControlDatabase::connect(database_url, 4).await.unwrap();
-    control_database.migrate().await.unwrap();
-    let sync_database = SyncDatabase::connect(database_url, 4).await.unwrap();
-    sync_database.migrate().await.unwrap();
-    AdminDatabase::connect(database_url, 4)
-        .await
-        .unwrap()
-        .migrate()
-        .await
-        .unwrap();
-    AuditDatabase::from_pool(control_database.pool())
-        .migrate()
-        .await
-        .unwrap();
+    let (control_database, sync_database) = migrate_test_databases(database_url).await;
     let control = ControlPlane::new(control_database.pool(), TokenKey::new([9; 32]));
     let bootstrap = control
         .identity
@@ -443,34 +434,14 @@ async fn provision_server(
         kind: ScopeKind::parse("branch").unwrap(),
         id: ScopeId::new(Uuid::new_v4()),
     };
-    control
-        .branches
-        .register(
-            &authentication.session,
-            &RegisterBranchRequest {
-                organization_id: bootstrap.organization_id,
-                branch_id: branch_scope.id,
-            },
-            CorrelationId::new(Uuid::new_v4()),
-            eitmad_control_plane::unix_millis_now(),
-        )
-        .await
-        .unwrap();
-    let mut transaction = control_database.pool().begin().await.unwrap();
-    sqlx::query("SELECT set_config('eitmad.tenant_id', $1, true)")
-        .bind(authentication.session.tenant_id.value().to_string())
-        .execute(&mut *transaction)
-        .await
-        .unwrap();
-    sqlx::query("INSERT INTO control.relationship_tuples
-        (tenant_id, subject_principal_id, subject_kind, relation, object_kind, object_id, created_at)
-        VALUES ($1, $2, 'user', 'eitmad.relation.organization.manager.v1', 'organization', $3, $4)")
-        .bind(authentication.session.tenant_id.value())
-        .bind(authentication.session.user_id.value())
-        .bind(scope.id.value())
-        .bind(eitmad_control_plane::unix_millis_now().0)
-        .execute(&mut *transaction).await.unwrap();
-    transaction.commit().await.unwrap();
+    register_test_branch(
+        &control,
+        &authentication,
+        bootstrap.organization_id,
+        branch_scope.id,
+    )
+    .await;
+    grant_organization_manager(&control_database, &authentication, &scope).await;
     let registry = DomainRegistry::new([
         Arc::new(TestDomain) as Arc<dyn DomainSyncHandler>,
         Arc::new(CustomerSyncHandler::new(sync_database.pool())) as Arc<dyn DomainSyncHandler>,
@@ -494,6 +465,67 @@ async fn provision_server(
         scope,
         branch_scope,
     }
+}
+
+async fn register_test_branch(
+    control: &ControlPlane,
+    authentication: &AuthenticationResult,
+    organization_id: OrganizationId,
+    branch_id: ScopeId,
+) {
+    control
+        .branches
+        .register(
+            &authentication.session,
+            &RegisterBranchRequest {
+                organization_id,
+                branch_id,
+            },
+            CorrelationId::new(Uuid::new_v4()),
+            eitmad_control_plane::unix_millis_now(),
+        )
+        .await
+        .unwrap();
+}
+
+async fn migrate_test_databases(database_url: &str) -> (ControlDatabase, SyncDatabase) {
+    let control_database = ControlDatabase::connect(database_url, 4).await.unwrap();
+    control_database.migrate().await.unwrap();
+    let sync_database = SyncDatabase::connect(database_url, 4).await.unwrap();
+    sync_database.migrate().await.unwrap();
+    AdminDatabase::connect(database_url, 4)
+        .await
+        .unwrap()
+        .migrate()
+        .await
+        .unwrap();
+    AuditDatabase::from_pool(control_database.pool())
+        .migrate()
+        .await
+        .unwrap();
+    (control_database, sync_database)
+}
+
+async fn grant_organization_manager(
+    database: &ControlDatabase,
+    authentication: &AuthenticationResult,
+    scope: &ScopeRef,
+) {
+    let mut transaction = database.pool().begin().await.unwrap();
+    sqlx::query("SELECT set_config('eitmad.tenant_id', $1, true)")
+        .bind(authentication.session.tenant_id.value().to_string())
+        .execute(&mut *transaction)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO control.relationship_tuples
+        (tenant_id, subject_principal_id, subject_kind, relation, object_kind, object_id, created_at)
+        VALUES ($1, $2, 'user', 'eitmad.relation.organization.manager.v1', 'organization', $3, $4)")
+        .bind(authentication.session.tenant_id.value())
+        .bind(authentication.session.user_id.value())
+        .bind(scope.id.value())
+        .bind(eitmad_control_plane::unix_millis_now().0)
+        .execute(&mut *transaction).await.unwrap();
+    transaction.commit().await.unwrap();
 }
 
 struct RejectedConnectionInputs<'a> {
@@ -617,8 +649,8 @@ async fn assert_reconnect_after_shutdown(
                 Ok(ReceiveOutcome::NoFrame) => {}
                 Ok(ReceiveOutcome::Frame(reply)) => {
                     assert!(matches!(
-                        reply.payload,
-                        SyncTransportPayload::Message(SyncMessage::Changes(_))
+                        reply.payload.as_message(),
+                        Some(SyncMessage::Changes(_))
                     ));
                     break;
                 }
@@ -767,7 +799,7 @@ async fn customer_changes_use_the_real_route_and_postgres_scope() {
     )
     .unwrap();
     let driver = DirectServerDriver::new(config, secrets, customer_hello());
-    let mut transport = WanAdapter::new(
+    let transport = WanAdapter::new(
         eitmad_sync::WanEndpoint {
             server: endpoint,
             relay: None,
@@ -782,59 +814,9 @@ async fn customer_changes_use_the_real_route_and_postgres_scope() {
         RetryPolicy::default(),
     )
     .unwrap();
-    tokio::task::spawn_blocking(move || {
-        transport
-            .connect(eitmad_control_plane::unix_millis_now())
-            .unwrap();
-        let customer_id = CustomerId::new(Uuid::new_v4());
-        let initial = customer_change(&branch, customer_id, "عميل اختباري", None);
-        let first = exchange(
-            &mut transport,
-            SyncMessage::SubmitLocal(LocalChangeSubmission {
-                change: initial.clone(),
-            }),
-        );
-        assert!(matches!(first, SyncMessage::LocalResult(result)
-            if result.submitted_change_id == initial.change_id
-            && matches!(result.disposition, LocalChangeDisposition::Applied { .. })));
-        let replay = exchange(
-            &mut transport,
-            SyncMessage::SubmitLocal(LocalChangeSubmission {
-                change: initial.clone(),
-            }),
-        );
-        assert!(matches!(replay, SyncMessage::LocalResult(result)
-            if matches!(result.disposition, LocalChangeDisposition::Replayed { .. })));
-        let edit = customer_change(&branch, customer_id, "اسم الجهاز الأول", Some(1));
-        let applied = exchange(
-            &mut transport,
-            SyncMessage::SubmitLocal(LocalChangeSubmission { change: edit }),
-        );
-        assert!(matches!(applied, SyncMessage::LocalResult(result)
-            if matches!(result.disposition, LocalChangeDisposition::Applied { .. })));
-        let stale = customer_change(&branch, customer_id, "اسم الجهاز الثاني", Some(1));
-        let conflict = exchange(
-            &mut transport,
-            SyncMessage::SubmitLocal(LocalChangeSubmission { change: stale }),
-        );
-        assert!(matches!(conflict, SyncMessage::LocalResult(result)
-            if matches!(result.disposition, LocalChangeDisposition::Conflicted { .. })));
-        let pulled = exchange(
-            &mut transport,
-            SyncMessage::Pull(PullRequest {
-                after: None,
-                maximum_records: 10,
-            }),
-        );
-        let SyncMessage::Changes(batch) = pulled else {
-            panic!("expected incremental customer history")
-        };
-        assert_eq!(batch.records.len(), 2);
-        assert_eq!(batch.records[1].revision, 2);
-        transport.disconnect(eitmad_control_plane::unix_millis_now());
-    })
-    .await
-    .unwrap();
+    tokio::task::spawn_blocking(move || assert_customer_route(transport, &branch))
+        .await
+        .unwrap();
     let database = SyncDatabase::connect(&database_url, 2).await.unwrap();
     let mut other_tenant = database.pool().begin().await.unwrap();
     sqlx::query("SELECT set_config('eitmad.tenant_id', $1, true)")
@@ -854,8 +836,60 @@ async fn customer_changes_use_the_real_route_and_postgres_scope() {
         .graceful_shutdown(Some(Duration::from_secs(1)));
 }
 
+fn assert_customer_route(mut transport: WanAdapter<DirectServerDriver>, branch: &ScopeRef) {
+    transport
+        .connect(eitmad_control_plane::unix_millis_now())
+        .unwrap();
+    let customer_id = CustomerId::new(Uuid::new_v4());
+    let initial = customer_change(branch, customer_id, "عميل اختباري", None);
+    let first = exchange(
+        &mut transport,
+        SyncMessage::SubmitLocal(LocalChangeSubmission {
+            change: initial.clone(),
+        }),
+    );
+    assert!(matches!(first, SyncMessage::LocalResult(result)
+            if result.submitted_change_id == initial.change_id
+            && matches!(result.disposition, LocalChangeDisposition::Applied { .. })));
+    let replay = exchange(
+        &mut transport,
+        SyncMessage::SubmitLocal(LocalChangeSubmission {
+            change: initial.clone(),
+        }),
+    );
+    assert!(matches!(replay, SyncMessage::LocalResult(result)
+            if matches!(result.disposition, LocalChangeDisposition::Replayed { .. })));
+    let edit = customer_change(branch, customer_id, "اسم الجهاز الأول", Some(1));
+    let applied = exchange(
+        &mut transport,
+        SyncMessage::SubmitLocal(LocalChangeSubmission { change: edit }),
+    );
+    assert!(matches!(applied, SyncMessage::LocalResult(result)
+            if matches!(result.disposition, LocalChangeDisposition::Applied { .. })));
+    let stale = customer_change(branch, customer_id, "اسم الجهاز الثاني", Some(1));
+    let conflict = exchange(
+        &mut transport,
+        SyncMessage::SubmitLocal(LocalChangeSubmission { change: stale }),
+    );
+    assert!(matches!(conflict, SyncMessage::LocalResult(result)
+            if matches!(result.disposition, LocalChangeDisposition::Conflicted { .. })));
+    let pulled = exchange(
+        &mut transport,
+        SyncMessage::Pull(PullRequest {
+            after: None,
+            maximum_records: 10,
+        }),
+    );
+    let SyncMessage::Changes(batch) = pulled else {
+        panic!("expected incremental customer history")
+    };
+    assert_eq!(batch.records.len(), 2);
+    assert_eq!(batch.records[1].revision, 2);
+    transport.disconnect(eitmad_control_plane::unix_millis_now());
+}
+
 struct CustomerTestClient {
-    _directory: tempfile::TempDir,
+    directory: tempfile::TempDir,
     store: AuthorityStore,
     customers: CustomerService,
     actor: AuthorizationContext,
@@ -864,6 +898,49 @@ struct CustomerTestClient {
     audit: BoundaryAuditContext,
     engine: SyncEngine,
     transport: WanAdapter<DirectServerDriver>,
+}
+
+fn customer_test_transport(
+    directory: &Path,
+    authentication: AuthenticationResult,
+    device_id: DeviceId,
+    signing_seed: [u8; 32],
+    branch: &ScopeRef,
+    endpoint: &str,
+    certificate: &Path,
+) -> WanAdapter<DirectServerDriver> {
+    let secrets = SecretStore::open(
+        directory.join("secrets"),
+        Some(FallbackEncryptionKey::new([7; 32])),
+    )
+    .unwrap();
+    let credential = SecretId::new(
+        SecretKind::parse("customer-test-session").unwrap(),
+        SecretReferenceId::new(Uuid::new_v4()),
+    );
+    let account_id = authentication.session.account_id;
+    store_session(&secrets, &credential, authentication, signing_seed).unwrap();
+    let config = DirectServerConfig::new(
+        endpoint,
+        branch.clone(),
+        SchemaId::parse("eitmad.schema.customer.v1").unwrap(),
+        1,
+        certificate,
+    )
+    .unwrap();
+    let wan_endpoint = config.wan_endpoint();
+    WanAdapter::new(
+        wan_endpoint,
+        DirectServerDriver::new(config, secrets, customer_hello()),
+        customer_hello(),
+        TransportAuthentication::AccountDevice {
+            account_id,
+            device_id,
+            credential,
+        },
+        RetryPolicy::default(),
+    )
+    .unwrap()
 }
 
 impl CustomerTestClient {
@@ -951,40 +1028,17 @@ impl CustomerTestClient {
             &audit,
         )
         .unwrap();
-        let secrets = SecretStore::open(
-            directory.path().join("secrets"),
-            Some(FallbackEncryptionKey::new([7; 32])),
-        )
-        .unwrap();
-        let credential = SecretId::new(
-            SecretKind::parse("customer-test-session").unwrap(),
-            SecretReferenceId::new(Uuid::new_v4()),
-        );
-        let account_id = authentication.session.account_id;
-        store_session(&secrets, &credential, authentication, signing_seed).unwrap();
-        let config = DirectServerConfig::new(
+        let transport = customer_test_transport(
+            directory.path(),
+            authentication,
+            device_id,
+            signing_seed,
+            branch,
             endpoint,
-            branch.clone(),
-            SchemaId::parse("eitmad.schema.customer.v1").unwrap(),
-            1,
             certificate,
-        )
-        .unwrap();
-        let wan_endpoint = config.wan_endpoint();
-        let transport = WanAdapter::new(
-            wan_endpoint,
-            DirectServerDriver::new(config, secrets, customer_hello()),
-            customer_hello(),
-            TransportAuthentication::AccountDevice {
-                account_id,
-                device_id,
-                credential,
-            },
-            RetryPolicy::default(),
-        )
-        .unwrap();
+        );
         Self {
-            _directory: directory,
+            directory,
             store,
             customers,
             actor,
@@ -1060,148 +1114,100 @@ fn customer_sync_authorization(
     SyncAuthorization::new(AuthorizationGate::new(policy, store.clone()))
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-#[ignore = "requires an empty disposable PostgreSQL database and development certificates"]
-async fn two_isolated_customer_engines_recover_and_preserve_conflicts() {
-    let _ = rustls::crypto::ring::default_provider().install_default();
-    let database_url = env::var("EITMAD_DIRECT_TEST_DATABASE_URL").unwrap();
-    let certificate = required_path("EITMAD_DIRECT_TEST_CERTIFICATE");
-    let private_key = required_path("EITMAD_DIRECT_TEST_PRIVATE_KEY");
-    let trusted_certificate = required_path("EITMAD_DIRECT_TEST_TRUSTED_CERTIFICATE");
-    let provisioned = provision_server(&database_url, &certificate, &private_key).await;
-    let branch = provisioned.branch_scope.clone();
-    let tenant_id = provisioned.authentication.session.tenant_id;
-    let manager_session = provisioned.authentication.session.clone();
-    let endpoint = format!("https://localhost:{}/", provisioned.address.port());
-    let mut first = CustomerTestClient::new(
-        provisioned.authentication,
-        provisioned.device_id,
-        [11; 32],
-        &branch,
-        &endpoint,
-        &trusted_certificate,
+fn assert_isolated_customer_cycle(
+    mut first: CustomerTestClient,
+    mut second: CustomerTestClient,
+    customer: &Customer,
+    first_delivery: &ChangeRecord,
+) -> (CustomerTestClient, CustomerTestClient) {
+    first.restart_engine();
+    first.run();
+    let replay = exchange(
+        &mut first.transport,
+        SyncMessage::SubmitLocal(LocalChangeSubmission {
+            change: first_delivery.clone(),
+        }),
     );
-    let mut second = CustomerTestClient::new(
-        provisioned.second_authentication,
-        provisioned.second_device_id,
-        [12; 32],
-        &branch,
-        &endpoint,
-        &trusted_certificate,
-    );
-    assert_ne!(first._directory.path(), second._directory.path());
-    assert_ne!(first.actor.tenant_id, second.actor.tenant_id);
-    assert_ne!(first.actor.scope, second.actor.scope);
-    second = tokio::task::spawn_blocking(move || {
-        second.run();
-        second
-    })
-    .await
-    .unwrap();
-    let created = first
+    assert!(matches!(replay, SyncMessage::LocalResult(result)
+            if result.submitted_change_id == first_delivery.change_id
+            && matches!(result.disposition, LocalChangeDisposition::Replayed { .. })));
+    let confirmed = first
         .customers
-        .create(
-            &first.mutation(),
-            &CreateCustomer {
-                name: CustomerName::parse("عميل مشترك").unwrap(),
-                phone: CustomerPhone::parse("+967777123456").unwrap(),
+        .get(
+            &first.actor,
+            &GetCustomer {
+                customer_id: customer.id,
+            },
+        )
+        .unwrap();
+    assert_eq!(confirmed.sync_state, CustomerSyncState::Confirmed);
+    second.run();
+    let downloaded = second
+        .customers
+        .get(
+            &second.actor,
+            &GetCustomer {
+                customer_id: customer.id,
+            },
+        )
+        .unwrap();
+    assert_eq!(downloaded.name, customer.name);
+    assert_eq!(downloaded.sync_state, CustomerSyncState::Confirmed);
+
+    let offline = second
+        .customers
+        .update(
+            &second.mutation(),
+            &UpdateCustomer {
+                customer_id: customer.id,
+                expected_revision: 1,
+                name: CustomerName::parse("تعديل العميل الثاني").unwrap(),
+                phone: downloaded.phone.clone(),
                 address: None,
                 notes: None,
             },
         )
         .unwrap();
-    assert_eq!(created.customer.sync_state, CustomerSyncState::Pending);
-    let mut first_delivery = first
+    second.restart_engine();
+    let first_edit = first
         .customers
-        .sync_batch(&first.actor.scope, 1)
-        .unwrap()
-        .remove(0);
-    first_delivery.scope = branch;
-    tokio::task::spawn_blocking(move || {
-        first.restart_engine();
-        first.run();
-        let replay = exchange(
-            &mut first.transport,
-            SyncMessage::SubmitLocal(LocalChangeSubmission {
-                change: first_delivery.clone(),
-            }),
-        );
-        assert!(matches!(replay, SyncMessage::LocalResult(result)
-            if result.submitted_change_id == first_delivery.change_id
-            && matches!(result.disposition, LocalChangeDisposition::Replayed { .. })));
-        let confirmed = first
-            .customers
-            .get(
-                &first.actor,
-                &GetCustomer {
-                    customer_id: created.customer.id,
-                },
-            )
-            .unwrap();
-        assert_eq!(confirmed.sync_state, CustomerSyncState::Confirmed);
-        second.run();
-        let downloaded = second
-            .customers
-            .get(
-                &second.actor,
-                &GetCustomer {
-                    customer_id: created.customer.id,
-                },
-            )
-            .unwrap();
-        assert_eq!(downloaded.name, created.customer.name);
-        assert_eq!(downloaded.sync_state, CustomerSyncState::Confirmed);
+        .update(
+            &first.mutation(),
+            &UpdateCustomer {
+                customer_id: customer.id,
+                expected_revision: 1,
+                name: CustomerName::parse("تعديل العميل الأول").unwrap(),
+                phone: downloaded.phone,
+                address: None,
+                notes: None,
+            },
+        )
+        .unwrap();
+    first.run();
+    second.run();
+    let preserved = second
+        .customers
+        .get(
+            &second.actor,
+            &GetCustomer {
+                customer_id: customer.id,
+            },
+        )
+        .unwrap();
+    assert_eq!(preserved.name, offline.customer.name);
+    assert_ne!(preserved.name, first_edit.customer.name);
+    assert_eq!(preserved.sync_state, CustomerSyncState::Conflicted);
+    assert_eq!(second.engine.conflicts().len(), 1);
+    (first, second)
+}
 
-        let offline = second
-            .customers
-            .update(
-                &second.mutation(),
-                &UpdateCustomer {
-                    customer_id: created.customer.id,
-                    expected_revision: 1,
-                    name: CustomerName::parse("تعديل العميل الثاني").unwrap(),
-                    phone: downloaded.phone.clone(),
-                    address: None,
-                    notes: None,
-                },
-            )
-            .unwrap();
-        second.restart_engine();
-        let first_edit = first
-            .customers
-            .update(
-                &first.mutation(),
-                &UpdateCustomer {
-                    customer_id: created.customer.id,
-                    expected_revision: 1,
-                    name: CustomerName::parse("تعديل العميل الأول").unwrap(),
-                    phone: downloaded.phone,
-                    address: None,
-                    notes: None,
-                },
-            )
-            .unwrap();
-        first.run();
-        second.run();
-        let preserved = second
-            .customers
-            .get(
-                &second.actor,
-                &GetCustomer {
-                    customer_id: created.customer.id,
-                },
-            )
-            .unwrap();
-        assert_eq!(preserved.name, offline.customer.name);
-        assert_ne!(preserved.name, first_edit.customer.name);
-        assert_eq!(preserved.sync_state, CustomerSyncState::Conflicted);
-        assert_eq!(second.engine.conflicts().len(), 1);
-        (first, second)
-    })
-    .await
-    .unwrap();
-
-    let database = SyncDatabase::connect(&database_url, 2).await.unwrap();
+async fn assert_server_customer_isolation(
+    database_url: &str,
+    tenant_id: TenantId,
+    provisioned: &ProvisionedServer,
+    manager_session: &AuthenticatedServerSession,
+) {
+    let database = SyncDatabase::connect(database_url, 2).await.unwrap();
     let mut transaction = database.pool().begin().await.unwrap();
     sqlx::query("SELECT set_config('eitmad.tenant_id', $1, true)")
         .bind(tenant_id.value().to_string())
@@ -1220,7 +1226,7 @@ async fn two_isolated_customer_engines_recover_and_preserve_conflicts() {
     provisioned
         .branches
         .register(
-            &manager_session,
+            manager_session,
             &RegisterBranchRequest {
                 organization_id: eitmad_contracts::identity::OrganizationId::new(
                     provisioned.scope.id.value(),
@@ -1235,13 +1241,13 @@ async fn two_isolated_customer_engines_recover_and_preserve_conflicts() {
     let handler = CustomerSyncHandler::new(database.pool());
     assert!(
         handler
-            .authorize(&manager_session, &other_branch, SyncIntent::Read)
+            .authorize(manager_session, &other_branch, SyncIntent::Read)
             .await
     );
     assert!(
         !handler
             .authorize(
-                &manager_session,
+                manager_session,
                 &ScopeRef {
                     kind: ScopeKind::parse("branch").unwrap(),
                     id: ScopeId::new(Uuid::new_v4()),
@@ -1270,6 +1276,73 @@ async fn two_isolated_customer_engines_recover_and_preserve_conflicts() {
             .await
             .unwrap();
     assert_eq!(invisible_branches, 0);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires an empty disposable PostgreSQL database and development certificates"]
+async fn two_isolated_customer_engines_recover_and_preserve_conflicts() {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let database_url = env::var("EITMAD_DIRECT_TEST_DATABASE_URL").unwrap();
+    let certificate = required_path("EITMAD_DIRECT_TEST_CERTIFICATE");
+    let private_key = required_path("EITMAD_DIRECT_TEST_PRIVATE_KEY");
+    let trusted_certificate = required_path("EITMAD_DIRECT_TEST_TRUSTED_CERTIFICATE");
+    let provisioned = provision_server(&database_url, &certificate, &private_key).await;
+    let branch = provisioned.branch_scope.clone();
+    let tenant_id = provisioned.authentication.session.tenant_id;
+    let manager_session = provisioned.authentication.session.clone();
+    let endpoint = format!("https://localhost:{}/", provisioned.address.port());
+    let first = CustomerTestClient::new(
+        provisioned.authentication.clone(),
+        provisioned.device_id,
+        [11; 32],
+        &branch,
+        &endpoint,
+        &trusted_certificate,
+    );
+    let mut second = CustomerTestClient::new(
+        provisioned.second_authentication.clone(),
+        provisioned.second_device_id,
+        [12; 32],
+        &branch,
+        &endpoint,
+        &trusted_certificate,
+    );
+    assert_ne!(first.directory.path(), second.directory.path());
+    assert_ne!(first.actor.tenant_id, second.actor.tenant_id);
+    assert_ne!(first.actor.scope, second.actor.scope);
+    second = tokio::task::spawn_blocking(move || {
+        second.run();
+        second
+    })
+    .await
+    .unwrap();
+    let created = first
+        .customers
+        .create(
+            &first.mutation(),
+            &CreateCustomer {
+                name: CustomerName::parse("عميل مشترك").unwrap(),
+                phone: CustomerPhone::parse("+967777123456").unwrap(),
+                address: None,
+                notes: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(created.customer.sync_state, CustomerSyncState::Pending);
+    let mut first_delivery = first
+        .customers
+        .sync_batch(&first.actor.scope, 1)
+        .unwrap()
+        .remove(0);
+    first_delivery.scope = branch;
+    tokio::task::spawn_blocking(move || {
+        assert_isolated_customer_cycle(first, second, &created.customer, &first_delivery)
+    })
+    .await
+    .unwrap();
+
+    assert_server_customer_isolation(&database_url, tenant_id, &provisioned, &manager_session)
+        .await;
     provisioned
         .handle
         .graceful_shutdown(Some(Duration::from_secs(1)));

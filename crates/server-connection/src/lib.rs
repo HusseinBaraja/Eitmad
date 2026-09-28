@@ -422,19 +422,23 @@ impl ConnectionDriver for DirectServerDriver {
             .socket
             .as_mut()
             .ok_or_else(|| unavailable(FailurePhase::Send))?;
-        if let SyncTransportPayload::Message(SyncMessage::Pull(request)) = &frame.payload {
+        if let Some(SyncMessage::Pull(request)) = frame.payload.as_message() {
             if usize::try_from(request.maximum_records).unwrap_or(usize::MAX)
                 > MAX_SYNC_BATCH_RECORDS
             {
                 return Err(unavailable(FailurePhase::Send));
             }
         }
-        if !matches!(
-            frame.payload,
-            SyncTransportPayload::Message(
-                SyncMessage::Pull(_) | SyncMessage::Acknowledge(_) | SyncMessage::SubmitLocal(_)
-            ) | SyncTransportPayload::Cancel(_)
-        ) {
+        if !cancellation
+            && !matches!(
+                frame.payload.as_message(),
+                Some(
+                    SyncMessage::Pull(_)
+                        | SyncMessage::Acknowledge(_)
+                        | SyncMessage::SubmitLocal(_)
+                )
+            )
+        {
             return Err(TransportFailure::new(
                 TransportFailureKind::CapabilityMismatch,
                 FailurePhase::Send,
@@ -457,10 +461,10 @@ impl ConnectionDriver for DirectServerDriver {
             }
             return Ok(());
         }
-        if let SyncTransportPayload::Message(
-            SyncMessage::Pull(_) | SyncMessage::Acknowledge(_) | SyncMessage::SubmitLocal(_),
-        ) = &frame.payload
-        {
+        if matches!(
+            frame.payload.as_message(),
+            Some(SyncMessage::Pull(_) | SyncMessage::Acknowledge(_) | SyncMessage::SubmitLocal(_))
+        ) {
             self.pending = Some(PendingResponse {
                 request: frame.clone(),
                 next_sequence: 0,
@@ -489,27 +493,27 @@ impl ConnectionDriver for DirectServerDriver {
             .pending
             .as_mut()
             .ok_or_else(|| unavailable(FailurePhase::Receive))?;
-        let valid_response = match (&pending.request.payload, &message, pending.next_sequence) {
+        let valid_response = match (
+            pending.request.payload.as_message(),
+            &message,
+            pending.next_sequence,
+        ) {
             (
-                SyncTransportPayload::Message(SyncMessage::Pull(_)),
+                Some(SyncMessage::Pull(_)),
                 SyncMessage::Changes(_) | SyncMessage::SnapshotManifest(_),
                 0,
             )
             | (
-                SyncTransportPayload::Message(SyncMessage::Pull(_)),
+                Some(SyncMessage::Pull(_)),
                 SyncMessage::SnapshotChunk(_) | SyncMessage::SnapshotComplete(_),
                 1..,
             ) => true,
-            (
-                SyncTransportPayload::Message(SyncMessage::Acknowledge(expected)),
-                SyncMessage::Acknowledge(actual),
-                0,
-            ) => expected == actual,
-            (
-                SyncTransportPayload::Message(SyncMessage::SubmitLocal(expected)),
-                SyncMessage::LocalResult(actual),
-                0,
-            ) => expected.change.change_id == actual.submitted_change_id,
+            (Some(SyncMessage::Acknowledge(expected)), SyncMessage::Acknowledge(actual), 0) => {
+                expected == actual
+            }
+            (Some(SyncMessage::SubmitLocal(expected)), SyncMessage::LocalResult(actual), 0) => {
+                expected.change.change_id == actual.submitted_change_id
+            }
             _ => false,
         };
         if !valid_response {
@@ -537,7 +541,7 @@ impl ConnectionDriver for DirectServerDriver {
             stream_id: pending.request.stream_id,
             sequence: pending.next_sequence,
             end_of_stream,
-            payload: SyncTransportPayload::Message(message),
+            payload: SyncTransportPayload::Message(Box::new(message)),
         };
         pending.next_sequence = pending.next_sequence.saturating_add(1);
         if end_of_stream {

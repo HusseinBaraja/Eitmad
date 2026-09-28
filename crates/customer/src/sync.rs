@@ -13,6 +13,7 @@ use eitmad_contracts::{
     },
     sync_transport::{SyncFrameId, SyncStreamId, SyncTransportFrame, SyncTransportPayload},
     transport::{CorrelationId, IdempotencyKey, SchemaId},
+    versioning::NegotiatedSchema,
 };
 use eitmad_sync::{ReceiveOutcome, SyncEngine, SyncEngineError, SyncTransport, TransportFailure};
 use uuid::Uuid;
@@ -89,7 +90,10 @@ impl<T: SyncTransport> CustomerSyncCycle<'_, T> {
         pending: &[eitmad_contracts::sync::ChangeRecord],
     ) -> Result<(), CustomerSyncError> {
         let session = self.transport.connect(now())?;
-        let schema = SchemaId::parse(CUSTOMER_SCHEMA_ID).expect("static customer schema");
+        let schema = NegotiatedSchema {
+            schema_id: SchemaId::parse(CUSTOMER_SCHEMA_ID).expect("static customer schema"),
+            version: 1,
+        };
         self.engine.connect_negotiated(
             self.actor,
             self.request,
@@ -97,7 +101,6 @@ impl<T: SyncTransport> CustomerSyncCycle<'_, T> {
             &session,
             SyncMode::LocalFirst,
             &schema,
-            1,
         )?;
         for change in pending {
             let mut server_change = change.clone();
@@ -165,7 +168,8 @@ impl<T: SyncTransport> CustomerSyncCycle<'_, T> {
             let acknowledgement = BatchAcknowledgement {
                 delivery_id: batch.delivery_id,
                 checkpoint: batch.checkpoint,
-                accepted_records: batch.records.len() as u32,
+                accepted_records: u32::try_from(batch.records.len())
+                    .map_err(|_| CustomerSyncError::UnexpectedResponse)?,
             };
             match self.exchange(SyncMessage::Acknowledge(acknowledgement.clone()))? {
                 SyncMessage::Acknowledge(reply) if reply == acknowledgement => {}
@@ -226,7 +230,7 @@ impl<T: SyncTransport> CustomerSyncCycle<'_, T> {
             stream_id: SyncStreamId::new(Uuid::new_v4()),
             sequence: 0,
             end_of_stream: true,
-            payload: SyncTransportPayload::Message(message),
+            payload: SyncTransportPayload::Message(Box::new(message)),
         };
         self.transport.send(&frame, now())?;
         let deadline = Instant::now() + Duration::from_secs(10);
@@ -243,7 +247,7 @@ impl<T: SyncTransport> CustomerSyncCycle<'_, T> {
                     let SyncTransportPayload::Message(message) = reply.payload else {
                         return Err(CustomerSyncError::UnexpectedResponse);
                     };
-                    return Ok(message);
+                    return Ok(*message);
                 }
             }
         }

@@ -1093,42 +1093,7 @@ mod tests {
     async fn routes_customer_create_search_and_compact_event() {
         let (_directory, dispatcher, broker) = dispatcher();
         let authorization = branch_authorization();
-        dispatcher
-            .authorization()
-            .bootstrap_owner(
-                &MutationContext {
-                    authorization: authorization.clone(),
-                    correlation_id: CorrelationId::new(Uuid::from_u128(501)),
-                    causation_id: None,
-                    idempotency_key: IdempotencyKey::new(Uuid::from_u128(502)),
-                    occurred_at: UnixMillis(1),
-                },
-                &RelationshipSubject {
-                    principal_id: authorization.identity.principal_id,
-                    principal_kind: authorization.identity.principal_kind,
-                },
-            )
-            .unwrap();
-        dispatcher
-            .authorization()
-            .grant_relationship(
-                &MutationContext {
-                    authorization: authorization.clone(),
-                    correlation_id: CorrelationId::new(Uuid::from_u128(503)),
-                    causation_id: None,
-                    idempotency_key: IdempotencyKey::new(Uuid::from_u128(504)),
-                    occurred_at: UnixMillis(2),
-                },
-                &GrantScopeRelationship {
-                    expected_policy_version: 1,
-                    subject: RelationshipSubject {
-                        principal_id: authorization.identity.principal_id,
-                        principal_kind: authorization.identity.principal_kind,
-                    },
-                    relation: RelationId::parse(eitmad_authorization::MANAGER_RELATION).unwrap(),
-                },
-            )
-            .unwrap();
+        authorize_customer_branch(&dispatcher, &authorization);
         let (_, mut events) = broker
             .subscribe(
                 authorization.scope.clone(),
@@ -1206,6 +1171,48 @@ mod tests {
                 .sync_state,
             CustomerSyncState::Confirmed
         );
+    }
+
+    fn authorize_customer_branch(
+        dispatcher: &ProductDispatcher,
+        authorization: &AuthorizationContext,
+    ) {
+        dispatcher
+            .authorization()
+            .bootstrap_owner(
+                &MutationContext {
+                    authorization: authorization.clone(),
+                    correlation_id: CorrelationId::new(Uuid::from_u128(501)),
+                    causation_id: None,
+                    idempotency_key: IdempotencyKey::new(Uuid::from_u128(502)),
+                    occurred_at: UnixMillis(1),
+                },
+                &RelationshipSubject {
+                    principal_id: authorization.identity.principal_id,
+                    principal_kind: authorization.identity.principal_kind,
+                },
+            )
+            .unwrap();
+        dispatcher
+            .authorization()
+            .grant_relationship(
+                &MutationContext {
+                    authorization: authorization.clone(),
+                    correlation_id: CorrelationId::new(Uuid::from_u128(503)),
+                    causation_id: None,
+                    idempotency_key: IdempotencyKey::new(Uuid::from_u128(504)),
+                    occurred_at: UnixMillis(2),
+                },
+                &GrantScopeRelationship {
+                    expected_policy_version: 1,
+                    subject: RelationshipSubject {
+                        principal_id: authorization.identity.principal_id,
+                        principal_kind: authorization.identity.principal_kind,
+                    },
+                    relation: RelationId::parse(eitmad_authorization::MANAGER_RELATION).unwrap(),
+                },
+            )
+            .unwrap();
     }
 
     #[tokio::test]
