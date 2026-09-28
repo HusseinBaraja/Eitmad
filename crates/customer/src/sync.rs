@@ -6,7 +6,7 @@ use eitmad_authorization::{BoundaryAuditContext, now};
 use eitmad_contracts::{
     authorization::AuthorizationRequest,
     customer::{CustomerId, CustomerSyncState},
-    identity::AuthorizationContext,
+    identity::{AuthorizationContext, ScopeRef},
     sync::{
         BatchAcknowledgement, ChangeBatch, LocalChangeDisposition, LocalChangeSubmission,
         PullRequest, ReconciliationDelivery, SyncMessage, SyncMode,
@@ -53,6 +53,8 @@ pub struct CustomerSyncCycle<'a, T: SyncTransport> {
     pub engine: &'a mut SyncEngine,
     pub transport: &'a mut T,
     pub actor: &'a AuthorizationContext,
+    /// Server branch selected by an authenticated Manager enrollment.
+    pub server_scope: &'a ScopeRef,
     pub request: &'a AuthorizationRequest,
     pub audit: &'a BoundaryAuditContext,
 }
@@ -98,8 +100,10 @@ impl<T: SyncTransport> CustomerSyncCycle<'_, T> {
             1,
         )?;
         for change in pending {
+            let mut server_change = change.clone();
+            server_change.scope = self.server_scope.clone();
             let response = self.exchange(SyncMessage::SubmitLocal(LocalChangeSubmission {
-                change: change.clone(),
+                change: server_change,
             }))?;
             let SyncMessage::LocalResult(result) = response else {
                 return Err(CustomerSyncError::UnexpectedResponse);
@@ -114,7 +118,9 @@ impl<T: SyncTransport> CustomerSyncCycle<'_, T> {
                 | LocalChangeDisposition::Replayed {
                     authoritative_change,
                 } => {
-                    if authoritative_change.change_id != change.change_id {
+                    if authoritative_change.change_id != change.change_id
+                        || authoritative_change.scope != *self.server_scope
+                    {
                         return Err(CustomerSyncError::UnexpectedResponse);
                     }
                     None
@@ -167,9 +173,19 @@ impl<T: SyncTransport> CustomerSyncCycle<'_, T> {
     fn apply_batch(&mut self, batch: &ChangeBatch) -> Result<(), CustomerSyncError> {
         // Projection precedes checkpoint persistence. A crash can replay a page,
         // but it cannot skip a customer projection after the checkpoint advances.
+        let mut local_records = Vec::with_capacity(batch.records.len());
         for change in &batch.records {
-            self.customers
-                .project_confirmed(self.actor, change, self.audit.correlation_id)?;
+            if change.scope != *self.server_scope {
+                return Err(CustomerSyncError::UnexpectedResponse);
+            }
+            let mut local_change = change.clone();
+            local_change.scope = self.actor.scope.clone();
+            self.customers.project_confirmed(
+                self.actor,
+                &local_change,
+                self.audit.correlation_id,
+            )?;
+            local_records.push(local_change);
         }
         self.engine.reconcile(
             self.actor,
@@ -181,7 +197,7 @@ impl<T: SyncTransport> CustomerSyncCycle<'_, T> {
                 checkpoint: batch.checkpoint,
                 received_at: now(),
                 snapshot: None,
-                changes: batch.records.clone(),
+                changes: local_records,
                 command_results: Vec::new(),
             },
         )?;

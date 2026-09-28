@@ -15,7 +15,7 @@ use eitmad_contracts::{
     commands::{Command, CommandResult, CreateCustomer, UpdateCustomer},
     errors::{ContractError, ErrorCode, ErrorDetail, MessageId, RetryDisposition},
     events::{Event, Subscription},
-    identity::AuthorizationContext,
+    identity::{AuthorizationContext, ScopeRef},
     queries::{Query, QueryResult},
 };
 use eitmad_customer::{
@@ -118,6 +118,7 @@ impl ProductDispatcher {
         engine: &mut SyncEngine,
         transport: &mut T,
         actor: &AuthorizationContext,
+        server_scope: &ScopeRef,
         request: &AuthorizationRequest,
         audit: &BoundaryAuditContext,
     ) -> Result<(), CustomerSyncDispatchError> {
@@ -126,6 +127,7 @@ impl ProductDispatcher {
             engine,
             transport,
             actor,
+            server_scope,
             request,
             audit,
         }

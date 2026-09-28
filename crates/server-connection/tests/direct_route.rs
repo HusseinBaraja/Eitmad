@@ -859,6 +859,7 @@ struct CustomerTestClient {
     store: AuthorityStore,
     customers: CustomerService,
     actor: AuthorizationContext,
+    server_scope: ScopeRef,
     request: AuthorizationRequest,
     audit: BoundaryAuditContext,
     engine: SyncEngine,
@@ -876,6 +877,10 @@ impl CustomerTestClient {
     ) -> Self {
         let directory = tempfile::tempdir().unwrap();
         let store = AuthorityStore::open(directory.path()).unwrap();
+        let local_branch = ScopeRef {
+            kind: ScopeKind::parse("branch").unwrap(),
+            id: ScopeId::new(Uuid::new_v4()),
+        };
         let actor = AuthorizationContext {
             session_id: SessionId::new(Uuid::new_v4()),
             identity: AuthenticatedIdentity {
@@ -884,9 +889,9 @@ impl CustomerTestClient {
                 device_id: Some(device_id),
                 service_id: None,
             },
-            tenant_id: authentication.session.tenant_id,
+            tenant_id: eitmad_contracts::identity::TenantId::new(Uuid::new_v4()),
             workspace_id: None,
-            scope: branch.clone(),
+            scope: local_branch,
         };
         let authorization = AuthorizationService::new(store.clone());
         let mutation = |version: u32| MutationContext {
@@ -920,7 +925,7 @@ impl CustomerTestClient {
                 tenant_id: actor.tenant_id,
                 workspace_id: None,
                 kind: ObjectKind::parse("branch").unwrap(),
-                id: ObjectId::new(branch.id.value()),
+                id: ObjectId::new(actor.scope.id.value()),
             },
             attributes: BTreeMap::new(),
         };
@@ -929,7 +934,7 @@ impl CustomerTestClient {
             operation: "eitmad.customer.sync-cycle.v1".to_owned(),
             target: AuditTarget {
                 kind: "branch".to_owned(),
-                identifiers: vec![branch.id.value().to_string()],
+                identifiers: vec![actor.scope.id.value().to_string()],
             },
             occurred_at: eitmad_control_plane::unix_millis_now(),
             correlation_id: CorrelationId::new(Uuid::new_v4()),
@@ -939,7 +944,7 @@ impl CustomerTestClient {
         };
         let engine = SyncEngine::open(
             store.clone(),
-            branch.clone(),
+            actor.scope.clone(),
             SyncMode::LocalFirst,
             customer_sync_authorization(&store, &actor, &request),
             &actor,
@@ -983,6 +988,7 @@ impl CustomerTestClient {
             store,
             customers,
             actor,
+            server_scope: branch.clone(),
             request,
             audit,
             engine,
@@ -996,6 +1002,7 @@ impl CustomerTestClient {
             engine: &mut self.engine,
             transport: &mut self.transport,
             actor: &self.actor,
+            server_scope: &self.server_scope,
             request: &self.request,
             audit: &self.audit,
         }
@@ -1083,6 +1090,8 @@ async fn two_isolated_customer_engines_recover_and_preserve_conflicts() {
         &trusted_certificate,
     );
     assert_ne!(first._directory.path(), second._directory.path());
+    assert_ne!(first.actor.tenant_id, second.actor.tenant_id);
+    assert_ne!(first.actor.scope, second.actor.scope);
     second = tokio::task::spawn_blocking(move || {
         second.run();
         second
@@ -1102,7 +1111,12 @@ async fn two_isolated_customer_engines_recover_and_preserve_conflicts() {
         )
         .unwrap();
     assert_eq!(created.customer.sync_state, CustomerSyncState::Pending);
-    let first_delivery = first.customers.sync_batch(&branch, 1).unwrap().remove(0);
+    let mut first_delivery = first
+        .customers
+        .sync_batch(&first.actor.scope, 1)
+        .unwrap()
+        .remove(0);
+    first_delivery.scope = branch;
     tokio::task::spawn_blocking(move || {
         first.restart_engine();
         first.run();
