@@ -6,6 +6,7 @@
 
 mod access;
 mod authentication;
+mod branches;
 mod database;
 mod identity;
 mod licensing;
@@ -13,6 +14,7 @@ mod update_assignment;
 
 pub use access::{AccessError, AccessRequirement, ServerAccessService};
 pub use authentication::{AuthenticationError, AuthenticationService, TokenKey, unix_millis_now};
+pub use branches::{BranchError, BranchService};
 pub use database::{ControlDatabase, ControlDatabaseError};
 pub use identity::{
     BootstrapInput, BootstrapResult, IdentityError, IdentityService, NotificationDelivery,
@@ -29,6 +31,7 @@ use sqlx::PgPool;
 pub struct ControlPlane {
     pub access: ServerAccessService,
     pub authentication: AuthenticationService,
+    pub branches: BranchService,
     pub identity: IdentityService,
     pub licensing: LicenseService,
     pub update_assignments: UpdateAssignmentService,
@@ -40,6 +43,7 @@ impl ControlPlane {
         Self {
             access: ServerAccessService::new(pool.clone()),
             authentication: AuthenticationService::new(pool.clone(), token_key.clone()),
+            branches: BranchService::new(pool.clone()),
             identity: IdentityService::new(pool.clone(), token_key),
             licensing: LicenseService::new(pool.clone()),
             update_assignments: UpdateAssignmentService::new(pool),

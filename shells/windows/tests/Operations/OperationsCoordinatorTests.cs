@@ -20,12 +20,12 @@ public sealed class OperationsCoordinatorTests
                 new ReferenceMarker
                 {
                     Id = Guid.Parse("8b8ab1ab-731b-46f5-926a-3b5b2f8f6310"), Label = "مرجع قديم", Revision = 1,
-                    Scope = TestData.Scope(), SyncState = ErSyncState.Confirmed, UpdatedAt = 1_800_000_000_000,
+                    Scope = TestData.Scope(), SyncState = ReferenceMarkerSyncState.Confirmed, UpdatedAt = 1_800_000_000_000,
                 },
                 new ReferenceMarker
                 {
                     Id = otherMarkerId, Label = "مرجع محفوظ", Revision = 3,
-                    Scope = TestData.Scope(), SyncState = ErSyncState.Confirmed, UpdatedAt = 1_800_000_000_000,
+                    Scope = TestData.Scope(), SyncState = ReferenceMarkerSyncState.Confirmed, UpdatedAt = 1_800_000_000_000,
                 },
             ],
         });

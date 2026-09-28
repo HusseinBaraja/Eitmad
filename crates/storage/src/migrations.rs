@@ -140,6 +140,7 @@ fn registry() -> Vec<Migration> {
         .chain(desktop_auth::MIGRATIONS)
         .chain(customer::MIGRATIONS)
         .chain(local_authority::BRANCH_MIGRATIONS)
+        .chain(customer::SYNC_MIGRATIONS)
         .copied()
         .collect()
 }

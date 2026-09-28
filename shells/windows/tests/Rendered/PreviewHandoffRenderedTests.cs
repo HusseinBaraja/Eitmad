@@ -28,7 +28,7 @@ public sealed class PreviewHandoffRenderedTests
             Notes = "ملاحظة داخلية",
             Status = CustomerStatus.Active,
             Revision = 1,
-            SyncState = ErSyncState.Pending,
+            SyncState = CustomerSyncState.Pending,
             UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
         });
         WpfTestHost.Run(width, 900, window =>

@@ -6,22 +6,28 @@ use crate::accounts::{DesktopAccountError, DesktopAccountService};
 use async_trait::async_trait;
 use eitmad_authorization::{
     AUTHORIZATION_MANAGE_PERMISSION, AccessAuditContext, AuthorizationError, AuthorizationService,
-    CONFIG_READ_PERMISSION, MutationContext, PERMISSIONS_READ_PERMISSION, now,
+    BoundaryAuditContext, CONFIG_READ_PERMISSION, MutationContext, PERMISSIONS_READ_PERMISSION,
+    now,
 };
 use eitmad_configuration::{ConfigurationError, ConfigurationService};
 use eitmad_contracts::{
+    authorization::AuthorizationRequest,
     commands::{Command, CommandResult, CreateCustomer, UpdateCustomer},
     errors::{ContractError, ErrorCode, ErrorDetail, MessageId, RetryDisposition},
     events::{Event, Subscription},
+    identity::{AuthorizationContext, ScopeRef},
     queries::{Query, QueryResult},
 };
-use eitmad_customer::{CUSTOMER_READ_PERMISSION, CustomerError, CustomerService};
+use eitmad_customer::{
+    CUSTOMER_READ_PERMISSION, CustomerError, CustomerService, CustomerSyncCycle, CustomerSyncError,
+};
 use eitmad_observability_audit::AuditOutcome;
 use eitmad_reference_marker::{
     REFERENCE_MARKER_READ_PERMISSION, ReferenceMarkerError, ReferenceMarkerService,
 };
 use eitmad_storage::AuthorityStore;
 use eitmad_storage::MAX_PUBLICATION_RECOVERY_PAGE;
+use eitmad_sync::{SyncEngine, SyncTransport};
 
 use crate::local_ipc::{
     CommandDispatcher, DispatchContext, EventBroker, QueryDispatcher, SubscriptionContext,
@@ -40,6 +46,12 @@ pub struct ProductDispatcher {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PublicationRecoveryError;
+
+#[derive(Debug)]
+pub enum CustomerSyncDispatchError {
+    Cycle(CustomerSyncError),
+    Publication(PublicationRecoveryError),
+}
 
 pub const MAX_STARTUP_PUBLICATION_RECOVERY: usize = 1_024;
 
@@ -93,6 +105,36 @@ impl ProductDispatcher {
     #[must_use]
     pub const fn authorization(&self) -> &AuthorizationService {
         &self.authorization
+    }
+
+    /// Runs one customer sync cycle on a Rust worker and publishes its durable
+    /// customer changes to active IPC subscriptions.
+    ///
+    /// # Errors
+    ///
+    /// Retains unconfirmed work and publication rows when either phase fails.
+    pub fn sync_customers_once<T: SyncTransport>(
+        &self,
+        engine: &mut SyncEngine,
+        transport: &mut T,
+        actor: &AuthorizationContext,
+        server_scope: &ScopeRef,
+        request: &AuthorizationRequest,
+        audit: &BoundaryAuditContext,
+    ) -> Result<(), CustomerSyncDispatchError> {
+        CustomerSyncCycle {
+            customers: &self.customers,
+            engine,
+            transport,
+            actor,
+            server_scope,
+            request,
+            audit,
+        }
+        .run()
+        .map_err(CustomerSyncDispatchError::Cycle)?;
+        self.drain_pending_publications()
+            .map_err(CustomerSyncDispatchError::Publication)
     }
 
     fn mutation_context(context: &DispatchContext) -> Result<MutationContext, Box<ContractError>> {
@@ -762,7 +804,10 @@ mod tests {
             UpsertReferenceMarker,
         },
         config::{ConfigChange, ConfigKey, ConfigWriteValue},
-        customer::{CustomerName, CustomerPhone, CustomerSearchTerm, SearchCustomers},
+        customer::{
+            CustomerName, CustomerPhone, CustomerSearchTerm, CustomerSyncState, GetCustomer,
+            SearchCustomers,
+        },
         events::{
             AuthorizationPolicyChanges, ConfigurationChanges, CustomerChanges,
             ReferenceMarkerChanges, Subscription,
@@ -1048,42 +1093,7 @@ mod tests {
     async fn routes_customer_create_search_and_compact_event() {
         let (_directory, dispatcher, broker) = dispatcher();
         let authorization = branch_authorization();
-        dispatcher
-            .authorization()
-            .bootstrap_owner(
-                &MutationContext {
-                    authorization: authorization.clone(),
-                    correlation_id: CorrelationId::new(Uuid::from_u128(501)),
-                    causation_id: None,
-                    idempotency_key: IdempotencyKey::new(Uuid::from_u128(502)),
-                    occurred_at: UnixMillis(1),
-                },
-                &RelationshipSubject {
-                    principal_id: authorization.identity.principal_id,
-                    principal_kind: authorization.identity.principal_kind,
-                },
-            )
-            .unwrap();
-        dispatcher
-            .authorization()
-            .grant_relationship(
-                &MutationContext {
-                    authorization: authorization.clone(),
-                    correlation_id: CorrelationId::new(Uuid::from_u128(503)),
-                    causation_id: None,
-                    idempotency_key: IdempotencyKey::new(Uuid::from_u128(504)),
-                    occurred_at: UnixMillis(2),
-                },
-                &GrantScopeRelationship {
-                    expected_policy_version: 1,
-                    subject: RelationshipSubject {
-                        principal_id: authorization.identity.principal_id,
-                        principal_kind: authorization.identity.principal_kind,
-                    },
-                    relation: RelationId::parse(eitmad_authorization::MANAGER_RELATION).unwrap(),
-                },
-            )
-            .unwrap();
+        authorize_customer_branch(&dispatcher, &authorization);
         let (_, mut events) = broker
             .subscribe(
                 authorization.scope.clone(),
@@ -1130,6 +1140,79 @@ mod tests {
             last_audit_outcome(&dispatcher, "eitmad.customer.search.v1"),
             AuditOutcome::Succeeded
         );
+        let change = dispatcher
+            .customers
+            .sync_batch(&authorization.scope, 1)
+            .unwrap()
+            .remove(0);
+        dispatcher
+            .customers
+            .project_confirmed(
+                &authorization,
+                &change,
+                CorrelationId::new(Uuid::from_u128(507)),
+            )
+            .unwrap();
+        dispatcher.drain_pending_publications().unwrap();
+        let Event::CustomerChanged(confirmed_notice) = events.recv().await.unwrap().event else {
+            panic!("confirmed customer event expected")
+        };
+        assert_eq!(confirmed_notice.change_id, change.change_id);
+        assert_eq!(
+            dispatcher
+                .customers
+                .get(
+                    &authorization,
+                    &GetCustomer {
+                        customer_id: notice.customer_id,
+                    },
+                )
+                .unwrap()
+                .sync_state,
+            CustomerSyncState::Confirmed
+        );
+    }
+
+    fn authorize_customer_branch(
+        dispatcher: &ProductDispatcher,
+        authorization: &AuthorizationContext,
+    ) {
+        dispatcher
+            .authorization()
+            .bootstrap_owner(
+                &MutationContext {
+                    authorization: authorization.clone(),
+                    correlation_id: CorrelationId::new(Uuid::from_u128(501)),
+                    causation_id: None,
+                    idempotency_key: IdempotencyKey::new(Uuid::from_u128(502)),
+                    occurred_at: UnixMillis(1),
+                },
+                &RelationshipSubject {
+                    principal_id: authorization.identity.principal_id,
+                    principal_kind: authorization.identity.principal_kind,
+                },
+            )
+            .unwrap();
+        dispatcher
+            .authorization()
+            .grant_relationship(
+                &MutationContext {
+                    authorization: authorization.clone(),
+                    correlation_id: CorrelationId::new(Uuid::from_u128(503)),
+                    causation_id: None,
+                    idempotency_key: IdempotencyKey::new(Uuid::from_u128(504)),
+                    occurred_at: UnixMillis(2),
+                },
+                &GrantScopeRelationship {
+                    expected_policy_version: 1,
+                    subject: RelationshipSubject {
+                        principal_id: authorization.identity.principal_id,
+                        principal_kind: authorization.identity.principal_kind,
+                    },
+                    relation: RelationId::parse(eitmad_authorization::MANAGER_RELATION).unwrap(),
+                },
+            )
+            .unwrap();
     }
 
     #[tokio::test]

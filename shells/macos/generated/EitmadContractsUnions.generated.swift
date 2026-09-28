@@ -671,6 +671,8 @@ public enum SyncMessage: Codable, Sendable {
     case syncNegotiate(SyncNegotiation)
     case syncPull(PullRequest)
     case syncChanges(ChangeBatch)
+    case syncSubmitLocal(LocalChangeSubmission)
+    case syncLocalResult(LocalChangeResult)
     case syncReconcile(ReconciliationDelivery)
     case syncAcknowledge(BatchAcknowledgement)
     case syncConflict(ConflictNotice)
@@ -684,6 +686,8 @@ public enum SyncMessage: Codable, Sendable {
         case syncNegotiate = "eitmad.sync.negotiate.v1"
         case syncPull = "eitmad.sync.pull.v1"
         case syncChanges = "eitmad.sync.changes.v1"
+        case syncSubmitLocal = "eitmad.sync.submit-local.v1"
+        case syncLocalResult = "eitmad.sync.local-result.v1"
         case syncReconcile = "eitmad.sync.reconcile.v1"
         case syncAcknowledge = "eitmad.sync.acknowledge.v1"
         case syncConflict = "eitmad.sync.conflict.v1"
@@ -705,6 +709,8 @@ public enum SyncMessage: Codable, Sendable {
         case .syncNegotiate: self = .syncNegotiate(try container.decode(SyncNegotiation.self, forKey: .payload))
         case .syncPull: self = .syncPull(try container.decode(PullRequest.self, forKey: .payload))
         case .syncChanges: self = .syncChanges(try container.decode(ChangeBatch.self, forKey: .payload))
+        case .syncSubmitLocal: self = .syncSubmitLocal(try container.decode(LocalChangeSubmission.self, forKey: .payload))
+        case .syncLocalResult: self = .syncLocalResult(try container.decode(LocalChangeResult.self, forKey: .payload))
         case .syncReconcile: self = .syncReconcile(try container.decode(ReconciliationDelivery.self, forKey: .payload))
         case .syncAcknowledge: self = .syncAcknowledge(try container.decode(BatchAcknowledgement.self, forKey: .payload))
         case .syncConflict: self = .syncConflict(try container.decode(ConflictNotice.self, forKey: .payload))
@@ -727,6 +733,12 @@ public enum SyncMessage: Codable, Sendable {
             try container.encode(payload, forKey: .payload)
         case .syncChanges(let payload):
             try container.encode(Kind.syncChanges, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .syncSubmitLocal(let payload):
+            try container.encode(Kind.syncSubmitLocal, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .syncLocalResult(let payload):
+            try container.encode(Kind.syncLocalResult, forKey: .kind)
             try container.encode(payload, forKey: .payload)
         case .syncReconcile(let payload):
             try container.encode(Kind.syncReconcile, forKey: .kind)

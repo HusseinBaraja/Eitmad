@@ -27,9 +27,15 @@ zeroize = "=1.8.1"
 [dev-dependencies]
 async-trait = "=0.1.89"
 axum-server = { version = "=0.8.0", features = ["tls-rustls"] }
+eitmad-admin-plane = { path = "../../server/admin-plane" }
+eitmad-authorization = { path = "../authorization" }
 eitmad-control-plane = { path = "../../server/control-plane" }
+eitmad-customer = { path = "../customer" }
+eitmad-observability-audit = { path = "../observability-audit" }
+eitmad-postgres-support = { path = "../../server/postgres-support" }
 eitmad-server = { path = "../../server/host" }
 eitmad-server-audit = { path = "../../server/audit" }
 eitmad-sync-plane = { path = "../../server/sync-plane" }
+eitmad-storage = { path = "../storage" }
 tempfile = "=3.24.0"
 tokio = { version = "=1.49.0", features = ["macros", "rt-multi-thread", "time"] }

@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "customer capability maintainers"
-last_verified: "2026-09-22"
+last_verified: "2026-09-28"
 review_triggers:
   - "customer contracts, search normalization, permissions, storage, sync, or lifecycle rules change"
 keywords:
@@ -29,7 +29,9 @@ This slice implements contact create and edit plus the Windows projection for cu
 | Customer orchestration, normalization, audit construction, and sync projection | `crates/customer` |
 | Typed values, commands, queries, subscription, event, errors, capability, and schema | `crates/contracts` |
 | Manager and Receptionist permission decision in an exact branch scope | `crates/authorization` |
-| Storage version 12 customer migration, version 13 local branch binding, and atomic repository | `crates/storage/src/customer.rs` and `crates/storage/src/local_authority.rs` |
+| Storage versions 12 and 14 customer migrations, version 13 local branch binding, and atomic repository | `crates/storage/src/customer.rs` and `crates/storage/src/local_authority.rs` |
+| Outbox delivery, incremental download, and shared engine reconciliation | `crates/customer/src/sync.rs` and `crates/sync/src/engine.rs` |
+| Customer schema registration, payload validation, branch authorization, and revision conflicts | `server/sync-plane/src/customer.rs` and `server/host` |
 | Command, query, subscription authorization, publication, and recovery | `crates/engine-runtime` |
 | Generated C# and Swift types | `shells/windows/generated` and `shells/macos/generated` |
 | Windows customer selection, detail, and unsaved editor input | `shells/windows/Features/Customers` and `shells/windows/Features/Reception` |
@@ -60,6 +62,8 @@ The Receptionist quotation editor sends bounded name or phone searches through `
 Creating and editing use the generated `CreateCustomer` and `UpdateCustomer` contracts. `CustomerClient` trims optional address and notes fields and rejects unsafe or oversized optional text and search terms before IPC serialization; Rust remains the validation authority. The editor sends the Rust-returned revision with every update. `eitmad.error.customer-revision-conflict.v1` keeps the unsaved fields open and tells the user in Arabic that no change was saved; the shell does not retry with a newer revision or overwrite the concurrent record. Rust contract-validation fields map to the affected Arabic inputs. Authorization, missing-record, and unavailable failures have separate Arabic messages.
 
 `eitmad.customer.changed.subscribe.v1` refreshes an open customer detail by UUID and refreshes relevant search suggestions. The compact event contains no contact text. Order and quotation fixtures can open the existing detail view only after a scoped Rust lookup identifies one exact name and phone or a temporary quotation carries the selected customer UUID. This preserves the accepted navigation and appearance without adding a Customers destination.
+
+The detail view reads `Customer.syncState` from Rust. It shows `بانتظار المزامنة`, `مؤكد من الخادم`, `رُفضت المزامنة`, or `تعارض يحتاج مراجعة`. Rejected and conflicted records remain visible and cannot be edited from that view until a domain resolution path exists.
 
 ## Arabic-name and phone search
 
@@ -92,9 +96,11 @@ Audit contains stable operation, scope, actor, customer UUID, changed field iden
 
 ## Local-first synchronization
 
-Each successful contact mutation queues one `ChangeRecord` with `ChangeOperation::Upsert`, the customer UUID as `RecordId`, base and resulting revisions, command idempotency key, and schema-versioned contact payload. The bounded internal batch accepts `1..=50`. Confirming an exact scoped change removes it and marks the customer `Confirmed` only when no later change for that customer remains. No scheduler or remote customer reconciliation hook is added by this slice.
+Each successful contact mutation queues one `ChangeRecord` with `ChangeOperation::Upsert`, the customer UUID as `RecordId`, base and resulting revisions, command idempotency key, and schema-versioned contact payload. The bounded internal batch accepts `1..=50`. `CustomerSyncCycle` stages committed outbox changes in the durable shared `SyncEngine`, submits each through the authenticated direct WAN route, pulls incremental server pages, and acknowledges applied checkpoints. The cycle maps each client's local branch scope to the registered server branch and maps downloaded records back to the local scope. The caller must supply the owner-registered server branch and session and invoke the cycle from a Rust worker thread; this repository does not yet persist desktop enrollment or start a customer sync scheduler during normal engine startup.
 
-The accepted workflow requires an explicit domain conflict when the same customer field changes on separate devices. The current revision check prevents local concurrent overwrite. A future remote reconciliation implementation must add field-aware customer conflict behavior before it can claim multi-device merge support. It must not use generic last-write-wins.
+The server registers the customer schema and handler. The handler validates the payload identity and revision and resolves the branch through the tenant-scoped `control.branches` registry. A Manager has access through the owning organization relationship; a Receptionist needs the exact branch relationship. PostgreSQL row-level security isolates tenant data. The server preserves the client's change ID and idempotency key, so an exact retry has one effect. A stale revision creates an explicit durable conflict; the server does not overwrite the current record or merge fields automatically. The local contact remains visible with `Conflicted` state and its outbox entry is held for resolution. Domain denial or invalid content becomes `Rejected`. This conservative conflict policy covers same-field concurrent edits and can also flag edits to different fields; no field-aware merge is claimed.
+
+On download, Rust projects each confirmed contact before advancing the shared engine checkpoint. A restart can replay a page safely. Projection does not overwrite a newer pending local revision. `ProductDispatcher::sync_customers_once` runs the cycle and drains durable customer publications to active IPC subscribers. Version 14 stores rejected and conflicted markers separately from the contact row, so the original contact and queued change survive a restart. The accepted workflow still requires a separate Manager-authorized resolution path before conflicted work can be resubmitted.
 
 ## Failure and recovery
 
@@ -105,6 +111,9 @@ The accepted workflow requires an explicit domain conflict when the same custome
 | Customer missing | Return `eitmad.error.customer-not-found.v1`; an update attempt writes a redacted failure audit |
 | Revision mismatch | Preserve current state and return the actual revision |
 | Event publication failure | Keep the committed publication row for bounded startup recovery |
+| Delivery or acknowledgement failure | Keep the customer outbox and last durable engine checkpoint; retry the same change identity |
+| Server rejection | Keep the local contact, mark `Rejected`, and hold its outbox entry |
+| Concurrent remote revision | Keep both inputs in server/shared-engine conflict state and mark the local contact `Conflicted` |
 | Audit or storage failure | Roll back the complete mutation and return `eitmad.error.customer-unavailable.v1` |
 | Unknown command outcome | Retry the same bytes with the same idempotency key |
 
@@ -122,8 +131,8 @@ cargo test -p eitmad-customer -p eitmad-authorization -p eitmad-storage -p eitma
 npm run contracts:verify --prefix crates/contracts/codegen
 ```
 
-The focused customer tests cover restart persistence, exact text preservation, Arabic-name and phone search, stable paging, permission denial, same-database branch isolation, exact retry identity, duplicate advisory without merge, audit rollback, and concurrent-edit conflict.
+The focused customer tests cover restart persistence, exact text preservation, Arabic-name and phone search, stable paging, permission denial, same-database branch isolation, exact retry identity, duplicate advisory without merge, audit rollback, rejected-state recovery, and concurrent-edit conflict. The ignored live `two_isolated_customer_engines_recover_and_preserve_conflicts` test uses two independent engine data directories with distinct local tenant and branch IDs, two registered server devices, TLS, and a disposable PostgreSQL database; it verifies mapped-scope download, replay, restart recovery, conflict preservation, and cross-tenant row-level security.
 
 Add lifecycle management only through separate Manager-authorized server-confirmed commands. Preserve existing customer UUIDs, source history, immutable commercial-document snapshots, and cross-organization rejection. Do not make phone unique and do not add automatic merge behavior.
 
-Related pages: [accepted workflow](manager-receptionist-workflows.md), [authorization](authorization.md), [local storage](local-storage.md), [synchronization](synchronization.md), [contract layer](contract-layer.md), and [storage version 13 release](../../releases/storage-v13-customers.md).
+Related pages: [accepted workflow](manager-receptionist-workflows.md), [authorization](authorization.md), [local storage](local-storage.md), [synchronization](synchronization.md), [contract layer](contract-layer.md), [storage version 13 release](../../releases/storage-v13-customers.md), and [storage version 14 release](../../releases/storage-v14-customer-sync.md).

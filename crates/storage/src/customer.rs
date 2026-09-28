@@ -55,6 +55,21 @@ pub(crate) const MIGRATIONS: &[Migration] = &[Migration::new(
      );",
 )];
 
+pub(crate) const SYNC_MIGRATIONS: &[Migration] = &[Migration::new(
+    14,
+    "customer.sync-exceptions.v1",
+    "customer",
+    "CREATE TABLE customer_sync_exceptions (
+         scope_kind TEXT NOT NULL,
+         scope_id TEXT NOT NULL,
+         customer_id TEXT NOT NULL,
+         state TEXT NOT NULL CHECK (state IN ('rejected', 'conflicted')),
+         PRIMARY KEY (scope_kind, scope_id, customer_id),
+         FOREIGN KEY (scope_kind, scope_id, customer_id)
+             REFERENCES customers(scope_kind, scope_id, customer_id) ON DELETE CASCADE
+     );",
+)];
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CustomerCommitOutcome {
     Committed(CustomerMutationResult),
@@ -76,7 +91,146 @@ pub struct CustomerCommit<'a> {
     pub conflict_error_code: &'a str,
 }
 
+pub struct CustomerSyncProjection<'a> {
+    pub customer: &'a Customer,
+    pub normalized_name: &'a str,
+    pub normalized_phone: &'a str,
+    pub source_change_id: ChangeId,
+    pub audit: &'a MutationAuditRecord,
+    pub publication: &'a DurablePublication,
+}
+
 impl AuthorityStore {
+    /// Projects one server-confirmed contact without overwriting a later local edit.
+    /// This is idempotent so a shared-sync checkpoint can be replayed after a crash.
+    ///
+    /// # Errors
+    ///
+    /// Returns a sanitized storage error if projection or its audit cannot commit.
+    pub fn project_customer_sync(
+        &self,
+        projection: &CustomerSyncProjection<'_>,
+    ) -> Result<bool, StorageError> {
+        self.write_transaction(|transaction| {
+            let customer = projection.customer;
+            let (scope_kind, scope_id) = scope_parts(&customer.scope);
+            let customer_id = customer.id.value().to_string();
+            let removed = transaction
+                .execute(
+                    "DELETE FROM customer_sync_outbox
+                     WHERE change_id = ?1 AND scope_kind = ?2 AND scope_id = ?3 AND customer_id = ?4",
+                    params![projection.source_change_id.value().to_string(), scope_kind, scope_id, customer_id],
+                )
+                .map_err(|_| StorageError)?;
+            let has_pending = transaction
+                .query_row(
+                    "SELECT 1 FROM customer_sync_outbox
+                     WHERE scope_kind = ?1 AND scope_id = ?2 AND customer_id = ?3 LIMIT 1",
+                    params![scope_kind, scope_id, customer_id],
+                    |_| Ok(()),
+                )
+                .optional()
+                .map_err(|_| StorageError)?
+                .is_some();
+            if has_pending {
+                if removed != 0 {
+                    insert_audit(transaction, projection.audit)?;
+                    insert_publication(transaction, &customer.scope, eitmad_contracts::transport::IdempotencyKey::new(uuid::Uuid::new_v4()), projection.publication)?;
+                }
+                return Ok(removed != 0);
+            }
+            let current: Option<(i64, String)> = transaction
+                .query_row(
+                    "SELECT revision, sync_state FROM customers WHERE scope_kind = ?1 AND scope_id = ?2 AND customer_id = ?3",
+                    params![scope_kind, scope_id, customer_id],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )
+                .optional()
+                .map_err(|_| StorageError)?;
+            let target_revision = i64::try_from(customer.revision).map_err(|_| StorageError)?;
+            if current.as_ref().is_some_and(|(revision, _)| *revision > target_revision) {
+                if removed != 0 {
+                    insert_audit(transaction, projection.audit)?;
+                }
+                return Ok(removed != 0);
+            }
+            let has_exception = transaction.query_row(
+                "SELECT 1 FROM customer_sync_exceptions WHERE scope_kind = ?1 AND scope_id = ?2 AND customer_id = ?3",
+                params![scope_kind, scope_id, customer_id], |_| Ok(()),
+            ).optional().map_err(|_| StorageError)?.is_some();
+            if removed == 0 && !has_exception && current.as_ref().is_some_and(|(revision, state)| *revision == target_revision && state == "confirmed") {
+                return Ok(false);
+            }
+            transaction.execute(
+                "INSERT INTO customers
+                   (scope_kind, scope_id, customer_id, name, normalized_name, phone, normalized_phone,
+                    address, notes, status, revision, updated_at, sync_state)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 'active', ?10, ?11, 'confirmed')
+                 ON CONFLICT(scope_kind, scope_id, customer_id) DO UPDATE SET
+                   name = excluded.name, normalized_name = excluded.normalized_name,
+                   phone = excluded.phone, normalized_phone = excluded.normalized_phone,
+                   address = excluded.address, notes = excluded.notes,
+                   revision = excluded.revision, updated_at = excluded.updated_at,
+                   sync_state = 'confirmed'",
+                params![scope_kind, scope_id, customer_id, customer.name.as_str(), projection.normalized_name,
+                    customer.phone.as_str(), projection.normalized_phone,
+                    customer.address.as_ref().map(CustomerAddress::as_str),
+                    customer.notes.as_ref().map(CustomerNotes::as_str),
+                    i64::try_from(customer.revision).map_err(|_| StorageError)?, customer.updated_at.0],
+            ).map_err(|_| StorageError)?;
+            let cleared = transaction.execute(
+                "DELETE FROM customer_sync_exceptions WHERE scope_kind = ?1 AND scope_id = ?2 AND customer_id = ?3",
+                params![scope_kind, scope_id, customer_id],
+            ).map_err(|_| StorageError)?;
+            debug_assert_eq!(cleared != 0, has_exception);
+            insert_audit(transaction, projection.audit)?;
+            insert_publication(transaction, &customer.scope, eitmad_contracts::transport::IdempotencyKey::new(uuid::Uuid::new_v4()), projection.publication)?;
+            Ok(true)
+        })
+    }
+
+    /// Marks local contact delivery as rejected or conflicted, retaining its outbox input.
+    ///
+    /// # Errors
+    ///
+    /// Returns a sanitized error if the status and audit cannot commit.
+    pub fn mark_customer_sync_exception(
+        &self,
+        scope: &ScopeRef,
+        customer_id: CustomerId,
+        state: CustomerSyncState,
+        audit: &MutationAuditRecord,
+        publication: &DurablePublication,
+    ) -> Result<(), StorageError> {
+        let state = match state {
+            CustomerSyncState::Rejected => "rejected",
+            CustomerSyncState::Conflicted => "conflicted",
+            _ => return Err(StorageError),
+        };
+        self.write_transaction(|transaction| {
+            let (scope_kind, scope_id) = scope_parts(scope);
+            let prior: Option<String> = transaction.query_row(
+                "SELECT state FROM customer_sync_exceptions WHERE scope_kind = ?1 AND scope_id = ?2 AND customer_id = ?3",
+                params![scope_kind, scope_id, customer_id.value().to_string()],
+                |row| row.get(0),
+            ).optional().map_err(|_| StorageError)?;
+            if prior.as_deref() == Some(state) { return Ok(()); }
+            let exists = transaction.query_row(
+                "SELECT 1 FROM customers WHERE scope_kind = ?1 AND scope_id = ?2 AND customer_id = ?3",
+                params![scope_kind, scope_id, customer_id.value().to_string()],
+                |_| Ok(()),
+            ).optional().map_err(|_| StorageError)?.is_some();
+            if !exists { return Err(StorageError); }
+            transaction.execute(
+                "INSERT INTO customer_sync_exceptions (scope_kind, scope_id, customer_id, state)
+                 VALUES (?1, ?2, ?3, ?4)
+                 ON CONFLICT(scope_kind, scope_id, customer_id) DO UPDATE SET state = excluded.state",
+                params![scope_kind, scope_id, customer_id.value().to_string(), state],
+            ).map_err(|_| StorageError)?;
+            insert_audit(transaction, audit)?;
+            insert_publication(transaction, scope, eitmad_contracts::transport::IdempotencyKey::new(uuid::Uuid::new_v4()), publication)
+        })
+    }
     /// Gets one customer from an exact scope.
     ///
     /// # Errors
@@ -92,7 +246,9 @@ impl AuthorityStore {
             connection
                 .query_row(
                     "SELECT customer_id, name, phone, address, notes, status, revision,
-                            updated_at, sync_state
+                            updated_at, COALESCE((SELECT state FROM customer_sync_exceptions e
+                              WHERE e.scope_kind = customers.scope_kind AND e.scope_id = customers.scope_id
+                                AND e.customer_id = customers.customer_id), sync_state)
                      FROM customers
                      WHERE scope_kind = ?1 AND scope_id = ?2 AND customer_id = ?3",
                     params![scope_kind, scope_id, customer_id.value().to_string()],
@@ -127,7 +283,9 @@ impl AuthorityStore {
             let mut statement = connection
                 .prepare(
                     "SELECT customer_id, name, phone, address, notes, status, revision,
-                            updated_at, sync_state
+                            updated_at, COALESCE((SELECT state FROM customer_sync_exceptions e
+                              WHERE e.scope_kind = customers.scope_kind AND e.scope_id = customers.scope_id
+                                AND e.customer_id = customers.customer_id), sync_state)
                      FROM customers
                      WHERE scope_kind = ?1 AND scope_id = ?2 AND customer_id > ?3
                        AND (?4 = '' OR normalized_name LIKE ?5 ESCAPE '\\'
@@ -190,8 +348,12 @@ impl AuthorityStore {
         let (scope_kind, scope_id) = scope_parts(scope);
         let mut statement = connection
             .prepare(
-                "SELECT change_json FROM customer_sync_outbox
-                 WHERE scope_kind = ?1 AND scope_id = ?2 ORDER BY rowid LIMIT ?3",
+                "SELECT o.change_json FROM customer_sync_outbox o
+                 WHERE o.scope_kind = ?1 AND o.scope_id = ?2
+                   AND NOT EXISTS (SELECT 1 FROM customer_sync_exceptions e
+                     WHERE e.scope_kind = o.scope_kind AND e.scope_id = o.scope_id
+                       AND e.customer_id = o.customer_id)
+                 ORDER BY o.rowid LIMIT ?3",
             )
             .map_err(|_| StorageError)?;
         statement
@@ -492,6 +654,8 @@ fn decode_customer(scope: &ScopeRef, row: CustomerRow) -> Result<Customer, Stora
         sync_state: match row.8.as_str() {
             "pending" => CustomerSyncState::Pending,
             "confirmed" => CustomerSyncState::Confirmed,
+            "rejected" => CustomerSyncState::Rejected,
+            "conflicted" => CustomerSyncState::Conflicted,
             _ => return Err(StorageError),
         },
     })

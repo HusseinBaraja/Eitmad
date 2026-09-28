@@ -119,10 +119,10 @@ impl DirectServerConfig {
         url.set_scheme("wss").expect("HTTPS can become WSS");
         url.set_path("/v1/connect");
         url.query_pairs_mut()
-            .append_pair("scope_kind", self.scope.kind.as_str())
-            .append_pair("scope_id", &self.scope.id.value().to_string())
-            .append_pair("schema_id", self.schema_id.as_str())
-            .append_pair("schema_version", &self.schema_version.to_string());
+            .append_pair("scopeKind", self.scope.kind.as_str())
+            .append_pair("scopeId", &self.scope.id.value().to_string())
+            .append_pair("schemaId", self.schema_id.as_str())
+            .append_pair("schemaVersion", &self.schema_version.to_string());
         url
     }
 
@@ -422,18 +422,23 @@ impl ConnectionDriver for DirectServerDriver {
             .socket
             .as_mut()
             .ok_or_else(|| unavailable(FailurePhase::Send))?;
-        if let SyncTransportPayload::Message(SyncMessage::Pull(request)) = &frame.payload {
+        if let Some(SyncMessage::Pull(request)) = frame.payload.as_message() {
             if usize::try_from(request.maximum_records).unwrap_or(usize::MAX)
                 > MAX_SYNC_BATCH_RECORDS
             {
                 return Err(unavailable(FailurePhase::Send));
             }
         }
-        if !matches!(
-            frame.payload,
-            SyncTransportPayload::Message(SyncMessage::Pull(_) | SyncMessage::Acknowledge(_))
-                | SyncTransportPayload::Cancel(_)
-        ) {
+        if !cancellation
+            && !matches!(
+                frame.payload.as_message(),
+                Some(
+                    SyncMessage::Pull(_)
+                        | SyncMessage::Acknowledge(_)
+                        | SyncMessage::SubmitLocal(_)
+                )
+            )
+        {
             return Err(TransportFailure::new(
                 TransportFailureKind::CapabilityMismatch,
                 FailurePhase::Send,
@@ -456,9 +461,10 @@ impl ConnectionDriver for DirectServerDriver {
             }
             return Ok(());
         }
-        if let SyncTransportPayload::Message(SyncMessage::Pull(_) | SyncMessage::Acknowledge(_)) =
-            &frame.payload
-        {
+        if matches!(
+            frame.payload.as_message(),
+            Some(SyncMessage::Pull(_) | SyncMessage::Acknowledge(_) | SyncMessage::SubmitLocal(_))
+        ) {
             self.pending = Some(PendingResponse {
                 request: frame.clone(),
                 next_sequence: 0,
@@ -487,22 +493,27 @@ impl ConnectionDriver for DirectServerDriver {
             .pending
             .as_mut()
             .ok_or_else(|| unavailable(FailurePhase::Receive))?;
-        let valid_response = match (&pending.request.payload, &message, pending.next_sequence) {
+        let valid_response = match (
+            pending.request.payload.as_message(),
+            &message,
+            pending.next_sequence,
+        ) {
             (
-                SyncTransportPayload::Message(SyncMessage::Pull(_)),
+                Some(SyncMessage::Pull(_)),
                 SyncMessage::Changes(_) | SyncMessage::SnapshotManifest(_),
                 0,
             )
             | (
-                SyncTransportPayload::Message(SyncMessage::Pull(_)),
+                Some(SyncMessage::Pull(_)),
                 SyncMessage::SnapshotChunk(_) | SyncMessage::SnapshotComplete(_),
                 1..,
             ) => true,
-            (
-                SyncTransportPayload::Message(SyncMessage::Acknowledge(expected)),
-                SyncMessage::Acknowledge(actual),
-                0,
-            ) => expected == actual,
+            (Some(SyncMessage::Acknowledge(expected)), SyncMessage::Acknowledge(actual), 0) => {
+                expected == actual
+            }
+            (Some(SyncMessage::SubmitLocal(expected)), SyncMessage::LocalResult(actual), 0) => {
+                expected.change.change_id == actual.submitted_change_id
+            }
             _ => false,
         };
         if !valid_response {
@@ -513,6 +524,7 @@ impl ConnectionDriver for DirectServerDriver {
             SyncMessage::Changes(_)
                 | SyncMessage::SnapshotComplete(_)
                 | SyncMessage::Acknowledge(_)
+                | SyncMessage::LocalResult(_)
         );
         if pending.cancelled {
             pending.next_sequence = pending.next_sequence.saturating_add(1);
@@ -529,7 +541,7 @@ impl ConnectionDriver for DirectServerDriver {
             stream_id: pending.request.stream_id,
             sequence: pending.next_sequence,
             end_of_stream,
-            payload: SyncTransportPayload::Message(message),
+            payload: SyncTransportPayload::Message(Box::new(message)),
         };
         pending.next_sequence = pending.next_sequence.saturating_add(1);
         if end_of_stream {

@@ -379,7 +379,7 @@ internal sealed class FakeEngine : IEngineShellBridge
                 Notes = createCustomer.Notes,
                 Status = CustomerStatus.Active,
                 Revision = 1,
-                SyncState = ErSyncState.Pending,
+                SyncState = CustomerSyncState.Pending,
                 UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             };
             Customers.Add(changedCustomer);
@@ -402,7 +402,7 @@ internal sealed class FakeEngine : IEngineShellBridge
                 Notes = updateCustomer.Notes,
                 Status = current.Status,
                 Revision = current.Revision + 1,
-                SyncState = ErSyncState.Pending,
+                SyncState = CustomerSyncState.Pending,
                 UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             };
             Customers[index] = changedCustomer;
@@ -460,7 +460,7 @@ internal sealed class FakeEngine : IEngineShellBridge
                             Kind = "organization",
                             Id = Guid.Parse("2ef36635-1d9d-4bd5-b0e4-fc4a67dfac90"),
                         },
-                        SyncState = ErSyncState.Pending,
+                        SyncState = ReferenceMarkerSyncState.Pending,
                         UpdatedAt = 1_800_000_000_001,
                     },
                 },

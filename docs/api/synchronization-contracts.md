@@ -58,6 +58,8 @@ An upsert without `payload` and a tombstone with `payload` are invalid. `Encoded
 | `eitmad.sync.negotiate.v1` | `SyncNegotiation` | Declare mode, full `PeerHello`, and resume checkpoint |
 | `eitmad.sync.pull.v1` | `PullRequest` | Request at most 500 records after a checkpoint |
 | `eitmad.sync.changes.v1` | `ChangeBatch` | Carry a bounded delivery and resulting checkpoint |
+| `eitmad.sync.submit-local.v1` | `LocalChangeSubmission` | Submit one local-first change over the authenticated server route |
+| `eitmad.sync.local-result.v1` | `LocalChangeResult` | Return applied, replayed, conflicted, or rejected status for the exact change ID |
 | `eitmad.sync.reconcile.v1` | `ReconciliationDelivery` | Apply snapshots, changes, and command outcomes idempotently |
 | `eitmad.sync.acknowledge.v1` | `BatchAcknowledgement` | Acknowledge one delivery and accepted record count |
 | `eitmad.sync.conflict.v1` | `ConflictNotice` | Identify a conflict and both revisions without payload disclosure |
@@ -82,6 +84,8 @@ The wire frame contains no credential, authentication proof, account, device sec
 ## Server command outcomes
 
 `CommandDisposition::Accepted` may include one authoritative change. `Denied` includes only an `ErrorCodeRef`. A client removes the matching pending command in both cases. It installs the authoritative result on acceptance and rebuilds optimistic state from confirmed cache plus remaining commands on denial.
+
+`LocalChangeResult` retains the submitted `ChangeId`. Applied and replayed results return the authoritative `ChangeRecord` with that same ID. A stale revision returns a durable conflict ID; a domain denial or invalid payload returns a stable rejection reason. Transport failure has no authoritative outcome, so the client keeps the outbox entry and retries its original idempotency key.
 
 Adjacent enum payload fields serialize in camel case. `SyncEvent::SnapshotApplied` contains `snapshotId`, `checkpoint`, and `records`, not the complete snapshot; authorized Rust consumers use `SyncEngine::read_last_snapshot` when they need its bounded records. `PendingCommand.submittedBy` is a `PrincipalId`. Full authorization/session context remains only at the boundary and in protected audit storage.
 

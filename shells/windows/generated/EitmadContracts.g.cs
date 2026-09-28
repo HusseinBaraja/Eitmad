@@ -91,6 +91,12 @@ namespace Eitmad.Contracts
         [JsonPropertyName("query_response")]
         public QueryResponseEnvelope QueryResponse { get; set; }
 
+        [JsonPropertyName("register_branch_request")]
+        public RegisterBranchRequest RegisterBranchRequest { get; set; }
+
+        [JsonPropertyName("registered_branch")]
+        public RegisteredBranch RegisteredBranch { get; set; }
+
         [JsonPropertyName("relay_failure")]
         public RelayFailureReport RelayFailure { get; set; }
 
@@ -547,7 +553,7 @@ namespace Eitmad.Contracts
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("syncState")]
-        public ErSyncState? SyncState { get; set; }
+        public ReferenceMarkerSyncState? SyncState { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("updatedAt")]
@@ -613,7 +619,7 @@ namespace Eitmad.Contracts
         public CustomerStatus Status { get; set; }
 
         [JsonPropertyName("syncState")]
-        public ErSyncState SyncState { get; set; }
+        public CustomerSyncState SyncState { get; set; }
 
         [JsonPropertyName("updatedAt")]
         public long UpdatedAt { get; set; }
@@ -1050,6 +1056,30 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("retry")]
         public RetryDisposition Retry { get; set; }
+    }
+
+    /// <summary>
+    /// Rust-owned branch identity registered by a tenant owner.
+    /// </summary>
+    public partial class RegisterBranchRequest
+    {
+        [JsonPropertyName("branchId")]
+        public Guid BranchId { get; set; }
+
+        [JsonPropertyName("organizationId")]
+        public Guid OrganizationId { get; set; }
+    }
+
+    public partial class RegisteredBranch
+    {
+        [JsonPropertyName("branchId")]
+        public Guid BranchId { get; set; }
+
+        [JsonPropertyName("organizationId")]
+        public Guid OrganizationId { get; set; }
+
+        [JsonPropertyName("tenantId")]
+        public Guid TenantId { get; set; }
     }
 
     public partial class RelayFailureReport
@@ -1715,6 +1745,10 @@ namespace Eitmad.Contracts
         public ConflictNotice SyncMessageSyncConflict { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("SyncMessage_SyncLocalResult")]
+        public LocalChangeResult SyncMessageSyncLocalResult { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("SyncMessage_SyncNegotiate")]
         public SyncNegotiation SyncMessageSyncNegotiate { get; set; }
 
@@ -1741,6 +1775,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("SyncMessage_SyncSnapshotRequired")]
         public SnapshotRequired SyncMessageSyncSnapshotRequired { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("SyncMessage_SyncSubmitLocal")]
+        public LocalChangeSubmission SyncMessageSyncSubmitLocal { get; set; }
     }
 
     public partial class GrantScopeRelationship
@@ -2430,7 +2468,7 @@ namespace Eitmad.Contracts
         public ScopeRef Scope { get; set; }
 
         [JsonPropertyName("syncState")]
-        public ErSyncState SyncState { get; set; }
+        public ReferenceMarkerSyncState SyncState { get; set; }
 
         [JsonPropertyName("updatedAt")]
         public long UpdatedAt { get; set; }
@@ -2619,6 +2657,39 @@ namespace Eitmad.Contracts
         public long RemoteRevision { get; set; }
     }
 
+    public partial class LocalChangeResult
+    {
+        [JsonPropertyName("disposition")]
+        public LocalChangeDisposition Disposition { get; set; }
+
+        [JsonPropertyName("submittedChangeId")]
+        public Guid SubmittedChangeId { get; set; }
+    }
+
+    public partial class LocalChangeDisposition
+    {
+        [JsonPropertyName("payload")]
+        public LocalChangeDispositionPayload Payload { get; set; }
+
+        [JsonPropertyName("status")]
+        public LocalChangeDispositionStatus Status { get; set; }
+    }
+
+    public partial class LocalChangeDispositionPayload
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("authoritativeChange")]
+        public ChangeRecord AuthoritativeChange { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("conflictId")]
+        public Guid? ConflictId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("reason")]
+        public string Reason { get; set; }
+    }
+
     public partial class SyncNegotiation
     {
         [JsonPropertyName("checkpoint")]
@@ -2776,6 +2847,15 @@ namespace Eitmad.Contracts
         public string Reason { get; set; }
     }
 
+    /// <summary>
+    /// One local-first change submitted over the shared authenticated route.
+    /// </summary>
+    public partial class LocalChangeSubmission
+    {
+        [JsonPropertyName("change")]
+        public ChangeRecord Change { get; set; }
+    }
+
     public partial class UpdateCheckOutcomeClass
     {
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -2861,7 +2941,7 @@ namespace Eitmad.Contracts
 
     public enum CustomerStatus { Active, Archived, Merged };
 
-    public enum ErSyncState { Confirmed, Pending };
+    public enum CustomerSyncState { Confirmed, Conflicted, Pending, Rejected };
 
     public enum RestartRequirement { Application, Engine, None };
 
@@ -2872,6 +2952,8 @@ namespace Eitmad.Contracts
     public enum UpdateStateKind { Available, Checking, Downloading, Failed, Idle, InstallationHandoff, Installing, Paused, Preflight, Ready, RecoveryRequired, Revoked, Succeeded, Verifying };
 
     public enum DesktopAccountRole { Manager, Receptionist };
+
+    public enum ReferenceMarkerSyncState { Confirmed, Pending };
 
     public enum RetryDispositionKind { Never, SafeAfterDelay, SafeImmediately };
 
@@ -2930,6 +3012,8 @@ namespace Eitmad.Contracts
     public enum SubscriptionCloseReason { AuthorizationRevoked, Backpressure, ClientRequested, EngineStopping };
 
     public enum MergeStrategy { DomainMerge, KeepLocal, KeepRemote };
+
+    public enum LocalChangeDispositionStatus { Applied, Conflicted, Rejected, Replayed };
 
     public enum SyncMode { LocalFirst, ServerAuthoritative };
 
@@ -3008,13 +3092,14 @@ namespace Eitmad.Contracts
                 ErrorParameterValueKindConverter.Singleton,
                 ErrorParameterValueValueConverter.Singleton,
                 CustomerStatusConverter.Singleton,
-                ErSyncStateConverter.Singleton,
+                CustomerSyncStateConverter.Singleton,
                 RestartRequirementConverter.Singleton,
                 ConfigSensitivityConverter.Singleton,
                 ConfigReadValueKindConverter.Singleton,
                 ConfigReadValueValueConverter.Singleton,
                 UpdateStateKindConverter.Singleton,
                 DesktopAccountRoleConverter.Singleton,
+                ReferenceMarkerSyncStateConverter.Singleton,
                 RetryDispositionKindConverter.Singleton,
                 CommandOutcomeStatusConverter.Singleton,
                 HealthCheckImpactConverter.Singleton,
@@ -3044,6 +3129,7 @@ namespace Eitmad.Contracts
                 FluffyKindConverter.Singleton,
                 SubscriptionCloseReasonConverter.Singleton,
                 MergeStrategyConverter.Singleton,
+                LocalChangeDispositionStatusConverter.Singleton,
                 SyncModeConverter.Singleton,
                 CommandDispositionStatusConverter.Singleton,
                 UpdateCheckOutcomeConverter.Singleton,
@@ -3661,38 +3747,48 @@ namespace Eitmad.Contracts
         public static readonly CustomerStatusConverter Singleton = new CustomerStatusConverter();
     }
 
-    internal class ErSyncStateConverter : JsonConverter<ErSyncState>
+    internal class CustomerSyncStateConverter : JsonConverter<CustomerSyncState>
     {
-        public override bool CanConvert(Type t) => t == typeof(ErSyncState);
+        public override bool CanConvert(Type t) => t == typeof(CustomerSyncState);
 
-        public override ErSyncState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        public override CustomerSyncState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
             var value = reader.GetString();
             switch (value)
             {
                 case "confirmed":
-                    return ErSyncState.Confirmed;
+                    return CustomerSyncState.Confirmed;
+                case "conflicted":
+                    return CustomerSyncState.Conflicted;
                 case "pending":
-                    return ErSyncState.Pending;
+                    return CustomerSyncState.Pending;
+                case "rejected":
+                    return CustomerSyncState.Rejected;
             }
-            throw new Exception("Cannot unmarshal type ErSyncState");
+            throw new Exception("Cannot unmarshal type CustomerSyncState");
         }
 
-        public override void Write(Utf8JsonWriter writer, ErSyncState value, JsonSerializerOptions options)
+        public override void Write(Utf8JsonWriter writer, CustomerSyncState value, JsonSerializerOptions options)
         {
             switch (value)
             {
-                case ErSyncState.Confirmed:
+                case CustomerSyncState.Confirmed:
                     JsonSerializer.Serialize(writer, "confirmed", options);
                     return;
-                case ErSyncState.Pending:
+                case CustomerSyncState.Conflicted:
+                    JsonSerializer.Serialize(writer, "conflicted", options);
+                    return;
+                case CustomerSyncState.Pending:
                     JsonSerializer.Serialize(writer, "pending", options);
                     return;
+                case CustomerSyncState.Rejected:
+                    JsonSerializer.Serialize(writer, "rejected", options);
+                    return;
             }
-            throw new Exception("Cannot marshal type ErSyncState");
+            throw new Exception("Cannot marshal type CustomerSyncState");
         }
 
-        public static readonly ErSyncStateConverter Singleton = new ErSyncStateConverter();
+        public static readonly CustomerSyncStateConverter Singleton = new CustomerSyncStateConverter();
     }
 
     internal class RestartRequirementConverter : JsonConverter<RestartRequirement>
@@ -4011,6 +4107,40 @@ namespace Eitmad.Contracts
         }
 
         public static readonly DesktopAccountRoleConverter Singleton = new DesktopAccountRoleConverter();
+    }
+
+    internal class ReferenceMarkerSyncStateConverter : JsonConverter<ReferenceMarkerSyncState>
+    {
+        public override bool CanConvert(Type t) => t == typeof(ReferenceMarkerSyncState);
+
+        public override ReferenceMarkerSyncState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "confirmed":
+                    return ReferenceMarkerSyncState.Confirmed;
+                case "pending":
+                    return ReferenceMarkerSyncState.Pending;
+            }
+            throw new Exception("Cannot unmarshal type ReferenceMarkerSyncState");
+        }
+
+        public override void Write(Utf8JsonWriter writer, ReferenceMarkerSyncState value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case ReferenceMarkerSyncState.Confirmed:
+                    JsonSerializer.Serialize(writer, "confirmed", options);
+                    return;
+                case ReferenceMarkerSyncState.Pending:
+                    JsonSerializer.Serialize(writer, "pending", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type ReferenceMarkerSyncState");
+        }
+
+        public static readonly ReferenceMarkerSyncStateConverter Singleton = new ReferenceMarkerSyncStateConverter();
     }
 
     internal class RetryDispositionKindConverter : JsonConverter<RetryDispositionKind>
@@ -5222,6 +5352,50 @@ namespace Eitmad.Contracts
         }
 
         public static readonly MergeStrategyConverter Singleton = new MergeStrategyConverter();
+    }
+
+    internal class LocalChangeDispositionStatusConverter : JsonConverter<LocalChangeDispositionStatus>
+    {
+        public override bool CanConvert(Type t) => t == typeof(LocalChangeDispositionStatus);
+
+        public override LocalChangeDispositionStatus Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "applied":
+                    return LocalChangeDispositionStatus.Applied;
+                case "conflicted":
+                    return LocalChangeDispositionStatus.Conflicted;
+                case "rejected":
+                    return LocalChangeDispositionStatus.Rejected;
+                case "replayed":
+                    return LocalChangeDispositionStatus.Replayed;
+            }
+            throw new Exception("Cannot unmarshal type LocalChangeDispositionStatus");
+        }
+
+        public override void Write(Utf8JsonWriter writer, LocalChangeDispositionStatus value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case LocalChangeDispositionStatus.Applied:
+                    JsonSerializer.Serialize(writer, "applied", options);
+                    return;
+                case LocalChangeDispositionStatus.Conflicted:
+                    JsonSerializer.Serialize(writer, "conflicted", options);
+                    return;
+                case LocalChangeDispositionStatus.Rejected:
+                    JsonSerializer.Serialize(writer, "rejected", options);
+                    return;
+                case LocalChangeDispositionStatus.Replayed:
+                    JsonSerializer.Serialize(writer, "replayed", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type LocalChangeDispositionStatus");
+        }
+
+        public static readonly LocalChangeDispositionStatusConverter Singleton = new LocalChangeDispositionStatusConverter();
     }
 
     internal class SyncModeConverter : JsonConverter<SyncMode>

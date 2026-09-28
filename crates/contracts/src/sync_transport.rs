@@ -30,10 +30,20 @@ pub struct SyncCancellation {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", content = "payload", rename_all = "camelCase")]
 pub enum SyncTransportPayload {
-    Message(SyncMessage),
+    Message(Box<SyncMessage>),
     Cancel(SyncCancellation),
     Heartbeat { sent_at: UnixMillis },
     HeartbeatAcknowledged { sent_at: UnixMillis },
+}
+
+impl SyncTransportPayload {
+    #[must_use]
+    pub fn as_message(&self) -> Option<&SyncMessage> {
+        match self {
+            Self::Message(message) => Some(message.as_ref()),
+            _ => None,
+        }
+    }
 }
 
 /// One transport-independent sync frame used by simulation, LAN, and WAN links.
@@ -67,10 +77,10 @@ mod tests {
             stream_id: SyncStreamId::new(Uuid::from_u128(4)),
             sequence: 7,
             end_of_stream: true,
-            payload: SyncTransportPayload::Message(SyncMessage::Pull(PullRequest {
+            payload: SyncTransportPayload::Message(Box::new(SyncMessage::Pull(PullRequest {
                 after: None,
                 maximum_records: 100,
-            })),
+            }))),
         };
 
         let value = serde_json::to_value(&frame).unwrap();

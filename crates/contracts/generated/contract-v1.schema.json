@@ -72,6 +72,12 @@
     "query_response": {
       "$ref": "#/definitions/QueryResponseEnvelope"
     },
+    "register_branch_request": {
+      "$ref": "#/definitions/RegisterBranchRequest"
+    },
+    "registered_branch": {
+      "$ref": "#/definitions/RegisteredBranch"
+    },
     "relay_failure": {
       "$ref": "#/definitions/RelayFailureReport"
     },
@@ -127,6 +133,8 @@
     "sync_transport_frame",
     "server_client_message",
     "server_message",
+    "register_branch_request",
+    "registered_branch",
     "relay_session",
     "relay_failure",
     "relay_health",
@@ -1613,7 +1621,9 @@
       "type": "string",
       "enum": [
         "pending",
-        "confirmed"
+        "confirmed",
+        "rejected",
+        "conflicted"
       ]
     },
     "DataClassification": {
@@ -3212,6 +3222,135 @@
         "limit"
       ]
     },
+    "LocalChangeDisposition": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "payload": {
+              "type": "object",
+              "properties": {
+                "authoritativeChange": {
+                  "$ref": "#/definitions/ChangeRecord"
+                }
+              },
+              "required": [
+                "authoritativeChange"
+              ]
+            },
+            "status": {
+              "type": "string",
+              "const": "applied"
+            }
+          },
+          "required": [
+            "status",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "payload": {
+              "type": "object",
+              "properties": {
+                "authoritativeChange": {
+                  "$ref": "#/definitions/ChangeRecord"
+                }
+              },
+              "required": [
+                "authoritativeChange"
+              ]
+            },
+            "status": {
+              "type": "string",
+              "const": "replayed"
+            }
+          },
+          "required": [
+            "status",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "payload": {
+              "type": "object",
+              "properties": {
+                "conflictId": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "required": [
+                "conflictId"
+              ]
+            },
+            "status": {
+              "type": "string",
+              "const": "conflicted"
+            }
+          },
+          "required": [
+            "status",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "payload": {
+              "type": "object",
+              "properties": {
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "reason"
+              ]
+            },
+            "status": {
+              "type": "string",
+              "const": "rejected"
+            }
+          },
+          "required": [
+            "status",
+            "payload"
+          ]
+        }
+      ]
+    },
+    "LocalChangeResult": {
+      "type": "object",
+      "properties": {
+        "disposition": {
+          "$ref": "#/definitions/LocalChangeDisposition"
+        },
+        "submittedChangeId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "submittedChangeId",
+        "disposition"
+      ]
+    },
+    "LocalChangeSubmission": {
+      "description": "One local-first change submitted over the shared authenticated route.",
+      "type": "object",
+      "properties": {
+        "change": {
+          "$ref": "#/definitions/ChangeRecord"
+        }
+      },
+      "required": [
+        "change"
+      ]
+    },
     "MergeMetadata": {
       "type": "object",
       "properties": {
@@ -4365,6 +4504,46 @@
       "enum": [
         "pending",
         "confirmed"
+      ]
+    },
+    "RegisterBranchRequest": {
+      "description": "Rust-owned branch identity registered by a tenant owner.",
+      "type": "object",
+      "properties": {
+        "branchId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "organizationId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "organizationId",
+        "branchId"
+      ]
+    },
+    "RegisteredBranch": {
+      "type": "object",
+      "properties": {
+        "branchId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "organizationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "tenantId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "tenantId",
+        "organizationId",
+        "branchId"
       ]
     },
     "RelationshipMutationResult": {
@@ -5906,6 +6085,38 @@
             },
             "payload": {
               "$ref": "#/definitions/ChangeBatch"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.sync.submit-local.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/LocalChangeSubmission"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.sync.local-result.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/LocalChangeResult"
             }
           },
           "required": [
