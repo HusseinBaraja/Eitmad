@@ -890,6 +890,8 @@ async fn handle_sync_frame(
     match frame.payload {
         SyncTransportPayload::Message(SyncMessage::SubmitLocal(submission)) => {
             let change = submission.change;
+            let submitted_change_id = change.change_id;
+            let disposition;
             if change.scope != *context.scope
                 || change.revision == 0
                 || change.base_revision.unwrap_or(0).checked_add(1) != Some(change.revision)
@@ -898,54 +900,40 @@ async fn handle_sync_frame(
                         || payload.schema_version != context.schema_version
                 })
             {
-                return Err(ApiError::bad_request("eitmad.error.contract-invalid.v1"));
-            }
-            let submitted_change_id = change.change_id;
-            let outcome = state
-                .sync
-                .apply_local_operation(
-                    context.session,
-                    &LocalOperationDraft {
-                        change_id: change.change_id,
-                        scope: change.scope,
-                        schema_id: context.schema_id.clone(),
-                        schema_version: context.schema_version,
-                        record_id: change.record_id,
-                        operation: change.operation,
-                        base_revision: change.base_revision,
-                        idempotency_key: change.idempotency_key,
-                        payload: change.payload,
-                    },
-                    frame.correlation_id,
-                    unix_millis_now(),
-                )
-                .await;
-            let disposition = match outcome {
-                Ok(OperationResult::Applied { change }) => LocalChangeDisposition::Applied {
-                    authoritative_change: *change,
-                },
-                Ok(OperationResult::Replayed { change }) => LocalChangeDisposition::Replayed {
-                    authoritative_change: *change,
-                },
-                Ok(OperationResult::ConflictRecorded { conflict_id }) => {
-                    LocalChangeDisposition::Conflicted { conflict_id }
-                }
-                Err(OperationError::Denied) => LocalChangeDisposition::Rejected {
-                    reason: eitmad_contracts::sync::ErrorCodeRef::parse(
-                        "eitmad.error.authorization-denied.v1",
+                disposition = rejected_local_change("eitmad.error.contract-invalid.v1");
+            } else {
+                let outcome = state
+                    .sync
+                    .apply_local_operation(
+                        context.session,
+                        &LocalOperationDraft {
+                            change_id: change.change_id,
+                            scope: change.scope,
+                            schema_id: context.schema_id.clone(),
+                            schema_version: context.schema_version,
+                            record_id: change.record_id,
+                            operation: change.operation,
+                            base_revision: change.base_revision,
+                            idempotency_key: change.idempotency_key,
+                            payload: change.payload,
+                        },
+                        frame.correlation_id,
+                        unix_millis_now(),
                     )
-                    .expect("static sync error"),
-                },
-                Err(OperationError::Invalid | OperationError::WrongMode) => {
-                    LocalChangeDisposition::Rejected {
-                        reason: eitmad_contracts::sync::ErrorCodeRef::parse(
-                            "eitmad.error.contract-invalid.v1",
-                        )
-                        .expect("static sync error"),
+                    .await;
+                disposition = match outcome {
+                    Ok(OperationResult::Applied { change }) => LocalChangeDisposition::Applied {
+                        authoritative_change: *change,
+                    },
+                    Ok(OperationResult::Replayed { change }) => LocalChangeDisposition::Replayed {
+                        authoritative_change: *change,
+                    },
+                    Ok(OperationResult::ConflictRecorded { conflict_id }) => {
+                        LocalChangeDisposition::Conflicted { conflict_id }
                     }
-                }
-                Err(error) => return Err(map_operation(error)),
-            };
+                    Err(error) => local_submission_error(error)?,
+                };
+            }
             send_server_message(
                 socket,
                 &ServerMessage::Sync(SyncMessage::LocalResult(LocalChangeResult {
@@ -1015,6 +1003,26 @@ async fn handle_sync_frame(
         }
         _ => Err(ApiError::bad_request("eitmad.error.contract-invalid.v1")),
     }
+}
+
+fn rejected_local_change(reason: &'static str) -> LocalChangeDisposition {
+    LocalChangeDisposition::Rejected {
+        reason: eitmad_contracts::sync::ErrorCodeRef::parse(reason).expect("static sync error"),
+    }
+}
+
+fn local_submission_error(error: OperationError) -> Result<LocalChangeDisposition, ApiError> {
+    let code = match error {
+        OperationError::Denied => "eitmad.error.authorization-denied.v1",
+        OperationError::Invalid | OperationError::WrongMode => "eitmad.error.contract-invalid.v1",
+        OperationError::IdempotencyMismatch => "eitmad.error.server-idempotency-mismatch.v1",
+        OperationError::UnknownRecord | OperationError::SnapshotRequired => {
+            "eitmad.error.server-snapshot-required.v1"
+        }
+        OperationError::UnknownDomain => "eitmad.error.server-client-incompatible.v1",
+        OperationError::Unavailable => return Err(ApiError::unavailable()),
+    };
+    Ok(rejected_local_change(code))
 }
 
 async fn send_snapshot(

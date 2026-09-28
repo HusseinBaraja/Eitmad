@@ -124,6 +124,7 @@ The combined host exposes:
 | `POST /v1/auth/activate` | Invitation activation and initial token issue |
 | `POST /v1/auth/login` | Password and device-proof authentication |
 | `POST /v1/auth/refresh` | Refresh rotation with device proof |
+| `POST /v1/customer-branches` | Owner-authorized branch registration |
 | `GET /v1/update-assignment` | Authorized effective channel query |
 | `POST /v1/updates/check` | Authorized signed-manifest eligibility and package selection |
 | `POST /v1/admin/update-manifests` | Owner-authorized signed-manifest publication |

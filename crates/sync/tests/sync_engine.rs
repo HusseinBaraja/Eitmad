@@ -214,6 +214,50 @@ fn committed_domain_change_replays_after_restart_without_a_second_queue_entry() 
 }
 
 #[test]
+fn held_domain_change_frees_queue_capacity_and_does_not_create_a_second_conflict() {
+    let fixture = Fixture::new();
+    let held = record(52, 72, 92, 1, None, "عميل مرفوض");
+    let remote = record(53, 72, 93, 2, Some(1), "عميل مؤكد");
+    let mut engine = fixture.engine(SyncMode::LocalFirst, true);
+    engine
+        .stage_committed_local_change(&fixture.actor, &fixture.request, &audit(54), held.clone())
+        .unwrap();
+    engine
+        .hold_committed_local_change(&fixture.actor, &fixture.request, &audit(55), held.change_id)
+        .unwrap();
+    assert!(engine.pending_changes().is_empty());
+    assert!(!matches!(
+        engine.status(),
+        eitmad_contracts::sync::SyncStatus::Queued { .. }
+    ));
+    drop(engine);
+
+    let mut reopened = fixture.engine(SyncMode::LocalFirst, true);
+    assert!(reopened.pending_changes().is_empty());
+    assert_eq!(
+        reopened
+            .stage_committed_local_change(
+                &fixture.actor,
+                &fixture.request,
+                &audit(56),
+                held.clone()
+            )
+            .unwrap(),
+        LocalChangeOutcome::Replayed(held)
+    );
+    connect(&mut reopened, &fixture, SyncMode::LocalFirst, 157);
+    reopened
+        .reconcile(
+            &fixture.actor,
+            &fixture.request,
+            &audit(57),
+            &delivery(58, 59, 60, vec![remote], None, Vec::new(), 100),
+        )
+        .unwrap();
+    assert!(reopened.conflicts().is_empty());
+}
+
+#[test]
 fn reconnect_acknowledges_offline_change_and_advances_checkpoint() {
     let fixture = Fixture::new();
     let mut engine = fixture.engine(SyncMode::LocalFirst, true);

@@ -129,6 +129,14 @@ impl<T: SyncTransport> CustomerSyncCycle<'_, T> {
                 LocalChangeDisposition::Rejected { .. } => Some(CustomerSyncState::Rejected),
             };
             if let Some(state) = exception {
+                // Dequeue first: if the customer status write fails, the durable
+                // outbox retries this submission on the next cycle.
+                self.engine.hold_committed_local_change(
+                    self.actor,
+                    self.request,
+                    self.audit,
+                    change.change_id,
+                )?;
                 self.customers.mark_sync_exception(
                     self.actor,
                     CustomerId::new(change.record_id.value()),

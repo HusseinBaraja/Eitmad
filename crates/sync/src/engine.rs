@@ -579,6 +579,42 @@ impl SyncEngine {
         Ok(LocalChangeOutcome::Queued(change))
     }
 
+    /// Removes a server-held domain change from the shared queue. Its domain
+    /// outbox and exception record remain the authority for later resolution.
+    ///
+    /// # Errors
+    ///
+    /// Rejects unauthorized, cross-scope, or absent pending changes.
+    pub fn hold_committed_local_change(
+        &mut self,
+        actor: &AuthorizationContext,
+        request: &AuthorizationRequest,
+        audit: &BoundaryAuditContext,
+        change_id: ChangeId,
+    ) -> Result<(), SyncEngineError> {
+        if self.state.metadata.mode != SyncMode::LocalFirst {
+            return Err(SyncEngineError::WrongMode);
+        }
+        self.validate_actor(actor)?;
+        self.authorization
+            .authorize(actor, request, audit)
+            .map_err(SyncEngineError::Authorization)?;
+        let index = self
+            .state
+            .pending_changes
+            .iter()
+            .position(|change| change.change_id == change_id)
+            .ok_or(SyncEngineError::InvalidChange)?;
+        let previous = self.state.clone();
+        let change = self.state.pending_changes.remove(index);
+        let mut mutation_audit = audit_record(actor, audit, Some(change.idempotency_key));
+        mutation_audit.changed_identifiers = vec!["pendingChanges".to_owned()];
+        self.persist(&mutation_audit)
+            .inspect_err(|_| self.state = previous)?;
+        self.events.push(SyncEvent::StatusChanged(self.status()));
+        Ok(())
+    }
+
     /// Queues one authorized server command and optionally exposes optimistic state.
     ///
     /// # Errors
