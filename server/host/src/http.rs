@@ -26,10 +26,10 @@ use eitmad_contracts::{
     },
     server::{
         ActivateAccountRequest, AuthenticationResult, DeviceProof, EffectiveUpdateAssignment,
-        LoginRequest, RefreshRequest, ServerClientMessage, ServerErrorCode, ServerFailure,
-        ServerMessage,
+        LoginRequest, RefreshRequest, RegisterBranchRequest, RegisteredBranch, ServerClientMessage,
+        ServerErrorCode, ServerFailure, ServerMessage,
     },
-    sync::{SnapshotCompletion, SyncMessage},
+    sync::{LocalChangeDisposition, LocalChangeResult, SnapshotCompletion, SyncMessage},
     sync_transport::SyncTransportPayload,
     transport::{CapabilityId, CorrelationId, SchemaId},
     updates::{ReleaseVersion, SignedUpdateManifest, UpdateCheckOutcome, UpdateClientProfile},
@@ -39,10 +39,13 @@ use eitmad_contracts::{
     },
 };
 use eitmad_control_plane::{
-    AuthenticationError, ControlPlane, UpdateAssignmentError, unix_millis_now,
+    AuthenticationError, BranchError, ControlPlane, UpdateAssignmentError, unix_millis_now,
 };
 use eitmad_relay_plane::{RelayCoordinator, RelayError};
-use eitmad_sync_plane::{OperationError, SnapshotError, SubscriptionError, SyncCoordinator};
+use eitmad_sync_plane::{
+    LocalOperationDraft, OperationError, OperationResult, SnapshotError, SubscriptionError,
+    SyncCoordinator,
+};
 use eitmad_update_plane::{UpdateCatalog, UpdatePlaneError};
 use serde::Deserialize;
 use uuid::Uuid;
@@ -110,6 +113,7 @@ pub fn router(state: ServerState) -> Router {
         .route("/v1/auth/activate", post(activate))
         .route("/v1/auth/login", post(login))
         .route("/v1/auth/refresh", post(refresh))
+        .route("/v1/customer-branches", post(register_customer_branch))
         .route("/v1/update-assignment", get(update_assignment))
         .route("/v1/updates/check", post(check_update))
         .route("/v1/admin/update-manifests", post(publish_update_manifest))
@@ -238,6 +242,30 @@ async fn refresh(
         .await
         .map(Json)
         .map_err(ApiError::authentication)
+}
+
+async fn register_customer_branch(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(request): Json<RegisterBranchRequest>,
+) -> Result<Json<RegisteredBranch>, ApiError> {
+    let session = authenticate_negotiated(
+        &state,
+        &headers,
+        "eitmad.capability.server-administration.v1",
+    )
+    .await?;
+    state
+        .control
+        .branches
+        .register(&session, &request, new_correlation_id(), unix_millis_now())
+        .await
+        .map(Json)
+        .map_err(|error| match error {
+            BranchError::Denied => ApiError::forbidden("eitmad.error.authorization-denied.v1"),
+            BranchError::Invalid => ApiError::bad_request("eitmad.error.contract-invalid.v1"),
+            BranchError::Unavailable => ApiError::unavailable(),
+        })
 }
 
 #[derive(Deserialize)]
@@ -860,6 +888,74 @@ async fn handle_sync_frame(
     frame: eitmad_contracts::sync_transport::SyncTransportFrame,
 ) -> Result<(), ApiError> {
     match frame.payload {
+        SyncTransportPayload::Message(SyncMessage::SubmitLocal(submission)) => {
+            let change = submission.change;
+            if change.scope != *context.scope
+                || change.revision == 0
+                || change.base_revision.unwrap_or(0).checked_add(1) != Some(change.revision)
+                || change.payload.as_ref().is_none_or(|payload| {
+                    payload.schema_id != *context.schema_id
+                        || payload.schema_version != context.schema_version
+                })
+            {
+                return Err(ApiError::bad_request("eitmad.error.contract-invalid.v1"));
+            }
+            let submitted_change_id = change.change_id;
+            let outcome = state
+                .sync
+                .apply_local_operation(
+                    context.session,
+                    &LocalOperationDraft {
+                        change_id: change.change_id,
+                        scope: change.scope,
+                        schema_id: context.schema_id.clone(),
+                        schema_version: context.schema_version,
+                        record_id: change.record_id,
+                        operation: change.operation,
+                        base_revision: change.base_revision,
+                        idempotency_key: change.idempotency_key,
+                        payload: change.payload,
+                    },
+                    frame.correlation_id,
+                    unix_millis_now(),
+                )
+                .await;
+            let disposition = match outcome {
+                Ok(OperationResult::Applied { change }) => LocalChangeDisposition::Applied {
+                    authoritative_change: *change,
+                },
+                Ok(OperationResult::Replayed { change }) => LocalChangeDisposition::Replayed {
+                    authoritative_change: *change,
+                },
+                Ok(OperationResult::ConflictRecorded { conflict_id }) => {
+                    LocalChangeDisposition::Conflicted { conflict_id }
+                }
+                Err(OperationError::Denied) => LocalChangeDisposition::Rejected {
+                    reason: eitmad_contracts::sync::ErrorCodeRef::parse(
+                        "eitmad.error.authorization-denied.v1",
+                    )
+                    .expect("static sync error"),
+                },
+                Err(OperationError::Invalid | OperationError::WrongMode) => {
+                    LocalChangeDisposition::Rejected {
+                        reason: eitmad_contracts::sync::ErrorCodeRef::parse(
+                            "eitmad.error.contract-invalid.v1",
+                        )
+                        .expect("static sync error"),
+                    }
+                }
+                Err(error) => return Err(map_operation(error)),
+            };
+            send_server_message(
+                socket,
+                &ServerMessage::Sync(SyncMessage::LocalResult(LocalChangeResult {
+                    submitted_change_id,
+                    disposition,
+                })),
+            )
+            .await
+            .map_err(|()| ApiError::unavailable())
+        }
         SyncTransportPayload::Message(SyncMessage::Pull(request)) => match state
             .sync
             .pull(eitmad_sync_plane::PullPageRequest {

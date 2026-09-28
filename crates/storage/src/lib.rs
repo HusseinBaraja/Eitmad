@@ -26,7 +26,9 @@ use std::process::Command;
 
 pub use authorization::{RelationshipCommitOutcome, RelationshipPageData};
 pub use configuration::{ConfigurationCommitOutcome, StoredConfiguration};
-pub use customer::{CustomerCommit, CustomerCommitOutcome, MAX_CUSTOMER_SYNC_BATCH};
+pub use customer::{
+    CustomerCommit, CustomerCommitOutcome, CustomerSyncProjection, MAX_CUSTOMER_SYNC_BATCH,
+};
 pub use desktop_auth::{
     DesktopAccount, DesktopAccountCommitOutcome, DesktopAccountMutation, DesktopRole,
     canonical_desktop_username,
@@ -47,7 +49,7 @@ use rusqlite::{Connection, OpenFlags, OptionalExtension as _, TransactionBehavio
 pub use sync_state::{StoredSyncState, SyncStateCommitOutcome};
 
 pub const DATABASE_FILE_NAME: &str = "eitmad.sqlite3";
-pub const CURRENT_STORAGE_VERSION: u32 = 13;
+pub const CURRENT_STORAGE_VERSION: u32 = 14;
 pub const MIN_SUPPORTED_STORAGE_VERSION: u32 = 2;
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 pub const MAX_PUBLICATION_RECOVERY_PAGE: u32 = 64;

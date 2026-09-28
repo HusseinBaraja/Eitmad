@@ -372,6 +372,49 @@ impl SyncEngine {
         }
     }
 
+    /// Records a session already negotiated by the authenticated sync transport.
+    ///
+    /// # Errors
+    ///
+    /// Rejects a wrong mode, missing requested schema, or unauthorized scope.
+    pub fn connect_negotiated(
+        &mut self,
+        actor: &AuthorizationContext,
+        request: &AuthorizationRequest,
+        audit: &BoundaryAuditContext,
+        session: &NegotiatedSession,
+        remote_mode: SyncMode,
+        schema_id: &SchemaId,
+        schema_version: u32,
+    ) -> Result<(), SyncEngineError> {
+        self.validate_actor(actor)?;
+        self.authorization
+            .authorize(actor, request, audit)
+            .map_err(SyncEngineError::Authorization)?;
+        if remote_mode != self.state.metadata.mode {
+            return Err(SyncEngineError::IncompatibleMode);
+        }
+        if !session
+            .schemas
+            .iter()
+            .any(|schema| &schema.schema_id == schema_id && schema.version == schema_version)
+        {
+            return Err(SyncEngineError::IncompatiblePeer(
+                NegotiationRejection::IncompatibleSchema {
+                    schema_id: schema_id.clone(),
+                },
+            ));
+        }
+        let previous = self.state.clone();
+        self.state.metadata.connection = ConnectionState::Connected;
+        let mutation_audit = audit_record(actor, audit, None);
+        self.persist(&mutation_audit)
+            .inspect_err(|_| self.state = previous)?;
+        self.events
+            .push(SyncEvent::ConnectionChanged(ConnectionState::Connected));
+        Ok(())
+    }
+
     /// Marks transport loss while preserving durable local work and queues.
     ///
     /// # Errors
@@ -469,6 +512,71 @@ impl SyncEngine {
             .push(SyncEvent::LocalChangeQueued(record.clone()));
         self.events.push(SyncEvent::StatusChanged(self.status()));
         Ok(LocalChangeOutcome::Queued(record))
+    }
+
+    /// Stages a domain change already committed with its own durable outbox.
+    /// Replaying the same change after a crash leaves the shared queue intact.
+    ///
+    /// # Errors
+    ///
+    /// Fails on unauthorized, cross-scope, out-of-order, or changed replay data.
+    pub fn stage_committed_local_change(
+        &mut self,
+        actor: &AuthorizationContext,
+        request: &AuthorizationRequest,
+        audit: &BoundaryAuditContext,
+        change: ChangeRecord,
+    ) -> Result<LocalChangeOutcome, SyncEngineError> {
+        if self.state.metadata.mode != SyncMode::LocalFirst {
+            return Err(SyncEngineError::WrongMode);
+        }
+        self.validate_actor(actor)?;
+        self.validate_record(&change)?;
+        validate_operation(change.operation, change.payload.as_ref())?;
+        self.authorization
+            .authorize(actor, request, audit)
+            .map_err(SyncEngineError::Authorization)?;
+        if let Some(replay) = self.state.local_replays.get(&change.idempotency_key) {
+            return if replay.value == change {
+                Ok(LocalChangeOutcome::Replayed(replay.value.clone()))
+            } else {
+                Err(SyncEngineError::IdempotencyMismatch)
+            };
+        }
+        if self.state.pending_changes.len() >= MAX_PENDING_SYNC_CHANGES {
+            return Err(SyncEngineError::QueueFull);
+        }
+        let current_revision = self
+            .state
+            .records
+            .get(&change.record_id)
+            .map(|item| item.revision);
+        if change.base_revision != current_revision
+            || change.base_revision.unwrap_or(0).checked_add(1) != Some(change.revision)
+        {
+            return Err(SyncEngineError::InvalidChange);
+        }
+        let mut fingerprint = StableFingerprint::new("eitmad.sync.committed-local-fingerprint.v1");
+        fingerprint.field("change", &change)?;
+        let previous = self.state.clone();
+        self.state.records.insert(change.record_id, change.clone());
+        self.state.pending_changes.push(change.clone());
+        self.state.local_replays.insert(
+            change.idempotency_key,
+            Replay {
+                fingerprint: fingerprint.finish(),
+                retained_at: change.changed_at,
+                value: change.clone(),
+            },
+        );
+        self.prune_replay_history();
+        let mutation_audit = audit_record(actor, audit, Some(change.idempotency_key));
+        self.persist(&mutation_audit)
+            .inspect_err(|_| self.state = previous)?;
+        self.events
+            .push(SyncEvent::LocalChangeQueued(change.clone()));
+        self.events.push(SyncEvent::StatusChanged(self.status()));
+        Ok(LocalChangeOutcome::Queued(change))
     }
 
     /// Queues one authorized server command and optionally exposes optimistic state.

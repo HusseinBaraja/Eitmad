@@ -274,6 +274,8 @@ pub enum CustomerStatus {
 pub enum CustomerSyncState {
     Pending,
     Confirmed,
+    Rejected,
+    Conflicted,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -289,6 +291,18 @@ pub struct Customer {
     pub revision: u64,
     pub updated_at: UnixMillis,
     pub sync_state: CustomerSyncState,
+}
+
+/// Version 1 contact payload carried by the shared sync protocol.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CustomerSyncPayload {
+    pub customer_id: CustomerId,
+    pub name: CustomerName,
+    pub phone: CustomerPhone,
+    pub address: Option<CustomerAddress>,
+    pub notes: Option<CustomerNotes>,
+    pub revision: u64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]

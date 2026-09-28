@@ -3,6 +3,7 @@ use sha2::{Digest as _, Sha256};
 use sqlx::{PgPool, Postgres, Row as _, Transaction, postgres::PgPoolOptions};
 
 const FOUNDATION_SQL: &str = include_str!("../migrations/0001_control_foundation.sql");
+const CUSTOMER_BRANCHES_SQL: &str = include_str!("../migrations/0005_customer_branches.sql");
 
 #[derive(Clone)]
 pub struct ControlDatabase {
@@ -84,6 +85,31 @@ impl ControlDatabase {
                  VALUES (1, 'server.control-foundation.v1', $1)",
             )
             .bind(checksum)
+            .execute(&mut *transaction)
+            .await
+            .map_err(ControlDatabaseError::Migration)?;
+        }
+        let branch_checksum = format!("{:x}", Sha256::digest(CUSTOMER_BRANCHES_SQL.as_bytes()));
+        let existing =
+            sqlx::query("SELECT checksum FROM public.eitmad_server_migrations WHERE version = 5")
+                .fetch_optional(&mut *transaction)
+                .await
+                .map_err(ControlDatabaseError::Migration)?;
+        if let Some(existing) = existing {
+            if existing.get::<String, _>("checksum") != branch_checksum {
+                return Err(ControlDatabaseError::MigrationChecksum);
+            }
+        } else {
+            sqlx::raw_sql(CUSTOMER_BRANCHES_SQL)
+                .execute(&mut *transaction)
+                .await
+                .map_err(ControlDatabaseError::Migration)?;
+            sqlx::query(
+                "INSERT INTO public.eitmad_server_migrations
+                    (version, migration_id, checksum)
+                 VALUES (5, 'server.customer-branches.v1', $1)",
+            )
+            .bind(branch_checksum)
             .execute(&mut *transaction)
             .await
             .map_err(ControlDatabaseError::Migration)?;

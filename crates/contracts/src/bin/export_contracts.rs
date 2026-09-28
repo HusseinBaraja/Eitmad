@@ -27,7 +27,7 @@ use eitmad_contracts::{
     queries::{GetConfiguration, Query, QueryResult},
     relay::{RelayFailureReport, RelayHealth, RelaySessionMetadata},
     runtime::{DiagnosticReport, LifecycleSnapshot},
-    server::{ServerClientMessage, ServerMessage},
+    server::{RegisterBranchRequest, RegisteredBranch, ServerClientMessage, ServerMessage},
     sync::{SyncMessage, SyncStatus},
     sync_transport::SyncTransportFrame,
     transport::{
@@ -59,6 +59,8 @@ struct ContractSchemaRoot {
     sync_transport_frame: SyncTransportFrame,
     server_client_message: ServerClientMessage,
     server_message: ServerMessage,
+    register_branch_request: RegisterBranchRequest,
+    registered_branch: RegisteredBranch,
     relay_session: RelaySessionMetadata,
     relay_failure: RelayFailureReport,
     relay_health: RelayHealth,

@@ -633,7 +633,9 @@ impl SyncCoordinator {
         let mut transaction = tenant_transaction(&self.pool, session.tenant_id)
             .await
             .map_err(|_| OperationError::Unavailable)?;
-        let after_sequence = if let Some(checkpoint) = after {
+        let after_sequence = if after.is_some_and(|checkpoint| checkpoint.value().is_nil()) {
+            0
+        } else if let Some(checkpoint) = after {
             sqlx::query_scalar::<_, i64>(
                 "SELECT sequence FROM sync.operations
                  WHERE tenant_id = $1 AND scope_kind = $2 AND scope_id = $3
@@ -1010,7 +1012,7 @@ async fn record_conflict(
         .map_err(|_| sqlx::Error::Protocol("stored projection is invalid".to_owned()))?;
     debug_assert_eq!(remote.revision, current_revision);
     let local = ChangeRecord {
-        change_id: ChangeId::new(Uuid::new_v4()),
+        change_id: draft.change_id,
         record_id: draft.record_id,
         scope: draft.scope.clone(),
         operation: draft.operation,
@@ -1086,7 +1088,7 @@ async fn commit_change(
         .map_err(|_| OperationError::Unavailable)?;
     let checkpoint = Uuid::new_v4();
     let change = ChangeRecord {
-        change_id: ChangeId::new(Uuid::new_v4()),
+        change_id: draft.change_id,
         record_id: draft.record_id,
         scope: draft.scope.clone(),
         operation: draft.operation,
@@ -1524,6 +1526,7 @@ mod tests {
 
     fn draft() -> LocalOperationDraft {
         LocalOperationDraft {
+            change_id: ChangeId::new(Uuid::from_u128(4)),
             scope: ScopeRef {
                 kind: ScopeKind::parse("organization").unwrap(),
                 id: ScopeId::new(Uuid::from_u128(1)),

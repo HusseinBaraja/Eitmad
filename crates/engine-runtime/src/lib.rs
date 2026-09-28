@@ -15,7 +15,7 @@ pub use authority_store::{
     AuthorityStoreComponent, AuthorityStoreHandle, AuthorityStoreHealthCheck,
 };
 pub use desktop_auth::{DesktopAuthenticationError, DesktopAuthenticator};
-pub use dispatcher::ProductDispatcher;
+pub use dispatcher::{CustomerSyncDispatchError, ProductDispatcher};
 
 use std::{
     env,

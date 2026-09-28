@@ -171,6 +171,49 @@ fn local_first_offline_edits_remain_usable_and_durable() {
 }
 
 #[test]
+fn committed_domain_change_replays_after_restart_without_a_second_queue_entry() {
+    let fixture = Fixture::new();
+    let change = record(51, 71, 91, 1, None, "عميل اختباري");
+    let mut engine = fixture.engine(SyncMode::LocalFirst, true);
+    assert_eq!(
+        engine
+            .stage_committed_local_change(
+                &fixture.actor,
+                &fixture.request,
+                &audit(51),
+                change.clone()
+            )
+            .unwrap(),
+        LocalChangeOutcome::Queued(change.clone())
+    );
+    drop(engine);
+    let mut reopened = fixture.engine(SyncMode::LocalFirst, true);
+    assert_eq!(
+        reopened
+            .stage_committed_local_change(
+                &fixture.actor,
+                &fixture.request,
+                &audit(52),
+                change.clone()
+            )
+            .unwrap(),
+        LocalChangeOutcome::Replayed(change.clone())
+    );
+    assert_eq!(reopened.pending_changes(), &[change.clone()]);
+    let mut changed = change;
+    changed.payload = Some(payload("تغيير مختلف"));
+    assert_eq!(
+        reopened.stage_committed_local_change(
+            &fixture.actor,
+            &fixture.request,
+            &audit(53),
+            changed
+        ),
+        Err(SyncEngineError::IdempotencyMismatch)
+    );
+}
+
+#[test]
 fn reconnect_acknowledges_offline_change_and_advances_checkpoint() {
     let fixture = Fixture::new();
     let mut engine = fixture.engine(SyncMode::LocalFirst, true);

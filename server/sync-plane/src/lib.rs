@@ -1,12 +1,14 @@
 //! Server synchronization-plane authority.
 
 mod boundary_audit;
+mod customer;
 mod database;
 mod domain;
 mod operations;
 mod snapshots;
 mod subscriptions;
 
+pub use customer::CustomerSyncHandler;
 pub use database::{SyncDatabase, SyncDatabaseError};
 pub use domain::{
     AuthoritativeChangeDraft, CommandSubmission, DomainDescriptor, DomainRegistry,

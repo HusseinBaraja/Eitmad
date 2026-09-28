@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use eitmad_contracts::{
     identity::ScopeRef,
     server::AuthenticatedServerSession,
-    sync::{ChangeOperation, ConflictRecord, EncodedDomainPayload, RecordId, SyncMode},
+    sync::{ChangeId, ChangeOperation, ConflictRecord, EncodedDomainPayload, RecordId, SyncMode},
     transport::{IdempotencyKey, SchemaId},
 };
 use serde::{Deserialize, Serialize};
@@ -27,6 +27,7 @@ pub enum SyncIntent {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LocalOperationDraft {
+    pub change_id: ChangeId,
     pub scope: ScopeRef,
     pub schema_id: SchemaId,
     pub schema_version: u32,

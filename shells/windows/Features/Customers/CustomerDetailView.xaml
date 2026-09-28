@@ -28,8 +28,11 @@
      <StackPanel>
       <Grid Margin="0,0,0,20" FlowDirection="LeftToRight">
        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-       <Button x:Name="EditButton" Content="تعديل" Click="EditClick" Style="{StaticResource SecondaryButton}" AutomationProperties.Name="تعديل بيانات العميل" Margin="0,0,20,0"/>
-       <TextBlock Grid.Column="1" Text="{Binding Name}" FlowDirection="RightToLeft" FontSize="23" FontWeight="SemiBold" Foreground="{DynamicResource InkBrush}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+       <Button x:Name="EditButton" Content="تعديل" Click="EditClick" IsEnabled="{Binding CanEdit}" Style="{StaticResource SecondaryButton}" AutomationProperties.Name="تعديل بيانات العميل" Margin="0,0,20,0"/>
+       <StackPanel Grid.Column="1" FlowDirection="RightToLeft">
+        <TextBlock Text="{Binding Name}" FontSize="23" FontWeight="SemiBold" Foreground="{DynamicResource InkBrush}" TextWrapping="Wrap"/>
+        <TextBlock Text="{Binding SyncStateLabel}" FontSize="13" Foreground="{DynamicResource MutedBrush}" Margin="0,6,0,0"/>
+       </StackPanel>
       </Grid>
       <layout:AdaptiveFieldsPanel MinItemWidth="240">
        <controls:FormField Label="رقم الهاتف"><TextBlock Text="{Binding Phone}" FlowDirection="LeftToRight" TextAlignment="Right" Style="{StaticResource ContactValue}"/></controls:FormField>

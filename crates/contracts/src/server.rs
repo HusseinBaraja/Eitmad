@@ -4,7 +4,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    identity::{AccountId, DeviceId, OrganizationId, SessionId, TenantId, UserId},
+    identity::{AccountId, DeviceId, OrganizationId, ScopeId, SessionId, TenantId, UserId},
     sync::{RecordChangeNotice, SyncMessage},
     sync_transport::SyncTransportFrame,
     transport::{CorrelationId, EventCursor, SchemaId, UnixMillis},
@@ -113,6 +113,22 @@ pub struct OrganizationSummary {
     pub organization_id: OrganizationId,
     pub tenant_id: TenantId,
     pub display_name: String,
+}
+
+/// Rust-owned branch identity registered by a tenant owner.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RegisterBranchRequest {
+    pub organization_id: OrganizationId,
+    pub branch_id: ScopeId,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RegisteredBranch {
+    pub tenant_id: TenantId,
+    pub organization_id: OrganizationId,
+    pub branch_id: ScopeId,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]

@@ -61,7 +61,7 @@ public sealed class OperationsViewModelTests
                     Label = "مرجع REF-١٢",
                     Revision = 4,
                     Scope = TestData.Scope(),
-                    SyncState = ErSyncState.Pending,
+                    SyncState = ReferenceMarkerSyncState.Pending,
                     UpdatedAt = 1_800_000_000_000,
                 },
             ],

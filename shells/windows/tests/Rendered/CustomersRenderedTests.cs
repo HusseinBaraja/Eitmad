@@ -136,6 +136,45 @@ public sealed class CustomersRenderedTests
         }, engine: engine);
     }
 
+    [TestMethod]
+    [DataRow(1920, 1080)]
+    [DataRow(1338, 753)]
+    [DataRow(720, 560)]
+    public void CustomerSyncStateRendersAndBlocksUnresolvedEdits(int width, int height)
+    {
+        var contract = ContractCustomer("عميل تجريبي له اسم عربي طويل", "+967 777 123 456",
+            "عدن، المنصورة — عنوان تجريبي", "الاتصال قبل التسليم");
+        WpfTestHost.Run(width, height, window =>
+        {
+            var preview = new CustomerPreview(contract, [], []);
+            var view = new CustomerDetailView { DataContext = preview };
+            window.Content = view;
+            WpfTestHost.CompleteLayout(window);
+            var edit = WpfTestHost.FindByName<Button>(view, "EditButton");
+            Assert.AreEqual("بانتظار المزامنة", preview.SyncStateLabel);
+            Assert.IsTrue(edit.IsEnabled);
+
+            contract.SyncState = CustomerSyncState.Confirmed;
+            preview.Observe(contract);
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual("مؤكد من الخادم", preview.SyncStateLabel);
+            Assert.IsTrue(edit.IsEnabled);
+
+            contract.SyncState = CustomerSyncState.Rejected;
+            preview.Observe(contract);
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual("رُفضت المزامنة", preview.SyncStateLabel);
+            Assert.IsFalse(edit.IsEnabled);
+
+            contract.SyncState = CustomerSyncState.Conflicted;
+            preview.Observe(contract);
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual("تعارض يحتاج مراجعة", preview.SyncStateLabel);
+            Assert.IsFalse(edit.IsEnabled);
+            WpfTestHost.Capture(window, $"customers-sync-conflict-{width}x{height}");
+        });
+    }
+
     private static Customer ContractCustomer(string name, string phone, string? address = null, string? notes = null, ScopeRef? scope = null) => new()
     {
         Id = Guid.NewGuid(),
@@ -146,7 +185,7 @@ public sealed class CustomersRenderedTests
         Notes = notes!,
         Status = CustomerStatus.Active,
         Revision = 1,
-        SyncState = ErSyncState.Pending,
+        SyncState = CustomerSyncState.Pending,
         UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
     };
 }

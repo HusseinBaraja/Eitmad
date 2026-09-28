@@ -28,6 +28,8 @@ public struct EitmadContractSchema: Codable, Sendable {
     public let peerHello: PeerHello
     public let queryRequest: QueryEnvelope
     public let queryResponse: QueryResponseEnvelope
+    public let registerBranchRequest: RegisterBranchRequest
+    public let registeredBranch: RegisteredBranch
     public let relayFailure: RelayFailureReport
     public let relayHealth: RelayHealth
     public let relaySession: RelaySessionMetadata
@@ -66,6 +68,8 @@ public struct EitmadContractSchema: Codable, Sendable {
         case peerHello = "peer_hello"
         case queryRequest = "query_request"
         case queryResponse = "query_response"
+        case registerBranchRequest = "register_branch_request"
+        case registeredBranch = "registered_branch"
         case relayFailure = "relay_failure"
         case relayHealth = "relay_health"
         case relaySession = "relay_session"
@@ -82,7 +86,7 @@ public struct EitmadContractSchema: Codable, Sendable {
         case updateState = "update_state"
     }
 
-    public init(administrationBackupStatus: BackupStatus, administrationDiagnostics: DiagnosticSummary, administrationMigrationStatus: MigrationStatus, administrationSupportWorkflow: SupportWorkflow, catalog: ProtocolCatalog, commandRequest: CommandEnvelope, commandResponse: CommandResponseEnvelope, diagnosticReport: DiagnosticReport, effectivePermissions: EffectivePermissions, event: EventEnvelope, ipcClientMessage: [String: JSONAny], ipcServerMessage: [String: JSONAny], lifecycleSnapshot: LifecycleSnapshot, negotiation: NegotiationOutcome, observationClassification: DataClassification, observationComponentID: String, observationEventID: String, observationFieldName: String, observationSeverity: ObservationSeverity, observationValueKind: ObservationValueKind, peerHello: PeerHello, queryRequest: QueryEnvelope, queryResponse: QueryResponseEnvelope, relayFailure: RelayFailureReport, relayHealth: RelayHealth, relaySession: RelaySessionMetadata, serverClientMessage: [String: JSONAny], serverMessage: [String: JSONAny], signedUpdateManifest: SignedUpdateManifest, subscriptionRequest: SubscriptionEnvelope, syncMessage: [String: JSONAny], syncStatus: SyncStatus, syncTransportFrame: SyncTransportFrame, unionPayloadKeepAlive: UnionPayloadKeepAlive, updateCheckOutcome: UpdateCheckOutcome, updateClientProfile: UpdateClientProfile, updateState: UpdateState) {
+    public init(administrationBackupStatus: BackupStatus, administrationDiagnostics: DiagnosticSummary, administrationMigrationStatus: MigrationStatus, administrationSupportWorkflow: SupportWorkflow, catalog: ProtocolCatalog, commandRequest: CommandEnvelope, commandResponse: CommandResponseEnvelope, diagnosticReport: DiagnosticReport, effectivePermissions: EffectivePermissions, event: EventEnvelope, ipcClientMessage: [String: JSONAny], ipcServerMessage: [String: JSONAny], lifecycleSnapshot: LifecycleSnapshot, negotiation: NegotiationOutcome, observationClassification: DataClassification, observationComponentID: String, observationEventID: String, observationFieldName: String, observationSeverity: ObservationSeverity, observationValueKind: ObservationValueKind, peerHello: PeerHello, queryRequest: QueryEnvelope, queryResponse: QueryResponseEnvelope, registerBranchRequest: RegisterBranchRequest, registeredBranch: RegisteredBranch, relayFailure: RelayFailureReport, relayHealth: RelayHealth, relaySession: RelaySessionMetadata, serverClientMessage: [String: JSONAny], serverMessage: [String: JSONAny], signedUpdateManifest: SignedUpdateManifest, subscriptionRequest: SubscriptionEnvelope, syncMessage: [String: JSONAny], syncStatus: SyncStatus, syncTransportFrame: SyncTransportFrame, unionPayloadKeepAlive: UnionPayloadKeepAlive, updateCheckOutcome: UpdateCheckOutcome, updateClientProfile: UpdateClientProfile, updateState: UpdateState) {
         self.administrationBackupStatus = administrationBackupStatus
         self.administrationDiagnostics = administrationDiagnostics
         self.administrationMigrationStatus = administrationMigrationStatus
@@ -106,6 +110,8 @@ public struct EitmadContractSchema: Codable, Sendable {
         self.peerHello = peerHello
         self.queryRequest = queryRequest
         self.queryResponse = queryResponse
+        self.registerBranchRequest = registerBranchRequest
+        self.registeredBranch = registeredBranch
         self.relayFailure = relayFailure
         self.relayHealth = relayHealth
         self.relaySession = relaySession
@@ -165,6 +171,8 @@ public extension EitmadContractSchema {
         peerHello: PeerHello? = nil,
         queryRequest: QueryEnvelope? = nil,
         queryResponse: QueryResponseEnvelope? = nil,
+        registerBranchRequest: RegisterBranchRequest? = nil,
+        registeredBranch: RegisteredBranch? = nil,
         relayFailure: RelayFailureReport? = nil,
         relayHealth: RelayHealth? = nil,
         relaySession: RelaySessionMetadata? = nil,
@@ -204,6 +212,8 @@ public extension EitmadContractSchema {
             peerHello: peerHello ?? self.peerHello,
             queryRequest: queryRequest ?? self.queryRequest,
             queryResponse: queryResponse ?? self.queryResponse,
+            registerBranchRequest: registerBranchRequest ?? self.registerBranchRequest,
+            registeredBranch: registeredBranch ?? self.registeredBranch,
             relayFailure: relayFailure ?? self.relayFailure,
             relayHealth: relayHealth ?? self.relayHealth,
             relaySession: relaySession ?? self.relaySession,
@@ -1654,7 +1664,7 @@ public struct PayloadClass: Codable, Sendable {
     public let kind: UpdateStateKind?
     public let payload: UpdateStatePayload?
     public let id, label: String?
-    public let syncState: ErSyncState?
+    public let syncState: ReferenceMarkerSyncState?
     public let updatedAt: Int?
     public let customer: Customer?
     public let potentialDuplicateIDS: [String]?
@@ -1675,7 +1685,7 @@ public struct PayloadClass: Codable, Sendable {
         case username
     }
 
-    public init(entries: [ConfigEntry]?, revision: Int?, schemaVersion: Int?, scope: ScopeRef?, changed: Bool?, policyVersion: Int?, relationship: ScopeRelationship?, operationID: String?, kind: UpdateStateKind?, payload: UpdateStatePayload?, id: String?, label: String?, syncState: ErSyncState?, updatedAt: Int?, customer: Customer?, potentialDuplicateIDS: [String]?, accountID: String?, active: Bool?, displayName: String?, role: DesktopAccountRole?, userID: String?, username: String?) {
+    public init(entries: [ConfigEntry]?, revision: Int?, schemaVersion: Int?, scope: ScopeRef?, changed: Bool?, policyVersion: Int?, relationship: ScopeRelationship?, operationID: String?, kind: UpdateStateKind?, payload: UpdateStatePayload?, id: String?, label: String?, syncState: ReferenceMarkerSyncState?, updatedAt: Int?, customer: Customer?, potentialDuplicateIDS: [String]?, accountID: String?, active: Bool?, displayName: String?, role: DesktopAccountRole?, userID: String?, username: String?) {
         self.entries = entries
         self.revision = revision
         self.schemaVersion = schemaVersion
@@ -1732,7 +1742,7 @@ public extension PayloadClass {
         payload: UpdateStatePayload?? = nil,
         id: String?? = nil,
         label: String?? = nil,
-        syncState: ErSyncState?? = nil,
+        syncState: ReferenceMarkerSyncState?? = nil,
         updatedAt: Int?? = nil,
         customer: Customer?? = nil,
         potentialDuplicateIDS: [String]?? = nil,
@@ -1787,10 +1797,10 @@ public struct Customer: Codable, Sendable {
     public let revision: Int
     public let scope: ScopeRef
     public let status: CustomerStatus
-    public let syncState: ErSyncState
+    public let syncState: CustomerSyncState
     public let updatedAt: Int
 
-    public init(address: String?, id: String, name: String, notes: String?, phone: String, revision: Int, scope: ScopeRef, status: CustomerStatus, syncState: ErSyncState, updatedAt: Int) {
+    public init(address: String?, id: String, name: String, notes: String?, phone: String, revision: Int, scope: ScopeRef, status: CustomerStatus, syncState: CustomerSyncState, updatedAt: Int) {
         self.address = address
         self.id = id
         self.name = name
@@ -1831,7 +1841,7 @@ public extension Customer {
         revision: Int? = nil,
         scope: ScopeRef? = nil,
         status: CustomerStatus? = nil,
-        syncState: ErSyncState? = nil,
+        syncState: CustomerSyncState? = nil,
         updatedAt: Int? = nil
     ) -> Customer {
         return Customer(
@@ -1863,9 +1873,11 @@ public enum CustomerStatus: String, Codable, Sendable {
     case merged = "merged"
 }
 
-public enum ErSyncState: String, Codable, Sendable {
+public enum CustomerSyncState: String, Codable, Sendable {
     case confirmed = "confirmed"
+    case conflicted = "conflicted"
     case pending = "pending"
+    case rejected = "rejected"
 }
 
 // MARK: - ConfigEntry
@@ -2232,6 +2244,11 @@ public extension RelationshipSubject {
 public enum DesktopAccountRole: String, Codable, Sendable {
     case manager = "manager"
     case receptionist = "receptionist"
+}
+
+public enum ReferenceMarkerSyncState: String, Codable, Sendable {
+    case confirmed = "confirmed"
+    case pending = "pending"
 }
 
 // MARK: - RetryDisposition
@@ -3608,6 +3625,115 @@ public extension QueryResult {
     }
 }
 
+/// Rust-owned branch identity registered by a tenant owner.
+// MARK: - RegisterBranchRequest
+public struct RegisterBranchRequest: Codable, Sendable {
+    public let branchID, organizationID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case branchID = "branchId"
+        case organizationID = "organizationId"
+    }
+
+    public init(branchID: String, organizationID: String) {
+        self.branchID = branchID
+        self.organizationID = organizationID
+    }
+}
+
+// MARK: RegisterBranchRequest convenience initializers and mutators
+
+public extension RegisterBranchRequest {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(RegisterBranchRequest.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        branchID: String? = nil,
+        organizationID: String? = nil
+    ) -> RegisterBranchRequest {
+        return RegisterBranchRequest(
+            branchID: branchID ?? self.branchID,
+            organizationID: organizationID ?? self.organizationID
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - RegisteredBranch
+public struct RegisteredBranch: Codable, Sendable {
+    public let branchID, organizationID, tenantID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case branchID = "branchId"
+        case organizationID = "organizationId"
+        case tenantID = "tenantId"
+    }
+
+    public init(branchID: String, organizationID: String, tenantID: String) {
+        self.branchID = branchID
+        self.organizationID = organizationID
+        self.tenantID = tenantID
+    }
+}
+
+// MARK: RegisteredBranch convenience initializers and mutators
+
+public extension RegisteredBranch {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(RegisteredBranch.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        branchID: String? = nil,
+        organizationID: String? = nil,
+        tenantID: String? = nil
+    ) -> RegisteredBranch {
+        return RegisteredBranch(
+            branchID: branchID ?? self.branchID,
+            organizationID: organizationID ?? self.organizationID,
+            tenantID: tenantID ?? self.tenantID
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
 // MARK: - RelayFailureReport
 public struct RelayFailureReport: Codable, Sendable {
     public let code, correlationID, failureID: String
@@ -4816,6 +4942,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
     public let syncMessageSyncBackpressure: RetryAfter?
     public let syncMessageSyncChanges: ChangeBatch?
     public let syncMessageSyncConflict: ConflictNotice?
+    public let syncMessageSyncLocalResult: LocalChangeResult?
     public let syncMessageSyncNegotiate: SyncNegotiation?
     public let syncMessageSyncPull: PullRequest?
     public let syncMessageSyncReconcile: ReconciliationDelivery?
@@ -4823,6 +4950,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
     public let syncMessageSyncSnapshotComplete: SnapshotCompletion?
     public let syncMessageSyncSnapshotManifest: SnapshotManifest?
     public let syncMessageSyncSnapshotRequired: SnapshotRequired?
+    public let syncMessageSyncSubmitLocal: LocalChangeSubmission?
 
     public enum CodingKeys: String, CodingKey {
         case commandAuthorizationRelationshipGrant = "Command_AuthorizationRelationshipGrant"
@@ -4907,6 +5035,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         case syncMessageSyncBackpressure = "SyncMessage_SyncBackpressure"
         case syncMessageSyncChanges = "SyncMessage_SyncChanges"
         case syncMessageSyncConflict = "SyncMessage_SyncConflict"
+        case syncMessageSyncLocalResult = "SyncMessage_SyncLocalResult"
         case syncMessageSyncNegotiate = "SyncMessage_SyncNegotiate"
         case syncMessageSyncPull = "SyncMessage_SyncPull"
         case syncMessageSyncReconcile = "SyncMessage_SyncReconcile"
@@ -4914,9 +5043,10 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         case syncMessageSyncSnapshotComplete = "SyncMessage_SyncSnapshotComplete"
         case syncMessageSyncSnapshotManifest = "SyncMessage_SyncSnapshotManifest"
         case syncMessageSyncSnapshotRequired = "SyncMessage_SyncSnapshotRequired"
+        case syncMessageSyncSubmitLocal = "SyncMessage_SyncSubmitLocal"
     }
 
-    public init(commandAuthorizationRelationshipGrant: GrantScopeRelationship?, commandAuthorizationRelationshipRevoke: RevokeScopeRelationship?, commandConfigUpdate: UpdateConfiguration?, commandCustomerCreate: CreateCustomer?, commandCustomerUpdate: UpdateCustomer?, commandDesktopAccountCreate: CreateDesktopAccount?, commandDesktopAccountDeactivate: DeactivateDesktopAccount?, commandDesktopAccountUpdate: UpdateDesktopAccount?, commandOperationCancel: CancelOperation?, commandReferenceMarkerUpsert: UpsertReferenceMarker?, commandUpdateReportInstallerOutcome: ReportInstallerOutcome?, eventAuthorizationPolicyChangedEvent: AuthorizationPolicyChangeNotice?, eventBackgroundJobStatusEvent: BackgroundJobStatus?, eventConfigChangedEvent: ConfigSnapshot?, eventCustomerChangedEvent: CustomerChangeNotice?, eventErrorEvent: ScopedError?, eventNotificationEvent: Notification?, eventPermissionsChangedEvent: EffectivePermissions?, eventRecordChangedEvent: RecordChangeNotice?, eventReferenceMarkerChangedEvent: ReferenceMarkerChangeNotice?, eventSyncStatusEvent: SyncStatus?, eventUpdateStateEvent: UpdateState?, ipcClientMessageIPCCommand: CommandEnvelope?, ipcClientMessageIPCDesktopSessionState: DesktopSessionRequest?, ipcClientMessageIPCDesktopSignIn: DesktopSignInRequest?, ipcClientMessageIPCDesktopSignOut: DesktopSessionRequest?, ipcClientMessageIPCHandshake: HandshakeRequest?, ipcClientMessageIPCQuery: QueryEnvelope?, ipcClientMessageIPCShutdown: ShutdownRequest?, ipcClientMessageIPCSubscribe: SubscriptionEnvelope?, ipcClientMessageIPCUnsubscribe: UnsubscribeRequest?, ipcServerMessageIPCCommandResponse: CommandResponseEnvelope?, ipcServerMessageIPCDesktopSessionResponse: DesktopSessionResponse?, ipcServerMessageIPCEvent: EventEnvelope?, ipcServerMessageIPCFailure: IPCFailureResponse?, ipcServerMessageIPCHandshakeResponse: HandshakeResponse?, ipcServerMessageIPCQueryResponse: QueryResponseEnvelope?, ipcServerMessageIPCShutdownResponse: ShutdownResponse?, ipcServerMessageIPCSubscribeResponse: SubscriptionResponseEnvelope?, ipcServerMessageIPCSubscriptionClosed: SubscriptionClosedEnvelope?, ipcServerMessageIPCUnsubscribeResponse: UnsubscribeResponse?, queryAuthorizationRelationshipsList: ListScopeRelationships?, queryConfigGet: [String: JSONAny]?, queryCustomerGet: GetCustomer?, queryCustomerSearch: SearchCustomers?, queryDesktopAccountList: [String: JSONAny]?, queryPermissionsGetEffective: [String: JSONAny]?, queryReferenceMarkerList: ListReferenceMarkers?, querySyncGetStatus: [String: JSONAny]?, queryUpdateGetState: [String: JSONAny]?, queryResultConfiguration: ConfigSnapshot?, queryResultCustomer: Customer?, queryResultCustomers: CustomerPage?, queryResultDesktopAccounts: DesktopAccountPage?, queryResultEffectivePermissions: EffectivePermissions?, queryResultReferenceMarkers: ReferenceMarkerPage?, queryResultScopeRelationships: RelationshipPage?, queryResultSyncStatus: SyncStatus?, queryResultUpdateState: UpdateState?, serverClientMessageServerAcknowledge: ServerSubscriptionAcknowledgement?, serverClientMessageServerHello: ServerConnectionHello?, serverClientMessageServerSubscribe: ServerSubscriptionRequest?, serverClientMessageServerSync: SyncTransportFrame?, serverMessageServerEvent: ServerSubscriptionEvent?, serverMessageServerFailure: ServerFailure?, serverMessageServerHelloAccepted: PeerHello?, serverMessageServerSyncMessage: [String: JSONAny]?, subscriptionAuthorizationPolicyChangedSubscribe: [String: JSONAny]?, subscriptionBackgroundJobStatusSubscribe: [String: JSONAny]?, subscriptionConfigChangedSubscribe: [String: JSONAny]?, subscriptionCustomerChangedSubscribe: [String: JSONAny]?, subscriptionErrorSubscribe: [String: JSONAny]?, subscriptionNotificationSubscribe: [String: JSONAny]?, subscriptionPermissionsChangedSubscribe: [String: JSONAny]?, subscriptionRecordChangedSubscribe: [String: JSONAny]?, subscriptionReferenceMarkerChangedSubscribe: [String: JSONAny]?, subscriptionSyncStatusSubscribe: [String: JSONAny]?, subscriptionUpdateStateSubscribe: [String: JSONAny]?, syncMessageSyncAcknowledge: BatchAcknowledgement?, syncMessageSyncBackpressure: RetryAfter?, syncMessageSyncChanges: ChangeBatch?, syncMessageSyncConflict: ConflictNotice?, syncMessageSyncNegotiate: SyncNegotiation?, syncMessageSyncPull: PullRequest?, syncMessageSyncReconcile: ReconciliationDelivery?, syncMessageSyncSnapshotChunk: SnapshotChunk?, syncMessageSyncSnapshotComplete: SnapshotCompletion?, syncMessageSyncSnapshotManifest: SnapshotManifest?, syncMessageSyncSnapshotRequired: SnapshotRequired?) {
+    public init(commandAuthorizationRelationshipGrant: GrantScopeRelationship?, commandAuthorizationRelationshipRevoke: RevokeScopeRelationship?, commandConfigUpdate: UpdateConfiguration?, commandCustomerCreate: CreateCustomer?, commandCustomerUpdate: UpdateCustomer?, commandDesktopAccountCreate: CreateDesktopAccount?, commandDesktopAccountDeactivate: DeactivateDesktopAccount?, commandDesktopAccountUpdate: UpdateDesktopAccount?, commandOperationCancel: CancelOperation?, commandReferenceMarkerUpsert: UpsertReferenceMarker?, commandUpdateReportInstallerOutcome: ReportInstallerOutcome?, eventAuthorizationPolicyChangedEvent: AuthorizationPolicyChangeNotice?, eventBackgroundJobStatusEvent: BackgroundJobStatus?, eventConfigChangedEvent: ConfigSnapshot?, eventCustomerChangedEvent: CustomerChangeNotice?, eventErrorEvent: ScopedError?, eventNotificationEvent: Notification?, eventPermissionsChangedEvent: EffectivePermissions?, eventRecordChangedEvent: RecordChangeNotice?, eventReferenceMarkerChangedEvent: ReferenceMarkerChangeNotice?, eventSyncStatusEvent: SyncStatus?, eventUpdateStateEvent: UpdateState?, ipcClientMessageIPCCommand: CommandEnvelope?, ipcClientMessageIPCDesktopSessionState: DesktopSessionRequest?, ipcClientMessageIPCDesktopSignIn: DesktopSignInRequest?, ipcClientMessageIPCDesktopSignOut: DesktopSessionRequest?, ipcClientMessageIPCHandshake: HandshakeRequest?, ipcClientMessageIPCQuery: QueryEnvelope?, ipcClientMessageIPCShutdown: ShutdownRequest?, ipcClientMessageIPCSubscribe: SubscriptionEnvelope?, ipcClientMessageIPCUnsubscribe: UnsubscribeRequest?, ipcServerMessageIPCCommandResponse: CommandResponseEnvelope?, ipcServerMessageIPCDesktopSessionResponse: DesktopSessionResponse?, ipcServerMessageIPCEvent: EventEnvelope?, ipcServerMessageIPCFailure: IPCFailureResponse?, ipcServerMessageIPCHandshakeResponse: HandshakeResponse?, ipcServerMessageIPCQueryResponse: QueryResponseEnvelope?, ipcServerMessageIPCShutdownResponse: ShutdownResponse?, ipcServerMessageIPCSubscribeResponse: SubscriptionResponseEnvelope?, ipcServerMessageIPCSubscriptionClosed: SubscriptionClosedEnvelope?, ipcServerMessageIPCUnsubscribeResponse: UnsubscribeResponse?, queryAuthorizationRelationshipsList: ListScopeRelationships?, queryConfigGet: [String: JSONAny]?, queryCustomerGet: GetCustomer?, queryCustomerSearch: SearchCustomers?, queryDesktopAccountList: [String: JSONAny]?, queryPermissionsGetEffective: [String: JSONAny]?, queryReferenceMarkerList: ListReferenceMarkers?, querySyncGetStatus: [String: JSONAny]?, queryUpdateGetState: [String: JSONAny]?, queryResultConfiguration: ConfigSnapshot?, queryResultCustomer: Customer?, queryResultCustomers: CustomerPage?, queryResultDesktopAccounts: DesktopAccountPage?, queryResultEffectivePermissions: EffectivePermissions?, queryResultReferenceMarkers: ReferenceMarkerPage?, queryResultScopeRelationships: RelationshipPage?, queryResultSyncStatus: SyncStatus?, queryResultUpdateState: UpdateState?, serverClientMessageServerAcknowledge: ServerSubscriptionAcknowledgement?, serverClientMessageServerHello: ServerConnectionHello?, serverClientMessageServerSubscribe: ServerSubscriptionRequest?, serverClientMessageServerSync: SyncTransportFrame?, serverMessageServerEvent: ServerSubscriptionEvent?, serverMessageServerFailure: ServerFailure?, serverMessageServerHelloAccepted: PeerHello?, serverMessageServerSyncMessage: [String: JSONAny]?, subscriptionAuthorizationPolicyChangedSubscribe: [String: JSONAny]?, subscriptionBackgroundJobStatusSubscribe: [String: JSONAny]?, subscriptionConfigChangedSubscribe: [String: JSONAny]?, subscriptionCustomerChangedSubscribe: [String: JSONAny]?, subscriptionErrorSubscribe: [String: JSONAny]?, subscriptionNotificationSubscribe: [String: JSONAny]?, subscriptionPermissionsChangedSubscribe: [String: JSONAny]?, subscriptionRecordChangedSubscribe: [String: JSONAny]?, subscriptionReferenceMarkerChangedSubscribe: [String: JSONAny]?, subscriptionSyncStatusSubscribe: [String: JSONAny]?, subscriptionUpdateStateSubscribe: [String: JSONAny]?, syncMessageSyncAcknowledge: BatchAcknowledgement?, syncMessageSyncBackpressure: RetryAfter?, syncMessageSyncChanges: ChangeBatch?, syncMessageSyncConflict: ConflictNotice?, syncMessageSyncLocalResult: LocalChangeResult?, syncMessageSyncNegotiate: SyncNegotiation?, syncMessageSyncPull: PullRequest?, syncMessageSyncReconcile: ReconciliationDelivery?, syncMessageSyncSnapshotChunk: SnapshotChunk?, syncMessageSyncSnapshotComplete: SnapshotCompletion?, syncMessageSyncSnapshotManifest: SnapshotManifest?, syncMessageSyncSnapshotRequired: SnapshotRequired?, syncMessageSyncSubmitLocal: LocalChangeSubmission?) {
         self.commandAuthorizationRelationshipGrant = commandAuthorizationRelationshipGrant
         self.commandAuthorizationRelationshipRevoke = commandAuthorizationRelationshipRevoke
         self.commandConfigUpdate = commandConfigUpdate
@@ -4999,6 +5129,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         self.syncMessageSyncBackpressure = syncMessageSyncBackpressure
         self.syncMessageSyncChanges = syncMessageSyncChanges
         self.syncMessageSyncConflict = syncMessageSyncConflict
+        self.syncMessageSyncLocalResult = syncMessageSyncLocalResult
         self.syncMessageSyncNegotiate = syncMessageSyncNegotiate
         self.syncMessageSyncPull = syncMessageSyncPull
         self.syncMessageSyncReconcile = syncMessageSyncReconcile
@@ -5006,6 +5137,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         self.syncMessageSyncSnapshotComplete = syncMessageSyncSnapshotComplete
         self.syncMessageSyncSnapshotManifest = syncMessageSyncSnapshotManifest
         self.syncMessageSyncSnapshotRequired = syncMessageSyncSnapshotRequired
+        self.syncMessageSyncSubmitLocal = syncMessageSyncSubmitLocal
     }
 }
 
@@ -5110,13 +5242,15 @@ public extension UnionPayloadKeepAlive {
         syncMessageSyncBackpressure: RetryAfter?? = nil,
         syncMessageSyncChanges: ChangeBatch?? = nil,
         syncMessageSyncConflict: ConflictNotice?? = nil,
+        syncMessageSyncLocalResult: LocalChangeResult?? = nil,
         syncMessageSyncNegotiate: SyncNegotiation?? = nil,
         syncMessageSyncPull: PullRequest?? = nil,
         syncMessageSyncReconcile: ReconciliationDelivery?? = nil,
         syncMessageSyncSnapshotChunk: SnapshotChunk?? = nil,
         syncMessageSyncSnapshotComplete: SnapshotCompletion?? = nil,
         syncMessageSyncSnapshotManifest: SnapshotManifest?? = nil,
-        syncMessageSyncSnapshotRequired: SnapshotRequired?? = nil
+        syncMessageSyncSnapshotRequired: SnapshotRequired?? = nil,
+        syncMessageSyncSubmitLocal: LocalChangeSubmission?? = nil
     ) -> UnionPayloadKeepAlive {
         return UnionPayloadKeepAlive(
             commandAuthorizationRelationshipGrant: commandAuthorizationRelationshipGrant ?? self.commandAuthorizationRelationshipGrant,
@@ -5201,13 +5335,15 @@ public extension UnionPayloadKeepAlive {
             syncMessageSyncBackpressure: syncMessageSyncBackpressure ?? self.syncMessageSyncBackpressure,
             syncMessageSyncChanges: syncMessageSyncChanges ?? self.syncMessageSyncChanges,
             syncMessageSyncConflict: syncMessageSyncConflict ?? self.syncMessageSyncConflict,
+            syncMessageSyncLocalResult: syncMessageSyncLocalResult ?? self.syncMessageSyncLocalResult,
             syncMessageSyncNegotiate: syncMessageSyncNegotiate ?? self.syncMessageSyncNegotiate,
             syncMessageSyncPull: syncMessageSyncPull ?? self.syncMessageSyncPull,
             syncMessageSyncReconcile: syncMessageSyncReconcile ?? self.syncMessageSyncReconcile,
             syncMessageSyncSnapshotChunk: syncMessageSyncSnapshotChunk ?? self.syncMessageSyncSnapshotChunk,
             syncMessageSyncSnapshotComplete: syncMessageSyncSnapshotComplete ?? self.syncMessageSyncSnapshotComplete,
             syncMessageSyncSnapshotManifest: syncMessageSyncSnapshotManifest ?? self.syncMessageSyncSnapshotManifest,
-            syncMessageSyncSnapshotRequired: syncMessageSyncSnapshotRequired ?? self.syncMessageSyncSnapshotRequired
+            syncMessageSyncSnapshotRequired: syncMessageSyncSnapshotRequired ?? self.syncMessageSyncSnapshotRequired,
+            syncMessageSyncSubmitLocal: syncMessageSyncSubmitLocal ?? self.syncMessageSyncSubmitLocal
         )
     }
 
@@ -8135,10 +8271,10 @@ public struct ReferenceMarker: Codable, Sendable {
     public let id, label: String
     public let revision: Int
     public let scope: ScopeRef
-    public let syncState: ErSyncState
+    public let syncState: ReferenceMarkerSyncState
     public let updatedAt: Int
 
-    public init(id: String, label: String, revision: Int, scope: ScopeRef, syncState: ErSyncState, updatedAt: Int) {
+    public init(id: String, label: String, revision: Int, scope: ScopeRef, syncState: ReferenceMarkerSyncState, updatedAt: Int) {
         self.id = id
         self.label = label
         self.revision = revision
@@ -8171,7 +8307,7 @@ public extension ReferenceMarker {
         label: String? = nil,
         revision: Int? = nil,
         scope: ScopeRef? = nil,
-        syncState: ErSyncState? = nil,
+        syncState: ReferenceMarkerSyncState? = nil,
         updatedAt: Int? = nil
     ) -> ReferenceMarker {
         return ReferenceMarker(
@@ -8959,6 +9095,171 @@ public extension ConflictNotice {
     }
 }
 
+// MARK: - LocalChangeResult
+public struct LocalChangeResult: Codable, Sendable {
+    public let disposition: LocalChangeDisposition
+    public let submittedChangeID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case disposition
+        case submittedChangeID = "submittedChangeId"
+    }
+
+    public init(disposition: LocalChangeDisposition, submittedChangeID: String) {
+        self.disposition = disposition
+        self.submittedChangeID = submittedChangeID
+    }
+}
+
+// MARK: LocalChangeResult convenience initializers and mutators
+
+public extension LocalChangeResult {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(LocalChangeResult.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        disposition: LocalChangeDisposition? = nil,
+        submittedChangeID: String? = nil
+    ) -> LocalChangeResult {
+        return LocalChangeResult(
+            disposition: disposition ?? self.disposition,
+            submittedChangeID: submittedChangeID ?? self.submittedChangeID
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - LocalChangeDisposition
+public struct LocalChangeDisposition: Codable, Sendable {
+    public let payload: LocalChangeDispositionPayload
+    public let status: LocalChangeDispositionStatus
+
+    public init(payload: LocalChangeDispositionPayload, status: LocalChangeDispositionStatus) {
+        self.payload = payload
+        self.status = status
+    }
+}
+
+// MARK: LocalChangeDisposition convenience initializers and mutators
+
+public extension LocalChangeDisposition {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(LocalChangeDisposition.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        payload: LocalChangeDispositionPayload? = nil,
+        status: LocalChangeDispositionStatus? = nil
+    ) -> LocalChangeDisposition {
+        return LocalChangeDisposition(
+            payload: payload ?? self.payload,
+            status: status ?? self.status
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - LocalChangeDispositionPayload
+public struct LocalChangeDispositionPayload: Codable, Sendable {
+    public let authoritativeChange: ChangeRecord?
+    public let conflictID, reason: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case authoritativeChange
+        case conflictID = "conflictId"
+        case reason
+    }
+
+    public init(authoritativeChange: ChangeRecord?, conflictID: String?, reason: String?) {
+        self.authoritativeChange = authoritativeChange
+        self.conflictID = conflictID
+        self.reason = reason
+    }
+}
+
+// MARK: LocalChangeDispositionPayload convenience initializers and mutators
+
+public extension LocalChangeDispositionPayload {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(LocalChangeDispositionPayload.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        authoritativeChange: ChangeRecord?? = nil,
+        conflictID: String?? = nil,
+        reason: String?? = nil
+    ) -> LocalChangeDispositionPayload {
+        return LocalChangeDispositionPayload(
+            authoritativeChange: authoritativeChange ?? self.authoritativeChange,
+            conflictID: conflictID ?? self.conflictID,
+            reason: reason ?? self.reason
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+public enum LocalChangeDispositionStatus: String, Codable, Sendable {
+    case applied = "applied"
+    case conflicted = "conflicted"
+    case rejected = "rejected"
+    case replayed = "replayed"
+}
+
 // MARK: - SyncNegotiation
 public struct SyncNegotiation: Codable, Sendable {
     public let checkpoint: String?
@@ -9590,6 +9891,51 @@ public extension SnapshotRequired {
     ) -> SnapshotRequired {
         return SnapshotRequired(
             reason: reason ?? self.reason
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+/// One local-first change submitted over the shared authenticated route.
+// MARK: - LocalChangeSubmission
+public struct LocalChangeSubmission: Codable, Sendable {
+    public let change: ChangeRecord
+
+    public init(change: ChangeRecord) {
+        self.change = change
+    }
+}
+
+// MARK: LocalChangeSubmission convenience initializers and mutators
+
+public extension LocalChangeSubmission {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(LocalChangeSubmission.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        change: ChangeRecord? = nil
+    ) -> LocalChangeSubmission {
+        return LocalChangeSubmission(
+            change: change ?? self.change
         )
     }
 

@@ -19,6 +19,7 @@ eitmad-customer = { path = "../customer" }
 eitmad-observability-audit = { path = "../observability-audit" }
 eitmad-reference-marker = { path = "../reference-marker" }
 eitmad-storage = { path = "../storage" }
+eitmad-sync = { path = "../sync" }
 fs2 = "=0.4.3"
 semver = "=1.0.27"
 serde = "=1.0.228"

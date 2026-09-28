@@ -270,6 +270,34 @@ pub struct BatchAcknowledgement {
     pub accepted_records: u32,
 }
 
+/// One local-first change submitted over the shared authenticated route.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalChangeSubmission {
+    pub change: ChangeRecord,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(
+    tag = "status",
+    content = "payload",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum LocalChangeDisposition {
+    Applied { authoritative_change: ChangeRecord },
+    Replayed { authoritative_change: ChangeRecord },
+    Conflicted { conflict_id: ConflictId },
+    Rejected { reason: ErrorCodeRef },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalChangeResult {
+    pub submitted_change_id: ChangeId,
+    pub disposition: LocalChangeDisposition,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(
     tag = "status",
@@ -329,6 +357,8 @@ tagged_contract! {
         Negotiate(SyncNegotiation) => "eitmad.sync.negotiate.v1",
         Pull(PullRequest) => "eitmad.sync.pull.v1",
         Changes(ChangeBatch) => "eitmad.sync.changes.v1",
+        SubmitLocal(LocalChangeSubmission) => "eitmad.sync.submit-local.v1",
+        LocalResult(LocalChangeResult) => "eitmad.sync.local-result.v1",
         Reconcile(ReconciliationDelivery) => "eitmad.sync.reconcile.v1",
         Acknowledge(BatchAcknowledgement) => "eitmad.sync.acknowledge.v1",
         Conflict(ConflictNotice) => "eitmad.sync.conflict.v1",

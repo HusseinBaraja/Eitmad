@@ -1,5 +1,8 @@
 //! Branch-scoped customer contact capability.
 
+mod sync;
+pub use sync::{CustomerSyncCycle, CustomerSyncError};
+
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use eitmad_authorization::{AuthorizationError, AuthorizationService, MutationContext};
 pub use eitmad_authorization::{CUSTOMER_READ_PERMISSION, CUSTOMER_WRITE_PERMISSION};
@@ -7,16 +10,17 @@ use eitmad_contracts::{
     commands::{CreateCustomer, UpdateCustomer},
     customer::{
         Customer, CustomerChangeNotice, CustomerId, CustomerMutationResult, CustomerPage,
-        CustomerStatus, CustomerSyncState, GetCustomer, SearchCustomers,
+        CustomerStatus, CustomerSyncPayload, CustomerSyncState, GetCustomer, SearchCustomers,
     },
     events::Event,
     identity::{AuthorizationContext, ScopeRef},
     sync::{ChangeId, ChangeOperation, ChangeRecord, EncodedDomainPayload, RecordId},
-    transport::SchemaId,
+    transport::{CorrelationId, SchemaId},
 };
 use eitmad_observability_audit::{AuditOutcome, AuditTarget, MutationAuditRecord};
 use eitmad_storage::{
-    AuthorityStore, CustomerCommit, CustomerCommitOutcome, DurableIdempotency, DurablePublication,
+    AuthorityStore, CustomerCommit, CustomerCommitOutcome, CustomerSyncProjection,
+    DurableIdempotency, DurablePublication,
 };
 use serde::Serialize;
 use sha2::{Digest as _, Sha256};
@@ -211,6 +215,132 @@ impl CustomerService {
             .map_err(|_| CustomerError::Unavailable)
     }
 
+    /// Projects a server-confirmed change into the scoped customer read model.
+    /// Replaying a confirmed change after restart is safe.
+    ///
+    /// # Errors
+    ///
+    /// Rejects unauthorized, malformed, or cross-scope server records.
+    pub fn project_confirmed(
+        &self,
+        authorization: &AuthorizationContext,
+        change: &ChangeRecord,
+        correlation_id: CorrelationId,
+    ) -> Result<bool, CustomerError> {
+        self.authorize_read(authorization)?;
+        if change.scope != authorization.scope || change.operation != ChangeOperation::Upsert {
+            return Err(CustomerError::UnsupportedScope);
+        }
+        let payload = change.payload.as_ref().ok_or(CustomerError::Unavailable)?;
+        if payload.schema_id.as_str() != CUSTOMER_SCHEMA_ID || payload.schema_version != 1 {
+            return Err(CustomerError::Unavailable);
+        }
+        let decoded = STANDARD
+            .decode(&payload.base64)
+            .map_err(|_| CustomerError::Unavailable)?;
+        let contact: CustomerSyncPayload =
+            serde_json::from_slice(&decoded).map_err(|_| CustomerError::Unavailable)?;
+        if contact.customer_id.value() != change.record_id.value()
+            || contact.revision != change.revision
+        {
+            return Err(CustomerError::Unavailable);
+        }
+        let customer = Customer {
+            id: contact.customer_id,
+            scope: change.scope.clone(),
+            name: contact.name,
+            phone: contact.phone,
+            address: contact.address,
+            notes: contact.notes,
+            status: CustomerStatus::Active,
+            revision: change.revision,
+            updated_at: change.changed_at,
+            sync_state: CustomerSyncState::Confirmed,
+        };
+        let normalized_name = normalize_arabic_name(customer.name.as_str());
+        let normalized_phone =
+            normalize_phone(customer.phone.as_str()).ok_or(CustomerError::Unavailable)?;
+        let context = MutationContext {
+            authorization: authorization.clone(),
+            correlation_id,
+            causation_id: None,
+            idempotency_key: change.idempotency_key,
+            occurred_at: change.changed_at,
+        };
+        let audit = audit_record(&context, "eitmad.customer.sync-project.v1", customer.id)
+            .with_outcome(AuditOutcome::Succeeded, None);
+        let publication = DurablePublication {
+            event: Event::CustomerChanged(CustomerChangeNotice {
+                customer_id: customer.id,
+                scope: customer.scope.clone(),
+                revision: customer.revision,
+                changed_at: customer.updated_at,
+                change_id: change.change_id,
+            }),
+            policy_changed: false,
+        };
+        self.store
+            .project_customer_sync(&CustomerSyncProjection {
+                customer: &customer,
+                normalized_name: &normalized_name,
+                normalized_phone: &normalized_phone,
+                source_change_id: change.change_id,
+                audit: &audit,
+                publication: &publication,
+            })
+            .map_err(|_| CustomerError::Unavailable)
+    }
+
+    /// Preserves a local contact and marks its unresolved server outcome.
+    ///
+    /// # Errors
+    ///
+    /// Rejects unauthorized or missing customer state.
+    pub fn mark_sync_exception(
+        &self,
+        authorization: &AuthorizationContext,
+        customer_id: CustomerId,
+        state: CustomerSyncState,
+        correlation_id: CorrelationId,
+        occurred_at: eitmad_contracts::transport::UnixMillis,
+    ) -> Result<(), CustomerError> {
+        self.authorize_read(authorization)?;
+        let context = MutationContext {
+            authorization: authorization.clone(),
+            correlation_id,
+            causation_id: None,
+            idempotency_key: eitmad_contracts::transport::IdempotencyKey::new(Uuid::new_v4()),
+            occurred_at,
+        };
+        let mut audit = audit_record(&context, "eitmad.customer.sync-state.v1", customer_id)
+            .with_outcome(AuditOutcome::Succeeded, None);
+        audit.changed_identifiers = vec!["syncState".to_owned()];
+        let current = self
+            .store
+            .get_customer(&authorization.scope, customer_id)
+            .map_err(|_| CustomerError::Unavailable)?
+            .ok_or(CustomerError::NotFound)?;
+        let publication = DurablePublication {
+            event: Event::CustomerChanged(CustomerChangeNotice {
+                customer_id,
+                scope: authorization.scope.clone(),
+                revision: current.revision,
+                changed_at: occurred_at,
+                change_id: ChangeId::new(Uuid::new_v4()),
+            }),
+            policy_changed: false,
+        };
+        self.store
+            .mark_customer_sync_exception(
+                &authorization.scope,
+                customer_id,
+                state,
+                &audit,
+                &publication,
+            )
+            .map_err(|_| CustomerError::Unavailable)
+    }
+
     fn commit(
         &self,
         context: &MutationContext,
@@ -307,17 +437,6 @@ impl CustomerService {
     }
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct CustomerSyncPayload<'a> {
-    customer_id: CustomerId,
-    name: &'a eitmad_contracts::customer::CustomerName,
-    phone: &'a eitmad_contracts::customer::CustomerPhone,
-    address: &'a Option<eitmad_contracts::customer::CustomerAddress>,
-    notes: &'a Option<eitmad_contracts::customer::CustomerNotes>,
-    revision: u64,
-}
-
 fn sync_change(
     context: &MutationContext,
     customer: &Customer,
@@ -326,10 +445,10 @@ fn sync_change(
 ) -> Result<ChangeRecord, CustomerError> {
     let payload = serde_json::to_vec(&CustomerSyncPayload {
         customer_id: customer.id,
-        name: &customer.name,
-        phone: &customer.phone,
-        address: &customer.address,
-        notes: &customer.notes,
+        name: customer.name.clone(),
+        phone: customer.phone.clone(),
+        address: customer.address.clone(),
+        notes: customer.notes.clone(),
         revision: customer.revision,
     })
     .map_err(|_| CustomerError::Unavailable)?;
@@ -602,6 +721,175 @@ mod tests {
             .unwrap();
         assert_eq!(customer.name.as_str(), "إعـتماد القيسي");
         assert_eq!(customer.phone.as_str(), "+٩٦٧ (٧٧٧) ١٢٣-٤٥٦");
+    }
+
+    #[test]
+    fn two_independent_stores_project_confirmation_and_preserve_concurrent_edit() {
+        let first_directory = TempDir::new().unwrap();
+        let second_directory = TempDir::new().unwrap();
+        let (_first_store, first, first_actor) =
+            authorized_service(&first_directory, 2, 10, RECEPTIONIST_RELATION);
+        let (_second_store, second, second_actor) =
+            authorized_service(&second_directory, 3, 10, RECEPTIONIST_RELATION);
+        let created = first
+            .create(
+                &mutation(first_actor.clone(), 100, 10),
+                &create_command("عميل اختباري", "+967777123456"),
+            )
+            .unwrap();
+        let original = first.sync_batch(&first_actor.scope, 10).unwrap().remove(0);
+        assert!(
+            second
+                .project_confirmed(
+                    &second_actor,
+                    &original,
+                    CorrelationId::new(Uuid::from_u128(900))
+                )
+                .unwrap()
+        );
+        assert!(
+            first
+                .project_confirmed(
+                    &first_actor,
+                    &original,
+                    CorrelationId::new(Uuid::from_u128(901))
+                )
+                .unwrap()
+        );
+        assert_eq!(
+            first
+                .get(
+                    &first_actor,
+                    &GetCustomer {
+                        customer_id: created.customer.id
+                    }
+                )
+                .unwrap()
+                .sync_state,
+            CustomerSyncState::Confirmed
+        );
+        assert_eq!(
+            second
+                .get(
+                    &second_actor,
+                    &GetCustomer {
+                        customer_id: created.customer.id
+                    }
+                )
+                .unwrap()
+                .sync_state,
+            CustomerSyncState::Confirmed
+        );
+        assert!(
+            !second
+                .project_confirmed(
+                    &second_actor,
+                    &original,
+                    CorrelationId::new(Uuid::from_u128(902))
+                )
+                .unwrap()
+        );
+
+        let second_edit = second
+            .update(
+                &mutation(second_actor.clone(), 200, 20),
+                &UpdateCustomer {
+                    customer_id: created.customer.id,
+                    expected_revision: 1,
+                    name: CustomerName::parse("اسم الجهاز الثاني").unwrap(),
+                    phone: created.customer.phone.clone(),
+                    address: created.customer.address.clone(),
+                    notes: created.customer.notes.clone(),
+                },
+            )
+            .unwrap();
+        let first_edit = first
+            .update(
+                &mutation(first_actor.clone(), 201, 21),
+                &UpdateCustomer {
+                    customer_id: created.customer.id,
+                    expected_revision: 1,
+                    name: CustomerName::parse("اسم الجهاز الأول").unwrap(),
+                    phone: created.customer.phone.clone(),
+                    address: created.customer.address.clone(),
+                    notes: created.customer.notes.clone(),
+                },
+            )
+            .unwrap();
+        let first_change = first.sync_batch(&first_actor.scope, 10).unwrap().remove(0);
+        assert!(
+            !second
+                .project_confirmed(
+                    &second_actor,
+                    &first_change,
+                    CorrelationId::new(Uuid::from_u128(903))
+                )
+                .unwrap()
+        );
+        second
+            .mark_sync_exception(
+                &second_actor,
+                created.customer.id,
+                CustomerSyncState::Conflicted,
+                CorrelationId::new(Uuid::from_u128(904)),
+                UnixMillis(22),
+            )
+            .unwrap();
+        drop(second);
+        let reopened = AuthorityStore::open(second_directory.path()).unwrap();
+        let second = CustomerService::new(reopened.clone(), AuthorizationService::new(reopened));
+        let preserved = second
+            .get(
+                &second_actor,
+                &GetCustomer {
+                    customer_id: created.customer.id,
+                },
+            )
+            .unwrap();
+        assert_eq!(preserved.name, second_edit.customer.name);
+        assert_ne!(preserved.name, first_edit.customer.name);
+        assert_eq!(preserved.sync_state, CustomerSyncState::Conflicted);
+        assert!(
+            second
+                .sync_batch(&second_actor.scope, 10)
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn rejected_delivery_survives_restart_and_keeps_local_contact_visible() {
+        let directory = TempDir::new().unwrap();
+        let (_store, service, actor) = authorized_service(&directory, 4, 30, RECEPTIONIST_RELATION);
+        let created = service
+            .create(
+                &mutation(actor.clone(), 301, 31),
+                &create_command("عميل مرفوض", "+967777123456"),
+            )
+            .unwrap();
+        service
+            .mark_sync_exception(
+                &actor,
+                created.customer.id,
+                CustomerSyncState::Rejected,
+                CorrelationId::new(Uuid::from_u128(302)),
+                UnixMillis(32),
+            )
+            .unwrap();
+        drop(service);
+        let reopened = AuthorityStore::open(directory.path()).unwrap();
+        let service = CustomerService::new(reopened.clone(), AuthorizationService::new(reopened));
+        let preserved = service
+            .get(
+                &actor,
+                &GetCustomer {
+                    customer_id: created.customer.id,
+                },
+            )
+            .unwrap();
+        assert_eq!(preserved.name, created.customer.name);
+        assert_eq!(preserved.sync_state, CustomerSyncState::Rejected);
+        assert!(service.sync_batch(&actor.scope, 10).unwrap().is_empty());
     }
 
     #[test]

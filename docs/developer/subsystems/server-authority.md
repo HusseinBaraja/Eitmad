@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "server platform maintainers"
-last_verified: "2026-09-10"
+last_verified: "2026-09-28"
 review_triggers:
   - "server identity, authorization, storage, synchronization, licensing, update assignment, or deployment boundaries change"
 keywords:
@@ -25,7 +25,7 @@ keywords:
 
 The foundation provides tenant and organization identity, accounts, registered devices, invitation activation, authentication tokens, session policy, relationship authorization, licensing hooks, update-channel assignment, sync coordination, snapshots, operation history, resumable subscriptions, conflict records, WAN relay coordination, signed update distribution, operational status, fleet visibility, audit access, support workflows, and client compatibility negotiation.
 
-It does not provide a production business domain, billing provider, email provider, MFA challenge, package CDN, production relay payload router, admin UI, backup scheduler, or native client workflow. `DomainRegistry` is intentionally empty in the base executable. The server advertises no domain schemas and rejects domain sync traffic until a product registers a handler. Control, relay, update, and administration planes can still start and report their own readiness.
+The server registers the branch-scoped Customer contact schema and handler as its first product domain. It does not provide billing, email, MFA challenge, package CDN, production relay payload routing, admin UI, backup scheduling, or customer conflict resolution. Other domain schemas remain unregistered.
 
 ## Ownership and module boundaries
 
@@ -78,7 +78,7 @@ Every access-authenticated request must include the access token, device ID, tim
 
 ## Storage, scope, and audit invariants
 
-Migrations `0001_control_foundation.sql`, `0002_sync_foundation.sql`, `0003_admin_foundation.sql`, and `0004_server_audit_envelope.sql` own the PostgreSQL schema. Every tenant-scoped table has a `tenant_id`, enables row-level security, and forces row-level security. Rust opens a transaction and sets the tenant context before scoped access. Application credentials must not have a PostgreSQL role that can bypass RLS.
+Migrations `0001_control_foundation.sql`, `0002_sync_foundation.sql`, `0003_admin_foundation.sql`, `0004_server_audit_envelope.sql`, and `0005_customer_branches.sql` own the PostgreSQL schema. Every tenant-scoped table has a `tenant_id`, enables row-level security, and forces row-level security. Rust opens a transaction and sets the tenant context before scoped access. Application credentials must not have a PostgreSQL role that can bypass RLS.
 
 Every accepted state change adds a redacted audit record in the same transaction. `server/audit` is the only PostgreSQL audit contract. It records actor kind, optional session and principal, tenant and optional workspace, exact scope, target kind and target ID, operation, outcome, correlation, optional causation and idempotency, stable redacted failure ID, and time. Each control-plane and sync-plane entry point receives a caller-supplied correlation identifier, so records from one request remain joinable. Invalid and denied sync boundaries are recorded in a separate mandatory transaction before the operation returns; if that append fails, the boundary fails closed as unavailable. Successful mutations, conflicts, snapshots, compaction, and acknowledgements append in the authoritative state transaction. Token plaintext, password input, device private keys, domain payloads, and customer content must not enter logs or audit metadata.
 
@@ -88,12 +88,14 @@ Migration files are append-only after release. Back up PostgreSQL before migrati
 
 ## Sync modes and flows
 
-A registered domain declares one immutable mode:
+A registered domain declares one immutable mode. Customer contact uses `LocalFirst`:
 
 - Local-first accepts an authorized local operation, assigns ordered server history, projects the record, and creates a conflict when the base revision is stale and the domain cannot resolve it safely.
 - Server-authoritative accepts a typed command only through its registered handler. The handler authorizes and returns the authoritative change or denial. The server does not infer business truth from opaque payload bytes.
 
 An idempotency key is stored with a deterministic request fingerprint and serialized result. An exact retry returns the first result, including the same conflict ID. Reusing the key for another intent returns `eitmad.error.server-idempotency-mismatch.v1`. Scope locking prevents concurrent writers from assigning the same next position.
+
+An authenticated organization owner registers a branch with `POST /v1/customer-branches` before branch-scoped Customer sync. The route checks the owner relationship, writes the tenant-scoped registry and mandatory audit in one transaction, and accepts an exact retry. The customer handler resolves the branch to its organization in `control.branches`. A Manager relationship on that organization grants customer access to its branches; a Receptionist needs a direct relationship on the exact branch. The handler validates the submitted schema, payload identity, operation, and revision. The local submission route returns applied, replayed, conflicted, or rejected status for the submitted change ID. A stale revision records both inputs as an open conflict. PostgreSQL tenant context and forced row-level security protect the branch registry, customer operation, conflict, and checkpoint tables. See [maintain customer contact records](customers.md) for local projection and recovery.
 
 Pull sessions return ordered history after a checkpoint. Clients acknowledge applied checkpoints separately through `eitmad.sync.acknowledge.v1`, which persists durable device checkpoints. The connection-level subscription acknowledgement message `eitmad.server.acknowledge.v1` is rejected with `eitmad.error.server-subscription-ack-unsupported.v1` until a durable subscription-checkpoint store exists; the server never reports success without changing cursor state.
 

@@ -815,6 +815,22 @@ public partial class SyncMessage
     public ChangeBatch? AsSyncChanges() =>
         Kind == SyncChangesKind ? PayloadAs<ChangeBatch>() : null;
 
+    public const string SyncSubmitLocalKind = "eitmad.sync.submit-local.v1";
+
+    public static SyncMessage ForSyncSubmitLocal(LocalChangeSubmission payload) =>
+        new() { Kind = SyncSubmitLocalKind, Payload = payload };
+
+    public LocalChangeSubmission? AsSyncSubmitLocal() =>
+        Kind == SyncSubmitLocalKind ? PayloadAs<LocalChangeSubmission>() : null;
+
+    public const string SyncLocalResultKind = "eitmad.sync.local-result.v1";
+
+    public static SyncMessage ForSyncLocalResult(LocalChangeResult payload) =>
+        new() { Kind = SyncLocalResultKind, Payload = payload };
+
+    public LocalChangeResult? AsSyncLocalResult() =>
+        Kind == SyncLocalResultKind ? PayloadAs<LocalChangeResult>() : null;
+
     public const string SyncReconcileKind = "eitmad.sync.reconcile.v1";
 
     public static SyncMessage ForSyncReconcile(ReconciliationDelivery payload) =>
