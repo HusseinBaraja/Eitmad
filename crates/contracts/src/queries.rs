@@ -6,6 +6,7 @@ use crate::{
     authorization::{RelationshipId, RelationshipPage},
     config::ConfigSnapshot,
     customer::{Customer, CustomerPage, GetCustomer, SearchCustomers},
+    material::{ListMaterialReferences, ListMaterials, MaterialPage, MaterialReferences},
     permissions::EffectivePermissions,
     reference_marker::{ListReferenceMarkers, ReferenceMarkerPage},
     sync::SyncStatus,
@@ -80,6 +81,8 @@ tagged_contract! {
         ReferenceMarkers(ListReferenceMarkers) => "eitmad.reference-marker.list.v1",
         Customer(GetCustomer) => "eitmad.customer.get.v1",
         Customers(SearchCustomers) => "eitmad.customer.search.v1",
+        Materials(ListMaterials) => "eitmad.material.list.v1",
+        MaterialReferences(ListMaterialReferences) => "eitmad.material-reference.list.v1",
         DesktopAccounts(ListDesktopAccounts) => "eitmad.desktop-account.list.v1"
     }
 }
@@ -95,6 +98,8 @@ pub enum QueryResult {
     ReferenceMarkers(ReferenceMarkerPage),
     Customer(Customer),
     Customers(CustomerPage),
+    Materials(MaterialPage),
+    MaterialReferences(MaterialReferences),
     DesktopAccounts(DesktopAccountPage),
 }
 

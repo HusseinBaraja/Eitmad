@@ -1,10 +1,10 @@
 using System.Collections.ObjectModel;
+using Eitmad.Contracts;
 
 namespace Eitmad.WindowsShell.Features.RawMaterials;
 
 /// <summary>
-/// Owns ephemeral list-page state for the raw-materials preview.
-/// Durable validation, authorization, and storage remain unavailable until a Rust vertical exists.
+/// Owns list and unsaved editor presentation state; Rust owns durable definitions.
 /// </summary>
 public sealed class RawMaterialsViewModel : ObservableObject
 {
@@ -34,6 +34,18 @@ public sealed class RawMaterialsViewModel : ObservableObject
     private string referenceName = string.Empty;
     private string referenceShortName = string.Empty;
     private string referenceError = string.Empty;
+    private string availabilityMessage = string.Empty;
+    private UnitDimension referenceDimension = UnitDimension.Count;
+    private long referenceNumerator = 1;
+    private long referenceDenominator = 1;
+
+    public bool DurableMode { get; private set; }
+    public string AvailabilityMessage { get => availabilityMessage; private set => Set(ref availabilityMessage, value); }
+    public string DataStatusLabel => DurableMode ? "بيانات المواد الخام" : "بيانات تجريبية غير محفوظة";
+    public string EditorHelpLabel => DurableMode ? "راجع البيانات قبل حفظها." : "يمكنك مراجعة البيانات قبل حفظها في المعاينة المحلية.";
+    public event EventHandler? SearchChanged;
+    public RawMaterialListItem? EditingMaterial => editingMaterial;
+    public RawMaterialReferenceOption? EditingReference => editingReference;
 
     public RawMaterialsViewModel()
     {
@@ -60,6 +72,8 @@ public sealed class RawMaterialsViewModel : ObservableObject
         ];
         ActiveCategories = new ObservableCollection<RawMaterialReferenceOption>(Categories);
         ActiveUnits = new ObservableCollection<RawMaterialReferenceOption>(Units);
+        EditorCategories = new ObservableCollection<RawMaterialReferenceOption>(ActiveCategories);
+        EditorUnits = new ObservableCollection<RawMaterialReferenceOption>(ActiveUnits);
         CategoryOptions = [AllCategories, .. Categories.Select(item => item.Name)];
         StatusOptions = [AllStatuses, ActiveStatus, ArchivedStatus];
         VisibleMaterials = [];
@@ -77,6 +91,8 @@ public sealed class RawMaterialsViewModel : ObservableObject
     public ObservableCollection<RawMaterialReferenceOption> ActiveCategories { get; }
 
     public ObservableCollection<RawMaterialReferenceOption> ActiveUnits { get; }
+    public ObservableCollection<RawMaterialReferenceOption> EditorCategories { get; }
+    public ObservableCollection<RawMaterialReferenceOption> EditorUnits { get; }
 
     public IEnumerable<RawMaterialReferenceOption> ManagedReferences =>
         IsCategoryReference ? Categories : Units;
@@ -91,6 +107,7 @@ public sealed class RawMaterialsViewModel : ObservableObject
             if (Set(ref searchText, value ?? string.Empty))
             {
                 RefreshVisibleMaterials();
+                if (DurableMode) SearchChanged?.Invoke(this, EventArgs.Empty);
             }
         }
     }
@@ -238,6 +255,96 @@ public sealed class RawMaterialsViewModel : ObservableObject
         set => Set(ref referenceShortName, value ?? string.Empty);
     }
 
+    public UnitDimension ReferenceDimension
+    {
+        get => referenceDimension;
+        set => Set(ref referenceDimension, value);
+    }
+
+    public long ReferenceNumerator
+    {
+        get => referenceNumerator;
+        set => Set(ref referenceNumerator, value);
+    }
+
+    public long ReferenceDenominator
+    {
+        get => referenceDenominator;
+        set => Set(ref referenceDenominator, value);
+    }
+
+    public sealed record DimensionOption(UnitDimension Value, string Label);
+    public IReadOnlyList<DimensionOption> UnitDimensions { get; } =
+    [
+        new(UnitDimension.Count, "عدد"), new(UnitDimension.Length, "طول"),
+        new(UnitDimension.Area, "مساحة"), new(UnitDimension.Volume, "حجم"),
+        new(UnitDimension.Mass, "كتلة"),
+    ];
+
+    public void EnableDurableMode()
+    {
+        DurableMode = true;
+        materials.Clear();
+        Categories.Clear(); Units.Clear(); ActiveCategories.Clear(); ActiveUnits.Clear();
+        EditorCategories.Clear(); EditorUnits.Clear();
+        while (CategoryOptions.Count > 1) CategoryOptions.RemoveAt(CategoryOptions.Count - 1);
+        EditorCategory = string.Empty; EditorUnit = string.Empty;
+        FeedbackMessage = string.Empty;
+        AvailabilityMessage = string.Empty;
+        Raise(nameof(DataStatusLabel)); Raise(nameof(EditorHelpLabel));
+        RefreshVisibleMaterials();
+    }
+
+    public void ApplyDurableData(MaterialReferences references, IReadOnlyList<Material> records)
+    {
+        if (!DurableMode) return;
+        var priorCategory = SelectedCategory;
+        AvailabilityMessage = string.Empty;
+        Categories.Clear(); Units.Clear(); ActiveCategories.Clear(); ActiveUnits.Clear();
+        while (CategoryOptions.Count > 1) CategoryOptions.RemoveAt(CategoryOptions.Count - 1);
+        foreach (var category in references.Categories)
+        {
+            var option = new RawMaterialReferenceOption(category.Name, id: category.Id, revision: category.Revision)
+                { IsArchived = category.Archived };
+            Categories.Add(option);
+            if (!option.IsArchived) { ActiveCategories.Add(option); CategoryOptions.Add(option.Name); }
+        }
+        foreach (var unit in references.Units)
+        {
+            var option = new RawMaterialReferenceOption(unit.Name, unit.Symbol, unit.Id, unit.Revision,
+                unit.Dimension, unit.Numerator, unit.Denominator) { IsArchived = unit.Archived };
+            Units.Add(option);
+            if (!option.IsArchived) ActiveUnits.Add(option);
+        }
+        RefreshEditorReferences();
+        materials.Clear();
+        foreach (var record in records)
+        {
+            var category = Categories.FirstOrDefault(item => item.Id == record.CategoryId);
+            var unit = Units.FirstOrDefault(item => item.Id == record.UnitId);
+            materials.Add(new RawMaterialListItem(record.Id, record.Name,
+                category?.Name ?? "تصنيف غير متاح", unit?.Name ?? "وحدة غير متاحة",
+                record.CurrentCostYer, record.Archived, record.CategoryId, record.UnitId, record.Revision));
+        }
+        if (!CategoryOptions.Contains(priorCategory)) SelectedCategory = AllCategories;
+        RefreshVisibleMaterials();
+    }
+
+    public void DurableSaved(string message)
+    {
+        IsEditorOpen = false; IsReferenceEditorOpen = false; IsReferenceManagerOpen = false;
+        EditorError = string.Empty; ReferenceError = string.Empty;
+        FeedbackMessage = message;
+    }
+
+    public void DurableError(string message, bool reference = false)
+    {
+        if (reference) ReferenceError = message;
+        else EditorError = message;
+    }
+
+    public void DurableUnavailable(string message) => AvailabilityMessage = message;
+
     public string ReferenceError
     {
         get => referenceError;
@@ -259,10 +366,11 @@ public sealed class RawMaterialsViewModel : ObservableObject
     public void BeginCreate()
     {
         editingMaterial = null;
+        RefreshEditorReferences();
         IsCreating = true;
         EditorName = string.Empty;
-        EditorCategory = "ألواح خشبية";
-        EditorUnit = "لوح";
+        EditorCategory = DurableMode ? ActiveCategories.FirstOrDefault()?.Name ?? string.Empty : "ألواح خشبية";
+        EditorUnit = DurableMode ? ActiveUnits.FirstOrDefault()?.Name ?? string.Empty : "لوح";
         EditorCost = 0m;
         EditorError = string.Empty;
         IsEditorOpen = true;
@@ -272,6 +380,7 @@ public sealed class RawMaterialsViewModel : ObservableObject
     {
         ArgumentNullException.ThrowIfNull(material);
         editingMaterial = material;
+        RefreshEditorReferences();
         IsCreating = false;
         EditorName = material.Name;
         EditorCategory = material.Category;
@@ -285,6 +394,19 @@ public sealed class RawMaterialsViewModel : ObservableObject
     {
         IsEditorOpen = false;
         EditorError = string.Empty;
+    }
+
+    private void RefreshEditorReferences()
+    {
+        EditorCategories.Clear(); EditorUnits.Clear();
+        foreach (var item in ActiveCategories) EditorCategories.Add(item);
+        foreach (var item in ActiveUnits) EditorUnits.Add(item);
+        if (editingMaterial?.CategoryId is { } categoryId
+            && Categories.FirstOrDefault(item => item.Id == categoryId) is { IsArchived: true } archivedCategory)
+            EditorCategories.Add(archivedCategory);
+        if (editingMaterial?.UnitId is { } unitId
+            && Units.FirstOrDefault(item => item.Id == unitId) is { IsArchived: true } archivedUnit)
+            EditorUnits.Add(archivedUnit);
     }
 
     public bool SaveEditor()
@@ -342,6 +464,15 @@ public sealed class RawMaterialsViewModel : ObservableObject
     public RawMaterialListItem Duplicate(RawMaterialListItem material)
     {
         ArgumentNullException.ThrowIfNull(material);
+        if (DurableMode)
+        {
+            BeginCreate();
+            EditorName = $"{material.Name} — نسخة";
+            EditorCategory = material.Category;
+            EditorUnit = material.Unit;
+            EditorCost = material.CurrentCost;
+            return material;
+        }
         var duplicate = new RawMaterialListItem(
             Guid.NewGuid(),
             $"{material.Name} — نسخة",
@@ -385,6 +516,9 @@ public sealed class RawMaterialsViewModel : ObservableObject
         returnToReferenceManager = IsReferenceManagerOpen;
         ReferenceName = reference.Name;
         ReferenceShortName = reference.ShortName;
+        ReferenceDimension = reference.Dimension;
+        ReferenceNumerator = reference.Numerator;
+        ReferenceDenominator = reference.Denominator;
         ReferenceError = string.Empty;
         IsReferenceManagerOpen = false;
         IsReferenceEditorOpen = true;
@@ -422,12 +556,14 @@ public sealed class RawMaterialsViewModel : ObservableObject
             if (IsCategoryReference)
             {
                 ActiveCategories.Add(added);
+                EditorCategories.Add(added);
                 CategoryOptions.Add(added.Name);
                 EditorCategory = added.Name;
             }
             else
             {
                 ActiveUnits.Add(added);
+                EditorUnits.Add(added);
                 EditorUnit = added.Name;
             }
         }
@@ -479,6 +615,7 @@ public sealed class RawMaterialsViewModel : ObservableObject
         if (IsCategoryReference)
         {
             ActiveCategories.Remove(reference);
+            EditorCategories.Remove(reference);
             if (EditorCategory == reference.Name)
             {
                 EditorCategory = ActiveCategories.FirstOrDefault()?.Name ?? string.Empty;
@@ -487,6 +624,7 @@ public sealed class RawMaterialsViewModel : ObservableObject
         else
         {
             ActiveUnits.Remove(reference);
+            EditorUnits.Remove(reference);
             if (EditorUnit == reference.Name)
             {
                 EditorUnit = ActiveUnits.FirstOrDefault()?.Name ?? string.Empty;
@@ -501,6 +639,9 @@ public sealed class RawMaterialsViewModel : ObservableObject
         returnToReferenceManager = false;
         ReferenceName = string.Empty;
         ReferenceShortName = string.Empty;
+        ReferenceDimension = UnitDimension.Count;
+        ReferenceNumerator = 1;
+        ReferenceDenominator = 1;
         ReferenceError = string.Empty;
         IsReferenceManagerOpen = false;
         IsReferenceEditorOpen = true;

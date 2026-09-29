@@ -23,6 +23,7 @@ keywords:
 - [Upgrade local storage to version 8 reference markers](storage-v8-reference-marker.md): bounded reference-marker state, atomic audit and publication outboxes, local-first sync, compatibility, and rollback limits.
 - [Upgrade to protocol 1.9 and storage version 13 customers](storage-v13-customers.md): branch-scoped customer contacts, normalized search, atomic local-first state, generated bindings, and rollback limits.
 - [Upgrade customer synchronization to storage version 14](storage-v14-customer-sync.md): durable rejection and conflict state, scoped server delivery, and recovery limits.
+- [Upgrade raw materials to storage version 15](storage-v15-material-definitions.md): organization-scoped definitions, protocol 1.10, manager permission, and local recovery limits.
 - [Upgrade to protocol 1.4 modular server authority](protocol-1-4-server-authority.md): PostgreSQL migrations, remote authentication, device proof, sync snapshots, resumable subscriptions, compatibility, and rollback.
 - [Upgrade to protocol 1.5 operational server planes](protocol-1-5-operational-server-planes.md): relay coordination, signed manifests, administration migration 3, generated bindings, compatibility, and rollback.
 - [Upgrade to protocol 1.6 local installation authority](protocol-1-6-local-authority.md): engine-owned identity, storage migration 9, private bootstrap transport, generated bindings, recovery, and rollback.

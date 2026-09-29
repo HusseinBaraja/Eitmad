@@ -568,6 +568,45 @@ namespace Eitmad.Contracts
         public Guid[] PotentialDuplicateIds { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("archived")]
+        public bool? Archived { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("denominator")]
+        public long? Denominator { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("dimension")]
+        public UnitDimension? Dimension { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("numerator")]
+        public long? Numerator { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("symbol")]
+        public string Symbol { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("categoryId")]
+        public Guid? CategoryId { get; set; }
+
+        /// <summary>
+        /// Non-negative whole Yemeni rials per selected unit.
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("currentCostYer")]
+        public long? CurrentCostYer { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("unitId")]
+        public Guid? UnitId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("accountId")]
         public Guid? AccountId { get; set; }
 
@@ -1449,6 +1488,18 @@ namespace Eitmad.Contracts
         public UpdateDesktopAccount CommandDesktopAccountUpdate { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Command_MaterialCategorySave")]
+        public SaveMaterialCategory CommandMaterialCategorySave { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Command_MaterialSave")]
+        public SaveMaterial CommandMaterialSave { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Command_MaterialUnitSave")]
+        public SaveMaterialUnit CommandMaterialUnitSave { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Command_OperationCancel")]
         public CancelOperation CommandOperationCancel { get; set; }
 
@@ -1479,6 +1530,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Event_ErrorEvent")]
         public ScopedError EventErrorEvent { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Event_MaterialChangedEvent")]
+        public MaterialChangeNotice EventMaterialChangedEvent { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Event_NotificationEvent")]
@@ -1601,6 +1656,14 @@ namespace Eitmad.Contracts
         public Dictionary<string, object> QueryDesktopAccountList { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Query_MaterialList")]
+        public ListMaterials QueryMaterialList { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Query_MaterialReferenceList")]
+        public Dictionary<string, object> QueryMaterialReferenceList { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Query_PermissionsGetEffective")]
         public Dictionary<string, object> QueryPermissionsGetEffective { get; set; }
 
@@ -1635,6 +1698,14 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_EffectivePermissions")]
         public EffectivePermissions QueryResultEffectivePermissions { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("QueryResult_MaterialReferences")]
+        public MaterialReferences QueryResultMaterialReferences { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("QueryResult_Materials")]
+        public MaterialPage QueryResultMaterials { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_ReferenceMarkers")]
@@ -1703,6 +1774,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Subscription_ErrorSubscribe")]
         public Dictionary<string, object> SubscriptionErrorSubscribe { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Subscription_MaterialChangedSubscribe")]
+        public Dictionary<string, object> SubscriptionMaterialChangedSubscribe { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Subscription_NotificationSubscribe")]
@@ -1904,6 +1979,72 @@ namespace Eitmad.Contracts
         public DesktopAccountRole Role { get; set; }
     }
 
+    public partial class SaveMaterialCategory
+    {
+        [JsonPropertyName("archived")]
+        public bool Archived { get; set; }
+
+        [JsonPropertyName("expectedRevision")]
+        public long? ExpectedRevision { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid? Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+    }
+
+    public partial class SaveMaterial
+    {
+        [JsonPropertyName("archived")]
+        public bool Archived { get; set; }
+
+        [JsonPropertyName("categoryId")]
+        public Guid CategoryId { get; set; }
+
+        [JsonPropertyName("currentCostYer")]
+        public long CurrentCostYer { get; set; }
+
+        [JsonPropertyName("expectedRevision")]
+        public long? ExpectedRevision { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid? Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("unitId")]
+        public Guid UnitId { get; set; }
+    }
+
+    public partial class SaveMaterialUnit
+    {
+        [JsonPropertyName("archived")]
+        public bool Archived { get; set; }
+
+        [JsonPropertyName("denominator")]
+        public long Denominator { get; set; }
+
+        [JsonPropertyName("dimension")]
+        public UnitDimension Dimension { get; set; }
+
+        [JsonPropertyName("expectedRevision")]
+        public long? ExpectedRevision { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid? Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("numerator")]
+        public long Numerator { get; set; }
+
+        [JsonPropertyName("symbol")]
+        public string Symbol { get; set; }
+    }
+
     public partial class CancelOperation
     {
         [JsonPropertyName("operationId")]
@@ -2022,6 +2163,24 @@ namespace Eitmad.Contracts
     {
         [JsonPropertyName("error")]
         public ContractError Error { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+    }
+
+    public partial class MaterialChangeNotice
+    {
+        [JsonPropertyName("changedAt")]
+        public long ChangedAt { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("kind")]
+        public MaterialRecordKind Kind { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
 
         [JsonPropertyName("scope")]
         public ScopeRef Scope { get; set; }
@@ -2396,6 +2555,18 @@ namespace Eitmad.Contracts
         public string Term { get; set; }
     }
 
+    public partial class ListMaterials
+    {
+        [JsonPropertyName("after")]
+        public Guid? After { get; set; }
+
+        [JsonPropertyName("limit")]
+        public long Limit { get; set; }
+
+        [JsonPropertyName("term")]
+        public string Term { get; set; }
+    }
+
     public partial class ListReferenceMarkers
     {
         [JsonPropertyName("after")]
@@ -2442,6 +2613,111 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("username")]
         public string Username { get; set; }
+    }
+
+    public partial class MaterialReferences
+    {
+        [JsonPropertyName("categories")]
+        public MaterialCategory[] Categories { get; set; }
+
+        [JsonPropertyName("units")]
+        public MaterialUnit[] Units { get; set; }
+    }
+
+    public partial class MaterialCategory
+    {
+        [JsonPropertyName("archived")]
+        public bool Archived { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+
+        [JsonPropertyName("updatedAt")]
+        public long UpdatedAt { get; set; }
+    }
+
+    public partial class MaterialUnit
+    {
+        [JsonPropertyName("archived")]
+        public bool Archived { get; set; }
+
+        [JsonPropertyName("denominator")]
+        public long Denominator { get; set; }
+
+        [JsonPropertyName("dimension")]
+        public UnitDimension Dimension { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("numerator")]
+        public long Numerator { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+
+        [JsonPropertyName("symbol")]
+        public string Symbol { get; set; }
+
+        [JsonPropertyName("updatedAt")]
+        public long UpdatedAt { get; set; }
+    }
+
+    public partial class MaterialPage
+    {
+        [JsonPropertyName("items")]
+        public Material[] Items { get; set; }
+
+        [JsonPropertyName("next")]
+        public Guid? Next { get; set; }
+    }
+
+    public partial class Material
+    {
+        [JsonPropertyName("archived")]
+        public bool Archived { get; set; }
+
+        [JsonPropertyName("categoryId")]
+        public Guid CategoryId { get; set; }
+
+        /// <summary>
+        /// Non-negative whole Yemeni rials per selected unit.
+        /// </summary>
+        [JsonPropertyName("currentCostYer")]
+        public long CurrentCostYer { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+
+        [JsonPropertyName("unitId")]
+        public Guid UnitId { get; set; }
+
+        [JsonPropertyName("updatedAt")]
+        public long UpdatedAt { get; set; }
     }
 
     public partial class ReferenceMarkerPage
@@ -2935,13 +3211,15 @@ namespace Eitmad.Contracts
 
     public enum LifecycleStage { AuthorityLock, ComponentShutdown, ComponentStartup, ProcessIdentity, ReadinessCheck };
 
-    public enum PurpleKind { ConfigurationUpdated, CustomerCreated, CustomerUpdated, DesktopAccountCreated, DesktopAccountDeactivated, DesktopAccountUpdated, InstallerOutcomeRecorded, OperationCancelled, ReferenceMarkerUpserted, RelationshipGranted, RelationshipRevoked };
+    public enum PurpleKind { ConfigurationUpdated, CustomerCreated, CustomerUpdated, DesktopAccountCreated, DesktopAccountDeactivated, DesktopAccountUpdated, InstallerOutcomeRecorded, MaterialCategorySaved, MaterialSaved, MaterialUnitSaved, OperationCancelled, ReferenceMarkerUpserted, RelationshipGranted, RelationshipRevoked };
 
     public enum ErrorParameterValueKind { Identifier, Integer, Text };
 
     public enum CustomerStatus { Active, Archived, Merged };
 
     public enum CustomerSyncState { Confirmed, Conflicted, Pending, Rejected };
+
+    public enum UnitDimension { Area, Count, Length, Mass, Volume };
 
     public enum RestartRequirement { Application, Engine, None };
 
@@ -3000,6 +3278,8 @@ namespace Eitmad.Contracts
     public enum InstallerOutcomeKind { Cancelled, Failed, Succeeded };
 
     public enum BackgroundJobState { Cancelled, Failed, Queued, Running, Succeeded };
+
+    public enum MaterialRecordKind { Category, Material, Unit };
 
     public enum NotificationSeverity { Error, Information, Success, Warning };
 
@@ -3093,6 +3373,7 @@ namespace Eitmad.Contracts
                 ErrorParameterValueValueConverter.Singleton,
                 CustomerStatusConverter.Singleton,
                 CustomerSyncStateConverter.Singleton,
+                UnitDimensionConverter.Singleton,
                 RestartRequirementConverter.Singleton,
                 ConfigSensitivityConverter.Singleton,
                 ConfigReadValueKindConverter.Singleton,
@@ -3123,6 +3404,7 @@ namespace Eitmad.Contracts
                 ConfigWriteValueKindConverter.Singleton,
                 InstallerOutcomeKindConverter.Singleton,
                 BackgroundJobStateConverter.Singleton,
+                MaterialRecordKindConverter.Singleton,
                 NotificationSeverityConverter.Singleton,
                 ChangeOperationConverter.Singleton,
                 DesktopSessionStatusConverter.Singleton,
@@ -3577,6 +3859,12 @@ namespace Eitmad.Contracts
                     return PurpleKind.DesktopAccountUpdated;
                 case "installerOutcomeRecorded":
                     return PurpleKind.InstallerOutcomeRecorded;
+                case "materialCategorySaved":
+                    return PurpleKind.MaterialCategorySaved;
+                case "materialSaved":
+                    return PurpleKind.MaterialSaved;
+                case "materialUnitSaved":
+                    return PurpleKind.MaterialUnitSaved;
                 case "operationCancelled":
                     return PurpleKind.OperationCancelled;
                 case "referenceMarkerUpserted":
@@ -3613,6 +3901,15 @@ namespace Eitmad.Contracts
                     return;
                 case PurpleKind.InstallerOutcomeRecorded:
                     JsonSerializer.Serialize(writer, "installerOutcomeRecorded", options);
+                    return;
+                case PurpleKind.MaterialCategorySaved:
+                    JsonSerializer.Serialize(writer, "materialCategorySaved", options);
+                    return;
+                case PurpleKind.MaterialSaved:
+                    JsonSerializer.Serialize(writer, "materialSaved", options);
+                    return;
+                case PurpleKind.MaterialUnitSaved:
+                    JsonSerializer.Serialize(writer, "materialUnitSaved", options);
                     return;
                 case PurpleKind.OperationCancelled:
                     JsonSerializer.Serialize(writer, "operationCancelled", options);
@@ -3789,6 +4086,55 @@ namespace Eitmad.Contracts
         }
 
         public static readonly CustomerSyncStateConverter Singleton = new CustomerSyncStateConverter();
+    }
+
+    internal class UnitDimensionConverter : JsonConverter<UnitDimension>
+    {
+        public override bool CanConvert(Type t) => t == typeof(UnitDimension);
+
+        public override UnitDimension Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "area":
+                    return UnitDimension.Area;
+                case "count":
+                    return UnitDimension.Count;
+                case "length":
+                    return UnitDimension.Length;
+                case "mass":
+                    return UnitDimension.Mass;
+                case "volume":
+                    return UnitDimension.Volume;
+            }
+            throw new Exception("Cannot unmarshal type UnitDimension");
+        }
+
+        public override void Write(Utf8JsonWriter writer, UnitDimension value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case UnitDimension.Area:
+                    JsonSerializer.Serialize(writer, "area", options);
+                    return;
+                case UnitDimension.Count:
+                    JsonSerializer.Serialize(writer, "count", options);
+                    return;
+                case UnitDimension.Length:
+                    JsonSerializer.Serialize(writer, "length", options);
+                    return;
+                case UnitDimension.Mass:
+                    JsonSerializer.Serialize(writer, "mass", options);
+                    return;
+                case UnitDimension.Volume:
+                    JsonSerializer.Serialize(writer, "volume", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type UnitDimension");
+        }
+
+        public static readonly UnitDimensionConverter Singleton = new UnitDimensionConverter();
     }
 
     internal class RestartRequirementConverter : JsonConverter<RestartRequirement>
@@ -5113,6 +5459,45 @@ namespace Eitmad.Contracts
         }
 
         public static readonly BackgroundJobStateConverter Singleton = new BackgroundJobStateConverter();
+    }
+
+    internal class MaterialRecordKindConverter : JsonConverter<MaterialRecordKind>
+    {
+        public override bool CanConvert(Type t) => t == typeof(MaterialRecordKind);
+
+        public override MaterialRecordKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "category":
+                    return MaterialRecordKind.Category;
+                case "material":
+                    return MaterialRecordKind.Material;
+                case "unit":
+                    return MaterialRecordKind.Unit;
+            }
+            throw new Exception("Cannot unmarshal type MaterialRecordKind");
+        }
+
+        public override void Write(Utf8JsonWriter writer, MaterialRecordKind value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case MaterialRecordKind.Category:
+                    JsonSerializer.Serialize(writer, "category", options);
+                    return;
+                case MaterialRecordKind.Material:
+                    JsonSerializer.Serialize(writer, "material", options);
+                    return;
+                case MaterialRecordKind.Unit:
+                    JsonSerializer.Serialize(writer, "unit", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type MaterialRecordKind");
+        }
+
+        public static readonly MaterialRecordKindConverter Singleton = new MaterialRecordKindConverter();
     }
 
     internal class NotificationSeverityConverter : JsonConverter<NotificationSeverity>

@@ -8,6 +8,7 @@ mod desktop_auth;
 mod export;
 mod identity;
 mod local_authority;
+mod material;
 mod migrations;
 mod recovery;
 mod reference_marker;
@@ -41,6 +42,7 @@ use eitmad_contracts::{
 use eitmad_observability_audit::MutationAuditRecord;
 pub use export::{ExportDataClass, ExportScope, LOCAL_DATA_EXPORT_FORMAT, LocalDataExportPolicy};
 pub use identity::{DeviceIdentity, IdentityTopology, PersistentSession, SessionConnectivity};
+pub use material::{MaterialCommit, MaterialCommitOutcome, MaterialRecord};
 pub use recovery::{RecoveryArtifact, RecoveryArtifactKind, RestoreOutcome};
 pub use reference_marker::{
     MAX_REFERENCE_MARKER_SYNC_BATCH, ReferenceMarkerCommit, ReferenceMarkerCommitOutcome,
@@ -49,7 +51,7 @@ use rusqlite::{Connection, OpenFlags, OptionalExtension as _, TransactionBehavio
 pub use sync_state::{StoredSyncState, SyncStateCommitOutcome};
 
 pub const DATABASE_FILE_NAME: &str = "eitmad.sqlite3";
-pub const CURRENT_STORAGE_VERSION: u32 = 14;
+pub const CURRENT_STORAGE_VERSION: u32 = 15;
 pub const MIN_SUPPORTED_STORAGE_VERSION: u32 = 2;
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 pub const MAX_PUBLICATION_RECOVERY_PAGE: u32 = 64;

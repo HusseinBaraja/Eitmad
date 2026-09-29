@@ -649,6 +649,54 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "eitmad.material-category.save.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/SaveMaterialCategory"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.material-unit.save.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/SaveMaterialUnit"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.material.save.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/SaveMaterial"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "eitmad.desktop-account.create.v1"
             },
             "payload": {
@@ -985,6 +1033,54 @@
             },
             "payload": {
               "$ref": "#/definitions/CustomerMutationResult"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "materialCategorySaved"
+            },
+            "payload": {
+              "$ref": "#/definitions/MaterialCategory"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "materialUnitSaved"
+            },
+            "payload": {
+              "$ref": "#/definitions/MaterialUnit"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "materialSaved"
+            },
+            "payload": {
+              "$ref": "#/definitions/Material"
             }
           },
           "required": [
@@ -2429,6 +2525,22 @@
             "kind",
             "payload"
           ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.material.changed.event.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/MaterialChangeNotice"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
         }
       ]
     },
@@ -3180,6 +3292,34 @@
     "ListDesktopAccounts": {
       "type": "object"
     },
+    "ListMaterialReferences": {
+      "type": "object"
+    },
+    "ListMaterials": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "limit": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 100,
+          "minimum": 1
+        },
+        "term": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "term",
+        "limit"
+      ]
+    },
     "ListReferenceMarkers": {
       "type": "object",
       "properties": {
@@ -3349,6 +3489,231 @@
       },
       "required": [
         "change"
+      ]
+    },
+    "Material": {
+      "type": "object",
+      "properties": {
+        "archived": {
+          "type": "boolean"
+        },
+        "categoryId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "currentCostYer": {
+          "description": "Non-negative whole Yemeni rials per selected unit.",
+          "type": "integer",
+          "format": "int64"
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        },
+        "unitId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "updatedAt": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "id",
+        "scope",
+        "name",
+        "categoryId",
+        "unitId",
+        "currentCostYer",
+        "archived",
+        "revision",
+        "updatedAt"
+      ]
+    },
+    "MaterialCategory": {
+      "type": "object",
+      "properties": {
+        "archived": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        },
+        "updatedAt": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "id",
+        "scope",
+        "name",
+        "archived",
+        "revision",
+        "updatedAt"
+      ]
+    },
+    "MaterialChangeNotice": {
+      "type": "object",
+      "properties": {
+        "changedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "kind": {
+          "$ref": "#/definitions/MaterialRecordKind"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "required": [
+        "scope",
+        "kind",
+        "id",
+        "revision",
+        "changedAt"
+      ]
+    },
+    "MaterialChanges": {
+      "type": "object"
+    },
+    "MaterialPage": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Material"
+          }
+        },
+        "next": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "items"
+      ]
+    },
+    "MaterialRecordKind": {
+      "type": "string",
+      "enum": [
+        "material",
+        "category",
+        "unit"
+      ]
+    },
+    "MaterialReferences": {
+      "type": "object",
+      "properties": {
+        "categories": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MaterialCategory"
+          }
+        },
+        "units": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MaterialUnit"
+          }
+        }
+      },
+      "required": [
+        "categories",
+        "units"
+      ]
+    },
+    "MaterialUnit": {
+      "type": "object",
+      "properties": {
+        "archived": {
+          "type": "boolean"
+        },
+        "denominator": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "dimension": {
+          "$ref": "#/definitions/UnitDimension"
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        },
+        "numerator": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        },
+        "symbol": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "id",
+        "scope",
+        "name",
+        "symbol",
+        "dimension",
+        "numerator",
+        "denominator",
+        "archived",
+        "revision",
+        "updatedAt"
       ]
     },
     "MergeMetadata": {
@@ -4060,6 +4425,38 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "eitmad.material.list.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ListMaterials"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.material-reference.list.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ListMaterialReferences"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "eitmad.desktop-account.list.v1"
             },
             "payload": {
@@ -4294,6 +4691,38 @@
             },
             "payload": {
               "$ref": "#/definitions/CustomerPage"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "materials"
+            },
+            "payload": {
+              "$ref": "#/definitions/MaterialPage"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "materialReferences"
+            },
+            "payload": {
+              "$ref": "#/definitions/MaterialReferences"
             }
           },
           "required": [
@@ -4962,6 +5391,131 @@
       "required": [
         "expectedPolicyVersion",
         "relationshipId"
+      ]
+    },
+    "SaveMaterial": {
+      "type": "object",
+      "properties": {
+        "archived": {
+          "type": "boolean"
+        },
+        "categoryId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "currentCostYer": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "expectedRevision": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        },
+        "unitId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "name",
+        "categoryId",
+        "unitId",
+        "currentCostYer",
+        "archived"
+      ]
+    },
+    "SaveMaterialCategory": {
+      "type": "object",
+      "properties": {
+        "archived": {
+          "type": "boolean"
+        },
+        "expectedRevision": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "archived"
+      ]
+    },
+    "SaveMaterialUnit": {
+      "type": "object",
+      "properties": {
+        "archived": {
+          "type": "boolean"
+        },
+        "denominator": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "dimension": {
+          "$ref": "#/definitions/UnitDimension"
+        },
+        "expectedRevision": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        },
+        "numerator": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "symbol": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "symbol",
+        "dimension",
+        "numerator",
+        "denominator",
+        "archived"
       ]
     },
     "SchemaSupport": {
@@ -5711,6 +6265,22 @@
             },
             "payload": {
               "$ref": "#/definitions/CustomerChanges"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.material.changed.subscribe.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/MaterialChanges"
             }
           },
           "required": [
@@ -6611,6 +7181,16 @@
             "payload"
           ]
         }
+      ]
+    },
+    "UnitDimension": {
+      "type": "string",
+      "enum": [
+        "count",
+        "length",
+        "area",
+        "volume",
+        "mass"
       ]
     },
     "UnsubscribeRequest": {

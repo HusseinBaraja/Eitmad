@@ -78,6 +78,30 @@ public partial class Command
     public UpdateCustomer? AsCustomerUpdate() =>
         Kind == CustomerUpdateKind ? PayloadAs<UpdateCustomer>() : null;
 
+    public const string MaterialCategorySaveKind = "eitmad.material-category.save.v1";
+
+    public static Command ForMaterialCategorySave(SaveMaterialCategory payload) =>
+        new() { Kind = MaterialCategorySaveKind, Payload = payload };
+
+    public SaveMaterialCategory? AsMaterialCategorySave() =>
+        Kind == MaterialCategorySaveKind ? PayloadAs<SaveMaterialCategory>() : null;
+
+    public const string MaterialUnitSaveKind = "eitmad.material-unit.save.v1";
+
+    public static Command ForMaterialUnitSave(SaveMaterialUnit payload) =>
+        new() { Kind = MaterialUnitSaveKind, Payload = payload };
+
+    public SaveMaterialUnit? AsMaterialUnitSave() =>
+        Kind == MaterialUnitSaveKind ? PayloadAs<SaveMaterialUnit>() : null;
+
+    public const string MaterialSaveKind = "eitmad.material.save.v1";
+
+    public static Command ForMaterialSave(SaveMaterial payload) =>
+        new() { Kind = MaterialSaveKind, Payload = payload };
+
+    public SaveMaterial? AsMaterialSave() =>
+        Kind == MaterialSaveKind ? PayloadAs<SaveMaterial>() : null;
+
     public const string DesktopAccountCreateKind = "eitmad.desktop-account.create.v1";
 
     public static Command ForDesktopAccountCreate(CreateDesktopAccount payload) =>
@@ -206,6 +230,14 @@ public partial class Event
 
     public CustomerChangeNotice? AsCustomerChangedEvent() =>
         Kind == CustomerChangedEventKind ? PayloadAs<CustomerChangeNotice>() : null;
+
+    public const string MaterialChangedEventKind = "eitmad.material.changed.event.v1";
+
+    public static Event ForMaterialChangedEvent(MaterialChangeNotice payload) =>
+        new() { Kind = MaterialChangedEventKind, Payload = payload };
+
+    public MaterialChangeNotice? AsMaterialChangedEvent() =>
+        Kind == MaterialChangedEventKind ? PayloadAs<MaterialChangeNotice>() : null;
 
     internal T? PayloadAs<T>() => Payload switch
     {
@@ -474,6 +506,22 @@ public partial class Query
     public SearchCustomers? AsCustomerSearch() =>
         Kind == CustomerSearchKind ? PayloadAs<SearchCustomers>() : null;
 
+    public const string MaterialListKind = "eitmad.material.list.v1";
+
+    public static Query ForMaterialList(ListMaterials payload) =>
+        new() { Kind = MaterialListKind, Payload = payload };
+
+    public ListMaterials? AsMaterialList() =>
+        Kind == MaterialListKind ? PayloadAs<ListMaterials>() : null;
+
+    public const string MaterialReferenceListKind = "eitmad.material-reference.list.v1";
+
+    public static Query ForMaterialReferenceList(ListMaterialReferences payload) =>
+        new() { Kind = MaterialReferenceListKind, Payload = payload };
+
+    public ListMaterialReferences? AsMaterialReferenceList() =>
+        Kind == MaterialReferenceListKind ? PayloadAs<ListMaterialReferences>() : null;
+
     public const string DesktopAccountListKind = "eitmad.desktop-account.list.v1";
 
     public static Query ForDesktopAccountList(ListDesktopAccounts payload) =>
@@ -562,6 +610,22 @@ public partial class QueryResult
 
     public CustomerPage? AsCustomers() =>
         Kind == CustomersKind ? PayloadAs<CustomerPage>() : null;
+
+    public const string MaterialsKind = "materials";
+
+    public static QueryResult ForMaterials(MaterialPage payload) =>
+        new() { Kind = MaterialsKind, Payload = payload };
+
+    public MaterialPage? AsMaterials() =>
+        Kind == MaterialsKind ? PayloadAs<MaterialPage>() : null;
+
+    public const string MaterialReferencesKind = "materialReferences";
+
+    public static QueryResult ForMaterialReferences(MaterialReferences payload) =>
+        new() { Kind = MaterialReferencesKind, Payload = payload };
+
+    public MaterialReferences? AsMaterialReferences() =>
+        Kind == MaterialReferencesKind ? PayloadAs<MaterialReferences>() : null;
 
     public const string DesktopAccountsKind = "desktopAccounts";
 
@@ -774,6 +838,14 @@ public partial class Subscription
     public CustomerChanges? AsCustomerChangedSubscribe() =>
         Kind == CustomerChangedSubscribeKind ? PayloadAs<CustomerChanges>() : null;
 
+    public const string MaterialChangedSubscribeKind = "eitmad.material.changed.subscribe.v1";
+
+    public static Subscription ForMaterialChangedSubscribe(MaterialChanges payload) =>
+        new() { Kind = MaterialChangedSubscribeKind, Payload = payload };
+
+    public MaterialChanges? AsMaterialChangedSubscribe() =>
+        Kind == MaterialChangedSubscribeKind ? PayloadAs<MaterialChanges>() : null;
+
     internal T? PayloadAs<T>() => Payload switch
     {
         T typed => typed,
@@ -940,6 +1012,14 @@ public partial class GetUpdateState
 }
 
 public partial class ListDesktopAccounts
+{
+}
+
+public partial class ListMaterialReferences
+{
+}
+
+public partial class MaterialChanges
 {
 }
 

@@ -51,6 +51,9 @@ pub const REFERENCE_MARKER_READ_PERMISSION: &str = "eitmad.permission.reference-
 pub const REFERENCE_MARKER_WRITE_PERMISSION: &str = "eitmad.permission.reference-marker.write.v1";
 pub const CUSTOMER_READ_PERMISSION: &str = "eitmad.permission.customer.read.v1";
 pub const CUSTOMER_WRITE_PERMISSION: &str = "eitmad.permission.customer.write.v1";
+pub const MATERIAL_READ_PERMISSION: &str = "eitmad.permission.material.read.v1";
+pub const MATERIAL_WRITE_PERMISSION: &str = "eitmad.permission.material.write.v1";
+pub const MATERIAL_UNIT_MANAGE_PERMISSION: &str = "eitmad.permission.material-unit.manage.v1";
 pub const CATALOG_DRAFT_WRITE_PERMISSION: &str = "eitmad.permission.catalog.draft.write.v1";
 pub const QUOTATION_DRAFT_WRITE_PERMISSION: &str = "eitmad.permission.quotation.draft.write.v1";
 pub const DESKTOP_ACCOUNTS_MANAGE_PERMISSION: &str = "eitmad.permission.desktop-accounts.manage.v1";
@@ -71,6 +74,9 @@ const POLICY_PERMISSIONS: &[&str] = &[
     REFERENCE_MARKER_WRITE_PERMISSION,
     CUSTOMER_READ_PERMISSION,
     CUSTOMER_WRITE_PERMISSION,
+    MATERIAL_READ_PERMISSION,
+    MATERIAL_WRITE_PERMISSION,
+    MATERIAL_UNIT_MANAGE_PERMISSION,
     SENSITIVE_DEBUG_PERMISSION,
     CATALOG_DRAFT_WRITE_PERMISSION,
     QUOTATION_DRAFT_WRITE_PERMISSION,
@@ -190,9 +196,11 @@ impl AuthorizationService {
                     CONFIG_READ_PERMISSION
                     | PERMISSIONS_READ_PERMISSION
                     | REFERENCE_MARKER_READ_PERMISSION => member && organization_scope,
-                    CATALOG_DRAFT_WRITE_PERMISSION | DESKTOP_ACCOUNTS_MANAGE_PERMISSION => {
-                        manager && organization_scope
-                    }
+                    CATALOG_DRAFT_WRITE_PERMISSION
+                    | DESKTOP_ACCOUNTS_MANAGE_PERMISSION
+                    | MATERIAL_READ_PERMISSION
+                    | MATERIAL_WRITE_PERMISSION
+                    | MATERIAL_UNIT_MANAGE_PERMISSION => manager && organization_scope,
                     CUSTOMER_READ_PERMISSION | CUSTOMER_WRITE_PERMISSION => {
                         (manager || receptionist) && branch_scope
                     }

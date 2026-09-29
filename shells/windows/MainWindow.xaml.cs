@@ -36,6 +36,7 @@ public partial class MainWindow : Window
         if (engine is not null)
         {
             UsersSurface.Attach(engine);
+            RawMaterialsSurface.Attach(engine);
             customerClient = new Features.Customers.CustomerClient(engine);
             ReceptionistSurface.AttachCustomerClient(customerClient);
         }
@@ -45,6 +46,7 @@ public partial class MainWindow : Window
         {
             if (this.sessions is not null) this.sessions.SessionEnded -= SessionEnded;
             if (customerClient is not null) _ = customerClient.DisposeAsync();
+            _ = RawMaterialsSurface.DisposeAsync();
         };
         ReceptionistSurface.SetCatalogSources(FurnitureSurface.ViewModel, ProductsSurface.ViewModel);
         QuotationsSurface.ViewModel.UsePreviewQuotations(ReceptionistSurface.Handoffs.Quotations);
@@ -229,6 +231,7 @@ public partial class MainWindow : Window
         var showWorkOrders = destination == "أوامر العمل";
         DashboardSurface.Visibility = showRawMaterials || showParts || showFurniture || showPricing || showProducts || showQuotations || showOrders || showWorkOrders || showUsers ? Visibility.Collapsed : Visibility.Visible;
         RawMaterialsSurface.Visibility = showRawMaterials ? Visibility.Visible : Visibility.Collapsed;
+        if (showRawMaterials) _ = RawMaterialsSurface.ActivateAsync();
         PartsSurface.Visibility = showParts ? Visibility.Visible : Visibility.Collapsed;
         FurnitureSurface.Visibility = showFurniture ? Visibility.Visible : Visibility.Collapsed;
         PricingSurface.Visibility = showPricing ? Visibility.Visible : Visibility.Collapsed;

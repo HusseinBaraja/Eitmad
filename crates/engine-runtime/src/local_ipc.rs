@@ -1317,6 +1317,8 @@ fn default_engine_hello() -> PeerHello {
             .expect("static capability is valid"),
             eitmad_contracts::transport::CapabilityId::parse("eitmad.capability.customer.v1")
                 .expect("static capability is valid"),
+            eitmad_contracts::transport::CapabilityId::parse("eitmad.capability.material.v1")
+                .expect("static capability is valid"),
             eitmad_contracts::transport::CapabilityId::parse(
                 "eitmad.capability.desktop-account-management.v1",
             )
@@ -1338,6 +1340,13 @@ fn default_engine_hello() -> PeerHello {
             },
             SchemaSupport {
                 schema_id: SchemaId::parse("eitmad.schema.customer.v1")
+                    .expect("static schema ID is valid"),
+                minimum_version: 1,
+                maximum_version: 1,
+                required: false,
+            },
+            SchemaSupport {
+                schema_id: SchemaId::parse("eitmad.schema.material.v1")
                     .expect("static schema ID is valid"),
                 minimum_version: 1,
                 maximum_version: 1,
