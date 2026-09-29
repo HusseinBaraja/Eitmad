@@ -38,6 +38,43 @@ public sealed class RawMaterialsPresentationTests
     }
 
     [TestMethod]
+    public void DurableEditorKeepsReferenceIdsWhenNamesChangeAndAreReused()
+    {
+        var model = new RawMaterialsViewModel();
+        model.EnableDurableMode();
+        var scope = new ScopeRef { Kind = "organization", Id = Guid.NewGuid() };
+        var categoryId = Guid.NewGuid();
+        var unitId = Guid.NewGuid();
+        var material = new Material { Id = Guid.NewGuid(), Scope = scope, Name = "خشب زان",
+            CategoryId = categoryId, UnitId = unitId, CurrentCostYer = 8_000, Revision = 1 };
+        model.ApplyDurableData(new MaterialReferences
+        {
+            Categories = [new MaterialCategory { Id = categoryId, Scope = scope, Name = "أخشاب", Revision = 1 }],
+            Units = [new MaterialUnit { Id = unitId, Scope = scope, Name = "متر", Revision = 1 }],
+        }, [material]);
+        model.BeginEdit(model.VisibleMaterials.Single());
+
+        model.ApplyDurableData(new MaterialReferences
+        {
+            Categories =
+            [
+                new MaterialCategory { Id = categoryId, Scope = scope, Name = "أخشاب طبيعية", Revision = 2 },
+                new MaterialCategory { Id = Guid.NewGuid(), Scope = scope, Name = "أخشاب", Revision = 1 },
+            ],
+            Units =
+            [
+                new MaterialUnit { Id = unitId, Scope = scope, Name = "متر طولي", Revision = 2 },
+                new MaterialUnit { Id = Guid.NewGuid(), Scope = scope, Name = "متر", Revision = 1 },
+            ],
+        }, [material]);
+
+        Assert.AreEqual(categoryId, model.EditorCategoryId);
+        Assert.AreEqual(unitId, model.EditorUnitId);
+        Assert.AreEqual("أخشاب طبيعية", model.EditorCategory);
+        Assert.AreEqual("متر طولي", model.EditorUnit);
+    }
+
+    [TestMethod]
     public void RawMaterialsSearchAndFiltersUpdateVisibleList()
     {
         var model = new RawMaterialsViewModel();

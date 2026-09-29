@@ -47,7 +47,27 @@ public sealed class RawMaterialsRenderedTests
             Assert.IsTrue(view.ViewModel.IsEditorOpen);
             WpfTestHost.Capture(window, $"material-durable-editor-{width}x{height}");
 
+            var categorySelector = WpfTestHost.FindByAutomationName<ComboBox>(view, "تصنيف المادة الخام");
             var unitSelector = WpfTestHost.FindByAutomationName<ComboBox>(view, "وحدة المادة الخام");
+            Assert.AreEqual(category.Id, categorySelector.SelectedValue);
+            Assert.AreEqual(unit.Id, unitSelector.SelectedValue);
+            view.ViewModel.ApplyDurableData(new MaterialReferences
+            {
+                Categories =
+                [
+                    new MaterialCategory { Id = category.Id, Scope = scope, Name = "خشب طبيعي", Revision = 2 },
+                    new MaterialCategory { Id = Guid.NewGuid(), Scope = scope, Name = category.Name, Revision = 1 },
+                ],
+                Units =
+                [
+                    new MaterialUnit { Id = unit.Id, Scope = scope, Name = "متر طولي", Revision = 2 },
+                    new MaterialUnit { Id = Guid.NewGuid(), Scope = scope, Name = unit.Name, Revision = 1 },
+                ],
+            }, [material]);
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual(category.Id, categorySelector.SelectedValue);
+            Assert.AreEqual(unit.Id, unitSelector.SelectedValue);
+
             unitSelector.IsDropDownOpen = true;
             WpfTestHost.CompleteLayout(window);
             var popup = (Popup)unitSelector.Template.FindName("PART_Popup", unitSelector);

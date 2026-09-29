@@ -23,6 +23,8 @@ public sealed class RawMaterialsViewModel : ObservableObject
     private string editorName = string.Empty;
     private string editorCategory = "ألواح خشبية";
     private string editorUnit = "لوح";
+    private Guid? editorCategoryId;
+    private Guid? editorUnitId;
     private decimal editorCost;
     private string editorError = string.Empty;
     private string feedbackMessage = string.Empty;
@@ -59,16 +61,16 @@ public sealed class RawMaterialsViewModel : ObservableObject
 
         Categories =
         [
-            new("ألواح خشبية"),
-            new("أخشاب طبيعية"),
-            new("أقمشة ومفروشات"),
+            new("ألواح خشبية", id: Guid.NewGuid()),
+            new("أخشاب طبيعية", id: Guid.NewGuid()),
+            new("أقمشة ومفروشات", id: Guid.NewGuid()),
         ];
         Units =
         [
-            new("لوح", "لوح"),
-            new("متر", "م"),
-            new("كيلوجرام", "كجم"),
-            new("قطعة", "قطعة"),
+            new("لوح", "لوح", Guid.NewGuid()),
+            new("متر", "م", Guid.NewGuid()),
+            new("كيلوجرام", "كجم", Guid.NewGuid()),
+            new("قطعة", "قطعة", Guid.NewGuid()),
         ];
         ActiveCategories = new ObservableCollection<RawMaterialReferenceOption>(Categories);
         ActiveUnits = new ObservableCollection<RawMaterialReferenceOption>(Units);
@@ -165,13 +167,45 @@ public sealed class RawMaterialsViewModel : ObservableObject
     public string EditorCategory
     {
         get => editorCategory;
-        set => Set(ref editorCategory, value ?? string.Empty);
+        set
+        {
+            Set(ref editorCategory, value ?? string.Empty);
+            Set(ref editorCategoryId, EditorCategories.FirstOrDefault(item => item.Name == editorCategory)?.Id,
+                nameof(EditorCategoryId));
+        }
     }
 
     public string EditorUnit
     {
         get => editorUnit;
-        set => Set(ref editorUnit, value ?? string.Empty);
+        set
+        {
+            Set(ref editorUnit, value ?? string.Empty);
+            Set(ref editorUnitId, EditorUnits.FirstOrDefault(item => item.Name == editorUnit)?.Id,
+                nameof(EditorUnitId));
+        }
+    }
+
+    public Guid? EditorCategoryId
+    {
+        get => editorCategoryId;
+        set
+        {
+            Set(ref editorCategoryId, value);
+            Set(ref editorCategory, EditorCategories.FirstOrDefault(item => item.Id == value)?.Name ?? string.Empty,
+                nameof(EditorCategory));
+        }
+    }
+
+    public Guid? EditorUnitId
+    {
+        get => editorUnitId;
+        set
+        {
+            Set(ref editorUnitId, value);
+            Set(ref editorUnit, EditorUnits.FirstOrDefault(item => item.Id == value)?.Name ?? string.Empty,
+                nameof(EditorUnit));
+        }
     }
 
     public decimal EditorCost
@@ -299,6 +333,8 @@ public sealed class RawMaterialsViewModel : ObservableObject
     {
         if (!DurableMode) return;
         var priorCategory = SelectedCategory;
+        var priorEditorCategoryId = EditorCategoryId;
+        var priorEditorUnitId = EditorUnitId;
         AvailabilityMessage = string.Empty;
         Categories.Clear(); Units.Clear(); ActiveCategories.Clear(); ActiveUnits.Clear();
         while (CategoryOptions.Count > 1) CategoryOptions.RemoveAt(CategoryOptions.Count - 1);
@@ -317,6 +353,14 @@ public sealed class RawMaterialsViewModel : ObservableObject
             if (!option.IsArchived) ActiveUnits.Add(option);
         }
         RefreshEditorReferences();
+        if (IsEditorOpen)
+        {
+            EditorCategoryId = priorEditorCategoryId;
+            EditorUnitId = priorEditorUnitId;
+            if (!EditorCategories.Any(item => item.Id == priorEditorCategoryId)
+                || !EditorUnits.Any(item => item.Id == priorEditorUnitId))
+                EditorError = "تغير التصنيف أو الوحدة. اختر مرجعاً متاحاً قبل الحفظ.";
+        }
         materials.Clear();
         foreach (var record in records)
         {
@@ -385,6 +429,11 @@ public sealed class RawMaterialsViewModel : ObservableObject
         EditorName = material.Name;
         EditorCategory = material.Category;
         EditorUnit = material.Unit;
+        if (DurableMode)
+        {
+            EditorCategoryId = material.CategoryId;
+            EditorUnitId = material.UnitId;
+        }
         EditorCost = material.CurrentCost;
         EditorError = string.Empty;
         IsEditorOpen = true;
@@ -468,8 +517,8 @@ public sealed class RawMaterialsViewModel : ObservableObject
         {
             BeginCreate();
             EditorName = $"{material.Name} — نسخة";
-            EditorCategory = material.Category;
-            EditorUnit = material.Unit;
+            EditorCategoryId = material.CategoryId;
+            EditorUnitId = material.UnitId;
             EditorCost = material.CurrentCost;
             return material;
         }
@@ -551,7 +600,8 @@ public sealed class RawMaterialsViewModel : ObservableObject
 
         if (editingReference is null)
         {
-            var added = new RawMaterialReferenceOption(normalizedName, IsUnitReference ? normalizedShortName : string.Empty);
+            var added = new RawMaterialReferenceOption(normalizedName, IsUnitReference ? normalizedShortName : string.Empty,
+                Guid.NewGuid());
             references.Add(added);
             if (IsCategoryReference)
             {

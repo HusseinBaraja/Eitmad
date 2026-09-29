@@ -68,6 +68,26 @@ public sealed class MaterialClientTests
         StringAssert.Contains(MaterialClient.ArabicMessage(failure), "لم تُحفظ تعديلاتك");
     }
 
+    [TestMethod]
+    public async Task ReadySnapshotRefreshesOnlyOnTransition()
+    {
+        await using var engine = new FakeEngine();
+        await using var client = new MaterialClient(engine);
+        var changes = 0;
+        client.Changed += (_, _) => changes++;
+        await client.ActivateAsync();
+        var initialChanges = changes;
+
+        engine.Connect();
+        Assert.AreEqual(initialChanges + 1, changes);
+        engine.Connect();
+        Assert.AreEqual(initialChanges + 1, changes);
+
+        engine.Disconnect();
+        engine.Connect();
+        Assert.AreEqual(initialChanges + 2, changes);
+    }
+
     private static QueryResponseEnvelope Success(QueryResult payload) => new()
     {
         RequestId = Guid.NewGuid(), CorrelationId = Guid.NewGuid(),

@@ -282,12 +282,12 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel>
                                     <controls:FormField Label="الفئة">
-                                        <ComboBox Tag="category" ItemsSource="{Binding EditorCategories}" DisplayMemberPath="DisplayLabel" SelectedValuePath="Name" SelectedValue="{Binding EditorCategory, Mode=TwoWay}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصنيف المادة الخام" controls:ControlOptions.FooterTemplate="{StaticResource ReferenceActionsTemplate}" />
+                                        <ComboBox Tag="category" ItemsSource="{Binding EditorCategories}" DisplayMemberPath="DisplayLabel" SelectedValuePath="Id" SelectedValue="{Binding EditorCategoryId, Mode=TwoWay}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصنيف المادة الخام" controls:ControlOptions.FooterTemplate="{StaticResource ReferenceActionsTemplate}" />
                                     </controls:FormField>
                                 </StackPanel>
                                 <StackPanel Grid.Column="2">
                                     <controls:FormField Label="الوحدة">
-                                        <ComboBox Tag="unit" ItemsSource="{Binding EditorUnits}" DisplayMemberPath="DisplayLabel" SelectedValuePath="Name" SelectedValue="{Binding EditorUnit, Mode=TwoWay}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="وحدة المادة الخام" controls:ControlOptions.FooterTemplate="{StaticResource ReferenceActionsTemplate}" />
+                                        <ComboBox Tag="unit" ItemsSource="{Binding EditorUnits}" DisplayMemberPath="DisplayLabel" SelectedValuePath="Id" SelectedValue="{Binding EditorUnitId, Mode=TwoWay}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="وحدة المادة الخام" controls:ControlOptions.FooterTemplate="{StaticResource ReferenceActionsTemplate}" />
                                     </controls:FormField>
                                 </StackPanel>
                             </Grid>

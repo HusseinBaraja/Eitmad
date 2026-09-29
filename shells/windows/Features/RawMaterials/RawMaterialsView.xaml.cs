@@ -134,8 +134,8 @@ public partial class RawMaterialsView : UserControl
     {
         if (client is not null)
         {
-            var category = ViewModel.Categories.FirstOrDefault(item => item.Name == ViewModel.EditorCategory);
-            var unit = ViewModel.Units.FirstOrDefault(item => item.Name == ViewModel.EditorUnit);
+            var category = ViewModel.EditorCategories.FirstOrDefault(item => item.Id == ViewModel.EditorCategoryId);
+            var unit = ViewModel.EditorUnits.FirstOrDefault(item => item.Id == ViewModel.EditorUnitId);
             if (category?.Id is not { } categoryId || unit?.Id is not { } unitId
                 || !TryParseWholeCost(EditorCostBox.Text, out var cost))
             { ViewModel.DurableError("اختر تصنيفاً ووحدة، وأدخل تكلفة صحيحة بالريال اليمني."); return; }
@@ -248,7 +248,12 @@ public partial class RawMaterialsView : UserControl
                     { Id = id, ExpectedRevision = revision, Name = reference.Name, Symbol = reference.ShortName,
                       Dimension = reference.Dimension, Numerator = reference.Numerator,
                       Denominator = reference.Denominator, Archived = true });
-            if (failure == MaterialFailureKind.None) await RefreshAsync();
+            if (failure == MaterialFailureKind.None)
+            {
+                ViewModel.DurableSaved("أُرشف المرجع.");
+                await RefreshAsync();
+                RestartFeedbackTimer();
+            }
             else ViewModel.DurableError(MaterialClient.ArabicMessage(failure), reference: true);
         }
     }
@@ -281,8 +286,16 @@ public partial class RawMaterialsView : UserControl
                 var isCategory = ViewModel.IsCategoryReference;
                 ViewModel.DurableSaved("حُفظ المرجع.");
                 await RefreshAsync();
-                if (isCategory) ViewModel.EditorCategory = name;
-                else ViewModel.EditorUnit = name;
+                if (isCategory)
+                {
+                    if (selected?.Id is { } id) ViewModel.EditorCategoryId = id;
+                    else ViewModel.EditorCategory = name;
+                }
+                else
+                {
+                    if (selected?.Id is { } id) ViewModel.EditorUnitId = id;
+                    else ViewModel.EditorUnit = name;
+                }
             }
             else ViewModel.DurableError(MaterialClient.ArabicMessage(failure), reference: true);
             return;

@@ -27,6 +27,7 @@ public sealed class MaterialClient(IEngineShellBridge engine) : IAsyncDisposable
     private long generation = -1;
     private bool active;
     private bool disposed;
+    private bool connectedAndReady;
 
     public event EventHandler? Changed;
 
@@ -89,15 +90,28 @@ public sealed class MaterialClient(IEngineShellBridge engine) : IAsyncDisposable
         if (disposed || active) return;
         active = true;
         uiContext = SynchronizationContext.Current;
+        var snapshot = engine.Snapshot;
+        connectedAndReady = snapshot.IpcHealth == EngineIpcHealthState.Connected
+            && snapshot.LastLifecycle?.Ready == true;
         engine.StateChanged += EngineStateChanged;
         await RefreshSubscriptionAsync();
     }
 
     private void EngineStateChanged(EngineSupervisionSnapshot snapshot)
     {
-        if (!active || snapshot.IpcHealth != EngineIpcHealthState.Connected || snapshot.LastLifecycle?.Ready != true) return;
-        SignalChanged();
+        if (!active) return;
+        var ready = snapshot.IpcHealth == EngineIpcHealthState.Connected
+            && snapshot.LastLifecycle?.Ready == true;
+        if (!ready)
+        {
+            connectedAndReady = false;
+            return;
+        }
+
+        var restored = !connectedAndReady;
+        connectedAndReady = true;
         if (snapshot.Generation != generation) _ = RefreshSubscriptionAsync();
+        else if (restored) SignalChanged();
     }
 
     private async Task RefreshSubscriptionAsync()
