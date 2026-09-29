@@ -3,16 +3,7 @@
         <DataTemplate x:Key="ReferenceActionsTemplate">
             <StackPanel Margin="5,3,5,2">
                 <Border Height="1" Background="#ECE4DC" Margin="3,2,3,5" />
-                <Button Tag="{Binding Tag}" Click="AddReferenceFromDropdownClick">
-                    <Button.Style>
-                        <Style TargetType="Button" BasedOn="{StaticResource DropdownActionButton}">
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding Tag}" Value="unit">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Button.Style>
+                <Button Tag="{Binding Tag}" Click="AddReferenceFromDropdownClick" Style="{StaticResource DropdownActionButton}">
                     <TextBlock Foreground="#8B4D17" FontSize="12" FontWeight="SemiBold">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">

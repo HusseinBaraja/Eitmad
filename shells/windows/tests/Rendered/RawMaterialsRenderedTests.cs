@@ -47,10 +47,15 @@ public sealed class RawMaterialsRenderedTests
             Assert.IsTrue(view.ViewModel.IsEditorOpen);
             WpfTestHost.Capture(window, $"material-durable-editor-{width}x{height}");
 
-            view.ViewModel.BeginManageUnits();
-            view.ViewModel.BeginAddUnit();
+            var unitSelector = WpfTestHost.FindByAutomationName<ComboBox>(view, "وحدة المادة الخام");
+            unitSelector.IsDropDownOpen = true;
+            WpfTestHost.CompleteLayout(window);
+            var popup = (Popup)unitSelector.Template.FindName("PART_Popup", unitSelector);
+            WpfTestHost.Descendants<Button>(popup.Child).First(button => (string?)button.Tag == "unit")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
             Assert.IsTrue(view.ViewModel.IsReferenceEditorOpen);
+            Assert.IsTrue(view.ViewModel.IsUnitReference);
             WpfTestHost.Capture(window, $"material-durable-unit-{width}x{height}");
         }, engine: engine);
     }

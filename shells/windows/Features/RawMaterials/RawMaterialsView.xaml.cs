@@ -183,8 +183,7 @@ public partial class RawMaterialsView : UserControl
             CloseOwningDropdown(button);
             if (kind == "unit")
             {
-                if (client is null) ViewModel.BeginAddUnit();
-                else ViewModel.BeginManageUnits();
+                ViewModel.BeginAddUnit();
             }
             else
             {
