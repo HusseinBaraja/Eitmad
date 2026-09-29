@@ -53,6 +53,7 @@
                                  ButtonIcon="{StaticResource IconPlus}" ButtonClick="AddRawMaterialClick" />
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                 <StackPanel Margin="28,22,28,28">
+                    <TextBlock Text="{Binding AvailabilityMessage}" Foreground="{StaticResource DangerBrush}" FontSize="12" Margin="0,0,0,10" TextWrapping="Wrap" />
                     <layout:AdaptiveFieldsPanel MinItemWidth="220" x:Name="FiltersGrid" Margin="0,0,0,14">
                         <StackPanel>
                             <controls:FormField Label="البحث">
@@ -259,7 +260,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <controls:PageHeader Title="{Binding EditorTitle}" Subtitle="بيانات تجريبية غير محفوظة">
+            <controls:PageHeader Title="{Binding EditorTitle}" Subtitle="{Binding DataStatusLabel}">
                 <StackPanel Orientation="Horizontal">
                     <Button Style="{StaticResource SecondaryButton}" Content="العودة إلى القائمة" Click="CancelEditorClick" />
                 </StackPanel>
@@ -269,7 +270,7 @@
                     <Border Style="{StaticResource Card}" Padding="28">
                         <StackPanel>
                             <TextBlock Text="تفاصيل المادة" Style="{StaticResource SectionTitle}" />
-                            <TextBlock Text="يمكنك مراجعة البيانات قبل حفظها في المعاينة المحلية." Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,5,0,24" />
+                            <TextBlock Text="{Binding EditorHelpLabel}" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,5,0,24" />
                             <controls:FormField Label="اسم المادة">
                                 <TextBox x:Name="EditorNameBox" Text="{Binding EditorName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" Margin="0,0,0,18" />
                             </controls:FormField>
@@ -281,21 +282,21 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel>
                                     <controls:FormField Label="الفئة">
-                                        <ComboBox Tag="category" ItemsSource="{Binding ActiveCategories}" DisplayMemberPath="Name" SelectedValuePath="Name" SelectedValue="{Binding EditorCategory, Mode=TwoWay}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصنيف المادة الخام" controls:ControlOptions.FooterTemplate="{StaticResource ReferenceActionsTemplate}" />
+                                        <ComboBox Tag="category" ItemsSource="{Binding EditorCategories}" DisplayMemberPath="DisplayLabel" SelectedValuePath="Id" SelectedValue="{Binding EditorCategoryId, Mode=TwoWay}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصنيف المادة الخام" controls:ControlOptions.FooterTemplate="{StaticResource ReferenceActionsTemplate}" />
                                     </controls:FormField>
                                 </StackPanel>
                                 <StackPanel Grid.Column="2">
                                     <controls:FormField Label="الوحدة">
-                                        <ComboBox Tag="unit" ItemsSource="{Binding ActiveUnits}" DisplayMemberPath="DisplayLabel" SelectedValuePath="Name" SelectedValue="{Binding EditorUnit, Mode=TwoWay}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="وحدة المادة الخام" controls:ControlOptions.FooterTemplate="{StaticResource ReferenceActionsTemplate}" />
+                                        <ComboBox Tag="unit" ItemsSource="{Binding EditorUnits}" DisplayMemberPath="DisplayLabel" SelectedValuePath="Id" SelectedValue="{Binding EditorUnitId, Mode=TwoWay}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="وحدة المادة الخام" controls:ControlOptions.FooterTemplate="{StaticResource ReferenceActionsTemplate}" />
                                     </controls:FormField>
                                 </StackPanel>
                             </Grid>
-                            <controls:FormField Label="التكلفة الحالية (ر.س.)" ErrorText="{Binding EditorError}">
-                                <TextBox Text="{Binding EditorCost, UpdateSourceTrigger=LostFocus}" Style="{StaticResource TextInput}" FontFamily="Segoe UI" FlowDirection="LeftToRight" TextAlignment="Right" />
+                            <controls:FormField Label="التكلفة الحالية (ر.ي)" ErrorText="{Binding EditorError}">
+                                <TextBox x:Name="EditorCostBox" Text="{Binding EditorCost, UpdateSourceTrigger=LostFocus}" Style="{StaticResource TextInput}" FontFamily="Segoe UI" FlowDirection="LeftToRight" TextAlignment="Right" automation:AutomationProperties.Name="التكلفة الحالية بالريال اليمني" />
                             </controls:FormField>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,28,0,0" FlowDirection="LeftToRight">
                                 <Button Style="{StaticResource PrimaryButton}" Height="44" Click="SaveEditorClick">
-                                    <TextBlock Text="حفظ في المعاينة" Foreground="White" />
+                                    <TextBlock Text="حفظ" Foreground="White" />
                                 </Button>
                                 <Button Content="إلغاء" Style="{StaticResource SecondaryButton}" Margin="10,0,0,0" Click="CancelEditorClick" />
                             </StackPanel>
@@ -315,7 +316,10 @@
                     <RowDefinition />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
-                <TextBlock Grid.Row="1" Text="يمكنك تعديل العناصر أو أرشفتها بدون حذف دائم." Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,5,0,15" />
+                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,5,0,15">
+                    <TextBlock Text="يمكنك تعديل العناصر أو أرشفتها بدون حذف دائم." Foreground="{StaticResource MutedBrush}" FontSize="10" />
+                    <Button Content="إضافة" Style="{StaticResource CompactButton}" Margin="10,0,0,0" Click="AddManagedReferenceClick" />
+                </StackPanel>
                 <Border Grid.Row="2" BorderBrush="#E6DED6" BorderThickness="1" CornerRadius="8">
                     <Border>
                         <ItemsControl ItemsSource="{Binding ManagedReferences}">
@@ -376,7 +380,7 @@
                 </StackPanel>
             </controls:DialogHost.Footer>
             <StackPanel>
-                <TextBlock Text="يُضاف العنصر إلى هذه المعاينة فقط." Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,5,0,20" />
+                <TextBlock Text="{Binding DataStatusLabel}" Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,5,0,20" />
                 <controls:FormField Label="الاسم">
                     <TextBox x:Name="ReferenceNameBox" Text="{Binding ReferenceName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" />
                 </controls:FormField>
@@ -394,6 +398,15 @@
                     <controls:FormField Label="الاسم المختصر" HelpText="مثال: متر مربع — m²">
                         <TextBox Text="{Binding ReferenceShortName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" FlowDirection="LeftToRight" TextAlignment="Right" />
                     </controls:FormField>
+                    <controls:FormField Label="نوع القياس" Margin="0,14,0,0">
+                        <ComboBox ItemsSource="{Binding UnitDimensions}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding ReferenceDimension, Mode=TwoWay}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="نوع قياس الوحدة" />
+                    </controls:FormField>
+                    <TextBlock Text="معامل التحويل الدقيق إلى الوحدة الأساسية" FontSize="10" Margin="0,14,0,5" />
+                    <StackPanel Orientation="Horizontal" FlowDirection="LeftToRight">
+                        <TextBox x:Name="UnitNumeratorBox" Text="{Binding ReferenceNumerator}" Style="{StaticResource TextInput}" Width="110" automation:AutomationProperties.Name="بسط معامل التحويل" />
+                        <TextBlock Text="/" Margin="8,6" />
+                        <TextBox x:Name="UnitDenominatorBox" Text="{Binding ReferenceDenominator}" Style="{StaticResource TextInput}" Width="110" automation:AutomationProperties.Name="مقام معامل التحويل" />
+                    </StackPanel>
                 </StackPanel>
                 <TextBlock Text="{Binding ReferenceError}" Foreground="{StaticResource DangerBrush}" FontSize="10" Margin="0,9,0,0">
                     <TextBlock.Style>

@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use crate::accounts::{DesktopAccountError, DesktopAccountService};
 use async_trait::async_trait;
+use eitmad_authorization::MATERIAL_READ_PERMISSION;
 use eitmad_authorization::{
     AUTHORIZATION_MANAGE_PERMISSION, AccessAuditContext, AuthorizationError, AuthorizationService,
     BoundaryAuditContext, CONFIG_READ_PERMISSION, MutationContext, PERMISSIONS_READ_PERMISSION,
@@ -16,11 +17,13 @@ use eitmad_contracts::{
     errors::{ContractError, ErrorCode, ErrorDetail, MessageId, RetryDisposition},
     events::{Event, Subscription},
     identity::{AuthorizationContext, ScopeRef},
+    material::{SaveMaterial, SaveMaterialCategory, SaveMaterialUnit},
     queries::{Query, QueryResult},
 };
 use eitmad_customer::{
     CUSTOMER_READ_PERMISSION, CustomerError, CustomerService, CustomerSyncCycle, CustomerSyncError,
 };
+use eitmad_material::{MaterialError, MaterialService};
 use eitmad_observability_audit::AuditOutcome;
 use eitmad_reference_marker::{
     REFERENCE_MARKER_READ_PERMISSION, ReferenceMarkerError, ReferenceMarkerService,
@@ -40,6 +43,7 @@ pub struct ProductDispatcher {
     configuration: ConfigurationService,
     reference_markers: ReferenceMarkerService,
     customers: CustomerService,
+    materials: MaterialService,
     accounts: DesktopAccountService,
     events: Arc<dyn ProductEventPublisher>,
 }
@@ -90,6 +94,7 @@ impl ProductDispatcher {
         let configuration = ConfigurationService::new(store.clone(), authorization.clone());
         let reference_markers = ReferenceMarkerService::new(store.clone(), authorization.clone());
         let customers = CustomerService::new(store.clone(), authorization.clone());
+        let materials = MaterialService::new(store.clone(), authorization.clone());
         let accounts = DesktopAccountService::new(store.clone(), authorization.clone());
         Self {
             store,
@@ -97,6 +102,7 @@ impl ProductDispatcher {
             configuration,
             reference_markers,
             customers,
+            materials,
             accounts,
             events,
         }
@@ -186,6 +192,54 @@ impl ProductDispatcher {
         self.publish_pending(context, mutation.idempotency_key)
             .map_err(|()| Box::new(customer_error(CustomerError::Unavailable, context)))?;
         Ok(CommandResult::CustomerUpdated(result))
+    }
+
+    fn save_material_category(
+        &self,
+        context: &DispatchContext,
+        mutation: &MutationContext,
+        command: &SaveMaterialCategory,
+    ) -> Result<CommandResult, Box<ContractError>> {
+        require_protocol_1_10(context)?;
+        let saved = self
+            .materials
+            .save_category(mutation, command)
+            .map_err(|error| Box::new(material_error(error, context)))?;
+        self.publish_pending(context, mutation.idempotency_key)
+            .map_err(|()| Box::new(material_error(MaterialError::Unavailable, context)))?;
+        Ok(CommandResult::MaterialCategorySaved(saved))
+    }
+
+    fn save_material_unit(
+        &self,
+        context: &DispatchContext,
+        mutation: &MutationContext,
+        command: &SaveMaterialUnit,
+    ) -> Result<CommandResult, Box<ContractError>> {
+        require_protocol_1_10(context)?;
+        let saved = self
+            .materials
+            .save_unit(mutation, command)
+            .map_err(|error| Box::new(material_error(error, context)))?;
+        self.publish_pending(context, mutation.idempotency_key)
+            .map_err(|()| Box::new(material_error(MaterialError::Unavailable, context)))?;
+        Ok(CommandResult::MaterialUnitSaved(saved))
+    }
+
+    fn save_material(
+        &self,
+        context: &DispatchContext,
+        mutation: &MutationContext,
+        command: &SaveMaterial,
+    ) -> Result<CommandResult, Box<ContractError>> {
+        require_protocol_1_10(context)?;
+        let saved = self
+            .materials
+            .save_material(mutation, command)
+            .map_err(|error| Box::new(material_error(error, context)))?;
+        self.publish_pending(context, mutation.idempotency_key)
+            .map_err(|()| Box::new(material_error(MaterialError::Unavailable, context)))?;
+        Ok(CommandResult::MaterialSaved(saved))
     }
 
     fn reject_unsupported_command(
@@ -327,6 +381,15 @@ impl CommandDispatcher for ProductDispatcher {
             Command::UpdateCustomer(command) => self
                 .update_customer(&context, &mutation, &command)
                 .map_err(|error| *error),
+            Command::SaveMaterialCategory(command) => self
+                .save_material_category(&context, &mutation, &command)
+                .map_err(|error| *error),
+            Command::SaveMaterialUnit(command) => self
+                .save_material_unit(&context, &mutation, &command)
+                .map_err(|error| *error),
+            Command::SaveMaterial(command) => self
+                .save_material(&context, &mutation, &command)
+                .map_err(|error| *error),
             Command::CreateDesktopAccount(command) => {
                 require_protocol_1_8(&context).map_err(|error| *error)?;
                 let account = self
@@ -415,6 +478,20 @@ impl QueryDispatcher for ProductDispatcher {
                     .map(QueryResult::Customers)
                     .map_err(|error| customer_error(error, &context))
             }
+            Query::Materials(query) => {
+                require_protocol_1_10(&context).map_err(|error| *error)?;
+                self.materials
+                    .list(&context.authorization, &query)
+                    .map(QueryResult::Materials)
+                    .map_err(|error| material_error(error, &context))
+            }
+            Query::MaterialReferences(_) => {
+                require_protocol_1_10(&context).map_err(|error| *error)?;
+                self.materials
+                    .references(&context.authorization)
+                    .map(QueryResult::MaterialReferences)
+                    .map_err(|error| material_error(error, &context))
+            }
             Query::DesktopAccounts(query) => {
                 require_protocol_1_8(&context).map_err(|error| *error)?;
                 self.accounts
@@ -461,10 +538,14 @@ impl QueryDispatcher for ProductDispatcher {
             Subscription::Customers(_) if context.protocol_version.minor >= 9 => {
                 CUSTOMER_READ_PERMISSION
             }
+            Subscription::Materials(_) if context.protocol_version.minor >= 10 => {
+                MATERIAL_READ_PERMISSION
+            }
             Subscription::AuthorizationPolicy(_) if context.protocol_version.minor >= 2 => {
                 AUTHORIZATION_MANAGE_PERMISSION
             }
             Subscription::Customers(_)
+            | Subscription::Materials(_)
             | Subscription::AuthorizationPolicy(_)
             | Subscription::UpdateState(_)
             | Subscription::SyncStatus(_)
@@ -565,6 +646,51 @@ fn customer_error(error_value: CustomerError, context: &DispatchContext) -> Cont
             unsupported(context)
         }
     }
+}
+
+fn material_error(value: MaterialError, context: &DispatchContext) -> ContractError {
+    let (code, message, retry, detail) = match value {
+        MaterialError::Denied => (
+            "eitmad.error.authorization-denied.v1",
+            "eitmad.message.authorization-denied.v1",
+            RetryDisposition::Never,
+            None,
+        ),
+        MaterialError::Invalid => (
+            "eitmad.error.material-invalid.v1",
+            "eitmad.message.material-invalid.v1",
+            RetryDisposition::Never,
+            None,
+        ),
+        MaterialError::InvalidReference => (
+            "eitmad.error.material-reference-invalid.v1",
+            "eitmad.message.material-reference-invalid.v1",
+            RetryDisposition::Never,
+            None,
+        ),
+        MaterialError::NotFound => (
+            "eitmad.error.material-not-found.v1",
+            "eitmad.message.material-not-found.v1",
+            RetryDisposition::Never,
+            None,
+        ),
+        MaterialError::RevisionConflict { expected, actual } => (
+            "eitmad.error.material-revision-conflict.v1",
+            "eitmad.message.material-revision-conflict.v1",
+            RetryDisposition::SafeImmediately,
+            Some(ErrorDetail::RevisionConflict {
+                expected: expected.unwrap_or(0),
+                actual: actual.unwrap_or(0),
+            }),
+        ),
+        MaterialError::Unavailable => (
+            "eitmad.error.material-unavailable.v1",
+            "eitmad.message.material-unavailable.v1",
+            RetryDisposition::SafeAfterDelay(1_000),
+            None,
+        ),
+    };
+    contract_error(code, message, context.correlation_id, retry, detail)
 }
 
 fn desktop_account_error(
@@ -765,6 +891,12 @@ fn require_protocol_1_9(context: &DispatchContext) -> Result<(), Box<ContractErr
         .ok_or_else(|| Box::new(unsupported(context)))
 }
 
+fn require_protocol_1_10(context: &DispatchContext) -> Result<(), Box<ContractError>> {
+    (context.protocol_version.minor >= 10)
+        .then_some(())
+        .ok_or_else(|| Box::new(unsupported(context)))
+}
+
 fn error(
     code: &str,
     message: &str,
@@ -809,12 +941,15 @@ mod tests {
             SearchCustomers,
         },
         events::{
-            AuthorizationPolicyChanges, ConfigurationChanges, CustomerChanges,
+            AuthorizationPolicyChanges, ConfigurationChanges, CustomerChanges, MaterialChanges,
             ReferenceMarkerChanges, Subscription,
         },
         identity::{
             AuthenticatedIdentity, AuthorizationContext, PrincipalId, PrincipalKind, ScopeId,
             ScopeKind, ScopeRef, SessionId, TenantId,
+        },
+        material::{
+            ListMaterials, SaveMaterial, SaveMaterialCategory, SaveMaterialUnit, UnitDimension,
         },
         queries::{GetConfiguration, GetSyncStatus, Query},
         reference_marker::{ListReferenceMarkers, ReferenceMarkerId, ReferenceMarkerLabel},
@@ -1171,6 +1306,132 @@ mod tests {
                 .sync_state,
             CustomerSyncState::Confirmed
         );
+    }
+
+    #[tokio::test]
+    async fn routes_material_mutations_and_denies_receptionist_write() {
+        let (_directory, dispatcher, broker) = dispatcher();
+        grant_material_roles(&dispatcher);
+        let (_, mut events) = broker
+            .subscribe(
+                authorization().scope,
+                Subscription::Materials(MaterialChanges {}),
+                None,
+            )
+            .unwrap();
+        let CommandResult::MaterialCategorySaved(category) = dispatcher
+            .dispatch_command(
+                material_actor(610, 3),
+                Command::SaveMaterialCategory(SaveMaterialCategory {
+                    id: None,
+                    expected_revision: None,
+                    name: "أخشاب طبيعية".to_owned(),
+                    archived: false,
+                }),
+            )
+            .await
+            .unwrap()
+        else {
+            panic!("category expected")
+        };
+        let Event::MaterialChanged(category_notice) = events.recv().await.unwrap().event else {
+            panic!("material event expected")
+        };
+        assert_eq!(category_notice.id, category.id.value());
+        let CommandResult::MaterialUnitSaved(unit) = dispatcher
+            .dispatch_command(
+                material_actor(611, 3),
+                Command::SaveMaterialUnit(SaveMaterialUnit {
+                    id: None,
+                    expected_revision: None,
+                    name: "متر".to_owned(),
+                    symbol: "م".to_owned(),
+                    dimension: UnitDimension::Length,
+                    numerator: 1,
+                    denominator: 1,
+                    archived: false,
+                }),
+            )
+            .await
+            .unwrap()
+        else {
+            panic!("unit expected")
+        };
+        let _ = events.recv().await.unwrap();
+        let CommandResult::MaterialSaved(material) = dispatcher
+            .dispatch_command(
+                material_actor(612, 3),
+                Command::SaveMaterial(SaveMaterial {
+                    id: None,
+                    expected_revision: None,
+                    name: "خشب زان".to_owned(),
+                    category_id: category.id,
+                    unit_id: unit.id,
+                    current_cost_yer: 8_000,
+                    archived: false,
+                }),
+            )
+            .await
+            .unwrap()
+        else {
+            panic!("material expected")
+        };
+        let Event::MaterialChanged(notice) = events.recv().await.unwrap().event else {
+            panic!("material event expected")
+        };
+        assert_eq!(notice.id, material.id.value());
+        let QueryResult::Materials(page) = dispatcher
+            .dispatch_query(
+                material_actor(613, 3),
+                Query::Materials(ListMaterials::new("اخشاب".to_owned(), None, 20).unwrap()),
+            )
+            .await
+            .unwrap()
+        else {
+            panic!("page expected")
+        };
+        assert_eq!(page.items.len(), 1);
+        let denied = dispatcher
+            .dispatch_command(
+                material_actor(614, 4),
+                Command::SaveMaterialCategory(SaveMaterialCategory {
+                    id: None,
+                    expected_revision: None,
+                    name: "ممنوع".to_owned(),
+                    archived: false,
+                }),
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(denied.code.as_str(), "eitmad.error.authorization-denied.v1");
+    }
+
+    fn grant_material_roles(dispatcher: &ProductDispatcher) {
+        for (key, principal, relation, version) in [
+            (601, 3, "eitmad.relation.organization.manager.v1", 1),
+            (602, 4, "eitmad.relation.organization.receptionist.v1", 2),
+        ] {
+            dispatcher
+                .authorization()
+                .grant_relationship(
+                    &ProductDispatcher::mutation_context(&context(key)).unwrap(),
+                    &GrantScopeRelationship {
+                        expected_policy_version: version,
+                        subject: RelationshipSubject {
+                            principal_id: PrincipalId::new(Uuid::from_u128(principal)),
+                            principal_kind: PrincipalKind::User,
+                        },
+                        relation: RelationId::parse(relation).unwrap(),
+                    },
+                )
+                .unwrap();
+        }
+    }
+
+    fn material_actor(key: u128, principal: u128) -> DispatchContext {
+        let mut actor = context(key);
+        actor.authorization.identity.principal_id = PrincipalId::new(Uuid::from_u128(principal));
+        actor
     }
 
     fn authorize_customer_branch(

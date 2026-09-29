@@ -19,6 +19,7 @@ pub mod errors;
 pub mod events;
 pub mod identity;
 pub mod ipc;
+pub mod material;
 pub mod notifications;
 pub mod observability;
 pub mod permissions;

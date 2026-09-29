@@ -41,6 +41,7 @@ internal sealed class FakeEngine : IEngineShellBridge
     public bool ThrowQueries { get; set; }
     public long ConfigurationRevision { get; set; } = 1;
     public Func<Query, Task>? QueryBarrier { get; set; }
+    public Func<Query, QueryResponseEnvelope>? QueryHandler { get; set; }
     public List<DesktopAccountSummary> DesktopAccounts { get; } = [];
     public List<Customer> Customers { get; } = [];
     public ScopeRef CustomerBranch { get; } = new() { Kind = "branch", Id = Guid.NewGuid() };
@@ -78,6 +79,7 @@ internal sealed class FakeEngine : IEngineShellBridge
         ProtocolIds.Capabilities.EitmadCapabilityReferenceMarkerV1,
         ProtocolIds.Capabilities.EitmadCapabilityDesktopAccountManagementV1,
         ProtocolIds.Capabilities.EitmadCapabilityCustomerV1,
+        ProtocolIds.Capabilities.EitmadCapabilityMaterialV1,
     };
 
     public bool SupportsCapability(string capability) => SupportedCapabilities.Contains(capability);
@@ -176,6 +178,7 @@ internal sealed class FakeEngine : IEngineShellBridge
         }
 
         if (QueryBarrier is { } barrier) await barrier(query);
+        if (QueryHandler is { } handler) return handler(query);
         if (ThrowQueries)
             throw new EngineIpcException(EngineIpcFailureKind.ConnectionLost, "Synthetic IPC failure.");
 

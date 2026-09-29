@@ -7,6 +7,7 @@ members = [
     "crates/customer",
     "crates/engine-cli",
     "crates/engine-runtime",
+    "crates/material",
     "crates/observability-audit",
     "crates/reference-marker",
     "crates/secret-storage",

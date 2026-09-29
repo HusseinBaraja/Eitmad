@@ -4,7 +4,7 @@ import Foundation
 public enum ProtocolIds {
     public enum Version {
         public static let major = 1
-        public static let minor = 9
+        public static let minor = 10
     }
 
     public enum IpcMessages {
@@ -38,6 +38,9 @@ public enum ProtocolIds {
         public static let eitmadReferenceMarkerUpsertV1 = "eitmad.reference-marker.upsert.v1"
         public static let eitmadCustomerCreateV1 = "eitmad.customer.create.v1"
         public static let eitmadCustomerUpdateV1 = "eitmad.customer.update.v1"
+        public static let eitmadMaterialCategorySaveV1 = "eitmad.material-category.save.v1"
+        public static let eitmadMaterialUnitSaveV1 = "eitmad.material-unit.save.v1"
+        public static let eitmadMaterialSaveV1 = "eitmad.material.save.v1"
         public static let eitmadDesktopAccountCreateV1 = "eitmad.desktop-account.create.v1"
         public static let eitmadDesktopAccountUpdateV1 = "eitmad.desktop-account.update.v1"
         public static let eitmadDesktopAccountDeactivateV1 = "eitmad.desktop-account.deactivate.v1"
@@ -52,6 +55,8 @@ public enum ProtocolIds {
         public static let eitmadReferenceMarkerListV1 = "eitmad.reference-marker.list.v1"
         public static let eitmadCustomerGetV1 = "eitmad.customer.get.v1"
         public static let eitmadCustomerSearchV1 = "eitmad.customer.search.v1"
+        public static let eitmadMaterialListV1 = "eitmad.material.list.v1"
+        public static let eitmadMaterialReferenceListV1 = "eitmad.material-reference.list.v1"
         public static let eitmadDesktopAccountListV1 = "eitmad.desktop-account.list.v1"
     }
 
@@ -67,6 +72,7 @@ public enum ProtocolIds {
         public static let eitmadErrorSubscribeV1 = "eitmad.error.subscribe.v1"
         public static let eitmadReferenceMarkerChangedSubscribeV1 = "eitmad.reference-marker.changed.subscribe.v1"
         public static let eitmadCustomerChangedSubscribeV1 = "eitmad.customer.changed.subscribe.v1"
+        public static let eitmadMaterialChangedSubscribeV1 = "eitmad.material.changed.subscribe.v1"
     }
 
     public enum Events {
@@ -81,6 +87,7 @@ public enum ProtocolIds {
         public static let eitmadErrorEventV1 = "eitmad.error.event.v1"
         public static let eitmadReferenceMarkerChangedEventV1 = "eitmad.reference-marker.changed.event.v1"
         public static let eitmadCustomerChangedEventV1 = "eitmad.customer.changed.event.v1"
+        public static let eitmadMaterialChangedEventV1 = "eitmad.material.changed.event.v1"
     }
 
     public enum SyncMessages {
@@ -130,6 +137,7 @@ public enum ProtocolIds {
         public static let eitmadCapabilityUpdateV1 = "eitmad.capability.update.v1"
         public static let eitmadCapabilityReferenceMarkerV1 = "eitmad.capability.reference-marker.v1"
         public static let eitmadCapabilityCustomerV1 = "eitmad.capability.customer.v1"
+        public static let eitmadCapabilityMaterialV1 = "eitmad.capability.material.v1"
         public static let eitmadCapabilityDesktopAccountManagementV1 = "eitmad.capability.desktop-account-management.v1"
     }
 
@@ -165,6 +173,9 @@ public enum ProtocolIds {
         public static let eitmadPermissionReferenceMarkerWriteV1 = "eitmad.permission.reference-marker.write.v1"
         public static let eitmadPermissionCustomerReadV1 = "eitmad.permission.customer.read.v1"
         public static let eitmadPermissionCustomerWriteV1 = "eitmad.permission.customer.write.v1"
+        public static let eitmadPermissionMaterialReadV1 = "eitmad.permission.material.read.v1"
+        public static let eitmadPermissionMaterialWriteV1 = "eitmad.permission.material.write.v1"
+        public static let eitmadPermissionMaterialUnitManageV1 = "eitmad.permission.material-unit.manage.v1"
         public static let eitmadPermissionCatalogDraftWriteV1 = "eitmad.permission.catalog.draft.write.v1"
         public static let eitmadPermissionQuotationDraftWriteV1 = "eitmad.permission.quotation.draft.write.v1"
         public static let eitmadPermissionDesktopAccountsManageV1 = "eitmad.permission.desktop-accounts.manage.v1"
@@ -186,6 +197,7 @@ public enum ProtocolIds {
         public static let eitmadSchemaProtocolV1 = "eitmad.schema.protocol.v1"
         public static let eitmadSchemaReferenceMarkerV1 = "eitmad.schema.reference-marker.v1"
         public static let eitmadSchemaCustomerV1 = "eitmad.schema.customer.v1"
+        public static let eitmadSchemaMaterialV1 = "eitmad.schema.material.v1"
     }
 
     public enum ErrorCodes {
@@ -237,6 +249,11 @@ public enum ProtocolIds {
         public static let eitmadErrorCustomerNotFoundV1 = "eitmad.error.customer-not-found.v1"
         public static let eitmadErrorCustomerRevisionConflictV1 = "eitmad.error.customer-revision-conflict.v1"
         public static let eitmadErrorCustomerUnavailableV1 = "eitmad.error.customer-unavailable.v1"
+        public static let eitmadErrorMaterialInvalidV1 = "eitmad.error.material-invalid.v1"
+        public static let eitmadErrorMaterialNotFoundV1 = "eitmad.error.material-not-found.v1"
+        public static let eitmadErrorMaterialRevisionConflictV1 = "eitmad.error.material-revision-conflict.v1"
+        public static let eitmadErrorMaterialReferenceInvalidV1 = "eitmad.error.material-reference-invalid.v1"
+        public static let eitmadErrorMaterialUnavailableV1 = "eitmad.error.material-unavailable.v1"
         public static let eitmadErrorDesktopAccountInvalidV1 = "eitmad.error.desktop-account-invalid.v1"
         public static let eitmadErrorDesktopAccountRevisionConflictV1 = "eitmad.error.desktop-account-revision-conflict.v1"
         public static let eitmadErrorDesktopAccountLastManagerV1 = "eitmad.error.desktop-account-last-manager.v1"
@@ -295,6 +312,11 @@ public enum ProtocolIds {
         public static let eitmadMessageCustomerNotFoundV1 = "eitmad.message.customer-not-found.v1"
         public static let eitmadMessageCustomerRevisionConflictV1 = "eitmad.message.customer-revision-conflict.v1"
         public static let eitmadMessageCustomerUnavailableV1 = "eitmad.message.customer-unavailable.v1"
+        public static let eitmadMessageMaterialInvalidV1 = "eitmad.message.material-invalid.v1"
+        public static let eitmadMessageMaterialNotFoundV1 = "eitmad.message.material-not-found.v1"
+        public static let eitmadMessageMaterialRevisionConflictV1 = "eitmad.message.material-revision-conflict.v1"
+        public static let eitmadMessageMaterialReferenceInvalidV1 = "eitmad.message.material-reference-invalid.v1"
+        public static let eitmadMessageMaterialUnavailableV1 = "eitmad.message.material-unavailable.v1"
         public static let eitmadMessageDesktopAccountInvalidV1 = "eitmad.message.desktop-account-invalid.v1"
         public static let eitmadMessageDesktopAccountRevisionConflictV1 = "eitmad.message.desktop-account-revision-conflict.v1"
         public static let eitmadMessageDesktopAccountLastManagerV1 = "eitmad.message.desktop-account-last-manager.v1"

@@ -8,6 +8,7 @@ use crate::{
     customer::CustomerChangeNotice,
     errors::ContractError,
     identity::ScopeRef,
+    material::MaterialChangeNotice,
     notifications::Notification,
     permissions::EffectivePermissions,
     reference_marker::ReferenceMarkerChangeNotice,
@@ -48,6 +49,9 @@ pub struct ReferenceMarkerChanges {}
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct CustomerChanges {}
 
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct MaterialChanges {}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ScopedError {
@@ -68,7 +72,8 @@ tagged_contract! {
         Notifications(Notifications) => "eitmad.notification.subscribe.v1",
         Errors(Errors) => "eitmad.error.subscribe.v1",
         ReferenceMarkers(ReferenceMarkerChanges) => "eitmad.reference-marker.changed.subscribe.v1",
-        Customers(CustomerChanges) => "eitmad.customer.changed.subscribe.v1"
+        Customers(CustomerChanges) => "eitmad.customer.changed.subscribe.v1",
+        Materials(MaterialChanges) => "eitmad.material.changed.subscribe.v1"
     }
 }
 
@@ -85,7 +90,8 @@ tagged_contract! {
         NotificationRaised(Notification) => "eitmad.notification.event.v1",
         ErrorRaised(ScopedError) => "eitmad.error.event.v1",
         ReferenceMarkerChanged(ReferenceMarkerChangeNotice) => "eitmad.reference-marker.changed.event.v1",
-        CustomerChanged(CustomerChangeNotice) => "eitmad.customer.changed.event.v1"
+        CustomerChanged(CustomerChangeNotice) => "eitmad.customer.changed.event.v1",
+        MaterialChanged(MaterialChangeNotice) => "eitmad.material.changed.event.v1"
     }
 }
 
@@ -118,6 +124,7 @@ impl Event {
             Self::ErrorRaised(_) => "eitmad.error.subscribe.v1",
             Self::ReferenceMarkerChanged(_) => "eitmad.reference-marker.changed.subscribe.v1",
             Self::CustomerChanged(_) => "eitmad.customer.changed.subscribe.v1",
+            Self::MaterialChanged(_) => "eitmad.material.changed.subscribe.v1",
         }
     }
 }
