@@ -183,6 +183,9 @@ Before creating a pull request or pushing new commits to an existing pull reques
 | Contract tool security | `npm audit --audit-level=high --prefix crates/contracts/codegen` |
 | Contract, fixture, reference, and generated-binding drift | `npm run contracts:verify --prefix crates/contracts/codegen` |
 | C# binding conformance and Arabic round trips | `dotnet run --project tests/contract-compatibility/csharp/Eitmad.ContractConformance.csproj --configuration Release -- tests/contract-compatibility/fixtures/protocol-v1.json` |
+| Complete Windows shell suite, including shared controls and rendered editors | `dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --configuration Release --nologo -m:1` |
+
+Run the complete Windows shell suite before each publication, even when focused feature tests pass. Do not use `--filter` for this gate. Shared control and editor tests can detect missing data or permission fixtures that feature-specific tests miss. The command must build the current source and pass all tests without new warnings.
 
 Run the applicable shell, adapter, rendered, and documentation checks defined above as well. Check the complete proposed diff with `git diff --check <target-base>...HEAD`, using the verified target branch revision. Workspace tests already cover the runtime and CLI tests; do not run them again separately.
 
