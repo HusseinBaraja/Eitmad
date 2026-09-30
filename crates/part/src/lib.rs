@@ -452,7 +452,7 @@ fn validate_identity(id: bool, expected: Option<u64>, archived: bool) -> Result<
         Ok(())
     }
 }
-/// Advances a revision within the positive signed SQLite integer range.
+/// Advances a revision within the positive signed `SQLite` integer range.
 fn next_revision(actual: Option<u64>) -> Result<u64, PartError> {
     actual
         .unwrap_or(0)
