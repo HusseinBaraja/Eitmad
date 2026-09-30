@@ -17,6 +17,7 @@ eitmad-configuration = { path = "../configuration" }
 eitmad-contracts = { path = "../contracts" }
 eitmad-customer = { path = "../customer" }
 eitmad-material = { path = "../material" }
+eitmad-part = { path = "../part" }
 eitmad-observability-audit = { path = "../observability-audit" }
 eitmad-reference-marker = { path = "../reference-marker" }
 eitmad-storage = { path = "../storage" }

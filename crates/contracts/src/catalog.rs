@@ -30,6 +30,7 @@ pub const CAPABILITIES: &[&str] = &[
     "eitmad.capability.reference-marker.v1",
     "eitmad.capability.customer.v1",
     "eitmad.capability.material.v1",
+    "eitmad.capability.part.v1",
     "eitmad.capability.desktop-account-management.v1",
 ];
 
@@ -90,6 +91,8 @@ pub const PERMISSIONS: &[&str] = &[
     "eitmad.permission.reference-marker.write.v1",
     "eitmad.permission.customer.read.v1",
     "eitmad.permission.customer.write.v1",
+    "eitmad.permission.part.read.v1",
+    "eitmad.permission.part.write.v1",
     "eitmad.permission.material.read.v1",
     "eitmad.permission.material.write.v1",
     "eitmad.permission.material-unit.manage.v1",
@@ -148,6 +151,11 @@ pub const ERROR_CODES: &[&str] = &[
     "eitmad.error.customer-revision-conflict.v1",
     "eitmad.error.customer-unavailable.v1",
     "eitmad.error.material-invalid.v1",
+    "eitmad.error.part-invalid.v1",
+    "eitmad.error.part-not-found.v1",
+    "eitmad.error.part-revision-conflict.v1",
+    "eitmad.error.part-reference-invalid.v1",
+    "eitmad.error.part-unavailable.v1",
     "eitmad.error.material-not-found.v1",
     "eitmad.error.material-revision-conflict.v1",
     "eitmad.error.material-reference-invalid.v1",
@@ -211,6 +219,11 @@ pub const MESSAGE_IDS: &[&str] = &[
     "eitmad.message.customer-revision-conflict.v1",
     "eitmad.message.customer-unavailable.v1",
     "eitmad.message.material-invalid.v1",
+    "eitmad.message.part-invalid.v1",
+    "eitmad.message.part-not-found.v1",
+    "eitmad.message.part-revision-conflict.v1",
+    "eitmad.message.part-reference-invalid.v1",
+    "eitmad.message.part-unavailable.v1",
     "eitmad.message.material-not-found.v1",
     "eitmad.message.material-revision-conflict.v1",
     "eitmad.message.material-reference-invalid.v1",
@@ -244,6 +257,7 @@ pub const DOMAIN_SCHEMA_IDS: &[&str] = &[
     "eitmad.schema.reference-marker.v1",
     "eitmad.schema.customer.v1",
     "eitmad.schema.material.v1",
+    "eitmad.schema.part.v1",
 ];
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]

@@ -1,524 +1,213 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
+using Eitmad.Contracts;
+using Eitmad.WindowsShell.Features.RawMaterials;
 
 namespace Eitmad.WindowsShell.Features.Parts;
 
-/// <summary>Owns transient list, filter, and guided-editor state for the Parts preview.</summary>
+/// <summary>Projects Rust parts and keeps unsaved wizard fields.</summary>
 public sealed class PartsViewModel : ObservableObject
 {
-    public const string AllCategories = "كل الفئات";
-    public const string AllStatuses = "كل الحالات";
-    public const string ActiveStatus = "نشط";
-    public const string ArchivedStatus = "مؤرشف";
-
-    private readonly List<PartListItem> parts;
-    private readonly Dictionary<Guid, string> descriptions = [];
-    private readonly Dictionary<Guid, List<PartMaterialUsage>> materialUsages = [];
-    private readonly List<PartMaterialOption> availableMaterials;
-    private PartListItem? editingPart;
-    private string searchText = string.Empty;
-    private string selectedCategory = AllCategories;
-    private string selectedStatus = AllStatuses;
-    private bool isEditorOpen;
-    private bool isCreating;
+    public const string AllCategories = "كل الفئات", AllStatuses = "كل الحالات", ActiveStatus = "نشط", ArchivedStatus = "مؤرشف";
+    private readonly Dictionary<Guid, Part> records = [];
+    private readonly Dictionary<Guid, PartCost> currentCosts = [];
+    private readonly Dictionary<Guid, PartCategory> categories = [];
+    private readonly List<PartMaterialOption> materials = [];
+    private Part? editingPart;
+    private HashSet<Guid>? matchingMaterials;
+    private string materialSearchMessage = "";
+    private string searchText = "", selectedCategory = AllCategories, selectedStatus = AllStatuses;
+    private string editorName = "", editorDescription = "", editorError = "", materialSearchText = "", feedbackMessage = "";
+    private string availabilityMessage = "جار تحميل الأجزاء…", newCategoryName = "";
+    private PartCategory? editorCategory;
+    private bool isEditorOpen, isCreating, isMaterialPickerOpen, isBusy, savePending, archiveRequested;
     private int currentStep = 1;
-    private string editorName = string.Empty;
-    private string editorCategory = "خزانة ملابس";
-    private string editorDescription = string.Empty;
-    private string editorError = string.Empty;
-    private string feedbackMessage = string.Empty;
-    private bool isMaterialPickerOpen;
-    private string materialSearchText = string.Empty;
+    private long? totalCost;
+    public event EventHandler? SearchChanged;
+    public event EventHandler? MaterialSearchChanged;
+    public ObservableCollection<PartListItem> VisibleParts { get; } = [];
+    public ObservableCollection<PartMaterialUsage> SelectedMaterials { get; } = [];
+    public ObservableCollection<PartMaterialOption> FilteredMaterials { get; } = [];
+    public ObservableCollection<string> CategoryOptions { get; } = [AllCategories];
+    public ObservableCollection<PartCategory> EditorCategoryOptions { get; } = [];
+    public IReadOnlyList<string> StatusOptions { get; } = [AllStatuses, ActiveStatus, ArchivedStatus];
+    public string SearchText { get => searchText; set { if (Set(ref searchText,value)) SearchChanged?.Invoke(this,EventArgs.Empty); } }
+    public string SelectedCategory { get => selectedCategory; set { if (Set(ref selectedCategory,value ?? AllCategories)) RefreshVisible(); } }
+    public string SelectedStatus { get => selectedStatus; set { if (Set(ref selectedStatus,value ?? AllStatuses)) RefreshVisible(); } }
+    public bool IsEditorOpen { get => isEditorOpen; private set => Set(ref isEditorOpen,value); }
+    public bool IsCreating { get => isCreating; private set { Set(ref isCreating,value); Raise(nameof(EditorTitle)); Raise(nameof(SaveButtonLabel)); } }
+    public string EditorTitle => IsCreating ? "إنشاء جزء جديد" : "تعديل الجزء";
+    public bool SavePending { get => savePending; set { Set(ref savePending,value); Raise(nameof(SaveButtonLabel)); Raise(nameof(CanLeaveReview)); } }
+    public bool CanLeaveReview => !SavePending;
+    public string SaveButtonLabel => SavePending ? "إعادة محاولة الحفظ" : IsCreating ? "حفظ الجزء" : "حفظ التعديلات";
+    public int CurrentStep { get => currentStep; private set { Set(ref currentStep,value); Raise(nameof(IsStepOne)); Raise(nameof(IsStepTwo)); Raise(nameof(IsStepThree)); } }
+    public bool IsStepOne => CurrentStep == 1;
+    public bool IsStepTwo => CurrentStep == 2;
+    public bool IsStepThree => CurrentStep == 3;
+    public bool IsBusy { get => isBusy; set { Set(ref isBusy,value); Raise(nameof(CanInteract)); } }
+    public bool CanInteract => !IsBusy;
+    public string EditorName { get => editorName; set => Set(ref editorName,value); }
+    public PartCategory? EditorCategory { get => editorCategory; set => Set(ref editorCategory,value); }
+    public string EditorCategoryLabel => EditorCategory?.Name ?? "";
+    public string EditorDescription { get => editorDescription; set => Set(ref editorDescription,value); }
+    public string NewCategoryName { get => newCategoryName; set => Set(ref newCategoryName,value); }
+    public string EditorError { get => editorError; private set { Set(ref editorError,value); Raise(nameof(HasEditorError)); } }
+    public bool HasEditorError => EditorError.Length > 0;
+    public string AvailabilityMessage { get => availabilityMessage; private set { Set(ref availabilityMessage,value); Raise(nameof(HasAvailabilityMessage)); Raise(nameof(PageSubtitle)); } }
+    public string PageSubtitle => HasAvailabilityMessage ? AvailabilityMessage : "الأجزاء محفوظة محلياً — التكلفة من المحرك";
+    public bool HasAvailabilityMessage => AvailabilityMessage.Length > 0;
+    public string FeedbackMessage { get => feedbackMessage; private set { Set(ref feedbackMessage,value); Raise(nameof(HasFeedback)); } }
+    public bool HasFeedback => FeedbackMessage.Length > 0;
+    public bool IsMaterialPickerOpen { get => isMaterialPickerOpen; private set => Set(ref isMaterialPickerOpen,value); }
+    public string MaterialSearchText { get => materialSearchText; set { if (Set(ref materialSearchText,value)) { matchingMaterials = null; materialSearchMessage = value.Length == 0 ? "" : "جار البحث…"; RefreshMaterialOptions(); MaterialSearchChanged?.Invoke(this,EventArgs.Empty); } } }
+    public bool HasSelectedMaterials => SelectedMaterials.Count > 0;
+    public bool HasNoMaterialOptions => FilteredMaterials.Count == 0;
+    public string MaterialOptionsMessage => materialSearchMessage.Length > 0 ? materialSearchMessage : HasNoMaterialOptions ? "لا توجد مواد خام مطابقة" : "";
+    public bool HasMaterialOptionsMessage => MaterialOptionsMessage.Length > 0;
+    public string TotalPartCostLabel => totalCost?.ToString("N0",CultureInfo.InvariantCulture) ?? "—";
+    public bool HasNoVisibleParts => VisibleParts.Count == 0 && !HasAvailabilityMessage;
+    public string VisibleCountLabel => $"{VisibleParts.Count} أجزاء";
 
-    public PartsViewModel()
+    public void ApplyDurableData(PartSnapshot data)
     {
-        parts =
-        [
-            new(Guid.Parse("660f159e-89bb-4970-b2bd-9d69cae3e84b"), "Wardrobe Side Panel", "خزانة ملابس", 9_450m, 3),
-            new(Guid.Parse("51ec39a0-ef63-4bc6-92e3-3de5316bf8e7"), "رف داخلي قابل للتعديل", "رفوف", 3_500m, 5),
-            new(Guid.Parse("1c37959e-3937-4666-a549-e9c77a5af4dd"), "واجهة باب بإطار", "أبواب", 6_200m, 2),
-            new(Guid.Parse("6970881f-96f8-413f-8dca-bd6f4e122812"), "باب جرار مزخرف", "أبواب", 7_800m, 1, isArchived: true),
-        ];
-
-        availableMaterials =
-        [
-            new(Guid.Parse("c82cf130-539f-4fc3-9d07-dbc5c1da7e4e"), "MDF 18mm", "m²", 7_250m),
-            new(Guid.Parse("eb969e93-ad20-41f5-8c56-bbb83bba5d9c"), "Edge Band", "m", 250m),
-            new(Guid.Parse("09b5cc44-8c98-4697-bcd0-39e90f7611ed"), "خشب زان مجفف", "m", 8_000m),
-            new(Guid.Parse("84c316a4-f65d-4d4e-9ec3-2adfcaedfc6f"), "قماش كتان بيج", "m", 3_500m),
-        ];
-
-        CategoryOptions = [AllCategories, "خزانة ملابس", "رفوف", "أبواب", "أدراج"];
-        EditorCategoryOptions = ["خزانة ملابس", "رفوف", "أبواب", "أدراج"];
-        StatusOptions = [AllStatuses, ActiveStatus, ArchivedStatus];
-        VisibleParts = [];
-        SelectedMaterials = [];
-        FilteredMaterials = [];
-        RefreshVisibleParts();
+        var selectedEditorCategory = EditorCategory;
+        var filter = SelectedCategory;
+        records.Clear(); currentCosts.Clear(); foreach (var projection in data.Parts) { records[projection.Part.Id] = projection.Part; currentCosts[projection.Part.Id] = projection.CurrentCost; }
+        categories.Clear();
+        EditorCategoryOptions.Clear();
+        foreach (var name in CategoryOptions.Where(n => n != AllCategories && !data.Categories.Items.Any(c => c.Name == n)).ToArray()) CategoryOptions.Remove(name);
+        foreach (var category in data.Categories.Items)
+        {
+            categories[category.Id] = category;
+            if (!CategoryOptions.Contains(category.Name)) CategoryOptions.Add(category.Name);
+            if (!category.Archived || editingPart?.CategoryId == category.Id) EditorCategoryOptions.Add(category);
+        }
+        // Retain the unsaved category identity across reference renames.
+        if (selectedEditorCategory is { } selected) EditorCategory = EditorCategoryOptions.FirstOrDefault(c => c.Id == selected.Id) ?? selected;
+        SelectedCategory = CategoryOptions.Contains(filter) ? filter : AllCategories;
+        Raise(nameof(SelectedCategory));
+        materials.Clear();
+        materials.AddRange(ProjectMaterials(data.Materials));
+        AvailabilityMessage = ""; RefreshVisible(); RefreshMaterialOptions();
+    }
+    private static IEnumerable<PartMaterialOption> ProjectMaterials(MaterialSnapshot data)
+    {
+        foreach (var material in data.Materials.Where(m => !m.Archived))
+        {
+            var unit = data.References.Units.FirstOrDefault(u => u.Id == material.UnitId);
+            if (unit is null) continue;
+            var options = data.References.Units.Where(u => !u.Archived && u.Dimension == unit.Dimension).Select(u => new PartUnitOption(u)).ToArray();
+            yield return new PartMaterialOption(material,unit,options);
+        }
+    }
+    public void ApplyMaterialSearchResults(MaterialSnapshot data)
+    {
+        matchingMaterials = data.Materials.Select(m => m.Id).ToHashSet(); materialSearchMessage = "";
+        foreach (var option in ProjectMaterials(data)) { materials.RemoveAll(m => m.Id == option.Id); materials.Add(option); }
         RefreshMaterialOptions();
     }
-
-    public IReadOnlyList<string> CategoryOptions { get; }
-
-    public IReadOnlyList<string> EditorCategoryOptions { get; }
-
-    public IReadOnlyList<string> StatusOptions { get; }
-
-    public ObservableCollection<PartListItem> VisibleParts { get; }
-
-    public ObservableCollection<PartMaterialUsage> SelectedMaterials { get; }
-
-    public ObservableCollection<PartMaterialOption> FilteredMaterials { get; }
-
-    public string SearchText
+    public void FailMaterialSearch(string message)
     {
-        get => searchText;
-        set
-        {
-            if (Set(ref searchText, value ?? string.Empty))
-            {
-                RefreshVisibleParts();
-            }
-        }
+        matchingMaterials = []; materialSearchMessage = message; RefreshMaterialOptions();
     }
-
-    public string SelectedCategory
+    public void Unavailable(string message) { AvailabilityMessage = message; records.Clear(); VisibleParts.Clear(); Raise(nameof(HasNoVisibleParts)); }
+    public void ClearSession()
     {
-        get => selectedCategory;
-        set
-        {
-            if (Set(ref selectedCategory, value ?? AllCategories))
-            {
-                RefreshVisibleParts();
-            }
-        }
+        SavePending = false; CancelEditor(); records.Clear(); currentCosts.Clear(); categories.Clear(); materials.Clear(); VisibleParts.Clear();
+        ReplaceMaterials([]); EditorCategoryOptions.Clear(); CategoryOptions.Clear(); CategoryOptions.Add(AllCategories);
+        EditorName = ""; EditorDescription = ""; NewCategoryName = ""; EditorCategory = null; editingPart = null;
+        searchText = ""; materialSearchText = ""; matchingMaterials = null; materialSearchMessage = ""; Raise(nameof(SearchText)); Raise(nameof(MaterialSearchText));
+        SelectedCategory = AllCategories; SelectedStatus = AllStatuses; ClearFeedback();
+        AvailabilityMessage = "جار تحميل الأجزاء…";
     }
-
-    public string SelectedStatus
-    {
-        get => selectedStatus;
-        set
-        {
-            if (Set(ref selectedStatus, value ?? AllStatuses))
-            {
-                RefreshVisibleParts();
-            }
-        }
-    }
-
-    public bool IsEditorOpen
-    {
-        get => isEditorOpen;
-        private set => Set(ref isEditorOpen, value);
-    }
-
-    public bool IsCreating
-    {
-        get => isCreating;
-        private set
-        {
-            if (Set(ref isCreating, value))
-            {
-                Raise(nameof(EditorTitle));
-                Raise(nameof(SaveButtonLabel));
-            }
-        }
-    }
-
-    public string EditorTitle => IsCreating ? "إنشاء جزء جديد" : "تعديل الجزء";
-
-    public string SaveButtonLabel => IsCreating ? "حفظ الجزء" : "حفظ التعديلات";
-
-    public int CurrentStep
-    {
-        get => currentStep;
-        private set
-        {
-            if (Set(ref currentStep, value))
-            {
-                Raise(nameof(IsStepOne));
-                Raise(nameof(IsStepTwo));
-                Raise(nameof(IsStepThree));
-            }
-        }
-    }
-
-    public bool IsStepOne => CurrentStep == 1;
-
-    public bool IsStepTwo => CurrentStep == 2;
-
-    public bool IsStepThree => CurrentStep == 3;
-
-    public string EditorName
-    {
-        get => editorName;
-        set => Set(ref editorName, value ?? string.Empty);
-    }
-
-    public string EditorCategory
-    {
-        get => editorCategory;
-        set => Set(ref editorCategory, value ?? string.Empty);
-    }
-
-    public string EditorDescription
-    {
-        get => editorDescription;
-        set => Set(ref editorDescription, value ?? string.Empty);
-    }
-
-    public string EditorError
-    {
-        get => editorError;
-        private set
-        {
-            if (Set(ref editorError, value))
-            {
-                Raise(nameof(HasEditorError));
-            }
-        }
-    }
-
-    public bool HasEditorError => !string.IsNullOrEmpty(EditorError);
-
-    public string FeedbackMessage
-    {
-        get => feedbackMessage;
-        private set
-        {
-            if (Set(ref feedbackMessage, value))
-            {
-                Raise(nameof(HasFeedback));
-            }
-        }
-    }
-
-    public bool HasFeedback => !string.IsNullOrEmpty(FeedbackMessage);
-
-    public bool IsMaterialPickerOpen
-    {
-        get => isMaterialPickerOpen;
-        private set => Set(ref isMaterialPickerOpen, value);
-    }
-
-    public string MaterialSearchText
-    {
-        get => materialSearchText;
-        set
-        {
-            if (Set(ref materialSearchText, value ?? string.Empty))
-            {
-                RefreshMaterialOptions();
-            }
-        }
-    }
-
-    public bool HasSelectedMaterials => SelectedMaterials.Count > 0;
-
-    public bool HasNoMaterialOptions => FilteredMaterials.Count == 0;
-
-    public decimal TotalPartCost => TryCalculateTotalPartCost(out var totalCost) ? totalCost : 0m;
-
-    public string TotalPartCostLabel => TryCalculateTotalPartCost(out var totalCost)
-        ? totalCost.ToString("N0", CultureInfo.InvariantCulture)
-        : "—";
-
-    public bool HasNoVisibleParts => VisibleParts.Count == 0;
-
-    public string VisibleCountLabel => $"{VisibleParts.Count} من {parts.Count} أجزاء";
-
+    public void Fail(string message) => EditorError = message;
     public void BeginCreate()
     {
-        editingPart = null;
-        IsCreating = true;
-        EditorName = string.Empty;
-        EditorCategory = "خزانة ملابس";
-        EditorDescription = string.Empty;
-        ReplaceSelectedMaterials([]);
-        EditorError = string.Empty;
-        CurrentStep = 1;
-        IsMaterialPickerOpen = false;
-        IsEditorOpen = true;
+        archiveRequested = false; editingPart = null; IsCreating = true; EditorName = ""; EditorDescription = "";
+        EditorCategory = EditorCategoryOptions.FirstOrDefault(c => !c.Archived);
+        ReplaceMaterials([]); OpenEditor();
     }
-
-    public void BeginEdit(PartListItem part)
+    public void BeginEdit(PartListItem row)
     {
-        ArgumentNullException.ThrowIfNull(part);
-        editingPart = part;
-        IsCreating = false;
-        EditorName = part.Name;
-        EditorCategory = part.Category;
-        EditorDescription = descriptions.GetValueOrDefault(part.Id, string.Empty);
-        ReplaceSelectedMaterials(materialUsages.TryGetValue(part.Id, out var usages)
-            ? usages.Select(item => item.Copy())
-            : []);
-        EditorError = string.Empty;
-        CurrentStep = 1;
-        IsMaterialPickerOpen = false;
-        IsEditorOpen = true;
+        if (!records.TryGetValue(row.Id,out var part)) return;
+        archiveRequested = false; editingPart = part; IsCreating = false; EditorName = part.Name; EditorDescription = part.Description;
+        EditorCategory = categories.GetValueOrDefault(part.CategoryId);
+        if (EditorCategory is { } c && !EditorCategoryOptions.Contains(c)) EditorCategoryOptions.Add(c);
+        ReplaceMaterials(currentCosts[part.Id].Rows.Select(r =>
+        {
+            var options = materials.FirstOrDefault(m => m.Id == r.Material.Id)?.Units.ToList() ?? [];
+            if (options.All(u => u.Record.Id != r.Unit.Id)) options.Add(new PartUnitOption(r.Unit));
+            var usage = new PartMaterialUsage(new PartMaterialOption(r.Material,r.CostUnit,options),r.Usage.Quantity,r.Unit.Id);
+            usage.SetCost(r.CostYer); return usage;
+        }));
+        totalCost = currentCosts[part.Id].TotalCostYer; Raise(nameof(TotalPartCostLabel)); OpenEditor();
     }
-
-    public void CancelEditor()
+    private void OpenEditor() { EditorError = ""; CurrentStep = 1; IsMaterialPickerOpen = false; IsEditorOpen = true; Raise(nameof(EditorCategoryLabel)); }
+    public void BeginArchive(PartListItem row)
     {
-        IsEditorOpen = false;
-        IsMaterialPickerOpen = false;
-        EditorError = string.Empty;
+        BeginEdit(row); archiveRequested = true;
+        ApplyCost(currentCosts[row.Id],review:true);
     }
-
+    public void Duplicate(PartListItem row) { BeginEdit(row); editingPart = null; IsCreating = true; EditorName += " — نسخة"; }
+    public void CancelEditor() { IsEditorOpen = false; IsMaterialPickerOpen = false; EditorError = ""; }
     public bool MoveToMaterials()
     {
-        if (EditorName.Trim().Length == 0)
-        {
-            EditorError = "أدخل اسم الجزء.";
-            return false;
-        }
-
-        EditorError = string.Empty;
-        CurrentStep = 2;
-        return true;
+        if (EditorName.Length == 0 || EditorCategory is null) { EditorError = "أدخل اسم الجزء واختر فئة."; return false; }
+        EditorError = ""; CurrentStep = 2; return true;
     }
-
-    public bool MoveToReview()
+    public void ApplyCost(PartCost cost, bool review = false)
     {
-        if (SelectedMaterials.Any(item => item.Quantity <= 0m))
-        {
-            EditorError = "أدخل كمية أكبر من صفر لكل مادة خام.";
-            return false;
-        }
-
-        if (!TryCalculateTotalPartCost(out _))
-        {
-            EditorError = "الكمية كبيرة جداً لحساب تكلفة الجزء.";
-            return false;
-        }
-
-        if (IsCreating && SelectedMaterials.Count == 0)
-        {
-            EditorError = "أضف مادة خام واحدة على الأقل للمتابعة.";
-            return false;
-        }
-
-        EditorError = string.Empty;
-        CurrentStep = 3;
-        return true;
+        foreach (var row in cost.Rows) SelectedMaterials.FirstOrDefault(u => u.Material.Id == row.Usage.MaterialId)?.SetCost(row.CostYer);
+        totalCost = cost.TotalCostYer; Raise(nameof(TotalPartCostLabel));
+        EditorError = ""; if (review) { CurrentStep = 3; Raise(nameof(EditorCategoryLabel)); }
     }
-
-    public void MoveToPreviousStep()
+    public void RefreshCostReferences()
     {
-        if (CurrentStep > 1)
-        {
-            CurrentStep--;
-            EditorError = string.Empty;
-        }
+        foreach (var row in SelectedMaterials)
+            if (materials.FirstOrDefault(m => m.Id == row.Material.Id) is { } latest) row.RefreshReference(latest);
     }
-
-    public void OpenMaterialPicker()
+    public Guid? EditingPartId => editingPart?.Id;
+    public PartUsage[] UsageInput() => SelectedMaterials.Select(u => u.ToInput()).ToArray();
+    public SavePart SaveInput(bool? archived = null) => new()
     {
-        MaterialSearchText = string.Empty;
-        RefreshMaterialOptions();
-        IsMaterialPickerOpen = true;
-    }
-
+        Id = editingPart?.Id, ExpectedRevision = editingPart?.Revision, Name = EditorName,
+        CategoryId = EditorCategory?.Id ?? Guid.Empty, Description = EditorDescription,
+        Usages = UsageInput(), Archived = archived ?? (archiveRequested || editingPart?.Archived == true),
+    };
+    public void Saved() { SavePending = false; CancelEditor(); FeedbackMessage = "حُفظ الجزء محلياً."; }
+    public void MoveToPreviousStep() { if (CurrentStep > 1) CurrentStep--; EditorError = ""; }
+    public void OpenMaterialPicker() { MaterialSearchText = ""; RefreshMaterialOptions(); IsMaterialPickerOpen = true; }
     public void CloseMaterialPicker() => IsMaterialPickerOpen = false;
-
     public void AddMaterial(PartMaterialOption material)
     {
-        ArgumentNullException.ThrowIfNull(material);
-        if (SelectedMaterials.Any(item => item.Material.Id == material.Id))
-        {
-            return;
-        }
-
-        AddSelectedMaterial(new PartMaterialUsage(material));
-        RefreshMaterialOptions();
-        IsMaterialPickerOpen = false;
-        EditorError = string.Empty;
+        if (SelectedMaterials.Any(u => u.Material.Id == material.Id)) return;
+        AddUsage(new PartMaterialUsage(material)); InvalidateCost(); RefreshMaterialOptions(); IsMaterialPickerOpen = false;
     }
-
-    public void RemoveMaterial(PartMaterialUsage usage)
+    public void RemoveMaterial(PartMaterialUsage usage) { usage.PropertyChanged -= UsageChanged; SelectedMaterials.Remove(usage); InvalidateCost(); RefreshMaterialOptions(); }
+    public void ClearFeedback() => FeedbackMessage = "";
+    private void ReplaceMaterials(IEnumerable<PartMaterialUsage> rows)
     {
-        ArgumentNullException.ThrowIfNull(usage);
-        usage.PropertyChanged -= SelectedMaterialChanged;
-        SelectedMaterials.Remove(usage);
-        RefreshMaterialState();
-        RefreshMaterialOptions();
+        foreach (var row in SelectedMaterials) row.PropertyChanged -= UsageChanged;
+        SelectedMaterials.Clear(); foreach (var row in rows) AddUsage(row); totalCost = null; Raise(nameof(TotalPartCostLabel)); Raise(nameof(HasSelectedMaterials)); RefreshMaterialOptions();
     }
-
-    public bool SaveEditor()
-    {
-        if (CurrentStep != 3 || EditorName.Trim().Length == 0)
-        {
-            return false;
-        }
-
-        var normalizedName = EditorName.Trim();
-        var cost = SelectedMaterials.Count == 0 && editingPart is not null
-            ? editingPart.Cost
-            : TotalPartCost;
-        var target = editingPart;
-        if (target is null)
-        {
-            target = new PartListItem(Guid.NewGuid(), normalizedName, EditorCategory, cost, 0);
-            parts.Add(target);
-            FeedbackMessage = "أضيف الجزء إلى المعاينة المحلية.";
-        }
-        else
-        {
-            target.Name = normalizedName;
-            target.Category = EditorCategory;
-            target.Cost = cost;
-            FeedbackMessage = "حُدث الجزء في المعاينة المحلية.";
-        }
-
-        descriptions[target.Id] = EditorDescription.Trim();
-        materialUsages[target.Id] = SelectedMaterials.Select(item => item.Copy()).ToList();
-        IsEditorOpen = false;
-        IsMaterialPickerOpen = false;
-        EditorError = string.Empty;
-        RefreshVisibleParts();
-        return true;
-    }
-
-    public PartListItem Duplicate(PartListItem part)
-    {
-        ArgumentNullException.ThrowIfNull(part);
-        var duplicate = new PartListItem(Guid.NewGuid(), $"{part.Name} — نسخة", part.Category, part.Cost, part.UsedInCount);
-        parts.Add(duplicate);
-        if (descriptions.TryGetValue(part.Id, out var description))
-        {
-            descriptions[duplicate.Id] = description;
-        }
-
-        if (materialUsages.TryGetValue(part.Id, out var usages))
-        {
-            materialUsages[duplicate.Id] = usages.Select(item => item.Copy()).ToList();
-        }
-
-        FeedbackMessage = "أُنشئت نسخة محلية ويمكن تعديلها الآن.";
-        RefreshVisibleParts();
-        BeginEdit(duplicate);
-        return duplicate;
-    }
-
-    public void Archive(PartListItem part)
-    {
-        ArgumentNullException.ThrowIfNull(part);
-        if (part.IsArchived)
-        {
-            return;
-        }
-
-        part.IsArchived = true;
-        FeedbackMessage = "أُرشف الجزء في المعاينة المحلية.";
-        RefreshVisibleParts();
-    }
-
-    public void ClearFeedback() => FeedbackMessage = string.Empty;
-
-    private void ReplaceSelectedMaterials(IEnumerable<PartMaterialUsage> usages)
-    {
-        foreach (var existing in SelectedMaterials)
-        {
-            existing.PropertyChanged -= SelectedMaterialChanged;
-        }
-
-        SelectedMaterials.Clear();
-        foreach (var usage in usages)
-        {
-            AddSelectedMaterial(usage);
-        }
-
-        RefreshMaterialState();
-        RefreshMaterialOptions();
-    }
-
-    private void AddSelectedMaterial(PartMaterialUsage usage)
-    {
-        usage.PropertyChanged += SelectedMaterialChanged;
-        SelectedMaterials.Add(usage);
-        RefreshMaterialState();
-    }
-
-    private void SelectedMaterialChanged(object? sender, PropertyChangedEventArgs eventArgs)
-    {
-        if (eventArgs.PropertyName is nameof(PartMaterialUsage.Quantity) or nameof(PartMaterialUsage.TotalCost))
-        {
-            Raise(nameof(TotalPartCost));
-            Raise(nameof(TotalPartCostLabel));
-        }
-    }
-
-    private void RefreshMaterialState()
-    {
-        Raise(nameof(HasSelectedMaterials));
-        Raise(nameof(TotalPartCost));
-        Raise(nameof(TotalPartCostLabel));
-    }
-
-    private bool TryCalculateTotalPartCost(out decimal totalCost)
-    {
-        totalCost = 0m;
-        try
-        {
-            foreach (var usage in SelectedMaterials)
-            {
-                if (!usage.TryCalculateTotalCost(out var rowCost))
-                {
-                    totalCost = 0m;
-                    return false;
-                }
-
-                totalCost = checked(totalCost + rowCost);
-            }
-
-            return true;
-        }
-        catch (OverflowException)
-        {
-            totalCost = 0m;
-            return false;
-        }
-    }
-
+    private void AddUsage(PartMaterialUsage row) { row.PropertyChanged += UsageChanged; SelectedMaterials.Add(row); }
+    private void UsageChanged(object? sender,PropertyChangedEventArgs e) { if (e.PropertyName is nameof(PartMaterialUsage.Quantity) or nameof(PartMaterialUsage.SelectedUnit)) InvalidateCost(); }
+    private void InvalidateCost() { totalCost = null; foreach (var row in SelectedMaterials) row.SetCost(null); Raise(nameof(TotalPartCostLabel)); Raise(nameof(HasSelectedMaterials)); }
     private void RefreshMaterialOptions()
     {
-        var normalizedSearch = PreviewText.NormalizeSearch(MaterialSearchText.Trim());
-        var selectedIds = SelectedMaterials.Select(item => item.Material.Id).ToHashSet();
-        FilteredMaterials.Clear();
-        foreach (var material in availableMaterials.Where(item =>
-                     !selectedIds.Contains(item.Id)
-                     && (normalizedSearch.Length == 0
-                         || PreviewText.NormalizeSearch(item.Name).Contains(normalizedSearch, StringComparison.CurrentCultureIgnoreCase))))
-        {
-            FilteredMaterials.Add(material);
-        }
-
+        FilteredMaterials.Clear(); foreach (var m in materials.Where(m => !SelectedMaterials.Any(u => u.Material.Id == m.Id) && (matchingMaterials is not null ? matchingMaterials.Contains(m.Id) : MaterialSearchText.Length == 0 && materialSearchMessage.Length == 0))) FilteredMaterials.Add(m);
         Raise(nameof(HasNoMaterialOptions));
+        Raise(nameof(MaterialOptionsMessage)); Raise(nameof(HasMaterialOptionsMessage));
     }
-
-    private void RefreshVisibleParts()
+    private void RefreshVisible()
     {
-        var normalizedSearch = PreviewText.NormalizeSearch(SearchText.Trim());
-        var matches = parts.Where(part =>
-            MatchesSearch(part, normalizedSearch)
-            && (SelectedCategory == AllCategories || part.Category == SelectedCategory)
-            && (SelectedStatus == AllStatuses
-                || (SelectedStatus == ActiveStatus && !part.IsArchived)
-                || (SelectedStatus == ArchivedStatus && part.IsArchived)));
-
-        VisibleParts.Clear();
-        foreach (var part in matches)
+        VisibleParts.Clear(); foreach (var p in records.Values)
         {
-            VisibleParts.Add(part);
+            var category = categories.GetValueOrDefault(p.CategoryId)?.Name ?? "—";
+            if (SelectedCategory != AllCategories && category != SelectedCategory || SelectedStatus == ActiveStatus && p.Archived || SelectedStatus == ArchivedStatus && !p.Archived) continue;
+            VisibleParts.Add(new PartListItem(p.Id,p.Name,category,currentCosts[p.Id].TotalCostYer,0,p.Archived));
         }
-
-        Raise(nameof(HasNoVisibleParts));
-        Raise(nameof(VisibleCountLabel));
+        Raise(nameof(HasNoVisibleParts)); Raise(nameof(VisibleCountLabel));
     }
-
-    private static bool MatchesSearch(PartListItem part, string search) =>
-        search.Length == 0
-        || PreviewText.NormalizeSearch(part.Name).Contains(search, StringComparison.CurrentCultureIgnoreCase)
-        || PreviewText.NormalizeSearch(part.Category).Contains(search, StringComparison.CurrentCultureIgnoreCase);
 }

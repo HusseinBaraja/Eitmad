@@ -180,6 +180,14 @@ Do not round each line's share. Final total is `subtotal - discount`. Tax, depos
 - Unit conversion requires two Unit records in the same measurement dimension and a versioned exact rational conversion factor. No automatic conversion is allowed between count, length, area, volume, and mass.
 - Unit administration is a separate Manager capability. Catalog editing can select active Units but cannot define an unreviewed conversion inline.
 
+### Part composition
+
+A Part has its own category reference, separate from Material categories. It consumes 1–100 different Material definitions through explicit positive quantities and Unit IDs. Quantity input preserves at most six fractional digits. The cost calculation converts consumption quantities to each material's purchase-cost unit with the exact versioned rational factors. Units must have the same measurement dimension.
+
+Rust sums exact rational material costs and rounds the Part total once, half away from zero, to signed 64-bit whole-YER money. Floating point and early calculation rounding are prohibited. Rounded row amounts are presentation values and do not define the total. For example, `1.2 m² × 7,250 YER + 3 m × 250 YER = 9,450 YER`. Exact costs `7.25 + 0.25 YER` produce a final `8 YER`, even though separately displayed rows would show `7` and `0`.
+
+Each saved composition has a scoped Part ID, immutable revision, and schema version. It retains the material and unit revisions, exact quantities, definitions and conversion factors, and original cost. A commercial record references that exact composition and keeps its issued display snapshot. Current material changes can update advisory draft cost projections, but cannot replace a historical composition or change a selling price. A new saved Part revision is required to capture a new commercial cost basis.
+
 ## Quotation lifecycle
 
 ### States and transitions

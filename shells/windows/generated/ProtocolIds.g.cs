@@ -9,7 +9,7 @@ public static class ProtocolIds
     public static class Version
     {
         public const long Major = 1;
-        public const long Minor = 10;
+        public const long Minor = 11;
     }
 
     public static class IpcMessages
@@ -48,6 +48,8 @@ public static class ProtocolIds
         public const string EitmadMaterialCategorySaveV1 = "eitmad.material-category.save.v1";
         public const string EitmadMaterialUnitSaveV1 = "eitmad.material-unit.save.v1";
         public const string EitmadMaterialSaveV1 = "eitmad.material.save.v1";
+        public const string EitmadPartSaveV1 = "eitmad.part.save.v1";
+        public const string EitmadPartCategorySaveV1 = "eitmad.part-category.save.v1";
         public const string EitmadDesktopAccountCreateV1 = "eitmad.desktop-account.create.v1";
         public const string EitmadDesktopAccountUpdateV1 = "eitmad.desktop-account.update.v1";
         public const string EitmadDesktopAccountDeactivateV1 = "eitmad.desktop-account.deactivate.v1";
@@ -63,6 +65,10 @@ public static class ProtocolIds
         public const string EitmadReferenceMarkerListV1 = "eitmad.reference-marker.list.v1";
         public const string EitmadCustomerGetV1 = "eitmad.customer.get.v1";
         public const string EitmadCustomerSearchV1 = "eitmad.customer.search.v1";
+        public const string EitmadPartListV1 = "eitmad.part.list.v1";
+        public const string EitmadPartCategoryListV1 = "eitmad.part-category.list.v1";
+        public const string EitmadPartCostV1 = "eitmad.part.cost.v1";
+        public const string EitmadPartCompositionGetV1 = "eitmad.part-composition.get.v1";
         public const string EitmadMaterialListV1 = "eitmad.material.list.v1";
         public const string EitmadMaterialReferenceListV1 = "eitmad.material-reference.list.v1";
         public const string EitmadDesktopAccountListV1 = "eitmad.desktop-account.list.v1";
@@ -82,6 +88,7 @@ public static class ProtocolIds
         public const string EitmadReferenceMarkerChangedSubscribeV1 = "eitmad.reference-marker.changed.subscribe.v1";
         public const string EitmadCustomerChangedSubscribeV1 = "eitmad.customer.changed.subscribe.v1";
         public const string EitmadMaterialChangedSubscribeV1 = "eitmad.material.changed.subscribe.v1";
+        public const string EitmadPartChangedSubscribeV1 = "eitmad.part.changed.subscribe.v1";
     }
 
     public static class Events
@@ -98,6 +105,7 @@ public static class ProtocolIds
         public const string EitmadReferenceMarkerChangedEventV1 = "eitmad.reference-marker.changed.event.v1";
         public const string EitmadCustomerChangedEventV1 = "eitmad.customer.changed.event.v1";
         public const string EitmadMaterialChangedEventV1 = "eitmad.material.changed.event.v1";
+        public const string EitmadPartChangedEventV1 = "eitmad.part.changed.event.v1";
     }
 
     public static class SyncMessages
@@ -151,6 +159,7 @@ public static class ProtocolIds
         public const string EitmadCapabilityReferenceMarkerV1 = "eitmad.capability.reference-marker.v1";
         public const string EitmadCapabilityCustomerV1 = "eitmad.capability.customer.v1";
         public const string EitmadCapabilityMaterialV1 = "eitmad.capability.material.v1";
+        public const string EitmadCapabilityPartV1 = "eitmad.capability.part.v1";
         public const string EitmadCapabilityDesktopAccountManagementV1 = "eitmad.capability.desktop-account-management.v1";
     }
 
@@ -187,6 +196,8 @@ public static class ProtocolIds
         public const string EitmadPermissionReferenceMarkerWriteV1 = "eitmad.permission.reference-marker.write.v1";
         public const string EitmadPermissionCustomerReadV1 = "eitmad.permission.customer.read.v1";
         public const string EitmadPermissionCustomerWriteV1 = "eitmad.permission.customer.write.v1";
+        public const string EitmadPermissionPartReadV1 = "eitmad.permission.part.read.v1";
+        public const string EitmadPermissionPartWriteV1 = "eitmad.permission.part.write.v1";
         public const string EitmadPermissionMaterialReadV1 = "eitmad.permission.material.read.v1";
         public const string EitmadPermissionMaterialWriteV1 = "eitmad.permission.material.write.v1";
         public const string EitmadPermissionMaterialUnitManageV1 = "eitmad.permission.material-unit.manage.v1";
@@ -215,6 +226,7 @@ public static class ProtocolIds
         public const string EitmadSchemaReferenceMarkerV1 = "eitmad.schema.reference-marker.v1";
         public const string EitmadSchemaCustomerV1 = "eitmad.schema.customer.v1";
         public const string EitmadSchemaMaterialV1 = "eitmad.schema.material.v1";
+        public const string EitmadSchemaPartV1 = "eitmad.schema.part.v1";
     }
 
     public static class ErrorCodes
@@ -268,6 +280,11 @@ public static class ProtocolIds
         public const string EitmadErrorCustomerRevisionConflictV1 = "eitmad.error.customer-revision-conflict.v1";
         public const string EitmadErrorCustomerUnavailableV1 = "eitmad.error.customer-unavailable.v1";
         public const string EitmadErrorMaterialInvalidV1 = "eitmad.error.material-invalid.v1";
+        public const string EitmadErrorPartInvalidV1 = "eitmad.error.part-invalid.v1";
+        public const string EitmadErrorPartNotFoundV1 = "eitmad.error.part-not-found.v1";
+        public const string EitmadErrorPartRevisionConflictV1 = "eitmad.error.part-revision-conflict.v1";
+        public const string EitmadErrorPartReferenceInvalidV1 = "eitmad.error.part-reference-invalid.v1";
+        public const string EitmadErrorPartUnavailableV1 = "eitmad.error.part-unavailable.v1";
         public const string EitmadErrorMaterialNotFoundV1 = "eitmad.error.material-not-found.v1";
         public const string EitmadErrorMaterialRevisionConflictV1 = "eitmad.error.material-revision-conflict.v1";
         public const string EitmadErrorMaterialReferenceInvalidV1 = "eitmad.error.material-reference-invalid.v1";
@@ -332,6 +349,11 @@ public static class ProtocolIds
         public const string EitmadMessageCustomerRevisionConflictV1 = "eitmad.message.customer-revision-conflict.v1";
         public const string EitmadMessageCustomerUnavailableV1 = "eitmad.message.customer-unavailable.v1";
         public const string EitmadMessageMaterialInvalidV1 = "eitmad.message.material-invalid.v1";
+        public const string EitmadMessagePartInvalidV1 = "eitmad.message.part-invalid.v1";
+        public const string EitmadMessagePartNotFoundV1 = "eitmad.message.part-not-found.v1";
+        public const string EitmadMessagePartRevisionConflictV1 = "eitmad.message.part-revision-conflict.v1";
+        public const string EitmadMessagePartReferenceInvalidV1 = "eitmad.message.part-reference-invalid.v1";
+        public const string EitmadMessagePartUnavailableV1 = "eitmad.message.part-unavailable.v1";
         public const string EitmadMessageMaterialNotFoundV1 = "eitmad.message.material-not-found.v1";
         public const string EitmadMessageMaterialRevisionConflictV1 = "eitmad.message.material-revision-conflict.v1";
         public const string EitmadMessageMaterialReferenceInvalidV1 = "eitmad.message.material-reference-invalid.v1";

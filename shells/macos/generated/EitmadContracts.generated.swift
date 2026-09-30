@@ -1520,6 +1520,8 @@ public enum PurpleKind: String, Codable, Sendable {
     case materialSaved = "materialSaved"
     case materialUnitSaved = "materialUnitSaved"
     case operationCancelled = "operationCancelled"
+    case partCategorySaved = "partCategorySaved"
+    case partSaved = "partSaved"
     case referenceMarkerUpserted = "referenceMarkerUpserted"
     case relationshipGranted = "relationshipGranted"
     case relationshipRevoked = "relationshipRevoked"
@@ -1679,7 +1681,10 @@ public struct PayloadClass: Codable, Sendable {
     public let symbol, categoryID: String?
     /// Non-negative whole Yemeni rials per selected unit.
     public let currentCostYer: Int?
-    public let unitID, accountID: String?
+    public let unitID: String?
+    public let composition: CompositionReference?
+    public let cost: PartCost?
+    public let description, accountID: String?
     public let active: Bool?
     public let displayName: String?
     public let role: DesktopAccountRole?
@@ -1694,13 +1699,14 @@ public struct PayloadClass: Codable, Sendable {
         case categoryID = "categoryId"
         case currentCostYer
         case unitID = "unitId"
+        case composition, cost, description
         case accountID = "accountId"
         case active, displayName, role
         case userID = "userId"
         case username
     }
 
-    public init(entries: [ConfigEntry]?, revision: Int?, schemaVersion: Int?, scope: ScopeRef?, changed: Bool?, policyVersion: Int?, relationship: ScopeRelationship?, operationID: String?, kind: UpdateStateKind?, payload: UpdateStatePayload?, id: String?, label: String?, syncState: ReferenceMarkerSyncState?, updatedAt: Int?, customer: Customer?, potentialDuplicateIDS: [String]?, archived: Bool?, name: String?, denominator: Int?, dimension: UnitDimension?, numerator: Int?, symbol: String?, categoryID: String?, currentCostYer: Int?, unitID: String?, accountID: String?, active: Bool?, displayName: String?, role: DesktopAccountRole?, userID: String?, username: String?) {
+    public init(entries: [ConfigEntry]?, revision: Int?, schemaVersion: Int?, scope: ScopeRef?, changed: Bool?, policyVersion: Int?, relationship: ScopeRelationship?, operationID: String?, kind: UpdateStateKind?, payload: UpdateStatePayload?, id: String?, label: String?, syncState: ReferenceMarkerSyncState?, updatedAt: Int?, customer: Customer?, potentialDuplicateIDS: [String]?, archived: Bool?, name: String?, denominator: Int?, dimension: UnitDimension?, numerator: Int?, symbol: String?, categoryID: String?, currentCostYer: Int?, unitID: String?, composition: CompositionReference?, cost: PartCost?, description: String?, accountID: String?, active: Bool?, displayName: String?, role: DesktopAccountRole?, userID: String?, username: String?) {
         self.entries = entries
         self.revision = revision
         self.schemaVersion = schemaVersion
@@ -1726,6 +1732,9 @@ public struct PayloadClass: Codable, Sendable {
         self.categoryID = categoryID
         self.currentCostYer = currentCostYer
         self.unitID = unitID
+        self.composition = composition
+        self.cost = cost
+        self.description = description
         self.accountID = accountID
         self.active = active
         self.displayName = displayName
@@ -1779,6 +1788,9 @@ public extension PayloadClass {
         categoryID: String?? = nil,
         currentCostYer: Int?? = nil,
         unitID: String?? = nil,
+        composition: CompositionReference?? = nil,
+        cost: PartCost?? = nil,
+        description: String?? = nil,
         accountID: String?? = nil,
         active: Bool?? = nil,
         displayName: String?? = nil,
@@ -1812,12 +1824,420 @@ public extension PayloadClass {
             categoryID: categoryID ?? self.categoryID,
             currentCostYer: currentCostYer ?? self.currentCostYer,
             unitID: unitID ?? self.unitID,
+            composition: composition ?? self.composition,
+            cost: cost ?? self.cost,
+            description: description ?? self.description,
             accountID: accountID ?? self.accountID,
             active: active ?? self.active,
             displayName: displayName ?? self.displayName,
             role: role ?? self.role,
             userID: userID ?? self.userID,
             username: username ?? self.username
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - CompositionReference
+public struct CompositionReference: Codable, Sendable {
+    public let partID: String
+    public let revision, schemaVersion: Int
+    public let scope: ScopeRef
+
+    public enum CodingKeys: String, CodingKey {
+        case partID = "partId"
+        case revision, schemaVersion, scope
+    }
+
+    public init(partID: String, revision: Int, schemaVersion: Int, scope: ScopeRef) {
+        self.partID = partID
+        self.revision = revision
+        self.schemaVersion = schemaVersion
+        self.scope = scope
+    }
+}
+
+// MARK: CompositionReference convenience initializers and mutators
+
+public extension CompositionReference {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(CompositionReference.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        partID: String? = nil,
+        revision: Int? = nil,
+        schemaVersion: Int? = nil,
+        scope: ScopeRef? = nil
+    ) -> CompositionReference {
+        return CompositionReference(
+            partID: partID ?? self.partID,
+            revision: revision ?? self.revision,
+            schemaVersion: schemaVersion ?? self.schemaVersion,
+            scope: scope ?? self.scope
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+/// Advisory current cost; commercial references resolve the immutable part snapshot instead.
+// MARK: - PartCost
+public struct PartCost: Codable, Sendable {
+    public let rows: [CostedUsage]
+    public let totalCostYer: Int
+
+    public init(rows: [CostedUsage], totalCostYer: Int) {
+        self.rows = rows
+        self.totalCostYer = totalCostYer
+    }
+}
+
+// MARK: PartCost convenience initializers and mutators
+
+public extension PartCost {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(PartCost.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        rows: [CostedUsage]? = nil,
+        totalCostYer: Int? = nil
+    ) -> PartCost {
+        return PartCost(
+            rows: rows ?? self.rows,
+            totalCostYer: totalCostYer ?? self.totalCostYer
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - CostedUsage
+public struct CostedUsage: Codable, Sendable {
+    public let costUnit: MaterialUnit
+    public let costYer: Int
+    public let material: Material
+    public let unit: MaterialUnit
+    public let usage: PartUsage
+
+    public init(costUnit: MaterialUnit, costYer: Int, material: Material, unit: MaterialUnit, usage: PartUsage) {
+        self.costUnit = costUnit
+        self.costYer = costYer
+        self.material = material
+        self.unit = unit
+        self.usage = usage
+    }
+}
+
+// MARK: CostedUsage convenience initializers and mutators
+
+public extension CostedUsage {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(CostedUsage.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        costUnit: MaterialUnit? = nil,
+        costYer: Int? = nil,
+        material: Material? = nil,
+        unit: MaterialUnit? = nil,
+        usage: PartUsage? = nil
+    ) -> CostedUsage {
+        return CostedUsage(
+            costUnit: costUnit ?? self.costUnit,
+            costYer: costYer ?? self.costYer,
+            material: material ?? self.material,
+            unit: unit ?? self.unit,
+            usage: usage ?? self.usage
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - MaterialUnit
+public struct MaterialUnit: Codable, Sendable {
+    public let archived: Bool
+    public let denominator: Int
+    public let dimension: UnitDimension
+    public let id, name: String
+    public let numerator, revision: Int
+    public let scope: ScopeRef
+    public let symbol: String
+    public let updatedAt: Int
+
+    public init(archived: Bool, denominator: Int, dimension: UnitDimension, id: String, name: String, numerator: Int, revision: Int, scope: ScopeRef, symbol: String, updatedAt: Int) {
+        self.archived = archived
+        self.denominator = denominator
+        self.dimension = dimension
+        self.id = id
+        self.name = name
+        self.numerator = numerator
+        self.revision = revision
+        self.scope = scope
+        self.symbol = symbol
+        self.updatedAt = updatedAt
+    }
+}
+
+// MARK: MaterialUnit convenience initializers and mutators
+
+public extension MaterialUnit {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(MaterialUnit.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        archived: Bool? = nil,
+        denominator: Int? = nil,
+        dimension: UnitDimension? = nil,
+        id: String? = nil,
+        name: String? = nil,
+        numerator: Int? = nil,
+        revision: Int? = nil,
+        scope: ScopeRef? = nil,
+        symbol: String? = nil,
+        updatedAt: Int? = nil
+    ) -> MaterialUnit {
+        return MaterialUnit(
+            archived: archived ?? self.archived,
+            denominator: denominator ?? self.denominator,
+            dimension: dimension ?? self.dimension,
+            id: id ?? self.id,
+            name: name ?? self.name,
+            numerator: numerator ?? self.numerator,
+            revision: revision ?? self.revision,
+            scope: scope ?? self.scope,
+            symbol: symbol ?? self.symbol,
+            updatedAt: updatedAt ?? self.updatedAt
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+public enum UnitDimension: String, Codable, Sendable {
+    case area = "area"
+    case count = "count"
+    case length = "length"
+    case mass = "mass"
+    case volume = "volume"
+}
+
+// MARK: - Material
+public struct Material: Codable, Sendable {
+    public let archived: Bool
+    public let categoryID: String
+    /// Non-negative whole Yemeni rials per selected unit.
+    public let currentCostYer: Int
+    public let id, name: String
+    public let revision: Int
+    public let scope: ScopeRef
+    public let unitID: String
+    public let updatedAt: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case archived
+        case categoryID = "categoryId"
+        case currentCostYer, id, name, revision, scope
+        case unitID = "unitId"
+        case updatedAt
+    }
+
+    public init(archived: Bool, categoryID: String, currentCostYer: Int, id: String, name: String, revision: Int, scope: ScopeRef, unitID: String, updatedAt: Int) {
+        self.archived = archived
+        self.categoryID = categoryID
+        self.currentCostYer = currentCostYer
+        self.id = id
+        self.name = name
+        self.revision = revision
+        self.scope = scope
+        self.unitID = unitID
+        self.updatedAt = updatedAt
+    }
+}
+
+// MARK: Material convenience initializers and mutators
+
+public extension Material {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(Material.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        archived: Bool? = nil,
+        categoryID: String? = nil,
+        currentCostYer: Int? = nil,
+        id: String? = nil,
+        name: String? = nil,
+        revision: Int? = nil,
+        scope: ScopeRef? = nil,
+        unitID: String? = nil,
+        updatedAt: Int? = nil
+    ) -> Material {
+        return Material(
+            archived: archived ?? self.archived,
+            categoryID: categoryID ?? self.categoryID,
+            currentCostYer: currentCostYer ?? self.currentCostYer,
+            id: id ?? self.id,
+            name: name ?? self.name,
+            revision: revision ?? self.revision,
+            scope: scope ?? self.scope,
+            unitID: unitID ?? self.unitID,
+            updatedAt: updatedAt ?? self.updatedAt
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - PartUsage
+public struct PartUsage: Codable, Sendable {
+    public let materialID: String
+    public let materialRevision: Int
+    public let quantity, unitID: String
+    public let unitRevision: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case materialID = "materialId"
+        case materialRevision, quantity
+        case unitID = "unitId"
+        case unitRevision
+    }
+
+    public init(materialID: String, materialRevision: Int, quantity: String, unitID: String, unitRevision: Int) {
+        self.materialID = materialID
+        self.materialRevision = materialRevision
+        self.quantity = quantity
+        self.unitID = unitID
+        self.unitRevision = unitRevision
+    }
+}
+
+// MARK: PartUsage convenience initializers and mutators
+
+public extension PartUsage {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(PartUsage.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        materialID: String? = nil,
+        materialRevision: Int? = nil,
+        quantity: String? = nil,
+        unitID: String? = nil,
+        unitRevision: Int? = nil
+    ) -> PartUsage {
+        return PartUsage(
+            materialID: materialID ?? self.materialID,
+            materialRevision: materialRevision ?? self.materialRevision,
+            quantity: quantity ?? self.quantity,
+            unitID: unitID ?? self.unitID,
+            unitRevision: unitRevision ?? self.unitRevision
         )
     }
 
@@ -1920,14 +2340,6 @@ public enum CustomerSyncState: String, Codable, Sendable {
     case conflicted = "conflicted"
     case pending = "pending"
     case rejected = "rejected"
-}
-
-public enum UnitDimension: String, Codable, Sendable {
-    case area = "area"
-    case count = "count"
-    case length = "length"
-    case mass = "mass"
-    case volume = "volume"
 }
 
 // MARK: - ConfigEntry
@@ -4933,6 +5345,8 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
     public let commandMaterialSave: SaveMaterial?
     public let commandMaterialUnitSave: SaveMaterialUnit?
     public let commandOperationCancel: CancelOperation?
+    public let commandPartCategorySave: SavePartCategory?
+    public let commandPartSave: SavePart?
     public let commandReferenceMarkerUpsert: UpsertReferenceMarker?
     public let commandUpdateReportInstallerOutcome: ReportInstallerOutcome?
     public let eventAuthorizationPolicyChangedEvent: AuthorizationPolicyChangeNotice?
@@ -4942,6 +5356,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
     public let eventErrorEvent: ScopedError?
     public let eventMaterialChangedEvent: MaterialChangeNotice?
     public let eventNotificationEvent: Notification?
+    public let eventPartChangedEvent: PartChangeNotice?
     public let eventPermissionsChangedEvent: EffectivePermissions?
     public let eventRecordChangedEvent: RecordChangeNotice?
     public let eventReferenceMarkerChangedEvent: ReferenceMarkerChangeNotice?
@@ -4972,7 +5387,12 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
     public let queryCustomerSearch: SearchCustomers?
     public let queryDesktopAccountList: [String: JSONAny]?
     public let queryMaterialList: ListMaterials?
-    public let queryMaterialReferenceList, queryPermissionsGetEffective: [String: JSONAny]?
+    public let queryMaterialReferenceList: [String: JSONAny]?
+    public let queryPartCategoryList: ListPartCategories?
+    public let queryPartCompositionGet: GetPartComposition?
+    public let queryPartCost: CalculatePartCost?
+    public let queryPartList: ListParts?
+    public let queryPermissionsGetEffective: [String: JSONAny]?
     public let queryReferenceMarkerList: ListReferenceMarkers?
     public let querySyncGetStatus, queryUpdateGetState: [String: JSONAny]?
     public let queryResultConfiguration: ConfigSnapshot?
@@ -4982,6 +5402,10 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
     public let queryResultEffectivePermissions: EffectivePermissions?
     public let queryResultMaterialReferences: MaterialReferences?
     public let queryResultMaterials: MaterialPage?
+    public let queryResultPartCategories: PartCategories?
+    public let queryResultPartComposition: Part?
+    public let queryResultPartCost: PartCost?
+    public let queryResultParts: PartPage?
     public let queryResultReferenceMarkers: ReferenceMarkerPage?
     public let queryResultScopeRelationships: RelationshipPage?
     public let queryResultSyncStatus: SyncStatus?
@@ -4995,8 +5419,8 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
     public let serverMessageServerHelloAccepted: PeerHello?
     public let serverMessageServerSyncMessage, subscriptionAuthorizationPolicyChangedSubscribe, subscriptionBackgroundJobStatusSubscribe, subscriptionConfigChangedSubscribe: [String: JSONAny]?
     public let subscriptionCustomerChangedSubscribe, subscriptionErrorSubscribe, subscriptionMaterialChangedSubscribe, subscriptionNotificationSubscribe: [String: JSONAny]?
-    public let subscriptionPermissionsChangedSubscribe, subscriptionRecordChangedSubscribe, subscriptionReferenceMarkerChangedSubscribe, subscriptionSyncStatusSubscribe: [String: JSONAny]?
-    public let subscriptionUpdateStateSubscribe: [String: JSONAny]?
+    public let subscriptionPartChangedSubscribe, subscriptionPermissionsChangedSubscribe, subscriptionRecordChangedSubscribe, subscriptionReferenceMarkerChangedSubscribe: [String: JSONAny]?
+    public let subscriptionSyncStatusSubscribe, subscriptionUpdateStateSubscribe: [String: JSONAny]?
     public let syncMessageSyncAcknowledge: BatchAcknowledgement?
     public let syncMessageSyncBackpressure: RetryAfter?
     public let syncMessageSyncChanges: ChangeBatch?
@@ -5024,6 +5448,8 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         case commandMaterialSave = "Command_MaterialSave"
         case commandMaterialUnitSave = "Command_MaterialUnitSave"
         case commandOperationCancel = "Command_OperationCancel"
+        case commandPartCategorySave = "Command_PartCategorySave"
+        case commandPartSave = "Command_PartSave"
         case commandReferenceMarkerUpsert = "Command_ReferenceMarkerUpsert"
         case commandUpdateReportInstallerOutcome = "Command_UpdateReportInstallerOutcome"
         case eventAuthorizationPolicyChangedEvent = "Event_AuthorizationPolicyChangedEvent"
@@ -5033,6 +5459,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         case eventErrorEvent = "Event_ErrorEvent"
         case eventMaterialChangedEvent = "Event_MaterialChangedEvent"
         case eventNotificationEvent = "Event_NotificationEvent"
+        case eventPartChangedEvent = "Event_PartChangedEvent"
         case eventPermissionsChangedEvent = "Event_PermissionsChangedEvent"
         case eventRecordChangedEvent = "Event_RecordChangedEvent"
         case eventReferenceMarkerChangedEvent = "Event_ReferenceMarkerChangedEvent"
@@ -5064,6 +5491,10 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         case queryDesktopAccountList = "Query_DesktopAccountList"
         case queryMaterialList = "Query_MaterialList"
         case queryMaterialReferenceList = "Query_MaterialReferenceList"
+        case queryPartCategoryList = "Query_PartCategoryList"
+        case queryPartCompositionGet = "Query_PartCompositionGet"
+        case queryPartCost = "Query_PartCost"
+        case queryPartList = "Query_PartList"
         case queryPermissionsGetEffective = "Query_PermissionsGetEffective"
         case queryReferenceMarkerList = "Query_ReferenceMarkerList"
         case querySyncGetStatus = "Query_SyncGetStatus"
@@ -5075,6 +5506,10 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         case queryResultEffectivePermissions = "QueryResult_EffectivePermissions"
         case queryResultMaterialReferences = "QueryResult_MaterialReferences"
         case queryResultMaterials = "QueryResult_Materials"
+        case queryResultPartCategories = "QueryResult_PartCategories"
+        case queryResultPartComposition = "QueryResult_PartComposition"
+        case queryResultPartCost = "QueryResult_PartCost"
+        case queryResultParts = "QueryResult_Parts"
         case queryResultReferenceMarkers = "QueryResult_ReferenceMarkers"
         case queryResultScopeRelationships = "QueryResult_ScopeRelationships"
         case queryResultSyncStatus = "QueryResult_SyncStatus"
@@ -5094,6 +5529,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         case subscriptionErrorSubscribe = "Subscription_ErrorSubscribe"
         case subscriptionMaterialChangedSubscribe = "Subscription_MaterialChangedSubscribe"
         case subscriptionNotificationSubscribe = "Subscription_NotificationSubscribe"
+        case subscriptionPartChangedSubscribe = "Subscription_PartChangedSubscribe"
         case subscriptionPermissionsChangedSubscribe = "Subscription_PermissionsChangedSubscribe"
         case subscriptionRecordChangedSubscribe = "Subscription_RecordChangedSubscribe"
         case subscriptionReferenceMarkerChangedSubscribe = "Subscription_ReferenceMarkerChangedSubscribe"
@@ -5114,7 +5550,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         case syncMessageSyncSubmitLocal = "SyncMessage_SyncSubmitLocal"
     }
 
-    public init(commandAuthorizationRelationshipGrant: GrantScopeRelationship?, commandAuthorizationRelationshipRevoke: RevokeScopeRelationship?, commandConfigUpdate: UpdateConfiguration?, commandCustomerCreate: CreateCustomer?, commandCustomerUpdate: UpdateCustomer?, commandDesktopAccountCreate: CreateDesktopAccount?, commandDesktopAccountDeactivate: DeactivateDesktopAccount?, commandDesktopAccountUpdate: UpdateDesktopAccount?, commandMaterialCategorySave: SaveMaterialCategory?, commandMaterialSave: SaveMaterial?, commandMaterialUnitSave: SaveMaterialUnit?, commandOperationCancel: CancelOperation?, commandReferenceMarkerUpsert: UpsertReferenceMarker?, commandUpdateReportInstallerOutcome: ReportInstallerOutcome?, eventAuthorizationPolicyChangedEvent: AuthorizationPolicyChangeNotice?, eventBackgroundJobStatusEvent: BackgroundJobStatus?, eventConfigChangedEvent: ConfigSnapshot?, eventCustomerChangedEvent: CustomerChangeNotice?, eventErrorEvent: ScopedError?, eventMaterialChangedEvent: MaterialChangeNotice?, eventNotificationEvent: Notification?, eventPermissionsChangedEvent: EffectivePermissions?, eventRecordChangedEvent: RecordChangeNotice?, eventReferenceMarkerChangedEvent: ReferenceMarkerChangeNotice?, eventSyncStatusEvent: SyncStatus?, eventUpdateStateEvent: UpdateState?, ipcClientMessageIPCCommand: CommandEnvelope?, ipcClientMessageIPCDesktopSessionState: DesktopSessionRequest?, ipcClientMessageIPCDesktopSignIn: DesktopSignInRequest?, ipcClientMessageIPCDesktopSignOut: DesktopSessionRequest?, ipcClientMessageIPCHandshake: HandshakeRequest?, ipcClientMessageIPCQuery: QueryEnvelope?, ipcClientMessageIPCShutdown: ShutdownRequest?, ipcClientMessageIPCSubscribe: SubscriptionEnvelope?, ipcClientMessageIPCUnsubscribe: UnsubscribeRequest?, ipcServerMessageIPCCommandResponse: CommandResponseEnvelope?, ipcServerMessageIPCDesktopSessionResponse: DesktopSessionResponse?, ipcServerMessageIPCEvent: EventEnvelope?, ipcServerMessageIPCFailure: IPCFailureResponse?, ipcServerMessageIPCHandshakeResponse: HandshakeResponse?, ipcServerMessageIPCQueryResponse: QueryResponseEnvelope?, ipcServerMessageIPCShutdownResponse: ShutdownResponse?, ipcServerMessageIPCSubscribeResponse: SubscriptionResponseEnvelope?, ipcServerMessageIPCSubscriptionClosed: SubscriptionClosedEnvelope?, ipcServerMessageIPCUnsubscribeResponse: UnsubscribeResponse?, queryAuthorizationRelationshipsList: ListScopeRelationships?, queryConfigGet: [String: JSONAny]?, queryCustomerGet: GetCustomer?, queryCustomerSearch: SearchCustomers?, queryDesktopAccountList: [String: JSONAny]?, queryMaterialList: ListMaterials?, queryMaterialReferenceList: [String: JSONAny]?, queryPermissionsGetEffective: [String: JSONAny]?, queryReferenceMarkerList: ListReferenceMarkers?, querySyncGetStatus: [String: JSONAny]?, queryUpdateGetState: [String: JSONAny]?, queryResultConfiguration: ConfigSnapshot?, queryResultCustomer: Customer?, queryResultCustomers: CustomerPage?, queryResultDesktopAccounts: DesktopAccountPage?, queryResultEffectivePermissions: EffectivePermissions?, queryResultMaterialReferences: MaterialReferences?, queryResultMaterials: MaterialPage?, queryResultReferenceMarkers: ReferenceMarkerPage?, queryResultScopeRelationships: RelationshipPage?, queryResultSyncStatus: SyncStatus?, queryResultUpdateState: UpdateState?, serverClientMessageServerAcknowledge: ServerSubscriptionAcknowledgement?, serverClientMessageServerHello: ServerConnectionHello?, serverClientMessageServerSubscribe: ServerSubscriptionRequest?, serverClientMessageServerSync: SyncTransportFrame?, serverMessageServerEvent: ServerSubscriptionEvent?, serverMessageServerFailure: ServerFailure?, serverMessageServerHelloAccepted: PeerHello?, serverMessageServerSyncMessage: [String: JSONAny]?, subscriptionAuthorizationPolicyChangedSubscribe: [String: JSONAny]?, subscriptionBackgroundJobStatusSubscribe: [String: JSONAny]?, subscriptionConfigChangedSubscribe: [String: JSONAny]?, subscriptionCustomerChangedSubscribe: [String: JSONAny]?, subscriptionErrorSubscribe: [String: JSONAny]?, subscriptionMaterialChangedSubscribe: [String: JSONAny]?, subscriptionNotificationSubscribe: [String: JSONAny]?, subscriptionPermissionsChangedSubscribe: [String: JSONAny]?, subscriptionRecordChangedSubscribe: [String: JSONAny]?, subscriptionReferenceMarkerChangedSubscribe: [String: JSONAny]?, subscriptionSyncStatusSubscribe: [String: JSONAny]?, subscriptionUpdateStateSubscribe: [String: JSONAny]?, syncMessageSyncAcknowledge: BatchAcknowledgement?, syncMessageSyncBackpressure: RetryAfter?, syncMessageSyncChanges: ChangeBatch?, syncMessageSyncConflict: ConflictNotice?, syncMessageSyncLocalResult: LocalChangeResult?, syncMessageSyncNegotiate: SyncNegotiation?, syncMessageSyncPull: PullRequest?, syncMessageSyncReconcile: ReconciliationDelivery?, syncMessageSyncSnapshotChunk: SnapshotChunk?, syncMessageSyncSnapshotComplete: SnapshotCompletion?, syncMessageSyncSnapshotManifest: SnapshotManifest?, syncMessageSyncSnapshotRequired: SnapshotRequired?, syncMessageSyncSubmitLocal: LocalChangeSubmission?) {
+    public init(commandAuthorizationRelationshipGrant: GrantScopeRelationship?, commandAuthorizationRelationshipRevoke: RevokeScopeRelationship?, commandConfigUpdate: UpdateConfiguration?, commandCustomerCreate: CreateCustomer?, commandCustomerUpdate: UpdateCustomer?, commandDesktopAccountCreate: CreateDesktopAccount?, commandDesktopAccountDeactivate: DeactivateDesktopAccount?, commandDesktopAccountUpdate: UpdateDesktopAccount?, commandMaterialCategorySave: SaveMaterialCategory?, commandMaterialSave: SaveMaterial?, commandMaterialUnitSave: SaveMaterialUnit?, commandOperationCancel: CancelOperation?, commandPartCategorySave: SavePartCategory?, commandPartSave: SavePart?, commandReferenceMarkerUpsert: UpsertReferenceMarker?, commandUpdateReportInstallerOutcome: ReportInstallerOutcome?, eventAuthorizationPolicyChangedEvent: AuthorizationPolicyChangeNotice?, eventBackgroundJobStatusEvent: BackgroundJobStatus?, eventConfigChangedEvent: ConfigSnapshot?, eventCustomerChangedEvent: CustomerChangeNotice?, eventErrorEvent: ScopedError?, eventMaterialChangedEvent: MaterialChangeNotice?, eventNotificationEvent: Notification?, eventPartChangedEvent: PartChangeNotice?, eventPermissionsChangedEvent: EffectivePermissions?, eventRecordChangedEvent: RecordChangeNotice?, eventReferenceMarkerChangedEvent: ReferenceMarkerChangeNotice?, eventSyncStatusEvent: SyncStatus?, eventUpdateStateEvent: UpdateState?, ipcClientMessageIPCCommand: CommandEnvelope?, ipcClientMessageIPCDesktopSessionState: DesktopSessionRequest?, ipcClientMessageIPCDesktopSignIn: DesktopSignInRequest?, ipcClientMessageIPCDesktopSignOut: DesktopSessionRequest?, ipcClientMessageIPCHandshake: HandshakeRequest?, ipcClientMessageIPCQuery: QueryEnvelope?, ipcClientMessageIPCShutdown: ShutdownRequest?, ipcClientMessageIPCSubscribe: SubscriptionEnvelope?, ipcClientMessageIPCUnsubscribe: UnsubscribeRequest?, ipcServerMessageIPCCommandResponse: CommandResponseEnvelope?, ipcServerMessageIPCDesktopSessionResponse: DesktopSessionResponse?, ipcServerMessageIPCEvent: EventEnvelope?, ipcServerMessageIPCFailure: IPCFailureResponse?, ipcServerMessageIPCHandshakeResponse: HandshakeResponse?, ipcServerMessageIPCQueryResponse: QueryResponseEnvelope?, ipcServerMessageIPCShutdownResponse: ShutdownResponse?, ipcServerMessageIPCSubscribeResponse: SubscriptionResponseEnvelope?, ipcServerMessageIPCSubscriptionClosed: SubscriptionClosedEnvelope?, ipcServerMessageIPCUnsubscribeResponse: UnsubscribeResponse?, queryAuthorizationRelationshipsList: ListScopeRelationships?, queryConfigGet: [String: JSONAny]?, queryCustomerGet: GetCustomer?, queryCustomerSearch: SearchCustomers?, queryDesktopAccountList: [String: JSONAny]?, queryMaterialList: ListMaterials?, queryMaterialReferenceList: [String: JSONAny]?, queryPartCategoryList: ListPartCategories?, queryPartCompositionGet: GetPartComposition?, queryPartCost: CalculatePartCost?, queryPartList: ListParts?, queryPermissionsGetEffective: [String: JSONAny]?, queryReferenceMarkerList: ListReferenceMarkers?, querySyncGetStatus: [String: JSONAny]?, queryUpdateGetState: [String: JSONAny]?, queryResultConfiguration: ConfigSnapshot?, queryResultCustomer: Customer?, queryResultCustomers: CustomerPage?, queryResultDesktopAccounts: DesktopAccountPage?, queryResultEffectivePermissions: EffectivePermissions?, queryResultMaterialReferences: MaterialReferences?, queryResultMaterials: MaterialPage?, queryResultPartCategories: PartCategories?, queryResultPartComposition: Part?, queryResultPartCost: PartCost?, queryResultParts: PartPage?, queryResultReferenceMarkers: ReferenceMarkerPage?, queryResultScopeRelationships: RelationshipPage?, queryResultSyncStatus: SyncStatus?, queryResultUpdateState: UpdateState?, serverClientMessageServerAcknowledge: ServerSubscriptionAcknowledgement?, serverClientMessageServerHello: ServerConnectionHello?, serverClientMessageServerSubscribe: ServerSubscriptionRequest?, serverClientMessageServerSync: SyncTransportFrame?, serverMessageServerEvent: ServerSubscriptionEvent?, serverMessageServerFailure: ServerFailure?, serverMessageServerHelloAccepted: PeerHello?, serverMessageServerSyncMessage: [String: JSONAny]?, subscriptionAuthorizationPolicyChangedSubscribe: [String: JSONAny]?, subscriptionBackgroundJobStatusSubscribe: [String: JSONAny]?, subscriptionConfigChangedSubscribe: [String: JSONAny]?, subscriptionCustomerChangedSubscribe: [String: JSONAny]?, subscriptionErrorSubscribe: [String: JSONAny]?, subscriptionMaterialChangedSubscribe: [String: JSONAny]?, subscriptionNotificationSubscribe: [String: JSONAny]?, subscriptionPartChangedSubscribe: [String: JSONAny]?, subscriptionPermissionsChangedSubscribe: [String: JSONAny]?, subscriptionRecordChangedSubscribe: [String: JSONAny]?, subscriptionReferenceMarkerChangedSubscribe: [String: JSONAny]?, subscriptionSyncStatusSubscribe: [String: JSONAny]?, subscriptionUpdateStateSubscribe: [String: JSONAny]?, syncMessageSyncAcknowledge: BatchAcknowledgement?, syncMessageSyncBackpressure: RetryAfter?, syncMessageSyncChanges: ChangeBatch?, syncMessageSyncConflict: ConflictNotice?, syncMessageSyncLocalResult: LocalChangeResult?, syncMessageSyncNegotiate: SyncNegotiation?, syncMessageSyncPull: PullRequest?, syncMessageSyncReconcile: ReconciliationDelivery?, syncMessageSyncSnapshotChunk: SnapshotChunk?, syncMessageSyncSnapshotComplete: SnapshotCompletion?, syncMessageSyncSnapshotManifest: SnapshotManifest?, syncMessageSyncSnapshotRequired: SnapshotRequired?, syncMessageSyncSubmitLocal: LocalChangeSubmission?) {
         self.commandAuthorizationRelationshipGrant = commandAuthorizationRelationshipGrant
         self.commandAuthorizationRelationshipRevoke = commandAuthorizationRelationshipRevoke
         self.commandConfigUpdate = commandConfigUpdate
@@ -5127,6 +5563,8 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         self.commandMaterialSave = commandMaterialSave
         self.commandMaterialUnitSave = commandMaterialUnitSave
         self.commandOperationCancel = commandOperationCancel
+        self.commandPartCategorySave = commandPartCategorySave
+        self.commandPartSave = commandPartSave
         self.commandReferenceMarkerUpsert = commandReferenceMarkerUpsert
         self.commandUpdateReportInstallerOutcome = commandUpdateReportInstallerOutcome
         self.eventAuthorizationPolicyChangedEvent = eventAuthorizationPolicyChangedEvent
@@ -5136,6 +5574,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         self.eventErrorEvent = eventErrorEvent
         self.eventMaterialChangedEvent = eventMaterialChangedEvent
         self.eventNotificationEvent = eventNotificationEvent
+        self.eventPartChangedEvent = eventPartChangedEvent
         self.eventPermissionsChangedEvent = eventPermissionsChangedEvent
         self.eventRecordChangedEvent = eventRecordChangedEvent
         self.eventReferenceMarkerChangedEvent = eventReferenceMarkerChangedEvent
@@ -5167,6 +5606,10 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         self.queryDesktopAccountList = queryDesktopAccountList
         self.queryMaterialList = queryMaterialList
         self.queryMaterialReferenceList = queryMaterialReferenceList
+        self.queryPartCategoryList = queryPartCategoryList
+        self.queryPartCompositionGet = queryPartCompositionGet
+        self.queryPartCost = queryPartCost
+        self.queryPartList = queryPartList
         self.queryPermissionsGetEffective = queryPermissionsGetEffective
         self.queryReferenceMarkerList = queryReferenceMarkerList
         self.querySyncGetStatus = querySyncGetStatus
@@ -5178,6 +5621,10 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         self.queryResultEffectivePermissions = queryResultEffectivePermissions
         self.queryResultMaterialReferences = queryResultMaterialReferences
         self.queryResultMaterials = queryResultMaterials
+        self.queryResultPartCategories = queryResultPartCategories
+        self.queryResultPartComposition = queryResultPartComposition
+        self.queryResultPartCost = queryResultPartCost
+        self.queryResultParts = queryResultParts
         self.queryResultReferenceMarkers = queryResultReferenceMarkers
         self.queryResultScopeRelationships = queryResultScopeRelationships
         self.queryResultSyncStatus = queryResultSyncStatus
@@ -5197,6 +5644,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         self.subscriptionErrorSubscribe = subscriptionErrorSubscribe
         self.subscriptionMaterialChangedSubscribe = subscriptionMaterialChangedSubscribe
         self.subscriptionNotificationSubscribe = subscriptionNotificationSubscribe
+        self.subscriptionPartChangedSubscribe = subscriptionPartChangedSubscribe
         self.subscriptionPermissionsChangedSubscribe = subscriptionPermissionsChangedSubscribe
         self.subscriptionRecordChangedSubscribe = subscriptionRecordChangedSubscribe
         self.subscriptionReferenceMarkerChangedSubscribe = subscriptionReferenceMarkerChangedSubscribe
@@ -5249,6 +5697,8 @@ public extension UnionPayloadKeepAlive {
         commandMaterialSave: SaveMaterial?? = nil,
         commandMaterialUnitSave: SaveMaterialUnit?? = nil,
         commandOperationCancel: CancelOperation?? = nil,
+        commandPartCategorySave: SavePartCategory?? = nil,
+        commandPartSave: SavePart?? = nil,
         commandReferenceMarkerUpsert: UpsertReferenceMarker?? = nil,
         commandUpdateReportInstallerOutcome: ReportInstallerOutcome?? = nil,
         eventAuthorizationPolicyChangedEvent: AuthorizationPolicyChangeNotice?? = nil,
@@ -5258,6 +5708,7 @@ public extension UnionPayloadKeepAlive {
         eventErrorEvent: ScopedError?? = nil,
         eventMaterialChangedEvent: MaterialChangeNotice?? = nil,
         eventNotificationEvent: Notification?? = nil,
+        eventPartChangedEvent: PartChangeNotice?? = nil,
         eventPermissionsChangedEvent: EffectivePermissions?? = nil,
         eventRecordChangedEvent: RecordChangeNotice?? = nil,
         eventReferenceMarkerChangedEvent: ReferenceMarkerChangeNotice?? = nil,
@@ -5289,6 +5740,10 @@ public extension UnionPayloadKeepAlive {
         queryDesktopAccountList: [String: JSONAny]?? = nil,
         queryMaterialList: ListMaterials?? = nil,
         queryMaterialReferenceList: [String: JSONAny]?? = nil,
+        queryPartCategoryList: ListPartCategories?? = nil,
+        queryPartCompositionGet: GetPartComposition?? = nil,
+        queryPartCost: CalculatePartCost?? = nil,
+        queryPartList: ListParts?? = nil,
         queryPermissionsGetEffective: [String: JSONAny]?? = nil,
         queryReferenceMarkerList: ListReferenceMarkers?? = nil,
         querySyncGetStatus: [String: JSONAny]?? = nil,
@@ -5300,6 +5755,10 @@ public extension UnionPayloadKeepAlive {
         queryResultEffectivePermissions: EffectivePermissions?? = nil,
         queryResultMaterialReferences: MaterialReferences?? = nil,
         queryResultMaterials: MaterialPage?? = nil,
+        queryResultPartCategories: PartCategories?? = nil,
+        queryResultPartComposition: Part?? = nil,
+        queryResultPartCost: PartCost?? = nil,
+        queryResultParts: PartPage?? = nil,
         queryResultReferenceMarkers: ReferenceMarkerPage?? = nil,
         queryResultScopeRelationships: RelationshipPage?? = nil,
         queryResultSyncStatus: SyncStatus?? = nil,
@@ -5319,6 +5778,7 @@ public extension UnionPayloadKeepAlive {
         subscriptionErrorSubscribe: [String: JSONAny]?? = nil,
         subscriptionMaterialChangedSubscribe: [String: JSONAny]?? = nil,
         subscriptionNotificationSubscribe: [String: JSONAny]?? = nil,
+        subscriptionPartChangedSubscribe: [String: JSONAny]?? = nil,
         subscriptionPermissionsChangedSubscribe: [String: JSONAny]?? = nil,
         subscriptionRecordChangedSubscribe: [String: JSONAny]?? = nil,
         subscriptionReferenceMarkerChangedSubscribe: [String: JSONAny]?? = nil,
@@ -5351,6 +5811,8 @@ public extension UnionPayloadKeepAlive {
             commandMaterialSave: commandMaterialSave ?? self.commandMaterialSave,
             commandMaterialUnitSave: commandMaterialUnitSave ?? self.commandMaterialUnitSave,
             commandOperationCancel: commandOperationCancel ?? self.commandOperationCancel,
+            commandPartCategorySave: commandPartCategorySave ?? self.commandPartCategorySave,
+            commandPartSave: commandPartSave ?? self.commandPartSave,
             commandReferenceMarkerUpsert: commandReferenceMarkerUpsert ?? self.commandReferenceMarkerUpsert,
             commandUpdateReportInstallerOutcome: commandUpdateReportInstallerOutcome ?? self.commandUpdateReportInstallerOutcome,
             eventAuthorizationPolicyChangedEvent: eventAuthorizationPolicyChangedEvent ?? self.eventAuthorizationPolicyChangedEvent,
@@ -5360,6 +5822,7 @@ public extension UnionPayloadKeepAlive {
             eventErrorEvent: eventErrorEvent ?? self.eventErrorEvent,
             eventMaterialChangedEvent: eventMaterialChangedEvent ?? self.eventMaterialChangedEvent,
             eventNotificationEvent: eventNotificationEvent ?? self.eventNotificationEvent,
+            eventPartChangedEvent: eventPartChangedEvent ?? self.eventPartChangedEvent,
             eventPermissionsChangedEvent: eventPermissionsChangedEvent ?? self.eventPermissionsChangedEvent,
             eventRecordChangedEvent: eventRecordChangedEvent ?? self.eventRecordChangedEvent,
             eventReferenceMarkerChangedEvent: eventReferenceMarkerChangedEvent ?? self.eventReferenceMarkerChangedEvent,
@@ -5391,6 +5854,10 @@ public extension UnionPayloadKeepAlive {
             queryDesktopAccountList: queryDesktopAccountList ?? self.queryDesktopAccountList,
             queryMaterialList: queryMaterialList ?? self.queryMaterialList,
             queryMaterialReferenceList: queryMaterialReferenceList ?? self.queryMaterialReferenceList,
+            queryPartCategoryList: queryPartCategoryList ?? self.queryPartCategoryList,
+            queryPartCompositionGet: queryPartCompositionGet ?? self.queryPartCompositionGet,
+            queryPartCost: queryPartCost ?? self.queryPartCost,
+            queryPartList: queryPartList ?? self.queryPartList,
             queryPermissionsGetEffective: queryPermissionsGetEffective ?? self.queryPermissionsGetEffective,
             queryReferenceMarkerList: queryReferenceMarkerList ?? self.queryReferenceMarkerList,
             querySyncGetStatus: querySyncGetStatus ?? self.querySyncGetStatus,
@@ -5402,6 +5869,10 @@ public extension UnionPayloadKeepAlive {
             queryResultEffectivePermissions: queryResultEffectivePermissions ?? self.queryResultEffectivePermissions,
             queryResultMaterialReferences: queryResultMaterialReferences ?? self.queryResultMaterialReferences,
             queryResultMaterials: queryResultMaterials ?? self.queryResultMaterials,
+            queryResultPartCategories: queryResultPartCategories ?? self.queryResultPartCategories,
+            queryResultPartComposition: queryResultPartComposition ?? self.queryResultPartComposition,
+            queryResultPartCost: queryResultPartCost ?? self.queryResultPartCost,
+            queryResultParts: queryResultParts ?? self.queryResultParts,
             queryResultReferenceMarkers: queryResultReferenceMarkers ?? self.queryResultReferenceMarkers,
             queryResultScopeRelationships: queryResultScopeRelationships ?? self.queryResultScopeRelationships,
             queryResultSyncStatus: queryResultSyncStatus ?? self.queryResultSyncStatus,
@@ -5421,6 +5892,7 @@ public extension UnionPayloadKeepAlive {
             subscriptionErrorSubscribe: subscriptionErrorSubscribe ?? self.subscriptionErrorSubscribe,
             subscriptionMaterialChangedSubscribe: subscriptionMaterialChangedSubscribe ?? self.subscriptionMaterialChangedSubscribe,
             subscriptionNotificationSubscribe: subscriptionNotificationSubscribe ?? self.subscriptionNotificationSubscribe,
+            subscriptionPartChangedSubscribe: subscriptionPartChangedSubscribe ?? self.subscriptionPartChangedSubscribe,
             subscriptionPermissionsChangedSubscribe: subscriptionPermissionsChangedSubscribe ?? self.subscriptionPermissionsChangedSubscribe,
             subscriptionRecordChangedSubscribe: subscriptionRecordChangedSubscribe ?? self.subscriptionRecordChangedSubscribe,
             subscriptionReferenceMarkerChangedSubscribe: subscriptionReferenceMarkerChangedSubscribe ?? self.subscriptionReferenceMarkerChangedSubscribe,
@@ -6253,6 +6725,135 @@ public extension CancelOperation {
     }
 }
 
+// MARK: - SavePartCategory
+public struct SavePartCategory: Codable, Sendable {
+    public let archived: Bool
+    public let expectedRevision: Int?
+    public let id: String?
+    public let name: String
+
+    public init(archived: Bool, expectedRevision: Int?, id: String?, name: String) {
+        self.archived = archived
+        self.expectedRevision = expectedRevision
+        self.id = id
+        self.name = name
+    }
+}
+
+// MARK: SavePartCategory convenience initializers and mutators
+
+public extension SavePartCategory {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(SavePartCategory.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        archived: Bool? = nil,
+        expectedRevision: Int?? = nil,
+        id: String?? = nil,
+        name: String? = nil
+    ) -> SavePartCategory {
+        return SavePartCategory(
+            archived: archived ?? self.archived,
+            expectedRevision: expectedRevision ?? self.expectedRevision,
+            id: id ?? self.id,
+            name: name ?? self.name
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - SavePart
+public struct SavePart: Codable, Sendable {
+    public let archived: Bool
+    public let categoryID, description: String
+    public let expectedRevision: Int?
+    public let id: String?
+    public let name: String
+    public let usages: [PartUsage]
+
+    public enum CodingKeys: String, CodingKey {
+        case archived
+        case categoryID = "categoryId"
+        case description, expectedRevision, id, name, usages
+    }
+
+    public init(archived: Bool, categoryID: String, description: String, expectedRevision: Int?, id: String?, name: String, usages: [PartUsage]) {
+        self.archived = archived
+        self.categoryID = categoryID
+        self.description = description
+        self.expectedRevision = expectedRevision
+        self.id = id
+        self.name = name
+        self.usages = usages
+    }
+}
+
+// MARK: SavePart convenience initializers and mutators
+
+public extension SavePart {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(SavePart.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        archived: Bool? = nil,
+        categoryID: String? = nil,
+        description: String? = nil,
+        expectedRevision: Int?? = nil,
+        id: String?? = nil,
+        name: String? = nil,
+        usages: [PartUsage]? = nil
+    ) -> SavePart {
+        return SavePart(
+            archived: archived ?? self.archived,
+            categoryID: categoryID ?? self.categoryID,
+            description: description ?? self.description,
+            expectedRevision: expectedRevision ?? self.expectedRevision,
+            id: id ?? self.id,
+            name: name ?? self.name,
+            usages: usages ?? self.usages
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
 // MARK: - UpsertReferenceMarker
 public struct UpsertReferenceMarker: Codable, Sendable {
     public let expectedRevision: Int?
@@ -6908,6 +7509,66 @@ public enum NotificationSeverity: String, Codable, Sendable {
     case information = "information"
     case success = "success"
     case warning = "warning"
+}
+
+// MARK: - PartChangeNotice
+public struct PartChangeNotice: Codable, Sendable {
+    public let category: Bool
+    public let changedAt: Int
+    public let id: String
+    public let revision: Int
+    public let scope: ScopeRef
+
+    public init(category: Bool, changedAt: Int, id: String, revision: Int, scope: ScopeRef) {
+        self.category = category
+        self.changedAt = changedAt
+        self.id = id
+        self.revision = revision
+        self.scope = scope
+    }
+}
+
+// MARK: PartChangeNotice convenience initializers and mutators
+
+public extension PartChangeNotice {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(PartChangeNotice.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        category: Bool? = nil,
+        changedAt: Int? = nil,
+        id: String? = nil,
+        revision: Int? = nil,
+        scope: ScopeRef? = nil
+    ) -> PartChangeNotice {
+        return PartChangeNotice(
+            category: category ?? self.category,
+            changedAt: changedAt ?? self.changedAt,
+            id: id ?? self.id,
+            revision: revision ?? self.revision,
+            scope: scope ?? self.scope
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
 }
 
 // MARK: - RecordChangeNotice
@@ -8419,6 +9080,203 @@ public extension ListMaterials {
     }
 }
 
+// MARK: - ListPartCategories
+public struct ListPartCategories: Codable, Sendable {
+    public let after: String?
+    public let limit: Int
+
+    public init(after: String?, limit: Int) {
+        self.after = after
+        self.limit = limit
+    }
+}
+
+// MARK: ListPartCategories convenience initializers and mutators
+
+public extension ListPartCategories {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(ListPartCategories.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        after: String?? = nil,
+        limit: Int? = nil
+    ) -> ListPartCategories {
+        return ListPartCategories(
+            after: after ?? self.after,
+            limit: limit ?? self.limit
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - GetPartComposition
+public struct GetPartComposition: Codable, Sendable {
+    public let reference: CompositionReference
+
+    public init(reference: CompositionReference) {
+        self.reference = reference
+    }
+}
+
+// MARK: GetPartComposition convenience initializers and mutators
+
+public extension GetPartComposition {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(GetPartComposition.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        reference: CompositionReference? = nil
+    ) -> GetPartComposition {
+        return GetPartComposition(
+            reference: reference ?? self.reference
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - CalculatePartCost
+public struct CalculatePartCost: Codable, Sendable {
+    public let partID: String?
+    public let usages: [PartUsage]
+
+    public enum CodingKeys: String, CodingKey {
+        case partID = "partId"
+        case usages
+    }
+
+    public init(partID: String?, usages: [PartUsage]) {
+        self.partID = partID
+        self.usages = usages
+    }
+}
+
+// MARK: CalculatePartCost convenience initializers and mutators
+
+public extension CalculatePartCost {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(CalculatePartCost.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        partID: String?? = nil,
+        usages: [PartUsage]? = nil
+    ) -> CalculatePartCost {
+        return CalculatePartCost(
+            partID: partID ?? self.partID,
+            usages: usages ?? self.usages
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - ListParts
+public struct ListParts: Codable, Sendable {
+    public let after: String?
+    public let limit: Int
+    public let term: String
+
+    public init(after: String?, limit: Int, term: String) {
+        self.after = after
+        self.limit = limit
+        self.term = term
+    }
+}
+
+// MARK: ListParts convenience initializers and mutators
+
+public extension ListParts {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(ListParts.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        after: String?? = nil,
+        limit: Int? = nil,
+        term: String? = nil
+    ) -> ListParts {
+        return ListParts(
+            after: after ?? self.after,
+            limit: limit ?? self.limit,
+            term: term ?? self.term
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
 // MARK: - ListReferenceMarkers
 public struct ListReferenceMarkers: Codable, Sendable {
     public let after: String?
@@ -8744,84 +9602,6 @@ public extension MaterialCategory {
     }
 }
 
-// MARK: - MaterialUnit
-public struct MaterialUnit: Codable, Sendable {
-    public let archived: Bool
-    public let denominator: Int
-    public let dimension: UnitDimension
-    public let id, name: String
-    public let numerator, revision: Int
-    public let scope: ScopeRef
-    public let symbol: String
-    public let updatedAt: Int
-
-    public init(archived: Bool, denominator: Int, dimension: UnitDimension, id: String, name: String, numerator: Int, revision: Int, scope: ScopeRef, symbol: String, updatedAt: Int) {
-        self.archived = archived
-        self.denominator = denominator
-        self.dimension = dimension
-        self.id = id
-        self.name = name
-        self.numerator = numerator
-        self.revision = revision
-        self.scope = scope
-        self.symbol = symbol
-        self.updatedAt = updatedAt
-    }
-}
-
-// MARK: MaterialUnit convenience initializers and mutators
-
-public extension MaterialUnit {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(MaterialUnit.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        archived: Bool? = nil,
-        denominator: Int? = nil,
-        dimension: UnitDimension? = nil,
-        id: String? = nil,
-        name: String? = nil,
-        numerator: Int? = nil,
-        revision: Int? = nil,
-        scope: ScopeRef? = nil,
-        symbol: String? = nil,
-        updatedAt: Int? = nil
-    ) -> MaterialUnit {
-        return MaterialUnit(
-            archived: archived ?? self.archived,
-            denominator: denominator ?? self.denominator,
-            dimension: dimension ?? self.dimension,
-            id: id ?? self.id,
-            name: name ?? self.name,
-            numerator: numerator ?? self.numerator,
-            revision: revision ?? self.revision,
-            scope: scope ?? self.scope,
-            symbol: symbol ?? self.symbol,
-            updatedAt: updatedAt ?? self.updatedAt
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
 // MARK: - MaterialPage
 public struct MaterialPage: Codable, Sendable {
     public let items: [Material]
@@ -8870,44 +9650,153 @@ public extension MaterialPage {
     }
 }
 
-// MARK: - Material
-public struct Material: Codable, Sendable {
+// MARK: - PartCategories
+public struct PartCategories: Codable, Sendable {
+    public let items: [PartCategory]
+    public let next: String?
+
+    public init(items: [PartCategory], next: String?) {
+        self.items = items
+        self.next = next
+    }
+}
+
+// MARK: PartCategories convenience initializers and mutators
+
+public extension PartCategories {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(PartCategories.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        items: [PartCategory]? = nil,
+        next: String?? = nil
+    ) -> PartCategories {
+        return PartCategories(
+            items: items ?? self.items,
+            next: next ?? self.next
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - PartCategory
+public struct PartCategory: Codable, Sendable {
     public let archived: Bool
-    public let categoryID: String
-    /// Non-negative whole Yemeni rials per selected unit.
-    public let currentCostYer: Int
     public let id, name: String
     public let revision: Int
     public let scope: ScopeRef
-    public let unitID: String
+    public let updatedAt: Int
+
+    public init(archived: Bool, id: String, name: String, revision: Int, scope: ScopeRef, updatedAt: Int) {
+        self.archived = archived
+        self.id = id
+        self.name = name
+        self.revision = revision
+        self.scope = scope
+        self.updatedAt = updatedAt
+    }
+}
+
+// MARK: PartCategory convenience initializers and mutators
+
+public extension PartCategory {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(PartCategory.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        archived: Bool? = nil,
+        id: String? = nil,
+        name: String? = nil,
+        revision: Int? = nil,
+        scope: ScopeRef? = nil,
+        updatedAt: Int? = nil
+    ) -> PartCategory {
+        return PartCategory(
+            archived: archived ?? self.archived,
+            id: id ?? self.id,
+            name: name ?? self.name,
+            revision: revision ?? self.revision,
+            scope: scope ?? self.scope,
+            updatedAt: updatedAt ?? self.updatedAt
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - Part
+public struct Part: Codable, Sendable {
+    public let archived: Bool
+    public let categoryID: String
+    public let composition: CompositionReference
+    public let cost: PartCost
+    public let description, id, name: String
+    public let revision: Int
+    public let scope: ScopeRef
     public let updatedAt: Int
 
     public enum CodingKeys: String, CodingKey {
         case archived
         case categoryID = "categoryId"
-        case currentCostYer, id, name, revision, scope
-        case unitID = "unitId"
-        case updatedAt
+        case composition, cost, description, id, name, revision, scope, updatedAt
     }
 
-    public init(archived: Bool, categoryID: String, currentCostYer: Int, id: String, name: String, revision: Int, scope: ScopeRef, unitID: String, updatedAt: Int) {
+    public init(archived: Bool, categoryID: String, composition: CompositionReference, cost: PartCost, description: String, id: String, name: String, revision: Int, scope: ScopeRef, updatedAt: Int) {
         self.archived = archived
         self.categoryID = categoryID
-        self.currentCostYer = currentCostYer
+        self.composition = composition
+        self.cost = cost
+        self.description = description
         self.id = id
         self.name = name
         self.revision = revision
         self.scope = scope
-        self.unitID = unitID
         self.updatedAt = updatedAt
     }
 }
 
-// MARK: Material convenience initializers and mutators
+// MARK: Part convenience initializers and mutators
 
-public extension Material {
+public extension Part {
     init(data: Data) throws {
-        self = try newJSONDecoder().decode(Material.self, from: data)
+        self = try newJSONDecoder().decode(Part.self, from: data)
     }
 
     init(_ json: String, using encoding: String.Encoding = .utf8) throws {
@@ -8924,24 +9813,123 @@ public extension Material {
     func with(
         archived: Bool? = nil,
         categoryID: String? = nil,
-        currentCostYer: Int? = nil,
+        composition: CompositionReference? = nil,
+        cost: PartCost? = nil,
+        description: String? = nil,
         id: String? = nil,
         name: String? = nil,
         revision: Int? = nil,
         scope: ScopeRef? = nil,
-        unitID: String? = nil,
         updatedAt: Int? = nil
-    ) -> Material {
-        return Material(
+    ) -> Part {
+        return Part(
             archived: archived ?? self.archived,
             categoryID: categoryID ?? self.categoryID,
-            currentCostYer: currentCostYer ?? self.currentCostYer,
+            composition: composition ?? self.composition,
+            cost: cost ?? self.cost,
+            description: description ?? self.description,
             id: id ?? self.id,
             name: name ?? self.name,
             revision: revision ?? self.revision,
             scope: scope ?? self.scope,
-            unitID: unitID ?? self.unitID,
             updatedAt: updatedAt ?? self.updatedAt
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - PartPage
+public struct PartPage: Codable, Sendable {
+    public let items: [PartProjection]
+    public let next: String?
+
+    public init(items: [PartProjection], next: String?) {
+        self.items = items
+        self.next = next
+    }
+}
+
+// MARK: PartPage convenience initializers and mutators
+
+public extension PartPage {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(PartPage.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        items: [PartProjection]? = nil,
+        next: String?? = nil
+    ) -> PartPage {
+        return PartPage(
+            items: items ?? self.items,
+            next: next ?? self.next
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - PartProjection
+public struct PartProjection: Codable, Sendable {
+    /// Advisory current cost; commercial references resolve the immutable part snapshot instead.
+    public let currentCost: PartCost
+    public let part: Part
+
+    public init(currentCost: PartCost, part: Part) {
+        self.currentCost = currentCost
+        self.part = part
+    }
+}
+
+// MARK: PartProjection convenience initializers and mutators
+
+public extension PartProjection {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(PartProjection.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        currentCost: PartCost? = nil,
+        part: Part? = nil
+    ) -> PartProjection {
+        return PartProjection(
+            currentCost: currentCost ?? self.currentCost,
+            part: part ?? self.part
         )
     }
 

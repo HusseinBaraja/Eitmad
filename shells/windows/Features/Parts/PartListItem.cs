@@ -2,7 +2,7 @@ using System.Globalization;
 
 namespace Eitmad.WindowsShell.Features.Parts;
 
-/// <summary>Represents one part row projected for the Windows preview surface.</summary>
+/// <summary>Represents one part row projected for the Windows surface.</summary>
 public sealed class PartListItem
 {
     public PartListItem(
@@ -37,13 +37,11 @@ public sealed class PartListItem
 
     public string StatusLabel => IsArchived ? "مؤرشف" : "نشط";
 
-    public string CurrencyLabel => "YER";
+    public string CurrencyLabel => "ر.ي";
 
     public string CostAmountLabel => Cost.ToString("N0", CultureInfo.InvariantCulture);
 
     public string CostLabel => $"{CostAmountLabel} {CurrencyLabel}";
 
-    public string UsedInLabel => Name == "Wardrobe Side Panel"
-        ? $"{UsedInCount} Products"
-        : $"{UsedInCount} منتجات";
+    public string UsedInLabel => "—";
 }

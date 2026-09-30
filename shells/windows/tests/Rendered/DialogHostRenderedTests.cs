@@ -182,6 +182,7 @@ public sealed class DialogHostRenderedTests
             RaiseKey(OpenDialog(window), Key.Escape);
 
             var parts = Navigate<PartsView>(window, "PartsNavButton");
+            parts.ViewModel.ApplyDurableData(new Eitmad.WindowsShell.Tests.Parts.PartFixtures().Snapshot());
             parts.ViewModel.BeginEdit(parts.ViewModel.VisibleParts[0]);
             Assert.IsTrue(parts.ViewModel.MoveToMaterials());
             parts.ViewModel.OpenMaterialPicker();

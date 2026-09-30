@@ -5,6 +5,7 @@ use std::sync::Arc;
 use crate::accounts::{DesktopAccountError, DesktopAccountService};
 use async_trait::async_trait;
 use eitmad_authorization::MATERIAL_READ_PERMISSION;
+use eitmad_authorization::PART_READ_PERMISSION;
 use eitmad_authorization::{
     AUTHORIZATION_MANAGE_PERMISSION, AccessAuditContext, AuthorizationError, AuthorizationService,
     BoundaryAuditContext, CONFIG_READ_PERMISSION, MutationContext, PERMISSIONS_READ_PERMISSION,
@@ -25,6 +26,7 @@ use eitmad_customer::{
 };
 use eitmad_material::{MaterialError, MaterialService};
 use eitmad_observability_audit::AuditOutcome;
+use eitmad_part::{PartError, PartService};
 use eitmad_reference_marker::{
     REFERENCE_MARKER_READ_PERMISSION, ReferenceMarkerError, ReferenceMarkerService,
 };
@@ -44,6 +46,7 @@ pub struct ProductDispatcher {
     reference_markers: ReferenceMarkerService,
     customers: CustomerService,
     materials: MaterialService,
+    parts: PartService,
     accounts: DesktopAccountService,
     events: Arc<dyn ProductEventPublisher>,
 }
@@ -95,6 +98,7 @@ impl ProductDispatcher {
         let reference_markers = ReferenceMarkerService::new(store.clone(), authorization.clone());
         let customers = CustomerService::new(store.clone(), authorization.clone());
         let materials = MaterialService::new(store.clone(), authorization.clone());
+        let parts = PartService::new(store.clone(), authorization.clone());
         let accounts = DesktopAccountService::new(store.clone(), authorization.clone());
         Self {
             store,
@@ -103,6 +107,7 @@ impl ProductDispatcher {
             reference_markers,
             customers,
             materials,
+            parts,
             accounts,
             events,
         }
@@ -387,6 +392,26 @@ impl CommandDispatcher for ProductDispatcher {
             Command::SaveMaterialUnit(command) => self
                 .save_material_unit(&context, &mutation, &command)
                 .map_err(|error| *error),
+            Command::SavePart(command) => {
+                require_protocol_1_11(&context)?;
+                let saved = self
+                    .parts
+                    .save(&mutation, &command)
+                    .map_err(|e| part_error(e, &context))?;
+                self.publish_pending(&context, mutation.idempotency_key)
+                    .map_err(|()| part_error(PartError::Unavailable, &context))?;
+                Ok(CommandResult::PartSaved(saved))
+            }
+            Command::SavePartCategory(command) => {
+                require_protocol_1_11(&context)?;
+                let saved = self
+                    .parts
+                    .save_category(&mutation, &command)
+                    .map_err(|e| part_error(e, &context))?;
+                self.publish_pending(&context, mutation.idempotency_key)
+                    .map_err(|()| part_error(PartError::Unavailable, &context))?;
+                Ok(CommandResult::PartCategorySaved(saved))
+            }
             Command::SaveMaterial(command) => self
                 .save_material(&context, &mutation, &command)
                 .map_err(|error| *error),
@@ -478,6 +503,34 @@ impl QueryDispatcher for ProductDispatcher {
                     .map(QueryResult::Customers)
                     .map_err(|error| customer_error(error, &context))
             }
+            Query::Parts(query) => {
+                require_protocol_1_11(&context)?;
+                self.parts
+                    .list(&context.authorization, &query)
+                    .map(QueryResult::Parts)
+                    .map_err(|e| part_error(e, &context))
+            }
+            Query::PartCategories(query) => {
+                require_protocol_1_11(&context)?;
+                self.parts
+                    .categories(&context.authorization, &query)
+                    .map(QueryResult::PartCategories)
+                    .map_err(|e| part_error(e, &context))
+            }
+            Query::PartCost(query) => {
+                require_protocol_1_11(&context)?;
+                self.parts
+                    .cost(&context.authorization, &query)
+                    .map(QueryResult::PartCost)
+                    .map_err(|e| part_error(e, &context))
+            }
+            Query::PartComposition(query) => {
+                require_protocol_1_11(&context)?;
+                self.parts
+                    .composition(&context.authorization, &query)
+                    .map(QueryResult::PartComposition)
+                    .map_err(|e| part_error(e, &context))
+            }
             Query::Materials(query) => {
                 require_protocol_1_10(&context).map_err(|error| *error)?;
                 self.materials
@@ -538,6 +591,7 @@ impl QueryDispatcher for ProductDispatcher {
             Subscription::Customers(_) if context.protocol_version.minor >= 9 => {
                 CUSTOMER_READ_PERMISSION
             }
+            Subscription::Parts(_) if context.protocol_version.minor >= 11 => PART_READ_PERMISSION,
             Subscription::Materials(_) if context.protocol_version.minor >= 10 => {
                 MATERIAL_READ_PERMISSION
             }
@@ -545,6 +599,7 @@ impl QueryDispatcher for ProductDispatcher {
                 AUTHORIZATION_MANAGE_PERMISSION
             }
             Subscription::Customers(_)
+            | Subscription::Parts(_)
             | Subscription::Materials(_)
             | Subscription::AuthorizationPolicy(_)
             | Subscription::UpdateState(_)
@@ -686,6 +741,51 @@ fn material_error(value: MaterialError, context: &DispatchContext) -> ContractEr
         MaterialError::Unavailable => (
             "eitmad.error.material-unavailable.v1",
             "eitmad.message.material-unavailable.v1",
+            RetryDisposition::SafeAfterDelay(1_000),
+            None,
+        ),
+    };
+    contract_error(code, message, context.correlation_id, retry, detail)
+}
+
+fn part_error(value: PartError, context: &DispatchContext) -> ContractError {
+    let (code, message, retry, detail) = match value {
+        PartError::Denied => (
+            "eitmad.error.authorization-denied.v1",
+            "eitmad.message.authorization-denied.v1",
+            RetryDisposition::Never,
+            None,
+        ),
+        PartError::Invalid => (
+            "eitmad.error.part-invalid.v1",
+            "eitmad.message.part-invalid.v1",
+            RetryDisposition::Never,
+            None,
+        ),
+        PartError::InvalidReference => (
+            "eitmad.error.part-reference-invalid.v1",
+            "eitmad.message.part-reference-invalid.v1",
+            RetryDisposition::Never,
+            None,
+        ),
+        PartError::NotFound => (
+            "eitmad.error.part-not-found.v1",
+            "eitmad.message.part-not-found.v1",
+            RetryDisposition::Never,
+            None,
+        ),
+        PartError::RevisionConflict { expected, actual } => (
+            "eitmad.error.part-revision-conflict.v1",
+            "eitmad.message.part-revision-conflict.v1",
+            RetryDisposition::Never,
+            Some(ErrorDetail::RevisionConflict {
+                expected: expected.unwrap_or(0),
+                actual: actual.unwrap_or(0),
+            }),
+        ),
+        PartError::Unavailable => (
+            "eitmad.error.part-unavailable.v1",
+            "eitmad.message.part-unavailable.v1",
             RetryDisposition::SafeAfterDelay(1_000),
             None,
         ),
@@ -1309,7 +1409,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn routes_material_mutations_and_denies_receptionist_write() {
+    async fn routes_material_and_part_mutations_and_denies_receptionist_write() {
         let (_directory, dispatcher, broker) = dispatcher();
         grant_material_roles(&dispatcher);
         let (_, mut events) = broker
@@ -1391,6 +1491,83 @@ mod tests {
             panic!("page expected")
         };
         assert_eq!(page.items.len(), 1);
+        use eitmad_contracts::part::{
+            ListParts, PartChanges, PartUsage, SavePart, SavePartCategory,
+        };
+        let (_, mut part_events) = broker
+            .subscribe(
+                authorization().scope,
+                Subscription::Parts(PartChanges {}),
+                None,
+            )
+            .unwrap();
+        let CommandResult::PartCategorySaved(part_category) = dispatcher
+            .dispatch_command(
+                material_actor(621, 3),
+                Command::SavePartCategory(SavePartCategory {
+                    id: None,
+                    expected_revision: None,
+                    name: "خزانة".into(),
+                    archived: false,
+                }),
+            )
+            .await
+            .unwrap()
+        else {
+            panic!("part category expected")
+        };
+        let input = SavePart {
+            id: None,
+            expected_revision: None,
+            name: "جانب خزانة".into(),
+            category_id: part_category.id,
+            description: String::new(),
+            archived: false,
+            usages: vec![PartUsage {
+                material_id: material.id,
+                material_revision: material.revision,
+                unit_id: unit.id,
+                unit_revision: unit.revision,
+                quantity: eitmad_contracts::material::MaterialQuantity::parse("1.2".into())
+                    .unwrap(),
+            }],
+        };
+        let CommandResult::PartSaved(part) = dispatcher
+            .dispatch_command(material_actor(622, 3), Command::SavePart(input.clone()))
+            .await
+            .unwrap()
+        else {
+            panic!("part expected")
+        };
+        let _category_event = part_events.recv().await.unwrap();
+        let Event::PartChanged(notice) = part_events.recv().await.unwrap().event else {
+            panic!("part event expected")
+        };
+        assert_eq!(notice.id, part.id.value());
+        let QueryResult::Parts(parts) = dispatcher
+            .dispatch_query(
+                material_actor(623, 3),
+                Query::Parts(ListParts {
+                    term: "خزانه".into(),
+                    after: None,
+                    limit: 20,
+                }),
+            )
+            .await
+            .unwrap()
+        else {
+            panic!("parts expected")
+        };
+        assert_eq!(parts.items[0].part.id, part.id);
+        assert_eq!(parts.items[0].current_cost.total_cost_yer, 9600);
+        let denied_part = dispatcher
+            .dispatch_command(material_actor(624, 4), Command::SavePart(input))
+            .await
+            .unwrap_err();
+        assert_eq!(
+            denied_part.code.as_str(),
+            "eitmad.error.authorization-denied.v1"
+        );
         let denied = dispatcher
             .dispatch_command(
                 material_actor(614, 4),
@@ -1717,4 +1894,10 @@ mod tests {
                 .is_err()
         );
     }
+}
+
+fn require_protocol_1_11(context: &DispatchContext) -> Result<(), ContractError> {
+    (context.protocol_version.major == 1 && context.protocol_version.minor >= 11)
+        .then_some(())
+        .ok_or_else(|| unsupported(context))
 }

@@ -51,6 +51,8 @@ pub const REFERENCE_MARKER_READ_PERMISSION: &str = "eitmad.permission.reference-
 pub const REFERENCE_MARKER_WRITE_PERMISSION: &str = "eitmad.permission.reference-marker.write.v1";
 pub const CUSTOMER_READ_PERMISSION: &str = "eitmad.permission.customer.read.v1";
 pub const CUSTOMER_WRITE_PERMISSION: &str = "eitmad.permission.customer.write.v1";
+pub const PART_READ_PERMISSION: &str = "eitmad.permission.part.read.v1";
+pub const PART_WRITE_PERMISSION: &str = "eitmad.permission.part.write.v1";
 pub const MATERIAL_READ_PERMISSION: &str = "eitmad.permission.material.read.v1";
 pub const MATERIAL_WRITE_PERMISSION: &str = "eitmad.permission.material.write.v1";
 pub const MATERIAL_UNIT_MANAGE_PERMISSION: &str = "eitmad.permission.material-unit.manage.v1";
@@ -74,6 +76,8 @@ const POLICY_PERMISSIONS: &[&str] = &[
     REFERENCE_MARKER_WRITE_PERMISSION,
     CUSTOMER_READ_PERMISSION,
     CUSTOMER_WRITE_PERMISSION,
+    PART_READ_PERMISSION,
+    PART_WRITE_PERMISSION,
     MATERIAL_READ_PERMISSION,
     MATERIAL_WRITE_PERMISSION,
     MATERIAL_UNIT_MANAGE_PERMISSION,
@@ -198,6 +202,8 @@ impl AuthorizationService {
                     | REFERENCE_MARKER_READ_PERMISSION => member && organization_scope,
                     CATALOG_DRAFT_WRITE_PERMISSION
                     | DESKTOP_ACCOUNTS_MANAGE_PERMISSION
+                    | PART_READ_PERMISSION
+                    | PART_WRITE_PERMISSION
                     | MATERIAL_READ_PERMISSION
                     | MATERIAL_WRITE_PERMISSION
                     | MATERIAL_UNIT_MANAGE_PERMISSION => manager && organization_scope,

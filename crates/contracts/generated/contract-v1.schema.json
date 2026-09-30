@@ -385,6 +385,27 @@
         "acceptedRecords"
       ]
     },
+    "CalculatePartCost": {
+      "type": "object",
+      "properties": {
+        "partId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "usages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PartUsage"
+          }
+        }
+      },
+      "required": [
+        "usages"
+      ]
+    },
     "CancelOperation": {
       "type": "object",
       "properties": {
@@ -685,6 +706,38 @@
             },
             "payload": {
               "$ref": "#/definitions/SaveMaterial"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.part.save.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/SavePart"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.part-category.save.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/SavePartCategory"
             }
           },
           "required": [
@@ -1093,6 +1146,38 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "partSaved"
+            },
+            "payload": {
+              "$ref": "#/definitions/Part"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "partCategorySaved"
+            },
+            "payload": {
+              "$ref": "#/definitions/PartCategory"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "desktopAccountCreated"
             },
             "payload": {
@@ -1152,6 +1237,34 @@
       "required": [
         "commandId",
         "disposition"
+      ]
+    },
+    "CompositionReference": {
+      "type": "object",
+      "properties": {
+        "partId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "schemaVersion": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "required": [
+        "scope",
+        "partId",
+        "revision",
+        "schemaVersion"
       ]
     },
     "ConfigChange": {
@@ -1523,6 +1636,34 @@
         "parameters",
         "retry",
         "correlationId"
+      ]
+    },
+    "CostedUsage": {
+      "type": "object",
+      "properties": {
+        "costUnit": {
+          "$ref": "#/definitions/MaterialUnit"
+        },
+        "costYer": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "material": {
+          "$ref": "#/definitions/Material"
+        },
+        "unit": {
+          "$ref": "#/definitions/MaterialUnit"
+        },
+        "usage": {
+          "$ref": "#/definitions/PartUsage"
+        }
+      },
+      "required": [
+        "usage",
+        "material",
+        "unit",
+        "costUnit",
+        "costYer"
       ]
     },
     "CreateCustomer": {
@@ -2541,6 +2682,22 @@
             "kind",
             "payload"
           ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.part.changed.event.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/PartChangeNotice"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
         }
       ]
     },
@@ -2598,6 +2755,17 @@
     },
     "GetEffectivePermissions": {
       "type": "object"
+    },
+    "GetPartComposition": {
+      "type": "object",
+      "properties": {
+        "reference": {
+          "$ref": "#/definitions/CompositionReference"
+        }
+      },
+      "required": [
+        "reference"
+      ]
     },
     "GetSyncStatus": {
       "type": "object"
@@ -3320,6 +3488,52 @@
         "limit"
       ]
     },
+    "ListPartCategories": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "limit": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 100,
+          "minimum": 1
+        }
+      },
+      "required": [
+        "limit"
+      ]
+    },
+    "ListParts": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "limit": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 100,
+          "minimum": 1
+        },
+        "term": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "term",
+        "limit"
+      ]
+    },
     "ListReferenceMarkers": {
       "type": "object",
       "properties": {
@@ -3631,6 +3845,10 @@
       "required": [
         "items"
       ]
+    },
+    "MaterialQuantity": {
+      "description": "Exact positive decimal quantity with no more than six fractional digits.",
+      "type": "string"
     },
     "MaterialRecordKind": {
       "type": "string",
@@ -4014,6 +4232,241 @@
         "integer",
         "identifier",
         "text"
+      ]
+    },
+    "Part": {
+      "type": "object",
+      "properties": {
+        "archived": {
+          "type": "boolean"
+        },
+        "categoryId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "composition": {
+          "$ref": "#/definitions/CompositionReference"
+        },
+        "cost": {
+          "$ref": "#/definitions/PartCost"
+        },
+        "description": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        },
+        "updatedAt": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "id",
+        "scope",
+        "name",
+        "categoryId",
+        "description",
+        "archived",
+        "revision",
+        "updatedAt",
+        "composition",
+        "cost"
+      ]
+    },
+    "PartCategories": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PartCategory"
+          }
+        },
+        "next": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "items"
+      ]
+    },
+    "PartCategory": {
+      "type": "object",
+      "properties": {
+        "archived": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        },
+        "updatedAt": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "id",
+        "scope",
+        "name",
+        "archived",
+        "revision",
+        "updatedAt"
+      ]
+    },
+    "PartChangeNotice": {
+      "type": "object",
+      "properties": {
+        "category": {
+          "type": "boolean"
+        },
+        "changedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "required": [
+        "scope",
+        "id",
+        "category",
+        "revision",
+        "changedAt"
+      ]
+    },
+    "PartChanges": {
+      "type": "object"
+    },
+    "PartCost": {
+      "type": "object",
+      "properties": {
+        "rows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CostedUsage"
+          }
+        },
+        "totalCostYer": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "rows",
+        "totalCostYer"
+      ]
+    },
+    "PartPage": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PartProjection"
+          }
+        },
+        "next": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "items"
+      ]
+    },
+    "PartProjection": {
+      "type": "object",
+      "properties": {
+        "currentCost": {
+          "description": "Advisory current cost; commercial references resolve the immutable part snapshot instead.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/PartCost"
+            }
+          ]
+        },
+        "part": {
+          "$ref": "#/definitions/Part"
+        }
+      },
+      "required": [
+        "part",
+        "currentCost"
+      ]
+    },
+    "PartUsage": {
+      "type": "object",
+      "properties": {
+        "materialId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "materialRevision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "quantity": {
+          "$ref": "#/definitions/MaterialQuantity"
+        },
+        "unitId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "unitRevision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "materialId",
+        "materialRevision",
+        "unitId",
+        "unitRevision",
+        "quantity"
       ]
     },
     "PeerHello": {
@@ -4425,6 +4878,70 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "eitmad.part.list.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ListParts"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.part-category.list.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ListPartCategories"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.part.cost.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/CalculatePartCost"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.part-composition.get.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/GetPartComposition"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "eitmad.material.list.v1"
             },
             "payload": {
@@ -4691,6 +5208,70 @@
             },
             "payload": {
               "$ref": "#/definitions/CustomerPage"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "parts"
+            },
+            "payload": {
+              "$ref": "#/definitions/PartPage"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "partCategories"
+            },
+            "payload": {
+              "$ref": "#/definitions/PartCategories"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "partCost"
+            },
+            "payload": {
+              "$ref": "#/definitions/PartCost"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "partComposition"
+            },
+            "payload": {
+              "$ref": "#/definitions/Part"
             }
           },
           "required": [
@@ -5518,6 +6099,82 @@
         "archived"
       ]
     },
+    "SavePart": {
+      "type": "object",
+      "properties": {
+        "archived": {
+          "type": "boolean"
+        },
+        "categoryId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": {
+          "type": "string"
+        },
+        "expectedRevision": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        },
+        "usages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PartUsage"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "categoryId",
+        "description",
+        "usages",
+        "archived"
+      ]
+    },
+    "SavePartCategory": {
+      "type": "object",
+      "properties": {
+        "archived": {
+          "type": "boolean"
+        },
+        "expectedRevision": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "archived"
+      ]
+    },
     "SchemaSupport": {
       "type": "object",
       "properties": {
@@ -6281,6 +6938,22 @@
             },
             "payload": {
               "$ref": "#/definitions/MaterialChanges"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.part.changed.subscribe.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/PartChanges"
             }
           },
           "required": [

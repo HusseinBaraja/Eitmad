@@ -22,6 +22,7 @@ pub mod ipc;
 pub mod material;
 pub mod notifications;
 pub mod observability;
+pub mod part;
 pub mod permissions;
 pub mod queries;
 pub mod reference_marker;

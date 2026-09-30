@@ -80,9 +80,10 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | المقابض المتاحة | Available handles | Manager-defined handle choices shown as visual tiles with a visible price adjustment and active state. The current Options section is a transient preview. |
 | الخامة | Material | A substance or component used in production, such as wood, board, fabric, or hardware. |
 | المادة الخام | Raw material | A material definition for production use, with a stable ID, category, unit, and current whole-YER cost. The Windows **المواد الخام** page stores definitions in the Rust authority database. Stock movements are separate. |
-| الجزء / الأجزاء | Part / parts | A furniture component listed for production use, with a category, cost, and count of products that use it. The current Windows **الأجزاء** page is a preview fixture; its durable lifecycle and authority are not yet defined. |
+| الجزء / الأجزاء | Part / parts | A Rust-owned furniture component with a separate category reference and explicit material quantities and units. Each save retains an immutable composition revision; current cost is a separate advisory projection. See [Parts](developer/subsystems/parts.md). |
+| إصدار تركيب الجزء | Part composition revision | The immutable scoped material, unit, quantity, and cost snapshot referenced by a commercial record. |
 | الفئة / التصنيف | Raw-material category | A stable organization-scoped grouping for raw materials. The field label is **الفئة**; actions use **إضافة تصنيف جديد** and **إدارة التصنيفات**. Archive keeps existing material links. |
-| فئة الجزء | Part category | A preview-only grouping used on the current Windows **الأجزاء** page. Part categories are separate from raw-material categories and do not use the raw-material category reference set or its lifecycle. |
+| فئة الجزء | Part category | A durable organization-scoped grouping with a stable ID, revision, and archived state. Part categories are separate from raw-material categories. Archive retains existing part references. |
 | الوحدة | Unit | A versioned measure with an explicit dimension and exact rational conversion to a canonical unit. BOM quantities use an exact decimal with at most six fractional digits and an active Unit ID. |
 | لوح خشبي | Board / panel | A sheet material used in furniture production. Exact material type remains a separate attribute. |
 | الإكسسوارات | Hardware / accessories | Hinges, handles, rails, fasteners, and similar furniture components. User terminology is provisional by context. |

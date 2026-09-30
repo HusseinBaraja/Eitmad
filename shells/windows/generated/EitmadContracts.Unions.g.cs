@@ -102,6 +102,22 @@ public partial class Command
     public SaveMaterial? AsMaterialSave() =>
         Kind == MaterialSaveKind ? PayloadAs<SaveMaterial>() : null;
 
+    public const string PartSaveKind = "eitmad.part.save.v1";
+
+    public static Command ForPartSave(SavePart payload) =>
+        new() { Kind = PartSaveKind, Payload = payload };
+
+    public SavePart? AsPartSave() =>
+        Kind == PartSaveKind ? PayloadAs<SavePart>() : null;
+
+    public const string PartCategorySaveKind = "eitmad.part-category.save.v1";
+
+    public static Command ForPartCategorySave(SavePartCategory payload) =>
+        new() { Kind = PartCategorySaveKind, Payload = payload };
+
+    public SavePartCategory? AsPartCategorySave() =>
+        Kind == PartCategorySaveKind ? PayloadAs<SavePartCategory>() : null;
+
     public const string DesktopAccountCreateKind = "eitmad.desktop-account.create.v1";
 
     public static Command ForDesktopAccountCreate(CreateDesktopAccount payload) =>
@@ -238,6 +254,14 @@ public partial class Event
 
     public MaterialChangeNotice? AsMaterialChangedEvent() =>
         Kind == MaterialChangedEventKind ? PayloadAs<MaterialChangeNotice>() : null;
+
+    public const string PartChangedEventKind = "eitmad.part.changed.event.v1";
+
+    public static Event ForPartChangedEvent(PartChangeNotice payload) =>
+        new() { Kind = PartChangedEventKind, Payload = payload };
+
+    public PartChangeNotice? AsPartChangedEvent() =>
+        Kind == PartChangedEventKind ? PayloadAs<PartChangeNotice>() : null;
 
     internal T? PayloadAs<T>() => Payload switch
     {
@@ -506,6 +530,38 @@ public partial class Query
     public SearchCustomers? AsCustomerSearch() =>
         Kind == CustomerSearchKind ? PayloadAs<SearchCustomers>() : null;
 
+    public const string PartListKind = "eitmad.part.list.v1";
+
+    public static Query ForPartList(ListParts payload) =>
+        new() { Kind = PartListKind, Payload = payload };
+
+    public ListParts? AsPartList() =>
+        Kind == PartListKind ? PayloadAs<ListParts>() : null;
+
+    public const string PartCategoryListKind = "eitmad.part-category.list.v1";
+
+    public static Query ForPartCategoryList(ListPartCategories payload) =>
+        new() { Kind = PartCategoryListKind, Payload = payload };
+
+    public ListPartCategories? AsPartCategoryList() =>
+        Kind == PartCategoryListKind ? PayloadAs<ListPartCategories>() : null;
+
+    public const string PartCostKind = "eitmad.part.cost.v1";
+
+    public static Query ForPartCost(CalculatePartCost payload) =>
+        new() { Kind = PartCostKind, Payload = payload };
+
+    public CalculatePartCost? AsPartCost() =>
+        Kind == PartCostKind ? PayloadAs<CalculatePartCost>() : null;
+
+    public const string PartCompositionGetKind = "eitmad.part-composition.get.v1";
+
+    public static Query ForPartCompositionGet(GetPartComposition payload) =>
+        new() { Kind = PartCompositionGetKind, Payload = payload };
+
+    public GetPartComposition? AsPartCompositionGet() =>
+        Kind == PartCompositionGetKind ? PayloadAs<GetPartComposition>() : null;
+
     public const string MaterialListKind = "eitmad.material.list.v1";
 
     public static Query ForMaterialList(ListMaterials payload) =>
@@ -610,6 +666,38 @@ public partial class QueryResult
 
     public CustomerPage? AsCustomers() =>
         Kind == CustomersKind ? PayloadAs<CustomerPage>() : null;
+
+    public const string PartsKind = "parts";
+
+    public static QueryResult ForParts(PartPage payload) =>
+        new() { Kind = PartsKind, Payload = payload };
+
+    public PartPage? AsParts() =>
+        Kind == PartsKind ? PayloadAs<PartPage>() : null;
+
+    public const string PartCategoriesKind = "partCategories";
+
+    public static QueryResult ForPartCategories(PartCategories payload) =>
+        new() { Kind = PartCategoriesKind, Payload = payload };
+
+    public PartCategories? AsPartCategories() =>
+        Kind == PartCategoriesKind ? PayloadAs<PartCategories>() : null;
+
+    public const string PartCostKind = "partCost";
+
+    public static QueryResult ForPartCost(PartCost payload) =>
+        new() { Kind = PartCostKind, Payload = payload };
+
+    public PartCost? AsPartCost() =>
+        Kind == PartCostKind ? PayloadAs<PartCost>() : null;
+
+    public const string PartCompositionKind = "partComposition";
+
+    public static QueryResult ForPartComposition(Part payload) =>
+        new() { Kind = PartCompositionKind, Payload = payload };
+
+    public Part? AsPartComposition() =>
+        Kind == PartCompositionKind ? PayloadAs<Part>() : null;
 
     public const string MaterialsKind = "materials";
 
@@ -846,6 +934,14 @@ public partial class Subscription
     public MaterialChanges? AsMaterialChangedSubscribe() =>
         Kind == MaterialChangedSubscribeKind ? PayloadAs<MaterialChanges>() : null;
 
+    public const string PartChangedSubscribeKind = "eitmad.part.changed.subscribe.v1";
+
+    public static Subscription ForPartChangedSubscribe(PartChanges payload) =>
+        new() { Kind = PartChangedSubscribeKind, Payload = payload };
+
+    public PartChanges? AsPartChangedSubscribe() =>
+        Kind == PartChangedSubscribeKind ? PayloadAs<PartChanges>() : null;
+
     internal T? PayloadAs<T>() => Payload switch
     {
         T typed => typed,
@@ -1024,6 +1120,10 @@ public partial class MaterialChanges
 }
 
 public partial class Notifications
+{
+}
+
+public partial class PartChanges
 {
 }
 

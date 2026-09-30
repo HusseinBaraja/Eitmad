@@ -37,6 +37,7 @@ public partial class MainWindow : Window
         {
             UsersSurface.Attach(engine);
             RawMaterialsSurface.Attach(engine);
+            PartsSurface.Attach(engine);
             customerClient = new Features.Customers.CustomerClient(engine);
             ReceptionistSurface.AttachCustomerClient(customerClient);
         }
@@ -47,6 +48,7 @@ public partial class MainWindow : Window
             if (this.sessions is not null) this.sessions.SessionEnded -= SessionEnded;
             if (customerClient is not null) _ = customerClient.DisposeAsync();
             _ = RawMaterialsSurface.DisposeAsync();
+            _ = PartsSurface.DisposeAsync();
         };
         ReceptionistSurface.SetCatalogSources(FurnitureSurface.ViewModel, ProductsSurface.ViewModel);
         QuotationsSurface.ViewModel.UsePreviewQuotations(ReceptionistSurface.Handoffs.Quotations);
@@ -197,6 +199,7 @@ public partial class MainWindow : Window
 
     private void HideAccountSurfaces()
     {
+        PartsSurface.ClearSession();
         ResponsiveRoot.Visibility = Visibility.Collapsed;
         ReceptionistSurface.Visibility = Visibility.Collapsed;
         InteractionPanel.Visibility = Visibility.Collapsed;
@@ -233,6 +236,7 @@ public partial class MainWindow : Window
         RawMaterialsSurface.Visibility = showRawMaterials ? Visibility.Visible : Visibility.Collapsed;
         if (showRawMaterials) _ = RawMaterialsSurface.ActivateAsync();
         PartsSurface.Visibility = showParts ? Visibility.Visible : Visibility.Collapsed;
+        if (showParts) _ = PartsSurface.ActivateAsync();
         FurnitureSurface.Visibility = showFurniture ? Visibility.Visible : Visibility.Collapsed;
         PricingSurface.Visibility = showPricing ? Visibility.Visible : Visibility.Collapsed;
         ProductsSurface.Visibility = showProducts ? Visibility.Visible : Visibility.Collapsed;
