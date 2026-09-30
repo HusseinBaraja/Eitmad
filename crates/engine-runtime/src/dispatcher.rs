@@ -5,12 +5,12 @@ use std::sync::Arc;
 use crate::accounts::{DesktopAccountError, DesktopAccountService};
 use async_trait::async_trait;
 use eitmad_authorization::MATERIAL_READ_PERMISSION;
-use eitmad_authorization::PART_READ_PERMISSION;
 use eitmad_authorization::{
     AUTHORIZATION_MANAGE_PERMISSION, AccessAuditContext, AuthorizationError, AuthorizationService,
     BoundaryAuditContext, CONFIG_READ_PERMISSION, MutationContext, PERMISSIONS_READ_PERMISSION,
     now,
 };
+use eitmad_authorization::{PART_READ_PERMISSION, PRODUCT_READ_PERMISSION};
 use eitmad_configuration::{ConfigurationError, ConfigurationService};
 use eitmad_contracts::{
     accounts::CreateDesktopAccount,
@@ -28,6 +28,7 @@ use eitmad_customer::{
 use eitmad_material::{MaterialError, MaterialService};
 use eitmad_observability_audit::AuditOutcome;
 use eitmad_part::{PartError, PartService};
+use eitmad_product::{ProductError, ProductService};
 use eitmad_reference_marker::{
     REFERENCE_MARKER_READ_PERMISSION, ReferenceMarkerError, ReferenceMarkerService,
 };
@@ -48,6 +49,7 @@ pub struct ProductDispatcher {
     customers: CustomerService,
     materials: MaterialService,
     parts: PartService,
+    products: ProductService,
     accounts: DesktopAccountService,
     events: Arc<dyn ProductEventPublisher>,
 }
@@ -99,6 +101,7 @@ impl ProductDispatcher {
         let reference_markers = ReferenceMarkerService::new(store.clone(), authorization.clone());
         let customers = CustomerService::new(store.clone(), authorization.clone());
         let materials = MaterialService::new(store.clone(), authorization.clone());
+        let products = ProductService::new(store.clone(), authorization.clone());
         let parts = PartService::new(store.clone(), authorization.clone());
         let accounts = DesktopAccountService::new(store.clone(), authorization.clone());
         Self {
@@ -109,6 +112,7 @@ impl ProductDispatcher {
             customers,
             materials,
             parts,
+            products,
             accounts,
             events,
         }
@@ -302,6 +306,56 @@ impl ProductDispatcher {
         .map_err(|error| Box::new(part_error(error, context)))
     }
 
+    /// Negotiates protocol 1.12, delegates authorization and persistence to Products, and publishes the committed outbox.
+    fn dispatch_product_command(
+        &self,
+        context: &DispatchContext,
+        mutation: &MutationContext,
+        command: Command,
+    ) -> Result<CommandResult, Box<ContractError>> {
+        require_protocol_1_12(context)?;
+        let result = match command {
+            Command::SaveProduct(command) => self
+                .products
+                .save(mutation, &command)
+                .map(CommandResult::ProductSaved),
+            Command::SaveProductCategory(command) => self
+                .products
+                .save_category(mutation, &command)
+                .map(CommandResult::ProductCategorySaved),
+            _ => unreachable!("only product commands are routed here"),
+        }
+        .map_err(|error| Box::new(product_error(error, context)))?;
+        self.publish_pending(context, mutation.idempotency_key)
+            .map_err(|()| Box::new(product_error(ProductError::Unavailable, context)))?;
+        Ok(result)
+    }
+
+    /// Negotiates protocol 1.12 and delegates scoped product reads and cost review to the Rust authority.
+    fn dispatch_product_query(
+        &self,
+        context: &DispatchContext,
+        query: Query,
+    ) -> Result<QueryResult, Box<ContractError>> {
+        require_protocol_1_12(context)?;
+        match query {
+            Query::Products(query) => self
+                .products
+                .list(&context.authorization, &query)
+                .map(QueryResult::Products),
+            Query::ProductCategories(query) => self
+                .products
+                .categories(&context.authorization, &query)
+                .map(QueryResult::ProductCategories),
+            Query::ProductRevision(query) => self
+                .products
+                .revision(&context.authorization, &query)
+                .map(QueryResult::ProductRevision),
+            _ => unreachable!("only product queries are routed here"),
+        }
+        .map_err(|error| Box::new(product_error(error, context)))
+    }
+
     /// Checks protocol support, creates the audited account, and publishes its committed event.
     fn create_desktop_account(
         &self,
@@ -469,6 +523,9 @@ impl CommandDispatcher for ProductDispatcher {
             Command::SaveMaterialUnit(command) => self
                 .save_material_unit(&context, &mutation, &command)
                 .map_err(|error| *error),
+            command @ (Command::SaveProduct(_) | Command::SaveProductCategory(_)) => self
+                .dispatch_product_command(&context, &mutation, command)
+                .map_err(|error| *error),
             command @ (Command::SavePart(_) | Command::SavePartCategory(_)) => self
                 .dispatch_part_command(&context, &mutation, command)
                 .map_err(|error| *error),
@@ -554,6 +611,11 @@ impl QueryDispatcher for ProductDispatcher {
                     .map(QueryResult::Customers)
                     .map_err(|error| customer_error(error, &context))
             }
+            query @ (Query::Products(_)
+            | Query::ProductCategories(_)
+            | Query::ProductRevision(_)) => self
+                .dispatch_product_query(&context, query)
+                .map_err(|error| *error),
             query @ (Query::Parts(_)
             | Query::PartCategories(_)
             | Query::PartCost(_)
@@ -620,6 +682,9 @@ impl QueryDispatcher for ProductDispatcher {
             Subscription::Customers(_) if context.protocol_version.minor >= 9 => {
                 CUSTOMER_READ_PERMISSION
             }
+            Subscription::Products(_) if context.protocol_version.minor >= 12 => {
+                PRODUCT_READ_PERMISSION
+            }
             Subscription::Parts(_) if context.protocol_version.minor >= 11 => PART_READ_PERMISSION,
             Subscription::Materials(_) if context.protocol_version.minor >= 10 => {
                 MATERIAL_READ_PERMISSION
@@ -628,6 +693,7 @@ impl QueryDispatcher for ProductDispatcher {
                 AUTHORIZATION_MANAGE_PERMISSION
             }
             Subscription::Customers(_)
+            | Subscription::Products(_)
             | Subscription::Parts(_)
             | Subscription::Materials(_)
             | Subscription::AuthorizationPolicy(_)
@@ -816,6 +882,51 @@ fn part_error(value: PartError, context: &DispatchContext) -> ContractError {
         PartError::Unavailable => (
             "eitmad.error.part-unavailable.v1",
             "eitmad.message.part-unavailable.v1",
+            RetryDisposition::SafeAfterDelay(1_000),
+            None,
+        ),
+    };
+    contract_error(code, message, context.correlation_id, retry, detail)
+}
+
+fn product_error(value: ProductError, context: &DispatchContext) -> ContractError {
+    let (code, message, retry, detail) = match value {
+        ProductError::Denied => (
+            "eitmad.error.authorization-denied.v1",
+            "eitmad.message.authorization-denied.v1",
+            RetryDisposition::Never,
+            None,
+        ),
+        ProductError::Invalid => (
+            "eitmad.error.product-invalid.v1",
+            "eitmad.message.product-invalid.v1",
+            RetryDisposition::Never,
+            None,
+        ),
+        ProductError::InvalidReference => (
+            "eitmad.error.product-reference-invalid.v1",
+            "eitmad.message.product-reference-invalid.v1",
+            RetryDisposition::Never,
+            None,
+        ),
+        ProductError::NotFound => (
+            "eitmad.error.product-not-found.v1",
+            "eitmad.message.product-not-found.v1",
+            RetryDisposition::Never,
+            None,
+        ),
+        ProductError::RevisionConflict { expected, actual } => (
+            "eitmad.error.product-revision-conflict.v1",
+            "eitmad.message.product-revision-conflict.v1",
+            RetryDisposition::Never,
+            Some(ErrorDetail::RevisionConflict {
+                expected: expected.unwrap_or(0),
+                actual: actual.unwrap_or(0),
+            }),
+        ),
+        ProductError::Unavailable => (
+            "eitmad.error.product-unavailable.v1",
+            "eitmad.message.product-unavailable.v1",
             RetryDisposition::SafeAfterDelay(1_000),
             None,
         ),
@@ -1030,6 +1141,12 @@ fn require_protocol_1_10(context: &DispatchContext) -> Result<(), Box<ContractEr
 /// Rejects part operations unless protocol major 1 and minor 11 or later were negotiated.
 fn require_protocol_1_11(context: &DispatchContext) -> Result<(), Box<ContractError>> {
     (context.protocol_version.major == 1 && context.protocol_version.minor >= 11)
+        .then_some(())
+        .ok_or_else(|| Box::new(unsupported(context)))
+}
+
+fn require_protocol_1_12(context: &DispatchContext) -> Result<(), Box<ContractError>> {
+    (context.protocol_version.major == 1 && context.protocol_version.minor >= 12)
         .then_some(())
         .ok_or_else(|| Box::new(unsupported(context)))
 }

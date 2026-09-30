@@ -384,6 +384,7 @@ internal sealed class SupervisionScenarios
                 "real update query returns typed state or typed error");
 
             var persistedPart = await SaveMultiMaterialPart(supervisor);
+            var persistedProduct = await SaveSupplierProduct(supervisor);
 
             var patchResponse = await supervisor.SubmitConfigurationPatchAsync(
                 new UpdateConfiguration
@@ -422,6 +423,10 @@ internal sealed class SupervisionScenarios
             await supervisor.StartAsync(request);
             await Eventually(() => supervisor.IpcConnected, TimeSpan.FromSeconds(10));
             await supervisor.SignInAsync("admin", "admin");
+            var reopenedProducts = await supervisor.QueryAsync(Query.ForProductList(new ListProducts { Term = "مرتبة", Limit = 100 }));
+            var reopenedProduct = reopenedProducts.Outcome.Payload.AsProducts()!.Items.Single();
+            Assert.Equal(persistedProduct.Id, reopenedProduct.Id, "product identity survives engine restart");
+            Assert.Equal(55000L, reopenedProduct.Variants.Single().PurchaseCostYer!.Value, "supplier cost survives engine restart");
             var reopenedParts = await supervisor.QueryAsync(Query.ForPartList(new ListParts { Term = "جانب خزانة", Limit = 20 }));
             var reopenedPart = reopenedParts.Outcome.Payload.AsParts()?.Items.Single().Part
                 ?? throw new InvalidOperationException("Part was not durable after restart.");
@@ -459,6 +464,38 @@ internal sealed class SupervisionScenarios
         {
             Directory.Delete(runtimeDirectory, recursive: true);
         }
+    }
+
+    /// <summary>Exercises real Product category, variant, exact retry, and committed-event contracts.</summary>
+    private static async Task<Product> SaveSupplierProduct(EngineSupervisor supervisor)
+    {
+        var categoryResponse = await supervisor.SubmitCommandAsync(
+            Command.ForProductCategorySave(new SaveProductCategory { Name = "مراتب" }), Guid.NewGuid());
+        Assert.Equal(CommandOutcomeStatus.Succeeded, categoryResponse.Outcome.Status, "product category commit");
+        var categories = await supervisor.QueryAsync(Query.ForProductCategoryList(new ListProductCategories { Limit = 100 }));
+        await using var events = await supervisor.SubscribeAsync(Subscription.ForProductChangedSubscribe(new ProductChanges()));
+        var input = new SaveProduct
+        {
+            Name = "مرتبة طبية", CategoryId = categories.Outcome.Payload.AsProductCategories()!.Items.Single().Id,
+            Description = "منتج جاهز", Notes = "",
+            Variants = [new SaveProductVariant { Id = Guid.NewGuid(), Name = "مفرد", PurchaseCostYer = 55000 }],
+        };
+        var key = Guid.NewGuid();
+        var saved = await supervisor.SubmitCommandAsync(Command.ForProductSave(input), key);
+        Assert.Equal(CommandOutcomeStatus.Succeeded, saved.Outcome.Status, "product commit");
+        var retried = await supervisor.SubmitCommandAsync(Command.ForProductSave(input), key);
+        Assert.Equal(saved.Outcome.Payload.Payload!.Id, retried.Outcome.Payload.Payload!.Id, "product exact retry identity");
+        var page = await supervisor.QueryAsync(Query.ForProductList(new ListProducts { Term = "", Limit = 100 }));
+        var product = page.Outcome.Payload.AsProducts()!.Items.Single();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await foreach (var delivered in events.ReadAllAsync(timeout.Token))
+        {
+            var notice = EngineContractCodec.DecodeEvent(delivered).AsProductChangedEvent();
+            events.Acknowledge(delivered);
+            Assert.Equal(product.Id, notice!.Id, "product event after commit");
+            break;
+        }
+        return product;
     }
 
     /// <summary>Exercises real-engine typed category and multi-material saves with exact retry and change delivery.</summary>

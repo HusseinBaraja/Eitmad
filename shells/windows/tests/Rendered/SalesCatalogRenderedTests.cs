@@ -27,9 +27,10 @@ public sealed class SalesCatalogRenderedTests
             Assert.IsTrue(WpfTestHost.FindByName<TextBox>(catalog, "CatalogSearch").IsKeyboardFocusWithin);
             Assert.AreEqual("", model.CustomerName);
             Assert.AreEqual("", model.Phone);
-            WpfTestHost.FindByAutomationName<Button>(catalog, "اختيار وسادة فندقية").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.FindByAutomationName<Button>(catalog, "اختيار خزانة السكينة").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
-            var detail = WpfTestHost.FindByName<ProductSelectionView>(catalog, "ProductSelectionView");
+            var detail = WpfTestHost.FindByName<FurnitureSelectionView>(catalog, "SelectionView");
+            model.Selection!.SelectedSize=model.Selection.Sizes[0];model.Selection.SelectedColor=model.Selection.Colors[0];model.Selection.SelectedHandle=model.Selection.Handles[0];WpfTestHost.CompleteLayout(window);
             WpfTestHost.FindByName<Button>(detail, "AddButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.IsFalse(model.IsReviewingQuotation);
             WpfTestHost.FindByAutomationName<Button>(reception, "فتح عرض السعر").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -117,54 +118,16 @@ public sealed class SalesCatalogRenderedTests
     }
 
     [TestMethod]
-    public void ReadyMadeDetailsRenderAndAddBothProductTypes()
-    {
-        WpfTestHost.Run(1338, 1000, window =>
-        {
-            var reception = WpfTestHost.FindByName<ReceptionistHomeView>(window, "ReceptionistSurface");
-            reception.Visibility = Visibility.Visible;
-            WpfTestHost.FindByName<Grid>(window, "ResponsiveRoot").Visibility = Visibility.Collapsed;
-            WpfTestHost.CompleteLayout(window);
-            WpfTestHost.FindByName<Button>(reception, "ProductsAction").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            WpfTestHost.CompleteLayout(window);
-            var catalog = WpfTestHost.FindByName<SalesCatalogView>(reception, "CatalogContent");
-            var model = (SalesCatalogViewModel)catalog.DataContext;
-            foreach (var name in new[] { "مرتبة طبية", "وسادة فندقية" })
-            {
-                var select = WpfTestHost.FindByAutomationName<Button>(catalog, "اختيار " + name);
-                select.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-                WpfTestHost.CompleteLayout(window);
-                var detail = WpfTestHost.FindByName<ProductSelectionView>(catalog, "ProductSelectionView");
-                Assert.IsTrue(detail.IsVisible);
-                Assert.IsTrue(WpfTestHost.FindByName<Button>(detail, "BackButton").IsKeyboardFocusWithin);
-                var variants = WpfTestHost.FindByName<ListBox>(detail, "VariantsList");
-                var add = WpfTestHost.FindByName<Button>(detail, "AddButton");
-                Assert.AreEqual(model.ProductSelection!.HasVariants, variants.IsVisible);
-                if (model.ProductSelection.HasVariants)
-                {
-                    Assert.IsFalse(add.IsEnabled);
-                    variants.SelectedIndex = 1;
-                    WpfTestHost.CompleteLayout(window);
-                    var card = (ListBoxItem)variants.ItemContainerGenerator.ContainerFromIndex(1);
-                    card.Focus();
-                    Assert.IsTrue(card.IsKeyboardFocusWithin);
-                    Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(card).Any(text => text.Text == "✓" && text.IsVisible));
-                }
-                WpfTestHost.FindByAutomationName<Button>(detail, "زيادة الكمية").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-                WpfTestHost.CompleteLayout(window);
-                Assert.IsTrue(add.IsEnabled);
-                WpfTestHost.Capture(window, "catalog-" + (model.ProductSelection.HasVariants ? "product-variants" : "product-simple"));
-                add.BringIntoView();
-                WpfTestHost.CompleteLayout(window);
-                add.Focus();
-                Assert.IsTrue(add.IsKeyboardFocusWithin);
-                add.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-                Assert.AreEqual(2, model.QuotationLines.Last().Quantity);
-                WpfTestHost.FindByName<Button>(detail, "BackButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-                WpfTestHost.CompleteLayout(window);
-                Assert.IsTrue(select.IsKeyboardFocusWithin);
+    public void HistoricalReadyMadeDetailsRenderWithoutCurrentProductSelection() {
+        WpfTestHost.Run(1338,753,window=>{
+            var model=new SalesCatalogViewModel(new Features.Furniture.FurnitureViewModel(),new Features.Products.ProductsViewModel());
+            var catalog=new SalesCatalogView{DataContext=model};window.Content=catalog;
+            foreach(var variant in new[]{"مزدوج",""}) {
+                Products.SalesCatalogPresentationTests.AddHistoricalProductLine(model,12000,variant);model.EditLine(model.QuotationLines.Last());WpfTestHost.CompleteLayout(window);
+                var detail=WpfTestHost.FindByName<ProductSelectionView>(catalog,"ProductSelectionView");Assert.IsTrue(detail.IsVisible);
+                WpfTestHost.FindByAutomationName<Button>(detail,"زيادة الكمية").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                WpfTestHost.FindByName<Button>(detail,"AddButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));WpfTestHost.CompleteLayout(window);Assert.AreEqual(2,model.QuotationLines.Last().Quantity);
             }
-            Assert.HasCount(2, model.QuotationLines);
         });
     }
 
@@ -250,15 +213,15 @@ public sealed class SalesCatalogRenderedTests
             Assert.IsTrue(search.IsKeyboardFocusWithin);
             Assert.AreEqual(string.Empty, search.Text);
             var categories = WpfTestHost.FindByAutomationName<ListBox>(catalog, "فئات المنتجات");
-            categories.SelectedItem = "المراتب";
+            categories.SelectedItem = "غرف النوم";
             WpfTestHost.CompleteLayout(window);
-            Assert.HasCount(1, ((SalesCatalogViewModel)catalog.DataContext).VisibleItems);
+            Assert.HasCount(2, ((SalesCatalogViewModel)catalog.DataContext).VisibleItems);
             WpfTestHost.Capture(window, "catalog-retail");
-            var select = WpfTestHost.FindByAutomationName<Button>(catalog, "اختيار مرتبة طبية");
+            var select = WpfTestHost.FindByAutomationName<Button>(catalog, "اختيار خزانة السكينة");
             select.Focus();
             Assert.IsTrue(select.IsKeyboardFocusWithin);
             select.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            Assert.IsTrue(((SalesCatalogViewModel)catalog.DataContext).IsSelectingProduct);
+            Assert.IsTrue(((SalesCatalogViewModel)catalog.DataContext).IsSelecting);
             ((SalesCatalogViewModel)catalog.DataContext).CloseSelection();
             ((SalesCatalogViewModel)catalog.DataContext).ClearFilters();
             window.Width = 1000;

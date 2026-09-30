@@ -748,6 +748,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
                 ProtocolIds.Capabilities.EitmadCapabilityCustomerV1,
                 ProtocolIds.Capabilities.EitmadCapabilityMaterialV1,
                 ProtocolIds.Capabilities.EitmadCapabilityPartV1,
+                ProtocolIds.Capabilities.EitmadCapabilityProductV1,
                 ProtocolIds.Capabilities.EitmadCapabilityDesktopAccountManagementV1,
             ],
             RequiredCapabilities =
@@ -774,6 +775,11 @@ public sealed class EngineSupervisor : IAsyncDisposable
                 new SchemaSupport
                 {
                     SchemaId = ProtocolIds.SchemaIds.EitmadSchemaPartV1,
+                    MinimumVersion = 1, MaximumVersion = 1, SchemaSupportRequired = false,
+                },
+                new SchemaSupport
+                {
+                    SchemaId = ProtocolIds.SchemaIds.EitmadSchemaProductV1,
                     MinimumVersion = 1, MaximumVersion = 1, SchemaSupportRequired = false,
                 },
                 new SchemaSupport

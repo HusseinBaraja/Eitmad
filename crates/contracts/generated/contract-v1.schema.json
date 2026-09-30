@@ -718,6 +718,38 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "eitmad.product.save.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/SaveProduct"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.product-category.save.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/SaveProductCategory"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "eitmad.part.save.v1"
             },
             "payload": {
@@ -1134,6 +1166,38 @@
             },
             "payload": {
               "$ref": "#/definitions/Material"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "productSaved"
+            },
+            "payload": {
+              "$ref": "#/definitions/Product"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "productCategorySaved"
+            },
+            "payload": {
+              "$ref": "#/definitions/ProductCategory"
             }
           },
           "required": [
@@ -2688,6 +2752,22 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "eitmad.product.changed.event.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ProductChangeNotice"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "eitmad.part.changed.event.v1"
             },
             "payload": {
@@ -2765,6 +2845,22 @@
       },
       "required": [
         "reference"
+      ]
+    },
+    "GetProductRevision": {
+      "type": "object",
+      "properties": {
+        "forNewWork": {
+          "description": "New work requires the current revision and an active product, category, and variant.",
+          "type": "boolean"
+        },
+        "reference": {
+          "$ref": "#/definitions/ProductReference"
+        }
+      },
+      "required": [
+        "reference",
+        "forNewWork"
       ]
     },
     "GetSyncStatus": {
@@ -3532,6 +3628,56 @@
       "required": [
         "term",
         "limit"
+      ]
+    },
+    "ListProductCategories": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "limit": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 100,
+          "minimum": 1
+        }
+      },
+      "required": [
+        "limit"
+      ]
+    },
+    "ListProducts": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "limit": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 100,
+          "minimum": 1
+        },
+        "selectableOnly": {
+          "type": "boolean"
+        },
+        "term": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "term",
+        "limit",
+        "selectableOnly"
       ]
     },
     "ListReferenceMarkers": {
@@ -4588,6 +4734,247 @@
         "service"
       ]
     },
+    "Product": {
+      "type": "object",
+      "properties": {
+        "archived": {
+          "type": "boolean"
+        },
+        "categoryId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "categoryName": {
+          "description": "Category name at this revision, retained for historical reads.",
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        },
+        "notes": {
+          "description": "Internal notes are withheld with purchase costs.",
+          "type": "string"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        },
+        "updatedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "variants": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ProductVariant"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "scope",
+        "name",
+        "categoryId",
+        "categoryName",
+        "description",
+        "notes",
+        "variants",
+        "archived",
+        "revision",
+        "updatedAt"
+      ]
+    },
+    "ProductCategories": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ProductCategory"
+          }
+        },
+        "next": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "items"
+      ]
+    },
+    "ProductCategory": {
+      "type": "object",
+      "properties": {
+        "archived": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        },
+        "updatedAt": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "id",
+        "scope",
+        "name",
+        "archived",
+        "revision",
+        "updatedAt"
+      ]
+    },
+    "ProductChangeNotice": {
+      "type": "object",
+      "properties": {
+        "category": {
+          "type": "boolean"
+        },
+        "changedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "required": [
+        "scope",
+        "id",
+        "category",
+        "revision",
+        "changedAt"
+      ]
+    },
+    "ProductChanges": {
+      "type": "object"
+    },
+    "ProductPage": {
+      "type": "object",
+      "properties": {
+        "canManage": {
+          "type": "boolean"
+        },
+        "canReadCosts": {
+          "type": "boolean"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Product"
+          }
+        },
+        "next": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "canManage",
+        "canReadCosts",
+        "items"
+      ]
+    },
+    "ProductReference": {
+      "type": "object",
+      "properties": {
+        "productId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "schemaVersion": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        },
+        "variantId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "scope",
+        "productId",
+        "variantId",
+        "revision",
+        "schemaVersion"
+      ]
+    },
+    "ProductVariant": {
+      "type": "object",
+      "properties": {
+        "archived": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        },
+        "purchaseCostYer": {
+          "description": "Omitted entirely when the caller cannot read internal purchase costs.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "archived"
+      ]
+    },
     "ProtocolCatalog": {
       "type": "object",
       "properties": {
@@ -4866,6 +5253,54 @@
             },
             "payload": {
               "$ref": "#/definitions/SearchCustomers"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.product.list.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ListProducts"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.product-category.list.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ListProductCategories"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.product-revision.get.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/GetProductRevision"
             }
           },
           "required": [
@@ -5208,6 +5643,54 @@
             },
             "payload": {
               "$ref": "#/definitions/CustomerPage"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "products"
+            },
+            "payload": {
+              "$ref": "#/definitions/ProductPage"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "productCategories"
+            },
+            "payload": {
+              "$ref": "#/definitions/ProductCategories"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "productRevision"
+            },
+            "payload": {
+              "$ref": "#/definitions/Product"
             }
           },
           "required": [
@@ -6175,6 +6658,111 @@
         "archived"
       ]
     },
+    "SaveProduct": {
+      "type": "object",
+      "properties": {
+        "archived": {
+          "type": "boolean"
+        },
+        "categoryId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": {
+          "type": "string"
+        },
+        "expectedRevision": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        },
+        "variants": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SaveProductVariant"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "categoryId",
+        "description",
+        "notes",
+        "variants",
+        "archived"
+      ]
+    },
+    "SaveProductCategory": {
+      "type": "object",
+      "properties": {
+        "archived": {
+          "type": "boolean"
+        },
+        "expectedRevision": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "archived"
+      ]
+    },
+    "SaveProductVariant": {
+      "type": "object",
+      "properties": {
+        "archived": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        },
+        "purchaseCostYer": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "purchaseCostYer",
+        "archived"
+      ]
+    },
     "SchemaSupport": {
       "type": "object",
       "properties": {
@@ -6938,6 +7526,22 @@
             },
             "payload": {
               "$ref": "#/definitions/MaterialChanges"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.product.changed.subscribe.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ProductChanges"
             }
           },
           "required": [

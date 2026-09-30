@@ -606,6 +606,28 @@ namespace Eitmad.Contracts
         [JsonPropertyName("unitId")]
         public Guid? UnitId { get; set; }
 
+        /// <summary>
+        /// Category name at this revision, retained for historical reads.
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("categoryName")]
+        public string CategoryName { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("description")]
+        public string Description { get; set; }
+
+        /// <summary>
+        /// Internal notes are withheld with purchase costs.
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("notes")]
+        public string Notes { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("variants")]
+        public ProductVariant[] Variants { get; set; }
+
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("composition")]
         public CompositionReference Composition { get; set; }
@@ -613,10 +635,6 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("cost")]
         public PartCost Cost { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("description")]
-        public string Description { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("accountId")]
@@ -870,6 +888,24 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("principalKind")]
         public PrincipalKind PrincipalKind { get; set; }
+    }
+
+    public partial class ProductVariant
+    {
+        [JsonPropertyName("archived")]
+        public bool Archived { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        /// <summary>
+        /// Omitted entirely when the caller cannot read internal purchase costs.
+        /// </summary>
+        [JsonPropertyName("purchaseCostYer")]
+        public long? PurchaseCostYer { get; set; }
     }
 
     public partial class RetryDisposition
@@ -1653,6 +1689,14 @@ namespace Eitmad.Contracts
         public SavePart CommandPartSave { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Command_ProductCategorySave")]
+        public SaveProductCategory CommandProductCategorySave { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Command_ProductSave")]
+        public SaveProduct CommandProductSave { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Command_ReferenceMarkerUpsert")]
         public UpsertReferenceMarker CommandReferenceMarkerUpsert { get; set; }
 
@@ -1695,6 +1739,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Event_PermissionsChangedEvent")]
         public EffectivePermissions EventPermissionsChangedEvent { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Event_ProductChangedEvent")]
+        public ProductChangeNotice EventProductChangedEvent { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Event_RecordChangedEvent")]
@@ -1837,6 +1885,18 @@ namespace Eitmad.Contracts
         public Dictionary<string, object> QueryPermissionsGetEffective { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Query_ProductCategoryList")]
+        public ListProductCategories QueryProductCategoryList { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Query_ProductList")]
+        public ListProducts QueryProductList { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Query_ProductRevisionGet")]
+        public GetProductRevision QueryProductRevisionGet { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Query_ReferenceMarkerList")]
         public ListReferenceMarkers QueryReferenceMarkerList { get; set; }
 
@@ -1891,6 +1951,18 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_Parts")]
         public PartPage QueryResultParts { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("QueryResult_ProductCategories")]
+        public ProductCategories QueryResultProductCategories { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("QueryResult_ProductRevision")]
+        public Product QueryResultProductRevision { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("QueryResult_Products")]
+        public ProductPage QueryResultProducts { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_ReferenceMarkers")]
@@ -1975,6 +2047,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Subscription_PermissionsChangedSubscribe")]
         public Dictionary<string, object> SubscriptionPermissionsChangedSubscribe { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Subscription_ProductChangedSubscribe")]
+        public Dictionary<string, object> SubscriptionProductChangedSubscribe { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Subscription_RecordChangedSubscribe")]
@@ -2279,6 +2355,63 @@ namespace Eitmad.Contracts
         public PartUsage[] Usages { get; set; }
     }
 
+    public partial class SaveProductCategory
+    {
+        [JsonPropertyName("archived")]
+        public bool Archived { get; set; }
+
+        [JsonPropertyName("expectedRevision")]
+        public long? ExpectedRevision { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid? Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+    }
+
+    public partial class SaveProduct
+    {
+        [JsonPropertyName("archived")]
+        public bool Archived { get; set; }
+
+        [JsonPropertyName("categoryId")]
+        public Guid CategoryId { get; set; }
+
+        [JsonPropertyName("description")]
+        public string Description { get; set; }
+
+        [JsonPropertyName("expectedRevision")]
+        public long? ExpectedRevision { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid? Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("notes")]
+        public string Notes { get; set; }
+
+        [JsonPropertyName("variants")]
+        public SaveProductVariant[] Variants { get; set; }
+    }
+
+    public partial class SaveProductVariant
+    {
+        [JsonPropertyName("archived")]
+        public bool Archived { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("purchaseCostYer")]
+        public long PurchaseCostYer { get; set; }
+    }
+
     public partial class UpsertReferenceMarker
     {
         [JsonPropertyName("expectedRevision")]
@@ -2436,6 +2569,24 @@ namespace Eitmad.Contracts
     }
 
     public partial class PartChangeNotice
+    {
+        [JsonPropertyName("category")]
+        public bool Category { get; set; }
+
+        [JsonPropertyName("changedAt")]
+        public long ChangedAt { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+    }
+
+    public partial class ProductChangeNotice
     {
         [JsonPropertyName("category")]
         public bool Category { get; set; }
@@ -2849,6 +3000,60 @@ namespace Eitmad.Contracts
         public string Term { get; set; }
     }
 
+    public partial class ListProductCategories
+    {
+        [JsonPropertyName("after")]
+        public Guid? After { get; set; }
+
+        [JsonPropertyName("limit")]
+        public long Limit { get; set; }
+    }
+
+    public partial class ListProducts
+    {
+        [JsonPropertyName("after")]
+        public Guid? After { get; set; }
+
+        [JsonPropertyName("limit")]
+        public long Limit { get; set; }
+
+        [JsonPropertyName("selectableOnly")]
+        public bool SelectableOnly { get; set; }
+
+        [JsonPropertyName("term")]
+        public string Term { get; set; }
+    }
+
+    public partial class GetProductRevision
+    {
+        /// <summary>
+        /// New work requires the current revision and an active product, category, and variant.
+        /// </summary>
+        [JsonPropertyName("forNewWork")]
+        public bool ForNewWork { get; set; }
+
+        [JsonPropertyName("reference")]
+        public ProductReference Reference { get; set; }
+    }
+
+    public partial class ProductReference
+    {
+        [JsonPropertyName("productId")]
+        public Guid ProductId { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("schemaVersion")]
+        public long SchemaVersion { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+
+        [JsonPropertyName("variantId")]
+        public Guid VariantId { get; set; }
+    }
+
     public partial class ListReferenceMarkers
     {
         [JsonPropertyName("after")]
@@ -3018,6 +3223,93 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("part")]
         public Part Part { get; set; }
+    }
+
+    public partial class ProductCategories
+    {
+        [JsonPropertyName("items")]
+        public ProductCategory[] Items { get; set; }
+
+        [JsonPropertyName("next")]
+        public Guid? Next { get; set; }
+    }
+
+    public partial class ProductCategory
+    {
+        [JsonPropertyName("archived")]
+        public bool Archived { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+
+        [JsonPropertyName("updatedAt")]
+        public long UpdatedAt { get; set; }
+    }
+
+    public partial class Product
+    {
+        [JsonPropertyName("archived")]
+        public bool Archived { get; set; }
+
+        [JsonPropertyName("categoryId")]
+        public Guid CategoryId { get; set; }
+
+        /// <summary>
+        /// Category name at this revision, retained for historical reads.
+        /// </summary>
+        [JsonPropertyName("categoryName")]
+        public string CategoryName { get; set; }
+
+        [JsonPropertyName("description")]
+        public string Description { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        /// <summary>
+        /// Internal notes are withheld with purchase costs.
+        /// </summary>
+        [JsonPropertyName("notes")]
+        public string Notes { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+
+        [JsonPropertyName("updatedAt")]
+        public long UpdatedAt { get; set; }
+
+        [JsonPropertyName("variants")]
+        public ProductVariant[] Variants { get; set; }
+    }
+
+    public partial class ProductPage
+    {
+        [JsonPropertyName("canManage")]
+        public bool CanManage { get; set; }
+
+        [JsonPropertyName("canReadCosts")]
+        public bool CanReadCosts { get; set; }
+
+        [JsonPropertyName("items")]
+        public Product[] Items { get; set; }
+
+        [JsonPropertyName("next")]
+        public Guid? Next { get; set; }
     }
 
     public partial class ReferenceMarkerPage
@@ -3511,7 +3803,7 @@ namespace Eitmad.Contracts
 
     public enum LifecycleStage { AuthorityLock, ComponentShutdown, ComponentStartup, ProcessIdentity, ReadinessCheck };
 
-    public enum PurpleKind { ConfigurationUpdated, CustomerCreated, CustomerUpdated, DesktopAccountCreated, DesktopAccountDeactivated, DesktopAccountUpdated, InstallerOutcomeRecorded, MaterialCategorySaved, MaterialSaved, MaterialUnitSaved, OperationCancelled, PartCategorySaved, PartSaved, ReferenceMarkerUpserted, RelationshipGranted, RelationshipRevoked };
+    public enum PurpleKind { ConfigurationUpdated, CustomerCreated, CustomerUpdated, DesktopAccountCreated, DesktopAccountDeactivated, DesktopAccountUpdated, InstallerOutcomeRecorded, MaterialCategorySaved, MaterialSaved, MaterialUnitSaved, OperationCancelled, PartCategorySaved, PartSaved, ProductCategorySaved, ProductSaved, ReferenceMarkerUpserted, RelationshipGranted, RelationshipRevoked };
 
     public enum ErrorParameterValueKind { Identifier, Integer, Text };
 
@@ -4171,6 +4463,10 @@ namespace Eitmad.Contracts
                     return PurpleKind.PartCategorySaved;
                 case "partSaved":
                     return PurpleKind.PartSaved;
+                case "productCategorySaved":
+                    return PurpleKind.ProductCategorySaved;
+                case "productSaved":
+                    return PurpleKind.ProductSaved;
                 case "referenceMarkerUpserted":
                     return PurpleKind.ReferenceMarkerUpserted;
                 case "relationshipGranted":
@@ -4223,6 +4519,12 @@ namespace Eitmad.Contracts
                     return;
                 case PurpleKind.PartSaved:
                     JsonSerializer.Serialize(writer, "partSaved", options);
+                    return;
+                case PurpleKind.ProductCategorySaved:
+                    JsonSerializer.Serialize(writer, "productCategorySaved", options);
+                    return;
+                case PurpleKind.ProductSaved:
+                    JsonSerializer.Serialize(writer, "productSaved", options);
                     return;
                 case PurpleKind.ReferenceMarkerUpserted:
                     JsonSerializer.Serialize(writer, "referenceMarkerUpserted", options);

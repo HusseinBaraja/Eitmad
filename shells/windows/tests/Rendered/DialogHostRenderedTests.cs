@@ -137,6 +137,7 @@ public sealed class DialogHostRenderedTests
         WpfTestHost.Run(width, 753, window =>
         {
             var products = Navigate<ProductsView>(window, "ProductsNavButton");
+            products.ViewModel.ApplyDurableData(Products.ProductsPresentationTests.Data());
             products.ViewModel.BeginManageCategories();
             CaptureDialog(window, "product-categories", width);
             var manager = OpenDialog(window);
@@ -153,6 +154,8 @@ public sealed class DialogHostRenderedTests
             WpfTestHost.CompleteLayout(window);
             Assert.IsTrue(editor.IsOpen);
             Assert.IsFalse(manager.IsOpen);
+            products.ViewModel.FailCategory("تحقق من اسم الفئة.");
+            WpfTestHost.CompleteLayout(window);
             Assert.IsFalse(string.IsNullOrEmpty(products.ViewModel.CategoryError));
             Assert.IsTrue(editor.IsKeyboardFocusWithin);
             RaiseKey(editor, Key.Escape);

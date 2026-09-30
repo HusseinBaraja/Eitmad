@@ -5,7 +5,7 @@ use sha2::{Digest as _, Sha256};
 
 use crate::{
     CURRENT_STORAGE_VERSION, MIN_SUPPORTED_STORAGE_VERSION, StorageError, audit, authorization,
-    configuration, customer, desktop_auth, identity, local_authority, material, part,
+    configuration, customer, desktop_auth, identity, local_authority, material, part, product,
     reference_marker, sync_state,
 };
 
@@ -144,6 +144,7 @@ fn registry() -> Vec<Migration> {
         .chain(customer::SYNC_MIGRATIONS)
         .chain(material::MIGRATIONS)
         .chain(part::MIGRATIONS)
+        .chain(product::MIGRATIONS)
         .copied()
         .collect()
 }

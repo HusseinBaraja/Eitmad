@@ -1,3 +1,4 @@
+using Eitmad.Contracts;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Windows.Media;
@@ -5,7 +6,7 @@ using System.Windows.Media;
 namespace Eitmad.WindowsShell.Features.Products;
 
 /// <summary>
-/// Owns transient ready-made product list and editor state for the Windows preview.
+/// Projects Rust ready-made definitions and holds unsaved editor fields.
 /// Durable validation, authorization, audit, storage, and synchronization remain Rust responsibilities.
 /// </summary>
 public sealed class ProductsViewModel : ObservableObject
@@ -15,9 +16,26 @@ public sealed class ProductsViewModel : ObservableObject
     public const string ActiveStatus = "نشط";
     public const string ArchivedStatus = "مؤرشف";
 
-    private readonly List<ProductListItem> products;
+    private readonly List<ProductListItem> products = [];
+    private readonly Dictionary<Guid, Product> records = [];
+    public event EventHandler? SearchChanged;
+    private Guid singleVariantId = Guid.NewGuid();
+    private bool isBusy, savePending;
+    public bool IsBusy { get => isBusy; set { Set(ref isBusy, value); Raise(nameof(CanInteract)); Raise(nameof(CanEdit)); } }
+    public bool SavePending { get => savePending; set { Set(ref savePending, value); Raise(nameof(CanEdit)); Raise(nameof(CanInteract)); } }
+    private bool canManage, canReadCosts;
+    public bool CanManage { get => canManage; private set { Set(ref canManage, value); Raise(nameof(CanEdit)); } }
+    public bool CanReadCosts { get => canReadCosts; private set => Set(ref canReadCosts, value); }
+    public bool CanInteract => !IsBusy;
+    public bool CanEdit => !IsBusy && !SavePending && CanManage;
+    private string availabilityMessage = "جار تحميل المنتجات…";
+    public string AvailabilityMessage { get => availabilityMessage; private set { Set(ref availabilityMessage, value); Raise(nameof(PageSubtitle)); } }
+    public string PageSubtitle => AvailabilityMessage.Length > 0 ? AvailabilityMessage : "المنتجات محفوظة محلياً — سعر البيع من التسعير";
     private readonly Dictionary<Guid, ProductDraftDetails> details = [];
     private ProductListItem? editingProduct;
+    private Product? editingRecord, pendingArchiveRecord;
+    private Guid? editorCategoryId;
+    public Guid? EditorCategoryId { get => editorCategoryId; set { Set(ref editorCategoryId, value); var c = Categories.FirstOrDefault(c => c.Id == value); if (c is not null) { editorCategory = c.Name; Raise(nameof(EditorCategory)); } } }
     private ProductListItem? pendingArchiveProduct;
     private ProductCategoryOption? editingCategory;
     private string searchText = string.Empty;
@@ -33,7 +51,6 @@ public sealed class ProductsViewModel : ObservableObject
     private string productImageName = string.Empty;
     private bool hasVariants;
     private decimal purchaseCost;
-    private decimal sellingPrice;
     private string editorError = string.Empty;
     private string feedbackMessage = string.Empty;
     private bool isArchiveConfirmationOpen;
@@ -45,66 +62,54 @@ public sealed class ProductsViewModel : ObservableObject
 
     public ProductsViewModel()
     {
-        products =
-        [
-            new(Guid.Parse("5e084704-f318-4563-9f23-22fc0a7cbe61"), "مرتبة طبية", "المراتب", 55_000m, 75_000m, "مفرد +2", "Mattress"),
-            new(Guid.Parse("9b5b2782-e342-45d3-971e-b10e22870c25"), "وسادة فندقية", "الوسائد", 8_000m, 12_000m, "قياسي", "Pillow"),
-            new(Guid.Parse("bd408138-8410-471f-8de9-fb33c7a0ff18"), "مزهرية رملية", "الديكور", 14_000m, 22_000m, "بدون خيارات", "Vase"),
-            new(Guid.Parse("02b38a86-778a-4d34-bf74-3ca79bf10b24"), "مصباح قراءة", "الإضاءة", 21_000m, 31_000m, "أسود", "Lamp", isArchived: true),
-        ];
-
-        Categories =
-        [
-            new("المراتب"),
-            new("الوسائد"),
-            new("الديكور"),
-            new("الإضاءة"),
-            new("الإكسسوارات"),
-        ];
-        ActiveCategories = new ObservableCollection<ProductCategoryOption>(Categories);
-        CategoryOptions = [AllCategories, .. Categories.Select(category => category.Name)];
-        StatusOptions = [AllStatuses, ActiveStatus, ArchivedStatus];
-        VisibleProducts = [];
-        Variants = [];
-
-        details[products[0].Id] = new(
-            "مرتبة جاهزة بدعم طبي وطبقة علوية مريحة.",
-            "متوفرة من المورد خلال يومي عمل.",
-            null,
-            string.Empty,
-            [
-                new(Guid.NewGuid(), "مفرد", 55_000m, 75_000m),
-                new(Guid.NewGuid(), "مزدوج", 80_000m, 105_000m),
-                new(Guid.NewGuid(), "كينغ", 105_000m, 135_000m),
-            ]);
-        details[products[1].Id] = new("وسادة جاهزة بحشوة ناعمة.", string.Empty, null, string.Empty, []);
-        details[products[2].Id] = new("قطعة ديكور جاهزة بلون رملي محايد.", string.Empty, null, string.Empty, []);
-        details[products[3].Id] = new("مصباح قراءة معدني جاهز.", string.Empty, null, string.Empty, []);
-        RefreshVisibleProducts();
+        Categories = []; ActiveCategories = []; CategoryOptions = [AllCategories];
+        StatusOptions = [AllStatuses, ActiveStatus, ArchivedStatus]; VisibleProducts = []; Variants = [];
     }
+
+    /// <summary>Projects generated Rust records without changing an open unsaved editor.</summary>
+    public void ApplyDurableData(ProductSnapshot data)
+    {
+        if (!data.CanManage || !data.CanReadCosts) { IsEditorOpen = false; IsCategoryEditorOpen = false; IsCategoryManagerOpen = false; IsArchiveConfirmationOpen = false; editingRecord = null; pendingArchiveRecord = null; Notes = ""; PurchaseCost = 0; Variants.Clear(); SavePending = false; }
+        CanManage = data.CanManage; CanReadCosts = data.CanReadCosts;
+        var selectedCategoryId = editorCategoryId;
+        var selectedFilter = SelectedCategory;
+        records.Clear(); products.Clear(); details.Clear(); Categories.Clear(); ActiveCategories.Clear();
+        CategoryOptions = new[] { AllCategories }.Concat(data.Categories.Items.Select(c => c.Name)).ToArray();
+        Raise(nameof(CategoryOptions));
+        foreach (var c in data.Categories.Items)
+        {
+            var option = new ProductCategoryOption(c.Name) { Id = c.Id, Revision = c.Revision, IsArchived = c.Archived };
+            Categories.Add(option); if (!c.Archived) ActiveCategories.Add(option);
+        }
+        foreach (var p in data.Products)
+        {
+            records[p.Id] = p;
+            var active = p.Variants.Where(v => !v.Archived).ToArray(); var primary = active.FirstOrDefault() ?? p.Variants.FirstOrDefault();
+            products.Add(new ProductListItem(p.Id, p.Name, Categories.FirstOrDefault(c => c.Id == p.CategoryId)?.Name ?? p.CategoryName, primary?.PurchaseCostYer ?? 0, string.Join("، ", active.Select(v => v.Name)), ThumbnailForCategory(p.CategoryName), isArchived: p.Archived) { HasPurchaseCost = primary?.PurchaseCostYer is not null });
+            details[p.Id] = new(p.Description, p.Notes, null, "", p.Variants.Select(v => new ProductVariant(v.Id, v.Name, v.PurchaseCostYer ?? 0) { IsArchived = v.Archived }).ToArray());
+        }
+        if (editingRecord is { } editing && Categories.FirstOrDefault(c => c.Id == editing.CategoryId) is { } retained && !ActiveCategories.Contains(retained)) ActiveCategories.Add(retained);
+        EditorCategoryId = selectedCategoryId;
+        SelectedCategory = CategoryOptions.Contains(selectedFilter) ? selectedFilter : AllCategories; Raise(nameof(SelectedCategory));
+        AvailabilityMessage = ""; RefreshVisibleProducts();
+    }
+    public void Unavailable(string message) { AvailabilityMessage = message; products.Clear(); RefreshVisibleProducts(); }
+    public void ClearSession()
+    {
+        SavePending = false; IsBusy = false; IsEditorOpen = false; IsCategoryEditorOpen = false; IsCategoryManagerOpen = false; IsArchiveConfirmationOpen = false;
+        editingRecord = null; pendingArchiveRecord = null; editorCategoryId = null; editingProduct = null; pendingArchiveProduct = null; editingCategory = null; EditorName = ""; EditorCategory = ""; ShortDescription = ""; Notes = ""; PurchaseCost = 0; Variants.Clear(); ProductImage = null; ProductImageName = ""; CategoryName = ""; CategoryError = ""; EditorError = ""; FeedbackMessage = "";
+        searchText = ""; Raise(nameof(SearchText)); SelectedCategory = AllCategories; SelectedStatus = AllStatuses; CategoryOptions = [AllCategories]; Raise(nameof(CategoryOptions)); CanManage = false; CanReadCosts = false; records.Clear(); details.Clear(); Categories.Clear(); ActiveCategories.Clear(); Unavailable("جار تحميل المنتجات…");
+    }
+    public void Fail(string message) => EditorError = message;
+    public void FailCategory(string message) => CategoryError = message;
+    public void Saved() { IsEditorOpen = false; IsArchiveConfirmationOpen = false; pendingArchiveProduct = null; SavePending = false; EditorError = ""; FeedbackMessage = "حُفظ المنتج محلياً مع سجل التدقيق."; }
+    public void CategorySaved(string name) { IsCategoryEditorOpen = false; CategoryError = ""; EditorCategory = name; if (returnToCategoryManager) IsCategoryManagerOpen = true; }
 
     public ObservableCollection<ProductListItem> VisibleProducts { get; }
 
-    public IEnumerable<Reception.SalesCatalogItem> GetSalesCatalogItems() =>
-        products.Where(item => !item.IsArchived).Select(item =>
-        {
-            var detail = details.GetValueOrDefault(item.Id);
-            var count = detail?.Variants.Count ?? 0;
-            var variants = count > 1 ? $"{count} خيارات" : item.VariantSummary;
-            return new Reception.SalesCatalogItem(item.Id, item.Name, item.Category,
-                detail?.Description ?? string.Empty, variants,
-                count > 0 ? detail!.Variants.Min(variant => variant.SellingPrice) : item.SellingPrice, count > 1,
-                item.ThumbnailKind, item.Image);
-        });
-
-    public Reception.ProductSelectionViewModel? GetSalesSelection(Guid id)
-    {
-        var item = GetSalesCatalogItems().FirstOrDefault(item => item.Id == id);
-        if (item is null) return null;
-        var variants = details.GetValueOrDefault(id)?.Variants ?? [];
-        return new(item, variants.Select(variant =>
-            new Reception.SalesProductVariant(variant.Id, variant.Name, variant.SellingPrice)).ToArray());
-    }
+    // Selling-price publication and sales selection remain owned by pricing/catalog.
+    public IEnumerable<Reception.SalesCatalogItem> GetSalesCatalogItems() => [];
+    public Reception.ProductSelectionViewModel? GetSalesSelection(Guid id) => null;
 
     public ObservableCollection<ProductVariant> Variants { get; }
 
@@ -112,7 +117,7 @@ public sealed class ProductsViewModel : ObservableObject
 
     public ObservableCollection<ProductCategoryOption> ActiveCategories { get; }
 
-    public ObservableCollection<string> CategoryOptions { get; }
+    public IReadOnlyList<string> CategoryOptions { get; private set; }
 
     public IReadOnlyList<string> StatusOptions { get; }
 
@@ -123,7 +128,7 @@ public sealed class ProductsViewModel : ObservableObject
         {
             if (Set(ref searchText, value ?? string.Empty))
             {
-                RefreshVisibleProducts();
+                SearchChanged?.Invoke(this, EventArgs.Empty);
             }
         }
     }
@@ -185,7 +190,7 @@ public sealed class ProductsViewModel : ObservableObject
 
     public string EditorName { get => editorName; set => Set(ref editorName, value ?? string.Empty); }
 
-    public string EditorCategory { get => editorCategory; set => Set(ref editorCategory, value ?? string.Empty); }
+    public string EditorCategory { get => editorCategory; set { Set(ref editorCategory, value ?? string.Empty); EditorCategoryId = Categories.FirstOrDefault(c => c.Name == value)?.Id ?? editorCategoryId; } }
 
     public string ShortDescription { get => shortDescription; set => Set(ref shortDescription, value ?? string.Empty); }
 
@@ -238,28 +243,9 @@ public sealed class ProductsViewModel : ObservableObject
         {
             if (Set(ref purchaseCost, value))
             {
-                Raise(nameof(Margin));
-                Raise(nameof(MarginLabel));
             }
         }
     }
-
-    public decimal SellingPrice
-    {
-        get => sellingPrice;
-        set
-        {
-            if (Set(ref sellingPrice, value))
-            {
-                Raise(nameof(Margin));
-                Raise(nameof(MarginLabel));
-            }
-        }
-    }
-
-    public decimal Margin => SellingPrice - PurchaseCost;
-
-    public string MarginLabel => Margin.ToString("N0", CultureInfo.InvariantCulture);
 
     public string EditorError
     {
@@ -335,6 +321,9 @@ public sealed class ProductsViewModel : ObservableObject
 
     public void BeginCreate()
     {
+        if (SavePending || !CanManage) return;
+        singleVariantId = Guid.NewGuid();
+        editingRecord = null; editorCategoryId = null;
         editingProduct = null;
         IsCreating = true;
         EditorName = string.Empty;
@@ -345,7 +334,6 @@ public sealed class ProductsViewModel : ObservableObject
         ProductImageName = string.Empty;
         HasVariants = false;
         PurchaseCost = 0m;
-        SellingPrice = 0m;
         Variants.Clear();
         EditorError = string.Empty;
         IsEditorOpen = true;
@@ -354,12 +342,17 @@ public sealed class ProductsViewModel : ObservableObject
     public void BeginEdit(ProductListItem product)
     {
         ArgumentNullException.ThrowIfNull(product);
+        if (SavePending || !CanManage || !records.ContainsKey(product.Id)) return;
+        singleVariantId = records[product.Id].Variants.FirstOrDefault()?.Id ?? Guid.NewGuid();
         editingProduct = product;
+        editingRecord = records[product.Id];
+        var retained = Categories.FirstOrDefault(c => c.Id == editingRecord.CategoryId);
+        if (retained is not null && !ActiveCategories.Contains(retained)) ActiveCategories.Add(retained);
+        EditorCategoryId = editingRecord.CategoryId;
         IsCreating = false;
         EditorName = product.Name;
         EditorCategory = product.Category;
         PurchaseCost = product.PurchaseCost;
-        SellingPrice = product.SellingPrice;
         var productDetails = details[product.Id];
         ShortDescription = productDetails.Description;
         Notes = productDetails.Notes;
@@ -371,21 +364,27 @@ public sealed class ProductsViewModel : ObservableObject
             Variants.Add(variant.Copy());
         }
 
-        HasVariants = Variants.Count > 0;
+        HasVariants = Variants.Count != 1 || Variants[0].Name != "قياسي";
         EditorError = string.Empty;
         IsEditorOpen = true;
     }
 
     public void BeginDuplicate(ProductListItem product)
     {
+        if (SavePending || !CanManage) return;
         BeginEdit(product);
+        var copies = Variants.Where(v => !v.IsArchived).Select(v => new ProductVariant(Guid.NewGuid(), v.Name, v.PurchaseCost)).ToArray();
+        Variants.Clear(); foreach (var v in copies) Variants.Add(v); singleVariantId = Guid.NewGuid();
+        editingRecord = null; editorCategoryId = null;
         editingProduct = null;
         IsCreating = true;
+        EditorCategoryId = Categories.FirstOrDefault(c => c.Name == EditorCategory)?.Id;
         EditorName = $"{product.Name} — نسخة";
     }
 
     public void CancelEditor()
     {
+        if (SavePending) return;
         IsEditorOpen = false;
         EditorError = string.Empty;
     }
@@ -393,101 +392,40 @@ public sealed class ProductsViewModel : ObservableObject
     public void AddVariant()
     {
         HasVariants = true;
-        Variants.Add(new ProductVariant(Guid.NewGuid(), $"خيار {Variants.Count + 1}", PurchaseCost, SellingPrice));
+        Variants.Add(new ProductVariant(Guid.NewGuid(), $"خيار {Variants.Count + 1}", PurchaseCost));
     }
 
     public void RemoveVariant(ProductVariant variant)
     {
         ArgumentNullException.ThrowIfNull(variant);
-        Variants.Remove(variant);
+        if (editingProduct is not null && editingRecord!.Variants.Any(v => v.Id == variant.Id)) variant.IsArchived = true;
+        else Variants.Remove(variant);
     }
 
-    public bool SaveEditor()
+    public SaveProduct SaveInput()
     {
-        var normalizedName = EditorName.Trim();
-        if (normalizedName.Length == 0)
-        {
-            EditorError = "أدخل اسم المنتج.";
-            return false;
-        }
-
-        if (!ActiveCategories.Any(category => category.Name == EditorCategory))
-        {
-            EditorError = "اختر فئة نشطة للمنتج.";
-            return false;
-        }
-
-        if (HasVariants)
-        {
-            if (Variants.Count == 0)
-            {
-                EditorError = "أضف خياراً واحداً على الأقل أو اختر «لا».";
-                return false;
-            }
-
-            if (Variants.Any(variant => string.IsNullOrWhiteSpace(variant.Name)))
-            {
-                EditorError = "أدخل اسماً لكل خيار.";
-                return false;
-            }
-
-            if (Variants.Any(variant => variant.PurchaseCost < 0m || variant.SellingPrice < 0m))
-            {
-                EditorError = "يجب ألا تكون أسعار الخيارات سالبة.";
-                return false;
-            }
-        }
-        else if (PurchaseCost < 0m || SellingPrice < 0m)
-        {
-            EditorError = "يجب ألا تكون الأسعار سالبة.";
-            return false;
-        }
-
-        var primaryVariant = HasVariants ? Variants[0] : null;
-        var rowPurchaseCost = primaryVariant?.PurchaseCost ?? PurchaseCost;
-        var rowSellingPrice = primaryVariant?.SellingPrice ?? SellingPrice;
-        var variantSummary = HasVariants
-            ? Variants.Count == 1 ? Variants[0].Name.Trim() : $"{Variants[0].Name.Trim()} +{Variants.Count - 1}"
-            : "بدون خيارات";
-
-        if (editingProduct is null)
-        {
-            editingProduct = new ProductListItem(
-                Guid.NewGuid(),
-                normalizedName,
-                EditorCategory,
-                rowPurchaseCost,
-                rowSellingPrice,
-                variantSummary,
-                ThumbnailForCategory(EditorCategory),
-                ProductImage);
-            products.Add(editingProduct);
-            FeedbackMessage = "أضيف المنتج إلى المعاينة المحلية فقط.";
-        }
-        else
-        {
-            editingProduct.Name = normalizedName;
-            editingProduct.Category = EditorCategory;
-            editingProduct.UpdateThumbnailKind(ThumbnailForCategory(EditorCategory));
-            editingProduct.PurchaseCost = rowPurchaseCost;
-            editingProduct.SellingPrice = rowSellingPrice;
-            editingProduct.VariantSummary = variantSummary;
-            editingProduct.Image = ProductImage;
-            FeedbackMessage = "حُدث المنتج في المعاينة المحلية فقط.";
-        }
-
-        details[editingProduct.Id] = new(
-            ShortDescription.Trim(),
-            Notes.Trim(),
-            ProductImage,
-            ProductImageName,
-            HasVariants ? Variants.Select(variant => variant.Copy()).ToList() : []);
-        IsEditorOpen = false;
-        EditorError = string.Empty;
-        RefreshVisibleProducts();
-        return true;
+        var current = editingRecord;
+        var category = Categories.FirstOrDefault(c => c.Name == EditorCategory);
+        var variants = HasVariants ? Variants.Select(v => new SaveProductVariant { Id = v.Id, Name = v.Name, PurchaseCostYer = WholeCost(v.PurchaseCost), Archived = v.IsArchived }).ToArray()
+            : new[] { new SaveProductVariant { Id = singleVariantId, Name = "قياسي", PurchaseCostYer = WholeCost(PurchaseCost) } };
+        return new SaveProduct { Id = current?.Id, ExpectedRevision = current?.Revision, Name = EditorName, CategoryId = editorCategoryId ?? category?.Id ?? Guid.Empty, Description = ShortDescription, Notes = Notes, Variants = variants, Archived = current?.Archived ?? false };
     }
-
+    private static long WholeCost(decimal value) => value == decimal.Truncate(value) ? checked((long)value) : throw new FormatException("whole YER required");
+    public SaveProduct ArchiveInput()
+    {
+        var p = pendingArchiveRecord!;
+        return new SaveProduct
+        {
+            Id = p.Id,
+            ExpectedRevision = p.Revision,
+            Name = p.Name,
+            CategoryId = p.CategoryId,
+            Description = p.Description,
+            Notes = p.Notes,
+            Archived = true,
+            Variants = p.Variants.Select(v => new SaveProductVariant { Id = v.Id, Name = v.Name, PurchaseCostYer = v.PurchaseCostYer ?? 0, Archived = v.Archived }).ToArray()
+        };
+    }
     public void RequestArchive(ProductListItem product)
     {
         ArgumentNullException.ThrowIfNull(product);
@@ -496,6 +434,8 @@ public sealed class ProductsViewModel : ObservableObject
             return;
         }
 
+        if (SavePending || !records.TryGetValue(product.Id, out var record)) return;
+        pendingArchiveRecord = editingProduct?.Id == product.Id ? editingRecord : record;
         pendingArchiveProduct = product;
         Raise(nameof(ArchiveConfirmationTitle));
         IsArchiveConfirmationOpen = true;
@@ -511,25 +451,10 @@ public sealed class ProductsViewModel : ObservableObject
 
     public void CancelArchive()
     {
+        if (SavePending) return;
         pendingArchiveProduct = null;
         IsArchiveConfirmationOpen = false;
         Raise(nameof(ArchiveConfirmationTitle));
-    }
-
-    public void ConfirmArchive()
-    {
-        if (pendingArchiveProduct is null)
-        {
-            return;
-        }
-
-        pendingArchiveProduct.IsArchived = true;
-        FeedbackMessage = "أُرشف المنتج في المعاينة المحلية فقط.";
-        pendingArchiveProduct = null;
-        IsArchiveConfirmationOpen = false;
-        IsEditorOpen = false;
-        Raise(nameof(ArchiveConfirmationTitle));
-        RefreshVisibleProducts();
     }
 
     public void ClearFeedback() => FeedbackMessage = string.Empty;
@@ -547,6 +472,7 @@ public sealed class ProductsViewModel : ObservableObject
 
     public void BeginAddCategory()
     {
+        if (SavePending || !CanManage) return;
         editingCategory = null;
         returnToCategoryManager = false;
         CategoryName = string.Empty;
@@ -558,12 +484,14 @@ public sealed class ProductsViewModel : ObservableObject
 
     public void BeginManageCategories()
     {
+        if (SavePending || !CanManage) return;
         IsCategoryEditorOpen = false;
         IsCategoryManagerOpen = true;
     }
 
     public void BeginEditCategory(ProductCategoryOption category)
     {
+        if (SavePending || !CanManage) return;
         ArgumentNullException.ThrowIfNull(category);
         editingCategory = category;
         returnToCategoryManager = IsCategoryManagerOpen;
@@ -574,69 +502,12 @@ public sealed class ProductsViewModel : ObservableObject
         Raise(nameof(CategoryEditorTitle));
     }
 
-    public bool SaveCategory()
-    {
-        var normalizedName = CategoryName.Trim();
-        if (normalizedName.Length == 0)
-        {
-            CategoryError = "أدخل اسم الفئة.";
-            return false;
-        }
-
-        if (Categories.Any(category => category != editingCategory
-            && string.Equals(category.Name, normalizedName, StringComparison.CurrentCultureIgnoreCase)))
-        {
-            CategoryError = "اسم الفئة مستخدم بالفعل.";
-            return false;
-        }
-
-        if (editingCategory is null)
-        {
-            var added = new ProductCategoryOption(normalizedName);
-            Categories.Add(added);
-            ActiveCategories.Add(added);
-            CategoryOptions.Add(normalizedName);
-            EditorCategory = normalizedName;
-        }
-        else
-        {
-            var previousName = editingCategory.Name;
-            editingCategory.Name = normalizedName;
-            var filterIndex = CategoryOptions.IndexOf(previousName);
-            if (filterIndex >= 0)
-            {
-                CategoryOptions[filterIndex] = normalizedName;
-            }
-
-            foreach (var product in products.Where(product => product.Category == previousName))
-            {
-                product.Category = normalizedName;
-            }
-
-            if (EditorCategory == previousName)
-            {
-                EditorCategory = normalizedName;
-            }
-
-            if (SelectedCategory == previousName)
-            {
-                SelectedCategory = normalizedName;
-            }
-        }
-
-        CategoryError = string.Empty;
-        IsCategoryEditorOpen = false;
-        if (returnToCategoryManager)
-        {
-            IsCategoryManagerOpen = true;
-        }
-
-        RefreshVisibleProducts();
-        return true;
-    }
+    public SaveProductCategory CategoryInput() => new() { Id = editingCategory?.Id, ExpectedRevision = editingCategory?.Revision, Name = CategoryName, Archived = editingCategory?.IsArchived ?? false };
+    public SaveProductCategory ArchiveCategoryInput(ProductCategoryOption category) => new() { Id = category.Id, ExpectedRevision = category.Revision, Name = category.Name, Archived = true };
 
     public void CancelCategoryEditor()
     {
+        if (SavePending) return;
         IsCategoryEditorOpen = false;
         CategoryError = string.Empty;
         if (returnToCategoryManager)
@@ -645,35 +516,12 @@ public sealed class ProductsViewModel : ObservableObject
         }
     }
 
-    public void CloseCategoryManager() => IsCategoryManagerOpen = false;
-
-    public void ArchiveCategory(ProductCategoryOption category)
-    {
-        ArgumentNullException.ThrowIfNull(category);
-        if (category.IsArchived || ActiveCategories.Count == 1)
-        {
-            if (ActiveCategories.Count == 1)
-            {
-                CategoryError = "يجب إبقاء فئة نشطة واحدة على الأقل.";
-            }
-
-            return;
-        }
-
-        category.IsArchived = true;
-        ActiveCategories.Remove(category);
-        if (EditorCategory == category.Name)
-        {
-            EditorCategory = ActiveCategories[0].Name;
-        }
-    }
+    public void CloseCategoryManager() { if (!SavePending) IsCategoryManagerOpen = false; }
 
     private void RefreshVisibleProducts()
     {
-        var normalizedSearch = PreviewText.NormalizeSearch(SearchText.Trim());
         var matches = products.Where(product =>
-            MatchesSearch(product, normalizedSearch)
-            && (SelectedCategory == AllCategories || product.Category == SelectedCategory)
+             (SelectedCategory == AllCategories || product.Category == SelectedCategory)
             && (SelectedStatus == AllStatuses
                 || (SelectedStatus == ActiveStatus && !product.IsArchived)
                 || (SelectedStatus == ArchivedStatus && product.IsArchived)));
@@ -687,12 +535,6 @@ public sealed class ProductsViewModel : ObservableObject
         Raise(nameof(HasNoVisibleProducts));
         Raise(nameof(VisibleCountLabel));
     }
-
-    private static bool MatchesSearch(ProductListItem product, string search) =>
-        search.Length == 0
-        || PreviewText.NormalizeSearch(product.Name).Contains(search, StringComparison.CurrentCultureIgnoreCase)
-        || PreviewText.NormalizeSearch(product.Category).Contains(search, StringComparison.CurrentCultureIgnoreCase)
-        || PreviewText.NormalizeSearch(product.VariantSummary).Contains(search, StringComparison.CurrentCultureIgnoreCase);
 
     private static string ThumbnailForCategory(string category) => category switch
     {

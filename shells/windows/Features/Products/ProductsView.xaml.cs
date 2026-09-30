@@ -1,20 +1,97 @@
+using Eitmad.Contracts;
+using Eitmad.Platform.Windows.Shell;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using System.Windows.Media;
 using Eitmad.WindowsShell.Controls;
 using Button = System.Windows.Controls.Button;
 using ComboBox = System.Windows.Controls.ComboBox;
 using MenuItem = System.Windows.Controls.MenuItem;
-using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
 using UserControl = System.Windows.Controls.UserControl;
 
 namespace Eitmad.WindowsShell.Features.Products;
 
 public partial class ProductsView : UserControl
 {
+    private ProductClient? client;
+    private IEngineShellBridge? engineBridge;
+    private CancellationTokenSource? refreshCancellation;
+    private long refreshVersion, sessionVersion;
+    private bool activated;
+    private SaveProductCategory? pendingCategoryInput;
+    public void Attach(IEngineShellBridge engine) { engineBridge = engine; CreateClient(); ViewModel.SearchChanged += (_, _) => _ = RefreshAsync(); }
+    private void CreateClient() { client = new ProductClient(engineBridge!); client.Changed += (_, _) => { if (activated) _ = RefreshAsync(); }; }
+    public async Task ActivateAsync() { if (client is null) { ViewModel.Unavailable("بيانات المنتجات غير متاحة."); return; } activated = true; await client.ActivateAsync(); await RefreshAsync(); }
+    public void ClearSession() { pendingCategoryInput = null; activated = false; ++sessionVersion; ++refreshVersion; refreshCancellation?.Cancel(); if (client is { } previous) { _ = previous.DisposeAsync(); CreateClient(); } ViewModel.ClearSession(); }
+    public async ValueTask DisposeAsync() { refreshCancellation?.Cancel(); refreshCancellation?.Dispose(); if (client is not null) await client.DisposeAsync(); }
+    private async Task RefreshAsync()
+    {
+        if (client is null || !activated) return;
+        refreshCancellation?.Cancel(); refreshCancellation?.Dispose(); var cancellation = new CancellationTokenSource(); refreshCancellation = cancellation; var version = ++refreshVersion;
+        try { var result = await client.LoadAsync(ViewModel.SearchText, cancellation.Token); if (version != refreshVersion) return; if (result.Succeeded) ViewModel.ApplyDurableData(result.Value!); else { if (result.Failure == ProductFailureKind.Denied) ClearRestrictedData(); ViewModel.Unavailable(ProductClient.ArabicMessage(result.Failure)); } }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
+    }
+    private async Task SaveAsync(bool archive)
+    {
+        if (client is null || ViewModel.IsBusy || !ViewModel.CanManage) { ViewModel.Fail("بيانات المنتجات غير متاحة."); return; }
+        if (!archive && VisualDescendants<System.Windows.Controls.TextBox>(this).FirstOrDefault(input => input.IsVisible && Validation.GetHasError(input)) is { } invalid)
+        {
+            ViewModel.Fail("أدخل تكلفة شراء صحيحة بالريال اليمني دون كسور.");
+            invalid.Focus();
+            return;
+        }
+        var session = sessionVersion; ViewModel.IsBusy = true;
+        try
+        {
+            var input = archive ? ViewModel.ArchiveInput() : ViewModel.SaveInput();
+            var failure = await client.SaveAsync(input);
+            if (!activated || session != sessionVersion) return;
+            ViewModel.SavePending = failure == ProductFailureKind.Unavailable;
+            if (failure == ProductFailureKind.Denied) { ClearRestrictedData(); ViewModel.Unavailable(ProductClient.ArabicMessage(failure)); return; }
+            if (failure == ProductFailureKind.None) { ViewModel.Saved(); await RefreshAsync(); RestartFeedbackTimer(); }
+            else ViewModel.Fail(ViewModel.SavePending ? "لم تتأكد نتيجة الحفظ. أعد المحاولة بنفس البيانات." : ProductClient.ArabicMessage(failure));
+        }
+        catch (Exception e) when (e is OverflowException or FormatException) { ViewModel.Fail("أدخل تكلفة الشراء بالريال اليمني دون كسور."); }
+        finally { if (session == sessionVersion) ViewModel.IsBusy = false; }
+    }
+    private async Task SaveCategoryAsync(SaveProductCategory input)
+    {
+        if (client is null || ViewModel.IsBusy || !ViewModel.CanManage) return;
+        var session = sessionVersion; ViewModel.IsBusy = true;
+        input = pendingCategoryInput ?? input;
+        try
+        {
+            var failure = await client.SaveAsync(input); if (!activated || session != sessionVersion) return;
+            ViewModel.SavePending = failure == ProductFailureKind.Unavailable;
+            pendingCategoryInput = ViewModel.SavePending ? input : null;
+            if (failure == ProductFailureKind.Denied) { ClearRestrictedData(); ViewModel.Unavailable(ProductClient.ArabicMessage(failure)); return; }
+            if (failure == ProductFailureKind.None) { await RefreshAsync(); ViewModel.CategorySaved(input.Name); }
+            else ViewModel.FailCategory(ViewModel.SavePending ? "لم تتأكد نتيجة الحفظ. أعد المحاولة بنفس البيانات." : ProductClient.ArabicMessage(failure));
+        }
+        finally { if (session == sessionVersion) ViewModel.IsBusy = false; }
+    }
+
+    private void ClearRestrictedData()
+    {
+        ++refreshVersion;
+        refreshCancellation?.Cancel();
+        pendingCategoryInput = null;
+        ViewModel.ClearSession();
+    }
+
+    private static IEnumerable<T> VisualDescendants<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, index);
+            if (child is T match) yield return match;
+            foreach (var descendant in VisualDescendants<T>(child)) yield return descendant;
+        }
+    }
+
     public ProductsView()
     {
         InitializeComponent();
@@ -77,42 +154,6 @@ public partial class ProductsView : UserControl
         }
     }
 
-    private void ChooseImageClick(object sender, RoutedEventArgs eventArgs)
-    {
-        var dialog = new OpenFileDialog
-        {
-            Title = "اختر صورة المنتج",
-            Filter = "Image files|*.png;*.jpg;*.jpeg;*.webp;*.bmp|All files|*.*",
-            CheckFileExists = true,
-            Multiselect = false,
-        };
-
-        if (dialog.ShowDialog() != true)
-        {
-            return;
-        }
-
-        try
-        {
-            var bitmap = new BitmapImage();
-            bitmap.BeginInit();
-            bitmap.CacheOption = BitmapCacheOption.OnLoad;
-            bitmap.UriSource = new System.Uri(dialog.FileName, System.UriKind.Absolute);
-            bitmap.EndInit();
-            bitmap.Freeze();
-            ViewModel.SetProductImage(bitmap, Path.GetFileName(dialog.FileName));
-        }
-        catch (Exception exception) when (exception is IOException
-                                          or UnauthorizedAccessException
-                                          or FormatException
-                                          or NotSupportedException
-                                          or OutOfMemoryException)
-        {
-            ViewModel.ReportImageLoadError();
-            RestartFeedbackTimer();
-        }
-    }
-
     private void AddVariantClick(object sender, RoutedEventArgs eventArgs) => ViewModel.AddVariant();
 
     private void RemoveVariantClick(object sender, RoutedEventArgs eventArgs)
@@ -123,27 +164,13 @@ public partial class ProductsView : UserControl
         }
     }
 
-    private void SaveProductClick(object sender, RoutedEventArgs eventArgs)
-    {
-        if (ViewModel.SaveEditor())
-        {
-            RestartFeedbackTimer();
-        }
-        else
-        {
-            ProductNameBox.Focus();
-        }
-    }
+    private async void SaveProductClick(object sender, RoutedEventArgs args) => await SaveAsync(false);
 
     private void CancelEditorClick(object sender, RoutedEventArgs eventArgs) => ViewModel.CancelEditor();
 
     private void ArchiveFromEditorClick(object sender, RoutedEventArgs eventArgs) => ViewModel.RequestArchiveFromEditor();
 
-    private void ConfirmArchiveClick(object sender, RoutedEventArgs eventArgs)
-    {
-        ViewModel.ConfirmArchive();
-        RestartFeedbackTimer();
-    }
+    private async void ConfirmArchiveClick(object sender, RoutedEventArgs args) => await SaveAsync(true);
 
     private void CancelArchiveClick(object sender, RoutedEventArgs eventArgs) => ViewModel.CancelArchive();
 
@@ -185,21 +212,16 @@ public partial class ProductsView : UserControl
         }
     }
 
-    private void ArchiveCategoryClick(object sender, RoutedEventArgs eventArgs)
+    private async void ArchiveCategoryClick(object sender, RoutedEventArgs eventArgs)
     {
         if (sender is Button { DataContext: ProductCategoryOption category })
         {
-            ViewModel.ArchiveCategory(category);
+            ViewModel.BeginEditCategory(category);
+            await SaveCategoryAsync(ViewModel.ArchiveCategoryInput(category));
         }
     }
 
-    private void SaveCategoryClick(object sender, RoutedEventArgs eventArgs)
-    {
-        if (!ViewModel.SaveCategory())
-        {
-            CategoryNameBox.Focus();
-        }
-    }
+    private async void SaveCategoryClick(object sender, RoutedEventArgs args) => await SaveCategoryAsync(ViewModel.CategoryInput());
 
     private void CancelCategoryClick(object sender, RoutedEventArgs eventArgs) => ViewModel.CancelCategoryEditor();
 
