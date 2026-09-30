@@ -163,11 +163,32 @@ Use the smallest applicable verification:
 * Cross-boundary runtime change: run one integrated engine-and-shell path after focused component checks pass.
 * Documentation: audit changed pages when supported. Use the full documentation audit only for shared navigation, indexes, or documentation-system changes.
 
-For a trivial, local, low-risk change, run only the smallest useful check. Do not run repository-wide checks, end-to-end tests, the full application, every platform suite, or a release checklist unless the change needs them. Run full gates only for a release, an explicit request, CI or workspace configuration, or a change that can affect most workspace members. CI owns exhaustive repository validation.
+For a trivial, local, low-risk change, run only the smallest useful check. Do not run repository-wide checks, end-to-end tests, the full application, every platform suite, or a release checklist unless the change needs them. Run full gates only for a release, an explicit request, the required checks before publishing a pull request below, CI or workspace configuration, or a change that can affect most workspace members. CI owns exhaustive repository validation.
 
 Produce screenshots, videos, traces, or other verification artifacts only when they add useful evidence. Do not produce them for routine low-risk changes.
 
 Applicable checks must pass without new warnings. Fix the cause; do not silence it. After failure, rerun the failed check and its direct dependent check, not the complete suite. Stop verification when the available evidence is sufficient to show that the requested behavior is correct. Do not continue only to increase confidence marginally. Do not claim an application run, platform, RTL, visual, or accessibility state that was not verified.
+
+### Before publishing a pull request
+
+Before creating a pull request or pushing new commits to an existing pull request, complete these local checks. This requirement applies to every pull request, including documentation changes. Read [Mandatory validation](.github/workflows/mandatory-validation.yml) and [Contract compatibility](.github/workflows/contracts.yml) first. Use their current toolchain versions and commands; the commands below use Rust 1.85.1, Node.js 22, and .NET 8.
+
+| Check | Command |
+| --- | --- |
+| Rust formatting | `rustup run 1.85.1 cargo fmt --all -- --check` |
+| Minimum-version compilation | `rustup run 1.85.1 cargo check --locked --workspace --all-targets` |
+| Rust warnings, including tests | `rustup run 1.85.1 cargo clippy --locked --workspace --all-targets -- -D warnings` |
+| Rust workspace tests, including IPC and engine lifecycle | `rustup run 1.85.1 cargo test --locked --workspace` |
+| Install locked contract tools | `npm ci --ignore-scripts --prefix crates/contracts/codegen` |
+| Contract tool security | `npm audit --audit-level=high --prefix crates/contracts/codegen` |
+| Contract, fixture, reference, and generated-binding drift | `npm run contracts:verify --prefix crates/contracts/codegen` |
+| C# binding conformance and Arabic round trips | `dotnet run --project tests/contract-compatibility/csharp/Eitmad.ContractConformance.csproj --configuration Release -- tests/contract-compatibility/fixtures/protocol-v1.json` |
+
+Run the applicable shell, adapter, rendered, and documentation checks defined above as well. Check the complete proposed diff with `git diff --check <target-base>...HEAD`, using the verified target branch revision. Workspace tests already cover the runtime and CLI tests; do not run them again separately.
+
+Fix failures at their source before publishing. Do not weaken checks, suppress warnings, or bypass security audits. If a required check cannot run, report the exact blocker and obtain an explicit user waiver before publishing. Report platform checks that remain for CI without claiming they passed locally.
+
+Reuse successful results from the current task only when the relevant source, dependencies, toolchain, and target base are unchanged. Run the security audit at each publication because advisories can change without a code change. Include the commands and results in the pull request description.
 
 ## Documentation Impact
 

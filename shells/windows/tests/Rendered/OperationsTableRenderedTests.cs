@@ -12,6 +12,7 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 [TestClass]
 public sealed class OperationsTableRenderedTests
 {
+    /// <summary>Protects native table bindings, typed values, and the part review path at wide and narrow sizes.</summary>
     [TestMethod]
     [DataRow(1338d, 753d)]
     [DataRow(780d, 745d)]
@@ -73,12 +74,13 @@ public sealed class OperationsTableRenderedTests
             Check("product-variants");
             WpfTestHost.FindByName<Button>(window, "PartsNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             var parts = WpfTestHost.Descendants<Eitmad.WindowsShell.Features.Parts.PartsView>(window).Single().ViewModel;
+            var fixture = new Eitmad.WindowsShell.Tests.Parts.PartFixtures();
+            parts.ApplyDurableData(fixture.Snapshot());
             parts.BeginEdit(parts.VisibleParts[0]);
             Assert.IsTrue(parts.MoveToMaterials());
-            parts.OpenMaterialPicker();
-            parts.AddMaterial(parts.FilteredMaterials[0]);
+
             Check("part-materials");
-            Assert.IsTrue(parts.MoveToReview());
+            parts.ApplyCost(fixture.Cost, review: true);
             Check("part-review");
             WpfTestHost.FindByName<Button>(window, "FurnitureNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             var furniture = WpfTestHost.Descendants<Eitmad.WindowsShell.Features.Furniture.FurnitureView>(window).Single().ViewModel;

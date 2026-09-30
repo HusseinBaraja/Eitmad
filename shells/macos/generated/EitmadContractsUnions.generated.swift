@@ -13,6 +13,8 @@ public enum Command: Codable, Sendable {
     case materialCategorySave(SaveMaterialCategory)
     case materialUnitSave(SaveMaterialUnit)
     case materialSave(SaveMaterial)
+    case partSave(SavePart)
+    case partCategorySave(SavePartCategory)
     case desktopAccountCreate(CreateDesktopAccount)
     case desktopAccountUpdate(UpdateDesktopAccount)
     case desktopAccountDeactivate(DeactivateDesktopAccount)
@@ -29,6 +31,8 @@ public enum Command: Codable, Sendable {
         case materialCategorySave = "eitmad.material-category.save.v1"
         case materialUnitSave = "eitmad.material-unit.save.v1"
         case materialSave = "eitmad.material.save.v1"
+        case partSave = "eitmad.part.save.v1"
+        case partCategorySave = "eitmad.part-category.save.v1"
         case desktopAccountCreate = "eitmad.desktop-account.create.v1"
         case desktopAccountUpdate = "eitmad.desktop-account.update.v1"
         case desktopAccountDeactivate = "eitmad.desktop-account.deactivate.v1"
@@ -53,6 +57,8 @@ public enum Command: Codable, Sendable {
         case .materialCategorySave: self = .materialCategorySave(try container.decode(SaveMaterialCategory.self, forKey: .payload))
         case .materialUnitSave: self = .materialUnitSave(try container.decode(SaveMaterialUnit.self, forKey: .payload))
         case .materialSave: self = .materialSave(try container.decode(SaveMaterial.self, forKey: .payload))
+        case .partSave: self = .partSave(try container.decode(SavePart.self, forKey: .payload))
+        case .partCategorySave: self = .partCategorySave(try container.decode(SavePartCategory.self, forKey: .payload))
         case .desktopAccountCreate: self = .desktopAccountCreate(try container.decode(CreateDesktopAccount.self, forKey: .payload))
         case .desktopAccountUpdate: self = .desktopAccountUpdate(try container.decode(UpdateDesktopAccount.self, forKey: .payload))
         case .desktopAccountDeactivate: self = .desktopAccountDeactivate(try container.decode(DeactivateDesktopAccount.self, forKey: .payload))
@@ -95,6 +101,12 @@ public enum Command: Codable, Sendable {
         case .materialSave(let payload):
             try container.encode(Kind.materialSave, forKey: .kind)
             try container.encode(payload, forKey: .payload)
+        case .partSave(let payload):
+            try container.encode(Kind.partSave, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .partCategorySave(let payload):
+            try container.encode(Kind.partCategorySave, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
         case .desktopAccountCreate(let payload):
             try container.encode(Kind.desktopAccountCreate, forKey: .kind)
             try container.encode(payload, forKey: .payload)
@@ -120,6 +132,7 @@ public enum Event: Codable, Sendable {
     case referenceMarkerChangedEvent(ReferenceMarkerChangeNotice)
     case customerChangedEvent(CustomerChangeNotice)
     case materialChangedEvent(MaterialChangeNotice)
+    case partChangedEvent(PartChangeNotice)
 
     private enum Kind: String, Codable, Sendable {
         case configChangedEvent = "eitmad.config.changed.event.v1"
@@ -134,6 +147,7 @@ public enum Event: Codable, Sendable {
         case referenceMarkerChangedEvent = "eitmad.reference-marker.changed.event.v1"
         case customerChangedEvent = "eitmad.customer.changed.event.v1"
         case materialChangedEvent = "eitmad.material.changed.event.v1"
+        case partChangedEvent = "eitmad.part.changed.event.v1"
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -156,6 +170,7 @@ public enum Event: Codable, Sendable {
         case .referenceMarkerChangedEvent: self = .referenceMarkerChangedEvent(try container.decode(ReferenceMarkerChangeNotice.self, forKey: .payload))
         case .customerChangedEvent: self = .customerChangedEvent(try container.decode(CustomerChangeNotice.self, forKey: .payload))
         case .materialChangedEvent: self = .materialChangedEvent(try container.decode(MaterialChangeNotice.self, forKey: .payload))
+        case .partChangedEvent: self = .partChangedEvent(try container.decode(PartChangeNotice.self, forKey: .payload))
         }
     }
 
@@ -197,6 +212,9 @@ public enum Event: Codable, Sendable {
             try container.encode(payload, forKey: .payload)
         case .materialChangedEvent(let payload):
             try container.encode(Kind.materialChangedEvent, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .partChangedEvent(let payload):
+            try container.encode(Kind.partChangedEvent, forKey: .kind)
             try container.encode(payload, forKey: .payload)
         }
     }
@@ -368,6 +386,10 @@ public enum Query: Codable, Sendable {
     case referenceMarkerList(ListReferenceMarkers)
     case customerGet(GetCustomer)
     case customerSearch(SearchCustomers)
+    case partList(ListParts)
+    case partCategoryList(ListPartCategories)
+    case partCost(CalculatePartCost)
+    case partCompositionGet(GetPartComposition)
     case materialList(ListMaterials)
     case materialReferenceList(ListMaterialReferences)
     case desktopAccountList(ListDesktopAccounts)
@@ -381,6 +403,10 @@ public enum Query: Codable, Sendable {
         case referenceMarkerList = "eitmad.reference-marker.list.v1"
         case customerGet = "eitmad.customer.get.v1"
         case customerSearch = "eitmad.customer.search.v1"
+        case partList = "eitmad.part.list.v1"
+        case partCategoryList = "eitmad.part-category.list.v1"
+        case partCost = "eitmad.part.cost.v1"
+        case partCompositionGet = "eitmad.part-composition.get.v1"
         case materialList = "eitmad.material.list.v1"
         case materialReferenceList = "eitmad.material-reference.list.v1"
         case desktopAccountList = "eitmad.desktop-account.list.v1"
@@ -402,6 +428,10 @@ public enum Query: Codable, Sendable {
         case .referenceMarkerList: self = .referenceMarkerList(try container.decode(ListReferenceMarkers.self, forKey: .payload))
         case .customerGet: self = .customerGet(try container.decode(GetCustomer.self, forKey: .payload))
         case .customerSearch: self = .customerSearch(try container.decode(SearchCustomers.self, forKey: .payload))
+        case .partList: self = .partList(try container.decode(ListParts.self, forKey: .payload))
+        case .partCategoryList: self = .partCategoryList(try container.decode(ListPartCategories.self, forKey: .payload))
+        case .partCost: self = .partCost(try container.decode(CalculatePartCost.self, forKey: .payload))
+        case .partCompositionGet: self = .partCompositionGet(try container.decode(GetPartComposition.self, forKey: .payload))
         case .materialList: self = .materialList(try container.decode(ListMaterials.self, forKey: .payload))
         case .materialReferenceList: self = .materialReferenceList(try container.decode(ListMaterialReferences.self, forKey: .payload))
         case .desktopAccountList: self = .desktopAccountList(try container.decode(ListDesktopAccounts.self, forKey: .payload))
@@ -435,6 +465,18 @@ public enum Query: Codable, Sendable {
         case .customerSearch(let payload):
             try container.encode(Kind.customerSearch, forKey: .kind)
             try container.encode(payload, forKey: .payload)
+        case .partList(let payload):
+            try container.encode(Kind.partList, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .partCategoryList(let payload):
+            try container.encode(Kind.partCategoryList, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .partCost(let payload):
+            try container.encode(Kind.partCost, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .partCompositionGet(let payload):
+            try container.encode(Kind.partCompositionGet, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
         case .materialList(let payload):
             try container.encode(Kind.materialList, forKey: .kind)
             try container.encode(payload, forKey: .payload)
@@ -456,6 +498,10 @@ public enum QueryResult: Codable, Sendable {
     case referenceMarkers(ReferenceMarkerPage)
     case customer(Customer)
     case customers(CustomerPage)
+    case parts(PartPage)
+    case partCategories(PartCategories)
+    case partCost(PartCost)
+    case partComposition(Part)
     case materials(MaterialPage)
     case materialReferences(MaterialReferences)
     case desktopAccounts(DesktopAccountPage)
@@ -469,6 +515,10 @@ public enum QueryResult: Codable, Sendable {
         case referenceMarkers = "referenceMarkers"
         case customer = "customer"
         case customers = "customers"
+        case parts = "parts"
+        case partCategories = "partCategories"
+        case partCost = "partCost"
+        case partComposition = "partComposition"
         case materials = "materials"
         case materialReferences = "materialReferences"
         case desktopAccounts = "desktopAccounts"
@@ -490,6 +540,10 @@ public enum QueryResult: Codable, Sendable {
         case .referenceMarkers: self = .referenceMarkers(try container.decode(ReferenceMarkerPage.self, forKey: .payload))
         case .customer: self = .customer(try container.decode(Customer.self, forKey: .payload))
         case .customers: self = .customers(try container.decode(CustomerPage.self, forKey: .payload))
+        case .parts: self = .parts(try container.decode(PartPage.self, forKey: .payload))
+        case .partCategories: self = .partCategories(try container.decode(PartCategories.self, forKey: .payload))
+        case .partCost: self = .partCost(try container.decode(PartCost.self, forKey: .payload))
+        case .partComposition: self = .partComposition(try container.decode(Part.self, forKey: .payload))
         case .materials: self = .materials(try container.decode(MaterialPage.self, forKey: .payload))
         case .materialReferences: self = .materialReferences(try container.decode(MaterialReferences.self, forKey: .payload))
         case .desktopAccounts: self = .desktopAccounts(try container.decode(DesktopAccountPage.self, forKey: .payload))
@@ -522,6 +576,18 @@ public enum QueryResult: Codable, Sendable {
             try container.encode(payload, forKey: .payload)
         case .customers(let payload):
             try container.encode(Kind.customers, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .parts(let payload):
+            try container.encode(Kind.parts, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .partCategories(let payload):
+            try container.encode(Kind.partCategories, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .partCost(let payload):
+            try container.encode(Kind.partCost, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .partComposition(let payload):
+            try container.encode(Kind.partComposition, forKey: .kind)
             try container.encode(payload, forKey: .payload)
         case .materials(let payload):
             try container.encode(Kind.materials, forKey: .kind)
@@ -640,6 +706,7 @@ public enum Subscription: Codable, Sendable {
     case referenceMarkerChangedSubscribe(ReferenceMarkerChanges)
     case customerChangedSubscribe(CustomerChanges)
     case materialChangedSubscribe(MaterialChanges)
+    case partChangedSubscribe(PartChanges)
 
     private enum Kind: String, Codable, Sendable {
         case configChangedSubscribe = "eitmad.config.changed.subscribe.v1"
@@ -654,6 +721,7 @@ public enum Subscription: Codable, Sendable {
         case referenceMarkerChangedSubscribe = "eitmad.reference-marker.changed.subscribe.v1"
         case customerChangedSubscribe = "eitmad.customer.changed.subscribe.v1"
         case materialChangedSubscribe = "eitmad.material.changed.subscribe.v1"
+        case partChangedSubscribe = "eitmad.part.changed.subscribe.v1"
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -676,6 +744,7 @@ public enum Subscription: Codable, Sendable {
         case .referenceMarkerChangedSubscribe: self = .referenceMarkerChangedSubscribe(try container.decode(ReferenceMarkerChanges.self, forKey: .payload))
         case .customerChangedSubscribe: self = .customerChangedSubscribe(try container.decode(CustomerChanges.self, forKey: .payload))
         case .materialChangedSubscribe: self = .materialChangedSubscribe(try container.decode(MaterialChanges.self, forKey: .payload))
+        case .partChangedSubscribe: self = .partChangedSubscribe(try container.decode(PartChanges.self, forKey: .payload))
         }
     }
 
@@ -717,6 +786,9 @@ public enum Subscription: Codable, Sendable {
             try container.encode(payload, forKey: .payload)
         case .materialChangedSubscribe(let payload):
             try container.encode(Kind.materialChangedSubscribe, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .partChangedSubscribe(let payload):
+            try container.encode(Kind.partChangedSubscribe, forKey: .kind)
             try container.encode(payload, forKey: .payload)
         }
     }
@@ -834,6 +906,7 @@ public struct ListDesktopAccounts: Codable, Sendable {}
 public struct ListMaterialReferences: Codable, Sendable {}
 public struct MaterialChanges: Codable, Sendable {}
 public struct Notifications: Codable, Sendable {}
+public struct PartChanges: Codable, Sendable {}
 public struct PermissionChanges: Codable, Sendable {}
 public struct RecordChanges: Codable, Sendable {}
 public struct ReferenceMarkerChanges: Codable, Sendable {}

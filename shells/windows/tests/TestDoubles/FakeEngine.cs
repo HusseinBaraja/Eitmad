@@ -80,6 +80,7 @@ internal sealed class FakeEngine : IEngineShellBridge
         ProtocolIds.Capabilities.EitmadCapabilityDesktopAccountManagementV1,
         ProtocolIds.Capabilities.EitmadCapabilityCustomerV1,
         ProtocolIds.Capabilities.EitmadCapabilityMaterialV1,
+        ProtocolIds.Capabilities.EitmadCapabilityPartV1,
     };
 
     public bool SupportsCapability(string capability) => SupportedCapabilities.Contains(capability);
@@ -326,6 +327,7 @@ internal sealed class FakeEngine : IEngineShellBridge
     public Func<Command, CommandResponseEnvelope>? CommandHandler { get; set; }
     public Func<Command, Task>? CommandBarrier { get; set; }
     public Command? LastCommand { get; private set; }
+    public Guid LastIdempotencyKey { get; private set; }
 
     public async Task<CommandResponseEnvelope> SubmitCommandAsync(
         Command command,
@@ -333,6 +335,7 @@ internal sealed class FakeEngine : IEngineShellBridge
         CancellationToken cancellationToken = default)
     {
         LastCommand = command;
+        LastIdempotencyKey = idempotencyKey;
         if (CommandBarrier is not null) await CommandBarrier(command);
         return CommandHandler?.Invoke(command) ?? ApplyCommand(command);
     }

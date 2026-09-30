@@ -383,6 +383,8 @@ internal sealed class SupervisionScenarios
                     || !string.IsNullOrWhiteSpace(updateResponse.Outcome.Payload.Code),
                 "real update query returns typed state or typed error");
 
+            var persistedPart = await SaveMultiMaterialPart(supervisor);
+
             var patchResponse = await supervisor.SubmitConfigurationPatchAsync(
                 new UpdateConfiguration
                 {
@@ -420,6 +422,12 @@ internal sealed class SupervisionScenarios
             await supervisor.StartAsync(request);
             await Eventually(() => supervisor.IpcConnected, TimeSpan.FromSeconds(10));
             await supervisor.SignInAsync("admin", "admin");
+            var reopenedParts = await supervisor.QueryAsync(Query.ForPartList(new ListParts { Term = "جانب خزانة", Limit = 20 }));
+            var reopenedPart = reopenedParts.Outcome.Payload.AsParts()?.Items.Single().Part
+                ?? throw new InvalidOperationException("Part was not durable after restart.");
+            Assert.Equal(persistedPart.Id,reopenedPart.Id,"stable part identity after restart");
+            Assert.Equal(9450L,reopenedPart.Cost.TotalCostYer,"Rust multi-material cost after restart");
+            Assert.Equal(2,reopenedPart.Cost.Rows.Length,"multi-material composition after restart");
             var searchResponse = await supervisor.QueryAsync(Query.ForCustomerSearch(new SearchCustomers
             {
                 Term = "تجريبي", Limit = 20,
@@ -451,6 +459,51 @@ internal sealed class SupervisionScenarios
         {
             Directory.Delete(runtimeDirectory, recursive: true);
         }
+    }
+
+    /// <summary>Exercises real-engine typed category and multi-material saves with exact retry and change delivery.</summary>
+    private static async Task<Part> SaveMultiMaterialPart(EngineSupervisor supervisor)
+    {
+        Assert.True(supervisor.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityPartV1),"real part capability negotiated");
+        await supervisor.SubmitCommandAsync(Command.ForMaterialCategorySave(new SaveMaterialCategory { Name = "أخشاب" }),Guid.NewGuid());
+        await supervisor.SubmitCommandAsync(Command.ForMaterialUnitSave(new SaveMaterialUnit { Name = "متر مربع", Symbol = "m²", Dimension = UnitDimension.Area, Numerator = 1, Denominator = 1 }),Guid.NewGuid());
+        await supervisor.SubmitCommandAsync(Command.ForMaterialUnitSave(new SaveMaterialUnit { Name = "متر", Symbol = "m", Dimension = UnitDimension.Length, Numerator = 1, Denominator = 1 }),Guid.NewGuid());
+        var refsResponse = await supervisor.QueryAsync(Query.ForMaterialReferenceList(new ListMaterialReferences()));
+        var refs = refsResponse.Outcome.Payload.AsMaterialReferences()!;
+        var area = refs.Units.Single(u => u.Dimension == UnitDimension.Area);
+        var length = refs.Units.Single(u => u.Dimension == UnitDimension.Length);
+        foreach (var (name,unit,cost) in new[] { ("MDF 18mm",area,7250L),("شريط حافة",length,250L) })
+            await supervisor.SubmitCommandAsync(Command.ForMaterialSave(new SaveMaterial { Name = name, CategoryId = refs.Categories.Single().Id, UnitId = unit.Id, CurrentCostYer = cost }),Guid.NewGuid());
+        var materialResponse = await supervisor.QueryAsync(Query.ForMaterialList(new ListMaterials { Term = "", Limit = 100 }));
+        var materials = materialResponse.Outcome.Payload.AsMaterials()!.Items;
+        await supervisor.SubmitCommandAsync(Command.ForPartCategorySave(new SavePartCategory { Name = "خزانة ملابس" }),Guid.NewGuid());
+        var categories = await supervisor.QueryAsync(Query.ForPartCategoryList(new ListPartCategories { Limit = 100 }));
+        var usages = new[]
+        {
+            new PartUsage { MaterialId = materials.Single(m => m.UnitId == area.Id).Id, MaterialRevision = 1, UnitId = area.Id, UnitRevision = 1, Quantity = "1.2" },
+            new PartUsage { MaterialId = materials.Single(m => m.UnitId == length.Id).Id, MaterialRevision = 1, UnitId = length.Id, UnitRevision = 1, Quantity = "3" },
+        };
+        var calculated = await supervisor.QueryAsync(Query.ForPartCost(new CalculatePartCost { Usages = usages }));
+        Assert.Equal(9450L,calculated.Outcome.Payload.AsPartCost()!.TotalCostYer,"real Rust cost review");
+        await using var partEvents = await supervisor.SubscribeAsync(Subscription.ForPartChangedSubscribe(new PartChanges()));
+        var command = Command.ForPartSave(new SavePart { Name = "جانب خزانة", CategoryId = categories.Outcome.Payload.AsPartCategories()!.Items.Single().Id, Description = "جزء تجريبي", Usages = usages });
+        var key = Guid.NewGuid();
+        var saved = await supervisor.SubmitCommandAsync(command,key);
+        Assert.Equal(CommandOutcomeStatus.Succeeded,saved.Outcome.Status,"real part save");
+        var retried = await supervisor.SubmitCommandAsync(command,key);
+        Assert.Equal(saved.Outcome.Payload.Payload!.Id,retried.Outcome.Payload.Payload!.Id,"part retry preserves identity");
+        var parts = await supervisor.QueryAsync(Query.ForPartList(new ListParts { Term = "", Limit = 100 }));
+        var part = parts.Outcome.Payload.AsParts()!.Items.Single().Part;
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await foreach (var delivered in partEvents.ReadAllAsync(cancellation.Token))
+        {
+            var notice = EngineContractCodec.DecodeEvent(delivered).AsPartChangedEvent();
+            partEvents.Acknowledge(delivered);
+            Assert.Equal(part.Id,notice!.Id,"real part subscription event identity");
+            Assert.Equal(part.Revision,notice.Revision,"real part subscription event revision");
+            break;
+        }
+        return part;
     }
 
     private static async Task SeedDevelopmentAccounts(string enginePath, string runtimeDirectory)

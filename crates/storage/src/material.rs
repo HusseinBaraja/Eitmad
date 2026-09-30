@@ -401,7 +401,7 @@ fn check_references(
                 || previous.numerator != unit.numerator
                 || previous.denominator != unit.denominator;
             let referenced: bool = tx.query_row(
-                "SELECT EXISTS(SELECT 1 FROM materials WHERE scope_kind=?1 AND scope_id=?2 AND unit_id=?3)",
+                "SELECT EXISTS(SELECT 1 FROM materials WHERE scope_kind=?1 AND scope_id=?2 AND unit_id=?3) OR EXISTS(SELECT 1 FROM part_material_usages WHERE scope_kind=?1 AND scope_id=?2 AND unit_id=?3)",
                 params![kind, scope_id, id], |row| row.get(0),
             ).map_err(|_| StorageError)?;
             if changed && referenced {

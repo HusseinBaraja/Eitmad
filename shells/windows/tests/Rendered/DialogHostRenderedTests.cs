@@ -128,6 +128,7 @@ public sealed class DialogHostRenderedTests
         });
     }
 
+    /// <summary>Exercises native feature dialogs and recovery after invalid input, using synthetic durable part projections.</summary>
     [TestMethod]
     [DataRow(1338)]
     [DataRow(780)]
@@ -182,6 +183,7 @@ public sealed class DialogHostRenderedTests
             RaiseKey(OpenDialog(window), Key.Escape);
 
             var parts = Navigate<PartsView>(window, "PartsNavButton");
+            parts.ViewModel.ApplyDurableData(new Eitmad.WindowsShell.Tests.Parts.PartFixtures().Snapshot());
             parts.ViewModel.BeginEdit(parts.ViewModel.VisibleParts[0]);
             Assert.IsTrue(parts.ViewModel.MoveToMaterials());
             parts.ViewModel.OpenMaterialPicker();
