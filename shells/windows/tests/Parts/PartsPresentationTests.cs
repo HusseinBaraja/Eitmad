@@ -7,6 +7,86 @@ namespace Eitmad.WindowsShell.Tests.Parts;
 [TestClass]
 public sealed class PartsPresentationTests
 {
+    /// <summary>Unknown category and part outcomes retain independent keys and reject changed retries.</summary>
+    [TestMethod]
+    public async Task UnknownCategoryAndPartSavesKeepIndependentRetryState()
+    {
+        var fixture = new PartFixtures();
+        await using var engine = fixture.Engine();
+        await using var client = new PartClient(engine);
+        var model = new PartsViewModel();
+        model.ApplyDurableData(fixture.Snapshot());
+        model.BeginEdit(model.VisibleParts.Single());
+        var part = model.SaveInput();
+        var category = new SavePartCategory { Name = "فئة تجريبية" };
+        var accepted = engine.CommandHandler;
+        engine.CommandHandler = _ => throw new System.IO.IOException("synthetic lost response");
+
+        Assert.AreEqual(MaterialFailureKind.Unavailable, await client.SaveAsync(category));
+        var categoryKey = engine.LastIdempotencyKey;
+        Assert.AreEqual(MaterialFailureKind.Unavailable, await client.SaveAsync(part));
+        var partKey = engine.LastIdempotencyKey;
+        Assert.AreNotEqual(categoryKey, partKey);
+
+        Assert.AreEqual(MaterialFailureKind.Conflict, await client.SaveAsync(new SavePartCategory { Name = "فئة أخرى" }));
+        Assert.AreEqual(partKey, engine.LastIdempotencyKey);
+        part.Name += " تعديل";
+        Assert.AreEqual(MaterialFailureKind.Conflict, await client.SaveAsync(part));
+        part.Name = model.EditorName;
+
+        engine.CommandHandler = accepted;
+        Assert.AreEqual(MaterialFailureKind.None, await client.SaveAsync(part));
+        Assert.AreEqual(partKey, engine.LastIdempotencyKey);
+        Assert.AreEqual(MaterialFailureKind.None, await client.SaveAsync(category));
+        Assert.AreEqual(categoryKey, engine.LastIdempotencyKey);
+        Assert.AreEqual(MaterialFailureKind.None, await client.SaveAsync(new SavePartCategory { Name = "فئة أخرى" }));
+        Assert.AreNotEqual(categoryKey, engine.LastIdempotencyKey);
+    }
+
+    /// <summary>Cost review retains a saved archived unit that the active picker omits.</summary>
+    [TestMethod]
+    public void CostReferenceRefreshRetainsArchivedUsageUnit()
+    {
+        var fixture = new PartFixtures();
+        fixture.Units[0].Archived = true;
+        fixture.Units[0].Revision = 2;
+        var model = new PartsViewModel();
+        model.ApplyDurableData(fixture.Snapshot());
+        model.BeginEdit(model.VisibleParts.Single());
+        var usage = model.SelectedMaterials[0];
+        model.RefreshCostReferences();
+
+        Assert.AreEqual(fixture.Units[0].Id, usage.SelectedUnit!.Record.Id);
+        Assert.HasCount(1, usage.Units);
+        Assert.AreEqual(fixture.Units[0].Id, model.SaveInput().Usages[0].UnitId);
+        Assert.AreEqual(2, model.SaveInput().Usages[0].UnitRevision);
+        Assert.AreEqual("1.2", model.SaveInput().Usages[0].Quantity);
+    }
+
+    /// <summary>A refreshed matching unit supplies the current revision without adding a duplicate option.</summary>
+    [TestMethod]
+    public void CostReferenceRefreshUsesLatestMatchingUnit()
+    {
+        var fixture = new PartFixtures();
+        var model = new PartsViewModel();
+        model.ApplyDurableData(fixture.Snapshot());
+        model.BeginEdit(model.VisibleParts.Single());
+        var previous = fixture.Units[0];
+        var latest = new MaterialUnit
+        {
+            Id = previous.Id, Scope = previous.Scope, Name = "وحدة محدثة", Symbol = previous.Symbol,
+            Dimension = previous.Dimension, Numerator = previous.Numerator, Denominator = previous.Denominator, Revision = 2,
+        };
+        fixture.Units[0] = latest;
+        model.ApplyDurableData(fixture.Snapshot());
+        model.RefreshCostReferences();
+
+        Assert.AreSame(latest, model.SelectedMaterials[0].SelectedUnit!.Record);
+        Assert.HasCount(1, model.SelectedMaterials[0].Units);
+        Assert.AreEqual(2, model.SaveInput().Usages[0].UnitRevision);
+    }
+
+    /// <summary>Protects exact quantity text and invalidates displayed cost when unsaved input changes.</summary>
     [TestMethod]
     public void EditorPreservesExactInputAndDisplaysOnlyRustCost()
     {
@@ -24,6 +104,7 @@ public sealed class PartsPresentationTests
         Assert.AreEqual("0.0000001",model.SaveInput().Usages[0].Quantity);
     }
 
+    /// <summary>Protects unsaved edits and the original expected revision across background changes and conflicts.</summary>
     [TestMethod]
     public void BackgroundRefreshKeepsUnsavedFieldsAndExpectedPartRevision()
     {
@@ -41,6 +122,7 @@ public sealed class PartsPresentationTests
         Assert.AreEqual(2,model.SaveInput().ExpectedRevision);
     }
 
+    /// <summary>Protects exact retries after a lost response and typed conflict presentation.</summary>
     [TestMethod]
     public async Task TypedClientReusesRetryKeyAfterUnknownOutcomeAndMapsConflict()
     {
@@ -57,6 +139,7 @@ public sealed class PartsPresentationTests
         Assert.IsTrue(engine.LastCommand.AsPartSave()!.Archived);
     }
 
+    /// <summary>Protects Rust-owned matching and preserves the Arabic search text sent by the user.</summary>
     [TestMethod]
     public async Task MaterialPickerUsesRustMatchesWithoutRewritingSearchText()
     {

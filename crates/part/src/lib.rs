@@ -38,6 +38,7 @@ pub enum PartError {
     Unavailable,
 }
 impl From<StorageError> for PartError {
+    /// Converts storage failures to a redacted unavailable result at the domain boundary.
     fn from(_: StorageError) -> Self {
         Self::Unavailable
     }
@@ -49,6 +50,7 @@ pub struct PartService {
     authorization: AuthorizationService,
 }
 impl PartService {
+    /// Composes scoped storage and authorization without granting access until each operation is checked.
     #[must_use]
     pub const fn new(store: AuthorityStore, authorization: AuthorizationService) -> Self {
         Self {
@@ -56,6 +58,7 @@ impl PartService {
             authorization,
         }
     }
+    /// Requires an organization scope and the Manager part-read relationship.
     fn read(&self, context: &AuthorizationContext) -> Result<(), PartError> {
         if context.scope.kind.as_str() != "organization" {
             return Err(PartError::Denied);
@@ -64,6 +67,7 @@ impl PartService {
             .authorize(context, PART_READ_PERMISSION)
             .map_err(map_authorization)
     }
+    /// Requires Manager write permission and records denied attempts without product payloads.
     fn write(&self, context: &MutationContext, operation: &str) -> Result<(), PartError> {
         if context.authorization.scope.kind.as_str() != "organization" {
             return Err(PartError::Denied);
@@ -316,6 +320,7 @@ impl PartService {
     }
 }
 
+/// Validates scoped references and reviewed revisions, retains existing archived references, and sums exact rational costs.
 fn calculate(
     tx: &PartTransaction<'_>,
     scope: &ScopeRef,
@@ -394,6 +399,7 @@ fn calculate(
         total_cost_yer: round(&total)?,
     })
 }
+/// Converts validated fixed-point quantity text to an exact rational without floating-point loss.
 fn quantity(value: &MaterialQuantity) -> Result<BigRational, PartError> {
     if value.as_str().len() > 32 {
         return Err(PartError::Invalid);
@@ -409,12 +415,14 @@ fn quantity(value: &MaterialQuantity) -> Result<BigRational, PartError> {
         BigInt::from(10u64.pow(u32::try_from(fraction.len()).map_err(|_| PartError::Invalid)?)),
     ))
 }
+/// Rounds a nonnegative cost half upward once and rejects amounts outside signed whole-YER money.
 fn round(value: &BigRational) -> Result<i64, PartError> {
     (value + BigRational::new(BigInt::from(1), BigInt::from(2)))
         .to_integer()
         .to_i64()
         .ok_or(PartError::Invalid)
 }
+/// Rejects untrimmed, oversized, control-bearing, or direction-control text at the Rust boundary.
 fn validate_text(value: &str, max: usize, empty: bool) -> Result<(), PartError> {
     if (!empty && value.is_empty())
         || value.len() > max
@@ -429,12 +437,14 @@ fn validate_text(value: &str, max: usize, empty: bool) -> Result<(), PartError> 
         Ok(())
     }
 }
+/// Bounds part pages and validates search text before storage access.
 fn validate_query(query: &ListParts) -> Result<(), PartError> {
     if !(1..=100).contains(&query.limit) {
         return Err(PartError::Invalid);
     }
     validate_text(&query.term, 256, true)
 }
+/// Requires ID and expected revision together for updates and rejects archived creates.
 fn validate_identity(id: bool, expected: Option<u64>, archived: bool) -> Result<(), PartError> {
     if id != expected.is_some() || expected == Some(0) || !id && archived {
         Err(PartError::Invalid)
@@ -442,6 +452,7 @@ fn validate_identity(id: bool, expected: Option<u64>, archived: bool) -> Result<
         Ok(())
     }
 }
+/// Advances a revision within the positive signed SQLite integer range.
 fn next_revision(actual: Option<u64>) -> Result<u64, PartError> {
     actual
         .unwrap_or(0)
@@ -449,9 +460,11 @@ fn next_revision(actual: Option<u64>) -> Result<u64, PartError> {
         .filter(|v| i64::try_from(*v).is_ok())
         .ok_or(PartError::Invalid)
 }
+/// Preserves expected and actual revisions for typed conflict reporting.
 fn conflict(expected: Option<u64>, actual: Option<u64>) -> PartError {
     PartError::RevisionConflict { expected, actual }
 }
+/// Preserves explicit denials while redacting authorization-store failures as unavailable.
 fn map_authorization(e: eitmad_authorization::AuthorizationError) -> PartError {
     match e {
         eitmad_authorization::AuthorizationError::Denied
@@ -459,6 +472,7 @@ fn map_authorization(e: eitmad_authorization::AuthorizationError) -> PartError {
         _ => PartError::Unavailable,
     }
 }
+/// Binds the durable retry hash to the actor, operation, and exact serialized request.
 fn retry(
     context: &MutationContext,
     operation: &str,
@@ -479,6 +493,7 @@ fn retry(
         response_json: Vec::new(),
     })
 }
+/// Returns the original scoped result for an exact retry and rejects reuse with different input or actor.
 fn replay<T: serde::de::DeserializeOwned>(
     tx: &PartTransaction<'_>,
     scope: &ScopeRef,
@@ -496,6 +511,7 @@ fn replay<T: serde::de::DeserializeOwned>(
         })
         .transpose()
 }
+/// Records rejection or conflict evidence within the transaction before returning the domain error.
 fn reject<T>(
     tx: &PartTransaction<'_>,
     context: &MutationContext,
@@ -517,6 +533,7 @@ fn reject<T>(
     tx.audit(&audit(context, operation, Some(id)).with_outcome(outcome, Some(code.into())))?;
     Ok(Err(error))
 }
+/// Builds redacted mutation evidence with scope, actor, causation, and retry correlation.
 fn audit(context: &MutationContext, operation: &str, id: Option<Uuid>) -> MutationAuditRecord {
     let mut record = MutationAuditRecord::from_authorization(
         &context.authorization,
@@ -533,6 +550,7 @@ fn audit(context: &MutationContext, operation: &str, id: Option<Uuid>) -> Mutati
     record.changed_identifiers = vec!["composition".into()];
     record
 }
+/// Builds a compact scoped notice without material names, quantities, or costs.
 fn publication(
     context: &MutationContext,
     id: Uuid,
@@ -554,6 +572,7 @@ fn publication(
 #[cfg(test)]
 mod tests;
 
+/// Allows multiline descriptions while rejecting excessive size and unsafe direction controls.
 fn validate_description(value: &str) -> Result<(), PartError> {
     if value.len() > 4096
         || value.chars().any(|c| {

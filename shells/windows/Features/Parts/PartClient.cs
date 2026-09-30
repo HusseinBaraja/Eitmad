@@ -14,9 +14,14 @@ public sealed record PartSnapshot(PartCategories Categories, IReadOnlyList<PartP
 public sealed class PartClient(IEngineShellBridge engine) : IAsyncDisposable
 {
     private readonly MaterialClient materials = new(engine);
-    private string? retryPayload;
-    private Guid retryKey;
-    private bool unresolvedSave;
+    private sealed class SaveRetry
+    {
+        public string? Payload;
+        public Guid Key;
+        public bool Unresolved;
+    }
+    private readonly SaveRetry partRetry = new();
+    private readonly SaveRetry categoryRetry = new();
     private readonly SemaphoreSlim gate = new(1, 1);
     private IEngineSubscription? subscription;
     private CancellationTokenSource? pumpCancellation;
@@ -28,6 +33,7 @@ public sealed class PartClient(IEngineShellBridge engine) : IAsyncDisposable
 
     public event EventHandler? Changed;
 
+    /// <summary>Loads scoped parts, categories, and material references through paged Rust queries; cancellation propagates.</summary>
     public async Task<MaterialResult<PartSnapshot>> LoadAsync(string term, CancellationToken cancellationToken = default)
     {
         if (!engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityPartV1))
@@ -63,13 +69,17 @@ public sealed class PartClient(IEngineShellBridge engine) : IAsyncDisposable
         { return MaterialResult<PartSnapshot>.Failed(MaterialFailureKind.Unavailable); }
     }
 
+    /// <summary>Submits a typed save with the retry state reserved for its record kind.</summary>
     public Task<MaterialFailureKind> SaveAsync(SavePart input, CancellationToken cancellationToken = default) =>
-        SubmitAsync(Command.ForPartSave(input), cancellationToken);
+        SubmitAsync(Command.ForPartSave(input), partRetry, cancellationToken);
+    /// <summary>Passes search text to Rust so the shell does not duplicate Arabic matching rules.</summary>
     public Task<MaterialResult<MaterialSnapshot>> SearchMaterialsAsync(string term, CancellationToken cancellationToken = default) =>
         materials.LoadAsync(term,cancellationToken);
+    /// <summary>Submits a typed save with the retry state reserved for its record kind.</summary>
     public Task<MaterialFailureKind> SaveAsync(SavePartCategory input, CancellationToken cancellationToken = default) =>
-        SubmitAsync(Command.ForPartCategorySave(input), cancellationToken);
+        SubmitAsync(Command.ForPartCategorySave(input), categoryRetry, cancellationToken);
 
+    /// <summary>Requests authoritative current costs, including retained references for an existing part.</summary>
     public async Task<MaterialResult<PartCost>> CostAsync(PartUsage[] usages, Guid? partId = null, CancellationToken cancellationToken = default)
     {
         if (!engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityPartV1))
@@ -86,18 +96,19 @@ public sealed class PartClient(IEngineShellBridge engine) : IAsyncDisposable
         { return MaterialResult<PartCost>.Failed(MaterialFailureKind.Unavailable); }
     }
 
-    private async Task<MaterialFailureKind> SubmitAsync(Command command, CancellationToken cancellationToken)
+    /// <summary>Freezes the payload and key after an unknown outcome; only an exact retry can resolve that record kind.</summary>
+    private async Task<MaterialFailureKind> SubmitAsync(Command command, SaveRetry retry, CancellationToken cancellationToken)
     {
         try
         {
             if (!engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityPartV1)) return MaterialFailureKind.Unavailable;
             var payload = System.Text.Json.JsonSerializer.Serialize(command);
-            if (unresolvedSave && payload != retryPayload) return MaterialFailureKind.Conflict;
-            if (payload != retryPayload) { retryPayload = payload; retryKey = Guid.NewGuid(); }
-            unresolvedSave = true;
-            var response = await engine.SubmitCommandAsync(command, retryKey, cancellationToken);
-            unresolvedSave = false;
-            if (response.Outcome.Status == CommandOutcomeStatus.Succeeded) retryPayload = null;
+            if (retry.Unresolved && payload != retry.Payload) return MaterialFailureKind.Conflict;
+            if (payload != retry.Payload) { retry.Payload = payload; retry.Key = Guid.NewGuid(); }
+            retry.Unresolved = true;
+            var response = await engine.SubmitCommandAsync(command, retry.Key, cancellationToken);
+            retry.Unresolved = false;
+            if (response.Outcome.Status == CommandOutcomeStatus.Succeeded) retry.Payload = null;
             return response.Outcome.Status == CommandOutcomeStatus.Succeeded
                 ? MaterialFailureKind.None : MapFailure(response.Outcome.Payload.Code);
         }
@@ -105,13 +116,14 @@ public sealed class PartClient(IEngineShellBridge engine) : IAsyncDisposable
         catch (EngineIpcException error)
         {
             var failure = MapFailure(error.ContractError?.Code);
-            if (failure != MaterialFailureKind.Unavailable) unresolvedSave = false;
+            if (failure != MaterialFailureKind.Unavailable) retry.Unresolved = false;
             return failure;
         }
         catch (Exception error) when (error is IOException or InvalidOperationException or ObjectDisposedException)
         { return MaterialFailureKind.Unavailable; }
     }
 
+    /// <summary>Captures the UI context and starts part and material change subscriptions once.</summary>
     public async Task ActivateAsync()
     {
         if (disposed || active) return;
@@ -126,8 +138,10 @@ public sealed class PartClient(IEngineShellBridge engine) : IAsyncDisposable
         await RefreshSubscriptionAsync();
     }
 
+    /// <summary>Invalidates advisory part costs when Rust publishes a material change.</summary>
     private void MaterialChanged(object? sender, EventArgs args) => SignalChanged();
 
+    /// <summary>Refreshes on connection restoration and replaces subscriptions after an engine generation change.</summary>
     private void EngineStateChanged(EngineSupervisionSnapshot snapshot)
     {
         if (!active) return;
@@ -145,6 +159,7 @@ public sealed class PartClient(IEngineShellBridge engine) : IAsyncDisposable
         else if (restored) SignalChanged();
     }
 
+    /// <summary>Serializes subscription replacement and starts an acknowledged event pump for the current generation.</summary>
     private async Task RefreshSubscriptionAsync()
     {
         if (!engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityPartV1)) return;
@@ -165,6 +180,7 @@ public sealed class PartClient(IEngineShellBridge engine) : IAsyncDisposable
         finally { gate.Release(); }
     }
 
+    /// <summary>Signals refresh for typed part events and acknowledges delivery; transport failure requests resynchronization.</summary>
     private async Task PumpAsync(IEngineSubscription current, CancellationToken cancellationToken)
     {
         try
@@ -180,12 +196,14 @@ public sealed class PartClient(IEngineShellBridge engine) : IAsyncDisposable
         { SignalChanged(); }
     }
 
+    /// <summary>Delivers invalidation on the captured UI context when available.</summary>
     private void SignalChanged()
     {
         if (uiContext is null) Changed?.Invoke(this, EventArgs.Empty);
         else uiContext.Post(_ => Changed?.Invoke(this, EventArgs.Empty), null);
     }
 
+    /// <summary>Cancels the event pump and releases the subscription before resetting its generation.</summary>
     private async Task DropSubscriptionAsync()
     {
         pumpCancellation?.Cancel(); pumpCancellation?.Dispose(); pumpCancellation = null;
@@ -193,6 +211,7 @@ public sealed class PartClient(IEngineShellBridge engine) : IAsyncDisposable
         generation = -1;
     }
 
+    /// <summary>Detaches change handlers and releases subscriptions and synchronization resources once.</summary>
     public async ValueTask DisposeAsync()
     {
         if (disposed) return;
@@ -205,6 +224,7 @@ public sealed class PartClient(IEngineShellBridge engine) : IAsyncDisposable
         finally { gate.Release(); gate.Dispose(); }
     }
 
+    /// <summary>Maps typed failure categories to Arabic recovery text without displaying transport diagnostics.</summary>
     public static string ArabicMessage(MaterialFailureKind failure) => failure switch
     {
         MaterialFailureKind.Validation => "تحقق من الاسم والكميات والبيانات المطلوبة.",
@@ -214,6 +234,7 @@ public sealed class PartClient(IEngineShellBridge engine) : IAsyncDisposable
         _ => "تعذر الاتصال ببيانات الأجزاء. حاول مرة أخرى.",
     };
 
+    /// <summary>Classifies Rust error identifiers; unknown or transport failures remain unavailable.</summary>
     private static MaterialFailureKind MapFailure(string? code) => code switch
     {
         ProtocolIds.ErrorCodes.EitmadErrorPartInvalidV1 or ProtocolIds.ErrorCodes.EitmadErrorContractInvalidV1 => MaterialFailureKind.Validation,

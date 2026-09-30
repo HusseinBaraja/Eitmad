@@ -14,6 +14,7 @@ use eitmad_contracts::{
 use eitmad_material::MaterialService;
 use tempfile::TempDir;
 
+/// Creates two materials in distinct dimensions and an independently specified approved composition.
 fn fixtures(
     store: &AuthorityStore,
     service: &PartService,
@@ -108,6 +109,7 @@ fn fixtures(
     )
 }
 
+/// Protects restart durability and immutable identity and costs across exact retries.
 #[test]
 fn multi_material_save_reopens_and_exact_retry_preserves_composition() {
     let dir = TempDir::new().unwrap();
@@ -169,6 +171,7 @@ fn multi_material_save_reopens_and_exact_retry_preserves_composition() {
     );
 }
 
+/// Protects historical snapshots and rejects saving a review made against stale material revisions.
 #[test]
 fn current_cost_changes_never_rewrite_historical_composition_or_accept_stale_review() {
     let dir = TempDir::new().unwrap();
@@ -247,6 +250,7 @@ fn current_cost_changes_never_rewrite_historical_composition_or_accept_stale_rev
     );
 }
 
+/// Protects exact conversion, aggregate rounding, quantity validation, and money overflow rejection.
 #[test]
 fn exact_conversion_and_single_total_rounding_reject_loss_and_overflow() {
     let dir = TempDir::new().unwrap();
@@ -349,6 +353,7 @@ fn exact_conversion_and_single_total_rounding_reject_loss_and_overflow() {
     );
 }
 
+/// Protects Rust permission, scope, reference, and duplicate-material enforcement.
 #[test]
 fn permission_scope_reference_and_duplicate_validation_is_authoritative() {
     let dir = TempDir::new().unwrap();
@@ -399,6 +404,7 @@ fn permission_scope_reference_and_duplicate_validation_is_authoritative() {
     );
 }
 
+/// Protects optimistic concurrency so only one update to an expected revision succeeds.
 #[test]
 fn concurrent_edit_has_one_winner_and_does_not_overwrite() {
     let dir = TempDir::new().unwrap();
@@ -464,6 +470,7 @@ fn concurrent_edit_has_one_winner_and_does_not_overwrite() {
     );
 }
 
+/// Protects atomic rollback when required audit storage fails.
 #[test]
 fn mandatory_audit_failure_rolls_back_part_composition_usage_and_publication() {
     let dir = TempDir::new().unwrap();
@@ -498,6 +505,7 @@ fn mandatory_audit_failure_rolls_back_part_composition_usage_and_publication() {
         before
     );
 }
+/// Creates a deterministic synthetic user and organization authorization context.
 fn actor(principal: u128, organization: u128) -> AuthorizationContext {
     AuthorizationContext {
         session_id: SessionId::new(Uuid::from_u128(principal + 1_000)),
@@ -515,6 +523,7 @@ fn actor(principal: u128, organization: u128) -> AuthorizationContext {
         },
     }
 }
+/// Creates deterministic audit and retry metadata for a synthetic operation.
 fn mutation(actor: AuthorizationContext, key: u128) -> MutationContext {
     MutationContext {
         authorization: actor,
@@ -524,6 +533,7 @@ fn mutation(actor: AuthorizationContext, key: u128) -> MutationContext {
         occurred_at: UnixMillis(i64::try_from(key).unwrap()),
     }
 }
+/// Bootstraps isolated authority storage with Manager and Receptionist relationships.
 fn setup(
     dir: &TempDir,
 ) -> (
@@ -575,6 +585,7 @@ fn setup(
     )
 }
 
+/// Protects pagination and retention of archived references only for existing compositions.
 #[test]
 fn pages_are_bounded_and_archived_materials_remain_only_in_existing_compositions() {
     let dir = TempDir::new().unwrap();

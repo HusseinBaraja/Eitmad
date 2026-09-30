@@ -461,6 +461,7 @@ internal sealed class SupervisionScenarios
         }
     }
 
+    /// <summary>Exercises real-engine typed category and multi-material saves with exact retry and change delivery.</summary>
     private static async Task<Part> SaveMultiMaterialPart(EngineSupervisor supervisor)
     {
         Assert.True(supervisor.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityPartV1),"real part capability negotiated");

@@ -105,6 +105,7 @@ impl PartTransaction<'_> {
     pub fn part(&self, scope: &ScopeRef, id: uuid::Uuid) -> Result<Option<Part>, StorageError> {
         self.record(scope, "parts", id)
     }
+    /// Reads only a scope-qualified record from an internally chosen table and validates stored JSON.
     fn record<T: serde::de::DeserializeOwned>(
         &self,
         scope: &ScopeRef,

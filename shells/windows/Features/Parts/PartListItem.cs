@@ -5,6 +5,7 @@ namespace Eitmad.WindowsShell.Features.Parts;
 /// <summary>Represents one part row projected for the Windows surface.</summary>
 public sealed class PartListItem
 {
+    /// <summary>Keeps stable identity and Rust-projected display values for row selection and actions.</summary>
     public PartListItem(
         Guid id,
         string name,

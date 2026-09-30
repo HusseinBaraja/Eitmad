@@ -24,6 +24,7 @@ public sealed class PartMaterialUsage : ObservableObject
     private string quantity;
     private PartUnitOption? selectedUnit;
     private long? cost;
+    /// <summary>Initializes exact unsaved quantity text and selects the saved usage unit by identity.</summary>
     public PartMaterialUsage(PartMaterialOption material, string quantity = "1", Guid? unitId = null)
     {
         Material = material;
@@ -37,14 +38,19 @@ public sealed class PartMaterialUsage : ObservableObject
     public string UnitCostLabel => Material.UnitCostLabel;
     public long? TotalCost => cost;
     public string TotalCostLabel => cost?.ToString("N0", CultureInfo.InvariantCulture) ?? "—";
+    /// <summary>Displays a Rust row amount or clears it when the review is invalid.</summary>
     public void SetCost(long? value) { cost = value; Raise(nameof(TotalCost)); Raise(nameof(TotalCostLabel)); }
+    /// <summary>Uses a matching current unit revision while retaining a selected saved unit omitted from active choices.</summary>
     public void RefreshReference(PartMaterialOption material)
     {
-        var id = SelectedUnit?.Record.Id;
-        Material = material;
-        selectedUnit = material.Units.FirstOrDefault(u => u.Record.Id == id);
+        var previous = SelectedUnit;
+        var units = material.Units.ToList();
+        if (previous is not null && units.All(u => u.Record.Id != previous.Record.Id)) units.Add(previous);
+        Material = material with { Units = units };
+        selectedUnit = units.FirstOrDefault(u => u.Record.Id == previous?.Record.Id);
         Raise(nameof(Material)); Raise(nameof(Units)); Raise(nameof(SelectedUnit)); Raise(nameof(UnitCostLabel));
     }
+    /// <summary>Preserves exact quantity text and reviewed reference revisions for Rust validation.</summary>
     public PartUsage ToInput() => new()
     {
         MaterialId = Material.Id, MaterialRevision = Material.Record.Revision,

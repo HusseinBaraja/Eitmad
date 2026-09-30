@@ -12,6 +12,7 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 [TestClass]
 public sealed class OperationsTableRenderedTests
 {
+    /// <summary>Protects native table bindings, typed values, and the part review path at wide and narrow sizes.</summary>
     [TestMethod]
     [DataRow(1338d, 753d)]
     [DataRow(780d, 745d)]

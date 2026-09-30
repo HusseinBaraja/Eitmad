@@ -248,6 +248,7 @@ impl ProductDispatcher {
         Ok(CommandResult::MaterialSaved(saved))
     }
 
+    /// Negotiates protocol 1.11, delegates authorization and persistence to Parts, and publishes the committed outbox.
     fn dispatch_part_command(
         &self,
         context: &DispatchContext,
@@ -272,6 +273,7 @@ impl ProductDispatcher {
         Ok(result)
     }
 
+    /// Negotiates protocol 1.11 and delegates scoped part reads and cost review to the Rust authority.
     fn dispatch_part_query(
         &self,
         context: &DispatchContext,
@@ -300,6 +302,7 @@ impl ProductDispatcher {
         .map_err(|error| Box::new(part_error(error, context)))
     }
 
+    /// Checks protocol support, creates the audited account, and publishes its committed event.
     fn create_desktop_account(
         &self,
         context: &DispatchContext,
@@ -774,6 +777,7 @@ fn material_error(value: MaterialError, context: &DispatchContext) -> ContractEr
     contract_error(code, message, context.correlation_id, retry, detail)
 }
 
+/// Maps domain failures to redacted versioned errors with revision details and safe retry disposition.
 fn part_error(value: PartError, context: &DispatchContext) -> ContractError {
     let (code, message, retry, detail) = match value {
         PartError::Denied => (
@@ -1023,6 +1027,7 @@ fn require_protocol_1_10(context: &DispatchContext) -> Result<(), Box<ContractEr
         .ok_or_else(|| Box::new(unsupported(context)))
 }
 
+/// Rejects part operations unless protocol major 1 and minor 11 or later were negotiated.
 fn require_protocol_1_11(context: &DispatchContext) -> Result<(), Box<ContractError>> {
     (context.protocol_version.major == 1 && context.protocol_version.minor >= 11)
         .then_some(())
@@ -1442,6 +1447,7 @@ mod tests {
         );
     }
 
+    /// Exercises typed material and part routes, committed notices, and Receptionist write denial.
     #[tokio::test]
     async fn routes_material_and_part_mutations_and_denies_receptionist_write() {
         let (_directory, dispatcher, broker) = dispatcher();
@@ -1541,6 +1547,7 @@ mod tests {
         assert_part_routes(&dispatcher, &broker, &material, &unit).await;
     }
 
+    /// Checks part category and composition saves, scoped search, current costs, and write denial through dispatch.
     async fn assert_part_routes(
         dispatcher: &ProductDispatcher,
         broker: &EventBroker,
