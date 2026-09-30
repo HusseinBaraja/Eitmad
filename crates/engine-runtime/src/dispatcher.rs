@@ -13,6 +13,7 @@ use eitmad_authorization::{
 };
 use eitmad_configuration::{ConfigurationError, ConfigurationService};
 use eitmad_contracts::{
+    accounts::CreateDesktopAccount,
     authorization::AuthorizationRequest,
     commands::{Command, CommandResult, CreateCustomer, UpdateCustomer},
     errors::{ContractError, ErrorCode, ErrorDetail, MessageId, RetryDisposition},
@@ -247,6 +248,79 @@ impl ProductDispatcher {
         Ok(CommandResult::MaterialSaved(saved))
     }
 
+    fn dispatch_part_command(
+        &self,
+        context: &DispatchContext,
+        mutation: &MutationContext,
+        command: Command,
+    ) -> Result<CommandResult, Box<ContractError>> {
+        require_protocol_1_11(context)?;
+        let result = match command {
+            Command::SavePart(command) => self
+                .parts
+                .save(mutation, &command)
+                .map(CommandResult::PartSaved),
+            Command::SavePartCategory(command) => self
+                .parts
+                .save_category(mutation, &command)
+                .map(CommandResult::PartCategorySaved),
+            _ => unreachable!("only part commands are routed here"),
+        }
+        .map_err(|error| Box::new(part_error(error, context)))?;
+        self.publish_pending(context, mutation.idempotency_key)
+            .map_err(|()| Box::new(part_error(PartError::Unavailable, context)))?;
+        Ok(result)
+    }
+
+    fn dispatch_part_query(
+        &self,
+        context: &DispatchContext,
+        query: Query,
+    ) -> Result<QueryResult, Box<ContractError>> {
+        require_protocol_1_11(context)?;
+        match query {
+            Query::Parts(query) => self
+                .parts
+                .list(&context.authorization, &query)
+                .map(QueryResult::Parts),
+            Query::PartCategories(query) => self
+                .parts
+                .categories(&context.authorization, &query)
+                .map(QueryResult::PartCategories),
+            Query::PartCost(query) => self
+                .parts
+                .cost(&context.authorization, &query)
+                .map(QueryResult::PartCost),
+            Query::PartComposition(query) => self
+                .parts
+                .composition(&context.authorization, &query)
+                .map(QueryResult::PartComposition),
+            _ => unreachable!("only part queries are routed here"),
+        }
+        .map_err(|error| Box::new(part_error(error, context)))
+    }
+
+    fn create_desktop_account(
+        &self,
+        context: &DispatchContext,
+        mutation: &MutationContext,
+        command: &CreateDesktopAccount,
+    ) -> Result<CommandResult, Box<ContractError>> {
+        require_protocol_1_8(context)?;
+        let account = self
+            .accounts
+            .create(mutation, command)
+            .map_err(|error| Box::new(desktop_account_error(error, context)))?;
+        self.publish_pending(context, mutation.idempotency_key)
+            .map_err(|()| {
+                Box::new(desktop_account_error(
+                    DesktopAccountError::Unavailable,
+                    context,
+                ))
+            })?;
+        Ok(CommandResult::DesktopAccountCreated(account))
+    }
+
     fn reject_unsupported_command(
         &self,
         context: &DispatchContext,
@@ -392,41 +466,15 @@ impl CommandDispatcher for ProductDispatcher {
             Command::SaveMaterialUnit(command) => self
                 .save_material_unit(&context, &mutation, &command)
                 .map_err(|error| *error),
-            Command::SavePart(command) => {
-                require_protocol_1_11(&context)?;
-                let saved = self
-                    .parts
-                    .save(&mutation, &command)
-                    .map_err(|e| part_error(e, &context))?;
-                self.publish_pending(&context, mutation.idempotency_key)
-                    .map_err(|()| part_error(PartError::Unavailable, &context))?;
-                Ok(CommandResult::PartSaved(saved))
-            }
-            Command::SavePartCategory(command) => {
-                require_protocol_1_11(&context)?;
-                let saved = self
-                    .parts
-                    .save_category(&mutation, &command)
-                    .map_err(|e| part_error(e, &context))?;
-                self.publish_pending(&context, mutation.idempotency_key)
-                    .map_err(|()| part_error(PartError::Unavailable, &context))?;
-                Ok(CommandResult::PartCategorySaved(saved))
-            }
+            command @ (Command::SavePart(_) | Command::SavePartCategory(_)) => self
+                .dispatch_part_command(&context, &mutation, command)
+                .map_err(|error| *error),
             Command::SaveMaterial(command) => self
                 .save_material(&context, &mutation, &command)
                 .map_err(|error| *error),
-            Command::CreateDesktopAccount(command) => {
-                require_protocol_1_8(&context).map_err(|error| *error)?;
-                let account = self
-                    .accounts
-                    .create(&mutation, &command)
-                    .map_err(|error| desktop_account_error(error, &context))?;
-                self.publish_pending(&context, mutation.idempotency_key)
-                    .map_err(|()| {
-                        desktop_account_error(DesktopAccountError::Unavailable, &context)
-                    })?;
-                Ok(CommandResult::DesktopAccountCreated(account))
-            }
+            Command::CreateDesktopAccount(command) => self
+                .create_desktop_account(&context, &mutation, &command)
+                .map_err(|error| *error),
             Command::UpdateDesktopAccount(command) => {
                 require_protocol_1_8(&context).map_err(|error| *error)?;
                 let account = self
@@ -503,34 +551,12 @@ impl QueryDispatcher for ProductDispatcher {
                     .map(QueryResult::Customers)
                     .map_err(|error| customer_error(error, &context))
             }
-            Query::Parts(query) => {
-                require_protocol_1_11(&context)?;
-                self.parts
-                    .list(&context.authorization, &query)
-                    .map(QueryResult::Parts)
-                    .map_err(|e| part_error(e, &context))
-            }
-            Query::PartCategories(query) => {
-                require_protocol_1_11(&context)?;
-                self.parts
-                    .categories(&context.authorization, &query)
-                    .map(QueryResult::PartCategories)
-                    .map_err(|e| part_error(e, &context))
-            }
-            Query::PartCost(query) => {
-                require_protocol_1_11(&context)?;
-                self.parts
-                    .cost(&context.authorization, &query)
-                    .map(QueryResult::PartCost)
-                    .map_err(|e| part_error(e, &context))
-            }
-            Query::PartComposition(query) => {
-                require_protocol_1_11(&context)?;
-                self.parts
-                    .composition(&context.authorization, &query)
-                    .map(QueryResult::PartComposition)
-                    .map_err(|e| part_error(e, &context))
-            }
+            query @ (Query::Parts(_)
+            | Query::PartCategories(_)
+            | Query::PartCost(_)
+            | Query::PartComposition(_)) => self
+                .dispatch_part_query(&context, query)
+                .map_err(|error| *error),
             Query::Materials(query) => {
                 require_protocol_1_10(&context).map_err(|error| *error)?;
                 self.materials
@@ -997,6 +1023,12 @@ fn require_protocol_1_10(context: &DispatchContext) -> Result<(), Box<ContractEr
         .ok_or_else(|| Box::new(unsupported(context)))
 }
 
+fn require_protocol_1_11(context: &DispatchContext) -> Result<(), Box<ContractError>> {
+    (context.protocol_version.major == 1 && context.protocol_version.minor >= 11)
+        .then_some(())
+        .ok_or_else(|| Box::new(unsupported(context)))
+}
+
 fn error(
     code: &str,
     message: &str,
@@ -1049,8 +1081,10 @@ mod tests {
             ScopeKind, ScopeRef, SessionId, TenantId,
         },
         material::{
-            ListMaterials, SaveMaterial, SaveMaterialCategory, SaveMaterialUnit, UnitDimension,
+            ListMaterials, Material, MaterialUnit, SaveMaterial, SaveMaterialCategory,
+            SaveMaterialUnit, UnitDimension,
         },
+        part::{ListParts, PartChanges, PartUsage, SavePart, SavePartCategory},
         queries::{GetConfiguration, GetSyncStatus, Query},
         reference_marker::{ListReferenceMarkers, ReferenceMarkerId, ReferenceMarkerLabel},
         transport::{CorrelationId, IdempotencyKey, OperationId, PROTOCOL_VERSION, UnixMillis},
@@ -1491,9 +1525,28 @@ mod tests {
             panic!("page expected")
         };
         assert_eq!(page.items.len(), 1);
-        use eitmad_contracts::part::{
-            ListParts, PartChanges, PartUsage, SavePart, SavePartCategory,
-        };
+        let denied = dispatcher
+            .dispatch_command(
+                material_actor(614, 4),
+                Command::SaveMaterialCategory(SaveMaterialCategory {
+                    id: None,
+                    expected_revision: None,
+                    name: "ممنوع".to_owned(),
+                    archived: false,
+                }),
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(denied.code.as_str(), "eitmad.error.authorization-denied.v1");
+        assert_part_routes(&dispatcher, &broker, &material, &unit).await;
+    }
+
+    async fn assert_part_routes(
+        dispatcher: &ProductDispatcher,
+        broker: &EventBroker,
+        material: &Material,
+        unit: &MaterialUnit,
+    ) {
         let (_, mut part_events) = broker
             .subscribe(
                 authorization().scope,
@@ -1568,19 +1621,6 @@ mod tests {
             denied_part.code.as_str(),
             "eitmad.error.authorization-denied.v1"
         );
-        let denied = dispatcher
-            .dispatch_command(
-                material_actor(614, 4),
-                Command::SaveMaterialCategory(SaveMaterialCategory {
-                    id: None,
-                    expected_revision: None,
-                    name: "ممنوع".to_owned(),
-                    archived: false,
-                }),
-            )
-            .await
-            .unwrap_err();
-        assert_eq!(denied.code.as_str(), "eitmad.error.authorization-denied.v1");
     }
 
     fn grant_material_roles(dispatcher: &ProductDispatcher) {
@@ -1894,10 +1934,4 @@ mod tests {
                 .is_err()
         );
     }
-}
-
-fn require_protocol_1_11(context: &DispatchContext) -> Result<(), ContractError> {
-    (context.protocol_version.major == 1 && context.protocol_version.minor >= 11)
-        .then_some(())
-        .ok_or_else(|| unsupported(context))
 }
