@@ -71,6 +71,11 @@ public sealed class FormFieldRenderedTests
                     WpfTestHost.Descendants<ProductsView>(window).Single().ViewModel
                         .ApplyDurableData(ProductsPresentationTests.Data());
                 }
+                if (page == "Furniture")
+                {
+                    WpfTestHost.Descendants<Features.Furniture.FurnitureView>(window).Single().ViewModel
+                        .ApplyDurableData(new Furniture.FurnitureFixtures().Snapshot());
+                }
                 WpfTestHost.CompleteLayout(window);
                 var addOrEdit = WpfTestHost.Descendants<Button>(window).First(button => button.IsVisible && AutomationProperties.GetName(button) == action);
                 Assert.IsTrue(addOrEdit.IsEnabled, page);

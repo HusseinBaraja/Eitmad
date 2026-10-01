@@ -194,6 +194,9 @@ public sealed class DialogHostRenderedTests
             RaiseKey(OpenDialog(window), Key.Escape);
 
             var furniture = Navigate<FurnitureView>(window, "FurnitureNavButton");
+            var furnitureFixture = new Furniture.FurnitureFixtures();
+            furnitureFixture.Seed();
+            furniture.ViewModel.ApplyDurableData(furnitureFixture.Snapshot());
             furniture.ViewModel.BeginEdit(furniture.ViewModel.VisibleFurniture.First(item => !item.IsArchived));
             Assert.IsTrue(furniture.ViewModel.MoveToParts());
             furniture.ViewModel.OpenPartPicker();
