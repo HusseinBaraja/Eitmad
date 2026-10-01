@@ -90,6 +90,7 @@ fn setup(
     )
 }
 
+/// Creates a synthetic active category and an unsaved product with fixed supplier options.
 fn fixture(service: &ProductService, manager: &AuthorizationContext) -> SaveProduct {
     let category = service
         .save_category(
@@ -126,6 +127,7 @@ fn fixture(service: &ProductService, manager: &AuthorizationContext) -> SaveProd
         archived: false,
     }
 }
+/// Builds an exact historical option reference with an optional new-work eligibility check.
 fn reference(p: &Product, variant: usize, new: bool) -> GetProductRevision {
     GetProductRevision {
         reference: ProductReference {
@@ -138,6 +140,7 @@ fn reference(p: &Product, variant: usize, new: bool) -> GetProductRevision {
         for_new_work: new,
     }
 }
+/// Builds a bounded product-list request without search or selection restrictions.
 fn list() -> ListProducts {
     ListProducts {
         term: String::new(),
@@ -146,6 +149,7 @@ fn list() -> ListProducts {
         selectable_only: false,
     }
 }
+/// Verifies product reads see committed state without reserving the writer lock.
 #[test]
 fn product_queries_read_committed_data_while_a_writer_holds_the_database() {
     let dir = TempDir::new().unwrap();
@@ -184,6 +188,7 @@ fn product_queries_read_committed_data_while_a_writer_holds_the_database() {
     );
 }
 
+/// Verifies restart persistence, exact retry, immutable history, and retained option references.
 #[test]
 fn restart_retry_and_history_preserve_fixed_supplier_references() {
     let dir = TempDir::new().unwrap();
@@ -266,6 +271,7 @@ fn restart_retry_and_history_preserve_fixed_supplier_references() {
         first
     );
 }
+/// Verifies scoped access, cost redaction, and denial after relationship revocation.
 #[test]
 fn denied_changes_cost_redaction_cross_scope_and_revocation() {
     let dir = TempDir::new().unwrap();
@@ -351,6 +357,7 @@ fn denied_changes_cost_redaction_cross_scope_and_revocation() {
     .unwrap();
     assert_eq!(service.list(&manager, &list()), Err(ProductError::Denied));
 }
+/// Verifies stale revisions, invalid bounds, option ownership, and archived-category restrictions.
 #[test]
 fn revisions_bounds_variant_ownership_and_category_archive_are_enforced() {
     let dir = TempDir::new().unwrap();
@@ -447,6 +454,7 @@ fn revisions_bounds_variant_ownership_and_category_archive_are_enforced() {
         Err(ProductError::InvalidReference)
     );
 }
+/// Verifies an audit failure rolls back the definition, history, retry result, and publication.
 #[test]
 fn audit_failure_rolls_back_definition_history_retry_and_event() {
     let dir = TempDir::new().unwrap();

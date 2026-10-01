@@ -60,6 +60,7 @@ public sealed class ProductsViewModel : ObservableObject
     private string categoryName = string.Empty;
     private string categoryError = string.Empty;
 
+    /// <summary>Initializes empty authority projections and Arabic product filters before the first load.</summary>
     public ProductsViewModel()
     {
         Categories = []; ActiveCategories = []; CategoryOptions = [AllCategories];
@@ -93,15 +94,20 @@ public sealed class ProductsViewModel : ObservableObject
         SelectedCategory = CategoryOptions.Contains(selectedFilter) ? selectedFilter : AllCategories; Raise(nameof(SelectedCategory));
         AvailabilityMessage = ""; RefreshVisibleProducts();
     }
+    /// <summary>Shows a load failure and clears visible rows while retaining unsaved edits for transport recovery.</summary>
     public void Unavailable(string message) { AvailabilityMessage = message; products.Clear(); RefreshVisibleProducts(); }
+    /// <summary>Removes cached records, restricted fields, staged requests, and management flags after invalidation.</summary>
     public void ClearSession()
     {
         SavePending = false; IsBusy = false; IsEditorOpen = false; IsCategoryEditorOpen = false; IsCategoryManagerOpen = false; IsArchiveConfirmationOpen = false;
         editingRecord = null; pendingArchiveRecord = null; editorCategoryId = null; editingProduct = null; pendingArchiveProduct = null; editingCategory = null; EditorName = ""; EditorCategory = ""; ShortDescription = ""; Notes = ""; PurchaseCost = 0; Variants.Clear(); ProductImage = null; ProductImageName = ""; CategoryName = ""; CategoryError = ""; EditorError = ""; FeedbackMessage = "";
         searchText = ""; Raise(nameof(SearchText)); SelectedCategory = AllCategories; SelectedStatus = AllStatuses; CategoryOptions = [AllCategories]; Raise(nameof(CategoryOptions)); CanManage = false; CanReadCosts = false; records.Clear(); details.Clear(); Categories.Clear(); ActiveCategories.Clear(); Unavailable("جار تحميل المنتجات…");
     }
+    /// <summary>Keeps the product editor open and displays the current save failure.</summary>
     public void Fail(string message) => EditorError = message;
+    /// <summary>Keeps the category editor open and displays the current save failure.</summary>
     public void FailCategory(string message) => CategoryError = message;
+    /// <summary>Closes product dialogs and clears pending-save state after Rust confirms the mutation.</summary>
     public void Saved() { IsEditorOpen = false; IsArchiveConfirmationOpen = false; pendingArchiveProduct = null; SavePending = false; EditorError = ""; FeedbackMessage = "حُفظ المنتج محلياً مع سجل التدقيق."; }
     /// <summary>Selects a newly created category; renaming or archiving keeps the product's selected ID.</summary>
     public void CategorySaved(SaveProductCategory input)
@@ -116,7 +122,9 @@ public sealed class ProductsViewModel : ObservableObject
     public ObservableCollection<ProductListItem> VisibleProducts { get; }
 
     // Selling-price publication and sales selection remain owned by pricing/catalog.
+    /// <summary>Leaves new sales selections empty until Pricing publishes these definitions.</summary>
     public IEnumerable<Reception.SalesCatalogItem> GetSalesCatalogItems() => [];
+    /// <summary>Withholds selection details for definitions that have no published selling price.</summary>
     public Reception.ProductSelectionViewModel? GetSalesSelection(Guid id) => null;
 
     public ObservableCollection<ProductVariant> Variants { get; }
@@ -327,6 +335,7 @@ public sealed class ProductsViewModel : ObservableObject
 
     public bool HasCategoryError => !string.IsNullOrEmpty(CategoryError);
 
+    /// <summary>Starts a new unsaved definition only when management is allowed and no exact retry is pending.</summary>
     public void BeginCreate()
     {
         if (SavePending || !CanManage) return;
@@ -347,6 +356,7 @@ public sealed class ProductsViewModel : ObservableObject
         IsEditorOpen = true;
     }
 
+    /// <summary>Stages the selected definition and retains its reviewed revision and supplier-option identities.</summary>
     public void BeginEdit(ProductListItem product)
     {
         ArgumentNullException.ThrowIfNull(product);
@@ -377,6 +387,7 @@ public sealed class ProductsViewModel : ObservableObject
         IsEditorOpen = true;
     }
 
+    /// <summary>Copies active options into a new definition with new product and option identities.</summary>
     public void BeginDuplicate(ProductListItem product)
     {
         if (SavePending || !CanManage) return;
@@ -390,6 +401,7 @@ public sealed class ProductsViewModel : ObservableObject
         EditorName = $"{product.Name} — نسخة";
     }
 
+    /// <summary>Closes unsaved editing only when no unknown save outcome requires an exact retry.</summary>
     public void CancelEditor()
     {
         if (SavePending) return;
@@ -397,12 +409,14 @@ public sealed class ProductsViewModel : ObservableObject
         EditorError = string.Empty;
     }
 
+    /// <summary>Stages a new supplier option with a fresh identity and the current purchase cost.</summary>
     public void AddVariant()
     {
         HasVariants = true;
         Variants.Add(new ProductVariant(Guid.NewGuid(), $"خيار {Variants.Count + 1}", PurchaseCost));
     }
 
+    /// <summary>Archives a saved option to retain its references; removes only unsaved options.</summary>
     public void RemoveVariant(ProductVariant variant)
     {
         ArgumentNullException.ThrowIfNull(variant);
@@ -410,6 +424,7 @@ public sealed class ProductsViewModel : ObservableObject
         else Variants.Remove(variant);
     }
 
+    /// <summary>Builds a typed request from staged fields using the reviewed revision and stable category identity.</summary>
     public SaveProduct SaveInput()
     {
         var current = editingRecord;
@@ -418,7 +433,9 @@ public sealed class ProductsViewModel : ObservableObject
             : new[] { new SaveProductVariant { Id = singleVariantId, Name = "قياسي", PurchaseCostYer = WholeCost(PurchaseCost) } };
         return new SaveProduct { Id = current?.Id, ExpectedRevision = current?.Revision, Name = EditorName, CategoryId = editorCategoryId ?? category?.Id ?? Guid.Empty, Description = ShortDescription, Notes = Notes, Variants = variants, Archived = current?.Archived ?? false };
     }
+    /// <summary>Converts whole-YER input to the contract range and rejects fractions or integer overflow.</summary>
     private static long WholeCost(decimal value) => value == decimal.Truncate(value) ? checked((long)value) : throw new FormatException("whole YER required");
+    /// <summary>Builds an archive request from the retained record without replacing its reviewed revision.</summary>
     public SaveProduct ArchiveInput()
     {
         var p = pendingArchiveRecord!;
@@ -434,6 +451,7 @@ public sealed class ProductsViewModel : ObservableObject
             Variants = p.Variants.Select(v => new SaveProductVariant { Id = v.Id, Name = v.Name, PurchaseCostYer = v.PurchaseCostYer ?? 0, Archived = v.Archived }).ToArray()
         };
     }
+    /// <summary>Retains the record for archive confirmation without changing the authority projection.</summary>
     public void RequestArchive(ProductListItem product)
     {
         ArgumentNullException.ThrowIfNull(product);
@@ -457,6 +475,7 @@ public sealed class ProductsViewModel : ObservableObject
         }
     }
 
+    /// <summary>Dismisses archive confirmation only when no unknown outcome requires the retained request.</summary>
     public void CancelArchive()
     {
         if (SavePending) return;
@@ -475,9 +494,11 @@ public sealed class ProductsViewModel : ObservableObject
         EditorError = string.Empty;
     }
 
+    /// <summary>Shows an image-load failure without replacing the staged product fields.</summary>
     public void ReportImageLoadError() =>
         FeedbackMessage = "تعذر فتح الصورة. اختر ملف صورة صالحاً بحجم مناسب.";
 
+    /// <summary>Starts a new category draft without changing the open product selection.</summary>
     public void BeginAddCategory()
     {
         if (SavePending || !CanManage) return;
@@ -490,6 +511,7 @@ public sealed class ProductsViewModel : ObservableObject
         Raise(nameof(CategoryEditorTitle));
     }
 
+    /// <summary>Opens category management only when editing is permitted and no retry is pending.</summary>
     public void BeginManageCategories()
     {
         if (SavePending || !CanManage) return;
@@ -497,6 +519,7 @@ public sealed class ProductsViewModel : ObservableObject
         IsCategoryManagerOpen = true;
     }
 
+    /// <summary>Stages the category revision and remembers whether to return to category management.</summary>
     public void BeginEditCategory(ProductCategoryOption category)
     {
         if (SavePending || !CanManage) return;
@@ -510,9 +533,12 @@ public sealed class ProductsViewModel : ObservableObject
         Raise(nameof(CategoryEditorTitle));
     }
 
+    /// <summary>Builds a category request with its reviewed identity, revision, and archive state.</summary>
     public SaveProductCategory CategoryInput() => new() { Id = editingCategory?.Id, ExpectedRevision = editingCategory?.Revision, Name = CategoryName, Archived = editingCategory?.IsArchived ?? false };
+    /// <summary>Builds an archive request for the selected category revision.</summary>
     public SaveProductCategory ArchiveCategoryInput(ProductCategoryOption category) => new() { Id = category.Id, ExpectedRevision = category.Revision, Name = category.Name, Archived = true };
 
+    /// <summary>Returns to category management when appropriate while preserving an unresolved retry.</summary>
     public void CancelCategoryEditor()
     {
         if (SavePending) return;
@@ -524,8 +550,10 @@ public sealed class ProductsViewModel : ObservableObject
         }
     }
 
+    /// <summary>Closes category management only after any unknown save outcome is resolved.</summary>
     public void CloseCategoryManager() { if (!SavePending) IsCategoryManagerOpen = false; }
 
+    /// <summary>Filters the current authority projection by category and archive state for the visible list.</summary>
     private void RefreshVisibleProducts()
     {
         var matches = products.Where(product =>

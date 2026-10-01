@@ -452,6 +452,7 @@ public sealed class EngineIpcClient : IAsyncDisposable
         }
     }
 
+    /// <summary>Routes typed replies and subscription frames; session-changing closures invalidate pending consumers.</summary>
     private async Task ReadResponsesAsync()
     {
         try

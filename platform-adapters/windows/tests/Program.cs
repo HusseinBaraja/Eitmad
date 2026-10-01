@@ -121,6 +121,7 @@ internal sealed class SupervisionScenarios
         Assert.Equal(newer.Cursor, subscription.ProcessedCursor, "processed cursor remains monotonic");
     }
 
+    /// <summary>Verifies a supervised subscription resumes after its engine connection is replaced.</summary>
     public async Task SupervisedSubscriptionSurvivesReattach()
     {
         await using var supervised = new SupervisedEngineSubscription(
@@ -172,6 +173,7 @@ internal sealed class SupervisionScenarios
         Assert.Equal(replacementEvent.Cursor, (await ReadOne(supervised)).Cursor, "replacement event after overflow");
     }
 
+    /// <summary>Verifies a supervised consumer receives a session-change failure after policy invalidation.</summary>
     public async Task SupervisedSubscriptionReportsProjectionInvalidation()
     {
         await using var supervised = new SupervisedEngineSubscription(
@@ -338,6 +340,7 @@ internal sealed class SupervisionScenarios
         Assert.Equal(EngineSupervisionState.Stopped, fixture.Supervisor.Snapshot.State, "failed termination stop state");
     }
 
+    /// <summary>Exercises real-engine lifecycle, product persistence, retries, events, and policy invalidation.</summary>
     public async Task RealEngineStartsAndStopsCleanly(string enginePath)
     {
         var runtimeDirectory = Path.Combine(Path.GetTempPath(), $"eitmad-supervision-{Guid.NewGuid():N}");

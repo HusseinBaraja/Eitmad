@@ -12,6 +12,7 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 [TestClass]
 public sealed class PreviewHandoffRenderedTests
 {
+    /// <summary>Verifies the preview approval inbox gates the exact originating quotation editor.</summary>
     [TestMethod]
     [DataRow(1338)]
     [DataRow(780)]

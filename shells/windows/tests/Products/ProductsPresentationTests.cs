@@ -4,6 +4,7 @@ namespace Eitmad.WindowsShell.Tests.Products;
 [TestClass]
 public sealed class ProductsPresentationTests
 {
+    /// <summary>Builds deterministic Arabic product records and supplier costs for presentation tests.</summary>
     internal static ProductSnapshot Data(long revision = 1)
     {
         var scope = new ScopeRef { Kind = "organization", Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa") };
@@ -11,6 +12,7 @@ public sealed class ProductsPresentationTests
         var product = new Product { Id = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc"), Scope = scope, CategoryId = category.Id, CategoryName = category.Name, Name = "مرتبة طبية", Description = "منتج جاهز", Notes = "ملاحظة المورد", Revision = revision, Variants = [new Eitmad.Contracts.ProductVariant { Id = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd"), Name = "مفرد", PurchaseCostYer = 55000 }, new Eitmad.Contracts.ProductVariant { Id = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"), Name = "مزدوج", PurchaseCostYer = 80000 }] };
         return new(new ProductCategories { Items = [category] }, [product], true, true);
     }
+    /// <summary>Verifies refresh retains unsaved fields and reviewed identities while duplication creates new identities.</summary>
     [TestMethod]
     public void RefreshPreservesReviewedRevisionVariantAndCategoryIdentity()
     {
@@ -20,6 +22,7 @@ public sealed class ProductsPresentationTests
         model.RemoveVariant(model.Variants[1]); Assert.IsTrue(model.SaveInput().Variants[1].Archived);
         model.BeginDuplicate(model.VisibleProducts.Single()); input = model.SaveInput(); Assert.IsNull(input.Id); Assert.IsNull(input.ExpectedRevision); Assert.AreNotEqual(variant, input.Variants[0].Id);
     }
+    /// <summary>Verifies category rename or archive preserves selection and creation selects the new category.</summary>
     [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
@@ -51,6 +54,7 @@ public sealed class ProductsPresentationTests
         Assert.AreEqual(created.Id, model.SaveInput().CategoryId);
     }
 
+    /// <summary>Verifies redaction closes restricted editing and session reset removes cached records.</summary>
     [TestMethod]
     public void RedactedProjectionAndSessionResetClearInternalEditorData()
     {
@@ -59,6 +63,7 @@ public sealed class ProductsPresentationTests
         model.ApplyDurableData(data with { CanManage = false, CanReadCosts = false }); Assert.IsFalse(model.IsEditorOpen); Assert.AreEqual("", model.Notes); Assert.HasCount(0, model.Variants); Assert.AreEqual("—", model.VisibleProducts.Single().PurchaseCostLabel);
         model.ClearSession(); Assert.HasCount(0, model.VisibleProducts); Assert.HasCount(0, model.Categories); Assert.IsFalse(model.CanManage);
     }
+    /// <summary>Verifies definitions cannot enter new sales and archive remains staged until authority confirmation.</summary>
     [TestMethod]
     public void ProductDefinitionsDoNotPublishSellingPricesOrNewSalesSelections()
     {

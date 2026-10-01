@@ -8,6 +8,7 @@ public sealed class ProductListItem : ObservableObject
 {
     private bool isArchived;
 
+    /// <summary>Copies one authority projection into a product row without persisting editor changes.</summary>
     public ProductListItem(
         Guid id,
         string name,
@@ -84,6 +85,7 @@ public sealed class ProductVariant : ObservableObject
     private string name;
     private decimal purchaseCost;
 
+    /// <summary>Stages a supplier option with its stable identity and whole-YER purchase cost.</summary>
     public ProductVariant(Guid id, string name, decimal purchaseCost)
     {
         Id = id;
@@ -105,6 +107,7 @@ public sealed class ProductVariant : ObservableObject
     public bool IsArchived { get => isArchived; set { Set(ref isArchived, value); Raise(nameof(StatusLabel)); Raise(nameof(IsActive)); } }
     public bool IsActive => !IsArchived;
     public string StatusLabel => IsArchived ? "مؤرشف" : "نشط";
+    /// <summary>Copies staged option fields while preserving its identity and archive state.</summary>
     public ProductVariant Copy() => new(Id, Name, PurchaseCost) { IsArchived = IsArchived };
 }
 

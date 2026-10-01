@@ -101,6 +101,7 @@ public sealed class SupervisedEngineSubscription : IEngineSubscription
 
     internal void SignalResyncRequired() => ResyncRequired?.Invoke();
 
+    /// <summary>Forwards the current engine stream and propagates projection invalidation to its consumer.</summary>
     private async Task PumpAsync(
         EngineSubscription subscription,
         Channel<EventEnvelope> attachedEvents,

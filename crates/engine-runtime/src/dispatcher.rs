@@ -95,6 +95,7 @@ impl ProductDispatcher {
         Self::with_event_publisher(store, Arc::new(events))
     }
 
+    /// Attaches the committed-event publisher used by mutation dispatch.
     fn with_event_publisher(store: AuthorityStore, events: Arc<dyn ProductEventPublisher>) -> Self {
         let authorization = AuthorizationService::new(store.clone());
         let configuration = ConfigurationService::new(store.clone(), authorization.clone());
@@ -463,6 +464,7 @@ impl ProductDispatcher {
 
 #[async_trait]
 impl CommandDispatcher for ProductDispatcher {
+    /// Checks protocol support and routes typed commands through their Rust authority.
     async fn dispatch_command(
         &self,
         context: DispatchContext,
@@ -568,6 +570,7 @@ impl CommandDispatcher for ProductDispatcher {
 
 #[async_trait]
 impl QueryDispatcher for ProductDispatcher {
+    /// Checks protocol support and routes typed queries through their Rust authority.
     async fn dispatch_query(
         &self,
         context: DispatchContext,
@@ -670,6 +673,7 @@ impl QueryDispatcher for ProductDispatcher {
         result
     }
 
+    /// Checks the requested stream permission in the authenticated scope before subscription.
     async fn authorize_subscription(
         &self,
         context: SubscriptionContext,
@@ -889,6 +893,7 @@ fn part_error(value: PartError, context: &DispatchContext) -> ContractError {
     contract_error(code, message, context.correlation_id, retry, detail)
 }
 
+/// Maps product failures to stable contract errors without exposing internal storage details.
 fn product_error(value: ProductError, context: &DispatchContext) -> ContractError {
     let (code, message, retry, detail) = match value {
         ProductError::Denied => (
@@ -1145,6 +1150,7 @@ fn require_protocol_1_11(context: &DispatchContext) -> Result<(), Box<ContractEr
         .ok_or_else(|| Box::new(unsupported(context)))
 }
 
+/// Rejects product operations when the negotiated protocol predates their contract.
 fn require_protocol_1_12(context: &DispatchContext) -> Result<(), Box<ContractError>> {
     (context.protocol_version.major == 1 && context.protocol_version.minor >= 12)
         .then_some(())

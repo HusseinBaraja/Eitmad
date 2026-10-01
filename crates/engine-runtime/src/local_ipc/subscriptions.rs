@@ -314,6 +314,7 @@ fn now() -> UnixMillis {
     UnixMillis(i64::try_from(millis).unwrap_or(i64::MAX))
 }
 
+/// Extracts the authorization scope from events that can be delivered to scoped subscribers.
 fn event_scope(event: &Event) -> Option<&ScopeRef> {
     match event {
         Event::ConfigurationChanged(snapshot) => Some(&snapshot.scope),

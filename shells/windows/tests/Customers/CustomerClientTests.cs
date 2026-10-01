@@ -184,6 +184,7 @@ public sealed class CustomerClientTests
         Assert.AreEqual(1, engine.SubscriptionCount);
     }
 
+    /// <summary>Verifies subscription updates refresh customer details without losing the current selection.</summary>
     [TestMethod]
     public async Task SelectedCustomerRefreshesFromSubscriptionWithoutLosingSelection()
     {

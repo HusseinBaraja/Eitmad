@@ -358,6 +358,7 @@ impl ProductService {
             Ok(ProductCategories { items, next })
         })
     }
+    /// Distinguishes missing cost permission from an unavailable authorization decision.
     fn can_read_costs(&self, context: &AuthorizationContext) -> Result<bool, ProductError> {
         match self
             .authorization
@@ -369,6 +370,7 @@ impl ProductService {
         }
     }
 }
+/// Checks byte bounds, required content, whitespace, and unsafe direction controls without rewriting text.
 fn validate_text(value: &str, max: usize, empty: bool) -> Result<(), ProductError> {
     if (!empty && value.is_empty())
         || value.len() > max

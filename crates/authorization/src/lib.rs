@@ -157,6 +157,7 @@ impl AuthorizationService {
             .ok_or(AuthorizationError::Denied)
     }
 
+    /// Evaluates each requested permission against the same scoped relationship snapshot.
     fn evaluate_permissions(
         &self,
         context: &AuthorizationContext,

@@ -199,6 +199,7 @@ public partial class MainWindow : Window
         AccountSessionCleared?.Invoke(this, reason);
     }
 
+    /// <summary>Hides account pages and clears their cached state when the desktop session ends.</summary>
     private void HideAccountSurfaces()
     {
         PartsSurface.ClearSession();

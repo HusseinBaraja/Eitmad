@@ -968,6 +968,7 @@ struct SubscriptionPump {
     policy_changes: tokio::sync::broadcast::Receiver<eitmad_contracts::identity::ScopeRef>,
 }
 
+/// Reauthorizes scoped events and sends closure reasons when a projection becomes invalid.
 async fn pump_subscription(mut pump: SubscriptionPump) {
     let mut sequence = 0_u64;
     loop {
@@ -1294,6 +1295,7 @@ fn tokens_equal(expected: &str, actual: &str) -> bool {
     expected.len() == actual.len() && bool::from(expected.as_bytes().ct_eq(actual.as_bytes()))
 }
 
+/// Advertises the engine protocol range, capabilities, and schema versions for negotiation.
 fn default_engine_hello() -> PeerHello {
     PeerHello {
         peer_kind: PeerKind::Engine,
@@ -2239,6 +2241,7 @@ mod tests {
         assert!(task.await.unwrap_err().is_cancelled());
     }
 
+    /// Verifies policy changes close product streams even when definition-read access remains.
     #[tokio::test]
     async fn policy_change_invalidates_product_projection_with_read_access_retained() {
         let broker = EventBroker::new();

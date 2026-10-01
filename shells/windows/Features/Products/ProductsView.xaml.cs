@@ -97,6 +97,7 @@ public partial class ProductsView : UserControl
         ViewModel.ClearSession();
     }
 
+    /// <summary>Finds rendered inputs so invalid purchase-cost fields can receive focus before submission.</summary>
     private static IEnumerable<T> VisualDescendants<T>(DependencyObject parent) where T : DependencyObject
     {
         for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
@@ -179,12 +180,14 @@ public partial class ProductsView : UserControl
         }
     }
 
+    /// <summary>Submits the current editor through the asynchronous product save path.</summary>
     private async void SaveProductClick(object sender, RoutedEventArgs args) => await SaveAsync(false);
 
     private void CancelEditorClick(object sender, RoutedEventArgs eventArgs) => ViewModel.CancelEditor();
 
     private void ArchiveFromEditorClick(object sender, RoutedEventArgs eventArgs) => ViewModel.RequestArchiveFromEditor();
 
+    /// <summary>Submits the retained product revision after archive confirmation.</summary>
     private async void ConfirmArchiveClick(object sender, RoutedEventArgs args) => await SaveAsync(true);
 
     private void CancelArchiveClick(object sender, RoutedEventArgs eventArgs) => ViewModel.CancelArchive();
@@ -227,6 +230,7 @@ public partial class ProductsView : UserControl
         }
     }
 
+    /// <summary>Submits the selected category revision through the category retry path.</summary>
     private async void ArchiveCategoryClick(object sender, RoutedEventArgs eventArgs)
     {
         if (sender is Button { DataContext: ProductCategoryOption category })
@@ -236,6 +240,7 @@ public partial class ProductsView : UserControl
         }
     }
 
+    /// <summary>Submits staged category fields through the asynchronous category save path.</summary>
     private async void SaveCategoryClick(object sender, RoutedEventArgs args) => await SaveCategoryAsync(ViewModel.CategoryInput());
 
     private void CancelCategoryClick(object sender, RoutedEventArgs eventArgs) => ViewModel.CancelCategoryEditor();

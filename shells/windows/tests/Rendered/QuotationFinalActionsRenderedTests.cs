@@ -13,6 +13,7 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 [TestClass]
 public sealed class QuotationFinalActionsRenderedTests
 {
+    /// <summary>Verifies required fields, preview return, and customer-only document pagination in the rendered flow.</summary>
     [TestMethod]
     public void RequiredFieldsPreviewBackAndCustomerOnlyPagination()
     {

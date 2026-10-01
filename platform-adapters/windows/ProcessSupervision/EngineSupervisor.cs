@@ -719,6 +719,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
             TaskScheduler.Default);
     }
 
+    /// <summary>Negotiates required capabilities and schemas before attaching the supervised IPC session.</summary>
     private async Task ConnectIpcAsync(
         IEngineProcess process,
         long observedGeneration,

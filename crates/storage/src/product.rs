@@ -67,6 +67,7 @@ impl AuthorityStore {
         self.transact_products_with(rusqlite::TransactionBehavior::Deferred, operation)
     }
 
+    /// Runs one consistent product transaction with the requested lock behavior and commits only on success.
     fn transact_products_with<T, E: From<StorageError>>(
         &self,
         behavior: rusqlite::TransactionBehavior,
