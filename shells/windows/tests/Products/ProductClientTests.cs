@@ -1,5 +1,6 @@
 using System.IO;
 using Eitmad.Contracts;
+using Eitmad.Platform.Windows.LocalIpc;
 using Eitmad.WindowsShell.Features.Products;
 using Eitmad.WindowsShell.Tests.TestDoubles;
 
@@ -61,6 +62,43 @@ public sealed class ProductClientTests
         Assert.IsFalse(loaded.Value.CanReadCosts);
         Assert.AreEqual("", loaded.Value.Products.Single().Notes);
         Assert.IsTrue(loaded.Value.Products.Single().Variants.All(v => v.PurchaseCostYer is null));
+    }
+
+    [TestMethod]
+    public async Task PolicyClosureClearsInternalDataBeforeRefreshAndDiscardsRestrictedRetryPayload()
+    {
+        await using var engine = new FakeEngine();
+        var model = new ProductsViewModel();
+        model.ApplyDurableData(ProductsPresentationTests.Data());
+        model.BeginEdit(model.VisibleProducts.Single());
+        var input = model.SaveInput();
+        engine.CommandHandler = _ => throw new IOException("Synthetic lost response.");
+        FakeSubscription? stream = null;
+        engine.SubscribeHook = (_, subscription) => stream = subscription;
+        await using var client = new ProductClient(engine);
+        await client.ActivateAsync();
+        Assert.AreEqual(ProductFailureKind.Unavailable, await client.SaveAsync(input));
+        var cleared = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        client.ProjectionInvalidated += (_, _) => model.ClearSession();
+        client.Changed += (_, _) =>
+        {
+            Assert.IsFalse(model.IsEditorOpen);
+            Assert.IsFalse(model.CanReadCosts);
+            Assert.AreEqual("", model.Notes);
+            Assert.HasCount(0, model.Variants);
+            Assert.HasCount(0, model.VisibleProducts);
+            cleared.TrySetResult();
+        };
+        stream!.FailRead(new EngineIpcException(EngineIpcFailureKind.SessionChanged, "Synthetic policy closure."));
+        await cleared.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        // A new permitted operation cannot inherit a frozen request from the previous policy.
+        engine.CommandHandler = _ => new CommandResponseEnvelope
+        {
+            RequestId = Guid.NewGuid(), CorrelationId = Guid.NewGuid(),
+            Outcome = new CommandOutcome { Status = CommandOutcomeStatus.Succeeded, Payload = new CommandResult() },
+        };
+        input.Name = "منتج آخر";
+        Assert.AreEqual(ProductFailureKind.None, await client.SaveAsync(input));
     }
 
     [TestMethod]

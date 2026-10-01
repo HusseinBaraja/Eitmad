@@ -21,6 +21,37 @@ public sealed class ProductsPresentationTests
         model.BeginDuplicate(model.VisibleProducts.Single()); input = model.SaveInput(); Assert.IsNull(input.Id); Assert.IsNull(input.ExpectedRevision); Assert.AreNotEqual(variant, input.Variants[0].Id);
     }
     [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void SavingAnotherCategoryKeepsTheOpenProductCategory(bool archive)
+    {
+        var model = new ProductsViewModel();
+        var data = Data();
+        var other = new ProductCategory { Id = Guid.NewGuid(), Scope = data.Products[0].Scope, Name = "الوسائد", Revision = 1 };
+        data.Categories.Items = [data.Categories.Items[0], other];
+        model.ApplyDurableData(data);
+        model.BeginEdit(model.VisibleProducts.Single());
+        var original = model.SaveInput().CategoryId;
+        model.BeginManageCategories();
+        model.BeginEditCategory(model.Categories.Single(c => c.Id == other.Id));
+        model.CategoryName = "وسائد جديدة";
+        var input = archive ? model.ArchiveCategoryInput(model.Categories.Single(c => c.Id == other.Id)) : model.CategoryInput();
+        other.Name = input.Name;
+        other.Archived = archive;
+        model.ApplyDurableData(data);
+        model.CategorySaved(input);
+        Assert.AreEqual(original, model.SaveInput().CategoryId);
+        Assert.IsTrue(model.IsCategoryManagerOpen);
+
+        model.BeginAddCategory();
+        var created = new ProductCategory { Id = Guid.NewGuid(), Scope = other.Scope, Name = "أخرى", Revision = 1 };
+        data.Categories.Items = [.. data.Categories.Items, created];
+        model.ApplyDurableData(data);
+        model.CategorySaved(new SaveProductCategory { Name = created.Name });
+        Assert.AreEqual(created.Id, model.SaveInput().CategoryId);
+    }
+
+    [TestMethod]
     public void RedactedProjectionAndSessionResetClearInternalEditorData()
     {
         var model = new ProductsViewModel(); var data = Data(); model.ApplyDurableData(data); model.BeginEdit(model.VisibleProducts.Single());

@@ -268,6 +268,8 @@ pub enum SubscriptionCloseReason {
     Backpressure,
     EngineStopping,
     AuthorizationRevoked,
+    /// Cached projections must be cleared and queried again after a policy change.
+    ProjectionInvalidated,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]

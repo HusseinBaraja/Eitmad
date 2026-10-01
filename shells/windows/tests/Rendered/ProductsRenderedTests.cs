@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using Eitmad.Contracts;
+using Eitmad.Platform.Windows.LocalIpc;
 using Eitmad.WindowsShell.Controls;
 using Eitmad.WindowsShell.Features.Products;
 using Eitmad.WindowsShell.Tests.Products;
@@ -12,6 +13,76 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 [TestClass]
 public sealed class ProductsRenderedTests
 {
+    [TestMethod]
+    public void PolicyClosureClearsThePageBeforeBlockedRefreshAndRejectsLateSave()
+    {
+        var data = ProductsPresentationTests.Data();
+        var engine = new FakeEngine();
+        FakeSubscription? stream = null;
+        engine.SubscribeHook = (contract, subscription) =>
+        {
+            if (contract.Kind == Subscription.ProductChangedSubscribeKind) stream = subscription;
+        };
+        engine.QueryHandler = query => new QueryResponseEnvelope
+        {
+            RequestId = Guid.NewGuid(), CorrelationId = Guid.NewGuid(),
+            Outcome = new QueryOutcome { Status = CommandOutcomeStatus.Succeeded, Payload = query.Kind == Query.ProductCategoryListKind
+                ? QueryResult.ForProductCategories(data.Categories)
+                : QueryResult.ForProducts(new ProductPage { Items = data.Products.ToArray(), CanManage = true, CanReadCosts = true }) },
+        };
+        var save = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var refresh = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        engine.CommandBarrier = _ => save.Task;
+        engine.CommandHandler = _ => new CommandResponseEnvelope
+        {
+            RequestId = Guid.NewGuid(), CorrelationId = Guid.NewGuid(),
+            Outcome = new CommandOutcome { Status = CommandOutcomeStatus.Succeeded, Payload = new CommandResult() },
+        };
+        WpfTestHost.Run(1338, 753, window =>
+        {
+            try
+            {
+                WpfTestHost.FindByName<Button>(window, "ProductsNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                WpfTestHost.CompleteLayout(window);
+                var view = WpfTestHost.Descendants<ProductsView>(window).Single();
+                view.ViewModel.BeginEdit(view.ViewModel.VisibleProducts.Single());
+                WpfTestHost.CompleteLayout(window);
+                WpfTestHost.FindByAutomationName<Button>(view, "حفظ المنتج").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.IsTrue(view.ViewModel.IsBusy);
+                engine.QueryBarrier = _ => refresh.Task;
+                // Also leave a previously authorized query in flight; cancellation alone is insufficient.
+                view.ViewModel.SearchText = "مرتبة";
+                stream!.FailRead(new EngineIpcException(EngineIpcFailureKind.SessionChanged, "Synthetic policy closure."));
+                var deadline = DateTime.UtcNow.AddSeconds(5);
+                while (view.ViewModel.CanReadCosts && DateTime.UtcNow < deadline) WpfTestHost.PumpDispatcher();
+                Assert.IsFalse(view.ViewModel.CanReadCosts);
+                Assert.IsFalse(view.ViewModel.IsEditorOpen);
+                Assert.AreEqual("", view.ViewModel.Notes);
+                Assert.HasCount(0, view.ViewModel.VisibleProducts);
+                Assert.HasCount(0, view.ViewModel.Variants);
+                save.SetResult();
+                WpfTestHost.CompleteLayout(window);
+                Assert.AreEqual("", view.ViewModel.FeedbackMessage);
+                Assert.IsFalse(view.ViewModel.IsBusy);
+                // The replacement query fails. The old successful query must not restore costs.
+                engine.QueryHandler = query => new QueryResponseEnvelope
+                {
+                    RequestId = Guid.NewGuid(), CorrelationId = Guid.NewGuid(),
+                    Outcome = query.Kind == Query.ProductCategoryListKind
+                        ? new QueryOutcome { Status = CommandOutcomeStatus.Succeeded, Payload = QueryResult.ForProductCategories(data.Categories) }
+                        : query.AsProductList()!.Term == "مرتبة"
+                            ? new QueryOutcome { Status = CommandOutcomeStatus.Succeeded, Payload = QueryResult.ForProducts(new ProductPage { Items = data.Products.ToArray(), CanManage = true, CanReadCosts = true }) }
+                            : new QueryOutcome { Status = CommandOutcomeStatus.Failed, Payload = new QueryResult() },
+                };
+                refresh.SetResult();
+                WpfTestHost.CompleteLayout(window);
+                Assert.HasCount(0, view.ViewModel.VisibleProducts);
+                Assert.IsFalse(view.ViewModel.CanReadCosts);
+            }
+            finally { save.TrySetResult(); refresh.TrySetResult(); }
+        }, engine: engine);
+    }
+
     [TestMethod]
     public void InvalidCostCannotSubmitPreviousValueAndDeniedSaveClearsInternalState()
     {

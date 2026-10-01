@@ -103,7 +103,15 @@ public sealed class ProductsViewModel : ObservableObject
     public void Fail(string message) => EditorError = message;
     public void FailCategory(string message) => CategoryError = message;
     public void Saved() { IsEditorOpen = false; IsArchiveConfirmationOpen = false; pendingArchiveProduct = null; SavePending = false; EditorError = ""; FeedbackMessage = "حُفظ المنتج محلياً مع سجل التدقيق."; }
-    public void CategorySaved(string name) { IsCategoryEditorOpen = false; CategoryError = ""; EditorCategory = name; if (returnToCategoryManager) IsCategoryManagerOpen = true; }
+    /// <summary>Selects a newly created category; renaming or archiving keeps the product's selected ID.</summary>
+    public void CategorySaved(SaveProductCategory input)
+    {
+        IsCategoryEditorOpen = false;
+        CategoryError = "";
+        if (input.Id is null) EditorCategory = input.Name;
+        editingCategory = null;
+        if (returnToCategoryManager) IsCategoryManagerOpen = true;
+    }
 
     public ObservableCollection<ProductListItem> VisibleProducts { get; }
 

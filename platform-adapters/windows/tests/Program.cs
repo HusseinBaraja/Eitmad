@@ -466,7 +466,7 @@ internal sealed class SupervisionScenarios
         }
     }
 
-    /// <summary>Exercises real Product category, variant, exact retry, and committed-event contracts.</summary>
+    /// <summary>Exercises real Product saves, retries, committed events, and policy projection invalidation.</summary>
     private static async Task<Product> SaveSupplierProduct(EngineSupervisor supervisor)
     {
         var categoryResponse = await supervisor.SubmitCommandAsync(
@@ -495,6 +495,28 @@ internal sealed class SupervisionScenarios
             Assert.Equal(product.Id, notice!.Id, "product event after commit");
             break;
         }
+        var relationships = await supervisor.QueryAsync(Query.ForAuthorizationRelationshipsList(new ListScopeRelationships { Limit = 100 }));
+        var policy = relationships.Outcome.Payload.AsScopeRelationships()!;
+        var changed = await supervisor.SubmitCommandAsync(Command.ForAuthorizationRelationshipGrant(new GrantScopeRelationship
+        {
+            ExpectedPolicyVersion = policy.PolicyVersion,
+            Subject = new RelationshipSubject { PrincipalId = Guid.NewGuid(), PrincipalKind = PrincipalKind.User },
+            Relation = "eitmad.relation.receptionist.v1",
+        }), Guid.NewGuid());
+        Assert.Equal(CommandOutcomeStatus.Succeeded, changed.Outcome.Status, "organization policy change commits");
+        var invalidated = false;
+        try
+        {
+            await foreach (var _ in events.ReadAllAsync(timeout.Token)) { }
+        }
+        catch (EngineIpcException error)
+        {
+            Assert.Equal(EngineIpcFailureKind.SessionChanged, error.Kind, "product policy closure requires projection invalidation");
+            invalidated = true;
+        }
+        Assert.True(invalidated, "policy change closes Products even when read access remains");
+        var retained = await supervisor.QueryAsync(Query.ForProductList(new ListProducts { Limit = 100 }));
+        Assert.True(retained.Outcome.Payload.AsProducts()!.CanReadCosts, "existing Manager cost access remains authorized");
         return product;
     }
 

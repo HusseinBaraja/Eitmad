@@ -7589,12 +7589,21 @@
       ]
     },
     "SubscriptionCloseReason": {
-      "type": "string",
-      "enum": [
-        "clientRequested",
-        "backpressure",
-        "engineStopping",
-        "authorizationRevoked"
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "clientRequested",
+            "backpressure",
+            "engineStopping",
+            "authorizationRevoked"
+          ]
+        },
+        {
+          "description": "Cached projections must be cleared and queried again after a policy change.",
+          "type": "string",
+          "const": "projectionInvalidated"
+        }
       ]
     },
     "SubscriptionClosedEnvelope": {

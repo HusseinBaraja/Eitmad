@@ -147,6 +147,44 @@ fn list() -> ListProducts {
     }
 }
 #[test]
+fn product_queries_read_committed_data_while_a_writer_holds_the_database() {
+    let dir = TempDir::new().unwrap();
+    let (store, service, manager, _) = setup(&dir);
+    let input = fixture(&service, &manager);
+    let product = service
+        .save(&mutation(manager.clone(), 20), &input)
+        .unwrap();
+    let mut writer = rusqlite::Connection::open(store.path()).unwrap();
+    let _transaction = writer
+        .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+        .unwrap();
+    assert_eq!(
+        service.list(&manager, &list()).unwrap().items,
+        vec![product.clone()]
+    );
+    assert_eq!(
+        service
+            .revision(&manager, &reference(&product, 0, true))
+            .unwrap(),
+        product
+    );
+    assert_eq!(
+        service
+            .categories(
+                &manager,
+                &ListProductCategories {
+                    after: None,
+                    limit: 100
+                }
+            )
+            .unwrap()
+            .items[0]
+            .id,
+        input.category_id
+    );
+}
+
+#[test]
 fn restart_retry_and_history_preserve_fixed_supplier_references() {
     let dir = TempDir::new().unwrap();
     let (_, service, manager, _) = setup(&dir);

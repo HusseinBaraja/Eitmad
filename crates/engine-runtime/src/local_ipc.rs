@@ -984,6 +984,23 @@ async fn pump_subscription(mut pump: SubscriptionPump) {
                 {
                     return;
                 }
+                // Product read access can survive loss of internal cost access.
+                // Invalidate the previous projection even when the stream remains authorized.
+                if must_reauthorize && matches!(pump.subscription, Subscription::Products(_)) {
+                    let _ = pump.deliveries.send(SubscriptionDelivery {
+                        subscription_id: pump.subscription_id,
+                        message: Some(IpcServerMessage::SubscriptionClosed(SubscriptionClosedEnvelope {
+                            subscription_id: pump.subscription_id,
+                            correlation_id: pump.correlation_id,
+                            last_delivered_cursor: None,
+                            reason: SubscriptionCloseReason::ProjectionInvalidated,
+                        })),
+                        closed: true,
+                        delivered_cursor: None,
+                        terminate_connection: false,
+                    }).await;
+                    return;
+                }
                 continue;
             }
             received = pump.feed.recv() => received,
@@ -2220,6 +2237,61 @@ mod tests {
         drop(active);
 
         assert!(task.await.unwrap_err().is_cancelled());
+    }
+
+    #[tokio::test]
+    async fn policy_change_invalidates_product_projection_with_read_access_retained() {
+        let broker = EventBroker::new();
+        let assertion = assertion();
+        let scope = assertion.scope.clone();
+        let subscription = Subscription::Products(eitmad_contracts::product::ProductChanges {});
+        let (accepted, feed) = broker
+            .subscribe(scope.clone(), subscription.clone(), None)
+            .unwrap();
+        let correlation_id = CorrelationId::new(uuid::Uuid::new_v4());
+        let (deliveries, mut receiver) = mpsc::channel(4);
+        let task = tokio::spawn(pump_subscription(SubscriptionPump {
+            feed,
+            subscription_id: accepted.subscription_id,
+            correlation_id,
+            deliveries,
+            // Product-read authorization remains valid throughout this policy change.
+            dispatcher: Arc::new(TestDispatcher),
+            desktop_auth: None,
+            context: SubscriptionContext {
+                authorization: AuthorizationContext {
+                    session_id: SessionId::new(uuid::Uuid::new_v4()),
+                    identity: assertion.identity,
+                    tenant_id: assertion.tenant_id,
+                    workspace_id: assertion.workspace_id,
+                    scope: scope.clone(),
+                },
+                correlation_id,
+                protocol_version: PROTOCOL_VERSION,
+            },
+            subscription,
+            policy_changes: broker.subscribe_policy_changes(),
+        }));
+        let mut unrelated = scope.clone();
+        unrelated.id = eitmad_contracts::identity::ScopeId::new(uuid::Uuid::new_v4());
+        broker.policy_changed(unrelated);
+        broker.policy_changed(scope);
+        let delivery = tokio::time::timeout(Duration::from_secs(5), receiver.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        let Some(IpcServerMessage::SubscriptionClosed(closed)) = delivery.message else {
+            panic!("projection invalidation expected")
+        };
+        assert_eq!(
+            closed.reason,
+            SubscriptionCloseReason::ProjectionInvalidated
+        );
+        assert_eq!(closed.subscription_id, accepted.subscription_id);
+        assert!(delivery.closed);
+        assert!(!delivery.terminate_connection);
+        task.await.unwrap();
+        assert!(receiver.try_recv().is_err());
     }
 
     #[tokio::test]

@@ -263,34 +263,33 @@ impl ProductService {
             Err(eitmad_authorization::AuthorizationError::Denied) => false,
             Err(e) => return Err(map_authorization(e)),
         };
-        self.store
-            .transact_products(|tx| -> Result<_, ProductError> {
-                let mut items = tx.list(
-                    &context.scope,
-                    &normalize_search(&query.term),
-                    query.selectable_only,
-                    query.after,
-                    query.limit,
-                )?;
-                let next = if items.len() > query.limit as usize {
-                    items.truncate(query.limit as usize);
-                    items.last().map(|p| p.id)
-                } else {
-                    None
-                };
-                for item in &mut items {
-                    if query.selectable_only {
-                        item.variants.retain(|v| !v.archived);
-                    }
-                    redact(item, costs);
+        self.store.read_products(|tx| -> Result<_, ProductError> {
+            let mut items = tx.list(
+                &context.scope,
+                &normalize_search(&query.term),
+                query.selectable_only,
+                query.after,
+                query.limit,
+            )?;
+            let next = if items.len() > query.limit as usize {
+                items.truncate(query.limit as usize);
+                items.last().map(|p| p.id)
+            } else {
+                None
+            };
+            for item in &mut items {
+                if query.selectable_only {
+                    item.variants.retain(|v| !v.archived);
                 }
-                Ok(ProductPage {
-                    items,
-                    next,
-                    can_manage,
-                    can_read_costs: costs,
-                })
+                redact(item, costs);
+            }
+            Ok(ProductPage {
+                items,
+                next,
+                can_manage,
+                can_read_costs: costs,
             })
+        })
     }
     /// Resolves immutable history; new selections require current active references.
     /// # Errors
@@ -310,32 +309,31 @@ impl ProductService {
             return Err(ProductError::InvalidReference);
         }
         let costs = self.can_read_costs(context)?;
-        self.store
-            .transact_products(|tx| -> Result<_, ProductError> {
-                let mut record = tx.revision(r)?.ok_or(ProductError::NotFound)?;
-                let variant = record
-                    .variants
-                    .iter()
-                    .find(|v| v.id == r.variant_id)
+        self.store.read_products(|tx| -> Result<_, ProductError> {
+            let mut record = tx.revision(r)?.ok_or(ProductError::NotFound)?;
+            let variant = record
+                .variants
+                .iter()
+                .find(|v| v.id == r.variant_id)
+                .ok_or(ProductError::InvalidReference)?;
+            if query.for_new_work {
+                let current = tx
+                    .product(&context.scope, r.product_id.value())?
+                    .ok_or(ProductError::NotFound)?;
+                let category = tx
+                    .category(&context.scope, current.category_id.value())?
                     .ok_or(ProductError::InvalidReference)?;
-                if query.for_new_work {
-                    let current = tx
-                        .product(&context.scope, r.product_id.value())?
-                        .ok_or(ProductError::NotFound)?;
-                    let category = tx
-                        .category(&context.scope, current.category_id.value())?
-                        .ok_or(ProductError::InvalidReference)?;
-                    if current.revision != r.revision
-                        || current.archived
-                        || category.archived
-                        || variant.archived
-                    {
-                        return Err(ProductError::InvalidReference);
-                    }
+                if current.revision != r.revision
+                    || current.archived
+                    || category.archived
+                    || variant.archived
+                {
+                    return Err(ProductError::InvalidReference);
                 }
-                redact(&mut record, costs);
-                Ok(record)
-            })
+            }
+            redact(&mut record, costs);
+            Ok(record)
+        })
     }
     /// Lists separate organization-scoped categories.
     /// # Errors
@@ -349,17 +347,16 @@ impl ProductService {
         if !(1..=100).contains(&query.limit) {
             return Err(ProductError::Invalid);
         }
-        self.store
-            .transact_products(|tx| -> Result<_, ProductError> {
-                let mut items = tx.categories(&context.scope, query.after, query.limit)?;
-                let next = if items.len() > query.limit as usize {
-                    items.truncate(query.limit as usize);
-                    items.last().map(|c| c.id)
-                } else {
-                    None
-                };
-                Ok(ProductCategories { items, next })
-            })
+        self.store.read_products(|tx| -> Result<_, ProductError> {
+            let mut items = tx.categories(&context.scope, query.after, query.limit)?;
+            let next = if items.len() > query.limit as usize {
+                items.truncate(query.limit as usize);
+                items.last().map(|c| c.id)
+            } else {
+                None
+            };
+            Ok(ProductCategories { items, next })
+        })
     }
     fn can_read_costs(&self, context: &AuthorizationContext) -> Result<bool, ProductError> {
         match self

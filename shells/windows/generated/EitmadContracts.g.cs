@@ -3881,7 +3881,10 @@ namespace Eitmad.Contracts
 
     public enum FluffyKind { AuthenticationFailed, AuthenticationRequired, Negotiation };
 
-    public enum SubscriptionCloseReason { AuthorizationRevoked, Backpressure, ClientRequested, EngineStopping };
+    /// <summary>
+    /// Cached projections must be cleared and queried again after a policy change.
+    /// </summary>
+    public enum SubscriptionCloseReason { AuthorizationRevoked, Backpressure, ClientRequested, EngineStopping, ProjectionInvalidated };
 
     public enum MergeStrategy { DomainMerge, KeepLocal, KeepRemote };
 
@@ -6285,6 +6288,8 @@ namespace Eitmad.Contracts
                     return SubscriptionCloseReason.ClientRequested;
                 case "engineStopping":
                     return SubscriptionCloseReason.EngineStopping;
+                case "projectionInvalidated":
+                    return SubscriptionCloseReason.ProjectionInvalidated;
             }
             throw new Exception("Cannot unmarshal type SubscriptionCloseReason");
         }
@@ -6304,6 +6309,9 @@ namespace Eitmad.Contracts
                     return;
                 case SubscriptionCloseReason.EngineStopping:
                     JsonSerializer.Serialize(writer, "engineStopping", options);
+                    return;
+                case SubscriptionCloseReason.ProjectionInvalidated:
+                    JsonSerializer.Serialize(writer, "projectionInvalidated", options);
                     return;
             }
             throw new Exception("Cannot marshal type SubscriptionCloseReason");

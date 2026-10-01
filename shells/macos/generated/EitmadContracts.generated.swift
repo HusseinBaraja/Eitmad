@@ -9181,11 +9181,13 @@ public extension SubscriptionClosedEnvelope {
     }
 }
 
+/// Cached projections must be cleared and queried again after a policy change.
 public enum SubscriptionCloseReason: String, Codable, Sendable {
     case authorizationRevoked = "authorizationRevoked"
     case backpressure = "backpressure"
     case clientRequested = "clientRequested"
     case engineStopping = "engineStopping"
+    case projectionInvalidated = "projectionInvalidated"
 }
 
 // MARK: - UnsubscribeResponse

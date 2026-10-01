@@ -27,8 +27,8 @@ public sealed class ProductClient(IEngineShellBridge engine) : IAsyncDisposable
         public Guid Key;
         public bool Unresolved;
     }
-    private readonly SaveRetry productRetry = new();
-    private readonly SaveRetry categoryRetry = new();
+    private SaveRetry productRetry = new();
+    private SaveRetry categoryRetry = new();
     private readonly SemaphoreSlim gate = new(1, 1);
     private IEngineSubscription? subscription;
     private CancellationTokenSource? pumpCancellation;
@@ -39,6 +39,8 @@ public sealed class ProductClient(IEngineShellBridge engine) : IAsyncDisposable
     private bool connectedAndReady;
 
     public event EventHandler? Changed;
+    /// <summary>Requests immediate removal of cached data before any replacement query completes.</summary>
+    public event EventHandler? ProjectionInvalidated;
 
     /// <summary>Loads scoped products and categories through paged Rust queries; cancellation propagates.</summary>
     public async Task<ProductResult<ProductSnapshot>> LoadAsync(string term, CancellationToken cancellationToken = default)
@@ -181,16 +183,40 @@ public sealed class ProductClient(IEngineShellBridge engine) : IAsyncDisposable
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
         catch (Exception error) when (error is EngineIpcException or IOException or InvalidDataException)
-        { await RecoverSubscriptionAsync(current); }
+        { await RecoverSubscriptionAsync(current, error is EngineIpcException { Kind: EngineIpcFailureKind.SessionChanged }); }
     }
 
-    private async Task RecoverSubscriptionAsync(IEngineSubscription current)
+    /// <summary>Replaces a failed stream; policy closure first removes the prior cost-bearing projection.</summary>
+    private async Task RecoverSubscriptionAsync(IEngineSubscription current, bool invalidateProjection)
     {
         if (disposed) return;
         await gate.WaitAsync();
-        try { if (disposed || !ReferenceEquals(subscription, current)) return; await DropSubscriptionAsync(); }
+        try
+        {
+            if (disposed || !ReferenceEquals(subscription, current)) return;
+            if (invalidateProjection) InvalidateProjection();
+            await DropSubscriptionAsync();
+        }
         finally { gate.Release(); }
-        SignalChanged(); if (active && !disposed) await RefreshSubscriptionAsync();
+        if (!invalidateProjection) SignalChanged();
+        if (active && !disposed) await RefreshSubscriptionAsync();
+    }
+
+    /// <summary>Discards cost-bearing retry payloads and clears the UI before requesting a fresh projection.</summary>
+    private void InvalidateProjection()
+    {
+        productRetry.Payload = null;
+        categoryRetry.Payload = null;
+        productRetry = new SaveRetry();
+        categoryRetry = new SaveRetry();
+        void Notify()
+        {
+            if (disposed) return;
+            ProjectionInvalidated?.Invoke(this, EventArgs.Empty);
+            Changed?.Invoke(this, EventArgs.Empty);
+        }
+        if (uiContext is null) Notify();
+        else uiContext.Post(_ => Notify(), null);
     }
 
     /// <summary>Delivers invalidation on the captured UI context when available.</summary>

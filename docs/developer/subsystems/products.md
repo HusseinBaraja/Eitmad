@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Products capability maintainers"
-last_verified: "2026-09-30"
+last_verified: "2026-10-01"
 review_triggers:
   - "Product contracts, category ownership, pricing rules, or Windows Products UI behavior change"
 keywords:
@@ -29,9 +29,13 @@ Every record is organization-scoped. Rust checks authenticated identity and rela
 
 All current and historical read projections omit purchase-cost fields and internal notes without cost permission. Mutation results containing costs require that permission too. Change events contain only scope, record ID, revision, category flag, and time. Audit never contains names, costs, descriptions, or notes. The Windows projection uses Rust-supplied management and cost-access flags, clears internal editor values on loss of permission, and clears all account state on session end.
 
+On an organization policy change, Rust reauthorizes the Products subscription. If definition read access remains, it closes the stream with `projectionInvalidated`; loss of read access closes it with `authorizationRevoked`. The Windows adapter maps both to a session-change failure. `ProductClient` clears cached records, editor costs, notes, and restricted retry payloads before it replaces the subscription and queries again. Pending refreshes and save completions cannot restore the old projection. A failed replacement query leaves the page unavailable with no cached costs. Ordinary transport recovery retains exact unknown-outcome retry keys.
+
 ## Definitions and history
 
 Categories have separate stable IDs, unique Arabic-normalized names, revisions, and archive state. A Product has a name, category ID, category name snapshot, description, internal notes, active/archive state, and between 1 and 100 retained supplier variants. Costs are non-negative whole-YER `i64` values. A Product without optional supplier choices uses one **قياسي** variant.
+
+Creating a category selects it in the open Product editor. Renaming or archiving another category preserves the selected category ID. Product list, category list, and revision queries use deferred SQLite snapshots so they can read committed definitions while a writer holds an immediate transaction. Saves retain immediate transactions for atomic validation and persistence.
 
 Updates require the exact expected Product or category revision. A Product update creates an immutable revision containing its names, category snapshot, costs, and supplier options. Variant IDs remain stable across edits. Duplication creates new Product and variant IDs. Reusing another Product's variant ID is rejected. Removing a saved option archives it; archive never deletes history or silently reactivates an option. An active Product must retain at least one active variant.
 

@@ -54,9 +54,27 @@ impl AuthorityStore {
         &self,
         operation: impl FnOnce(&ProductTransaction<'_>) -> Result<T, E>,
     ) -> Result<T, E> {
+        self.transact_products_with(rusqlite::TransactionBehavior::Immediate, operation)
+    }
+
+    /// Reads a consistent product snapshot without reserving the database writer lock.
+    /// # Errors
+    /// Fails when the snapshot cannot be opened, read, or committed.
+    pub fn read_products<T, E: From<StorageError>>(
+        &self,
+        operation: impl FnOnce(&ProductTransaction<'_>) -> Result<T, E>,
+    ) -> Result<T, E> {
+        self.transact_products_with(rusqlite::TransactionBehavior::Deferred, operation)
+    }
+
+    fn transact_products_with<T, E: From<StorageError>>(
+        &self,
+        behavior: rusqlite::TransactionBehavior,
+        operation: impl FnOnce(&ProductTransaction<'_>) -> Result<T, E>,
+    ) -> Result<T, E> {
         let mut connection = self.open_connection()?;
         let transaction = connection
-            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .transaction_with_behavior(behavior)
             .map_err(|_| StorageError)?;
         let result = operation(&ProductTransaction {
             connection: &transaction,
