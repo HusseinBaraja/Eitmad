@@ -27,10 +27,11 @@ public partial class FurnitureView : UserControl
     private void FurnitureRowInvoked(object sender, RowInvokedEventArgs eventArgs) =>
         OpenEditor((FurnitureListItem)eventArgs.Item);
 
-    private void OpenEditor(FurnitureListItem item)
+    private async void OpenEditor(FurnitureListItem item)
     {
         ViewModel.BeginEdit(item);
-        Dispatcher.BeginInvoke(FurnitureNameBox.Focus, DispatcherPriority.Input);
+        await ReviewAsync(false);
+        await Dispatcher.BeginInvoke(FurnitureNameBox.Focus, DispatcherPriority.Input);
     }
 
     private void AddFurnitureClick(object sender, RoutedEventArgs eventArgs)
@@ -108,16 +109,16 @@ public partial class FurnitureView : UserControl
         }
     }
 
-    private void ArchiveFurnitureClick(object sender, RoutedEventArgs eventArgs)
+    private async void ArchiveFurnitureClick(object sender, RoutedEventArgs eventArgs)
     {
         if (FurnitureFromMenuItem(sender) is { } item)
         {
-            ViewModel.ArchiveFurniture(item);
+            await SaveAsync(Eitmad.Contracts.FurnitureState.Archived, item);
             RestartFeedbackTimer();
         }
     }
 
-    private void NextStepClick(object sender, RoutedEventArgs eventArgs)
+    private async void NextStepClick(object sender, RoutedEventArgs eventArgs)
     {
         if (ViewModel.IsStepOne)
         {
@@ -131,7 +132,7 @@ public partial class FurnitureView : UserControl
 
         if (ViewModel.IsStepTwo)
         {
-            ViewModel.MoveToVariants();
+            if (await ReviewAsync(true)) ViewModel.MoveToVariants();
             return;
         }
 
@@ -143,7 +144,7 @@ public partial class FurnitureView : UserControl
 
         if (ViewModel.IsStepFour)
         {
-            ViewModel.MoveToPricing();
+            if (await ReviewAsync(true)) ViewModel.MoveToPricing();
             return;
         }
 
@@ -156,7 +157,7 @@ public partial class FurnitureView : UserControl
                 return;
             }
 
-            ViewModel.MoveToReview();
+            if (await ReviewAsync(true)) ViewModel.MoveToReview();
         }
     }
 
@@ -164,15 +165,15 @@ public partial class FurnitureView : UserControl
 
     private void CancelEditorClick(object sender, RoutedEventArgs eventArgs) => ViewModel.CancelEditor();
 
-    private void SaveDraftClick(object sender, RoutedEventArgs eventArgs)
+    private async void SaveDraftClick(object sender, RoutedEventArgs eventArgs)
     {
-        ViewModel.SaveDraftPreview();
+        await SaveAsync(Eitmad.Contracts.FurnitureState.Draft);
         RestartFeedbackTimer();
     }
 
-    private void PublishClick(object sender, RoutedEventArgs eventArgs)
+    private async void SaveDefinitionClick(object sender, RoutedEventArgs eventArgs)
     {
-        ViewModel.PublishPreview();
+        await SaveAsync(Eitmad.Contracts.FurnitureState.Active);
         RestartFeedbackTimer();
     }
 
@@ -232,7 +233,12 @@ public partial class FurnitureView : UserControl
         }
     }
 
-    private void SaveVariantClick(object sender, RoutedEventArgs eventArgs) => ViewModel.SaveVariant();
+    private void SaveVariantClick(object sender, RoutedEventArgs eventArgs)
+    {
+        if (FindInvalidTextBox(VariantDialog) is { } invalid) { ViewModel.Fail("صحّح المقاس غير الصالح."); invalid.Focus(); return; }
+        try { ViewModel.SaveVariant(); }
+        catch (Exception e) when (e is FormatException or OverflowException) { ViewModel.Fail("أدخل المقاسات بمنزلة عشرية واحدة ضمن النطاق المدعوم."); }
+    }
 
     private void CancelVariantClick(object sender, RoutedEventArgs eventArgs) => ViewModel.CancelVariantEditor();
 

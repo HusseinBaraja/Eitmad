@@ -13,7 +13,7 @@ public sealed class SalesCatalogPresentationTests
     [TestMethod]
     public void DraftSaveRequiresCustomerNameAndPhoneAfterBrowsing()
     {
-        var model = new SalesCatalogViewModel(new FurnitureViewModel(), new ProductsViewModel());
+        var model = new SalesCatalogViewModel(Eitmad.WindowsShell.Tests.Furniture.FurnitureFixtures.SalesModel(), new ProductsViewModel());
         AddHistoricalProductLine(model,12000);
         Assert.IsFalse(model.IsReviewingQuotation);
         Assert.IsFalse(model.ReviewDraftSave());
@@ -33,7 +33,7 @@ public sealed class SalesCatalogPresentationTests
     [TestMethod]
     public void DiscountPreviewGatesSavingAndInvalidatesChangedRequests()
     {
-        var model = new SalesCatalogViewModel(new FurnitureViewModel(), new ProductsViewModel());
+        var model = new SalesCatalogViewModel(Eitmad.WindowsShell.Tests.Furniture.FurnitureFixtures.SalesModel(), new ProductsViewModel());
         AddHistoricalProductLine(model,12000);
         model.CustomerName = "عميل تجريبي"; model.Phone = "000000000";
         model.DiscountInput = "٥";
@@ -75,7 +75,7 @@ public sealed class SalesCatalogPresentationTests
     {
         await using var engine = new FakeEngine();
         await using var customers = new CustomerClient(engine);
-        var model = new SalesCatalogViewModel(new FurnitureViewModel(), new ProductsViewModel(), customers);
+        var model = new SalesCatalogViewModel(Eitmad.WindowsShell.Tests.Furniture.FurnitureFixtures.SalesModel(), new ProductsViewModel(), customers);
         AddHistoricalProductLine(model,105000,"مزدوج");
         var original = model.QuotationLines.Single();
         model.EditLine(original);
@@ -110,7 +110,7 @@ public sealed class SalesCatalogPresentationTests
     /// <summary>Verifies historical product lines remain editable without offering current unpriced definitions.</summary>
     [TestMethod]
     public void HistoricalProductSnapshotRemainsEditableWithoutCurrentCatalogSelection() {
-        var model=new SalesCatalogViewModel(new FurnitureViewModel(),new ProductsViewModel());AddHistoricalProductLine(model,105000,"مزدوج");
+        var model=new SalesCatalogViewModel(Eitmad.WindowsShell.Tests.Furniture.FurnitureFixtures.SalesModel(),new ProductsViewModel());AddHistoricalProductLine(model,105000,"مزدوج");
         var line=model.QuotationLines.Single();model.EditLine(line);Assert.AreEqual("مزدوج",model.ProductSelection!.SelectedVariant!.Name);model.ProductSelection.Quantity=2;Assert.IsTrue(model.AddProductSelection());Assert.AreEqual(210000m,model.QuotationLines.Single().LineTotal);
     }
 
@@ -118,7 +118,7 @@ public sealed class SalesCatalogPresentationTests
     [TestMethod]
     public void CatalogCombinesActiveItemsAndComposesArabicSearchWithCategories()
     {
-        var model = new SalesCatalogViewModel(new FurnitureViewModel(), new ProductsViewModel());
+        var model = new SalesCatalogViewModel(Eitmad.WindowsShell.Tests.Furniture.FurnitureFixtures.SalesModel(), new ProductsViewModel());
         Assert.HasCount(4, model.VisibleItems);
         model.SearchText = "  مرتبه  ";
         Assert.IsTrue(model.IsEmpty);
@@ -136,13 +136,13 @@ public sealed class SalesCatalogPresentationTests
     [TestMethod]
     public void ReloadExcludesUnpricedProductDefinitions() {
         var products=new ProductsViewModel();products.ApplyDurableData(ProductsPresentationTests.Data());
-        var model=new SalesCatalogViewModel(new FurnitureViewModel(),products);
+        var model=new SalesCatalogViewModel(Eitmad.WindowsShell.Tests.Furniture.FurnitureFixtures.SalesModel(),products);
         Assert.IsFalse(model.VisibleItems.Any(item=>item.Name=="مرتبة طبية"));
     }
     [TestMethod]
     public void FurnitureSelectionUsesOnlyActiveOptionsAndKeepsQuotationSnapshots()
     {
-        var manager = new FurnitureViewModel();
+        var manager = Eitmad.WindowsShell.Tests.Furniture.FurnitureFixtures.SalesModel();
         var model = new SalesCatalogViewModel(manager, new ProductsViewModel());
         model.Select(model.VisibleItems.First());
         var detail = model.Selection!;
@@ -176,7 +176,7 @@ public sealed class SalesCatalogPresentationTests
     [TestMethod]
     public void UnavailableSizesAndOverflowCannotBeAdded()
     {
-        var item = new SalesCatalogViewModel(new FurnitureViewModel(), new ProductsViewModel()).VisibleItems.First();
+        var item = new SalesCatalogViewModel(Eitmad.WindowsShell.Tests.Furniture.FurnitureFixtures.SalesModel(), new ProductsViewModel()).VisibleItems.First();
         var empty = new FurnitureSelectionViewModel(item, [], [], []);
         Assert.IsFalse(empty.CanAdd);
         var size = new SalesSize(Guid.NewGuid(), "كبير", "200 × 220 × 60 cm", decimal.MaxValue);

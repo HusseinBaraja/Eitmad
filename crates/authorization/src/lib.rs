@@ -51,6 +51,8 @@ pub const REFERENCE_MARKER_READ_PERMISSION: &str = "eitmad.permission.reference-
 pub const REFERENCE_MARKER_WRITE_PERMISSION: &str = "eitmad.permission.reference-marker.write.v1";
 pub const CUSTOMER_READ_PERMISSION: &str = "eitmad.permission.customer.read.v1";
 pub const CUSTOMER_WRITE_PERMISSION: &str = "eitmad.permission.customer.write.v1";
+pub const FURNITURE_READ_PERMISSION: &str = "eitmad.permission.furniture.read.v1";
+pub const FURNITURE_WRITE_PERMISSION: &str = "eitmad.permission.furniture.write.v1";
 pub const PRODUCT_READ_PERMISSION: &str = "eitmad.permission.product.read.v1";
 pub const PRODUCT_WRITE_PERMISSION: &str = "eitmad.permission.product.write.v1";
 pub const PRODUCT_COST_READ_PERMISSION: &str = "eitmad.permission.product.cost.read.v1";
@@ -79,6 +81,8 @@ const POLICY_PERMISSIONS: &[&str] = &[
     REFERENCE_MARKER_WRITE_PERMISSION,
     CUSTOMER_READ_PERMISSION,
     CUSTOMER_WRITE_PERMISSION,
+    FURNITURE_READ_PERMISSION,
+    FURNITURE_WRITE_PERMISSION,
     PRODUCT_READ_PERMISSION,
     PRODUCT_WRITE_PERMISSION,
     PRODUCT_COST_READ_PERMISSION,
@@ -213,6 +217,8 @@ impl AuthorizationService {
                     }
                     CATALOG_DRAFT_WRITE_PERMISSION
                     | DESKTOP_ACCOUNTS_MANAGE_PERMISSION
+                    | FURNITURE_READ_PERMISSION
+                    | FURNITURE_WRITE_PERMISSION
                     | PART_READ_PERMISSION
                     | PART_WRITE_PERMISSION
                     | MATERIAL_READ_PERMISSION

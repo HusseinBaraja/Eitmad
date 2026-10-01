@@ -40,6 +40,7 @@ internal static class WpfTestHost
 
             try
             {
+                if (engine is null && window.FindName("FurnitureSurface") is Features.Furniture.FurnitureView fixtureView) { fixtureView.ViewModel.ApplyDurableData(Furniture.FurnitureFixtures.SalesSnapshot()); fixtureView.ViewModel.FixtureSalesCatalog=true; }
                 window.Show();
                 window.Activate();
                 CompleteLayout(window);

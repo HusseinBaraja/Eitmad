@@ -326,6 +326,7 @@ fn event_scope(event: &Event) -> Option<&ScopeRef> {
         Event::ReferenceMarkerChanged(notice) => Some(&notice.scope),
         Event::CustomerChanged(notice) => Some(&notice.scope),
         Event::MaterialChanged(notice) => Some(&notice.scope),
+        Event::FurnitureChanged(notice) => Some(&notice.scope),
         Event::ProductChanged(notice) => Some(&notice.scope),
         Event::PartChanged(notice) => Some(&notice.scope),
         Event::PermissionsChanged(_)

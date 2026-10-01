@@ -102,6 +102,22 @@ public partial class Command
     public SaveMaterial? AsMaterialSave() =>
         Kind == MaterialSaveKind ? PayloadAs<SaveMaterial>() : null;
 
+    public const string FurnitureSaveKind = "eitmad.furniture.save.v1";
+
+    public static Command ForFurnitureSave(SaveFurniture payload) =>
+        new() { Kind = FurnitureSaveKind, Payload = payload };
+
+    public SaveFurniture? AsFurnitureSave() =>
+        Kind == FurnitureSaveKind ? PayloadAs<SaveFurniture>() : null;
+
+    public const string FurnitureCategorySaveKind = "eitmad.furniture-category.save.v1";
+
+    public static Command ForFurnitureCategorySave(SaveFurnitureCategory payload) =>
+        new() { Kind = FurnitureCategorySaveKind, Payload = payload };
+
+    public SaveFurnitureCategory? AsFurnitureCategorySave() =>
+        Kind == FurnitureCategorySaveKind ? PayloadAs<SaveFurnitureCategory>() : null;
+
     public const string ProductSaveKind = "eitmad.product.save.v1";
 
     public static Command ForProductSave(SaveProduct payload) =>
@@ -270,6 +286,14 @@ public partial class Event
 
     public MaterialChangeNotice? AsMaterialChangedEvent() =>
         Kind == MaterialChangedEventKind ? PayloadAs<MaterialChangeNotice>() : null;
+
+    public const string FurnitureChangedEventKind = "eitmad.furniture.changed.event.v1";
+
+    public static Event ForFurnitureChangedEvent(FurnitureChangeNotice payload) =>
+        new() { Kind = FurnitureChangedEventKind, Payload = payload };
+
+    public FurnitureChangeNotice? AsFurnitureChangedEvent() =>
+        Kind == FurnitureChangedEventKind ? PayloadAs<FurnitureChangeNotice>() : null;
 
     public const string ProductChangedEventKind = "eitmad.product.changed.event.v1";
 
@@ -554,6 +578,46 @@ public partial class Query
     public SearchCustomers? AsCustomerSearch() =>
         Kind == CustomerSearchKind ? PayloadAs<SearchCustomers>() : null;
 
+    public const string FurnitureListKind = "eitmad.furniture.list.v1";
+
+    public static Query ForFurnitureList(ListFurnitures payload) =>
+        new() { Kind = FurnitureListKind, Payload = payload };
+
+    public ListFurnitures? AsFurnitureList() =>
+        Kind == FurnitureListKind ? PayloadAs<ListFurnitures>() : null;
+
+    public const string FurnitureCategoryListKind = "eitmad.furniture-category.list.v1";
+
+    public static Query ForFurnitureCategoryList(ListFurnitureCategories payload) =>
+        new() { Kind = FurnitureCategoryListKind, Payload = payload };
+
+    public ListFurnitureCategories? AsFurnitureCategoryList() =>
+        Kind == FurnitureCategoryListKind ? PayloadAs<ListFurnitureCategories>() : null;
+
+    public const string FurnitureRevisionGetKind = "eitmad.furniture-revision.get.v1";
+
+    public static Query ForFurnitureRevisionGet(GetFurnitureRevision payload) =>
+        new() { Kind = FurnitureRevisionGetKind, Payload = payload };
+
+    public GetFurnitureRevision? AsFurnitureRevisionGet() =>
+        Kind == FurnitureRevisionGetKind ? PayloadAs<GetFurnitureRevision>() : null;
+
+    public const string FurnitureReviewKind = "eitmad.furniture.review.v1";
+
+    public static Query ForFurnitureReview(SaveFurniture payload) =>
+        new() { Kind = FurnitureReviewKind, Payload = payload };
+
+    public SaveFurniture? AsFurnitureReview() =>
+        Kind == FurnitureReviewKind ? PayloadAs<SaveFurniture>() : null;
+
+    public const string FurnitureSelectionCheckKind = "eitmad.furniture-selection.check.v1";
+
+    public static Query ForFurnitureSelectionCheck(CheckFurnitureSelection payload) =>
+        new() { Kind = FurnitureSelectionCheckKind, Payload = payload };
+
+    public CheckFurnitureSelection? AsFurnitureSelectionCheck() =>
+        Kind == FurnitureSelectionCheckKind ? PayloadAs<CheckFurnitureSelection>() : null;
+
     public const string ProductListKind = "eitmad.product.list.v1";
 
     public static Query ForProductList(ListProducts payload) =>
@@ -714,6 +778,46 @@ public partial class QueryResult
 
     public CustomerPage? AsCustomers() =>
         Kind == CustomersKind ? PayloadAs<CustomerPage>() : null;
+
+    public const string FurnituresKind = "furnitures";
+
+    public static QueryResult ForFurnitures(FurniturePage payload) =>
+        new() { Kind = FurnituresKind, Payload = payload };
+
+    public FurniturePage? AsFurnitures() =>
+        Kind == FurnituresKind ? PayloadAs<FurniturePage>() : null;
+
+    public const string FurnitureCategoriesKind = "furnitureCategories";
+
+    public static QueryResult ForFurnitureCategories(FurnitureCategories payload) =>
+        new() { Kind = FurnitureCategoriesKind, Payload = payload };
+
+    public FurnitureCategories? AsFurnitureCategories() =>
+        Kind == FurnitureCategoriesKind ? PayloadAs<FurnitureCategories>() : null;
+
+    public const string FurnitureRevisionKind = "furnitureRevision";
+
+    public static QueryResult ForFurnitureRevision(Furniture payload) =>
+        new() { Kind = FurnitureRevisionKind, Payload = payload };
+
+    public Furniture? AsFurnitureRevision() =>
+        Kind == FurnitureRevisionKind ? PayloadAs<Furniture>() : null;
+
+    public const string FurnitureReviewKind = "furnitureReview";
+
+    public static QueryResult ForFurnitureReview(FurnitureReview payload) =>
+        new() { Kind = FurnitureReviewKind, Payload = payload };
+
+    public FurnitureReview? AsFurnitureReview() =>
+        Kind == FurnitureReviewKind ? PayloadAs<FurnitureReview>() : null;
+
+    public const string FurnitureSelectionKind = "furnitureSelection";
+
+    public static QueryResult ForFurnitureSelection(FurnitureSelection payload) =>
+        new() { Kind = FurnitureSelectionKind, Payload = payload };
+
+    public FurnitureSelection? AsFurnitureSelection() =>
+        Kind == FurnitureSelectionKind ? PayloadAs<FurnitureSelection>() : null;
 
     public const string ProductsKind = "products";
 
@@ -1006,6 +1110,14 @@ public partial class Subscription
     public MaterialChanges? AsMaterialChangedSubscribe() =>
         Kind == MaterialChangedSubscribeKind ? PayloadAs<MaterialChanges>() : null;
 
+    public const string FurnitureChangedSubscribeKind = "eitmad.furniture.changed.subscribe.v1";
+
+    public static Subscription ForFurnitureChangedSubscribe(FurnitureChanges payload) =>
+        new() { Kind = FurnitureChangedSubscribeKind, Payload = payload };
+
+    public FurnitureChanges? AsFurnitureChangedSubscribe() =>
+        Kind == FurnitureChangedSubscribeKind ? PayloadAs<FurnitureChanges>() : null;
+
     public const string ProductChangedSubscribeKind = "eitmad.product.changed.subscribe.v1";
 
     public static Subscription ForProductChangedSubscribe(ProductChanges payload) =>
@@ -1168,6 +1280,10 @@ public partial class CustomerChanges
 }
 
 public partial class Errors
+{
+}
+
+public partial class FurnitureChanges
 {
 }
 

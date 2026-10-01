@@ -534,6 +534,41 @@
         "idempotencyKey"
       ]
     },
+    "CheckFurnitureSelection": {
+      "type": "object",
+      "properties": {
+        "colorId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "dimensions": {
+          "$ref": "#/definitions/FurnitureDimensions"
+        },
+        "handleId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "quantity": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "reference": {
+          "$ref": "#/definitions/FurnitureReference"
+        }
+      },
+      "required": [
+        "reference",
+        "dimensions",
+        "quantity"
+      ]
+    },
     "Command": {
       "description": "Authoritative state-changing requests.",
       "oneOf": [
@@ -706,6 +741,38 @@
             },
             "payload": {
               "$ref": "#/definitions/SaveMaterial"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.furniture.save.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/SaveFurniture"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.furniture-category.save.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/SaveFurnitureCategory"
             }
           },
           "required": [
@@ -1166,6 +1233,38 @@
             },
             "payload": {
               "$ref": "#/definitions/Material"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "furnitureSaved"
+            },
+            "payload": {
+              "$ref": "#/definitions/Furniture"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "furnitureCategorySaved"
+            },
+            "payload": {
+              "$ref": "#/definitions/FurnitureCategory"
             }
           },
           "required": [
@@ -2752,6 +2851,22 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "eitmad.furniture.changed.event.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/FurnitureChangeNotice"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "eitmad.product.changed.event.v1"
             },
             "payload": {
@@ -2818,6 +2933,444 @@
         "event"
       ]
     },
+    "Furniture": {
+      "type": "object",
+      "properties": {
+        "categoryId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "categoryName": {
+          "description": "Category name at this revision, retained for historical reads.",
+          "type": "string"
+        },
+        "colors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FurnitureOption"
+          }
+        },
+        "description": {
+          "type": "string"
+        },
+        "handles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FurnitureOption"
+          }
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        },
+        "notes": {
+          "description": "Internal notes are only exposed to Managers.",
+          "type": "string"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FurniturePart"
+          }
+        },
+        "partsCostYer": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        },
+        "state": {
+          "$ref": "#/definitions/FurnitureState"
+        },
+        "updatedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "variants": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FurnitureVariant"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "scope",
+        "name",
+        "categoryId",
+        "categoryName",
+        "description",
+        "notes",
+        "variants",
+        "parts",
+        "colors",
+        "handles",
+        "state",
+        "partsCostYer",
+        "revision",
+        "updatedAt"
+      ]
+    },
+    "FurnitureCategories": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FurnitureCategory"
+          }
+        },
+        "next": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "items"
+      ]
+    },
+    "FurnitureCategory": {
+      "type": "object",
+      "properties": {
+        "archived": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        },
+        "updatedAt": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "id",
+        "scope",
+        "name",
+        "archived",
+        "revision",
+        "updatedAt"
+      ]
+    },
+    "FurnitureChangeNotice": {
+      "type": "object",
+      "properties": {
+        "category": {
+          "type": "boolean"
+        },
+        "changedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "required": [
+        "scope",
+        "id",
+        "category",
+        "revision",
+        "changedAt"
+      ]
+    },
+    "FurnitureChanges": {
+      "type": "object"
+    },
+    "FurnitureCustomization": {
+      "type": "object",
+      "properties": {
+        "maximum": {
+          "$ref": "#/definitions/FurnitureDimensions"
+        },
+        "minimum": {
+          "$ref": "#/definitions/FurnitureDimensions"
+        }
+      },
+      "required": [
+        "minimum",
+        "maximum"
+      ]
+    },
+    "FurnitureDimensions": {
+      "type": "object",
+      "properties": {
+        "depthMm": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "heightMm": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "widthMm": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "widthMm",
+        "heightMm",
+        "depthMm"
+      ]
+    },
+    "FurnitureOption": {
+      "type": "object",
+      "properties": {
+        "archived": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        },
+        "priceAdjustmentYer": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "visual": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "visual",
+        "priceAdjustmentYer",
+        "archived"
+      ]
+    },
+    "FurniturePage": {
+      "type": "object",
+      "properties": {
+        "canManage": {
+          "type": "boolean"
+        },
+        "canReadCosts": {
+          "type": "boolean"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Furniture"
+          }
+        },
+        "next": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "canManage",
+        "canReadCosts",
+        "items"
+      ]
+    },
+    "FurniturePart": {
+      "type": "object",
+      "properties": {
+        "quantity": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "reference": {
+          "$ref": "#/definitions/CompositionReference"
+        }
+      },
+      "required": [
+        "reference",
+        "quantity"
+      ]
+    },
+    "FurnitureReference": {
+      "type": "object",
+      "properties": {
+        "furnitureId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "schemaVersion": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        },
+        "variantId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "scope",
+        "furnitureId",
+        "variantId",
+        "revision",
+        "schemaVersion"
+      ]
+    },
+    "FurnitureReview": {
+      "type": "object",
+      "properties": {
+        "marginsYer": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "partsCostYer": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "rowCostsYer": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "required": [
+        "partsCostYer",
+        "rowCostsYer",
+        "marginsYer"
+      ]
+    },
+    "FurnitureSelection": {
+      "type": "object",
+      "properties": {
+        "definition": {
+          "$ref": "#/definitions/Furniture"
+        },
+        "totalYer": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "unitPriceYer": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "definition",
+        "unitPriceYer",
+        "totalYer"
+      ]
+    },
+    "FurnitureState": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "active",
+        "archived"
+      ]
+    },
+    "FurnitureVariant": {
+      "type": "object",
+      "properties": {
+        "archived": {
+          "type": "boolean"
+        },
+        "colorIds": {
+          "description": "Empty means all options of the corresponding kind are compatible.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "customization": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/FurnitureCustomization"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "dimensions": {
+          "$ref": "#/definitions/FurnitureDimensions"
+        },
+        "handleIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        },
+        "sellingPriceYer": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "dimensions",
+        "sellingPriceYer",
+        "archived",
+        "colorIds",
+        "handleIds"
+      ]
+    },
     "GetConfiguration": {
       "type": "object"
     },
@@ -2835,6 +3388,22 @@
     },
     "GetEffectivePermissions": {
       "type": "object"
+    },
+    "GetFurnitureRevision": {
+      "type": "object",
+      "properties": {
+        "forNewWork": {
+          "description": "New work requires the current revision and an active furniture, category, and variant.",
+          "type": "boolean"
+        },
+        "reference": {
+          "$ref": "#/definitions/FurnitureReference"
+        }
+      },
+      "required": [
+        "reference",
+        "forNewWork"
+      ]
     },
     "GetPartComposition": {
       "type": "object",
@@ -3555,6 +4124,56 @@
     },
     "ListDesktopAccounts": {
       "type": "object"
+    },
+    "ListFurnitureCategories": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "limit": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 100,
+          "minimum": 1
+        }
+      },
+      "required": [
+        "limit"
+      ]
+    },
+    "ListFurnitures": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "limit": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 100,
+          "minimum": 1
+        },
+        "selectableOnly": {
+          "type": "boolean"
+        },
+        "term": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "term",
+        "limit",
+        "selectableOnly"
+      ]
     },
     "ListMaterialReferences": {
       "type": "object"
@@ -5265,6 +5884,86 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "eitmad.furniture.list.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ListFurnitures"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.furniture-category.list.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ListFurnitureCategories"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.furniture-revision.get.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/GetFurnitureRevision"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.furniture.review.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/SaveFurniture"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.furniture-selection.check.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/CheckFurnitureSelection"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "eitmad.product.list.v1"
             },
             "payload": {
@@ -5643,6 +6342,86 @@
             },
             "payload": {
               "$ref": "#/definitions/CustomerPage"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "furnitures"
+            },
+            "payload": {
+              "$ref": "#/definitions/FurniturePage"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "furnitureCategories"
+            },
+            "payload": {
+              "$ref": "#/definitions/FurnitureCategories"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "furnitureRevision"
+            },
+            "payload": {
+              "$ref": "#/definitions/Furniture"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "furnitureReview"
+            },
+            "payload": {
+              "$ref": "#/definitions/FurnitureReview"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "furnitureSelection"
+            },
+            "payload": {
+              "$ref": "#/definitions/FurnitureSelection"
             }
           },
           "required": [
@@ -6455,6 +7234,111 @@
       "required": [
         "expectedPolicyVersion",
         "relationshipId"
+      ]
+    },
+    "SaveFurniture": {
+      "type": "object",
+      "properties": {
+        "categoryId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "colors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FurnitureOption"
+          }
+        },
+        "confirmBelowCost": {
+          "type": "boolean"
+        },
+        "description": {
+          "type": "string"
+        },
+        "expectedRevision": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "handles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FurnitureOption"
+          }
+        },
+        "id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FurniturePart"
+          }
+        },
+        "state": {
+          "$ref": "#/definitions/FurnitureState"
+        },
+        "variants": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FurnitureVariant"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "categoryId",
+        "description",
+        "notes",
+        "parts",
+        "variants",
+        "colors",
+        "handles",
+        "state",
+        "confirmBelowCost"
+      ]
+    },
+    "SaveFurnitureCategory": {
+      "type": "object",
+      "properties": {
+        "archived": {
+          "type": "boolean"
+        },
+        "expectedRevision": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "archived"
       ]
     },
     "SaveMaterial": {
@@ -7526,6 +8410,22 @@
             },
             "payload": {
               "$ref": "#/definitions/MaterialChanges"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.furniture.changed.subscribe.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/FurnitureChanges"
             }
           },
           "required": [

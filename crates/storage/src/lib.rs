@@ -6,6 +6,7 @@ mod configuration;
 mod customer;
 mod desktop_auth;
 mod export;
+mod furniture;
 mod identity;
 mod local_authority;
 mod material;
@@ -43,6 +44,7 @@ use eitmad_contracts::{
 };
 use eitmad_observability_audit::MutationAuditRecord;
 pub use export::{ExportDataClass, ExportScope, LOCAL_DATA_EXPORT_FORMAT, LocalDataExportPolicy};
+pub use furniture::{FurnitureRecord, FurnitureTransaction};
 pub use identity::{DeviceIdentity, IdentityTopology, PersistentSession, SessionConnectivity};
 pub use material::{MaterialCommit, MaterialCommitOutcome, MaterialRecord};
 pub use part::{PartRecord, PartTransaction};
@@ -55,7 +57,7 @@ use rusqlite::{Connection, OpenFlags, OptionalExtension as _, TransactionBehavio
 pub use sync_state::{StoredSyncState, SyncStateCommitOutcome};
 
 pub const DATABASE_FILE_NAME: &str = "eitmad.sqlite3";
-pub const CURRENT_STORAGE_VERSION: u32 = 17;
+pub const CURRENT_STORAGE_VERSION: u32 = 18;
 pub const MIN_SUPPORTED_STORAGE_VERSION: u32 = 2;
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 pub const MAX_PUBLICATION_RECOVERY_PAGE: u32 = 64;

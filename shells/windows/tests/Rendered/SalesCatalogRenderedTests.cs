@@ -122,7 +122,7 @@ public sealed class SalesCatalogRenderedTests
     [TestMethod]
     public void HistoricalReadyMadeDetailsRenderWithoutCurrentProductSelection() {
         WpfTestHost.Run(1338,753,window=>{
-            var model=new SalesCatalogViewModel(new Features.Furniture.FurnitureViewModel(),new Features.Products.ProductsViewModel());
+            var model=new SalesCatalogViewModel(Eitmad.WindowsShell.Tests.Furniture.FurnitureFixtures.SalesModel(),new Features.Products.ProductsViewModel());
             var catalog=new SalesCatalogView{DataContext=model};window.Content=catalog;
             foreach(var variant in new[]{"مزدوج",""}) {
                 Products.SalesCatalogPresentationTests.AddHistoricalProductLine(model,12000,variant);model.EditLine(model.QuotationLines.Last());WpfTestHost.CompleteLayout(window);

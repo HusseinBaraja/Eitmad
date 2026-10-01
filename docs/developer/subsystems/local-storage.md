@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust storage maintainers"
-last_verified: "2026-09-28"
+last_verified: "2026-10-01"
 review_triggers:
   - "database setup, migration history/window, transaction, integrity, backup, restore, export, or schema verification changes"
 keywords:
@@ -64,6 +64,8 @@ Storage preserves UTF-8 Arabic and mixed-direction values without localization b
 
 ## Tests and safe extension
 
-Focused tests cover fresh creation through storage version 16, stable installation identity bootstrap, durable owner authorization, supported legacy upgrade with preserved Arabic locale data, account revision and last-Manager protection, session revocation, reference-marker transaction rollback and bounded paging, customer restart persistence, material and part restart persistence, immutable cost snapshots, and stable references, normalized search, scope isolation, retry safety, audit rollback and revision conflict, sync scope/mode/version isolation, mandatory audit revision attribution, invalid-mode constraints, audit-envelope persistence/completeness, out-of-window rejection before mutation, history gaps, migration rollback, schema drift, bounded pre-migration snapshots, quick/full integrity, WAL-safe backup/restore, recovery discovery, no-clobber scoped export, identity mapping conflicts, device timestamp monotonicity, session attribution, tenant isolation, transaction rollback, and prohibited shell database access.
+Focused tests cover fresh creation through storage version 18, stable installation identity bootstrap, durable owner authorization, supported legacy upgrade with preserved Arabic locale data, account revision and last-Manager protection, session revocation, reference-marker transaction rollback and bounded paging, customer restart persistence, material, Part, and Furniture restart persistence, immutable cost snapshots, and stable references, normalized search, scope isolation, retry safety, audit rollback and revision conflict, sync scope/mode/version isolation, mandatory audit revision attribution, invalid-mode constraints, audit-envelope persistence/completeness, out-of-window rejection before mutation, history gaps, migration rollback, schema drift, bounded pre-migration snapshots, quick/full integrity, WAL-safe backup/restore, recovery discovery, no-clobber scoped export, identity mapping conflicts, device timestamp monotonicity, session attribution, tenant isolation, transaction rollback, and prohibited shell database access.
 
 Run `cargo test -p eitmad-storage`, strict workspace Clippy, all workspace tests, and the real engine diagnostic/start/stop path after storage changes. For symptoms, follow [storage recovery failures](../../troubleshooting/local-storage-recovery-failures.md). Review [ADR-0019](../../decisions/0019-sqlite-authority-storage.md), [ADR-0021](../../decisions/0021-checksummed-feature-storage-migrations.md), [ADR-0022](../../decisions/0022-persistent-tenant-identity-and-safe-storage-recovery.md), and [ADR-0023](../../decisions/0023-scoped-relationship-authorization-and-audit.md).
+
+Furniture definitions use migration `furniture.definitions.v1` at version `18`; see [durable Furniture definitions](furniture.md) for atomic save, immutable history, and scoped Part reference rules.

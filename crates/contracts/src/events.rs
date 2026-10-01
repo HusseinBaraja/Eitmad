@@ -7,6 +7,7 @@ use crate::{
     config::ConfigSnapshot,
     customer::CustomerChangeNotice,
     errors::ContractError,
+    furniture::{FurnitureChangeNotice, FurnitureChanges},
     identity::ScopeRef,
     material::MaterialChangeNotice,
     notifications::Notification,
@@ -76,6 +77,7 @@ tagged_contract! {
         ReferenceMarkers(ReferenceMarkerChanges) => "eitmad.reference-marker.changed.subscribe.v1",
         Customers(CustomerChanges) => "eitmad.customer.changed.subscribe.v1",
         Materials(MaterialChanges) => "eitmad.material.changed.subscribe.v1",
+        Furnitures(FurnitureChanges) => "eitmad.furniture.changed.subscribe.v1",
         Products(ProductChanges) => "eitmad.product.changed.subscribe.v1",
         Parts(PartChanges) => "eitmad.part.changed.subscribe.v1"
     }
@@ -96,6 +98,7 @@ tagged_contract! {
         ReferenceMarkerChanged(ReferenceMarkerChangeNotice) => "eitmad.reference-marker.changed.event.v1",
         CustomerChanged(CustomerChangeNotice) => "eitmad.customer.changed.event.v1",
         MaterialChanged(MaterialChangeNotice) => "eitmad.material.changed.event.v1",
+        FurnitureChanged(FurnitureChangeNotice) => "eitmad.furniture.changed.event.v1",
         ProductChanged(ProductChangeNotice) => "eitmad.product.changed.event.v1",
         PartChanged(PartChangeNotice) => "eitmad.part.changed.event.v1"
     }
@@ -131,6 +134,7 @@ impl Event {
             Self::ReferenceMarkerChanged(_) => "eitmad.reference-marker.changed.subscribe.v1",
             Self::CustomerChanged(_) => "eitmad.customer.changed.subscribe.v1",
             Self::MaterialChanged(_) => "eitmad.material.changed.subscribe.v1",
+            Self::FurnitureChanged(_) => "eitmad.furniture.changed.subscribe.v1",
             Self::ProductChanged(_) => "eitmad.product.changed.subscribe.v1",
             Self::PartChanged(_) => "eitmad.part.changed.subscribe.v1",
         }

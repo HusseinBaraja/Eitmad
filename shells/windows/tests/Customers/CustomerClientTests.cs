@@ -193,7 +193,7 @@ public sealed class CustomerClientTests
         engine.Customers.Add(original);
         await using var client = new CustomerClient(engine);
         await client.ActivateAsync();
-        var model = new SalesCatalogViewModel(new FurnitureViewModel(), new ProductsViewModel(), client);
+        var model = new SalesCatalogViewModel(Eitmad.WindowsShell.Tests.Furniture.FurnitureFixtures.SalesModel(), new ProductsViewModel(), client);
         model.AttachCustomer(PreviewCustomer.FromContract(original));
         Products.SalesCatalogPresentationTests.AddHistoricalProductLine(model);
         model.DiscountInput = "10";
@@ -253,7 +253,7 @@ public sealed class CustomerClientTests
         engine.Customers.Add(original);
         await using var client = new CustomerClient(engine);
         await client.ActivateAsync();
-        var model = new SalesCatalogViewModel(new FurnitureViewModel(), new ProductsViewModel(), client);
+        var model = new SalesCatalogViewModel(Eitmad.WindowsShell.Tests.Furniture.FurnitureFixtures.SalesModel(), new ProductsViewModel(), client);
         model.AttachCustomer(new PreviewCustomer(original.Name, original.Phone, "", "", original.Id));
         var notice = model.QuotationNotice;
 
@@ -281,7 +281,7 @@ public sealed class CustomerClientTests
     {
         await using var engine = new FakeEngine();
         await using var client = new CustomerClient(engine);
-        var model = new SalesCatalogViewModel(new FurnitureViewModel(), new ProductsViewModel(), client);
+        var model = new SalesCatalogViewModel(Eitmad.WindowsShell.Tests.Furniture.FurnitureFixtures.SalesModel(), new ProductsViewModel(), client);
         model.BeginNewCustomer();
         model.CustomerName = "عميل تجريبي";
         model.Phone = "invalid";
@@ -316,7 +316,7 @@ public sealed class CustomerClientTests
             _ => Task.CompletedTask,
         };
         await using var client = new CustomerClient(engine);
-        var model = new SalesCatalogViewModel(new FurnitureViewModel(), new ProductsViewModel(), client);
+        var model = new SalesCatalogViewModel(Eitmad.WindowsShell.Tests.Furniture.FurnitureFixtures.SalesModel(), new ProductsViewModel(), client);
 
         model.CustomerName = "قديم";
         var obsoleteSearch = model.LastCustomerSearch;

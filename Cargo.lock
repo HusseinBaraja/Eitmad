@@ -888,6 +888,7 @@ dependencies = [
  "eitmad-configuration",
  "eitmad-contracts",
  "eitmad-customer",
+ "eitmad-furniture",
  "eitmad-material",
  "eitmad-observability-audit",
  "eitmad-part",
@@ -904,6 +905,24 @@ dependencies = [
  "subtle",
  "tempfile",
  "tokio",
+ "uuid",
+]
+
+[[package]]
+name = "eitmad-furniture"
+version = "0.0.0"
+dependencies = [
+ "eitmad-authorization",
+ "eitmad-contracts",
+ "eitmad-material",
+ "eitmad-observability-audit",
+ "eitmad-part",
+ "eitmad-storage",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
  "uuid",
 ]
 

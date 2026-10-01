@@ -1307,46 +1307,27 @@ fn default_engine_hello() -> PeerHello {
             minimum_minor: 0,
             maximum_minor: PROTOCOL_VERSION.minor,
         }],
-        capabilities: vec![
-            eitmad_contracts::transport::CapabilityId::parse(
-                "eitmad.capability.desktop-user-session.v1",
-            )
-            .expect("static capability is valid"),
-            eitmad_contracts::transport::CapabilityId::parse("eitmad.capability.local-ipc.v1")
-                .expect("static capability is valid"),
-            eitmad_contracts::transport::CapabilityId::parse(
-                "eitmad.capability.local-ipc-subscriptions.v1",
-            )
-            .expect("static capability is valid"),
-            eitmad_contracts::transport::CapabilityId::parse(
-                "eitmad.capability.authorization-policy-events.v1",
-            )
-            .expect("static capability is valid"),
-            eitmad_contracts::transport::CapabilityId::parse(
-                "eitmad.capability.authorization-scopes.v1",
-            )
-            .expect("static capability is valid"),
-            eitmad_contracts::transport::CapabilityId::parse("eitmad.capability.config.v1")
-                .expect("static capability is valid"),
-            eitmad_contracts::transport::CapabilityId::parse("eitmad.capability.permissions.v1")
-                .expect("static capability is valid"),
-            eitmad_contracts::transport::CapabilityId::parse(
-                "eitmad.capability.reference-marker.v1",
-            )
-            .expect("static capability is valid"),
-            eitmad_contracts::transport::CapabilityId::parse("eitmad.capability.customer.v1")
-                .expect("static capability is valid"),
-            eitmad_contracts::transport::CapabilityId::parse("eitmad.capability.product.v1")
-                .expect("registered capability"),
-            eitmad_contracts::transport::CapabilityId::parse("eitmad.capability.part.v1")
-                .expect("static capability is valid"),
-            eitmad_contracts::transport::CapabilityId::parse("eitmad.capability.material.v1")
-                .expect("static capability is valid"),
-            eitmad_contracts::transport::CapabilityId::parse(
-                "eitmad.capability.desktop-account-management.v1",
-            )
-            .expect("static capability is valid"),
-        ],
+        capabilities: [
+            "eitmad.capability.desktop-user-session.v1",
+            "eitmad.capability.local-ipc.v1",
+            "eitmad.capability.local-ipc-subscriptions.v1",
+            "eitmad.capability.authorization-policy-events.v1",
+            "eitmad.capability.authorization-scopes.v1",
+            "eitmad.capability.config.v1",
+            "eitmad.capability.permissions.v1",
+            "eitmad.capability.reference-marker.v1",
+            "eitmad.capability.customer.v1",
+            "eitmad.capability.product.v1",
+            "eitmad.capability.furniture.v1",
+            "eitmad.capability.part.v1",
+            "eitmad.capability.material.v1",
+            "eitmad.capability.desktop-account-management.v1",
+        ]
+        .into_iter()
+        .map(|id| {
+            eitmad_contracts::transport::CapabilityId::parse(id).expect("registered capability")
+        })
+        .collect(),
         required_capabilities: vec![
             eitmad_contracts::transport::CapabilityId::parse(
                 "eitmad.capability.authorization-scopes.v1",
@@ -1377,6 +1358,13 @@ fn default_engine_hello() -> PeerHello {
             },
             SchemaSupport {
                 schema_id: SchemaId::parse("eitmad.schema.product.v1")
+                    .expect("static schema ID is valid"),
+                minimum_version: 1,
+                maximum_version: 1,
+                required: false,
+            },
+            SchemaSupport {
+                schema_id: SchemaId::parse("eitmad.schema.furniture.v1")
                     .expect("static schema ID is valid"),
                 minimum_version: 1,
                 maximum_version: 1,

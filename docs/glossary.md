@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "product maintainers"
-last_verified: "2026-09-19"
+last_verified: "2026-10-01"
 review_triggers:
   - "a domain term, UI label, contract concept, or workshop synonym changes"
 keywords:
@@ -71,13 +71,14 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | المنتج | Product | A ready-made item that the company purchases and sells as-is, such as a mattress, pillow, lamp, or décor item. It is not Furniture and has no raw materials, furniture parts, construction details, or manufacturing cost. Rust owns its organization-scoped durable definition and immutable revisions. |
 | خيار المنتج | Product variant | A fixed ready-made version sold by the supplier, such as **مفرد**, **مزدوج**, or **كينغ**. It has a stable ID, whole-YER purchase cost, and active/archive state. Selling-price publication belongs to Pricing. It is not a customizable furniture dimension. |
 | فئة المنتج | Product category | A grouping for ready-made Products. The **الفئة** selector uses durable organization-scoped IDs and revisions with inline add and manage actions. Product categories are separate from raw-material and Part categories; archive retains historical links. |
-| الأثاث | Furniture | The manager-facing product collection in the Windows preview. Its compact table and six-step editor are transient fixtures; no Furniture lifecycle is durable or Rust-authoritative yet. |
+| الأثاث | Furniture | A Rust-owned organization-scoped manufacturing definition with exact Part composition references, fixed sizes, permitted customization, colors, handles, and immutable revisions. Its manager definition state does not publish a catalog entry or selling price. |
 | قطعة أثاث | Furniture item | A specific physical item requested, produced, delivered, or installed. |
 | تصميم | Design | The specification of form, dimensions, materials, finishes, and construction details. |
 | المقاسات | Dimensions | Length, width, height, depth, thickness, or other measurements with explicit units. |
-| المقاس الثابت | Fixed furniture variant | One manager-defined furniture size with explicit width, height, and depth. It is selected as defined and is not receptionist customization. The current **المقاسات الثابتة** cards are preview fixtures. |
-| الألوان المتاحة | Available colors | Manager-defined color choices shown with a swatch, visible price adjustment, and active state. The current Options section is a transient preview. |
-| المقابض المتاحة | Available handles | Manager-defined handle choices shown as visual tiles with a visible price adjustment and active state. The current Options section is a transient preview. |
+| المقاس الثابت | Fixed furniture variant | One manager-defined Furniture size with positive integer-millimetre width, height, and depth. It is selected as defined unless the Manager explicitly permits bounded customization. |
+| تخصيص المقاس | Permitted dimension customization | Explicit minimum and maximum width, height, and depth retained on one fixed Furniture variant. Rust validates every dimension against these bounds. Absence of bounds permits only the fixed dimensions. |
+| الألوان المتاحة | Available colors | Manager-defined Furniture options with stable IDs, active/archive state, and non-negative whole-YER price adjustments. Variant compatibility restricts new selection. |
+| المقابض المتاحة | Available handles | Manager-defined Furniture handle options with stable IDs, active/archive state, native illustrations, and non-negative whole-YER price adjustments. Variant compatibility restricts new selection. |
 | الخامة | Material | A substance or component used in production, such as wood, board, fabric, or hardware. |
 | المادة الخام | Raw material | A material definition for production use, with a stable ID, category, unit, and current whole-YER cost. The Windows **المواد الخام** page stores definitions in the Rust authority database. Stock movements are separate. |
 | الجزء / الأجزاء | Part / parts | A Rust-owned furniture component with a separate category reference and explicit material quantities and units. Each save retains an immutable composition revision; current cost is a separate advisory projection. See [Parts](developer/subsystems/parts.md). |

@@ -614,10 +614,20 @@ namespace Eitmad.Contracts
         public string CategoryName { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("colors")]
+        public FurnitureOption[] Colors { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("description")]
         public string Description { get; set; }
 
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("handles")]
+        public FurnitureOption[] Handles { get; set; }
+
         /// <summary>
+        /// Internal notes are only exposed to Managers.
+        ///
         /// Internal notes are withheld with purchase costs.
         /// </summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -625,8 +635,20 @@ namespace Eitmad.Contracts
         public string Notes { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("parts")]
+        public FurniturePart[] Parts { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("partsCostYer")]
+        public long? PartsCostYer { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("state")]
+        public FurnitureState? State { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("variants")]
-        public ProductVariant[] Variants { get; set; }
+        public Variant[] Variants { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("composition")]
@@ -659,6 +681,24 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("username")]
         public string Username { get; set; }
+    }
+
+    public partial class FurnitureOption
+    {
+        [JsonPropertyName("archived")]
+        public bool Archived { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("priceAdjustmentYer")]
+        public long PriceAdjustmentYer { get; set; }
+
+        [JsonPropertyName("visual")]
+        public string Visual { get; set; }
     }
 
     public partial class CompositionReference
@@ -848,6 +888,15 @@ namespace Eitmad.Contracts
         public ConfigReadValueValue? Value { get; set; }
     }
 
+    public partial class FurniturePart
+    {
+        [JsonPropertyName("quantity")]
+        public long Quantity { get; set; }
+
+        [JsonPropertyName("reference")]
+        public CompositionReference Reference { get; set; }
+    }
+
     public partial class UpdateStatePayload
     {
         [JsonPropertyName("version")]
@@ -890,10 +939,28 @@ namespace Eitmad.Contracts
         public PrincipalKind PrincipalKind { get; set; }
     }
 
-    public partial class ProductVariant
+    public partial class Variant
     {
         [JsonPropertyName("archived")]
         public bool Archived { get; set; }
+
+        /// <summary>
+        /// Empty means all options of the corresponding kind are compatible.
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("colorIds")]
+        public Guid[] ColorIds { get; set; }
+
+        [JsonPropertyName("customization")]
+        public FurnitureCustomization Customization { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("dimensions")]
+        public FurnitureDimensions Dimensions { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("handleIds")]
+        public Guid[] HandleIds { get; set; }
 
         [JsonPropertyName("id")]
         public Guid Id { get; set; }
@@ -901,11 +968,36 @@ namespace Eitmad.Contracts
         [JsonPropertyName("name")]
         public string Name { get; set; }
 
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("sellingPriceYer")]
+        public long? SellingPriceYer { get; set; }
+
         /// <summary>
         /// Omitted entirely when the caller cannot read internal purchase costs.
         /// </summary>
         [JsonPropertyName("purchaseCostYer")]
         public long? PurchaseCostYer { get; set; }
+    }
+
+    public partial class FurnitureCustomization
+    {
+        [JsonPropertyName("maximum")]
+        public FurnitureDimensions Maximum { get; set; }
+
+        [JsonPropertyName("minimum")]
+        public FurnitureDimensions Minimum { get; set; }
+    }
+
+    public partial class FurnitureDimensions
+    {
+        [JsonPropertyName("depthMm")]
+        public long DepthMm { get; set; }
+
+        [JsonPropertyName("heightMm")]
+        public long HeightMm { get; set; }
+
+        [JsonPropertyName("widthMm")]
+        public long WidthMm { get; set; }
     }
 
     public partial class RetryDisposition
@@ -1665,6 +1757,14 @@ namespace Eitmad.Contracts
         public UpdateDesktopAccount CommandDesktopAccountUpdate { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Command_FurnitureCategorySave")]
+        public SaveFurnitureCategory CommandFurnitureCategorySave { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Command_FurnitureSave")]
+        public SaveFurniture CommandFurnitureSave { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Command_MaterialCategorySave")]
         public SaveMaterialCategory CommandMaterialCategorySave { get; set; }
 
@@ -1723,6 +1823,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Event_ErrorEvent")]
         public ScopedError EventErrorEvent { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Event_FurnitureChangedEvent")]
+        public FurnitureChangeNotice EventFurnitureChangedEvent { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Event_MaterialChangedEvent")]
@@ -1857,6 +1961,26 @@ namespace Eitmad.Contracts
         public Dictionary<string, object> QueryDesktopAccountList { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Query_FurnitureCategoryList")]
+        public ListFurnitureCategories QueryFurnitureCategoryList { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Query_FurnitureList")]
+        public ListFurnitures QueryFurnitureList { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Query_FurnitureReview")]
+        public SaveFurniture QueryFurnitureReview { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Query_FurnitureRevisionGet")]
+        public GetFurnitureRevision QueryFurnitureRevisionGet { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Query_FurnitureSelectionCheck")]
+        public CheckFurnitureSelection QueryFurnitureSelectionCheck { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Query_MaterialList")]
         public ListMaterials QueryMaterialList { get; set; }
 
@@ -1927,6 +2051,26 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_EffectivePermissions")]
         public EffectivePermissions QueryResultEffectivePermissions { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("QueryResult_FurnitureCategories")]
+        public FurnitureCategories QueryResultFurnitureCategories { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("QueryResult_FurnitureReview")]
+        public FurnitureReview QueryResultFurnitureReview { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("QueryResult_FurnitureRevision")]
+        public Furniture QueryResultFurnitureRevision { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("QueryResult_Furnitures")]
+        public FurniturePage QueryResultFurnitures { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("QueryResult_FurnitureSelection")]
+        public FurnitureSelection QueryResultFurnitureSelection { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_MaterialReferences")]
@@ -2031,6 +2175,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Subscription_ErrorSubscribe")]
         public Dictionary<string, object> SubscriptionErrorSubscribe { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Subscription_FurnitureChangedSubscribe")]
+        public Dictionary<string, object> SubscriptionFurnitureChangedSubscribe { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Subscription_MaterialChangedSubscribe")]
@@ -2242,6 +2390,90 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("role")]
         public DesktopAccountRole Role { get; set; }
+    }
+
+    public partial class SaveFurnitureCategory
+    {
+        [JsonPropertyName("archived")]
+        public bool Archived { get; set; }
+
+        [JsonPropertyName("expectedRevision")]
+        public long? ExpectedRevision { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid? Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+    }
+
+    public partial class SaveFurniture
+    {
+        [JsonPropertyName("categoryId")]
+        public Guid CategoryId { get; set; }
+
+        [JsonPropertyName("colors")]
+        public FurnitureOption[] Colors { get; set; }
+
+        [JsonPropertyName("confirmBelowCost")]
+        public bool ConfirmBelowCost { get; set; }
+
+        [JsonPropertyName("description")]
+        public string Description { get; set; }
+
+        [JsonPropertyName("expectedRevision")]
+        public long? ExpectedRevision { get; set; }
+
+        [JsonPropertyName("handles")]
+        public FurnitureOption[] Handles { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid? Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("notes")]
+        public string Notes { get; set; }
+
+        [JsonPropertyName("parts")]
+        public FurniturePart[] Parts { get; set; }
+
+        [JsonPropertyName("state")]
+        public FurnitureState State { get; set; }
+
+        [JsonPropertyName("variants")]
+        public FurnitureVariant[] Variants { get; set; }
+    }
+
+    public partial class FurnitureVariant
+    {
+        [JsonPropertyName("archived")]
+        public bool Archived { get; set; }
+
+        /// <summary>
+        /// Empty means all options of the corresponding kind are compatible.
+        /// </summary>
+        [JsonPropertyName("colorIds")]
+        public Guid[] ColorIds { get; set; }
+
+        [JsonPropertyName("customization")]
+        public FurnitureCustomization Customization { get; set; }
+
+        [JsonPropertyName("dimensions")]
+        public FurnitureDimensions Dimensions { get; set; }
+
+        [JsonPropertyName("handleIds")]
+        public Guid[] HandleIds { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("sellingPriceYer")]
+        public long SellingPriceYer { get; set; }
     }
 
     public partial class SaveMaterialCategory
@@ -2524,6 +2756,24 @@ namespace Eitmad.Contracts
     {
         [JsonPropertyName("error")]
         public ContractError Error { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+    }
+
+    public partial class FurnitureChangeNotice
+    {
+        [JsonPropertyName("category")]
+        public bool Category { get; set; }
+
+        [JsonPropertyName("changedAt")]
+        public long ChangedAt { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
 
         [JsonPropertyName("scope")]
         public ScopeRef Scope { get; set; }
@@ -2952,6 +3202,78 @@ namespace Eitmad.Contracts
         public string Term { get; set; }
     }
 
+    public partial class ListFurnitureCategories
+    {
+        [JsonPropertyName("after")]
+        public Guid? After { get; set; }
+
+        [JsonPropertyName("limit")]
+        public long Limit { get; set; }
+    }
+
+    public partial class ListFurnitures
+    {
+        [JsonPropertyName("after")]
+        public Guid? After { get; set; }
+
+        [JsonPropertyName("limit")]
+        public long Limit { get; set; }
+
+        [JsonPropertyName("selectableOnly")]
+        public bool SelectableOnly { get; set; }
+
+        [JsonPropertyName("term")]
+        public string Term { get; set; }
+    }
+
+    public partial class GetFurnitureRevision
+    {
+        /// <summary>
+        /// New work requires the current revision and an active furniture, category, and variant.
+        /// </summary>
+        [JsonPropertyName("forNewWork")]
+        public bool ForNewWork { get; set; }
+
+        [JsonPropertyName("reference")]
+        public FurnitureReference Reference { get; set; }
+    }
+
+    public partial class FurnitureReference
+    {
+        [JsonPropertyName("furnitureId")]
+        public Guid FurnitureId { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("schemaVersion")]
+        public long SchemaVersion { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+
+        [JsonPropertyName("variantId")]
+        public Guid VariantId { get; set; }
+    }
+
+    public partial class CheckFurnitureSelection
+    {
+        [JsonPropertyName("colorId")]
+        public Guid? ColorId { get; set; }
+
+        [JsonPropertyName("dimensions")]
+        public FurnitureDimensions Dimensions { get; set; }
+
+        [JsonPropertyName("handleId")]
+        public Guid? HandleId { get; set; }
+
+        [JsonPropertyName("quantity")]
+        public long Quantity { get; set; }
+
+        [JsonPropertyName("reference")]
+        public FurnitureReference Reference { get; set; }
+    }
+
     public partial class ListMaterials
     {
         [JsonPropertyName("after")]
@@ -3100,6 +3422,129 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("username")]
         public string Username { get; set; }
+    }
+
+    public partial class FurnitureCategories
+    {
+        [JsonPropertyName("items")]
+        public FurnitureCategory[] Items { get; set; }
+
+        [JsonPropertyName("next")]
+        public Guid? Next { get; set; }
+    }
+
+    public partial class FurnitureCategory
+    {
+        [JsonPropertyName("archived")]
+        public bool Archived { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+
+        [JsonPropertyName("updatedAt")]
+        public long UpdatedAt { get; set; }
+    }
+
+    public partial class FurnitureReview
+    {
+        [JsonPropertyName("marginsYer")]
+        public long[] MarginsYer { get; set; }
+
+        [JsonPropertyName("partsCostYer")]
+        public long PartsCostYer { get; set; }
+
+        [JsonPropertyName("rowCostsYer")]
+        public long[] RowCostsYer { get; set; }
+    }
+
+    public partial class Furniture
+    {
+        [JsonPropertyName("categoryId")]
+        public Guid CategoryId { get; set; }
+
+        /// <summary>
+        /// Category name at this revision, retained for historical reads.
+        /// </summary>
+        [JsonPropertyName("categoryName")]
+        public string CategoryName { get; set; }
+
+        [JsonPropertyName("colors")]
+        public FurnitureOption[] Colors { get; set; }
+
+        [JsonPropertyName("description")]
+        public string Description { get; set; }
+
+        [JsonPropertyName("handles")]
+        public FurnitureOption[] Handles { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        /// <summary>
+        /// Internal notes are only exposed to Managers.
+        /// </summary>
+        [JsonPropertyName("notes")]
+        public string Notes { get; set; }
+
+        [JsonPropertyName("parts")]
+        public FurniturePart[] Parts { get; set; }
+
+        [JsonPropertyName("partsCostYer")]
+        public long PartsCostYer { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+
+        [JsonPropertyName("state")]
+        public FurnitureState State { get; set; }
+
+        [JsonPropertyName("updatedAt")]
+        public long UpdatedAt { get; set; }
+
+        [JsonPropertyName("variants")]
+        public FurnitureVariant[] Variants { get; set; }
+    }
+
+    public partial class FurnitureSelection
+    {
+        [JsonPropertyName("definition")]
+        public Furniture Definition { get; set; }
+
+        [JsonPropertyName("totalYer")]
+        public long TotalYer { get; set; }
+
+        [JsonPropertyName("unitPriceYer")]
+        public long UnitPriceYer { get; set; }
+    }
+
+    public partial class FurniturePage
+    {
+        [JsonPropertyName("canManage")]
+        public bool CanManage { get; set; }
+
+        [JsonPropertyName("canReadCosts")]
+        public bool CanReadCosts { get; set; }
+
+        [JsonPropertyName("items")]
+        public Furniture[] Items { get; set; }
+
+        [JsonPropertyName("next")]
+        public Guid? Next { get; set; }
     }
 
     public partial class MaterialReferences
@@ -3295,6 +3740,24 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("variants")]
         public ProductVariant[] Variants { get; set; }
+    }
+
+    public partial class ProductVariant
+    {
+        [JsonPropertyName("archived")]
+        public bool Archived { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        /// <summary>
+        /// Omitted entirely when the caller cannot read internal purchase costs.
+        /// </summary>
+        [JsonPropertyName("purchaseCostYer")]
+        public long? PurchaseCostYer { get; set; }
     }
 
     public partial class ProductPage
@@ -3803,7 +4266,7 @@ namespace Eitmad.Contracts
 
     public enum LifecycleStage { AuthorityLock, ComponentShutdown, ComponentStartup, ProcessIdentity, ReadinessCheck };
 
-    public enum PurpleKind { ConfigurationUpdated, CustomerCreated, CustomerUpdated, DesktopAccountCreated, DesktopAccountDeactivated, DesktopAccountUpdated, InstallerOutcomeRecorded, MaterialCategorySaved, MaterialSaved, MaterialUnitSaved, OperationCancelled, PartCategorySaved, PartSaved, ProductCategorySaved, ProductSaved, ReferenceMarkerUpserted, RelationshipGranted, RelationshipRevoked };
+    public enum PurpleKind { ConfigurationUpdated, CustomerCreated, CustomerUpdated, DesktopAccountCreated, DesktopAccountDeactivated, DesktopAccountUpdated, FurnitureCategorySaved, FurnitureSaved, InstallerOutcomeRecorded, MaterialCategorySaved, MaterialSaved, MaterialUnitSaved, OperationCancelled, PartCategorySaved, PartSaved, ProductCategorySaved, ProductSaved, ReferenceMarkerUpserted, RelationshipGranted, RelationshipRevoked };
 
     public enum ErrorParameterValueKind { Identifier, Integer, Text };
 
@@ -3822,6 +4285,8 @@ namespace Eitmad.Contracts
     public enum UpdateStateKind { Available, Checking, Downloading, Failed, Idle, InstallationHandoff, Installing, Paused, Preflight, Ready, RecoveryRequired, Revoked, Succeeded, Verifying };
 
     public enum DesktopAccountRole { Manager, Receptionist };
+
+    public enum FurnitureState { Active, Archived, Draft };
 
     public enum ReferenceMarkerSyncState { Confirmed, Pending };
 
@@ -3975,6 +4440,7 @@ namespace Eitmad.Contracts
                 ConfigReadValueValueConverter.Singleton,
                 UpdateStateKindConverter.Singleton,
                 DesktopAccountRoleConverter.Singleton,
+                FurnitureStateConverter.Singleton,
                 ReferenceMarkerSyncStateConverter.Singleton,
                 RetryDispositionKindConverter.Singleton,
                 CommandOutcomeStatusConverter.Singleton,
@@ -4452,6 +4918,10 @@ namespace Eitmad.Contracts
                     return PurpleKind.DesktopAccountDeactivated;
                 case "desktopAccountUpdated":
                     return PurpleKind.DesktopAccountUpdated;
+                case "furnitureCategorySaved":
+                    return PurpleKind.FurnitureCategorySaved;
+                case "furnitureSaved":
+                    return PurpleKind.FurnitureSaved;
                 case "installerOutcomeRecorded":
                     return PurpleKind.InstallerOutcomeRecorded;
                 case "materialCategorySaved":
@@ -4501,6 +4971,12 @@ namespace Eitmad.Contracts
                     return;
                 case PurpleKind.DesktopAccountUpdated:
                     JsonSerializer.Serialize(writer, "desktopAccountUpdated", options);
+                    return;
+                case PurpleKind.FurnitureCategorySaved:
+                    JsonSerializer.Serialize(writer, "furnitureCategorySaved", options);
+                    return;
+                case PurpleKind.FurnitureSaved:
+                    JsonSerializer.Serialize(writer, "furnitureSaved", options);
                     return;
                 case PurpleKind.InstallerOutcomeRecorded:
                     JsonSerializer.Serialize(writer, "installerOutcomeRecorded", options);
@@ -5068,6 +5544,45 @@ namespace Eitmad.Contracts
         }
 
         public static readonly DesktopAccountRoleConverter Singleton = new DesktopAccountRoleConverter();
+    }
+
+    internal class FurnitureStateConverter : JsonConverter<FurnitureState>
+    {
+        public override bool CanConvert(Type t) => t == typeof(FurnitureState);
+
+        public override FurnitureState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "active":
+                    return FurnitureState.Active;
+                case "archived":
+                    return FurnitureState.Archived;
+                case "draft":
+                    return FurnitureState.Draft;
+            }
+            throw new Exception("Cannot unmarshal type FurnitureState");
+        }
+
+        public override void Write(Utf8JsonWriter writer, FurnitureState value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case FurnitureState.Active:
+                    JsonSerializer.Serialize(writer, "active", options);
+                    return;
+                case FurnitureState.Archived:
+                    JsonSerializer.Serialize(writer, "archived", options);
+                    return;
+                case FurnitureState.Draft:
+                    JsonSerializer.Serialize(writer, "draft", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type FurnitureState");
+        }
+
+        public static readonly FurnitureStateConverter Singleton = new FurnitureStateConverter();
     }
 
     internal class ReferenceMarkerSyncStateConverter : JsonConverter<ReferenceMarkerSyncState>

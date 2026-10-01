@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use crate::accounts::{DesktopAccountError, DesktopAccountService};
 use async_trait::async_trait;
+use eitmad_authorization::FURNITURE_READ_PERMISSION;
 use eitmad_authorization::MATERIAL_READ_PERMISSION;
 use eitmad_authorization::{
     AUTHORIZATION_MANAGE_PERMISSION, AccessAuditContext, AuthorizationError, AuthorizationService,
@@ -25,6 +26,7 @@ use eitmad_contracts::{
 use eitmad_customer::{
     CUSTOMER_READ_PERMISSION, CustomerError, CustomerService, CustomerSyncCycle, CustomerSyncError,
 };
+use eitmad_furniture::{FurnitureError, FurnitureService};
 use eitmad_material::{MaterialError, MaterialService};
 use eitmad_observability_audit::AuditOutcome;
 use eitmad_part::{PartError, PartService};
@@ -50,6 +52,7 @@ pub struct ProductDispatcher {
     materials: MaterialService,
     parts: PartService,
     products: ProductService,
+    furnitures: FurnitureService,
     accounts: DesktopAccountService,
     events: Arc<dyn ProductEventPublisher>,
 }
@@ -102,6 +105,7 @@ impl ProductDispatcher {
         let reference_markers = ReferenceMarkerService::new(store.clone(), authorization.clone());
         let customers = CustomerService::new(store.clone(), authorization.clone());
         let materials = MaterialService::new(store.clone(), authorization.clone());
+        let furnitures = FurnitureService::new(store.clone(), authorization.clone());
         let products = ProductService::new(store.clone(), authorization.clone());
         let parts = PartService::new(store.clone(), authorization.clone());
         let accounts = DesktopAccountService::new(store.clone(), authorization.clone());
@@ -114,6 +118,7 @@ impl ProductDispatcher {
             materials,
             parts,
             products,
+            furnitures,
             accounts,
             events,
         }
@@ -357,6 +362,96 @@ impl ProductDispatcher {
         .map_err(|error| Box::new(product_error(error, context)))
     }
 
+    /// Records scoped query outcomes without retaining the query payload.
+    fn audit_query_result(
+        &self,
+        context: &DispatchContext,
+        operation: &str,
+        result: &Result<QueryResult, ContractError>,
+    ) -> Result<(), Box<ContractError>> {
+        let (outcome, error_code) = match result {
+            Ok(_) => (AuditOutcome::Succeeded, None),
+            Err(error) if error.code.as_str() == "eitmad.error.authorization-denied.v1" => {
+                (AuditOutcome::Denied, Some(error.code.as_str()))
+            }
+            Err(error) => (AuditOutcome::Failed, Some(error.code.as_str())),
+        };
+        self.authorization
+            .audit_access_result(
+                &AccessAuditContext {
+                    authorization: context.authorization.clone(),
+                    correlation_id: context.correlation_id,
+                    causation_id: context.causation_id,
+                    occurred_at: now(),
+                },
+                operation,
+                "query-scope",
+                outcome,
+                error_code,
+                Vec::new(),
+            )
+            .map_err(|error| Box::new(authorization_error(error, context)))?;
+        Ok(())
+    }
+
+    /// Negotiates protocol 1.13, delegates authorization and persistence to Furnitures, and publishes the committed outbox.
+    fn dispatch_furniture_command(
+        &self,
+        context: &DispatchContext,
+        mutation: &MutationContext,
+        command: Command,
+    ) -> Result<CommandResult, Box<ContractError>> {
+        require_protocol_1_13(context)?;
+        let result = match command {
+            Command::SaveFurniture(command) => self
+                .furnitures
+                .save(mutation, &command)
+                .map(CommandResult::FurnitureSaved),
+            Command::SaveFurnitureCategory(command) => self
+                .furnitures
+                .save_category(mutation, &command)
+                .map(CommandResult::FurnitureCategorySaved),
+            _ => unreachable!("only furniture commands are routed here"),
+        }
+        .map_err(|error| Box::new(furniture_error(error, context)))?;
+        self.publish_pending(context, mutation.idempotency_key)
+            .map_err(|()| Box::new(furniture_error(FurnitureError::Unavailable, context)))?;
+        Ok(result)
+    }
+
+    /// Negotiates protocol 1.13 and delegates scoped furniture reads and cost review to the Rust authority.
+    fn dispatch_furniture_query(
+        &self,
+        context: &DispatchContext,
+        query: Query,
+    ) -> Result<QueryResult, Box<ContractError>> {
+        require_protocol_1_13(context)?;
+        match query {
+            Query::Furnitures(query) => self
+                .furnitures
+                .list(&context.authorization, &query)
+                .map(QueryResult::Furnitures),
+            Query::FurnitureCategories(query) => self
+                .furnitures
+                .categories(&context.authorization, &query)
+                .map(QueryResult::FurnitureCategories),
+            Query::FurnitureRevision(query) => self
+                .furnitures
+                .revision(&context.authorization, &query)
+                .map(QueryResult::FurnitureRevision),
+            Query::FurnitureReview(query) => self
+                .furnitures
+                .review(&context.authorization, &query)
+                .map(QueryResult::FurnitureReview),
+            Query::FurnitureSelection(query) => self
+                .furnitures
+                .selection(&context.authorization, &query)
+                .map(QueryResult::FurnitureSelection),
+            _ => unreachable!("only furniture queries are routed here"),
+        }
+        .map_err(|error| Box::new(furniture_error(error, context)))
+    }
+
     /// Checks protocol support, creates the audited account, and publishes its committed event.
     fn create_desktop_account(
         &self,
@@ -525,6 +620,9 @@ impl CommandDispatcher for ProductDispatcher {
             Command::SaveMaterialUnit(command) => self
                 .save_material_unit(&context, &mutation, &command)
                 .map_err(|error| *error),
+            command @ (Command::SaveFurniture(_) | Command::SaveFurnitureCategory(_)) => self
+                .dispatch_furniture_command(&context, &mutation, command)
+                .map_err(|e| *e),
             command @ (Command::SaveProduct(_) | Command::SaveProductCategory(_)) => self
                 .dispatch_product_command(&context, &mutation, command)
                 .map_err(|error| *error),
@@ -614,6 +712,13 @@ impl QueryDispatcher for ProductDispatcher {
                     .map(QueryResult::Customers)
                     .map_err(|error| customer_error(error, &context))
             }
+            query @ (Query::Furnitures(_)
+            | Query::FurnitureCategories(_)
+            | Query::FurnitureRevision(_)
+            | Query::FurnitureReview(_)
+            | Query::FurnitureSelection(_)) => self
+                .dispatch_furniture_query(&context, query)
+                .map_err(|e| *e),
             query @ (Query::Products(_)
             | Query::ProductCategories(_)
             | Query::ProductRevision(_)) => self
@@ -648,28 +753,8 @@ impl QueryDispatcher for ProductDispatcher {
             }
             Query::UpdateState(_) | Query::SyncStatus(_) => Err(unsupported(&context)),
         };
-        let (outcome, error_code) = match &result {
-            Ok(_) => (AuditOutcome::Succeeded, None),
-            Err(error) if error.code.as_str() == "eitmad.error.authorization-denied.v1" => {
-                (AuditOutcome::Denied, Some(error.code.as_str()))
-            }
-            Err(error) => (AuditOutcome::Failed, Some(error.code.as_str())),
-        };
-        self.authorization
-            .audit_access_result(
-                &AccessAuditContext {
-                    authorization: context.authorization.clone(),
-                    correlation_id: context.correlation_id,
-                    causation_id: context.causation_id,
-                    occurred_at: now(),
-                },
-                operation,
-                "query-scope",
-                outcome,
-                error_code,
-                Vec::new(),
-            )
-            .map_err(|error| authorization_error(error, &context))?;
+        self.audit_query_result(&context, operation, &result)
+            .map_err(|e| *e)?;
         result
     }
 
@@ -686,6 +771,9 @@ impl QueryDispatcher for ProductDispatcher {
             Subscription::Customers(_) if context.protocol_version.minor >= 9 => {
                 CUSTOMER_READ_PERMISSION
             }
+            Subscription::Furnitures(_) if context.protocol_version.minor >= 13 => {
+                FURNITURE_READ_PERMISSION
+            }
             Subscription::Products(_) if context.protocol_version.minor >= 12 => {
                 PRODUCT_READ_PERMISSION
             }
@@ -697,6 +785,7 @@ impl QueryDispatcher for ProductDispatcher {
                 AUTHORIZATION_MANAGE_PERMISSION
             }
             Subscription::Customers(_)
+            | Subscription::Furnitures(_)
             | Subscription::Products(_)
             | Subscription::Parts(_)
             | Subscription::Materials(_)
@@ -939,6 +1028,51 @@ fn product_error(value: ProductError, context: &DispatchContext) -> ContractErro
     contract_error(code, message, context.correlation_id, retry, detail)
 }
 
+fn furniture_error(value: FurnitureError, context: &DispatchContext) -> ContractError {
+    let (code, message, retry, detail) = match value {
+        FurnitureError::Denied => (
+            "eitmad.error.authorization-denied.v1",
+            "eitmad.message.authorization-denied.v1",
+            RetryDisposition::Never,
+            None,
+        ),
+        FurnitureError::Invalid => (
+            "eitmad.error.furniture-invalid.v1",
+            "eitmad.message.furniture-invalid.v1",
+            RetryDisposition::Never,
+            None,
+        ),
+        FurnitureError::InvalidReference => (
+            "eitmad.error.furniture-reference-invalid.v1",
+            "eitmad.message.furniture-reference-invalid.v1",
+            RetryDisposition::Never,
+            None,
+        ),
+        FurnitureError::NotFound => (
+            "eitmad.error.furniture-not-found.v1",
+            "eitmad.message.furniture-not-found.v1",
+            RetryDisposition::Never,
+            None,
+        ),
+        FurnitureError::RevisionConflict { expected, actual } => (
+            "eitmad.error.furniture-revision-conflict.v1",
+            "eitmad.message.furniture-revision-conflict.v1",
+            RetryDisposition::Never,
+            Some(ErrorDetail::RevisionConflict {
+                expected: expected.unwrap_or(0),
+                actual: actual.unwrap_or(0),
+            }),
+        ),
+        FurnitureError::Unavailable => (
+            "eitmad.error.furniture-unavailable.v1",
+            "eitmad.message.furniture-unavailable.v1",
+            RetryDisposition::SafeAfterDelay(1_000),
+            None,
+        ),
+    };
+    contract_error(code, message, context.correlation_id, retry, detail)
+}
+
 fn desktop_account_error(
     error_value: DesktopAccountError,
     context: &DispatchContext,
@@ -1153,6 +1287,11 @@ fn require_protocol_1_11(context: &DispatchContext) -> Result<(), Box<ContractEr
 /// Rejects product operations when the negotiated protocol predates their contract.
 fn require_protocol_1_12(context: &DispatchContext) -> Result<(), Box<ContractError>> {
     (context.protocol_version.major == 1 && context.protocol_version.minor >= 12)
+        .then_some(())
+        .ok_or_else(|| Box::new(unsupported(context)))
+}
+fn require_protocol_1_13(context: &DispatchContext) -> Result<(), Box<ContractError>> {
+    (context.protocol_version.major == 1 && context.protocol_version.minor >= 13)
         .then_some(())
         .ok_or_else(|| Box::new(unsupported(context)))
 }

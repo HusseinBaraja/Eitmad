@@ -17,6 +17,7 @@ pub mod config;
 pub mod customer;
 pub mod errors;
 pub mod events;
+pub mod furniture;
 pub mod identity;
 pub mod ipc;
 pub mod material;

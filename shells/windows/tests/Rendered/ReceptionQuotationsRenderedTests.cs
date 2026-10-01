@@ -17,7 +17,7 @@ public sealed class ReceptionQuotationsRenderedTests
         {
             var view = new QuotationsView();
             view.ConfigureReceptionist(quotation => QuotationPreviewProjection.Create(quotation,
-                new Features.Furniture.FurnitureViewModel(), new Features.Products.ProductsViewModel()));
+                Eitmad.WindowsShell.Tests.Furniture.FurnitureFixtures.SalesModel(), new Features.Products.ProductsViewModel()));
             window.Content = view;
             WpfTestHost.CompleteLayout(window);
             Exception? failure = null;

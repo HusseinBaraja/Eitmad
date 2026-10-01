@@ -38,6 +38,7 @@ public partial class MainWindow : Window
             UsersSurface.Attach(engine);
             RawMaterialsSurface.Attach(engine);
             PartsSurface.Attach(engine);
+            FurnitureSurface.Attach(engine);
             ProductsSurface.Attach(engine);
             customerClient = new Features.Customers.CustomerClient(engine);
             ReceptionistSurface.AttachCustomerClient(customerClient);
@@ -50,6 +51,7 @@ public partial class MainWindow : Window
             if (customerClient is not null) _ = customerClient.DisposeAsync();
             _ = RawMaterialsSurface.DisposeAsync();
             _ = PartsSurface.DisposeAsync();
+            _ = FurnitureSurface.DisposeAsync();
             _ = ProductsSurface.DisposeAsync();
         };
         ReceptionistSurface.SetCatalogSources(FurnitureSurface.ViewModel, ProductsSurface.ViewModel);
@@ -203,6 +205,7 @@ public partial class MainWindow : Window
     private void HideAccountSurfaces()
     {
         PartsSurface.ClearSession();
+        FurnitureSurface.ClearSession();
         ProductsSurface.ClearSession();
         ResponsiveRoot.Visibility = Visibility.Collapsed;
         ReceptionistSurface.Visibility = Visibility.Collapsed;
@@ -242,6 +245,7 @@ public partial class MainWindow : Window
         PartsSurface.Visibility = showParts ? Visibility.Visible : Visibility.Collapsed;
         if (showParts) _ = PartsSurface.ActivateAsync();
         FurnitureSurface.Visibility = showFurniture ? Visibility.Visible : Visibility.Collapsed;
+        if (showFurniture) _ = FurnitureSurface.ActivateAsync();
         PricingSurface.Visibility = showPricing ? Visibility.Visible : Visibility.Collapsed;
         ProductsSurface.Visibility = showProducts ? Visibility.Visible : Visibility.Collapsed;
         if (showProducts) _ = ProductsSurface.ActivateAsync();
