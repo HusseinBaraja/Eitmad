@@ -5,6 +5,11 @@ using Eitmad.Platform.Windows.ProcessSupervision;
 
 try
 {
+    if (args.Length != 0 && args is not ["--engine", _])
+    {
+        throw new ArgumentException("Usage: Eitmad.Platform.Windows.Tests [--engine <path>]");
+    }
+
     var tests = new SupervisionScenarios();
     await tests.UnavailableEngineIsTyped();
     await tests.TypedRequestsRequireConnectedEngine();
@@ -13,6 +18,7 @@ try
     tests.SubscriptionQueueIsBounded();
     tests.SubscriptionAcknowledgementNeverRegresses();
     await tests.SupervisedSubscriptionSurvivesReattach();
+    await tests.SupervisedSubscriptionReportsProjectionInvalidation();
     await tests.SupervisedSubscriptionRecoversAfterQueueOverflow();
     await tests.IntentionalStopNeverRestarts();
     await tests.UnexpectedDeathRestartsOnce();
@@ -31,6 +37,10 @@ try
 }
 catch (Exception error)
 {
+    if (error is EngineIpcException ipcError)
+    {
+        Console.Error.WriteLine($"IPC failure: {ipcError.Kind}; code: {ipcError.ContractError?.Code}");
+    }
     Console.Error.WriteLine(error);
     Environment.ExitCode = 1;
 }
@@ -111,6 +121,7 @@ internal sealed class SupervisionScenarios
         Assert.Equal(newer.Cursor, subscription.ProcessedCursor, "processed cursor remains monotonic");
     }
 
+    /// <summary>Verifies a supervised subscription resumes after its engine connection is replaced.</summary>
     public async Task SupervisedSubscriptionSurvivesReattach()
     {
         await using var supervised = new SupervisedEngineSubscription(
@@ -122,6 +133,7 @@ internal sealed class SupervisionScenarios
         var delivered = await ReadOne(supervised);
         supervised.Acknowledge(delivered);
         Assert.Equal(firstEvent.Cursor, supervised.ProcessedCursor, "processed cursor");
+        first.Complete(new EngineIpcException(EngineIpcFailureKind.EngineUnavailable, "Synthetic transport loss."));
 
         var replacement = new EngineSubscription(Guid.NewGuid(), firstEvent.Cursor, resumed: true);
         supervised.Attach(replacement, resetCursor: false);
@@ -159,6 +171,30 @@ internal sealed class SupervisionScenarios
         var replacementEvent = EventEnvelope(replacement.SubscriptionId);
         Assert.True(replacement.TryPublish(replacementEvent), "replacement publishes after overflow");
         Assert.Equal(replacementEvent.Cursor, (await ReadOne(supervised)).Cursor, "replacement event after overflow");
+    }
+
+    /// <summary>Verifies a supervised consumer receives a session-change failure after policy invalidation.</summary>
+    public async Task SupervisedSubscriptionReportsProjectionInvalidation()
+    {
+        await using var supervised = new SupervisedEngineSubscription(
+            Subscription.ForProductChangedSubscribe(new ProductChanges()));
+        var attached = new EngineSubscription(Guid.NewGuid(), Guid.NewGuid(), resumed: false);
+        supervised.Attach(attached, resetCursor: false);
+        attached.Complete(new EngineIpcException(
+            EngineIpcFailureKind.SessionChanged, "Synthetic projection invalidation."));
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        try
+        {
+            await foreach (var _ in supervised.ReadAllAsync(timeout.Token)) { }
+        }
+        catch (EngineIpcException error)
+        {
+            Assert.Equal(EngineIpcFailureKind.SessionChanged, error.Kind,
+                "projection invalidation reaches the supervised consumer");
+            return;
+        }
+        throw new InvalidOperationException("Expected supervised projection invalidation.");
     }
 
     private static EventEnvelope EventEnvelope(Guid subscriptionId, long sequence = 1) => new()
@@ -304,6 +340,7 @@ internal sealed class SupervisionScenarios
         Assert.Equal(EngineSupervisionState.Stopped, fixture.Supervisor.Snapshot.State, "failed termination stop state");
     }
 
+    /// <summary>Exercises real-engine lifecycle, product persistence, retries, events, and policy invalidation.</summary>
     public async Task RealEngineStartsAndStopsCleanly(string enginePath)
     {
         var runtimeDirectory = Path.Combine(Path.GetTempPath(), $"eitmad-supervision-{Guid.NewGuid():N}");
@@ -384,6 +421,7 @@ internal sealed class SupervisionScenarios
                 "real update query returns typed state or typed error");
 
             var persistedPart = await SaveMultiMaterialPart(supervisor);
+            var persistedProduct = await SaveSupplierProduct(supervisor);
 
             var patchResponse = await supervisor.SubmitConfigurationPatchAsync(
                 new UpdateConfiguration
@@ -422,6 +460,10 @@ internal sealed class SupervisionScenarios
             await supervisor.StartAsync(request);
             await Eventually(() => supervisor.IpcConnected, TimeSpan.FromSeconds(10));
             await supervisor.SignInAsync("admin", "admin");
+            var reopenedProducts = await supervisor.QueryAsync(Query.ForProductList(new ListProducts { Term = "مرتبة", Limit = 100 }));
+            var reopenedProduct = reopenedProducts.Outcome.Payload.AsProducts()!.Items.Single();
+            Assert.Equal(persistedProduct.Id, reopenedProduct.Id, "product identity survives engine restart");
+            Assert.Equal(55000L, reopenedProduct.Variants.Single().PurchaseCostYer!.Value, "supplier cost survives engine restart");
             var reopenedParts = await supervisor.QueryAsync(Query.ForPartList(new ListParts { Term = "جانب خزانة", Limit = 20 }));
             var reopenedPart = reopenedParts.Outcome.Payload.AsParts()?.Items.Single().Part
                 ?? throw new InvalidOperationException("Part was not durable after restart.");
@@ -459,6 +501,67 @@ internal sealed class SupervisionScenarios
         {
             Directory.Delete(runtimeDirectory, recursive: true);
         }
+    }
+
+    /// <summary>Exercises real Product saves, retries, committed events, and policy projection invalidation.</summary>
+    private static async Task<Product> SaveSupplierProduct(EngineSupervisor supervisor)
+    {
+        var categoryResponse = await supervisor.SubmitCommandAsync(
+            Command.ForProductCategorySave(new SaveProductCategory { Name = "مراتب" }), Guid.NewGuid());
+        Assert.Equal(CommandOutcomeStatus.Succeeded, categoryResponse.Outcome.Status, "product category commit");
+        var categories = await supervisor.QueryAsync(Query.ForProductCategoryList(new ListProductCategories { Limit = 100 }));
+        await using var events = await supervisor.SubscribeAsync(Subscription.ForProductChangedSubscribe(new ProductChanges()));
+        var input = new SaveProduct
+        {
+            Name = "مرتبة طبية", CategoryId = categories.Outcome.Payload.AsProductCategories()!.Items.Single().Id,
+            Description = "منتج جاهز", Notes = "",
+            Variants = [new SaveProductVariant { Id = Guid.NewGuid(), Name = "مفرد", PurchaseCostYer = 55000 }],
+        };
+        var key = Guid.NewGuid();
+        var saved = await supervisor.SubmitCommandAsync(Command.ForProductSave(input), key);
+        Assert.Equal(CommandOutcomeStatus.Succeeded, saved.Outcome.Status, "product commit");
+        var retried = await supervisor.SubmitCommandAsync(Command.ForProductSave(input), key);
+        Assert.Equal(saved.Outcome.Payload.Payload!.Id, retried.Outcome.Payload.Payload!.Id, "product exact retry identity");
+        var page = await supervisor.QueryAsync(Query.ForProductList(new ListProducts { Term = "", Limit = 100 }));
+        var product = page.Outcome.Payload.AsProducts()!.Items.Single();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await foreach (var delivered in events.ReadAllAsync(timeout.Token))
+        {
+            var notice = EngineContractCodec.DecodeEvent(delivered).AsProductChangedEvent();
+            events.Acknowledge(delivered);
+            Assert.Equal(product.Id, notice!.Id, "product event after commit");
+            break;
+        }
+        var relationships = await supervisor.QueryAsync(Query.ForAuthorizationRelationshipsList(new ListScopeRelationships { Limit = 100 }));
+        Assert.Equal(CommandOutcomeStatus.Failed, relationships.Outcome.Status, "Manager cannot read owner relationships");
+        Assert.Equal(ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1, relationships.Outcome.Payload.Code,
+            "owner relationship query remains denied");
+        var accounts = await supervisor.QueryAsync(Query.ForDesktopAccountList(new ListDesktopAccounts()));
+        Assert.Equal(CommandOutcomeStatus.Succeeded, accounts.Outcome.Status, "Manager can list desktop accounts");
+        var receptionist = accounts.Outcome.Payload.AsDesktopAccounts()!.Accounts.Single(account => account.Username == "rec");
+        var changed = await supervisor.SubmitCommandAsync(Command.ForDesktopAccountUpdate(new UpdateDesktopAccount
+        {
+            AccountId = receptionist.AccountId,
+            ExpectedRevision = receptionist.Revision,
+            DisplayName = receptionist.DisplayName,
+            Role = DesktopAccountRole.Manager,
+        }), Guid.NewGuid());
+        Assert.Equal(CommandOutcomeStatus.Succeeded, changed.Outcome.Status, "organization policy change commits");
+        var invalidated = false;
+        try
+        {
+            await foreach (var _ in events.ReadAllAsync(timeout.Token)) { }
+        }
+        catch (EngineIpcException error)
+        {
+            Assert.Equal(EngineIpcFailureKind.SessionChanged, error.Kind, "product policy closure requires projection invalidation");
+            invalidated = true;
+        }
+        Assert.True(invalidated, "policy change closes Products even when read access remains");
+        var retained = await supervisor.QueryAsync(Query.ForProductList(new ListProducts { Term = "", Limit = 100 }));
+        Assert.Equal(CommandOutcomeStatus.Succeeded, retained.Outcome.Status, "Manager product read remains authorized");
+        Assert.True(retained.Outcome.Payload.AsProducts()!.CanReadCosts, "existing Manager cost access remains authorized");
+        return product;
     }
 
     /// <summary>Exercises real-engine typed category and multi-material saves with exact retry and change delivery.</summary>

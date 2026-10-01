@@ -102,6 +102,22 @@ public partial class Command
     public SaveMaterial? AsMaterialSave() =>
         Kind == MaterialSaveKind ? PayloadAs<SaveMaterial>() : null;
 
+    public const string ProductSaveKind = "eitmad.product.save.v1";
+
+    public static Command ForProductSave(SaveProduct payload) =>
+        new() { Kind = ProductSaveKind, Payload = payload };
+
+    public SaveProduct? AsProductSave() =>
+        Kind == ProductSaveKind ? PayloadAs<SaveProduct>() : null;
+
+    public const string ProductCategorySaveKind = "eitmad.product-category.save.v1";
+
+    public static Command ForProductCategorySave(SaveProductCategory payload) =>
+        new() { Kind = ProductCategorySaveKind, Payload = payload };
+
+    public SaveProductCategory? AsProductCategorySave() =>
+        Kind == ProductCategorySaveKind ? PayloadAs<SaveProductCategory>() : null;
+
     public const string PartSaveKind = "eitmad.part.save.v1";
 
     public static Command ForPartSave(SavePart payload) =>
@@ -254,6 +270,14 @@ public partial class Event
 
     public MaterialChangeNotice? AsMaterialChangedEvent() =>
         Kind == MaterialChangedEventKind ? PayloadAs<MaterialChangeNotice>() : null;
+
+    public const string ProductChangedEventKind = "eitmad.product.changed.event.v1";
+
+    public static Event ForProductChangedEvent(ProductChangeNotice payload) =>
+        new() { Kind = ProductChangedEventKind, Payload = payload };
+
+    public ProductChangeNotice? AsProductChangedEvent() =>
+        Kind == ProductChangedEventKind ? PayloadAs<ProductChangeNotice>() : null;
 
     public const string PartChangedEventKind = "eitmad.part.changed.event.v1";
 
@@ -530,6 +554,30 @@ public partial class Query
     public SearchCustomers? AsCustomerSearch() =>
         Kind == CustomerSearchKind ? PayloadAs<SearchCustomers>() : null;
 
+    public const string ProductListKind = "eitmad.product.list.v1";
+
+    public static Query ForProductList(ListProducts payload) =>
+        new() { Kind = ProductListKind, Payload = payload };
+
+    public ListProducts? AsProductList() =>
+        Kind == ProductListKind ? PayloadAs<ListProducts>() : null;
+
+    public const string ProductCategoryListKind = "eitmad.product-category.list.v1";
+
+    public static Query ForProductCategoryList(ListProductCategories payload) =>
+        new() { Kind = ProductCategoryListKind, Payload = payload };
+
+    public ListProductCategories? AsProductCategoryList() =>
+        Kind == ProductCategoryListKind ? PayloadAs<ListProductCategories>() : null;
+
+    public const string ProductRevisionGetKind = "eitmad.product-revision.get.v1";
+
+    public static Query ForProductRevisionGet(GetProductRevision payload) =>
+        new() { Kind = ProductRevisionGetKind, Payload = payload };
+
+    public GetProductRevision? AsProductRevisionGet() =>
+        Kind == ProductRevisionGetKind ? PayloadAs<GetProductRevision>() : null;
+
     public const string PartListKind = "eitmad.part.list.v1";
 
     public static Query ForPartList(ListParts payload) =>
@@ -666,6 +714,30 @@ public partial class QueryResult
 
     public CustomerPage? AsCustomers() =>
         Kind == CustomersKind ? PayloadAs<CustomerPage>() : null;
+
+    public const string ProductsKind = "products";
+
+    public static QueryResult ForProducts(ProductPage payload) =>
+        new() { Kind = ProductsKind, Payload = payload };
+
+    public ProductPage? AsProducts() =>
+        Kind == ProductsKind ? PayloadAs<ProductPage>() : null;
+
+    public const string ProductCategoriesKind = "productCategories";
+
+    public static QueryResult ForProductCategories(ProductCategories payload) =>
+        new() { Kind = ProductCategoriesKind, Payload = payload };
+
+    public ProductCategories? AsProductCategories() =>
+        Kind == ProductCategoriesKind ? PayloadAs<ProductCategories>() : null;
+
+    public const string ProductRevisionKind = "productRevision";
+
+    public static QueryResult ForProductRevision(Product payload) =>
+        new() { Kind = ProductRevisionKind, Payload = payload };
+
+    public Product? AsProductRevision() =>
+        Kind == ProductRevisionKind ? PayloadAs<Product>() : null;
 
     public const string PartsKind = "parts";
 
@@ -934,6 +1006,14 @@ public partial class Subscription
     public MaterialChanges? AsMaterialChangedSubscribe() =>
         Kind == MaterialChangedSubscribeKind ? PayloadAs<MaterialChanges>() : null;
 
+    public const string ProductChangedSubscribeKind = "eitmad.product.changed.subscribe.v1";
+
+    public static Subscription ForProductChangedSubscribe(ProductChanges payload) =>
+        new() { Kind = ProductChangedSubscribeKind, Payload = payload };
+
+    public ProductChanges? AsProductChangedSubscribe() =>
+        Kind == ProductChangedSubscribeKind ? PayloadAs<ProductChanges>() : null;
+
     public const string PartChangedSubscribeKind = "eitmad.part.changed.subscribe.v1";
 
     public static Subscription ForPartChangedSubscribe(PartChanges payload) =>
@@ -1128,6 +1208,10 @@ public partial class PartChanges
 }
 
 public partial class PermissionChanges
+{
+}
+
+public partial class ProductChanges
 {
 }
 

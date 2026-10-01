@@ -314,6 +314,7 @@ fn now() -> UnixMillis {
     UnixMillis(i64::try_from(millis).unwrap_or(i64::MAX))
 }
 
+/// Extracts the authorization scope from events that can be delivered to scoped subscribers.
 fn event_scope(event: &Event) -> Option<&ScopeRef> {
     match event {
         Event::ConfigurationChanged(snapshot) => Some(&snapshot.scope),
@@ -325,6 +326,7 @@ fn event_scope(event: &Event) -> Option<&ScopeRef> {
         Event::ReferenceMarkerChanged(notice) => Some(&notice.scope),
         Event::CustomerChanged(notice) => Some(&notice.scope),
         Event::MaterialChanged(notice) => Some(&notice.scope),
+        Event::ProductChanged(notice) => Some(&notice.scope),
         Event::PartChanged(notice) => Some(&notice.scope),
         Event::PermissionsChanged(_)
         | Event::UpdateStateChanged(_)

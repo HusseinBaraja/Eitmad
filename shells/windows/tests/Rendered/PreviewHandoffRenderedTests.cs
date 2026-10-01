@@ -12,6 +12,7 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 [TestClass]
 public sealed class PreviewHandoffRenderedTests
 {
+    /// <summary>Verifies the preview approval inbox gates the exact originating quotation editor.</summary>
     [TestMethod]
     [DataRow(1338)]
     [DataRow(780)]
@@ -36,8 +37,7 @@ public sealed class PreviewHandoffRenderedTests
             var reception = WpfTestHost.FindByName<ReceptionistHomeView>(window, "ReceptionistSurface");
             var manager = WpfTestHost.FindByName<QuotationsView>(window, "QuotationsSurface");
             var editor = reception.Handoffs.Attach(new SalesCatalogViewModel(new Features.Furniture.FurnitureViewModel(), new Features.Products.ProductsViewModel()));
-            editor.Select(editor.VisibleItems.Single(item => item.Name == "وسادة فندقية"));
-            Assert.IsTrue(editor.AddProductSelection());
+            Products.SalesCatalogPresentationTests.AddHistoricalProductLine(editor);
             editor.CustomerName = "عميل اختبار الموافقة"; editor.Phone = "000000001";
             editor.Address = "عنوان تجريبي"; editor.Notes = "ملاحظة داخلية";
             editor.DiscountInput = "10";

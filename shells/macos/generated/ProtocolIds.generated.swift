@@ -4,7 +4,7 @@ import Foundation
 public enum ProtocolIds {
     public enum Version {
         public static let major = 1
-        public static let minor = 11
+        public static let minor = 12
     }
 
     public enum IpcMessages {
@@ -41,6 +41,8 @@ public enum ProtocolIds {
         public static let eitmadMaterialCategorySaveV1 = "eitmad.material-category.save.v1"
         public static let eitmadMaterialUnitSaveV1 = "eitmad.material-unit.save.v1"
         public static let eitmadMaterialSaveV1 = "eitmad.material.save.v1"
+        public static let eitmadProductSaveV1 = "eitmad.product.save.v1"
+        public static let eitmadProductCategorySaveV1 = "eitmad.product-category.save.v1"
         public static let eitmadPartSaveV1 = "eitmad.part.save.v1"
         public static let eitmadPartCategorySaveV1 = "eitmad.part-category.save.v1"
         public static let eitmadDesktopAccountCreateV1 = "eitmad.desktop-account.create.v1"
@@ -57,6 +59,9 @@ public enum ProtocolIds {
         public static let eitmadReferenceMarkerListV1 = "eitmad.reference-marker.list.v1"
         public static let eitmadCustomerGetV1 = "eitmad.customer.get.v1"
         public static let eitmadCustomerSearchV1 = "eitmad.customer.search.v1"
+        public static let eitmadProductListV1 = "eitmad.product.list.v1"
+        public static let eitmadProductCategoryListV1 = "eitmad.product-category.list.v1"
+        public static let eitmadProductRevisionGetV1 = "eitmad.product-revision.get.v1"
         public static let eitmadPartListV1 = "eitmad.part.list.v1"
         public static let eitmadPartCategoryListV1 = "eitmad.part-category.list.v1"
         public static let eitmadPartCostV1 = "eitmad.part.cost.v1"
@@ -79,6 +84,7 @@ public enum ProtocolIds {
         public static let eitmadReferenceMarkerChangedSubscribeV1 = "eitmad.reference-marker.changed.subscribe.v1"
         public static let eitmadCustomerChangedSubscribeV1 = "eitmad.customer.changed.subscribe.v1"
         public static let eitmadMaterialChangedSubscribeV1 = "eitmad.material.changed.subscribe.v1"
+        public static let eitmadProductChangedSubscribeV1 = "eitmad.product.changed.subscribe.v1"
         public static let eitmadPartChangedSubscribeV1 = "eitmad.part.changed.subscribe.v1"
     }
 
@@ -95,6 +101,7 @@ public enum ProtocolIds {
         public static let eitmadReferenceMarkerChangedEventV1 = "eitmad.reference-marker.changed.event.v1"
         public static let eitmadCustomerChangedEventV1 = "eitmad.customer.changed.event.v1"
         public static let eitmadMaterialChangedEventV1 = "eitmad.material.changed.event.v1"
+        public static let eitmadProductChangedEventV1 = "eitmad.product.changed.event.v1"
         public static let eitmadPartChangedEventV1 = "eitmad.part.changed.event.v1"
     }
 
@@ -147,6 +154,7 @@ public enum ProtocolIds {
         public static let eitmadCapabilityCustomerV1 = "eitmad.capability.customer.v1"
         public static let eitmadCapabilityMaterialV1 = "eitmad.capability.material.v1"
         public static let eitmadCapabilityPartV1 = "eitmad.capability.part.v1"
+        public static let eitmadCapabilityProductV1 = "eitmad.capability.product.v1"
         public static let eitmadCapabilityDesktopAccountManagementV1 = "eitmad.capability.desktop-account-management.v1"
     }
 
@@ -182,6 +190,9 @@ public enum ProtocolIds {
         public static let eitmadPermissionReferenceMarkerWriteV1 = "eitmad.permission.reference-marker.write.v1"
         public static let eitmadPermissionCustomerReadV1 = "eitmad.permission.customer.read.v1"
         public static let eitmadPermissionCustomerWriteV1 = "eitmad.permission.customer.write.v1"
+        public static let eitmadPermissionProductReadV1 = "eitmad.permission.product.read.v1"
+        public static let eitmadPermissionProductWriteV1 = "eitmad.permission.product.write.v1"
+        public static let eitmadPermissionProductCostReadV1 = "eitmad.permission.product.cost.read.v1"
         public static let eitmadPermissionPartReadV1 = "eitmad.permission.part.read.v1"
         public static let eitmadPermissionPartWriteV1 = "eitmad.permission.part.write.v1"
         public static let eitmadPermissionMaterialReadV1 = "eitmad.permission.material.read.v1"
@@ -210,6 +221,7 @@ public enum ProtocolIds {
         public static let eitmadSchemaCustomerV1 = "eitmad.schema.customer.v1"
         public static let eitmadSchemaMaterialV1 = "eitmad.schema.material.v1"
         public static let eitmadSchemaPartV1 = "eitmad.schema.part.v1"
+        public static let eitmadSchemaProductV1 = "eitmad.schema.product.v1"
     }
 
     public enum ErrorCodes {
@@ -263,10 +275,15 @@ public enum ProtocolIds {
         public static let eitmadErrorCustomerUnavailableV1 = "eitmad.error.customer-unavailable.v1"
         public static let eitmadErrorMaterialInvalidV1 = "eitmad.error.material-invalid.v1"
         public static let eitmadErrorPartInvalidV1 = "eitmad.error.part-invalid.v1"
+        public static let eitmadErrorProductInvalidV1 = "eitmad.error.product-invalid.v1"
         public static let eitmadErrorPartNotFoundV1 = "eitmad.error.part-not-found.v1"
+        public static let eitmadErrorProductNotFoundV1 = "eitmad.error.product-not-found.v1"
         public static let eitmadErrorPartRevisionConflictV1 = "eitmad.error.part-revision-conflict.v1"
+        public static let eitmadErrorProductRevisionConflictV1 = "eitmad.error.product-revision-conflict.v1"
         public static let eitmadErrorPartReferenceInvalidV1 = "eitmad.error.part-reference-invalid.v1"
+        public static let eitmadErrorProductReferenceInvalidV1 = "eitmad.error.product-reference-invalid.v1"
         public static let eitmadErrorPartUnavailableV1 = "eitmad.error.part-unavailable.v1"
+        public static let eitmadErrorProductUnavailableV1 = "eitmad.error.product-unavailable.v1"
         public static let eitmadErrorMaterialNotFoundV1 = "eitmad.error.material-not-found.v1"
         public static let eitmadErrorMaterialRevisionConflictV1 = "eitmad.error.material-revision-conflict.v1"
         public static let eitmadErrorMaterialReferenceInvalidV1 = "eitmad.error.material-reference-invalid.v1"
@@ -331,10 +348,15 @@ public enum ProtocolIds {
         public static let eitmadMessageCustomerUnavailableV1 = "eitmad.message.customer-unavailable.v1"
         public static let eitmadMessageMaterialInvalidV1 = "eitmad.message.material-invalid.v1"
         public static let eitmadMessagePartInvalidV1 = "eitmad.message.part-invalid.v1"
+        public static let eitmadMessageProductInvalidV1 = "eitmad.message.product-invalid.v1"
         public static let eitmadMessagePartNotFoundV1 = "eitmad.message.part-not-found.v1"
+        public static let eitmadMessageProductNotFoundV1 = "eitmad.message.product-not-found.v1"
         public static let eitmadMessagePartRevisionConflictV1 = "eitmad.message.part-revision-conflict.v1"
+        public static let eitmadMessageProductRevisionConflictV1 = "eitmad.message.product-revision-conflict.v1"
         public static let eitmadMessagePartReferenceInvalidV1 = "eitmad.message.part-reference-invalid.v1"
+        public static let eitmadMessageProductReferenceInvalidV1 = "eitmad.message.product-reference-invalid.v1"
         public static let eitmadMessagePartUnavailableV1 = "eitmad.message.part-unavailable.v1"
+        public static let eitmadMessageProductUnavailableV1 = "eitmad.message.product-unavailable.v1"
         public static let eitmadMessageMaterialNotFoundV1 = "eitmad.message.material-not-found.v1"
         public static let eitmadMessageMaterialRevisionConflictV1 = "eitmad.message.material-revision-conflict.v1"
         public static let eitmadMessageMaterialReferenceInvalidV1 = "eitmad.message.material-reference-invalid.v1"

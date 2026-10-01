@@ -9,12 +9,12 @@ namespace Eitmad.WindowsShell.Tests.Products;
 [TestClass]
 public sealed class SalesCatalogPresentationTests
 {
+    /// <summary>Verifies catalog browsing is allowed before customer details but draft save requires them.</summary>
     [TestMethod]
     public void DraftSaveRequiresCustomerNameAndPhoneAfterBrowsing()
     {
         var model = new SalesCatalogViewModel(new FurnitureViewModel(), new ProductsViewModel());
-        model.Select(model.VisibleItems.Single(item => item.Name == "وسادة فندقية"));
-        Assert.IsTrue(model.AddProductSelection());
+        AddHistoricalProductLine(model,12000);
         Assert.IsFalse(model.IsReviewingQuotation);
         Assert.IsFalse(model.ReviewDraftSave());
         Assert.AreEqual("أدخل اسم العميل", model.CustomerNameError);
@@ -29,12 +29,12 @@ public sealed class SalesCatalogPresentationTests
         Assert.IsFalse(model.ReviewSave());
     }
 
+    /// <summary>Verifies discount approval applies only to the exact reviewed quotation fields.</summary>
     [TestMethod]
     public void DiscountPreviewGatesSavingAndInvalidatesChangedRequests()
     {
         var model = new SalesCatalogViewModel(new FurnitureViewModel(), new ProductsViewModel());
-        model.Select(model.VisibleItems.Single(item => item.Name == "وسادة فندقية"));
-        model.AddProductSelection();
+        AddHistoricalProductLine(model,12000);
         model.CustomerName = "عميل تجريبي"; model.Phone = "000000000";
         model.DiscountInput = "٥";
         Assert.AreEqual(600m, model.Discount);
@@ -69,15 +69,14 @@ public sealed class SalesCatalogPresentationTests
         Assert.IsTrue(model.ReviewSave());
     }
 
+    /// <summary>Verifies quotation editing, cancellation, totals, and customer selection through the presentation flow.</summary>
     [TestMethod]
     public async Task CurrentQuotationEditingCancellationTotalsAndCustomerFlow()
     {
         await using var engine = new FakeEngine();
         await using var customers = new CustomerClient(engine);
         var model = new SalesCatalogViewModel(new FurnitureViewModel(), new ProductsViewModel(), customers);
-        model.Select(model.VisibleItems.Single(item => item.Name == "مرتبة طبية"));
-        model.ProductSelection!.SelectedVariant = model.ProductSelection.Variants[1];
-        model.AddProductSelection();
+        AddHistoricalProductLine(model,105000,"مزدوج");
         var original = model.QuotationLines.Single();
         model.EditLine(original);
         Assert.AreEqual(original.Variant, model.ProductSelection!.SelectedVariant!.Name);
@@ -108,72 +107,37 @@ public sealed class SalesCatalogPresentationTests
         Assert.IsTrue(model.QuotationNotice.Contains("لم يُحفظ عرض السعر"));
     }
 
+    /// <summary>Verifies historical product lines remain editable without offering current unpriced definitions.</summary>
     [TestMethod]
-    public void ReadyMadeSelectionsRequireVariantsAndKeepQuotationSnapshots()
-    {
-        var model = new SalesCatalogViewModel(new FurnitureViewModel(), new ProductsViewModel());
-        model.Select(model.VisibleItems.Single(item => item.Name == "مرتبة طبية"));
-        var detail = model.ProductSelection!;
-        Assert.IsFalse(model.AddProductSelection());
-        detail.SelectedVariant = detail.Variants[1];
-        detail.Quantity = 2;
-        Assert.IsTrue(model.AddProductSelection());
-        Assert.AreEqual(210_000m, model.QuotationLines.Single().LineTotal);
-        Assert.AreEqual("مزدوج", model.QuotationLines.Single().Variant);
-        Assert.IsNull(model.QuotationLines.Single().Color);
-        detail.SelectedVariant = detail.Variants[2];
-        Assert.AreEqual(210_000m, model.QuotationLines.Single().LineTotal);
-        detail.Quantity = 0;
-        Assert.AreEqual(2, detail.Quantity);
-        model.CloseSelection();
-        model.Select(model.VisibleItems.Single(item => item.Name == "وسادة فندقية"));
-        Assert.IsFalse(model.ProductSelection!.HasVariants);
-        Assert.IsTrue(model.AddProductSelection());
-        Assert.AreEqual(12_000m, model.QuotationLines.Last().UnitPrice);
-        Assert.AreEqual(string.Empty, model.QuotationLines.Last().Variant);
-        var item = model.ProductSelection.Item;
-        var variant = new SalesProductVariant(Guid.NewGuid(), "قياسي", decimal.MaxValue);
-        var overflow = new ProductSelectionViewModel(item, [variant]) { SelectedVariant = variant, Quantity = 2 };
-        Assert.IsFalse(overflow.CanAdd);
+    public void HistoricalProductSnapshotRemainsEditableWithoutCurrentCatalogSelection() {
+        var model=new SalesCatalogViewModel(new FurnitureViewModel(),new ProductsViewModel());AddHistoricalProductLine(model,105000,"مزدوج");
+        var line=model.QuotationLines.Single();model.EditLine(line);Assert.AreEqual("مزدوج",model.ProductSelection!.SelectedVariant!.Name);model.ProductSelection.Quantity=2;Assert.IsTrue(model.AddProductSelection());Assert.AreEqual(210000m,model.QuotationLines.Single().LineTotal);
     }
 
+    /// <summary>Verifies Arabic search and category filtering compose across active catalog items.</summary>
     [TestMethod]
     public void CatalogCombinesActiveItemsAndComposesArabicSearchWithCategories()
     {
         var model = new SalesCatalogViewModel(new FurnitureViewModel(), new ProductsViewModel());
-        Assert.HasCount(7, model.VisibleItems);
+        Assert.HasCount(4, model.VisibleItems);
         model.SearchText = "  مرتبه  ";
-        Assert.AreEqual("مرتبة طبية", model.VisibleItems.Single().Name);
+        Assert.IsTrue(model.IsEmpty);
         model.SelectedCategory = "غرف النوم";
         Assert.IsTrue(model.IsEmpty);
         model.ClearFilters();
-        Assert.HasCount(7, model.VisibleItems);
+        Assert.HasCount(4, model.VisibleItems);
         model.SearchText = "غرف النوم";
         Assert.HasCount(2, model.VisibleItems);
         model.SearchText = "السكينه";
         Assert.AreEqual("خزانة السكينة", model.VisibleItems.Single().Name);
     }
 
+    /// <summary>Verifies reloading the catalog does not expose definitions without published selling prices.</summary>
     [TestMethod]
-    public void ReloadUsesManagerCategoriesAndLowestVariantPriceWithoutManagerFilters()
-    {
-        var products = new ProductsViewModel();
-        var furniture = new FurnitureViewModel();
-        var model = new SalesCatalogViewModel(furniture, products);
-        var mattress = products.VisibleProducts.First();
-        products.BeginEdit(mattress);
-        products.Variants[2].SellingPrice = 60_000m;
-        Assert.IsTrue(products.SaveEditor());
-        products.SearchText = "غير موجود";
-        furniture.SearchText = "غير موجود";
-        model.Reload();
-        Assert.HasCount(7, model.VisibleItems);
-        Assert.AreEqual("60,000 YER", model.VisibleItems.Single(item => item.Id == mattress.Id).PriceLabel);
-        CollectionAssert.AreEquivalent(
-            furniture.EditorCategoryOptions.Concat(products.ActiveCategories.Select(category => category.Name)).Distinct().ToArray(),
-            model.Categories.Skip(1).ToArray());
-        model.Select(model.VisibleItems.First());
-        Assert.IsNotNull(model.Selection);
+    public void ReloadExcludesUnpricedProductDefinitions() {
+        var products=new ProductsViewModel();products.ApplyDurableData(ProductsPresentationTests.Data());
+        var model=new SalesCatalogViewModel(new FurnitureViewModel(),products);
+        Assert.IsFalse(model.VisibleItems.Any(item=>item.Name=="مرتبة طبية"));
     }
     [TestMethod]
     public void FurnitureSelectionUsesOnlyActiveOptionsAndKeepsQuotationSnapshots()
@@ -223,4 +187,11 @@ public sealed class SalesCatalogPresentationTests
         Assert.IsFalse(detail.CanAdd);
         Assert.AreEqual("—", detail.LineTotalLabel);
     }
+    /// <summary>Adds a synthetic stored product snapshot without depending on a current catalog selection.</summary>
+    internal static void AddHistoricalProductLine(SalesCatalogViewModel model,decimal price=12000,string variantName="") {
+        var item=new SalesCatalogItem(Guid.NewGuid(),"منتج تاريخي","منتجات","",variantName,price,variantName.Length>0,"Pillow",null);
+        var variant=new SalesProductVariant(Guid.NewGuid(),variantName,price);
+        model.QuotationLines.Add(new(new ProductSelectionViewModel(item,variantName.Length>0?[variant]:[]){SelectedVariant=variant}));
+    }
+
 }

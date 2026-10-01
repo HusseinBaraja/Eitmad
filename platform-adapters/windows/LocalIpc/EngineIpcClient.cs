@@ -452,6 +452,7 @@ public sealed class EngineIpcClient : IAsyncDisposable
         }
     }
 
+    /// <summary>Routes typed replies and subscription frames; session-changing closures invalidate pending consumers.</summary>
     private async Task ReadResponsesAsync()
     {
         try
@@ -496,8 +497,13 @@ public sealed class EngineIpcClient : IAsyncDisposable
                 {
                     var closed = message.AsIpcSubscriptionClosed();
                     var error = new EngineIpcException(
-                        EngineIpcFailureKind.SubscriptionBackpressure,
-                        "The engine closed a subscription because replay could not preserve a discrete event.");
+                        closed?.Reason switch
+                        {
+                            SubscriptionCloseReason.ProjectionInvalidated or SubscriptionCloseReason.AuthorizationRevoked => EngineIpcFailureKind.SessionChanged,
+                            SubscriptionCloseReason.EngineStopping => EngineIpcFailureKind.EngineStopping,
+                            _ => EngineIpcFailureKind.SubscriptionBackpressure,
+                        },
+                        "The engine closed the subscription; its projection may require a fresh query.");
                     if (closed?.SubscriptionId is { } subscriptionId
                         && subscriptions.TryRemove(subscriptionId, out var subscription))
                     {

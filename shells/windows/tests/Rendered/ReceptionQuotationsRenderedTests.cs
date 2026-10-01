@@ -9,6 +9,7 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 [TestClass]
 public sealed class ReceptionQuotationsRenderedTests
 {
+    /// <summary>Verifies a new quotation opens in the catalog and can return to its review page.</summary>
     [TestMethod]
     public void NewQuotationWindowStartsInCatalogAndCanReturnToReview()
     {
@@ -31,9 +32,10 @@ public sealed class ReceptionQuotationsRenderedTests
                     WpfTestHost.CompleteLayout(child);
                     Assert.IsFalse(model.IsReviewingQuotation);
                     Assert.IsTrue(WpfTestHost.FindByName<TextBox>(catalog, "CatalogSearch").IsKeyboardFocusWithin);
-                    WpfTestHost.FindByAutomationName<Button>(catalog, "اختيار وسادة فندقية").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    WpfTestHost.FindByAutomationName<Button>(catalog, "اختيار خزانة السكينة").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                     WpfTestHost.CompleteLayout(child);
-                    var detail = WpfTestHost.FindByName<ProductSelectionView>(catalog, "ProductSelectionView");
+                    var detail = WpfTestHost.FindByName<FurnitureSelectionView>(catalog, "SelectionView");
+                    model.Selection!.SelectedSize=model.Selection.Sizes[0];model.Selection.SelectedColor=model.Selection.Colors[0];model.Selection.SelectedHandle=model.Selection.Handles[0];WpfTestHost.CompleteLayout(child);
                     WpfTestHost.FindByName<Button>(detail, "AddButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                     WpfTestHost.CompleteLayout(child);
                     Assert.IsFalse(model.IsReviewingQuotation);

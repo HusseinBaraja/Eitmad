@@ -101,6 +101,7 @@ public sealed class SupervisedEngineSubscription : IEngineSubscription
 
     internal void SignalResyncRequired() => ResyncRequired?.Invoke();
 
+    /// <summary>Forwards the current engine stream and propagates projection invalidation to its consumer.</summary>
     private async Task PumpAsync(
         EngineSubscription subscription,
         Channel<EventEnvelope> attachedEvents,
@@ -121,6 +122,12 @@ public sealed class SupervisedEngineSubscription : IEngineSubscription
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+        }
+        catch (EngineIpcException error) when (error.Kind == EngineIpcFailureKind.SessionChanged
+            && !cancellationToken.IsCancellationRequested)
+        {
+            // An invalidated projection must reach its owner even while IPC remains connected.
+            attachedEvents.Writer.TryComplete(error);
         }
         catch (EngineIpcException)
         {

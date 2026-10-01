@@ -12,7 +12,7 @@ use crate::{
 
 pub const PROTOCOL_VERSION: ProtocolVersion = ProtocolVersion {
     major: 1,
-    minor: 11,
+    minor: 12,
 };
 pub const MAX_PAGE_SIZE: u32 = 500;
 
@@ -268,6 +268,8 @@ pub enum SubscriptionCloseReason {
     Backpressure,
     EngineStopping,
     AuthorizationRevoked,
+    /// Cached projections must be cleared and queried again after a policy change.
+    ProjectionInvalidated,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]

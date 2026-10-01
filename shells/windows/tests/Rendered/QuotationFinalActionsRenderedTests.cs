@@ -13,6 +13,7 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 [TestClass]
 public sealed class QuotationFinalActionsRenderedTests
 {
+    /// <summary>Verifies required fields, preview return, and customer-only document pagination in the rendered flow.</summary>
     [TestMethod]
     public void RequiredFieldsPreviewBackAndCustomerOnlyPagination()
     {
@@ -29,8 +30,7 @@ public sealed class QuotationFinalActionsRenderedTests
             Assert.IsTrue(model.CustomerNameError.Length > 0);
             Assert.IsTrue(model.PhoneError.Length > 0);
             Assert.IsTrue(WpfTestHost.FindByName<Button>(view, "ContinueButton").IsKeyboardFocusWithin);
-            model.Select(model.VisibleItems.Single(item => item.Name == "وسادة فندقية"));
-            model.AddProductSelection(); model.CloseSelection();
+            Products.SalesCatalogPresentationTests.AddHistoricalProductLine(model);model.CloseSelection();
             draft.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
             Assert.IsTrue(WpfTestHost.FindByName<TextBox>(view, "CustomerNameInput").IsKeyboardFocusWithin);

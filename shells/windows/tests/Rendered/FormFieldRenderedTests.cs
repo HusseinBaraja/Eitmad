@@ -3,6 +3,8 @@ using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Data;
 using Eitmad.WindowsShell.Controls;
+using Eitmad.WindowsShell.Features.Products;
+using Eitmad.WindowsShell.Tests.Products;
 
 namespace Eitmad.WindowsShell.Tests.Rendered;
 
@@ -53,6 +55,7 @@ public sealed class FormFieldRenderedTests
             Assert.AreEqual(Visibility.Collapsed, error.Visibility);
         });
     }
+    /// <summary>Verifies each rendered feature field retains its Arabic accessible name and owning label.</summary>
     [TestMethod]
     [DataRow(1338d, 753d)]
     [DataRow(780d, 745d)]
@@ -63,8 +66,15 @@ public sealed class FormFieldRenderedTests
             foreach (var (page, action, inputName) in new[] { ("Materials", "إضافة مادة خام", "EditorNameBox"), ("Parts", "إضافة جزء", "EditorNameBox"), ("Furniture", "إضافة منتج", "FurnitureNameBox"), ("Products", "إضافة منتج", "ProductNameBox"), ("Pricing", "تعديل سعر البيع", "PriceInput") })
             {
                 WpfTestHost.FindByName<Button>(window, page + "NavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                if (page == "Products")
+                {
+                    WpfTestHost.Descendants<ProductsView>(window).Single().ViewModel
+                        .ApplyDurableData(ProductsPresentationTests.Data());
+                }
                 WpfTestHost.CompleteLayout(window);
-                WpfTestHost.Descendants<Button>(window).First(button => button.IsVisible && AutomationProperties.GetName(button) == action).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                var addOrEdit = WpfTestHost.Descendants<Button>(window).First(button => button.IsVisible && AutomationProperties.GetName(button) == action);
+                Assert.IsTrue(addOrEdit.IsEnabled, page);
+                addOrEdit.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 WpfTestHost.CompleteLayout(window);
                 var input = WpfTestHost.Descendants<TextBox>(window).Single(box => box.IsVisible && box.Name == inputName);
                 Assert.IsNotNull(AutomationProperties.GetLabeledBy(input), page);

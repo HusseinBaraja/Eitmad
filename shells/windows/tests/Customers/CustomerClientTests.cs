@@ -184,6 +184,7 @@ public sealed class CustomerClientTests
         Assert.AreEqual(1, engine.SubscriptionCount);
     }
 
+    /// <summary>Verifies subscription updates refresh customer details without losing the current selection.</summary>
     [TestMethod]
     public async Task SelectedCustomerRefreshesFromSubscriptionWithoutLosingSelection()
     {
@@ -194,8 +195,7 @@ public sealed class CustomerClientTests
         await client.ActivateAsync();
         var model = new SalesCatalogViewModel(new FurnitureViewModel(), new ProductsViewModel(), client);
         model.AttachCustomer(PreviewCustomer.FromContract(original));
-        model.Select(model.VisibleItems.Single(item => item.Name == "وسادة فندقية"));
-        Assert.IsTrue(model.AddProductSelection());
+        Products.SalesCatalogPresentationTests.AddHistoricalProductLine(model);
         model.DiscountInput = "10";
         model.RequestDiscountApproval();
         Assert.IsTrue(model.IsDiscountPending);

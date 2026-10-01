@@ -30,6 +30,7 @@ Place behavior that changes together in the nearest vertical product capability.
 | `crates/customer/` | Branch-scoped customer contact validation, search normalization, audit orchestration, and local-first sync projection | [Customer capability](subsystems/customers.md) |
 | `crates/material/` | Organization-scoped raw material definitions, category and unit validation, Arabic search, and audit orchestration | [Raw material capability](subsystems/raw-materials.md) |
 | `crates/part/` | Organization-scoped parts, separate categories, exact material costing, and immutable composition revisions | [Parts capability](subsystems/parts.md) |
+| `crates/product/` | Organization-scoped ready-made definitions, fixed supplier variants, purchase-cost access, and immutable historical revisions | [Products capability](subsystems/products.md) |
 | `crates/storage/` | SQLite setup, feature migrations, drift checks, transactions, scoped repositories, and recovery hooks | [Local storage guide](subsystems/local-storage.md) |
 | `crates/sync/` | Unified synchronization protocol | `crates/sync/OWNERSHIP.md` |
 | `crates/server-connection/` | Rust desktop engine direct TLS/WebSocket connection, device proof, and token lifecycle | `crates/server-connection/OWNERSHIP.md` |

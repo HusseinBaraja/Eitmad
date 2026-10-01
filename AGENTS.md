@@ -183,6 +183,9 @@ Before creating a pull request or pushing new commits to an existing pull reques
 | Contract tool security | `npm audit --audit-level=high --prefix crates/contracts/codegen` |
 | Contract, fixture, reference, and generated-binding drift | `npm run contracts:verify --prefix crates/contracts/codegen` |
 | C# binding conformance and Arabic round trips | `dotnet run --project tests/contract-compatibility/csharp/Eitmad.ContractConformance.csproj --configuration Release -- tests/contract-compatibility/fixtures/protocol-v1.json` |
+| Complete Windows shell suite, including shared controls and rendered editors | `dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --configuration Release --nologo -m:1` |
+
+Run the complete Windows shell suite before each publication, even when focused feature tests pass. Do not use `--filter` for this gate. Shared control and editor tests can detect missing data or permission fixtures that feature-specific tests miss. The command must build the current source and pass all tests without new warnings.
 
 Run the applicable shell, adapter, rendered, and documentation checks defined above as well. Check the complete proposed diff with `git diff --check <target-base>...HEAD`, using the verified target branch revision. Workspace tests already cover the runtime and CLI tests; do not run them again separately.
 
@@ -202,7 +205,8 @@ If none applies, report no documentation impact and do not edit documentation or
 * Preserve user changes and keep unrelated files out of commits.
 * Create local commits at suitable checkpoints during authorized work, using agent judgment without asking for routine confirmation. Commit a coherent, verified change when a meaningful milestone or the task is complete. Keep one concern per commit, avoid incomplete checkpoints, and follow an explicit user instruction to defer or omit commits.
 * Commit messages must follow Conventional Commits, use an imperative summary, and describe one concern.
-* A local commit does not authorize remote changes. Do not push, rebase, create a pull request, merge, or otherwise modify remote state unless the user asks for that action.
+* When the user asks to fix failing premerge checks on an existing pull request, complete the required validation, commit the verified fix, then push the active branch to that pull request without routine confirmation. This workflow is standing authorization to push unless the user explicitly asks to defer or omit the push.
+* Outside that premerge-fix workflow, a local commit does not authorize remote changes. Do not push, rebase, create a pull request, merge, or otherwise modify remote state unless the user asks for that action. Authorization to push does not authorize rebasing, creating another pull request, or merging.
 * When publishing, push the active branch first and create only a regular ready-for-review pull request unless the user requests another state.
 * Keep one concern per pull request. If its summary needs an unrelated “also,” split it.
 

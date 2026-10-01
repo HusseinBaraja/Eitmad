@@ -333,6 +333,7 @@ mod tests {
         assert_eq!(store.path(), directory.path().join(DATABASE_FILE_NAME));
     }
 
+    /// Verifies an older database receives a validated recovery artifact before pending migrations run.
     #[test]
     fn pending_migration_creates_validated_recovery_artifact_first() {
         let directory = TempDir::new().unwrap();
@@ -340,7 +341,12 @@ mod tests {
         let connection = Connection::open(store.path()).unwrap();
         connection
             .execute_batch(
-                "DELETE FROM schema_migrations WHERE version = 16;
+                "DELETE FROM schema_migrations WHERE version = 17;
+                 DROP TABLE product_variants;
+                 DROP TABLE product_revisions;
+                 DROP TABLE products;
+                 DROP TABLE product_categories;
+                 DELETE FROM schema_migrations WHERE version = 16;
                  DROP TABLE part_material_usages;
                  DROP TABLE part_compositions;
                  DROP TABLE parts;

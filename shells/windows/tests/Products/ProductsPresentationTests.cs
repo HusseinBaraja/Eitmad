@@ -1,157 +1,73 @@
-using System.Globalization;
-using System.Windows.Media;
+using Eitmad.Contracts;
 using Eitmad.WindowsShell.Features.Products;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-
 namespace Eitmad.WindowsShell.Tests.Products;
-
 [TestClass]
 public sealed class ProductsPresentationTests
 {
-    [TestMethod]
-    public void ProductSearchAndFiltersKeepReadyMadeCatalogRowsDistinct()
+    /// <summary>Builds deterministic Arabic product records and supplier costs for presentation tests.</summary>
+    internal static ProductSnapshot Data(long revision = 1)
     {
-        var model = new ProductsViewModel();
-
-        Assert.HasCount(4, model.VisibleProducts);
-        model.SearchText = "مرتبه";
-        Assert.AreEqual("مرتبة طبية", model.VisibleProducts.Single().Name);
-
-        model.SearchText = string.Empty;
-        model.SelectedCategory = "الإضاءة";
-        model.SelectedStatus = ProductsViewModel.ArchivedStatus;
-        Assert.HasCount(1, model.VisibleProducts);
-        Assert.AreEqual("مصباح قراءة", model.VisibleProducts.Single().Name);
-        Assert.IsTrue(model.VisibleProducts.Single().IsArchived);
+        var scope = new ScopeRef { Kind = "organization", Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa") };
+        var category = new ProductCategory { Id = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"), Scope = scope, Name = "المراتب", Revision = 1 };
+        var product = new Product { Id = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc"), Scope = scope, CategoryId = category.Id, CategoryName = category.Name, Name = "مرتبة طبية", Description = "منتج جاهز", Notes = "ملاحظة المورد", Revision = revision, Variants = [new Eitmad.Contracts.ProductVariant { Id = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd"), Name = "مفرد", PurchaseCostYer = 55000 }, new Eitmad.Contracts.ProductVariant { Id = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"), Name = "مزدوج", PurchaseCostYer = 80000 }] };
+        return new(new ProductCategories { Items = [category] }, [product], true, true);
     }
-
+    /// <summary>Verifies refresh retains unsaved fields and reviewed identities while duplication creates new identities.</summary>
     [TestMethod]
-    public void ProductEditorSavesDirectPricingAndOptionalSupplierVariants()
+    public void RefreshPreservesReviewedRevisionVariantAndCategoryIdentity()
     {
-        var model = new ProductsViewModel();
-
-        model.BeginCreate();
-        model.EditorName = "غطاء وسادة قطني";
-        model.EditorCategory = "الوسائد";
-        model.PurchaseCost = 3_000m;
-        model.SellingPrice = 5_500m;
-        Assert.AreEqual("2,500", model.MarginLabel);
-        Assert.IsTrue(model.SaveEditor());
-
-        var fixedProduct = model.VisibleProducts.Single(product => product.Name == "غطاء وسادة قطني");
-        Assert.AreEqual("بدون خيارات", fixedProduct.VariantSummary);
-        Assert.AreEqual("3,000", fixedProduct.PurchaseCostLabel);
-        Assert.AreEqual("5,500", fixedProduct.SellingPriceLabel);
-
-        model.BeginCreate();
-        model.EditorName = "مرتبة اقتصادية";
-        model.EditorCategory = "المراتب";
-        model.HasVariants = true;
-        model.AddVariant();
-        model.Variants[0].Name = "مفرد";
-        model.Variants[0].PurchaseCost = 45_000m;
-        model.Variants[0].SellingPrice = 61_000m;
-        model.AddVariant();
-        model.Variants[1].Name = "مزدوج";
-        model.Variants[1].PurchaseCost = 70_000m;
-        model.Variants[1].SellingPrice = 92_000m;
-
-        Assert.AreEqual("16,000", model.Variants[0].MarginLabel);
-        Assert.IsTrue(model.SaveEditor());
-        var mattress = model.VisibleProducts.Single(product => product.Name == "مرتبة اقتصادية");
-        Assert.AreEqual("مفرد +1", mattress.VariantSummary);
-        Assert.AreEqual(45_000m, mattress.PurchaseCost);
-        Assert.AreEqual(61_000m, mattress.SellingPrice);
+        var model = new ProductsViewModel(); model.ApplyDurableData(Data()); model.BeginEdit(model.VisibleProducts.Single());
+        model.EditorName = "تعديل محلي"; var variant = model.Variants[0].Id; model.ApplyDurableData(Data(2));
+        var input = model.SaveInput(); Assert.AreEqual(1L, input.ExpectedRevision); Assert.AreEqual(variant, input.Variants[0].Id); Assert.AreEqual("تعديل محلي", input.Name);
+        model.RemoveVariant(model.Variants[1]); Assert.IsTrue(model.SaveInput().Variants[1].Archived);
+        model.BeginDuplicate(model.VisibleProducts.Single()); input = model.SaveInput(); Assert.IsNull(input.Id); Assert.IsNull(input.ExpectedRevision); Assert.AreNotEqual(variant, input.Variants[0].Id);
     }
-
+    /// <summary>Verifies category rename or archive preserves selection and creation selects the new category.</summary>
     [TestMethod]
-    public void DuplicateAndArchiveRemainConfirmedAndEphemeral()
+    [DataRow(false)]
+    [DataRow(true)]
+    public void SavingAnotherCategoryKeepsTheOpenProductCategory(bool archive)
     {
         var model = new ProductsViewModel();
-        var source = model.VisibleProducts.Single(product => product.Name == "وسادة فندقية");
-
-        model.BeginDuplicate(source);
-        Assert.IsTrue(model.IsCreating);
-        Assert.IsTrue(model.EditorName.EndsWith("نسخة", StringComparison.Ordinal));
-        Assert.IsTrue(model.SaveEditor());
-        Assert.HasCount(5, model.VisibleProducts);
-
-        model.RequestArchive(source);
-        Assert.IsTrue(model.IsArchiveConfirmationOpen);
-        Assert.IsFalse(source.IsArchived);
-        model.CancelArchive();
-        Assert.IsFalse(source.IsArchived);
-
-        model.RequestArchive(source);
-        model.ConfirmArchive();
-        Assert.IsTrue(source.IsArchived);
-        Assert.IsFalse(model.IsArchiveConfirmationOpen);
-    }
-
-    [TestMethod]
-    public void ProductCategoryUsesTheEstablishedInlineManagementFlow()
-    {
-        var model = new ProductsViewModel();
+        var data = Data();
+        var other = new ProductCategory { Id = Guid.NewGuid(), Scope = data.Products[0].Scope, Name = "الوسائد", Revision = 1 };
+        data.Categories.Items = [data.Categories.Items[0], other];
+        model.ApplyDurableData(data);
+        model.BeginEdit(model.VisibleProducts.Single());
+        var original = model.SaveInput().CategoryId;
+        model.BeginManageCategories();
+        model.BeginEditCategory(model.Categories.Single(c => c.Id == other.Id));
+        model.CategoryName = "وسائد جديدة";
+        var input = archive ? model.ArchiveCategoryInput(model.Categories.Single(c => c.Id == other.Id)) : model.CategoryInput();
+        other.Name = input.Name;
+        other.Archived = archive;
+        model.ApplyDurableData(data);
+        model.CategorySaved(input);
+        Assert.AreEqual(original, model.SaveInput().CategoryId);
+        Assert.IsTrue(model.IsCategoryManagerOpen);
 
         model.BeginAddCategory();
-        model.CategoryName = "عطور منزلية";
-        Assert.IsTrue(model.SaveCategory());
-        Assert.AreEqual("عطور منزلية", model.EditorCategory);
-        Assert.IsTrue(model.ActiveCategories.Any(category => category.Name == "عطور منزلية"));
-
-        var category = model.ActiveCategories.Single(item => item.Name == "عطور منزلية");
-        model.BeginManageCategories();
-        model.BeginEditCategory(category);
-        model.CategoryName = "روائح منزلية";
-        Assert.IsTrue(model.SaveCategory());
-        Assert.IsTrue(model.IsCategoryManagerOpen);
-        Assert.IsTrue(model.CategoryOptions.Contains("روائح منزلية"));
+        var created = new ProductCategory { Id = Guid.NewGuid(), Scope = other.Scope, Name = "أخرى", Revision = 1 };
+        data.Categories.Items = [.. data.Categories.Items, created];
+        model.ApplyDurableData(data);
+        model.CategorySaved(new SaveProductCategory { Name = created.Name });
+        Assert.AreEqual(created.Id, model.SaveInput().CategoryId);
     }
 
+    /// <summary>Verifies redaction closes restricted editing and session reset removes cached records.</summary>
     [TestMethod]
-    public void ProductCurrencyLabelsIgnoreTheAmbientCulture()
+    public void RedactedProjectionAndSessionResetClearInternalEditorData()
     {
-        var originalCulture = CultureInfo.CurrentCulture;
-        try
-        {
-            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("ar-YE");
-            var model = new ProductsViewModel();
-            var mattress = model.VisibleProducts.Single(product => product.Name == "مرتبة طبية");
-
-            Assert.AreEqual("55,000", mattress.PurchaseCostLabel);
-            Assert.AreEqual("75,000", mattress.SellingPriceLabel);
-        }
-        finally
-        {
-            CultureInfo.CurrentCulture = originalCulture;
-        }
+        var model = new ProductsViewModel(); var data = Data(); model.ApplyDurableData(data); model.BeginEdit(model.VisibleProducts.Single());
+        data.Products[0].Notes = ""; foreach (var v in data.Products[0].Variants) v.PurchaseCostYer = null;
+        model.ApplyDurableData(data with { CanManage = false, CanReadCosts = false }); Assert.IsFalse(model.IsEditorOpen); Assert.AreEqual("", model.Notes); Assert.HasCount(0, model.Variants); Assert.AreEqual("—", model.VisibleProducts.Single().PurchaseCostLabel);
+        model.ClearSession(); Assert.HasCount(0, model.VisibleProducts); Assert.HasCount(0, model.Categories); Assert.IsFalse(model.CanManage);
     }
-
+    /// <summary>Verifies definitions cannot enter new sales and archive remains staged until authority confirmation.</summary>
     [TestMethod]
-    public void RejectedProductImageKeepsTheExistingPreviewAndReportsFeedback()
+    public void ProductDefinitionsDoNotPublishSellingPricesOrNewSalesSelections()
     {
-        var model = new ProductsViewModel();
-        model.BeginCreate();
-        var existingImage = new DrawingImage();
-        model.SetProductImage(existingImage, "existing.png");
-
-        model.ReportImageLoadError();
-
-        Assert.AreSame(existingImage, model.ProductImage);
-        Assert.AreEqual("existing.png", model.ProductImageName);
-        StringAssert.Contains(model.FeedbackMessage, "تعذر فتح الصورة");
-    }
-
-    [TestMethod]
-    public void EditingAProductCategoryUpdatesItsThumbnailKind()
-    {
-        var model = new ProductsViewModel();
-        var mattress = model.VisibleProducts.Single(product => product.Name == "مرتبة طبية");
-
-        model.BeginEdit(mattress);
-        model.EditorCategory = "الإضاءة";
-
-        Assert.IsTrue(model.SaveEditor());
-        Assert.AreEqual("Lamp", mattress.ThumbnailKind);
+        var model = new ProductsViewModel(); model.ApplyDurableData(Data()); Assert.IsFalse(model.GetSalesCatalogItems().Any()); Assert.IsNull(model.GetSalesSelection(model.VisibleProducts.Single().Id));
+        model.RequestArchive(model.VisibleProducts.Single()); var input = model.ArchiveInput(); Assert.IsTrue(input.Archived); Assert.AreEqual(1L, input.ExpectedRevision); Assert.IsFalse(model.VisibleProducts.Single().IsArchived);
     }
 }

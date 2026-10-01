@@ -70,6 +70,7 @@ public sealed class OperationsTableRenderedTests
             Check("quotation-items");
             WpfTestHost.FindByName<Button>(window, "ProductsNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             var products = WpfTestHost.Descendants<Eitmad.WindowsShell.Features.Products.ProductsView>(window).Single().ViewModel;
+            products.ApplyDurableData(Products.ProductsPresentationTests.Data());
             products.BeginEdit(products.VisibleProducts[0]);
             Check("product-variants");
             WpfTestHost.FindByName<Button>(window, "PartsNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));

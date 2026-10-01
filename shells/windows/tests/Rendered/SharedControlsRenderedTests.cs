@@ -80,6 +80,7 @@ public sealed class SharedControlsRenderedTests
         throw new InvalidOperationException("The search field has no layout panel.");
     }
 
+    /// <summary>Verifies selector footer actions remain attached to the correct feature and selector.</summary>
     [TestMethod]
     public void SelectorFootersKeepTheOwningSelectorAndFeatureActions()
     {
@@ -110,6 +111,7 @@ public sealed class SharedControlsRenderedTests
             WpfTestHost.FindByName<Button>(window, "ProductsNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
             var products = WpfTestHost.Descendants<ProductsView>(window).Single();
+            products.ViewModel.ApplyDurableData(Products.ProductsPresentationTests.Data());
             WpfTestHost.FindByAutomationName<Button>(products, "إضافة منتج").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
             var category = WpfTestHost.FindByAutomationName<ComboBox>(products, "فئة المنتج");
@@ -120,7 +122,7 @@ public sealed class SharedControlsRenderedTests
             Assert.IsGreaterThan(0, items.Length);
             items[0].IsSelected = true;
             WpfTestHost.CompleteLayout(window);
-            Assert.AreEqual(category.SelectedValue, products.ViewModel.EditorCategory);
+            Assert.AreEqual(category.SelectedValue, products.ViewModel.EditorCategoryId);
             WpfTestHost.Capture((FrameworkElement)popup.Child, "category-popup");
             WpfTestHost.FindByAutomationName<Button>(popup.Child, "إضافة فئة جديدة").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);

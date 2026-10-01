@@ -23,7 +23,8 @@ internal sealed class FakeSubscription : IEngineSubscription
 
     public void Publish(EventEnvelope envelope) => events.Writer.TryWrite(envelope);
 
-    public void FailRead() => events.Writer.TryComplete(new IOException("Synthetic subscription read failure."));
+    /// <summary>Fails the synthetic event stream with an optional typed session-change error.</summary>
+    public void FailRead(Exception? error = null) => events.Writer.TryComplete(error ?? new IOException("Synthetic subscription read failure."));
 
     public void SignalResync() => ResyncRequired?.Invoke();
 

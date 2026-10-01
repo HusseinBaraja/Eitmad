@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Windows platform maintainers"
-last_verified: "2026-08-27"
+last_verified: "2026-10-01"
 review_triggers:
   - "Windows engine launch, process containment, restart, lifecycle parsing, or shutdown behavior changes"
 keywords:
@@ -76,6 +76,8 @@ Every process launch increments `Generation`. Output is accepted only from that 
 
 The supervisor also owns IPC subscription continuity. It advertises protocol `1.0–1.6`; offers config, permissions, and reference-marker capabilities; and offers and requires `eitmad.capability.authorization-scopes.v1`. `SupportsCapability` exposes only the negotiated intersection, so the shell does not send requests for an absent optional vertical. `WindowsEngineBridge` is the platform bootstrap boundary. It resolves only the packaged or explicitly supplied engine path and selects the local runtime directory. The launcher passes a random bootstrap token through inherited standard input. It never constructs an identity or permission assertion. Rust returns the verified installation authorization context. The supervisor retains generated subscription descriptors and only the cursor acknowledged after UI processing. Connection loss makes `IpcHealth` `Connecting` and permits at most the restart policy's three default reconnect attempts after 100 ms, 500 ms, and two seconds while the current generation remains `Ready`. Exhaustion sets `ReconnectExhausted`, so callers can distinguish a live process from a usable IPC channel. Same-generation reconnect resumes replay; engine replacement raises `ResyncRequired`, opens a fresh stream, and leaves the owning feature responsible for an authoritative query before applying buffered events.
 
+An engine subscription close mapped to `EngineIpcFailureKind.SessionChanged` completes the supervised consumer with that error. The feature must discard its protected projection and query Rust again if access remains. This includes `projectionInvalidated` after a Product policy change and `authorizationRevoked`; neither requires transport loss. Transport failures still allow the supervisor to attach a replacement stream.
+
 ## Shutdown and containment
 
 Normal shutdown cancels pending restart, requests typed IPC shutdown when a negotiated session exists, closes stdin to preserve abandonment semantics and release the Windows reader, continues reading lifecycle output, and waits 15 seconds. A clean engine reaches `Stopped` and exits `0`; the adapter then closes the empty Job Object. If the deadline expires, `TerminateJobObject` ends the contained process tree and records `Forced: true`.
@@ -90,7 +92,9 @@ The implemented Windows operations shell maps typed states to Arabic recovery te
 
 ## Tests and safe extension points
 
-The dependency-free scenario harness beside the adapter covers intentional stop, unexpected death, exhaustion, stale exit, subscription queue overflow and reattachment, graceful shutdown, and timeout termination. Passing `--engine target/debug/eitmad-engine-cli.exe` adds the real Windows Job Object and Rust lifecycle smoke flow, negotiated-capability assertions, and a real configuration subscription.
+The dependency-free scenario harness beside the adapter covers intentional stop, unexpected death, exhaustion, stale exit, subscription queue overflow and reattachment, projection invalidation, graceful shutdown, and timeout termination. Passing `--engine target/debug/eitmad-engine-cli.exe` adds real Windows Job Object and Rust lifecycle checks, durable Part and Product saves, exact retries, restart persistence, and Product policy invalidation while Manager read access remains. The policy change uses Manager-authorized account administration; owner-only relationship queries remain denied.
+
+Use no application arguments for adapter-only checks, or exactly `--engine <path>` for real-engine checks. Other arguments fail with a usage error. Do not pass `--nologo` to `dotnet run`: it reaches the test executable as an application argument. Use it only with `dotnet build` or `dotnet test`.
 
 Run:
 

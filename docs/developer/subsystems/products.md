@@ -1,11 +1,11 @@
 ---
 title: "Extend the ready-made Products manager flow safely"
-description: "Understand the Arabic-first Products list and its transient single-page add and edit workflow."
+description: "Maintain Rust-owned ready-made Products, fixed supplier variants, purchase-cost access, and immutable history from the Windows UI."
 audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Products capability maintainers"
-last_verified: "2026-09-21"
+last_verified: "2026-10-01"
 review_triggers:
   - "Product contracts, category ownership, pricing rules, or Windows Products UI behavior change"
 keywords:
@@ -17,62 +17,64 @@ keywords:
   - "هل لهذا المنتج مقاسات أو أنواع مختلفة؟"
 ---
 
-# Extend the ready-made Products manager flow safely
+# Maintain durable ready-made Products
 
-The Windows **المنتجات** page lets a manager maintain ready-made items that the company purchases and sells as-is. It is separate from **الأثاث**: a Product does not have raw materials, furniture parts, construction details, calculated manufacturing cost, or the six-step Furniture editor.
+The Windows **المنتجات** page stores Manager-created ready-made Product definitions in the Rust authority database. Products are purchased and sold as-is. They have no Furniture Parts, BOM, construction details, or manufacturing cost. See the [glossary](../../glossary.md) and [accepted sales workflow](manager-receptionist-workflows.md).
 
-The current page is a local presentation preview. Search, filters, categories, image previews, direct prices, supplier variants, notes, duplicate state, and archive state are discarded when the shell closes.
+## Authority and scope
 
-Production catalog, pricing, scope, permission, publication, and offline behavior is accepted in the [Manager and Receptionist workflow specification](manager-receptionist-workflows.md). This page describes the current preview only.
+`crates/product/` owns validation, scoped authorization, archive selection, immutable history, and mutation audit orchestration. `crates/contracts/src/product.rs` owns the typed contracts. `crates/storage/src/product.rs` owns migration 17 and atomic persistence. The engine dispatcher composes these boundaries; WPF uses generated C# bindings through `ProductClient`.
 
-## Ownership and boundary
+Every record is organization-scoped. Rust checks authenticated identity and relationships on each operation. Managers receive `product.read`, `product.write`, and `product.cost.read` permissions. Receptionists receive definition read permission only. These names have the `eitmad.permission.` prefix and `.v1` suffix. An organization Owner must also have an explicit Manager relationship to edit Products, as with Parts and raw materials.
 
-`shells/windows/Features/Products/ProductsView.xaml` owns the native RTL list, product thumbnails, short single-page form, image preview, category selector, pricing hierarchy, optional variants table, confirmation overlay, keyboard focus targets, and Arabic accessibility names. `ProductsViewModel.cs` owns transient fixtures, Arabic-normalized search, filters, editor state, calculated margins, duplicate behavior, category interaction, and confirmed archive state. `ProductModels.cs` owns presentation-only labels and calculations. `MainWindow.xaml` owns the **المنتجات** sidebar destination.
+All current and historical read projections omit purchase-cost fields and internal notes without cost permission. Mutation results containing costs require that permission too. Change events contain only scope, record ID, revision, category flag, and time. Audit never contains names, costs, descriptions, or notes. The Windows projection uses Rust-supplied management and cost-access flags, clears internal editor values on loss of permission, and clears all account state on session end.
 
-Rust does not yet provide a Products capability. The preview has no Product command, query, subscription, capability, authorization check, scope, audit record, storage, synchronization, or authoritative pricing rule. Do not add these responsibilities to WPF. A future Rust vertical must own the Product lifecycle, category authority, pricing validation, authorization, audit, durable storage, and synchronization.
+On an organization policy change, Rust reauthorizes the Products subscription. If definition read access remains, it closes the stream with `projectionInvalidated`; loss of read access closes it with `authorizationRevoked`. The Windows adapter maps both to a session-change failure. `ProductClient` clears cached records, editor costs, notes, and restricted retry payloads before it replaces the subscription and queries again. Pending refreshes and save completions cannot restore the old projection. A failed replacement query leaves the page unavailable with no cached costs. Ordinary transport recovery retains exact unknown-outcome retry keys.
 
-## Manager list
+## Definitions and history
 
-The manager opens **المنتجات** to see a compact table with image, name, category, supplier variant or size, purchase cost, selling price, status, and actions. Search matches the Arabic product name, category, and variant while normalizing Arabic diacritics and common Alef, Ya, and Ta Marbuta forms. Category and status filters compose with search. The row thumbnail follows the selected category mapping when an existing product is edited.
+Categories have separate stable IDs, unique Arabic-normalized names, revisions, and archive state. A Product has a name, category ID, category name snapshot, description, internal notes, active/archive state, and between 1 and 100 retained supplier variants. Costs are non-negative whole-YER `i64` values. A Product without optional supplier choices uses one **قياسي** variant.
 
-The row menu reuses the compact **تعديل**, **تكرار**, and **أرشفة** actions. Archive is non-destructive and requires the common centered confirmation style. An archived row remains available through the **مؤرشف** status filter.
+Creating a category selects it in the open Product editor. Renaming or archiving another category preserves the selected category ID. Product list, category list, and revision queries use deferred SQLite snapshots so they can read committed definitions while a writer holds an immediate transaction. Saves retain immediate transactions for atomic validation and persistence.
 
-## Short add and edit workflow
+Updates require the exact expected Product or category revision. A Product update creates an immutable revision containing its names, category snapshot, costs, and supplier options. Variant IDs remain stable across edits. Duplication creates new Product and variant IDs. Reusing another Product's variant ID is rejected. Removing a saved option archives it; archive never deletes history or silently reactivates an option. An active Product must retain at least one active variant.
 
-**إضافة منتج** opens one scrolling page. It does not use steps.
+Historical references contain scope, Product ID, variant ID, revision, and schema version. `product-revision.get` resolves that exact immutable revision. For new work, its `forNewWork` flag additionally requires the current revision, an active Product, active category, and active referenced variant. `product.list` with `selectableOnly` returns only active definitions and active variants. A retained archived category can remain on its existing Product, but cannot be assigned to a new Product. Existing quotation and order snapshots remain readable through their owning capability.
 
-1. **المعلومات الأساسية** collects **اسم المنتج**, **الفئة**, **صورة المنتج**, and **وصف قصير**. Image selection loads a preview into memory and does not upload or persist the file. If decoding fails, the current image remains and the shell reports **تعذر فتح الصورة**. The category selector reuses the established inline add and manage interaction.
-2. **هل لهذا المنتج مقاسات أو أنواع مختلفة؟** defaults to **لا**. Without variants, the manager enters **تكلفة الشراء** and the emphasized **سعر البيع**, then reads the calculated **الهامش**.
-3. With **نعم**, one supplier-defined row replaces the single-price surface. Each row contains name, purchase cost, selling price, calculated margin, and remove action. These rows describe fixed ready-made options, not customizable dimensions.
-4. **ملاحظات** remains optional and secondary.
-5. **حفظ المنتج** updates the transient fixture and returns to the list. **إلغاء** returns without applying the editor. The edit state uses the same page under **تعديل المنتج** and adds **أرشفة المنتج**.
+These are local durable definitions, not published catalog revisions. Catalog publication, selling-price policy, quotation issue, and server-confirmed catalog archive remain owned by the accepted sales workflow. The Products editor does not save selling prices or calculate margins. The Receptionist catalog does not offer unpriced Product definitions for new sales. Historical quotation previews resolve their stored snapshots independently of current definitions.
 
-The current preview validates a non-empty product name, an active category, non-negative price inputs, and at least one named variant when variants are enabled. Negative margins remain visible because the manager might need to identify an unprofitable supplier price; Rust must define any future rejection policy.
+## Contracts, storage, and recovery
 
-## Failure and recovery
+The threat boundary is the authenticated IPC request. Rust checks organization scope, relationships, bounded input, revision, and variant ownership; the shell cannot grant permission or make an option selectable. Cost redaction covers current and historical reads, paged shell projections, and permission loss. Redacted events and audits prevent indirect cost disclosure. Atomic audit failure and exact retry tests cover partial commits and duplicate changes; future new-work consumers must validate references in their commit transaction to close the selection-to-save race.
 
-Validation text appears in the form footer and keeps the editor open. Invalid numeric text is held by WPF binding validation until the manager corrects it. An invalid or unsupported image keeps the current preview and reports **تعذر فتح الصورة**; no file upload occurs. If navigation opens the dashboard instead of Products, inspect `MainWindow.xaml` and `MainWindow.xaml.cs`. If a category popup, row action menu, or confirmation surface is clipped, inspect the explicit popup and overlay boundaries in `ProductsView.xaml`.
+Protocol `1.12` advertises `eitmad.capability.product.v1` and `eitmad.schema.product.v1`. Commands are `product.save` and `product-category.save`. Queries are `product.list`, `product-category.list`, and `product-revision.get`. The discrete `product.changed` subscription is scope-bound and reauthorizes before event delivery. Operation identifiers have the `eitmad.` prefix and `.v1` suffix; subscriptions and events add `.subscribe` and `.event` before `.v1`.
 
-Close the preview to discard all local Product changes. Do not edit storage or imply that a local preview action was authorized, audited, saved, or synchronized.
+List queries use UUID cursors and limits from 1 to 100. Search terms are bounded to 256 UTF-8 bytes; Rust normalizes Arabic only for matching. Names preserve supplied text and reject unsafe direction controls. Descriptions and internal notes are bounded to 4096 bytes. Native text and numbers remain in RTL layouts with LTR money input and display.
 
-## Verify
+One immediate SQLite transaction writes current state, immutable Product history, stable option ownership, audit, exact retry response, and a compact publication outbox event. A mandatory write failure rolls back every write. Retry hashes bind actor, scope, operation, and input; a changed request cannot reuse a saved retry key. The runtime publishes committed events and recovers the outbox after restart. Multi-device reconciliation for these definitions is not implemented in this change; local durable storage and outbox events do not imply synchronization.
 
-Build the shell and run the focused Product checks:
+The shell uses asynchronous IPC, subscriptions, and cancellable refreshes. It retains the revision opened in the editor across refreshes. A conflict or validation error keeps the editor open. An unknown outcome keeps the request and retry key for an exact retry, including an unavailable command response. Until that retry succeeds or returns a known failure, a different payload is rejected. Product and category requests use separate retry state. Reconnect refreshes authoritative state. If data is unavailable, the list states that failure without claiming that records were deleted. Media attachment persistence is outside this definition contract; the transient image picker has been removed.
 
-```powershell
-dotnet build shells/windows/Eitmad.WindowsShell.csproj
-```
+## Verify and extend
+
+Run focused Rust behavior tests:
 
 ```powershell
-dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --filter "FullyQualifiedName~Products"
+cargo test -p eitmad-product
 ```
 
-`ProductsPresentationTests` verifies Arabic search normalization, composed filters, culture-independent YER labels, direct and variant pricing, calculated margins, duplicate, confirmed archive, the inline category interaction, rejected image feedback, and category-to-thumbnail mapping. `ProductsRenderedTests` instantiates the real WPF window, opens **المنتجات**, verifies the manager list and compact action menu, opens **إضافة منتج**, checks keyboard focus and accessible names, and exposes the archive confirmation.
+Verify generated contracts after regeneration:
 
-Follow the [repository-wide focused UI verification rule](https://github.com/HusseinBaraja/Eitmad/blob/main/AGENTS.md#focused-ui-verification) after a visible UI change. For Products, verify the compact table, mixed-direction YER values, short form, pricing emphasis, variants switch, popup placement, and archive confirmation.
+```powershell
+npm run contracts:verify --prefix crates/contracts/codegen
+```
 
-## Extend the capability
+Build and run the Products shell checks:
 
-When Rust gains the Products vertical, implement the accepted workflow specification and define the typed contracts and generated C# bindings before replacing the fixture boundary. Preserve the Product/Furniture distinction, direct supplier cost, optional fixed variants, Arabic labels, mixed-direction value isolation, keyboard path, and non-destructive archive behavior.
+```powershell
+dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --configuration Release --nologo -m:1 --filter "FullyQualifiedName~ProductClientTests|FullyQualifiedName~ProductsPresentationTests|FullyQualifiedName~ProductsRenderedTests|FullyQualifiedName~SalesCatalogPresentationTests"
+```
 
-Related concepts: [Furniture manager flow](furniture.md), [Arabic-first feature checklist](../contributing/arabic-first-feature-checklist.md), and [approved terminology](../../glossary.md).
+The real engine restart path is in `platform-adapters/windows/tests/Program.cs`; it verifies a Product save, exact retry, event delivery, restart, and retained supplier cost. Rendered tests use synthetic Arabic definitions at all three [baseline sizes](https://github.com/HusseinBaraja/Eitmad/blob/main/AGENTS.md#focused-ui-verification). Inspect their captures for native RTL layout, popup placement, cost values, archive confirmation, and editor focus.
+
+Extend Product behavior through this Rust owner. Integrate new-work consumers through `forNewWork` reference validation at their commit boundary; a list result alone is not authorization or a guarantee that a later selection remains active. Keep selling-price publication in Pricing and follow the [authorization guide](authorization.md) for new permissions. Return to the [repository ownership map](../repository-layout.md).
