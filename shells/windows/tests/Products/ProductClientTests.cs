@@ -9,6 +9,56 @@ namespace Eitmad.WindowsShell.Tests.Products;
 [TestClass]
 public sealed class ProductClientTests
 {
+    /// <summary>Unavailable responses keep the original payload and key until an exact retry succeeds.</summary>
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task UnavailableResponseRequiresExactRetryForEachRecordKind(bool category)
+    {
+        await using var engine = new FakeEngine();
+        var submissions = 0;
+        engine.CommandHandler = _ => new CommandResponseEnvelope
+        {
+            RequestId = Guid.NewGuid(),
+            CorrelationId = Guid.NewGuid(),
+            Outcome = new CommandOutcome
+            {
+                Status = ++submissions == 1 ? CommandOutcomeStatus.Failed : CommandOutcomeStatus.Succeeded,
+                Payload = new CommandResult(),
+            },
+        };
+        await using var client = new ProductClient(engine);
+        var model = new ProductsViewModel();
+        model.ApplyDurableData(ProductsPresentationTests.Data());
+        model.BeginEdit(model.VisibleProducts.Single());
+        var productInput = model.SaveInput();
+        var categoryInput = new SaveProductCategory { Name = "أخرى" };
+        var result = category ? await client.SaveAsync(categoryInput) : await client.SaveAsync(productInput);
+        Assert.AreEqual(ProductFailureKind.Unavailable, result);
+        var originalKey = engine.LastIdempotencyKey;
+
+        var originalName = category ? categoryInput.Name : productInput.Name;
+        if (category) categoryInput.Name = "طلب مختلف";
+        else productInput.Name = "طلب مختلف";
+        result = category ? await client.SaveAsync(categoryInput) : await client.SaveAsync(productInput);
+        Assert.AreEqual(ProductFailureKind.Conflict, result);
+        Assert.AreEqual(1, submissions);
+
+        if (category) categoryInput.Name = originalName;
+        else productInput.Name = originalName;
+        result = category ? await client.SaveAsync(categoryInput) : await client.SaveAsync(productInput);
+        Assert.AreEqual(ProductFailureKind.None, result);
+        Assert.AreEqual(originalKey, engine.LastIdempotencyKey);
+        Assert.AreEqual(2, submissions);
+
+        if (category) categoryInput.Name = "طلب جديد";
+        else productInput.Name = "طلب جديد";
+        result = category ? await client.SaveAsync(categoryInput) : await client.SaveAsync(productInput);
+        Assert.AreEqual(ProductFailureKind.None, result);
+        Assert.AreNotEqual(originalKey, engine.LastIdempotencyKey);
+    }
+
+    /// <summary>Verifies lost responses freeze product requests without blocking independent category retries.</summary>
     [TestMethod]
     public async Task UnknownSaveOutcomeRequiresExactRetryAndKeepsCategoryRetrySeparate()
     {
@@ -43,6 +93,7 @@ public sealed class ProductClientTests
         Assert.AreEqual(3, submissions);
     }
 
+    /// <summary>Verifies a later redacted page also removes costs and notes from earlier pages.</summary>
     [TestMethod]
     public async Task PermissionLossBetweenPagesClearsEarlierCostsAndNotes()
     {
@@ -64,6 +115,7 @@ public sealed class ProductClientTests
         Assert.IsTrue(loaded.Value.Products.Single().Variants.All(v => v.PurchaseCostYer is null));
     }
 
+    /// <summary>Verifies policy closure clears restricted fields and retry payloads before replacement queries.</summary>
     [TestMethod]
     public async Task PolicyClosureClearsInternalDataBeforeRefreshAndDiscardsRestrictedRetryPayload()
     {
@@ -101,6 +153,7 @@ public sealed class ProductClientTests
         Assert.AreEqual(ProductFailureKind.None, await client.SaveAsync(input));
     }
 
+    /// <summary>Verifies a failed stream is replaced without requiring an engine restart.</summary>
     [TestMethod]
     public async Task FailedEventStreamResubscribesInSameEngineGeneration()
     {
@@ -120,6 +173,7 @@ public sealed class ProductClientTests
         Assert.AreEqual(1, engine.SubscriptionCount);
     }
 
+    /// <summary>Builds a typed successful query response for synthetic authority projections.</summary>
     private static QueryResponseEnvelope Success(QueryResult payload) => new()
     {
         RequestId = Guid.NewGuid(),

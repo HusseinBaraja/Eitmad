@@ -9,13 +9,17 @@ namespace Eitmad.WindowsShell.Features.Products;
 
 
 public enum ProductFailureKind { None, Validation, Reference, Conflict, Denied, Unavailable }
+/// <summary>Carries a typed IPC value or a failure category for presentation recovery.</summary>
 public sealed record ProductResult<T>(T? Value, ProductFailureKind Failure)
 {
     public bool Succeeded => Failure == ProductFailureKind.None && Value is not null;
+    /// <summary>Wraps a received authority value as a successful presentation result.</summary>
     public static ProductResult<T> Success(T value) => new(value, ProductFailureKind.None);
+    /// <summary>Creates a failed presentation result without inventing an authority value.</summary>
     public static ProductResult<T> Failed(ProductFailureKind failure) => new(default, failure);
 }
 
+/// <summary>Groups paged authority records with the management and cost-access flags used by the page.</summary>
 public sealed record ProductSnapshot(ProductCategories Categories, IReadOnlyList<Product> Products, bool CanManage, bool CanReadCosts);
 
 /// <summary>Thin typed IPC adapter for ready-made definitions and separate product categories.</summary>
@@ -102,10 +106,11 @@ public sealed class ProductClient(IEngineShellBridge engine) : IAsyncDisposable
             if (payload != retry.Payload) { retry.Payload = payload; retry.Key = Guid.NewGuid(); }
             retry.Unresolved = true;
             var response = await engine.SubmitCommandAsync(command, retry.Key, cancellationToken);
-            retry.Unresolved = false;
-            if (response.Outcome.Status == CommandOutcomeStatus.Succeeded) retry.Payload = null;
-            return response.Outcome.Status == CommandOutcomeStatus.Succeeded
+            var failure = response.Outcome.Status == CommandOutcomeStatus.Succeeded
                 ? ProductFailureKind.None : MapFailure(response.Outcome.Payload.Code);
+            retry.Unresolved = failure == ProductFailureKind.Unavailable;
+            if (failure == ProductFailureKind.None) retry.Payload = null;
+            return failure;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
         catch (EngineIpcException error)
