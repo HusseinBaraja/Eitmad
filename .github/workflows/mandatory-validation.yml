@@ -114,7 +114,6 @@ jobs:
           dotnet run
           --project platform-adapters/windows/tests/Eitmad.Platform.Windows.Tests.csproj
           --configuration Release
-          --nologo
           --
           --engine target/debug/eitmad-engine-cli.exe
 

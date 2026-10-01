@@ -5,6 +5,11 @@ using Eitmad.Platform.Windows.ProcessSupervision;
 
 try
 {
+    if (args.Length != 0 && args is not ["--engine", _])
+    {
+        throw new ArgumentException("Usage: Eitmad.Platform.Windows.Tests [--engine <path>]");
+    }
+
     var tests = new SupervisionScenarios();
     await tests.UnavailableEngineIsTyped();
     await tests.TypedRequestsRequireConnectedEngine();
@@ -13,6 +18,7 @@ try
     tests.SubscriptionQueueIsBounded();
     tests.SubscriptionAcknowledgementNeverRegresses();
     await tests.SupervisedSubscriptionSurvivesReattach();
+    await tests.SupervisedSubscriptionReportsProjectionInvalidation();
     await tests.SupervisedSubscriptionRecoversAfterQueueOverflow();
     await tests.IntentionalStopNeverRestarts();
     await tests.UnexpectedDeathRestartsOnce();
@@ -31,6 +37,10 @@ try
 }
 catch (Exception error)
 {
+    if (error is EngineIpcException ipcError)
+    {
+        Console.Error.WriteLine($"IPC failure: {ipcError.Kind}; code: {ipcError.ContractError?.Code}");
+    }
     Console.Error.WriteLine(error);
     Environment.ExitCode = 1;
 }
@@ -122,6 +132,7 @@ internal sealed class SupervisionScenarios
         var delivered = await ReadOne(supervised);
         supervised.Acknowledge(delivered);
         Assert.Equal(firstEvent.Cursor, supervised.ProcessedCursor, "processed cursor");
+        first.Complete(new EngineIpcException(EngineIpcFailureKind.EngineUnavailable, "Synthetic transport loss."));
 
         var replacement = new EngineSubscription(Guid.NewGuid(), firstEvent.Cursor, resumed: true);
         supervised.Attach(replacement, resetCursor: false);
@@ -159,6 +170,29 @@ internal sealed class SupervisionScenarios
         var replacementEvent = EventEnvelope(replacement.SubscriptionId);
         Assert.True(replacement.TryPublish(replacementEvent), "replacement publishes after overflow");
         Assert.Equal(replacementEvent.Cursor, (await ReadOne(supervised)).Cursor, "replacement event after overflow");
+    }
+
+    public async Task SupervisedSubscriptionReportsProjectionInvalidation()
+    {
+        await using var supervised = new SupervisedEngineSubscription(
+            Subscription.ForProductChangedSubscribe(new ProductChanges()));
+        var attached = new EngineSubscription(Guid.NewGuid(), Guid.NewGuid(), resumed: false);
+        supervised.Attach(attached, resetCursor: false);
+        attached.Complete(new EngineIpcException(
+            EngineIpcFailureKind.SessionChanged, "Synthetic projection invalidation."));
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        try
+        {
+            await foreach (var _ in supervised.ReadAllAsync(timeout.Token)) { }
+        }
+        catch (EngineIpcException error)
+        {
+            Assert.Equal(EngineIpcFailureKind.SessionChanged, error.Kind,
+                "projection invalidation reaches the supervised consumer");
+            return;
+        }
+        throw new InvalidOperationException("Expected supervised projection invalidation.");
     }
 
     private static EventEnvelope EventEnvelope(Guid subscriptionId, long sequence = 1) => new()
@@ -496,12 +530,18 @@ internal sealed class SupervisionScenarios
             break;
         }
         var relationships = await supervisor.QueryAsync(Query.ForAuthorizationRelationshipsList(new ListScopeRelationships { Limit = 100 }));
-        var policy = relationships.Outcome.Payload.AsScopeRelationships()!;
-        var changed = await supervisor.SubmitCommandAsync(Command.ForAuthorizationRelationshipGrant(new GrantScopeRelationship
+        Assert.Equal(CommandOutcomeStatus.Failed, relationships.Outcome.Status, "Manager cannot read owner relationships");
+        Assert.Equal(ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1, relationships.Outcome.Payload.Code,
+            "owner relationship query remains denied");
+        var accounts = await supervisor.QueryAsync(Query.ForDesktopAccountList(new ListDesktopAccounts()));
+        Assert.Equal(CommandOutcomeStatus.Succeeded, accounts.Outcome.Status, "Manager can list desktop accounts");
+        var receptionist = accounts.Outcome.Payload.AsDesktopAccounts()!.Accounts.Single(account => account.Username == "rec");
+        var changed = await supervisor.SubmitCommandAsync(Command.ForDesktopAccountUpdate(new UpdateDesktopAccount
         {
-            ExpectedPolicyVersion = policy.PolicyVersion,
-            Subject = new RelationshipSubject { PrincipalId = Guid.NewGuid(), PrincipalKind = PrincipalKind.User },
-            Relation = "eitmad.relation.receptionist.v1",
+            AccountId = receptionist.AccountId,
+            ExpectedRevision = receptionist.Revision,
+            DisplayName = receptionist.DisplayName,
+            Role = DesktopAccountRole.Manager,
         }), Guid.NewGuid());
         Assert.Equal(CommandOutcomeStatus.Succeeded, changed.Outcome.Status, "organization policy change commits");
         var invalidated = false;
@@ -515,7 +555,8 @@ internal sealed class SupervisionScenarios
             invalidated = true;
         }
         Assert.True(invalidated, "policy change closes Products even when read access remains");
-        var retained = await supervisor.QueryAsync(Query.ForProductList(new ListProducts { Limit = 100 }));
+        var retained = await supervisor.QueryAsync(Query.ForProductList(new ListProducts { Term = "", Limit = 100 }));
+        Assert.Equal(CommandOutcomeStatus.Succeeded, retained.Outcome.Status, "Manager product read remains authorized");
         Assert.True(retained.Outcome.Payload.AsProducts()!.CanReadCosts, "existing Manager cost access remains authorized");
         return product;
     }

@@ -122,6 +122,12 @@ public sealed class SupervisedEngineSubscription : IEngineSubscription
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
         }
+        catch (EngineIpcException error) when (error.Kind == EngineIpcFailureKind.SessionChanged
+            && !cancellationToken.IsCancellationRequested)
+        {
+            // An invalidated projection must reach its owner even while IPC remains connected.
+            attachedEvents.Writer.TryComplete(error);
+        }
         catch (EngineIpcException)
         {
             // The supervisor reconnects and attaches a replacement stream.

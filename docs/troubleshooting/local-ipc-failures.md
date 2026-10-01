@@ -5,11 +5,13 @@ audience: "support"
 page_type: "troubleshooting"
 status: "active"
 owner: "Rust engine and Windows platform maintainers"
-last_verified: "2026-08-27"
+last_verified: "2026-10-01"
 review_triggers:
   - "local IPC errors, timeouts, payload bounds, negotiation, or recovery changes"
 keywords:
   - "EngineUnavailable"
+  - "SessionChanged"
+  - "projectionInvalidated"
   - "eitmad.error.ipc-session-invalid.v1"
   - "eitmad.error.ipc-deadline-exceeded.v1"
   - "eitmad.error.ipc-payload-too-large.v1"
@@ -38,6 +40,7 @@ Local IPC failures do not by themselves imply lost committed data. Stop new work
 | `eitmad.error.ipc-subscription-resync-required.v1` | Cursor expired, came from another generation, stream, or scope | Compare engine generation and subscription kind without exposing cursor ownership | Subscribe fresh, query the authoritative scoped projection, then apply buffered live events |
 | `SubscriptionClosed` with `backpressure` | A discrete record, notification, or error gap exceeded replay | Preserve the last processed cursor and sanitized event kind | Allow supervision to reconnect/resubscribe; if resync is required, query current state before continuing |
 | `SubscriptionClosed` with `authorizationRevoked` | Protocol `1.2` policy reauthorization denied the stream | Preserve only principal/scope identifiers approved for support | Discard later buffered state and resubscribe only after an owner restores access |
+| `SubscriptionClosed` with `projectionInvalidated`, surfaced as `SessionChanged` | A Product policy change invalidated cached protected data even though read access may remain | Check the typed failure kind; IPC can still be `Connected` | Clear the old projection, subscribe fresh, and query Rust before showing protected data again; do not wait for transport recovery |
 | Protocol `1.0`/`1.1` connection closes after policy change | Revocation cannot use the `1.2` close reason safely | Confirm policy revision changed in the same scope | Reconnect with compatible bindings; never continue from cached protected state |
 | Repeated `SubscriptionBackpressure` | Shell consumer is slower than event production | Measure queue depth/event rate without recording payloads | Fix consumer work or reduce producer frequency; do not enlarge bounds without a resource review |
 | Connection closes after a large response | Encoded response exceeded 8 MiB or response serialization failed | Check the stable request type and sanitized frame-size metric | Reduce or page the response, reconnect, and retry only when the operation's retry contract permits it |
