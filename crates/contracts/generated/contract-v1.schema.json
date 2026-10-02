@@ -245,67 +245,6 @@
     "AuthorizationPolicyChanges": {
       "type": "object"
     },
-    "BackgroundJobChanges": {
-      "type": "object"
-    },
-    "BackgroundJobState": {
-      "type": "string",
-      "enum": [
-        "queued",
-        "running",
-        "succeeded",
-        "failed",
-        "cancelled"
-      ]
-    },
-    "BackgroundJobStatus": {
-      "type": "object",
-      "properties": {
-        "completedUnits": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0
-        },
-        "error": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/ContractError"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "jobId": {
-          "type": "string",
-          "format": "uuid"
-        },
-        "jobKind": {
-          "type": "string"
-        },
-        "scope": {
-          "$ref": "#/definitions/ScopeRef"
-        },
-        "state": {
-          "$ref": "#/definitions/BackgroundJobState"
-        },
-        "totalUnits": {
-          "type": [
-            "integer",
-            "null"
-          ],
-          "format": "uint64",
-          "minimum": 0
-        }
-      },
-      "required": [
-        "jobId",
-        "scope",
-        "jobKind",
-        "state",
-        "completedUnits"
-      ]
-    },
     "BackupState": {
       "type": "string",
       "enum": [
@@ -2531,9 +2470,6 @@
         }
       ]
     },
-    "Errors": {
-      "type": "object"
-    },
     "Event": {
       "description": "Ordered values emitted by subscriptions.",
       "oneOf": [
@@ -2578,102 +2514,6 @@
             },
             "payload": {
               "$ref": "#/definitions/AuthorizationPolicyChangeNotice"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "eitmad.update.state.event.v1"
-            },
-            "payload": {
-              "$ref": "#/definitions/UpdateState"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "eitmad.sync.status.event.v1"
-            },
-            "payload": {
-              "$ref": "#/definitions/SyncStatus"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "eitmad.record.changed.event.v1"
-            },
-            "payload": {
-              "$ref": "#/definitions/RecordChangeNotice"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "eitmad.background-job.status.event.v1"
-            },
-            "payload": {
-              "$ref": "#/definitions/BackgroundJobStatus"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "eitmad.notification.event.v1"
-            },
-            "payload": {
-              "$ref": "#/definitions/Notification"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "eitmad.error.event.v1"
-            },
-            "payload": {
-              "$ref": "#/definitions/ScopedError"
             }
           },
           "required": [
@@ -3298,12 +3138,6 @@
         "reference",
         "forNewWork"
       ]
-    },
-    "GetSyncStatus": {
-      "type": "object"
-    },
-    "GetUpdateState": {
-      "type": "object"
     },
     "GrantScopeRelationship": {
       "type": "object",
@@ -4712,56 +4546,6 @@
         }
       ]
     },
-    "Notification": {
-      "type": "object",
-      "properties": {
-        "correlationId": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "format": "uuid"
-        },
-        "messageId": {
-          "type": "string"
-        },
-        "notificationId": {
-          "type": "string",
-          "format": "uuid"
-        },
-        "parameters": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/ErrorParameter"
-          }
-        },
-        "scope": {
-          "$ref": "#/definitions/ScopeRef"
-        },
-        "severity": {
-          "$ref": "#/definitions/NotificationSeverity"
-        }
-      },
-      "required": [
-        "notificationId",
-        "scope",
-        "severity",
-        "messageId",
-        "parameters"
-      ]
-    },
-    "NotificationSeverity": {
-      "type": "string",
-      "enum": [
-        "information",
-        "success",
-        "warning",
-        "error"
-      ]
-    },
-    "Notifications": {
-      "type": "object"
-    },
     "ObservationSeverity": {
       "type": "string",
       "enum": [
@@ -5586,38 +5370,6 @@
           "properties": {
             "kind": {
               "type": "string",
-              "const": "eitmad.update.get-state.v1"
-            },
-            "payload": {
-              "$ref": "#/definitions/GetUpdateState"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "eitmad.sync.get-status.v1"
-            },
-            "payload": {
-              "$ref": "#/definitions/GetSyncStatus"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
               "const": "eitmad.customer.get.v1"
             },
             "payload": {
@@ -6040,38 +5792,6 @@
           "properties": {
             "kind": {
               "type": "string",
-              "const": "updateState"
-            },
-            "payload": {
-              "$ref": "#/definitions/UpdateState"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "syncStatus"
-            },
-            "payload": {
-              "$ref": "#/definitions/SyncStatus"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
               "const": "customer"
             },
             "payload": {
@@ -6426,9 +6146,6 @@
         "revision",
         "changedAt"
       ]
-    },
-    "RecordChanges": {
-      "type": "object"
     },
     "RegisterBranchRequest": {
       "description": "Rust-owned branch identity registered by a tenant owner.",
@@ -7350,21 +7067,6 @@
         "scope"
       ]
     },
-    "ScopedError": {
-      "type": "object",
-      "properties": {
-        "error": {
-          "$ref": "#/definitions/ContractError"
-        },
-        "scope": {
-          "$ref": "#/definitions/ScopeRef"
-        }
-      },
-      "required": [
-        "scope",
-        "error"
-      ]
-    },
     "SearchCustomers": {
       "type": "object",
       "properties": {
@@ -7902,102 +7604,6 @@
             },
             "payload": {
               "$ref": "#/definitions/AuthorizationPolicyChanges"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "eitmad.update.state.subscribe.v1"
-            },
-            "payload": {
-              "$ref": "#/definitions/UpdateStateChanges"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "eitmad.sync.status.subscribe.v1"
-            },
-            "payload": {
-              "$ref": "#/definitions/SyncStatusChanges"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "eitmad.record.changed.subscribe.v1"
-            },
-            "payload": {
-              "$ref": "#/definitions/RecordChanges"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "eitmad.background-job.status.subscribe.v1"
-            },
-            "payload": {
-              "$ref": "#/definitions/BackgroundJobChanges"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "eitmad.notification.subscribe.v1"
-            },
-            "payload": {
-              "$ref": "#/definitions/Notifications"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "eitmad.error.subscribe.v1"
-            },
-            "payload": {
-              "$ref": "#/definitions/Errors"
             }
           },
           "required": [
@@ -8853,9 +8459,6 @@
           ]
         }
       ]
-    },
-    "SyncStatusChanges": {
-      "type": "object"
     },
     "SyncTransportFrame": {
       "description": "One transport-independent sync frame used by simulation, LAN, and WAN links.",
@@ -9778,9 +9381,6 @@
           ]
         }
       ]
-    },
-    "UpdateStateChanges": {
-      "type": "object"
     }
   }
 }

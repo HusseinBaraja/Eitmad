@@ -85,18 +85,20 @@ struct ContractSchemaRoot {
     catalog: ProtocolCatalog,
 }
 
+#[derive(JsonSchema)]
+#[allow(dead_code)]
+struct NativeShellSchemaRoot {
+    ipc_client_message: IpcClientMessage,
+    ipc_server_message: IpcServerMessage,
+    lifecycle_snapshot: LifecycleSnapshot,
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ConformanceFixture {
     query: QueryEnvelope,
     query_response: QueryResponseEnvelope,
     structured_error: ContractError,
-    observation_event_id: ObservationEventId,
-    observation_field_name: ObservationFieldName,
-    observation_component_id: ComponentId,
-    observation_severity: ObservationSeverity,
-    observation_classification: DataClassification,
-    observation_value_kind: ObservationValueKind,
     mixed_direction_samples: Vec<&'static str>,
 }
 
@@ -115,6 +117,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     write_json(
         &output.join("protocol-v1.json"),
         &ProtocolCatalog::current(),
+    )?;
+    write_json(
+        &output.join("native-shell-v1.schema.json"),
+        &SchemaSettings::draft07()
+            .into_generator()
+            .into_root_schema_for::<NativeShellSchemaRoot>(),
     )?;
     write_json(&output.join("protocol-v1.fixture.json"), &fixture()?)?;
     write_text(
@@ -186,12 +194,6 @@ fn fixture() -> Result<ConformanceFixture, Box<dyn std::error::Error>> {
         query,
         query_response,
         structured_error,
-        observation_event_id: ObservationEventId::parse("eitmad.observation.engine-failure.v1")?,
-        observation_field_name: ObservationFieldName::parse("operation")?,
-        observation_component_id: ComponentId::parse("engine-runtime")?,
-        observation_severity: ObservationSeverity::Error,
-        observation_classification: DataClassification::Sensitive,
-        observation_value_kind: ObservationValueKind::Identifier,
         mixed_direction_samples: vec![
             "خزانة Wardrobe 120 cm - فرع صنعاء",
             "ملف عرض السعر Quote-١٢.pdf",

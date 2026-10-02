@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
+import { swiftNameStyle } from "quicktype-core/dist/language/Swift/utils.js";
 
-export function collectUnions(schema) {
+export function collectUnions(schema, discriminator = "kind") {
   const definitions = schemaDefinitions(schema);
   const unions = [];
   for (const [name, definition] of Object.entries(definitions)) {
@@ -12,13 +13,13 @@ export function collectUnions(schema) {
       (branch) =>
         branch &&
         typeof branch === "object" &&
-        typeof branch.properties?.kind?.const === "string" &&
+        typeof branch.properties?.[discriminator]?.const === "string" &&
         typeof branch.properties?.payload?.$ref === "string",
     );
     if (!isTaggedEnvelope) {
       continue;
     }
-    unions.push(unionFromBranches(name, branches, definitions));
+    unions.push(unionFromBranches(name, branches, definitions, discriminator));
   }
   return unions;
 }
@@ -69,8 +70,8 @@ export function collectEmptyPayloads(schema, unions) {
   return [...names].sort();
 }
 
-function unionFromBranches(name, branches, definitions) {
-  const variants = branches.map((branch) => variantFromBranch(branch, definitions));
+function unionFromBranches(name, branches, definitions, discriminator) {
+  const variants = branches.map((branch) => variantFromBranch(branch, definitions, discriminator));
   const labels = new Set(variants.map((variant) => variant.label));
   assert.equal(
     labels.size,
@@ -80,11 +81,11 @@ function unionFromBranches(name, branches, definitions) {
   for (const variant of variants) {
     assert.ok(variant.kind.length > 0, `union ${name} declares an empty kind`);
   }
-  return { name, variants };
+  return { name, variants, discriminator };
 }
 
-function variantFromBranch(branch, definitions) {
-  const kind = branch.properties.kind.const;
+function variantFromBranch(branch, definitions, discriminator) {
+  const kind = branch.properties[discriminator].const;
   const reference = branch.properties.payload.$ref;
   const match = /#\/definitions\/([A-Za-z0-9_]+)$/.exec(reference);
   assert.notEqual(match, null, `union branch references unexpected payload ${reference}`);
@@ -157,16 +158,16 @@ export function renderSwiftUnions(unions, emptyPayloads = []) {
 }
 
 function renderSwiftUnion(union) {
-  const cases = union.variants.map((variant) => `    case ${variant.camel}(${variant.type})`);
+  const cases = union.variants.map((variant) => `    case ${variant.camel}(${swiftNameStyle("", true, variant.type)})`);
   const rawKinds = union.variants.map((variant) => `        case ${variant.camel} = "${variant.kind}"`);
   const decodes = union.variants.map(
     (variant) =>
-      `        case .${variant.camel}: self = .${variant.camel}(try container.decode(${variant.type}.self, forKey: .payload))`,
+      `        case .${variant.camel}: self = .${variant.camel}(try container.decode(${swiftNameStyle("", true, variant.type)}.self, forKey: .payload))`,
   );
   const encodes = union.variants.map(
     (variant) => [
       `        case .${variant.camel}(let payload):`,
-      `            try container.encode(Kind.${variant.camel}, forKey: .kind)`,
+      `            try container.encode(Kind.${variant.camel}, forKey: .${union.discriminator})`,
       `            try container.encode(payload, forKey: .payload)`,
     ].join("\n"),
   );
@@ -179,13 +180,13 @@ function renderSwiftUnion(union) {
     "    }",
     "",
     "    private enum CodingKeys: String, CodingKey {",
-    "        case kind",
+    `        case ${union.discriminator}`,
     "        case payload",
     "    }",
     "",
     "    public init(from decoder: Decoder) throws {",
     "        let container = try decoder.container(keyedBy: CodingKeys.self)",
-    "        switch try container.decode(Kind.self, forKey: .kind) {",
+    `        switch try container.decode(Kind.self, forKey: .${union.discriminator}) {`,
     ...decodes,
     "        }",
     "    }",

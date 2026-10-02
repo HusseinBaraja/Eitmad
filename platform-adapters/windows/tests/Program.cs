@@ -121,7 +121,7 @@ internal sealed class SupervisionScenarios
     public async Task SupervisedSubscriptionSurvivesReattach()
     {
         await using var supervised = new SupervisedEngineSubscription(
-            Subscription.ForSyncStatusSubscribe(new SyncStatusChanges()));
+            Subscription.ForConfigChangedSubscribe(new ConfigurationChanges()));
         var first = new EngineSubscription(Guid.NewGuid(), Guid.NewGuid(), resumed: false);
         supervised.Attach(first, resetCursor: false);
         var firstEvent = EventEnvelope(first.SubscriptionId);
@@ -141,7 +141,7 @@ internal sealed class SupervisionScenarios
     public async Task SupervisedSubscriptionRecoversAfterQueueOverflow()
     {
         await using var supervised = new SupervisedEngineSubscription(
-            Subscription.ForSyncStatusSubscribe(new SyncStatusChanges()));
+            Subscription.ForConfigChangedSubscribe(new ConfigurationChanges()));
         var overflowing = new EngineSubscription(Guid.NewGuid(), Guid.NewGuid(), resumed: false);
         supervised.Attach(overflowing, resetCursor: false);
         for (var index = 0; index <= EngineSubscription.Capacity; index++)
@@ -200,7 +200,7 @@ internal sealed class SupervisionScenarios
         Cursor = Guid.NewGuid(),
         Event = new Dictionary<string, object>
         {
-            ["kind"] = Event.SyncStatusEventKind,
+            ["kind"] = Event.ConfigChangedEventKind,
             ["payload"] = new Dictionary<string, object>(),
         },
         OccurredAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
@@ -407,17 +407,6 @@ internal sealed class SupervisionScenarios
                 ?? throw new InvalidOperationException("Real engine omitted the configuration snapshot.");
             await using var configurationSubscription = await supervisor.SubscribeAsync(
                 Subscription.ForConfigChangedSubscribe(new ConfigurationChanges()));
-            var syncResponse = await supervisor.QueryAsync(Query.ForSyncGetStatus(new GetSyncStatus()));
-            Assert.True(
-                syncResponse.Outcome.Status == CommandOutcomeStatus.Succeeded
-                    || !string.IsNullOrWhiteSpace(syncResponse.Outcome.Payload.Code),
-                "real sync query returns typed state or typed error");
-            var updateResponse = await supervisor.QueryAsync(Query.ForUpdateGetState(new GetUpdateState()));
-            Assert.True(
-                updateResponse.Outcome.Status == CommandOutcomeStatus.Succeeded
-                    || !string.IsNullOrWhiteSpace(updateResponse.Outcome.Payload.Code),
-                "real update query returns typed state or typed error");
-
             var persistedProduct = await SaveSupplierProduct(supervisor);
 
             var patchResponse = await supervisor.SubmitCommandAsync(

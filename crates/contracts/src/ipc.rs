@@ -4,7 +4,6 @@ use serde::{Deserialize, Serialize};
 use crate::{
     accounts::DesktopAccountRole,
     errors::ContractError,
-    events::Event,
     identity::AuthorizationContext,
     transport::{
         CommandEnvelope, CommandOutcome, CommandResponseEnvelope, CorrelationId, EventEnvelope,
@@ -209,15 +208,11 @@ impl IpcServerMessage {
                     *error = error.redacted_for_external_boundary();
                 }
             }
-            Self::Event(envelope) => {
-                if let Event::ErrorRaised(scoped) = &mut envelope.event {
-                    scoped.error = scoped.error.redacted_for_external_boundary();
-                }
-            }
             Self::Failure(response) => {
                 response.error = response.error.redacted_for_external_boundary();
             }
-            Self::Handshake(_)
+            Self::Event(_)
+            | Self::Handshake(_)
             | Self::Unsubscribe(_)
             | Self::SubscriptionClosed(_)
             | Self::Shutdown(_) => {}
@@ -231,14 +226,9 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::{
-        errors::{
-            ErrorCode, ErrorParameter, ErrorParameterName, ErrorParameterValue, MessageId,
-            RetryDisposition,
-        },
-        events::ScopedError,
-        identity::{ScopeId, ScopeKind, ScopeRef},
-        transport::{EventCursor, SubscriptionId, UnixMillis},
+    use crate::errors::{
+        ErrorCode, ErrorParameter, ErrorParameterName, ErrorParameterValue, MessageId,
+        RetryDisposition,
     };
 
     fn unsafe_error(correlation_id: CorrelationId) -> ContractError {
@@ -285,20 +275,13 @@ mod tests {
                 }),
             ),
             (
-                "event",
-                IpcServerMessage::Event(EventEnvelope {
-                    subscription_id: SubscriptionId::new(Uuid::from_u128(3)),
+                "desktop-session",
+                IpcServerMessage::DesktopSession(DesktopSessionResponse {
+                    request_id,
                     correlation_id,
-                    sequence: 1,
-                    cursor: EventCursor::new(Uuid::from_u128(4)),
-                    occurred_at: UnixMillis(5),
-                    event: Event::ErrorRaised(ScopedError {
-                        scope: ScopeRef {
-                            kind: ScopeKind::parse("organization").unwrap(),
-                            id: ScopeId::new(Uuid::from_u128(6)),
-                        },
-                        error: unsafe_error(correlation_id),
-                    }),
+                    status: DesktopSessionStatus::Failed,
+                    state: None,
+                    error: Some(unsafe_error(correlation_id)),
                 }),
             ),
             (

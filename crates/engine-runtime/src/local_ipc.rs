@@ -1597,8 +1597,7 @@ mod tests {
             AuthenticatedIdentity, DeviceId, PrincipalId, PrincipalKind, ScopeId, ScopeKind,
             ScopeRef, SessionId, TenantId, WorkspaceId,
         },
-        queries::GetSyncStatus,
-        sync::SyncStatus,
+        queries::GetConfiguration,
         transport::{IdempotencyKey, RequestId, SubscriptionEnvelope},
         versioning::ProtocolVersion,
     };
@@ -1639,10 +1638,15 @@ mod tests {
     impl QueryDispatcher for TestDispatcher {
         async fn dispatch_query(
             &self,
-            _context: DispatchContext,
+            context: DispatchContext,
             _query: Query,
         ) -> Result<QueryResult, ContractError> {
-            Ok(QueryResult::SyncStatus(SyncStatus::Offline))
+            Ok(QueryResult::Configuration(ConfigSnapshot {
+                schema_version: 1,
+                revision: 7,
+                scope: context.authorization.scope,
+                entries: Vec::new(),
+            }))
         }
 
         async fn authorize_subscription(
@@ -1670,11 +1674,11 @@ mod tests {
     impl QueryDispatcher for SlowDispatcher {
         async fn dispatch_query(
             &self,
-            _context: DispatchContext,
-            _query: Query,
+            context: DispatchContext,
+            query: Query,
         ) -> Result<QueryResult, ContractError> {
             tokio::time::sleep(Duration::from_millis(50)).await;
-            Ok(QueryResult::SyncStatus(SyncStatus::Offline))
+            TestDispatcher.dispatch_query(context, query).await
         }
     }
 
@@ -1693,12 +1697,12 @@ mod tests {
     impl QueryDispatcher for BlockingDispatcher {
         async fn dispatch_query(
             &self,
-            _context: DispatchContext,
-            _query: Query,
+            context: DispatchContext,
+            query: Query,
         ) -> Result<QueryResult, ContractError> {
             self.entered.send(()).unwrap();
             self.permits.acquire().await.unwrap().forget();
-            Ok(QueryResult::SyncStatus(SyncStatus::Offline))
+            TestDispatcher.dispatch_query(context, query).await
         }
     }
 
@@ -2067,11 +2071,11 @@ mod tests {
             causation_id: None,
             authorization: accepted.authorization,
             deadline: UnixMillis(now().0 + 1_000),
-            query: Query::SyncStatus(GetSyncStatus {}),
+            query: Query::Configuration(GetConfiguration {}),
         };
         assert!(matches!(
             service.query(Some(&session), request).await.outcome,
-            QueryOutcome::Succeeded(QueryResult::SyncStatus(SyncStatus::Offline))
+            QueryOutcome::Succeeded(QueryResult::Configuration(snapshot)) if snapshot.revision == 7
         ));
     }
 
@@ -2596,7 +2600,7 @@ mod tests {
             causation_id: None,
             authorization,
             deadline: UnixMillis(now().0 + 1_000),
-            query: Query::SyncStatus(GetSyncStatus {}),
+            query: Query::Configuration(GetConfiguration {}),
         };
         let QueryOutcome::Failed(error) = service(Some("token")).query(None, request).await.outcome
         else {
@@ -2629,7 +2633,7 @@ mod tests {
             causation_id: None,
             authorization: accepted.authorization,
             deadline: UnixMillis(now().0 + 10),
-            query: Query::SyncStatus(GetSyncStatus {}),
+            query: Query::Configuration(GetConfiguration {}),
         };
         let QueryOutcome::Failed(error) = service.query(Some(&session), request).await.outcome
         else {
@@ -2782,7 +2786,7 @@ mod tests {
                     causation_id: None,
                     authorization: accepted.authorization.clone(),
                     deadline: UnixMillis(now().0 + 10_000),
-                    query: Query::SyncStatus(GetSyncStatus {}),
+                    query: Query::Configuration(GetConfiguration {}),
                 }),
             )
             .await

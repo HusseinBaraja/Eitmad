@@ -79,14 +79,15 @@ test("swift bindings decode every kind into a typed associated value", () => {
     const end = source.indexOf("\n}\n", start);
     const block = source.slice(start, end);
     for (const variant of union.variants) {
+      const type = variant.type === "IpcFailureResponse" ? "IPCFailureResponse" : variant.type;
       assert.ok(
-        block.includes(`case ${variant.camel}(${variant.type})`),
+        block.includes(`case ${variant.camel}(${type})`),
         `${union.name}.${variant.camel} case missing`,
       );
       assert.ok(block.includes(`"${variant.kind}"`), `kind ${variant.kind} missing`);
       assert.ok(
         block.includes(
-          `case .${variant.camel}: self = .${variant.camel}(try container.decode(${variant.type}.self, forKey: .payload))`,
+          `case .${variant.camel}: self = .${variant.camel}(try container.decode(${type}.self, forKey: .payload))`,
         ),
         `${union.name}.${variant.camel} decoder arm missing`,
       );

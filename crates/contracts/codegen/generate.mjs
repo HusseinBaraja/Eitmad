@@ -42,19 +42,22 @@ try {
     temporary,
   ]);
 
-  const schema = JSON.parse(readFileSync(join(temporary, "contract-v1.schema.json"), "utf8"));
+  const schema = JSON.parse(readFileSync(join(temporary, "native-shell-v1.schema.json"), "utf8"));
   const csharp = join(temporary, "EitmadContracts.g.cs");
   const swift = join(temporary, "EitmadContracts.generated.swift");
   const csharpUnions = join(temporary, "EitmadContracts.Unions.g.cs");
   const swiftUnions = join(temporary, "EitmadContractsUnions.generated.swift");
 
   const unions = collectUnions(schema);
+  const swiftSchemaUnions = [...unions, ...collectUnions(schema, "status")];
   const emptyPayloads = collectEmptyPayloads(schema, unions);
   writeFileSync(csharpUnions, normalize(renderCsharpUnions(unions, emptyPayloads)));
-  writeFileSync(swiftUnions, normalize(renderSwiftUnions(unions, emptyPayloads)));
+  writeFileSync(swiftUnions, normalize(renderSwiftUnions(swiftSchemaUnions, emptyPayloads)));
 
   const reducedSchemaPath = join(temporary, "contract-v1.reduced-schema.json");
   writeFileSync(reducedSchemaPath, JSON.stringify(reduceSchema(schema, unions)));
+  const swiftSchemaPath = join(temporary, "contract-v1.swift-schema.json");
+  writeFileSync(swiftSchemaPath, JSON.stringify(reduceSchema(schema, swiftSchemaUnions)));
 
   runQuicktype([
     "--src-lang",
@@ -85,11 +88,12 @@ try {
     "public",
     "--swift-5-support",
     "--sendable",
+    "--no-initializers",
     "--top-level",
     "EitmadContractSchema",
     "--out",
     swift,
-    reducedSchemaPath,
+    swiftSchemaPath,
   ]);
 
   prependGeneratedHeader(csharp, "// Generated from Rust contracts. Do not edit.\n");

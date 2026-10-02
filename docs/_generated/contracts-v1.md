@@ -66,8 +66,6 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.config.get.v1`
 - `eitmad.permissions.get-effective.v1`
 - `eitmad.authorization.relationships.list.v1`
-- `eitmad.update.get-state.v1`
-- `eitmad.sync.get-status.v1`
 - `eitmad.customer.get.v1`
 - `eitmad.customer.search.v1`
 - `eitmad.furniture.list.v1`
@@ -91,12 +89,6 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.config.changed.subscribe.v1`
 - `eitmad.permissions.changed.subscribe.v1`
 - `eitmad.authorization.policy.changed.subscribe.v1`
-- `eitmad.update.state.subscribe.v1`
-- `eitmad.sync.status.subscribe.v1`
-- `eitmad.record.changed.subscribe.v1`
-- `eitmad.background-job.status.subscribe.v1`
-- `eitmad.notification.subscribe.v1`
-- `eitmad.error.subscribe.v1`
 - `eitmad.customer.changed.subscribe.v1`
 - `eitmad.material.changed.subscribe.v1`
 - `eitmad.furniture.changed.subscribe.v1`
@@ -108,12 +100,6 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.config.changed.event.v1`
 - `eitmad.permissions.changed.event.v1`
 - `eitmad.authorization.policy.changed.event.v1`
-- `eitmad.update.state.event.v1`
-- `eitmad.sync.status.event.v1`
-- `eitmad.record.changed.event.v1`
-- `eitmad.background-job.status.event.v1`
-- `eitmad.notification.event.v1`
-- `eitmad.error.event.v1`
 - `eitmad.customer.changed.event.v1`
 - `eitmad.material.changed.event.v1`
 - `eitmad.furniture.changed.event.v1`
@@ -314,8 +300,6 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Localization message identifiers
 
-- `eitmad.notification.sync-complete.v1`
-- `eitmad.notification.update-ready.v1`
 - `eitmad.message.authorization-denied.v1`
 - `eitmad.message.authorization-last-owner.v1`
 - `eitmad.message.authorization-policy-conflict.v1`

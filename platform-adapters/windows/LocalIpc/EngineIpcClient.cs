@@ -99,7 +99,7 @@ public sealed class EngineIpcClient : IAsyncDisposable
                 throw ProtocolViolation("The engine returned an invalid handshake response.");
             }
 
-            if (handshake.Outcome.Status != NegotiationOutcomeStatus.Accepted)
+            if (handshake.Outcome.Status != HandshakeOutcomeStatus.Accepted)
             {
                 var kind = handshake.Outcome.Payload.Payload is not null
                     ? EngineIpcFailureKind.VersionMismatch

@@ -5,7 +5,7 @@ audience: "api"
 page_type: "reference"
 status: "active"
 owner: "Rust contract maintainers"
-last_verified: "2026-08-27"
+last_verified: "2026-10-02"
 review_triggers:
   - "a command, query, subscription, error, version, capability, or generator changes"
 keywords:
@@ -17,7 +17,7 @@ keywords:
 
 # Use Eitmad protocol v1 contracts
 
-`eitmad-contracts` is the sole authority for protocol v1. It defines UTF-8 JSON shapes, identifiers, compatibility rules, and generated C# and Swift bindings. Shell code must consume generated types and `ProtocolIds`; it must not declare DTO copies or protocol strings.
+`eitmad-contracts` is the sole authority for protocol v1. It defines UTF-8 JSON shapes, identifiers, compatibility rules, and generated C# and Swift bindings for local IPC and process lifecycle. Shell code must consume generated types and `ProtocolIds`; it must not declare DTO copies or protocol strings.
 
 ## Authority and generated outputs
 
@@ -35,16 +35,16 @@ The sync contract graph has a focused [synchronization and transport reference](
 
 The remote server contract adds tenant/account/device authentication, relay metadata, signed manifests, update eligibility, administration status and workflows, session policy, license state, effective update assignment, server messages, chunked snapshots, and resumable events. Ownership is in [server authority](../developer/subsystems/server-authority.md), [WAN relay](../developer/subsystems/wan-relay-coordination.md), [update distribution](../developer/subsystems/update-distribution.md), and [server administration](../developer/subsystems/server-administration.md).
 
-Generated files have a `Do not edit` header. Linux bindings remain blocked on the Linux UI technology decision; a future Linux shell must consume the Rust crate directly or add a generated/validated binding through a new decision.
+Rust exports the full wire schema for engine and server boundaries. Native generation uses a separate temporary schema rooted in `IpcClientMessage`, `IpcServerMessage`, and `LifecycleSnapshot`; its payload types are included transitively. Server administration, relay, synchronization transport, signing, and diagnostic-report models stay in Rust. Swift bindings omit data/URL loaders and copy helpers; callers use `JSONDecoder` and `JSONEncoder`. Generated files have a `Do not edit` header. Linux bindings remain blocked on the Linux UI technology decision; a future Linux shell must consume the Rust crate directly or add a generated/validated binding through a new decision.
 
 ## Interaction contracts
 
 | Interaction | Required context | Foundation operations |
 | --- | --- | --- |
 | Command | Version, request/correlation/causation IDs, authenticated session, tenant, optional workspace, scope, deadline, idempotency key | Update configuration; create/update a customer; grant/revoke scoped relationships |
-| Query | Version, request/correlation/causation IDs, authenticated session, tenant, optional workspace, scope, deadline | Read configuration, get/search customers, effective permissions, and relationships; placeholder update and sync state |
-| Subscription | Version, request/correlation IDs, authenticated session, tenant, optional workspace, scope, optional resume cursor | Configuration, customer changes, permission, authorization-policy, sync, record, job, notification, update, and error streams |
-| Event | Subscription/correlation IDs, sequence, cursor, occurrence time | Typed state, metadata, progress, notification, and error values |
+| Query | Version, request/correlation/causation IDs, authenticated session, tenant, optional workspace, scope, deadline | Read configuration, get/search customers, effective permissions, relationships, material references, and product definitions |
+| Subscription | Version, request/correlation IDs, authenticated session, tenant, optional workspace, scope, optional resume cursor | Configuration, permissions, authorization-policy, customers, materials, Parts, Furniture, and Products |
+| Event | Subscription/correlation IDs, sequence, cursor, occurrence time | Typed state and compact product-change metadata |
 
 The identity, tenant, workspace, and scope fields are assertions to verify against the authenticated channel, not credentials and not proof of authorization. Rust must authorize and audit every boundary operation; state-changing verticals keep state and audit atomic.
 
@@ -68,7 +68,7 @@ The foreground CLI emits lifecycle snapshots as newline-delimited JSON on child 
 - Customers require `eitmad.capability.customer.v1` and schema `eitmad.schema.customer.v1`. Get and bounded search enforce the exact branch scope, and change events carry no contact text.
 - Sync deliveries carry independent delivery IDs and idempotency keys. Consumers preserve record authority and cache freshness labels instead of presenting optimistic or stale data as canonical.
 - Simulation, LAN, direct WAN, and relay WAN carry the same `SyncTransportFrame` and complete `SyncTransportPayload`; message payloads use the shared `SyncMessage`. Route adapters cannot define another wire protocol or change reconciliation meaning.
-- Observation event, field, component, severity, classification, and value-kind contracts are exported in the JSON schema and exercised by the C# and Swift conformance fixture. Diagnostic values still reach sinks only through the Rust-owned redaction boundary.
+- Observation contracts are exported in the full JSON schema and used by Rust diagnostics. They are outside the native binding graph. Diagnostic values reach sinks only through the Rust-owned redaction boundary.
 
 This is a minimal valid query body; the complete scoped envelope is in `tests/contract-compatibility/fixtures/protocol-v1.json`:
 
@@ -93,7 +93,7 @@ Event cursors are opaque, scoped, and valid only in the current engine generatio
 
 ## Implemented configuration and authorization authority
 
-The real engine dispatcher currently executes configuration query/update, effective-permission query, relationship grant/revoke/list, desktop account create/update/deactivate/list, customer create/update/get/search, and their supported change subscriptions. Unimplemented update and sync queries or subscriptions return `eitmad.error.contract-invalid.v1`. Configuration import/export remain Rust service APIs and have no shell IPC operation.
+The real engine dispatcher currently executes configuration query/update, effective-permission query, relationship grant/revoke/list, desktop account create/update/deactivate/list, customer create/update/get/search, and their supported change subscriptions. Configuration import/export remain Rust service APIs and have no shell IPC operation.
 
 Configuration snapshots are revisioned, redacted, stable-key projections. Relationship mutations use a separate optimistic policy revision. Rust also defines scoped object, tuple, condition, permission-rule, request, and decision types for engine-owned boundaries, but they are not part of the current generated IPC root and no generic tuple-management operation exists. Read [configuration authority](../developer/subsystems/configuration.md) and [authorization/audit authority](../developer/subsystems/authorization.md) before consuming these contracts.
 

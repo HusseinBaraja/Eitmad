@@ -318,19 +318,13 @@ fn now() -> UnixMillis {
 fn event_scope(event: &Event) -> Option<&ScopeRef> {
     match event {
         Event::ConfigurationChanged(snapshot) => Some(&snapshot.scope),
-        Event::RecordChanged(notice) => Some(&notice.scope),
-        Event::BackgroundJobChanged(status) => Some(&status.scope),
-        Event::NotificationRaised(notification) => Some(&notification.scope),
-        Event::ErrorRaised(error) => Some(&error.scope),
         Event::AuthorizationPolicyChanged(notice) => Some(&notice.scope),
         Event::CustomerChanged(notice) => Some(&notice.scope),
         Event::MaterialChanged(notice) => Some(&notice.scope),
         Event::FurnitureChanged(notice) => Some(&notice.scope),
         Event::ProductChanged(notice) => Some(&notice.scope),
         Event::PartChanged(notice) => Some(&notice.scope),
-        Event::PermissionsChanged(_)
-        | Event::UpdateStateChanged(_)
-        | Event::SyncStatusChanged(_) => None,
+        Event::PermissionsChanged(_) => None,
     }
 }
 
@@ -338,11 +332,9 @@ fn event_scope(event: &Event) -> Option<&ScopeRef> {
 mod tests {
     use eitmad_contracts::{
         config::ConfigSnapshot,
-        events::{ConfigurationChanges, Notifications, SyncStatusChanges},
+        events::{ConfigurationChanges, MaterialChanges},
         identity::{ScopeId, ScopeKind},
-        notifications::{Notification, NotificationId, NotificationSeverity},
-        sync::SyncStatus,
-        transport::CorrelationId,
+        material::{MaterialChangeNotice, MaterialRecordKind},
     };
 
     use super::*;
@@ -411,41 +403,30 @@ mod tests {
         let (_, mut feed) = broker
             .subscribe(
                 scope.clone(),
-                Subscription::SyncStatus(SyncStatusChanges::default()),
+                Subscription::Configuration(ConfigurationChanges::default()),
                 None,
             )
             .unwrap();
         for records in 0..=MAX_REPLAY_EVENTS {
             broker
-                .publish(
-                    scope.clone(),
-                    Event::SyncStatusChanged(SyncStatus::Queued {
-                        records: records as u64,
-                    }),
-                )
+                .publish(scope.clone(), config_event(&scope, records as u64))
                 .unwrap();
         }
-        let Event::SyncStatusChanged(SyncStatus::Queued { records }) =
-            feed.recv().await.unwrap().event
-        else {
-            panic!("latest sync status expected");
+        let Event::ConfigurationChanged(snapshot) = feed.recv().await.unwrap().event else {
+            panic!("latest configuration expected");
         };
-        assert_eq!(records, MAX_REPLAY_EVENTS as u64);
+        assert_eq!(snapshot.revision, MAX_REPLAY_EVENTS as u64);
 
         broker
             .publish(
-                scope,
-                Event::SyncStatusChanged(SyncStatus::Queued {
-                    records: MAX_REPLAY_EVENTS as u64 + 1,
-                }),
+                scope.clone(),
+                config_event(&scope, MAX_REPLAY_EVENTS as u64 + 1),
             )
             .unwrap();
-        let Event::SyncStatusChanged(SyncStatus::Queued { records }) =
-            feed.recv().await.unwrap().event
-        else {
-            panic!("next live sync status expected");
+        let Event::ConfigurationChanged(snapshot) = feed.recv().await.unwrap().event else {
+            panic!("next live configuration expected");
         };
-        assert_eq!(records, MAX_REPLAY_EVENTS as u64 + 1);
+        assert_eq!(snapshot.revision, MAX_REPLAY_EVENTS as u64 + 1);
     }
 
     #[tokio::test]
@@ -455,7 +436,7 @@ mod tests {
         let (_, mut feed) = broker
             .subscribe(
                 scope.clone(),
-                Subscription::Notifications(Notifications {}),
+                Subscription::Materials(MaterialChanges {}),
                 None,
             )
             .unwrap();
@@ -463,16 +444,12 @@ mod tests {
             broker
                 .publish(
                     scope.clone(),
-                    Event::NotificationRaised(Notification {
-                        notification_id: NotificationId::new(Uuid::from_u128(index as u128 + 1)),
+                    Event::MaterialChanged(MaterialChangeNotice {
+                        id: Uuid::from_u128(index as u128 + 1),
                         scope: scope.clone(),
-                        severity: NotificationSeverity::Information,
-                        message_id: eitmad_contracts::errors::MessageId::parse(
-                            "eitmad.message.contract-invalid.v1",
-                        )
-                        .unwrap(),
-                        parameters: Vec::new(),
-                        correlation_id: Some(CorrelationId::new(Uuid::nil())),
+                        kind: MaterialRecordKind::Material,
+                        revision: 1,
+                        changed_at: UnixMillis(1),
                     }),
                 )
                 .unwrap();

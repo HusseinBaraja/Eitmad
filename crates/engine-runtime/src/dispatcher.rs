@@ -632,7 +632,6 @@ impl QueryDispatcher for ProductDispatcher {
                 .list(&context.authorization, &query)
                 .map(QueryResult::DesktopAccounts)
                 .map_err(|error| desktop_account_error(error, &context)),
-            Query::UpdateState(_) | Query::SyncStatus(_) => Err(unsupported(&context)),
         };
         self.audit_query_result(&context, operation, &result)
             .map_err(|e| *e)?;
@@ -654,20 +653,6 @@ impl QueryDispatcher for ProductDispatcher {
             Subscription::Parts(_) => PART_READ_PERMISSION,
             Subscription::Materials(_) => MATERIAL_READ_PERMISSION,
             Subscription::AuthorizationPolicy(_) => AUTHORIZATION_MANAGE_PERMISSION,
-            Subscription::UpdateState(_)
-            | Subscription::SyncStatus(_)
-            | Subscription::RecordChanges(_)
-            | Subscription::BackgroundJobs(_)
-            | Subscription::Notifications(_)
-            | Subscription::Errors(_) => {
-                return Err(contract_error(
-                    "eitmad.error.ipc-subscription-unsupported.v1",
-                    "eitmad.message.ipc-subscription-unsupported.v1",
-                    context.correlation_id,
-                    RetryDisposition::Never,
-                    None,
-                ));
-            }
         };
         self.authorization
             .authorize(&context.authorization, permission)
@@ -1133,7 +1118,7 @@ mod tests {
             SaveMaterialUnit, UnitDimension,
         },
         part::{ListParts, PartChanges, PartUsage, SavePart, SavePartCategory},
-        queries::{GetConfiguration, GetSyncStatus, Query},
+        queries::{GetConfiguration, Query},
         transport::{CorrelationId, IdempotencyKey, PROTOCOL_VERSION, UnixMillis},
     };
     use rusqlite::Connection;
@@ -1291,11 +1276,16 @@ mod tests {
         );
 
         let failed = dispatcher
-            .dispatch_query(context(205), Query::SyncStatus(GetSyncStatus {}))
+            .dispatch_query(
+                context(205),
+                Query::Customer(GetCustomer {
+                    customer_id: eitmad_contracts::customer::CustomerId::new(Uuid::from_u128(206)),
+                }),
+            )
             .await;
         assert!(failed.is_err());
         assert_eq!(
-            last_audit_outcome(&dispatcher, "eitmad.sync.get-status.v1"),
+            last_audit_outcome(&dispatcher, "eitmad.customer.get.v1"),
             AuditOutcome::Failed
         );
     }
@@ -1309,7 +1299,7 @@ mod tests {
             .unwrap();
 
         let error = dispatcher
-            .dispatch_query(context(210), Query::SyncStatus(GetSyncStatus {}))
+            .dispatch_query(context(210), Query::Configuration(GetConfiguration {}))
             .await
             .unwrap_err();
         assert_eq!(

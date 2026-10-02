@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust contract maintainers"
-last_verified: "2026-08-27"
+last_verified: "2026-10-02"
 review_triggers:
   - "protocol ownership, wire format, generation, compatibility, or platform binding changes"
 keywords:
@@ -31,17 +31,19 @@ flowchart LR
     Rust --> Engine["Engine runtime\ndecode · verify · authorize · execute"]
 ```
 
+The exporter retains a full schema for Rust engine and server boundaries. A separate temporary native schema contains `IpcClientMessage`, `IpcServerMessage`, and `LifecycleSnapshot` with their transitive payloads. Native bindings do not include unrelated server, relay, signing, synchronization transport, or diagnostic models. Swift generation disables unused data/URL initializers and copy helpers.
+
 The generated model describes untrusted input. The engine must authenticate the channel, compare the payload session and scope with channel state, validate bounds and domain invariants, authorize with ReBAC, execute atomically, and emit the required audit outcome.
 
 ## Tagged unions in generated bindings
 
 Rust tagged contracts (`tagged_contract!`) serialize as JSON objects that carry a `kind` discriminator string and a `payload` field. Quicktype collapses every `oneOf` of such envelopes into one class whose payload is typed as the first variant, which cannot represent the other kinds. The generator therefore:
 
-1. Collects every top-level discriminated union from the exported Draft-07 schema (`crates/contracts/codegen/unions.mjs`).
+1. Collects `kind`-tagged unions from the native Draft-07 schema (`crates/contracts/codegen/unions.mjs`). Swift also collects `status`-tagged outcomes so success payloads and structured failures remain distinct types.
 2. Renders typed union bindings itself into `shells/windows/generated/EitmadContracts.Unions.g.cs` (a C# class with a `Kind` string, an untyped payload, one `For<Pascal>` factory, and one `As<Pascal>()` typed accessor per kind) and `shells/macos/generated/EitmadContractsUnions.generated.swift` (a Swift `enum` with associated values plus full `Codable` conformance).
 3. Feeds quicktype a reduced schema in which each union definition is replaced by an empty object and every payload type stays reachable through a deterministic keep-alive container.
 
-Codegen tests pin every union variant to its kind string and payload type in both languages, so adding a Rust variant without regenerating fails verification. Nested tagged enums that mix payload-less struct variants remain collapsed by quicktype; extending the renderer to them is deliberate follow-up work, not an accident.
+Codegen tests check union discriminators and payload types. Swift payload names use the pinned Quicktype naming function. Both Swift generated files compile together in CI, and the fixture round-trips typed successful and failed query outcomes. Adding a Rust variant without regenerating fails drift verification. Nested tagged enums that mix payload-less struct variants remain collapsed by quicktype; extending the renderer to them is deliberate follow-up work, not an accident.
 
 ## Invariants
 
