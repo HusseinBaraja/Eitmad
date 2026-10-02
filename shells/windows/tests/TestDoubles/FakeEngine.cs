@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using System.Text.Json;
 using Eitmad.Contracts;
 using Eitmad.Platform.Windows.LocalIpc;
 using Eitmad.Platform.Windows.ProcessSupervision;
@@ -20,7 +21,6 @@ internal sealed class FakeEngine : IEngineShellBridge
         null,
         null,
         null);
-    private int queryCount;
     private int stopCount;
     private DesktopSessionState? desktopSession;
 
@@ -37,16 +37,13 @@ internal sealed class FakeEngine : IEngineShellBridge
         }
     }
 
-    public bool FailConfigurationQuery { get; init; }
     public bool ThrowQueries { get; set; }
-    public long ConfigurationRevision { get; set; } = 1;
     public Func<Query, Task>? QueryBarrier { get; set; }
     public Func<Query, QueryResponseEnvelope>? QueryHandler { get; set; }
     public List<DesktopAccountSummary> DesktopAccounts { get; } = [];
     public List<Customer> Customers { get; } = [];
     public ScopeRef CustomerBranch { get; } = new() { Kind = "branch", Id = Guid.NewGuid() };
     public Action<Subscription, FakeSubscription>? SubscribeHook { get; set; }
-    public int QueryCount => Volatile.Read(ref queryCount);
     public int SubscriptionCount
     {
         get
@@ -73,10 +70,6 @@ internal sealed class FakeEngine : IEngineShellBridge
     public Dictionary<string, (string Password, DesktopAccountRole Role)> Accounts { get; } = [];
     public IReadOnlySet<string> SupportedCapabilities { get; init; } = new HashSet<string>
     {
-        ProtocolIds.Capabilities.EitmadCapabilityConfigV1,
-        ProtocolIds.Capabilities.EitmadCapabilitySyncV1,
-        ProtocolIds.Capabilities.EitmadCapabilityUpdateV1,
-        ProtocolIds.Capabilities.EitmadCapabilityReferenceMarkerV1,
         ProtocolIds.Capabilities.EitmadCapabilityDesktopAccountManagementV1,
         ProtocolIds.Capabilities.EitmadCapabilityCustomerV1,
         ProtocolIds.Capabilities.EitmadCapabilityMaterialV1,
@@ -173,8 +166,6 @@ internal sealed class FakeEngine : IEngineShellBridge
 
     public async Task<QueryResponseEnvelope> QueryAsync(Query query, CancellationToken cancellationToken = default)
     {
-        var revision = ConfigurationRevision;
-        Interlocked.Increment(ref queryCount);
         lock (queriedKinds)
         {
             queriedKinds.Add(query.Kind);
@@ -185,19 +176,6 @@ internal sealed class FakeEngine : IEngineShellBridge
         if (ThrowQueries)
             throw new EngineIpcException(EngineIpcFailureKind.ConnectionLost, "Synthetic IPC failure.");
 
-        if (FailConfigurationQuery && query.Kind == Query.ConfigGetKind)
-        {
-            return new QueryResponseEnvelope
-            {
-                RequestId = Guid.NewGuid(),
-                CorrelationId = Guid.NewGuid(),
-                Outcome = new QueryOutcome
-                {
-                    Status = CommandOutcomeStatus.Failed,
-                    Payload = new QueryResult { Code = "CONFIG_UNAVAILABLE" },
-                },
-            };
-        }
 
         if (query.AsCustomerGet() is { } getCustomer &&
             Customers.All(customer => customer.Id != getCustomer.CustomerId || !IsAuthorizedCustomer(customer)))
@@ -222,18 +200,6 @@ internal sealed class FakeEngine : IEngineShellBridge
                     ? []
                     : [new EffectivePermission { Permission = CurrentPermission, Decision = PermissionDecision.Granted }],
             }),
-            Query.ConfigGetKind => QueryResult.ForConfiguration(Configuration(revision)),
-            Query.SyncGetStatusKind => QueryResult.ForSyncStatus(new SyncStatus
-            {
-                Kind = SyncStatusKind.Current,
-                Payload = new SyncStatusPayload(),
-            }),
-            Query.UpdateGetStateKind => QueryResult.ForUpdateState(new UpdateState
-            {
-                Kind = UpdateStateKind.Idle,
-                Payload = new UpdateStatePayload(),
-            }),
-            Query.ReferenceMarkerListKind => QueryResult.ForReferenceMarkers(new ReferenceMarkerPage { Items = [] }),
             Query.DesktopAccountListKind => QueryResult.ForDesktopAccounts(new DesktopAccountPage
             {
                 Accounts = DesktopAccounts.ToArray(),
@@ -315,16 +281,6 @@ internal sealed class FakeEngine : IEngineShellBridge
         return digits.Length > 0 && digits.ToString() != "+" ? digits.ToString() : null;
     }
 
-    public Task<CommandResponseEnvelope> SubmitConfigurationPatchAsync(
-        UpdateConfiguration patch,
-        Guid idempotencyKey,
-        CancellationToken cancellationToken = default) =>
-        Task.FromResult(new CommandResponseEnvelope
-        {
-            RequestId = Guid.NewGuid(),
-            CorrelationId = Guid.NewGuid(),
-            Outcome = new CommandOutcome { Status = CommandOutcomeStatus.Succeeded, Payload = new CommandResult() },
-        });
 
     public Func<Command, CommandResponseEnvelope>? CommandHandler { get; set; }
     public Func<Command, Task>? CommandBarrier { get; set; }
@@ -424,11 +380,11 @@ internal sealed class FakeEngine : IEngineShellBridge
                 Status = CommandOutcomeStatus.Succeeded,
                 Payload = changedCustomer is null
                     ? new CommandResult()
-                    : new CommandResult
+                    : JsonSerializer.Deserialize<CommandResult>(JsonSerializer.Serialize(new
                     {
-                        Kind = changedCustomer.Revision == 1 ? PurpleKind.CustomerCreated : PurpleKind.CustomerUpdated,
-                        Payload = new PayloadClass { Customer = changedCustomer, PotentialDuplicateIds = [] },
-                    },
+                        kind = changedCustomer.Revision == 1 ? PurpleKind.CustomerCreated : PurpleKind.CustomerUpdated,
+                        payload = new { customer = changedCustomer, potentialDuplicateIds = Array.Empty<Guid>() },
+                    }))!,
             },
         };
     }
@@ -443,37 +399,6 @@ internal sealed class FakeEngine : IEngineShellBridge
             Payload = new CommandResult { Code = code },
         },
     };
-
-    public Task<CommandResponseEnvelope> SubmitReferenceMarkerAsync(
-        UpsertReferenceMarker marker,
-        Guid idempotencyKey,
-        CancellationToken cancellationToken = default) =>
-        Task.FromResult(new CommandResponseEnvelope
-        {
-            RequestId = Guid.NewGuid(),
-            CorrelationId = Guid.NewGuid(),
-            Outcome = new CommandOutcome
-            {
-                Status = CommandOutcomeStatus.Succeeded,
-                Payload = new CommandResult
-                {
-                    Kind = PurpleKind.ReferenceMarkerUpserted,
-                    Payload = new PayloadClass
-                    {
-                        Id = marker.MarkerId,
-                        Label = marker.Label,
-                        Revision = (marker.ExpectedRevision ?? 0) + 1,
-                        Scope = new ScopeRef
-                        {
-                            Kind = "organization",
-                            Id = Guid.Parse("2ef36635-1d9d-4bd5-b0e4-fc4a67dfac90"),
-                        },
-                        SyncState = ReferenceMarkerSyncState.Pending,
-                        UpdatedAt = 1_800_000_000_001,
-                    },
-                },
-            },
-        });
 
     public Task<IEngineSubscription> SubscribeAsync(
         Subscription subscription,
@@ -578,20 +503,4 @@ internal sealed class FakeEngine : IEngineShellBridge
         }
     }
 
-    private static ConfigSnapshot Configuration(long revision) => new()
-    {
-        Revision = revision,
-        SchemaVersion = 1,
-        Scope = new ScopeRef { Kind = "organization", Id = Guid.NewGuid() },
-        Entries =
-        [
-            new ConfigEntry
-            {
-                Key = ProtocolIds.ConfigKeys.EitmadConfigLocalePrimaryV1,
-                Sensitivity = ConfigSensitivity.Public,
-                RestartRequirement = RestartRequirement.None,
-                Value = new ConfigReadValue { Kind = ConfigReadValueKind.Text, Value = "ar-YE" },
-            },
-        ],
-    };
 }

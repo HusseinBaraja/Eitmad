@@ -5,7 +5,6 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
-using Eitmad.WindowsShell.Features.Operations;
 using Eitmad.WindowsShell.Features.Authentication;
 using Eitmad.Platform.Windows.Shell;
 
@@ -26,7 +25,6 @@ internal static class WpfTestHost
         TestDispatcher.Value.Invoke(() =>
         {
             var window = new MainWindow(
-                new OperationsViewModel(),
                 showSignIn ? new RenderedSessionController() : null,
                 showSignIn: showSignIn,
                 engine: engine)

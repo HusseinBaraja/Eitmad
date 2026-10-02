@@ -438,7 +438,7 @@ impl LocalIpcServer {
         request: &DesktopSignInRequest,
     ) -> IpcServerMessage {
         let outcome = match (session.as_mut(), self.desktop_auth.as_ref()) {
-            (Some(connection), Some(auth)) if connection.negotiated.protocol.minor >= 7 => {
+            (Some(connection), Some(auth)) => {
                 if let Some(previous) = connection.user_authorization.take() {
                     let _ = auth.sign_out(&previous, request.correlation_id, now());
                 }
@@ -472,28 +472,26 @@ impl LocalIpcServer {
         request: &DesktopSessionRequest,
     ) -> IpcServerMessage {
         let outcome = match (session.as_mut(), self.desktop_auth.as_ref()) {
-            (Some(connection), Some(auth)) if connection.negotiated.protocol.minor >= 7 => {
-                match connection.user_authorization.as_ref() {
-                    Some(authorization) => match auth.active(authorization, now()) {
-                        Ok(true) => match auth.session_state(authorization) {
-                            Ok(state) => DesktopSessionOutcome::Active(state),
-                            Err(error) => DesktopSessionOutcome::Failed(desktop_auth_error(
-                                error,
-                                request.correlation_id,
-                            )),
-                        },
-                        Ok(false) => {
-                            connection.user_authorization = None;
-                            DesktopSessionOutcome::SignedOut
-                        }
+            (Some(connection), Some(auth)) => match connection.user_authorization.as_ref() {
+                Some(authorization) => match auth.active(authorization, now()) {
+                    Ok(true) => match auth.session_state(authorization) {
+                        Ok(state) => DesktopSessionOutcome::Active(state),
                         Err(error) => DesktopSessionOutcome::Failed(desktop_auth_error(
                             error,
                             request.correlation_id,
                         )),
                     },
-                    None => DesktopSessionOutcome::SignedOut,
-                }
-            }
+                    Ok(false) => {
+                        connection.user_authorization = None;
+                        DesktopSessionOutcome::SignedOut
+                    }
+                    Err(error) => DesktopSessionOutcome::Failed(desktop_auth_error(
+                        error,
+                        request.correlation_id,
+                    )),
+                },
+                None => DesktopSessionOutcome::SignedOut,
+            },
             _ => DesktopSessionOutcome::Failed(session_invalid(request.correlation_id)),
         };
         desktop_session_response(request.request_id, request.correlation_id, outcome)
@@ -505,7 +503,7 @@ impl LocalIpcServer {
         request: &DesktopSessionRequest,
     ) -> IpcServerMessage {
         let outcome = match (session.as_mut(), self.desktop_auth.as_ref()) {
-            (Some(connection), Some(auth)) if connection.negotiated.protocol.minor >= 7 => {
+            (Some(connection), Some(auth)) => {
                 if let Some(authorization) = connection.user_authorization.take() {
                     match auth.sign_out(&authorization, request.correlation_id, now()) {
                         Ok(()) => DesktopSessionOutcome::SignedOut,
@@ -857,13 +855,9 @@ where
         match write_authorized_subscription_event(writer, &message, active).await? {
             AuthorizedEventWrite::Finished(written) => written,
             AuthorizedEventWrite::RevokedBeforeWrite => {
-                let protocol_version = active.context.protocol_version;
                 let correlation_id = active.correlation_id;
                 let last_delivered_cursor = active.last_delivered_cursor;
                 subscriptions.remove(&delivery.subscription_id);
-                if protocol_version.minor < 2 {
-                    return Ok(false);
-                }
                 return write_frame_or_close(
                     writer,
                     &IpcServerMessage::SubscriptionClosed(SubscriptionClosedEnvelope {
@@ -1073,13 +1067,8 @@ async fn reauthorize_subscription(pump: &SubscriptionPump) -> bool {
     {
         true
     } else {
-        send_authorization_revoked(
-            &pump.deliveries,
-            pump.subscription_id,
-            pump.correlation_id,
-            pump.context.protocol_version,
-        )
-        .await;
+        send_authorization_revoked(&pump.deliveries, pump.subscription_id, pump.correlation_id)
+            .await;
         false
     }
 }
@@ -1088,24 +1077,21 @@ async fn send_authorization_revoked(
     deliveries: &mpsc::Sender<SubscriptionDelivery>,
     subscription_id: SubscriptionId,
     correlation_id: CorrelationId,
-    protocol_version: ProtocolVersion,
 ) {
-    let protocol_supports_reason = protocol_version.minor >= 2;
-    let message = protocol_supports_reason.then(|| {
-        IpcServerMessage::SubscriptionClosed(SubscriptionClosedEnvelope {
-            subscription_id,
-            correlation_id,
-            last_delivered_cursor: None,
-            reason: SubscriptionCloseReason::AuthorizationRevoked,
-        })
-    });
     let _ = deliveries
         .send(SubscriptionDelivery {
             subscription_id,
-            message,
+            message: Some(IpcServerMessage::SubscriptionClosed(
+                SubscriptionClosedEnvelope {
+                    subscription_id,
+                    correlation_id,
+                    last_delivered_cursor: None,
+                    reason: SubscriptionCloseReason::AuthorizationRevoked,
+                },
+            )),
             closed: true,
             delivered_cursor: None,
-            terminate_connection: !protocol_supports_reason,
+            terminate_connection: false,
         })
         .await;
 }
@@ -1234,12 +1220,12 @@ fn validate_subscription(
     let Some(session) = session else {
         return Some(session_invalid(request.correlation_id));
     };
-    let capability_negotiated = session.negotiated.protocol.minor >= 1
-        && session.negotiated.capabilities.iter().any(|capability| {
+    let capability_negotiated =
+        session.negotiated.capabilities.iter().any(|capability| {
             capability.as_str() == "eitmad.capability.local-ipc-subscriptions.v1"
         });
-    let authorization_policy_capability = session.negotiated.protocol.minor >= 2
-        && session.negotiated.capabilities.iter().any(|capability| {
+    let authorization_policy_capability =
+        session.negotiated.capabilities.iter().any(|capability| {
             capability.as_str() == "eitmad.capability.authorization-policy-events.v1"
         });
     if !authorization_matches(
@@ -1304,7 +1290,7 @@ fn default_engine_hello() -> PeerHello {
         ),
         protocols: vec![SupportedProtocol {
             major: PROTOCOL_VERSION.major,
-            minimum_minor: 0,
+            minimum_minor: PROTOCOL_VERSION.minor,
             maximum_minor: PROTOCOL_VERSION.minor,
         }],
         capabilities: [
@@ -1315,7 +1301,6 @@ fn default_engine_hello() -> PeerHello {
             "eitmad.capability.authorization-scopes.v1",
             "eitmad.capability.config.v1",
             "eitmad.capability.permissions.v1",
-            "eitmad.capability.reference-marker.v1",
             "eitmad.capability.customer.v1",
             "eitmad.capability.product.v1",
             "eitmad.capability.furniture.v1",
@@ -1335,13 +1320,6 @@ fn default_engine_hello() -> PeerHello {
             .expect("static capability is valid"),
         ],
         schemas: vec![
-            SchemaSupport {
-                schema_id: SchemaId::parse("eitmad.schema.reference-marker.v1")
-                    .expect("static schema ID is valid"),
-                minimum_version: 1,
-                maximum_version: 1,
-                required: false,
-            },
             SchemaSupport {
                 schema_id: SchemaId::parse("eitmad.schema.customer.v1")
                     .expect("static schema ID is valid"),
@@ -1614,7 +1592,7 @@ mod tests {
         commands::{CancelOperation, Command},
         config::{ConfigReadValue, ConfigSnapshot},
         errors::{ErrorParameter, ErrorParameterName, ErrorParameterValue},
-        events::{AuthorizationPolicyChanges, ConfigurationChanges, Subscription},
+        events::{ConfigurationChanges, Subscription},
         identity::{
             AuthenticatedIdentity, DeviceId, PrincipalId, PrincipalKind, ScopeId, ScopeKind,
             ScopeRef, SessionId, TenantId, WorkspaceId,
@@ -2505,21 +2483,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn protocol_1_1_revocation_terminates_without_unknown_close_reason() {
-        let (deliveries, mut receiver) = mpsc::channel(1);
-        send_authorization_revoked(
-            &deliveries,
-            SubscriptionId::new(uuid::Uuid::new_v4()),
-            CorrelationId::new(uuid::Uuid::new_v4()),
-            ProtocolVersion { major: 1, minor: 1 },
-        )
-        .await;
-        let delivery = receiver.recv().await.unwrap();
-        assert!(delivery.message.is_none());
-        assert!(delivery.terminate_connection);
-    }
-
-    #[tokio::test]
     async fn connection_rejects_subscriptions_at_capacity() {
         let service = service(Some("token"));
         let response = service.handshake(handshake(PROTOCOL_VERSION, "token"));
@@ -2570,63 +2533,18 @@ mod tests {
     }
 
     #[test]
-    fn protocol_1_0_negotiates_without_subscription_support() {
+    fn outdated_beta_peers_are_rejected_at_handshake() {
         let service = service(Some("token"));
-        let response =
-            service.handshake(handshake(ProtocolVersion { major: 1, minor: 0 }, "token"));
-        let HandshakeOutcome::Accepted(accepted) = response.outcome else {
-            panic!("protocol 1.0 should remain compatible");
-        };
-        let session = Session {
-            negotiated: accepted.negotiated,
-            authorization: accepted.authorization.clone(),
-            user_authorization: None,
-        };
-        let request = SubscriptionEnvelope {
-            protocol_version: ProtocolVersion { major: 1, minor: 0 },
-            request_id: RequestId::new(uuid::Uuid::new_v4()),
-            correlation_id: CorrelationId::new(uuid::Uuid::new_v4()),
-            authorization: accepted.authorization,
-            subscription: Subscription::Configuration(ConfigurationChanges {}),
-            resume_after: None,
-        };
-        assert_eq!(
-            validate_subscription(Some(&session), &request)
-                .unwrap()
-                .code
-                .as_str(),
-            "eitmad.error.ipc-subscription-unsupported.v1"
-        );
-    }
-
-    #[test]
-    fn protocol_1_1_cannot_request_authorization_policy_events() {
-        let service = service(Some("token"));
-        let protocol = ProtocolVersion { major: 1, minor: 1 };
-        let response = service.handshake(handshake(protocol, "token"));
-        let HandshakeOutcome::Accepted(accepted) = response.outcome else {
-            panic!("protocol 1.1 should remain compatible");
-        };
-        let session = Session {
-            negotiated: accepted.negotiated,
-            authorization: accepted.authorization.clone(),
-            user_authorization: None,
-        };
-        let request = SubscriptionEnvelope {
-            protocol_version: protocol,
-            request_id: RequestId::new(uuid::Uuid::new_v4()),
-            correlation_id: CorrelationId::new(uuid::Uuid::new_v4()),
-            authorization: accepted.authorization,
-            subscription: Subscription::AuthorizationPolicy(AuthorizationPolicyChanges {}),
-            resume_after: None,
-        };
-        assert_eq!(
-            validate_subscription(Some(&session), &request)
-                .unwrap()
-                .code
-                .as_str(),
-            "eitmad.error.ipc-subscription-unsupported.v1"
-        );
+        for minor in [0, 1, PROTOCOL_VERSION.minor - 1] {
+            let response = service.handshake(handshake(
+                ProtocolVersion {
+                    major: PROTOCOL_VERSION.major,
+                    minor,
+                },
+                "token",
+            ));
+            assert!(matches!(response.outcome, HandshakeOutcome::Rejected(_)));
+        }
     }
 
     #[tokio::test]

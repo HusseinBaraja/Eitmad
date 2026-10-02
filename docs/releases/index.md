@@ -20,7 +20,7 @@ keywords:
 - [Upgrade local storage to version 5 identity and recovery](storage-v5-identity-recovery.md): persistent tenant identity, session attribution, compatibility windows, migration snapshots, integrity, restore, and export.
 - [Upgrade to protocol 1.3 scoped authorization and audit](protocol-1-3-scoped-authorization-audit.md): tenant/workspace context, relationship graphs, boundary gates, storage version 6, rollout, and rollback.
 - [Upgrade local storage to version 7 synchronization state](storage-v7-sync-state.md): scoped durable mode state, offline queues, optimistic rollback, migration compatibility, generated contracts, and rollback limits.
-- [Upgrade local storage to version 8 reference markers](storage-v8-reference-marker.md): bounded reference-marker state, atomic audit and publication outboxes, local-first sync, compatibility, and rollback limits.
+- [Storage version 8: retired demo history](storage-v8-reference-marker.md): immutable migration history and retained local rows after demo removal.
 - [Upgrade to protocol 1.9 and storage version 13 customers](storage-v13-customers.md): branch-scoped customer contacts, normalized search, atomic local-first state, generated bindings, and rollback limits.
 - [Upgrade customer synchronization to storage version 14](storage-v14-customer-sync.md): durable rejection and conflict state, scoped server delivery, and recovery limits.
 - [Upgrade raw materials to storage version 15](storage-v15-material-definitions.md): organization-scoped definitions, protocol 1.10, manager permission, and local recovery limits.

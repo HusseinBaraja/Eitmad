@@ -85,7 +85,7 @@ Prove one real business workflow through the Arabic UI, Rust engine, local SQLit
 
 Add focused tests for success, invalid input, denial, tenant isolation, audit failure, idempotent replay, revision conflict, migration, recovery, sync conflict or server denial, compatibility, Arabic/mixed text, RTL, accessibility surfaces, and resource bounds. Run the full [base readiness checklist](../operations/base-application-readiness-checklist.md), the real engine path, and the release-impact checks for the target platform.
 
-Use the [reference-marker vertical](subsystems/reference-marker.md) as a small example of contract, authorization, atomic storage/audit/outbox, event publication, generated bindings, Arabic UI, and tests. Do not copy its local-first mode into a truth-sensitive domain without a domain decision.
+Use the [customer capability](subsystems/customers.md) to trace authorization, atomic storage, audit, outbox publication, generated bindings, and Arabic presentation through a real product workflow.
 
 ## 11. Complete documentation and handoff
 

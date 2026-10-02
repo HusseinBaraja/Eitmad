@@ -22,11 +22,10 @@ These limits are deliberate and visible. A caller must not infer unavailable sta
 
 - No real furniture business domain is implemented or registered on the server.
 - Local installation authority trusts one Windows-account boundary. It supports password sign-in and durable user sessions, but it does not import accounts from the server control plane and has no role switching, multi-user session rotation, or remote revocation workflow.
-- The reference-marker vertical is a foundation example, not a production workflow.
 
 ## Sync and networking
 
-- The sync engine, transport policy, server sync plane, snapshot history, conflict model, and durable reference-marker outbox exist, but the desktop runtime has no production connector or background reconciliation coordinator.
+- The sync engine, transport policy, server sync plane, snapshot history, and conflict model exist, but the desktop runtime has no production connector or background reconciliation coordinator.
 - The engine does not advertise local sync status or record-change capability until that coordinator exists.
 - LAN discovery and production WAN/relay payload routing are not implemented. The relay plane coordinates authorized metadata and lifecycle only.
 - The base server has an empty `DomainRegistry`, so it correctly advertises no domain schema and rejects domain sync traffic.

@@ -76,8 +76,8 @@ internal sealed class SupervisionScenarios
             () => fixture.Supervisor.QueryAsync(Query.ForConfigGet(new GetConfiguration())),
             "typed query requires connected engine");
         await Assert.ThrowsAsync<EngineIpcException>(
-            () => fixture.Supervisor.SubmitConfigurationPatchAsync(
-                new UpdateConfiguration { ExpectedRevision = 1, Changes = [] },
+            () => fixture.Supervisor.SubmitCommandAsync(
+                Command.ForConfigUpdate(new UpdateConfiguration { ExpectedRevision = 1, Changes = [] }),
                 Guid.NewGuid()),
             "typed configuration patch requires connected engine");
     }
@@ -86,8 +86,8 @@ internal sealed class SupervisionScenarios
     {
         var fixture = new SupervisorFixture();
         await Assert.ThrowsAsync<ArgumentException>(
-            () => fixture.Supervisor.SubmitConfigurationPatchAsync(
-                new UpdateConfiguration { ExpectedRevision = 1, Changes = [] },
+            () => fixture.Supervisor.SubmitCommandAsync(
+                Command.ForConfigUpdate(new UpdateConfiguration { ExpectedRevision = 1, Changes = [] }),
                 Guid.Empty),
             "typed configuration patch requires idempotency");
     }
@@ -424,10 +424,11 @@ internal sealed class SupervisionScenarios
 
             var persistedProduct = await SaveSupplierProduct(supervisor);
 
-            var patchResponse = await supervisor.SubmitConfigurationPatchAsync(
-                new UpdateConfiguration
+            var patchResponse = await supervisor.SubmitCommandAsync(
+                Command.ForConfigUpdate(new UpdateConfiguration
                 {
-                    ExpectedRevision = configuration.Revision,
+                    ExpectedRevision = configuration.Revision
+                        ?? throw new InvalidOperationException("Real engine omitted the configuration revision."),
                     Changes =
                     [
                         new ConfigChange
@@ -436,7 +437,7 @@ internal sealed class SupervisionScenarios
                             Value = new ConfigWriteValue { Kind = ConfigWriteValueKind.Text, Value = "ar-YE" },
                         },
                     ],
-                },
+                }),
                 Guid.NewGuid());
             Assert.Equal(CommandOutcomeStatus.Failed, patchResponse.Outcome.Status, "manager configuration write denial");
             Assert.Equal(

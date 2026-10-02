@@ -46,22 +46,6 @@ public partial class Command
     public CancelOperation? AsOperationCancel() =>
         Kind == OperationCancelKind ? PayloadAs<CancelOperation>() : null;
 
-    public const string UpdateReportInstallerOutcomeKind = "eitmad.update.report-installer-outcome.v1";
-
-    public static Command ForUpdateReportInstallerOutcome(ReportInstallerOutcome payload) =>
-        new() { Kind = UpdateReportInstallerOutcomeKind, Payload = payload };
-
-    public ReportInstallerOutcome? AsUpdateReportInstallerOutcome() =>
-        Kind == UpdateReportInstallerOutcomeKind ? PayloadAs<ReportInstallerOutcome>() : null;
-
-    public const string ReferenceMarkerUpsertKind = "eitmad.reference-marker.upsert.v1";
-
-    public static Command ForReferenceMarkerUpsert(UpsertReferenceMarker payload) =>
-        new() { Kind = ReferenceMarkerUpsertKind, Payload = payload };
-
-    public UpsertReferenceMarker? AsReferenceMarkerUpsert() =>
-        Kind == ReferenceMarkerUpsertKind ? PayloadAs<UpsertReferenceMarker>() : null;
-
     public const string CustomerCreateKind = "eitmad.customer.create.v1";
 
     public static Command ForCustomerCreate(CreateCustomer payload) =>
@@ -262,14 +246,6 @@ public partial class Event
 
     public ScopedError? AsErrorEvent() =>
         Kind == ErrorEventKind ? PayloadAs<ScopedError>() : null;
-
-    public const string ReferenceMarkerChangedEventKind = "eitmad.reference-marker.changed.event.v1";
-
-    public static Event ForReferenceMarkerChangedEvent(ReferenceMarkerChangeNotice payload) =>
-        new() { Kind = ReferenceMarkerChangedEventKind, Payload = payload };
-
-    public ReferenceMarkerChangeNotice? AsReferenceMarkerChangedEvent() =>
-        Kind == ReferenceMarkerChangedEventKind ? PayloadAs<ReferenceMarkerChangeNotice>() : null;
 
     public const string CustomerChangedEventKind = "eitmad.customer.changed.event.v1";
 
@@ -554,14 +530,6 @@ public partial class Query
     public GetSyncStatus? AsSyncGetStatus() =>
         Kind == SyncGetStatusKind ? PayloadAs<GetSyncStatus>() : null;
 
-    public const string ReferenceMarkerListKind = "eitmad.reference-marker.list.v1";
-
-    public static Query ForReferenceMarkerList(ListReferenceMarkers payload) =>
-        new() { Kind = ReferenceMarkerListKind, Payload = payload };
-
-    public ListReferenceMarkers? AsReferenceMarkerList() =>
-        Kind == ReferenceMarkerListKind ? PayloadAs<ListReferenceMarkers>() : null;
-
     public const string CustomerGetKind = "eitmad.customer.get.v1";
 
     public static Query ForCustomerGet(GetCustomer payload) =>
@@ -754,14 +722,6 @@ public partial class QueryResult
 
     public SyncStatus? AsSyncStatus() =>
         Kind == SyncStatusKind ? PayloadAs<SyncStatus>() : null;
-
-    public const string ReferenceMarkersKind = "referenceMarkers";
-
-    public static QueryResult ForReferenceMarkers(ReferenceMarkerPage payload) =>
-        new() { Kind = ReferenceMarkersKind, Payload = payload };
-
-    public ReferenceMarkerPage? AsReferenceMarkers() =>
-        Kind == ReferenceMarkersKind ? PayloadAs<ReferenceMarkerPage>() : null;
 
     public const string CustomerKind = "customer";
 
@@ -1086,14 +1046,6 @@ public partial class Subscription
     public Errors? AsErrorSubscribe() =>
         Kind == ErrorSubscribeKind ? PayloadAs<Errors>() : null;
 
-    public const string ReferenceMarkerChangedSubscribeKind = "eitmad.reference-marker.changed.subscribe.v1";
-
-    public static Subscription ForReferenceMarkerChangedSubscribe(ReferenceMarkerChanges payload) =>
-        new() { Kind = ReferenceMarkerChangedSubscribeKind, Payload = payload };
-
-    public ReferenceMarkerChanges? AsReferenceMarkerChangedSubscribe() =>
-        Kind == ReferenceMarkerChangedSubscribeKind ? PayloadAs<ReferenceMarkerChanges>() : null;
-
     public const string CustomerChangedSubscribeKind = "eitmad.customer.changed.subscribe.v1";
 
     public static Subscription ForCustomerChangedSubscribe(CustomerChanges payload) =>
@@ -1332,10 +1284,6 @@ public partial class ProductChanges
 }
 
 public partial class RecordChanges
-{
-}
-
-public partial class ReferenceMarkerChanges
 {
 }
 

@@ -139,14 +139,6 @@ pub enum UpdateCheckOutcome {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", content = "payload", rename_all = "camelCase")]
-pub enum InstallerOutcome {
-    Succeeded { installed_version: ReleaseVersion },
-    Failed { error_code: ErrorCode },
-    Cancelled,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(tag = "kind", content = "payload", rename_all = "camelCase")]
 pub enum UpdateState {
     Idle,
     Checking,

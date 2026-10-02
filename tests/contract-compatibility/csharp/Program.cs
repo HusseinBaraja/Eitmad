@@ -10,9 +10,6 @@ using var fixture = JsonDocument.Parse(File.ReadAllText(args[0]));
 var queryJson = fixture.RootElement.GetProperty("query").GetRawText();
 var query = JsonSerializer.Deserialize<QueryEnvelope>(queryJson, Converter.Settings)
     ?? throw new InvalidOperationException("C# binding did not decode the Rust query fixture.");
-var queryProtocol10Json = fixture.RootElement.GetProperty("queryProtocol10").GetRawText();
-var queryProtocol10 = JsonSerializer.Deserialize<QueryEnvelope>(queryProtocol10Json, Converter.Settings)
-    ?? throw new InvalidOperationException("C# binding did not decode the Rust protocol 1.0 fixture.");
 
 static string? QueryKind(QueryEnvelope envelope) =>
     envelope.Query.TryGetValue("kind", out var kind)
@@ -26,9 +23,7 @@ static string? QueryKind(QueryEnvelope envelope) =>
 
 if (QueryKind(query) != Query.ConfigGetKind
     || query.ProtocolVersion.Major != ProtocolIds.Version.Major
-    || query.ProtocolVersion.Minor != ProtocolIds.Version.Minor
-    || queryProtocol10.ProtocolVersion.Minor != 0
-    || QueryKind(queryProtocol10) != Query.ConfigGetKind)
+    || query.ProtocolVersion.Minor != ProtocolIds.Version.Minor)
 {
     throw new InvalidOperationException("C# binding decoded the wrong query version or identifier.");
 }

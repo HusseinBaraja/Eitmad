@@ -143,36 +143,6 @@ public sealed class EngineSupervisor : IAsyncDisposable
         }
     }
 
-    public Task<CommandResponseEnvelope> SubmitConfigurationPatchAsync(
-        UpdateConfiguration patch,
-        Guid idempotencyKey,
-        TimeSpan? timeout = null,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(patch);
-        if (idempotencyKey == Guid.Empty)
-        {
-            throw new ArgumentException("The configuration patch requires a non-empty idempotency key.", nameof(idempotencyKey));
-        }
-
-        var client = GetConnectedClient();
-        var requestTimeout = timeout ?? EngineIpcClient.DefaultRequestTimeout;
-        var requestId = Guid.NewGuid();
-        return client.SendCommandAsync(
-            new CommandEnvelope
-            {
-                ProtocolVersion = SessionProtocol(client),
-                RequestId = requestId,
-                CorrelationId = Guid.NewGuid(),
-                Authorization = client.Authorization,
-                Deadline = DeadlineAfter(requestTimeout),
-                IdempotencyKey = idempotencyKey,
-                Command = ToPayloadDictionary(Command.ForConfigUpdate(patch)),
-            },
-            requestTimeout,
-            cancellationToken);
-    }
-
     public Task<CommandResponseEnvelope> SubmitCommandAsync(
         Command command,
         Guid idempotencyKey,
@@ -198,36 +168,6 @@ public sealed class EngineSupervisor : IAsyncDisposable
                 Deadline = DeadlineAfter(requestTimeout),
                 IdempotencyKey = idempotencyKey,
                 Command = ToPayloadDictionary(command),
-            },
-            requestTimeout,
-            cancellationToken);
-    }
-
-    public Task<CommandResponseEnvelope> SubmitReferenceMarkerAsync(
-        UpsertReferenceMarker marker,
-        Guid idempotencyKey,
-        TimeSpan? timeout = null,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(marker);
-        if (idempotencyKey == Guid.Empty)
-        {
-            throw new ArgumentException("The reference marker requires a non-empty idempotency key.", nameof(idempotencyKey));
-        }
-
-        var client = GetConnectedClient();
-        var requestTimeout = timeout ?? EngineIpcClient.DefaultRequestTimeout;
-        var requestId = Guid.NewGuid();
-        return client.SendCommandAsync(
-            new CommandEnvelope
-            {
-                ProtocolVersion = SessionProtocol(client),
-                RequestId = requestId,
-                CorrelationId = Guid.NewGuid(),
-                Authorization = client.Authorization,
-                Deadline = DeadlineAfter(requestTimeout),
-                IdempotencyKey = idempotencyKey,
-                Command = ToPayloadDictionary(Command.ForReferenceMarkerUpsert(marker)),
             },
             requestTimeout,
             cancellationToken);
@@ -745,7 +685,6 @@ public sealed class EngineSupervisor : IAsyncDisposable
                 ProtocolIds.Capabilities.EitmadCapabilityAuthorizationScopesV1,
                 ProtocolIds.Capabilities.EitmadCapabilityConfigV1,
                 ProtocolIds.Capabilities.EitmadCapabilityPermissionsV1,
-                ProtocolIds.Capabilities.EitmadCapabilityReferenceMarkerV1,
                 ProtocolIds.Capabilities.EitmadCapabilityCustomerV1,
                 ProtocolIds.Capabilities.EitmadCapabilityMaterialV1,
                 ProtocolIds.Capabilities.EitmadCapabilityPartV1,
@@ -760,13 +699,6 @@ public sealed class EngineSupervisor : IAsyncDisposable
             ],
             Schemas =
             [
-                new SchemaSupport
-                {
-                    SchemaId = ProtocolIds.SchemaIds.EitmadSchemaReferenceMarkerV1,
-                    MinimumVersion = 1,
-                    MaximumVersion = 1,
-                    SchemaSupportRequired = false,
-                },
                 new SchemaSupport
                 {
                     SchemaId = ProtocolIds.SchemaIds.EitmadSchemaCustomerV1,

@@ -21,7 +21,6 @@ use crate::{
         GetProductRevision, ListProductCategories, ListProducts, Product, ProductCategories,
         ProductPage,
     },
-    reference_marker::{ListReferenceMarkers, ReferenceMarkerPage},
     sync::SyncStatus,
     updates::UpdateState,
 };
@@ -91,7 +90,6 @@ tagged_contract! {
         ScopeRelationships(ListScopeRelationships) => "eitmad.authorization.relationships.list.v1",
         UpdateState(GetUpdateState) => "eitmad.update.get-state.v1",
         SyncStatus(GetSyncStatus) => "eitmad.sync.get-status.v1",
-        ReferenceMarkers(ListReferenceMarkers) => "eitmad.reference-marker.list.v1",
         Customer(GetCustomer) => "eitmad.customer.get.v1",
         Customers(SearchCustomers) => "eitmad.customer.search.v1",
         Furnitures(ListFurnitures) => "eitmad.furniture.list.v1",
@@ -120,7 +118,6 @@ pub enum QueryResult {
     ScopeRelationships(RelationshipPage),
     UpdateState(UpdateState),
     SyncStatus(SyncStatus),
-    ReferenceMarkers(ReferenceMarkerPage),
     Customer(Customer),
     Customers(CustomerPage),
     Furnitures(FurniturePage),

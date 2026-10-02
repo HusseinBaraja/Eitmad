@@ -59,7 +59,7 @@ The server requires these capabilities:
 - `eitmad.capability.server-update-distribution.v1`
 - `eitmad.capability.server-administration.v1`
 
-Negotiation selects an overlapping protocol and registered schema range. Missing capabilities, an unknown required schema, or no compatible version produces `eitmad.error.server-client-incompatible.v1` before normal traffic. Protocol `1.0–1.3` remains in the encoded compatibility window for existing local IPC behavior. Server sync needs at least `1.4`. Each relay, update-distribution, or administration HTTP request must send the base64url-encoded `PeerHello` JSON in `x-eitmad-peer-hello`; Rust requires protocol `1.5` or newer and the route capability before it authenticates or dispatches the request.
+Negotiation selects an overlapping protocol and registered schema range. Missing capabilities, an unknown required schema, or no compatible version produces `eitmad.error.server-client-incompatible.v1` before normal traffic. Local IPC supports only the current desktop protocol; see [contract evolution](../../api/evolve-contracts-compatibly.md). Server sync needs at least `1.4`. Each relay, update-distribution, or administration HTTP request must send the base64url-encoded `PeerHello` JSON in `x-eitmad-peer-hello`; Rust requires protocol `1.5` or newer and the route capability before it authenticates or dispatches the request.
 
 ## Identity, authentication, and sessions
 

@@ -98,7 +98,7 @@ public sealed class OperationsTableRenderedTests
     }
 
     [TestMethod]
-    public void RealListRetainsSelectionThroughFilterRebuildAndUsesTypedPriceSorting()
+    public void RealListRetainsSelectionThroughFilterRebuild()
     {
         WpfTestHost.Run(900, 700, window =>
         {
@@ -114,17 +114,6 @@ public sealed class OperationsTableRenderedTests
             Assert.IsFalse(page.ViewModel.IsEditorOpen);
             page.ViewModel.SearchText = "";
             WpfTestHost.CompleteLayout(window);
-            Assert.AreSame(record, table.SelectedItem);
-            var column = table.Columns.Single(item => item.SortMemberPath == "SellingPrice");
-            var header = WpfTestHost.Descendants<DataGridColumnHeader>(table).Single(item => item.Column == column);
-            Assert.IsTrue(table.CanUserSortColumns);
-            Assert.IsTrue(column.CanUserSort);
-            header.Focus();
-            header.RaiseEvent(new System.Windows.Input.KeyEventArgs(System.Windows.Input.Keyboard.PrimaryDevice, PresentationSource.FromVisual(header), 0, System.Windows.Input.Key.Space) { RoutedEvent = System.Windows.Input.Keyboard.KeyDownEvent });
-            header.RaiseEvent(new System.Windows.Input.KeyEventArgs(System.Windows.Input.Keyboard.PrimaryDevice, PresentationSource.FromVisual(header), 0, System.Windows.Input.Key.Space) { RoutedEvent = System.Windows.Input.Keyboard.KeyUpEvent });
-            WpfTestHost.CompleteLayout(window);
-            var values = table.Items.Cast<Eitmad.WindowsShell.Features.Pricing.PricingListItem>().Select(item => item.SellingPrice).ToArray();
-            CollectionAssert.AreEqual(values.Order().ToArray(), values);
             Assert.AreSame(record, table.SelectedItem);
             page.ViewModel.SearchText = "لا توجد نتيجة تجريبية";
             WpfTestHost.CompleteLayout(window);

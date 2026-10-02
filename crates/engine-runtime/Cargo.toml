@@ -21,7 +21,6 @@ eitmad-part = { path = "../part" }
 eitmad-product = { path = "../product" }
 eitmad-furniture = { path = "../furniture" }
 eitmad-observability-audit = { path = "../observability-audit" }
-eitmad-reference-marker = { path = "../reference-marker" }
 eitmad-storage = { path = "../storage" }
 eitmad-sync = { path = "../sync" }
 fs2 = "=0.4.3"

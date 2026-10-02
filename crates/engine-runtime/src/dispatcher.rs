@@ -8,35 +8,26 @@ use eitmad_authorization::FURNITURE_READ_PERMISSION;
 use eitmad_authorization::MATERIAL_READ_PERMISSION;
 use eitmad_authorization::{
     AUTHORIZATION_MANAGE_PERMISSION, AccessAuditContext, AuthorizationError, AuthorizationService,
-    BoundaryAuditContext, CONFIG_READ_PERMISSION, MutationContext, PERMISSIONS_READ_PERMISSION,
-    now,
+    CONFIG_READ_PERMISSION, MutationContext, PERMISSIONS_READ_PERMISSION, now,
 };
 use eitmad_authorization::{PART_READ_PERMISSION, PRODUCT_READ_PERMISSION};
 use eitmad_configuration::{ConfigurationError, ConfigurationService};
 use eitmad_contracts::{
     accounts::CreateDesktopAccount,
-    authorization::AuthorizationRequest,
     commands::{Command, CommandResult, CreateCustomer, UpdateCustomer},
     errors::{ContractError, ErrorCode, ErrorDetail, MessageId, RetryDisposition},
     events::{Event, Subscription},
-    identity::{AuthorizationContext, ScopeRef},
     material::{SaveMaterial, SaveMaterialCategory, SaveMaterialUnit},
     queries::{Query, QueryResult},
 };
-use eitmad_customer::{
-    CUSTOMER_READ_PERMISSION, CustomerError, CustomerService, CustomerSyncCycle, CustomerSyncError,
-};
+use eitmad_customer::{CUSTOMER_READ_PERMISSION, CustomerError, CustomerService};
 use eitmad_furniture::{FurnitureError, FurnitureService};
 use eitmad_material::{MaterialError, MaterialService};
 use eitmad_observability_audit::AuditOutcome;
 use eitmad_part::{PartError, PartService};
 use eitmad_product::{ProductError, ProductService};
-use eitmad_reference_marker::{
-    REFERENCE_MARKER_READ_PERMISSION, ReferenceMarkerError, ReferenceMarkerService,
-};
 use eitmad_storage::AuthorityStore;
 use eitmad_storage::MAX_PUBLICATION_RECOVERY_PAGE;
-use eitmad_sync::{SyncEngine, SyncTransport};
 
 use crate::local_ipc::{
     CommandDispatcher, DispatchContext, EventBroker, QueryDispatcher, SubscriptionContext,
@@ -47,7 +38,6 @@ pub struct ProductDispatcher {
     store: AuthorityStore,
     authorization: AuthorizationService,
     configuration: ConfigurationService,
-    reference_markers: ReferenceMarkerService,
     customers: CustomerService,
     materials: MaterialService,
     parts: PartService,
@@ -59,12 +49,6 @@ pub struct ProductDispatcher {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PublicationRecoveryError;
-
-#[derive(Debug)]
-pub enum CustomerSyncDispatchError {
-    Cycle(CustomerSyncError),
-    Publication(PublicationRecoveryError),
-}
 
 pub const MAX_STARTUP_PUBLICATION_RECOVERY: usize = 1_024;
 
@@ -102,7 +86,6 @@ impl ProductDispatcher {
     fn with_event_publisher(store: AuthorityStore, events: Arc<dyn ProductEventPublisher>) -> Self {
         let authorization = AuthorizationService::new(store.clone());
         let configuration = ConfigurationService::new(store.clone(), authorization.clone());
-        let reference_markers = ReferenceMarkerService::new(store.clone(), authorization.clone());
         let customers = CustomerService::new(store.clone(), authorization.clone());
         let materials = MaterialService::new(store.clone(), authorization.clone());
         let furnitures = FurnitureService::new(store.clone(), authorization.clone());
@@ -113,7 +96,6 @@ impl ProductDispatcher {
             store,
             authorization,
             configuration,
-            reference_markers,
             customers,
             materials,
             parts,
@@ -127,36 +109,6 @@ impl ProductDispatcher {
     #[must_use]
     pub const fn authorization(&self) -> &AuthorizationService {
         &self.authorization
-    }
-
-    /// Runs one customer sync cycle on a Rust worker and publishes its durable
-    /// customer changes to active IPC subscriptions.
-    ///
-    /// # Errors
-    ///
-    /// Retains unconfirmed work and publication rows when either phase fails.
-    pub fn sync_customers_once<T: SyncTransport>(
-        &self,
-        engine: &mut SyncEngine,
-        transport: &mut T,
-        actor: &AuthorizationContext,
-        server_scope: &ScopeRef,
-        request: &AuthorizationRequest,
-        audit: &BoundaryAuditContext,
-    ) -> Result<(), CustomerSyncDispatchError> {
-        CustomerSyncCycle {
-            customers: &self.customers,
-            engine,
-            transport,
-            actor,
-            server_scope,
-            request,
-            audit,
-        }
-        .run()
-        .map_err(CustomerSyncDispatchError::Cycle)?;
-        self.drain_pending_publications()
-            .map_err(CustomerSyncDispatchError::Publication)
     }
 
     fn mutation_context(context: &DispatchContext) -> Result<MutationContext, Box<ContractError>> {
@@ -184,7 +136,6 @@ impl ProductDispatcher {
         mutation: &MutationContext,
         command: &CreateCustomer,
     ) -> Result<CommandResult, Box<ContractError>> {
-        require_protocol_1_9(context)?;
         let result = self
             .customers
             .create(mutation, command)
@@ -200,7 +151,6 @@ impl ProductDispatcher {
         mutation: &MutationContext,
         command: &UpdateCustomer,
     ) -> Result<CommandResult, Box<ContractError>> {
-        require_protocol_1_9(context)?;
         let result = self
             .customers
             .update(mutation, command)
@@ -216,7 +166,6 @@ impl ProductDispatcher {
         mutation: &MutationContext,
         command: &SaveMaterialCategory,
     ) -> Result<CommandResult, Box<ContractError>> {
-        require_protocol_1_10(context)?;
         let saved = self
             .materials
             .save_category(mutation, command)
@@ -232,7 +181,6 @@ impl ProductDispatcher {
         mutation: &MutationContext,
         command: &SaveMaterialUnit,
     ) -> Result<CommandResult, Box<ContractError>> {
-        require_protocol_1_10(context)?;
         let saved = self
             .materials
             .save_unit(mutation, command)
@@ -248,7 +196,6 @@ impl ProductDispatcher {
         mutation: &MutationContext,
         command: &SaveMaterial,
     ) -> Result<CommandResult, Box<ContractError>> {
-        require_protocol_1_10(context)?;
         let saved = self
             .materials
             .save_material(mutation, command)
@@ -265,7 +212,6 @@ impl ProductDispatcher {
         mutation: &MutationContext,
         command: Command,
     ) -> Result<CommandResult, Box<ContractError>> {
-        require_protocol_1_11(context)?;
         let result = match command {
             Command::SavePart(command) => self
                 .parts
@@ -289,7 +235,6 @@ impl ProductDispatcher {
         context: &DispatchContext,
         query: Query,
     ) -> Result<QueryResult, Box<ContractError>> {
-        require_protocol_1_11(context)?;
         match query {
             Query::Parts(query) => self
                 .parts
@@ -319,7 +264,6 @@ impl ProductDispatcher {
         mutation: &MutationContext,
         command: Command,
     ) -> Result<CommandResult, Box<ContractError>> {
-        require_protocol_1_12(context)?;
         let result = match command {
             Command::SaveProduct(command) => self
                 .products
@@ -343,7 +287,6 @@ impl ProductDispatcher {
         context: &DispatchContext,
         query: Query,
     ) -> Result<QueryResult, Box<ContractError>> {
-        require_protocol_1_12(context)?;
         match query {
             Query::Products(query) => self
                 .products
@@ -401,7 +344,6 @@ impl ProductDispatcher {
         mutation: &MutationContext,
         command: Command,
     ) -> Result<CommandResult, Box<ContractError>> {
-        require_protocol_1_13(context)?;
         let result = match command {
             Command::SaveFurniture(command) => self
                 .furnitures
@@ -425,7 +367,6 @@ impl ProductDispatcher {
         context: &DispatchContext,
         query: Query,
     ) -> Result<QueryResult, Box<ContractError>> {
-        require_protocol_1_13(context)?;
         match query {
             Query::Furnitures(query) => self
                 .furnitures
@@ -459,7 +400,6 @@ impl ProductDispatcher {
         mutation: &MutationContext,
         command: &CreateDesktopAccount,
     ) -> Result<CommandResult, Box<ContractError>> {
-        require_protocol_1_8(context)?;
         let account = self
             .accounts
             .create(mutation, command)
@@ -578,7 +518,6 @@ impl CommandDispatcher for ProductDispatcher {
                 Ok(CommandResult::ConfigurationUpdated(outcome.snapshot))
             }
             Command::GrantScopeRelationship(command) => {
-                require_protocol_1_2(&context).map_err(|error| *error)?;
                 let result = self
                     .authorization
                     .grant_relationship(&mutation, &command)
@@ -588,7 +527,6 @@ impl CommandDispatcher for ProductDispatcher {
                 Ok(CommandResult::RelationshipGranted(result))
             }
             Command::RevokeScopeRelationship(command) => {
-                require_protocol_1_2(&context).map_err(|error| *error)?;
                 let result = self
                     .authorization
                     .revoke_relationship(&mutation, &command)
@@ -596,17 +534,6 @@ impl CommandDispatcher for ProductDispatcher {
                 self.publish_pending(&context, mutation.idempotency_key)
                     .map_err(|()| authorization_error(AuthorizationError::Unavailable, &context))?;
                 Ok(CommandResult::RelationshipRevoked(result))
-            }
-            Command::UpsertReferenceMarker(command) => {
-                let outcome = self
-                    .reference_markers
-                    .upsert(&mutation, &command)
-                    .map_err(|error| reference_marker_error(error, &context))?;
-                self.publish_pending(&context, mutation.idempotency_key)
-                    .map_err(|()| {
-                        reference_marker_error(ReferenceMarkerError::Unavailable, &context)
-                    })?;
-                Ok(CommandResult::ReferenceMarkerUpserted(outcome.marker))
             }
             Command::CreateCustomer(command) => self
                 .create_customer(&context, &mutation, &command)
@@ -636,7 +563,6 @@ impl CommandDispatcher for ProductDispatcher {
                 .create_desktop_account(&context, &mutation, &command)
                 .map_err(|error| *error),
             Command::UpdateDesktopAccount(command) => {
-                require_protocol_1_8(&context).map_err(|error| *error)?;
                 let account = self
                     .accounts
                     .update(&mutation, &command)
@@ -648,7 +574,6 @@ impl CommandDispatcher for ProductDispatcher {
                 Ok(CommandResult::DesktopAccountUpdated(account))
             }
             Command::DeactivateDesktopAccount(command) => {
-                require_protocol_1_8(&context).map_err(|error| *error)?;
                 let account = self
                     .accounts
                     .deactivate(&mutation, &command)
@@ -659,7 +584,7 @@ impl CommandDispatcher for ProductDispatcher {
                     })?;
                 Ok(CommandResult::DesktopAccountDeactivated(account))
             }
-            Command::CancelOperation(_) | Command::ReportInstallerOutcome(_) => self
+            Command::CancelOperation(_) => self
                 .reject_unsupported_command(&context, operation)
                 .map_err(|error| *error),
         }
@@ -686,32 +611,21 @@ impl QueryDispatcher for ProductDispatcher {
                 .effective_permissions(&context.authorization)
                 .map(QueryResult::EffectivePermissions)
                 .map_err(|error| authorization_error(error, &context)),
-            Query::ScopeRelationships(query) => {
-                require_protocol_1_2(&context).map_err(|error| *error)?;
-                self.authorization
-                    .list_relationships(&context.authorization, &query)
-                    .map(QueryResult::ScopeRelationships)
-                    .map_err(|error| authorization_error(error, &context))
-            }
-            Query::ReferenceMarkers(query) => self
-                .reference_markers
-                .list(&context.authorization, &query)
-                .map(QueryResult::ReferenceMarkers)
-                .map_err(|error| reference_marker_error(error, &context)),
-            Query::Customer(query) => {
-                require_protocol_1_9(&context).map_err(|error| *error)?;
-                self.customers
-                    .get(&context.authorization, &query)
-                    .map(QueryResult::Customer)
-                    .map_err(|error| customer_error(error, &context))
-            }
-            Query::Customers(query) => {
-                require_protocol_1_9(&context).map_err(|error| *error)?;
-                self.customers
-                    .search(&context.authorization, &query)
-                    .map(QueryResult::Customers)
-                    .map_err(|error| customer_error(error, &context))
-            }
+            Query::ScopeRelationships(query) => self
+                .authorization
+                .list_relationships(&context.authorization, &query)
+                .map(QueryResult::ScopeRelationships)
+                .map_err(|error| authorization_error(error, &context)),
+            Query::Customer(query) => self
+                .customers
+                .get(&context.authorization, &query)
+                .map(QueryResult::Customer)
+                .map_err(|error| customer_error(error, &context)),
+            Query::Customers(query) => self
+                .customers
+                .search(&context.authorization, &query)
+                .map(QueryResult::Customers)
+                .map_err(|error| customer_error(error, &context)),
             query @ (Query::Furnitures(_)
             | Query::FurnitureCategories(_)
             | Query::FurnitureRevision(_)
@@ -730,27 +644,21 @@ impl QueryDispatcher for ProductDispatcher {
             | Query::PartComposition(_)) => self
                 .dispatch_part_query(&context, query)
                 .map_err(|error| *error),
-            Query::Materials(query) => {
-                require_protocol_1_10(&context).map_err(|error| *error)?;
-                self.materials
-                    .list(&context.authorization, &query)
-                    .map(QueryResult::Materials)
-                    .map_err(|error| material_error(error, &context))
-            }
-            Query::MaterialReferences(_) => {
-                require_protocol_1_10(&context).map_err(|error| *error)?;
-                self.materials
-                    .references(&context.authorization)
-                    .map(QueryResult::MaterialReferences)
-                    .map_err(|error| material_error(error, &context))
-            }
-            Query::DesktopAccounts(query) => {
-                require_protocol_1_8(&context).map_err(|error| *error)?;
-                self.accounts
-                    .list(&context.authorization, &query)
-                    .map(QueryResult::DesktopAccounts)
-                    .map_err(|error| desktop_account_error(error, &context))
-            }
+            Query::Materials(query) => self
+                .materials
+                .list(&context.authorization, &query)
+                .map(QueryResult::Materials)
+                .map_err(|error| material_error(error, &context)),
+            Query::MaterialReferences(_) => self
+                .materials
+                .references(&context.authorization)
+                .map(QueryResult::MaterialReferences)
+                .map_err(|error| material_error(error, &context)),
+            Query::DesktopAccounts(query) => self
+                .accounts
+                .list(&context.authorization, &query)
+                .map(QueryResult::DesktopAccounts)
+                .map_err(|error| desktop_account_error(error, &context)),
             Query::UpdateState(_) | Query::SyncStatus(_) => Err(unsupported(&context)),
         };
         self.audit_query_result(&context, operation, &result)
@@ -767,30 +675,13 @@ impl QueryDispatcher for ProductDispatcher {
         let permission = match subscription {
             Subscription::Configuration(_) => CONFIG_READ_PERMISSION,
             Subscription::Permissions(_) => PERMISSIONS_READ_PERMISSION,
-            Subscription::ReferenceMarkers(_) => REFERENCE_MARKER_READ_PERMISSION,
-            Subscription::Customers(_) if context.protocol_version.minor >= 9 => {
-                CUSTOMER_READ_PERMISSION
-            }
-            Subscription::Furnitures(_) if context.protocol_version.minor >= 13 => {
-                FURNITURE_READ_PERMISSION
-            }
-            Subscription::Products(_) if context.protocol_version.minor >= 12 => {
-                PRODUCT_READ_PERMISSION
-            }
-            Subscription::Parts(_) if context.protocol_version.minor >= 11 => PART_READ_PERMISSION,
-            Subscription::Materials(_) if context.protocol_version.minor >= 10 => {
-                MATERIAL_READ_PERMISSION
-            }
-            Subscription::AuthorizationPolicy(_) if context.protocol_version.minor >= 2 => {
-                AUTHORIZATION_MANAGE_PERMISSION
-            }
-            Subscription::Customers(_)
-            | Subscription::Furnitures(_)
-            | Subscription::Products(_)
-            | Subscription::Parts(_)
-            | Subscription::Materials(_)
-            | Subscription::AuthorizationPolicy(_)
-            | Subscription::UpdateState(_)
+            Subscription::Customers(_) => CUSTOMER_READ_PERMISSION,
+            Subscription::Furnitures(_) => FURNITURE_READ_PERMISSION,
+            Subscription::Products(_) => PRODUCT_READ_PERMISSION,
+            Subscription::Parts(_) => PART_READ_PERMISSION,
+            Subscription::Materials(_) => MATERIAL_READ_PERMISSION,
+            Subscription::AuthorizationPolicy(_) => AUTHORIZATION_MANAGE_PERMISSION,
+            Subscription::UpdateState(_)
             | Subscription::SyncStatus(_)
             | Subscription::RecordChanges(_)
             | Subscription::BackgroundJobs(_)
@@ -808,44 +699,6 @@ impl QueryDispatcher for ProductDispatcher {
         self.authorization
             .authorize(&context.authorization, permission)
             .map_err(|error| authorization_contract_error(error, context.correlation_id, None))
-    }
-}
-
-fn reference_marker_error(
-    error_value: ReferenceMarkerError,
-    context: &DispatchContext,
-) -> ContractError {
-    match error_value {
-        ReferenceMarkerError::Denied => contract_error(
-            "eitmad.error.authorization-denied.v1",
-            "eitmad.message.authorization-denied.v1",
-            context.correlation_id,
-            RetryDisposition::Never,
-            None,
-        ),
-        ReferenceMarkerError::RevisionConflict {
-            expected_revision,
-            actual_revision,
-        } => contract_error(
-            "eitmad.error.reference-marker-revision-conflict.v1",
-            "eitmad.message.reference-marker-revision-conflict.v1",
-            context.correlation_id,
-            RetryDisposition::SafeImmediately,
-            Some(ErrorDetail::RevisionConflict {
-                expected: expected_revision.unwrap_or(0),
-                actual: actual_revision.unwrap_or(0),
-            }),
-        ),
-        ReferenceMarkerError::Unavailable => contract_error(
-            "eitmad.error.reference-marker-unavailable.v1",
-            "eitmad.message.reference-marker-unavailable.v1",
-            context.correlation_id,
-            RetryDisposition::SafeAfterDelay(1_000),
-            None,
-        ),
-        ReferenceMarkerError::UnsupportedScope | ReferenceMarkerError::IdempotencyMismatch => {
-            unsupported(context)
-        }
     }
 }
 
@@ -1254,50 +1107,6 @@ fn unsupported(context: &DispatchContext) -> ContractError {
     )
 }
 
-fn require_protocol_1_2(context: &DispatchContext) -> Result<(), Box<ContractError>> {
-    (context.protocol_version.minor >= 2)
-        .then_some(())
-        .ok_or_else(|| Box::new(unsupported(context)))
-}
-
-fn require_protocol_1_8(context: &DispatchContext) -> Result<(), Box<ContractError>> {
-    (context.protocol_version.minor >= 8)
-        .then_some(())
-        .ok_or_else(|| Box::new(unsupported(context)))
-}
-
-fn require_protocol_1_9(context: &DispatchContext) -> Result<(), Box<ContractError>> {
-    (context.protocol_version.major == 1 && context.protocol_version.minor >= 9)
-        .then_some(())
-        .ok_or_else(|| Box::new(unsupported(context)))
-}
-
-fn require_protocol_1_10(context: &DispatchContext) -> Result<(), Box<ContractError>> {
-    (context.protocol_version.minor >= 10)
-        .then_some(())
-        .ok_or_else(|| Box::new(unsupported(context)))
-}
-
-/// Rejects part operations unless protocol major 1 and minor 11 or later were negotiated.
-fn require_protocol_1_11(context: &DispatchContext) -> Result<(), Box<ContractError>> {
-    (context.protocol_version.major == 1 && context.protocol_version.minor >= 11)
-        .then_some(())
-        .ok_or_else(|| Box::new(unsupported(context)))
-}
-
-/// Rejects product operations when the negotiated protocol predates their contract.
-fn require_protocol_1_12(context: &DispatchContext) -> Result<(), Box<ContractError>> {
-    (context.protocol_version.major == 1 && context.protocol_version.minor >= 12)
-        .then_some(())
-        .ok_or_else(|| Box::new(unsupported(context)))
-}
-/// Rejects Furniture requests unless the session negotiated protocol minor 13.
-fn require_protocol_1_13(context: &DispatchContext) -> Result<(), Box<ContractError>> {
-    (context.protocol_version.major == 1 && context.protocol_version.minor >= 13)
-        .then_some(())
-        .ok_or_else(|| Box::new(unsupported(context)))
-}
-
 fn error(
     code: &str,
     message: &str,
@@ -1332,10 +1141,7 @@ mod tests {
     use eitmad_contracts::{
         accounts::{AccountPassword, CreateDesktopAccount, DesktopAccountRole},
         authorization::{RelationId, RelationshipSubject},
-        commands::{
-            CancelOperation, CreateCustomer, GrantScopeRelationship, UpdateConfiguration,
-            UpsertReferenceMarker,
-        },
+        commands::{CancelOperation, CreateCustomer, GrantScopeRelationship, UpdateConfiguration},
         config::{ConfigChange, ConfigKey, ConfigWriteValue},
         customer::{
             CustomerName, CustomerPhone, CustomerSearchTerm, CustomerSyncState, GetCustomer,
@@ -1343,7 +1149,7 @@ mod tests {
         },
         events::{
             AuthorizationPolicyChanges, ConfigurationChanges, CustomerChanges, MaterialChanges,
-            ReferenceMarkerChanges, Subscription,
+            Subscription,
         },
         identity::{
             AuthenticatedIdentity, AuthorizationContext, PrincipalId, PrincipalKind, ScopeId,
@@ -1355,7 +1161,6 @@ mod tests {
         },
         part::{ListParts, PartChanges, PartUsage, SavePart, SavePartCategory},
         queries::{GetConfiguration, GetSyncStatus, Query},
-        reference_marker::{ListReferenceMarkers, ReferenceMarkerId, ReferenceMarkerLabel},
         transport::{CorrelationId, IdempotencyKey, OperationId, PROTOCOL_VERSION, UnixMillis},
     };
     use rusqlite::Connection;
@@ -1575,56 +1380,6 @@ mod tests {
             events.recv().await.unwrap().event,
             Event::ConfigurationChanged(_)
         ));
-    }
-
-    #[tokio::test]
-    async fn routes_reference_marker_command_paged_query_and_compact_event() {
-        let (_directory, dispatcher, broker) = dispatcher();
-        let (_, mut events) = broker
-            .subscribe(
-                authorization().scope,
-                Subscription::ReferenceMarkers(ReferenceMarkerChanges {}),
-                None,
-            )
-            .unwrap();
-        let marker_id = ReferenceMarkerId::new(Uuid::from_u128(90));
-        let result = dispatcher
-            .dispatch_command(
-                context(91),
-                Command::UpsertReferenceMarker(UpsertReferenceMarker {
-                    marker_id,
-                    expected_revision: None,
-                    label: ReferenceMarkerLabel::parse("مرجع REF-١٢").unwrap(),
-                }),
-            )
-            .await
-            .unwrap();
-        let CommandResult::ReferenceMarkerUpserted(marker) = result else {
-            panic!("reference marker result expected")
-        };
-        assert_eq!(marker.label.as_str(), "مرجع REF-١٢");
-        let published = events.recv().await.unwrap();
-        let Event::ReferenceMarkerChanged(notice) = published.event else {
-            panic!("reference marker event expected")
-        };
-        assert_eq!(notice.marker_id, marker_id);
-        assert_eq!(notice.revision, 1);
-
-        let page = dispatcher
-            .dispatch_query(
-                context(92),
-                Query::ReferenceMarkers(ListReferenceMarkers::new(None, 10).unwrap()),
-            )
-            .await
-            .unwrap();
-        let QueryResult::ReferenceMarkers(page) = page else {
-            panic!("reference marker page expected")
-        };
-        assert_eq!(page.items, vec![marker]);
-        assert_eq!(
-            last_audit_outcome(&dispatcher, "eitmad.reference-marker.list.v1"),
-            AuditOutcome::Succeeded
-        );
     }
 
     #[tokio::test]

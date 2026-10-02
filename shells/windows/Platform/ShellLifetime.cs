@@ -1,6 +1,6 @@
 using System.ComponentModel;
 using System.Windows;
-using Eitmad.WindowsShell.Features.Operations;
+using Eitmad.WindowsShell.Features.Authentication;
 
 namespace Eitmad.WindowsShell.Platform;
 
@@ -8,12 +8,12 @@ public sealed class ShellLifetime : IDisposable
 {
     private readonly System.Windows.Application application;
     private Window window;
-    private readonly IShellLifetimeCoordinator coordinator;
+    private readonly IDesktopSessionController coordinator;
     private readonly TrayIcon tray;
     private int shutdownStarted;
     private bool disposed;
 
-    public ShellLifetime(System.Windows.Application application, Window window, IShellLifetimeCoordinator coordinator)
+    public ShellLifetime(System.Windows.Application application, Window window, IDesktopSessionController coordinator)
     {
         this.application = application;
         this.window = window;

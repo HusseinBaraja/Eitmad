@@ -109,7 +109,9 @@ internal sealed class FurnitureFixtures
         return engine;
     }
     /// <summary>Serializes a fixed test value into its typed command result.</summary>
-    private static CommandResult Result<T>(PurpleKind kind, T value) => new() { Kind = kind, Payload = System.Text.Json.JsonSerializer.Deserialize<PayloadClass>(System.Text.Json.JsonSerializer.Serialize(value))! };
+    private static CommandResult Result<T>(PurpleKind kind, T value) =>
+        System.Text.Json.JsonSerializer.Deserialize<CommandResult>(
+            System.Text.Json.JsonSerializer.Serialize(new { kind, payload = value }))!;
     /// <summary>Wraps a fixed command payload in a confirmed synthetic outcome.</summary>
     public static CommandResponseEnvelope Success(CommandResult value) => new() { RequestId = Guid.NewGuid(), CorrelationId = Guid.NewGuid(), Outcome = new CommandOutcome { Status = CommandOutcomeStatus.Succeeded, Payload = value } };
     /// <summary>Wraps a stable error identifier in a failed synthetic outcome.</summary>

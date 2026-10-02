@@ -66,9 +66,9 @@ The commands below exist in this checkout and show one concrete focused example.
 | Changed boundary | Smallest normal proof | Additional proof only when needed |
 | --- | --- | --- |
 | One preview page | Build the shell, then run its affected presentation and rendered test classes. For example: `dotnet build shells/windows/Eitmad.WindowsShell.csproj --configuration Release --nologo` and `dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --configuration Release --nologo --filter "FullyQualifiedName~RawMaterialsPresentationTests\|FullyQualifiedName~RawMaterialsRenderedTests"` | Inspect the affected synthetic capture; check keyboard and OS behavior when interactions changed |
-| Rust capability behavior | Format and test the affected crate. For example: `cargo fmt --package eitmad-reference-marker -- --check` and `cargo test -p eitmad-reference-marker` | Test the direct dependent integration boundary when public behavior changed |
+| Rust capability behavior | Format and test the affected crate. For example: `cargo fmt --package eitmad-material -- --check` and `cargo test -p eitmad-material` | Test the direct dependent integration boundary when public behavior changed |
 | Rust contracts or generated bindings | Generate intended outputs with `npm run contracts:generate --prefix crates/contracts/codegen`, then run `npm run contracts:verify --prefix crates/contracts/codegen` | Run the affected consuming runtime or shell path; leave all-platform gates to CI |
-| One documentation page | Run `python .agents/skills/maintain-project-documentation/scripts/audit_docs.py --root docs --files docs/developer/subsystems/reference-marker.md`, then compare its behavior claims with the named source owner | Run the full documentation audit only for shared navigation or documentation-system changes |
+| One documentation page | Run `python .agents/skills/maintain-project-documentation/scripts/audit_docs.py --root docs --files docs/developer/subsystems/raw-materials.md`, then compare its behavior claims with the named source owner | Run the full documentation audit only for shared navigation or documentation-system changes |
 
 ## 5. Update the knowledge graph
 

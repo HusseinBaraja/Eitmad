@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
 
-import { findGeneratedDrift, missingBindingIdentifiers } from "../contract-checks.mjs";
+import { findGeneratedDrift } from "../contract-checks.mjs";
 
 test("reports missing and stale generated outputs", () => {
   const root = mkdtempSync(join(tmpdir(), "eitmad-contract-check-"));
@@ -42,14 +42,6 @@ test("accepts content that differs only by line endings or trailing whitespace",
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
-});
-
-test("reports Rust registry identifiers absent from a platform binding", () => {
-  const registry = { commands: ["eitmad.command.one.v1"], capabilities: ["eitmad.cap.one.v1"] };
-
-  assert.deepEqual(missingBindingIdentifiers(registry, '"eitmad.command.one.v1"'), [
-    "eitmad.cap.one.v1",
-  ]);
 });
 
 function write(path, content) {

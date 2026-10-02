@@ -14,7 +14,6 @@ use crate::{
     part::{PartChangeNotice, PartChanges},
     permissions::EffectivePermissions,
     product::{ProductChangeNotice, ProductChanges},
-    reference_marker::ReferenceMarkerChangeNotice,
     sync::{RecordChangeNotice, SyncStatus},
     updates::UpdateState,
 };
@@ -47,9 +46,6 @@ pub struct Notifications {}
 pub struct Errors {}
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct ReferenceMarkerChanges {}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct CustomerChanges {}
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -74,7 +70,6 @@ tagged_contract! {
         BackgroundJobs(BackgroundJobChanges) => "eitmad.background-job.status.subscribe.v1",
         Notifications(Notifications) => "eitmad.notification.subscribe.v1",
         Errors(Errors) => "eitmad.error.subscribe.v1",
-        ReferenceMarkers(ReferenceMarkerChanges) => "eitmad.reference-marker.changed.subscribe.v1",
         Customers(CustomerChanges) => "eitmad.customer.changed.subscribe.v1",
         Materials(MaterialChanges) => "eitmad.material.changed.subscribe.v1",
         Furnitures(FurnitureChanges) => "eitmad.furniture.changed.subscribe.v1",
@@ -95,7 +90,6 @@ tagged_contract! {
         BackgroundJobChanged(BackgroundJobStatus) => "eitmad.background-job.status.event.v1",
         NotificationRaised(Notification) => "eitmad.notification.event.v1",
         ErrorRaised(ScopedError) => "eitmad.error.event.v1",
-        ReferenceMarkerChanged(ReferenceMarkerChangeNotice) => "eitmad.reference-marker.changed.event.v1",
         CustomerChanged(CustomerChangeNotice) => "eitmad.customer.changed.event.v1",
         MaterialChanged(MaterialChangeNotice) => "eitmad.material.changed.event.v1",
         FurnitureChanged(FurnitureChangeNotice) => "eitmad.furniture.changed.event.v1",
@@ -132,7 +126,6 @@ impl Event {
             Self::BackgroundJobChanged(_) => "eitmad.background-job.status.subscribe.v1",
             Self::NotificationRaised(_) => "eitmad.notification.subscribe.v1",
             Self::ErrorRaised(_) => "eitmad.error.subscribe.v1",
-            Self::ReferenceMarkerChanged(_) => "eitmad.reference-marker.changed.subscribe.v1",
             Self::CustomerChanged(_) => "eitmad.customer.changed.subscribe.v1",
             Self::MaterialChanged(_) => "eitmad.material.changed.subscribe.v1",
             Self::FurnitureChanged(_) => "eitmad.furniture.changed.subscribe.v1",

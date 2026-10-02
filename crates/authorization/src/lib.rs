@@ -47,8 +47,6 @@ pub const CONFIG_EXPORT_PERMISSION: &str = "eitmad.permission.config.export.v1";
 pub const AUTHORIZATION_MANAGE_PERMISSION: &str = "eitmad.permission.authorization.manage.v1";
 pub const PERMISSIONS_READ_PERMISSION: &str = "eitmad.permission.permissions.read.v1";
 pub const SENSITIVE_DEBUG_PERMISSION: &str = "eitmad.permission.observability.sensitive-debug.v1";
-pub const REFERENCE_MARKER_READ_PERMISSION: &str = "eitmad.permission.reference-marker.read.v1";
-pub const REFERENCE_MARKER_WRITE_PERMISSION: &str = "eitmad.permission.reference-marker.write.v1";
 pub const CUSTOMER_READ_PERMISSION: &str = "eitmad.permission.customer.read.v1";
 pub const CUSTOMER_WRITE_PERMISSION: &str = "eitmad.permission.customer.write.v1";
 pub const FURNITURE_READ_PERMISSION: &str = "eitmad.permission.furniture.read.v1";
@@ -77,8 +75,6 @@ const POLICY_PERMISSIONS: &[&str] = &[
     CONFIG_READ_PERMISSION,
     CONFIG_WRITE_PERMISSION,
     PERMISSIONS_READ_PERMISSION,
-    REFERENCE_MARKER_READ_PERMISSION,
-    REFERENCE_MARKER_WRITE_PERMISSION,
     CUSTOMER_READ_PERMISSION,
     CUSTOMER_WRITE_PERMISSION,
     FURNITURE_READ_PERMISSION,
@@ -206,11 +202,10 @@ impl AuthorizationService {
                     SENSITIVE_DEBUG_PERMISSION => owner && organization_scope,
                     CONFIG_WRITE_PERMISSION
                     | CONFIG_IMPORT_PERMISSION
-                    | CONFIG_EXPORT_PERMISSION
-                    | REFERENCE_MARKER_WRITE_PERMISSION => config_manager && organization_scope,
-                    CONFIG_READ_PERMISSION
-                    | PERMISSIONS_READ_PERMISSION
-                    | REFERENCE_MARKER_READ_PERMISSION => member && organization_scope,
+                    | CONFIG_EXPORT_PERMISSION => config_manager && organization_scope,
+                    CONFIG_READ_PERMISSION | PERMISSIONS_READ_PERMISSION => {
+                        member && organization_scope
+                    }
                     PRODUCT_READ_PERMISSION => (manager || receptionist) && organization_scope,
                     PRODUCT_WRITE_PERMISSION | PRODUCT_COST_READ_PERMISSION => {
                         manager && organization_scope
@@ -741,17 +736,7 @@ mod tests {
         );
         assert!(
             service
-                .authorize(&authorization(2, 10), REFERENCE_MARKER_WRITE_PERMISSION)
-                .is_ok()
-        );
-        assert!(
-            service
                 .authorize(&authorization(3, 10), CONFIG_READ_PERMISSION)
-                .is_ok()
-        );
-        assert!(
-            service
-                .authorize(&authorization(3, 10), REFERENCE_MARKER_READ_PERMISSION)
                 .is_ok()
         );
         assert_eq!(
@@ -760,10 +745,6 @@ mod tests {
         );
         assert_eq!(
             service.authorize(&authorization(3, 10), SENSITIVE_DEBUG_PERMISSION),
-            Err(AuthorizationError::Denied)
-        );
-        assert_eq!(
-            service.authorize(&authorization(3, 10), REFERENCE_MARKER_WRITE_PERMISSION),
             Err(AuthorizationError::Denied)
         );
     }

@@ -131,7 +131,7 @@ class RepositoryPolicyTests(unittest.TestCase):
 
     def test_documentation_impact_ignores_test_only_changes(self) -> None:
         changed = {
-            "crates/contracts/codegen/test/platform-bindings.test.mjs",
+            "crates/contracts/codegen/test/contract-checks.test.mjs",
             "shells/windows/tests/Users/UsersPresentationTests.cs",
             "crates/engine-runtime/src/dispatcher.rs",
         }

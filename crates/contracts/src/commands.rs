@@ -18,9 +18,7 @@ use crate::{
     },
     part::{Part, PartCategory, SavePart, SavePartCategory},
     product::{Product, ProductCategory, SaveProduct, SaveProductCategory},
-    reference_marker::{ReferenceMarker, ReferenceMarkerId, ReferenceMarkerLabel},
-    transport::{OperationId, UpdateHandoffId},
-    updates::{InstallerOutcome, UpdateState},
+    transport::OperationId,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -53,21 +51,6 @@ pub struct CancelOperation {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct ReportInstallerOutcome {
-    pub handoff_id: UpdateHandoffId,
-    pub outcome: InstallerOutcome,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct UpsertReferenceMarker {
-    pub marker_id: ReferenceMarkerId,
-    pub expected_revision: Option<u64>,
-    pub label: ReferenceMarkerLabel,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
 pub struct CreateCustomer {
     pub name: CustomerName,
     pub phone: CustomerPhone,
@@ -93,8 +76,6 @@ tagged_contract! {
         GrantScopeRelationship(GrantScopeRelationship) => "eitmad.authorization.relationship.grant.v1",
         RevokeScopeRelationship(RevokeScopeRelationship) => "eitmad.authorization.relationship.revoke.v1",
         CancelOperation(CancelOperation) => "eitmad.operation.cancel.v1",
-        ReportInstallerOutcome(ReportInstallerOutcome) => "eitmad.update.report-installer-outcome.v1",
-        UpsertReferenceMarker(UpsertReferenceMarker) => "eitmad.reference-marker.upsert.v1",
         CreateCustomer(CreateCustomer) => "eitmad.customer.create.v1",
         UpdateCustomer(UpdateCustomer) => "eitmad.customer.update.v1",
         SaveMaterialCategory(SaveMaterialCategory) => "eitmad.material-category.save.v1",
@@ -119,8 +100,6 @@ pub enum CommandResult {
     RelationshipGranted(RelationshipMutationResult),
     RelationshipRevoked(RelationshipMutationResult),
     OperationCancelled { operation_id: OperationId },
-    InstallerOutcomeRecorded(UpdateState),
-    ReferenceMarkerUpserted(ReferenceMarker),
     CustomerCreated(CustomerMutationResult),
     CustomerUpdated(CustomerMutationResult),
     MaterialCategorySaved(MaterialCategory),
