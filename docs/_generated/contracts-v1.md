@@ -46,7 +46,6 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.config.update.v1`
 - `eitmad.authorization.relationship.grant.v1`
 - `eitmad.authorization.relationship.revoke.v1`
-- `eitmad.operation.cancel.v1`
 - `eitmad.customer.create.v1`
 - `eitmad.customer.update.v1`
 - `eitmad.material-category.save.v1`

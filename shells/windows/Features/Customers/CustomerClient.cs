@@ -189,8 +189,11 @@ public sealed class CustomerClient : IAsyncDisposable
         try
         {
             var response = await engine.SubmitCommandAsync(command, Guid.NewGuid(), cancellationToken);
+            var mutation = command.Kind == Command.CustomerCreateKind
+                ? response.Outcome.Payload.AsCustomerCreated()
+                : response.Outcome.Payload.AsCustomerUpdated();
             return response.Outcome.Status == CommandOutcomeStatus.Succeeded
-                && response.Outcome.Payload.Payload?.Customer is { } customer
+                && mutation?.Customer is { } customer
                 ? CustomerResult<Customer>.Success(customer)
                 : CustomerResult<Customer>.Failed(MapFailure(response.Outcome.Payload.Code), ValidationFields(response.Outcome.Payload.Detail));
         }

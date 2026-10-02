@@ -38,14 +38,6 @@ public partial class Command
     public RevokeScopeRelationship? AsAuthorizationRelationshipRevoke() =>
         Kind == AuthorizationRelationshipRevokeKind ? PayloadAs<RevokeScopeRelationship>() : null;
 
-    public const string OperationCancelKind = "eitmad.operation.cancel.v1";
-
-    public static Command ForOperationCancel(CancelOperation payload) =>
-        new() { Kind = OperationCancelKind, Payload = payload };
-
-    public CancelOperation? AsOperationCancel() =>
-        Kind == OperationCancelKind ? PayloadAs<CancelOperation>() : null;
-
     public const string CustomerCreateKind = "eitmad.customer.create.v1";
 
     public static Command ForCustomerCreate(CreateCustomer payload) =>
@@ -157,6 +149,159 @@ public partial class Command
 
     public DeactivateDesktopAccount? AsDesktopAccountDeactivate() =>
         Kind == DesktopAccountDeactivateKind ? PayloadAs<DeactivateDesktopAccount>() : null;
+
+    internal T? PayloadAs<T>() => Payload switch
+    {
+        T typed => typed,
+        JsonElement element => element.Deserialize<T>(Converter.Settings),
+        _ => default,
+    };
+}
+
+public partial class CommandResult
+{
+    [JsonPropertyName("kind")]
+    public string Kind { get; set; } = string.Empty;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("payload")]
+    public object? Payload { get; set; }
+
+    public const string ConfigurationUpdatedKind = "configurationUpdated";
+
+    public static CommandResult ForConfigurationUpdated(ConfigSnapshot payload) =>
+        new() { Kind = ConfigurationUpdatedKind, Payload = payload };
+
+    public ConfigSnapshot? AsConfigurationUpdated() =>
+        Kind == ConfigurationUpdatedKind ? PayloadAs<ConfigSnapshot>() : null;
+
+    public const string RelationshipGrantedKind = "relationshipGranted";
+
+    public static CommandResult ForRelationshipGranted(RelationshipMutationResult payload) =>
+        new() { Kind = RelationshipGrantedKind, Payload = payload };
+
+    public RelationshipMutationResult? AsRelationshipGranted() =>
+        Kind == RelationshipGrantedKind ? PayloadAs<RelationshipMutationResult>() : null;
+
+    public const string RelationshipRevokedKind = "relationshipRevoked";
+
+    public static CommandResult ForRelationshipRevoked(RelationshipMutationResult payload) =>
+        new() { Kind = RelationshipRevokedKind, Payload = payload };
+
+    public RelationshipMutationResult? AsRelationshipRevoked() =>
+        Kind == RelationshipRevokedKind ? PayloadAs<RelationshipMutationResult>() : null;
+
+    public const string CustomerCreatedKind = "customerCreated";
+
+    public static CommandResult ForCustomerCreated(CustomerMutationResult payload) =>
+        new() { Kind = CustomerCreatedKind, Payload = payload };
+
+    public CustomerMutationResult? AsCustomerCreated() =>
+        Kind == CustomerCreatedKind ? PayloadAs<CustomerMutationResult>() : null;
+
+    public const string CustomerUpdatedKind = "customerUpdated";
+
+    public static CommandResult ForCustomerUpdated(CustomerMutationResult payload) =>
+        new() { Kind = CustomerUpdatedKind, Payload = payload };
+
+    public CustomerMutationResult? AsCustomerUpdated() =>
+        Kind == CustomerUpdatedKind ? PayloadAs<CustomerMutationResult>() : null;
+
+    public const string MaterialCategorySavedKind = "materialCategorySaved";
+
+    public static CommandResult ForMaterialCategorySaved(MaterialCategory payload) =>
+        new() { Kind = MaterialCategorySavedKind, Payload = payload };
+
+    public MaterialCategory? AsMaterialCategorySaved() =>
+        Kind == MaterialCategorySavedKind ? PayloadAs<MaterialCategory>() : null;
+
+    public const string MaterialUnitSavedKind = "materialUnitSaved";
+
+    public static CommandResult ForMaterialUnitSaved(MaterialUnit payload) =>
+        new() { Kind = MaterialUnitSavedKind, Payload = payload };
+
+    public MaterialUnit? AsMaterialUnitSaved() =>
+        Kind == MaterialUnitSavedKind ? PayloadAs<MaterialUnit>() : null;
+
+    public const string MaterialSavedKind = "materialSaved";
+
+    public static CommandResult ForMaterialSaved(Material payload) =>
+        new() { Kind = MaterialSavedKind, Payload = payload };
+
+    public Material? AsMaterialSaved() =>
+        Kind == MaterialSavedKind ? PayloadAs<Material>() : null;
+
+    public const string FurnitureSavedKind = "furnitureSaved";
+
+    public static CommandResult ForFurnitureSaved(Furniture payload) =>
+        new() { Kind = FurnitureSavedKind, Payload = payload };
+
+    public Furniture? AsFurnitureSaved() =>
+        Kind == FurnitureSavedKind ? PayloadAs<Furniture>() : null;
+
+    public const string FurnitureCategorySavedKind = "furnitureCategorySaved";
+
+    public static CommandResult ForFurnitureCategorySaved(FurnitureCategory payload) =>
+        new() { Kind = FurnitureCategorySavedKind, Payload = payload };
+
+    public FurnitureCategory? AsFurnitureCategorySaved() =>
+        Kind == FurnitureCategorySavedKind ? PayloadAs<FurnitureCategory>() : null;
+
+    public const string ProductSavedKind = "productSaved";
+
+    public static CommandResult ForProductSaved(Product payload) =>
+        new() { Kind = ProductSavedKind, Payload = payload };
+
+    public Product? AsProductSaved() =>
+        Kind == ProductSavedKind ? PayloadAs<Product>() : null;
+
+    public const string ProductCategorySavedKind = "productCategorySaved";
+
+    public static CommandResult ForProductCategorySaved(ProductCategory payload) =>
+        new() { Kind = ProductCategorySavedKind, Payload = payload };
+
+    public ProductCategory? AsProductCategorySaved() =>
+        Kind == ProductCategorySavedKind ? PayloadAs<ProductCategory>() : null;
+
+    public const string PartSavedKind = "partSaved";
+
+    public static CommandResult ForPartSaved(Part payload) =>
+        new() { Kind = PartSavedKind, Payload = payload };
+
+    public Part? AsPartSaved() =>
+        Kind == PartSavedKind ? PayloadAs<Part>() : null;
+
+    public const string PartCategorySavedKind = "partCategorySaved";
+
+    public static CommandResult ForPartCategorySaved(PartCategory payload) =>
+        new() { Kind = PartCategorySavedKind, Payload = payload };
+
+    public PartCategory? AsPartCategorySaved() =>
+        Kind == PartCategorySavedKind ? PayloadAs<PartCategory>() : null;
+
+    public const string DesktopAccountCreatedKind = "desktopAccountCreated";
+
+    public static CommandResult ForDesktopAccountCreated(DesktopAccountSummary payload) =>
+        new() { Kind = DesktopAccountCreatedKind, Payload = payload };
+
+    public DesktopAccountSummary? AsDesktopAccountCreated() =>
+        Kind == DesktopAccountCreatedKind ? PayloadAs<DesktopAccountSummary>() : null;
+
+    public const string DesktopAccountUpdatedKind = "desktopAccountUpdated";
+
+    public static CommandResult ForDesktopAccountUpdated(DesktopAccountSummary payload) =>
+        new() { Kind = DesktopAccountUpdatedKind, Payload = payload };
+
+    public DesktopAccountSummary? AsDesktopAccountUpdated() =>
+        Kind == DesktopAccountUpdatedKind ? PayloadAs<DesktopAccountSummary>() : null;
+
+    public const string DesktopAccountDeactivatedKind = "desktopAccountDeactivated";
+
+    public static CommandResult ForDesktopAccountDeactivated(DesktopAccountSummary payload) =>
+        new() { Kind = DesktopAccountDeactivatedKind, Payload = payload };
+
+    public DesktopAccountSummary? AsDesktopAccountDeactivated() =>
+        Kind == DesktopAccountDeactivatedKind ? PayloadAs<DesktopAccountSummary>() : null;
 
     internal T? PayloadAs<T>() => Payload switch
     {

@@ -101,17 +101,13 @@ internal sealed class FurnitureFixtures
                     PartsCostYer = 18900,
                 };
                 Definitions.RemoveAll(p => p.Id == value.Id); Definitions.Add(value);
-                return Success(Result(PurpleKind.FurnitureSaved, value));
+                return Success(CommandResult.ForFurnitureSaved(value));
             }
-            if (command.AsFurnitureCategorySave() is { } category) { Category.Name = category.Name; return Success(Result(PurpleKind.FurnitureCategorySaved, Category)); }
+            if (command.AsFurnitureCategorySave() is { } category) { Category.Name = category.Name; return Success(CommandResult.ForFurnitureCategorySaved(Category)); }
             throw new InvalidOperationException("Unexpected fixture command.");
         };
         return engine;
     }
-    /// <summary>Serializes a fixed test value into its typed command result.</summary>
-    private static CommandResult Result<T>(PurpleKind kind, T value) =>
-        System.Text.Json.JsonSerializer.Deserialize<CommandResult>(
-            System.Text.Json.JsonSerializer.Serialize(new { kind, payload = value }))!;
     /// <summary>Wraps a fixed command payload in a confirmed synthetic outcome.</summary>
     public static CommandResponseEnvelope Success(CommandResult value) => new() { RequestId = Guid.NewGuid(), CorrelationId = Guid.NewGuid(), Outcome = new CommandOutcome { Status = CommandOutcomeStatus.Succeeded, Payload = value } };
     /// <summary>Wraps a stable error identifier in a failed synthetic outcome.</summary>

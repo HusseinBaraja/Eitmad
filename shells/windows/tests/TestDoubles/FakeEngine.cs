@@ -380,11 +380,9 @@ internal sealed class FakeEngine : IEngineShellBridge
                 Status = CommandOutcomeStatus.Succeeded,
                 Payload = changedCustomer is null
                     ? new CommandResult()
-                    : JsonSerializer.Deserialize<CommandResult>(JsonSerializer.Serialize(new
-                    {
-                        kind = changedCustomer.Revision == 1 ? PurpleKind.CustomerCreated : PurpleKind.CustomerUpdated,
-                        payload = new { customer = changedCustomer, potentialDuplicateIds = Array.Empty<Guid>() },
-                    }))!,
+                    : changedCustomer.Revision == 1
+                        ? CommandResult.ForCustomerCreated(new CustomerMutationResult { Customer = changedCustomer, PotentialDuplicateIds = [] })
+                        : CommandResult.ForCustomerUpdated(new CustomerMutationResult { Customer = changedCustomer, PotentialDuplicateIds = [] }),
             },
         };
     }

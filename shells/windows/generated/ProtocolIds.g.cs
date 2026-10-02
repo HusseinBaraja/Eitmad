@@ -40,7 +40,6 @@ public static class ProtocolIds
         public const string EitmadConfigUpdateV1 = "eitmad.config.update.v1";
         public const string EitmadAuthorizationRelationshipGrantV1 = "eitmad.authorization.relationship.grant.v1";
         public const string EitmadAuthorizationRelationshipRevokeV1 = "eitmad.authorization.relationship.revoke.v1";
-        public const string EitmadOperationCancelV1 = "eitmad.operation.cancel.v1";
         public const string EitmadCustomerCreateV1 = "eitmad.customer.create.v1";
         public const string EitmadCustomerUpdateV1 = "eitmad.customer.update.v1";
         public const string EitmadMaterialCategorySaveV1 = "eitmad.material-category.save.v1";

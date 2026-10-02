@@ -18,7 +18,6 @@ use crate::{
     },
     part::{Part, PartCategory, SavePart, SavePartCategory},
     product::{Product, ProductCategory, SaveProduct, SaveProductCategory},
-    transport::OperationId,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -41,12 +40,6 @@ pub struct GrantScopeRelationship {
 pub struct RevokeScopeRelationship {
     pub expected_policy_version: u64,
     pub relationship_id: RelationshipId,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct CancelOperation {
-    pub operation_id: OperationId,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -75,7 +68,6 @@ tagged_contract! {
         UpdateConfiguration(UpdateConfiguration) => "eitmad.config.update.v1",
         GrantScopeRelationship(GrantScopeRelationship) => "eitmad.authorization.relationship.grant.v1",
         RevokeScopeRelationship(RevokeScopeRelationship) => "eitmad.authorization.relationship.revoke.v1",
-        CancelOperation(CancelOperation) => "eitmad.operation.cancel.v1",
         CreateCustomer(CreateCustomer) => "eitmad.customer.create.v1",
         UpdateCustomer(UpdateCustomer) => "eitmad.customer.update.v1",
         SaveMaterialCategory(SaveMaterialCategory) => "eitmad.material-category.save.v1",
@@ -99,7 +91,6 @@ pub enum CommandResult {
     ConfigurationUpdated(ConfigSnapshot),
     RelationshipGranted(RelationshipMutationResult),
     RelationshipRevoked(RelationshipMutationResult),
-    OperationCancelled { operation_id: OperationId },
     CustomerCreated(CustomerMutationResult),
     CustomerUpdated(CustomerMutationResult),
     MaterialCategorySaved(MaterialCategory),

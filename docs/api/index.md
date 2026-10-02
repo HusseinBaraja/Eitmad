@@ -41,7 +41,7 @@ Generated files have a `Do not edit` header. Linux bindings remain blocked on th
 
 | Interaction | Required context | Foundation operations |
 | --- | --- | --- |
-| Command | Version, request/correlation/causation IDs, authenticated session, tenant, optional workspace, scope, deadline, idempotency key | Update configuration; create/update a customer; grant/revoke scoped relationships; placeholder operation cancellation |
+| Command | Version, request/correlation/causation IDs, authenticated session, tenant, optional workspace, scope, deadline, idempotency key | Update configuration; create/update a customer; grant/revoke scoped relationships |
 | Query | Version, request/correlation/causation IDs, authenticated session, tenant, optional workspace, scope, deadline | Read configuration, get/search customers, effective permissions, and relationships; placeholder update and sync state |
 | Subscription | Version, request/correlation IDs, authenticated session, tenant, optional workspace, scope, optional resume cursor | Configuration, customer changes, permission, authorization-policy, sync, record, job, notification, update, and error streams |
 | Event | Subscription/correlation IDs, sequence, cursor, occurrence time | Typed state, metadata, progress, notification, and error values |
@@ -93,7 +93,7 @@ Event cursors are opaque, scoped, and valid only in the current engine generatio
 
 ## Implemented configuration and authorization authority
 
-The real engine dispatcher currently executes configuration query/update, effective-permission query, relationship grant/revoke/list, desktop account create/update/deactivate/list, customer create/update/get/search, and their supported change subscriptions. Existing unrelated placeholder operations return `eitmad.error.contract-invalid.v1` until their Rust verticals exist. Configuration import/export remain Rust service APIs and have no shell IPC operation.
+The real engine dispatcher currently executes configuration query/update, effective-permission query, relationship grant/revoke/list, desktop account create/update/deactivate/list, customer create/update/get/search, and their supported change subscriptions. Unimplemented update and sync queries or subscriptions return `eitmad.error.contract-invalid.v1`. Configuration import/export remain Rust service APIs and have no shell IPC operation.
 
 Configuration snapshots are revisioned, redacted, stable-key projections. Relationship mutations use a separate optimistic policy revision. Rust also defines scoped object, tuple, condition, permission-rule, request, and decision types for engine-owned boundaries, but they are not part of the current generated IPC root and no generic tuple-management operation exists. Read [configuration authority](../developer/subsystems/configuration.md) and [authorization/audit authority](../developer/subsystems/authorization.md) before consuming these contracts.
 

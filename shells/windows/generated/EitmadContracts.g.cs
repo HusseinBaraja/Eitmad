@@ -409,16 +409,12 @@ namespace Eitmad.Contracts
         public CommandOutcomeStatus Status { get; set; }
     }
 
+    /// <summary>
+    /// Discriminated union rendered in platform-specific bindings; every kind maps to a distinct
+    /// typed payload.
+    /// </summary>
     public partial class CommandResult
     {
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("kind")]
-        public PurpleKind? Kind { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("payload")]
-        public ConfigSnapshot Payload { get; set; }
-
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("code")]
         public string Code { get; set; }
@@ -499,471 +495,6 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("value")]
         public ErrorParameterValueValue Value { get; set; }
-    }
-
-    public partial class ConfigSnapshot
-    {
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("entries")]
-        public ConfigEntry[] Entries { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("revision")]
-        public long? Revision { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("schemaVersion")]
-        public long? SchemaVersion { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("scope")]
-        public ScopeRef Scope { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("changed")]
-        public bool? Changed { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("policyVersion")]
-        public long? PolicyVersion { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("relationship")]
-        public ScopeRelationship Relationship { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("operation_id")]
-        public Guid? OperationId { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("customer")]
-        public Customer Customer { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("potentialDuplicateIds")]
-        public Guid[] PotentialDuplicateIds { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("archived")]
-        public bool? Archived { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("id")]
-        public Guid? Id { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("name")]
-        public string Name { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("updatedAt")]
-        public long? UpdatedAt { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("denominator")]
-        public long? Denominator { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("dimension")]
-        public UnitDimension? Dimension { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("numerator")]
-        public long? Numerator { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("symbol")]
-        public string Symbol { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("categoryId")]
-        public Guid? CategoryId { get; set; }
-
-        /// <summary>
-        /// Non-negative whole Yemeni rials per selected unit.
-        /// </summary>
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("currentCostYer")]
-        public long? CurrentCostYer { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("unitId")]
-        public Guid? UnitId { get; set; }
-
-        /// <summary>
-        /// Category name at this revision, retained for historical reads.
-        /// </summary>
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("categoryName")]
-        public string CategoryName { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("colors")]
-        public FurnitureOption[] Colors { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("description")]
-        public string Description { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("handles")]
-        public FurnitureOption[] Handles { get; set; }
-
-        /// <summary>
-        /// Internal notes are only exposed to Managers.
-        ///
-        /// Internal notes are withheld with purchase costs.
-        /// </summary>
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("notes")]
-        public string Notes { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("parts")]
-        public FurniturePart[] Parts { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("partsCostYer")]
-        public long? PartsCostYer { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("state")]
-        public FurnitureState? State { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("variants")]
-        public Variant[] Variants { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("composition")]
-        public CompositionReference Composition { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("cost")]
-        public PartCost Cost { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("accountId")]
-        public Guid? AccountId { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("active")]
-        public bool? Active { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("displayName")]
-        public string DisplayName { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("role")]
-        public DesktopAccountRole? Role { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("userId")]
-        public Guid? UserId { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("username")]
-        public string Username { get; set; }
-    }
-
-    public partial class FurnitureOption
-    {
-        [JsonPropertyName("archived")]
-        public bool Archived { get; set; }
-
-        [JsonPropertyName("id")]
-        public Guid Id { get; set; }
-
-        [JsonPropertyName("name")]
-        public string Name { get; set; }
-
-        [JsonPropertyName("priceAdjustmentYer")]
-        public long PriceAdjustmentYer { get; set; }
-
-        [JsonPropertyName("visual")]
-        public string Visual { get; set; }
-    }
-
-    public partial class CompositionReference
-    {
-        [JsonPropertyName("partId")]
-        public Guid PartId { get; set; }
-
-        [JsonPropertyName("revision")]
-        public long Revision { get; set; }
-
-        [JsonPropertyName("schemaVersion")]
-        public long SchemaVersion { get; set; }
-
-        [JsonPropertyName("scope")]
-        public ScopeRef Scope { get; set; }
-    }
-
-    /// <summary>
-    /// Advisory current cost; commercial references resolve the immutable part snapshot instead.
-    /// </summary>
-    public partial class PartCost
-    {
-        [JsonPropertyName("rows")]
-        public CostedUsage[] Rows { get; set; }
-
-        [JsonPropertyName("totalCostYer")]
-        public long TotalCostYer { get; set; }
-    }
-
-    public partial class CostedUsage
-    {
-        [JsonPropertyName("costUnit")]
-        public MaterialUnit CostUnit { get; set; }
-
-        [JsonPropertyName("costYer")]
-        public long CostYer { get; set; }
-
-        [JsonPropertyName("material")]
-        public Material Material { get; set; }
-
-        [JsonPropertyName("unit")]
-        public MaterialUnit Unit { get; set; }
-
-        [JsonPropertyName("usage")]
-        public PartUsage Usage { get; set; }
-    }
-
-    public partial class MaterialUnit
-    {
-        [JsonPropertyName("archived")]
-        public bool Archived { get; set; }
-
-        [JsonPropertyName("denominator")]
-        public long Denominator { get; set; }
-
-        [JsonPropertyName("dimension")]
-        public UnitDimension Dimension { get; set; }
-
-        [JsonPropertyName("id")]
-        public Guid Id { get; set; }
-
-        [JsonPropertyName("name")]
-        public string Name { get; set; }
-
-        [JsonPropertyName("numerator")]
-        public long Numerator { get; set; }
-
-        [JsonPropertyName("revision")]
-        public long Revision { get; set; }
-
-        [JsonPropertyName("scope")]
-        public ScopeRef Scope { get; set; }
-
-        [JsonPropertyName("symbol")]
-        public string Symbol { get; set; }
-
-        [JsonPropertyName("updatedAt")]
-        public long UpdatedAt { get; set; }
-    }
-
-    public partial class Material
-    {
-        [JsonPropertyName("archived")]
-        public bool Archived { get; set; }
-
-        [JsonPropertyName("categoryId")]
-        public Guid CategoryId { get; set; }
-
-        /// <summary>
-        /// Non-negative whole Yemeni rials per selected unit.
-        /// </summary>
-        [JsonPropertyName("currentCostYer")]
-        public long CurrentCostYer { get; set; }
-
-        [JsonPropertyName("id")]
-        public Guid Id { get; set; }
-
-        [JsonPropertyName("name")]
-        public string Name { get; set; }
-
-        [JsonPropertyName("revision")]
-        public long Revision { get; set; }
-
-        [JsonPropertyName("scope")]
-        public ScopeRef Scope { get; set; }
-
-        [JsonPropertyName("unitId")]
-        public Guid UnitId { get; set; }
-
-        [JsonPropertyName("updatedAt")]
-        public long UpdatedAt { get; set; }
-    }
-
-    public partial class PartUsage
-    {
-        [JsonPropertyName("materialId")]
-        public Guid MaterialId { get; set; }
-
-        [JsonPropertyName("materialRevision")]
-        public long MaterialRevision { get; set; }
-
-        [JsonPropertyName("quantity")]
-        public string Quantity { get; set; }
-
-        [JsonPropertyName("unitId")]
-        public Guid UnitId { get; set; }
-
-        [JsonPropertyName("unitRevision")]
-        public long UnitRevision { get; set; }
-    }
-
-    public partial class Customer
-    {
-        [JsonPropertyName("address")]
-        public string Address { get; set; }
-
-        [JsonPropertyName("id")]
-        public Guid Id { get; set; }
-
-        [JsonPropertyName("name")]
-        public string Name { get; set; }
-
-        [JsonPropertyName("notes")]
-        public string Notes { get; set; }
-
-        [JsonPropertyName("phone")]
-        public string Phone { get; set; }
-
-        [JsonPropertyName("revision")]
-        public long Revision { get; set; }
-
-        [JsonPropertyName("scope")]
-        public ScopeRef Scope { get; set; }
-
-        [JsonPropertyName("status")]
-        public CustomerStatus Status { get; set; }
-
-        [JsonPropertyName("syncState")]
-        public CustomerSyncState SyncState { get; set; }
-
-        [JsonPropertyName("updatedAt")]
-        public long UpdatedAt { get; set; }
-    }
-
-    public partial class ConfigEntry
-    {
-        [JsonPropertyName("key")]
-        public string Key { get; set; }
-
-        [JsonPropertyName("restartRequirement")]
-        public RestartRequirement RestartRequirement { get; set; }
-
-        [JsonPropertyName("sensitivity")]
-        public ConfigSensitivity Sensitivity { get; set; }
-
-        [JsonPropertyName("value")]
-        public ConfigReadValue Value { get; set; }
-    }
-
-    public partial class ConfigReadValue
-    {
-        [JsonPropertyName("kind")]
-        public ConfigReadValueKind Kind { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("value")]
-        public ConfigReadValueValue? Value { get; set; }
-    }
-
-    public partial class FurniturePart
-    {
-        [JsonPropertyName("quantity")]
-        public long Quantity { get; set; }
-
-        [JsonPropertyName("reference")]
-        public CompositionReference Reference { get; set; }
-    }
-
-    public partial class ScopeRelationship
-    {
-        [JsonPropertyName("relation")]
-        public string Relation { get; set; }
-
-        [JsonPropertyName("relationshipId")]
-        public Guid RelationshipId { get; set; }
-
-        [JsonPropertyName("scope")]
-        public ScopeRef Scope { get; set; }
-
-        [JsonPropertyName("subject")]
-        public RelationshipSubject Subject { get; set; }
-    }
-
-    public partial class RelationshipSubject
-    {
-        [JsonPropertyName("principalId")]
-        public Guid PrincipalId { get; set; }
-
-        [JsonPropertyName("principalKind")]
-        public PrincipalKind PrincipalKind { get; set; }
-    }
-
-    public partial class Variant
-    {
-        [JsonPropertyName("archived")]
-        public bool Archived { get; set; }
-
-        /// <summary>
-        /// Empty means all options of the corresponding kind are compatible.
-        /// </summary>
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("colorIds")]
-        public Guid[] ColorIds { get; set; }
-
-        [JsonPropertyName("customization")]
-        public FurnitureCustomization Customization { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("dimensions")]
-        public FurnitureDimensions Dimensions { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("handleIds")]
-        public Guid[] HandleIds { get; set; }
-
-        [JsonPropertyName("id")]
-        public Guid Id { get; set; }
-
-        [JsonPropertyName("name")]
-        public string Name { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("sellingPriceYer")]
-        public long? SellingPriceYer { get; set; }
-
-        /// <summary>
-        /// Omitted entirely when the caller cannot read internal purchase costs.
-        /// </summary>
-        [JsonPropertyName("purchaseCostYer")]
-        public long? PurchaseCostYer { get; set; }
-    }
-
-    public partial class FurnitureCustomization
-    {
-        [JsonPropertyName("maximum")]
-        public FurnitureDimensions Maximum { get; set; }
-
-        [JsonPropertyName("minimum")]
-        public FurnitureDimensions Minimum { get; set; }
-    }
-
-    public partial class FurnitureDimensions
-    {
-        [JsonPropertyName("depthMm")]
-        public long DepthMm { get; set; }
-
-        [JsonPropertyName("heightMm")]
-        public long HeightMm { get; set; }
-
-        [JsonPropertyName("widthMm")]
-        public long WidthMm { get; set; }
     }
 
     public partial class RetryDisposition
@@ -1743,10 +1274,6 @@ namespace Eitmad.Contracts
         public SaveMaterialUnit CommandMaterialUnitSave { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("Command_OperationCancel")]
-        public CancelOperation CommandOperationCancel { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Command_PartCategorySave")]
         public SavePartCategory CommandPartCategorySave { get; set; }
 
@@ -1763,6 +1290,74 @@ namespace Eitmad.Contracts
         public SaveProduct CommandProductSave { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("CommandResult_ConfigurationUpdated")]
+        public ConfigSnapshot CommandResultConfigurationUpdated { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("CommandResult_CustomerCreated")]
+        public CustomerMutationResult CommandResultCustomerCreated { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("CommandResult_CustomerUpdated")]
+        public CustomerMutationResult CommandResultCustomerUpdated { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("CommandResult_DesktopAccountCreated")]
+        public DesktopAccountSummary CommandResultDesktopAccountCreated { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("CommandResult_DesktopAccountDeactivated")]
+        public DesktopAccountSummary CommandResultDesktopAccountDeactivated { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("CommandResult_DesktopAccountUpdated")]
+        public DesktopAccountSummary CommandResultDesktopAccountUpdated { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("CommandResult_FurnitureCategorySaved")]
+        public FurnitureCategory CommandResultFurnitureCategorySaved { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("CommandResult_FurnitureSaved")]
+        public Furniture CommandResultFurnitureSaved { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("CommandResult_MaterialCategorySaved")]
+        public MaterialCategory CommandResultMaterialCategorySaved { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("CommandResult_MaterialSaved")]
+        public Material CommandResultMaterialSaved { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("CommandResult_MaterialUnitSaved")]
+        public MaterialUnit CommandResultMaterialUnitSaved { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("CommandResult_PartCategorySaved")]
+        public PartCategory CommandResultPartCategorySaved { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("CommandResult_PartSaved")]
+        public Part CommandResultPartSaved { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("CommandResult_ProductCategorySaved")]
+        public ProductCategory CommandResultProductCategorySaved { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("CommandResult_ProductSaved")]
+        public Product CommandResultProductSaved { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("CommandResult_RelationshipGranted")]
+        public RelationshipMutationResult CommandResultRelationshipGranted { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("CommandResult_RelationshipRevoked")]
+        public RelationshipMutationResult CommandResultRelationshipRevoked { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Event_AuthorizationPolicyChangedEvent")]
         public AuthorizationPolicyChangeNotice EventAuthorizationPolicyChangedEvent { get; set; }
 
@@ -1772,7 +1367,7 @@ namespace Eitmad.Contracts
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Event_ConfigChangedEvent")]
-        public EventConfigChangedEventClass EventConfigChangedEvent { get; set; }
+        public ConfigSnapshot EventConfigChangedEvent { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Event_CustomerChangedEvent")]
@@ -1984,7 +1579,7 @@ namespace Eitmad.Contracts
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_Configuration")]
-        public EventConfigChangedEventClass QueryResultConfiguration { get; set; }
+        public ConfigSnapshot QueryResultConfiguration { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_Customer")]
@@ -2223,6 +1818,15 @@ namespace Eitmad.Contracts
         public RelationshipSubject Subject { get; set; }
     }
 
+    public partial class RelationshipSubject
+    {
+        [JsonPropertyName("principalId")]
+        public Guid PrincipalId { get; set; }
+
+        [JsonPropertyName("principalKind")]
+        public PrincipalKind PrincipalKind { get; set; }
+    }
+
     public partial class RevokeScopeRelationship
     {
         [JsonPropertyName("expectedPolicyVersion")]
@@ -2388,6 +1992,48 @@ namespace Eitmad.Contracts
         public FurnitureVariant[] Variants { get; set; }
     }
 
+    public partial class FurnitureOption
+    {
+        [JsonPropertyName("archived")]
+        public bool Archived { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("priceAdjustmentYer")]
+        public long PriceAdjustmentYer { get; set; }
+
+        [JsonPropertyName("visual")]
+        public string Visual { get; set; }
+    }
+
+    public partial class FurniturePart
+    {
+        [JsonPropertyName("quantity")]
+        public long Quantity { get; set; }
+
+        [JsonPropertyName("reference")]
+        public CompositionReference Reference { get; set; }
+    }
+
+    public partial class CompositionReference
+    {
+        [JsonPropertyName("partId")]
+        public Guid PartId { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("schemaVersion")]
+        public long SchemaVersion { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+    }
+
     public partial class FurnitureVariant
     {
         [JsonPropertyName("archived")]
@@ -2416,6 +2062,27 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("sellingPriceYer")]
         public long SellingPriceYer { get; set; }
+    }
+
+    public partial class FurnitureCustomization
+    {
+        [JsonPropertyName("maximum")]
+        public FurnitureDimensions Maximum { get; set; }
+
+        [JsonPropertyName("minimum")]
+        public FurnitureDimensions Minimum { get; set; }
+    }
+
+    public partial class FurnitureDimensions
+    {
+        [JsonPropertyName("depthMm")]
+        public long DepthMm { get; set; }
+
+        [JsonPropertyName("heightMm")]
+        public long HeightMm { get; set; }
+
+        [JsonPropertyName("widthMm")]
+        public long WidthMm { get; set; }
     }
 
     public partial class SaveMaterialCategory
@@ -2484,12 +2151,6 @@ namespace Eitmad.Contracts
         public string Symbol { get; set; }
     }
 
-    public partial class CancelOperation
-    {
-        [JsonPropertyName("operationId")]
-        public Guid OperationId { get; set; }
-    }
-
     public partial class SavePartCategory
     {
         [JsonPropertyName("archived")]
@@ -2527,6 +2188,24 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("usages")]
         public PartUsage[] Usages { get; set; }
+    }
+
+    public partial class PartUsage
+    {
+        [JsonPropertyName("materialId")]
+        public Guid MaterialId { get; set; }
+
+        [JsonPropertyName("materialRevision")]
+        public long MaterialRevision { get; set; }
+
+        [JsonPropertyName("quantity")]
+        public string Quantity { get; set; }
+
+        [JsonPropertyName("unitId")]
+        public Guid UnitId { get; set; }
+
+        [JsonPropertyName("unitRevision")]
+        public long UnitRevision { get; set; }
     }
 
     public partial class SaveProductCategory
@@ -2586,6 +2265,466 @@ namespace Eitmad.Contracts
         public long PurchaseCostYer { get; set; }
     }
 
+    public partial class ConfigSnapshot
+    {
+        [JsonPropertyName("entries")]
+        public ConfigEntry[] Entries { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("schemaVersion")]
+        public long SchemaVersion { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+    }
+
+    public partial class ConfigEntry
+    {
+        [JsonPropertyName("key")]
+        public string Key { get; set; }
+
+        [JsonPropertyName("restartRequirement")]
+        public RestartRequirement RestartRequirement { get; set; }
+
+        [JsonPropertyName("sensitivity")]
+        public ConfigSensitivity Sensitivity { get; set; }
+
+        [JsonPropertyName("value")]
+        public ConfigReadValue Value { get; set; }
+    }
+
+    public partial class ConfigReadValue
+    {
+        [JsonPropertyName("kind")]
+        public ConfigReadValueKind Kind { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("value")]
+        public ConfigReadValueValue? Value { get; set; }
+    }
+
+    public partial class CustomerMutationResult
+    {
+        [JsonPropertyName("customer")]
+        public Customer Customer { get; set; }
+
+        [JsonPropertyName("potentialDuplicateIds")]
+        public Guid[] PotentialDuplicateIds { get; set; }
+    }
+
+    public partial class Customer
+    {
+        [JsonPropertyName("address")]
+        public string Address { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("notes")]
+        public string Notes { get; set; }
+
+        [JsonPropertyName("phone")]
+        public string Phone { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+
+        [JsonPropertyName("status")]
+        public CustomerStatus Status { get; set; }
+
+        [JsonPropertyName("syncState")]
+        public CustomerSyncState SyncState { get; set; }
+
+        [JsonPropertyName("updatedAt")]
+        public long UpdatedAt { get; set; }
+    }
+
+    public partial class DesktopAccountSummary
+    {
+        [JsonPropertyName("accountId")]
+        public Guid AccountId { get; set; }
+
+        [JsonPropertyName("active")]
+        public bool Active { get; set; }
+
+        [JsonPropertyName("displayName")]
+        public string DisplayName { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("role")]
+        public DesktopAccountRole Role { get; set; }
+
+        [JsonPropertyName("userId")]
+        public Guid UserId { get; set; }
+
+        [JsonPropertyName("username")]
+        public string Username { get; set; }
+    }
+
+    public partial class FurnitureCategory
+    {
+        [JsonPropertyName("archived")]
+        public bool Archived { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+
+        [JsonPropertyName("updatedAt")]
+        public long UpdatedAt { get; set; }
+    }
+
+    public partial class Furniture
+    {
+        [JsonPropertyName("categoryId")]
+        public Guid CategoryId { get; set; }
+
+        /// <summary>
+        /// Category name at this revision, retained for historical reads.
+        /// </summary>
+        [JsonPropertyName("categoryName")]
+        public string CategoryName { get; set; }
+
+        [JsonPropertyName("colors")]
+        public FurnitureOption[] Colors { get; set; }
+
+        [JsonPropertyName("description")]
+        public string Description { get; set; }
+
+        [JsonPropertyName("handles")]
+        public FurnitureOption[] Handles { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        /// <summary>
+        /// Internal notes are only exposed to Managers.
+        /// </summary>
+        [JsonPropertyName("notes")]
+        public string Notes { get; set; }
+
+        [JsonPropertyName("parts")]
+        public FurniturePart[] Parts { get; set; }
+
+        [JsonPropertyName("partsCostYer")]
+        public long PartsCostYer { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+
+        [JsonPropertyName("state")]
+        public FurnitureState State { get; set; }
+
+        [JsonPropertyName("updatedAt")]
+        public long UpdatedAt { get; set; }
+
+        [JsonPropertyName("variants")]
+        public FurnitureVariant[] Variants { get; set; }
+    }
+
+    public partial class MaterialCategory
+    {
+        [JsonPropertyName("archived")]
+        public bool Archived { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+
+        [JsonPropertyName("updatedAt")]
+        public long UpdatedAt { get; set; }
+    }
+
+    public partial class Material
+    {
+        [JsonPropertyName("archived")]
+        public bool Archived { get; set; }
+
+        [JsonPropertyName("categoryId")]
+        public Guid CategoryId { get; set; }
+
+        /// <summary>
+        /// Non-negative whole Yemeni rials per selected unit.
+        /// </summary>
+        [JsonPropertyName("currentCostYer")]
+        public long CurrentCostYer { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+
+        [JsonPropertyName("unitId")]
+        public Guid UnitId { get; set; }
+
+        [JsonPropertyName("updatedAt")]
+        public long UpdatedAt { get; set; }
+    }
+
+    public partial class MaterialUnit
+    {
+        [JsonPropertyName("archived")]
+        public bool Archived { get; set; }
+
+        [JsonPropertyName("denominator")]
+        public long Denominator { get; set; }
+
+        [JsonPropertyName("dimension")]
+        public UnitDimension Dimension { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("numerator")]
+        public long Numerator { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+
+        [JsonPropertyName("symbol")]
+        public string Symbol { get; set; }
+
+        [JsonPropertyName("updatedAt")]
+        public long UpdatedAt { get; set; }
+    }
+
+    public partial class PartCategory
+    {
+        [JsonPropertyName("archived")]
+        public bool Archived { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+
+        [JsonPropertyName("updatedAt")]
+        public long UpdatedAt { get; set; }
+    }
+
+    public partial class Part
+    {
+        [JsonPropertyName("archived")]
+        public bool Archived { get; set; }
+
+        [JsonPropertyName("categoryId")]
+        public Guid CategoryId { get; set; }
+
+        [JsonPropertyName("composition")]
+        public CompositionReference Composition { get; set; }
+
+        [JsonPropertyName("cost")]
+        public PartCost Cost { get; set; }
+
+        [JsonPropertyName("description")]
+        public string Description { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+
+        [JsonPropertyName("updatedAt")]
+        public long UpdatedAt { get; set; }
+    }
+
+    /// <summary>
+    /// Advisory current cost; commercial references resolve the immutable part snapshot instead.
+    /// </summary>
+    public partial class PartCost
+    {
+        [JsonPropertyName("rows")]
+        public CostedUsage[] Rows { get; set; }
+
+        [JsonPropertyName("totalCostYer")]
+        public long TotalCostYer { get; set; }
+    }
+
+    public partial class CostedUsage
+    {
+        [JsonPropertyName("costUnit")]
+        public MaterialUnit CostUnit { get; set; }
+
+        [JsonPropertyName("costYer")]
+        public long CostYer { get; set; }
+
+        [JsonPropertyName("material")]
+        public Material Material { get; set; }
+
+        [JsonPropertyName("unit")]
+        public MaterialUnit Unit { get; set; }
+
+        [JsonPropertyName("usage")]
+        public PartUsage Usage { get; set; }
+    }
+
+    public partial class ProductCategory
+    {
+        [JsonPropertyName("archived")]
+        public bool Archived { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+
+        [JsonPropertyName("updatedAt")]
+        public long UpdatedAt { get; set; }
+    }
+
+    public partial class Product
+    {
+        [JsonPropertyName("archived")]
+        public bool Archived { get; set; }
+
+        [JsonPropertyName("categoryId")]
+        public Guid CategoryId { get; set; }
+
+        /// <summary>
+        /// Category name at this revision, retained for historical reads.
+        /// </summary>
+        [JsonPropertyName("categoryName")]
+        public string CategoryName { get; set; }
+
+        [JsonPropertyName("description")]
+        public string Description { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        /// <summary>
+        /// Internal notes are withheld with purchase costs.
+        /// </summary>
+        [JsonPropertyName("notes")]
+        public string Notes { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+
+        [JsonPropertyName("updatedAt")]
+        public long UpdatedAt { get; set; }
+
+        [JsonPropertyName("variants")]
+        public ProductVariant[] Variants { get; set; }
+    }
+
+    public partial class ProductVariant
+    {
+        [JsonPropertyName("archived")]
+        public bool Archived { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        /// <summary>
+        /// Omitted entirely when the caller cannot read internal purchase costs.
+        /// </summary>
+        [JsonPropertyName("purchaseCostYer")]
+        public long? PurchaseCostYer { get; set; }
+    }
+
+    public partial class RelationshipMutationResult
+    {
+        [JsonPropertyName("changed")]
+        public bool Changed { get; set; }
+
+        [JsonPropertyName("policyVersion")]
+        public long PolicyVersion { get; set; }
+
+        [JsonPropertyName("relationship")]
+        public ScopeRelationship Relationship { get; set; }
+    }
+
+    public partial class ScopeRelationship
+    {
+        [JsonPropertyName("relation")]
+        public string Relation { get; set; }
+
+        [JsonPropertyName("relationshipId")]
+        public Guid RelationshipId { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+
+        [JsonPropertyName("subject")]
+        public RelationshipSubject Subject { get; set; }
+    }
+
     public partial class AuthorizationPolicyChangeNotice
     {
         [JsonPropertyName("policyVersion")]
@@ -2617,21 +2756,6 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("totalUnits")]
         public long? TotalUnits { get; set; }
-    }
-
-    public partial class EventConfigChangedEventClass
-    {
-        [JsonPropertyName("entries")]
-        public ConfigEntry[] Entries { get; set; }
-
-        [JsonPropertyName("revision")]
-        public long Revision { get; set; }
-
-        [JsonPropertyName("schemaVersion")]
-        public long SchemaVersion { get; set; }
-
-        [JsonPropertyName("scope")]
-        public ScopeRef Scope { get; set; }
     }
 
     public partial class CustomerChangeNotice
@@ -2945,7 +3069,7 @@ namespace Eitmad.Contracts
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("kind")]
-        public FluffyKind? Kind { get; set; }
+        public PurpleKind? Kind { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("payload")]
@@ -3291,30 +3415,6 @@ namespace Eitmad.Contracts
         public DesktopAccountSummary[] Accounts { get; set; }
     }
 
-    public partial class DesktopAccountSummary
-    {
-        [JsonPropertyName("accountId")]
-        public Guid AccountId { get; set; }
-
-        [JsonPropertyName("active")]
-        public bool Active { get; set; }
-
-        [JsonPropertyName("displayName")]
-        public string DisplayName { get; set; }
-
-        [JsonPropertyName("revision")]
-        public long Revision { get; set; }
-
-        [JsonPropertyName("role")]
-        public DesktopAccountRole Role { get; set; }
-
-        [JsonPropertyName("userId")]
-        public Guid UserId { get; set; }
-
-        [JsonPropertyName("username")]
-        public string Username { get; set; }
-    }
-
     public partial class FurnitureCategories
     {
         [JsonPropertyName("items")]
@@ -3322,27 +3422,6 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("next")]
         public Guid? Next { get; set; }
-    }
-
-    public partial class FurnitureCategory
-    {
-        [JsonPropertyName("archived")]
-        public bool Archived { get; set; }
-
-        [JsonPropertyName("id")]
-        public Guid Id { get; set; }
-
-        [JsonPropertyName("name")]
-        public string Name { get; set; }
-
-        [JsonPropertyName("revision")]
-        public long Revision { get; set; }
-
-        [JsonPropertyName("scope")]
-        public ScopeRef Scope { get; set; }
-
-        [JsonPropertyName("updatedAt")]
-        public long UpdatedAt { get; set; }
     }
 
     public partial class FurnitureReview
@@ -3355,60 +3434,6 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("rowCostsYer")]
         public long[] RowCostsYer { get; set; }
-    }
-
-    public partial class Furniture
-    {
-        [JsonPropertyName("categoryId")]
-        public Guid CategoryId { get; set; }
-
-        /// <summary>
-        /// Category name at this revision, retained for historical reads.
-        /// </summary>
-        [JsonPropertyName("categoryName")]
-        public string CategoryName { get; set; }
-
-        [JsonPropertyName("colors")]
-        public FurnitureOption[] Colors { get; set; }
-
-        [JsonPropertyName("description")]
-        public string Description { get; set; }
-
-        [JsonPropertyName("handles")]
-        public FurnitureOption[] Handles { get; set; }
-
-        [JsonPropertyName("id")]
-        public Guid Id { get; set; }
-
-        [JsonPropertyName("name")]
-        public string Name { get; set; }
-
-        /// <summary>
-        /// Internal notes are only exposed to Managers.
-        /// </summary>
-        [JsonPropertyName("notes")]
-        public string Notes { get; set; }
-
-        [JsonPropertyName("parts")]
-        public FurniturePart[] Parts { get; set; }
-
-        [JsonPropertyName("partsCostYer")]
-        public long PartsCostYer { get; set; }
-
-        [JsonPropertyName("revision")]
-        public long Revision { get; set; }
-
-        [JsonPropertyName("scope")]
-        public ScopeRef Scope { get; set; }
-
-        [JsonPropertyName("state")]
-        public FurnitureState State { get; set; }
-
-        [JsonPropertyName("updatedAt")]
-        public long UpdatedAt { get; set; }
-
-        [JsonPropertyName("variants")]
-        public FurnitureVariant[] Variants { get; set; }
     }
 
     public partial class FurnitureSelection
@@ -3447,27 +3472,6 @@ namespace Eitmad.Contracts
         public MaterialUnit[] Units { get; set; }
     }
 
-    public partial class MaterialCategory
-    {
-        [JsonPropertyName("archived")]
-        public bool Archived { get; set; }
-
-        [JsonPropertyName("id")]
-        public Guid Id { get; set; }
-
-        [JsonPropertyName("name")]
-        public string Name { get; set; }
-
-        [JsonPropertyName("revision")]
-        public long Revision { get; set; }
-
-        [JsonPropertyName("scope")]
-        public ScopeRef Scope { get; set; }
-
-        [JsonPropertyName("updatedAt")]
-        public long UpdatedAt { get; set; }
-    }
-
     public partial class MaterialPage
     {
         [JsonPropertyName("items")]
@@ -3484,60 +3488,6 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("next")]
         public Guid? Next { get; set; }
-    }
-
-    public partial class PartCategory
-    {
-        [JsonPropertyName("archived")]
-        public bool Archived { get; set; }
-
-        [JsonPropertyName("id")]
-        public Guid Id { get; set; }
-
-        [JsonPropertyName("name")]
-        public string Name { get; set; }
-
-        [JsonPropertyName("revision")]
-        public long Revision { get; set; }
-
-        [JsonPropertyName("scope")]
-        public ScopeRef Scope { get; set; }
-
-        [JsonPropertyName("updatedAt")]
-        public long UpdatedAt { get; set; }
-    }
-
-    public partial class Part
-    {
-        [JsonPropertyName("archived")]
-        public bool Archived { get; set; }
-
-        [JsonPropertyName("categoryId")]
-        public Guid CategoryId { get; set; }
-
-        [JsonPropertyName("composition")]
-        public CompositionReference Composition { get; set; }
-
-        [JsonPropertyName("cost")]
-        public PartCost Cost { get; set; }
-
-        [JsonPropertyName("description")]
-        public string Description { get; set; }
-
-        [JsonPropertyName("id")]
-        public Guid Id { get; set; }
-
-        [JsonPropertyName("name")]
-        public string Name { get; set; }
-
-        [JsonPropertyName("revision")]
-        public long Revision { get; set; }
-
-        [JsonPropertyName("scope")]
-        public ScopeRef Scope { get; set; }
-
-        [JsonPropertyName("updatedAt")]
-        public long UpdatedAt { get; set; }
     }
 
     public partial class PartPage
@@ -3568,87 +3518,6 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("next")]
         public Guid? Next { get; set; }
-    }
-
-    public partial class ProductCategory
-    {
-        [JsonPropertyName("archived")]
-        public bool Archived { get; set; }
-
-        [JsonPropertyName("id")]
-        public Guid Id { get; set; }
-
-        [JsonPropertyName("name")]
-        public string Name { get; set; }
-
-        [JsonPropertyName("revision")]
-        public long Revision { get; set; }
-
-        [JsonPropertyName("scope")]
-        public ScopeRef Scope { get; set; }
-
-        [JsonPropertyName("updatedAt")]
-        public long UpdatedAt { get; set; }
-    }
-
-    public partial class Product
-    {
-        [JsonPropertyName("archived")]
-        public bool Archived { get; set; }
-
-        [JsonPropertyName("categoryId")]
-        public Guid CategoryId { get; set; }
-
-        /// <summary>
-        /// Category name at this revision, retained for historical reads.
-        /// </summary>
-        [JsonPropertyName("categoryName")]
-        public string CategoryName { get; set; }
-
-        [JsonPropertyName("description")]
-        public string Description { get; set; }
-
-        [JsonPropertyName("id")]
-        public Guid Id { get; set; }
-
-        [JsonPropertyName("name")]
-        public string Name { get; set; }
-
-        /// <summary>
-        /// Internal notes are withheld with purchase costs.
-        /// </summary>
-        [JsonPropertyName("notes")]
-        public string Notes { get; set; }
-
-        [JsonPropertyName("revision")]
-        public long Revision { get; set; }
-
-        [JsonPropertyName("scope")]
-        public ScopeRef Scope { get; set; }
-
-        [JsonPropertyName("updatedAt")]
-        public long UpdatedAt { get; set; }
-
-        [JsonPropertyName("variants")]
-        public ProductVariant[] Variants { get; set; }
-    }
-
-    public partial class ProductVariant
-    {
-        [JsonPropertyName("archived")]
-        public bool Archived { get; set; }
-
-        [JsonPropertyName("id")]
-        public Guid Id { get; set; }
-
-        [JsonPropertyName("name")]
-        public string Name { get; set; }
-
-        /// <summary>
-        /// Omitted entirely when the caller cannot read internal purchase costs.
-        /// </summary>
-        [JsonPropertyName("purchaseCostYer")]
-        public long? PurchaseCostYer { get; set; }
     }
 
     public partial class ProductPage
@@ -4127,25 +3996,7 @@ namespace Eitmad.Contracts
 
     public enum LifecycleStage { AuthorityLock, ComponentShutdown, ComponentStartup, ProcessIdentity, ReadinessCheck };
 
-    public enum PurpleKind { ConfigurationUpdated, CustomerCreated, CustomerUpdated, DesktopAccountCreated, DesktopAccountDeactivated, DesktopAccountUpdated, FurnitureCategorySaved, FurnitureSaved, MaterialCategorySaved, MaterialSaved, MaterialUnitSaved, OperationCancelled, PartCategorySaved, PartSaved, ProductCategorySaved, ProductSaved, RelationshipGranted, RelationshipRevoked };
-
     public enum ErrorParameterValueKind { Identifier, Integer, Text };
-
-    public enum UnitDimension { Area, Count, Length, Mass, Volume };
-
-    public enum CustomerStatus { Active, Archived, Merged };
-
-    public enum CustomerSyncState { Confirmed, Conflicted, Pending, Rejected };
-
-    public enum RestartRequirement { Application, Engine, None };
-
-    public enum ConfigSensitivity { Public, Secret, Sensitive };
-
-    public enum ConfigReadValueKind { Boolean, Decimal, Integer, Redacted, SecretReference, Text, TextList };
-
-    public enum DesktopAccountRole { Manager, Receptionist };
-
-    public enum FurnitureState { Active, Archived, Draft };
 
     public enum RetryDispositionKind { Never, SafeAfterDelay, SafeImmediately };
 
@@ -4189,6 +4040,22 @@ namespace Eitmad.Contracts
 
     public enum ConfigWriteValueKind { Boolean, Decimal, Integer, SecretReference, Text, TextList };
 
+    public enum DesktopAccountRole { Manager, Receptionist };
+
+    public enum FurnitureState { Active, Archived, Draft };
+
+    public enum UnitDimension { Area, Count, Length, Mass, Volume };
+
+    public enum RestartRequirement { Application, Engine, None };
+
+    public enum ConfigSensitivity { Public, Secret, Sensitive };
+
+    public enum ConfigReadValueKind { Boolean, Decimal, Integer, Redacted, SecretReference, Text, TextList };
+
+    public enum CustomerStatus { Active, Archived, Merged };
+
+    public enum CustomerSyncState { Confirmed, Conflicted, Pending, Rejected };
+
     public enum BackgroundJobState { Cancelled, Failed, Queued, Running, Succeeded };
 
     public enum MaterialRecordKind { Category, Material, Unit };
@@ -4201,7 +4068,7 @@ namespace Eitmad.Contracts
 
     public enum DesktopSessionStatus { Active, Failed, SignedOut };
 
-    public enum FluffyKind { AuthenticationFailed, AuthenticationRequired, Negotiation };
+    public enum PurpleKind { AuthenticationFailed, AuthenticationRequired, Negotiation };
 
     /// <summary>
     /// Cached projections must be cleared and queried again after a policy change.
@@ -4285,18 +4152,8 @@ namespace Eitmad.Contracts
                 PrincipalKindConverter.Singleton,
                 DetailKindConverter.Singleton,
                 LifecycleStageConverter.Singleton,
-                PurpleKindConverter.Singleton,
                 ErrorParameterValueKindConverter.Singleton,
                 ErrorParameterValueValueConverter.Singleton,
-                UnitDimensionConverter.Singleton,
-                CustomerStatusConverter.Singleton,
-                CustomerSyncStateConverter.Singleton,
-                RestartRequirementConverter.Singleton,
-                ConfigSensitivityConverter.Singleton,
-                ConfigReadValueKindConverter.Singleton,
-                ConfigReadValueValueConverter.Singleton,
-                DesktopAccountRoleConverter.Singleton,
-                FurnitureStateConverter.Singleton,
                 RetryDispositionKindConverter.Singleton,
                 CommandOutcomeStatusConverter.Singleton,
                 HealthCheckImpactConverter.Singleton,
@@ -4317,6 +4174,15 @@ namespace Eitmad.Contracts
                 SyncStatusKindConverter.Singleton,
                 SyncTransportPayloadKindConverter.Singleton,
                 SyncCancellationReasonConverter.Singleton,
+                RestartRequirementConverter.Singleton,
+                ConfigSensitivityConverter.Singleton,
+                ConfigReadValueKindConverter.Singleton,
+                ConfigReadValueValueConverter.Singleton,
+                CustomerStatusConverter.Singleton,
+                CustomerSyncStateConverter.Singleton,
+                DesktopAccountRoleConverter.Singleton,
+                FurnitureStateConverter.Singleton,
+                UnitDimensionConverter.Singleton,
                 ConfigWriteValueKindConverter.Singleton,
                 BackgroundJobStateConverter.Singleton,
                 MaterialRecordKindConverter.Singleton,
@@ -4324,7 +4190,7 @@ namespace Eitmad.Contracts
                 ChangeOperationConverter.Singleton,
                 UpdateStateKindConverter.Singleton,
                 DesktopSessionStatusConverter.Singleton,
-                FluffyKindConverter.Singleton,
+                PurpleKindConverter.Singleton,
                 SubscriptionCloseReasonConverter.Singleton,
                 MergeStrategyConverter.Singleton,
                 LocalChangeDispositionStatusConverter.Singleton,
@@ -4752,120 +4618,6 @@ namespace Eitmad.Contracts
         public static readonly LifecycleStageConverter Singleton = new LifecycleStageConverter();
     }
 
-    internal class PurpleKindConverter : JsonConverter<PurpleKind>
-    {
-        public override bool CanConvert(Type t) => t == typeof(PurpleKind);
-
-        public override PurpleKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        {
-            var value = reader.GetString();
-            switch (value)
-            {
-                case "configurationUpdated":
-                    return PurpleKind.ConfigurationUpdated;
-                case "customerCreated":
-                    return PurpleKind.CustomerCreated;
-                case "customerUpdated":
-                    return PurpleKind.CustomerUpdated;
-                case "desktopAccountCreated":
-                    return PurpleKind.DesktopAccountCreated;
-                case "desktopAccountDeactivated":
-                    return PurpleKind.DesktopAccountDeactivated;
-                case "desktopAccountUpdated":
-                    return PurpleKind.DesktopAccountUpdated;
-                case "furnitureCategorySaved":
-                    return PurpleKind.FurnitureCategorySaved;
-                case "furnitureSaved":
-                    return PurpleKind.FurnitureSaved;
-                case "materialCategorySaved":
-                    return PurpleKind.MaterialCategorySaved;
-                case "materialSaved":
-                    return PurpleKind.MaterialSaved;
-                case "materialUnitSaved":
-                    return PurpleKind.MaterialUnitSaved;
-                case "operationCancelled":
-                    return PurpleKind.OperationCancelled;
-                case "partCategorySaved":
-                    return PurpleKind.PartCategorySaved;
-                case "partSaved":
-                    return PurpleKind.PartSaved;
-                case "productCategorySaved":
-                    return PurpleKind.ProductCategorySaved;
-                case "productSaved":
-                    return PurpleKind.ProductSaved;
-                case "relationshipGranted":
-                    return PurpleKind.RelationshipGranted;
-                case "relationshipRevoked":
-                    return PurpleKind.RelationshipRevoked;
-            }
-            throw new Exception("Cannot unmarshal type PurpleKind");
-        }
-
-        public override void Write(Utf8JsonWriter writer, PurpleKind value, JsonSerializerOptions options)
-        {
-            switch (value)
-            {
-                case PurpleKind.ConfigurationUpdated:
-                    JsonSerializer.Serialize(writer, "configurationUpdated", options);
-                    return;
-                case PurpleKind.CustomerCreated:
-                    JsonSerializer.Serialize(writer, "customerCreated", options);
-                    return;
-                case PurpleKind.CustomerUpdated:
-                    JsonSerializer.Serialize(writer, "customerUpdated", options);
-                    return;
-                case PurpleKind.DesktopAccountCreated:
-                    JsonSerializer.Serialize(writer, "desktopAccountCreated", options);
-                    return;
-                case PurpleKind.DesktopAccountDeactivated:
-                    JsonSerializer.Serialize(writer, "desktopAccountDeactivated", options);
-                    return;
-                case PurpleKind.DesktopAccountUpdated:
-                    JsonSerializer.Serialize(writer, "desktopAccountUpdated", options);
-                    return;
-                case PurpleKind.FurnitureCategorySaved:
-                    JsonSerializer.Serialize(writer, "furnitureCategorySaved", options);
-                    return;
-                case PurpleKind.FurnitureSaved:
-                    JsonSerializer.Serialize(writer, "furnitureSaved", options);
-                    return;
-                case PurpleKind.MaterialCategorySaved:
-                    JsonSerializer.Serialize(writer, "materialCategorySaved", options);
-                    return;
-                case PurpleKind.MaterialSaved:
-                    JsonSerializer.Serialize(writer, "materialSaved", options);
-                    return;
-                case PurpleKind.MaterialUnitSaved:
-                    JsonSerializer.Serialize(writer, "materialUnitSaved", options);
-                    return;
-                case PurpleKind.OperationCancelled:
-                    JsonSerializer.Serialize(writer, "operationCancelled", options);
-                    return;
-                case PurpleKind.PartCategorySaved:
-                    JsonSerializer.Serialize(writer, "partCategorySaved", options);
-                    return;
-                case PurpleKind.PartSaved:
-                    JsonSerializer.Serialize(writer, "partSaved", options);
-                    return;
-                case PurpleKind.ProductCategorySaved:
-                    JsonSerializer.Serialize(writer, "productCategorySaved", options);
-                    return;
-                case PurpleKind.ProductSaved:
-                    JsonSerializer.Serialize(writer, "productSaved", options);
-                    return;
-                case PurpleKind.RelationshipGranted:
-                    JsonSerializer.Serialize(writer, "relationshipGranted", options);
-                    return;
-                case PurpleKind.RelationshipRevoked:
-                    JsonSerializer.Serialize(writer, "relationshipRevoked", options);
-                    return;
-            }
-            throw new Exception("Cannot marshal type PurpleKind");
-        }
-
-        public static readonly PurpleKindConverter Singleton = new PurpleKindConverter();
-    }
-
     internal class ErrorParameterValueKindConverter : JsonConverter<ErrorParameterValueKind>
     {
         public override bool CanConvert(Type t) => t == typeof(ErrorParameterValueKind);
@@ -4939,401 +4691,6 @@ namespace Eitmad.Contracts
         }
 
         public static readonly ErrorParameterValueValueConverter Singleton = new ErrorParameterValueValueConverter();
-    }
-
-    internal class UnitDimensionConverter : JsonConverter<UnitDimension>
-    {
-        public override bool CanConvert(Type t) => t == typeof(UnitDimension);
-
-        public override UnitDimension Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        {
-            var value = reader.GetString();
-            switch (value)
-            {
-                case "area":
-                    return UnitDimension.Area;
-                case "count":
-                    return UnitDimension.Count;
-                case "length":
-                    return UnitDimension.Length;
-                case "mass":
-                    return UnitDimension.Mass;
-                case "volume":
-                    return UnitDimension.Volume;
-            }
-            throw new Exception("Cannot unmarshal type UnitDimension");
-        }
-
-        public override void Write(Utf8JsonWriter writer, UnitDimension value, JsonSerializerOptions options)
-        {
-            switch (value)
-            {
-                case UnitDimension.Area:
-                    JsonSerializer.Serialize(writer, "area", options);
-                    return;
-                case UnitDimension.Count:
-                    JsonSerializer.Serialize(writer, "count", options);
-                    return;
-                case UnitDimension.Length:
-                    JsonSerializer.Serialize(writer, "length", options);
-                    return;
-                case UnitDimension.Mass:
-                    JsonSerializer.Serialize(writer, "mass", options);
-                    return;
-                case UnitDimension.Volume:
-                    JsonSerializer.Serialize(writer, "volume", options);
-                    return;
-            }
-            throw new Exception("Cannot marshal type UnitDimension");
-        }
-
-        public static readonly UnitDimensionConverter Singleton = new UnitDimensionConverter();
-    }
-
-    internal class CustomerStatusConverter : JsonConverter<CustomerStatus>
-    {
-        public override bool CanConvert(Type t) => t == typeof(CustomerStatus);
-
-        public override CustomerStatus Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        {
-            var value = reader.GetString();
-            switch (value)
-            {
-                case "active":
-                    return CustomerStatus.Active;
-                case "archived":
-                    return CustomerStatus.Archived;
-                case "merged":
-                    return CustomerStatus.Merged;
-            }
-            throw new Exception("Cannot unmarshal type CustomerStatus");
-        }
-
-        public override void Write(Utf8JsonWriter writer, CustomerStatus value, JsonSerializerOptions options)
-        {
-            switch (value)
-            {
-                case CustomerStatus.Active:
-                    JsonSerializer.Serialize(writer, "active", options);
-                    return;
-                case CustomerStatus.Archived:
-                    JsonSerializer.Serialize(writer, "archived", options);
-                    return;
-                case CustomerStatus.Merged:
-                    JsonSerializer.Serialize(writer, "merged", options);
-                    return;
-            }
-            throw new Exception("Cannot marshal type CustomerStatus");
-        }
-
-        public static readonly CustomerStatusConverter Singleton = new CustomerStatusConverter();
-    }
-
-    internal class CustomerSyncStateConverter : JsonConverter<CustomerSyncState>
-    {
-        public override bool CanConvert(Type t) => t == typeof(CustomerSyncState);
-
-        public override CustomerSyncState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        {
-            var value = reader.GetString();
-            switch (value)
-            {
-                case "confirmed":
-                    return CustomerSyncState.Confirmed;
-                case "conflicted":
-                    return CustomerSyncState.Conflicted;
-                case "pending":
-                    return CustomerSyncState.Pending;
-                case "rejected":
-                    return CustomerSyncState.Rejected;
-            }
-            throw new Exception("Cannot unmarshal type CustomerSyncState");
-        }
-
-        public override void Write(Utf8JsonWriter writer, CustomerSyncState value, JsonSerializerOptions options)
-        {
-            switch (value)
-            {
-                case CustomerSyncState.Confirmed:
-                    JsonSerializer.Serialize(writer, "confirmed", options);
-                    return;
-                case CustomerSyncState.Conflicted:
-                    JsonSerializer.Serialize(writer, "conflicted", options);
-                    return;
-                case CustomerSyncState.Pending:
-                    JsonSerializer.Serialize(writer, "pending", options);
-                    return;
-                case CustomerSyncState.Rejected:
-                    JsonSerializer.Serialize(writer, "rejected", options);
-                    return;
-            }
-            throw new Exception("Cannot marshal type CustomerSyncState");
-        }
-
-        public static readonly CustomerSyncStateConverter Singleton = new CustomerSyncStateConverter();
-    }
-
-    internal class RestartRequirementConverter : JsonConverter<RestartRequirement>
-    {
-        public override bool CanConvert(Type t) => t == typeof(RestartRequirement);
-
-        public override RestartRequirement Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        {
-            var value = reader.GetString();
-            switch (value)
-            {
-                case "application":
-                    return RestartRequirement.Application;
-                case "engine":
-                    return RestartRequirement.Engine;
-                case "none":
-                    return RestartRequirement.None;
-            }
-            throw new Exception("Cannot unmarshal type RestartRequirement");
-        }
-
-        public override void Write(Utf8JsonWriter writer, RestartRequirement value, JsonSerializerOptions options)
-        {
-            switch (value)
-            {
-                case RestartRequirement.Application:
-                    JsonSerializer.Serialize(writer, "application", options);
-                    return;
-                case RestartRequirement.Engine:
-                    JsonSerializer.Serialize(writer, "engine", options);
-                    return;
-                case RestartRequirement.None:
-                    JsonSerializer.Serialize(writer, "none", options);
-                    return;
-            }
-            throw new Exception("Cannot marshal type RestartRequirement");
-        }
-
-        public static readonly RestartRequirementConverter Singleton = new RestartRequirementConverter();
-    }
-
-    internal class ConfigSensitivityConverter : JsonConverter<ConfigSensitivity>
-    {
-        public override bool CanConvert(Type t) => t == typeof(ConfigSensitivity);
-
-        public override ConfigSensitivity Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        {
-            var value = reader.GetString();
-            switch (value)
-            {
-                case "public":
-                    return ConfigSensitivity.Public;
-                case "secret":
-                    return ConfigSensitivity.Secret;
-                case "sensitive":
-                    return ConfigSensitivity.Sensitive;
-            }
-            throw new Exception("Cannot unmarshal type ConfigSensitivity");
-        }
-
-        public override void Write(Utf8JsonWriter writer, ConfigSensitivity value, JsonSerializerOptions options)
-        {
-            switch (value)
-            {
-                case ConfigSensitivity.Public:
-                    JsonSerializer.Serialize(writer, "public", options);
-                    return;
-                case ConfigSensitivity.Secret:
-                    JsonSerializer.Serialize(writer, "secret", options);
-                    return;
-                case ConfigSensitivity.Sensitive:
-                    JsonSerializer.Serialize(writer, "sensitive", options);
-                    return;
-            }
-            throw new Exception("Cannot marshal type ConfigSensitivity");
-        }
-
-        public static readonly ConfigSensitivityConverter Singleton = new ConfigSensitivityConverter();
-    }
-
-    internal class ConfigReadValueKindConverter : JsonConverter<ConfigReadValueKind>
-    {
-        public override bool CanConvert(Type t) => t == typeof(ConfigReadValueKind);
-
-        public override ConfigReadValueKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        {
-            var value = reader.GetString();
-            switch (value)
-            {
-                case "boolean":
-                    return ConfigReadValueKind.Boolean;
-                case "decimal":
-                    return ConfigReadValueKind.Decimal;
-                case "integer":
-                    return ConfigReadValueKind.Integer;
-                case "redacted":
-                    return ConfigReadValueKind.Redacted;
-                case "secretReference":
-                    return ConfigReadValueKind.SecretReference;
-                case "text":
-                    return ConfigReadValueKind.Text;
-                case "textList":
-                    return ConfigReadValueKind.TextList;
-            }
-            throw new Exception("Cannot unmarshal type ConfigReadValueKind");
-        }
-
-        public override void Write(Utf8JsonWriter writer, ConfigReadValueKind value, JsonSerializerOptions options)
-        {
-            switch (value)
-            {
-                case ConfigReadValueKind.Boolean:
-                    JsonSerializer.Serialize(writer, "boolean", options);
-                    return;
-                case ConfigReadValueKind.Decimal:
-                    JsonSerializer.Serialize(writer, "decimal", options);
-                    return;
-                case ConfigReadValueKind.Integer:
-                    JsonSerializer.Serialize(writer, "integer", options);
-                    return;
-                case ConfigReadValueKind.Redacted:
-                    JsonSerializer.Serialize(writer, "redacted", options);
-                    return;
-                case ConfigReadValueKind.SecretReference:
-                    JsonSerializer.Serialize(writer, "secretReference", options);
-                    return;
-                case ConfigReadValueKind.Text:
-                    JsonSerializer.Serialize(writer, "text", options);
-                    return;
-                case ConfigReadValueKind.TextList:
-                    JsonSerializer.Serialize(writer, "textList", options);
-                    return;
-            }
-            throw new Exception("Cannot marshal type ConfigReadValueKind");
-        }
-
-        public static readonly ConfigReadValueKindConverter Singleton = new ConfigReadValueKindConverter();
-    }
-
-    internal class ConfigReadValueValueConverter : JsonConverter<ConfigReadValueValue>
-    {
-        public override bool CanConvert(Type t) => t == typeof(ConfigReadValueValue);
-
-        public override ConfigReadValueValue Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        {
-            switch (reader.TokenType)
-            {
-                case JsonTokenType.Number:
-                    var intValue1 = reader.GetInt64();
-                    return new ConfigReadValueValue { Integer = intValue1 };
-                case JsonTokenType.True:
-                case JsonTokenType.False:
-                    var boolValue = reader.GetBoolean();
-                    return new ConfigReadValueValue { Bool = boolValue };
-                case JsonTokenType.String:
-                    var stringValue = reader.GetString();
-                    return new ConfigReadValueValue { String = stringValue };
-                case JsonTokenType.StartArray:
-                    var arrayValue = JsonSerializer.Deserialize<string[]>(ref reader, options);
-                    return new ConfigReadValueValue { StringArray = arrayValue };
-            }
-            throw new Exception("Cannot unmarshal type ConfigReadValueValue");
-        }
-
-        public override void Write(Utf8JsonWriter writer, ConfigReadValueValue value, JsonSerializerOptions options)
-        {
-            if (value.Integer != null)
-            {
-                JsonSerializer.Serialize(writer, value.Integer.Value, options);
-                return;
-            }
-            if (value.Bool != null)
-            {
-                JsonSerializer.Serialize(writer, value.Bool.Value, options);
-                return;
-            }
-            if (value.String != null)
-            {
-                JsonSerializer.Serialize(writer, value.String, options);
-                return;
-            }
-            if (value.StringArray != null)
-            {
-                JsonSerializer.Serialize(writer, value.StringArray, options);
-                return;
-            }
-            throw new Exception("Cannot marshal type ConfigReadValueValue");
-        }
-
-        public static readonly ConfigReadValueValueConverter Singleton = new ConfigReadValueValueConverter();
-    }
-
-    internal class DesktopAccountRoleConverter : JsonConverter<DesktopAccountRole>
-    {
-        public override bool CanConvert(Type t) => t == typeof(DesktopAccountRole);
-
-        public override DesktopAccountRole Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        {
-            var value = reader.GetString();
-            switch (value)
-            {
-                case "manager":
-                    return DesktopAccountRole.Manager;
-                case "receptionist":
-                    return DesktopAccountRole.Receptionist;
-            }
-            throw new Exception("Cannot unmarshal type DesktopAccountRole");
-        }
-
-        public override void Write(Utf8JsonWriter writer, DesktopAccountRole value, JsonSerializerOptions options)
-        {
-            switch (value)
-            {
-                case DesktopAccountRole.Manager:
-                    JsonSerializer.Serialize(writer, "manager", options);
-                    return;
-                case DesktopAccountRole.Receptionist:
-                    JsonSerializer.Serialize(writer, "receptionist", options);
-                    return;
-            }
-            throw new Exception("Cannot marshal type DesktopAccountRole");
-        }
-
-        public static readonly DesktopAccountRoleConverter Singleton = new DesktopAccountRoleConverter();
-    }
-
-    internal class FurnitureStateConverter : JsonConverter<FurnitureState>
-    {
-        public override bool CanConvert(Type t) => t == typeof(FurnitureState);
-
-        public override FurnitureState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        {
-            var value = reader.GetString();
-            switch (value)
-            {
-                case "active":
-                    return FurnitureState.Active;
-                case "archived":
-                    return FurnitureState.Archived;
-                case "draft":
-                    return FurnitureState.Draft;
-            }
-            throw new Exception("Cannot unmarshal type FurnitureState");
-        }
-
-        public override void Write(Utf8JsonWriter writer, FurnitureState value, JsonSerializerOptions options)
-        {
-            switch (value)
-            {
-                case FurnitureState.Active:
-                    JsonSerializer.Serialize(writer, "active", options);
-                    return;
-                case FurnitureState.Archived:
-                    JsonSerializer.Serialize(writer, "archived", options);
-                    return;
-                case FurnitureState.Draft:
-                    JsonSerializer.Serialize(writer, "draft", options);
-                    return;
-            }
-            throw new Exception("Cannot marshal type FurnitureState");
-        }
-
-        public static readonly FurnitureStateConverter Singleton = new FurnitureStateConverter();
     }
 
     internal class RetryDispositionKindConverter : JsonConverter<RetryDispositionKind>
@@ -6166,6 +5523,401 @@ namespace Eitmad.Contracts
         public static readonly SyncCancellationReasonConverter Singleton = new SyncCancellationReasonConverter();
     }
 
+    internal class RestartRequirementConverter : JsonConverter<RestartRequirement>
+    {
+        public override bool CanConvert(Type t) => t == typeof(RestartRequirement);
+
+        public override RestartRequirement Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "application":
+                    return RestartRequirement.Application;
+                case "engine":
+                    return RestartRequirement.Engine;
+                case "none":
+                    return RestartRequirement.None;
+            }
+            throw new Exception("Cannot unmarshal type RestartRequirement");
+        }
+
+        public override void Write(Utf8JsonWriter writer, RestartRequirement value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case RestartRequirement.Application:
+                    JsonSerializer.Serialize(writer, "application", options);
+                    return;
+                case RestartRequirement.Engine:
+                    JsonSerializer.Serialize(writer, "engine", options);
+                    return;
+                case RestartRequirement.None:
+                    JsonSerializer.Serialize(writer, "none", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type RestartRequirement");
+        }
+
+        public static readonly RestartRequirementConverter Singleton = new RestartRequirementConverter();
+    }
+
+    internal class ConfigSensitivityConverter : JsonConverter<ConfigSensitivity>
+    {
+        public override bool CanConvert(Type t) => t == typeof(ConfigSensitivity);
+
+        public override ConfigSensitivity Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "public":
+                    return ConfigSensitivity.Public;
+                case "secret":
+                    return ConfigSensitivity.Secret;
+                case "sensitive":
+                    return ConfigSensitivity.Sensitive;
+            }
+            throw new Exception("Cannot unmarshal type ConfigSensitivity");
+        }
+
+        public override void Write(Utf8JsonWriter writer, ConfigSensitivity value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case ConfigSensitivity.Public:
+                    JsonSerializer.Serialize(writer, "public", options);
+                    return;
+                case ConfigSensitivity.Secret:
+                    JsonSerializer.Serialize(writer, "secret", options);
+                    return;
+                case ConfigSensitivity.Sensitive:
+                    JsonSerializer.Serialize(writer, "sensitive", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type ConfigSensitivity");
+        }
+
+        public static readonly ConfigSensitivityConverter Singleton = new ConfigSensitivityConverter();
+    }
+
+    internal class ConfigReadValueKindConverter : JsonConverter<ConfigReadValueKind>
+    {
+        public override bool CanConvert(Type t) => t == typeof(ConfigReadValueKind);
+
+        public override ConfigReadValueKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "boolean":
+                    return ConfigReadValueKind.Boolean;
+                case "decimal":
+                    return ConfigReadValueKind.Decimal;
+                case "integer":
+                    return ConfigReadValueKind.Integer;
+                case "redacted":
+                    return ConfigReadValueKind.Redacted;
+                case "secretReference":
+                    return ConfigReadValueKind.SecretReference;
+                case "text":
+                    return ConfigReadValueKind.Text;
+                case "textList":
+                    return ConfigReadValueKind.TextList;
+            }
+            throw new Exception("Cannot unmarshal type ConfigReadValueKind");
+        }
+
+        public override void Write(Utf8JsonWriter writer, ConfigReadValueKind value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case ConfigReadValueKind.Boolean:
+                    JsonSerializer.Serialize(writer, "boolean", options);
+                    return;
+                case ConfigReadValueKind.Decimal:
+                    JsonSerializer.Serialize(writer, "decimal", options);
+                    return;
+                case ConfigReadValueKind.Integer:
+                    JsonSerializer.Serialize(writer, "integer", options);
+                    return;
+                case ConfigReadValueKind.Redacted:
+                    JsonSerializer.Serialize(writer, "redacted", options);
+                    return;
+                case ConfigReadValueKind.SecretReference:
+                    JsonSerializer.Serialize(writer, "secretReference", options);
+                    return;
+                case ConfigReadValueKind.Text:
+                    JsonSerializer.Serialize(writer, "text", options);
+                    return;
+                case ConfigReadValueKind.TextList:
+                    JsonSerializer.Serialize(writer, "textList", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type ConfigReadValueKind");
+        }
+
+        public static readonly ConfigReadValueKindConverter Singleton = new ConfigReadValueKindConverter();
+    }
+
+    internal class ConfigReadValueValueConverter : JsonConverter<ConfigReadValueValue>
+    {
+        public override bool CanConvert(Type t) => t == typeof(ConfigReadValueValue);
+
+        public override ConfigReadValueValue Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            switch (reader.TokenType)
+            {
+                case JsonTokenType.Number:
+                    var intValue1 = reader.GetInt64();
+                    return new ConfigReadValueValue { Integer = intValue1 };
+                case JsonTokenType.True:
+                case JsonTokenType.False:
+                    var boolValue = reader.GetBoolean();
+                    return new ConfigReadValueValue { Bool = boolValue };
+                case JsonTokenType.String:
+                    var stringValue = reader.GetString();
+                    return new ConfigReadValueValue { String = stringValue };
+                case JsonTokenType.StartArray:
+                    var arrayValue = JsonSerializer.Deserialize<string[]>(ref reader, options);
+                    return new ConfigReadValueValue { StringArray = arrayValue };
+            }
+            throw new Exception("Cannot unmarshal type ConfigReadValueValue");
+        }
+
+        public override void Write(Utf8JsonWriter writer, ConfigReadValueValue value, JsonSerializerOptions options)
+        {
+            if (value.Integer != null)
+            {
+                JsonSerializer.Serialize(writer, value.Integer.Value, options);
+                return;
+            }
+            if (value.Bool != null)
+            {
+                JsonSerializer.Serialize(writer, value.Bool.Value, options);
+                return;
+            }
+            if (value.String != null)
+            {
+                JsonSerializer.Serialize(writer, value.String, options);
+                return;
+            }
+            if (value.StringArray != null)
+            {
+                JsonSerializer.Serialize(writer, value.StringArray, options);
+                return;
+            }
+            throw new Exception("Cannot marshal type ConfigReadValueValue");
+        }
+
+        public static readonly ConfigReadValueValueConverter Singleton = new ConfigReadValueValueConverter();
+    }
+
+    internal class CustomerStatusConverter : JsonConverter<CustomerStatus>
+    {
+        public override bool CanConvert(Type t) => t == typeof(CustomerStatus);
+
+        public override CustomerStatus Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "active":
+                    return CustomerStatus.Active;
+                case "archived":
+                    return CustomerStatus.Archived;
+                case "merged":
+                    return CustomerStatus.Merged;
+            }
+            throw new Exception("Cannot unmarshal type CustomerStatus");
+        }
+
+        public override void Write(Utf8JsonWriter writer, CustomerStatus value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case CustomerStatus.Active:
+                    JsonSerializer.Serialize(writer, "active", options);
+                    return;
+                case CustomerStatus.Archived:
+                    JsonSerializer.Serialize(writer, "archived", options);
+                    return;
+                case CustomerStatus.Merged:
+                    JsonSerializer.Serialize(writer, "merged", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type CustomerStatus");
+        }
+
+        public static readonly CustomerStatusConverter Singleton = new CustomerStatusConverter();
+    }
+
+    internal class CustomerSyncStateConverter : JsonConverter<CustomerSyncState>
+    {
+        public override bool CanConvert(Type t) => t == typeof(CustomerSyncState);
+
+        public override CustomerSyncState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "confirmed":
+                    return CustomerSyncState.Confirmed;
+                case "conflicted":
+                    return CustomerSyncState.Conflicted;
+                case "pending":
+                    return CustomerSyncState.Pending;
+                case "rejected":
+                    return CustomerSyncState.Rejected;
+            }
+            throw new Exception("Cannot unmarshal type CustomerSyncState");
+        }
+
+        public override void Write(Utf8JsonWriter writer, CustomerSyncState value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case CustomerSyncState.Confirmed:
+                    JsonSerializer.Serialize(writer, "confirmed", options);
+                    return;
+                case CustomerSyncState.Conflicted:
+                    JsonSerializer.Serialize(writer, "conflicted", options);
+                    return;
+                case CustomerSyncState.Pending:
+                    JsonSerializer.Serialize(writer, "pending", options);
+                    return;
+                case CustomerSyncState.Rejected:
+                    JsonSerializer.Serialize(writer, "rejected", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type CustomerSyncState");
+        }
+
+        public static readonly CustomerSyncStateConverter Singleton = new CustomerSyncStateConverter();
+    }
+
+    internal class DesktopAccountRoleConverter : JsonConverter<DesktopAccountRole>
+    {
+        public override bool CanConvert(Type t) => t == typeof(DesktopAccountRole);
+
+        public override DesktopAccountRole Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "manager":
+                    return DesktopAccountRole.Manager;
+                case "receptionist":
+                    return DesktopAccountRole.Receptionist;
+            }
+            throw new Exception("Cannot unmarshal type DesktopAccountRole");
+        }
+
+        public override void Write(Utf8JsonWriter writer, DesktopAccountRole value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case DesktopAccountRole.Manager:
+                    JsonSerializer.Serialize(writer, "manager", options);
+                    return;
+                case DesktopAccountRole.Receptionist:
+                    JsonSerializer.Serialize(writer, "receptionist", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type DesktopAccountRole");
+        }
+
+        public static readonly DesktopAccountRoleConverter Singleton = new DesktopAccountRoleConverter();
+    }
+
+    internal class FurnitureStateConverter : JsonConverter<FurnitureState>
+    {
+        public override bool CanConvert(Type t) => t == typeof(FurnitureState);
+
+        public override FurnitureState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "active":
+                    return FurnitureState.Active;
+                case "archived":
+                    return FurnitureState.Archived;
+                case "draft":
+                    return FurnitureState.Draft;
+            }
+            throw new Exception("Cannot unmarshal type FurnitureState");
+        }
+
+        public override void Write(Utf8JsonWriter writer, FurnitureState value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case FurnitureState.Active:
+                    JsonSerializer.Serialize(writer, "active", options);
+                    return;
+                case FurnitureState.Archived:
+                    JsonSerializer.Serialize(writer, "archived", options);
+                    return;
+                case FurnitureState.Draft:
+                    JsonSerializer.Serialize(writer, "draft", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type FurnitureState");
+        }
+
+        public static readonly FurnitureStateConverter Singleton = new FurnitureStateConverter();
+    }
+
+    internal class UnitDimensionConverter : JsonConverter<UnitDimension>
+    {
+        public override bool CanConvert(Type t) => t == typeof(UnitDimension);
+
+        public override UnitDimension Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "area":
+                    return UnitDimension.Area;
+                case "count":
+                    return UnitDimension.Count;
+                case "length":
+                    return UnitDimension.Length;
+                case "mass":
+                    return UnitDimension.Mass;
+                case "volume":
+                    return UnitDimension.Volume;
+            }
+            throw new Exception("Cannot unmarshal type UnitDimension");
+        }
+
+        public override void Write(Utf8JsonWriter writer, UnitDimension value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case UnitDimension.Area:
+                    JsonSerializer.Serialize(writer, "area", options);
+                    return;
+                case UnitDimension.Count:
+                    JsonSerializer.Serialize(writer, "count", options);
+                    return;
+                case UnitDimension.Length:
+                    JsonSerializer.Serialize(writer, "length", options);
+                    return;
+                case UnitDimension.Mass:
+                    JsonSerializer.Serialize(writer, "mass", options);
+                    return;
+                case UnitDimension.Volume:
+                    JsonSerializer.Serialize(writer, "volume", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type UnitDimension");
+        }
+
+        public static readonly UnitDimensionConverter Singleton = new UnitDimensionConverter();
+    }
+
     internal class ConfigWriteValueKindConverter : JsonConverter<ConfigWriteValueKind>
     {
         public override bool CanConvert(Type t) => t == typeof(ConfigWriteValueKind);
@@ -6519,43 +6271,43 @@ namespace Eitmad.Contracts
         public static readonly DesktopSessionStatusConverter Singleton = new DesktopSessionStatusConverter();
     }
 
-    internal class FluffyKindConverter : JsonConverter<FluffyKind>
+    internal class PurpleKindConverter : JsonConverter<PurpleKind>
     {
-        public override bool CanConvert(Type t) => t == typeof(FluffyKind);
+        public override bool CanConvert(Type t) => t == typeof(PurpleKind);
 
-        public override FluffyKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        public override PurpleKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
             var value = reader.GetString();
             switch (value)
             {
                 case "authenticationFailed":
-                    return FluffyKind.AuthenticationFailed;
+                    return PurpleKind.AuthenticationFailed;
                 case "authenticationRequired":
-                    return FluffyKind.AuthenticationRequired;
+                    return PurpleKind.AuthenticationRequired;
                 case "negotiation":
-                    return FluffyKind.Negotiation;
+                    return PurpleKind.Negotiation;
             }
-            throw new Exception("Cannot unmarshal type FluffyKind");
+            throw new Exception("Cannot unmarshal type PurpleKind");
         }
 
-        public override void Write(Utf8JsonWriter writer, FluffyKind value, JsonSerializerOptions options)
+        public override void Write(Utf8JsonWriter writer, PurpleKind value, JsonSerializerOptions options)
         {
             switch (value)
             {
-                case FluffyKind.AuthenticationFailed:
+                case PurpleKind.AuthenticationFailed:
                     JsonSerializer.Serialize(writer, "authenticationFailed", options);
                     return;
-                case FluffyKind.AuthenticationRequired:
+                case PurpleKind.AuthenticationRequired:
                     JsonSerializer.Serialize(writer, "authenticationRequired", options);
                     return;
-                case FluffyKind.Negotiation:
+                case PurpleKind.Negotiation:
                     JsonSerializer.Serialize(writer, "negotiation", options);
                     return;
             }
-            throw new Exception("Cannot marshal type FluffyKind");
+            throw new Exception("Cannot marshal type PurpleKind");
         }
 
-        public static readonly FluffyKindConverter Singleton = new FluffyKindConverter();
+        public static readonly PurpleKindConverter Singleton = new PurpleKindConverter();
     }
 
     internal class SubscriptionCloseReasonConverter : JsonConverter<SubscriptionCloseReason>

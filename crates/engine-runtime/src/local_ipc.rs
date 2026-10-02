@@ -1589,7 +1589,7 @@ mod tests {
 
     use super::*;
     use eitmad_contracts::{
-        commands::{CancelOperation, Command},
+        commands::{Command, UpdateConfiguration},
         config::{ConfigReadValue, ConfigSnapshot},
         errors::{ErrorParameter, ErrorParameterName, ErrorParameterValue},
         events::{ConfigurationChanges, Subscription},
@@ -1599,7 +1599,7 @@ mod tests {
         },
         queries::GetSyncStatus,
         sync::SyncStatus,
-        transport::{IdempotencyKey, OperationId, RequestId, SubscriptionEnvelope},
+        transport::{IdempotencyKey, RequestId, SubscriptionEnvelope},
         versioning::ProtocolVersion,
     };
 
@@ -1620,15 +1620,18 @@ mod tests {
     impl CommandDispatcher for TestDispatcher {
         async fn dispatch_command(
             &self,
-            _context: DispatchContext,
+            context: DispatchContext,
             command: Command,
         ) -> Result<CommandResult, ContractError> {
-            let Command::CancelOperation(request) = command else {
+            let Command::UpdateConfiguration(request) = command else {
                 unreachable!("unexpected command fixture")
             };
-            Ok(CommandResult::OperationCancelled {
-                operation_id: request.operation_id,
-            })
+            Ok(CommandResult::ConfigurationUpdated(ConfigSnapshot {
+                schema_version: 1,
+                revision: request.expected_revision,
+                scope: context.authorization.scope,
+                entries: Vec::new(),
+            }))
         }
     }
 
@@ -1655,16 +1658,11 @@ mod tests {
     impl CommandDispatcher for SlowDispatcher {
         async fn dispatch_command(
             &self,
-            _context: DispatchContext,
+            context: DispatchContext,
             command: Command,
         ) -> Result<CommandResult, ContractError> {
-            let Command::CancelOperation(request) = command else {
-                unreachable!("unexpected command fixture")
-            };
             tokio::time::sleep(Duration::from_millis(50)).await;
-            Ok(CommandResult::OperationCancelled {
-                operation_id: request.operation_id,
-            })
+            TestDispatcher.dispatch_command(context, command).await
         }
     }
 
@@ -1976,8 +1974,9 @@ mod tests {
             idempotency_key: IdempotencyKey::new(uuid::Uuid::new_v4()),
             authorization: user,
             deadline: UnixMillis(now().0 + 30_000),
-            command: Command::CancelOperation(eitmad_contracts::commands::CancelOperation {
-                operation_id: eitmad_contracts::transport::OperationId::new(uuid::Uuid::new_v4()),
+            command: Command::UpdateConfiguration(UpdateConfiguration {
+                expected_revision: 0,
+                changes: Vec::new(),
             }),
         };
         let denied = service.command(connection.as_ref(), command).await;
@@ -2559,7 +2558,7 @@ mod tests {
             authorization: accepted.authorization.clone(),
             user_authorization: None,
         };
-        let operation_id = OperationId::new(uuid::Uuid::new_v4());
+        let expected_revision = 7;
         let request = eitmad_contracts::transport::CommandEnvelope {
             protocol_version: PROTOCOL_VERSION,
             request_id: RequestId::new(uuid::Uuid::new_v4()),
@@ -2568,12 +2567,15 @@ mod tests {
             authorization: accepted.authorization,
             deadline: UnixMillis(now().0 + 1_000),
             idempotency_key: IdempotencyKey::new(uuid::Uuid::new_v4()),
-            command: Command::CancelOperation(CancelOperation { operation_id }),
+            command: Command::UpdateConfiguration(UpdateConfiguration {
+                expected_revision,
+                changes: Vec::new(),
+            }),
         };
         assert!(matches!(
             service.command(Some(&session), request).await.outcome,
-            CommandOutcome::Succeeded(CommandResult::OperationCancelled { operation_id: actual })
-                if actual == operation_id
+            CommandOutcome::Succeeded(CommandResult::ConfigurationUpdated(snapshot))
+                if snapshot.revision == expected_revision
         ));
     }
 
@@ -2661,8 +2663,9 @@ mod tests {
             authorization: accepted.authorization,
             deadline: UnixMillis(now().0 + 10),
             idempotency_key: IdempotencyKey::new(uuid::Uuid::new_v4()),
-            command: Command::CancelOperation(CancelOperation {
-                operation_id: OperationId::new(uuid::Uuid::new_v4()),
+            command: Command::UpdateConfiguration(UpdateConfiguration {
+                expected_revision: 0,
+                changes: Vec::new(),
             }),
         };
         let CommandOutcome::Failed(error) = service.command(Some(&session), request).await.outcome

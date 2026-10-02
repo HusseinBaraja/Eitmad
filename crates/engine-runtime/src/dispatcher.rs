@@ -414,29 +414,6 @@ impl ProductDispatcher {
         Ok(CommandResult::DesktopAccountCreated(account))
     }
 
-    fn reject_unsupported_command(
-        &self,
-        context: &DispatchContext,
-        operation: &str,
-    ) -> Result<CommandResult, Box<ContractError>> {
-        self.authorization
-            .audit_access_result(
-                &AccessAuditContext {
-                    authorization: context.authorization.clone(),
-                    correlation_id: context.correlation_id,
-                    causation_id: context.causation_id,
-                    occurred_at: now(),
-                },
-                operation,
-                "command-scope",
-                AuditOutcome::Invalid,
-                Some("eitmad.error.contract-invalid.v1"),
-                Vec::new(),
-            )
-            .map_err(|error| Box::new(authorization_error(error, context)))?;
-        Err(Box::new(unsupported(context)))
-    }
-
     fn publish_pending(
         &self,
         context: &DispatchContext,
@@ -505,7 +482,6 @@ impl CommandDispatcher for ProductDispatcher {
         context: DispatchContext,
         command: Command,
     ) -> Result<CommandResult, ContractError> {
-        let operation = command.kind();
         let mutation = Self::mutation_context(&context).map_err(|error| *error)?;
         match command {
             Command::UpdateConfiguration(command) => {
@@ -584,9 +560,6 @@ impl CommandDispatcher for ProductDispatcher {
                     })?;
                 Ok(CommandResult::DesktopAccountDeactivated(account))
             }
-            Command::CancelOperation(_) => self
-                .reject_unsupported_command(&context, operation)
-                .map_err(|error| *error),
         }
     }
 }
@@ -1141,7 +1114,7 @@ mod tests {
     use eitmad_contracts::{
         accounts::{AccountPassword, CreateDesktopAccount, DesktopAccountRole},
         authorization::{RelationId, RelationshipSubject},
-        commands::{CancelOperation, CreateCustomer, GrantScopeRelationship, UpdateConfiguration},
+        commands::{CreateCustomer, GrantScopeRelationship, UpdateConfiguration},
         config::{ConfigChange, ConfigKey, ConfigWriteValue},
         customer::{
             CustomerName, CustomerPhone, CustomerSearchTerm, CustomerSyncState, GetCustomer,
@@ -1161,7 +1134,7 @@ mod tests {
         },
         part::{ListParts, PartChanges, PartUsage, SavePart, SavePartCategory},
         queries::{GetConfiguration, GetSyncStatus, Query},
-        transport::{CorrelationId, IdempotencyKey, OperationId, PROTOCOL_VERSION, UnixMillis},
+        transport::{CorrelationId, IdempotencyKey, PROTOCOL_VERSION, UnixMillis},
     };
     use rusqlite::Connection;
     use tempfile::TempDir;
@@ -1282,14 +1255,15 @@ mod tests {
         let invalid_command = dispatcher
             .dispatch_command(
                 context(200),
-                Command::CancelOperation(CancelOperation {
-                    operation_id: OperationId::new(Uuid::from_u128(201)),
+                Command::UpdateConfiguration(UpdateConfiguration {
+                    expected_revision: 0,
+                    changes: Vec::new(),
                 }),
             )
             .await;
         assert!(invalid_command.is_err());
         assert_eq!(
-            last_audit_outcome(&dispatcher, "eitmad.operation.cancel.v1"),
+            last_audit_outcome(&dispatcher, "eitmad.config.update.v1"),
             AuditOutcome::Invalid
         );
 

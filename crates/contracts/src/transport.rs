@@ -21,7 +21,6 @@ uuid_id!(CorrelationId);
 uuid_id!(CausationId);
 uuid_id!(IdempotencyKey);
 uuid_id!(SubscriptionId);
-uuid_id!(OperationId);
 uuid_id!(UpdateHandoffId);
 
 uuid_id!(EventCursor);

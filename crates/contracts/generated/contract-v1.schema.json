@@ -406,18 +406,6 @@
         "usages"
       ]
     },
-    "CancelOperation": {
-      "type": "object",
-      "properties": {
-        "operationId": {
-          "type": "string",
-          "format": "uuid"
-        }
-      },
-      "required": [
-        "operationId"
-      ]
-    },
     "ChangeBatch": {
       "type": "object",
       "properties": {
@@ -613,22 +601,6 @@
             },
             "payload": {
               "$ref": "#/definitions/RevokeScopeRelationship"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "eitmad.operation.cancel.v1"
-            },
-            "payload": {
-              "$ref": "#/definitions/CancelOperation"
             }
           },
           "required": [
@@ -1064,31 +1036,6 @@
             },
             "payload": {
               "$ref": "#/definitions/RelationshipMutationResult"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "operationCancelled"
-            },
-            "payload": {
-              "type": "object",
-              "properties": {
-                "operation_id": {
-                  "type": "string",
-                  "format": "uuid"
-                }
-              },
-              "required": [
-                "operation_id"
-              ]
             }
           },
           "required": [

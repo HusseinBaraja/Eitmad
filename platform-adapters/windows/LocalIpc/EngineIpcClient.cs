@@ -101,7 +101,7 @@ public sealed class EngineIpcClient : IAsyncDisposable
 
             if (handshake.Outcome.Status != NegotiationOutcomeStatus.Accepted)
             {
-                var kind = handshake.Outcome.Payload.Kind == FluffyKind.Negotiation
+                var kind = handshake.Outcome.Payload.Payload is not null
                     ? EngineIpcFailureKind.VersionMismatch
                     : EngineIpcFailureKind.AuthenticationRejected;
                 throw new EngineIpcException(kind, "The engine rejected the local IPC handshake.");

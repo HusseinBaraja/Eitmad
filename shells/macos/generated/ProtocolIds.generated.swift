@@ -33,7 +33,6 @@ public enum ProtocolIds {
         public static let eitmadConfigUpdateV1 = "eitmad.config.update.v1"
         public static let eitmadAuthorizationRelationshipGrantV1 = "eitmad.authorization.relationship.grant.v1"
         public static let eitmadAuthorizationRelationshipRevokeV1 = "eitmad.authorization.relationship.revoke.v1"
-        public static let eitmadOperationCancelV1 = "eitmad.operation.cancel.v1"
         public static let eitmadCustomerCreateV1 = "eitmad.customer.create.v1"
         public static let eitmadCustomerUpdateV1 = "eitmad.customer.update.v1"
         public static let eitmadMaterialCategorySaveV1 = "eitmad.material-category.save.v1"

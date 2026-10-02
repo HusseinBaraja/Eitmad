@@ -1292,10 +1292,10 @@ public extension CommandOutcome {
     }
 }
 
+/// Discriminated union rendered in platform-specific bindings; every kind maps to a distinct
+/// typed payload.
 // MARK: - CommandResult
 public struct CommandResult: Codable, Sendable {
-    public let kind: PurpleKind?
-    public let payload: ConfigSnapshot?
     public let code, correlationID: String?
     public let detail: ErrorDetail?
     public let messageID: String?
@@ -1303,16 +1303,14 @@ public struct CommandResult: Codable, Sendable {
     public let retry: RetryDisposition?
 
     public enum CodingKeys: String, CodingKey {
-        case kind, payload, code
+        case code
         case correlationID = "correlationId"
         case detail
         case messageID = "messageId"
         case parameters, retry
     }
 
-    public init(kind: PurpleKind?, payload: ConfigSnapshot?, code: String?, correlationID: String?, detail: ErrorDetail?, messageID: String?, parameters: [ErrorParameter]?, retry: RetryDisposition?) {
-        self.kind = kind
-        self.payload = payload
+    public init(code: String?, correlationID: String?, detail: ErrorDetail?, messageID: String?, parameters: [ErrorParameter]?, retry: RetryDisposition?) {
         self.code = code
         self.correlationID = correlationID
         self.detail = detail
@@ -1341,8 +1339,6 @@ public extension CommandResult {
     }
 
     func with(
-        kind: PurpleKind?? = nil,
-        payload: ConfigSnapshot?? = nil,
         code: String?? = nil,
         correlationID: String?? = nil,
         detail: ErrorDetail?? = nil,
@@ -1351,8 +1347,6 @@ public extension CommandResult {
         retry: RetryDisposition?? = nil
     ) -> CommandResult {
         return CommandResult(
-            kind: kind ?? self.kind,
-            payload: payload ?? self.payload,
             code: code ?? self.code,
             correlationID: correlationID ?? self.correlationID,
             detail: detail ?? self.detail,
@@ -1508,27 +1502,6 @@ public enum LifecycleStage: String, Codable, Sendable {
     case readinessCheck = "readinessCheck"
 }
 
-public enum PurpleKind: String, Codable, Sendable {
-    case configurationUpdated = "configurationUpdated"
-    case customerCreated = "customerCreated"
-    case customerUpdated = "customerUpdated"
-    case desktopAccountCreated = "desktopAccountCreated"
-    case desktopAccountDeactivated = "desktopAccountDeactivated"
-    case desktopAccountUpdated = "desktopAccountUpdated"
-    case furnitureCategorySaved = "furnitureCategorySaved"
-    case furnitureSaved = "furnitureSaved"
-    case materialCategorySaved = "materialCategorySaved"
-    case materialSaved = "materialSaved"
-    case materialUnitSaved = "materialUnitSaved"
-    case operationCancelled = "operationCancelled"
-    case partCategorySaved = "partCategorySaved"
-    case partSaved = "partSaved"
-    case productCategorySaved = "productCategorySaved"
-    case productSaved = "productSaved"
-    case relationshipGranted = "relationshipGranted"
-    case relationshipRevoked = "relationshipRevoked"
-}
-
 // MARK: - ErrorParameter
 public struct ErrorParameter: Codable, Sendable {
     public let name: String
@@ -1656,1294 +1629,6 @@ public enum ErrorParameterValueValue: Codable, Sendable {
         case .string(let x):
             try container.encode(x)
         }
-    }
-}
-
-// MARK: - ConfigSnapshot
-public struct ConfigSnapshot: Codable, Sendable {
-    public let entries: [ConfigEntry]?
-    public let revision, schemaVersion: Int?
-    public let scope: ScopeRef?
-    public let changed: Bool?
-    public let policyVersion: Int?
-    public let relationship: ScopeRelationship?
-    public let operationID: String?
-    public let customer: Customer?
-    public let potentialDuplicateIDS: [String]?
-    public let archived: Bool?
-    public let id, name: String?
-    public let updatedAt: Int?
-    public let denominator: Int?
-    public let dimension: UnitDimension?
-    public let numerator: Int?
-    public let symbol, categoryID: String?
-    /// Non-negative whole Yemeni rials per selected unit.
-    public let currentCostYer: Int?
-    public let unitID: String?
-    /// Category name at this revision, retained for historical reads.
-    public let categoryName: String?
-    public let colors: [FurnitureOption]?
-    public let description: String?
-    public let handles: [FurnitureOption]?
-    /// Internal notes are only exposed to Managers.
-    ///
-    /// Internal notes are withheld with purchase costs.
-    public let notes: String?
-    public let parts: [FurniturePart]?
-    public let partsCostYer: Int?
-    public let state: FurnitureState?
-    public let variants: [Variant]?
-    public let composition: CompositionReference?
-    public let cost: PartCost?
-    public let accountID: String?
-    public let active: Bool?
-    public let displayName: String?
-    public let role: DesktopAccountRole?
-    public let userID, username: String?
-
-    public enum CodingKeys: String, CodingKey {
-        case entries, revision, schemaVersion, scope, changed, policyVersion, relationship
-        case operationID = "operation_id"
-        case customer
-        case potentialDuplicateIDS = "potentialDuplicateIds"
-        case archived, id, name, updatedAt, denominator, dimension, numerator, symbol
-        case categoryID = "categoryId"
-        case currentCostYer
-        case unitID = "unitId"
-        case categoryName, colors, description, handles, notes, parts, partsCostYer, state, variants, composition, cost
-        case accountID = "accountId"
-        case active, displayName, role
-        case userID = "userId"
-        case username
-    }
-
-    public init(entries: [ConfigEntry]?, revision: Int?, schemaVersion: Int?, scope: ScopeRef?, changed: Bool?, policyVersion: Int?, relationship: ScopeRelationship?, operationID: String?, customer: Customer?, potentialDuplicateIDS: [String]?, archived: Bool?, id: String?, name: String?, updatedAt: Int?, denominator: Int?, dimension: UnitDimension?, numerator: Int?, symbol: String?, categoryID: String?, currentCostYer: Int?, unitID: String?, categoryName: String?, colors: [FurnitureOption]?, description: String?, handles: [FurnitureOption]?, notes: String?, parts: [FurniturePart]?, partsCostYer: Int?, state: FurnitureState?, variants: [Variant]?, composition: CompositionReference?, cost: PartCost?, accountID: String?, active: Bool?, displayName: String?, role: DesktopAccountRole?, userID: String?, username: String?) {
-        self.entries = entries
-        self.revision = revision
-        self.schemaVersion = schemaVersion
-        self.scope = scope
-        self.changed = changed
-        self.policyVersion = policyVersion
-        self.relationship = relationship
-        self.operationID = operationID
-        self.customer = customer
-        self.potentialDuplicateIDS = potentialDuplicateIDS
-        self.archived = archived
-        self.id = id
-        self.name = name
-        self.updatedAt = updatedAt
-        self.denominator = denominator
-        self.dimension = dimension
-        self.numerator = numerator
-        self.symbol = symbol
-        self.categoryID = categoryID
-        self.currentCostYer = currentCostYer
-        self.unitID = unitID
-        self.categoryName = categoryName
-        self.colors = colors
-        self.description = description
-        self.handles = handles
-        self.notes = notes
-        self.parts = parts
-        self.partsCostYer = partsCostYer
-        self.state = state
-        self.variants = variants
-        self.composition = composition
-        self.cost = cost
-        self.accountID = accountID
-        self.active = active
-        self.displayName = displayName
-        self.role = role
-        self.userID = userID
-        self.username = username
-    }
-}
-
-// MARK: ConfigSnapshot convenience initializers and mutators
-
-public extension ConfigSnapshot {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(ConfigSnapshot.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        entries: [ConfigEntry]?? = nil,
-        revision: Int?? = nil,
-        schemaVersion: Int?? = nil,
-        scope: ScopeRef?? = nil,
-        changed: Bool?? = nil,
-        policyVersion: Int?? = nil,
-        relationship: ScopeRelationship?? = nil,
-        operationID: String?? = nil,
-        customer: Customer?? = nil,
-        potentialDuplicateIDS: [String]?? = nil,
-        archived: Bool?? = nil,
-        id: String?? = nil,
-        name: String?? = nil,
-        updatedAt: Int?? = nil,
-        denominator: Int?? = nil,
-        dimension: UnitDimension?? = nil,
-        numerator: Int?? = nil,
-        symbol: String?? = nil,
-        categoryID: String?? = nil,
-        currentCostYer: Int?? = nil,
-        unitID: String?? = nil,
-        categoryName: String?? = nil,
-        colors: [FurnitureOption]?? = nil,
-        description: String?? = nil,
-        handles: [FurnitureOption]?? = nil,
-        notes: String?? = nil,
-        parts: [FurniturePart]?? = nil,
-        partsCostYer: Int?? = nil,
-        state: FurnitureState?? = nil,
-        variants: [Variant]?? = nil,
-        composition: CompositionReference?? = nil,
-        cost: PartCost?? = nil,
-        accountID: String?? = nil,
-        active: Bool?? = nil,
-        displayName: String?? = nil,
-        role: DesktopAccountRole?? = nil,
-        userID: String?? = nil,
-        username: String?? = nil
-    ) -> ConfigSnapshot {
-        return ConfigSnapshot(
-            entries: entries ?? self.entries,
-            revision: revision ?? self.revision,
-            schemaVersion: schemaVersion ?? self.schemaVersion,
-            scope: scope ?? self.scope,
-            changed: changed ?? self.changed,
-            policyVersion: policyVersion ?? self.policyVersion,
-            relationship: relationship ?? self.relationship,
-            operationID: operationID ?? self.operationID,
-            customer: customer ?? self.customer,
-            potentialDuplicateIDS: potentialDuplicateIDS ?? self.potentialDuplicateIDS,
-            archived: archived ?? self.archived,
-            id: id ?? self.id,
-            name: name ?? self.name,
-            updatedAt: updatedAt ?? self.updatedAt,
-            denominator: denominator ?? self.denominator,
-            dimension: dimension ?? self.dimension,
-            numerator: numerator ?? self.numerator,
-            symbol: symbol ?? self.symbol,
-            categoryID: categoryID ?? self.categoryID,
-            currentCostYer: currentCostYer ?? self.currentCostYer,
-            unitID: unitID ?? self.unitID,
-            categoryName: categoryName ?? self.categoryName,
-            colors: colors ?? self.colors,
-            description: description ?? self.description,
-            handles: handles ?? self.handles,
-            notes: notes ?? self.notes,
-            parts: parts ?? self.parts,
-            partsCostYer: partsCostYer ?? self.partsCostYer,
-            state: state ?? self.state,
-            variants: variants ?? self.variants,
-            composition: composition ?? self.composition,
-            cost: cost ?? self.cost,
-            accountID: accountID ?? self.accountID,
-            active: active ?? self.active,
-            displayName: displayName ?? self.displayName,
-            role: role ?? self.role,
-            userID: userID ?? self.userID,
-            username: username ?? self.username
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
-// MARK: - FurnitureOption
-public struct FurnitureOption: Codable, Sendable {
-    public let archived: Bool
-    public let id, name: String
-    public let priceAdjustmentYer: Int
-    public let visual: String
-
-    public init(archived: Bool, id: String, name: String, priceAdjustmentYer: Int, visual: String) {
-        self.archived = archived
-        self.id = id
-        self.name = name
-        self.priceAdjustmentYer = priceAdjustmentYer
-        self.visual = visual
-    }
-}
-
-// MARK: FurnitureOption convenience initializers and mutators
-
-public extension FurnitureOption {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(FurnitureOption.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        archived: Bool? = nil,
-        id: String? = nil,
-        name: String? = nil,
-        priceAdjustmentYer: Int? = nil,
-        visual: String? = nil
-    ) -> FurnitureOption {
-        return FurnitureOption(
-            archived: archived ?? self.archived,
-            id: id ?? self.id,
-            name: name ?? self.name,
-            priceAdjustmentYer: priceAdjustmentYer ?? self.priceAdjustmentYer,
-            visual: visual ?? self.visual
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
-// MARK: - CompositionReference
-public struct CompositionReference: Codable, Sendable {
-    public let partID: String
-    public let revision, schemaVersion: Int
-    public let scope: ScopeRef
-
-    public enum CodingKeys: String, CodingKey {
-        case partID = "partId"
-        case revision, schemaVersion, scope
-    }
-
-    public init(partID: String, revision: Int, schemaVersion: Int, scope: ScopeRef) {
-        self.partID = partID
-        self.revision = revision
-        self.schemaVersion = schemaVersion
-        self.scope = scope
-    }
-}
-
-// MARK: CompositionReference convenience initializers and mutators
-
-public extension CompositionReference {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(CompositionReference.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        partID: String? = nil,
-        revision: Int? = nil,
-        schemaVersion: Int? = nil,
-        scope: ScopeRef? = nil
-    ) -> CompositionReference {
-        return CompositionReference(
-            partID: partID ?? self.partID,
-            revision: revision ?? self.revision,
-            schemaVersion: schemaVersion ?? self.schemaVersion,
-            scope: scope ?? self.scope
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
-/// Advisory current cost; commercial references resolve the immutable part snapshot instead.
-// MARK: - PartCost
-public struct PartCost: Codable, Sendable {
-    public let rows: [CostedUsage]
-    public let totalCostYer: Int
-
-    public init(rows: [CostedUsage], totalCostYer: Int) {
-        self.rows = rows
-        self.totalCostYer = totalCostYer
-    }
-}
-
-// MARK: PartCost convenience initializers and mutators
-
-public extension PartCost {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(PartCost.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        rows: [CostedUsage]? = nil,
-        totalCostYer: Int? = nil
-    ) -> PartCost {
-        return PartCost(
-            rows: rows ?? self.rows,
-            totalCostYer: totalCostYer ?? self.totalCostYer
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
-// MARK: - CostedUsage
-public struct CostedUsage: Codable, Sendable {
-    public let costUnit: MaterialUnit
-    public let costYer: Int
-    public let material: Material
-    public let unit: MaterialUnit
-    public let usage: PartUsage
-
-    public init(costUnit: MaterialUnit, costYer: Int, material: Material, unit: MaterialUnit, usage: PartUsage) {
-        self.costUnit = costUnit
-        self.costYer = costYer
-        self.material = material
-        self.unit = unit
-        self.usage = usage
-    }
-}
-
-// MARK: CostedUsage convenience initializers and mutators
-
-public extension CostedUsage {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(CostedUsage.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        costUnit: MaterialUnit? = nil,
-        costYer: Int? = nil,
-        material: Material? = nil,
-        unit: MaterialUnit? = nil,
-        usage: PartUsage? = nil
-    ) -> CostedUsage {
-        return CostedUsage(
-            costUnit: costUnit ?? self.costUnit,
-            costYer: costYer ?? self.costYer,
-            material: material ?? self.material,
-            unit: unit ?? self.unit,
-            usage: usage ?? self.usage
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
-// MARK: - MaterialUnit
-public struct MaterialUnit: Codable, Sendable {
-    public let archived: Bool
-    public let denominator: Int
-    public let dimension: UnitDimension
-    public let id, name: String
-    public let numerator, revision: Int
-    public let scope: ScopeRef
-    public let symbol: String
-    public let updatedAt: Int
-
-    public init(archived: Bool, denominator: Int, dimension: UnitDimension, id: String, name: String, numerator: Int, revision: Int, scope: ScopeRef, symbol: String, updatedAt: Int) {
-        self.archived = archived
-        self.denominator = denominator
-        self.dimension = dimension
-        self.id = id
-        self.name = name
-        self.numerator = numerator
-        self.revision = revision
-        self.scope = scope
-        self.symbol = symbol
-        self.updatedAt = updatedAt
-    }
-}
-
-// MARK: MaterialUnit convenience initializers and mutators
-
-public extension MaterialUnit {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(MaterialUnit.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        archived: Bool? = nil,
-        denominator: Int? = nil,
-        dimension: UnitDimension? = nil,
-        id: String? = nil,
-        name: String? = nil,
-        numerator: Int? = nil,
-        revision: Int? = nil,
-        scope: ScopeRef? = nil,
-        symbol: String? = nil,
-        updatedAt: Int? = nil
-    ) -> MaterialUnit {
-        return MaterialUnit(
-            archived: archived ?? self.archived,
-            denominator: denominator ?? self.denominator,
-            dimension: dimension ?? self.dimension,
-            id: id ?? self.id,
-            name: name ?? self.name,
-            numerator: numerator ?? self.numerator,
-            revision: revision ?? self.revision,
-            scope: scope ?? self.scope,
-            symbol: symbol ?? self.symbol,
-            updatedAt: updatedAt ?? self.updatedAt
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
-public enum UnitDimension: String, Codable, Sendable {
-    case area = "area"
-    case count = "count"
-    case length = "length"
-    case mass = "mass"
-    case volume = "volume"
-}
-
-// MARK: - Material
-public struct Material: Codable, Sendable {
-    public let archived: Bool
-    public let categoryID: String
-    /// Non-negative whole Yemeni rials per selected unit.
-    public let currentCostYer: Int
-    public let id, name: String
-    public let revision: Int
-    public let scope: ScopeRef
-    public let unitID: String
-    public let updatedAt: Int
-
-    public enum CodingKeys: String, CodingKey {
-        case archived
-        case categoryID = "categoryId"
-        case currentCostYer, id, name, revision, scope
-        case unitID = "unitId"
-        case updatedAt
-    }
-
-    public init(archived: Bool, categoryID: String, currentCostYer: Int, id: String, name: String, revision: Int, scope: ScopeRef, unitID: String, updatedAt: Int) {
-        self.archived = archived
-        self.categoryID = categoryID
-        self.currentCostYer = currentCostYer
-        self.id = id
-        self.name = name
-        self.revision = revision
-        self.scope = scope
-        self.unitID = unitID
-        self.updatedAt = updatedAt
-    }
-}
-
-// MARK: Material convenience initializers and mutators
-
-public extension Material {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(Material.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        archived: Bool? = nil,
-        categoryID: String? = nil,
-        currentCostYer: Int? = nil,
-        id: String? = nil,
-        name: String? = nil,
-        revision: Int? = nil,
-        scope: ScopeRef? = nil,
-        unitID: String? = nil,
-        updatedAt: Int? = nil
-    ) -> Material {
-        return Material(
-            archived: archived ?? self.archived,
-            categoryID: categoryID ?? self.categoryID,
-            currentCostYer: currentCostYer ?? self.currentCostYer,
-            id: id ?? self.id,
-            name: name ?? self.name,
-            revision: revision ?? self.revision,
-            scope: scope ?? self.scope,
-            unitID: unitID ?? self.unitID,
-            updatedAt: updatedAt ?? self.updatedAt
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
-// MARK: - PartUsage
-public struct PartUsage: Codable, Sendable {
-    public let materialID: String
-    public let materialRevision: Int
-    public let quantity, unitID: String
-    public let unitRevision: Int
-
-    public enum CodingKeys: String, CodingKey {
-        case materialID = "materialId"
-        case materialRevision, quantity
-        case unitID = "unitId"
-        case unitRevision
-    }
-
-    public init(materialID: String, materialRevision: Int, quantity: String, unitID: String, unitRevision: Int) {
-        self.materialID = materialID
-        self.materialRevision = materialRevision
-        self.quantity = quantity
-        self.unitID = unitID
-        self.unitRevision = unitRevision
-    }
-}
-
-// MARK: PartUsage convenience initializers and mutators
-
-public extension PartUsage {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(PartUsage.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        materialID: String? = nil,
-        materialRevision: Int? = nil,
-        quantity: String? = nil,
-        unitID: String? = nil,
-        unitRevision: Int? = nil
-    ) -> PartUsage {
-        return PartUsage(
-            materialID: materialID ?? self.materialID,
-            materialRevision: materialRevision ?? self.materialRevision,
-            quantity: quantity ?? self.quantity,
-            unitID: unitID ?? self.unitID,
-            unitRevision: unitRevision ?? self.unitRevision
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
-// MARK: - Customer
-public struct Customer: Codable, Sendable {
-    public let address: String?
-    public let id, name: String
-    public let notes: String?
-    public let phone: String
-    public let revision: Int
-    public let scope: ScopeRef
-    public let status: CustomerStatus
-    public let syncState: CustomerSyncState
-    public let updatedAt: Int
-
-    public init(address: String?, id: String, name: String, notes: String?, phone: String, revision: Int, scope: ScopeRef, status: CustomerStatus, syncState: CustomerSyncState, updatedAt: Int) {
-        self.address = address
-        self.id = id
-        self.name = name
-        self.notes = notes
-        self.phone = phone
-        self.revision = revision
-        self.scope = scope
-        self.status = status
-        self.syncState = syncState
-        self.updatedAt = updatedAt
-    }
-}
-
-// MARK: Customer convenience initializers and mutators
-
-public extension Customer {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(Customer.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        address: String?? = nil,
-        id: String? = nil,
-        name: String? = nil,
-        notes: String?? = nil,
-        phone: String? = nil,
-        revision: Int? = nil,
-        scope: ScopeRef? = nil,
-        status: CustomerStatus? = nil,
-        syncState: CustomerSyncState? = nil,
-        updatedAt: Int? = nil
-    ) -> Customer {
-        return Customer(
-            address: address ?? self.address,
-            id: id ?? self.id,
-            name: name ?? self.name,
-            notes: notes ?? self.notes,
-            phone: phone ?? self.phone,
-            revision: revision ?? self.revision,
-            scope: scope ?? self.scope,
-            status: status ?? self.status,
-            syncState: syncState ?? self.syncState,
-            updatedAt: updatedAt ?? self.updatedAt
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
-public enum CustomerStatus: String, Codable, Sendable {
-    case active = "active"
-    case archived = "archived"
-    case merged = "merged"
-}
-
-public enum CustomerSyncState: String, Codable, Sendable {
-    case confirmed = "confirmed"
-    case conflicted = "conflicted"
-    case pending = "pending"
-    case rejected = "rejected"
-}
-
-// MARK: - ConfigEntry
-public struct ConfigEntry: Codable, Sendable {
-    public let key: String
-    public let restartRequirement: RestartRequirement
-    public let sensitivity: ConfigSensitivity
-    public let value: ConfigReadValue
-
-    public init(key: String, restartRequirement: RestartRequirement, sensitivity: ConfigSensitivity, value: ConfigReadValue) {
-        self.key = key
-        self.restartRequirement = restartRequirement
-        self.sensitivity = sensitivity
-        self.value = value
-    }
-}
-
-// MARK: ConfigEntry convenience initializers and mutators
-
-public extension ConfigEntry {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(ConfigEntry.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        key: String? = nil,
-        restartRequirement: RestartRequirement? = nil,
-        sensitivity: ConfigSensitivity? = nil,
-        value: ConfigReadValue? = nil
-    ) -> ConfigEntry {
-        return ConfigEntry(
-            key: key ?? self.key,
-            restartRequirement: restartRequirement ?? self.restartRequirement,
-            sensitivity: sensitivity ?? self.sensitivity,
-            value: value ?? self.value
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
-public enum RestartRequirement: String, Codable, Sendable {
-    case application = "application"
-    case engine = "engine"
-    case none = "none"
-}
-
-public enum ConfigSensitivity: String, Codable, Sendable {
-    case configSensitivityPublic = "public"
-    case secret = "secret"
-    case sensitive = "sensitive"
-}
-
-// MARK: - ConfigReadValue
-public struct ConfigReadValue: Codable, Sendable {
-    public let kind: ConfigReadValueKind
-    public let value: ConfigReadValueValue?
-
-    public init(kind: ConfigReadValueKind, value: ConfigReadValueValue?) {
-        self.kind = kind
-        self.value = value
-    }
-}
-
-// MARK: ConfigReadValue convenience initializers and mutators
-
-public extension ConfigReadValue {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(ConfigReadValue.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        kind: ConfigReadValueKind? = nil,
-        value: ConfigReadValueValue?? = nil
-    ) -> ConfigReadValue {
-        return ConfigReadValue(
-            kind: kind ?? self.kind,
-            value: value ?? self.value
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
-public enum ConfigReadValueKind: String, Codable, Sendable {
-    case boolean = "boolean"
-    case decimal = "decimal"
-    case integer = "integer"
-    case redacted = "redacted"
-    case secretReference = "secretReference"
-    case text = "text"
-    case textList = "textList"
-}
-
-public enum ConfigReadValueValue: Codable, Sendable {
-    case bool(Bool)
-    case integer(Int)
-    case string(String)
-    case stringArray([String])
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        if let x = try? container.decode(Bool.self) {
-            self = .bool(x)
-            return
-        }
-        if let x = try? container.decode(Int.self) {
-            self = .integer(x)
-            return
-        }
-        if let x = try? container.decode([String].self) {
-            self = .stringArray(x)
-            return
-        }
-        if let x = try? container.decode(String.self) {
-            self = .string(x)
-            return
-        }
-        throw DecodingError.typeMismatch(ConfigReadValueValue.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for ConfigReadValueValue"))
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        switch self {
-        case .bool(let x):
-            try container.encode(x)
-        case .integer(let x):
-            try container.encode(x)
-        case .string(let x):
-            try container.encode(x)
-        case .stringArray(let x):
-            try container.encode(x)
-        }
-    }
-}
-
-// MARK: - FurniturePart
-public struct FurniturePart: Codable, Sendable {
-    public let quantity: Int
-    public let reference: CompositionReference
-
-    public init(quantity: Int, reference: CompositionReference) {
-        self.quantity = quantity
-        self.reference = reference
-    }
-}
-
-// MARK: FurniturePart convenience initializers and mutators
-
-public extension FurniturePart {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(FurniturePart.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        quantity: Int? = nil,
-        reference: CompositionReference? = nil
-    ) -> FurniturePart {
-        return FurniturePart(
-            quantity: quantity ?? self.quantity,
-            reference: reference ?? self.reference
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
-// MARK: - ScopeRelationship
-public struct ScopeRelationship: Codable, Sendable {
-    public let relation, relationshipID: String
-    public let scope: ScopeRef
-    public let subject: RelationshipSubject
-
-    public enum CodingKeys: String, CodingKey {
-        case relation
-        case relationshipID = "relationshipId"
-        case scope, subject
-    }
-
-    public init(relation: String, relationshipID: String, scope: ScopeRef, subject: RelationshipSubject) {
-        self.relation = relation
-        self.relationshipID = relationshipID
-        self.scope = scope
-        self.subject = subject
-    }
-}
-
-// MARK: ScopeRelationship convenience initializers and mutators
-
-public extension ScopeRelationship {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(ScopeRelationship.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        relation: String? = nil,
-        relationshipID: String? = nil,
-        scope: ScopeRef? = nil,
-        subject: RelationshipSubject? = nil
-    ) -> ScopeRelationship {
-        return ScopeRelationship(
-            relation: relation ?? self.relation,
-            relationshipID: relationshipID ?? self.relationshipID,
-            scope: scope ?? self.scope,
-            subject: subject ?? self.subject
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
-// MARK: - RelationshipSubject
-public struct RelationshipSubject: Codable, Sendable {
-    public let principalID: String
-    public let principalKind: PrincipalKind
-
-    public enum CodingKeys: String, CodingKey {
-        case principalID = "principalId"
-        case principalKind
-    }
-
-    public init(principalID: String, principalKind: PrincipalKind) {
-        self.principalID = principalID
-        self.principalKind = principalKind
-    }
-}
-
-// MARK: RelationshipSubject convenience initializers and mutators
-
-public extension RelationshipSubject {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(RelationshipSubject.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        principalID: String? = nil,
-        principalKind: PrincipalKind? = nil
-    ) -> RelationshipSubject {
-        return RelationshipSubject(
-            principalID: principalID ?? self.principalID,
-            principalKind: principalKind ?? self.principalKind
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
-public enum DesktopAccountRole: String, Codable, Sendable {
-    case manager = "manager"
-    case receptionist = "receptionist"
-}
-
-public enum FurnitureState: String, Codable, Sendable {
-    case active = "active"
-    case archived = "archived"
-    case draft = "draft"
-}
-
-// MARK: - Variant
-public struct Variant: Codable, Sendable {
-    public let archived: Bool
-    /// Empty means all options of the corresponding kind are compatible.
-    public let colorIDS: [String]?
-    public let customization: FurnitureCustomization?
-    public let dimensions: FurnitureDimensions?
-    public let handleIDS: [String]?
-    public let id, name: String
-    public let sellingPriceYer: Int?
-    /// Omitted entirely when the caller cannot read internal purchase costs.
-    public let purchaseCostYer: Int?
-
-    public enum CodingKeys: String, CodingKey {
-        case archived
-        case colorIDS = "colorIds"
-        case customization, dimensions
-        case handleIDS = "handleIds"
-        case id, name, sellingPriceYer, purchaseCostYer
-    }
-
-    public init(archived: Bool, colorIDS: [String]?, customization: FurnitureCustomization?, dimensions: FurnitureDimensions?, handleIDS: [String]?, id: String, name: String, sellingPriceYer: Int?, purchaseCostYer: Int?) {
-        self.archived = archived
-        self.colorIDS = colorIDS
-        self.customization = customization
-        self.dimensions = dimensions
-        self.handleIDS = handleIDS
-        self.id = id
-        self.name = name
-        self.sellingPriceYer = sellingPriceYer
-        self.purchaseCostYer = purchaseCostYer
-    }
-}
-
-// MARK: Variant convenience initializers and mutators
-
-public extension Variant {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(Variant.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        archived: Bool? = nil,
-        colorIDS: [String]?? = nil,
-        customization: FurnitureCustomization?? = nil,
-        dimensions: FurnitureDimensions?? = nil,
-        handleIDS: [String]?? = nil,
-        id: String? = nil,
-        name: String? = nil,
-        sellingPriceYer: Int?? = nil,
-        purchaseCostYer: Int?? = nil
-    ) -> Variant {
-        return Variant(
-            archived: archived ?? self.archived,
-            colorIDS: colorIDS ?? self.colorIDS,
-            customization: customization ?? self.customization,
-            dimensions: dimensions ?? self.dimensions,
-            handleIDS: handleIDS ?? self.handleIDS,
-            id: id ?? self.id,
-            name: name ?? self.name,
-            sellingPriceYer: sellingPriceYer ?? self.sellingPriceYer,
-            purchaseCostYer: purchaseCostYer ?? self.purchaseCostYer
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
-// MARK: - FurnitureCustomization
-public struct FurnitureCustomization: Codable, Sendable {
-    public let maximum, minimum: FurnitureDimensions
-
-    public init(maximum: FurnitureDimensions, minimum: FurnitureDimensions) {
-        self.maximum = maximum
-        self.minimum = minimum
-    }
-}
-
-// MARK: FurnitureCustomization convenience initializers and mutators
-
-public extension FurnitureCustomization {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(FurnitureCustomization.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        maximum: FurnitureDimensions? = nil,
-        minimum: FurnitureDimensions? = nil
-    ) -> FurnitureCustomization {
-        return FurnitureCustomization(
-            maximum: maximum ?? self.maximum,
-            minimum: minimum ?? self.minimum
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
-// MARK: - FurnitureDimensions
-public struct FurnitureDimensions: Codable, Sendable {
-    public let depthMm, heightMm, widthMm: Int
-
-    public init(depthMm: Int, heightMm: Int, widthMm: Int) {
-        self.depthMm = depthMm
-        self.heightMm = heightMm
-        self.widthMm = widthMm
-    }
-}
-
-// MARK: FurnitureDimensions convenience initializers and mutators
-
-public extension FurnitureDimensions {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(FurnitureDimensions.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        depthMm: Int? = nil,
-        heightMm: Int? = nil,
-        widthMm: Int? = nil
-    ) -> FurnitureDimensions {
-        return FurnitureDimensions(
-            depthMm: depthMm ?? self.depthMm,
-            heightMm: heightMm ?? self.heightMm,
-            widthMm: widthMm ?? self.widthMm
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
     }
 }
 
@@ -5580,14 +4265,26 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
     public let commandMaterialCategorySave: SaveMaterialCategory?
     public let commandMaterialSave: SaveMaterial?
     public let commandMaterialUnitSave: SaveMaterialUnit?
-    public let commandOperationCancel: CancelOperation?
     public let commandPartCategorySave: SavePartCategory?
     public let commandPartSave: SavePart?
     public let commandProductCategorySave: SaveProductCategory?
     public let commandProductSave: SaveProduct?
+    public let commandResultConfigurationUpdated: ConfigSnapshot?
+    public let commandResultCustomerCreated, commandResultCustomerUpdated: CustomerMutationResult?
+    public let commandResultDesktopAccountCreated, commandResultDesktopAccountDeactivated, commandResultDesktopAccountUpdated: DesktopAccountSummary?
+    public let commandResultFurnitureCategorySaved: FurnitureCategory?
+    public let commandResultFurnitureSaved: Furniture?
+    public let commandResultMaterialCategorySaved: MaterialCategory?
+    public let commandResultMaterialSaved: Material?
+    public let commandResultMaterialUnitSaved: MaterialUnit?
+    public let commandResultPartCategorySaved: PartCategory?
+    public let commandResultPartSaved: Part?
+    public let commandResultProductCategorySaved: ProductCategory?
+    public let commandResultProductSaved: Product?
+    public let commandResultRelationshipGranted, commandResultRelationshipRevoked: RelationshipMutationResult?
     public let eventAuthorizationPolicyChangedEvent: AuthorizationPolicyChangeNotice?
     public let eventBackgroundJobStatusEvent: BackgroundJobStatus?
-    public let eventConfigChangedEvent: EventConfigChangedEventClass?
+    public let eventConfigChangedEvent: ConfigSnapshot?
     public let eventCustomerChangedEvent: CustomerChangeNotice?
     public let eventErrorEvent: ScopedError?
     public let eventFurnitureChangedEvent: FurnitureChangeNotice?
@@ -5639,7 +4336,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
     public let queryProductList: ListProducts?
     public let queryProductRevisionGet: GetProductRevision?
     public let querySyncGetStatus, queryUpdateGetState: [String: JSONAny]?
-    public let queryResultConfiguration: EventConfigChangedEventClass?
+    public let queryResultConfiguration: ConfigSnapshot?
     public let queryResultCustomer: Customer?
     public let queryResultCustomers: CustomerPage?
     public let queryResultDesktopAccounts: DesktopAccountPage?
@@ -5700,11 +4397,27 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         case commandMaterialCategorySave = "Command_MaterialCategorySave"
         case commandMaterialSave = "Command_MaterialSave"
         case commandMaterialUnitSave = "Command_MaterialUnitSave"
-        case commandOperationCancel = "Command_OperationCancel"
         case commandPartCategorySave = "Command_PartCategorySave"
         case commandPartSave = "Command_PartSave"
         case commandProductCategorySave = "Command_ProductCategorySave"
         case commandProductSave = "Command_ProductSave"
+        case commandResultConfigurationUpdated = "CommandResult_ConfigurationUpdated"
+        case commandResultCustomerCreated = "CommandResult_CustomerCreated"
+        case commandResultCustomerUpdated = "CommandResult_CustomerUpdated"
+        case commandResultDesktopAccountCreated = "CommandResult_DesktopAccountCreated"
+        case commandResultDesktopAccountDeactivated = "CommandResult_DesktopAccountDeactivated"
+        case commandResultDesktopAccountUpdated = "CommandResult_DesktopAccountUpdated"
+        case commandResultFurnitureCategorySaved = "CommandResult_FurnitureCategorySaved"
+        case commandResultFurnitureSaved = "CommandResult_FurnitureSaved"
+        case commandResultMaterialCategorySaved = "CommandResult_MaterialCategorySaved"
+        case commandResultMaterialSaved = "CommandResult_MaterialSaved"
+        case commandResultMaterialUnitSaved = "CommandResult_MaterialUnitSaved"
+        case commandResultPartCategorySaved = "CommandResult_PartCategorySaved"
+        case commandResultPartSaved = "CommandResult_PartSaved"
+        case commandResultProductCategorySaved = "CommandResult_ProductCategorySaved"
+        case commandResultProductSaved = "CommandResult_ProductSaved"
+        case commandResultRelationshipGranted = "CommandResult_RelationshipGranted"
+        case commandResultRelationshipRevoked = "CommandResult_RelationshipRevoked"
         case eventAuthorizationPolicyChangedEvent = "Event_AuthorizationPolicyChangedEvent"
         case eventBackgroundJobStatusEvent = "Event_BackgroundJobStatusEvent"
         case eventConfigChangedEvent = "Event_ConfigChangedEvent"
@@ -5819,7 +4532,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         case syncMessageSyncSubmitLocal = "SyncMessage_SyncSubmitLocal"
     }
 
-    public init(commandAuthorizationRelationshipGrant: GrantScopeRelationship?, commandAuthorizationRelationshipRevoke: RevokeScopeRelationship?, commandConfigUpdate: UpdateConfiguration?, commandCustomerCreate: CreateCustomer?, commandCustomerUpdate: UpdateCustomer?, commandDesktopAccountCreate: CreateDesktopAccount?, commandDesktopAccountDeactivate: DeactivateDesktopAccount?, commandDesktopAccountUpdate: UpdateDesktopAccount?, commandFurnitureCategorySave: SaveFurnitureCategory?, commandFurnitureSave: SaveFurniture?, commandMaterialCategorySave: SaveMaterialCategory?, commandMaterialSave: SaveMaterial?, commandMaterialUnitSave: SaveMaterialUnit?, commandOperationCancel: CancelOperation?, commandPartCategorySave: SavePartCategory?, commandPartSave: SavePart?, commandProductCategorySave: SaveProductCategory?, commandProductSave: SaveProduct?, eventAuthorizationPolicyChangedEvent: AuthorizationPolicyChangeNotice?, eventBackgroundJobStatusEvent: BackgroundJobStatus?, eventConfigChangedEvent: EventConfigChangedEventClass?, eventCustomerChangedEvent: CustomerChangeNotice?, eventErrorEvent: ScopedError?, eventFurnitureChangedEvent: FurnitureChangeNotice?, eventMaterialChangedEvent: MaterialChangeNotice?, eventNotificationEvent: Notification?, eventPartChangedEvent: PartChangeNotice?, eventPermissionsChangedEvent: EffectivePermissions?, eventProductChangedEvent: ProductChangeNotice?, eventRecordChangedEvent: RecordChangeNotice?, eventSyncStatusEvent: SyncStatus?, eventUpdateStateEvent: UpdateState?, ipcClientMessageIPCCommand: CommandEnvelope?, ipcClientMessageIPCDesktopSessionState: DesktopSessionRequest?, ipcClientMessageIPCDesktopSignIn: DesktopSignInRequest?, ipcClientMessageIPCDesktopSignOut: DesktopSessionRequest?, ipcClientMessageIPCHandshake: HandshakeRequest?, ipcClientMessageIPCQuery: QueryEnvelope?, ipcClientMessageIPCShutdown: ShutdownRequest?, ipcClientMessageIPCSubscribe: SubscriptionEnvelope?, ipcClientMessageIPCUnsubscribe: UnsubscribeRequest?, ipcServerMessageIPCCommandResponse: CommandResponseEnvelope?, ipcServerMessageIPCDesktopSessionResponse: DesktopSessionResponse?, ipcServerMessageIPCEvent: EventEnvelope?, ipcServerMessageIPCFailure: IPCFailureResponse?, ipcServerMessageIPCHandshakeResponse: HandshakeResponse?, ipcServerMessageIPCQueryResponse: QueryResponseEnvelope?, ipcServerMessageIPCShutdownResponse: ShutdownResponse?, ipcServerMessageIPCSubscribeResponse: SubscriptionResponseEnvelope?, ipcServerMessageIPCSubscriptionClosed: SubscriptionClosedEnvelope?, ipcServerMessageIPCUnsubscribeResponse: UnsubscribeResponse?, queryAuthorizationRelationshipsList: ListScopeRelationships?, queryConfigGet: [String: JSONAny]?, queryCustomerGet: GetCustomer?, queryCustomerSearch: SearchCustomers?, queryDesktopAccountList: [String: JSONAny]?, queryFurnitureCategoryList: ListFurnitureCategories?, queryFurnitureList: ListFurnitures?, queryFurnitureReview: SaveFurniture?, queryFurnitureRevisionGet: GetFurnitureRevision?, queryFurnitureSelectionCheck: CheckFurnitureSelection?, queryMaterialList: ListMaterials?, queryMaterialReferenceList: [String: JSONAny]?, queryPartCategoryList: ListPartCategories?, queryPartCompositionGet: GetPartComposition?, queryPartCost: CalculatePartCost?, queryPartList: ListParts?, queryPermissionsGetEffective: [String: JSONAny]?, queryProductCategoryList: ListProductCategories?, queryProductList: ListProducts?, queryProductRevisionGet: GetProductRevision?, querySyncGetStatus: [String: JSONAny]?, queryUpdateGetState: [String: JSONAny]?, queryResultConfiguration: EventConfigChangedEventClass?, queryResultCustomer: Customer?, queryResultCustomers: CustomerPage?, queryResultDesktopAccounts: DesktopAccountPage?, queryResultEffectivePermissions: EffectivePermissions?, queryResultFurnitureCategories: FurnitureCategories?, queryResultFurnitureReview: FurnitureReview?, queryResultFurnitureRevision: Furniture?, queryResultFurnitures: FurniturePage?, queryResultFurnitureSelection: FurnitureSelection?, queryResultMaterialReferences: MaterialReferences?, queryResultMaterials: MaterialPage?, queryResultPartCategories: PartCategories?, queryResultPartComposition: Part?, queryResultPartCost: PartCost?, queryResultParts: PartPage?, queryResultProductCategories: ProductCategories?, queryResultProductRevision: Product?, queryResultProducts: ProductPage?, queryResultScopeRelationships: RelationshipPage?, queryResultSyncStatus: SyncStatus?, queryResultUpdateState: UpdateState?, serverClientMessageServerAcknowledge: ServerSubscriptionAcknowledgement?, serverClientMessageServerHello: ServerConnectionHello?, serverClientMessageServerSubscribe: ServerSubscriptionRequest?, serverClientMessageServerSync: SyncTransportFrame?, serverMessageServerEvent: ServerSubscriptionEvent?, serverMessageServerFailure: ServerFailure?, serverMessageServerHelloAccepted: PeerHello?, serverMessageServerSyncMessage: [String: JSONAny]?, subscriptionAuthorizationPolicyChangedSubscribe: [String: JSONAny]?, subscriptionBackgroundJobStatusSubscribe: [String: JSONAny]?, subscriptionConfigChangedSubscribe: [String: JSONAny]?, subscriptionCustomerChangedSubscribe: [String: JSONAny]?, subscriptionErrorSubscribe: [String: JSONAny]?, subscriptionFurnitureChangedSubscribe: [String: JSONAny]?, subscriptionMaterialChangedSubscribe: [String: JSONAny]?, subscriptionNotificationSubscribe: [String: JSONAny]?, subscriptionPartChangedSubscribe: [String: JSONAny]?, subscriptionPermissionsChangedSubscribe: [String: JSONAny]?, subscriptionProductChangedSubscribe: [String: JSONAny]?, subscriptionRecordChangedSubscribe: [String: JSONAny]?, subscriptionSyncStatusSubscribe: [String: JSONAny]?, subscriptionUpdateStateSubscribe: [String: JSONAny]?, syncMessageSyncAcknowledge: BatchAcknowledgement?, syncMessageSyncBackpressure: RetryAfter?, syncMessageSyncChanges: ChangeBatch?, syncMessageSyncConflict: ConflictNotice?, syncMessageSyncLocalResult: LocalChangeResult?, syncMessageSyncNegotiate: SyncNegotiation?, syncMessageSyncPull: PullRequest?, syncMessageSyncReconcile: ReconciliationDelivery?, syncMessageSyncSnapshotChunk: SnapshotChunk?, syncMessageSyncSnapshotComplete: SnapshotCompletion?, syncMessageSyncSnapshotManifest: SnapshotManifest?, syncMessageSyncSnapshotRequired: SnapshotRequired?, syncMessageSyncSubmitLocal: LocalChangeSubmission?) {
+    public init(commandAuthorizationRelationshipGrant: GrantScopeRelationship?, commandAuthorizationRelationshipRevoke: RevokeScopeRelationship?, commandConfigUpdate: UpdateConfiguration?, commandCustomerCreate: CreateCustomer?, commandCustomerUpdate: UpdateCustomer?, commandDesktopAccountCreate: CreateDesktopAccount?, commandDesktopAccountDeactivate: DeactivateDesktopAccount?, commandDesktopAccountUpdate: UpdateDesktopAccount?, commandFurnitureCategorySave: SaveFurnitureCategory?, commandFurnitureSave: SaveFurniture?, commandMaterialCategorySave: SaveMaterialCategory?, commandMaterialSave: SaveMaterial?, commandMaterialUnitSave: SaveMaterialUnit?, commandPartCategorySave: SavePartCategory?, commandPartSave: SavePart?, commandProductCategorySave: SaveProductCategory?, commandProductSave: SaveProduct?, commandResultConfigurationUpdated: ConfigSnapshot?, commandResultCustomerCreated: CustomerMutationResult?, commandResultCustomerUpdated: CustomerMutationResult?, commandResultDesktopAccountCreated: DesktopAccountSummary?, commandResultDesktopAccountDeactivated: DesktopAccountSummary?, commandResultDesktopAccountUpdated: DesktopAccountSummary?, commandResultFurnitureCategorySaved: FurnitureCategory?, commandResultFurnitureSaved: Furniture?, commandResultMaterialCategorySaved: MaterialCategory?, commandResultMaterialSaved: Material?, commandResultMaterialUnitSaved: MaterialUnit?, commandResultPartCategorySaved: PartCategory?, commandResultPartSaved: Part?, commandResultProductCategorySaved: ProductCategory?, commandResultProductSaved: Product?, commandResultRelationshipGranted: RelationshipMutationResult?, commandResultRelationshipRevoked: RelationshipMutationResult?, eventAuthorizationPolicyChangedEvent: AuthorizationPolicyChangeNotice?, eventBackgroundJobStatusEvent: BackgroundJobStatus?, eventConfigChangedEvent: ConfigSnapshot?, eventCustomerChangedEvent: CustomerChangeNotice?, eventErrorEvent: ScopedError?, eventFurnitureChangedEvent: FurnitureChangeNotice?, eventMaterialChangedEvent: MaterialChangeNotice?, eventNotificationEvent: Notification?, eventPartChangedEvent: PartChangeNotice?, eventPermissionsChangedEvent: EffectivePermissions?, eventProductChangedEvent: ProductChangeNotice?, eventRecordChangedEvent: RecordChangeNotice?, eventSyncStatusEvent: SyncStatus?, eventUpdateStateEvent: UpdateState?, ipcClientMessageIPCCommand: CommandEnvelope?, ipcClientMessageIPCDesktopSessionState: DesktopSessionRequest?, ipcClientMessageIPCDesktopSignIn: DesktopSignInRequest?, ipcClientMessageIPCDesktopSignOut: DesktopSessionRequest?, ipcClientMessageIPCHandshake: HandshakeRequest?, ipcClientMessageIPCQuery: QueryEnvelope?, ipcClientMessageIPCShutdown: ShutdownRequest?, ipcClientMessageIPCSubscribe: SubscriptionEnvelope?, ipcClientMessageIPCUnsubscribe: UnsubscribeRequest?, ipcServerMessageIPCCommandResponse: CommandResponseEnvelope?, ipcServerMessageIPCDesktopSessionResponse: DesktopSessionResponse?, ipcServerMessageIPCEvent: EventEnvelope?, ipcServerMessageIPCFailure: IPCFailureResponse?, ipcServerMessageIPCHandshakeResponse: HandshakeResponse?, ipcServerMessageIPCQueryResponse: QueryResponseEnvelope?, ipcServerMessageIPCShutdownResponse: ShutdownResponse?, ipcServerMessageIPCSubscribeResponse: SubscriptionResponseEnvelope?, ipcServerMessageIPCSubscriptionClosed: SubscriptionClosedEnvelope?, ipcServerMessageIPCUnsubscribeResponse: UnsubscribeResponse?, queryAuthorizationRelationshipsList: ListScopeRelationships?, queryConfigGet: [String: JSONAny]?, queryCustomerGet: GetCustomer?, queryCustomerSearch: SearchCustomers?, queryDesktopAccountList: [String: JSONAny]?, queryFurnitureCategoryList: ListFurnitureCategories?, queryFurnitureList: ListFurnitures?, queryFurnitureReview: SaveFurniture?, queryFurnitureRevisionGet: GetFurnitureRevision?, queryFurnitureSelectionCheck: CheckFurnitureSelection?, queryMaterialList: ListMaterials?, queryMaterialReferenceList: [String: JSONAny]?, queryPartCategoryList: ListPartCategories?, queryPartCompositionGet: GetPartComposition?, queryPartCost: CalculatePartCost?, queryPartList: ListParts?, queryPermissionsGetEffective: [String: JSONAny]?, queryProductCategoryList: ListProductCategories?, queryProductList: ListProducts?, queryProductRevisionGet: GetProductRevision?, querySyncGetStatus: [String: JSONAny]?, queryUpdateGetState: [String: JSONAny]?, queryResultConfiguration: ConfigSnapshot?, queryResultCustomer: Customer?, queryResultCustomers: CustomerPage?, queryResultDesktopAccounts: DesktopAccountPage?, queryResultEffectivePermissions: EffectivePermissions?, queryResultFurnitureCategories: FurnitureCategories?, queryResultFurnitureReview: FurnitureReview?, queryResultFurnitureRevision: Furniture?, queryResultFurnitures: FurniturePage?, queryResultFurnitureSelection: FurnitureSelection?, queryResultMaterialReferences: MaterialReferences?, queryResultMaterials: MaterialPage?, queryResultPartCategories: PartCategories?, queryResultPartComposition: Part?, queryResultPartCost: PartCost?, queryResultParts: PartPage?, queryResultProductCategories: ProductCategories?, queryResultProductRevision: Product?, queryResultProducts: ProductPage?, queryResultScopeRelationships: RelationshipPage?, queryResultSyncStatus: SyncStatus?, queryResultUpdateState: UpdateState?, serverClientMessageServerAcknowledge: ServerSubscriptionAcknowledgement?, serverClientMessageServerHello: ServerConnectionHello?, serverClientMessageServerSubscribe: ServerSubscriptionRequest?, serverClientMessageServerSync: SyncTransportFrame?, serverMessageServerEvent: ServerSubscriptionEvent?, serverMessageServerFailure: ServerFailure?, serverMessageServerHelloAccepted: PeerHello?, serverMessageServerSyncMessage: [String: JSONAny]?, subscriptionAuthorizationPolicyChangedSubscribe: [String: JSONAny]?, subscriptionBackgroundJobStatusSubscribe: [String: JSONAny]?, subscriptionConfigChangedSubscribe: [String: JSONAny]?, subscriptionCustomerChangedSubscribe: [String: JSONAny]?, subscriptionErrorSubscribe: [String: JSONAny]?, subscriptionFurnitureChangedSubscribe: [String: JSONAny]?, subscriptionMaterialChangedSubscribe: [String: JSONAny]?, subscriptionNotificationSubscribe: [String: JSONAny]?, subscriptionPartChangedSubscribe: [String: JSONAny]?, subscriptionPermissionsChangedSubscribe: [String: JSONAny]?, subscriptionProductChangedSubscribe: [String: JSONAny]?, subscriptionRecordChangedSubscribe: [String: JSONAny]?, subscriptionSyncStatusSubscribe: [String: JSONAny]?, subscriptionUpdateStateSubscribe: [String: JSONAny]?, syncMessageSyncAcknowledge: BatchAcknowledgement?, syncMessageSyncBackpressure: RetryAfter?, syncMessageSyncChanges: ChangeBatch?, syncMessageSyncConflict: ConflictNotice?, syncMessageSyncLocalResult: LocalChangeResult?, syncMessageSyncNegotiate: SyncNegotiation?, syncMessageSyncPull: PullRequest?, syncMessageSyncReconcile: ReconciliationDelivery?, syncMessageSyncSnapshotChunk: SnapshotChunk?, syncMessageSyncSnapshotComplete: SnapshotCompletion?, syncMessageSyncSnapshotManifest: SnapshotManifest?, syncMessageSyncSnapshotRequired: SnapshotRequired?, syncMessageSyncSubmitLocal: LocalChangeSubmission?) {
         self.commandAuthorizationRelationshipGrant = commandAuthorizationRelationshipGrant
         self.commandAuthorizationRelationshipRevoke = commandAuthorizationRelationshipRevoke
         self.commandConfigUpdate = commandConfigUpdate
@@ -5833,11 +4546,27 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         self.commandMaterialCategorySave = commandMaterialCategorySave
         self.commandMaterialSave = commandMaterialSave
         self.commandMaterialUnitSave = commandMaterialUnitSave
-        self.commandOperationCancel = commandOperationCancel
         self.commandPartCategorySave = commandPartCategorySave
         self.commandPartSave = commandPartSave
         self.commandProductCategorySave = commandProductCategorySave
         self.commandProductSave = commandProductSave
+        self.commandResultConfigurationUpdated = commandResultConfigurationUpdated
+        self.commandResultCustomerCreated = commandResultCustomerCreated
+        self.commandResultCustomerUpdated = commandResultCustomerUpdated
+        self.commandResultDesktopAccountCreated = commandResultDesktopAccountCreated
+        self.commandResultDesktopAccountDeactivated = commandResultDesktopAccountDeactivated
+        self.commandResultDesktopAccountUpdated = commandResultDesktopAccountUpdated
+        self.commandResultFurnitureCategorySaved = commandResultFurnitureCategorySaved
+        self.commandResultFurnitureSaved = commandResultFurnitureSaved
+        self.commandResultMaterialCategorySaved = commandResultMaterialCategorySaved
+        self.commandResultMaterialSaved = commandResultMaterialSaved
+        self.commandResultMaterialUnitSaved = commandResultMaterialUnitSaved
+        self.commandResultPartCategorySaved = commandResultPartCategorySaved
+        self.commandResultPartSaved = commandResultPartSaved
+        self.commandResultProductCategorySaved = commandResultProductCategorySaved
+        self.commandResultProductSaved = commandResultProductSaved
+        self.commandResultRelationshipGranted = commandResultRelationshipGranted
+        self.commandResultRelationshipRevoked = commandResultRelationshipRevoked
         self.eventAuthorizationPolicyChangedEvent = eventAuthorizationPolicyChangedEvent
         self.eventBackgroundJobStatusEvent = eventBackgroundJobStatusEvent
         self.eventConfigChangedEvent = eventConfigChangedEvent
@@ -5985,14 +4714,30 @@ public extension UnionPayloadKeepAlive {
         commandMaterialCategorySave: SaveMaterialCategory?? = nil,
         commandMaterialSave: SaveMaterial?? = nil,
         commandMaterialUnitSave: SaveMaterialUnit?? = nil,
-        commandOperationCancel: CancelOperation?? = nil,
         commandPartCategorySave: SavePartCategory?? = nil,
         commandPartSave: SavePart?? = nil,
         commandProductCategorySave: SaveProductCategory?? = nil,
         commandProductSave: SaveProduct?? = nil,
+        commandResultConfigurationUpdated: ConfigSnapshot?? = nil,
+        commandResultCustomerCreated: CustomerMutationResult?? = nil,
+        commandResultCustomerUpdated: CustomerMutationResult?? = nil,
+        commandResultDesktopAccountCreated: DesktopAccountSummary?? = nil,
+        commandResultDesktopAccountDeactivated: DesktopAccountSummary?? = nil,
+        commandResultDesktopAccountUpdated: DesktopAccountSummary?? = nil,
+        commandResultFurnitureCategorySaved: FurnitureCategory?? = nil,
+        commandResultFurnitureSaved: Furniture?? = nil,
+        commandResultMaterialCategorySaved: MaterialCategory?? = nil,
+        commandResultMaterialSaved: Material?? = nil,
+        commandResultMaterialUnitSaved: MaterialUnit?? = nil,
+        commandResultPartCategorySaved: PartCategory?? = nil,
+        commandResultPartSaved: Part?? = nil,
+        commandResultProductCategorySaved: ProductCategory?? = nil,
+        commandResultProductSaved: Product?? = nil,
+        commandResultRelationshipGranted: RelationshipMutationResult?? = nil,
+        commandResultRelationshipRevoked: RelationshipMutationResult?? = nil,
         eventAuthorizationPolicyChangedEvent: AuthorizationPolicyChangeNotice?? = nil,
         eventBackgroundJobStatusEvent: BackgroundJobStatus?? = nil,
-        eventConfigChangedEvent: EventConfigChangedEventClass?? = nil,
+        eventConfigChangedEvent: ConfigSnapshot?? = nil,
         eventCustomerChangedEvent: CustomerChangeNotice?? = nil,
         eventErrorEvent: ScopedError?? = nil,
         eventFurnitureChangedEvent: FurnitureChangeNotice?? = nil,
@@ -6045,7 +4790,7 @@ public extension UnionPayloadKeepAlive {
         queryProductRevisionGet: GetProductRevision?? = nil,
         querySyncGetStatus: [String: JSONAny]?? = nil,
         queryUpdateGetState: [String: JSONAny]?? = nil,
-        queryResultConfiguration: EventConfigChangedEventClass?? = nil,
+        queryResultConfiguration: ConfigSnapshot?? = nil,
         queryResultCustomer: Customer?? = nil,
         queryResultCustomers: CustomerPage?? = nil,
         queryResultDesktopAccounts: DesktopAccountPage?? = nil,
@@ -6117,11 +4862,27 @@ public extension UnionPayloadKeepAlive {
             commandMaterialCategorySave: commandMaterialCategorySave ?? self.commandMaterialCategorySave,
             commandMaterialSave: commandMaterialSave ?? self.commandMaterialSave,
             commandMaterialUnitSave: commandMaterialUnitSave ?? self.commandMaterialUnitSave,
-            commandOperationCancel: commandOperationCancel ?? self.commandOperationCancel,
             commandPartCategorySave: commandPartCategorySave ?? self.commandPartCategorySave,
             commandPartSave: commandPartSave ?? self.commandPartSave,
             commandProductCategorySave: commandProductCategorySave ?? self.commandProductCategorySave,
             commandProductSave: commandProductSave ?? self.commandProductSave,
+            commandResultConfigurationUpdated: commandResultConfigurationUpdated ?? self.commandResultConfigurationUpdated,
+            commandResultCustomerCreated: commandResultCustomerCreated ?? self.commandResultCustomerCreated,
+            commandResultCustomerUpdated: commandResultCustomerUpdated ?? self.commandResultCustomerUpdated,
+            commandResultDesktopAccountCreated: commandResultDesktopAccountCreated ?? self.commandResultDesktopAccountCreated,
+            commandResultDesktopAccountDeactivated: commandResultDesktopAccountDeactivated ?? self.commandResultDesktopAccountDeactivated,
+            commandResultDesktopAccountUpdated: commandResultDesktopAccountUpdated ?? self.commandResultDesktopAccountUpdated,
+            commandResultFurnitureCategorySaved: commandResultFurnitureCategorySaved ?? self.commandResultFurnitureCategorySaved,
+            commandResultFurnitureSaved: commandResultFurnitureSaved ?? self.commandResultFurnitureSaved,
+            commandResultMaterialCategorySaved: commandResultMaterialCategorySaved ?? self.commandResultMaterialCategorySaved,
+            commandResultMaterialSaved: commandResultMaterialSaved ?? self.commandResultMaterialSaved,
+            commandResultMaterialUnitSaved: commandResultMaterialUnitSaved ?? self.commandResultMaterialUnitSaved,
+            commandResultPartCategorySaved: commandResultPartCategorySaved ?? self.commandResultPartCategorySaved,
+            commandResultPartSaved: commandResultPartSaved ?? self.commandResultPartSaved,
+            commandResultProductCategorySaved: commandResultProductCategorySaved ?? self.commandResultProductCategorySaved,
+            commandResultProductSaved: commandResultProductSaved ?? self.commandResultProductSaved,
+            commandResultRelationshipGranted: commandResultRelationshipGranted ?? self.commandResultRelationshipGranted,
+            commandResultRelationshipRevoked: commandResultRelationshipRevoked ?? self.commandResultRelationshipRevoked,
             eventAuthorizationPolicyChangedEvent: eventAuthorizationPolicyChangedEvent ?? self.eventAuthorizationPolicyChangedEvent,
             eventBackgroundJobStatusEvent: eventBackgroundJobStatusEvent ?? self.eventBackgroundJobStatusEvent,
             eventConfigChangedEvent: eventConfigChangedEvent ?? self.eventConfigChangedEvent,
@@ -6286,6 +5047,59 @@ public extension GrantScopeRelationship {
             expectedPolicyVersion: expectedPolicyVersion ?? self.expectedPolicyVersion,
             relation: relation ?? self.relation,
             subject: subject ?? self.subject
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - RelationshipSubject
+public struct RelationshipSubject: Codable, Sendable {
+    public let principalID: String
+    public let principalKind: PrincipalKind
+
+    public enum CodingKeys: String, CodingKey {
+        case principalID = "principalId"
+        case principalKind
+    }
+
+    public init(principalID: String, principalKind: PrincipalKind) {
+        self.principalID = principalID
+        self.principalKind = principalKind
+    }
+}
+
+// MARK: RelationshipSubject convenience initializers and mutators
+
+public extension RelationshipSubject {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(RelationshipSubject.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        principalID: String? = nil,
+        principalKind: PrincipalKind? = nil
+    ) -> RelationshipSubject {
+        return RelationshipSubject(
+            principalID: principalID ?? self.principalID,
+            principalKind: principalKind ?? self.principalKind
         )
     }
 
@@ -6504,6 +5318,48 @@ public enum ConfigWriteValueKind: String, Codable, Sendable {
     case textList = "textList"
 }
 
+public enum ConfigReadValueValue: Codable, Sendable {
+    case bool(Bool)
+    case integer(Int)
+    case string(String)
+    case stringArray([String])
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let x = try? container.decode(Bool.self) {
+            self = .bool(x)
+            return
+        }
+        if let x = try? container.decode(Int.self) {
+            self = .integer(x)
+            return
+        }
+        if let x = try? container.decode([String].self) {
+            self = .stringArray(x)
+            return
+        }
+        if let x = try? container.decode(String.self) {
+            self = .string(x)
+            return
+        }
+        throw DecodingError.typeMismatch(ConfigReadValueValue.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for ConfigReadValueValue"))
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .bool(let x):
+            try container.encode(x)
+        case .integer(let x):
+            try container.encode(x)
+        case .string(let x):
+            try container.encode(x)
+        case .stringArray(let x):
+            try container.encode(x)
+        }
+    }
+}
+
 // MARK: - CreateCustomer
 public struct CreateCustomer: Codable, Sendable {
     public let address: String?
@@ -6683,6 +5539,11 @@ public extension CreateDesktopAccount {
     func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
         return String(data: try self.jsonData(), encoding: encoding)
     }
+}
+
+public enum DesktopAccountRole: String, Codable, Sendable {
+    case manager = "manager"
+    case receptionist = "receptionist"
 }
 
 // MARK: - DeactivateDesktopAccount
@@ -6946,6 +5807,179 @@ public extension SaveFurniture {
     }
 }
 
+// MARK: - FurnitureOption
+public struct FurnitureOption: Codable, Sendable {
+    public let archived: Bool
+    public let id, name: String
+    public let priceAdjustmentYer: Int
+    public let visual: String
+
+    public init(archived: Bool, id: String, name: String, priceAdjustmentYer: Int, visual: String) {
+        self.archived = archived
+        self.id = id
+        self.name = name
+        self.priceAdjustmentYer = priceAdjustmentYer
+        self.visual = visual
+    }
+}
+
+// MARK: FurnitureOption convenience initializers and mutators
+
+public extension FurnitureOption {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(FurnitureOption.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        archived: Bool? = nil,
+        id: String? = nil,
+        name: String? = nil,
+        priceAdjustmentYer: Int? = nil,
+        visual: String? = nil
+    ) -> FurnitureOption {
+        return FurnitureOption(
+            archived: archived ?? self.archived,
+            id: id ?? self.id,
+            name: name ?? self.name,
+            priceAdjustmentYer: priceAdjustmentYer ?? self.priceAdjustmentYer,
+            visual: visual ?? self.visual
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - FurniturePart
+public struct FurniturePart: Codable, Sendable {
+    public let quantity: Int
+    public let reference: CompositionReference
+
+    public init(quantity: Int, reference: CompositionReference) {
+        self.quantity = quantity
+        self.reference = reference
+    }
+}
+
+// MARK: FurniturePart convenience initializers and mutators
+
+public extension FurniturePart {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(FurniturePart.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        quantity: Int? = nil,
+        reference: CompositionReference? = nil
+    ) -> FurniturePart {
+        return FurniturePart(
+            quantity: quantity ?? self.quantity,
+            reference: reference ?? self.reference
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - CompositionReference
+public struct CompositionReference: Codable, Sendable {
+    public let partID: String
+    public let revision, schemaVersion: Int
+    public let scope: ScopeRef
+
+    public enum CodingKeys: String, CodingKey {
+        case partID = "partId"
+        case revision, schemaVersion, scope
+    }
+
+    public init(partID: String, revision: Int, schemaVersion: Int, scope: ScopeRef) {
+        self.partID = partID
+        self.revision = revision
+        self.schemaVersion = schemaVersion
+        self.scope = scope
+    }
+}
+
+// MARK: CompositionReference convenience initializers and mutators
+
+public extension CompositionReference {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(CompositionReference.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        partID: String? = nil,
+        revision: Int? = nil,
+        schemaVersion: Int? = nil,
+        scope: ScopeRef? = nil
+    ) -> CompositionReference {
+        return CompositionReference(
+            partID: partID ?? self.partID,
+            revision: revision ?? self.revision,
+            schemaVersion: schemaVersion ?? self.schemaVersion,
+            scope: scope ?? self.scope
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+public enum FurnitureState: String, Codable, Sendable {
+    case active = "active"
+    case archived = "archived"
+    case draft = "draft"
+}
+
 // MARK: - FurnitureVariant
 public struct FurnitureVariant: Codable, Sendable {
     public let archived: Bool
@@ -7014,6 +6048,103 @@ public extension FurnitureVariant {
             id: id ?? self.id,
             name: name ?? self.name,
             sellingPriceYer: sellingPriceYer ?? self.sellingPriceYer
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - FurnitureCustomization
+public struct FurnitureCustomization: Codable, Sendable {
+    public let maximum, minimum: FurnitureDimensions
+
+    public init(maximum: FurnitureDimensions, minimum: FurnitureDimensions) {
+        self.maximum = maximum
+        self.minimum = minimum
+    }
+}
+
+// MARK: FurnitureCustomization convenience initializers and mutators
+
+public extension FurnitureCustomization {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(FurnitureCustomization.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        maximum: FurnitureDimensions? = nil,
+        minimum: FurnitureDimensions? = nil
+    ) -> FurnitureCustomization {
+        return FurnitureCustomization(
+            maximum: maximum ?? self.maximum,
+            minimum: minimum ?? self.minimum
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - FurnitureDimensions
+public struct FurnitureDimensions: Codable, Sendable {
+    public let depthMm, heightMm, widthMm: Int
+
+    public init(depthMm: Int, heightMm: Int, widthMm: Int) {
+        self.depthMm = depthMm
+        self.heightMm = heightMm
+        self.widthMm = widthMm
+    }
+}
+
+// MARK: FurnitureDimensions convenience initializers and mutators
+
+public extension FurnitureDimensions {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(FurnitureDimensions.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        depthMm: Int? = nil,
+        heightMm: Int? = nil,
+        widthMm: Int? = nil
+    ) -> FurnitureDimensions {
+        return FurnitureDimensions(
+            depthMm: depthMm ?? self.depthMm,
+            heightMm: heightMm ?? self.heightMm,
+            widthMm: widthMm ?? self.widthMm
         )
     }
 
@@ -7228,52 +6359,12 @@ public extension SaveMaterialUnit {
     }
 }
 
-// MARK: - CancelOperation
-public struct CancelOperation: Codable, Sendable {
-    public let operationID: String
-
-    public enum CodingKeys: String, CodingKey {
-        case operationID = "operationId"
-    }
-
-    public init(operationID: String) {
-        self.operationID = operationID
-    }
-}
-
-// MARK: CancelOperation convenience initializers and mutators
-
-public extension CancelOperation {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(CancelOperation.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        operationID: String? = nil
-    ) -> CancelOperation {
-        return CancelOperation(
-            operationID: operationID ?? self.operationID
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
+public enum UnitDimension: String, Codable, Sendable {
+    case area = "area"
+    case count = "count"
+    case length = "length"
+    case mass = "mass"
+    case volume = "volume"
 }
 
 // MARK: - SavePartCategory
@@ -7393,6 +6484,72 @@ public extension SavePart {
             id: id ?? self.id,
             name: name ?? self.name,
             usages: usages ?? self.usages
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - PartUsage
+public struct PartUsage: Codable, Sendable {
+    public let materialID: String
+    public let materialRevision: Int
+    public let quantity, unitID: String
+    public let unitRevision: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case materialID = "materialId"
+        case materialRevision, quantity
+        case unitID = "unitId"
+        case unitRevision
+    }
+
+    public init(materialID: String, materialRevision: Int, quantity: String, unitID: String, unitRevision: Int) {
+        self.materialID = materialID
+        self.materialRevision = materialRevision
+        self.quantity = quantity
+        self.unitID = unitID
+        self.unitRevision = unitRevision
+    }
+}
+
+// MARK: PartUsage convenience initializers and mutators
+
+public extension PartUsage {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(PartUsage.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        materialID: String? = nil,
+        materialRevision: Int? = nil,
+        quantity: String? = nil,
+        unitID: String? = nil,
+        unitRevision: Int? = nil
+    ) -> PartUsage {
+        return PartUsage(
+            materialID: materialID ?? self.materialID,
+            materialRevision: materialRevision ?? self.materialRevision,
+            quantity: quantity ?? self.quantity,
+            unitID: unitID ?? self.unitID,
+            unitRevision: unitRevision ?? self.unitRevision
         )
     }
 
@@ -7592,6 +6749,1378 @@ public extension SaveProductVariant {
     }
 }
 
+// MARK: - ConfigSnapshot
+public struct ConfigSnapshot: Codable, Sendable {
+    public let entries: [ConfigEntry]
+    public let revision, schemaVersion: Int
+    public let scope: ScopeRef
+
+    public init(entries: [ConfigEntry], revision: Int, schemaVersion: Int, scope: ScopeRef) {
+        self.entries = entries
+        self.revision = revision
+        self.schemaVersion = schemaVersion
+        self.scope = scope
+    }
+}
+
+// MARK: ConfigSnapshot convenience initializers and mutators
+
+public extension ConfigSnapshot {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(ConfigSnapshot.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        entries: [ConfigEntry]? = nil,
+        revision: Int? = nil,
+        schemaVersion: Int? = nil,
+        scope: ScopeRef? = nil
+    ) -> ConfigSnapshot {
+        return ConfigSnapshot(
+            entries: entries ?? self.entries,
+            revision: revision ?? self.revision,
+            schemaVersion: schemaVersion ?? self.schemaVersion,
+            scope: scope ?? self.scope
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - ConfigEntry
+public struct ConfigEntry: Codable, Sendable {
+    public let key: String
+    public let restartRequirement: RestartRequirement
+    public let sensitivity: ConfigSensitivity
+    public let value: ConfigReadValue
+
+    public init(key: String, restartRequirement: RestartRequirement, sensitivity: ConfigSensitivity, value: ConfigReadValue) {
+        self.key = key
+        self.restartRequirement = restartRequirement
+        self.sensitivity = sensitivity
+        self.value = value
+    }
+}
+
+// MARK: ConfigEntry convenience initializers and mutators
+
+public extension ConfigEntry {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(ConfigEntry.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        key: String? = nil,
+        restartRequirement: RestartRequirement? = nil,
+        sensitivity: ConfigSensitivity? = nil,
+        value: ConfigReadValue? = nil
+    ) -> ConfigEntry {
+        return ConfigEntry(
+            key: key ?? self.key,
+            restartRequirement: restartRequirement ?? self.restartRequirement,
+            sensitivity: sensitivity ?? self.sensitivity,
+            value: value ?? self.value
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+public enum RestartRequirement: String, Codable, Sendable {
+    case application = "application"
+    case engine = "engine"
+    case none = "none"
+}
+
+public enum ConfigSensitivity: String, Codable, Sendable {
+    case configSensitivityPublic = "public"
+    case secret = "secret"
+    case sensitive = "sensitive"
+}
+
+// MARK: - ConfigReadValue
+public struct ConfigReadValue: Codable, Sendable {
+    public let kind: ConfigReadValueKind
+    public let value: ConfigReadValueValue?
+
+    public init(kind: ConfigReadValueKind, value: ConfigReadValueValue?) {
+        self.kind = kind
+        self.value = value
+    }
+}
+
+// MARK: ConfigReadValue convenience initializers and mutators
+
+public extension ConfigReadValue {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(ConfigReadValue.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        kind: ConfigReadValueKind? = nil,
+        value: ConfigReadValueValue?? = nil
+    ) -> ConfigReadValue {
+        return ConfigReadValue(
+            kind: kind ?? self.kind,
+            value: value ?? self.value
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+public enum ConfigReadValueKind: String, Codable, Sendable {
+    case boolean = "boolean"
+    case decimal = "decimal"
+    case integer = "integer"
+    case redacted = "redacted"
+    case secretReference = "secretReference"
+    case text = "text"
+    case textList = "textList"
+}
+
+// MARK: - CustomerMutationResult
+public struct CustomerMutationResult: Codable, Sendable {
+    public let customer: Customer
+    public let potentialDuplicateIDS: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case customer
+        case potentialDuplicateIDS = "potentialDuplicateIds"
+    }
+
+    public init(customer: Customer, potentialDuplicateIDS: [String]) {
+        self.customer = customer
+        self.potentialDuplicateIDS = potentialDuplicateIDS
+    }
+}
+
+// MARK: CustomerMutationResult convenience initializers and mutators
+
+public extension CustomerMutationResult {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(CustomerMutationResult.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        customer: Customer? = nil,
+        potentialDuplicateIDS: [String]? = nil
+    ) -> CustomerMutationResult {
+        return CustomerMutationResult(
+            customer: customer ?? self.customer,
+            potentialDuplicateIDS: potentialDuplicateIDS ?? self.potentialDuplicateIDS
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - Customer
+public struct Customer: Codable, Sendable {
+    public let address: String?
+    public let id, name: String
+    public let notes: String?
+    public let phone: String
+    public let revision: Int
+    public let scope: ScopeRef
+    public let status: CustomerStatus
+    public let syncState: CustomerSyncState
+    public let updatedAt: Int
+
+    public init(address: String?, id: String, name: String, notes: String?, phone: String, revision: Int, scope: ScopeRef, status: CustomerStatus, syncState: CustomerSyncState, updatedAt: Int) {
+        self.address = address
+        self.id = id
+        self.name = name
+        self.notes = notes
+        self.phone = phone
+        self.revision = revision
+        self.scope = scope
+        self.status = status
+        self.syncState = syncState
+        self.updatedAt = updatedAt
+    }
+}
+
+// MARK: Customer convenience initializers and mutators
+
+public extension Customer {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(Customer.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        address: String?? = nil,
+        id: String? = nil,
+        name: String? = nil,
+        notes: String?? = nil,
+        phone: String? = nil,
+        revision: Int? = nil,
+        scope: ScopeRef? = nil,
+        status: CustomerStatus? = nil,
+        syncState: CustomerSyncState? = nil,
+        updatedAt: Int? = nil
+    ) -> Customer {
+        return Customer(
+            address: address ?? self.address,
+            id: id ?? self.id,
+            name: name ?? self.name,
+            notes: notes ?? self.notes,
+            phone: phone ?? self.phone,
+            revision: revision ?? self.revision,
+            scope: scope ?? self.scope,
+            status: status ?? self.status,
+            syncState: syncState ?? self.syncState,
+            updatedAt: updatedAt ?? self.updatedAt
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+public enum CustomerStatus: String, Codable, Sendable {
+    case active = "active"
+    case archived = "archived"
+    case merged = "merged"
+}
+
+public enum CustomerSyncState: String, Codable, Sendable {
+    case confirmed = "confirmed"
+    case conflicted = "conflicted"
+    case pending = "pending"
+    case rejected = "rejected"
+}
+
+// MARK: - DesktopAccountSummary
+public struct DesktopAccountSummary: Codable, Sendable {
+    public let accountID: String
+    public let active: Bool
+    public let displayName: String
+    public let revision: Int
+    public let role: DesktopAccountRole
+    public let userID, username: String
+
+    public enum CodingKeys: String, CodingKey {
+        case accountID = "accountId"
+        case active, displayName, revision, role
+        case userID = "userId"
+        case username
+    }
+
+    public init(accountID: String, active: Bool, displayName: String, revision: Int, role: DesktopAccountRole, userID: String, username: String) {
+        self.accountID = accountID
+        self.active = active
+        self.displayName = displayName
+        self.revision = revision
+        self.role = role
+        self.userID = userID
+        self.username = username
+    }
+}
+
+// MARK: DesktopAccountSummary convenience initializers and mutators
+
+public extension DesktopAccountSummary {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(DesktopAccountSummary.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        accountID: String? = nil,
+        active: Bool? = nil,
+        displayName: String? = nil,
+        revision: Int? = nil,
+        role: DesktopAccountRole? = nil,
+        userID: String? = nil,
+        username: String? = nil
+    ) -> DesktopAccountSummary {
+        return DesktopAccountSummary(
+            accountID: accountID ?? self.accountID,
+            active: active ?? self.active,
+            displayName: displayName ?? self.displayName,
+            revision: revision ?? self.revision,
+            role: role ?? self.role,
+            userID: userID ?? self.userID,
+            username: username ?? self.username
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - FurnitureCategory
+public struct FurnitureCategory: Codable, Sendable {
+    public let archived: Bool
+    public let id, name: String
+    public let revision: Int
+    public let scope: ScopeRef
+    public let updatedAt: Int
+
+    public init(archived: Bool, id: String, name: String, revision: Int, scope: ScopeRef, updatedAt: Int) {
+        self.archived = archived
+        self.id = id
+        self.name = name
+        self.revision = revision
+        self.scope = scope
+        self.updatedAt = updatedAt
+    }
+}
+
+// MARK: FurnitureCategory convenience initializers and mutators
+
+public extension FurnitureCategory {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(FurnitureCategory.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        archived: Bool? = nil,
+        id: String? = nil,
+        name: String? = nil,
+        revision: Int? = nil,
+        scope: ScopeRef? = nil,
+        updatedAt: Int? = nil
+    ) -> FurnitureCategory {
+        return FurnitureCategory(
+            archived: archived ?? self.archived,
+            id: id ?? self.id,
+            name: name ?? self.name,
+            revision: revision ?? self.revision,
+            scope: scope ?? self.scope,
+            updatedAt: updatedAt ?? self.updatedAt
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - Furniture
+public struct Furniture: Codable, Sendable {
+    public let categoryID: String
+    /// Category name at this revision, retained for historical reads.
+    public let categoryName: String
+    public let colors: [FurnitureOption]
+    public let description: String
+    public let handles: [FurnitureOption]
+    public let id, name: String
+    /// Internal notes are only exposed to Managers.
+    public let notes: String
+    public let parts: [FurniturePart]
+    public let partsCostYer: Int
+    public let revision: Int
+    public let scope: ScopeRef
+    public let state: FurnitureState
+    public let updatedAt: Int
+    public let variants: [FurnitureVariant]
+
+    public enum CodingKeys: String, CodingKey {
+        case categoryID = "categoryId"
+        case categoryName, colors, description, handles, id, name, notes, parts, partsCostYer, revision, scope, state, updatedAt, variants
+    }
+
+    public init(categoryID: String, categoryName: String, colors: [FurnitureOption], description: String, handles: [FurnitureOption], id: String, name: String, notes: String, parts: [FurniturePart], partsCostYer: Int, revision: Int, scope: ScopeRef, state: FurnitureState, updatedAt: Int, variants: [FurnitureVariant]) {
+        self.categoryID = categoryID
+        self.categoryName = categoryName
+        self.colors = colors
+        self.description = description
+        self.handles = handles
+        self.id = id
+        self.name = name
+        self.notes = notes
+        self.parts = parts
+        self.partsCostYer = partsCostYer
+        self.revision = revision
+        self.scope = scope
+        self.state = state
+        self.updatedAt = updatedAt
+        self.variants = variants
+    }
+}
+
+// MARK: Furniture convenience initializers and mutators
+
+public extension Furniture {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(Furniture.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        categoryID: String? = nil,
+        categoryName: String? = nil,
+        colors: [FurnitureOption]? = nil,
+        description: String? = nil,
+        handles: [FurnitureOption]? = nil,
+        id: String? = nil,
+        name: String? = nil,
+        notes: String? = nil,
+        parts: [FurniturePart]? = nil,
+        partsCostYer: Int? = nil,
+        revision: Int? = nil,
+        scope: ScopeRef? = nil,
+        state: FurnitureState? = nil,
+        updatedAt: Int? = nil,
+        variants: [FurnitureVariant]? = nil
+    ) -> Furniture {
+        return Furniture(
+            categoryID: categoryID ?? self.categoryID,
+            categoryName: categoryName ?? self.categoryName,
+            colors: colors ?? self.colors,
+            description: description ?? self.description,
+            handles: handles ?? self.handles,
+            id: id ?? self.id,
+            name: name ?? self.name,
+            notes: notes ?? self.notes,
+            parts: parts ?? self.parts,
+            partsCostYer: partsCostYer ?? self.partsCostYer,
+            revision: revision ?? self.revision,
+            scope: scope ?? self.scope,
+            state: state ?? self.state,
+            updatedAt: updatedAt ?? self.updatedAt,
+            variants: variants ?? self.variants
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - MaterialCategory
+public struct MaterialCategory: Codable, Sendable {
+    public let archived: Bool
+    public let id, name: String
+    public let revision: Int
+    public let scope: ScopeRef
+    public let updatedAt: Int
+
+    public init(archived: Bool, id: String, name: String, revision: Int, scope: ScopeRef, updatedAt: Int) {
+        self.archived = archived
+        self.id = id
+        self.name = name
+        self.revision = revision
+        self.scope = scope
+        self.updatedAt = updatedAt
+    }
+}
+
+// MARK: MaterialCategory convenience initializers and mutators
+
+public extension MaterialCategory {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(MaterialCategory.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        archived: Bool? = nil,
+        id: String? = nil,
+        name: String? = nil,
+        revision: Int? = nil,
+        scope: ScopeRef? = nil,
+        updatedAt: Int? = nil
+    ) -> MaterialCategory {
+        return MaterialCategory(
+            archived: archived ?? self.archived,
+            id: id ?? self.id,
+            name: name ?? self.name,
+            revision: revision ?? self.revision,
+            scope: scope ?? self.scope,
+            updatedAt: updatedAt ?? self.updatedAt
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - Material
+public struct Material: Codable, Sendable {
+    public let archived: Bool
+    public let categoryID: String
+    /// Non-negative whole Yemeni rials per selected unit.
+    public let currentCostYer: Int
+    public let id, name: String
+    public let revision: Int
+    public let scope: ScopeRef
+    public let unitID: String
+    public let updatedAt: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case archived
+        case categoryID = "categoryId"
+        case currentCostYer, id, name, revision, scope
+        case unitID = "unitId"
+        case updatedAt
+    }
+
+    public init(archived: Bool, categoryID: String, currentCostYer: Int, id: String, name: String, revision: Int, scope: ScopeRef, unitID: String, updatedAt: Int) {
+        self.archived = archived
+        self.categoryID = categoryID
+        self.currentCostYer = currentCostYer
+        self.id = id
+        self.name = name
+        self.revision = revision
+        self.scope = scope
+        self.unitID = unitID
+        self.updatedAt = updatedAt
+    }
+}
+
+// MARK: Material convenience initializers and mutators
+
+public extension Material {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(Material.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        archived: Bool? = nil,
+        categoryID: String? = nil,
+        currentCostYer: Int? = nil,
+        id: String? = nil,
+        name: String? = nil,
+        revision: Int? = nil,
+        scope: ScopeRef? = nil,
+        unitID: String? = nil,
+        updatedAt: Int? = nil
+    ) -> Material {
+        return Material(
+            archived: archived ?? self.archived,
+            categoryID: categoryID ?? self.categoryID,
+            currentCostYer: currentCostYer ?? self.currentCostYer,
+            id: id ?? self.id,
+            name: name ?? self.name,
+            revision: revision ?? self.revision,
+            scope: scope ?? self.scope,
+            unitID: unitID ?? self.unitID,
+            updatedAt: updatedAt ?? self.updatedAt
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - MaterialUnit
+public struct MaterialUnit: Codable, Sendable {
+    public let archived: Bool
+    public let denominator: Int
+    public let dimension: UnitDimension
+    public let id, name: String
+    public let numerator, revision: Int
+    public let scope: ScopeRef
+    public let symbol: String
+    public let updatedAt: Int
+
+    public init(archived: Bool, denominator: Int, dimension: UnitDimension, id: String, name: String, numerator: Int, revision: Int, scope: ScopeRef, symbol: String, updatedAt: Int) {
+        self.archived = archived
+        self.denominator = denominator
+        self.dimension = dimension
+        self.id = id
+        self.name = name
+        self.numerator = numerator
+        self.revision = revision
+        self.scope = scope
+        self.symbol = symbol
+        self.updatedAt = updatedAt
+    }
+}
+
+// MARK: MaterialUnit convenience initializers and mutators
+
+public extension MaterialUnit {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(MaterialUnit.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        archived: Bool? = nil,
+        denominator: Int? = nil,
+        dimension: UnitDimension? = nil,
+        id: String? = nil,
+        name: String? = nil,
+        numerator: Int? = nil,
+        revision: Int? = nil,
+        scope: ScopeRef? = nil,
+        symbol: String? = nil,
+        updatedAt: Int? = nil
+    ) -> MaterialUnit {
+        return MaterialUnit(
+            archived: archived ?? self.archived,
+            denominator: denominator ?? self.denominator,
+            dimension: dimension ?? self.dimension,
+            id: id ?? self.id,
+            name: name ?? self.name,
+            numerator: numerator ?? self.numerator,
+            revision: revision ?? self.revision,
+            scope: scope ?? self.scope,
+            symbol: symbol ?? self.symbol,
+            updatedAt: updatedAt ?? self.updatedAt
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - PartCategory
+public struct PartCategory: Codable, Sendable {
+    public let archived: Bool
+    public let id, name: String
+    public let revision: Int
+    public let scope: ScopeRef
+    public let updatedAt: Int
+
+    public init(archived: Bool, id: String, name: String, revision: Int, scope: ScopeRef, updatedAt: Int) {
+        self.archived = archived
+        self.id = id
+        self.name = name
+        self.revision = revision
+        self.scope = scope
+        self.updatedAt = updatedAt
+    }
+}
+
+// MARK: PartCategory convenience initializers and mutators
+
+public extension PartCategory {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(PartCategory.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        archived: Bool? = nil,
+        id: String? = nil,
+        name: String? = nil,
+        revision: Int? = nil,
+        scope: ScopeRef? = nil,
+        updatedAt: Int? = nil
+    ) -> PartCategory {
+        return PartCategory(
+            archived: archived ?? self.archived,
+            id: id ?? self.id,
+            name: name ?? self.name,
+            revision: revision ?? self.revision,
+            scope: scope ?? self.scope,
+            updatedAt: updatedAt ?? self.updatedAt
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - Part
+public struct Part: Codable, Sendable {
+    public let archived: Bool
+    public let categoryID: String
+    public let composition: CompositionReference
+    public let cost: PartCost
+    public let description, id, name: String
+    public let revision: Int
+    public let scope: ScopeRef
+    public let updatedAt: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case archived
+        case categoryID = "categoryId"
+        case composition, cost, description, id, name, revision, scope, updatedAt
+    }
+
+    public init(archived: Bool, categoryID: String, composition: CompositionReference, cost: PartCost, description: String, id: String, name: String, revision: Int, scope: ScopeRef, updatedAt: Int) {
+        self.archived = archived
+        self.categoryID = categoryID
+        self.composition = composition
+        self.cost = cost
+        self.description = description
+        self.id = id
+        self.name = name
+        self.revision = revision
+        self.scope = scope
+        self.updatedAt = updatedAt
+    }
+}
+
+// MARK: Part convenience initializers and mutators
+
+public extension Part {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(Part.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        archived: Bool? = nil,
+        categoryID: String? = nil,
+        composition: CompositionReference? = nil,
+        cost: PartCost? = nil,
+        description: String? = nil,
+        id: String? = nil,
+        name: String? = nil,
+        revision: Int? = nil,
+        scope: ScopeRef? = nil,
+        updatedAt: Int? = nil
+    ) -> Part {
+        return Part(
+            archived: archived ?? self.archived,
+            categoryID: categoryID ?? self.categoryID,
+            composition: composition ?? self.composition,
+            cost: cost ?? self.cost,
+            description: description ?? self.description,
+            id: id ?? self.id,
+            name: name ?? self.name,
+            revision: revision ?? self.revision,
+            scope: scope ?? self.scope,
+            updatedAt: updatedAt ?? self.updatedAt
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+/// Advisory current cost; commercial references resolve the immutable part snapshot instead.
+// MARK: - PartCost
+public struct PartCost: Codable, Sendable {
+    public let rows: [CostedUsage]
+    public let totalCostYer: Int
+
+    public init(rows: [CostedUsage], totalCostYer: Int) {
+        self.rows = rows
+        self.totalCostYer = totalCostYer
+    }
+}
+
+// MARK: PartCost convenience initializers and mutators
+
+public extension PartCost {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(PartCost.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        rows: [CostedUsage]? = nil,
+        totalCostYer: Int? = nil
+    ) -> PartCost {
+        return PartCost(
+            rows: rows ?? self.rows,
+            totalCostYer: totalCostYer ?? self.totalCostYer
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - CostedUsage
+public struct CostedUsage: Codable, Sendable {
+    public let costUnit: MaterialUnit
+    public let costYer: Int
+    public let material: Material
+    public let unit: MaterialUnit
+    public let usage: PartUsage
+
+    public init(costUnit: MaterialUnit, costYer: Int, material: Material, unit: MaterialUnit, usage: PartUsage) {
+        self.costUnit = costUnit
+        self.costYer = costYer
+        self.material = material
+        self.unit = unit
+        self.usage = usage
+    }
+}
+
+// MARK: CostedUsage convenience initializers and mutators
+
+public extension CostedUsage {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(CostedUsage.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        costUnit: MaterialUnit? = nil,
+        costYer: Int? = nil,
+        material: Material? = nil,
+        unit: MaterialUnit? = nil,
+        usage: PartUsage? = nil
+    ) -> CostedUsage {
+        return CostedUsage(
+            costUnit: costUnit ?? self.costUnit,
+            costYer: costYer ?? self.costYer,
+            material: material ?? self.material,
+            unit: unit ?? self.unit,
+            usage: usage ?? self.usage
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - ProductCategory
+public struct ProductCategory: Codable, Sendable {
+    public let archived: Bool
+    public let id, name: String
+    public let revision: Int
+    public let scope: ScopeRef
+    public let updatedAt: Int
+
+    public init(archived: Bool, id: String, name: String, revision: Int, scope: ScopeRef, updatedAt: Int) {
+        self.archived = archived
+        self.id = id
+        self.name = name
+        self.revision = revision
+        self.scope = scope
+        self.updatedAt = updatedAt
+    }
+}
+
+// MARK: ProductCategory convenience initializers and mutators
+
+public extension ProductCategory {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(ProductCategory.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        archived: Bool? = nil,
+        id: String? = nil,
+        name: String? = nil,
+        revision: Int? = nil,
+        scope: ScopeRef? = nil,
+        updatedAt: Int? = nil
+    ) -> ProductCategory {
+        return ProductCategory(
+            archived: archived ?? self.archived,
+            id: id ?? self.id,
+            name: name ?? self.name,
+            revision: revision ?? self.revision,
+            scope: scope ?? self.scope,
+            updatedAt: updatedAt ?? self.updatedAt
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - Product
+public struct Product: Codable, Sendable {
+    public let archived: Bool
+    public let categoryID: String
+    /// Category name at this revision, retained for historical reads.
+    public let categoryName: String
+    public let description, id, name: String
+    /// Internal notes are withheld with purchase costs.
+    public let notes: String
+    public let revision: Int
+    public let scope: ScopeRef
+    public let updatedAt: Int
+    public let variants: [ProductVariant]
+
+    public enum CodingKeys: String, CodingKey {
+        case archived
+        case categoryID = "categoryId"
+        case categoryName, description, id, name, notes, revision, scope, updatedAt, variants
+    }
+
+    public init(archived: Bool, categoryID: String, categoryName: String, description: String, id: String, name: String, notes: String, revision: Int, scope: ScopeRef, updatedAt: Int, variants: [ProductVariant]) {
+        self.archived = archived
+        self.categoryID = categoryID
+        self.categoryName = categoryName
+        self.description = description
+        self.id = id
+        self.name = name
+        self.notes = notes
+        self.revision = revision
+        self.scope = scope
+        self.updatedAt = updatedAt
+        self.variants = variants
+    }
+}
+
+// MARK: Product convenience initializers and mutators
+
+public extension Product {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(Product.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        archived: Bool? = nil,
+        categoryID: String? = nil,
+        categoryName: String? = nil,
+        description: String? = nil,
+        id: String? = nil,
+        name: String? = nil,
+        notes: String? = nil,
+        revision: Int? = nil,
+        scope: ScopeRef? = nil,
+        updatedAt: Int? = nil,
+        variants: [ProductVariant]? = nil
+    ) -> Product {
+        return Product(
+            archived: archived ?? self.archived,
+            categoryID: categoryID ?? self.categoryID,
+            categoryName: categoryName ?? self.categoryName,
+            description: description ?? self.description,
+            id: id ?? self.id,
+            name: name ?? self.name,
+            notes: notes ?? self.notes,
+            revision: revision ?? self.revision,
+            scope: scope ?? self.scope,
+            updatedAt: updatedAt ?? self.updatedAt,
+            variants: variants ?? self.variants
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - ProductVariant
+public struct ProductVariant: Codable, Sendable {
+    public let archived: Bool
+    public let id, name: String
+    /// Omitted entirely when the caller cannot read internal purchase costs.
+    public let purchaseCostYer: Int?
+
+    public init(archived: Bool, id: String, name: String, purchaseCostYer: Int?) {
+        self.archived = archived
+        self.id = id
+        self.name = name
+        self.purchaseCostYer = purchaseCostYer
+    }
+}
+
+// MARK: ProductVariant convenience initializers and mutators
+
+public extension ProductVariant {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(ProductVariant.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        archived: Bool? = nil,
+        id: String? = nil,
+        name: String? = nil,
+        purchaseCostYer: Int?? = nil
+    ) -> ProductVariant {
+        return ProductVariant(
+            archived: archived ?? self.archived,
+            id: id ?? self.id,
+            name: name ?? self.name,
+            purchaseCostYer: purchaseCostYer ?? self.purchaseCostYer
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - RelationshipMutationResult
+public struct RelationshipMutationResult: Codable, Sendable {
+    public let changed: Bool
+    public let policyVersion: Int
+    public let relationship: ScopeRelationship
+
+    public init(changed: Bool, policyVersion: Int, relationship: ScopeRelationship) {
+        self.changed = changed
+        self.policyVersion = policyVersion
+        self.relationship = relationship
+    }
+}
+
+// MARK: RelationshipMutationResult convenience initializers and mutators
+
+public extension RelationshipMutationResult {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(RelationshipMutationResult.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        changed: Bool? = nil,
+        policyVersion: Int? = nil,
+        relationship: ScopeRelationship? = nil
+    ) -> RelationshipMutationResult {
+        return RelationshipMutationResult(
+            changed: changed ?? self.changed,
+            policyVersion: policyVersion ?? self.policyVersion,
+            relationship: relationship ?? self.relationship
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
+// MARK: - ScopeRelationship
+public struct ScopeRelationship: Codable, Sendable {
+    public let relation, relationshipID: String
+    public let scope: ScopeRef
+    public let subject: RelationshipSubject
+
+    public enum CodingKeys: String, CodingKey {
+        case relation
+        case relationshipID = "relationshipId"
+        case scope, subject
+    }
+
+    public init(relation: String, relationshipID: String, scope: ScopeRef, subject: RelationshipSubject) {
+        self.relation = relation
+        self.relationshipID = relationshipID
+        self.scope = scope
+        self.subject = subject
+    }
+}
+
+// MARK: ScopeRelationship convenience initializers and mutators
+
+public extension ScopeRelationship {
+    init(data: Data) throws {
+        self = try newJSONDecoder().decode(ScopeRelationship.self, from: data)
+    }
+
+    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
+        guard let data = json.data(using: encoding) else {
+            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
+        }
+        try self.init(data: data)
+    }
+
+    init(fromURL url: URL) throws {
+        try self.init(data: try Data(contentsOf: url))
+    }
+
+    func with(
+        relation: String? = nil,
+        relationshipID: String? = nil,
+        scope: ScopeRef? = nil,
+        subject: RelationshipSubject? = nil
+    ) -> ScopeRelationship {
+        return ScopeRelationship(
+            relation: relation ?? self.relation,
+            relationshipID: relationshipID ?? self.relationshipID,
+            scope: scope ?? self.scope,
+            subject: subject ?? self.subject
+        )
+    }
+
+    func jsonData() throws -> Data {
+        return try newJSONEncoder().encode(self)
+    }
+
+    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
+        return String(data: try self.jsonData(), encoding: encoding)
+    }
+}
+
 // MARK: - AuthorizationPolicyChangeNotice
 public struct AuthorizationPolicyChangeNotice: Codable, Sendable {
     public let policyVersion: Int
@@ -7719,61 +8248,6 @@ public enum BackgroundJobState: String, Codable, Sendable {
     case queued = "queued"
     case running = "running"
     case succeeded = "succeeded"
-}
-
-// MARK: - EventConfigChangedEventClass
-public struct EventConfigChangedEventClass: Codable, Sendable {
-    public let entries: [ConfigEntry]
-    public let revision, schemaVersion: Int
-    public let scope: ScopeRef
-
-    public init(entries: [ConfigEntry], revision: Int, schemaVersion: Int, scope: ScopeRef) {
-        self.entries = entries
-        self.revision = revision
-        self.schemaVersion = schemaVersion
-        self.scope = scope
-    }
-}
-
-// MARK: EventConfigChangedEventClass convenience initializers and mutators
-
-public extension EventConfigChangedEventClass {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(EventConfigChangedEventClass.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        entries: [ConfigEntry]? = nil,
-        revision: Int? = nil,
-        schemaVersion: Int? = nil,
-        scope: ScopeRef? = nil
-    ) -> EventConfigChangedEventClass {
-        return EventConfigChangedEventClass(
-            entries: entries ?? self.entries,
-            revision: revision ?? self.revision,
-            schemaVersion: schemaVersion ?? self.schemaVersion,
-            scope: scope ?? self.scope
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
 }
 
 // MARK: - CustomerChangeNotice
@@ -8992,10 +9466,10 @@ public struct Handshake: Codable, Sendable {
     public let authorization: AuthorizationContext?
     public let engine: PeerHello?
     public let negotiated: NegotiatedSession?
-    public let kind: FluffyKind?
+    public let kind: PurpleKind?
     public let payload: NegotiationRejection?
 
-    public init(authorization: AuthorizationContext?, engine: PeerHello?, negotiated: NegotiatedSession?, kind: FluffyKind?, payload: NegotiationRejection?) {
+    public init(authorization: AuthorizationContext?, engine: PeerHello?, negotiated: NegotiatedSession?, kind: PurpleKind?, payload: NegotiationRejection?) {
         self.authorization = authorization
         self.engine = engine
         self.negotiated = negotiated
@@ -9026,7 +9500,7 @@ public extension Handshake {
         authorization: AuthorizationContext?? = nil,
         engine: PeerHello?? = nil,
         negotiated: NegotiatedSession?? = nil,
-        kind: FluffyKind?? = nil,
+        kind: PurpleKind?? = nil,
         payload: NegotiationRejection?? = nil
     ) -> Handshake {
         return Handshake(
@@ -9047,7 +9521,7 @@ public extension Handshake {
     }
 }
 
-public enum FluffyKind: String, Codable, Sendable {
+public enum PurpleKind: String, Codable, Sendable {
     case authenticationFailed = "authenticationFailed"
     case authenticationRequired = "authenticationRequired"
     case negotiation = "negotiation"
@@ -10529,80 +11003,6 @@ public extension DesktopAccountPage {
     }
 }
 
-// MARK: - DesktopAccountSummary
-public struct DesktopAccountSummary: Codable, Sendable {
-    public let accountID: String
-    public let active: Bool
-    public let displayName: String
-    public let revision: Int
-    public let role: DesktopAccountRole
-    public let userID, username: String
-
-    public enum CodingKeys: String, CodingKey {
-        case accountID = "accountId"
-        case active, displayName, revision, role
-        case userID = "userId"
-        case username
-    }
-
-    public init(accountID: String, active: Bool, displayName: String, revision: Int, role: DesktopAccountRole, userID: String, username: String) {
-        self.accountID = accountID
-        self.active = active
-        self.displayName = displayName
-        self.revision = revision
-        self.role = role
-        self.userID = userID
-        self.username = username
-    }
-}
-
-// MARK: DesktopAccountSummary convenience initializers and mutators
-
-public extension DesktopAccountSummary {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(DesktopAccountSummary.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        accountID: String? = nil,
-        active: Bool? = nil,
-        displayName: String? = nil,
-        revision: Int? = nil,
-        role: DesktopAccountRole? = nil,
-        userID: String? = nil,
-        username: String? = nil
-    ) -> DesktopAccountSummary {
-        return DesktopAccountSummary(
-            accountID: accountID ?? self.accountID,
-            active: active ?? self.active,
-            displayName: displayName ?? self.displayName,
-            revision: revision ?? self.revision,
-            role: role ?? self.role,
-            userID: userID ?? self.userID,
-            username: username ?? self.username
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
 // MARK: - FurnitureCategories
 public struct FurnitureCategories: Codable, Sendable {
     public let items: [FurnitureCategory]
@@ -10639,69 +11039,6 @@ public extension FurnitureCategories {
         return FurnitureCategories(
             items: items ?? self.items,
             next: next ?? self.next
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
-// MARK: - FurnitureCategory
-public struct FurnitureCategory: Codable, Sendable {
-    public let archived: Bool
-    public let id, name: String
-    public let revision: Int
-    public let scope: ScopeRef
-    public let updatedAt: Int
-
-    public init(archived: Bool, id: String, name: String, revision: Int, scope: ScopeRef, updatedAt: Int) {
-        self.archived = archived
-        self.id = id
-        self.name = name
-        self.revision = revision
-        self.scope = scope
-        self.updatedAt = updatedAt
-    }
-}
-
-// MARK: FurnitureCategory convenience initializers and mutators
-
-public extension FurnitureCategory {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(FurnitureCategory.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        archived: Bool? = nil,
-        id: String? = nil,
-        name: String? = nil,
-        revision: Int? = nil,
-        scope: ScopeRef? = nil,
-        updatedAt: Int? = nil
-    ) -> FurnitureCategory {
-        return FurnitureCategory(
-            archived: archived ?? self.archived,
-            id: id ?? self.id,
-            name: name ?? self.name,
-            revision: revision ?? self.revision,
-            scope: scope ?? self.scope,
-            updatedAt: updatedAt ?? self.updatedAt
         )
     }
 
@@ -10754,112 +11091,6 @@ public extension FurnitureReview {
             marginsYer: marginsYer ?? self.marginsYer,
             partsCostYer: partsCostYer ?? self.partsCostYer,
             rowCostsYer: rowCostsYer ?? self.rowCostsYer
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
-// MARK: - Furniture
-public struct Furniture: Codable, Sendable {
-    public let categoryID: String
-    /// Category name at this revision, retained for historical reads.
-    public let categoryName: String
-    public let colors: [FurnitureOption]
-    public let description: String
-    public let handles: [FurnitureOption]
-    public let id, name: String
-    /// Internal notes are only exposed to Managers.
-    public let notes: String
-    public let parts: [FurniturePart]
-    public let partsCostYer: Int
-    public let revision: Int
-    public let scope: ScopeRef
-    public let state: FurnitureState
-    public let updatedAt: Int
-    public let variants: [FurnitureVariant]
-
-    public enum CodingKeys: String, CodingKey {
-        case categoryID = "categoryId"
-        case categoryName, colors, description, handles, id, name, notes, parts, partsCostYer, revision, scope, state, updatedAt, variants
-    }
-
-    public init(categoryID: String, categoryName: String, colors: [FurnitureOption], description: String, handles: [FurnitureOption], id: String, name: String, notes: String, parts: [FurniturePart], partsCostYer: Int, revision: Int, scope: ScopeRef, state: FurnitureState, updatedAt: Int, variants: [FurnitureVariant]) {
-        self.categoryID = categoryID
-        self.categoryName = categoryName
-        self.colors = colors
-        self.description = description
-        self.handles = handles
-        self.id = id
-        self.name = name
-        self.notes = notes
-        self.parts = parts
-        self.partsCostYer = partsCostYer
-        self.revision = revision
-        self.scope = scope
-        self.state = state
-        self.updatedAt = updatedAt
-        self.variants = variants
-    }
-}
-
-// MARK: Furniture convenience initializers and mutators
-
-public extension Furniture {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(Furniture.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        categoryID: String? = nil,
-        categoryName: String? = nil,
-        colors: [FurnitureOption]? = nil,
-        description: String? = nil,
-        handles: [FurnitureOption]? = nil,
-        id: String? = nil,
-        name: String? = nil,
-        notes: String? = nil,
-        parts: [FurniturePart]? = nil,
-        partsCostYer: Int? = nil,
-        revision: Int? = nil,
-        scope: ScopeRef? = nil,
-        state: FurnitureState? = nil,
-        updatedAt: Int? = nil,
-        variants: [FurnitureVariant]? = nil
-    ) -> Furniture {
-        return Furniture(
-            categoryID: categoryID ?? self.categoryID,
-            categoryName: categoryName ?? self.categoryName,
-            colors: colors ?? self.colors,
-            description: description ?? self.description,
-            handles: handles ?? self.handles,
-            id: id ?? self.id,
-            name: name ?? self.name,
-            notes: notes ?? self.notes,
-            parts: parts ?? self.parts,
-            partsCostYer: partsCostYer ?? self.partsCostYer,
-            revision: revision ?? self.revision,
-            scope: scope ?? self.scope,
-            state: state ?? self.state,
-            updatedAt: updatedAt ?? self.updatedAt,
-            variants: variants ?? self.variants
         )
     }
 
@@ -11026,69 +11257,6 @@ public extension MaterialReferences {
     }
 }
 
-// MARK: - MaterialCategory
-public struct MaterialCategory: Codable, Sendable {
-    public let archived: Bool
-    public let id, name: String
-    public let revision: Int
-    public let scope: ScopeRef
-    public let updatedAt: Int
-
-    public init(archived: Bool, id: String, name: String, revision: Int, scope: ScopeRef, updatedAt: Int) {
-        self.archived = archived
-        self.id = id
-        self.name = name
-        self.revision = revision
-        self.scope = scope
-        self.updatedAt = updatedAt
-    }
-}
-
-// MARK: MaterialCategory convenience initializers and mutators
-
-public extension MaterialCategory {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(MaterialCategory.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        archived: Bool? = nil,
-        id: String? = nil,
-        name: String? = nil,
-        revision: Int? = nil,
-        scope: ScopeRef? = nil,
-        updatedAt: Int? = nil
-    ) -> MaterialCategory {
-        return MaterialCategory(
-            archived: archived ?? self.archived,
-            id: id ?? self.id,
-            name: name ?? self.name,
-            revision: revision ?? self.revision,
-            scope: scope ?? self.scope,
-            updatedAt: updatedAt ?? self.updatedAt
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
 // MARK: - MaterialPage
 public struct MaterialPage: Codable, Sendable {
     public let items: [Material]
@@ -11173,153 +11341,6 @@ public extension PartCategories {
         return PartCategories(
             items: items ?? self.items,
             next: next ?? self.next
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
-// MARK: - PartCategory
-public struct PartCategory: Codable, Sendable {
-    public let archived: Bool
-    public let id, name: String
-    public let revision: Int
-    public let scope: ScopeRef
-    public let updatedAt: Int
-
-    public init(archived: Bool, id: String, name: String, revision: Int, scope: ScopeRef, updatedAt: Int) {
-        self.archived = archived
-        self.id = id
-        self.name = name
-        self.revision = revision
-        self.scope = scope
-        self.updatedAt = updatedAt
-    }
-}
-
-// MARK: PartCategory convenience initializers and mutators
-
-public extension PartCategory {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(PartCategory.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        archived: Bool? = nil,
-        id: String? = nil,
-        name: String? = nil,
-        revision: Int? = nil,
-        scope: ScopeRef? = nil,
-        updatedAt: Int? = nil
-    ) -> PartCategory {
-        return PartCategory(
-            archived: archived ?? self.archived,
-            id: id ?? self.id,
-            name: name ?? self.name,
-            revision: revision ?? self.revision,
-            scope: scope ?? self.scope,
-            updatedAt: updatedAt ?? self.updatedAt
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
-// MARK: - Part
-public struct Part: Codable, Sendable {
-    public let archived: Bool
-    public let categoryID: String
-    public let composition: CompositionReference
-    public let cost: PartCost
-    public let description, id, name: String
-    public let revision: Int
-    public let scope: ScopeRef
-    public let updatedAt: Int
-
-    public enum CodingKeys: String, CodingKey {
-        case archived
-        case categoryID = "categoryId"
-        case composition, cost, description, id, name, revision, scope, updatedAt
-    }
-
-    public init(archived: Bool, categoryID: String, composition: CompositionReference, cost: PartCost, description: String, id: String, name: String, revision: Int, scope: ScopeRef, updatedAt: Int) {
-        self.archived = archived
-        self.categoryID = categoryID
-        self.composition = composition
-        self.cost = cost
-        self.description = description
-        self.id = id
-        self.name = name
-        self.revision = revision
-        self.scope = scope
-        self.updatedAt = updatedAt
-    }
-}
-
-// MARK: Part convenience initializers and mutators
-
-public extension Part {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(Part.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        archived: Bool? = nil,
-        categoryID: String? = nil,
-        composition: CompositionReference? = nil,
-        cost: PartCost? = nil,
-        description: String? = nil,
-        id: String? = nil,
-        name: String? = nil,
-        revision: Int? = nil,
-        scope: ScopeRef? = nil,
-        updatedAt: Int? = nil
-    ) -> Part {
-        return Part(
-            archived: archived ?? self.archived,
-            categoryID: categoryID ?? self.categoryID,
-            composition: composition ?? self.composition,
-            cost: cost ?? self.cost,
-            description: description ?? self.description,
-            id: id ?? self.id,
-            name: name ?? self.name,
-            revision: revision ?? self.revision,
-            scope: scope ?? self.scope,
-            updatedAt: updatedAt ?? self.updatedAt
         )
     }
 
@@ -11465,215 +11486,6 @@ public extension ProductCategories {
         return ProductCategories(
             items: items ?? self.items,
             next: next ?? self.next
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
-// MARK: - ProductCategory
-public struct ProductCategory: Codable, Sendable {
-    public let archived: Bool
-    public let id, name: String
-    public let revision: Int
-    public let scope: ScopeRef
-    public let updatedAt: Int
-
-    public init(archived: Bool, id: String, name: String, revision: Int, scope: ScopeRef, updatedAt: Int) {
-        self.archived = archived
-        self.id = id
-        self.name = name
-        self.revision = revision
-        self.scope = scope
-        self.updatedAt = updatedAt
-    }
-}
-
-// MARK: ProductCategory convenience initializers and mutators
-
-public extension ProductCategory {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(ProductCategory.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        archived: Bool? = nil,
-        id: String? = nil,
-        name: String? = nil,
-        revision: Int? = nil,
-        scope: ScopeRef? = nil,
-        updatedAt: Int? = nil
-    ) -> ProductCategory {
-        return ProductCategory(
-            archived: archived ?? self.archived,
-            id: id ?? self.id,
-            name: name ?? self.name,
-            revision: revision ?? self.revision,
-            scope: scope ?? self.scope,
-            updatedAt: updatedAt ?? self.updatedAt
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
-// MARK: - Product
-public struct Product: Codable, Sendable {
-    public let archived: Bool
-    public let categoryID: String
-    /// Category name at this revision, retained for historical reads.
-    public let categoryName: String
-    public let description, id, name: String
-    /// Internal notes are withheld with purchase costs.
-    public let notes: String
-    public let revision: Int
-    public let scope: ScopeRef
-    public let updatedAt: Int
-    public let variants: [ProductVariant]
-
-    public enum CodingKeys: String, CodingKey {
-        case archived
-        case categoryID = "categoryId"
-        case categoryName, description, id, name, notes, revision, scope, updatedAt, variants
-    }
-
-    public init(archived: Bool, categoryID: String, categoryName: String, description: String, id: String, name: String, notes: String, revision: Int, scope: ScopeRef, updatedAt: Int, variants: [ProductVariant]) {
-        self.archived = archived
-        self.categoryID = categoryID
-        self.categoryName = categoryName
-        self.description = description
-        self.id = id
-        self.name = name
-        self.notes = notes
-        self.revision = revision
-        self.scope = scope
-        self.updatedAt = updatedAt
-        self.variants = variants
-    }
-}
-
-// MARK: Product convenience initializers and mutators
-
-public extension Product {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(Product.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        archived: Bool? = nil,
-        categoryID: String? = nil,
-        categoryName: String? = nil,
-        description: String? = nil,
-        id: String? = nil,
-        name: String? = nil,
-        notes: String? = nil,
-        revision: Int? = nil,
-        scope: ScopeRef? = nil,
-        updatedAt: Int? = nil,
-        variants: [ProductVariant]? = nil
-    ) -> Product {
-        return Product(
-            archived: archived ?? self.archived,
-            categoryID: categoryID ?? self.categoryID,
-            categoryName: categoryName ?? self.categoryName,
-            description: description ?? self.description,
-            id: id ?? self.id,
-            name: name ?? self.name,
-            notes: notes ?? self.notes,
-            revision: revision ?? self.revision,
-            scope: scope ?? self.scope,
-            updatedAt: updatedAt ?? self.updatedAt,
-            variants: variants ?? self.variants
-        )
-    }
-
-    func jsonData() throws -> Data {
-        return try newJSONEncoder().encode(self)
-    }
-
-    func jsonString(encoding: String.Encoding = .utf8) throws -> String? {
-        return String(data: try self.jsonData(), encoding: encoding)
-    }
-}
-
-// MARK: - ProductVariant
-public struct ProductVariant: Codable, Sendable {
-    public let archived: Bool
-    public let id, name: String
-    /// Omitted entirely when the caller cannot read internal purchase costs.
-    public let purchaseCostYer: Int?
-
-    public init(archived: Bool, id: String, name: String, purchaseCostYer: Int?) {
-        self.archived = archived
-        self.id = id
-        self.name = name
-        self.purchaseCostYer = purchaseCostYer
-    }
-}
-
-// MARK: ProductVariant convenience initializers and mutators
-
-public extension ProductVariant {
-    init(data: Data) throws {
-        self = try newJSONDecoder().decode(ProductVariant.self, from: data)
-    }
-
-    init(_ json: String, using encoding: String.Encoding = .utf8) throws {
-        guard let data = json.data(using: encoding) else {
-            throw NSError(domain: "JSONDecoding", code: 0, userInfo: nil)
-        }
-        try self.init(data: data)
-    }
-
-    init(fromURL url: URL) throws {
-        try self.init(data: try Data(contentsOf: url))
-    }
-
-    func with(
-        archived: Bool? = nil,
-        id: String? = nil,
-        name: String? = nil,
-        purchaseCostYer: Int?? = nil
-    ) -> ProductVariant {
-        return ProductVariant(
-            archived: archived ?? self.archived,
-            id: id ?? self.id,
-            name: name ?? self.name,
-            purchaseCostYer: purchaseCostYer ?? self.purchaseCostYer
         )
     }
 

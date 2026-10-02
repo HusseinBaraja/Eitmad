@@ -5,7 +5,6 @@ public enum Command: Codable, Sendable {
     case configUpdate(UpdateConfiguration)
     case authorizationRelationshipGrant(GrantScopeRelationship)
     case authorizationRelationshipRevoke(RevokeScopeRelationship)
-    case operationCancel(CancelOperation)
     case customerCreate(CreateCustomer)
     case customerUpdate(UpdateCustomer)
     case materialCategorySave(SaveMaterialCategory)
@@ -25,7 +24,6 @@ public enum Command: Codable, Sendable {
         case configUpdate = "eitmad.config.update.v1"
         case authorizationRelationshipGrant = "eitmad.authorization.relationship.grant.v1"
         case authorizationRelationshipRevoke = "eitmad.authorization.relationship.revoke.v1"
-        case operationCancel = "eitmad.operation.cancel.v1"
         case customerCreate = "eitmad.customer.create.v1"
         case customerUpdate = "eitmad.customer.update.v1"
         case materialCategorySave = "eitmad.material-category.save.v1"
@@ -53,7 +51,6 @@ public enum Command: Codable, Sendable {
         case .configUpdate: self = .configUpdate(try container.decode(UpdateConfiguration.self, forKey: .payload))
         case .authorizationRelationshipGrant: self = .authorizationRelationshipGrant(try container.decode(GrantScopeRelationship.self, forKey: .payload))
         case .authorizationRelationshipRevoke: self = .authorizationRelationshipRevoke(try container.decode(RevokeScopeRelationship.self, forKey: .payload))
-        case .operationCancel: self = .operationCancel(try container.decode(CancelOperation.self, forKey: .payload))
         case .customerCreate: self = .customerCreate(try container.decode(CreateCustomer.self, forKey: .payload))
         case .customerUpdate: self = .customerUpdate(try container.decode(UpdateCustomer.self, forKey: .payload))
         case .materialCategorySave: self = .materialCategorySave(try container.decode(SaveMaterialCategory.self, forKey: .payload))
@@ -82,9 +79,6 @@ public enum Command: Codable, Sendable {
             try container.encode(payload, forKey: .payload)
         case .authorizationRelationshipRevoke(let payload):
             try container.encode(Kind.authorizationRelationshipRevoke, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        case .operationCancel(let payload):
-            try container.encode(Kind.operationCancel, forKey: .kind)
             try container.encode(payload, forKey: .payload)
         case .customerCreate(let payload):
             try container.encode(Kind.customerCreate, forKey: .kind)
@@ -127,6 +121,130 @@ public enum Command: Codable, Sendable {
             try container.encode(payload, forKey: .payload)
         case .desktopAccountDeactivate(let payload):
             try container.encode(Kind.desktopAccountDeactivate, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        }
+    }
+}
+public enum CommandResult: Codable, Sendable {
+    case configurationUpdated(ConfigSnapshot)
+    case relationshipGranted(RelationshipMutationResult)
+    case relationshipRevoked(RelationshipMutationResult)
+    case customerCreated(CustomerMutationResult)
+    case customerUpdated(CustomerMutationResult)
+    case materialCategorySaved(MaterialCategory)
+    case materialUnitSaved(MaterialUnit)
+    case materialSaved(Material)
+    case furnitureSaved(Furniture)
+    case furnitureCategorySaved(FurnitureCategory)
+    case productSaved(Product)
+    case productCategorySaved(ProductCategory)
+    case partSaved(Part)
+    case partCategorySaved(PartCategory)
+    case desktopAccountCreated(DesktopAccountSummary)
+    case desktopAccountUpdated(DesktopAccountSummary)
+    case desktopAccountDeactivated(DesktopAccountSummary)
+
+    private enum Kind: String, Codable, Sendable {
+        case configurationUpdated = "configurationUpdated"
+        case relationshipGranted = "relationshipGranted"
+        case relationshipRevoked = "relationshipRevoked"
+        case customerCreated = "customerCreated"
+        case customerUpdated = "customerUpdated"
+        case materialCategorySaved = "materialCategorySaved"
+        case materialUnitSaved = "materialUnitSaved"
+        case materialSaved = "materialSaved"
+        case furnitureSaved = "furnitureSaved"
+        case furnitureCategorySaved = "furnitureCategorySaved"
+        case productSaved = "productSaved"
+        case productCategorySaved = "productCategorySaved"
+        case partSaved = "partSaved"
+        case partCategorySaved = "partCategorySaved"
+        case desktopAccountCreated = "desktopAccountCreated"
+        case desktopAccountUpdated = "desktopAccountUpdated"
+        case desktopAccountDeactivated = "desktopAccountDeactivated"
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case kind
+        case payload
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        switch try container.decode(Kind.self, forKey: .kind) {
+        case .configurationUpdated: self = .configurationUpdated(try container.decode(ConfigSnapshot.self, forKey: .payload))
+        case .relationshipGranted: self = .relationshipGranted(try container.decode(RelationshipMutationResult.self, forKey: .payload))
+        case .relationshipRevoked: self = .relationshipRevoked(try container.decode(RelationshipMutationResult.self, forKey: .payload))
+        case .customerCreated: self = .customerCreated(try container.decode(CustomerMutationResult.self, forKey: .payload))
+        case .customerUpdated: self = .customerUpdated(try container.decode(CustomerMutationResult.self, forKey: .payload))
+        case .materialCategorySaved: self = .materialCategorySaved(try container.decode(MaterialCategory.self, forKey: .payload))
+        case .materialUnitSaved: self = .materialUnitSaved(try container.decode(MaterialUnit.self, forKey: .payload))
+        case .materialSaved: self = .materialSaved(try container.decode(Material.self, forKey: .payload))
+        case .furnitureSaved: self = .furnitureSaved(try container.decode(Furniture.self, forKey: .payload))
+        case .furnitureCategorySaved: self = .furnitureCategorySaved(try container.decode(FurnitureCategory.self, forKey: .payload))
+        case .productSaved: self = .productSaved(try container.decode(Product.self, forKey: .payload))
+        case .productCategorySaved: self = .productCategorySaved(try container.decode(ProductCategory.self, forKey: .payload))
+        case .partSaved: self = .partSaved(try container.decode(Part.self, forKey: .payload))
+        case .partCategorySaved: self = .partCategorySaved(try container.decode(PartCategory.self, forKey: .payload))
+        case .desktopAccountCreated: self = .desktopAccountCreated(try container.decode(DesktopAccountSummary.self, forKey: .payload))
+        case .desktopAccountUpdated: self = .desktopAccountUpdated(try container.decode(DesktopAccountSummary.self, forKey: .payload))
+        case .desktopAccountDeactivated: self = .desktopAccountDeactivated(try container.decode(DesktopAccountSummary.self, forKey: .payload))
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .configurationUpdated(let payload):
+            try container.encode(Kind.configurationUpdated, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .relationshipGranted(let payload):
+            try container.encode(Kind.relationshipGranted, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .relationshipRevoked(let payload):
+            try container.encode(Kind.relationshipRevoked, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .customerCreated(let payload):
+            try container.encode(Kind.customerCreated, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .customerUpdated(let payload):
+            try container.encode(Kind.customerUpdated, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .materialCategorySaved(let payload):
+            try container.encode(Kind.materialCategorySaved, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .materialUnitSaved(let payload):
+            try container.encode(Kind.materialUnitSaved, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .materialSaved(let payload):
+            try container.encode(Kind.materialSaved, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .furnitureSaved(let payload):
+            try container.encode(Kind.furnitureSaved, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .furnitureCategorySaved(let payload):
+            try container.encode(Kind.furnitureCategorySaved, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .productSaved(let payload):
+            try container.encode(Kind.productSaved, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .productCategorySaved(let payload):
+            try container.encode(Kind.productCategorySaved, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .partSaved(let payload):
+            try container.encode(Kind.partSaved, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .partCategorySaved(let payload):
+            try container.encode(Kind.partCategorySaved, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .desktopAccountCreated(let payload):
+            try container.encode(Kind.desktopAccountCreated, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .desktopAccountUpdated(let payload):
+            try container.encode(Kind.desktopAccountUpdated, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .desktopAccountDeactivated(let payload):
+            try container.encode(Kind.desktopAccountDeactivated, forKey: .kind)
             try container.encode(payload, forKey: .payload)
         }
     }
