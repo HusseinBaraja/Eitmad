@@ -196,7 +196,12 @@ def rust_test_module_start(content: str) -> int | None:
 
 
 def rust_changes_are_test_only(base: str, path: str) -> bool:
-    current_start = rust_test_module_start((ROOT / path).read_text(encoding="utf-8"))
+    try:
+        current_content = (ROOT / path).read_text(encoding="utf-8")
+    except FileNotFoundError:
+        # Removing production Rust code is a behavior change.
+        return False
+    current_start = rust_test_module_start(current_content)
     try:
         base_content = subprocess.check_output(
             ["git", "show", f"{base}:{path}"], cwd=ROOT, text=True
