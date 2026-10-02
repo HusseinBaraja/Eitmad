@@ -13,6 +13,69 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 [TestClass]
 public sealed class FurnitureRenderedTests
 {
+    /// <summary>Rejects delayed review margins after each staged variant mutation, even when IPC ignores cancellation.</summary>
+    [TestMethod]
+    [DataRow("add")]
+    [DataRow("edit")]
+    [DataRow("duplicate")]
+    [DataRow("remove")]
+    public void VariantChangesRejectDelayedReviewMargins(string mutation)
+    {
+        var f = new FurnitureFixtures(); var saved = f.Seed();
+        saved.Variants = [saved.Variants[0], new Eitmad.Contracts.FurnitureVariant
+        {
+            Id = Guid.NewGuid(), Name = "كبير", Dimensions = saved.Variants[0].Dimensions,
+            SellingPriceYer = 300000, ColorIds = [], HandleIds = [],
+        }];
+        var engine = f.Engine();
+        WpfTestHost.Run(1338, 753, window =>
+        {
+            WpfTestHost.FindByName<Button>(window, "FurnitureNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var view = WpfTestHost.Descendants<FurnitureView>(window).Single();
+            Assert.IsTrue(view.PrepareEditorAsync(view.ViewModel.VisibleFurniture.Single()).GetAwaiter().GetResult());
+            view.ViewModel.BeginEdit(view.ViewModel.VisibleFurniture.Single());
+            var requests = new List<Query>();
+            var pending = new[] { new TaskCompletionSource(), new TaskCompletionSource() };
+            var handler = engine.QueryHandler!;
+            engine.QueryBarrier = query =>
+            {
+                if (query.Kind != Query.FurnitureReviewKind) return Task.CompletedTask;
+                requests.Add(query);
+                return pending[requests.Count - 1].Task;
+            };
+            engine.QueryHandler = query => query.Kind != Query.FurnitureReviewKind ? handler(query)
+                : Parts.PartFixtures.Success(QueryResult.ForFurnitureReview(ReferenceEquals(query, requests[0])
+                    ? new FurnitureReview { PartsCostYer = 11111, RowCostsYer = [11111], MarginsYer = [111, 222] }
+                    : new FurnitureReview { PartsCostYer = 22222, RowCostsYer = [22222], MarginsYer = Enumerable.Repeat(333L, query.AsFurnitureReview()!.Variants.Length).ToArray() }));
+            try
+            {
+                view.ViewModel.Variants[0].SellingPrice = 210000;
+                Assert.HasCount(1, requests);
+                var first = view.ViewModel.Variants[0];
+                switch (mutation)
+                {
+                    case "add":
+                        view.ViewModel.BeginAddVariant(); view.ViewModel.VariantName = "متوسط";
+                        Assert.IsTrue(view.ViewModel.SaveVariant()); break;
+                    case "edit":
+                        view.ViewModel.BeginEditVariant(first); view.ViewModel.VariantWidth = 130;
+                        Assert.IsTrue(view.ViewModel.SaveVariant()); break;
+                    case "duplicate": view.ViewModel.DuplicateVariant(first); break;
+                    case "remove": view.ViewModel.RemoveVariant(first); break;
+                }
+                Assert.HasCount(2, requests, "Each staged variant change must request a review of the current input.");
+                pending[1].SetResult(); WpfTestHost.CompleteLayout(window);
+                Assert.AreEqual(22222m, view.ViewModel.CurrentPartsCost);
+                Assert.IsTrue(view.ViewModel.Variants.All(v => v.Margin == 333m));
+                pending[0].SetResult(); WpfTestHost.CompleteLayout(window);
+                Assert.AreEqual(22222m, view.ViewModel.CurrentPartsCost, "The older review must not replace current costs.");
+                Assert.IsTrue(view.ViewModel.Variants.All(v => v.Margin == 333m), "The older review must not assign margins by obsolete positions.");
+            }
+            finally { foreach (var response in pending) response.TrySetResult(); }
+        }, engine: engine);
+    }
+
     /// <summary>Verifies complete editor saves reopens and keeps conflict and retry fields.</summary>
     [TestMethod]
     [DataRow(1920, 1080)]

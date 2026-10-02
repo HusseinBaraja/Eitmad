@@ -627,6 +627,7 @@ public sealed partial class FurnitureViewModel : ObservableObject
         savedVariant.Customization = customization;
         savedVariant.ColorIds = VariantColorChoices.Where(c => c.Selected).Select(c => c.Id).ToArray();
         savedVariant.HandleIds = VariantHandleChoices.Where(c => c.Selected).Select(c => c.Id).ToArray();
+        ReviewRequested?.Invoke(this, EventArgs.Empty);
         IsVariantEditorOpen = false;
         EditorError = string.Empty;
         Raise(nameof(HasVariants));
@@ -644,14 +645,17 @@ public sealed partial class FurnitureViewModel : ObservableObject
     {
         ArgumentNullException.ThrowIfNull(variant);
         Variants.Add(variant.Copy($"{variant.Name} — نسخة"));
+        ReviewRequested?.Invoke(this, EventArgs.Empty);
         Raise(nameof(HasVariants));
         FeedbackMessage = "أُضيف مقاس إلى المحرر. لم يُحفظ بعد.";
     }
 
+    /// <summary>Removes a staged variant and invalidates reviews of the previous variant order.</summary>
     public void RemoveVariant(FurnitureVariant variant)
     {
         ArgumentNullException.ThrowIfNull(variant);
         Variants.Remove(variant);
+        ReviewRequested?.Invoke(this, EventArgs.Empty);
         Raise(nameof(HasVariants));
     }
 
