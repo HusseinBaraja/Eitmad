@@ -1,190 +1,116 @@
+using Eitmad.Contracts;
 using Eitmad.WindowsShell.Features.Furniture;
+using Eitmad.WindowsShell.Tests.TestDoubles;
 
 namespace Eitmad.WindowsShell.Tests.Furniture;
 
 [TestClass]
 public sealed class FurniturePresentationTests
 {
+    /// <summary>Protects list-only search, lazy picker loading, and reuse of historical compositions after Part resync.</summary>
     [TestMethod]
-    public void FurnitureSearchFiltersAndActionsRemainTransient()
+    public async Task SearchLoadsOnlyRowsAndEditorsReuseImmutableReferences()
     {
-        var viewModel = new FurnitureViewModel();
-
-        viewModel.SearchText = "خزانه";
-        Assert.HasCount(1, viewModel.VisibleFurniture);
-        Assert.AreEqual("خزانة السكينة", viewModel.VisibleFurniture[0].Name);
-
-        viewModel.SearchText = string.Empty;
-        viewModel.SelectedCategory = "المكاتب";
-        Assert.HasCount(1, viewModel.VisibleFurniture);
-        Assert.AreEqual("مكتب العمل الهادئ", viewModel.VisibleFurniture[0].Name);
-
-        viewModel.SelectedCategory = FurnitureViewModel.AllCategories;
-        var source = viewModel.VisibleFurniture.First(item => !item.IsArchived);
-        var duplicate = viewModel.DuplicateFurniture(source);
-        Assert.IsTrue(viewModel.IsEditorOpen);
-        Assert.IsTrue(duplicate.Name.EndsWith("— نسخة", StringComparison.Ordinal));
-
-        viewModel.CancelEditor();
-        viewModel.ArchiveFurniture(duplicate);
-        Assert.IsTrue(duplicate.IsArchived);
-        Assert.IsTrue(viewModel.HasFeedback);
+        var f = new FurnitureFixtures(); var saved = f.Seed();
+        // The definition references an older revision than the current picker Part.
+        saved.Parts[0].Reference = new CompositionReference { PartId = f.Parts.Parts[0].Id, Scope = f.Parts.Scope, Revision = 7, SchemaVersion = 1 };
+        var historical = System.Text.Json.JsonSerializer.Deserialize<Part>(System.Text.Json.JsonSerializer.Serialize(f.Parts.Parts[0]))!;
+        historical.Revision = 7; historical.Composition = saved.Parts[0].Reference;
+        var engine = f.Engine(); var handler = engine.QueryHandler!; var queries = new List<string>();
+        engine.QueryHandler = query => {
+            queries.Add(query.Kind);
+            return query.Kind == Query.PartCompositionGetKind
+                ? Parts.PartFixtures.Success(QueryResult.ForPartComposition(historical)) : handler(query);
+        };
+        await using var client = new FurnitureClient(engine);
+        await client.ActivateAsync();
+        Assert.IsTrue((await client.LoadAsync("")).Succeeded);
+        CollectionAssert.AreEqual(new[] { Query.FurnitureCategoryListKind, Query.FurnitureListKind }, queries);
+        queries.Clear();
+        Assert.IsTrue((await client.LoadAsync("خزانة", reloadCategories: false)).Succeeded);
+        CollectionAssert.AreEqual(new[] { Query.FurnitureListKind }, queries);
+        queries.Clear();
+        Assert.IsTrue((await client.LoadEditorAsync(saved)).Succeeded);
+        CollectionAssert.AreEqual(new[] { Query.PartListKind, Query.PartCategoryListKind, Query.PartCompositionGetKind }, queries);
+        queries.Clear();
+        Assert.IsTrue((await client.LoadEditorAsync(saved)).Succeeded);
+        Assert.HasCount(0, queries);
+        engine.SignalResync(Subscription.PartChangedSubscribeKind);
+        var refreshed = await client.LoadEditorAsync(saved);
+        Assert.IsTrue(refreshed.Succeeded);
+        CollectionAssert.AreEqual(new[] { Query.PartListKind, Query.PartCategoryListKind }, queries);
+        Assert.AreEqual(7L, refreshed.Value!.Compositions.Single(p => p.Revision == 7).Revision);
     }
 
+    /// <summary>Keeps an unsaved category on the information step and separates its error from numeric conversion errors.</summary>
     [TestMethod]
-    public void EditorCalculatesPartsAndMaintainsFixedVariants()
+    public void UnsavedCategoryCannotContinueOrSaveAndWhitespaceResolvesSavedCategory()
     {
-        var viewModel = new FurnitureViewModel();
-        viewModel.BeginCreate();
-        viewModel.EditorName = "خزانة اختبار";
-
-        Assert.IsTrue(viewModel.MoveToParts());
-        var part = viewModel.FilteredParts[0];
-        viewModel.AddPart(part);
-        viewModel.SelectedParts[0].Quantity = 3m;
-        Assert.AreEqual(part.UnitCost * 3m, viewModel.CurrentPartsCost);
-
-        Assert.IsTrue(viewModel.MoveToVariants());
-        viewModel.BeginAddVariant();
-        viewModel.VariantName = "صغير";
-        viewModel.VariantWidth = 120m;
-        viewModel.VariantHeight = 200m;
-        viewModel.VariantDepth = 55m;
-        Assert.IsTrue(viewModel.SaveVariant());
-        Assert.HasCount(1, viewModel.Variants);
-        Assert.AreEqual("120 × 200 × 55 cm", viewModel.Variants[0].DimensionsLabel);
-        Assert.IsGreaterThan(0m, viewModel.Variants[0].CalculatedCost);
-
-        viewModel.DuplicateVariant(viewModel.Variants[0]);
-        Assert.HasCount(2, viewModel.Variants);
-        viewModel.RemoveVariant(viewModel.Variants[1]);
-        Assert.HasCount(1, viewModel.Variants);
-
-        Assert.IsTrue(viewModel.MoveToOptions());
-        Assert.AreEqual(4, viewModel.CurrentStep);
+        var f = new FurnitureFixtures(); var model = f.Model(); model.BeginCreate(); model.EditorName = "خزانة";
+        model.EditorCategory = "فئة جديدة";
+        Assert.IsFalse(model.MoveToParts()); Assert.AreEqual(1, model.CurrentStep);
+        Assert.ThrowsExactly<FurnitureViewModel.UnsavedCategoryException>(() => model.SaveInput(FurnitureState.Draft));
+        model.EditorCategory = $" {f.Category.Name} ";
+        Assert.IsTrue(model.MoveToParts()); Assert.AreEqual(f.Category.Id, model.SaveInput(FurnitureState.Draft).CategoryId);
     }
-
+    /// <summary>Verifies reopen retains exact part references and edit revision across refresh.</summary>
     [TestMethod]
-    public void VariantRejectsDimensionsThatOverflowPreviewCost()
+    public void ReopenRetainsExactPartReferencesAndEditRevisionAcrossRefresh()
     {
-        var viewModel = new FurnitureViewModel();
-        viewModel.BeginCreate();
-        viewModel.BeginAddVariant();
-        viewModel.VariantName = "كبير";
-        viewModel.VariantWidth = decimal.MaxValue;
-        viewModel.VariantHeight = decimal.MaxValue;
-        viewModel.VariantDepth = decimal.MaxValue;
-
-        Assert.IsFalse(viewModel.SaveVariant());
-        Assert.HasCount(0, viewModel.Variants);
-        StringAssert.Contains(viewModel.EditorError, "النطاق المدعوم");
+        var f = new FurnitureFixtures(); var saved = f.Seed(); var model = f.Model(); model.BeginEdit(model.VisibleFurniture.Single());
+        Assert.AreEqual(saved.Parts[0].Reference.Revision, model.SelectedParts[0].Part.Reference!.Revision);
+        var color = model.Colors[0].Id; var handle = model.Handles[0].Id; model.EditorName = "تعديل غير محفوظ";
+        saved.Revision = 2; model.ApplyDurableData(f.Snapshot());
+        var input = model.SaveInput(FurnitureState.Draft); Assert.AreEqual(1L, input.ExpectedRevision); Assert.AreEqual("تعديل غير محفوظ", input.Name);
+        Assert.AreEqual(color, input.Colors[0].Id); Assert.AreEqual(handle, input.Handles[0].Id);
+        model.ClearSession(); Assert.IsFalse(model.CanManage); Assert.IsFalse(model.IsEditorOpen); Assert.AreEqual("", model.InternalNotes); Assert.HasCount(0, model.VisibleFurniture);
     }
-
+    /// <summary>Verifies duplicate stays unsaved with new option and variant identities.</summary>
     [TestMethod]
-    public void OptionsExposePriceAdjustmentsAndTransientActiveState()
+    public void DuplicateStaysUnsavedWithNewOptionAndVariantIdentities()
     {
-        var viewModel = new FurnitureViewModel();
-        viewModel.BeginCreate();
-        viewModel.EditorName = "خزانة خيارات";
-        Assert.IsTrue(viewModel.MoveToParts());
-        viewModel.AddPart(viewModel.FilteredParts[0]);
-        Assert.IsTrue(viewModel.MoveToVariants());
-        viewModel.BeginAddVariant();
-        viewModel.VariantName = "صغير";
-        Assert.IsTrue(viewModel.SaveVariant());
-
-        Assert.IsTrue(viewModel.MoveToOptions());
-        Assert.AreEqual(4, viewModel.CurrentStep);
-        Assert.HasCount(3, viewModel.Colors);
-        Assert.HasCount(3, viewModel.Handles);
-        Assert.AreEqual("مشمول", viewModel.Colors.First(color => color.Name == "أبيض").PriceAdjustmentLabel);
-        Assert.AreEqual("+10,000 YER", viewModel.Colors.First(color => color.Name == "جوزي").PriceAdjustmentLabel);
-        Assert.IsFalse(viewModel.Colors.First(color => color.Name == "بني").IsActive);
-
-        var brown = viewModel.Colors.First(color => color.Name == "بني");
-        viewModel.ToggleColor(brown);
-        Assert.IsTrue(brown.IsActive);
-        Assert.AreEqual("تعطيل", brown.ToggleActionLabel);
-
-        viewModel.BeginAddColor();
-        viewModel.ColorName = "أزرق";
-        viewModel.ColorPriceAdjustment = 2_500m;
-        Assert.IsTrue(viewModel.SaveColor());
-        Assert.AreEqual("+2,500 YER", viewModel.Colors[^1].PriceAdjustmentLabel);
-
-        viewModel.BeginAddHandle();
-        viewModel.HandleName = "فولاذي";
-        viewModel.HandlePriceAdjustment = 4_000m;
-        Assert.IsTrue(viewModel.SaveHandle());
-        Assert.AreEqual("+4,000 YER", viewModel.Handles[^1].PriceAdjustmentLabel);
-
-        Assert.IsTrue(viewModel.MoveToPricing());
-        Assert.AreEqual(5, viewModel.CurrentStep);
+        var f = new FurnitureFixtures(); var old = f.Seed(); var model = f.Model(); model.DuplicateFurniture(model.VisibleFurniture.Single());
+        var input = model.SaveInput(FurnitureState.Draft); Assert.IsNull(input.Id); Assert.IsNull(input.ExpectedRevision);
+        Assert.AreNotEqual(old.Variants[0].Id, input.Variants[0].Id); Assert.AreNotEqual(old.Colors[0].Id, input.Colors[0].Id); Assert.HasCount(1, model.VisibleFurniture);
     }
-
+    /// <summary>Verifies inputs preserve exact millimetres and reject fractional money and part counts.</summary>
     [TestMethod]
-    public void PricingCalculatesMarginAndFinalReviewCompletesTransientFlow()
+    public void InputsPreserveExactMillimetresAndRejectFractionalMoneyAndPartCounts()
     {
-        var viewModel = new FurnitureViewModel();
-        var wardrobe = viewModel.VisibleFurniture.First(item => item.Name == "خزانة السكينة");
-        viewModel.BeginEdit(wardrobe);
-
-        Assert.IsTrue(viewModel.MoveToParts());
-        Assert.IsTrue(viewModel.MoveToVariants());
-        Assert.IsTrue(viewModel.MoveToOptions());
-        Assert.IsTrue(viewModel.MoveToPricing());
-
-        var small = viewModel.Variants.First(variant => variant.Name == "صغير");
-        Assert.AreEqual("200,000", small.SellingPriceInput);
-        Assert.AreEqual(40_000m, small.Margin);
-        Assert.AreEqual("40,000", small.MarginLabel);
-        Assert.AreEqual("هامش الربح", small.MarginCaption);
-
-        small.SellingPrice = 150_000m;
-        Assert.IsTrue(small.HasNegativeMargin);
-        Assert.AreEqual("خسارة متوقعة", small.MarginCaption);
-        small.SellingPrice = 200_000m;
-
-        Assert.IsTrue(viewModel.MoveToReview());
-        Assert.AreEqual(6, viewModel.CurrentStep);
-        viewModel.SaveDraftPreview();
-
-        Assert.IsTrue(viewModel.IsListVisible);
-        Assert.IsTrue(wardrobe.IsDraft);
-        Assert.AreEqual("مسودة", wardrobe.StatusLabel);
-        Assert.AreEqual(200_000m, wardrobe.SellingPrice);
-        StringAssert.Contains(viewModel.FeedbackMessage, "المعاينة المحلية");
+        var f = new FurnitureFixtures(); f.Seed(); var model = f.Model(); model.BeginEdit(model.VisibleFurniture.Single()); model.Variants[0].Width = 120.1m;
+        Assert.AreEqual(1201L, model.SaveInput(FurnitureState.Draft).Variants[0].Dimensions.WidthMm);
+        Assert.ThrowsExactly<FormatException>(() => model.Variants[0].SellingPriceInput = "١٢٫٥"); model.Variants[0].SellingPriceInput = "٢٠٠٬٠٠٠"; Assert.AreEqual(200000m, model.Variants[0].SellingPrice);
+        model.SelectedParts[0].Quantity = 1.5m; Assert.ThrowsExactly<FormatException>(() => model.SaveInput(FurnitureState.Draft));
     }
-
+    /// <summary>Verifies customization and compatibility round trip without shell cost formula.</summary>
     [TestMethod]
-    public void SellingPriceAcceptsArabicIndicNumerals()
+    public void CustomizationAndCompatibilityRoundTripWithoutShellCostFormula()
     {
-        var variant = new FurnitureVariant(Guid.NewGuid(), "صغير", 120m, 200m, 55m, 160_000m);
-
-        variant.SellingPriceInput = "٢٠٠٬٠٠٠";
-
-        Assert.AreEqual(200_000m, variant.SellingPrice);
+        var f = new FurnitureFixtures(); f.Seed(); var model = f.Model(); model.BeginEdit(model.VisibleFurniture.Single());
+        model.BeginEditVariant(model.Variants[0]); model.AllowCustomization = true; model.MinWidth = 100; model.MaxWidth = 160; model.VariantColorChoices[0].Selected = true;
+        Assert.IsTrue(model.SaveVariant()); var input = model.SaveInput(FurnitureState.Draft); Assert.AreEqual(1000L, input.Variants[0].Customization.Minimum.WidthMm); Assert.HasCount(1, input.Variants[0].ColorIds);
+        model.ApplyReview(f.Review); Assert.AreEqual(18900m, model.CurrentPartsCost); Assert.AreEqual("181,100", model.Variants[0].MarginLabel);
     }
-
+    /// <summary>Verifies unknown save retries exact key and refuses different payload.</summary>
     [TestMethod]
-    [DataRow(true)]
-    [DataRow(false)]
-    public void SavingAnArchivedFurnitureEditPreservesArchiveState(bool saveAsDraft)
+    public async Task UnknownSaveRetriesExactKeyAndRefusesDifferentPayload()
     {
-        var viewModel = new FurnitureViewModel();
-        var archived = viewModel.VisibleFurniture.First(item => item.IsArchived);
-        viewModel.BeginEdit(archived);
-
-        if (saveAsDraft)
-        {
-            viewModel.SaveDraftPreview();
-        }
-        else
-        {
-            viewModel.PublishPreview();
-        }
-
-        Assert.IsTrue(archived.IsArchived);
-        Assert.AreEqual(saveAsDraft, archived.IsDraft);
+        var f = new FurnitureFixtures(); f.Seed(); var engine = f.Engine(); var model = f.Model(); model.BeginEdit(model.VisibleFurniture.Single());
+        await using var client = new FurnitureClient(engine); var input = model.SaveInput(FurnitureState.Draft); var accepted = engine.CommandHandler;
+        engine.CommandHandler = _ => throw new System.IO.IOException("synthetic lost response"); Assert.AreEqual(FurnitureFailureKind.Unavailable, await client.SaveAsync(input)); var key = engine.LastIdempotencyKey;
+        model.SaveUnconfirmed(input);
+        model.BeginCreate(); model.BeginEdit(model.VisibleFurniture.Single()); model.DuplicateFurniture(model.VisibleFurniture.Single()); model.CancelEditor();
+        Assert.IsFalse(model.CanEditFields); Assert.IsTrue(model.IsEditorOpen); Assert.AreSame(input, model.SaveInput(FurnitureState.Active));
+        input.Name = "different"; Assert.AreEqual(FurnitureFailureKind.Conflict, await client.SaveAsync(input)); input.Name = "خزانة السكينة";
+        engine.CommandHandler = accepted; Assert.AreEqual(FurnitureFailureKind.None, await client.SaveAsync(input)); Assert.AreEqual(key, engine.LastIdempotencyKey);
+    }
+    /// <summary>Verifies client maps conflict denial and typed subscriptions.</summary>
+    [TestMethod]
+    public async Task ClientMapsConflictDenialAndTypedSubscriptions()
+    {
+        var f = new FurnitureFixtures(); f.Seed(); var engine = f.Engine(); await using var client = new FurnitureClient(engine); await client.ActivateAsync(); Assert.AreEqual(2, engine.SubscriptionCount);
+        var model = f.Model(); model.BeginEdit(model.VisibleFurniture.Single()); var input = model.SaveInput(FurnitureState.Draft);
+        engine.CommandHandler = _ => FurnitureFixtures.Failure(ProtocolIds.ErrorCodes.EitmadErrorFurnitureRevisionConflictV1); Assert.AreEqual(FurnitureFailureKind.Conflict, await client.SaveAsync(input));
+        engine.CommandHandler = _ => FurnitureFixtures.Failure(ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1); Assert.AreEqual(FurnitureFailureKind.Denied, await client.SaveAsync(input));
     }
 }

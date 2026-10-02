@@ -15,6 +15,7 @@ internal static class WpfTestHost
 {
     private static readonly Lazy<Dispatcher> TestDispatcher = new(StartDispatcher);
 
+    /// <summary>Renders a native test window with explicit engine or preview fixtures and closes it after inspection.</summary>
     public static void Run(
         double width,
         double height,
@@ -40,6 +41,7 @@ internal static class WpfTestHost
 
             try
             {
+                if (engine is null && window.FindName("FurnitureSurface") is Features.Furniture.FurnitureView fixtureView) { fixtureView.ViewModel.ApplyDurableData(Furniture.FurnitureFixtures.SalesSnapshot()); fixtureView.ViewModel.FixtureSalesCatalog=true; }
                 window.Show();
                 window.Activate();
                 CompleteLayout(window);

@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-09-17"
+last_verified: "2026-10-01"
 review_triggers:
   - "a workspace member, platform, server plane, test suite, or ownership boundary changes"
 keywords:
@@ -30,6 +30,7 @@ Place behavior that changes together in the nearest vertical product capability.
 | `crates/customer/` | Branch-scoped customer contact validation, search normalization, audit orchestration, and local-first sync projection | [Customer capability](subsystems/customers.md) |
 | `crates/material/` | Organization-scoped raw material definitions, category and unit validation, Arabic search, and audit orchestration | [Raw material capability](subsystems/raw-materials.md) |
 | `crates/part/` | Organization-scoped parts, separate categories, exact material costing, and immutable composition revisions | [Parts capability](subsystems/parts.md) |
+| `crates/furniture/` | Organization-scoped Furniture production definitions, Part revision composition, permitted sizes and options, and immutable history | [Furniture capability](subsystems/furniture.md) |
 | `crates/product/` | Organization-scoped ready-made definitions, fixed supplier variants, purchase-cost access, and immutable historical revisions | [Products capability](subsystems/products.md) |
 | `crates/storage/` | SQLite setup, feature migrations, drift checks, transactions, scoped repositories, and recovery hooks | [Local storage guide](subsystems/local-storage.md) |
 | `crates/sync/` | Unified synchronization protocol | `crates/sync/OWNERSHIP.md` |

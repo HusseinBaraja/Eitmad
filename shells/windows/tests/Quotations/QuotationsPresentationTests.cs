@@ -5,11 +5,12 @@ namespace Eitmad.WindowsShell.Tests.Quotations;
 [TestClass]
 public sealed class QuotationsPresentationTests
 {
+    /// <summary>Verifies reception preview preserves source and approval boundary.</summary>
     [TestMethod]
     public void ReceptionPreviewPreservesSourceAndApprovalBoundary()
     {
         var model = new QuotationsViewModel(true);
-        var furniture = new Features.Furniture.FurnitureViewModel();
+        var furniture = Eitmad.WindowsShell.Tests.Furniture.FurnitureFixtures.SalesModel();
         var products = new Features.Products.ProductsViewModel();
         foreach (var row in model.VisibleQuotations.Where(row => row.CanEdit))
         {

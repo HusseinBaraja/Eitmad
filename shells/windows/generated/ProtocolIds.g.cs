@@ -9,7 +9,7 @@ public static class ProtocolIds
     public static class Version
     {
         public const long Major = 1;
-        public const long Minor = 12;
+        public const long Minor = 13;
     }
 
     public static class IpcMessages
@@ -48,6 +48,8 @@ public static class ProtocolIds
         public const string EitmadMaterialCategorySaveV1 = "eitmad.material-category.save.v1";
         public const string EitmadMaterialUnitSaveV1 = "eitmad.material-unit.save.v1";
         public const string EitmadMaterialSaveV1 = "eitmad.material.save.v1";
+        public const string EitmadFurnitureSaveV1 = "eitmad.furniture.save.v1";
+        public const string EitmadFurnitureCategorySaveV1 = "eitmad.furniture-category.save.v1";
         public const string EitmadProductSaveV1 = "eitmad.product.save.v1";
         public const string EitmadProductCategorySaveV1 = "eitmad.product-category.save.v1";
         public const string EitmadPartSaveV1 = "eitmad.part.save.v1";
@@ -67,6 +69,11 @@ public static class ProtocolIds
         public const string EitmadReferenceMarkerListV1 = "eitmad.reference-marker.list.v1";
         public const string EitmadCustomerGetV1 = "eitmad.customer.get.v1";
         public const string EitmadCustomerSearchV1 = "eitmad.customer.search.v1";
+        public const string EitmadFurnitureListV1 = "eitmad.furniture.list.v1";
+        public const string EitmadFurnitureCategoryListV1 = "eitmad.furniture-category.list.v1";
+        public const string EitmadFurnitureRevisionGetV1 = "eitmad.furniture-revision.get.v1";
+        public const string EitmadFurnitureReviewV1 = "eitmad.furniture.review.v1";
+        public const string EitmadFurnitureSelectionCheckV1 = "eitmad.furniture-selection.check.v1";
         public const string EitmadProductListV1 = "eitmad.product.list.v1";
         public const string EitmadProductCategoryListV1 = "eitmad.product-category.list.v1";
         public const string EitmadProductRevisionGetV1 = "eitmad.product-revision.get.v1";
@@ -93,6 +100,7 @@ public static class ProtocolIds
         public const string EitmadReferenceMarkerChangedSubscribeV1 = "eitmad.reference-marker.changed.subscribe.v1";
         public const string EitmadCustomerChangedSubscribeV1 = "eitmad.customer.changed.subscribe.v1";
         public const string EitmadMaterialChangedSubscribeV1 = "eitmad.material.changed.subscribe.v1";
+        public const string EitmadFurnitureChangedSubscribeV1 = "eitmad.furniture.changed.subscribe.v1";
         public const string EitmadProductChangedSubscribeV1 = "eitmad.product.changed.subscribe.v1";
         public const string EitmadPartChangedSubscribeV1 = "eitmad.part.changed.subscribe.v1";
     }
@@ -111,6 +119,7 @@ public static class ProtocolIds
         public const string EitmadReferenceMarkerChangedEventV1 = "eitmad.reference-marker.changed.event.v1";
         public const string EitmadCustomerChangedEventV1 = "eitmad.customer.changed.event.v1";
         public const string EitmadMaterialChangedEventV1 = "eitmad.material.changed.event.v1";
+        public const string EitmadFurnitureChangedEventV1 = "eitmad.furniture.changed.event.v1";
         public const string EitmadProductChangedEventV1 = "eitmad.product.changed.event.v1";
         public const string EitmadPartChangedEventV1 = "eitmad.part.changed.event.v1";
     }
@@ -168,6 +177,7 @@ public static class ProtocolIds
         public const string EitmadCapabilityMaterialV1 = "eitmad.capability.material.v1";
         public const string EitmadCapabilityPartV1 = "eitmad.capability.part.v1";
         public const string EitmadCapabilityProductV1 = "eitmad.capability.product.v1";
+        public const string EitmadCapabilityFurnitureV1 = "eitmad.capability.furniture.v1";
         public const string EitmadCapabilityDesktopAccountManagementV1 = "eitmad.capability.desktop-account-management.v1";
     }
 
@@ -205,7 +215,9 @@ public static class ProtocolIds
         public const string EitmadPermissionCustomerReadV1 = "eitmad.permission.customer.read.v1";
         public const string EitmadPermissionCustomerWriteV1 = "eitmad.permission.customer.write.v1";
         public const string EitmadPermissionProductReadV1 = "eitmad.permission.product.read.v1";
+        public const string EitmadPermissionFurnitureReadV1 = "eitmad.permission.furniture.read.v1";
         public const string EitmadPermissionProductWriteV1 = "eitmad.permission.product.write.v1";
+        public const string EitmadPermissionFurnitureWriteV1 = "eitmad.permission.furniture.write.v1";
         public const string EitmadPermissionProductCostReadV1 = "eitmad.permission.product.cost.read.v1";
         public const string EitmadPermissionPartReadV1 = "eitmad.permission.part.read.v1";
         public const string EitmadPermissionPartWriteV1 = "eitmad.permission.part.write.v1";
@@ -239,6 +251,7 @@ public static class ProtocolIds
         public const string EitmadSchemaMaterialV1 = "eitmad.schema.material.v1";
         public const string EitmadSchemaPartV1 = "eitmad.schema.part.v1";
         public const string EitmadSchemaProductV1 = "eitmad.schema.product.v1";
+        public const string EitmadSchemaFurnitureV1 = "eitmad.schema.furniture.v1";
     }
 
     public static class ErrorCodes
@@ -294,14 +307,19 @@ public static class ProtocolIds
         public const string EitmadErrorMaterialInvalidV1 = "eitmad.error.material-invalid.v1";
         public const string EitmadErrorPartInvalidV1 = "eitmad.error.part-invalid.v1";
         public const string EitmadErrorProductInvalidV1 = "eitmad.error.product-invalid.v1";
+        public const string EitmadErrorFurnitureInvalidV1 = "eitmad.error.furniture-invalid.v1";
         public const string EitmadErrorPartNotFoundV1 = "eitmad.error.part-not-found.v1";
         public const string EitmadErrorProductNotFoundV1 = "eitmad.error.product-not-found.v1";
+        public const string EitmadErrorFurnitureNotFoundV1 = "eitmad.error.furniture-not-found.v1";
         public const string EitmadErrorPartRevisionConflictV1 = "eitmad.error.part-revision-conflict.v1";
         public const string EitmadErrorProductRevisionConflictV1 = "eitmad.error.product-revision-conflict.v1";
+        public const string EitmadErrorFurnitureRevisionConflictV1 = "eitmad.error.furniture-revision-conflict.v1";
         public const string EitmadErrorPartReferenceInvalidV1 = "eitmad.error.part-reference-invalid.v1";
         public const string EitmadErrorProductReferenceInvalidV1 = "eitmad.error.product-reference-invalid.v1";
+        public const string EitmadErrorFurnitureReferenceInvalidV1 = "eitmad.error.furniture-reference-invalid.v1";
         public const string EitmadErrorPartUnavailableV1 = "eitmad.error.part-unavailable.v1";
         public const string EitmadErrorProductUnavailableV1 = "eitmad.error.product-unavailable.v1";
+        public const string EitmadErrorFurnitureUnavailableV1 = "eitmad.error.furniture-unavailable.v1";
         public const string EitmadErrorMaterialNotFoundV1 = "eitmad.error.material-not-found.v1";
         public const string EitmadErrorMaterialRevisionConflictV1 = "eitmad.error.material-revision-conflict.v1";
         public const string EitmadErrorMaterialReferenceInvalidV1 = "eitmad.error.material-reference-invalid.v1";
@@ -368,14 +386,19 @@ public static class ProtocolIds
         public const string EitmadMessageMaterialInvalidV1 = "eitmad.message.material-invalid.v1";
         public const string EitmadMessagePartInvalidV1 = "eitmad.message.part-invalid.v1";
         public const string EitmadMessageProductInvalidV1 = "eitmad.message.product-invalid.v1";
+        public const string EitmadMessageFurnitureInvalidV1 = "eitmad.message.furniture-invalid.v1";
         public const string EitmadMessagePartNotFoundV1 = "eitmad.message.part-not-found.v1";
         public const string EitmadMessageProductNotFoundV1 = "eitmad.message.product-not-found.v1";
+        public const string EitmadMessageFurnitureNotFoundV1 = "eitmad.message.furniture-not-found.v1";
         public const string EitmadMessagePartRevisionConflictV1 = "eitmad.message.part-revision-conflict.v1";
         public const string EitmadMessageProductRevisionConflictV1 = "eitmad.message.product-revision-conflict.v1";
+        public const string EitmadMessageFurnitureRevisionConflictV1 = "eitmad.message.furniture-revision-conflict.v1";
         public const string EitmadMessagePartReferenceInvalidV1 = "eitmad.message.part-reference-invalid.v1";
         public const string EitmadMessageProductReferenceInvalidV1 = "eitmad.message.product-reference-invalid.v1";
+        public const string EitmadMessageFurnitureReferenceInvalidV1 = "eitmad.message.furniture-reference-invalid.v1";
         public const string EitmadMessagePartUnavailableV1 = "eitmad.message.part-unavailable.v1";
         public const string EitmadMessageProductUnavailableV1 = "eitmad.message.product-unavailable.v1";
+        public const string EitmadMessageFurnitureUnavailableV1 = "eitmad.message.furniture-unavailable.v1";
         public const string EitmadMessageMaterialNotFoundV1 = "eitmad.message.material-not-found.v1";
         public const string EitmadMessageMaterialRevisionConflictV1 = "eitmad.message.material-revision-conflict.v1";
         public const string EitmadMessageMaterialReferenceInvalidV1 = "eitmad.message.material-reference-invalid.v1";

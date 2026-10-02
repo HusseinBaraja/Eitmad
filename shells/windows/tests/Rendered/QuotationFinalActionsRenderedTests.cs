@@ -19,7 +19,7 @@ public sealed class QuotationFinalActionsRenderedTests
     {
         WpfTestHost.Run(1200, 950, window =>
         {
-            var model = new SalesCatalogViewModel(new FurnitureViewModel(), new ProductsViewModel());
+            var model = new SalesCatalogViewModel(Eitmad.WindowsShell.Tests.Furniture.FurnitureFixtures.SalesModel(), new ProductsViewModel());
             var view = new CurrentQuotationView { DataContext = model };
             window.Content = view;
             WpfTestHost.CompleteLayout(window);

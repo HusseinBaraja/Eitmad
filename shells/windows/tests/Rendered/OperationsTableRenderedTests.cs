@@ -85,6 +85,9 @@ public sealed class OperationsTableRenderedTests
             Check("part-review");
             WpfTestHost.FindByName<Button>(window, "FurnitureNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             var furniture = WpfTestHost.Descendants<Eitmad.WindowsShell.Features.Furniture.FurnitureView>(window).Single().ViewModel;
+            var furnitureFixture = new Furniture.FurnitureFixtures();
+            furnitureFixture.Seed();
+            furniture.ApplyDurableData(furnitureFixture.Snapshot());
             furniture.BeginEdit(furniture.VisibleFurniture[0]);
             Assert.IsTrue(furniture.MoveToParts());
             Check("furniture-parts");

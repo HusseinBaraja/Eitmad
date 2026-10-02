@@ -61,6 +61,7 @@ public sealed class FurnitureListItem
 /// <summary>Describes one selectable furniture part in the transient picker.</summary>
 public sealed record FurniturePartOption(Guid Id, string Name, string Category, decimal UnitCost)
 {
+    public Eitmad.Contracts.CompositionReference? Reference { get; init; }
     public string UnitCostLabel => UnitCost.ToString("N0", CultureInfo.InvariantCulture);
 }
 
@@ -94,27 +95,13 @@ public sealed class FurniturePartUsage : ObservableObject
         }
     }
 
-    public decimal TotalCost => TryCalculateTotalCost(out var total) ? total : 0m;
+    public decimal TotalCost { get; private set; }
+    /// <summary>Displays a row cost supplied by Rust and updates bound labels.</summary>
+    public void ApplyRowCost(decimal value) { TotalCost = value; Raise(nameof(TotalCost)); Raise(nameof(TotalCostLabel)); }
 
     public string UnitCostLabel => Part.UnitCost.ToString("N0", CultureInfo.InvariantCulture);
 
-    public string TotalCostLabel => TryCalculateTotalCost(out var total)
-        ? total.ToString("N0", CultureInfo.InvariantCulture)
-        : "—";
-
-    public bool TryCalculateTotalCost(out decimal total)
-    {
-        try
-        {
-            total = decimal.Round(checked(Quantity * Part.UnitCost), 0, MidpointRounding.AwayFromZero);
-            return true;
-        }
-        catch (OverflowException)
-        {
-            total = 0m;
-            return false;
-        }
-    }
+    public string TotalCostLabel => TotalCost.ToString("N0", CultureInfo.InvariantCulture);
 
     public FurniturePartUsage Copy() => new(Part, Quantity);
 }
@@ -123,6 +110,13 @@ public sealed class FurniturePartUsage : ObservableObject
 public sealed class FurnitureVariant : ObservableObject
 {
     private decimal sellingPrice;
+    private decimal? reviewedMargin;
+    public Eitmad.Contracts.FurnitureCustomization? Customization { get; set; }
+    public Guid[] ColorIds { get; set; } = [];
+    public Guid[] HandleIds { get; set; } = [];
+    public bool IsArchived { get; set; }
+    /// <summary>Displays Rust cost and margin results without calculating domain values.</summary>
+    public void ApplyReview(decimal cost, decimal margin) { CalculatedCost=cost; reviewedMargin=margin; Raise(nameof(CalculatedCostLabel)); Raise(nameof(MarginLabel)); Raise(nameof(HasNegativeMargin)); Raise(nameof(MarginCaption)); }
 
     public FurnitureVariant(
         Guid id,
@@ -165,6 +159,7 @@ public sealed class FurnitureVariant : ObservableObject
             }
 
             sellingPrice = value;
+            reviewedMargin = null;
             Raise();
             Raise(nameof(SellingPriceLabel));
             Raise(nameof(Margin));
@@ -180,31 +175,32 @@ public sealed class FurnitureVariant : ObservableObject
         set
         {
             if (!decimal.TryParse(PreviewText.NormalizeNumericInput(value), NumberStyles.Number, CultureInfo.InvariantCulture, out var parsed)
-                || parsed < 0m)
+                || parsed < 0m || parsed != decimal.Truncate(parsed) || parsed > long.MaxValue)
             {
                 throw new FormatException("أدخل سعر بيع صالحاً يساوي صفراً أو أكثر.");
             }
 
-            SellingPrice = decimal.Round(parsed, 0, MidpointRounding.AwayFromZero);
+            SellingPrice = parsed;
         }
     }
 
-    public decimal Margin => SellingPrice - CalculatedCost;
+    public decimal Margin => reviewedMargin ?? 0m;
 
     public bool HasNegativeMargin => Margin < 0m;
 
-    public string DimensionsLabel => $"{Format(Width)} × {Format(Height)} × {Format(Depth)} cm";
+    public string DimensionsLabel => $"{Format(Width)} × {Format(Height)} × {Format(Depth)} سم";
 
     public string CalculatedCostLabel => CalculatedCost.ToString("N0", CultureInfo.InvariantCulture);
 
     public string SellingPriceLabel => SellingPrice.ToString("N0", CultureInfo.InvariantCulture);
 
-    public string MarginLabel => Margin.ToString("N0", CultureInfo.InvariantCulture);
+    public string MarginLabel => reviewedMargin?.ToString("N0", CultureInfo.InvariantCulture) ?? "—";
 
     public string MarginCaption => HasNegativeMargin ? "خسارة متوقعة" : "هامش الربح";
 
+    /// <summary>Copies unsaved presentation values without committing a record.</summary>
     public FurnitureVariant Copy(string name) =>
-        new(Guid.NewGuid(), name, Width, Height, Depth, CalculatedCost, SellingPrice);
+        new(Guid.NewGuid(), name, Width, Height, Depth, CalculatedCost, SellingPrice) { Customization=Customization,ColorIds=ColorIds.ToArray(),HandleIds=HandleIds.ToArray() };
 
     private static string Format(decimal value) => value.ToString("0.##", CultureInfo.InvariantCulture);
 }
@@ -252,13 +248,14 @@ public sealed class FurnitureColorOption : ObservableObject
 
     public string PriceAdjustmentLabel => PriceAdjustment == 0m
         ? "مشمول"
-        : $"+{PriceAdjustment.ToString("N0", CultureInfo.InvariantCulture)} YER";
+        : $"+{PriceAdjustment.ToString("N0", CultureInfo.InvariantCulture)} ر.ي";
 
     public string StatusLabel => IsActive ? "نشط" : "غير نشط";
 
     public string ToggleActionLabel => IsActive ? "تعطيل" : "تفعيل";
 
-    public FurnitureColorOption Copy() => new(Guid.NewGuid(), Name, SwatchHex, PriceAdjustment, IsActive);
+    /// <summary>Copies unsaved presentation values without committing a record.</summary>
+    public FurnitureColorOption Copy() => new(Id, Name, SwatchHex, PriceAdjustment, IsActive);
 }
 
 /// <summary>Represents one selectable furniture handle in the transient options preview.</summary>
@@ -316,11 +313,12 @@ public sealed class FurnitureHandleOption : ObservableObject
 
     public string PriceAdjustmentLabel => PriceAdjustment == 0m
         ? "مشمول"
-        : $"+{PriceAdjustment.ToString("N0", CultureInfo.InvariantCulture)} YER";
+        : $"+{PriceAdjustment.ToString("N0", CultureInfo.InvariantCulture)} ر.ي";
 
     public string StatusLabel => IsActive ? "نشط" : "غير نشط";
 
     public string ToggleActionLabel => IsActive ? "تعطيل" : "تفعيل";
 
-    public FurnitureHandleOption Copy() => new(Guid.NewGuid(), Name, HandleKind, PriceAdjustment, IsActive);
+    /// <summary>Copies unsaved presentation values without committing a record.</summary>
+    public FurnitureHandleOption Copy() => new(Id, Name, HandleKind, PriceAdjustment, IsActive);
 }

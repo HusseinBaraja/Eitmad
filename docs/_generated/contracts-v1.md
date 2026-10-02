@@ -54,6 +54,8 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.material-category.save.v1`
 - `eitmad.material-unit.save.v1`
 - `eitmad.material.save.v1`
+- `eitmad.furniture.save.v1`
+- `eitmad.furniture-category.save.v1`
 - `eitmad.product.save.v1`
 - `eitmad.product-category.save.v1`
 - `eitmad.part.save.v1`
@@ -72,6 +74,11 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.reference-marker.list.v1`
 - `eitmad.customer.get.v1`
 - `eitmad.customer.search.v1`
+- `eitmad.furniture.list.v1`
+- `eitmad.furniture-category.list.v1`
+- `eitmad.furniture-revision.get.v1`
+- `eitmad.furniture.review.v1`
+- `eitmad.furniture-selection.check.v1`
 - `eitmad.product.list.v1`
 - `eitmad.product-category.list.v1`
 - `eitmad.product-revision.get.v1`
@@ -97,6 +104,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.reference-marker.changed.subscribe.v1`
 - `eitmad.customer.changed.subscribe.v1`
 - `eitmad.material.changed.subscribe.v1`
+- `eitmad.furniture.changed.subscribe.v1`
 - `eitmad.product.changed.subscribe.v1`
 - `eitmad.part.changed.subscribe.v1`
 
@@ -114,6 +122,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.reference-marker.changed.event.v1`
 - `eitmad.customer.changed.event.v1`
 - `eitmad.material.changed.event.v1`
+- `eitmad.furniture.changed.event.v1`
 - `eitmad.product.changed.event.v1`
 - `eitmad.part.changed.event.v1`
 
@@ -168,6 +177,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.capability.material.v1`
 - `eitmad.capability.part.v1`
 - `eitmad.capability.product.v1`
+- `eitmad.capability.furniture.v1`
 - `eitmad.capability.desktop-account-management.v1`
 
 ## Permissions
@@ -204,7 +214,9 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.permission.customer.read.v1`
 - `eitmad.permission.customer.write.v1`
 - `eitmad.permission.product.read.v1`
+- `eitmad.permission.furniture.read.v1`
 - `eitmad.permission.product.write.v1`
+- `eitmad.permission.furniture.write.v1`
 - `eitmad.permission.product.cost.read.v1`
 - `eitmad.permission.part.read.v1`
 - `eitmad.permission.part.write.v1`
@@ -235,6 +247,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.schema.material.v1`
 - `eitmad.schema.part.v1`
 - `eitmad.schema.product.v1`
+- `eitmad.schema.furniture.v1`
 
 ## Error codes
 
@@ -289,14 +302,19 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.error.material-invalid.v1`
 - `eitmad.error.part-invalid.v1`
 - `eitmad.error.product-invalid.v1`
+- `eitmad.error.furniture-invalid.v1`
 - `eitmad.error.part-not-found.v1`
 - `eitmad.error.product-not-found.v1`
+- `eitmad.error.furniture-not-found.v1`
 - `eitmad.error.part-revision-conflict.v1`
 - `eitmad.error.product-revision-conflict.v1`
+- `eitmad.error.furniture-revision-conflict.v1`
 - `eitmad.error.part-reference-invalid.v1`
 - `eitmad.error.product-reference-invalid.v1`
+- `eitmad.error.furniture-reference-invalid.v1`
 - `eitmad.error.part-unavailable.v1`
 - `eitmad.error.product-unavailable.v1`
+- `eitmad.error.furniture-unavailable.v1`
 - `eitmad.error.material-not-found.v1`
 - `eitmad.error.material-revision-conflict.v1`
 - `eitmad.error.material-reference-invalid.v1`
@@ -362,14 +380,19 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.message.material-invalid.v1`
 - `eitmad.message.part-invalid.v1`
 - `eitmad.message.product-invalid.v1`
+- `eitmad.message.furniture-invalid.v1`
 - `eitmad.message.part-not-found.v1`
 - `eitmad.message.product-not-found.v1`
+- `eitmad.message.furniture-not-found.v1`
 - `eitmad.message.part-revision-conflict.v1`
 - `eitmad.message.product-revision-conflict.v1`
+- `eitmad.message.furniture-revision-conflict.v1`
 - `eitmad.message.part-reference-invalid.v1`
 - `eitmad.message.product-reference-invalid.v1`
+- `eitmad.message.furniture-reference-invalid.v1`
 - `eitmad.message.part-unavailable.v1`
 - `eitmad.message.product-unavailable.v1`
+- `eitmad.message.furniture-unavailable.v1`
 - `eitmad.message.material-not-found.v1`
 - `eitmad.message.material-revision-conflict.v1`
 - `eitmad.message.material-reference-invalid.v1`

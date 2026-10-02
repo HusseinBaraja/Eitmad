@@ -399,6 +399,8 @@ internal sealed class SupervisionScenarios
             var created = createdResponse.Outcome.Payload.Payload?.Customer
                 ?? throw new InvalidOperationException("Real engine omitted the created customer.");
 
+            var persistedPart = await SaveMultiMaterialPart(supervisor);
+            var persistedFurniture = await SaveFurnitureDefinition(supervisor, persistedPart);
             var configurationResponse = await supervisor.QueryAsync(Query.ForConfigGet(new GetConfiguration()));
             if (configurationResponse.Outcome.Status != CommandOutcomeStatus.Succeeded)
             {
@@ -420,7 +422,6 @@ internal sealed class SupervisionScenarios
                     || !string.IsNullOrWhiteSpace(updateResponse.Outcome.Payload.Code),
                 "real update query returns typed state or typed error");
 
-            var persistedPart = await SaveMultiMaterialPart(supervisor);
             var persistedProduct = await SaveSupplierProduct(supervisor);
 
             var patchResponse = await supervisor.SubmitConfigurationPatchAsync(
@@ -464,6 +465,11 @@ internal sealed class SupervisionScenarios
             var reopenedProduct = reopenedProducts.Outcome.Payload.AsProducts()!.Items.Single();
             Assert.Equal(persistedProduct.Id, reopenedProduct.Id, "product identity survives engine restart");
             Assert.Equal(55000L, reopenedProduct.Variants.Single().PurchaseCostYer!.Value, "supplier cost survives engine restart");
+            var reopenedFurniture = await supervisor.QueryAsync(Query.ForFurnitureList(new ListFurnitures { Term="خزانة اختبار",Limit=100 }));
+            var furniture = reopenedFurniture.Outcome.Payload.AsFurnitures()!.Items.Single();
+            Assert.Equal(persistedFurniture.Id,furniture.Id,"Furniture identity survives engine restart");
+            Assert.Equal(18900L,furniture.PartsCostYer,"immutable Part cost survives engine restart");
+            Assert.Equal(persistedFurniture.Parts[0].Reference.Revision,furniture.Parts[0].Reference.Revision,"composition reference survives restart");
             var reopenedParts = await supervisor.QueryAsync(Query.ForPartList(new ListParts { Term = "جانب خزانة", Limit = 20 }));
             var reopenedPart = reopenedParts.Outcome.Payload.AsParts()?.Items.Single().Part
                 ?? throw new InvalidOperationException("Part was not durable after restart.");
@@ -501,6 +507,37 @@ internal sealed class SupervisionScenarios
         {
             Directory.Delete(runtimeDirectory, recursive: true);
         }
+    }
+
+    /// <summary>Builds the synthetic definition used to verify durable Furniture IPC.</summary>
+    private static async Task<Furniture> SaveFurnitureDefinition(EngineSupervisor supervisor, Part part)
+    {
+        var categorySave = await supervisor.SubmitCommandAsync(Command.ForFurnitureCategorySave(new SaveFurnitureCategory { Name="غرف النوم" }),Guid.NewGuid());
+        Assert.Equal(CommandOutcomeStatus.Succeeded,categorySave.Outcome.Status,"Furniture category commit");
+        var categories = await supervisor.QueryAsync(Query.ForFurnitureCategoryList(new ListFurnitureCategories { Limit=100 }));
+        await using var events=await supervisor.SubscribeAsync(Subscription.ForFurnitureChangedSubscribe(new FurnitureChanges()));
+        var input = new SaveFurniture {
+            Name="خزانة اختبار",CategoryId=categories.Outcome.Payload.AsFurnitureCategories()!.Items.Single().Id,Description="تعريف تجريبي",Notes="",State=FurnitureState.Active,
+            Parts=[new FurniturePart { Reference=part.Composition,Quantity=2 }],
+            Variants=[new FurnitureVariant { Id=Guid.NewGuid(),Name="صغير",Dimensions=new FurnitureDimensions { WidthMm=1200,HeightMm=2000,DepthMm=550 },SellingPriceYer=25000,ColorIds=[],HandleIds=[] }],
+            Colors=[new FurnitureOption { Id=Guid.NewGuid(),Name="أبيض",Visual="#FFFFFF",PriceAdjustmentYer=500 }],
+            Handles=[new FurnitureOption { Id=Guid.NewGuid(),Name="قياسي",Visual="Standard",PriceAdjustmentYer=1000 }],
+        };
+        var reviewed=await supervisor.QueryAsync(Query.ForFurnitureReview(input));Assert.Equal(18900L,reviewed.Outcome.Payload.AsFurnitureReview()!.PartsCostYer,"Rust Furniture composition review");
+        var key=Guid.NewGuid();var saved=await supervisor.SubmitCommandAsync(Command.ForFurnitureSave(input),key);
+        Assert.Equal(CommandOutcomeStatus.Succeeded,saved.Outcome.Status,"Furniture commit");
+        var retried=await supervisor.SubmitCommandAsync(Command.ForFurnitureSave(input),key);Assert.Equal(saved.Outcome.Payload.Payload.Id,retried.Outcome.Payload.Payload.Id,"Furniture retry identity");
+        var page=await supervisor.QueryAsync(Query.ForFurnitureList(new ListFurnitures { Term="خزانة اختبار",Limit=100 }));var value=page.Outcome.Payload.AsFurnitures()!.Items.Single();
+        using var timeout=new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await foreach(var delivered in events.ReadAllAsync(timeout.Token)) { var notice=EngineContractCodec.DecodeEvent(delivered).AsFurnitureChangedEvent();events.Acknowledge(delivered);Assert.Equal(value.Id,notice!.Id,"Furniture event after commit");break; }
+        input.Id=value.Id;input.ExpectedRevision=value.Revision;input.State=FurnitureState.Draft;
+        var updated=await supervisor.SubmitCommandAsync(Command.ForFurnitureSave(input),Guid.NewGuid());Assert.Equal(CommandOutcomeStatus.Succeeded,updated.Outcome.Status,"Furniture update");
+        var stale=await supervisor.SubmitCommandAsync(Command.ForFurnitureSave(input),Guid.NewGuid());Assert.Equal(ProtocolIds.ErrorCodes.EitmadErrorFurnitureRevisionConflictV1,stale.Outcome.Payload.Code,"stale Furniture edit conflicts");
+        var invalid=input;invalid.ExpectedRevision=value.Revision+1;invalid.Parts[0].Quantity=0;
+        var rejected=await supervisor.SubmitCommandAsync(Command.ForFurnitureSave(invalid),Guid.NewGuid());Assert.Equal(CommandOutcomeStatus.Failed,rejected.Outcome.Status,"invalid Furniture quantity rejected");
+        await supervisor.SignOutAsync();await supervisor.SignInAsync("rec","rec");
+        var denied=await supervisor.SubmitCommandAsync(Command.ForFurnitureSave(input),Guid.NewGuid());Assert.Equal(ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1,denied.Outcome.Payload.Code,"Receptionist cannot write Furniture");
+        await supervisor.SignOutAsync();await supervisor.SignInAsync("admin","admin");return value;
     }
 
     /// <summary>Exercises real Product saves, retries, committed events, and policy projection invalidation.</summary>

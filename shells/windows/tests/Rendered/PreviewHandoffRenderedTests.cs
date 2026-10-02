@@ -36,7 +36,7 @@ public sealed class PreviewHandoffRenderedTests
         {
             var reception = WpfTestHost.FindByName<ReceptionistHomeView>(window, "ReceptionistSurface");
             var manager = WpfTestHost.FindByName<QuotationsView>(window, "QuotationsSurface");
-            var editor = reception.Handoffs.Attach(new SalesCatalogViewModel(new Features.Furniture.FurnitureViewModel(), new Features.Products.ProductsViewModel()));
+            var editor = reception.Handoffs.Attach(new SalesCatalogViewModel(Eitmad.WindowsShell.Tests.Furniture.FurnitureFixtures.SalesModel(), new Features.Products.ProductsViewModel()));
             Products.SalesCatalogPresentationTests.AddHistoricalProductLine(editor);
             editor.CustomerName = "عميل اختبار الموافقة"; editor.Phone = "000000001";
             editor.Address = "عنوان تجريبي"; editor.Notes = "ملاحظة داخلية";
@@ -94,7 +94,7 @@ public sealed class PreviewHandoffRenderedTests
             Assert.IsTrue(editor.ReviewSave());
             var accepted = reception.Handoffs.Quotations.Single(item => item.Id == editor.PreviewId);
             Assert.IsTrue(accepted.CanPrint);
-            var reopened = QuotationPreviewProjection.Create(accepted, new Features.Furniture.FurnitureViewModel(), new Features.Products.ProductsViewModel());
+            var reopened = QuotationPreviewProjection.Create(accepted, Eitmad.WindowsShell.Tests.Furniture.FurnitureFixtures.SalesModel(), new Features.Products.ProductsViewModel());
             Assert.IsTrue(reopened.CanSaveQuotation);
             Assert.IsFalse(accepted.Items.Single().IsFurniture);
             Assert.IsNotNull(reopened.QuotationLines.Single().Product);

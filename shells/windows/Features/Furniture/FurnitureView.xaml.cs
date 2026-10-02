@@ -27,16 +27,21 @@ public partial class FurnitureView : UserControl
     private void FurnitureRowInvoked(object sender, RowInvokedEventArgs eventArgs) =>
         OpenEditor((FurnitureListItem)eventArgs.Item);
 
-    private void OpenEditor(FurnitureListItem item)
+    /// <summary>Resolves immutable references before staging an edit and requesting Rust review.</summary>
+    private async void OpenEditor(FurnitureListItem item)
     {
+        if (!await PrepareEditorAsync(item)) return;
         ViewModel.BeginEdit(item);
-        Dispatcher.BeginInvoke(FurnitureNameBox.Focus, DispatcherPriority.Input);
+        await ReviewAsync(false);
+        await Dispatcher.BeginInvoke(FurnitureNameBox.Focus, DispatcherPriority.Input);
     }
 
-    private void AddFurnitureClick(object sender, RoutedEventArgs eventArgs)
+    /// <summary>Loads picker references before opening an unsaved definition.</summary>
+    private async void AddFurnitureClick(object sender, RoutedEventArgs eventArgs)
     {
+        if (!await PrepareEditorAsync()) return;
         ViewModel.BeginCreate();
-        Dispatcher.BeginInvoke(FurnitureNameBox.Focus, DispatcherPriority.Input);
+        await Dispatcher.BeginInvoke(FurnitureNameBox.Focus, DispatcherPriority.Input);
     }
 
     private void ChooseImageClick(object sender, RoutedEventArgs eventArgs)
@@ -98,26 +103,31 @@ public partial class FurnitureView : UserControl
         }
     }
 
-    private void DuplicateFurnitureClick(object sender, RoutedEventArgs eventArgs)
+    /// <summary>Resolves the source references before opening an unsaved duplicate.</summary>
+    private async void DuplicateFurnitureClick(object sender, RoutedEventArgs eventArgs)
     {
         if (FurnitureFromMenuItem(sender) is { } item)
         {
+            if (!await PrepareEditorAsync(item)) return;
             ViewModel.DuplicateFurniture(item);
             RestartFeedbackTimer();
-            Dispatcher.BeginInvoke(FurnitureNameBox.Focus, DispatcherPriority.Input);
+            await Dispatcher.BeginInvoke(FurnitureNameBox.Focus, DispatcherPriority.Input);
         }
     }
 
-    private void ArchiveFurnitureClick(object sender, RoutedEventArgs eventArgs)
+    /// <summary>Resolves saved references before submitting an archive revision.</summary>
+    private async void ArchiveFurnitureClick(object sender, RoutedEventArgs eventArgs)
     {
         if (FurnitureFromMenuItem(sender) is { } item)
         {
-            ViewModel.ArchiveFurniture(item);
+            if (!await PrepareEditorAsync(item)) return;
+            await SaveAsync(Eitmad.Contracts.FurnitureState.Archived, item);
             RestartFeedbackTimer();
         }
     }
 
-    private void NextStepClick(object sender, RoutedEventArgs eventArgs)
+    /// <summary>Advances the wizard only after presentation input and required Rust review succeed.</summary>
+    private async void NextStepClick(object sender, RoutedEventArgs eventArgs)
     {
         if (ViewModel.IsStepOne)
         {
@@ -131,7 +141,7 @@ public partial class FurnitureView : UserControl
 
         if (ViewModel.IsStepTwo)
         {
-            ViewModel.MoveToVariants();
+            if (await ReviewAsync(true)) ViewModel.MoveToVariants();
             return;
         }
 
@@ -143,7 +153,7 @@ public partial class FurnitureView : UserControl
 
         if (ViewModel.IsStepFour)
         {
-            ViewModel.MoveToPricing();
+            if (await ReviewAsync(true)) ViewModel.MoveToPricing();
             return;
         }
 
@@ -156,7 +166,7 @@ public partial class FurnitureView : UserControl
                 return;
             }
 
-            ViewModel.MoveToReview();
+            if (await ReviewAsync(true)) ViewModel.MoveToReview();
         }
     }
 
@@ -164,15 +174,17 @@ public partial class FurnitureView : UserControl
 
     private void CancelEditorClick(object sender, RoutedEventArgs eventArgs) => ViewModel.CancelEditor();
 
-    private void SaveDraftClick(object sender, RoutedEventArgs eventArgs)
+    /// <summary>Submits a draft through the authority and displays its result.</summary>
+    private async void SaveDraftClick(object sender, RoutedEventArgs eventArgs)
     {
-        ViewModel.SaveDraftPreview();
+        await SaveAsync(Eitmad.Contracts.FurnitureState.Draft);
         RestartFeedbackTimer();
     }
 
-    private void PublishClick(object sender, RoutedEventArgs eventArgs)
+    /// <summary>Submits a complete private definition through the authority.</summary>
+    private async void SaveDefinitionClick(object sender, RoutedEventArgs eventArgs)
     {
-        ViewModel.PublishPreview();
+        await SaveAsync(Eitmad.Contracts.FurnitureState.Active);
         RestartFeedbackTimer();
     }
 
@@ -232,7 +244,13 @@ public partial class FurnitureView : UserControl
         }
     }
 
-    private void SaveVariantClick(object sender, RoutedEventArgs eventArgs) => ViewModel.SaveVariant();
+    /// <summary>Stages exact variant input and reports unsupported numeric values.</summary>
+    private void SaveVariantClick(object sender, RoutedEventArgs eventArgs)
+    {
+        if (FindInvalidTextBox(VariantDialog) is { } invalid) { ViewModel.Fail("صحّح المقاس غير الصالح."); invalid.Focus(); return; }
+        try { ViewModel.SaveVariant(); }
+        catch (Exception e) when (e is FormatException or OverflowException) { ViewModel.Fail("أدخل المقاسات بمنزلة عشرية واحدة ضمن النطاق المدعوم."); }
+    }
 
     private void CancelVariantClick(object sender, RoutedEventArgs eventArgs) => ViewModel.CancelVariantEditor();
 

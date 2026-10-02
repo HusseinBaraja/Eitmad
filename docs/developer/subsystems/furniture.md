@@ -1,11 +1,11 @@
 ---
-title: "Extend the Furniture manager flow safely"
-description: "Understand the Arabic-first Furniture list and its transient six-step manager editor."
+title: "Maintain durable Furniture definitions"
+description: "Trace Rust-owned Furniture compositions, immutable revisions, and the existing native six-step editor."
 audience: "developer"
 page_type: "explanation"
 status: "active"
-owner: "Windows UI maintainers"
-last_verified: "2026-09-19"
+owner: "Furniture capability maintainers"
+last_verified: "2026-10-02"
 review_triggers:
   - "Furniture contracts, Rust projections, pricing rules, or Windows Furniture UI behavior change"
 keywords:
@@ -23,57 +23,54 @@ keywords:
   - "سعر البيع"
   - "هامش الربح"
   - "حفظ كمسودة"
-  - "حفظ ونشر"
+  - "حفظ التعريف"
   - "YER"
 ---
 
-# Extend the Furniture manager flow safely
+# Maintain durable Furniture definitions
 
-The Windows **الأثاث** page gives managers a compact product table and a complete six-step furniture editor preview. The page is local presentation state. Search, filters, image selection, part quantities, calculated values, variants, colors, handles, prices, margins, draft or published status, duplicate, and archive state are discarded when the shell closes.
+The manager **الأثاث** list and its six-step editor save organization-scoped Furniture definitions through Rust. A saved definition can be reopened after engine restart. Each save preserves an immutable definition revision and exact Part composition references for future quotation and production snapshots. The [accepted Furniture and sales specification](manager-receptionist-workflows.md#catalog-editing-and-pricing) remains the authority for commercial publication.
 
-Production catalog, unit, pricing, scope, permission, publication, and offline behavior is accepted in the [Manager and Receptionist workflow specification](manager-receptionist-workflows.md). This page describes the current preview only.
+## Authority and definition lifecycle
 
-## Ownership and current boundary
+`crates/furniture` owns validation, costs, selections, permissions, and revision behavior. Contracts live in `crates/contracts/src/furniture.rs`; `crates/storage/src/furniture.rs` owns migration `furniture.definitions.v1`, storage version `18`. The engine dispatcher supplies typed IPC and committed change notices. `shells/windows/Features/Furniture` stages unsaved fields and renders Rust results.
 
-`shells/windows/Features/Furniture/FurnitureView.xaml` owns the native RTL layout, small vector thumbnails, upload preview surface, custom selectors, tables, option rows and tiles, overlays, keyboard focus targets, and Arabic accessibility names. `FurnitureViewModel.cs` owns transient fixtures, list filtering, the current editor step, selected parts, preview totals, fixed-variant cards, colors, handles, and their visible price adjustments. `FurnitureModels.cs` owns presentation-only row labels, option state, and calculated display values. `MainWindow.xaml` owns the **الأثاث** sidebar destination.
+Definitions use stable scoped UUIDs, separate Furniture category IDs, descriptions, internal notes, Parts, fixed variants, colors, handles, and `Draft`, `Active`, or `Archived` state. Active means a complete private manager definition. It does not mean a published catalog entry or a confirmed selling price. **حفظ كمسودة** and **حفظ التعريف** save local definitions; archive removes a definition from new definition selection. Catalog publication, published-price changes, quotation issuance, and server-confirmed catalog archive remain future capabilities. The Receptionist catalog does not receive these private definitions. Its remaining preview tests use explicit synthetic projections.
 
-Rust does not yet provide a Furniture capability. The preview has no command, query, subscription, capability, authorization check, scope, audit record, persistence, sync, or authoritative pricing rule. Do not add these responsibilities to the WPF shell. A future Furniture vertical must own the product lifecycle, part relationships, dimension validation, costs, prices, authorization, audit, storage, and synchronization.
+Images remain optional presentation previews. The information step labels them as unsaved; image bytes and local paths are outside this contract. Other definition fields persist. Multi-device synchronization is not implemented by this local save or its outbox.
 
-## Manager list behavior
+## Composition, dimensions, and option rules
 
-The table uses thumbnails only for quick identification. It does not reproduce the large-card receptionist catalog. Search matches furniture name and category with Arabic normalization. Category and status filters compose. Each row isolates the Latin `YER` amount from the RTL labels and provides **تعديل**, **تكرار**, and **أرشفة** in a mouse-point action popup. Archive is non-destructive and keeps the row visible in the all-status view.
+A definition requires 1–100 distinct Parts. Each usage has a positive whole count of at most 1,000,000 and an exact organization-scoped `CompositionReference` with schema version `1`. Rust validates current active references for new relationships. An existing unchanged reference can remain when its Part is archived or advances to a new revision. Save never silently substitutes the current composition. The [Parts capability](parts.md#current-costs-and-historical-references) owns material and unit snapshots behind that reference.
 
-The list uses synthetic categories and records. **إضافة منتج** starts a new transient editor. Edit loads a synthetic product projection. Duplicate creates a local **نسخة** and opens the same editor. None of these actions claims that a product was saved or synchronized.
+Rust computes definition cost as the checked integer sum of each immutable Part cost times its whole count. Fixed sizes share that specified composition cost; there is no invented volume multiplier. Cost does not change a proposed selling price. Rust review supplies row totals and margins to the editor. Later material changes do not rewrite the Furniture revision or its saved cost.
 
-## Six implemented editor steps
+A definition has 1–100 fixed variants. Width, height, and depth are integer millimetres in `1..=100000`. The native editor accepts centimetres with at most one decimal place, displays **سم**, and converts without rounding. Each variant can retain optional minimum and maximum dimensions. The fixed size must be within every bound. Without customization bounds, a prospective selection must exactly match the fixed size.
 
-The header shows and implements the complete sequence: **المعلومات**, **الأجزاء**, **المقاسات**, **الخيارات**, **التسعير**, and **المراجعة**:
+Colors and handles each have at most 100 stable options, names, supported visual values, non-negative whole-YER adjustments, and active/archive state. A variant can name compatible color and handle IDs; an empty compatibility list allows all options of that kind. Missing, duplicated, foreign, incompatible, or unavailable option references are rejected. Removed options and variants are retained as archived, and archived option IDs cannot be reactivated or moved to another definition or option kind. Color visuals are six-digit RGB hex values; handles use the existing native `Standard`, `BlackMetal`, and `Brass` illustrations.
 
-1. **المعلومات** collects **اسم الأثاث**, **الفئة**, **صورة المنتج**, **وصف قصير**, and **ملاحظات داخلية**. Image selection loads one local preview in memory and does not upload or persist the file.
-2. **الأجزاء المستخدمة** follows the Parts-to-Raw-Materials interaction pattern. **إضافة جزء** opens a searchable component picker. The manager selects a component, changes its positive quantity, and sees the row total and **تكلفة الأجزاء الحالية** update.
-3. **المقاسات الثابتة** shows medium cards that managers can compare on one screen. Each card shows its name, `width × height × depth` in `cm`, a synthetic calculated cost, and **تعديل**, **تكرار**, and **إزالة** actions. These are manager-defined fixed variants, not receptionist customization options.
-4. **الخيارات** shows **الألوان المتاحة** as compact rows with a swatch, name, visible price adjustment (**مشمول** or a positive `YER` amount), and active state. **المقابض المتاحة** uses visual tiles with a small vector handle image, name, visible adjustment, and active state. **إضافة لون** and **إضافة مقبض** open transient add dialogs; the resulting options are presentation fixtures. Internal material costing is not shown in this step.
-5. **التسعير** keeps one row for every fixed variant on the same page. Cost is supporting information, **سعر البيع** is the prominent editable value, and **هامش الربح** is the calculated absolute difference. A selling price below cost remains visible as **خسارة متوقعة**. Percentage margin is not an input. All values use LTR isolation with `YER`.
-6. **المراجعة** is read-only. It shows the image, name, category, description, compact fixed-variant cards with dimensions and selling prices, and active colors and handles with their price adjustments. **السابق** returns to Pricing. **حفظ كمسودة** and **حفظ ونشر** update only the local fixture and return to the Furniture list. The feedback message states that the result exists only in the local preview.
+Draft proposed prices can be zero. Active definitions require a positive proposed price for each active variant and a checked effective price after compatible option adjustments. A below-cost proposal requires explicit confirmation, recorded as redacted audit metadata. This is internal definition review; it does not publish a commercial price. Selection review checks the current active definition, category, variant, permitted dimensions, compatible active options, whole item quantity, and checked price and total. Future commercial consumers must revalidate these references in their own transaction and retain their issued display snapshots.
 
-## Failure and recovery
+## Atomic save, permissions, and failures
 
-The preview checks that a furniture name and category are present, that at least one part has a positive quantity before Variants, that fixed-variant names and dimensions are positive, and that every variant has a positive selling price before Review. These checks protect the local interaction only and do not define domain validation.
+Protocol `1.13` negotiates optional `eitmad.capability.furniture.v1` and `eitmad.schema.furniture.v1`. Commands save a Furniture definition or category. Bounded UUID-cursor queries list definitions and categories, review staged fields, resolve an immutable revision, or check a prospective selection. `furniture.changed` carries scope, record ID, kind, revision, and time without names, notes, or costs.
 
-If WPF cannot access or decode a selected image, the preview keeps the current image and shows **تعذر فتح الصورة** instead of letting the decoder failure reach the UI dispatcher. Image decoding is bounded to the preview size.
+`eitmad.permission.furniture.read.v1` and `eitmad.permission.furniture.write.v1` require an organization Manager relationship. Receptionists cannot read internal definitions or write them. Every command, query, and subscription is checked in Rust. The native shell cannot create authority through a control state.
 
-If navigation opens the generic dashboard, inspect `MainWindow.xaml` and `MainWindow.xaml.cs`. If the part picker, row menu, or variant editor is clipped, inspect the explicit popup overlays and physical LTR placement boundary in `FurnitureView.xaml`. Close the preview to discard local edits. Do not edit storage or bypass the shell.
+One immediate transaction checks the expected definition revision, category, Part revisions, option identities, and bounds. It writes current state, immutable history, scoped Part relationships, option identities, redacted audit, exact retry result, and the publication outbox together. Any mandatory write failure rolls back all state. SQLite prevents update or deletion of historical definitions.
 
-## Verification and safe extension
+Updates carry the ID and expected revision together; creates carry neither. A stale edit returns `eitmad.error.furniture-revision-conflict.v1`. The editor retains its opened revision across list refreshes. Validation and conflict results preserve unsaved fields. An unknown save outcome freezes the exact request until retry with the original key resolves it. Furniture and category retries remain separate. Account changes and authorization revocation clear retained definitions and editor fields. Furniture search waits for 250 ms without further input before querying only the definition list; matching runs in Rust. Change notices coalesce Furniture list refreshes. Part picker data loads when an editor opens and refreshes after Part changes. Immutable compositions are cached by Part ID and revision within the session and resolved only for the opened definition. Session changes and authorization revocation discard those caches. Loading, unavailable, denial, failure, and empty results do not invent durable success.
 
-Run the focused Furniture checks:
+## Existing native editor
 
-```powershell
-dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --filter "FullyQualifiedName~Furniture"
-```
+The existing **المعلومات**, **الأجزاء**, **المقاسات**, **الخيارات**, **التسعير**, and **المراجعة** steps remain. The information step can save a separate Furniture category. A typed category name must be saved or replaced with an existing category before the Manager continues or saves the definition. The variant dialog uses native controls for permitted bounds and named compatible options. The options step retains color rows and handle tiles. Pricing renders Rust costs and margins, using **ر.ي** while contracts retain whole-YER integers. The final step offers a draft save or a complete definition save. Duplicate opens an unsaved definition with new Furniture option and variant identities; it does not copy history or insert a list row before confirmation.
 
-`FurniturePresentationTests` verifies Arabic search normalization, composed state changes, part totals, fixed variants, visible option price adjustments, active-state toggles, selling-price margins, Review entry, and local draft completion. `FurnitureRenderedTests` instantiates the real WPF window, navigates to **الأثاث**, verifies Arabic accessible names and keyboard focus, selects a part, adds a variant, opens Options, adds a color and handle, edits Pricing, opens Review, and publishes back to the Furniture list. A manual rendered check at `1338 × 753` verifies the compact manager table, large image preview, part-cost summary, side-by-side variant cards, option surfaces, pricing rows, and the final read-only summary.
+## Focused verification and extension
 
-When Rust gains the Furniture vertical, implement the accepted workflow specification, then add typed contracts and generated C# bindings before replacing the fixture boundary. Keep thumbnails and selected images as presentation inputs, map all authoritative state and errors from Rust, and preserve the current Arabic labels, fixed-variant distinction, bidirectional isolation, keyboard path, and non-destructive archive behavior where they do not conflict with the accepted specification.
+Run `cargo test -p eitmad-furniture --offline` for restart, retry identity, historical protection, stale edits, scopes, quantities, dimensions, options, money, Manager permission, and audit rollback. The storage recovery test also includes the new migration. Run affected-crate formatting and strict Clippy as described in the [developer guide](../index.md#choose-the-smallest-normal-proof).
 
-Return to the [Windows shell subsystem guide](windows-native-shell.md) for shared layout and trust-boundary rules.
+Regenerate and verify contracts using the developer guide. Run `FurniturePresentationTests` and `FurnitureRenderedTests` in `shells/windows/tests/Eitmad.WindowsShell.Tests.csproj`. The complete rendered workflow uses fixed synthetic Rust responses, saves and reopens all definition fields, checks keyboard focus, and preserves conflict and unknown-outcome input. The existing Windows adapter real-engine path saves, retries, receives committed events, rejects invalid and stale requests, denies a Receptionist, and reopens the definition after engine restart.
+
+Rendered checks used 125% Windows display scaling: a maximum window of 1553.6 × 881.6 DIPs, a default window of 1338.4 × 752.8 DIPs, and the minimum 720 × 560 DIPs. Geometry is recorded with the synthetic captures. The workflow also renders with high-contrast resource overrides; this does not verify native OS high contrast or text scaling. Exact 100% scaling requires the corresponding Windows display environment. Before adding commercial behavior, implement server-confirmed publication and Pricing through their owning capabilities; do not make this manager projection a sales catalog.
+
+Return to the [Windows shell guide](windows-native-shell.md) for native layout and lifecycle rules, or the [local storage guide](local-storage.md) for recovery.
