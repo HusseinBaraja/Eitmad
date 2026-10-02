@@ -509,6 +509,7 @@ internal sealed class SupervisionScenarios
         }
     }
 
+    /// <summary>Builds the synthetic definition used to verify durable Furniture IPC.</summary>
     private static async Task<Furniture> SaveFurnitureDefinition(EngineSupervisor supervisor, Part part)
     {
         var categorySave = await supervisor.SubmitCommandAsync(Command.ForFurnitureCategorySave(new SaveFurnitureCategory { Name="غرف النوم" }),Guid.NewGuid());

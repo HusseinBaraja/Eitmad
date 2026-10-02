@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Furniture capability maintainers"
-last_verified: "2026-10-01"
+last_verified: "2026-10-02"
 review_triggers:
   - "Furniture contracts, Rust projections, pricing rules, or Windows Furniture UI behavior change"
 keywords:
@@ -59,11 +59,11 @@ Protocol `1.13` negotiates optional `eitmad.capability.furniture.v1` and `eitmad
 
 One immediate transaction checks the expected definition revision, category, Part revisions, option identities, and bounds. It writes current state, immutable history, scoped Part relationships, option identities, redacted audit, exact retry result, and the publication outbox together. Any mandatory write failure rolls back all state. SQLite prevents update or deletion of historical definitions.
 
-Updates carry the ID and expected revision together; creates carry neither. A stale edit returns `eitmad.error.furniture-revision-conflict.v1`. The editor retains its opened revision across list refreshes. Validation and conflict results preserve unsaved fields. An unknown save outcome freezes the exact request until retry with the original key resolves it. Furniture and category retries remain separate. Account changes and authorization revocation clear retained definitions and editor fields. Subscriptions refresh Furniture and Part references after committed changes; search matching runs in Rust. Loading, unavailable, denial, failure, and empty results do not invent durable success.
+Updates carry the ID and expected revision together; creates carry neither. A stale edit returns `eitmad.error.furniture-revision-conflict.v1`. The editor retains its opened revision across list refreshes. Validation and conflict results preserve unsaved fields. An unknown save outcome freezes the exact request until retry with the original key resolves it. Furniture and category retries remain separate. Account changes and authorization revocation clear retained definitions and editor fields. Furniture search waits for 250 ms without further input before querying only the definition list; matching runs in Rust. Change notices coalesce Furniture list refreshes. Part picker data loads when an editor opens and refreshes after Part changes. Immutable compositions are cached by Part ID and revision within the session and resolved only for the opened definition. Session changes and authorization revocation discard those caches. Loading, unavailable, denial, failure, and empty results do not invent durable success.
 
 ## Existing native editor
 
-The existing **المعلومات**, **الأجزاء**, **المقاسات**, **الخيارات**, **التسعير**, and **المراجعة** steps remain. The information step can save a separate Furniture category. The variant dialog uses native controls for permitted bounds and named compatible options. The options step retains color rows and handle tiles. Pricing renders Rust costs and margins, using **ر.ي** while contracts retain whole-YER integers. The final step offers a draft save or a complete definition save. Duplicate opens an unsaved definition with new Furniture option and variant identities; it does not copy history or insert a list row before confirmation.
+The existing **المعلومات**, **الأجزاء**, **المقاسات**, **الخيارات**, **التسعير**, and **المراجعة** steps remain. The information step can save a separate Furniture category. A typed category name must be saved or replaced with an existing category before the Manager continues or saves the definition. The variant dialog uses native controls for permitted bounds and named compatible options. The options step retains color rows and handle tiles. Pricing renders Rust costs and margins, using **ر.ي** while contracts retain whole-YER integers. The final step offers a draft save or a complete definition save. Duplicate opens an unsaved definition with new Furniture option and variant identities; it does not copy history or insert a list row before confirmation.
 
 ## Focused verification and extension
 

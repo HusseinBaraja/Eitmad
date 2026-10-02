@@ -22,6 +22,9 @@ public sealed record FurnitureResult<T>(T? Value, FurnitureFailureKind Failure)
 /// <summary>Groups paged authority records with the management and cost-access flags used by the page.</summary>
 public sealed record FurnitureSnapshot(FurnitureCategories Categories, IReadOnlyList<Eitmad.Contracts.Furniture> Furniture, bool CanManage, bool CanReadCosts, IReadOnlyList<Part> Parts, IReadOnlyList<PartCategory> PartCategories, IReadOnlyList<Part> Compositions);
 
+/// <summary>Contains editor references without reloading the Furniture list.</summary>
+public sealed record FurnitureEditorSnapshot(IReadOnlyList<Part> Parts, IReadOnlyList<PartCategory> Categories, IReadOnlyList<Part> Compositions);
+
 /// <summary>Thin typed IPC adapter for ready-made definitions and separate furniture categories.</summary>
 public sealed class FurnitureClient(IEngineShellBridge engine) : IAsyncDisposable
 {
@@ -42,18 +45,30 @@ public sealed class FurnitureClient(IEngineShellBridge engine) : IAsyncDisposabl
     private bool active;
     private bool disposed;
     private bool connectedAndReady;
+    private readonly SemaphoreSlim loadGate = new(1, 1);
+    private FurnitureCategories? cachedCategories;
+    private IReadOnlyList<Part>? cachedParts;
+    private IReadOnlyList<PartCategory> cachedPartCategories = [];
+    private readonly Dictionary<(Guid, long), Part> compositions = [];
+    private long projectionEpoch, loadedProjectionEpoch, partsEpoch, loadedPartsEpoch = -1;
 
     public event EventHandler? Changed;
+    public event EventHandler? PartsChanged;
     /// <summary>Requests immediate removal of cached data before any replacement query completes.</summary>
     public event EventHandler? ProjectionInvalidated;
 
     /// <summary>Loads scoped furnitures and categories through paged Rust queries; cancellation propagates.</summary>
-    public async Task<FurnitureResult<FurnitureSnapshot>> LoadAsync(string term, CancellationToken cancellationToken = default)
+    public async Task<FurnitureResult<FurnitureSnapshot>> LoadAsync(string term, CancellationToken cancellationToken = default, bool reloadCategories = true)
     {
         if (!engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityFurnitureV1))
             return FurnitureResult<FurnitureSnapshot>.Failed(FurnitureFailureKind.Unavailable);
+        await loadGate.WaitAsync(cancellationToken);
+        var epoch = projectionEpoch;
         try
         {
+            ResetInvalidatedCache();
+            if (reloadCategories || cachedCategories is null)
+            {
             var categoryItems = new List<FurnitureCategory>();
             Guid? categoryAfter = null;
             do
@@ -63,7 +78,8 @@ public sealed class FurnitureClient(IEngineShellBridge engine) : IAsyncDisposabl
                 if (page is null) return FurnitureResult<FurnitureSnapshot>.Failed(MapFailure(response.Outcome.Payload.Code));
                 categoryItems.AddRange(page.Items); categoryAfter = page.Next;
             } while (categoryAfter is not null);
-            var categories = new FurnitureCategories { Items = categoryItems.ToArray() };
+            cachedCategories = new FurnitureCategories { Items = categoryItems.ToArray() };
+            }
             var items = new List<Eitmad.Contracts.Furniture>();
             Guid? after = null;
             var canManage = true; var canReadCosts = true;
@@ -74,35 +90,72 @@ public sealed class FurnitureClient(IEngineShellBridge engine) : IAsyncDisposabl
                 if (page is null) return FurnitureResult<FurnitureSnapshot>.Failed(MapFailure(response.Outcome.Payload.Code));
                 items.AddRange(page.Items); after = page.Next; canManage &= page.CanManage; canReadCosts &= page.CanReadCosts;
             } while (after is not null);
+            if (epoch != projectionEpoch || disposed) return FurnitureResult<FurnitureSnapshot>.Failed(FurnitureFailureKind.Unavailable);
+            return FurnitureResult<FurnitureSnapshot>.Success(new FurnitureSnapshot(cachedCategories!, items, canManage, canReadCosts, cachedParts ?? [], cachedPartCategories, compositions.Values.ToArray()));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (EngineIpcException error) { return FurnitureResult<FurnitureSnapshot>.Failed(MapFailure(error.ContractError?.Code)); }
+        catch (Exception error) when (error is IOException or InvalidOperationException or ObjectDisposedException)
+        { return FurnitureResult<FurnitureSnapshot>.Failed(FurnitureFailureKind.Unavailable); }
+        finally { loadGate.Release(); }
+    }
+
+    /// <summary>Loads picker data on demand and resolves only the opened definition's immutable references.</summary>
+    public async Task<FurnitureResult<FurnitureEditorSnapshot>> LoadEditorAsync(Eitmad.Contracts.Furniture? definition, CancellationToken cancellationToken = default)
+    {
+        if (!engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityFurnitureV1))
+            return FurnitureResult<FurnitureEditorSnapshot>.Failed(FurnitureFailureKind.Unavailable);
+        await loadGate.WaitAsync(cancellationToken);
+        var epoch = projectionEpoch;
+        var partEpoch = partsEpoch;
+        try
+        {
+            ResetInvalidatedCache();
+            if (cachedParts is null || loadedPartsEpoch != partEpoch)
+            {
             var parts = new List<Part>(); Guid? partAfter = null;
             do {
                 var response = await engine.QueryAsync(Query.ForPartList(new ListParts { Term = "", After = partAfter, Limit = 100 }), cancellationToken);
                 var page = response.Outcome.Status == CommandOutcomeStatus.Succeeded ? response.Outcome.Payload.AsParts() : null;
-                if (page is null) return FurnitureResult<FurnitureSnapshot>.Failed(MapFailure(response.Outcome.Payload.Code));
+                if (page is null) return FurnitureResult<FurnitureEditorSnapshot>.Failed(MapFailure(response.Outcome.Payload.Code));
                 parts.AddRange(page.Items.Select(p => p.Part)); partAfter = page.Next;
             } while (partAfter is not null);
             var partCategories = new List<PartCategory>(); Guid? pcAfter = null;
             do {
                 var response = await engine.QueryAsync(Query.ForPartCategoryList(new ListPartCategories { After = pcAfter, Limit = 100 }), cancellationToken);
                 var page = response.Outcome.Status == CommandOutcomeStatus.Succeeded ? response.Outcome.Payload.AsPartCategories() : null;
-                if (page is null) return FurnitureResult<FurnitureSnapshot>.Failed(MapFailure(response.Outcome.Payload.Code));
+                if (page is null) return FurnitureResult<FurnitureEditorSnapshot>.Failed(MapFailure(response.Outcome.Payload.Code));
                 partCategories.AddRange(page.Items); pcAfter = page.Next;
             } while (pcAfter is not null);
-            var compositions = new List<Part>();
-            foreach (var r in items.SelectMany(p => p.Parts).Select(p => p.Reference).DistinctBy(r => (r.PartId,r.Revision))) {
+            cachedParts = parts; cachedPartCategories = partCategories; loadedPartsEpoch = partEpoch;
+            foreach (var part in parts) compositions.TryAdd((part.Id, part.Revision), part);
+            }
+            foreach (var r in (definition?.Parts ?? []).Select(p => p.Reference).DistinctBy(r => (r.PartId,r.Revision))) {
+                if (compositions.ContainsKey((r.PartId, r.Revision))) continue;
                 var response = await engine.QueryAsync(Query.ForPartCompositionGet(new GetPartComposition { Reference = r }), cancellationToken);
                 var part = response.Outcome.Status == CommandOutcomeStatus.Succeeded ? response.Outcome.Payload.AsPartComposition() : null;
-                if (part is null) return FurnitureResult<FurnitureSnapshot>.Failed(MapFailure(response.Outcome.Payload.Code));
-                compositions.Add(part);
+                if (part is null) return FurnitureResult<FurnitureEditorSnapshot>.Failed(MapFailure(response.Outcome.Payload.Code));
+                compositions[(r.PartId, r.Revision)] = part;
             }
-            return FurnitureResult<FurnitureSnapshot>.Success(new FurnitureSnapshot(categories, items, canManage, canReadCosts, parts, partCategories, compositions));
+            if (epoch != projectionEpoch || disposed) return FurnitureResult<FurnitureEditorSnapshot>.Failed(FurnitureFailureKind.Unavailable);
+            return FurnitureResult<FurnitureEditorSnapshot>.Success(new FurnitureEditorSnapshot(cachedParts!, cachedPartCategories, compositions.Values.ToArray()));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
-        catch (EngineIpcException error) { return FurnitureResult<FurnitureSnapshot>.Failed(MapFailure(error.ContractError?.Code)); }
+        catch (EngineIpcException error) { return FurnitureResult<FurnitureEditorSnapshot>.Failed(MapFailure(error.ContractError?.Code)); }
         catch (Exception error) when (error is IOException or InvalidOperationException or ObjectDisposedException)
-        { return FurnitureResult<FurnitureSnapshot>.Failed(FurnitureFailureKind.Unavailable); }
+        { return FurnitureResult<FurnitureEditorSnapshot>.Failed(FurnitureFailureKind.Unavailable); }
+        finally { loadGate.Release(); }
     }
 
+    /// <summary>Drops all cost-bearing references after authority invalidation, under the load gate.</summary>
+    private void ResetInvalidatedCache()
+    {
+        if (loadedProjectionEpoch == projectionEpoch) return;
+        cachedCategories = null; cachedParts = null; cachedPartCategories = []; compositions.Clear();
+        loadedProjectionEpoch = projectionEpoch;
+    }
+
+    /// <summary>Queries Rust for matching Part choices without reloading Furniture or its categories.</summary>
     public async Task<FurnitureResult<IReadOnlyList<Part>>> SearchPartsAsync(string term, CancellationToken cancellationToken = default)
     {
         try {
@@ -120,6 +173,7 @@ public sealed class FurnitureClient(IEngineShellBridge engine) : IAsyncDisposabl
         catch (Exception error) when (error is IOException or InvalidOperationException or ObjectDisposedException) { return FurnitureResult<IReadOnlyList<Part>>.Failed(FurnitureFailureKind.Unavailable); }
     }
 
+    /// <summary>Requests Rust cost and validation results for staged editor fields.</summary>
     public async Task<FurnitureResult<FurnitureReview>> ReviewAsync(SaveFurniture input, CancellationToken cancellationToken = default)
     {
         try {
@@ -195,7 +249,7 @@ public sealed class FurnitureClient(IEngineShellBridge engine) : IAsyncDisposabl
         var restored = !connectedAndReady;
         connectedAndReady = true;
         if (snapshot.Generation != generation) _ = RefreshSubscriptionAsync();
-        else if (restored) SignalChanged();
+        else if (restored) { SignalPartsChanged(); SignalChanged(); }
     }
 
     /// <summary>Serializes subscription replacement and starts an acknowledged event pump for the current generation.</summary>
@@ -207,6 +261,7 @@ public sealed class FurnitureClient(IEngineShellBridge engine) : IAsyncDisposabl
         {
             if (!active || disposed || generation == engine.Snapshot.Generation && subscription is not null) return;
             await DropSubscriptionAsync();
+            Interlocked.Increment(ref partsEpoch);
             var current = await engine.SubscribeAsync(Subscription.ForFurnitureChangedSubscribe(new FurnitureChanges()));
             subscription = current;
             partSubscription = await engine.SubscribeAsync(Subscription.ForPartChangedSubscribe(new PartChanges()));
@@ -214,7 +269,7 @@ public sealed class FurnitureClient(IEngineShellBridge engine) : IAsyncDisposabl
             pumpCancellation = new CancellationTokenSource();
             current.ResyncRequired += SignalChanged;
             _ = PumpAsync(current, pumpCancellation.Token);
-            partSubscription.ResyncRequired += SignalChanged;
+            partSubscription.ResyncRequired += SignalPartsChanged;
             _ = PumpAsync(partSubscription, pumpCancellation.Token);
             SignalChanged();
         }
@@ -230,7 +285,8 @@ public sealed class FurnitureClient(IEngineShellBridge engine) : IAsyncDisposabl
             await foreach (var delivered in current.ReadAllAsync(cancellationToken))
             {
                 var decoded = EngineContractCodec.DecodeEvent(delivered);
-                if (decoded.AsFurnitureChangedEvent() is not null || decoded.AsPartChangedEvent() is not null) SignalChanged();
+                if (decoded.AsFurnitureChangedEvent() is not null) SignalChanged();
+                if (decoded.AsPartChangedEvent() is not null) SignalPartsChanged();
                 current.Acknowledge(delivered);
             }
         }
@@ -258,6 +314,7 @@ public sealed class FurnitureClient(IEngineShellBridge engine) : IAsyncDisposabl
     /// <summary>Discards cost-bearing retry payloads and clears the UI before requesting a fresh projection.</summary>
     private void InvalidateProjection()
     {
+        Interlocked.Increment(ref projectionEpoch);
         furnitureRetry.Payload = null;
         categoryRetry.Payload = null;
         furnitureRetry = new SaveRetry();
@@ -279,6 +336,14 @@ public sealed class FurnitureClient(IEngineShellBridge engine) : IAsyncDisposabl
         else uiContext.Post(_ => Changed?.Invoke(this, EventArgs.Empty), null);
     }
 
+    /// <summary>Invalidates mutable picker data while preserving immutable composition snapshots.</summary>
+    private void SignalPartsChanged()
+    {
+        Interlocked.Increment(ref partsEpoch);
+        if (uiContext is null) PartsChanged?.Invoke(this, EventArgs.Empty);
+        else uiContext.Post(_ => PartsChanged?.Invoke(this, EventArgs.Empty), null);
+    }
+
     /// <summary>Cancels the event pump and releases the subscription before resetting its generation.</summary>
     private async Task DropSubscriptionAsync()
     {
@@ -297,6 +362,9 @@ public sealed class FurnitureClient(IEngineShellBridge engine) : IAsyncDisposabl
         await gate.WaitAsync();
         try { await DropSubscriptionAsync(); }
         finally { gate.Release(); }
+        await loadGate.WaitAsync();
+        try { cachedCategories = null; cachedParts = null; cachedPartCategories = []; compositions.Clear(); }
+        finally { loadGate.Release(); }
     }
 
     /// <summary>Maps typed failure categories to Arabic recovery text without displaying transport diagnostics.</summary>

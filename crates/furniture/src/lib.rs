@@ -639,6 +639,7 @@ fn validate_dimensions(
         Err(FurnitureError::Invalid)
     }
 }
+/// Checks each dimension against its inclusive permitted bounds.
 fn within(
     d: &eitmad_contracts::furniture::FurnitureDimensions,
     min: &eitmad_contracts::furniture::FurnitureDimensions,

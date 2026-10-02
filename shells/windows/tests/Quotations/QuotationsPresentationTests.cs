@@ -5,6 +5,7 @@ namespace Eitmad.WindowsShell.Tests.Quotations;
 [TestClass]
 public sealed class QuotationsPresentationTests
 {
+    /// <summary>Verifies reception preview preserves source and approval boundary.</summary>
     [TestMethod]
     public void ReceptionPreviewPreservesSourceAndApprovalBoundary()
     {

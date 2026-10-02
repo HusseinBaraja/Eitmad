@@ -117,6 +117,7 @@ impl Event {
         )
     }
 
+    /// Maps a typed event to its subscription route, including Furniture changes.
     #[must_use]
     pub const fn subscription_kind(&self) -> &'static str {
         match self {

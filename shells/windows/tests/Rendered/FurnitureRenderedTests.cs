@@ -13,6 +13,7 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 [TestClass]
 public sealed class FurnitureRenderedTests
 {
+    /// <summary>Verifies complete editor saves reopens and keeps conflict and retry fields.</summary>
     [TestMethod]
     [DataRow(1920, 1080)]
     [DataRow(1338, 753)]
@@ -32,6 +33,10 @@ public sealed class FurnitureRenderedTests
             Assert.IsTrue(view.ViewModel.CanManage); Assert.AreEqual("البحث عن أثاث", AutomationProperties.GetName(WpfTestHost.FindByName<TextBox>(view, "FurnitureSearchBox")));
             Click(view, "إضافة منتج"); var name = WpfTestHost.FindByName<TextBox>(view, "FurnitureNameBox"); Assert.IsTrue(name.IsKeyboardFocusWithin); name.Text = "خزانة اختبار";
             view.ViewModel.ShortDescription = "وصف محفوظ"; view.ViewModel.InternalNotes = "ملاحظة محفوظة";
+            view.ViewModel.EditorCategory = "فئة غير محفوظة";
+            Next(view); Assert.AreEqual(1, view.ViewModel.CurrentStep);
+            StringAssert.Contains(view.ViewModel.EditorError, "احفظ الفئة الجديدة");
+            view.ViewModel.EditorCategory = f.Category.Name;
             WpfTestHost.CompleteLayout(window);
             WpfTestHost.Capture(window, $"furniture-information-{width}x{height}"); Next(view); Assert.AreEqual(2, view.ViewModel.CurrentStep);
             Click(view, "إضافة جزء للأثاث"); Assert.IsTrue(WpfTestHost.FindByName<TextBox>(view, "PartSearchBox").IsKeyboardFocusWithin); Click(view, "اختيار الجزء"); view.ViewModel.SelectedParts[0].Quantity = 2;
@@ -72,6 +77,7 @@ public sealed class FurnitureRenderedTests
             }
         }, engine: engine);
     }
+    /// <summary>Verifies variant customization dialog renders native accessible bounds and choices.</summary>
     [TestMethod]
     public void VariantCustomizationDialogRendersNativeAccessibleBoundsAndChoices()
     {
@@ -79,13 +85,17 @@ public sealed class FurnitureRenderedTests
         WpfTestHost.Run(1338, 753, window =>
         {
             WpfTestHost.FindByName<Button>(window, "FurnitureNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); WpfTestHost.CompleteLayout(window);
-            var view = WpfTestHost.Descendants<FurnitureView>(window).Single(); view.ViewModel.BeginEdit(view.ViewModel.VisibleFurniture.Single()); view.ViewModel.BeginEditVariant(view.ViewModel.Variants.Single()); WpfTestHost.CompleteLayout(window);
+            var view = WpfTestHost.Descendants<FurnitureView>(window).Single();
+            var prepared = view.PrepareEditorAsync(view.ViewModel.VisibleFurniture.Single()); WpfTestHost.CompleteLayout(window); Assert.IsTrue(prepared.GetAwaiter().GetResult());
+            view.ViewModel.BeginEdit(view.ViewModel.VisibleFurniture.Single()); view.ViewModel.BeginEditVariant(view.ViewModel.Variants.Single()); WpfTestHost.CompleteLayout(window);
             var checkbox = WpfTestHost.FindByAutomationName<CheckBox>(view, "السماح بتخصيص المقاس"); checkbox.IsChecked = true; WpfTestHost.CompleteLayout(window);
             var minimum = WpfTestHost.FindByAutomationName<TextBox>(view, "أقل عرض"); Assert.IsTrue(minimum.IsVisible); Assert.IsTrue(minimum.Focus()); minimum.Text = "100";
             WpfTestHost.FindByAutomationName<TextBox>(view, "أكبر عرض").Text = "160"; Click(view, "حفظ المقاس");
             var input = view.ViewModel.SaveInput(FurnitureState.Draft); Assert.AreEqual(1000L, input.Variants[0].Customization.Minimum.WidthMm); Assert.AreEqual(1600L, input.Variants[0].Customization.Maximum.WidthMm);
         }, engine: engine);
     }
+    /// <summary>Invokes an accessible Furniture action and pumps native layout work.</summary>
     private static void Click(FurnitureView view, string name) { WpfTestHost.FindByAutomationName<Button>(view, name).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); WpfTestHost.CompleteLayout(view); }
+    /// <summary>Invokes wizard navigation and pumps pending native layout work.</summary>
     private static void Next(FurnitureView view) { WpfTestHost.FindByName<Button>(view, "NextButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); WpfTestHost.CompleteLayout(view); }
 }

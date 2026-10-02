@@ -245,6 +245,7 @@ public sealed class CustomerClientTests
         Assert.AreEqual(CustomerFailureKind.NotFound, missing.Failure);
     }
 
+    /// <summary>Verifies reopened quotation refresh does not report synthetic revision as customer change.</summary>
     [TestMethod]
     public async Task ReopenedQuotationRefreshDoesNotReportSyntheticRevisionAsCustomerChange()
     {
@@ -276,6 +277,7 @@ public sealed class CustomerClientTests
         Assert.AreEqual(notice, model.QuotationNotice);
     }
 
+    /// <summary>Verifies new customer save rejects invalid phone and duplicate submission.</summary>
     [TestMethod]
     public async Task NewCustomerSaveRejectsInvalidPhoneAndDuplicateSubmission()
     {
@@ -301,6 +303,7 @@ public sealed class CustomerClientTests
         Assert.IsFalse(model.IsCustomerSaveBusy);
     }
 
+    /// <summary>Verifies later customer search discards an obsolete response.</summary>
     [TestMethod]
     public async Task LaterCustomerSearchDiscardsAnObsoleteResponse()
     {

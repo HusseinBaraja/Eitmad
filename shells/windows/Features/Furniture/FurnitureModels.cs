@@ -96,6 +96,7 @@ public sealed class FurniturePartUsage : ObservableObject
     }
 
     public decimal TotalCost { get; private set; }
+    /// <summary>Displays a row cost supplied by Rust and updates bound labels.</summary>
     public void ApplyRowCost(decimal value) { TotalCost = value; Raise(nameof(TotalCost)); Raise(nameof(TotalCostLabel)); }
 
     public string UnitCostLabel => Part.UnitCost.ToString("N0", CultureInfo.InvariantCulture);
@@ -114,6 +115,7 @@ public sealed class FurnitureVariant : ObservableObject
     public Guid[] ColorIds { get; set; } = [];
     public Guid[] HandleIds { get; set; } = [];
     public bool IsArchived { get; set; }
+    /// <summary>Displays Rust cost and margin results without calculating domain values.</summary>
     public void ApplyReview(decimal cost, decimal margin) { CalculatedCost=cost; reviewedMargin=margin; Raise(nameof(CalculatedCostLabel)); Raise(nameof(MarginLabel)); Raise(nameof(HasNegativeMargin)); Raise(nameof(MarginCaption)); }
 
     public FurnitureVariant(
@@ -196,6 +198,7 @@ public sealed class FurnitureVariant : ObservableObject
 
     public string MarginCaption => HasNegativeMargin ? "خسارة متوقعة" : "هامش الربح";
 
+    /// <summary>Copies unsaved presentation values without committing a record.</summary>
     public FurnitureVariant Copy(string name) =>
         new(Guid.NewGuid(), name, Width, Height, Depth, CalculatedCost, SellingPrice) { Customization=Customization,ColorIds=ColorIds.ToArray(),HandleIds=HandleIds.ToArray() };
 
@@ -251,6 +254,7 @@ public sealed class FurnitureColorOption : ObservableObject
 
     public string ToggleActionLabel => IsActive ? "تعطيل" : "تفعيل";
 
+    /// <summary>Copies unsaved presentation values without committing a record.</summary>
     public FurnitureColorOption Copy() => new(Id, Name, SwatchHex, PriceAdjustment, IsActive);
 }
 
@@ -315,5 +319,6 @@ public sealed class FurnitureHandleOption : ObservableObject
 
     public string ToggleActionLabel => IsActive ? "تعطيل" : "تفعيل";
 
+    /// <summary>Copies unsaved presentation values without committing a record.</summary>
     public FurnitureHandleOption Copy() => new(Id, Name, HandleKind, PriceAdjustment, IsActive);
 }

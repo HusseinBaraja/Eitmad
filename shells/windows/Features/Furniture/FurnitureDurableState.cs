@@ -16,6 +16,8 @@ public sealed class FurnitureOptionChoice(Guid id, string name, bool selected) :
 
 public sealed partial class FurnitureViewModel
 {
+    internal const string UnsavedCategoryMessage = "احفظ الفئة الجديدة أو اختر فئة موجودة قبل المتابعة.";
+    internal sealed class UnsavedCategoryException : Exception;
     private readonly Dictionary<Guid, Definition> records = [];
     private FurnitureCategory[] categories = [];
     private IReadOnlyList<PartCategory> partCategories = [];
@@ -48,12 +50,15 @@ public sealed partial class FurnitureViewModel
     public event EventHandler? PartSearchChanged;
     public event EventHandler? ReviewRequested;
 
+    /// <summary>Replaces the scoped list projection while preserving unsaved editor fields and the opened revision.</summary>
     public void ApplyDurableData(FurnitureSnapshot snapshot)
     {
         IsLoading=false; DataStateText=""; CanManage = snapshot.CanManage;
         categories = snapshot.Categories.Items; partCategories = snapshot.PartCategories;
+        var stagedCategory = EditorCategory;
         EditorCategoryOptions.Clear(); CategoryOptions.Clear(); CategoryOptions.Add(AllCategories);
         foreach (var c in categories.Where(c => !c.Archived)) { EditorCategoryOptions.Add(c.Name); CategoryOptions.Add(c.Name); }
+        if (IsEditorOpen) EditorCategory = stagedCategory;
         records.Clear(); furniture.Clear(); partUsages.Clear(); productVariants.Clear(); productColors.Clear(); productHandles.Clear();
         productDescriptions.Clear(); productNotes.Clear(); availableParts.Clear(); compositions.Clear();
         foreach (var part in snapshot.Parts.Concat(snapshot.Compositions)) compositions[(part.Id, part.Revision)] = part;
@@ -64,7 +69,8 @@ public sealed partial class FurnitureViewModel
         {
             records[p.Id] = p;
             furniture.Add(new(p.Id, p.Name, p.CategoryName, p.Variants.Count(v => !v.Archived), p.Variants.Where(v => !v.Archived).Select(v => (decimal)v.SellingPriceYer).DefaultIfEmpty().Min(), "Wardrobe", p.State == FurnitureState.Archived, p.State == FurnitureState.Draft));
-            partUsages[p.Id] = p.Parts.Select(u => new FurniturePartUsage(Option(compositions[(u.Reference.PartId, u.Reference.Revision)]), u.Quantity)).ToList();
+            if (p.Parts.All(u => compositions.ContainsKey((u.Reference.PartId, u.Reference.Revision))))
+                partUsages[p.Id] = p.Parts.Select(u => new FurniturePartUsage(Option(compositions[(u.Reference.PartId, u.Reference.Revision)]), u.Quantity)).ToList();
             productVariants[p.Id] = p.Variants.Where(v => !v.Archived).Select(v => new FurnitureVariant(v.Id, v.Name, v.Dimensions.WidthMm / 10m, v.Dimensions.HeightMm / 10m, v.Dimensions.DepthMm / 10m, p.PartsCostYer, v.SellingPriceYer) { Customization = v.Customization, ColorIds = v.ColorIds, HandleIds = v.HandleIds }).ToList();
             productColors[p.Id] = p.Colors.Select(c => new FurnitureColorOption(c.Id, c.Name, c.Visual, c.PriceAdjustmentYer, !c.Archived)).ToList();
             productHandles[p.Id] = p.Handles.Select(h => new FurnitureHandleOption(h.Id, h.Name, h.Visual, h.PriceAdjustmentYer, !h.Archived)).ToList();
@@ -73,41 +79,68 @@ public sealed partial class FurnitureViewModel
         RefreshVisibleFurniture(); RefreshPartOptions();
     }
 
+    /// <summary>Returns the authority record whose references must resolve before opening an editor.</summary>
+    internal Definition? RecordFor(FurnitureListItem? item) => item is null ? null : records.GetValueOrDefault(item.Id);
+
+    /// <summary>Updates picker data and saved usages without changing unsaved editor fields or revisions.</summary>
+    public void ApplyEditorReferences(FurnitureEditorSnapshot snapshot)
+    {
+        partCategories = snapshot.Categories;
+        foreach (var part in snapshot.Compositions) compositions[(part.Id, part.Revision)] = part;
+        foreach (var record in records.Values.Where(p => p.Parts.All(u => compositions.ContainsKey((u.Reference.PartId, u.Reference.Revision)))))
+            partUsages[record.Id] = record.Parts.Select(u => {
+                var part = compositions[(u.Reference.PartId, u.Reference.Revision)];
+                return new FurniturePartUsage(new FurniturePartOption(part.Id, part.Name, partCategories.FirstOrDefault(c => c.Id == part.CategoryId)?.Name ?? "", part.Cost.TotalCostYer) { Reference = part.Composition }, u.Quantity);
+            }).ToList();
+        ApplyPartChoices(snapshot.Parts);
+    }
+
+    /// <summary>Replaces picker choices using Rust search results and projected category names.</summary>
     public void ApplyPartChoices(IReadOnlyList<Part> parts)
     {
         availableParts.Clear();
         availableParts.AddRange(parts.Where(p => !p.Archived).Select(p => new FurniturePartOption(p.Id,p.Name,partCategories.FirstOrDefault(c => c.Id==p.CategoryId)?.Name ?? "",p.Cost.TotalCostYer) { Reference=p.Composition }));
         RefreshPartOptions();
     }
+    /// <summary>Removes restricted records, costs, retry input, and editor fields when authority ends.</summary>
     public void ClearSession()
     {
         IsLoading=false; DataStateText=""; FixtureSalesCatalog=false; CanManage = false; IsBusy = false; pendingSave = null; editingRecord = null; editingFurniture = null;
-        records.Clear(); furniture.Clear(); compositions.Clear(); categories = [];
+        records.Clear(); furniture.Clear(); compositions.Clear(); categories = []; partCategories = [];
         partUsages.Clear(); productVariants.Clear(); productColors.Clear(); productHandles.Clear(); productDescriptions.Clear(); productNotes.Clear(); productImages.Clear(); availableParts.Clear();
         EditorCategoryOptions.Clear(); CategoryOptions.Clear(); CategoryOptions.Add(AllCategories);
         SelectedParts.Clear(); Variants.Clear(); Colors.Clear(); Handles.Clear(); FilteredParts.Clear(); VisibleFurniture.Clear();
         EditorName = ""; ShortDescription = ""; InternalNotes = ""; ProductImage = null; ProductImageName = ""; EditorCategory = "";
         CancelEditor(); reviewedCost = 0; RefreshPartsState(); RefreshVisibleFurniture();
     }
+    /// <summary>Shows an editor recovery message without changing staged input.</summary>
     public void Fail(string text) => EditorError = text;
+    /// <summary>Disables management when authoritative Furniture data cannot be loaded.</summary>
     public void Unavailable(string text) { IsLoading=false; CanManage = false; DataStateText=text; FeedbackMessage = text; }
+    /// <summary>Closes the editor only after a confirmed save and shows local persistence feedback.</summary>
     public void Saved(bool draft)
     {
         pendingSave = null; CancelEditor();
         FeedbackMessage = draft ? "حُفظت مسودة الأثاث محلياً." : "حُفظ تعريف الأثاث محلياً.";
         Raise(nameof(CanEditFields));
     }
+    /// <summary>Freezes the original request while its save outcome remains unknown.</summary>
     public void SaveUnconfirmed(SaveFurniture input) { pendingSave = input; Raise(nameof(CanEditFields)); }
+    /// <summary>Releases frozen input after the authority returns a definite save outcome.</summary>
     public void SaveResolved() { pendingSave = null; Raise(nameof(CanEditFields)); }
 
     // These conversions preserve exact input. Rust determines domain validity.
+    /// <summary>Converts integer money exactly and rejects fractional or overflowing input.</summary>
     internal static long WholeMoney(decimal value) => value == decimal.Truncate(value) ? checked((long)value) : throw new FormatException();
+    /// <summary>Converts centimetres exactly and rejects unsupported precision or overflow.</summary>
     internal static uint ToMillimetres(decimal cm) => cm * 10m == decimal.Truncate(cm * 10m) ? checked((uint)(cm * 10m)) : throw new FormatException();
+    /// <summary>Creates the Rust dimension DTO from exact presentation values.</summary>
     internal static FurnitureDimensions Dimensions(decimal w, decimal h, decimal d) => new() { WidthMm = ToMillimetres(w), HeightMm = ToMillimetres(h), DepthMm = ToMillimetres(d) };
+    /// <summary>Builds a typed save or returns frozen retry input; reports an unsaved category separately.</summary>
     public SaveFurniture SaveInput(FurnitureState state)
     {
         if (pendingSave is not null) return pendingSave;
-        var category = categories.FirstOrDefault(c => c.Name == EditorCategory) ?? throw new FormatException();
+        var category = categories.FirstOrDefault(c => c.Name == EditorCategory.Trim()) ?? throw new UnsavedCategoryException();
         return new SaveFurniture
         {
             Id = editingRecord?.Id, ExpectedRevision = editingExpectedRevision,
@@ -119,12 +152,14 @@ public sealed partial class FurnitureViewModel
             Handles = Handles.Select(h => new FurnitureOption { Id = h.Id, Name = h.Name, Visual = h.HandleKind, PriceAdjustmentYer = WholeMoney(h.PriceAdjustment), Archived = !h.IsActive }).ToArray(),
         };
     }
+    /// <summary>Stages the saved definition for an audited archive revision.</summary>
     public SaveFurniture ArchiveInput(FurnitureListItem item)
     {
         BeginEdit(item);
         var input = SaveInput(FurnitureState.Archived);
         return input;
     }
+    /// <summary>Displays Rust cost and margin results without calculating domain values.</summary>
     public void ApplyReview(FurnitureReview review)
     {
         reviewedCost = review.PartsCostYer;
@@ -132,6 +167,7 @@ public sealed partial class FurnitureViewModel
         for (var i = 0; i < Variants.Count && i < review.MarginsYer.Length; i++) Variants[i].ApplyReview(review.PartsCostYer, review.MarginsYer[i]);
         RefreshPartsState();
     }
+    /// <summary>Stages permitted bounds and named options for a variant dialog.</summary>
     private void PrepareVariantChoices(FurnitureVariant? v)
     {
         AllowCustomization = v?.Customization is not null;

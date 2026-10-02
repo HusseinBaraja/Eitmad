@@ -1028,6 +1028,7 @@ fn product_error(value: ProductError, context: &DispatchContext) -> ContractErro
     contract_error(code, message, context.correlation_id, retry, detail)
 }
 
+/// Maps Furniture failures to stable contract errors without exposing stored values.
 fn furniture_error(value: FurnitureError, context: &DispatchContext) -> ContractError {
     let (code, message, retry, detail) = match value {
         FurnitureError::Denied => (
@@ -1290,6 +1291,7 @@ fn require_protocol_1_12(context: &DispatchContext) -> Result<(), Box<ContractEr
         .then_some(())
         .ok_or_else(|| Box::new(unsupported(context)))
 }
+/// Rejects Furniture requests unless the session negotiated protocol minor 13.
 fn require_protocol_1_13(context: &DispatchContext) -> Result<(), Box<ContractError>> {
     (context.protocol_version.major == 1 && context.protocol_version.minor >= 13)
         .then_some(())

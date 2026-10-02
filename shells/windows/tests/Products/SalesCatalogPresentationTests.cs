@@ -139,6 +139,7 @@ public sealed class SalesCatalogPresentationTests
         var model=new SalesCatalogViewModel(Eitmad.WindowsShell.Tests.Furniture.FurnitureFixtures.SalesModel(),products);
         Assert.IsFalse(model.VisibleItems.Any(item=>item.Name=="مرتبة طبية"));
     }
+    /// <summary>Verifies furniture selection uses only active options and keeps quotation snapshots.</summary>
     [TestMethod]
     public void FurnitureSelectionUsesOnlyActiveOptionsAndKeepsQuotationSnapshots()
     {
@@ -173,6 +174,7 @@ public sealed class SalesCatalogPresentationTests
         Assert.HasCount(1, model.QuotationLines);
     }
 
+    /// <summary>Verifies unavailable sizes and overflow cannot be added.</summary>
     [TestMethod]
     public void UnavailableSizesAndOverflowCannotBeAdded()
     {

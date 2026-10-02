@@ -67,6 +67,7 @@ public sealed partial class FurnitureViewModel : ObservableObject
     private string handleName = string.Empty;
     private decimal handlePriceAdjustment;
 
+    /// <summary>Creates empty list and editor projections and wires advisory review requests.</summary>
     public FurnitureViewModel()
     {
         furniture = [];
@@ -90,6 +91,7 @@ public sealed partial class FurnitureViewModel : ObservableObject
 
     internal bool FixtureSalesCatalog { get; set; }
 
+    /// <summary>Exposes explicit synthetic sales fixtures; private live definitions remain excluded.</summary>
     public IEnumerable<Reception.SalesCatalogItem> GetSalesCatalogItems() =>
         furniture.Where(item => FixtureSalesCatalog).Where(item => !item.IsArchived && !item.IsDraft).Select(item => new Reception.SalesCatalogItem(
             item.Id, item.Name, item.Category, productDescriptions.GetValueOrDefault(item.Id, "تصميم أثاث ثابت المقاسات للاستخدام اليومي."),
@@ -360,6 +362,7 @@ public sealed partial class FurnitureViewModel : ObservableObject
 
     public string VisibleCountLabel => $"{VisibleFurniture.Count} من {furniture.Count} منتجات";
 
+    /// <summary>Starts unsaved input only when management is allowed and no save outcome is pending.</summary>
     public void BeginCreate()
     {
         if (!CanManage || IsBusy || pendingSave is not null) return;
@@ -380,6 +383,7 @@ public sealed partial class FurnitureViewModel : ObservableObject
         ResetEditorState();
     }
 
+    /// <summary>Stages a saved definition with its original revision and immutable Part references.</summary>
     public void BeginEdit(FurnitureListItem item)
     {
         ArgumentNullException.ThrowIfNull(item);
@@ -403,6 +407,7 @@ public sealed partial class FurnitureViewModel : ObservableObject
         ResetEditorState();
     }
 
+    /// <summary>Closes unsaved input unless an unresolved save must first be retried.</summary>
     public void CancelEditor()
     {
         if (pendingSave is not null) { EditorError = "أعد محاولة الحفظ لحسم النتيجة أولاً."; return; }
@@ -422,6 +427,7 @@ public sealed partial class FurnitureViewModel : ObservableObject
         EditorError = string.Empty;
     }
 
+    /// <summary>Requires a name and saved category before advancing to composition input.</summary>
     public bool MoveToParts()
     {
         if (EditorName.Trim().Length == 0)
@@ -436,11 +442,18 @@ public sealed partial class FurnitureViewModel : ObservableObject
             return false;
         }
 
+        if (!categories.Any(c => c.Name == EditorCategory.Trim()))
+        {
+            EditorError = UnsavedCategoryMessage;
+            return false;
+        }
+
         EditorError = string.Empty;
         CurrentStep = 2;
         return true;
     }
 
+    /// <summary>Requires selected Parts with positive quantities before advancing.</summary>
     public bool MoveToVariants()
     {
         if (SelectedParts.Count == 0)
@@ -495,6 +508,7 @@ public sealed partial class FurnitureViewModel : ObservableObject
         return true;
     }
 
+    /// <summary>Opens the final summary after the view completes authoritative review.</summary>
     public bool MoveToReview()
     {
         ClearFeedback();
@@ -515,6 +529,7 @@ public sealed partial class FurnitureViewModel : ObservableObject
 
     public void ClosePartPicker() => IsPartPickerOpen = false;
 
+    /// <summary>Adds a picker reference to staged composition and requests Rust costing.</summary>
     public void AddPart(FurniturePartOption part)
     {
         ArgumentNullException.ThrowIfNull(part);
@@ -530,6 +545,7 @@ public sealed partial class FurnitureViewModel : ObservableObject
         EditorError = string.Empty;
     }
 
+    /// <summary>Removes staged Part usage and requests updated Rust costing.</summary>
     public void RemovePart(FurniturePartUsage usage)
     {
         ArgumentNullException.ThrowIfNull(usage);
@@ -540,6 +556,7 @@ public sealed partial class FurnitureViewModel : ObservableObject
         RefreshPartOptions();
     }
 
+    /// <summary>Opens an unsaved fixed-size dialog with option choices.</summary>
     public void BeginAddVariant()
     {
         editingVariant = null;
@@ -553,6 +570,7 @@ public sealed partial class FurnitureViewModel : ObservableObject
         IsVariantEditorOpen = true;
     }
 
+    /// <summary>Stages a variant and its permitted bounds and option identities.</summary>
     public void BeginEditVariant(FurnitureVariant variant)
     {
         ArgumentNullException.ThrowIfNull(variant);
@@ -567,6 +585,7 @@ public sealed partial class FurnitureViewModel : ObservableObject
         IsVariantEditorOpen = true;
     }
 
+    /// <summary>Stages exact dimensions, permitted bounds, and compatible options without committing.</summary>
     public bool SaveVariant()
     {
         if (VariantName.Trim().Length == 0)
@@ -620,6 +639,7 @@ public sealed partial class FurnitureViewModel : ObservableObject
         EditorError = string.Empty;
     }
 
+    /// <summary>Creates an unsaved variant copy with a new identity.</summary>
     public void DuplicateVariant(FurnitureVariant variant)
     {
         ArgumentNullException.ThrowIfNull(variant);
@@ -644,6 +664,7 @@ public sealed partial class FurnitureViewModel : ObservableObject
         IsColorEditorOpen = true;
     }
 
+    /// <summary>Stages a named color and integer price adjustment in the editor.</summary>
     public bool SaveColor()
     {
         if (ColorName.Trim().Length == 0)
@@ -686,6 +707,7 @@ public sealed partial class FurnitureViewModel : ObservableObject
         IsHandleEditorOpen = true;
     }
 
+    /// <summary>Stages a named handle and integer price adjustment in the editor.</summary>
     public bool SaveHandle()
     {
         if (HandleName.Trim().Length == 0)
@@ -721,6 +743,7 @@ public sealed partial class FurnitureViewModel : ObservableObject
         handle.IsActive = !handle.IsActive;
     }
 
+    /// <summary>Creates unsaved input with new Furniture, variant, and option identities.</summary>
     public void DuplicateFurniture(FurnitureListItem item)
     {
         if (!CanEditFields || !records.ContainsKey(item.Id)) return;
@@ -773,6 +796,7 @@ public sealed partial class FurnitureViewModel : ObservableObject
         RefreshPartsState();
     }
 
+    /// <summary>Requests authority costing when a staged quantity changes.</summary>
     private void SelectedPartChanged(object? sender, PropertyChangedEventArgs eventArgs)
     {
         if (eventArgs.PropertyName is nameof(FurniturePartUsage.Quantity) or nameof(FurniturePartUsage.TotalCost))
@@ -822,9 +846,11 @@ public sealed partial class FurnitureViewModel : ObservableObject
         Raise(nameof(HasHandles));
     }
 
+    /// <summary>Copies fixed dimensions and permitted options without changing the saved identity.</summary>
     private static FurnitureVariant CopyVariant(FurnitureVariant variant) =>
         new(variant.Id, variant.Name, variant.Width, variant.Height, variant.Depth, variant.CalculatedCost, variant.SellingPrice) { Customization = variant.Customization, ColorIds = variant.ColorIds.ToArray(), HandleIds = variant.HandleIds.ToArray(), IsArchived=variant.IsArchived };
 
+    /// <summary>Projects picker category filters and excludes already selected Parts.</summary>
     private void RefreshPartOptions()
     {
         var selectedIds = SelectedParts.Select(item => item.Part.Id).ToHashSet();
@@ -837,6 +863,7 @@ public sealed partial class FurnitureViewModel : ObservableObject
         Raise(nameof(HasNoPartOptions));
     }
 
+    /// <summary>Projects local status and category filters over the Rust search result.</summary>
     private void RefreshVisibleFurniture()
     {
         var matches = furniture.Where(item =>
