@@ -7,6 +7,23 @@ namespace Eitmad.WindowsShell.Tests.Furniture;
 [TestClass]
 public sealed class FurniturePresentationTests
 {
+    [TestMethod]
+    public void MissingPartRevisionKeepsEditAndDuplicateClosed()
+    {
+        var fixture = new FurnitureFixtures();
+        fixture.Seed();
+        var model = new FurnitureViewModel();
+        model.ApplyDurableData(fixture.Snapshot() with { Parts = [], Compositions = [] });
+        var row = model.VisibleFurniture.Single();
+
+        Assert.IsFalse(model.BeginEdit(row));
+        model.DuplicateFurniture(row);
+        Assert.IsFalse(model.IsEditorOpen);
+        Assert.AreNotEqual("", model.DataStateText);
+        Assert.HasCount(0, model.SelectedParts);
+        Assert.HasCount(1, model.VisibleFurniture);
+    }
+
     /// <summary>Protects list-only search, lazy picker loading, and reuse of historical compositions after Part resync.</summary>
     [TestMethod]
     public async Task SearchLoadsOnlyRowsAndEditorsReuseImmutableReferences()

@@ -59,25 +59,20 @@ public sealed partial class FurnitureViewModel
         EditorCategoryOptions.Clear(); CategoryOptions.Clear(); CategoryOptions.Add(AllCategories);
         foreach (var c in categories.Where(c => !c.Archived)) { EditorCategoryOptions.Add(c.Name); CategoryOptions.Add(c.Name); }
         if (IsEditorOpen) EditorCategory = stagedCategory;
-        records.Clear(); furniture.Clear(); partUsages.Clear(); productVariants.Clear(); productColors.Clear(); productHandles.Clear();
-        productDescriptions.Clear(); productNotes.Clear(); availableParts.Clear(); compositions.Clear();
+        records.Clear(); furniture.Clear(); availableParts.Clear(); compositions.Clear();
         foreach (var part in snapshot.Parts.Concat(snapshot.Compositions)) compositions[(part.Id, part.Revision)] = part;
-        string Category(Part part) => snapshot.PartCategories.FirstOrDefault(c => c.Id == part.CategoryId)?.Name ?? "";
-        FurniturePartOption Option(Part p) => new(p.Id, p.Name, Category(p), p.Cost.TotalCostYer) { Reference = p.Composition };
-        availableParts.AddRange(snapshot.Parts.Where(p => !p.Archived).Select(Option));
+        availableParts.AddRange(snapshot.Parts.Where(p => !p.Archived).Select(PartOption));
         foreach (var p in snapshot.Furniture)
         {
             records[p.Id] = p;
             furniture.Add(new(p.Id, p.Name, p.CategoryName, p.Variants.Count(v => !v.Archived), p.Variants.Where(v => !v.Archived).Select(v => (decimal)v.SellingPriceYer).DefaultIfEmpty().Min(), "Wardrobe", p.State == FurnitureState.Archived, p.State == FurnitureState.Draft));
-            if (p.Parts.All(u => compositions.ContainsKey((u.Reference.PartId, u.Reference.Revision))))
-                partUsages[p.Id] = p.Parts.Select(u => new FurniturePartUsage(Option(compositions[(u.Reference.PartId, u.Reference.Revision)]), u.Quantity)).ToList();
-            productVariants[p.Id] = p.Variants.Where(v => !v.Archived).Select(v => new FurnitureVariant(v.Id, v.Name, v.Dimensions.WidthMm / 10m, v.Dimensions.HeightMm / 10m, v.Dimensions.DepthMm / 10m, p.PartsCostYer, v.SellingPriceYer) { Customization = v.Customization, ColorIds = v.ColorIds, HandleIds = v.HandleIds }).ToList();
-            productColors[p.Id] = p.Colors.Select(c => new FurnitureColorOption(c.Id, c.Name, c.Visual, c.PriceAdjustmentYer, !c.Archived)).ToList();
-            productHandles[p.Id] = p.Handles.Select(h => new FurnitureHandleOption(h.Id, h.Name, h.Visual, h.PriceAdjustmentYer, !h.Archived)).ToList();
-            productDescriptions[p.Id] = p.Description; productNotes[p.Id] = p.Notes;
         }
         RefreshVisibleFurniture(); RefreshPartOptions();
     }
+
+    private FurniturePartOption PartOption(Part part) => new(part.Id, part.Name,
+        partCategories.FirstOrDefault(c => c.Id == part.CategoryId)?.Name ?? "", part.Cost.TotalCostYer)
+        { Reference = part.Composition };
 
     /// <summary>Returns the authority record whose references must resolve before opening an editor.</summary>
     internal Definition? RecordFor(FurnitureListItem? item) => item is null ? null : records.GetValueOrDefault(item.Id);
@@ -87,11 +82,6 @@ public sealed partial class FurnitureViewModel
     {
         partCategories = snapshot.Categories;
         foreach (var part in snapshot.Compositions) compositions[(part.Id, part.Revision)] = part;
-        foreach (var record in records.Values.Where(p => p.Parts.All(u => compositions.ContainsKey((u.Reference.PartId, u.Reference.Revision)))))
-            partUsages[record.Id] = record.Parts.Select(u => {
-                var part = compositions[(u.Reference.PartId, u.Reference.Revision)];
-                return new FurniturePartUsage(new FurniturePartOption(part.Id, part.Name, partCategories.FirstOrDefault(c => c.Id == part.CategoryId)?.Name ?? "", part.Cost.TotalCostYer) { Reference = part.Composition }, u.Quantity);
-            }).ToList();
         ApplyPartChoices(snapshot.Parts);
     }
 
@@ -99,7 +89,7 @@ public sealed partial class FurnitureViewModel
     public void ApplyPartChoices(IReadOnlyList<Part> parts)
     {
         availableParts.Clear();
-        availableParts.AddRange(parts.Where(p => !p.Archived).Select(p => new FurniturePartOption(p.Id,p.Name,partCategories.FirstOrDefault(c => c.Id==p.CategoryId)?.Name ?? "",p.Cost.TotalCostYer) { Reference=p.Composition }));
+        availableParts.AddRange(parts.Where(p => !p.Archived).Select(PartOption));
         RefreshPartOptions();
     }
     /// <summary>Removes restricted records, costs, retry input, and editor fields when authority ends.</summary>
@@ -107,7 +97,7 @@ public sealed partial class FurnitureViewModel
     {
         IsLoading=false; DataStateText=""; FixtureSalesCatalog=false; CanManage = false; IsBusy = false; pendingSave = null; editingRecord = null; editingFurniture = null;
         records.Clear(); furniture.Clear(); compositions.Clear(); categories = []; partCategories = [];
-        partUsages.Clear(); productVariants.Clear(); productColors.Clear(); productHandles.Clear(); productDescriptions.Clear(); productNotes.Clear(); productImages.Clear(); availableParts.Clear();
+        availableParts.Clear();
         EditorCategoryOptions.Clear(); CategoryOptions.Clear(); CategoryOptions.Add(AllCategories);
         SelectedParts.Clear(); Variants.Clear(); Colors.Clear(); Handles.Clear(); FilteredParts.Clear(); VisibleFurniture.Clear();
         EditorName = ""; ShortDescription = ""; InternalNotes = ""; ProductImage = null; ProductImageName = ""; EditorCategory = "";

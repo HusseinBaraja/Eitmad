@@ -237,7 +237,7 @@ public sealed class PartsViewModel : ObservableObject
         {
             var category = categories.GetValueOrDefault(p.CategoryId)?.Name ?? "—";
             if (SelectedCategory != AllCategories && category != SelectedCategory || SelectedStatus == ActiveStatus && p.Archived || SelectedStatus == ArchivedStatus && !p.Archived) continue;
-            VisibleParts.Add(new PartListItem(p.Id,p.Name,category,currentCosts[p.Id].TotalCostYer,0,p.Archived));
+            VisibleParts.Add(new PartListItem(p.Id,p.Name,category,currentCosts[p.Id].TotalCostYer,p.Archived));
         }
         Raise(nameof(HasNoVisibleParts)); Raise(nameof(VisibleCountLabel));
     }

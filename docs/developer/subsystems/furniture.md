@@ -37,6 +37,8 @@ The manager **الأثاث** list and its six-step editor save organization-scop
 
 Definitions use stable scoped UUIDs, separate Furniture category IDs, descriptions, internal notes, Parts, fixed variants, colors, handles, and `Draft`, `Active`, or `Archived` state. Active means a complete private manager definition. It does not mean a published catalog entry or a confirmed selling price. **حفظ كمسودة** and **حفظ التعريف** save local definitions; archive removes a definition from new definition selection. Catalog publication, published-price changes, quotation issuance, and server-confirmed catalog archive remain future capabilities. The Receptionist catalog does not receive these private definitions. Its remaining preview tests use explicit synthetic projections.
 
+The shell keeps Rust records for list loading and creates editable copies only when an editor opens. List rows are immutable display projections.
+
 Images remain optional presentation previews. The information step labels them as unsaved; image bytes and local paths are outside this contract. Other definition fields persist. Multi-device synchronization is not implemented by this local save or its outbox.
 
 ## Composition, dimensions, and option rules

@@ -17,8 +17,6 @@ public sealed partial class FurnitureViewModel : ObservableObject
 
     private readonly List<FurnitureListItem> furniture;
     private readonly List<FurniturePartOption> availableParts;
-    private readonly Dictionary<Guid, List<FurniturePartUsage>> partUsages = [];
-    private readonly Dictionary<Guid, List<FurnitureVariant>> productVariants = [];
     private readonly List<FurnitureColorOption> defaultColors =
     [
         new(Guid.NewGuid(), "أبيض", "#F7F4EF", 0m),
@@ -31,11 +29,6 @@ public sealed partial class FurnitureViewModel : ObservableObject
         new(Guid.NewGuid(), "معدن أسود", "BlackMetal", 3_000m),
         new(Guid.NewGuid(), "نحاسي", "Brass", 5_000m, isActive: false),
     ];
-    private readonly Dictionary<Guid, List<FurnitureColorOption>> productColors = [];
-    private readonly Dictionary<Guid, List<FurnitureHandleOption>> productHandles = [];
-    private readonly Dictionary<Guid, string> productDescriptions = [];
-    private readonly Dictionary<Guid, string> productNotes = [];
-    private readonly Dictionary<Guid, (ImageSource? Image, string FileName)> productImages = [];
     private FurnitureListItem? editingFurniture;
     private FurnitureVariant? editingVariant;
     private string searchText = string.Empty;
@@ -93,20 +86,23 @@ public sealed partial class FurnitureViewModel : ObservableObject
 
     /// <summary>Exposes explicit synthetic sales fixtures; private live definitions remain excluded.</summary>
     public IEnumerable<Reception.SalesCatalogItem> GetSalesCatalogItems() =>
-        furniture.Where(item => FixtureSalesCatalog).Where(item => !item.IsArchived && !item.IsDraft).Select(item => new Reception.SalesCatalogItem(
-            item.Id, item.Name, item.Category, productDescriptions.GetValueOrDefault(item.Id, "تصميم أثاث ثابت المقاسات للاستخدام اليومي."),
-            item.VariantCountLabel, productVariants.TryGetValue(item.Id, out var variants) && variants.Count > 0
-                ? variants.Min(variant => variant.SellingPrice) : item.SellingPrice, true, item.ThumbnailKind,
-            productImages.TryGetValue(item.Id, out var image) ? image.Image : null));
+        furniture.Where(item => FixtureSalesCatalog && !item.IsArchived && !item.IsDraft).Select(item =>
+            new Reception.SalesCatalogItem(item.Id, item.Name, item.Category, records[item.Id].Description,
+                item.VariantCountLabel, item.SellingPrice, true, item.ThumbnailKind, null));
 
     public Reception.FurnitureSelectionViewModel? GetSalesSelection(Guid id)
     {
         var item = GetSalesCatalogItems().FirstOrDefault(item => item.Id == id);
         if (item is null) return null;
+        var record = records[id];
         return new(item,
-            productVariants.GetValueOrDefault(id, []).Select(v => new Reception.SalesSize(v.Id, v.Name, v.DimensionsLabel, v.SellingPrice)).ToArray(),
-            productColors.GetValueOrDefault(id, []).Where(c => c.IsActive).Select(c => new Reception.SalesOption(c.Id, c.Name, c.PriceAdjustment, c.SwatchBrush)).ToArray(),
-            productHandles.GetValueOrDefault(id, []).Where(h => h.IsActive).Select(h => new Reception.SalesOption(h.Id, h.Name, h.PriceAdjustment, h.HandleBrush)).ToArray());
+            record.Variants.Where(v => !v.Archived).Select(v => new Reception.SalesSize(v.Id, v.Name,
+                new FurnitureVariant(v.Id, v.Name, v.Dimensions.WidthMm / 10m, v.Dimensions.HeightMm / 10m,
+                    v.Dimensions.DepthMm / 10m, 0, v.SellingPriceYer).DimensionsLabel, v.SellingPriceYer)).ToArray(),
+            record.Colors.Where(c => !c.Archived).Select(c => new Reception.SalesOption(c.Id, c.Name, c.PriceAdjustmentYer,
+                new FurnitureColorOption(c.Id, c.Name, c.Visual, c.PriceAdjustmentYer).SwatchBrush)).ToArray(),
+            record.Handles.Where(h => !h.Archived).Select(h => new Reception.SalesOption(h.Id, h.Name, h.PriceAdjustmentYer,
+                new FurnitureHandleOption(h.Id, h.Name, h.Visual, h.PriceAdjustmentYer).HandleBrush)).ToArray());
     }
 
     public ObservableCollection<string> EditorCategoryOptions { get; }
@@ -384,27 +380,39 @@ public sealed partial class FurnitureViewModel : ObservableObject
     }
 
     /// <summary>Stages a saved definition with its original revision and immutable Part references.</summary>
-    public void BeginEdit(FurnitureListItem item)
+    public bool BeginEdit(FurnitureListItem item)
     {
         ArgumentNullException.ThrowIfNull(item);
-        if (!CanEditFields) return;
-        editingRecord = records.GetValueOrDefault(item.Id); editingExpectedRevision=editingRecord?.Revision; pendingSave = null;
+        if (!CanEditFields) return false;
+        var record = records.GetValueOrDefault(item.Id);
+        if (record is null || record.Parts.Any(u => !compositions.ContainsKey((u.Reference.PartId, u.Reference.Revision))))
+        {
+            DataStateText = "السجل أو أجزاؤه غير متاحة. أعد تحميل القائمة.";
+            return false;
+        }
+        editingRecord = record; editingExpectedRevision=record.Revision; pendingSave = null;
         ConfirmBelowCost = false;
         editingFurniture = item;
         IsCreating = false;
-        if (editingRecord is null) { Fail("السجل غير متاح. أعد تحميل القائمة."); return; }
         EditorName = editingRecord.Name;
         EditorCategory = editingRecord.CategoryName;
-        ShortDescription = productDescriptions.GetValueOrDefault(item.Id, "تصميم أثاث ثابت المقاسات للاستخدام اليومي.");
-        InternalNotes = productNotes.GetValueOrDefault(item.Id, "");
-        var savedImage = productImages.GetValueOrDefault(item.Id);
-        ProductImage = savedImage.Image;
-        ProductImageName = savedImage.FileName ?? string.Empty;
-        ReplaceSelectedParts(partUsages.GetValueOrDefault(item.Id, []).Select(usage => usage.Copy()));
-        ReplaceVariants(productVariants.GetValueOrDefault(item.Id, []).Select(CopyVariant));
-        ReplaceColors(productColors.GetValueOrDefault(item.Id, defaultColors).Select(color => color.Copy()));
-        ReplaceHandles(productHandles.GetValueOrDefault(item.Id, defaultHandles).Select(handle => handle.Copy()));
+        ShortDescription = editingRecord.Description;
+        InternalNotes = editingRecord.Notes;
+        ProductImage = null;
+        ProductImageName = string.Empty;
+        ReplaceSelectedParts(editingRecord.Parts.Select(u =>
+        {
+            var part = compositions[(u.Reference.PartId, u.Reference.Revision)];
+            return new FurniturePartUsage(PartOption(part), u.Quantity);
+        }));
+        ReplaceVariants(editingRecord.Variants.Where(v => !v.Archived).Select(v =>
+            new FurnitureVariant(v.Id, v.Name, v.Dimensions.WidthMm / 10m, v.Dimensions.HeightMm / 10m,
+                v.Dimensions.DepthMm / 10m, editingRecord.PartsCostYer, v.SellingPriceYer)
+                { Customization = v.Customization, ColorIds = v.ColorIds.ToArray(), HandleIds = v.HandleIds.ToArray() }));
+        ReplaceColors(editingRecord.Colors.Select(c => new FurnitureColorOption(c.Id, c.Name, c.Visual, c.PriceAdjustmentYer, !c.Archived)));
+        ReplaceHandles(editingRecord.Handles.Select(h => new FurnitureHandleOption(h.Id, h.Name, h.Visual, h.PriceAdjustmentYer, !h.Archived)));
         ResetEditorState();
+        return true;
     }
 
     /// <summary>Closes unsaved input unless an unresolved save must first be retried.</summary>
@@ -751,7 +759,8 @@ public sealed partial class FurnitureViewModel : ObservableObject
     public void DuplicateFurniture(FurnitureListItem item)
     {
         if (!CanEditFields || !records.ContainsKey(item.Id)) return;
-        BeginEdit(item); editingRecord = null; editingExpectedRevision=null; editingFurniture = null; pendingSave = null;
+        if (!BeginEdit(item)) return;
+        editingRecord = null; editingExpectedRevision=null; editingFurniture = null; pendingSave = null;
         EditorName = $"{item.Name} — نسخة"; IsCreating = true;
         ReplaceVariants(Variants.Select(v => v.Copy(v.Name)).ToArray());
         ReplaceColors(Colors.Select(c => new FurnitureColorOption(Guid.NewGuid(), c.Name,c.SwatchHex,c.PriceAdjustment,c.IsActive)).ToArray());
@@ -849,10 +858,6 @@ public sealed partial class FurnitureViewModel : ObservableObject
 
         Raise(nameof(HasHandles));
     }
-
-    /// <summary>Copies fixed dimensions and permitted options without changing the saved identity.</summary>
-    private static FurnitureVariant CopyVariant(FurnitureVariant variant) =>
-        new(variant.Id, variant.Name, variant.Width, variant.Height, variant.Depth, variant.CalculatedCost, variant.SellingPrice) { Customization = variant.Customization, ColorIds = variant.ColorIds.ToArray(), HandleIds = variant.HandleIds.ToArray(), IsArchived=variant.IsArchived };
 
     /// <summary>Projects picker category filters and excludes already selected Parts.</summary>
     private void RefreshPartOptions()

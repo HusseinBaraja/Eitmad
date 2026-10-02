@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "material capability maintainers"
-last_verified: "2026-09-29"
+last_verified: "2026-10-02"
 review_triggers:
   - "material contracts, unit rules, storage, permission, or Windows editor changes"
 keywords:
@@ -39,7 +39,7 @@ Rust derives Arabic search text separately from the stored display name. It fold
 
 Rust checks manager permission and the exact organization scope before a mutation. One immediate SQLite transaction checks the current revision, active references, and duplicate category or unit name. It writes the definition, redacted mutation audit, idempotency result, and publication outbox together. A stale revision returns `eitmad.error.material-revision-conflict.v1` and preserves the latest record. If audit or another mandatory write fails, no definition or event work commits. Exact retries return the original result and UUID. The dispatcher publishes the compact notice after commit and startup recovery drains pending publication rows.
 
-The screen reloads the scoped list and references on opening, search, and change notices. An unavailable engine leaves an explicit Arabic error. An editor keeps unsaved values open after validation, reference, permission, or revision failure. Material definitions are currently local authority records. They are not queued through the customer sync path, and this screen makes no server confirmation claim. Cross-device material synchronization needs a separate scoped schema, server validation, and accepted conflict policy before it can be enabled.
+The screen reloads the scoped list and references on opening, search, and change notices. Rust owns search; the shell filters the returned rows by category and archive state. The shell starts empty and cannot save or archive without the engine. Synthetic records belong to test fixtures. An unavailable engine leaves an explicit Arabic error. An editor keeps unsaved values open after validation, reference, permission, or revision failure. Material definitions are currently local authority records. They are not queued through the customer sync path, and this screen makes no server confirmation claim. Cross-device material synchronization needs a separate scoped schema, server validation, and accepted conflict policy before it can be enabled.
 
 ## Verification and extension
 

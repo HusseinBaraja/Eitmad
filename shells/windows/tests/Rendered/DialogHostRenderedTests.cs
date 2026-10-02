@@ -175,7 +175,7 @@ public sealed class DialogHostRenderedTests
             CaptureDialog(window, "material-reference-editor", width);
             editor = OpenDialog(window);
             materials.ViewModel.ReferenceName = string.Empty;
-            Assert.IsFalse(materials.ViewModel.SaveReferenceEditor());
+            materials.ViewModel.Fail("تحقق من اسم الوحدة.", reference: true);
             WpfTestHost.CompleteLayout(window);
             Assert.IsTrue(editor.IsOpen);
             Assert.IsTrue(editor.IsKeyboardFocusWithin);

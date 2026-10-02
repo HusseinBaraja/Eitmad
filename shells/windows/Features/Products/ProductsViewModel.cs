@@ -1,7 +1,6 @@
 using Eitmad.Contracts;
 using System.Collections.ObjectModel;
 using System.Globalization;
-using System.Windows.Media;
 
 namespace Eitmad.WindowsShell.Features.Products;
 
@@ -31,7 +30,6 @@ public sealed class ProductsViewModel : ObservableObject
     private string availabilityMessage = "جار تحميل المنتجات…";
     public string AvailabilityMessage { get => availabilityMessage; private set { Set(ref availabilityMessage, value); Raise(nameof(PageSubtitle)); } }
     public string PageSubtitle => AvailabilityMessage.Length > 0 ? AvailabilityMessage : "المنتجات محفوظة محلياً — سعر البيع من التسعير";
-    private readonly Dictionary<Guid, ProductDraftDetails> details = [];
     private ProductListItem? editingProduct;
     private Product? editingRecord, pendingArchiveRecord;
     private Guid? editorCategoryId;
@@ -47,8 +45,6 @@ public sealed class ProductsViewModel : ObservableObject
     private string editorCategory = "المراتب";
     private string shortDescription = string.Empty;
     private string notes = string.Empty;
-    private ImageSource? productImage;
-    private string productImageName = string.Empty;
     private bool hasVariants;
     private decimal purchaseCost;
     private string editorError = string.Empty;
@@ -74,20 +70,19 @@ public sealed class ProductsViewModel : ObservableObject
         CanManage = data.CanManage; CanReadCosts = data.CanReadCosts;
         var selectedCategoryId = editorCategoryId;
         var selectedFilter = SelectedCategory;
-        records.Clear(); products.Clear(); details.Clear(); Categories.Clear(); ActiveCategories.Clear();
+        records.Clear(); products.Clear(); Categories.Clear(); ActiveCategories.Clear();
         CategoryOptions = new[] { AllCategories }.Concat(data.Categories.Items.Select(c => c.Name)).ToArray();
         Raise(nameof(CategoryOptions));
         foreach (var c in data.Categories.Items)
         {
-            var option = new ProductCategoryOption(c.Name) { Id = c.Id, Revision = c.Revision, IsArchived = c.Archived };
+            var option = new ProductCategoryOption(c.Id, c.Revision, c.Name, c.Archived);
             Categories.Add(option); if (!c.Archived) ActiveCategories.Add(option);
         }
         foreach (var p in data.Products)
         {
             records[p.Id] = p;
             var active = p.Variants.Where(v => !v.Archived).ToArray(); var primary = active.FirstOrDefault() ?? p.Variants.FirstOrDefault();
-            products.Add(new ProductListItem(p.Id, p.Name, Categories.FirstOrDefault(c => c.Id == p.CategoryId)?.Name ?? p.CategoryName, primary?.PurchaseCostYer ?? 0, string.Join("، ", active.Select(v => v.Name)), ThumbnailForCategory(p.CategoryName), isArchived: p.Archived) { HasPurchaseCost = primary?.PurchaseCostYer is not null });
-            details[p.Id] = new(p.Description, p.Notes, null, "", p.Variants.Select(v => new ProductVariant(v.Id, v.Name, v.PurchaseCostYer ?? 0) { IsArchived = v.Archived }).ToArray());
+            products.Add(new ProductListItem(p.Id, p.Name, Categories.FirstOrDefault(c => c.Id == p.CategoryId)?.Name ?? p.CategoryName, primary?.PurchaseCostYer ?? 0, string.Join("، ", active.Select(v => v.Name)), ThumbnailForCategory(p.CategoryName), p.Archived, primary?.PurchaseCostYer is not null));
         }
         if (editingRecord is { } editing && Categories.FirstOrDefault(c => c.Id == editing.CategoryId) is { } retained && !ActiveCategories.Contains(retained)) ActiveCategories.Add(retained);
         EditorCategoryId = selectedCategoryId;
@@ -100,8 +95,8 @@ public sealed class ProductsViewModel : ObservableObject
     public void ClearSession()
     {
         SavePending = false; IsBusy = false; IsEditorOpen = false; IsCategoryEditorOpen = false; IsCategoryManagerOpen = false; IsArchiveConfirmationOpen = false;
-        editingRecord = null; pendingArchiveRecord = null; editorCategoryId = null; editingProduct = null; pendingArchiveProduct = null; editingCategory = null; EditorName = ""; EditorCategory = ""; ShortDescription = ""; Notes = ""; PurchaseCost = 0; Variants.Clear(); ProductImage = null; ProductImageName = ""; CategoryName = ""; CategoryError = ""; EditorError = ""; FeedbackMessage = "";
-        searchText = ""; Raise(nameof(SearchText)); SelectedCategory = AllCategories; SelectedStatus = AllStatuses; CategoryOptions = [AllCategories]; Raise(nameof(CategoryOptions)); CanManage = false; CanReadCosts = false; records.Clear(); details.Clear(); Categories.Clear(); ActiveCategories.Clear(); Unavailable("جار تحميل المنتجات…");
+        editingRecord = null; pendingArchiveRecord = null; editorCategoryId = null; editingProduct = null; pendingArchiveProduct = null; editingCategory = null; EditorName = ""; EditorCategory = ""; ShortDescription = ""; Notes = ""; PurchaseCost = 0; Variants.Clear(); CategoryName = ""; CategoryError = ""; EditorError = ""; FeedbackMessage = "";
+        searchText = ""; Raise(nameof(SearchText)); SelectedCategory = AllCategories; SelectedStatus = AllStatuses; CategoryOptions = [AllCategories]; Raise(nameof(CategoryOptions)); CanManage = false; CanReadCosts = false; records.Clear(); Categories.Clear(); ActiveCategories.Clear(); Unavailable("جار تحميل المنتجات…");
     }
     /// <summary>Keeps the product editor open and displays the current save failure.</summary>
     public void Fail(string message) => EditorError = message;
@@ -211,22 +206,6 @@ public sealed class ProductsViewModel : ObservableObject
     public string ShortDescription { get => shortDescription; set => Set(ref shortDescription, value ?? string.Empty); }
 
     public string Notes { get => notes; set => Set(ref notes, value ?? string.Empty); }
-
-    public ImageSource? ProductImage
-    {
-        get => productImage;
-        set
-        {
-            if (Set(ref productImage, value))
-            {
-                Raise(nameof(HasProductImage));
-            }
-        }
-    }
-
-    public bool HasProductImage => ProductImage is not null;
-
-    public string ProductImageName { get => productImageName; set => Set(ref productImageName, value ?? string.Empty); }
 
     public bool HasVariants
     {
@@ -347,8 +326,6 @@ public sealed class ProductsViewModel : ObservableObject
         EditorCategory = ActiveCategories.FirstOrDefault()?.Name ?? string.Empty;
         ShortDescription = string.Empty;
         Notes = string.Empty;
-        ProductImage = null;
-        ProductImageName = string.Empty;
         HasVariants = false;
         PurchaseCost = 0m;
         Variants.Clear();
@@ -371,15 +348,12 @@ public sealed class ProductsViewModel : ObservableObject
         EditorName = product.Name;
         EditorCategory = product.Category;
         PurchaseCost = product.PurchaseCost;
-        var productDetails = details[product.Id];
-        ShortDescription = productDetails.Description;
-        Notes = productDetails.Notes;
-        ProductImage = productDetails.Image;
-        ProductImageName = productDetails.ImageName;
+        ShortDescription = editingRecord.Description;
+        Notes = editingRecord.Notes;
         Variants.Clear();
-        foreach (var variant in productDetails.Variants)
+        foreach (var variant in editingRecord.Variants)
         {
-            Variants.Add(variant.Copy());
+            Variants.Add(new ProductVariant(variant.Id, variant.Name, variant.PurchaseCostYer ?? 0) { IsArchived = variant.Archived });
         }
 
         HasVariants = Variants.Count != 1 || Variants[0].Name != "قياسي";
@@ -485,18 +459,6 @@ public sealed class ProductsViewModel : ObservableObject
     }
 
     public void ClearFeedback() => FeedbackMessage = string.Empty;
-
-    public void SetProductImage(ImageSource image, string fileName)
-    {
-        ArgumentNullException.ThrowIfNull(image);
-        ProductImage = image;
-        ProductImageName = fileName;
-        EditorError = string.Empty;
-    }
-
-    /// <summary>Shows an image-load failure without replacing the staged product fields.</summary>
-    public void ReportImageLoadError() =>
-        FeedbackMessage = "تعذر فتح الصورة. اختر ملف صورة صالحاً بحجم مناسب.";
 
     /// <summary>Starts a new category draft without changing the open product selection.</summary>
     public void BeginAddCategory()

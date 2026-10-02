@@ -2,38 +2,8 @@ using System.Globalization;
 
 namespace Eitmad.WindowsShell.Features.Parts;
 
-/// <summary>Represents one part row projected for the Windows surface.</summary>
-public sealed class PartListItem
+public sealed record PartListItem(Guid Id, string Name, string Category, decimal Cost, bool IsArchived)
 {
-    /// <summary>Keeps stable identity and Rust-projected display values for row selection and actions.</summary>
-    public PartListItem(
-        Guid id,
-        string name,
-        string category,
-        decimal cost,
-        int usedInCount,
-        bool isArchived = false)
-    {
-        Id = id;
-        Name = name;
-        Category = category;
-        Cost = cost;
-        UsedInCount = usedInCount;
-        IsArchived = isArchived;
-    }
-
-    public Guid Id { get; }
-
-    public string Name { get; set; }
-
-    public string Category { get; set; }
-
-    public decimal Cost { get; set; }
-
-    public int UsedInCount { get; set; }
-
-    public bool IsArchived { get; set; }
-
     public bool CanArchive => !IsArchived;
 
     public string StatusLabel => IsArchived ? "مؤرشف" : "نشط";

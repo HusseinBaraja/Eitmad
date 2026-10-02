@@ -31,7 +31,7 @@ public partial class FurnitureView : UserControl
     private async void OpenEditor(FurnitureListItem item)
     {
         if (!await PrepareEditorAsync(item)) return;
-        ViewModel.BeginEdit(item);
+        if (!ViewModel.BeginEdit(item)) return;
         await ReviewAsync(false);
         await Dispatcher.BeginInvoke(FurnitureNameBox.Focus, DispatcherPriority.Input);
     }

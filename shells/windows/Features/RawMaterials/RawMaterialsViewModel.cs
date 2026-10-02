@@ -21,8 +21,8 @@ public sealed class RawMaterialsViewModel : ObservableObject
     private bool isEditorOpen;
     private bool isCreating;
     private string editorName = string.Empty;
-    private string editorCategory = "ألواح خشبية";
-    private string editorUnit = "لوح";
+    private string editorCategory = string.Empty;
+    private string editorUnit = string.Empty;
     private Guid? editorCategoryId;
     private Guid? editorUnitId;
     private decimal editorCost;
@@ -41,42 +41,19 @@ public sealed class RawMaterialsViewModel : ObservableObject
     private long referenceNumerator = 1;
     private long referenceDenominator = 1;
 
-    public bool DurableMode { get; private set; }
     public string AvailabilityMessage { get => availabilityMessage; private set => Set(ref availabilityMessage, value); }
-    public string DataStatusLabel => DurableMode ? "بيانات المواد الخام" : "بيانات تجريبية غير محفوظة";
-    public string EditorHelpLabel => DurableMode ? "راجع البيانات قبل حفظها." : "يمكنك مراجعة البيانات قبل حفظها في المعاينة المحلية.";
+    public string DataStatusLabel => "بيانات المواد الخام";
+    public string EditorHelpLabel => "راجع البيانات قبل حفظها.";
     public event EventHandler? SearchChanged;
     public RawMaterialListItem? EditingMaterial => editingMaterial;
     public RawMaterialReferenceOption? EditingReference => editingReference;
 
     public RawMaterialsViewModel()
     {
-        materials =
-        [
-            new(Guid.Parse("90e8280f-e8ce-4b57-9af5-5bb263eec885"), "لوح MDF سماكة 18 مم", "ألواح خشبية", "لوح", 25_000m),
-            new(Guid.Parse("f10241bb-f60b-464a-8f43-0df9d1322c9f"), "خشب زان مجفف", "أخشاب طبيعية", "متر", 8_000m),
-            new(Guid.Parse("ea15bd52-40b7-4f9c-94d4-00585c52a6e7"), "قماش كتان بيج", "أقمشة ومفروشات", "متر", 3_500m),
-            new(Guid.Parse("4a34cd4c-6d5c-438c-87ab-a9ded9bd9f73"), "خشب سويدي مقاس 2×4", "أخشاب طبيعية", "متر", 5_200m, isArchived: true),
-        ];
-
-        Categories =
-        [
-            new("ألواح خشبية", id: Guid.NewGuid()),
-            new("أخشاب طبيعية", id: Guid.NewGuid()),
-            new("أقمشة ومفروشات", id: Guid.NewGuid()),
-        ];
-        Units =
-        [
-            new("لوح", "لوح", Guid.NewGuid()),
-            new("متر", "م", Guid.NewGuid()),
-            new("كيلوجرام", "كجم", Guid.NewGuid()),
-            new("قطعة", "قطعة", Guid.NewGuid()),
-        ];
-        ActiveCategories = new ObservableCollection<RawMaterialReferenceOption>(Categories);
-        ActiveUnits = new ObservableCollection<RawMaterialReferenceOption>(Units);
-        EditorCategories = new ObservableCollection<RawMaterialReferenceOption>(ActiveCategories);
-        EditorUnits = new ObservableCollection<RawMaterialReferenceOption>(ActiveUnits);
-        CategoryOptions = [AllCategories, .. Categories.Select(item => item.Name)];
+        materials = [];
+        Categories = []; Units = []; ActiveCategories = []; ActiveUnits = [];
+        EditorCategories = []; EditorUnits = [];
+        CategoryOptions = [AllCategories];
         StatusOptions = [AllStatuses, ActiveStatus, ArchivedStatus];
         VisibleMaterials = [];
         RefreshVisibleMaterials();
@@ -108,8 +85,7 @@ public sealed class RawMaterialsViewModel : ObservableObject
         {
             if (Set(ref searchText, value ?? string.Empty))
             {
-                RefreshVisibleMaterials();
-                if (DurableMode) SearchChanged?.Invoke(this, EventArgs.Empty);
+                SearchChanged?.Invoke(this, EventArgs.Empty);
             }
         }
     }
@@ -315,23 +291,8 @@ public sealed class RawMaterialsViewModel : ObservableObject
         new(UnitDimension.Mass, "كتلة"),
     ];
 
-    public void EnableDurableMode()
-    {
-        DurableMode = true;
-        materials.Clear();
-        Categories.Clear(); Units.Clear(); ActiveCategories.Clear(); ActiveUnits.Clear();
-        EditorCategories.Clear(); EditorUnits.Clear();
-        while (CategoryOptions.Count > 1) CategoryOptions.RemoveAt(CategoryOptions.Count - 1);
-        EditorCategory = string.Empty; EditorUnit = string.Empty;
-        FeedbackMessage = string.Empty;
-        AvailabilityMessage = string.Empty;
-        Raise(nameof(DataStatusLabel)); Raise(nameof(EditorHelpLabel));
-        RefreshVisibleMaterials();
-    }
-
     public void ApplyDurableData(MaterialReferences references, IReadOnlyList<Material> records)
     {
-        if (!DurableMode) return;
         var priorCategory = SelectedCategory;
         var priorEditorCategoryId = EditorCategoryId;
         var priorEditorUnitId = EditorUnitId;
@@ -340,15 +301,14 @@ public sealed class RawMaterialsViewModel : ObservableObject
         while (CategoryOptions.Count > 1) CategoryOptions.RemoveAt(CategoryOptions.Count - 1);
         foreach (var category in references.Categories)
         {
-            var option = new RawMaterialReferenceOption(category.Name, id: category.Id, revision: category.Revision)
-                { IsArchived = category.Archived };
+            var option = new RawMaterialReferenceOption(category.Name, category.Id, category.Revision, IsArchived: category.Archived);
             Categories.Add(option);
             if (!option.IsArchived) { ActiveCategories.Add(option); CategoryOptions.Add(option.Name); }
         }
         foreach (var unit in references.Units)
         {
-            var option = new RawMaterialReferenceOption(unit.Name, unit.Symbol, unit.Id, unit.Revision,
-                unit.Dimension, unit.Numerator, unit.Denominator) { IsArchived = unit.Archived };
+            var option = new RawMaterialReferenceOption(unit.Name, unit.Id, unit.Revision, unit.Symbol,
+                unit.Dimension, unit.Numerator, unit.Denominator, unit.Archived);
             Units.Add(option);
             if (!option.IsArchived) ActiveUnits.Add(option);
         }
@@ -374,20 +334,20 @@ public sealed class RawMaterialsViewModel : ObservableObject
         RefreshVisibleMaterials();
     }
 
-    public void DurableSaved(string message)
+    public void Saved(string message)
     {
         IsEditorOpen = false; IsReferenceEditorOpen = false; IsReferenceManagerOpen = false;
         EditorError = string.Empty; ReferenceError = string.Empty;
         FeedbackMessage = message;
     }
 
-    public void DurableError(string message, bool reference = false)
+    public void Fail(string message, bool reference = false)
     {
         if (reference) ReferenceError = message;
         else EditorError = message;
     }
 
-    public void DurableUnavailable(string message) => AvailabilityMessage = message;
+    public void Unavailable(string message) => AvailabilityMessage = message;
 
     public string ReferenceError
     {
@@ -413,8 +373,8 @@ public sealed class RawMaterialsViewModel : ObservableObject
         RefreshEditorReferences();
         IsCreating = true;
         EditorName = string.Empty;
-        EditorCategory = DurableMode ? ActiveCategories.FirstOrDefault()?.Name ?? string.Empty : "ألواح خشبية";
-        EditorUnit = DurableMode ? ActiveUnits.FirstOrDefault()?.Name ?? string.Empty : "لوح";
+        EditorCategory = ActiveCategories.FirstOrDefault()?.Name ?? string.Empty;
+        EditorUnit = ActiveUnits.FirstOrDefault()?.Name ?? string.Empty;
         EditorCost = 0m;
         EditorError = string.Empty;
         IsEditorOpen = true;
@@ -429,11 +389,8 @@ public sealed class RawMaterialsViewModel : ObservableObject
         EditorName = material.Name;
         EditorCategory = material.Category;
         EditorUnit = material.Unit;
-        if (DurableMode)
-        {
-            EditorCategoryId = material.CategoryId;
-            EditorUnitId = material.UnitId;
-        }
+        EditorCategoryId = material.CategoryId;
+        EditorUnitId = material.UnitId;
         EditorCost = material.CurrentCost;
         EditorError = string.Empty;
         IsEditorOpen = true;
@@ -458,94 +415,13 @@ public sealed class RawMaterialsViewModel : ObservableObject
             EditorUnits.Add(archivedUnit);
     }
 
-    public bool SaveEditor()
+    public void Duplicate(RawMaterialListItem material)
     {
-        var normalizedName = EditorName.Trim();
-        if (normalizedName.Length == 0)
-        {
-            EditorError = "أدخل اسم المادة الخام.";
-            return false;
-        }
-
-        if (EditorCost < 0m)
-        {
-            EditorError = "يجب ألا تكون التكلفة سالبة.";
-            return false;
-        }
-
-        if (!ActiveCategories.Any(item => item.Name == EditorCategory))
-        {
-            EditorError = "اختر تصنيفاً نشطاً للمادة الخام.";
-            return false;
-        }
-
-        if (!ActiveUnits.Any(item => item.Name == EditorUnit))
-        {
-            EditorError = "اختر وحدة نشطة للمادة الخام.";
-            return false;
-        }
-
-        if (editingMaterial is null)
-        {
-            materials.Add(new RawMaterialListItem(
-                Guid.NewGuid(),
-                normalizedName,
-                EditorCategory,
-                EditorUnit,
-                EditorCost));
-            FeedbackMessage = "أضيفت المادة إلى المعاينة المحلية.";
-        }
-        else
-        {
-            editingMaterial.Name = normalizedName;
-            editingMaterial.Category = EditorCategory;
-            editingMaterial.Unit = EditorUnit;
-            editingMaterial.CurrentCost = EditorCost;
-            FeedbackMessage = "حُدثت المادة في المعاينة المحلية.";
-        }
-
-        IsEditorOpen = false;
-        EditorError = string.Empty;
-        RefreshVisibleMaterials();
-        return true;
-    }
-
-    public RawMaterialListItem Duplicate(RawMaterialListItem material)
-    {
-        ArgumentNullException.ThrowIfNull(material);
-        if (DurableMode)
-        {
-            BeginCreate();
-            EditorName = $"{material.Name} — نسخة";
-            EditorCategoryId = material.CategoryId;
-            EditorUnitId = material.UnitId;
-            EditorCost = material.CurrentCost;
-            return material;
-        }
-        var duplicate = new RawMaterialListItem(
-            Guid.NewGuid(),
-            $"{material.Name} — نسخة",
-            material.Category,
-            material.Unit,
-            material.CurrentCost);
-        materials.Add(duplicate);
-        FeedbackMessage = "أُنشئت نسخة محلية ويمكن تعديلها الآن.";
-        RefreshVisibleMaterials();
-        BeginEdit(duplicate);
-        return duplicate;
-    }
-
-    public void Archive(RawMaterialListItem material)
-    {
-        ArgumentNullException.ThrowIfNull(material);
-        if (material.IsArchived)
-        {
-            return;
-        }
-
-        material.IsArchived = true;
-        FeedbackMessage = "أُرشفت المادة في المعاينة المحلية.";
-        RefreshVisibleMaterials();
+        BeginCreate();
+        EditorName = $"{material.Name} — نسخة";
+        EditorCategoryId = material.CategoryId;
+        EditorUnitId = material.UnitId;
+        EditorCost = material.CurrentCost;
     }
 
     public void ClearFeedback() => FeedbackMessage = string.Empty;
@@ -574,64 +450,6 @@ public sealed class RawMaterialsViewModel : ObservableObject
         Raise(nameof(ReferenceEditorTitle));
     }
 
-    public bool SaveReferenceEditor()
-    {
-        var normalizedName = ReferenceName.Trim();
-        var normalizedShortName = ReferenceShortName.Trim();
-        if (normalizedName.Length == 0)
-        {
-            ReferenceError = IsCategoryReference ? "أدخل اسم التصنيف." : "أدخل اسم الوحدة.";
-            return false;
-        }
-
-        if (IsUnitReference && normalizedShortName.Length == 0)
-        {
-            ReferenceError = "أدخل الاسم المختصر للوحدة.";
-            return false;
-        }
-
-        var references = IsCategoryReference ? Categories : Units;
-        if (references.Any(item => item != editingReference
-            && string.Equals(item.Name, normalizedName, StringComparison.CurrentCultureIgnoreCase)))
-        {
-            ReferenceError = IsCategoryReference ? "اسم التصنيف مستخدم بالفعل." : "اسم الوحدة مستخدم بالفعل.";
-            return false;
-        }
-
-        if (editingReference is null)
-        {
-            var added = new RawMaterialReferenceOption(normalizedName, IsUnitReference ? normalizedShortName : string.Empty,
-                Guid.NewGuid());
-            references.Add(added);
-            if (IsCategoryReference)
-            {
-                ActiveCategories.Add(added);
-                EditorCategories.Add(added);
-                CategoryOptions.Add(added.Name);
-                EditorCategory = added.Name;
-            }
-            else
-            {
-                ActiveUnits.Add(added);
-                EditorUnits.Add(added);
-                EditorUnit = added.Name;
-            }
-        }
-        else
-        {
-            RenameReference(editingReference, normalizedName, IsUnitReference ? normalizedShortName : string.Empty);
-        }
-
-        ReferenceError = string.Empty;
-        IsReferenceEditorOpen = false;
-        if (returnToReferenceManager)
-        {
-            IsReferenceManagerOpen = true;
-        }
-
-        return true;
-    }
-
     public void CancelReferenceEditor()
     {
         IsReferenceEditorOpen = false;
@@ -643,44 +461,6 @@ public sealed class RawMaterialsViewModel : ObservableObject
     }
 
     public void CloseReferenceManager() => IsReferenceManagerOpen = false;
-
-    public void ArchiveReference(RawMaterialReferenceOption reference)
-    {
-        ArgumentNullException.ThrowIfNull(reference);
-        if (reference.IsArchived)
-        {
-            return;
-        }
-
-        var activeReferences = IsCategoryReference ? ActiveCategories : ActiveUnits;
-        if (activeReferences.Count == 1 && activeReferences.Contains(reference))
-        {
-            ReferenceError = IsCategoryReference
-                ? "يجب إبقاء تصنيف نشط واحد على الأقل."
-                : "يجب إبقاء وحدة نشطة واحدة على الأقل.";
-            return;
-        }
-
-        reference.IsArchived = true;
-        if (IsCategoryReference)
-        {
-            ActiveCategories.Remove(reference);
-            EditorCategories.Remove(reference);
-            if (EditorCategory == reference.Name)
-            {
-                EditorCategory = ActiveCategories.FirstOrDefault()?.Name ?? string.Empty;
-            }
-        }
-        else
-        {
-            ActiveUnits.Remove(reference);
-            EditorUnits.Remove(reference);
-            if (EditorUnit == reference.Name)
-            {
-                EditorUnit = ActiveUnits.FirstOrDefault()?.Name ?? string.Empty;
-            }
-        }
-    }
 
     private void BeginAddReference(bool isCategory)
     {
@@ -705,57 +485,10 @@ public sealed class RawMaterialsViewModel : ObservableObject
         IsReferenceManagerOpen = true;
     }
 
-    private void RenameReference(RawMaterialReferenceOption reference, string name, string shortName)
-    {
-        var previousName = reference.Name;
-        reference.Name = name;
-        reference.ShortName = shortName;
-
-        if (IsCategoryReference)
-        {
-            var filterIndex = CategoryOptions.IndexOf(previousName);
-            if (filterIndex >= 0)
-            {
-                CategoryOptions[filterIndex] = name;
-            }
-
-            foreach (var material in materials.Where(item => item.Category == previousName))
-            {
-                material.Category = name;
-            }
-
-            if (EditorCategory == previousName)
-            {
-                EditorCategory = name;
-            }
-
-            if (SelectedCategory == previousName)
-            {
-                SelectedCategory = name;
-            }
-        }
-        else
-        {
-            foreach (var material in materials.Where(item => item.Unit == previousName))
-            {
-                material.Unit = name;
-            }
-
-            if (EditorUnit == previousName)
-            {
-                EditorUnit = name;
-            }
-        }
-
-        RefreshVisibleMaterials();
-    }
-
     private void RefreshVisibleMaterials()
     {
-        var normalizedSearch = PreviewText.NormalizeSearch(SearchText.Trim());
         var matches = materials.Where(material =>
-            MatchesSearch(material, normalizedSearch)
-            && (SelectedCategory == AllCategories || material.Category == SelectedCategory)
+            (SelectedCategory == AllCategories || material.Category == SelectedCategory)
             && (SelectedStatus == AllStatuses
                 || (SelectedStatus == ActiveStatus && !material.IsArchived)
                 || (SelectedStatus == ArchivedStatus && material.IsArchived)));
@@ -770,9 +503,4 @@ public sealed class RawMaterialsViewModel : ObservableObject
         Raise(nameof(VisibleCountLabel));
     }
 
-    private static bool MatchesSearch(RawMaterialListItem material, string search) =>
-        search.Length == 0
-        || PreviewText.NormalizeSearch(material.Name).Contains(search, StringComparison.CurrentCultureIgnoreCase)
-        || PreviewText.NormalizeSearch(material.Category).Contains(search, StringComparison.CurrentCultureIgnoreCase)
-        || PreviewText.NormalizeSearch(material.Unit).Contains(search, StringComparison.CurrentCultureIgnoreCase);
 }
