@@ -56,7 +56,7 @@ The foreground CLI emits lifecycle snapshots as newline-delimited JSON on child 
 
 ## Wire and compatibility rules
 
-- Protocol v1 uses UTF-8 JSON with camel-case fields and explicit `kind`/`payload` tags. The current minor is `1.13`.
+- Protocol v1 uses UTF-8 JSON with camel-case fields and explicit `kind`/`payload` tags. The current minor is `1.14`.
 - Local IPC frames add a four-byte little-endian length and enforce an 8 MiB maximum.
 - UUIDs are lowercase hyphenated strings. Times are Unix milliseconds. Canonical values remain locale-independent.
 - Unknown object fields are accepted for additive minor-version evolution.
@@ -87,7 +87,7 @@ Each peer sends supported protocol major/minor ranges, available and required ca
 - a capability required by either peer but absent from the other;
 - a required schema with no overlapping version.
 
-The beta desktop boundary accepts protocol `1.13` only. Engine and shell contracts change together. Historical minor-version dispatch paths and fixtures are removed; required capabilities, schema overlap, and envelope version checks still fail closed before normal traffic.
+The beta desktop boundary accepts protocol `1.14` only. Engine and shell contracts change together. Historical minor-version dispatch paths and fixtures are removed; required capabilities, schema overlap, and envelope version checks still fail closed before normal traffic.
 
 Event cursors are opaque, scoped, and valid only in the current engine generation's bounded replay window. Per-subscription sequence numbers order delivered events but do not establish global order. When a close envelope can be delivered, `clientRequested` follows explicit unsubscribe, `engineStopping` precedes shutdown, and `backpressure` identifies an unreplayable discrete gap. Authorization revocation sends `SubscriptionClosed` with `authorizationRevoked` when no partial frame has been written; revocation after a partial write terminates the connection. See [typed local IPC](../developer/subsystems/local-ipc.md) for replay, duplicate delivery, backpressure, reauthorization, and resync rules.
 

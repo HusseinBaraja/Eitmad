@@ -1338,3 +1338,270 @@ async fn two_isolated_customer_engines_recover_and_preserve_conflicts() {
         .handle
         .graceful_shutdown(Some(Duration::from_secs(1)));
 }
+
+fn catalog_image_client(
+    directory: &Path,
+    authentication: AuthenticationResult,
+    seed: [u8; 32],
+    remote_scope: &ScopeRef,
+    endpoint: &str,
+    certificate: &Path,
+) -> eitmad_server_connection::DirectCatalogImageClient {
+    let secrets = SecretStore::open(
+        directory.join("secrets"),
+        Some(FallbackEncryptionKey::new([7; 32])),
+    )
+    .unwrap();
+    let credential = SecretId::new(
+        SecretKind::parse("catalog-image-test").unwrap(),
+        SecretReferenceId::new(Uuid::new_v4()),
+    );
+    store_session(&secrets, &credential, authentication, seed).unwrap();
+    let config = DirectServerConfig::new(
+        endpoint,
+        remote_scope.clone(),
+        SchemaId::parse("eitmad.schema.catalog-image.v1").unwrap(),
+        1,
+        certificate,
+    )
+    .unwrap();
+    eitmad_server_connection::DirectCatalogImageClient::from_config(config, secrets, credential)
+}
+fn catalog_local_authority(
+    directory: &Path,
+    session: &eitmad_contracts::server::AuthenticatedServerSession,
+) -> (AuthorityStore, AuthorizationContext) {
+    let store = AuthorityStore::open(directory).unwrap();
+    let actor = AuthorizationContext {
+        session_id: session.session_id,
+        identity: AuthenticatedIdentity {
+            principal_id: PrincipalId::new(session.user_id.value()),
+            principal_kind: PrincipalKind::User,
+            device_id: Some(session.device_id),
+            service_id: None,
+        },
+        tenant_id: session.tenant_id,
+        workspace_id: None,
+        scope: ScopeRef {
+            kind: ScopeKind::parse("organization").unwrap(),
+            id: ScopeId::new(session.tenant_id.value()),
+        },
+    };
+    let auth = AuthorizationService::new(store.clone());
+    let mutation = MutationContext {
+        authorization: actor.clone(),
+        correlation_id: CorrelationId::new(Uuid::new_v4()),
+        causation_id: None,
+        idempotency_key: IdempotencyKey::new(Uuid::new_v4()),
+        occurred_at: eitmad_control_plane::unix_millis_now(),
+    };
+    let subject = RelationshipSubject {
+        principal_id: actor.identity.principal_id,
+        principal_kind: PrincipalKind::User,
+    };
+    auth.bootstrap_owner(&mutation, &subject).unwrap();
+    auth.grant_relationship(
+        &MutationContext {
+            idempotency_key: IdempotencyKey::new(Uuid::new_v4()),
+            ..mutation
+        },
+        &GrantScopeRelationship {
+            expected_policy_version: 1,
+            subject,
+            relation: RelationId::parse(MANAGER_RELATION).unwrap(),
+        },
+    )
+    .unwrap();
+    (store, actor)
+}
+async fn import_catalog_test_asset(
+    directory: &Path,
+    server: &ProvisionedServer,
+    endpoint: &str,
+    trust: &Path,
+) -> (
+    AuthorizationContext,
+    eitmad_contracts::catalog_image::CatalogImageRef,
+    Vec<u8>,
+) {
+    use eitmad_catalog_image::CatalogImageService;
+    use eitmad_contracts::catalog_image::{CatalogImageKind, ImportCatalogImage};
+    let (store, actor) = catalog_local_authority(directory, &server.authentication.session);
+    let upload = Arc::new(catalog_image_client(
+        directory,
+        server.authentication.clone(),
+        [11; 32],
+        &server.scope,
+        endpoint,
+        trust,
+    ));
+    let source = directory.join("synthetic.png");
+    // Enough synthetic entropy to exercise more than one bounded transfer chunk.
+    let bitmap = image::RgbImage::from_fn(480, 320, |x, y| {
+        image::Rgb([
+            u8::try_from((x * 17 + y * 13) % 256).unwrap(),
+            u8::try_from((x * 31 + y * 29) % 256).unwrap(),
+            u8::try_from((x * y + 47) % 256).unwrap(),
+        ])
+    });
+    bitmap
+        .save_with_format(&source, image::ImageFormat::Png)
+        .unwrap();
+    let service = CatalogImageService::new(store.clone(), AuthorizationService::new(store.clone()))
+        .with_transfer(upload.clone());
+    let mutation = MutationContext {
+        authorization: actor.clone(),
+        correlation_id: CorrelationId::new(Uuid::new_v4()),
+        causation_id: None,
+        idempotency_key: IdempotencyKey::new(Uuid::new_v4()),
+        occurred_at: eitmad_control_plane::unix_millis_now(),
+    };
+    let reference = service
+        .import(
+            &mutation,
+            &ImportCatalogImage {
+                kind: CatalogImageKind::Product,
+                source_path: source.to_str().unwrap().into(),
+            },
+        )
+        .unwrap();
+    let expected = store
+        .catalog_image(&actor.scope, &reference)
+        .unwrap()
+        .unwrap();
+    assert!(expected.len() > 64 * 1024);
+    std::fs::remove_file(source).unwrap();
+    assert_eq!(
+        tokio::task::spawn_blocking(move || service.retry_uploads())
+            .await
+            .unwrap(),
+        Ok(1)
+    );
+    (actor, reference, expected)
+}
+
+async fn reject_invalid_catalog_server_upload(database: &str, server: &ProvisionedServer) {
+    use base64::Engine as _;
+    use eitmad_catalog_image::ImageError;
+    use eitmad_contracts::catalog_image::{CatalogImageKind, UploadCatalogImage};
+    let media = eitmad_sync_plane::CatalogImageServer::new(
+        SyncDatabase::connect(database, 2).await.unwrap().pool(),
+    );
+    let malformed = b"synthetic malformed image";
+    let request = UploadCatalogImage {
+        scope: server.scope.clone(),
+        reference: eitmad_catalog_image::reference(CatalogImageKind::Product, malformed),
+        base64: base64::engine::general_purpose::STANDARD.encode(malformed),
+    };
+    assert_eq!(
+        media
+            .upload(
+                &server.authentication.session,
+                request,
+                CorrelationId::new(Uuid::new_v4()),
+                eitmad_control_plane::unix_millis_now()
+            )
+            .await,
+        Err(ImageError::Invalid)
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires disposable PostgreSQL and trusted development certificates"]
+async fn catalog_image_transfers_between_authorized_clients_and_survives_restart() {
+    use eitmad_catalog_image::{CatalogImageService, CatalogImageTransfer, ImageError};
+    use eitmad_contracts::catalog_image::GetCatalogImage;
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let database = env::var("EITMAD_DIRECT_TEST_DATABASE_URL").unwrap();
+    let certificate = required_path("EITMAD_DIRECT_TEST_CERTIFICATE");
+    let key = required_path("EITMAD_DIRECT_TEST_PRIVATE_KEY");
+    let trust = required_path("EITMAD_DIRECT_TEST_TRUSTED_CERTIFICATE");
+    let server = provision_server(&database, &certificate, &key).await;
+    reject_invalid_catalog_server_upload(&database, &server).await;
+    let endpoint = format!("https://localhost:{}/", server.address.port());
+    let first = tempfile::TempDir::new().unwrap();
+    let second = tempfile::TempDir::new().unwrap();
+    let (actor, reference, expected) =
+        import_catalog_test_asset(first.path(), &server, &endpoint, &trust).await;
+    server
+        .handle
+        .graceful_shutdown(Some(Duration::from_secs(1)));
+    tokio::time::sleep(Duration::from_millis(1200)).await;
+    let handle = start_server(server.address, server.state.clone(), &certificate, &key).await;
+    let (second_store, second_actor) =
+        catalog_local_authority(second.path(), &server.second_authentication.session);
+    let download = Arc::new(catalog_image_client(
+        second.path(),
+        server.second_authentication.clone(),
+        [12; 32],
+        &server.scope,
+        &endpoint,
+        &trust,
+    ));
+    let reader = CatalogImageService::new(
+        second_store.clone(),
+        AuthorizationService::new(second_store.clone()),
+    )
+    .with_transfer(download);
+    let query = GetCatalogImage {
+        reference: reference.clone(),
+        offset: 0,
+    };
+    let read_actor = second_actor.clone();
+    let chunk = tokio::task::spawn_blocking(move || reader.get(&read_actor, &query))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(chunk.total_bytes as usize, expected.len());
+    assert_eq!(
+        second_store
+            .catalog_image(&second_actor.scope, &reference)
+            .unwrap()
+            .unwrap(),
+        expected
+    );
+    let reopened = AuthorityStore::open(second.path()).unwrap();
+    let offline = CatalogImageService::new(reopened.clone(), AuthorizationService::new(reopened));
+    assert!(
+        offline
+            .get(
+                &second_actor,
+                &GetCatalogImage {
+                    reference: reference.clone(),
+                    offset: 0
+                }
+            )
+            .is_ok()
+    );
+    let mut foreign = server.scope.clone();
+    foreign.id = ScopeId::new(Uuid::new_v4());
+    let foreign_client = catalog_image_client(
+        first.path(),
+        server.authentication.clone(),
+        [11; 32],
+        &foreign,
+        &endpoint,
+        &trust,
+    );
+    let rejected = reference.clone();
+    let rejected_actor = actor.clone();
+    assert_eq!(
+        tokio::task::spawn_blocking(move || foreign_client.download(&rejected_actor, &rejected))
+            .await
+            .unwrap(),
+        Err(ImageError::Denied)
+    );
+    let mut denied = second_actor;
+    denied.identity.principal_id = PrincipalId::new(Uuid::new_v4());
+    assert_eq!(
+        offline.get(
+            &denied,
+            &GetCatalogImage {
+                reference,
+                offset: 0
+            }
+        ),
+        Err(ImageError::Denied)
+    );
+    handle.graceful_shutdown(Some(Duration::from_secs(1)));
+}

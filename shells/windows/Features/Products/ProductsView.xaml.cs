@@ -42,10 +42,45 @@ public partial class ProductsView : UserControl
     {
         if (client is null || !activated) return;
         refreshCancellation?.Cancel(); refreshCancellation?.Dispose(); var cancellation = new CancellationTokenSource(); refreshCancellation = cancellation; var version = ++refreshVersion;
-        try { var result = await client.LoadAsync(ViewModel.SearchText, cancellation.Token); if (version != refreshVersion) return; if (result.Succeeded) ViewModel.ApplyDurableData(result.Value!); else { if (result.Failure == ProductFailureKind.Denied) ClearRestrictedData(); ViewModel.Unavailable(ProductClient.ArabicMessage(result.Failure)); } }
+        try { var result = await client.LoadAsync(ViewModel.SearchText, cancellation.Token); if (version != refreshVersion) return; if (result.Succeeded) {
+                ViewModel.ApplyDurableData(result.Value!);
+                var images = new CatalogImages.CatalogImageClient(engineBridge!);
+                foreach (var record in result.Value!.Products.Where(p=>p.Image is not null)) {
+                    var thumbnail = await images.LoadAsync(record.Image,96,cancellation.Token);
+                    if(version != refreshVersion) return;
+                    ViewModel.ApplyImage(record.Id,thumbnail);
+                }
+            } else { if (result.Failure == ProductFailureKind.Denied) ClearRestrictedData(); ViewModel.Unavailable(ProductClient.ArabicMessage(result.Failure)); } }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
     }
     /// <summary>Submits staged fields and rejects a completion from an invalidated session or policy projection.</summary>
+    private async Task LoadEditorImageAsync() {
+        if(engineBridge is null) return;
+        var session=sessionVersion; var editor=ViewModel.ImageEditVersion; var reference=ViewModel.EditorImageReference;
+        var image=await new CatalogImages.CatalogImageClient(engineBridge).LoadAsync(reference,2048);
+        if(session==sessionVersion && editor==ViewModel.ImageEditVersion && ViewModel.IsEditorOpen) ViewModel.SetImportedImage(reference,image);
+    }
+    private async void ChooseImageClick(object sender, RoutedEventArgs args) {
+        if(engineBridge is null || !ViewModel.CanEdit || !ViewModel.IsEditorOpen) return;
+        var pickerSession=sessionVersion; var pickerEditor=ViewModel.ImageEditVersion;
+        var dialog=new Microsoft.Win32.OpenFileDialog { Title="اختر صورة المنتج", Filter="صور PNG وJPEG|*.png;*.jpg;*.jpeg", CheckFileExists=true, Multiselect=false };
+        if(dialog.ShowDialog(Window.GetWindow(this)) != true) return;
+        if(pickerSession!=sessionVersion || pickerEditor!=ViewModel.ImageEditVersion || !ViewModel.IsEditorOpen) return;
+        ViewModel.InvalidateImageLoad();
+        var session=sessionVersion; var editor=ViewModel.ImageEditVersion; ViewModel.IsBusy=true;
+        try {
+            var images=new CatalogImages.CatalogImageClient(engineBridge);
+            var reference=await images.ImportAsync(CatalogImageKind.Product,dialog.FileName);
+            var image=await images.LoadAsync(reference,2048);
+            if(session!=sessionVersion || editor!=ViewModel.ImageEditVersion || !ViewModel.IsEditorOpen) return;
+            if(reference is null) ViewModel.Fail("تعذر استيراد الصورة. اختر صورة PNG أو JPEG صالحة.");
+            else ViewModel.SetImportedImage(reference,image);
+        }
+        catch(Exception e) when(e is Eitmad.Platform.Windows.LocalIpc.EngineIpcException or IOException or InvalidOperationException or ObjectDisposedException) { if(session==sessionVersion) ViewModel.Fail("تعذر استيراد الصورة. حاول مرة أخرى."); }
+        finally { if(session==sessionVersion) ViewModel.IsBusy=false; }
+    }
+    private void RemoveImageClick(object sender, RoutedEventArgs args) { if(ViewModel.CanEdit) { ViewModel.InvalidateImageLoad(); ViewModel.SetImportedImage(null,null); } }
+
     private async Task SaveAsync(bool archive)
     {
         if (client is null || ViewModel.IsBusy || !ViewModel.CanManage) { ViewModel.Fail("بيانات المنتجات غير متاحة."); return; }
@@ -123,6 +158,7 @@ public partial class ProductsView : UserControl
     private void OpenEditor(ProductListItem product)
     {
         ViewModel.BeginEdit(product);
+        _ = LoadEditorImageAsync();
         Dispatcher.BeginInvoke(ProductNameBox.Focus, DispatcherPriority.Input);
     }
 
@@ -145,6 +181,7 @@ public partial class ProductsView : UserControl
         if (ProductFromMenuItem(sender) is { } product)
         {
             ViewModel.BeginDuplicate(product);
+            _ = LoadEditorImageAsync();
             Dispatcher.BeginInvoke(ProductNameBox.Focus, DispatcherPriority.Input);
         }
     }

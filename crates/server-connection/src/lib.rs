@@ -1,5 +1,8 @@
 //! Authenticated direct connection from the Rust desktop engine to the server.
 
+mod catalog_image;
+pub use catalog_image::DirectCatalogImageClient;
+
 use std::{
     io::{Read, Write},
     net::{TcpStream, ToSocketAddrs},
@@ -153,6 +156,8 @@ pub fn store_session(
         return Err(authentication_failure());
     }
     let credential = StoredCredential {
+        user_id: result.session.user_id,
+        tenant_id: result.session.tenant_id,
         account_id: result.session.account_id,
         device_id: result.session.device_id,
         access_token: result.tokens.access_token,
@@ -171,6 +176,8 @@ pub fn store_session(
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct StoredCredential {
+    user_id: eitmad_contracts::identity::UserId,
+    tenant_id: eitmad_contracts::identity::TenantId,
     account_id: AccountId,
     device_id: DeviceId,
     access_token: String,
@@ -702,7 +709,7 @@ fn parse_chunked(mut input: &[u8]) -> Result<Vec<u8>, TransportFailure> {
         if length == 0 {
             return Ok(output);
         }
-        if length > MAX_AUTH_RESPONSE_BYTES.saturating_sub(output.len())
+        if length > MAX_WIRE_BYTES.saturating_sub(output.len())
             || input.len() < length + 2
             || &input[length..length + 2] != b"\r\n"
         {

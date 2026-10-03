@@ -100,6 +100,7 @@ public sealed partial class FurnitureViewModel
         availableParts.Clear();
         EditorCategoryOptions.Clear(); CategoryOptions.Clear(); CategoryOptions.Add(AllCategories);
         SelectedParts.Clear(); Variants.Clear(); Colors.Clear(); Handles.Clear(); FilteredParts.Clear(); VisibleFurniture.Clear();
+        ++ImageEditVersion; SetImportedImage(null,null);
         EditorName = ""; ShortDescription = ""; InternalNotes = ""; ProductImage = null; ProductImageName = ""; EditorCategory = "";
         CancelEditor(); reviewedCost = 0; RefreshPartsState(); RefreshVisibleFurniture();
     }
@@ -133,6 +134,7 @@ public sealed partial class FurnitureViewModel
         var category = categories.FirstOrDefault(c => c.Name == EditorCategory.Trim()) ?? throw new UnsavedCategoryException();
         return new SaveFurniture
         {
+            Image = editorImageReference!,
             Id = editingRecord?.Id, ExpectedRevision = editingExpectedRevision,
             Name = EditorName.Trim(), CategoryId = category.Id, Description = ShortDescription, Notes = InternalNotes,
             State = editingRecord?.State == FurnitureState.Archived ? FurnitureState.Archived : state, ConfirmBelowCost = ConfirmBelowCost,

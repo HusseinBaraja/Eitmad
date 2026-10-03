@@ -13,8 +13,12 @@ public sealed record FurnitureListItem(
     decimal SellingPrice,
     string ThumbnailKind,
     bool IsArchived,
-    bool IsDraft)
+    bool IsDraft) : System.ComponentModel.INotifyPropertyChanged
 {
+    private System.Windows.Media.ImageSource? image;
+    public System.Windows.Media.ImageSource? Image { get => image; set { image = value; PropertyChanged?.Invoke(this, new(nameof(Image))); } }
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
     public bool CanArchive => !IsArchived;
 
     public string VariantCountLabel => VariantCount switch

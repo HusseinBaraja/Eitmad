@@ -10,6 +10,7 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies]
+eitmad-catalog-image = { path = "../../crates/catalog-image" }
 axum = { version = "=0.8.9", features = ["json", "ws"] }
 axum-server = { version = "=0.8.0", features = ["tls-rustls"] }
 async-trait = "=0.1.89"

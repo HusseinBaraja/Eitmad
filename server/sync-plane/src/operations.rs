@@ -203,6 +203,11 @@ const fn validation_audit(error: DomainValidationError) -> (ServerAuditOutcome, 
 
 impl SyncCoordinator {
     #[must_use]
+    pub fn catalog_images(&self) -> crate::CatalogImageServer {
+        crate::CatalogImageServer::new(self.pool.clone())
+    }
+
+    #[must_use]
     pub fn new(database: &SyncDatabase, registry: DomainRegistry) -> Self {
         Self {
             pool: database.pool(),

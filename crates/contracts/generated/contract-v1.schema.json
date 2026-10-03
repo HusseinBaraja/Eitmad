@@ -27,6 +27,9 @@
     "diagnostic_report": {
       "$ref": "#/definitions/DiagnosticReport"
     },
+    "download_catalog_image": {
+      "$ref": "#/definitions/DownloadCatalogImage"
+    },
     "effective_permissions": {
       "$ref": "#/definitions/EffectivePermissions"
     },
@@ -113,6 +116,9 @@
     },
     "update_client_profile": {
       "$ref": "#/definitions/UpdateClientProfile"
+    },
+    "upload_catalog_image": {
+      "$ref": "#/definitions/UploadCatalogImage"
     }
   },
   "required": [
@@ -130,6 +136,8 @@
     "sync_transport_frame",
     "server_client_message",
     "server_message",
+    "upload_catalog_image",
+    "download_catalog_image",
     "register_branch_request",
     "registered_branch",
     "relay_session",
@@ -341,6 +349,60 @@
         "usages"
       ]
     },
+    "CatalogImageChunk": {
+      "type": "object",
+      "properties": {
+        "base64": {
+          "type": "string"
+        },
+        "offset": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "reference": {
+          "$ref": "#/definitions/CatalogImageRef"
+        },
+        "totalBytes": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "reference",
+        "offset",
+        "totalBytes",
+        "base64"
+      ]
+    },
+    "CatalogImageKind": {
+      "type": "string",
+      "enum": [
+        "product",
+        "furniture"
+      ]
+    },
+    "CatalogImageRef": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "kind": {
+          "$ref": "#/definitions/CatalogImageKind"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "sha256"
+      ]
+    },
     "ChangeBatch": {
       "type": "object",
       "properties": {
@@ -495,6 +557,22 @@
     "Command": {
       "description": "Authoritative state-changing requests.",
       "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.catalog-image.import.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ImportCatalogImage"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
         {
           "type": "object",
           "properties": {
@@ -930,6 +1008,22 @@
     },
     "CommandResult": {
       "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "catalogImageImported"
+            },
+            "payload": {
+              "$ref": "#/definitions/CatalogImageRef"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
         {
           "type": "object",
           "properties": {
@@ -2137,6 +2231,21 @@
         "pendingSupportWorkflows"
       ]
     },
+    "DownloadCatalogImage": {
+      "type": "object",
+      "properties": {
+        "image": {
+          "$ref": "#/definitions/GetCatalogImage"
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "required": [
+        "scope",
+        "image"
+      ]
+    },
     "EffectivePermission": {
       "type": "object",
       "properties": {
@@ -2666,6 +2775,17 @@
           "type": "string",
           "format": "uuid"
         },
+        "image": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/CatalogImageRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "name": {
           "type": "string"
         },
@@ -3074,6 +3194,23 @@
         "handleIds"
       ]
     },
+    "GetCatalogImage": {
+      "type": "object",
+      "properties": {
+        "offset": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "reference": {
+          "$ref": "#/definitions/CatalogImageRef"
+        }
+      },
+      "required": [
+        "reference",
+        "offset"
+      ]
+    },
     "GetConfiguration": {
       "type": "object"
     },
@@ -3354,6 +3491,21 @@
         "healthy",
         "degraded",
         "unhealthy"
+      ]
+    },
+    "ImportCatalogImage": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "$ref": "#/definitions/CatalogImageKind"
+        },
+        "sourcePath": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "sourcePath"
       ]
     },
     "IpcClientMessage": {
@@ -4936,6 +5088,17 @@
           "type": "string",
           "format": "uuid"
         },
+        "image": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/CatalogImageRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "name": {
           "type": "string"
         },
@@ -5313,6 +5476,22 @@
     "Query": {
       "description": "Authorized read-only requests.",
       "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.catalog-image.get.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/GetCatalogImage"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
         {
           "type": "object",
           "properties": {
@@ -5735,6 +5914,22 @@
     },
     "QueryResult": {
       "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "catalogImage"
+            },
+            "payload": {
+              "$ref": "#/definitions/CatalogImageChunk"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
         {
           "type": "object",
           "properties": {
@@ -6625,6 +6820,16 @@
           ],
           "format": "uuid"
         },
+        "image": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/CatalogImageRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "name": {
           "type": "string"
         },
@@ -6918,6 +7123,16 @@
             "null"
           ],
           "format": "uuid"
+        },
+        "image": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/CatalogImageRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "name": {
           "type": "string"
@@ -9026,6 +9241,26 @@
         "downloadUrl",
         "sizeBytes",
         "sha256Hex"
+      ]
+    },
+    "UploadCatalogImage": {
+      "description": "Rust-only network boundary; the native shell cannot submit image content.",
+      "type": "object",
+      "properties": {
+        "base64": {
+          "type": "string"
+        },
+        "reference": {
+          "$ref": "#/definitions/CatalogImageRef"
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "required": [
+        "scope",
+        "reference",
+        "base64"
       ]
     }
   }

@@ -396,7 +396,7 @@ internal sealed class SupervisionScenarios
                 ?? throw new InvalidOperationException("Real engine omitted the created customer.");
 
             var persistedPart = await SaveMultiMaterialPart(supervisor);
-            var persistedFurniture = await SaveFurnitureDefinition(supervisor, persistedPart);
+            var persistedFurniture = await SaveFurnitureDefinition(supervisor, persistedPart, runtimeDirectory);
             var configurationResponse = await supervisor.QueryAsync(Query.ForConfigGet(new GetConfiguration()));
             if (configurationResponse.Outcome.Status != CommandOutcomeStatus.Succeeded)
             {
@@ -407,7 +407,8 @@ internal sealed class SupervisionScenarios
                 ?? throw new InvalidOperationException("Real engine omitted the configuration snapshot.");
             await using var configurationSubscription = await supervisor.SubscribeAsync(
                 Subscription.ForConfigChangedSubscribe(new ConfigurationChanges()));
-            var persistedProduct = await SaveSupplierProduct(supervisor);
+            var productImage = await ImportSyntheticCatalogImage(supervisor, runtimeDirectory, CatalogImageKind.Product);
+            var persistedProduct = await SaveSupplierProduct(supervisor, productImage);
 
             var patchResponse = await supervisor.SubmitCommandAsync(
                 Command.ForConfigUpdate(new UpdateConfiguration
@@ -449,6 +450,10 @@ internal sealed class SupervisionScenarios
             var reopenedProducts = await supervisor.QueryAsync(Query.ForProductList(new ListProducts { Term = "مرتبة", Limit = 100 }));
             var reopenedProduct = reopenedProducts.Outcome.Payload.AsProducts()!.Items.Single();
             Assert.Equal(persistedProduct.Id, reopenedProduct.Id, "product identity survives engine restart");
+            Assert.Equal(productImage.Id, reopenedProduct.Image.Id, "image reference survives engine restart");
+            var imageRead = await supervisor.QueryAsync(Query.ForCatalogImageGet(new GetCatalogImage { Reference = reopenedProduct.Image, Offset = 0 }));
+            Assert.Equal(CommandOutcomeStatus.Succeeded, imageRead.Outcome.Status, "image bytes survive engine restart and source removal");
+            Assert.True(Convert.FromBase64String(imageRead.Outcome.Payload.AsCatalogImage()!.Base64).Length > 0, "bounded image content returned");
             Assert.Equal(55000L, reopenedProduct.Variants.Single().PurchaseCostYer!.Value, "supplier cost survives engine restart");
             var reopenedFurniture = await supervisor.QueryAsync(Query.ForFurnitureList(new ListFurnitures { Term="خزانة اختبار",Limit=100 }));
             var furniture = reopenedFurniture.Outcome.Payload.AsFurnitures()!.Items.Single();
@@ -495,13 +500,15 @@ internal sealed class SupervisionScenarios
     }
 
     /// <summary>Builds the synthetic definition used to verify durable Furniture IPC.</summary>
-    private static async Task<Furniture> SaveFurnitureDefinition(EngineSupervisor supervisor, Part part)
+    private static async Task<Furniture> SaveFurnitureDefinition(EngineSupervisor supervisor, Part part, string directory)
     {
         var categorySave = await supervisor.SubmitCommandAsync(Command.ForFurnitureCategorySave(new SaveFurnitureCategory { Name="غرف النوم" }),Guid.NewGuid());
         Assert.Equal(CommandOutcomeStatus.Succeeded,categorySave.Outcome.Status,"Furniture category commit");
         var categories = await supervisor.QueryAsync(Query.ForFurnitureCategoryList(new ListFurnitureCategories { Limit=100 }));
         await using var events=await supervisor.SubscribeAsync(Subscription.ForFurnitureChangedSubscribe(new FurnitureChanges()));
+        var image = await ImportSyntheticCatalogImage(supervisor, directory, CatalogImageKind.Furniture);
         var input = new SaveFurniture {
+            Image = image,
             Name="خزانة اختبار",CategoryId=categories.Outcome.Payload.AsFurnitureCategories()!.Items.Single().Id,Description="تعريف تجريبي",Notes="",State=FurnitureState.Active,
             Parts=[new FurniturePart { Reference=part.Composition,Quantity=2 }],
             Variants=[new FurnitureVariant { Id=Guid.NewGuid(),Name="صغير",Dimensions=new FurnitureDimensions { WidthMm=1200,HeightMm=2000,DepthMm=550 },SellingPriceYer=25000,ColorIds=[],HandleIds=[] }],
@@ -521,12 +528,30 @@ internal sealed class SupervisionScenarios
         var invalid=input;invalid.ExpectedRevision=value.Revision+1;invalid.Parts[0].Quantity=0;
         var rejected=await supervisor.SubmitCommandAsync(Command.ForFurnitureSave(invalid),Guid.NewGuid());Assert.Equal(CommandOutcomeStatus.Failed,rejected.Outcome.Status,"invalid Furniture quantity rejected");
         await supervisor.SignOutAsync();await supervisor.SignInAsync("rec","rec");
+        var deniedImage = await supervisor.QueryAsync(Query.ForCatalogImageGet(new GetCatalogImage { Reference = image, Offset = 0 }));
+        Assert.Equal(ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1, deniedImage.Outcome.Payload.Code, "Receptionist internal image read denied");
         var denied=await supervisor.SubmitCommandAsync(Command.ForFurnitureSave(input),Guid.NewGuid());Assert.Equal(ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1,denied.Outcome.Payload.Code,"Receptionist cannot write Furniture");
         await supervisor.SignOutAsync();await supervisor.SignInAsync("admin","admin");return value;
     }
 
+    private static async Task<CatalogImageRef> ImportSyntheticCatalogImage(EngineSupervisor supervisor, string directory, CatalogImageKind kind)
+    {
+        var source = Path.Combine(directory, "synthetic-catalog.png");
+        await File.WriteAllBytesAsync(source, Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEklEQVR4nGPYkGCwIcGAAUIBACUOBQFezV2LAAAAAElFTkSuQmCC"));
+        var request = Command.ForCatalogImageImport(new ImportCatalogImage { Kind = kind, SourcePath = source });
+        var key = Guid.NewGuid();
+        var imported = await supervisor.SubmitCommandAsync(request, key);
+        Assert.Equal(CommandOutcomeStatus.Succeeded, imported.Outcome.Status, "Rust image import commits");
+        File.Delete(source);
+        var retried = await supervisor.SubmitCommandAsync(request, key);
+        Assert.Equal(imported.Outcome.Payload.AsCatalogImageImported()!.Id, retried.Outcome.Payload.AsCatalogImageImported()!.Id, "image exact retry survives source removal");
+        var invalid = await supervisor.SubmitCommandAsync(Command.ForCatalogImageImport(new ImportCatalogImage { Kind = kind, SourcePath = source }), Guid.NewGuid());
+        Assert.Equal(ProtocolIds.ErrorCodes.EitmadErrorCatalogImageInvalidV1, invalid.Outcome.Payload.Code, "missing source fails without private diagnostics");
+        return imported.Outcome.Payload.AsCatalogImageImported()!;
+    }
+
     /// <summary>Exercises real Product saves, retries, committed events, and policy projection invalidation.</summary>
-    private static async Task<Product> SaveSupplierProduct(EngineSupervisor supervisor)
+    private static async Task<Product> SaveSupplierProduct(EngineSupervisor supervisor, CatalogImageRef image)
     {
         var categoryResponse = await supervisor.SubmitCommandAsync(
             Command.ForProductCategorySave(new SaveProductCategory { Name = "مراتب" }), Guid.NewGuid());
@@ -535,6 +560,7 @@ internal sealed class SupervisionScenarios
         await using var events = await supervisor.SubscribeAsync(Subscription.ForProductChangedSubscribe(new ProductChanges()));
         var input = new SaveProduct
         {
+            Image = image,
             Name = "مرتبة طبية", CategoryId = categories.Outcome.Payload.AsProductCategories()!.Items.Single().Id,
             Description = "منتج جاهز", Notes = "",
             Variants = [new SaveProductVariant { Id = Guid.NewGuid(), Name = "مفرد", PurchaseCostYer = 55000 }],

@@ -59,6 +59,8 @@ struct ContractSchemaRoot {
     sync_transport_frame: SyncTransportFrame,
     server_client_message: ServerClientMessage,
     server_message: ServerMessage,
+    upload_catalog_image: eitmad_contracts::catalog_image::UploadCatalogImage,
+    download_catalog_image: eitmad_contracts::catalog_image::DownloadCatalogImage,
     register_branch_request: RegisterBranchRequest,
     registered_branch: RegisteredBranch,
     relay_session: RelaySessionMetadata,

@@ -104,6 +104,7 @@ fn fixture(service: &ProductService, manager: &AuthorizationContext) -> SaveProd
         )
         .unwrap();
     SaveProduct {
+        image: None,
         id: None,
         expected_revision: None,
         name: "مرتبة طبية".into(),
@@ -483,5 +484,65 @@ fn audit_failure_rolls_back_definition_history_retry_and_event() {
             .get::<_, i64>(0))
             .unwrap(),
         count
+    );
+}
+
+#[test]
+fn image_replacement_retains_historical_assets_and_rejects_foreign_attachment() {
+    use eitmad_contracts::catalog_image::{CatalogImageKind, ImportCatalogImage};
+    let directory = TempDir::new().unwrap();
+    let (store, service, manager, _) = setup(&directory);
+    let images = eitmad_catalog_image::CatalogImageService::new(
+        store.clone(),
+        AuthorizationService::new(store.clone()),
+    );
+    let mut input = fixture(&service, &manager);
+    let path = directory.path().join("synthetic.png");
+    let mut references = Vec::new();
+    for (key, width) in [(71, 7), (72, 11)] {
+        image::DynamicImage::new_rgb8(width, 9)
+            .save_with_format(&path, image::ImageFormat::Png)
+            .unwrap();
+        references.push(
+            images
+                .import(
+                    &mutation(manager.clone(), key),
+                    &ImportCatalogImage {
+                        kind: CatalogImageKind::Product,
+                        source_path: path.to_str().unwrap().into(),
+                    },
+                )
+                .unwrap(),
+        );
+    }
+    input.image = Some(Box::new(references[0].clone()));
+    let first = service
+        .save(&mutation(manager.clone(), 73), &input)
+        .unwrap();
+    input.id = Some(first.id);
+    input.expected_revision = Some(first.revision);
+    input.image = Some(Box::new(references[1].clone()));
+    let second = service
+        .save(&mutation(manager.clone(), 74), &input)
+        .unwrap();
+    assert_eq!(
+        service
+            .revision(&manager, &reference(&first, 0, false))
+            .unwrap()
+            .image,
+        first.image
+    );
+    assert_eq!(second.image.as_deref(), Some(&references[1]));
+    assert!(
+        store
+            .catalog_image(&manager.scope, &references[0])
+            .unwrap()
+            .is_some()
+    );
+    input.expected_revision = Some(second.revision);
+    input.image.as_mut().unwrap().id = Uuid::new_v4();
+    assert_eq!(
+        service.save(&mutation(manager, 75), &input),
+        Err(ProductError::InvalidReference)
     );
 }
