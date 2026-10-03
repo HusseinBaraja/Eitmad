@@ -28,9 +28,7 @@ use eitmad_engine_runtime::{
     default_runtime_directory,
     local_ipc::{EventBroker, LocalIpcConfiguration, LocalIpcServer},
 };
-use eitmad_observability_audit::{
-    ObservationContract, ObservationFieldContract, ObservationValue, RedactionContext,
-};
+use eitmad_observability_audit::{ObservationContract, ObservationFieldContract, ObservationValue};
 use eitmad_storage::AuthorityStore;
 #[cfg(debug_assertions)]
 use eitmad_storage::{DesktopAccount, DesktopRole};
@@ -523,7 +521,6 @@ fn emit_operational_failure(event_id: &str, error_code: &str) {
                 field_name,
                 ObservationValue::Identifier(error_code.to_owned()),
             )],
-            RedactionContext::metadata_only(),
         )
         .expect("static metadata must match its observation contract");
     match serde_json::to_string(&log) {

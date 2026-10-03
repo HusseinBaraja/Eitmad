@@ -25,7 +25,6 @@ use eitmad_contracts::{
 };
 use eitmad_observability_audit::{
     AuditExtensionPoint, AuditOutcome, AuditTarget, MutationAuditRecord,
-    SensitiveDebugPermissionGate,
 };
 use eitmad_storage::{
     AuthorityStore, DurableIdempotency, DurablePublication, RelationshipCommitOutcome, StorageError,
@@ -46,7 +45,6 @@ pub const CONFIG_IMPORT_PERMISSION: &str = "eitmad.permission.config.import.v1";
 pub const CONFIG_EXPORT_PERMISSION: &str = "eitmad.permission.config.export.v1";
 pub const AUTHORIZATION_MANAGE_PERMISSION: &str = "eitmad.permission.authorization.manage.v1";
 pub const PERMISSIONS_READ_PERMISSION: &str = "eitmad.permission.permissions.read.v1";
-pub const SENSITIVE_DEBUG_PERMISSION: &str = "eitmad.permission.observability.sensitive-debug.v1";
 pub const CUSTOMER_READ_PERMISSION: &str = "eitmad.permission.customer.read.v1";
 pub const CUSTOMER_WRITE_PERMISSION: &str = "eitmad.permission.customer.write.v1";
 pub const FURNITURE_READ_PERMISSION: &str = "eitmad.permission.furniture.read.v1";
@@ -87,7 +85,6 @@ const POLICY_PERMISSIONS: &[&str] = &[
     MATERIAL_READ_PERMISSION,
     MATERIAL_WRITE_PERMISSION,
     MATERIAL_UNIT_MANAGE_PERMISSION,
-    SENSITIVE_DEBUG_PERMISSION,
     CATALOG_DRAFT_WRITE_PERMISSION,
     QUOTATION_DRAFT_WRITE_PERMISSION,
     DESKTOP_ACCOUNTS_MANAGE_PERMISSION,
@@ -199,7 +196,7 @@ impl AuthorizationService {
                 permission: permission_id(permission),
                 decision: if match *permission {
                     AUTHORIZATION_MANAGE_PERMISSION => owner,
-                    SENSITIVE_DEBUG_PERMISSION => owner && organization_scope,
+
                     CONFIG_WRITE_PERMISSION
                     | CONFIG_IMPORT_PERMISSION
                     | CONFIG_EXPORT_PERMISSION => config_manager && organization_scope,
@@ -476,13 +473,6 @@ impl AuthorizationService {
     }
 }
 
-impl SensitiveDebugPermissionGate for AuthorizationService {
-    fn may_manage_sensitive_debug(&self, authorization: &AuthorizationContext) -> bool {
-        self.authorize(authorization, SENSITIVE_DEBUG_PERMISSION)
-            .is_ok()
-    }
-}
-
 fn registered_relation(relation: &RelationId) -> bool {
     matches!(
         relation.as_str(),
@@ -726,11 +716,6 @@ mod tests {
         );
         assert!(
             service
-                .authorize(&authorization(1, 10), SENSITIVE_DEBUG_PERMISSION)
-                .is_ok()
-        );
-        assert!(
-            service
                 .authorize(&authorization(2, 10), CONFIG_WRITE_PERMISSION)
                 .is_ok()
         );
@@ -741,10 +726,6 @@ mod tests {
         );
         assert_eq!(
             service.authorize(&authorization(3, 10), CONFIG_WRITE_PERMISSION),
-            Err(AuthorizationError::Denied)
-        );
-        assert_eq!(
-            service.authorize(&authorization(3, 10), SENSITIVE_DEBUG_PERMISSION),
             Err(AuthorizationError::Denied)
         );
     }

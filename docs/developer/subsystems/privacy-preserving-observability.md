@@ -1,101 +1,58 @@
 ---
 title: "Extend privacy-preserving observability safely"
-description: "Trace structured logs, errors, correlation, redaction, crash reports, and temporary sensitive diagnostics without exposing secrets."
+description: "Trace metadata-only logs, correlation, and IPC error redaction without exposing product data or secrets."
 audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust reliability and security maintainers"
-last_verified: "2026-08-19"
+last_verified: "2026-10-03"
 review_triggers:
-  - "diagnostic fields, sinks, error contracts, crash reporting, redaction, or sensitive-debug behavior changes"
+  - "diagnostic fields, sinks, error contracts, or redaction changes"
 keywords:
   - "eitmad-observability-audit"
   - "metadata-only logging"
   - "correlation ID"
-  - "sensitive debug expiry"
-  - "eitmad.message.observability-sensitive-debug-warning.v1"
-  - "eitmad.permission.observability.sensitive-debug.v1"
 ---
 
 # Extend privacy-preserving observability safely
 
-`eitmad-observability-audit` is the Rust authority for diagnostic field contracts, structured logs and errors, crash-report projections, redaction, correlation, and temporary sensitive-debug state. Routine output is metadata-only. Secret-classified fields are always redacted, including during sensitive debugging.
+`eitmad-observability-audit` applies Rust-owned field contracts before operational logs are serialized. Only declared metadata is included. Sensitive and secret fields are always redacted; there is no temporary mode that reveals them.
 
-## Ownership and boundary flow
+## Authority and boundary
 
-```mermaid
-flowchart LR
-    Caller["Rust capability"] --> Contract["ObservationContract\nfield allowlist · type · classification"]
-    Contract --> Redaction["RedactionContext\nmetadata-only by default"]
-    Redaction --> Sink["Structured JSON log or crash report"]
-    Auth["AuthorizationService\nowner-only permission"] --> Debug["SensitiveDebugController\nmessage ID · disable · 30-minute cap"]
-    Debug --> Redaction
-    Debug --> Audit["Enable and expiry\nMutationAuditRecord"]
-    IPC["IpcServerMessage writer"] --> ErrorProjection["ContractError\nexternal redaction"] --> Shell["Thin native shell"]
-```
+`crates/contracts/src/observability.rs` owns event, component, field, severity, classification, and value-kind types. `crates/observability-audit/src/diagnostics.rs` checks the allowlist, field types, duplicate declarations, and duplicate emitted values. The engine CLI uses this path for operational failures.
 
-`crates/contracts/src/observability.rs` owns stable event, component, field, severity, classification, and value-kind types. `crates/observability-audit/src/diagnostics.rs` applies those contracts. The engine CLI uses the same metadata-only path for operational failures. Local IPC applies `ContractError::redacted_for_external_boundary` again immediately before serialization, so a faulty internal dispatcher cannot send raw error text.
+`ObservationContract::redact` creates a `StructuredLog` with private fields, a stable event ID, occurrence time, component, severity, correlation ID, and checked values. Callers cannot bypass classification by filling a public output map.
 
-## Redaction contract
+| Classification | Serialized output |
+| --- | --- |
+| `Metadata` | Included after field and type validation |
+| `Sensitive` | `redacted` |
+| `Secret` | `redacted` |
 
-Every field must be declared once with a name, value kind, and classification. Unknown fields, duplicate declarations, duplicate emitted values, and type mismatches fail before serialization.
+Local IPC uses `ContractError::redacted_for_external_boundary` immediately before serialization. That projection retains stable codes, message IDs, retry policy, correlation, safe numeric details, and allowlisted metadata. It removes free text, mismatched parameter kinds, and compatibility reasons even if an internal dispatcher constructed an unsafe error.
 
-| Classification | Routine output | Active sensitive debug | IPC errors and crash reports |
-| --- | --- | --- | --- |
-| `Metadata` | Included | Included | Included only through an approved structured projection |
-| `Sensitive` | `redacted` | Included until exact expiry | Never copied from raw causes; crash inclusion requires an already-redacted structured log |
-| `Secret` | `redacted` | `redacted` | Always absent |
+## Security and correlation
 
-Structured output fields are private Rust state. Callers cannot construct a `StructuredLog`, `StructuredError`, or `CrashReport` by filling arbitrary public maps. `ObservationContract::redact` is the log creation boundary; `StructuredError::with_contract_metadata` uses that same contract and redaction path for error metadata.
+Product payloads, customer text, credentials, authorization graphs, and raw causes must not enter logs or audit. A correlation ID links operational failures; it does not authorize cross-scope joins or product access.
 
-## Correlation and structured errors
+Mutation audit remains separate from diagnostic output. State changes and their redacted audit records commit together in the owning storage boundary. The historical `SensitiveDebugMode` audit tag remains readable, but no diagnostic controller or permission enables that mode.
 
-Every structured log and error carries a `CorrelationId`. Command, query, subscription, lifecycle, and CLI failure paths preserve or create a correlation ID without logging request payloads. `ContractError` external projection retains stable codes, message IDs, retry policy, correlation, safe numeric details, and allowlisted metadata only. It removes free text, mismatched parameter kinds, and compatibility reasons.
+There is no custom structured-error metadata builder, crash-report pipeline, persistent diagnostic sink, upload destination, retention job, or support-bundle exporter. Add one only for a current workflow with explicit access, quotas, privacy, scope, and deletion rules.
 
-Correlation IDs support search and sequence reconstruction; they are not authentication proof, business record identifiers, or permission to join data across scopes.
+## Failure and recovery
 
-## Temporary sensitive-debug lifecycle
-
-`SensitiveDebugController::enable` requires a `SensitiveDebugPermissionGate`, authorization context, correlation ID, current `UnixMillis`, and positive duration no greater than 30 minutes. `AuthorizationService` grants `eitmad.permission.observability.sensitive-debug.v1` only to an organization owner. A denied request changes no state. An accepted request returns:
-
-- stable message ID `eitmad.message.observability-sensitive-debug-warning.v1` through active status for shell localization;
-- an enable audit record marked `SecurityEvent` and `SensitiveDebugMode`;
-- an expiry timestamp calculated without overflow.
-
-`disable` uses the same permission gate, clears an active session immediately, and returns a disable audit record; disabling an inactive session is rejected. At `now >= expiresAt`, `evaluate` returns metadata-only redaction and one expiry audit record, then becomes disabled. Each active `RedactionContext` carries its exact expiry, and `ObservationContract::redact` compares the event timestamp to that bound, so a copied context cannot reveal sensitive data at or after expiry. Overlapping sessions, zero duration, over-limit duration, and timestamp overflow are rejected. Secret fields never become visible.
-
-No IPC, CLI, or shell control currently enables this mode. A future command boundary must use `AuthorizationService` as the permission gate, durably append each enable/disable/expiry record, restrict access to emitted diagnostics, and fail closed if authorization or audit persistence fails. It must not turn sensitive debug into a global environment variable or permanent setting.
-
-## Security, audit, and Arabic behavior
-
-Normal logs, IPC errors, crash reports, configuration snapshots, and audit payloads exclude raw causes, customer text, product payloads, credentials, and secret material. Sensitive-debug audit targets contain only expiry metadata; they do not contain diagnostic field values.
-
-No user-facing observability UI or approved Arabic warning copy exists. Future shells must resolve `eitmad.message.observability-sensitive-debug-warning.v1`, render the Arabic warning in RTL, isolate LTR correlation and error identifiers, preserve copy/paste, and never collect Arabic customer text merely for readability. Rust identifiers remain language-neutral.
-
-## Failure modes and recovery
-
-| Failure | Safe behavior | Recovery |
+| Failure | Behavior | Repair |
 | --- | --- | --- |
-| Unknown or wrong-kind field | Reject event construction | Fix the owning `ObservationContract`; do not weaken classification |
-| Duplicate declared or emitted field | Reject event construction | Remove the duplicate at the owning caller; do not rely on last-write-wins behavior |
-| Sensitive-debug permission denied | Keep mode disabled | Verify the authenticated owner and exact organization scope without exposing relationships |
-| Raw text in internal `ContractError` | Strip it at the external projection and IPC writer | Replace it with a stable code or allowlisted typed metadata |
-| Sensitive-debug duration invalid | Reject activation | Request a positive duration within 30 minutes |
-| Sensitive debug no longer needed | Disable it early and persist the returned audit | Continue with metadata-only diagnostics |
-| Sensitive-debug expiry reached | Return metadata-only context and one expiry audit | Persist expiry audit; start a separately authorized session only if still necessary |
-| Serialization failure | Emit only a stable fallback event and correlation ID | Diagnose the structured schema; never print the raw value |
+| Unknown, duplicate, or wrong-kind field | Event construction fails | Fix the owning field contract |
+| Raw internal error text | IPC strips it | Replace the raw cause with stable typed metadata |
+| Serialization failure | CLI emits only a stable fallback event and correlation ID | Fix the schema without printing the value |
 | Suspected sensitive output | Treat as a privacy incident | Follow [diagnostic leakage recovery](../../troubleshooting/privacy-and-secret-leakage.md) |
 
-No persistent diagnostic sink, upload destination, retention policy, or support-bundle exporter is implemented. Adding one requires explicit quotas, access control, encryption, deletion, inspection, and scope-isolation design.
+Rust identifiers are language-neutral. Future Arabic diagnostic UI must isolate correlation and error identifiers in LTR runs inside RTL layout. No customer text may be collected for readability.
 
-## Tests and safe extension
+## Verification
 
-Focused tests cover metadata-only redaction, contract-checked structured-error metadata, duplicate/unknown/wrong-kind fields, permission denial, overlapping activation, early disable, hard secret redaction, copied-context expiry, invalid duration, every IPC error projection, frame-level serialization, crash-report construction, audit payloads, and a shared secret sentinel across outputs. Engine process tests verify structured failure behavior and clean diagnostics.
+Focused tests cover sensitive and secret sentinels, field allowlists, duplicate and wrong-kind values, mandatory audit metadata, external error projection, IPC serialization, and structured CLI failures. Run the affected crate tests; use the [focused check table](../index.md#choose-the-smallest-normal-proof) for cross-boundary changes.
 
-Before adding a field, name its operational decision, choose the narrowest value kind, classify it, and add a sentinel leak test. Before adding a sink, threat-model access, retention, and cross-scope correlation. Run:
-
-```powershell
-cargo test -p eitmad-observability-audit -p eitmad-contracts -p eitmad-engine-runtime -p eitmad-engine-cli
-```
-
-Next, review [ADR-0012](../../decisions/0012-privacy-preserving-observability.md), [typed local IPC](local-ipc.md), and [secret storage](secret-storage.md).
+Related authority: [ADR-0012](../../decisions/0012-privacy-preserving-observability.md), [typed local IPC](local-ipc.md), and [secret storage](secret-storage.md).

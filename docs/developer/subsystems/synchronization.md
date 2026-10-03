@@ -103,7 +103,9 @@ The customer vertical writes each authorized contact change and its `eitmad.sche
 
 The default `ConflictHook` returns `Defer`; this preserves the local visible value and an open conflict. A domain may implement `KeepLocal`, `KeepRemote`, or `Merge(payload)` only when its invariant makes that result truthful. Keep-local and domain-merge resolutions rebase onto the remote revision and record both source change IDs in `MergeMetadata`. Never add a generic last-write-wins hook for quotation, order, ledger, permission, or other truth-sensitive data.
 
-## Server-authoritative flow
+## Server-authoritative client state
+
+The client library can preserve and reconcile this mode. No current product capability uses it, and the server has no command submission entry point.
 
 1. A server snapshot populates confirmed cache state, checkpoint, generation, and `valid_until`.
 2. `queue_command` authorizes and durably queues a typed command. An optional optimistic change is projected over confirmed state and is returned as `RecordAuthority::Optimistic`.
@@ -171,4 +173,4 @@ cargo test -p eitmad-sync -p eitmad-storage -p eitmad-contracts
 
 Then run strict workspace Clippy, all workspace tests, contract generation/verification, engine diagnostics, and the documentation audit. A new production connector must define credential resolution, peer verification, encrypted-session implementation, route discovery, timeouts, backpressure integration, safe diagnostics, and deployment ownership without changing `SyncTransportFrame` or `SyncMessage`. A new domain must define its mode, payload schema, authorization action/object, conflict policy, stale-read tolerance, Arabic UI states, and audit target before using the engine.
 
-Related references: [sync contracts](../../api/synchronization-contracts.md), [server authority](server-authority.md), [WAN relay](wan-relay-coordination.md), [local storage](local-storage.md), [authorization](authorization.md), [ADR-0008](../../decisions/0008-required-unified-synchronization.md), [storage version 8 rollout](../../releases/storage-v8-reference-marker.md), and [protocol 1.5 rollout](../../releases/protocol-1-5-operational-server-planes.md).
+Related references: [sync contracts](../../api/synchronization-contracts.md), [server authority](server-authority.md), [WAN relay](wan-relay-coordination.md), [local storage](local-storage.md), [authorization](authorization.md), [ADR-0008](../../decisions/0008-required-unified-synchronization.md), [retained migration history](local-storage.md), and [server operations](../../operations/run-server-authority.md).

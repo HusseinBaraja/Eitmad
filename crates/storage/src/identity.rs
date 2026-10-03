@@ -81,23 +81,6 @@ pub(crate) const MIGRATIONS: &[Migration] = &[Migration::new(
      ALTER TABLE mutation_audit ADD COLUMN device_id TEXT;",
 )];
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct DeviceIdentity {
-    pub device_id: DeviceId,
-    pub created_at: UnixMillis,
-    pub last_seen_at: UnixMillis,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct IdentityTopology {
-    pub tenant_id: TenantId,
-    pub user_id: UserId,
-    pub account_id: AccountId,
-    pub organization_id: Option<OrganizationId>,
-    pub workspace_id: Option<WorkspaceId>,
-    pub created_at: UnixMillis,
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SessionConnectivity {
     Online,
@@ -130,145 +113,6 @@ impl PersistentSession {
 }
 
 impl AuthorityStore {
-    /// Creates or refreshes one stable device identity.
-    ///
-    /// # Errors
-    ///
-    /// Returns a sanitized storage error for invalid timestamps or failed persistence.
-    pub fn persist_device(&self, device: &DeviceIdentity) -> Result<(), StorageError> {
-        if device.last_seen_at.0 < device.created_at.0 {
-            return Err(StorageError);
-        }
-        self.write_transaction(|connection| {
-            connection
-                .execute(
-                    "INSERT INTO identity_devices(device_id, created_at, last_seen_at)
-                     VALUES (?1, ?2, ?3)
-                     ON CONFLICT(device_id) DO UPDATE SET
-                       last_seen_at = MAX(last_seen_at, excluded.last_seen_at)",
-                    params![
-                        device.device_id.value().to_string(),
-                        device.created_at.0,
-                        device.last_seen_at.0
-                    ],
-                )
-                .map_err(|_| StorageError)?;
-            Ok(())
-        })
-    }
-
-    /// Persists a tenant-scoped user/account and optional organization/workspace atomically.
-    ///
-    /// # Errors
-    ///
-    /// Returns a sanitized storage error for conflicting or cross-tenant topology.
-    pub fn persist_identity_topology(
-        &self,
-        identity: &IdentityTopology,
-    ) -> Result<(), StorageError> {
-        self.write_transaction(|connection| {
-            let tenant = identity.tenant_id.value().to_string();
-            connection
-                .execute(
-                    "INSERT OR IGNORE INTO identity_tenants(tenant_id, created_at) VALUES (?1, ?2)",
-                    params![tenant, identity.created_at.0],
-                )
-                .map_err(|_| StorageError)?;
-            connection
-                .execute(
-                    "INSERT OR IGNORE INTO identity_users(user_id, created_at) VALUES (?1, ?2)",
-                    params![identity.user_id.value().to_string(), identity.created_at.0],
-                )
-                .map_err(|_| StorageError)?;
-            connection
-                .execute(
-                    "INSERT INTO identity_accounts(account_id, user_id, tenant_id, created_at)
-                     VALUES (?1, ?2, ?3, ?4)
-                     ON CONFLICT(account_id) DO NOTHING",
-                    params![
-                        identity.account_id.value().to_string(),
-                        identity.user_id.value().to_string(),
-                        tenant,
-                        identity.created_at.0
-                    ],
-                )
-                .map_err(|_| StorageError)?;
-            if let Some(organization_id) = identity.organization_id {
-                connection
-                    .execute(
-                        "INSERT INTO identity_organizations
-                         (organization_id, tenant_id, created_at) VALUES (?1, ?2, ?3)
-                         ON CONFLICT(organization_id) DO NOTHING",
-                        params![
-                            organization_id.value().to_string(),
-                            tenant,
-                            identity.created_at.0
-                        ],
-                    )
-                    .map_err(|_| StorageError)?;
-            }
-            if let Some(workspace_id) = identity.workspace_id {
-                connection
-                    .execute(
-                        "INSERT INTO identity_workspaces
-                         (workspace_id, tenant_id, organization_id, created_at)
-                         VALUES (?1, ?2, ?3, ?4)
-                         ON CONFLICT(workspace_id) DO NOTHING",
-                        params![
-                            workspace_id.value().to_string(),
-                            tenant,
-                            identity.organization_id.map(|id| id.value().to_string()),
-                            identity.created_at.0
-                        ],
-                    )
-                    .map_err(|_| StorageError)?;
-            }
-            verify_topology(connection, identity)
-        })
-    }
-
-    /// Opens a durable session after every referenced identity is present in one tenant.
-    ///
-    /// # Errors
-    ///
-    /// Returns a sanitized storage error for invalid time bounds, missing identity,
-    /// cross-tenant references, duplicate sessions, or failed persistence.
-    pub fn persist_session(&self, session: &PersistentSession) -> Result<(), StorageError> {
-        if session.expires_at.0 <= session.issued_at.0
-            || session.last_seen_at.0 < session.issued_at.0
-        {
-            return Err(StorageError);
-        }
-        self.write_transaction(|connection| {
-            connection
-                .execute(
-                    "INSERT INTO identity_sessions
-                     (session_id, principal_id, principal_kind, device_id, user_id, account_id,
-                      tenant_id, organization_id, workspace_id, issued_at, expires_at,
-                      last_seen_at, offline, closed_at)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
-                    params![
-                        session.session_id.value().to_string(),
-                        session.principal_id.value().to_string(),
-                        serde_json::to_string(&session.principal_kind).map_err(|_| StorageError)?,
-                        session.device_id.value().to_string(),
-                        session.user_id.value().to_string(),
-                        session.account_id.value().to_string(),
-                        session.tenant_id.value().to_string(),
-                        session.organization_id.map(|id| id.value().to_string()),
-                        session.workspace_id.map(|id| id.value().to_string()),
-                        session.issued_at.0,
-                        session.expires_at.0,
-                        session.last_seen_at.0,
-                        i64::from(session.connectivity == SessionConnectivity::Offline),
-                        session.closed_at.map(|value| value.0),
-                    ],
-                )
-                .map_err(|_| StorageError)?;
-            Ok(())
-        })
-    }
-
     /// Reads one session only through its tenant isolation key.
     ///
     /// # Errors
@@ -313,118 +157,6 @@ impl AuthorityStore {
                 .transpose()
         })
     }
-
-    /// Refreshes an active session and records whether the engine is currently offline.
-    ///
-    /// # Errors
-    ///
-    /// Returns a sanitized storage error when the scoped update cannot complete.
-    pub fn refresh_session(
-        &self,
-        tenant_id: TenantId,
-        session_id: SessionId,
-        seen_at: UnixMillis,
-        connectivity: SessionConnectivity,
-    ) -> Result<bool, StorageError> {
-        self.write_transaction(|connection| {
-            let changed = connection
-                .execute(
-                    "UPDATE identity_sessions SET last_seen_at = ?3, offline = ?4
-                     WHERE tenant_id = ?1 AND session_id = ?2 AND closed_at IS NULL
-                       AND last_seen_at <= ?3 AND ?3 < expires_at",
-                    params![
-                        tenant_id.value().to_string(),
-                        session_id.value().to_string(),
-                        seen_at.0,
-                        i64::from(connectivity == SessionConnectivity::Offline)
-                    ],
-                )
-                .map_err(|_| StorageError)?;
-            Ok(changed == 1)
-        })
-    }
-
-    /// Closes one tenant-scoped session. Repeated closure is a no-op.
-    ///
-    /// # Errors
-    ///
-    /// Returns a sanitized storage error when the scoped update cannot complete.
-    pub fn close_session(
-        &self,
-        tenant_id: TenantId,
-        session_id: SessionId,
-        closed_at: UnixMillis,
-    ) -> Result<bool, StorageError> {
-        self.write_transaction(|connection| {
-            let changed = connection
-                .execute(
-                    "UPDATE identity_sessions SET closed_at = ?3
-                     WHERE tenant_id = ?1 AND session_id = ?2 AND closed_at IS NULL
-                       AND issued_at <= ?3",
-                    params![
-                        tenant_id.value().to_string(),
-                        session_id.value().to_string(),
-                        closed_at.0
-                    ],
-                )
-                .map_err(|_| StorageError)?;
-            Ok(changed == 1)
-        })
-    }
-}
-
-fn verify_topology(
-    connection: &rusqlite::Connection,
-    identity: &IdentityTopology,
-) -> Result<(), StorageError> {
-    let stored = connection
-        .query_row(
-            "SELECT user_id, tenant_id FROM identity_accounts WHERE account_id = ?1",
-            [identity.account_id.value().to_string()],
-            |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
-        )
-        .map_err(|_| StorageError)?;
-    if stored
-        != (
-            identity.user_id.value().to_string(),
-            identity.tenant_id.value().to_string(),
-        )
-    {
-        return Err(StorageError);
-    }
-    if let Some(organization_id) = identity.organization_id {
-        let count = connection
-            .query_row(
-                "SELECT COUNT(*) FROM identity_organizations
-                 WHERE organization_id = ?1 AND tenant_id = ?2",
-                params![
-                    organization_id.value().to_string(),
-                    identity.tenant_id.value().to_string()
-                ],
-                |row| row.get::<_, i64>(0),
-            )
-            .map_err(|_| StorageError)?;
-        if count != 1 {
-            return Err(StorageError);
-        }
-    }
-    if let Some(workspace_id) = identity.workspace_id {
-        let stored_organization = connection
-            .query_row(
-                "SELECT organization_id FROM identity_workspaces
-                 WHERE workspace_id = ?1 AND tenant_id = ?2",
-                params![
-                    workspace_id.value().to_string(),
-                    identity.tenant_id.value().to_string()
-                ],
-                |row| row.get::<_, Option<String>>(0),
-            )
-            .map_err(|_| StorageError)?;
-        if stored_organization != identity.organization_id.map(|id| id.value().to_string()) {
-            return Err(StorageError);
-        }
-    }
-    Ok(())
 }
 
 type StoredSessionRow = (
@@ -482,201 +214,92 @@ fn decode_session(
 
 #[cfg(test)]
 mod tests {
+    use eitmad_contracts::transport::CorrelationId;
     use tempfile::TempDir;
     use uuid::Uuid;
 
     use super::*;
 
-    fn id(value: u128) -> Uuid {
-        Uuid::from_u128(value)
-    }
-
-    fn topology(tenant: u128) -> IdentityTopology {
-        IdentityTopology {
-            tenant_id: TenantId::new(id(tenant)),
-            user_id: UserId::new(id(10)),
-            account_id: AccountId::new(id(11 + tenant)),
-            organization_id: Some(OrganizationId::new(id(12 + tenant))),
-            workspace_id: Some(WorkspaceId::new(id(13 + tenant))),
-            created_at: UnixMillis(1),
-        }
-    }
-
-    fn session(topology: &IdentityTopology) -> PersistentSession {
-        PersistentSession {
-            session_id: SessionId::new(id(20)),
-            principal_id: PrincipalId::new(id(21)),
+    #[test]
+    fn desktop_session_survives_reopen_and_keeps_tenant_and_audit_boundaries() {
+        let directory = TempDir::new().unwrap();
+        let store = AuthorityStore::open(directory.path()).unwrap();
+        let authorization = store.local_authorization_context(UnixMillis(1)).unwrap();
+        let account: String = store
+            .read_transaction(|connection| {
+                connection
+                    .query_row(
+                        "SELECT account_id FROM local_installation_authority",
+                        [],
+                        |row| row.get(0),
+                    )
+                    .map_err(|_| StorageError)
+            })
+            .unwrap();
+        let expected = PersistentSession {
+            session_id: authorization.session_id,
+            principal_id: authorization.identity.principal_id,
             principal_kind: PrincipalKind::User,
-            device_id: DeviceId::new(id(22)),
-            user_id: topology.user_id,
-            account_id: topology.account_id,
-            tenant_id: topology.tenant_id,
-            organization_id: topology.organization_id,
-            workspace_id: topology.workspace_id,
+            device_id: authorization.identity.device_id.unwrap(),
+            user_id: UserId::new(authorization.identity.principal_id.value()),
+            account_id: AccountId::new(Uuid::parse_str(&account).unwrap()),
+            tenant_id: authorization.tenant_id,
+            organization_id: Some(store.local_organization_id().unwrap()),
+            workspace_id: None,
             issued_at: UnixMillis(100),
             expires_at: UnixMillis(1_000),
             last_seen_at: UnixMillis(100),
             connectivity: SessionConnectivity::Offline,
             closed_at: None,
-        }
-    }
-
-    #[test]
-    fn device_identity_and_offline_session_survive_reopen() {
-        let directory = TempDir::new().unwrap();
-        let store = AuthorityStore::open(directory.path()).unwrap();
-        let topology = topology(1);
-        store.persist_identity_topology(&topology).unwrap();
+        };
         store
-            .persist_device(&DeviceIdentity {
-                device_id: DeviceId::new(id(22)),
-                created_at: UnixMillis(1),
-                last_seen_at: UnixMillis(100),
-            })
+            .persist_desktop_session(&expected, CorrelationId::new(Uuid::new_v4()))
             .unwrap();
-        let expected = session(&topology);
-        store.persist_session(&expected).unwrap();
         drop(store);
 
         let reopened = AuthorityStore::open(directory.path()).unwrap();
         let actual = reopened
-            .read_session(topology.tenant_id, expected.session_id)
+            .read_session(expected.tenant_id, expected.session_id)
             .unwrap()
             .unwrap();
         assert_eq!(actual, expected);
+        assert!(!actual.is_locally_usable_at(UnixMillis(99)));
         assert!(actual.is_locally_usable_at(UnixMillis(500)));
         assert!(!actual.is_locally_usable_at(UnixMillis(1_000)));
+        let other_tenant = TenantId::new(Uuid::new_v4());
         assert!(
             reopened
-                .refresh_session(
-                    topology.tenant_id,
-                    expected.session_id,
-                    UnixMillis(600),
-                    SessionConnectivity::Online,
-                )
-                .unwrap()
-        );
-        assert_eq!(
-            reopened
-                .read_session(topology.tenant_id, expected.session_id)
-                .unwrap()
-                .unwrap()
-                .connectivity,
-            SessionConnectivity::Online
-        );
-        assert!(
-            reopened
-                .close_session(topology.tenant_id, expected.session_id, UnixMillis(700))
-                .unwrap()
-        );
-        let closed = reopened
-            .read_session(topology.tenant_id, expected.session_id)
-            .unwrap()
-            .unwrap();
-        assert!(!closed.is_locally_usable_at(UnixMillis(701)));
-        assert!(
-            !reopened
-                .refresh_session(
-                    topology.tenant_id,
-                    expected.session_id,
-                    UnixMillis(702),
-                    SessionConnectivity::Offline,
-                )
-                .unwrap()
-        );
-    }
-
-    #[test]
-    fn device_refresh_preserves_creation_and_latest_seen_times() {
-        let directory = TempDir::new().unwrap();
-        let store = AuthorityStore::open(directory.path()).unwrap();
-        let device_id = DeviceId::new(id(40));
-        store
-            .persist_device(&DeviceIdentity {
-                device_id,
-                created_at: UnixMillis(10),
-                last_seen_at: UnixMillis(30),
-            })
-            .unwrap();
-        store
-            .persist_device(&DeviceIdentity {
-                device_id,
-                created_at: UnixMillis(20),
-                last_seen_at: UnixMillis(20),
-            })
-            .unwrap();
-
-        let stored = store
-            .read_transaction(|connection| {
-                connection
-                    .query_row(
-                        "SELECT created_at, last_seen_at FROM identity_devices
-                         WHERE device_id = ?1",
-                        [device_id.value().to_string()],
-                        |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?)),
-                    )
-                    .map_err(|_| StorageError)
-            })
-            .unwrap();
-        assert_eq!(stored, (10, 30));
-    }
-
-    #[test]
-    fn workspace_cannot_change_organization() {
-        let directory = TempDir::new().unwrap();
-        let store = AuthorityStore::open(directory.path()).unwrap();
-        let original = topology(1);
-        store.persist_identity_topology(&original).unwrap();
-        let mut conflicting = original.clone();
-        conflicting.organization_id = Some(OrganizationId::new(id(99)));
-
-        assert!(store.persist_identity_topology(&conflicting).is_err());
-
-        let stored = store
-            .read_transaction(|connection| {
-                connection
-                    .query_row(
-                        "SELECT organization_id FROM identity_workspaces
-                         WHERE workspace_id = ?1",
-                        [original.workspace_id.unwrap().value().to_string()],
-                        |row| row.get::<_, Option<String>>(0),
-                    )
-                    .map_err(|_| StorageError)
-            })
-            .unwrap();
-        assert_eq!(
-            stored,
-            original.organization_id.map(|id| id.value().to_string())
-        );
-    }
-
-    #[test]
-    fn session_lookup_and_foreign_keys_enforce_tenant_isolation() {
-        let directory = TempDir::new().unwrap();
-        let store = AuthorityStore::open(directory.path()).unwrap();
-        let first = topology(1);
-        let second = topology(2);
-        store.persist_identity_topology(&first).unwrap();
-        store.persist_identity_topology(&second).unwrap();
-        store
-            .persist_device(&DeviceIdentity {
-                device_id: DeviceId::new(id(22)),
-                created_at: UnixMillis(1),
-                last_seen_at: UnixMillis(100),
-            })
-            .unwrap();
-        let session = session(&first);
-        store.persist_session(&session).unwrap();
-
-        assert!(
-            store
-                .read_session(second.tenant_id, session.session_id)
+                .read_session(other_tenant, expected.session_id)
                 .unwrap()
                 .is_none()
         );
-        let mut crossed = session.clone();
-        crossed.session_id = SessionId::new(id(30));
-        crossed.tenant_id = second.tenant_id;
-        assert!(store.persist_session(&crossed).is_err());
+        let mut crossed = expected.clone();
+        crossed.session_id = SessionId::new(Uuid::new_v4());
+        crossed.tenant_id = other_tenant;
+        assert!(
+            reopened
+                .persist_desktop_session(&crossed, CorrelationId::new(Uuid::new_v4()))
+                .is_err()
+        );
+
+        for _ in 0..2 {
+            reopened
+                .close_desktop_session(
+                    &authorization,
+                    UnixMillis(700),
+                    CorrelationId::new(Uuid::new_v4()),
+                )
+                .unwrap();
+        }
+        let closed = reopened
+            .read_session(expected.tenant_id, expected.session_id)
+            .unwrap()
+            .unwrap();
+        assert_eq!(closed.closed_at, Some(UnixMillis(700)));
+        assert!(!closed.is_locally_usable_at(UnixMillis(701)));
+        let audit_count: i64 = reopened.read_transaction(|connection| {
+            connection.query_row("SELECT COUNT(*) FROM mutation_audit WHERE session_id = ?1 AND operation IN ('eitmad.desktop.session.sign-in.v1', 'eitmad.desktop.session.sign-out.v1')", [expected.session_id.value().to_string()], |row| row.get(0)).map_err(|_| StorageError)
+        }).unwrap();
+        assert_eq!(audit_count, 2);
     }
 }

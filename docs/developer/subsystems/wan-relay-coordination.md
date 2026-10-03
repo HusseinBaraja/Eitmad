@@ -71,4 +71,4 @@ Run:
 cargo test -p eitmad-relay-plane -p eitmad-server -p eitmad-sync
 ```
 
-Add quotas, frame forwarding, or a separate relay process only through bounded, authenticated hooks. Preserve tenant checks, opaque payload handling, redacted audit, retry limits, and protocol `1.5` contracts. Related pages: [synchronization](synchronization.md), [server authority](server-authority.md), [ADR-0026](../../decisions/0026-compose-authorized-operational-server-planes.md), and [protocol 1.5 rollout](../../releases/protocol-1-5-operational-server-planes.md).
+Add quotas, frame forwarding, or a separate relay process only through bounded, authenticated hooks. Preserve tenant checks, opaque payload handling, redacted audit, retry limits, and protocol `1.5` contracts. Related pages: [synchronization](synchronization.md), [server authority](server-authority.md), [ADR-0026](../../decisions/0026-compose-authorized-operational-server-planes.md), and [server operations](../../operations/run-server-authority.md).

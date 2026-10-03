@@ -117,4 +117,4 @@ Rust unit and static migration tests cover authentication boundaries, identity p
 - [ADR-0009: Zero-trust security](0009-zero-trust-security-model.md)
 - [ADR-0010: ReBAC authorization](0010-rebac-authorization-foundation.md)
 - [Server authority](../developer/subsystems/server-authority.md)
-- [Protocol 1.4 rollout](../releases/protocol-1-4-server-authority.md)
+- [Server operations](../operations/run-server-authority.md)

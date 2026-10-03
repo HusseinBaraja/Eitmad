@@ -30,7 +30,7 @@ Read `AGENTS.md` at the repository root, then review:
 - [Arabic-first feature checklist](contributing/arabic-first-feature-checklist.md)
 - [Domain glossary](../glossary.md)
 
-Then read only the subsystem page that owns the change. Use [Build the first real product](build-first-product.md) only when adding a complete product vertical.
+Then read only the subsystem page that owns the change.
 
 For customer, catalog, pricing, quotation, order, work-order, or delivery implementation, use the [Manager and Receptionist workflow specification](subsystems/manager-receptionist-workflows.md) as the accepted product behavior. The existing Windows feature pages describe preview presentation only.
 

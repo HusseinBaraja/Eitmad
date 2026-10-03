@@ -1,26 +1,17 @@
-use std::sync::Arc;
-
 use eitmad_contracts::{
     identity::{AccountId, OrganizationId, TenantId, UserId},
-    server::{
-        AuthenticatedServerSession, CreateInviteRequest, InviteCreated, InviteId, LicenseId,
-        TenantCode,
-    },
+    server::{InviteId, TenantCode},
     transport::{CorrelationId, UnixMillis},
 };
 use eitmad_server_audit::{
-    ServerAuditActor, ServerAuditEnvelope, ServerAuditEvent, ServerAuditOutcome,
-    append as append_audit, tenant_scope,
+    ServerAuditActor, ServerAuditEnvelope, ServerAuditOutcome, append as append_audit, tenant_scope,
 };
 use rand::RngCore as _;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::{
-    authentication::{
-        AuthenticationError, TokenCodec, TokenKey, canonical_username, is_direction_control,
-    },
-    database::tenant_transaction,
+use crate::authentication::{
+    AuthenticationError, TokenCodec, TokenKey, canonical_username, is_direction_control,
 };
 
 const OWNER_RELATION: &str = "eitmad.relation.organization.owner.v1";
@@ -43,29 +34,10 @@ pub struct BootstrapResult {
     pub expires_at: UnixMillis,
 }
 
-/// Secret-bearing delivery request. Providers must not persist or log its token.
-#[derive(Clone)]
-pub struct NotificationDelivery {
-    pub invite_id: InviteId,
-    pub destination: Option<String>,
-    pub activation_token: String,
-    pub expires_at: UnixMillis,
-}
-
-pub trait NotificationSink: Send + Sync {
-    /// Accepts a delivery after its outbox job is durable.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error when the configured delivery provider cannot accept it.
-    fn enqueue(&self, delivery: NotificationDelivery) -> Result<(), NotificationDelivery>;
-}
-
 #[derive(Clone)]
 pub struct IdentityService {
     pool: PgPool,
     tokens: TokenCodec,
-    notification_sink: Option<Arc<dyn NotificationSink>>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, thiserror::Error)]
@@ -74,10 +46,6 @@ pub enum IdentityError {
     AlreadyBootstrapped,
     #[error("identity input is invalid")]
     InvalidInput,
-    #[error("identity action is denied")]
-    Denied,
-    #[error("notification delivery is unavailable")]
-    DeliveryUnavailable,
     #[error("identity authority is unavailable")]
     Unavailable,
 }
@@ -88,14 +56,7 @@ impl IdentityService {
         Self {
             pool,
             tokens: TokenCodec { key: token_key },
-            notification_sink: None,
         }
-    }
-
-    #[must_use]
-    pub fn with_notification_sink(mut self, sink: Arc<dyn NotificationSink>) -> Self {
-        self.notification_sink = Some(sink);
-        self
     }
 
     /// Creates the first tenant, organization, owner, and activation invite.
@@ -190,92 +151,6 @@ impl IdentityService {
             expires_at: state.expires_at,
         })
     }
-
-    /// Creates a tenant-scoped account activation invite.
-    ///
-    /// # Errors
-    ///
-    /// Denies non-owners and rolls back all identity state on storage failure.
-    pub async fn create_invite(
-        &self,
-        actor: &AuthenticatedServerSession,
-        request: &CreateInviteRequest,
-        correlation_id: CorrelationId,
-        now: UnixMillis,
-    ) -> Result<InviteCreated, IdentityError> {
-        let canonical_username =
-            canonical_username(&request.username).map_err(map_authentication)?;
-        let sink = self
-            .notification_sink
-            .as_ref()
-            .ok_or(IdentityError::DeliveryUnavailable)?;
-        let mut transaction = tenant_transaction(&self.pool, actor.tenant_id)
-            .await
-            .map_err(|_| IdentityError::Unavailable)?;
-        require_tenant_owner(&mut transaction, actor).await?;
-        let token = random_activation_token();
-        let token_hash = self.tokens.hash(&token).map_err(map_authentication)?;
-        let expires_at = UnixMillis(now.0 + eitmad_contracts::server::DEFAULT_INVITE_TTL_MS);
-        let state = InviteState {
-            user_id: UserId::new(Uuid::new_v4()),
-            account_id: AccountId::new(Uuid::new_v4()),
-            invite_id: InviteId::new(Uuid::new_v4()),
-            delivery_id: eitmad_contracts::server::ServerEventId::new(Uuid::new_v4()),
-            token,
-            token_hash,
-            expires_at,
-            canonical_username,
-        };
-        insert_invite_identity(&mut transaction, actor, request, &state, now).await?;
-        insert_publication_event(
-            &mut transaction,
-            actor.tenant_id,
-            "eitmad.server.invite-created.v1",
-            serde_json::json!({
-                "deliveryId": state.delivery_id.value(),
-                "inviteId": state.invite_id.value()
-            }),
-            now,
-        )
-        .await?;
-        append_audit(
-            &mut transaction,
-            &ServerAuditEnvelope::for_tenant_session(
-                actor,
-                ServerAuditEvent {
-                    operation: "eitmad.server.identity.invite.v1",
-                    outcome: ServerAuditOutcome::Succeeded,
-                    target_kind: "account",
-                    target_id: Some(state.account_id.value()),
-                    correlation_id,
-                    causation_id: None,
-                    idempotency_key: None,
-                    redacted_error: None,
-                    occurred_at: now,
-                },
-            ),
-        )
-        .await
-        .map_err(|_| IdentityError::Unavailable)?;
-        transaction
-            .commit()
-            .await
-            .map_err(|_| IdentityError::Unavailable)?;
-        let delivery = NotificationDelivery {
-            invite_id: state.invite_id,
-            destination: request.delivery_destination.clone(),
-            activation_token: state.token,
-            expires_at: state.expires_at,
-        };
-        sink.enqueue(delivery)
-            .map_err(|_| IdentityError::DeliveryUnavailable)?;
-        Ok(InviteCreated {
-            invite_id: state.invite_id,
-            account_id: state.account_id,
-            expires_at: state.expires_at,
-            delivery_id: state.delivery_id,
-        })
-    }
 }
 
 struct BootstrapState {
@@ -287,125 +162,6 @@ struct BootstrapState {
     canonical_username: String,
     token_hash: [u8; 32],
     expires_at: UnixMillis,
-}
-
-struct InviteState {
-    user_id: UserId,
-    account_id: AccountId,
-    invite_id: InviteId,
-    delivery_id: eitmad_contracts::server::ServerEventId,
-    token: String,
-    token_hash: [u8; 32],
-    expires_at: UnixMillis,
-    canonical_username: String,
-}
-
-pub(crate) async fn require_tenant_owner(
-    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-    actor: &AuthenticatedServerSession,
-) -> Result<(), IdentityError> {
-    let authorized: bool = sqlx::query_scalar(
-        "SELECT EXISTS (
-            SELECT 1 FROM control.relationship_tuples
-            WHERE tenant_id = $1 AND subject_principal_id = $2
-              AND relation = $3 AND object_kind = 'tenant' AND object_id = $1
-         )",
-    )
-    .bind(actor.tenant_id.value())
-    .bind(actor.user_id.value())
-    .bind(OWNER_RELATION)
-    .fetch_one(&mut **transaction)
-    .await
-    .map_err(|_| IdentityError::Unavailable)?;
-    authorized.then_some(()).ok_or(IdentityError::Denied)
-}
-
-async fn insert_invite_identity(
-    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-    actor: &AuthenticatedServerSession,
-    request: &CreateInviteRequest,
-    state: &InviteState,
-    now: UnixMillis,
-) -> Result<(), IdentityError> {
-    sqlx::query("INSERT INTO control.users (tenant_id, user_id, created_at) VALUES ($1, $2, $3)")
-        .bind(actor.tenant_id.value())
-        .bind(state.user_id.value())
-        .bind(now.0)
-        .execute(&mut **transaction)
-        .await
-        .map_err(|_| IdentityError::Unavailable)?;
-    sqlx::query(
-        "INSERT INTO control.accounts
-            (tenant_id, account_id, user_id, username, canonical_username, status, created_at)
-         VALUES ($1, $2, $3, $4, $5, 'pending_activation', $6)",
-    )
-    .bind(actor.tenant_id.value())
-    .bind(state.account_id.value())
-    .bind(state.user_id.value())
-    .bind(&request.username)
-    .bind(&state.canonical_username)
-    .bind(now.0)
-    .execute(&mut **transaction)
-    .await
-    .map_err(|_| IdentityError::Unavailable)?;
-    sqlx::query(
-        "INSERT INTO control.invitations
-            (tenant_id, invite_id, account_id, token_hash, expires_at,
-             delivery_destination, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)",
-    )
-    .bind(actor.tenant_id.value())
-    .bind(state.invite_id.value())
-    .bind(state.account_id.value())
-    .bind(state.token_hash.as_slice())
-    .bind(state.expires_at.0)
-    .bind(request.delivery_destination.as_deref())
-    .bind(now.0)
-    .execute(&mut **transaction)
-    .await
-    .map_err(|_| IdentityError::Unavailable)?;
-    sqlx::query(
-        "INSERT INTO control.invitation_directory (token_hash, tenant_id, invite_id)
-         VALUES ($1, $2, $3)",
-    )
-    .bind(state.token_hash.as_slice())
-    .bind(actor.tenant_id.value())
-    .bind(state.invite_id.value())
-    .execute(&mut **transaction)
-    .await
-    .map_err(|_| IdentityError::Unavailable)?;
-    insert_invite_memberships(transaction, actor, request, state.user_id, now).await
-}
-
-async fn insert_invite_memberships(
-    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-    actor: &AuthenticatedServerSession,
-    request: &CreateInviteRequest,
-    user_id: UserId,
-    now: UnixMillis,
-) -> Result<(), IdentityError> {
-    for organization_id in &request.organization_ids {
-        let inserted = sqlx::query(
-            "INSERT INTO control.relationship_tuples
-                (tenant_id, subject_principal_id, subject_kind, relation,
-                 object_kind, object_id, created_at)
-             SELECT $1, $2, 'user', 'eitmad.relation.organization.member.v1',
-                    'organization', organization_id, $4
-             FROM control.organizations
-             WHERE tenant_id = $1 AND organization_id = $3",
-        )
-        .bind(actor.tenant_id.value())
-        .bind(user_id.value())
-        .bind(organization_id.value())
-        .bind(now.0)
-        .execute(&mut **transaction)
-        .await
-        .map_err(|_| IdentityError::Unavailable)?;
-        if inserted.rows_affected() != 1 {
-            return Err(IdentityError::InvalidInput);
-        }
-    }
-    Ok(())
 }
 
 async fn insert_bootstrap_identity(
@@ -517,17 +273,6 @@ async fn insert_bootstrap_defaults(
     .bind(OWNER_RELATION)
     .bind(now.0)
     .bind(state.organization_id.value())
-    .execute(&mut **transaction)
-    .await
-    .map_err(|_| IdentityError::Unavailable)?;
-    sqlx::query(
-        "INSERT INTO control.licenses
-            (tenant_id, license_id, provider_revision, status, updated_at)
-         VALUES ($1, $2, 'bootstrap', 'unknown', $3)",
-    )
-    .bind(state.tenant_id.value())
-    .bind(LicenseId::new(Uuid::new_v4()).value())
-    .bind(now.0)
     .execute(&mut **transaction)
     .await
     .map_err(|_| IdentityError::Unavailable)?;

@@ -16,14 +16,12 @@ keywords:
 
 # Understand Eitmad architecture
 
-Eitmad uses thin native desktop applications connected to a separate trusted Rust engine that acts as product authority. Protocol `1.6`, native binding generation, engine lifecycle, SQLite local authority, the modular PostgreSQL server, scoped authorization/audit, shared sync semantics, WAN relay coordination, signed update manifests, least-privilege administration, and Windows process supervision are implemented. No production business domain, native settings UI, MFA/email provider, package CDN, production relay payload router, or backup scheduler exists yet.
+Eitmad uses an Arabic-first Windows shell connected to a separate Rust engine. Rust owns the implemented Customers, Materials, Parts, Furniture, Products, account administration, configuration, storage, authorization, audit, and local IPC. The modular PostgreSQL server registers Customer synchronization. See the [known limitations](known-limitations.md) for deployment and platform gaps.
 
 ## Start here
 
 - [Target architecture](target-architecture.md): system shape, ownership, IPC, storage, synchronization, security, updates, and performance.
-- [Base application readiness audit](base-application-readiness-audit.md): evidence, closed critical defects, category findings, and the engineering-versus-production verdict.
 - [Known limitations](known-limitations.md): current product, sync, update, platform, recovery, Arabic, and performance limits.
-- [Deferred foundation work](deferred-foundation-work.md): ordered production blockers and later platform work.
 - [Arabic-first UX requirements](arabic-first-ux.md): RTL, bidirectional text, search, input, documents, and accessibility.
 - [Architectural decisions](../decisions/index.md): the historical record of accepted choices.
 - [Protocol v1 contracts](../api/index.md): implemented external shapes, compatibility, and generation.
@@ -32,10 +30,10 @@ Eitmad uses thin native desktop applications connected to a separate trusted Rus
 - [Engine runtime lifecycle](../developer/subsystems/engine-runtime.md): implemented startup, readiness, health, process identity, diagnostics, and shutdown behavior.
 - [Rust-owned configuration](../developer/subsystems/configuration.md): implemented defaults, validation, persistence, redaction, import/export, and events.
 - [Scoped authorization and audit](../developer/subsystems/authorization.md): implemented tuples, role objects, inheritance, conditions, tenant/workspace isolation, audited boundary gates, owner compatibility, and active revocation.
-- [Privacy-preserving observability](../developer/subsystems/privacy-preserving-observability.md): implemented structured metadata-only logs/errors, correlation, redaction, crash projections, and temporary sensitive-debug expiry/audit.
+- [Privacy-preserving observability](../developer/subsystems/privacy-preserving-observability.md): metadata-only logs, correlation, field contracts, and IPC error redaction.
 - [Rust-owned secret storage](../developer/subsystems/secret-storage.md): implemented native credential-store lifecycle and an authenticated encrypted fallback with typed references.
 - [Persistent tenant identity](../developer/subsystems/identity-foundation.md): implemented device, user/account, session, tenant, organization, workspace, offline, and audit-attribution primitives.
-- [Modular server authority](../developer/subsystems/server-authority.md): implemented remote accounts, registered devices, authentication, licensing hooks, update assignment, PostgreSQL isolation, sync history, snapshots, and subscriptions.
+- [Modular server authority](../developer/subsystems/server-authority.md): implemented remote accounts, registered devices, authentication, update assignment, PostgreSQL isolation, sync history, snapshots, and subscriptions.
 - [Windows process supervision](../developer/subsystems/windows-process-supervision.md): implemented Job Object containment, bounded restart, stale-event rejection, and graceful shutdown.
 - [Repository layout and ownership](../developer/repository-layout.md): where each current boundary lives.
 
@@ -47,4 +45,4 @@ Eitmad uses thin native desktop applications connected to a separate trusted Rus
 - Every external boundary is versioned and uses capability negotiation.
 - Arabic is the primary UI/UX design and verification case, not a later translation.
 
-Next, review the [initial implementation gates](target-architecture.md#initial-implementation-gates) before the first vertical capability.
+Next, review the [initial implementation gates](target-architecture.md#initial-implementation-gates) before changing a capability.

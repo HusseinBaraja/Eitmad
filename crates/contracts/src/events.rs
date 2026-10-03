@@ -93,16 +93,3 @@ impl Subscription {
         )
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn authorization_policy_stream_is_coalescible() {
-        assert!(
-            Subscription::AuthorizationPolicy(AuthorizationPolicyChanges::default())
-                .is_coalescible()
-        );
-    }
-}

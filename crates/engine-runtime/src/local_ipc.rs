@@ -1968,7 +1968,7 @@ mod tests {
             .unwrap();
         assert_eq!(audited, user_id.value().to_string());
         store
-            .close_session(user.tenant_id, user.session_id, now())
+            .close_desktop_session(&user, now(), CorrelationId::new(uuid::Uuid::new_v4()))
             .unwrap();
         let command = eitmad_contracts::transport::CommandEnvelope {
             protocol_version: PROTOCOL_VERSION,

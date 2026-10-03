@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "server platform maintainers"
-last_verified: "2026-09-28"
+last_verified: "2026-10-03"
 review_triggers:
   - "server identity, authorization, storage, synchronization, licensing, update assignment, or deployment boundaries change"
 keywords:
@@ -23,7 +23,7 @@ keywords:
 
 ## Purpose and current scope
 
-The foundation provides tenant and organization identity, accounts, registered devices, invitation activation, authentication tokens, session policy, relationship authorization, licensing hooks, update-channel assignment, sync coordination, snapshots, operation history, resumable subscriptions, conflict records, WAN relay coordination, signed update distribution, operational status, fleet visibility, audit access, support workflows, and client compatibility negotiation.
+The foundation provides tenant and organization identity, accounts, registered devices, invitation activation, authentication tokens, session policy, relationship authorization, update-channel assignment, sync coordination, snapshots, operation history, resumable subscriptions, conflict records, WAN relay coordination, signed update distribution, operational status, fleet visibility, audit access, support workflows, and client compatibility negotiation.
 
 The server registers the branch-scoped Customer contact schema and handler as its first product domain. It does not provide billing, email, MFA challenge, package CDN, production relay payload routing, admin UI, backup scheduling, or customer conflict resolution. Other domain schemas remain unregistered.
 
@@ -63,7 +63,7 @@ Negotiation selects an overlapping protocol and registered schema range. Missing
 
 ## Identity, authentication, and sessions
 
-The CLI creates the first tenant, organization, owner account, owner relationships, default license record, default update assignment, audit row, and activation invitation in one transaction. Later accounts use an owner-authorized invitation and activation flow.
+The CLI creates the first tenant, organization, owner account, owner relationships, default update assignment, audit row, and activation invitation in one transaction. The executable exposes activation of stored invitations; it has no later-account invitation creation or delivery workflow.
 
 Login uses a tenant code and username. Usernames accept Arabic Unicode text after whitespace normalization and case folding, but reject bidirectional control characters. Tenant, organization, and other display names apply the same bidirectional-control rejection so mixed Arabic and Latin reports cannot be reordered by hidden format characters. Login denials are intentionally non-specific: an absent account and an inactive or locked account return the same redacted failure. Bootstrap serializes its tenant-count check through a PostgreSQL advisory lock so two concurrent bootstrap calls cannot both observe an empty `control.tenants` and both commit. Device-proof clock-skew validation uses checked arithmetic and rejects extreme client-supplied timestamps instead of overflowing. Passwords use Argon2 hashes. Access and refresh tokens are opaque random values; PostgreSQL stores only keyed HMAC-SHA-256 hashes. The default policy is:
 
@@ -74,24 +74,19 @@ Login uses a tenant code and username. Usernames accept Arabic Unicode text afte
 | Session idle limit | 14 days |
 | Device-proof clock skew | 5 minutes |
 
-Every access-authenticated request must include the access token, device ID, timestamp, nonce, and an Ed25519 signature over the canonical proof bytes. A nonce can be used once in its validity window. A registered device ID cannot be rebound to another public key. Refresh-token reuse revokes the token family. MFA and invitation delivery are provider hooks only; no production provider ships in this checkpoint.
+Every access-authenticated request must include the access token, device ID, timestamp, nonce, and an Ed25519 signature over the canonical proof bytes. A nonce can be used once in its validity window. A registered device ID cannot be rebound to another public key. Refresh-token reuse revokes the token family. MFA remains unimplemented. Bootstrap returns the initial owner activation secret directly; no invitation delivery provider ships.
 
 ## Storage, scope, and audit invariants
 
 Migrations `0001_control_foundation.sql`, `0002_sync_foundation.sql`, `0003_admin_foundation.sql`, `0004_server_audit_envelope.sql`, and `0005_customer_branches.sql` own the PostgreSQL schema. Every tenant-scoped table has a `tenant_id`, enables row-level security, and forces row-level security. Rust opens a transaction and sets the tenant context before scoped access. Application credentials must not have a PostgreSQL role that can bypass RLS.
 
-Every accepted state change adds a redacted audit record in the same transaction. `server/audit` is the only PostgreSQL audit contract. It records actor kind, optional session and principal, tenant and optional workspace, exact scope, target kind and target ID, operation, outcome, correlation, optional causation and idempotency, stable redacted failure ID, and time. Each control-plane and sync-plane entry point receives a caller-supplied correlation identifier, so records from one request remain joinable. Invalid and denied sync boundaries are recorded in a separate mandatory transaction before the operation returns; if that append fails, the boundary fails closed as unavailable. Successful mutations, conflicts, snapshots, compaction, and acknowledgements append in the authoritative state transaction. Token plaintext, password input, device private keys, domain payloads, and customer content must not enter logs or audit metadata.
-
-Invitation delivery is injected through `ControlPlane::with_notification_sink`. `create_invite` resolves the sink before it opens its transaction, so a missing provider fails with `eitmad.server.identity` delivery-unavailable semantics without committing identity, invitation, or directory state.
+Every accepted state change adds a redacted audit record in the same transaction. `server/audit` is the only PostgreSQL audit contract. It records actor kind, optional session and principal, tenant and optional workspace, exact scope, target kind and target ID, operation, outcome, correlation, optional causation and idempotency, stable redacted failure ID, and time. Each control-plane and sync-plane entry point receives a caller-supplied correlation identifier, so records from one request remain joinable. Invalid and denied sync boundaries are recorded in a separate mandatory transaction before the operation returns; if that append fails, the boundary fails closed as unavailable. Successful mutations, conflicts, snapshots, and acknowledgements append in the authoritative state transaction. Token plaintext, password input, device private keys, domain payloads, and customer content must not enter logs or audit metadata.
 
 Migration files are append-only after release. Back up PostgreSQL before migration and restore the complete cluster or database by the approved PostgreSQL recovery process. Do not edit rows, RLS policies, checkpoints, operation history, or conflict records as a repair shortcut.
 
 ## Sync modes and flows
 
-A registered domain declares one immutable mode. Customer contact uses `LocalFirst`:
-
-- Local-first accepts an authorized local operation, assigns ordered server history, projects the record, and creates a conflict when the base revision is stale and the domain cannot resolve it safely.
-- Server-authoritative accepts a typed command only through its registered handler. The handler authorizes and returns the authoritative change or denial. The server does not infer business truth from opaque payload bytes.
+Customer contact is the only registered domain and uses `LocalFirst`. The coordinator accepts an authorized local operation, assigns ordered server history, projects the record, and creates a conflict when the base revision is stale and the domain cannot resolve it safely. There is no server-authoritative command submission entry point. The host rejects unsupported command traffic; the client contract retains its typed mode and stored command state.
 
 An idempotency key is stored with a deterministic request fingerprint and serialized result. An exact retry returns the first result, including the same conflict ID. Reusing the key for another intent returns `eitmad.error.server-idempotency-mismatch.v1`. Scope locking prevents concurrent writers from assigning the same next position.
 
@@ -99,17 +94,17 @@ An authenticated organization owner registers a branch with `POST /v1/customer-b
 
 Pull sessions return ordered history after a checkpoint. Clients acknowledge applied checkpoints separately through `eitmad.sync.acknowledge.v1`, which persists durable device checkpoints. The connection-level subscription acknowledgement message `eitmad.server.acknowledge.v1` is rejected with `eitmad.error.server-subscription-ack-unsupported.v1` until a durable subscription-checkpoint store exists; the server never reports success without changing cursor state.
 
-Subscription resume cursors are scoped to their exact stream (tenant, scope kind, scope ID, schema ID, and event ID). A cursor from another stream returns `ResyncRequired` instead of silently skipping events. A stale base revision on a record the server has never stored — or removed by compaction — returns snapshot-required semantics instead of an availability error, so clients resynchronize rather than retry forever. Snapshot creation and history compaction write audit records inside their transactions, and compaction additionally requires write-level domain authorization before deleting anything.
+Subscription resume cursors are scoped to their exact stream (tenant, scope kind, scope ID, schema ID, and event ID). A cursor from another stream returns `ResyncRequired` instead of silently skipping events. A stale base revision on a record the server has never stored — or removed by compaction — returns snapshot-required semantics instead of an availability error, so clients resynchronize rather than retry forever. Snapshot creation writes audit records inside its transaction. There is no history compaction operation in the executable.
 
 `server/host` constructs `SubscriptionPageRequest` and passes it to `SyncCoordinator::subscription_page`. Keep authenticated session, exact scope, negotiated schema version, resume cursor, page limit, correlation ID, and request time together in this request boundary when adding another transport. Do not split these values into an untyped adapter API or authorize them outside `server/sync-plane`.
 
-Operation history has a 90-day retention floor. Compaction is safe only after a complete snapshot exists and retained client checkpoints no longer require the removed range; the covering-snapshot check excludes the checkpoint row itself so later compactions keep resolving. When a requested checkpoint is unavailable, the host sends a manifest, bounded chunks, and completion checksum instead of pretending that incremental history is complete.
+Operation history has a 90-day retention floor and is currently retained without compaction. When a requested checkpoint is unavailable, the host sends a manifest, bounded chunks, and completion checksum instead of pretending that incremental history is complete.
 
 ## Licensing and update assignment
 
-Licensing is a persisted enforcement seam, not billing. A provider adapter may record active, expired, suspended, or unavailable state and entitlements. Recording provider state requires an existing license row for the tenant; the update must match exactly one row or the operation fails without deleting entitlements or recording success. An expired license receives at most seven days of grace; suspension never becomes grace. Product domains call the license boundary before licensed actions.
+There is no license service or provider-state ingestion workflow. Historical license tables and rows remain intact; current product domains have no license gate.
 
-Update assignment resolves in this order: device override, tenant default, then global `stable`. Assignment commands return the resolved effective assignment for the target device, including an existing device override. Only a tenant owner may change assignments or publish a signed manifest. The update check requires the authenticated device and assigned channel to match the client profile. Rust verifies Ed25519 signatures and owns compatibility, pause, revocation, staged rollout, and package selection. Platform adapters may install a selected update but must not calculate eligibility.
+Update assignment reads device override, tenant default, then global `stable`. Bootstrap writes the initial tenant assignment; there is no channel-assignment mutation entry point. Existing stored assignments remain readable. The update check requires the authenticated device and assigned channel to match the client profile. Rust verifies Ed25519 signatures and owns compatibility, pause, revocation, staged rollout, and package selection. Platform adapters may install a selected update but must not calculate eligibility.
 
 See [signed update distribution](update-distribution.md) for the manifest contract, host configuration, and current key-rotation limit.
 
@@ -160,7 +155,6 @@ Arabic-first checklist evidence for this server-only checkpoint: terminology and
 | Snapshot required | Incremental history is not reported as complete | Apply and verify the full snapshot, then resume from its checkpoint |
 | Incompatible client | No normal WebSocket traffic starts | Upgrade the client or server as one compatible rollout |
 | Database or migration failure | The process does not become ready | Preserve data, repair PostgreSQL, then rerun migrations |
-| License required | The protected domain action does not run | Restore provider state or valid entitlement; do not change database rows manually |
 
 Use [server troubleshooting](../../troubleshooting/server-authentication-and-sync.md) for symptom-led checks.
 
@@ -182,6 +176,6 @@ npm run contracts:verify --prefix crates/contracts/codegen
 
 One process reduces initial deployment and operational cost. Separate crates, migrations, contracts, and ownership files preserve later service seams. PostgreSQL gives durable transactions, row locking, and defense-in-depth tenant RLS, but it adds an external operational dependency and does not remove the need for Rust scope checks.
 
-To add a domain, implement `DomainHandler`, register one immutable `DomainDescriptor`, define its sync mode and schema range, authorize every action, define conflict and stale-data behavior, add Arabic/mixed-direction evidence, and add live PostgreSQL tests. Keep licensing, invitation delivery, MFA, relay routers, manifest repositories, and administration providers behind their named seams rather than adding product logic to HTTP handlers.
+To add a domain, implement `DomainHandler`, register one immutable `DomainDescriptor`, define its sync mode and schema range, authorize every action, define conflict and stale-data behavior, add Arabic/mixed-direction evidence, and add live PostgreSQL tests. Add provider integrations only when a current workflow needs them; keep relay routers, manifest repositories, and administration providers behind their existing seams rather than adding product logic to HTTP handlers.
 
-Related documents: [ADR-0025](../../decisions/0025-modular-server-authority-foundation.md), [ADR-0026](../../decisions/0026-compose-authorized-operational-server-planes.md), [server operations](../../operations/run-server-authority.md), [protocol 1.5 rollout](../../releases/protocol-1-5-operational-server-planes.md), [synchronization](synchronization.md), and [protocol contracts](../../api/index.md).
+Related documents: [ADR-0025](../../decisions/0025-modular-server-authority-foundation.md), [ADR-0026](../../decisions/0026-compose-authorized-operational-server-planes.md), [server operations](../../operations/run-server-authority.md), [server operations](../../operations/run-server-authority.md), [synchronization](synchronization.md), and [protocol contracts](../../api/index.md).

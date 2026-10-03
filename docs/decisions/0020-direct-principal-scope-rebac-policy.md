@@ -46,4 +46,4 @@ The first policy is small, testable, and fails closed. It does not support group
 
 ## Verification
 
-Tests cover role decisions, cross-scope isolation, all principal kinds, owner-only listing, revision conflicts, replay, last-owner protection, bootstrap, development ownership, policy events, and active revocation. See the [authorization subsystem](../developer/subsystems/authorization.md) and [protocol 1.2 release](../releases/protocol-1-2-configuration-authorization.md).
+Tests cover role decisions, cross-scope isolation, all principal kinds, owner-only listing, revision conflicts, replay, last-owner protection, bootstrap, development ownership, policy events, and active revocation. See the [authorization subsystem](../developer/subsystems/authorization.md) and [configuration authority](../developer/subsystems/configuration.md).

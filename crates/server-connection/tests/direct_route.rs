@@ -64,9 +64,8 @@ use eitmad_sync::{
     TransportAuthentication, TransportFailureKind, WanAdapter,
 };
 use eitmad_sync_plane::{
-    AuthoritativeChangeDraft, CommandSubmission, CustomerSyncHandler, DomainDescriptor,
-    DomainRegistry, DomainSyncHandler, DomainValidationError, LocalOperationDraft, SyncCoordinator,
-    SyncDatabase, SyncIntent,
+    CustomerSyncHandler, DomainDescriptor, DomainRegistry, DomainSyncHandler,
+    DomainValidationError, LocalOperationDraft, SyncCoordinator, SyncDatabase, SyncIntent,
 };
 use uuid::Uuid;
 
@@ -93,14 +92,6 @@ impl DomainSyncHandler for TestDomain {
     }
 
     fn validate_local(&self, _draft: &LocalOperationDraft) -> Result<(), DomainValidationError> {
-        Err(DomainValidationError::Denied)
-    }
-
-    fn execute_command(
-        &self,
-        _session: &eitmad_contracts::server::AuthenticatedServerSession,
-        _command: &CommandSubmission,
-    ) -> Result<AuthoritativeChangeDraft, DomainValidationError> {
         Err(DomainValidationError::Denied)
     }
 }

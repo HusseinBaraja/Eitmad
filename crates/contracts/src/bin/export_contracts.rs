@@ -35,7 +35,7 @@ use eitmad_contracts::{
         QueryEnvelope, QueryOutcome, QueryResponseEnvelope, RequestId, SubscriptionEnvelope,
         UnixMillis,
     },
-    updates::{SignedUpdateManifest, UpdateCheckOutcome, UpdateClientProfile, UpdateState},
+    updates::{SignedUpdateManifest, UpdateCheckOutcome, UpdateClientProfile},
     versioning::{NegotiationOutcome, PeerHello},
 };
 use schemars::{JsonSchema, generate::SchemaSettings};
@@ -71,7 +71,6 @@ struct ContractSchemaRoot {
     administration_backup_status: BackupStatus,
     administration_migration_status: MigrationStatus,
     administration_support_workflow: SupportWorkflow,
-    update_state: UpdateState,
     sync_status: SyncStatus,
     effective_permissions: EffectivePermissions,
     lifecycle_snapshot: LifecycleSnapshot,

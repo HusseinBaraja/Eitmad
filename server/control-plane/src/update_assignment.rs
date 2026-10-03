@@ -1,21 +1,11 @@
 use eitmad_contracts::{
     identity::{DeviceId, TenantId},
-    server::{
-        AuthenticatedServerSession, EffectiveUpdateAssignment, UpdateAssignmentSource,
-        UpdateChannelId,
-    },
-    transport::{CorrelationId, UnixMillis},
-};
-use eitmad_server_audit::{
-    ServerAuditEnvelope, ServerAuditEvent, ServerAuditOutcome, append as append_audit,
+    server::{EffectiveUpdateAssignment, UpdateAssignmentSource, UpdateChannelId},
 };
 use sqlx::{PgPool, Row as _};
 use uuid::Uuid;
 
-use crate::{
-    database::tenant_transaction,
-    identity::{IdentityError, require_tenant_owner},
-};
+use crate::database::tenant_transaction;
 
 #[derive(Clone)]
 pub struct UpdateAssignmentService {
@@ -26,8 +16,6 @@ pub struct UpdateAssignmentService {
 pub enum UpdateAssignmentError {
     #[error("update assignment is invalid")]
     Invalid,
-    #[error("update assignment is denied")]
-    Denied,
     #[error("update assignment authority is unavailable")]
     Unavailable,
 }
@@ -86,122 +74,6 @@ impl UpdateAssignmentService {
                 .map_err(|_| UpdateAssignmentError::Invalid)?,
         })
     }
-
-    /// Assigns the tenant default update channel.
-    ///
-    /// # Errors
-    ///
-    /// Denies non-owners and returns a sanitized persistence error.
-    pub async fn assign_tenant(
-        &self,
-        actor: &AuthenticatedServerSession,
-        channel: &UpdateChannelId,
-        correlation_id: CorrelationId,
-        now: UnixMillis,
-    ) -> Result<EffectiveUpdateAssignment, UpdateAssignmentError> {
-        self.assign(actor, None, channel, correlation_id, now).await
-    }
-
-    /// Assigns an update channel override to one registered tenant device.
-    ///
-    /// # Errors
-    ///
-    /// Denies non-owners and rejects a device outside the tenant.
-    pub async fn assign_device(
-        &self,
-        actor: &AuthenticatedServerSession,
-        device_id: DeviceId,
-        channel: &UpdateChannelId,
-        correlation_id: CorrelationId,
-        now: UnixMillis,
-    ) -> Result<EffectiveUpdateAssignment, UpdateAssignmentError> {
-        self.assign(actor, Some(device_id), channel, correlation_id, now)
-            .await
-    }
-
-    async fn assign(
-        &self,
-        actor: &AuthenticatedServerSession,
-        device_id: Option<DeviceId>,
-        channel: &UpdateChannelId,
-        correlation_id: CorrelationId,
-        now: UnixMillis,
-    ) -> Result<EffectiveUpdateAssignment, UpdateAssignmentError> {
-        let mut transaction = tenant_transaction(&self.pool, actor.tenant_id)
-            .await
-            .map_err(|_| UpdateAssignmentError::Unavailable)?;
-        require_tenant_owner(&mut transaction, actor)
-            .await
-            .map_err(|error| match error {
-                IdentityError::Denied => UpdateAssignmentError::Denied,
-                _ => UpdateAssignmentError::Unavailable,
-            })?;
-        let assignment_kind = if device_id.is_some() {
-            "device"
-        } else {
-            "tenant"
-        };
-        let assignment_device = device_id.map_or_else(Uuid::nil, DeviceId::value);
-        if let Some(device_id) = device_id {
-            let registered: bool = sqlx::query_scalar(
-                "SELECT EXISTS (
-                    SELECT 1 FROM control.account_devices
-                    WHERE tenant_id = $1 AND device_id = $2 AND revoked_at IS NULL
-                 )",
-            )
-            .bind(actor.tenant_id.value())
-            .bind(device_id.value())
-            .fetch_one(&mut *transaction)
-            .await
-            .map_err(|_| UpdateAssignmentError::Unavailable)?;
-            if !registered {
-                return Err(UpdateAssignmentError::Invalid);
-            }
-        }
-        sqlx::query_scalar::<_, i64>(
-            "INSERT INTO control.update_assignments
-                (tenant_id, assignment_kind, device_id, channel, revision, updated_at)
-             VALUES ($1, $2, $3, $4, 1, $5)
-             ON CONFLICT (tenant_id, assignment_kind, device_id)
-             DO UPDATE SET channel = EXCLUDED.channel,
-                           revision = control.update_assignments.revision + 1,
-                           updated_at = EXCLUDED.updated_at
-             RETURNING revision",
-        )
-        .bind(actor.tenant_id.value())
-        .bind(assignment_kind)
-        .bind(assignment_device)
-        .bind(channel.as_str())
-        .bind(now.0)
-        .fetch_one(&mut *transaction)
-        .await
-        .map_err(|_| UpdateAssignmentError::Unavailable)?;
-        append_audit(
-            &mut transaction,
-            &ServerAuditEnvelope::for_tenant_session(
-                actor,
-                ServerAuditEvent {
-                    operation: "eitmad.server.update-channel.assign.v1",
-                    outcome: ServerAuditOutcome::Succeeded,
-                    target_kind: assignment_kind,
-                    target_id: Some(device_id.map_or(actor.tenant_id.value(), DeviceId::value)),
-                    correlation_id,
-                    causation_id: None,
-                    idempotency_key: None,
-                    redacted_error: None,
-                    occurred_at: now,
-                },
-            ),
-        )
-        .await
-        .map_err(|_| UpdateAssignmentError::Unavailable)?;
-        transaction
-            .commit()
-            .await
-            .map_err(|_| UpdateAssignmentError::Unavailable)?;
-        self.effective(actor.tenant_id, device_id.unwrap_or(actor.device_id))
-            .await
-    }
 }
 
 fn global_default() -> EffectiveUpdateAssignment {
@@ -209,18 +81,5 @@ fn global_default() -> EffectiveUpdateAssignment {
         channel: UpdateChannelId::parse("stable").expect("stable is a valid channel"),
         source: UpdateAssignmentSource::GlobalDefault,
         revision: 0,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn global_fallback_is_stable_and_revision_zero() {
-        let assignment = global_default();
-        assert_eq!(assignment.channel.as_str(), "stable");
-        assert_eq!(assignment.source, UpdateAssignmentSource::GlobalDefault);
-        assert_eq!(assignment.revision, 0);
     }
 }

@@ -33,7 +33,7 @@ keywords:
 
 The sync contract graph has a focused [synchronization and transport reference](synchronization-contracts.md) covering change records, one simulation/LAN/WAN streaming frame, cancellation, snapshots, pending command queues, conflicts, delivery idempotency, cache labels, and lifecycle events.
 
-The remote server contract adds tenant/account/device authentication, relay metadata, signed manifests, update eligibility, administration status and workflows, session policy, license state, effective update assignment, server messages, chunked snapshots, and resumable events. Ownership is in [server authority](../developer/subsystems/server-authority.md), [WAN relay](../developer/subsystems/wan-relay-coordination.md), [update distribution](../developer/subsystems/update-distribution.md), and [server administration](../developer/subsystems/server-administration.md).
+The remote server contract adds tenant/account/device authentication, relay metadata, signed manifests, update eligibility, administration status and workflows, session policy, effective update assignment, server messages, chunked snapshots, and resumable events. Ownership is in [server authority](../developer/subsystems/server-authority.md), [WAN relay](../developer/subsystems/wan-relay-coordination.md), [update distribution](../developer/subsystems/update-distribution.md), and [server administration](../developer/subsystems/server-administration.md).
 
 Rust exports the full wire schema for engine and server boundaries. Native generation uses a separate temporary schema rooted in `IpcClientMessage`, `IpcServerMessage`, and `LifecycleSnapshot`; its payload types are included transitively. Server administration, relay, synchronization transport, signing, and diagnostic-report models stay in Rust. Swift bindings omit data/URL loaders and copy helpers; callers use `JSONDecoder` and `JSONEncoder`. Generated files have a `Do not edit` header. Linux bindings remain blocked on the Linux UI technology decision; a future Linux shell must consume the Rust crate directly or add a generated/validated binding through a new decision.
 
@@ -56,7 +56,7 @@ The foreground CLI emits lifecycle snapshots as newline-delimited JSON on child 
 
 ## Wire and compatibility rules
 
-- Protocol v1 uses UTF-8 JSON with camel-case fields and explicit `kind`/`payload` tags. The current minor is `1.9`.
+- Protocol v1 uses UTF-8 JSON with camel-case fields and explicit `kind`/`payload` tags. The current minor is `1.13`.
 - Local IPC frames add a four-byte little-endian length and enforce an 8 MiB maximum.
 - UUIDs are lowercase hyphenated strings. Times are Unix milliseconds. Canonical values remain locale-independent.
 - Unknown object fields are accepted for additive minor-version evolution.

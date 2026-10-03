@@ -38,18 +38,6 @@ pub struct LocalOperationDraft {
     pub payload: Option<EncodedDomainPayload>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CommandSubmission {
-    pub scope: ScopeRef,
-    pub schema_id: SchemaId,
-    pub schema_version: u32,
-    pub record_id: RecordId,
-    pub base_revision: Option<u64>,
-    pub idempotency_key: IdempotencyKey,
-    pub command_base64: String,
-}
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AuthoritativeChangeDraft {
     pub record_id: RecordId,
@@ -82,16 +70,6 @@ pub trait DomainSyncHandler: Send + Sync {
     ///
     /// Returns a denial, invalid-payload, or conflict result.
     fn validate_local(&self, draft: &LocalOperationDraft) -> Result<(), DomainValidationError>;
-    /// Executes one server-authoritative domain command.
-    ///
-    /// # Errors
-    ///
-    /// Returns a denial, invalid-payload, or conflict result.
-    fn execute_command(
-        &self,
-        session: &AuthenticatedServerSession,
-        command: &CommandSubmission,
-    ) -> Result<AuthoritativeChangeDraft, DomainValidationError>;
     /// Produces an optional authoritative conflict resolution.
     ///
     /// # Errors
@@ -202,14 +180,6 @@ mod tests {
             _draft: &LocalOperationDraft,
         ) -> Result<(), DomainValidationError> {
             Ok(())
-        }
-
-        fn execute_command(
-            &self,
-            _session: &AuthenticatedServerSession,
-            _command: &CommandSubmission,
-        ) -> Result<AuthoritativeChangeDraft, DomainValidationError> {
-            Err(DomainValidationError::Denied)
         }
 
         fn resolve_conflict(

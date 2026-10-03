@@ -14,8 +14,8 @@ use sqlx::PgPool;
 use crate::{
     database::tenant_transaction,
     domain::{
-        AuthoritativeChangeDraft, CommandSubmission, DomainDescriptor, DomainSyncHandler,
-        DomainValidationError, LocalOperationDraft, SyncIntent,
+        AuthoritativeChangeDraft, DomainDescriptor, DomainSyncHandler, DomainValidationError,
+        LocalOperationDraft, SyncIntent,
     },
 };
 
@@ -105,14 +105,6 @@ impl DomainSyncHandler for CustomerSyncHandler {
             return Err(DomainValidationError::Invalid);
         }
         Ok(())
-    }
-
-    fn execute_command(
-        &self,
-        _session: &AuthenticatedServerSession,
-        _command: &CommandSubmission,
-    ) -> Result<AuthoritativeChangeDraft, DomainValidationError> {
-        Err(DomainValidationError::Denied)
     }
 
     fn resolve_conflict(

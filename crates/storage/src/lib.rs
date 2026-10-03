@@ -45,7 +45,7 @@ use eitmad_contracts::{
 use eitmad_observability_audit::MutationAuditRecord;
 pub use export::{ExportDataClass, ExportScope, LOCAL_DATA_EXPORT_FORMAT, LocalDataExportPolicy};
 pub use furniture::{FurnitureRecord, FurnitureTransaction};
-pub use identity::{DeviceIdentity, IdentityTopology, PersistentSession, SessionConnectivity};
+pub use identity::{PersistentSession, SessionConnectivity};
 pub use material::{MaterialCommit, MaterialCommitOutcome, MaterialRecord};
 pub use part::{PartRecord, PartTransaction};
 pub use product::{ProductRecord, ProductTransaction};

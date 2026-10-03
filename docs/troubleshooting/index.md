@@ -47,7 +47,7 @@ Use symptom and identifier pages to reach the authoritative owner and a non-dest
 
 ## Privacy and secret failures
 
-- [Resolve diagnostic privacy or secret-storage failures](privacy-and-secret-leakage.md): contain suspected leakage and diagnose redaction, sensitive-debug expiry, native credential-store, and encrypted-fallback failures.
+- [Resolve diagnostic privacy or secret-storage failures](privacy-and-secret-leakage.md): contain suspected leakage and diagnose redaction, native credential-store, and encrypted-fallback failures.
 
 The Windows operations shell now exposes Arabic availability and recovery copy. Rust failures still provide the stable message and error identifiers used for diagnosis and future full localization coverage.
 

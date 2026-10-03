@@ -135,4 +135,4 @@ The focused customer tests cover restart persistence, exact text preservation, A
 
 Add lifecycle management only through separate Manager-authorized server-confirmed commands. Preserve existing customer UUIDs, source history, immutable commercial-document snapshots, and cross-organization rejection. Do not make phone unique and do not add automatic merge behavior.
 
-Related pages: [accepted workflow](manager-receptionist-workflows.md), [authorization](authorization.md), [local storage](local-storage.md), [synchronization](synchronization.md), [contract layer](contract-layer.md), [storage version 13 release](../../releases/storage-v13-customers.md), and [storage version 14 release](../../releases/storage-v14-customer-sync.md).
+Related pages: [accepted workflow](manager-receptionist-workflows.md), [authorization](authorization.md), [local storage](local-storage.md), [synchronization](synchronization.md), [contract layer](contract-layer.md), [customer storage](customers.md).
