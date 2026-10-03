@@ -30,7 +30,7 @@ public sealed record OrderLineItem(
 
     public string SellingPriceLabel => FormatMoney(SellingPrice);
 
-    private static string FormatMoney(decimal value) => $"{value.ToString("N0", CultureInfo.InvariantCulture)} YER";
+    private static string FormatMoney(decimal value) => $"{value.ToString("N0", CultureInfo.InvariantCulture)} ر.ي";
 }
 
 /// <summary>Represents one read-only synthetic order for the manager preview.</summary>
@@ -84,5 +84,5 @@ public sealed record OrderListItem(
         _ => throw new InvalidOperationException("Unsupported order status."),
     };
 
-    private static string FormatMoney(decimal value) => $"{value.ToString("N0", CultureInfo.InvariantCulture)} YER";
+    private static string FormatMoney(decimal value) => $"{value.ToString("N0", CultureInfo.InvariantCulture)} ر.ي";
 }

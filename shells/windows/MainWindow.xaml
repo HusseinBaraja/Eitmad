@@ -123,7 +123,7 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel>
                                     <TextBlock Text="إجمالي المبيعات التقديرية" Style="{StaticResource MetricLabel}" />
-                                    <controls:AmountDisplay HorizontalAlignment="Right" FontSize="27" FontWeight="SemiBold" Margin="0,5,0,0" AmountText="1,245,780" UnitText="ر.س." UnitPlacement="Before"></controls:AmountDisplay>
+                                    <controls:AmountDisplay HorizontalAlignment="Right" FontSize="27" FontWeight="SemiBold" Margin="0,5,0,0" AmountText="1,245,780" UnitText="ر.ي" UnitPlacement="Before"></controls:AmountDisplay>
                                     <TextBlock Text="↗ +12.6% عن أمس" Foreground="{StaticResource ForestBrush}" FontSize="11" Margin="0,5,0,0" />
                                 </StackPanel>
                                 <Border Grid.Column="1" Width="66" Height="66" CornerRadius="33" Background="{StaticResource CopperTintBrush}" VerticalAlignment="Center">
@@ -310,7 +310,7 @@
                                         <DataGridTemplateColumn Header="الإجمالي" Width="95*" MinWidth="90" SortMemberPath="Total">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <controls:AmountDisplay AmountText="{Binding AmountText}" UnitText="ر.س." UnitPlacement="Before" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    <controls:AmountDisplay AmountText="{Binding AmountText}" UnitText="ر.ي" UnitPlacement="Before" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>

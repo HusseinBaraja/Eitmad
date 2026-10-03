@@ -248,7 +248,7 @@ The shell owns `PageHeader`, `EmptyState`, `FeedbackNotice`, `StatusBadge`, `Amo
 
 ```xml
 <controls:AmountDisplay AmountText="9,450"
-                        UnitText="YER" UnitPlacement="After" />
+                        UnitText="ر.ي" UnitPlacement="After" />
 <controls:StatusBadge Text="نشط" Tone="Success" />
 ```
 

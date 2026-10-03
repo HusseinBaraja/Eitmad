@@ -35,7 +35,7 @@ Rust does not yet provide an order capability. The preview has no order command,
 
 The list shows **رقم الطلب**, **العميل**, **التاريخ**, **الإجمالي**, **الحالة**, and **فتح**. Search matches the order number and customer after Arabic normalization. Status filters expose **جديد**, **قيد الإنتاج**, **جاهز**, **تم التسليم**, and **ملغي**. Date filters cover **اليوم**, **آخر 7 أيام**, and **آخر 30 يوماً**.
 
-Opening an order shows its metadata and each product line with variant, dimensions, color, handle, quantity, and selling price. The read-only detail then shows subtotal, discount, and final total. `YER` values stay inside explicit LTR boundaries within the Arabic layout.
+Opening an order shows its metadata and each product line with variant, dimensions, color, handle, quantity, and selling price. The read-only detail then shows subtotal, discount, and final total. Amounts display **ر.ي** inside explicit LTR boundaries within the Arabic layout, following the [currency display rule](manager-receptionist-workflows.md#money).
 
 **عرض السعر الأصلي** opens the source quotation document and is disabled when no source exists. The **أوامر العمل** section shows the linked work-order number and status. **فتح أمر العمل** opens that detail and moves keyboard focus to its back action. When no work order exists for eligible furniture, **بدء أمر عمل تجريبي** creates a temporary fixture. Ready-made Products are excluded. Manufacturing progression remains on the Work Orders page. The composed main window shares synthetic order snapshots between both role views.
 

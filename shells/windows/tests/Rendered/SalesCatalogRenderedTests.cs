@@ -283,7 +283,7 @@ public sealed class SalesCatalogRenderedTests
             var increase = WpfTestHost.FindByAutomationName<Button>(detail, "زيادة الكمية");
             increase.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
-            Assert.AreEqual("626,000 YER", ((FurnitureSelectionViewModel)detail.DataContext).LineTotalLabel);
+            Assert.AreEqual("626,000 ر.ي", ((FurnitureSelectionViewModel)detail.DataContext).LineTotalLabel);
             add.BringIntoView();
             WpfTestHost.CompleteLayout(window);
             add.Focus();

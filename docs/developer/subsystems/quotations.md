@@ -35,7 +35,7 @@ Rust does not yet provide a quotation capability. No quotation command, query, s
 
 The list shows **رقم عرض السعر**, **العميل**, **التاريخ**, **الإجمالي**, **الخصم**, **الحالة**, **المتابعة**, and **فتح**. Search matches the quotation number and customer after Arabic normalization. Status filters include **بانتظار الموافقة** and group **مسودة**, **نشط**, **محوّل**, and **ملغي / منتهي**; date filters cover **اليوم**, **آخر 7 أيام**, and **آخر 30 يوماً**.
 
-Opening a row shows quotation metadata, furniture lines with variant, color, handle, quantity, unit price, and total, followed by subtotal, discount, and final total. Amounts use `YER` with local LTR isolation. The detail is read-only.
+Opening a row shows quotation metadata, furniture lines with variant, color, handle, quantity, unit price, and total, followed by subtotal, discount, and final total. Screen amounts and customer documents display **ر.ي** with local LTR isolation, following the [currency display rule](manager-receptionist-workflows.md#money). The detail is read-only.
 
 For a fixture marked **موافقة الخصم مطلوبة**, the detail shows **موافقة** and **رفض**. These actions update only the local `DiscountApprovalDecision` preview and are hidden for quotations without a pending approval. The status label shows **الخصم مقبول** or **الخصم مرفوض** after the decision. This does not claim manager authorization.
 

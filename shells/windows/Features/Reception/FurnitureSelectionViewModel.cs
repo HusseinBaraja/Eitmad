@@ -51,7 +51,7 @@ public sealed class FurnitureSelectionViewModel : ObservableObject
         try { unit = checked((SelectedSize?.Price ?? 0) + (SelectedColor?.Price ?? 0) + (SelectedHandle?.Price ?? 0)); total = checked(unit * Quantity); return true; }
         catch (OverflowException) { return false; }
     }
-    internal static string Money(decimal value) => value.ToString("N0", CultureInfo.InvariantCulture) + " YER";
+    internal static string Money(decimal value) => value.ToString("N0", CultureInfo.InvariantCulture) + " ر.ي";
     private void Refresh()
     {
         foreach (var name in new[] { nameof(CanAdd), nameof(Guidance), nameof(BasePriceLabel), nameof(AdditionsLabel), nameof(UnitPrice), nameof(LineTotal), nameof(UnitPriceLabel), nameof(LineTotalLabel) }) Raise(name);

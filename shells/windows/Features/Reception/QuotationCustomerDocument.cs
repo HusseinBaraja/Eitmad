@@ -62,7 +62,7 @@ public static class QuotationCustomerDocument
         document.Blocks.Add(total);
         return document;
     }
-    private static string Money(decimal value) => value.ToString("N0", CultureInfo.InvariantCulture) + " YER";
+    private static string Money(decimal value) => value.ToString("N0", CultureInfo.InvariantCulture) + " ر.ي";
     private static Paragraph Pair(string label, string value, bool ltr = false)
     {
         var paragraph = new Paragraph { Margin = new Thickness(0, 4, 0, 4) };

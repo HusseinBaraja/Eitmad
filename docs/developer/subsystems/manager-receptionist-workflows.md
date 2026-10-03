@@ -386,7 +386,7 @@ The accepted workflow deliberately changes some preview concepts:
 - Preview `New` Order becomes accepted `Confirmed` and is derived from fulfillment.
 - Preview `New` Work Order becomes accepted `Planned`.
 - Preview `QT-PREVIEW` numbers are replaced by **غير مرقم** until the server allocates an official number.
-- Preview `YER` display text becomes Arabic **ر.ي** while contracts remain `YER`.
+- Preview amounts and customer documents display Arabic **ر.ي**; contracts remain `YER`.
 - Preview whole-number calculations happen to resemble the accepted money model, but only Rust calculations are authoritative.
 - Preview customer matching, five-percent approval, one Work Order, and local handoff remain fixtures until the relevant Rust capabilities implement this specification.
 

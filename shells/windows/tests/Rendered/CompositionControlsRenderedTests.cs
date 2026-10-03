@@ -57,7 +57,7 @@ public sealed class CompositionControlsRenderedTests
             window.Resources[SystemParameters.HighContrastKey] = true;
             window.Resources[SystemColors.WindowBrushKey] = System.Windows.Media.Brushes.Black;
             window.Resources[SystemColors.WindowTextBrushKey] = System.Windows.Media.Brushes.White;
-            var amount = new AmountDisplay { AmountText = "-12,345.50", UnitText = "ر.س.", FontSize = 28 };
+            var amount = new AmountDisplay { AmountText = "-12,345.50", UnitText = "ر.ي", FontSize = 28 };
             var notice = new FeedbackNotice { Message = "رسالة تجريبية طويلة توضح نتيجة الإجراء وتبقى قابلة للقراءة", Tone = PresentationTone.Warning, FontSize = 24 };
             var field = new FormField { Label = "اسم المادة", HelpText = "أدخل الاسم كما يظهر في القائمة", ErrorText = "راجع الاسم المدخل قبل الحفظ", Content = new TextBox { Text = "خشب زان", FontSize = 24, Style = (Style)window.FindResource("TextInput") } };
             var steps = new StepIndicator { CurrentStep = 2 };

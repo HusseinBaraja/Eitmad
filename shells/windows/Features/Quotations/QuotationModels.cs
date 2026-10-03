@@ -40,7 +40,7 @@ public sealed record QuotationLineItem(
 
     public string TotalLabel => FormatMoney(Total);
 
-    private static string FormatMoney(decimal value) => $"{value.ToString("N0", CultureInfo.InvariantCulture)} YER";
+    private static string FormatMoney(decimal value) => $"{value.ToString("N0", CultureInfo.InvariantCulture)} ر.ي";
 }
 
 /// <summary>Represents one quotation row and its transient approval preview state.</summary>
@@ -170,5 +170,5 @@ public sealed class QuotationListItem : ObservableObject
         ApprovalDecision = decision;
     }
 
-    private static string FormatMoney(decimal value) => $"{value.ToString("N0", CultureInfo.InvariantCulture)} YER";
+    private static string FormatMoney(decimal value) => $"{value.ToString("N0", CultureInfo.InvariantCulture)} ر.ي";
 }

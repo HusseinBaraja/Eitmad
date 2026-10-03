@@ -36,12 +36,12 @@ public sealed class PricingPresentationTests
         StringAssert.Contains(viewModel.EditorError, "سعر بيع صالحاً");
 
         viewModel.EditorSellingPrice = "٢٢٠٬٠٠٠";
-        Assert.AreEqual("60,000 YER", viewModel.EditorMargin);
+        Assert.AreEqual("60,000 ر.ي", viewModel.EditorMargin);
         Assert.IsTrue(viewModel.SaveEditor());
 
         Assert.AreEqual(220_000m, item.SellingPrice);
         Assert.AreEqual(originalCost, item.Cost);
-        Assert.AreEqual("60,000 YER", item.MarginLabel);
+        Assert.AreEqual("60,000 ر.ي", item.MarginLabel);
         StringAssert.Contains(viewModel.FeedbackMessage, "المعاينة المحلية فقط");
     }
 
@@ -58,6 +58,6 @@ public sealed class PricingPresentationTests
 
         viewModel.BeginEdit(secondVariant);
 
-        Assert.AreEqual("65,000 YER", viewModel.EditorMargin);
+        Assert.AreEqual("65,000 ر.ي", viewModel.EditorMargin);
     }
 }
