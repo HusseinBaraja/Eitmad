@@ -76,6 +76,8 @@ pub enum FurnitureState {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Furniture {
+    #[serde(default)]
+    pub image: Option<Box<crate::catalog_image::CatalogImageRef>>,
     pub id: FurnitureId,
     pub scope: ScopeRef,
     pub name: String,
@@ -179,6 +181,7 @@ pub struct FurnitureSelection {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SaveFurniture {
+    pub image: Option<Box<crate::catalog_image::CatalogImageRef>>,
     pub id: Option<FurnitureId>,
     pub expected_revision: Option<u64>,
     pub name: String,

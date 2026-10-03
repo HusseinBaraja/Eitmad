@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "crates/authorization",
+    "crates/catalog-image",
     "crates/configuration",
     "crates/contracts",
     "crates/customer",

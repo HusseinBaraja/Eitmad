@@ -21,7 +21,7 @@ Change the Rust authority and its direct callers together, then regenerate every
 
 ## Current desktop boundary
 
-Engine and Windows shell negotiate protocol `1.13` only. Older beta peers fail at handshake. Capability and schema negotiation remain required. A command, query, or subscription envelope must match the negotiated version and authenticated scope.
+Engine and Windows shell negotiate protocol `1.14` only. Older beta peers fail at handshake. Capability and schema negotiation remain required. A command, query, or subscription envelope must match the negotiated version and authenticated scope.
 
 Keep the protocol and schema identifiers versioned. If a supported release or external consumer is introduced, declare its supported ranges and apply [ADR-0015](../decisions/0015-contract-compatibility-window.md) to that real release boundary. Preserve durable local data and immutable migration history regardless of protocol compatibility.
 

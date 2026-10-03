@@ -213,6 +213,10 @@ namespace Eitmad.Contracts
         public RevokeScopeRelationship CommandAuthorizationRelationshipRevoke { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Command_CatalogImageImport")]
+        public ImportCatalogImage CommandCatalogImageImport { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Command_ConfigUpdate")]
         public UpdateConfiguration CommandConfigUpdate { get; set; }
 
@@ -271,6 +275,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Command_ProductSave")]
         public SaveProduct CommandProductSave { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("CommandResult_CatalogImageImported")]
+        public CatalogImageRef CommandResultCatalogImageImported { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("CommandResult_ConfigurationUpdated")]
@@ -453,6 +461,10 @@ namespace Eitmad.Contracts
         public ListScopeRelationships QueryAuthorizationRelationshipsList { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Query_CatalogImageGet")]
+        public GetCatalogImage QueryCatalogImageGet { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Query_ConfigGet")]
         public Dictionary<string, object> QueryConfigGet { get; set; }
 
@@ -527,6 +539,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Query_ProductRevisionGet")]
         public GetProductRevision QueryProductRevisionGet { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("QueryResult_CatalogImage")]
+        public CatalogImageChunk QueryResultCatalogImage { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_Configuration")]
@@ -671,6 +687,15 @@ namespace Eitmad.Contracts
         public Guid RelationshipId { get; set; }
     }
 
+    public partial class ImportCatalogImage
+    {
+        [JsonPropertyName("kind")]
+        public CatalogImageKind Kind { get; set; }
+
+        [JsonPropertyName("sourcePath")]
+        public string SourcePath { get; set; }
+    }
+
     public partial class UpdateConfiguration
     {
         [JsonPropertyName("changes")]
@@ -811,6 +836,9 @@ namespace Eitmad.Contracts
         [JsonPropertyName("id")]
         public Guid? Id { get; set; }
 
+        [JsonPropertyName("image")]
+        public CatalogImageRef Image { get; set; }
+
         [JsonPropertyName("name")]
         public string Name { get; set; }
 
@@ -843,6 +871,18 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("visual")]
         public string Visual { get; set; }
+    }
+
+    public partial class CatalogImageRef
+    {
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("kind")]
+        public CatalogImageKind Kind { get; set; }
+
+        [JsonPropertyName("sha256")]
+        public string Sha256 { get; set; }
     }
 
     public partial class FurniturePart
@@ -1084,6 +1124,9 @@ namespace Eitmad.Contracts
         [JsonPropertyName("id")]
         public Guid? Id { get; set; }
 
+        [JsonPropertyName("image")]
+        public CatalogImageRef Image { get; set; }
+
         [JsonPropertyName("name")]
         public string Name { get; set; }
 
@@ -1258,6 +1301,9 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("id")]
         public Guid Id { get; set; }
+
+        [JsonPropertyName("image")]
+        public CatalogImageRef Image { get; set; }
 
         [JsonPropertyName("name")]
         public string Name { get; set; }
@@ -1501,6 +1547,9 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("id")]
         public Guid Id { get; set; }
+
+        [JsonPropertyName("image")]
+        public CatalogImageRef Image { get; set; }
 
         [JsonPropertyName("name")]
         public string Name { get; set; }
@@ -2267,6 +2316,15 @@ namespace Eitmad.Contracts
         public long Limit { get; set; }
     }
 
+    public partial class GetCatalogImage
+    {
+        [JsonPropertyName("offset")]
+        public long Offset { get; set; }
+
+        [JsonPropertyName("reference")]
+        public CatalogImageRef Reference { get; set; }
+    }
+
     public partial class GetCustomer
     {
         [JsonPropertyName("customerId")]
@@ -2459,6 +2517,21 @@ namespace Eitmad.Contracts
         public Guid VariantId { get; set; }
     }
 
+    public partial class CatalogImageChunk
+    {
+        [JsonPropertyName("base64")]
+        public string Base64 { get; set; }
+
+        [JsonPropertyName("offset")]
+        public long Offset { get; set; }
+
+        [JsonPropertyName("reference")]
+        public CatalogImageRef Reference { get; set; }
+
+        [JsonPropertyName("totalBytes")]
+        public long TotalBytes { get; set; }
+    }
+
     public partial class CustomerPage
     {
         [JsonPropertyName("items")]
@@ -2624,6 +2697,8 @@ namespace Eitmad.Contracts
 
     public enum PrincipalKind { Device, Service, User };
 
+    public enum CatalogImageKind { Furniture, Product };
+
     public enum ConfigWriteValueKind { Boolean, Decimal, Integer, SecretReference, Text, TextList };
 
     public enum DesktopAccountRole { Manager, Receptionist };
@@ -2712,6 +2787,7 @@ namespace Eitmad.Contracts
                 HealthStatusConverter.Singleton,
                 EngineModeConverter.Singleton,
                 LifecycleStateConverter.Singleton,
+                CatalogImageKindConverter.Singleton,
                 RestartRequirementConverter.Singleton,
                 ConfigSensitivityConverter.Singleton,
                 ConfigReadValueKindConverter.Singleton,
@@ -3116,6 +3192,40 @@ namespace Eitmad.Contracts
         }
 
         public static readonly LifecycleStateConverter Singleton = new LifecycleStateConverter();
+    }
+
+    internal class CatalogImageKindConverter : JsonConverter<CatalogImageKind>
+    {
+        public override bool CanConvert(Type t) => t == typeof(CatalogImageKind);
+
+        public override CatalogImageKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "furniture":
+                    return CatalogImageKind.Furniture;
+                case "product":
+                    return CatalogImageKind.Product;
+            }
+            throw new Exception("Cannot unmarshal type CatalogImageKind");
+        }
+
+        public override void Write(Utf8JsonWriter writer, CatalogImageKind value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case CatalogImageKind.Furniture:
+                    JsonSerializer.Serialize(writer, "furniture", options);
+                    return;
+                case CatalogImageKind.Product:
+                    JsonSerializer.Serialize(writer, "product", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type CatalogImageKind");
+        }
+
+        public static readonly CatalogImageKindConverter Singleton = new CatalogImageKindConverter();
     }
 
     internal class RestartRequirementConverter : JsonConverter<RestartRequirement>

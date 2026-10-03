@@ -77,6 +77,7 @@ impl<'de> Deserialize<'de> for ListScopeRelationships {
 tagged_contract! {
     /// Authorized read-only requests.
     pub enum Query {
+        CatalogImage(crate::catalog_image::GetCatalogImage) => "eitmad.catalog-image.get.v1",
         Configuration(GetConfiguration) => "eitmad.config.get.v1",
         EffectivePermissions(GetEffectivePermissions) => "eitmad.permissions.get-effective.v1",
         ScopeRelationships(ListScopeRelationships) => "eitmad.authorization.relationships.list.v1",
@@ -103,6 +104,7 @@ tagged_contract! {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", content = "payload", rename_all = "camelCase")]
 pub enum QueryResult {
+    CatalogImage(crate::catalog_image::CatalogImageChunk),
     Configuration(ConfigSnapshot),
     EffectivePermissions(EffectivePermissions),
     ScopeRelationships(RelationshipPage),

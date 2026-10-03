@@ -41,6 +41,12 @@ public sealed partial class FurnitureViewModel : ObservableObject
     private string editorCategory = "غرف النوم";
     private string shortDescription = string.Empty;
     private string internalNotes = string.Empty;
+    public long ImageEditVersion { get; private set; }
+    public void InvalidateImageLoad() => ++ImageEditVersion;
+    private Eitmad.Contracts.CatalogImageRef? editorImageReference;
+    public Eitmad.Contracts.CatalogImageRef? EditorImageReference => editorImageReference;
+    public void SetImportedImage(Eitmad.Contracts.CatalogImageRef? reference, ImageSource? image) { editorImageReference=reference; ProductImage=image; ProductImageName=reference is null ? "" : "صورة مستوردة"; }
+    public void ApplyImage(Guid id, ImageSource? image) { var row=furniture.FirstOrDefault(p=>p.Id==id); if(row is not null) row.Image=image; }
     private ImageSource? productImage;
     private string productImageName = string.Empty;
     private string editorError = string.Empty;
@@ -370,8 +376,7 @@ public sealed partial class FurnitureViewModel : ObservableObject
         ConfirmBelowCost = false;
         ShortDescription = string.Empty;
         InternalNotes = string.Empty;
-        ProductImage = null;
-        ProductImageName = string.Empty;
+        ++ImageEditVersion; SetImportedImage(null,null);
         ReplaceSelectedParts([]);
         ReplaceVariants([]);
         ReplaceColors(defaultColors.Select(color => new FurnitureColorOption(Guid.NewGuid(),color.Name,color.SwatchHex,color.PriceAdjustment,color.IsActive)));
@@ -398,8 +403,7 @@ public sealed partial class FurnitureViewModel : ObservableObject
         EditorCategory = editingRecord.CategoryName;
         ShortDescription = editingRecord.Description;
         InternalNotes = editingRecord.Notes;
-        ProductImage = null;
-        ProductImageName = string.Empty;
+        ++ImageEditVersion; SetImportedImage(editingRecord.Image,item.Image);
         ReplaceSelectedParts(editingRecord.Parts.Select(u =>
         {
             var part = compositions[(u.Reference.PartId, u.Reference.Revision)];
@@ -418,20 +422,13 @@ public sealed partial class FurnitureViewModel : ObservableObject
     /// <summary>Closes unsaved input unless an unresolved save must first be retried.</summary>
     public void CancelEditor()
     {
+        ++ImageEditVersion;
         if (pendingSave is not null) { EditorError = "أعد محاولة الحفظ لحسم النتيجة أولاً."; return; }
         IsEditorOpen = false;
         IsPartPickerOpen = false;
         IsVariantEditorOpen = false;
         IsColorEditorOpen = false;
         IsHandleEditorOpen = false;
-        EditorError = string.Empty;
-    }
-
-    public void SetProductImage(ImageSource image, string fileName)
-    {
-        ArgumentNullException.ThrowIfNull(image);
-        ProductImage = image;
-        ProductImageName = fileName;
         EditorError = string.Empty;
     }
 

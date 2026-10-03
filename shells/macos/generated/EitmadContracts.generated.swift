@@ -291,6 +291,7 @@ public enum LifecycleState: String, Codable, Sendable {
 public struct UnionPayloadKeepAlive: Codable, Sendable {
     public let commandAuthorizationRelationshipGrant: GrantScopeRelationship?
     public let commandAuthorizationRelationshipRevoke: RevokeScopeRelationship?
+    public let commandCatalogImageImport: ImportCatalogImage?
     public let commandConfigUpdate: UpdateConfiguration?
     public let commandCustomerCreate: CreateCustomer?
     public let commandCustomerUpdate: UpdateCustomer?
@@ -308,6 +309,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
     public let commandProductSave: SaveProduct?
     public let commandOutcomeFailed: ContractError?
     public let commandOutcomeSucceeded: [String: JSONAny]?
+    public let commandResultCatalogImageImported: CatalogImageRef?
     public let commandResultConfigurationUpdated: ConfigSnapshot?
     public let commandResultCustomerCreated, commandResultCustomerUpdated: CustomerMutationResult?
     public let commandResultDesktopAccountCreated, commandResultDesktopAccountDeactivated, commandResultDesktopAccountUpdated: DesktopAccountSummary?
@@ -351,6 +353,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
     public let ipcServerMessageIPCSubscriptionClosed: SubscriptionClosedEnvelope?
     public let ipcServerMessageIPCUnsubscribeResponse: UnsubscribeResponse?
     public let queryAuthorizationRelationshipsList: ListScopeRelationships?
+    public let queryCatalogImageGet: GetCatalogImage?
     public let queryConfigGet: [String: JSONAny]?
     public let queryCustomerGet: GetCustomer?
     public let queryCustomerSearch: SearchCustomers?
@@ -372,6 +375,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
     public let queryProductRevisionGet: GetProductRevision?
     public let queryOutcomeFailed: ContractError?
     public let queryOutcomeSucceeded: [String: JSONAny]?
+    public let queryResultCatalogImage: CatalogImageChunk?
     public let queryResultConfiguration: ConfigSnapshot?
     public let queryResultCustomer: Customer?
     public let queryResultCustomers: CustomerPage?
@@ -400,6 +404,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
     public enum CodingKeys: String, CodingKey {
         case commandAuthorizationRelationshipGrant = "Command_AuthorizationRelationshipGrant"
         case commandAuthorizationRelationshipRevoke = "Command_AuthorizationRelationshipRevoke"
+        case commandCatalogImageImport = "Command_CatalogImageImport"
         case commandConfigUpdate = "Command_ConfigUpdate"
         case commandCustomerCreate = "Command_CustomerCreate"
         case commandCustomerUpdate = "Command_CustomerUpdate"
@@ -417,6 +422,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         case commandProductSave = "Command_ProductSave"
         case commandOutcomeFailed = "CommandOutcome_Failed"
         case commandOutcomeSucceeded = "CommandOutcome_Succeeded"
+        case commandResultCatalogImageImported = "CommandResult_CatalogImageImported"
         case commandResultConfigurationUpdated = "CommandResult_ConfigurationUpdated"
         case commandResultCustomerCreated = "CommandResult_CustomerCreated"
         case commandResultCustomerUpdated = "CommandResult_CustomerUpdated"
@@ -464,6 +470,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         case ipcServerMessageIPCSubscriptionClosed = "IpcServerMessage_IpcSubscriptionClosed"
         case ipcServerMessageIPCUnsubscribeResponse = "IpcServerMessage_IpcUnsubscribeResponse"
         case queryAuthorizationRelationshipsList = "Query_AuthorizationRelationshipsList"
+        case queryCatalogImageGet = "Query_CatalogImageGet"
         case queryConfigGet = "Query_ConfigGet"
         case queryCustomerGet = "Query_CustomerGet"
         case queryCustomerSearch = "Query_CustomerSearch"
@@ -485,6 +492,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         case queryProductRevisionGet = "Query_ProductRevisionGet"
         case queryOutcomeFailed = "QueryOutcome_Failed"
         case queryOutcomeSucceeded = "QueryOutcome_Succeeded"
+        case queryResultCatalogImage = "QueryResult_CatalogImage"
         case queryResultConfiguration = "QueryResult_Configuration"
         case queryResultCustomer = "QueryResult_Customer"
         case queryResultCustomers = "QueryResult_Customers"
@@ -517,9 +525,10 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         case subscriptionOutcomeSucceeded = "SubscriptionOutcome_Succeeded"
     }
 
-    public init(commandAuthorizationRelationshipGrant: GrantScopeRelationship?, commandAuthorizationRelationshipRevoke: RevokeScopeRelationship?, commandConfigUpdate: UpdateConfiguration?, commandCustomerCreate: CreateCustomer?, commandCustomerUpdate: UpdateCustomer?, commandDesktopAccountCreate: CreateDesktopAccount?, commandDesktopAccountDeactivate: DeactivateDesktopAccount?, commandDesktopAccountUpdate: UpdateDesktopAccount?, commandFurnitureCategorySave: SaveFurnitureCategory?, commandFurnitureSave: SaveFurniture?, commandMaterialCategorySave: SaveMaterialCategory?, commandMaterialSave: SaveMaterial?, commandMaterialUnitSave: SaveMaterialUnit?, commandPartCategorySave: SavePartCategory?, commandPartSave: SavePart?, commandProductCategorySave: SaveProductCategory?, commandProductSave: SaveProduct?, commandOutcomeFailed: ContractError?, commandOutcomeSucceeded: [String: JSONAny]?, commandResultConfigurationUpdated: ConfigSnapshot?, commandResultCustomerCreated: CustomerMutationResult?, commandResultCustomerUpdated: CustomerMutationResult?, commandResultDesktopAccountCreated: DesktopAccountSummary?, commandResultDesktopAccountDeactivated: DesktopAccountSummary?, commandResultDesktopAccountUpdated: DesktopAccountSummary?, commandResultFurnitureCategorySaved: FurnitureCategory?, commandResultFurnitureSaved: Furniture?, commandResultMaterialCategorySaved: MaterialCategory?, commandResultMaterialSaved: Material?, commandResultMaterialUnitSaved: MaterialUnit?, commandResultPartCategorySaved: PartCategory?, commandResultPartSaved: Part?, commandResultProductCategorySaved: ProductCategory?, commandResultProductSaved: Product?, commandResultRelationshipGranted: RelationshipMutationResult?, commandResultRelationshipRevoked: RelationshipMutationResult?, eventAuthorizationPolicyChangedEvent: AuthorizationPolicyChangeNotice?, eventConfigChangedEvent: ConfigSnapshot?, eventCustomerChangedEvent: CustomerChangeNotice?, eventFurnitureChangedEvent: FurnitureChangeNotice?, eventMaterialChangedEvent: MaterialChangeNotice?, eventPartChangedEvent: PartChangeNotice?, eventPermissionsChangedEvent: EffectivePermissions?, eventProductChangedEvent: ProductChangeNotice?, handshakeOutcomeAccepted: HandshakeAccepted?, handshakeOutcomeRejected: HandshakeRejection?, ipcClientMessageIPCCommand: CommandEnvelope?, ipcClientMessageIPCDesktopSessionState: DesktopSessionRequest?, ipcClientMessageIPCDesktopSignIn: DesktopSignInRequest?, ipcClientMessageIPCDesktopSignOut: DesktopSessionRequest?, ipcClientMessageIPCHandshake: HandshakeRequest?, ipcClientMessageIPCQuery: QueryEnvelope?, ipcClientMessageIPCShutdown: ShutdownRequest?, ipcClientMessageIPCSubscribe: SubscriptionEnvelope?, ipcClientMessageIPCUnsubscribe: UnsubscribeRequest?, ipcServerMessageIPCCommandResponse: CommandResponseEnvelope?, ipcServerMessageIPCDesktopSessionResponse: DesktopSessionResponse?, ipcServerMessageIPCEvent: EventEnvelope?, ipcServerMessageIPCFailure: IPCFailureResponse?, ipcServerMessageIPCHandshakeResponse: HandshakeResponse?, ipcServerMessageIPCQueryResponse: QueryResponseEnvelope?, ipcServerMessageIPCShutdownResponse: ShutdownResponse?, ipcServerMessageIPCSubscribeResponse: SubscriptionResponseEnvelope?, ipcServerMessageIPCSubscriptionClosed: SubscriptionClosedEnvelope?, ipcServerMessageIPCUnsubscribeResponse: UnsubscribeResponse?, queryAuthorizationRelationshipsList: ListScopeRelationships?, queryConfigGet: [String: JSONAny]?, queryCustomerGet: GetCustomer?, queryCustomerSearch: SearchCustomers?, queryDesktopAccountList: [String: JSONAny]?, queryFurnitureCategoryList: ListFurnitureCategories?, queryFurnitureList: ListFurnitures?, queryFurnitureReview: SaveFurniture?, queryFurnitureRevisionGet: GetFurnitureRevision?, queryFurnitureSelectionCheck: CheckFurnitureSelection?, queryMaterialList: ListMaterials?, queryMaterialReferenceList: [String: JSONAny]?, queryPartCategoryList: ListPartCategories?, queryPartCompositionGet: GetPartComposition?, queryPartCost: CalculatePartCost?, queryPartList: ListParts?, queryPermissionsGetEffective: [String: JSONAny]?, queryProductCategoryList: ListProductCategories?, queryProductList: ListProducts?, queryProductRevisionGet: GetProductRevision?, queryOutcomeFailed: ContractError?, queryOutcomeSucceeded: [String: JSONAny]?, queryResultConfiguration: ConfigSnapshot?, queryResultCustomer: Customer?, queryResultCustomers: CustomerPage?, queryResultDesktopAccounts: DesktopAccountPage?, queryResultEffectivePermissions: EffectivePermissions?, queryResultFurnitureCategories: FurnitureCategories?, queryResultFurnitureReview: FurnitureReview?, queryResultFurnitureRevision: Furniture?, queryResultFurnitures: FurniturePage?, queryResultFurnitureSelection: FurnitureSelection?, queryResultMaterialReferences: MaterialReferences?, queryResultMaterials: MaterialPage?, queryResultPartCategories: PartCategories?, queryResultPartComposition: Part?, queryResultPartCost: PartCost?, queryResultParts: PartPage?, queryResultProductCategories: ProductCategories?, queryResultProductRevision: Product?, queryResultProducts: ProductPage?, queryResultScopeRelationships: RelationshipPage?, subscriptionAuthorizationPolicyChangedSubscribe: [String: JSONAny]?, subscriptionConfigChangedSubscribe: [String: JSONAny]?, subscriptionCustomerChangedSubscribe: [String: JSONAny]?, subscriptionFurnitureChangedSubscribe: [String: JSONAny]?, subscriptionMaterialChangedSubscribe: [String: JSONAny]?, subscriptionPartChangedSubscribe: [String: JSONAny]?, subscriptionPermissionsChangedSubscribe: [String: JSONAny]?, subscriptionProductChangedSubscribe: [String: JSONAny]?, subscriptionOutcomeFailed: ContractError?, subscriptionOutcomeSucceeded: SubscriptionAccepted?) {
+    public init(commandAuthorizationRelationshipGrant: GrantScopeRelationship?, commandAuthorizationRelationshipRevoke: RevokeScopeRelationship?, commandCatalogImageImport: ImportCatalogImage?, commandConfigUpdate: UpdateConfiguration?, commandCustomerCreate: CreateCustomer?, commandCustomerUpdate: UpdateCustomer?, commandDesktopAccountCreate: CreateDesktopAccount?, commandDesktopAccountDeactivate: DeactivateDesktopAccount?, commandDesktopAccountUpdate: UpdateDesktopAccount?, commandFurnitureCategorySave: SaveFurnitureCategory?, commandFurnitureSave: SaveFurniture?, commandMaterialCategorySave: SaveMaterialCategory?, commandMaterialSave: SaveMaterial?, commandMaterialUnitSave: SaveMaterialUnit?, commandPartCategorySave: SavePartCategory?, commandPartSave: SavePart?, commandProductCategorySave: SaveProductCategory?, commandProductSave: SaveProduct?, commandOutcomeFailed: ContractError?, commandOutcomeSucceeded: [String: JSONAny]?, commandResultCatalogImageImported: CatalogImageRef?, commandResultConfigurationUpdated: ConfigSnapshot?, commandResultCustomerCreated: CustomerMutationResult?, commandResultCustomerUpdated: CustomerMutationResult?, commandResultDesktopAccountCreated: DesktopAccountSummary?, commandResultDesktopAccountDeactivated: DesktopAccountSummary?, commandResultDesktopAccountUpdated: DesktopAccountSummary?, commandResultFurnitureCategorySaved: FurnitureCategory?, commandResultFurnitureSaved: Furniture?, commandResultMaterialCategorySaved: MaterialCategory?, commandResultMaterialSaved: Material?, commandResultMaterialUnitSaved: MaterialUnit?, commandResultPartCategorySaved: PartCategory?, commandResultPartSaved: Part?, commandResultProductCategorySaved: ProductCategory?, commandResultProductSaved: Product?, commandResultRelationshipGranted: RelationshipMutationResult?, commandResultRelationshipRevoked: RelationshipMutationResult?, eventAuthorizationPolicyChangedEvent: AuthorizationPolicyChangeNotice?, eventConfigChangedEvent: ConfigSnapshot?, eventCustomerChangedEvent: CustomerChangeNotice?, eventFurnitureChangedEvent: FurnitureChangeNotice?, eventMaterialChangedEvent: MaterialChangeNotice?, eventPartChangedEvent: PartChangeNotice?, eventPermissionsChangedEvent: EffectivePermissions?, eventProductChangedEvent: ProductChangeNotice?, handshakeOutcomeAccepted: HandshakeAccepted?, handshakeOutcomeRejected: HandshakeRejection?, ipcClientMessageIPCCommand: CommandEnvelope?, ipcClientMessageIPCDesktopSessionState: DesktopSessionRequest?, ipcClientMessageIPCDesktopSignIn: DesktopSignInRequest?, ipcClientMessageIPCDesktopSignOut: DesktopSessionRequest?, ipcClientMessageIPCHandshake: HandshakeRequest?, ipcClientMessageIPCQuery: QueryEnvelope?, ipcClientMessageIPCShutdown: ShutdownRequest?, ipcClientMessageIPCSubscribe: SubscriptionEnvelope?, ipcClientMessageIPCUnsubscribe: UnsubscribeRequest?, ipcServerMessageIPCCommandResponse: CommandResponseEnvelope?, ipcServerMessageIPCDesktopSessionResponse: DesktopSessionResponse?, ipcServerMessageIPCEvent: EventEnvelope?, ipcServerMessageIPCFailure: IPCFailureResponse?, ipcServerMessageIPCHandshakeResponse: HandshakeResponse?, ipcServerMessageIPCQueryResponse: QueryResponseEnvelope?, ipcServerMessageIPCShutdownResponse: ShutdownResponse?, ipcServerMessageIPCSubscribeResponse: SubscriptionResponseEnvelope?, ipcServerMessageIPCSubscriptionClosed: SubscriptionClosedEnvelope?, ipcServerMessageIPCUnsubscribeResponse: UnsubscribeResponse?, queryAuthorizationRelationshipsList: ListScopeRelationships?, queryCatalogImageGet: GetCatalogImage?, queryConfigGet: [String: JSONAny]?, queryCustomerGet: GetCustomer?, queryCustomerSearch: SearchCustomers?, queryDesktopAccountList: [String: JSONAny]?, queryFurnitureCategoryList: ListFurnitureCategories?, queryFurnitureList: ListFurnitures?, queryFurnitureReview: SaveFurniture?, queryFurnitureRevisionGet: GetFurnitureRevision?, queryFurnitureSelectionCheck: CheckFurnitureSelection?, queryMaterialList: ListMaterials?, queryMaterialReferenceList: [String: JSONAny]?, queryPartCategoryList: ListPartCategories?, queryPartCompositionGet: GetPartComposition?, queryPartCost: CalculatePartCost?, queryPartList: ListParts?, queryPermissionsGetEffective: [String: JSONAny]?, queryProductCategoryList: ListProductCategories?, queryProductList: ListProducts?, queryProductRevisionGet: GetProductRevision?, queryOutcomeFailed: ContractError?, queryOutcomeSucceeded: [String: JSONAny]?, queryResultCatalogImage: CatalogImageChunk?, queryResultConfiguration: ConfigSnapshot?, queryResultCustomer: Customer?, queryResultCustomers: CustomerPage?, queryResultDesktopAccounts: DesktopAccountPage?, queryResultEffectivePermissions: EffectivePermissions?, queryResultFurnitureCategories: FurnitureCategories?, queryResultFurnitureReview: FurnitureReview?, queryResultFurnitureRevision: Furniture?, queryResultFurnitures: FurniturePage?, queryResultFurnitureSelection: FurnitureSelection?, queryResultMaterialReferences: MaterialReferences?, queryResultMaterials: MaterialPage?, queryResultPartCategories: PartCategories?, queryResultPartComposition: Part?, queryResultPartCost: PartCost?, queryResultParts: PartPage?, queryResultProductCategories: ProductCategories?, queryResultProductRevision: Product?, queryResultProducts: ProductPage?, queryResultScopeRelationships: RelationshipPage?, subscriptionAuthorizationPolicyChangedSubscribe: [String: JSONAny]?, subscriptionConfigChangedSubscribe: [String: JSONAny]?, subscriptionCustomerChangedSubscribe: [String: JSONAny]?, subscriptionFurnitureChangedSubscribe: [String: JSONAny]?, subscriptionMaterialChangedSubscribe: [String: JSONAny]?, subscriptionPartChangedSubscribe: [String: JSONAny]?, subscriptionPermissionsChangedSubscribe: [String: JSONAny]?, subscriptionProductChangedSubscribe: [String: JSONAny]?, subscriptionOutcomeFailed: ContractError?, subscriptionOutcomeSucceeded: SubscriptionAccepted?) {
         self.commandAuthorizationRelationshipGrant = commandAuthorizationRelationshipGrant
         self.commandAuthorizationRelationshipRevoke = commandAuthorizationRelationshipRevoke
+        self.commandCatalogImageImport = commandCatalogImageImport
         self.commandConfigUpdate = commandConfigUpdate
         self.commandCustomerCreate = commandCustomerCreate
         self.commandCustomerUpdate = commandCustomerUpdate
@@ -537,6 +546,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         self.commandProductSave = commandProductSave
         self.commandOutcomeFailed = commandOutcomeFailed
         self.commandOutcomeSucceeded = commandOutcomeSucceeded
+        self.commandResultCatalogImageImported = commandResultCatalogImageImported
         self.commandResultConfigurationUpdated = commandResultConfigurationUpdated
         self.commandResultCustomerCreated = commandResultCustomerCreated
         self.commandResultCustomerUpdated = commandResultCustomerUpdated
@@ -584,6 +594,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         self.ipcServerMessageIPCSubscriptionClosed = ipcServerMessageIPCSubscriptionClosed
         self.ipcServerMessageIPCUnsubscribeResponse = ipcServerMessageIPCUnsubscribeResponse
         self.queryAuthorizationRelationshipsList = queryAuthorizationRelationshipsList
+        self.queryCatalogImageGet = queryCatalogImageGet
         self.queryConfigGet = queryConfigGet
         self.queryCustomerGet = queryCustomerGet
         self.queryCustomerSearch = queryCustomerSearch
@@ -605,6 +616,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         self.queryProductRevisionGet = queryProductRevisionGet
         self.queryOutcomeFailed = queryOutcomeFailed
         self.queryOutcomeSucceeded = queryOutcomeSucceeded
+        self.queryResultCatalogImage = queryResultCatalogImage
         self.queryResultConfiguration = queryResultConfiguration
         self.queryResultCustomer = queryResultCustomer
         self.queryResultCustomers = queryResultCustomers
@@ -687,6 +699,22 @@ public struct RevokeScopeRelationship: Codable, Sendable {
         self.expectedPolicyVersion = expectedPolicyVersion
         self.relationshipID = relationshipID
     }
+}
+
+// MARK: - ImportCatalogImage
+public struct ImportCatalogImage: Codable, Sendable {
+    public let kind: CatalogImageKind
+    public let sourcePath: String
+
+    public init(kind: CatalogImageKind, sourcePath: String) {
+        self.kind = kind
+        self.sourcePath = sourcePath
+    }
+}
+
+public enum CatalogImageKind: String, Codable, Sendable {
+    case furniture = "furniture"
+    case product = "product"
 }
 
 // MARK: - UpdateConfiguration
@@ -891,6 +919,7 @@ public struct SaveFurniture: Codable, Sendable {
     public let expectedRevision: Int?
     public let handles: [FurnitureOption]
     public let id: String?
+    public let image: CatalogImageRef?
     public let name, notes: String
     public let parts: [FurniturePart]
     public let state: FurnitureState
@@ -898,10 +927,10 @@ public struct SaveFurniture: Codable, Sendable {
 
     public enum CodingKeys: String, CodingKey {
         case categoryID = "categoryId"
-        case colors, confirmBelowCost, description, expectedRevision, handles, id, name, notes, parts, state, variants
+        case colors, confirmBelowCost, description, expectedRevision, handles, id, image, name, notes, parts, state, variants
     }
 
-    public init(categoryID: String, colors: [FurnitureOption], confirmBelowCost: Bool, description: String, expectedRevision: Int?, handles: [FurnitureOption], id: String?, name: String, notes: String, parts: [FurniturePart], state: FurnitureState, variants: [FurnitureVariant]) {
+    public init(categoryID: String, colors: [FurnitureOption], confirmBelowCost: Bool, description: String, expectedRevision: Int?, handles: [FurnitureOption], id: String?, image: CatalogImageRef?, name: String, notes: String, parts: [FurniturePart], state: FurnitureState, variants: [FurnitureVariant]) {
         self.categoryID = categoryID
         self.colors = colors
         self.confirmBelowCost = confirmBelowCost
@@ -909,6 +938,7 @@ public struct SaveFurniture: Codable, Sendable {
         self.expectedRevision = expectedRevision
         self.handles = handles
         self.id = id
+        self.image = image
         self.name = name
         self.notes = notes
         self.parts = parts
@@ -930,6 +960,19 @@ public struct FurnitureOption: Codable, Sendable {
         self.name = name
         self.priceAdjustmentYer = priceAdjustmentYer
         self.visual = visual
+    }
+}
+
+// MARK: - CatalogImageRef
+public struct CatalogImageRef: Codable, Sendable {
+    public let id: String
+    public let kind: CatalogImageKind
+    public let sha256: String
+
+    public init(id: String, kind: CatalogImageKind, sha256: String) {
+        self.id = id
+        self.kind = kind
+        self.sha256 = sha256
     }
 }
 
@@ -1189,21 +1232,23 @@ public struct SaveProduct: Codable, Sendable {
     public let categoryID, description: String
     public let expectedRevision: Int?
     public let id: String?
+    public let image: CatalogImageRef?
     public let name, notes: String
     public let variants: [SaveProductVariant]
 
     public enum CodingKeys: String, CodingKey {
         case archived
         case categoryID = "categoryId"
-        case description, expectedRevision, id, name, notes, variants
+        case description, expectedRevision, id, image, name, notes, variants
     }
 
-    public init(archived: Bool, categoryID: String, description: String, expectedRevision: Int?, id: String?, name: String, notes: String, variants: [SaveProductVariant]) {
+    public init(archived: Bool, categoryID: String, description: String, expectedRevision: Int?, id: String?, image: CatalogImageRef?, name: String, notes: String, variants: [SaveProductVariant]) {
         self.archived = archived
         self.categoryID = categoryID
         self.description = description
         self.expectedRevision = expectedRevision
         self.id = id
+        self.image = image
         self.name = name
         self.notes = notes
         self.variants = variants
@@ -1394,7 +1439,9 @@ public struct Furniture: Codable, Sendable {
     public let colors: [FurnitureOption]
     public let description: String
     public let handles: [FurnitureOption]
-    public let id, name: String
+    public let id: String
+    public let image: CatalogImageRef?
+    public let name: String
     /// Internal notes are only exposed to Managers.
     public let notes: String
     public let parts: [FurniturePart]
@@ -1407,16 +1454,17 @@ public struct Furniture: Codable, Sendable {
 
     public enum CodingKeys: String, CodingKey {
         case categoryID = "categoryId"
-        case categoryName, colors, description, handles, id, name, notes, parts, partsCostYer, revision, scope, state, updatedAt, variants
+        case categoryName, colors, description, handles, id, image, name, notes, parts, partsCostYer, revision, scope, state, updatedAt, variants
     }
 
-    public init(categoryID: String, categoryName: String, colors: [FurnitureOption], description: String, handles: [FurnitureOption], id: String, name: String, notes: String, parts: [FurniturePart], partsCostYer: Int, revision: Int, scope: ScopeRef, state: FurnitureState, updatedAt: Int, variants: [FurnitureVariant]) {
+    public init(categoryID: String, categoryName: String, colors: [FurnitureOption], description: String, handles: [FurnitureOption], id: String, image: CatalogImageRef?, name: String, notes: String, parts: [FurniturePart], partsCostYer: Int, revision: Int, scope: ScopeRef, state: FurnitureState, updatedAt: Int, variants: [FurnitureVariant]) {
         self.categoryID = categoryID
         self.categoryName = categoryName
         self.colors = colors
         self.description = description
         self.handles = handles
         self.id = id
+        self.image = image
         self.name = name
         self.notes = notes
         self.parts = parts
@@ -1607,7 +1655,9 @@ public struct Product: Codable, Sendable {
     public let categoryID: String
     /// Category name at this revision, retained for historical reads.
     public let categoryName: String
-    public let description, id, name: String
+    public let description, id: String
+    public let image: CatalogImageRef?
+    public let name: String
     /// Internal notes are withheld with purchase costs.
     public let notes: String
     public let revision: Int
@@ -1618,15 +1668,16 @@ public struct Product: Codable, Sendable {
     public enum CodingKeys: String, CodingKey {
         case archived
         case categoryID = "categoryId"
-        case categoryName, description, id, name, notes, revision, scope, updatedAt, variants
+        case categoryName, description, id, image, name, notes, revision, scope, updatedAt, variants
     }
 
-    public init(archived: Bool, categoryID: String, categoryName: String, description: String, id: String, name: String, notes: String, revision: Int, scope: ScopeRef, updatedAt: Int, variants: [ProductVariant]) {
+    public init(archived: Bool, categoryID: String, categoryName: String, description: String, id: String, image: CatalogImageRef?, name: String, notes: String, revision: Int, scope: ScopeRef, updatedAt: Int, variants: [ProductVariant]) {
         self.archived = archived
         self.categoryID = categoryID
         self.categoryName = categoryName
         self.description = description
         self.id = id
+        self.image = image
         self.name = name
         self.notes = notes
         self.revision = revision
@@ -2442,6 +2493,17 @@ public struct ListScopeRelationships: Codable, Sendable {
     }
 }
 
+// MARK: - GetCatalogImage
+public struct GetCatalogImage: Codable, Sendable {
+    public let offset: Int
+    public let reference: CatalogImageRef
+
+    public init(offset: Int, reference: CatalogImageRef) {
+        self.offset = offset
+        self.reference = reference
+    }
+}
+
 // MARK: - GetCustomer
 public struct GetCustomer: Codable, Sendable {
     public let customerID: String
@@ -2671,6 +2733,21 @@ public struct ProductReference: Codable, Sendable {
         self.schemaVersion = schemaVersion
         self.scope = scope
         self.variantID = variantID
+    }
+}
+
+// MARK: - CatalogImageChunk
+public struct CatalogImageChunk: Codable, Sendable {
+    public let base64: String
+    public let offset: Int
+    public let reference: CatalogImageRef
+    public let totalBytes: Int
+
+    public init(base64: String, offset: Int, reference: CatalogImageRef, totalBytes: Int) {
+        self.base64 = base64
+        self.offset = offset
+        self.reference = reference
+        self.totalBytes = totalBytes
     }
 }
 

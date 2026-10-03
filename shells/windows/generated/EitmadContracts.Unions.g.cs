@@ -14,6 +14,14 @@ public partial class Command
     [JsonPropertyName("payload")]
     public object? Payload { get; set; }
 
+    public const string CatalogImageImportKind = "eitmad.catalog-image.import.v1";
+
+    public static Command ForCatalogImageImport(ImportCatalogImage payload) =>
+        new() { Kind = CatalogImageImportKind, Payload = payload };
+
+    public ImportCatalogImage? AsCatalogImageImport() =>
+        Kind == CatalogImageImportKind ? PayloadAs<ImportCatalogImage>() : null;
+
     public const string ConfigUpdateKind = "eitmad.config.update.v1";
 
     public static Command ForConfigUpdate(UpdateConfiguration payload) =>
@@ -166,6 +174,14 @@ public partial class CommandResult
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("payload")]
     public object? Payload { get; set; }
+
+    public const string CatalogImageImportedKind = "catalogImageImported";
+
+    public static CommandResult ForCatalogImageImported(CatalogImageRef payload) =>
+        new() { Kind = CatalogImageImportedKind, Payload = payload };
+
+    public CatalogImageRef? AsCatalogImageImported() =>
+        Kind == CatalogImageImportedKind ? PayloadAs<CatalogImageRef>() : null;
 
     public const string ConfigurationUpdatedKind = "configurationUpdated";
 
@@ -587,6 +603,14 @@ public partial class Query
     [JsonPropertyName("payload")]
     public object? Payload { get; set; }
 
+    public const string CatalogImageGetKind = "eitmad.catalog-image.get.v1";
+
+    public static Query ForCatalogImageGet(GetCatalogImage payload) =>
+        new() { Kind = CatalogImageGetKind, Payload = payload };
+
+    public GetCatalogImage? AsCatalogImageGet() =>
+        Kind == CatalogImageGetKind ? PayloadAs<GetCatalogImage>() : null;
+
     public const string ConfigGetKind = "eitmad.config.get.v1";
 
     public static Query ForConfigGet(GetConfiguration payload) =>
@@ -763,6 +787,14 @@ public partial class QueryResult
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("payload")]
     public object? Payload { get; set; }
+
+    public const string CatalogImageKind = "catalogImage";
+
+    public static QueryResult ForCatalogImage(CatalogImageChunk payload) =>
+        new() { Kind = CatalogImageKind, Payload = payload };
+
+    public CatalogImageChunk? AsCatalogImage() =>
+        Kind == CatalogImageKind ? PayloadAs<CatalogImageChunk>() : null;
 
     public const string ConfigurationKind = "configuration";
 

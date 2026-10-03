@@ -10,6 +10,7 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies]
+eitmad-catalog-image = { path = "../catalog-image" }
 eitmad-authorization = { path = "../authorization" }
 eitmad-contracts = { path = "../contracts" }
 eitmad-observability-audit = { path = "../observability-audit" }
@@ -21,6 +22,7 @@ uuid = { version = "=1.23.4", features = ["v4"] }
 
 eitmad-material = { path = "../material" }
 [dev-dependencies]
+image = { version = "=0.25.5", default-features = false, features = ["png", "jpeg"] }
 eitmad-part = { path = "../part" }
 rusqlite = { version = "=0.39.0", default-features = false, features = ["bundled"] }
 tempfile = "=3.24.0"

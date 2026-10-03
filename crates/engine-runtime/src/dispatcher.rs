@@ -41,6 +41,7 @@ pub struct ProductDispatcher {
     customers: CustomerService,
     materials: MaterialService,
     parts: PartService,
+    images: eitmad_catalog_image::CatalogImageService,
     products: ProductService,
     furnitures: FurnitureService,
     accounts: DesktopAccountService,
@@ -92,6 +93,8 @@ impl ProductDispatcher {
         let products = ProductService::new(store.clone(), authorization.clone());
         let parts = PartService::new(store.clone(), authorization.clone());
         let accounts = DesktopAccountService::new(store.clone(), authorization.clone());
+        let images =
+            eitmad_catalog_image::CatalogImageService::new(store.clone(), authorization.clone());
         Self {
             store,
             authorization,
@@ -99,6 +102,7 @@ impl ProductDispatcher {
             customers,
             materials,
             parts,
+            images,
             products,
             furnitures,
             accounts,
@@ -109,6 +113,22 @@ impl ProductDispatcher {
     #[must_use]
     pub const fn authorization(&self) -> &AuthorizationService {
         &self.authorization
+    }
+
+    #[must_use]
+    pub fn with_catalog_image_transfer(
+        mut self,
+        transfer: Arc<dyn eitmad_catalog_image::CatalogImageTransfer>,
+    ) -> Self {
+        self.images = self.images.with_transfer(transfer);
+        self
+    }
+
+    /// Runs one bounded upload batch on the engine background worker.
+    /// # Errors
+    /// Retains pending work on failure.
+    pub fn retry_catalog_images(&self) -> Result<usize, eitmad_catalog_image::ImageError> {
+        self.images.retry_uploads()
     }
 
     fn mutation_context(context: &DispatchContext) -> Result<MutationContext, Box<ContractError>> {
@@ -484,6 +504,17 @@ impl CommandDispatcher for ProductDispatcher {
     ) -> Result<CommandResult, ContractError> {
         let mutation = Self::mutation_context(&context).map_err(|error| *error)?;
         match command {
+            Command::ImportCatalogImage(input) => {
+                let images = self.images.clone();
+                let mutation = mutation.clone();
+                tokio::task::spawn_blocking(move || images.import(&mutation, &input))
+                    .await
+                    .map_err(|_| {
+                        image_error(eitmad_catalog_image::ImageError::Unavailable, &context)
+                    })?
+                    .map(CommandResult::CatalogImageImported)
+                    .map_err(|e| image_error(e, &context))
+            }
             Command::UpdateConfiguration(command) => {
                 let outcome = self
                     .configuration
@@ -574,6 +605,17 @@ impl QueryDispatcher for ProductDispatcher {
     ) -> Result<QueryResult, ContractError> {
         let operation = query.kind();
         let result = match query {
+            Query::CatalogImage(input) => {
+                let images = self.images.clone();
+                let actor = context.authorization.clone();
+                tokio::task::spawn_blocking(move || images.get(&actor, &input))
+                    .await
+                    .map_err(|_| {
+                        image_error(eitmad_catalog_image::ImageError::Unavailable, &context)
+                    })?
+                    .map(QueryResult::CatalogImage)
+                    .map_err(|e| image_error(e, &context))
+            }
             Query::Configuration(_) => self
                 .configuration
                 .snapshot(&context.authorization)
@@ -1090,6 +1132,31 @@ fn contract_error(
         correlation_id,
         detail,
     }
+}
+
+fn image_error(
+    value: eitmad_catalog_image::ImageError,
+    context: &DispatchContext,
+) -> ContractError {
+    let (code, message) = match value {
+        eitmad_catalog_image::ImageError::Denied => (
+            "eitmad.error.authorization-denied.v1",
+            "eitmad.message.authorization-denied.v1",
+        ),
+        eitmad_catalog_image::ImageError::Invalid => (
+            "eitmad.error.catalog-image-invalid.v1",
+            "eitmad.message.catalog-image-invalid.v1",
+        ),
+        eitmad_catalog_image::ImageError::NotFound => (
+            "eitmad.error.catalog-image-not-found.v1",
+            "eitmad.message.catalog-image-not-found.v1",
+        ),
+        eitmad_catalog_image::ImageError::Unavailable => (
+            "eitmad.error.catalog-image-unavailable.v1",
+            "eitmad.message.catalog-image-unavailable.v1",
+        ),
+    };
+    error(code, message, context, RetryDisposition::Never, None)
 }
 
 #[cfg(test)]

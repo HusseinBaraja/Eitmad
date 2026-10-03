@@ -32,6 +32,7 @@ public partial class FurnitureView : UserControl
     {
         if (!await PrepareEditorAsync(item)) return;
         if (!ViewModel.BeginEdit(item)) return;
+        await LoadEditorImageAsync();
         await ReviewAsync(false);
         await Dispatcher.BeginInvoke(FurnitureNameBox.Focus, DispatcherPriority.Input);
     }
@@ -44,43 +45,31 @@ public partial class FurnitureView : UserControl
         await Dispatcher.BeginInvoke(FurnitureNameBox.Focus, DispatcherPriority.Input);
     }
 
-    private void ChooseImageClick(object sender, RoutedEventArgs eventArgs)
-    {
-        var dialog = new OpenFileDialog
-        {
-            Title = "اختر صورة المنتج",
-            Filter = "ملفات الصور|*.png;*.jpg;*.jpeg;*.webp;*.bmp|كل الملفات|*.*",
-            CheckFileExists = true,
-            Multiselect = false,
-        };
-
-        if (dialog.ShowDialog() != true)
-        {
-            return;
+    private async void ChooseImageClick(object sender, RoutedEventArgs args) {
+        if(bridge is null || !ViewModel.CanEditFields || !ViewModel.IsEditorOpen) return;
+        var pickerSession=sessionVersion; var pickerEditor=ViewModel.ImageEditVersion;
+        var dialog=new OpenFileDialog { Title="اختر صورة الأثاث", Filter="صور PNG وJPEG|*.png;*.jpg;*.jpeg", CheckFileExists=true, Multiselect=false };
+        if(dialog.ShowDialog(Window.GetWindow(this)) != true) return;
+        if(pickerSession!=sessionVersion || pickerEditor!=ViewModel.ImageEditVersion || !ViewModel.IsEditorOpen) return;
+        ViewModel.InvalidateImageLoad();
+        var session=sessionVersion; var editor=ViewModel.ImageEditVersion; ViewModel.IsBusy=true;
+        try {
+            var images=new CatalogImages.CatalogImageClient(bridge);
+            var reference=await images.ImportAsync(Eitmad.Contracts.CatalogImageKind.Furniture,dialog.FileName);
+            var image=await images.LoadAsync(reference,2048);
+            if(session!=sessionVersion || editor!=ViewModel.ImageEditVersion || !ViewModel.IsEditorOpen) return;
+            if(reference is null) ViewModel.ReportImageLoadError(); else ViewModel.SetImportedImage(reference,image);
         }
-
-        try
-        {
-            var image = new BitmapImage();
-            image.BeginInit();
-            image.CacheOption = BitmapCacheOption.OnLoad;
-            image.DecodePixelWidth = 2048;
-            image.DecodePixelHeight = 2048;
-            image.UriSource = new System.Uri(dialog.FileName, System.UriKind.Absolute);
-            image.EndInit();
-            image.Freeze();
-            ViewModel.SetProductImage(image, Path.GetFileName(dialog.FileName));
-        }
-        catch (Exception exception) when (exception is IOException
-                                          or UnauthorizedAccessException
-                                          or FormatException
-                                          or NotSupportedException
-                                          or OutOfMemoryException)
-        {
-            ViewModel.ReportImageLoadError();
-            RestartFeedbackTimer();
-        }
+        catch(Exception e) when(e is Eitmad.Platform.Windows.LocalIpc.EngineIpcException or IOException or InvalidOperationException or ObjectDisposedException) { if(session==sessionVersion) ViewModel.ReportImageLoadError(); }
+        finally { if(session==sessionVersion) ViewModel.IsBusy=false; }
     }
+    private async Task LoadEditorImageAsync() {
+        if(bridge is null) return;
+        var session=sessionVersion; var editor=ViewModel.ImageEditVersion; var reference=ViewModel.EditorImageReference;
+        var image=await new CatalogImages.CatalogImageClient(bridge).LoadAsync(reference,2048);
+        if(session==sessionVersion && editor==ViewModel.ImageEditVersion && ViewModel.IsEditorOpen) ViewModel.SetImportedImage(reference,image);
+    }
+    private void RemoveImageClick(object sender, RoutedEventArgs args) { if(ViewModel.CanEditFields) { ViewModel.InvalidateImageLoad(); ViewModel.SetImportedImage(null,null); } }
 
     private void OpenRowMenuClick(object sender, RoutedEventArgs eventArgs)
     {
@@ -110,6 +99,7 @@ public partial class FurnitureView : UserControl
         {
             if (!await PrepareEditorAsync(item)) return;
             ViewModel.DuplicateFurniture(item);
+            await LoadEditorImageAsync();
             RestartFeedbackTimer();
             await Dispatcher.BeginInvoke(FurnitureNameBox.Focus, DispatcherPriority.Input);
         }

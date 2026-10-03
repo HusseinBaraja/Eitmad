@@ -35,6 +35,8 @@ Then read only the subsystem page that owns the change.
 For customer, catalog, pricing, quotation, order, work-order, or delivery implementation, use the [Manager and Receptionist workflow specification](subsystems/manager-receptionist-workflows.md) as the accepted product behavior. The existing Windows feature pages describe preview presentation only.
 
 The implemented Rust customer contact boundary is documented in [Maintain customer contact records](subsystems/customers.md).
+The durable image boundary is documented in [Import and transfer durable catalog images](subsystems/catalog-images.md).
+The durable image boundary is documented in [Import and transfer durable catalog images](subsystems/catalog-images.md).
 The durable manager raw-material boundary is documented in [Maintain raw material definitions](subsystems/raw-materials.md).
 
 ## 1. Run the local Windows app

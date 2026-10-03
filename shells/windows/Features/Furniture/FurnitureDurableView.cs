@@ -71,7 +71,15 @@ public partial class FurnitureView
             ViewModel.IsLoading=true;
             var result = await client.LoadAsync(ViewModel.SearchText.Trim(), cancel.Token, reloadCategories);
             if (version != refreshVersion) return;
-            if (result.Succeeded) ViewModel.ApplyDurableData(result.Value!);
+            if (result.Succeeded) {
+                ViewModel.ApplyDurableData(result.Value!);
+                var images=new CatalogImages.CatalogImageClient(bridge!);
+                foreach(var record in result.Value!.Furniture.Where(p=>p.Image is not null)) {
+                    var thumbnail=await images.LoadAsync(record.Image,96,cancel.Token);
+                    if(version!=refreshVersion) return;
+                    ViewModel.ApplyImage(record.Id,thumbnail);
+                }
+            }
             else { if (result.Failure == FurnitureFailureKind.Denied) ClearRestrictedData(); ViewModel.Unavailable(FurnitureClient.ArabicMessage(result.Failure)); }
         }
         catch (OperationCanceledException) when (cancel.IsCancellationRequested) { }

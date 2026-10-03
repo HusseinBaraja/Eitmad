@@ -2,6 +2,7 @@
 import Foundation
 
 public enum Command: Codable, Sendable {
+    case catalogImageImport(ImportCatalogImage)
     case configUpdate(UpdateConfiguration)
     case authorizationRelationshipGrant(GrantScopeRelationship)
     case authorizationRelationshipRevoke(RevokeScopeRelationship)
@@ -21,6 +22,7 @@ public enum Command: Codable, Sendable {
     case desktopAccountDeactivate(DeactivateDesktopAccount)
 
     private enum Kind: String, Codable, Sendable {
+        case catalogImageImport = "eitmad.catalog-image.import.v1"
         case configUpdate = "eitmad.config.update.v1"
         case authorizationRelationshipGrant = "eitmad.authorization.relationship.grant.v1"
         case authorizationRelationshipRevoke = "eitmad.authorization.relationship.revoke.v1"
@@ -48,6 +50,7 @@ public enum Command: Codable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         switch try container.decode(Kind.self, forKey: .kind) {
+        case .catalogImageImport: self = .catalogImageImport(try container.decode(ImportCatalogImage.self, forKey: .payload))
         case .configUpdate: self = .configUpdate(try container.decode(UpdateConfiguration.self, forKey: .payload))
         case .authorizationRelationshipGrant: self = .authorizationRelationshipGrant(try container.decode(GrantScopeRelationship.self, forKey: .payload))
         case .authorizationRelationshipRevoke: self = .authorizationRelationshipRevoke(try container.decode(RevokeScopeRelationship.self, forKey: .payload))
@@ -71,6 +74,9 @@ public enum Command: Codable, Sendable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
+        case .catalogImageImport(let payload):
+            try container.encode(Kind.catalogImageImport, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
         case .configUpdate(let payload):
             try container.encode(Kind.configUpdate, forKey: .kind)
             try container.encode(payload, forKey: .payload)
@@ -126,6 +132,7 @@ public enum Command: Codable, Sendable {
     }
 }
 public enum CommandResult: Codable, Sendable {
+    case catalogImageImported(CatalogImageRef)
     case configurationUpdated(ConfigSnapshot)
     case relationshipGranted(RelationshipMutationResult)
     case relationshipRevoked(RelationshipMutationResult)
@@ -145,6 +152,7 @@ public enum CommandResult: Codable, Sendable {
     case desktopAccountDeactivated(DesktopAccountSummary)
 
     private enum Kind: String, Codable, Sendable {
+        case catalogImageImported = "catalogImageImported"
         case configurationUpdated = "configurationUpdated"
         case relationshipGranted = "relationshipGranted"
         case relationshipRevoked = "relationshipRevoked"
@@ -172,6 +180,7 @@ public enum CommandResult: Codable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         switch try container.decode(Kind.self, forKey: .kind) {
+        case .catalogImageImported: self = .catalogImageImported(try container.decode(CatalogImageRef.self, forKey: .payload))
         case .configurationUpdated: self = .configurationUpdated(try container.decode(ConfigSnapshot.self, forKey: .payload))
         case .relationshipGranted: self = .relationshipGranted(try container.decode(RelationshipMutationResult.self, forKey: .payload))
         case .relationshipRevoked: self = .relationshipRevoked(try container.decode(RelationshipMutationResult.self, forKey: .payload))
@@ -195,6 +204,9 @@ public enum CommandResult: Codable, Sendable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
+        case .catalogImageImported(let payload):
+            try container.encode(Kind.catalogImageImported, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
         case .configurationUpdated(let payload):
             try container.encode(Kind.configurationUpdated, forKey: .kind)
             try container.encode(payload, forKey: .payload)
@@ -478,6 +490,7 @@ public enum IpcServerMessage: Codable, Sendable {
     }
 }
 public enum Query: Codable, Sendable {
+    case catalogImageGet(GetCatalogImage)
     case configGet(GetConfiguration)
     case permissionsGetEffective(GetEffectivePermissions)
     case authorizationRelationshipsList(ListScopeRelationships)
@@ -500,6 +513,7 @@ public enum Query: Codable, Sendable {
     case desktopAccountList(ListDesktopAccounts)
 
     private enum Kind: String, Codable, Sendable {
+        case catalogImageGet = "eitmad.catalog-image.get.v1"
         case configGet = "eitmad.config.get.v1"
         case permissionsGetEffective = "eitmad.permissions.get-effective.v1"
         case authorizationRelationshipsList = "eitmad.authorization.relationships.list.v1"
@@ -530,6 +544,7 @@ public enum Query: Codable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         switch try container.decode(Kind.self, forKey: .kind) {
+        case .catalogImageGet: self = .catalogImageGet(try container.decode(GetCatalogImage.self, forKey: .payload))
         case .configGet: self = .configGet(try container.decode(GetConfiguration.self, forKey: .payload))
         case .permissionsGetEffective: self = .permissionsGetEffective(try container.decode(GetEffectivePermissions.self, forKey: .payload))
         case .authorizationRelationshipsList: self = .authorizationRelationshipsList(try container.decode(ListScopeRelationships.self, forKey: .payload))
@@ -556,6 +571,9 @@ public enum Query: Codable, Sendable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
+        case .catalogImageGet(let payload):
+            try container.encode(Kind.catalogImageGet, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
         case .configGet(let payload):
             try container.encode(Kind.configGet, forKey: .kind)
             try container.encode(payload, forKey: .payload)
@@ -620,6 +638,7 @@ public enum Query: Codable, Sendable {
     }
 }
 public enum QueryResult: Codable, Sendable {
+    case catalogImage(CatalogImageChunk)
     case configuration(ConfigSnapshot)
     case effectivePermissions(EffectivePermissions)
     case scopeRelationships(RelationshipPage)
@@ -642,6 +661,7 @@ public enum QueryResult: Codable, Sendable {
     case desktopAccounts(DesktopAccountPage)
 
     private enum Kind: String, Codable, Sendable {
+        case catalogImage = "catalogImage"
         case configuration = "configuration"
         case effectivePermissions = "effectivePermissions"
         case scopeRelationships = "scopeRelationships"
@@ -672,6 +692,7 @@ public enum QueryResult: Codable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         switch try container.decode(Kind.self, forKey: .kind) {
+        case .catalogImage: self = .catalogImage(try container.decode(CatalogImageChunk.self, forKey: .payload))
         case .configuration: self = .configuration(try container.decode(ConfigSnapshot.self, forKey: .payload))
         case .effectivePermissions: self = .effectivePermissions(try container.decode(EffectivePermissions.self, forKey: .payload))
         case .scopeRelationships: self = .scopeRelationships(try container.decode(RelationshipPage.self, forKey: .payload))
@@ -698,6 +719,9 @@ public enum QueryResult: Codable, Sendable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
+        case .catalogImage(let payload):
+            try container.encode(Kind.catalogImage, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
         case .configuration(let payload):
             try container.encode(Kind.configuration, forKey: .kind)
             try container.encode(payload, forKey: .payload)

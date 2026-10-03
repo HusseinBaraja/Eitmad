@@ -213,6 +213,7 @@ fn fixture(
         )
         .unwrap();
     SaveFurniture {
+        image: None,
         id: None,
         expected_revision: None,
         name: "خزانة اختبار".into(),
@@ -571,5 +572,59 @@ fn part_changes_preserve_composition_and_archived_option_identities() {
     assert_eq!(
         service.save(&mutation(manager, 35), &input),
         Err(FurnitureError::InvalidReference)
+    );
+}
+
+#[test]
+fn image_replacement_retains_historical_furniture_references() {
+    use eitmad_contracts::catalog_image::{CatalogImageKind, ImportCatalogImage};
+    let directory = TempDir::new().unwrap();
+    let (store, service, manager, _) = setup(&directory);
+    let images = eitmad_catalog_image::CatalogImageService::new(
+        store.clone(),
+        AuthorizationService::new(store.clone()),
+    );
+    let mut input = fixture(&store, &service, &manager);
+    let path = directory.path().join("synthetic.png");
+    let mut refs = Vec::new();
+    for (key, width) in [(71, 7), (72, 11)] {
+        image::DynamicImage::new_rgb8(width, 9)
+            .save_with_format(&path, image::ImageFormat::Png)
+            .unwrap();
+        refs.push(
+            images
+                .import(
+                    &mutation(manager.clone(), key),
+                    &ImportCatalogImage {
+                        kind: CatalogImageKind::Furniture,
+                        source_path: path.to_str().unwrap().into(),
+                    },
+                )
+                .unwrap(),
+        );
+    }
+    input.image = Some(Box::new(refs[0].clone()));
+    let first = service
+        .save(&mutation(manager.clone(), 73), &input)
+        .unwrap();
+    input.id = Some(first.id);
+    input.expected_revision = Some(first.revision);
+    input.image = Some(Box::new(refs[1].clone()));
+    let second = service
+        .save(&mutation(manager.clone(), 74), &input)
+        .unwrap();
+    assert_eq!(
+        service
+            .revision(&manager, &query(&first, false))
+            .unwrap()
+            .image,
+        first.image
+    );
+    assert_eq!(second.image.as_deref(), Some(&refs[1]));
+    assert!(
+        store
+            .catalog_image(&manager.scope, &refs[0])
+            .unwrap()
+            .is_some()
     );
 }

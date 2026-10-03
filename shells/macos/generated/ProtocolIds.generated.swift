@@ -4,7 +4,7 @@ import Foundation
 public enum ProtocolIds {
     public enum Version {
         public static let major = 1
-        public static let minor = 13
+        public static let minor = 14
     }
 
     public enum IpcMessages {
@@ -30,6 +30,7 @@ public enum ProtocolIds {
     }
 
     public enum Commands {
+        public static let eitmadCatalogImageImportV1 = "eitmad.catalog-image.import.v1"
         public static let eitmadConfigUpdateV1 = "eitmad.config.update.v1"
         public static let eitmadAuthorizationRelationshipGrantV1 = "eitmad.authorization.relationship.grant.v1"
         public static let eitmadAuthorizationRelationshipRevokeV1 = "eitmad.authorization.relationship.revoke.v1"
@@ -50,6 +51,7 @@ public enum ProtocolIds {
     }
 
     public enum Queries {
+        public static let eitmadCatalogImageGetV1 = "eitmad.catalog-image.get.v1"
         public static let eitmadConfigGetV1 = "eitmad.config.get.v1"
         public static let eitmadPermissionsGetEffectiveV1 = "eitmad.permissions.get-effective.v1"
         public static let eitmadAuthorizationRelationshipsListV1 = "eitmad.authorization.relationships.list.v1"
@@ -142,6 +144,7 @@ public enum ProtocolIds {
         public static let eitmadCapabilityCustomerV1 = "eitmad.capability.customer.v1"
         public static let eitmadCapabilityMaterialV1 = "eitmad.capability.material.v1"
         public static let eitmadCapabilityPartV1 = "eitmad.capability.part.v1"
+        public static let eitmadCapabilityCatalogImageV1 = "eitmad.capability.catalog-image.v1"
         public static let eitmadCapabilityProductV1 = "eitmad.capability.product.v1"
         public static let eitmadCapabilityFurnitureV1 = "eitmad.capability.furniture.v1"
         public static let eitmadCapabilityDesktopAccountManagementV1 = "eitmad.capability.desktop-account-management.v1"
@@ -209,6 +212,7 @@ public enum ProtocolIds {
         public static let eitmadSchemaCustomerV1 = "eitmad.schema.customer.v1"
         public static let eitmadSchemaMaterialV1 = "eitmad.schema.material.v1"
         public static let eitmadSchemaPartV1 = "eitmad.schema.part.v1"
+        public static let eitmadSchemaCatalogImageV1 = "eitmad.schema.catalog-image.v1"
         public static let eitmadSchemaProductV1 = "eitmad.schema.product.v1"
         public static let eitmadSchemaFurnitureV1 = "eitmad.schema.furniture.v1"
     }
@@ -262,6 +266,9 @@ public enum ProtocolIds {
         public static let eitmadErrorCustomerUnavailableV1 = "eitmad.error.customer-unavailable.v1"
         public static let eitmadErrorMaterialInvalidV1 = "eitmad.error.material-invalid.v1"
         public static let eitmadErrorPartInvalidV1 = "eitmad.error.part-invalid.v1"
+        public static let eitmadErrorCatalogImageInvalidV1 = "eitmad.error.catalog-image-invalid.v1"
+        public static let eitmadErrorCatalogImageNotFoundV1 = "eitmad.error.catalog-image-not-found.v1"
+        public static let eitmadErrorCatalogImageUnavailableV1 = "eitmad.error.catalog-image-unavailable.v1"
         public static let eitmadErrorProductInvalidV1 = "eitmad.error.product-invalid.v1"
         public static let eitmadErrorFurnitureInvalidV1 = "eitmad.error.furniture-invalid.v1"
         public static let eitmadErrorPartNotFoundV1 = "eitmad.error.part-not-found.v1"
@@ -336,6 +343,9 @@ public enum ProtocolIds {
         public static let eitmadMessageCustomerUnavailableV1 = "eitmad.message.customer-unavailable.v1"
         public static let eitmadMessageMaterialInvalidV1 = "eitmad.message.material-invalid.v1"
         public static let eitmadMessagePartInvalidV1 = "eitmad.message.part-invalid.v1"
+        public static let eitmadMessageCatalogImageInvalidV1 = "eitmad.message.catalog-image-invalid.v1"
+        public static let eitmadMessageCatalogImageNotFoundV1 = "eitmad.message.catalog-image-not-found.v1"
+        public static let eitmadMessageCatalogImageUnavailableV1 = "eitmad.message.catalog-image-unavailable.v1"
         public static let eitmadMessageProductInvalidV1 = "eitmad.message.product-invalid.v1"
         public static let eitmadMessageFurnitureInvalidV1 = "eitmad.message.furniture-invalid.v1"
         public static let eitmadMessagePartNotFoundV1 = "eitmad.message.part-not-found.v1"

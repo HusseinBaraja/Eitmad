@@ -46,6 +46,7 @@ pub struct ProductVariant {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SaveProduct {
+    pub image: Option<Box<crate::catalog_image::CatalogImageRef>>,
     pub id: Option<ProductId>,
     pub expected_revision: Option<u64>,
     pub name: String,
@@ -58,6 +59,8 @@ pub struct SaveProduct {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Product {
+    #[serde(default)]
+    pub image: Option<Box<crate::catalog_image::CatalogImageRef>>,
     pub id: ProductId,
     pub scope: ScopeRef,
     pub name: String,
