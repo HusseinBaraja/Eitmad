@@ -1,12 +1,9 @@
 using System.IO;
 using Eitmad.Contracts;
 using Eitmad.Platform.Windows.LocalIpc;
-using Eitmad.Platform.Windows.ProcessSupervision;
 using Eitmad.Platform.Windows.Shell;
 
 namespace Eitmad.WindowsShell.Features.Furniture;
-
-
 
 public enum FurnitureFailureKind { None, Validation, Reference, Conflict, Denied, Unavailable }
 /// <summary>Carries a typed IPC value or a failure category for presentation recovery.</summary>
@@ -26,7 +23,7 @@ public sealed record FurnitureSnapshot(FurnitureCategories Categories, IReadOnly
 public sealed record FurnitureEditorSnapshot(IReadOnlyList<Part> Parts, IReadOnlyList<PartCategory> Categories, IReadOnlyList<Part> Compositions);
 
 /// <summary>Thin typed IPC adapter for ready-made definitions and separate furniture categories.</summary>
-public sealed class FurnitureClient(IEngineShellBridge engine) : IAsyncDisposable
+public sealed class FurnitureClient : IAsyncDisposable
 {
     private sealed class SaveRetry
     {
@@ -36,21 +33,31 @@ public sealed class FurnitureClient(IEngineShellBridge engine) : IAsyncDisposabl
     }
     private SaveRetry furnitureRetry = new();
     private SaveRetry categoryRetry = new();
-    private readonly SemaphoreSlim gate = new(1, 1);
-    private IEngineSubscription? subscription;
-    private IEngineSubscription? partSubscription;
-    private CancellationTokenSource? pumpCancellation;
     private SynchronizationContext? uiContext;
-    private long generation = -1;
-    private bool active;
     private bool disposed;
-    private bool connectedAndReady;
     private readonly SemaphoreSlim loadGate = new(1, 1);
     private FurnitureCategories? cachedCategories;
     private IReadOnlyList<Part>? cachedParts;
     private IReadOnlyList<PartCategory> cachedPartCategories = [];
     private readonly Dictionary<(Guid, long), Part> compositions = [];
     private long projectionEpoch, loadedProjectionEpoch, partsEpoch, loadedPartsEpoch = -1;
+
+    private readonly IEngineShellBridge engine;
+    private readonly EngineChangeFeed changes;
+
+    public FurnitureClient(IEngineShellBridge engine)
+    {
+        this.engine = engine;
+        changes = new EngineChangeFeed(engine, ProtocolIds.Capabilities.EitmadCapabilityFurnitureV1,
+            Subscription.ForFurnitureChangedSubscribe(new FurnitureChanges()),
+            notice => { if (notice is null || notice.AsFurnitureChangedEvent() is not null) SignalChanged(); }, InvalidateProjection, notifyUnavailable: true);
+        partChanges = new EngineChangeFeed(engine, ProtocolIds.Capabilities.EitmadCapabilityPartV1,
+            Subscription.ForPartChangedSubscribe(new PartChanges()),
+            notice => { if (notice is null || notice.AsPartChangedEvent() is not null) SignalPartsChanged(); },
+            InvalidateProjection);
+    }
+
+    private readonly EngineChangeFeed partChanges;
 
     public event EventHandler? Changed;
     public event EventHandler? PartsChanged;
@@ -221,94 +228,11 @@ public sealed class FurnitureClient(IEngineShellBridge engine) : IAsyncDisposabl
         { return FurnitureFailureKind.Unavailable; }
     }
 
-    /// <summary>Captures the UI context and starts furniture change subscriptions once.</summary>
     public async Task ActivateAsync()
     {
-        if (disposed || active) return;
-        active = true;
         uiContext = SynchronizationContext.Current;
-        var snapshot = engine.Snapshot;
-        connectedAndReady = snapshot.IpcHealth == EngineIpcHealthState.Connected
-            && snapshot.LastLifecycle?.Ready == true;
-        engine.StateChanged += EngineStateChanged;
-        await RefreshSubscriptionAsync();
-    }
-
-    /// <summary>Refreshes on connection restoration and replaces subscriptions after an engine generation change.</summary>
-    private void EngineStateChanged(EngineSupervisionSnapshot snapshot)
-    {
-        if (!active) return;
-        var ready = snapshot.IpcHealth == EngineIpcHealthState.Connected
-            && snapshot.LastLifecycle?.Ready == true;
-        if (!ready)
-        {
-            var wasReady = connectedAndReady; connectedAndReady = false;
-            if (wasReady) SignalChanged(); return;
-        }
-
-        var restored = !connectedAndReady;
-        connectedAndReady = true;
-        if (snapshot.Generation != generation) _ = RefreshSubscriptionAsync();
-        else if (restored) { SignalPartsChanged(); SignalChanged(); }
-    }
-
-    /// <summary>Serializes subscription replacement and starts an acknowledged event pump for the current generation.</summary>
-    private async Task RefreshSubscriptionAsync()
-    {
-        if (!engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityFurnitureV1)) return;
-        await gate.WaitAsync();
-        try
-        {
-            if (!active || disposed || generation == engine.Snapshot.Generation && subscription is not null) return;
-            await DropSubscriptionAsync();
-            Interlocked.Increment(ref partsEpoch);
-            var current = await engine.SubscribeAsync(Subscription.ForFurnitureChangedSubscribe(new FurnitureChanges()));
-            subscription = current;
-            partSubscription = await engine.SubscribeAsync(Subscription.ForPartChangedSubscribe(new PartChanges()));
-            generation = engine.Snapshot.Generation;
-            pumpCancellation = new CancellationTokenSource();
-            current.ResyncRequired += SignalChanged;
-            _ = PumpAsync(current, pumpCancellation.Token);
-            partSubscription.ResyncRequired += SignalPartsChanged;
-            _ = PumpAsync(partSubscription, pumpCancellation.Token);
-            SignalChanged();
-        }
-        catch (Exception error) when (error is EngineIpcException or IOException or ObjectDisposedException) { SignalChanged(); }
-        finally { gate.Release(); }
-    }
-
-    /// <summary>Signals refresh for typed furniture events and acknowledges delivery; transport failure requests resynchronization.</summary>
-    private async Task PumpAsync(IEngineSubscription current, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await foreach (var delivered in current.ReadAllAsync(cancellationToken))
-            {
-                var decoded = EngineContractCodec.DecodeEvent(delivered);
-                if (decoded.AsFurnitureChangedEvent() is not null) SignalChanged();
-                if (decoded.AsPartChangedEvent() is not null) SignalPartsChanged();
-                current.Acknowledge(delivered);
-            }
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
-        catch (Exception error) when (error is EngineIpcException or IOException or InvalidDataException)
-        { await RecoverSubscriptionAsync(current, error is EngineIpcException { Kind: EngineIpcFailureKind.SessionChanged }); }
-    }
-
-    /// <summary>Replaces a failed stream; policy closure first removes the prior cost-bearing projection.</summary>
-    private async Task RecoverSubscriptionAsync(IEngineSubscription current, bool invalidateProjection)
-    {
-        if (disposed) return;
-        await gate.WaitAsync();
-        try
-        {
-            if (disposed || !ReferenceEquals(subscription, current) && !ReferenceEquals(partSubscription, current)) return;
-            if (invalidateProjection) InvalidateProjection();
-            await DropSubscriptionAsync();
-        }
-        finally { gate.Release(); }
-        if (!invalidateProjection) SignalChanged();
-        if (active && !disposed) await RefreshSubscriptionAsync();
+        await changes.ActivateAsync();
+        await partChanges.ActivateAsync();
     }
 
     /// <summary>Discards cost-bearing retry payloads and clears the UI before requesting a fresh projection.</summary>
@@ -329,39 +253,19 @@ public sealed class FurnitureClient(IEngineShellBridge engine) : IAsyncDisposabl
         else uiContext.Post(_ => Notify(), null);
     }
 
-    /// <summary>Delivers invalidation on the captured UI context when available.</summary>
-    private void SignalChanged()
-    {
-        if (uiContext is null) Changed?.Invoke(this, EventArgs.Empty);
-        else uiContext.Post(_ => Changed?.Invoke(this, EventArgs.Empty), null);
-    }
+    private void SignalChanged() => Changed?.Invoke(this, EventArgs.Empty);
 
-    /// <summary>Invalidates mutable picker data while preserving immutable composition snapshots.</summary>
     private void SignalPartsChanged()
     {
         Interlocked.Increment(ref partsEpoch);
-        if (uiContext is null) PartsChanged?.Invoke(this, EventArgs.Empty);
-        else uiContext.Post(_ => PartsChanged?.Invoke(this, EventArgs.Empty), null);
+        PartsChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    /// <summary>Cancels the event pump and releases the subscription before resetting its generation.</summary>
-    private async Task DropSubscriptionAsync()
-    {
-        pumpCancellation?.Cancel(); pumpCancellation?.Dispose(); pumpCancellation = null;
-        if (subscription is { } current) { subscription = null; await current.DisposeAsync(); }
-        if (partSubscription is { } parts) { partSubscription = null; await parts.DisposeAsync(); }
-        generation = -1;
-    }
-
-    /// <summary>Detaches change handlers and releases subscriptions once.</summary>
     public async ValueTask DisposeAsync()
     {
-        if (disposed) return;
-        disposed = true; active = false;
-        engine.StateChanged -= EngineStateChanged;
-        await gate.WaitAsync();
-        try { await DropSubscriptionAsync(); }
-        finally { gate.Release(); }
+        disposed = true;
+        await changes.DisposeAsync();
+        await partChanges.DisposeAsync();
         await loadGate.WaitAsync();
         try { cachedCategories = null; cachedParts = null; cachedPartCategories = []; compositions.Clear(); }
         finally { loadGate.Release(); }

@@ -55,7 +55,6 @@ public sealed class FormFieldRenderedTests
             Assert.AreEqual(Visibility.Collapsed, error.Visibility);
         });
     }
-    /// <summary>Verifies each rendered feature field retains its Arabic accessible name and owning label.</summary>
     [TestMethod]
     [DataRow(1338d, 753d)]
     [DataRow(780d, 745d)]

@@ -13,6 +13,4 @@ public sealed record PartListItem(Guid Id, string Name, string Category, decimal
     public string CostAmountLabel => Cost.ToString("N0", CultureInfo.InvariantCulture);
 
     public string CostLabel => $"{CostAmountLabel} {CurrencyLabel}";
-
-    public string UsedInLabel => "—";
 }

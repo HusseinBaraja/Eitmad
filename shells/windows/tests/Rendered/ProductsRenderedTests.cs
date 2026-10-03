@@ -13,7 +13,6 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 [TestClass]
 public sealed class ProductsRenderedTests
 {
-    /// <summary>Verifies policy invalidation clears the page before reload and rejects stale load and save completions.</summary>
     [TestMethod]
     public void PolicyClosureClearsThePageBeforeBlockedRefreshAndRejectsLateSave()
     {
@@ -84,7 +83,6 @@ public sealed class ProductsRenderedTests
         }, engine: engine);
     }
 
-    /// <summary>Verifies invalid cost input receives focus without submission and denied saves clear restricted state.</summary>
     [TestMethod]
     public void InvalidCostCannotSubmitPreviousValueAndDeniedSaveClearsInternalState()
     {
@@ -115,7 +113,6 @@ public sealed class ProductsRenderedTests
         }, engine: engine);
     }
 
-    /// <summary>Verifies synthetic durable rows, supplier editing, and category actions at each baseline window size.</summary>
     [TestMethod]
     [DataRow(1920, 1080)]
     [DataRow(1338, 753)]

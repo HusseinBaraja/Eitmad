@@ -13,7 +13,6 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 [TestClass]
 public sealed class PartsRenderedTests
 {
-    /// <summary>Exercises the native three-step wizard, focus, unit popup, failure recovery, save, and reopen at baseline sizes.</summary>
     [TestMethod]
     [DataRow(1920, 1080)]
     [DataRow(1338, 753)]
@@ -128,7 +127,6 @@ public sealed class PartsRenderedTests
         }, engine: engine);
     }
 
-    /// <summary>Checks that the row popup stays attached to its invoking record and opening it does not edit data.</summary>
     [TestMethod]
     public void RowActionPopupUsesMousePlacementAndNonDestructiveActions()
     {
@@ -156,7 +154,6 @@ public sealed class PartsRenderedTests
         }, engine: engine);
     }
 
-    /// <summary>Protects keyboard activation of the selected durable part.</summary>
     [TestMethod]
     public void KeyboardRowActivationOpensTheExistingPart()
     {
@@ -182,7 +179,6 @@ public sealed class PartsRenderedTests
         }, engine: engine);
     }
 
-    /// <summary>Protects pointer activation of the row record rather than an unrelated selection.</summary>
     [TestMethod]
     public void PointerRowActivationOpensTheExistingPart()
     {

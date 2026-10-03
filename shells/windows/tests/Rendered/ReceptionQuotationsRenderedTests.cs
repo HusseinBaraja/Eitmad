@@ -9,7 +9,6 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 [TestClass]
 public sealed class ReceptionQuotationsRenderedTests
 {
-    /// <summary>Verifies a new quotation opens in the catalog and can return to its review page.</summary>
     [TestMethod]
     public void NewQuotationWindowStartsInCatalogAndCanReturnToReview()
     {

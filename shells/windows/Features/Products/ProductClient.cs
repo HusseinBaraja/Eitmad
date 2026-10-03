@@ -1,12 +1,9 @@
 using System.IO;
 using Eitmad.Contracts;
 using Eitmad.Platform.Windows.LocalIpc;
-using Eitmad.Platform.Windows.ProcessSupervision;
 using Eitmad.Platform.Windows.Shell;
 
 namespace Eitmad.WindowsShell.Features.Products;
-
-
 
 public enum ProductFailureKind { None, Validation, Reference, Conflict, Denied, Unavailable }
 /// <summary>Carries a typed IPC value or a failure category for presentation recovery.</summary>
@@ -23,7 +20,7 @@ public sealed record ProductResult<T>(T? Value, ProductFailureKind Failure)
 public sealed record ProductSnapshot(ProductCategories Categories, IReadOnlyList<Product> Products, bool CanManage, bool CanReadCosts);
 
 /// <summary>Thin typed IPC adapter for ready-made definitions and separate product categories.</summary>
-public sealed class ProductClient(IEngineShellBridge engine) : IAsyncDisposable
+public sealed class ProductClient : IAsyncDisposable
 {
     private sealed class SaveRetry
     {
@@ -33,14 +30,18 @@ public sealed class ProductClient(IEngineShellBridge engine) : IAsyncDisposable
     }
     private SaveRetry productRetry = new();
     private SaveRetry categoryRetry = new();
-    private readonly SemaphoreSlim gate = new(1, 1);
-    private IEngineSubscription? subscription;
-    private CancellationTokenSource? pumpCancellation;
     private SynchronizationContext? uiContext;
-    private long generation = -1;
-    private bool active;
     private bool disposed;
-    private bool connectedAndReady;
+    private readonly IEngineShellBridge engine;
+    private readonly EngineChangeFeed changes;
+
+    public ProductClient(IEngineShellBridge engine)
+    {
+        this.engine = engine;
+        changes = new EngineChangeFeed(engine, ProtocolIds.Capabilities.EitmadCapabilityProductV1,
+            Subscription.ForProductChangedSubscribe(new ProductChanges()),
+            notice => { if (notice is null || notice.AsProductChangedEvent() is not null) SignalChanged(); }, InvalidateProjection, notifyUnavailable: true);
+    }
 
     public event EventHandler? Changed;
     /// <summary>Requests immediate removal of cached data before any replacement query completes.</summary>
@@ -123,88 +124,10 @@ public sealed class ProductClient(IEngineShellBridge engine) : IAsyncDisposable
         { return ProductFailureKind.Unavailable; }
     }
 
-    /// <summary>Captures the UI context and starts product change subscriptions once.</summary>
     public async Task ActivateAsync()
     {
-        if (disposed || active) return;
-        active = true;
         uiContext = SynchronizationContext.Current;
-        var snapshot = engine.Snapshot;
-        connectedAndReady = snapshot.IpcHealth == EngineIpcHealthState.Connected
-            && snapshot.LastLifecycle?.Ready == true;
-        engine.StateChanged += EngineStateChanged;
-        await RefreshSubscriptionAsync();
-    }
-
-    /// <summary>Refreshes on connection restoration and replaces subscriptions after an engine generation change.</summary>
-    private void EngineStateChanged(EngineSupervisionSnapshot snapshot)
-    {
-        if (!active) return;
-        var ready = snapshot.IpcHealth == EngineIpcHealthState.Connected
-            && snapshot.LastLifecycle?.Ready == true;
-        if (!ready)
-        {
-            var wasReady = connectedAndReady; connectedAndReady = false;
-            if (wasReady) SignalChanged(); return;
-        }
-
-        var restored = !connectedAndReady;
-        connectedAndReady = true;
-        if (snapshot.Generation != generation) _ = RefreshSubscriptionAsync();
-        else if (restored) SignalChanged();
-    }
-
-    /// <summary>Serializes subscription replacement and starts an acknowledged event pump for the current generation.</summary>
-    private async Task RefreshSubscriptionAsync()
-    {
-        if (!engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityProductV1)) return;
-        await gate.WaitAsync();
-        try
-        {
-            if (!active || disposed || generation == engine.Snapshot.Generation && subscription is not null) return;
-            await DropSubscriptionAsync();
-            var current = await engine.SubscribeAsync(Subscription.ForProductChangedSubscribe(new ProductChanges()));
-            subscription = current;
-            generation = engine.Snapshot.Generation;
-            pumpCancellation = new CancellationTokenSource();
-            current.ResyncRequired += SignalChanged;
-            _ = PumpAsync(current, pumpCancellation.Token);
-            SignalChanged();
-        }
-        catch (Exception error) when (error is EngineIpcException or IOException or ObjectDisposedException) { SignalChanged(); }
-        finally { gate.Release(); }
-    }
-
-    /// <summary>Signals refresh for typed product events and acknowledges delivery; transport failure requests resynchronization.</summary>
-    private async Task PumpAsync(IEngineSubscription current, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await foreach (var delivered in current.ReadAllAsync(cancellationToken))
-            {
-                if (EngineContractCodec.DecodeEvent(delivered).AsProductChangedEvent() is not null) SignalChanged();
-                current.Acknowledge(delivered);
-            }
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
-        catch (Exception error) when (error is EngineIpcException or IOException or InvalidDataException)
-        { await RecoverSubscriptionAsync(current, error is EngineIpcException { Kind: EngineIpcFailureKind.SessionChanged }); }
-    }
-
-    /// <summary>Replaces a failed stream; policy closure first removes the prior cost-bearing projection.</summary>
-    private async Task RecoverSubscriptionAsync(IEngineSubscription current, bool invalidateProjection)
-    {
-        if (disposed) return;
-        await gate.WaitAsync();
-        try
-        {
-            if (disposed || !ReferenceEquals(subscription, current)) return;
-            if (invalidateProjection) InvalidateProjection();
-            await DropSubscriptionAsync();
-        }
-        finally { gate.Release(); }
-        if (!invalidateProjection) SignalChanged();
-        if (active && !disposed) await RefreshSubscriptionAsync();
+        await changes.ActivateAsync();
     }
 
     /// <summary>Discards cost-bearing retry payloads and clears the UI before requesting a fresh projection.</summary>
@@ -224,30 +147,12 @@ public sealed class ProductClient(IEngineShellBridge engine) : IAsyncDisposable
         else uiContext.Post(_ => Notify(), null);
     }
 
-    /// <summary>Delivers invalidation on the captured UI context when available.</summary>
-    private void SignalChanged()
-    {
-        if (uiContext is null) Changed?.Invoke(this, EventArgs.Empty);
-        else uiContext.Post(_ => Changed?.Invoke(this, EventArgs.Empty), null);
-    }
+    private void SignalChanged() => Changed?.Invoke(this, EventArgs.Empty);
 
-    /// <summary>Cancels the event pump and releases the subscription before resetting its generation.</summary>
-    private async Task DropSubscriptionAsync()
-    {
-        pumpCancellation?.Cancel(); pumpCancellation?.Dispose(); pumpCancellation = null;
-        if (subscription is { } current) { subscription = null; await current.DisposeAsync(); }
-        generation = -1;
-    }
-
-    /// <summary>Detaches change handlers and releases subscriptions once.</summary>
     public async ValueTask DisposeAsync()
     {
-        if (disposed) return;
-        disposed = true; active = false;
-        engine.StateChanged -= EngineStateChanged;
-        await gate.WaitAsync();
-        try { await DropSubscriptionAsync(); }
-        finally { gate.Release(); }
+        disposed = true;
+        await changes.DisposeAsync();
     }
 
     /// <summary>Maps typed failure categories to Arabic recovery text without displaying transport diagnostics.</summary>

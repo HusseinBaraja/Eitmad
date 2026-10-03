@@ -9,7 +9,6 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 [TestClass]
 public sealed class SalesCatalogRenderedTests
 {
-    /// <summary>Verifies catalog entry and focus restoration after returning from quotation review.</summary>
     [TestMethod]
     public void HomeStartsWithCatalogAndReviewRestoresSelectionFocus()
     {
@@ -118,7 +117,6 @@ public sealed class SalesCatalogRenderedTests
         });
     }
 
-    /// <summary>Verifies stored ready-made details render independently of current catalog availability.</summary>
     [TestMethod]
     public void HistoricalReadyMadeDetailsRenderWithoutCurrentProductSelection() {
         WpfTestHost.Run(1338,753,window=>{
@@ -187,7 +185,6 @@ public sealed class SalesCatalogRenderedTests
         });
     }
 
-    /// <summary>Verifies catalog navigation, Arabic search clearing, and keyboard selection in the rendered page.</summary>
     [TestMethod]
     public void ReceptionCatalogSupportsNavigationSearchClearAndKeyboardSelection()
     {

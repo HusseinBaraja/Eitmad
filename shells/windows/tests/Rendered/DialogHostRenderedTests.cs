@@ -128,7 +128,6 @@ public sealed class DialogHostRenderedTests
         });
     }
 
-    /// <summary>Exercises native feature dialogs and recovery after invalid input, using synthetic durable part projections.</summary>
     [TestMethod]
     [DataRow(1338)]
     [DataRow(780)]

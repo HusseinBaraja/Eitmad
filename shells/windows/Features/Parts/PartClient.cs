@@ -1,7 +1,6 @@
 using System.IO;
 using Eitmad.Contracts;
 using Eitmad.Platform.Windows.LocalIpc;
-using Eitmad.Platform.Windows.ProcessSupervision;
 using Eitmad.Platform.Windows.Shell;
 
 namespace Eitmad.WindowsShell.Features.Parts;
@@ -11,9 +10,9 @@ using Eitmad.WindowsShell.Features.RawMaterials;
 public sealed record PartSnapshot(PartCategories Categories, IReadOnlyList<PartProjection> Parts, MaterialSnapshot Materials);
 
 /// <summary>Thin typed IPC adapter for parts and their material references.</summary>
-public sealed class PartClient(IEngineShellBridge engine) : IAsyncDisposable
+public sealed class PartClient : IAsyncDisposable
 {
-    private readonly MaterialClient materials = new(engine);
+    private readonly MaterialClient materials;
     private sealed class SaveRetry
     {
         public string? Payload;
@@ -22,14 +21,18 @@ public sealed class PartClient(IEngineShellBridge engine) : IAsyncDisposable
     }
     private readonly SaveRetry partRetry = new();
     private readonly SaveRetry categoryRetry = new();
-    private readonly SemaphoreSlim gate = new(1, 1);
-    private IEngineSubscription? subscription;
-    private CancellationTokenSource? pumpCancellation;
-    private SynchronizationContext? uiContext;
-    private long generation = -1;
-    private bool active;
-    private bool disposed;
-    private bool connectedAndReady;
+    private readonly IEngineShellBridge engine;
+    private readonly EngineChangeFeed changes;
+
+    public PartClient(IEngineShellBridge engine)
+    {
+        this.engine = engine;
+        changes = new EngineChangeFeed(engine, ProtocolIds.Capabilities.EitmadCapabilityPartV1,
+            Subscription.ForPartChangedSubscribe(new PartChanges()),
+            notice => { if (notice is null || notice.AsPartChangedEvent() is not null) SignalChanged(); });
+        materials = new MaterialClient(engine);
+        materials.Changed += MaterialChanged;
+    }
 
     public event EventHandler? Changed;
 
@@ -123,105 +126,22 @@ public sealed class PartClient(IEngineShellBridge engine) : IAsyncDisposable
         { return MaterialFailureKind.Unavailable; }
     }
 
-    /// <summary>Captures the UI context and starts part and material change subscriptions once.</summary>
     public async Task ActivateAsync()
     {
-        if (disposed || active) return;
-        active = true;
-        uiContext = SynchronizationContext.Current;
-        var snapshot = engine.Snapshot;
-        connectedAndReady = snapshot.IpcHealth == EngineIpcHealthState.Connected
-            && snapshot.LastLifecycle?.Ready == true;
-        engine.StateChanged += EngineStateChanged;
-        materials.Changed += MaterialChanged;
         await materials.ActivateAsync();
-        await RefreshSubscriptionAsync();
+        await changes.ActivateAsync();
     }
 
     /// <summary>Invalidates advisory part costs when Rust publishes a material change.</summary>
     private void MaterialChanged(object? sender, EventArgs args) => SignalChanged();
 
-    /// <summary>Refreshes on connection restoration and replaces subscriptions after an engine generation change.</summary>
-    private void EngineStateChanged(EngineSupervisionSnapshot snapshot)
-    {
-        if (!active) return;
-        var ready = snapshot.IpcHealth == EngineIpcHealthState.Connected
-            && snapshot.LastLifecycle?.Ready == true;
-        if (!ready)
-        {
-            connectedAndReady = false;
-            return;
-        }
+    private void SignalChanged() => Changed?.Invoke(this, EventArgs.Empty);
 
-        var restored = !connectedAndReady;
-        connectedAndReady = true;
-        if (snapshot.Generation != generation) _ = RefreshSubscriptionAsync();
-        else if (restored) SignalChanged();
-    }
-
-    /// <summary>Serializes subscription replacement and starts an acknowledged event pump for the current generation.</summary>
-    private async Task RefreshSubscriptionAsync()
-    {
-        if (!engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityPartV1)) return;
-        await gate.WaitAsync();
-        try
-        {
-            if (!active || disposed || generation == engine.Snapshot.Generation && subscription is not null) return;
-            await DropSubscriptionAsync();
-            var current = await engine.SubscribeAsync(Subscription.ForPartChangedSubscribe(new PartChanges()));
-            subscription = current;
-            generation = engine.Snapshot.Generation;
-            pumpCancellation = new CancellationTokenSource();
-            current.ResyncRequired += SignalChanged;
-            _ = PumpAsync(current, pumpCancellation.Token);
-            SignalChanged();
-        }
-        catch (EngineIpcException) { SignalChanged(); }
-        finally { gate.Release(); }
-    }
-
-    /// <summary>Signals refresh for typed part events and acknowledges delivery; transport failure requests resynchronization.</summary>
-    private async Task PumpAsync(IEngineSubscription current, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await foreach (var delivered in current.ReadAllAsync(cancellationToken))
-            {
-                if (EngineContractCodec.DecodeEvent(delivered).AsPartChangedEvent() is not null) SignalChanged();
-                current.Acknowledge(delivered);
-            }
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
-        catch (Exception error) when (error is EngineIpcException or IOException or InvalidDataException)
-        { SignalChanged(); }
-    }
-
-    /// <summary>Delivers invalidation on the captured UI context when available.</summary>
-    private void SignalChanged()
-    {
-        if (uiContext is null) Changed?.Invoke(this, EventArgs.Empty);
-        else uiContext.Post(_ => Changed?.Invoke(this, EventArgs.Empty), null);
-    }
-
-    /// <summary>Cancels the event pump and releases the subscription before resetting its generation.</summary>
-    private async Task DropSubscriptionAsync()
-    {
-        pumpCancellation?.Cancel(); pumpCancellation?.Dispose(); pumpCancellation = null;
-        if (subscription is { } current) { subscription = null; await current.DisposeAsync(); }
-        generation = -1;
-    }
-
-    /// <summary>Detaches change handlers and releases subscriptions and synchronization resources once.</summary>
     public async ValueTask DisposeAsync()
     {
-        if (disposed) return;
-        disposed = true; active = false;
-        engine.StateChanged -= EngineStateChanged;
         materials.Changed -= MaterialChanged;
         await materials.DisposeAsync();
-        await gate.WaitAsync();
-        try { await DropSubscriptionAsync(); }
-        finally { gate.Release(); gate.Dispose(); }
+        await changes.DisposeAsync();
     }
 
     /// <summary>Maps typed failure categories to Arabic recovery text without displaying transport diagnostics.</summary>

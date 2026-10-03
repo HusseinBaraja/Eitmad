@@ -1,7 +1,6 @@
 using System.IO;
 using Eitmad.Contracts;
 using Eitmad.Platform.Windows.LocalIpc;
-using Eitmad.Platform.Windows.ProcessSupervision;
 using Eitmad.Platform.Windows.Shell;
 
 namespace Eitmad.WindowsShell.Features.Customers;
@@ -30,16 +29,18 @@ public sealed class CustomerClient : IAsyncDisposable
 {
     public const long SearchLimit = 20;
     private readonly IEngineShellBridge engine;
-    private readonly SemaphoreSlim subscriptionGate = new(1, 1);
-    private readonly object stateLock = new();
-    private CancellationTokenSource? subscriptionCancellation;
-    private IEngineSubscription? subscription;
-    private SynchronizationContext? synchronizationContext;
-    private long subscribedGeneration = -1;
-    private bool active;
-    private bool disposed;
+    private readonly EngineChangeFeed changes;
 
-    public CustomerClient(IEngineShellBridge engine) => this.engine = engine;
+    public CustomerClient(IEngineShellBridge engine)
+    {
+        this.engine = engine;
+        changes = new EngineChangeFeed(engine, ProtocolIds.Capabilities.EitmadCapabilityCustomerV1,
+            Subscription.ForCustomerChangedSubscribe(new CustomerChanges()), notice =>
+            {
+                if (notice is null) Changed?.Invoke(this, null);
+                else if (notice.AsCustomerChangedEvent() is { } customer) Changed?.Invoke(this, customer.CustomerId);
+            }, refreshOnStart: false);
+    }
 
     public event EventHandler<Guid?>? Changed;
 
@@ -136,33 +137,11 @@ public sealed class CustomerClient : IAsyncDisposable
                 Notes = EmptyToNull(notes)!,
             }), cancellationToken);
 
-    public async Task ActivateAsync(CancellationToken cancellationToken = default)
-    {
-        ObjectDisposedException.ThrowIf(disposed, this);
-        lock (stateLock)
-        {
-            if (active) return;
-            active = true;
-            synchronizationContext = SynchronizationContext.Current;
-        }
-        engine.StateChanged += ObserveEngineState;
-        await RefreshSubscriptionAsync(cancellationToken);
-    }
+    public Task ActivateAsync(CancellationToken cancellationToken = default) => changes.ActivateAsync(cancellationToken);
 
-    public async Task DeactivateAsync()
-    {
-        lock (stateLock) active = false;
-        engine.StateChanged -= ObserveEngineState;
-        await DropSubscriptionAsync();
-    }
+    public Task DeactivateAsync() => changes.DeactivateAsync();
 
-    public async ValueTask DisposeAsync()
-    {
-        if (disposed) return;
-        disposed = true;
-        await DeactivateAsync();
-        subscriptionGate.Dispose();
-    }
+    public ValueTask DisposeAsync() => changes.DisposeAsync();
 
     public static string ArabicMessage(CustomerFailureKind failure) => failure switch
     {
@@ -210,129 +189,6 @@ public sealed class CustomerClient : IAsyncDisposable
         {
             return CustomerResult<Customer>.Failed(CustomerFailureKind.Unavailable);
         }
-    }
-
-    private void ObserveEngineState(EngineSupervisionSnapshot snapshot)
-    {
-        bool shouldRefresh;
-        lock (stateLock)
-        {
-            shouldRefresh = active
-                && snapshot.IpcHealth == EngineIpcHealthState.Connected
-                && snapshot.LastLifecycle?.Ready == true
-                && snapshot.Generation != subscribedGeneration;
-        }
-        if (shouldRefresh) _ = RefreshSubscriptionAsync(CancellationToken.None);
-    }
-
-    private async Task RefreshSubscriptionAsync(CancellationToken cancellationToken)
-    {
-        if (!engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityCustomerV1)) return;
-        await subscriptionGate.WaitAsync(cancellationToken);
-        try
-        {
-            bool shouldStart;
-            lock (stateLock)
-            {
-                shouldStart = active && !disposed;
-                if (subscribedGeneration == engine.Snapshot.Generation && subscription is not null) return;
-            }
-            if (!shouldStart) return;
-            await DropSubscriptionCoreAsync();
-            var created = await engine.SubscribeAsync(
-                Subscription.ForCustomerChangedSubscribe(new CustomerChanges()), cancellationToken);
-            var pumpCancellation = new CancellationTokenSource();
-            lock (stateLock)
-            {
-                if (!active || disposed)
-                {
-                    pumpCancellation.Cancel();
-                    _ = created.DisposeAsync();
-                    return;
-                }
-                subscription = created;
-                subscriptionCancellation = pumpCancellation;
-                subscribedGeneration = engine.Snapshot.Generation;
-            }
-            created.ResyncRequired += SignalFullRefresh;
-            _ = PumpAsync(created, pumpCancellation.Token);
-        }
-        catch (EngineIpcException)
-        {
-            await DropSubscriptionCoreAsync();
-        }
-        finally
-        {
-            subscriptionGate.Release();
-        }
-    }
-
-    private async Task DropSubscriptionAsync()
-    {
-        await subscriptionGate.WaitAsync();
-        try { await DropSubscriptionCoreAsync(); }
-        finally { subscriptionGate.Release(); }
-    }
-
-    private async Task DropSubscriptionCoreAsync()
-    {
-        IEngineSubscription? current;
-        CancellationTokenSource? cancellation;
-        lock (stateLock)
-        {
-            current = subscription;
-            cancellation = subscriptionCancellation;
-            subscription = null;
-            subscriptionCancellation = null;
-            subscribedGeneration = -1;
-        }
-        cancellation?.Cancel();
-        cancellation?.Dispose();
-        if (current is not null) await current.DisposeAsync();
-    }
-
-    private async Task PumpAsync(IEngineSubscription current, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await foreach (var delivered in current.ReadAllAsync(cancellationToken))
-            {
-                var notice = EngineContractCodec.DecodeEvent(delivered).AsCustomerChangedEvent();
-                if (notice is not null) RaiseChanged(notice.CustomerId);
-                current.Acknowledge(delivered);
-            }
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-        }
-        catch (Exception error) when (error is EngineIpcException or IOException or InvalidDataException)
-        {
-            await DropSubscriptionAsync();
-            SignalFullRefresh();
-            await RetrySubscriptionAsync();
-        }
-    }
-
-    private async Task RetrySubscriptionAsync()
-    {
-        foreach (var delay in new[] { 250, 500, 1_000, 2_000 })
-        {
-            await Task.Delay(delay);
-            lock (stateLock)
-            {
-                if (!active || disposed || subscription is not null) return;
-            }
-            await RefreshSubscriptionAsync(CancellationToken.None);
-        }
-    }
-
-    private void SignalFullRefresh() => RaiseChanged(null);
-
-    private void RaiseChanged(Guid? customerId)
-    {
-        var context = synchronizationContext;
-        if (context is null) Changed?.Invoke(this, customerId);
-        else context.Post(_ => Changed?.Invoke(this, customerId), null);
     }
 
     private static string? EmptyToNull(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

@@ -7,7 +7,6 @@ namespace Eitmad.WindowsShell.Tests.Parts;
 [TestClass]
 public sealed class PartsPresentationTests
 {
-    /// <summary>Unknown category and part outcomes retain independent keys and reject changed retries.</summary>
     [TestMethod]
     public async Task UnknownCategoryAndPartSavesKeepIndependentRetryState()
     {
@@ -43,7 +42,6 @@ public sealed class PartsPresentationTests
         Assert.AreNotEqual(categoryKey, engine.LastIdempotencyKey);
     }
 
-    /// <summary>Cost review retains a saved archived unit that the active picker omits.</summary>
     [TestMethod]
     public void CostReferenceRefreshRetainsArchivedUsageUnit()
     {
@@ -63,7 +61,6 @@ public sealed class PartsPresentationTests
         Assert.AreEqual("1.2", model.SaveInput().Usages[0].Quantity);
     }
 
-    /// <summary>A refreshed matching unit supplies the current revision without adding a duplicate option.</summary>
     [TestMethod]
     public void CostReferenceRefreshUsesLatestMatchingUnit()
     {
@@ -86,7 +83,6 @@ public sealed class PartsPresentationTests
         Assert.AreEqual(2, model.SaveInput().Usages[0].UnitRevision);
     }
 
-    /// <summary>Protects exact quantity text and invalidates displayed cost when unsaved input changes.</summary>
     [TestMethod]
     public void EditorPreservesExactInputAndDisplaysOnlyRustCost()
     {
@@ -104,7 +100,6 @@ public sealed class PartsPresentationTests
         Assert.AreEqual("0.0000001",model.SaveInput().Usages[0].Quantity);
     }
 
-    /// <summary>Protects unsaved edits and the original expected revision across background changes and conflicts.</summary>
     [TestMethod]
     public void BackgroundRefreshKeepsUnsavedFieldsAndExpectedPartRevision()
     {
@@ -122,7 +117,6 @@ public sealed class PartsPresentationTests
         Assert.AreEqual(2,model.SaveInput().ExpectedRevision);
     }
 
-    /// <summary>Protects exact retries after a lost response and typed conflict presentation.</summary>
     [TestMethod]
     public async Task TypedClientReusesRetryKeyAfterUnknownOutcomeAndMapsConflict()
     {
@@ -139,7 +133,6 @@ public sealed class PartsPresentationTests
         Assert.IsTrue(engine.LastCommand.AsPartSave()!.Archived);
     }
 
-    /// <summary>Protects Rust-owned matching and preserves the Arabic search text sent by the user.</summary>
     [TestMethod]
     public async Task MaterialPickerUsesRustMatchesWithoutRewritingSearchText()
     {
