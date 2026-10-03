@@ -15,7 +15,6 @@ internal sealed class PartFixtures
     public Material[] Materials { get; }
     public List<Part> Parts { get; } = [];
     public PartCost Cost { get; }
-    /// <summary>Builds synthetic references and fixed approved costs without reimplementing Rust calculations.</summary>
     public PartFixtures()
     {
         Category = new PartCategory { Id = Guid.NewGuid(), Scope = Scope, Name = "خزانة ملابس", Revision = 1 };
@@ -29,18 +28,14 @@ internal sealed class PartFixtures
         Parts.Add(new Part { Id = id, Scope = Scope, Name = "Wardrobe Side Panel", CategoryId = Category.Id, Description = "جانب خزانة تجريبي", Revision = 1,
             Composition = new CompositionReference { PartId = id, Scope = Scope, Revision = 1, SchemaVersion = 1 }, Cost = Cost });
     }
-    /// <summary>Builds a fixed usage snapshot with material, consumption-unit, and cost-unit references.</summary>
     private CostedUsage Row(int i,string quantity,long cost) => new()
     {
         Material = Materials[i], Unit = Units[i], CostUnit = Units[i], CostYer = cost,
         Usage = new PartUsage { MaterialId = Materials[i].Id, MaterialRevision = 1, UnitId = Units[i].Id, UnitRevision = 1, Quantity = quantity },
     };
-    /// <summary>Pairs each saved fixture part with the fixed advisory cost.</summary>
     public PartProjection[] Projections() => Parts.Select(p => new PartProjection { Part = p, CurrentCost = Cost }).ToArray();
-    /// <summary>Combines scoped parts, categories, and material references for presentation tests.</summary>
     public PartSnapshot Snapshot() => new(new PartCategories { Items = [Category] },Projections(),
         new MaterialSnapshot(new MaterialReferences { Categories = [MaterialCategory], Units = Units },Materials));
-    /// <summary>Provides typed synthetic queries and confirmed local saves for native UI tests.</summary>
     public FakeEngine Engine()
     {
         var engine = new FakeEngine();
@@ -67,7 +62,6 @@ internal sealed class PartFixtures
         };
         return engine;
     }
-    /// <summary>Wraps a fixed typed payload in a successful query response.</summary>
     public static QueryResponseEnvelope Success(QueryResult result) => new()
     { RequestId = Guid.NewGuid(), CorrelationId = Guid.NewGuid(), Outcome = new QueryOutcome { Status = CommandOutcomeStatus.Succeeded, Payload = result } };
 }

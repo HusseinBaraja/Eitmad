@@ -33,7 +33,7 @@ Complete scheduled backups, retention, protected backup storage, and a usable re
 
 Prove the restore procedure in an isolated environment with synthetic data. Check recovered business records, audit history, and pending synchronization work, and verify that reconnecting does not repeat accepted business effects or silently lose pending work. Record the recovery time and result before using the workflow with real operational data.
 
-Synchronization is not a backup: it can distribute an accidental deletion or an incorrect change. Retain recoverable history independently of the current synchronized state. Use these requirements when [building the first product workflow](../developer/build-first-product.md#6-add-storage-and-migration-safety).
+Synchronization is not a backup: it can distribute an accidental deletion or an incorrect change. Retain recoverable history independently of the current synchronized state. Use these requirements when [Developer guide](../developer/index.md).
 
 ## Backup and migration protection
 

@@ -46,9 +46,6 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.config.update.v1`
 - `eitmad.authorization.relationship.grant.v1`
 - `eitmad.authorization.relationship.revoke.v1`
-- `eitmad.operation.cancel.v1`
-- `eitmad.update.report-installer-outcome.v1`
-- `eitmad.reference-marker.upsert.v1`
 - `eitmad.customer.create.v1`
 - `eitmad.customer.update.v1`
 - `eitmad.material-category.save.v1`
@@ -69,9 +66,6 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.config.get.v1`
 - `eitmad.permissions.get-effective.v1`
 - `eitmad.authorization.relationships.list.v1`
-- `eitmad.update.get-state.v1`
-- `eitmad.sync.get-status.v1`
-- `eitmad.reference-marker.list.v1`
 - `eitmad.customer.get.v1`
 - `eitmad.customer.search.v1`
 - `eitmad.furniture.list.v1`
@@ -95,13 +89,6 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.config.changed.subscribe.v1`
 - `eitmad.permissions.changed.subscribe.v1`
 - `eitmad.authorization.policy.changed.subscribe.v1`
-- `eitmad.update.state.subscribe.v1`
-- `eitmad.sync.status.subscribe.v1`
-- `eitmad.record.changed.subscribe.v1`
-- `eitmad.background-job.status.subscribe.v1`
-- `eitmad.notification.subscribe.v1`
-- `eitmad.error.subscribe.v1`
-- `eitmad.reference-marker.changed.subscribe.v1`
 - `eitmad.customer.changed.subscribe.v1`
 - `eitmad.material.changed.subscribe.v1`
 - `eitmad.furniture.changed.subscribe.v1`
@@ -113,13 +100,6 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.config.changed.event.v1`
 - `eitmad.permissions.changed.event.v1`
 - `eitmad.authorization.policy.changed.event.v1`
-- `eitmad.update.state.event.v1`
-- `eitmad.sync.status.event.v1`
-- `eitmad.record.changed.event.v1`
-- `eitmad.background-job.status.event.v1`
-- `eitmad.notification.event.v1`
-- `eitmad.error.event.v1`
-- `eitmad.reference-marker.changed.event.v1`
 - `eitmad.customer.changed.event.v1`
 - `eitmad.material.changed.event.v1`
 - `eitmad.furniture.changed.event.v1`
@@ -172,7 +152,6 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.capability.server-update-distribution.v1`
 - `eitmad.capability.server-administration.v1`
 - `eitmad.capability.update.v1`
-- `eitmad.capability.reference-marker.v1`
 - `eitmad.capability.customer.v1`
 - `eitmad.capability.material.v1`
 - `eitmad.capability.part.v1`
@@ -209,8 +188,6 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.permission.server.admin.support.execute.v1`
 - `eitmad.permission.update.read.v1`
 - `eitmad.permission.update.report-installer.v1`
-- `eitmad.permission.reference-marker.read.v1`
-- `eitmad.permission.reference-marker.write.v1`
 - `eitmad.permission.customer.read.v1`
 - `eitmad.permission.customer.write.v1`
 - `eitmad.permission.product.read.v1`
@@ -242,7 +219,6 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 ## Schema identifiers
 
 - `eitmad.schema.protocol.v1`
-- `eitmad.schema.reference-marker.v1`
 - `eitmad.schema.customer.v1`
 - `eitmad.schema.material.v1`
 - `eitmad.schema.part.v1`
@@ -294,8 +270,6 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.error.update-distribution-unavailable.v1`
 - `eitmad.error.admin-unavailable.v1`
 - `eitmad.error.update-installer-failed.v1`
-- `eitmad.error.reference-marker-revision-conflict.v1`
-- `eitmad.error.reference-marker-unavailable.v1`
 - `eitmad.error.customer-not-found.v1`
 - `eitmad.error.customer-revision-conflict.v1`
 - `eitmad.error.customer-unavailable.v1`
@@ -326,8 +300,6 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Localization message identifiers
 
-- `eitmad.notification.sync-complete.v1`
-- `eitmad.notification.update-ready.v1`
 - `eitmad.message.authorization-denied.v1`
 - `eitmad.message.authorization-last-owner.v1`
 - `eitmad.message.authorization-policy-conflict.v1`
@@ -372,8 +344,6 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.message.update-distribution-unavailable.v1`
 - `eitmad.message.admin-unavailable.v1`
 - `eitmad.message.update-installer-failed.v1`
-- `eitmad.message.reference-marker-revision-conflict.v1`
-- `eitmad.message.reference-marker-unavailable.v1`
 - `eitmad.message.customer-not-found.v1`
 - `eitmad.message.customer-revision-conflict.v1`
 - `eitmad.message.customer-unavailable.v1`

@@ -230,8 +230,8 @@ mod tests {
 
     use super::*;
     use crate::domain::{
-        AuthoritativeChangeDraft, CommandSubmission, DomainDescriptor, DomainRegistry,
-        DomainSyncHandler, DomainValidationError, LocalOperationDraft,
+        DomainDescriptor, DomainRegistry, DomainSyncHandler, DomainValidationError,
+        LocalOperationDraft,
     };
 
     struct DenyingHandler;
@@ -260,14 +260,6 @@ mod tests {
             &self,
             _draft: &LocalOperationDraft,
         ) -> Result<(), DomainValidationError> {
-            unreachable!()
-        }
-
-        fn execute_command(
-            &self,
-            _session: &AuthenticatedServerSession,
-            _command: &CommandSubmission,
-        ) -> Result<AuthoritativeChangeDraft, DomainValidationError> {
             unreachable!()
         }
     }

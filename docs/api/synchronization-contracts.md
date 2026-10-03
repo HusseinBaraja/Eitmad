@@ -5,7 +5,7 @@ audience: "api"
 page_type: "reference"
 status: "active"
 owner: "Rust contract and synchronization maintainers"
-last_verified: "2026-08-22"
+last_verified: "2026-10-02"
 review_triggers:
   - "a type or identifier in crates/contracts/src/sync.rs changes"
   - "the shared transport frame in crates/contracts/src/sync_transport.rs changes"
@@ -21,7 +21,7 @@ keywords:
 
 # Use the synchronization and transport contracts
 
-`crates/contracts/src/sync.rs` is the canonical synchronization message contract. `crates/contracts/src/sync_transport.rs` is its single streaming frame for simulation, LAN, and WAN connections. Generated JSON, C#, Swift, identifier constants, and the [mechanical protocol listing](../_generated/contracts-v1.md) derive from Rust. Native clients and network adapters must not define parallel sync records, frames, or route-specific wire protocols.
+`crates/contracts/src/sync.rs` is the canonical synchronization message contract. `crates/contracts/src/sync_transport.rs` is its single streaming frame for simulation, LAN, and WAN connections. The full JSON schema, identifier constants, and the [mechanical protocol listing](../_generated/contracts-v1.md) derive from Rust. Synchronization transport types stay in Rust; native bindings contain local IPC and process lifecycle types. Native clients and network adapters must not define parallel sync records, frames, or route-specific wire protocols.
 
 ## Core types
 

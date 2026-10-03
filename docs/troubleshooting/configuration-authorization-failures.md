@@ -42,4 +42,4 @@ Run non-mutating diagnostics against the same runtime directory. A missing datab
 
 Query the redacted snapshot or effective permissions in the same scope. Confirm revisions are monotonic, a no-op does not increment, one real mutation emits one event, and no protected value appears in output. Then run focused tests and the [foundation checks](../operations/index.md).
 
-Implementation details are in [configuration](../developer/subsystems/configuration.md), [authorization](../developer/subsystems/authorization.md), and the [protocol 1.2 release](../releases/protocol-1-2-configuration-authorization.md).
+Implementation details are in [configuration](../developer/subsystems/configuration.md), [authorization](../developer/subsystems/authorization.md), and the [configuration authority](../developer/subsystems/configuration.md).

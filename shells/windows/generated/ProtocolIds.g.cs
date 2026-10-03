@@ -40,9 +40,6 @@ public static class ProtocolIds
         public const string EitmadConfigUpdateV1 = "eitmad.config.update.v1";
         public const string EitmadAuthorizationRelationshipGrantV1 = "eitmad.authorization.relationship.grant.v1";
         public const string EitmadAuthorizationRelationshipRevokeV1 = "eitmad.authorization.relationship.revoke.v1";
-        public const string EitmadOperationCancelV1 = "eitmad.operation.cancel.v1";
-        public const string EitmadUpdateReportInstallerOutcomeV1 = "eitmad.update.report-installer-outcome.v1";
-        public const string EitmadReferenceMarkerUpsertV1 = "eitmad.reference-marker.upsert.v1";
         public const string EitmadCustomerCreateV1 = "eitmad.customer.create.v1";
         public const string EitmadCustomerUpdateV1 = "eitmad.customer.update.v1";
         public const string EitmadMaterialCategorySaveV1 = "eitmad.material-category.save.v1";
@@ -64,9 +61,6 @@ public static class ProtocolIds
         public const string EitmadConfigGetV1 = "eitmad.config.get.v1";
         public const string EitmadPermissionsGetEffectiveV1 = "eitmad.permissions.get-effective.v1";
         public const string EitmadAuthorizationRelationshipsListV1 = "eitmad.authorization.relationships.list.v1";
-        public const string EitmadUpdateGetStateV1 = "eitmad.update.get-state.v1";
-        public const string EitmadSyncGetStatusV1 = "eitmad.sync.get-status.v1";
-        public const string EitmadReferenceMarkerListV1 = "eitmad.reference-marker.list.v1";
         public const string EitmadCustomerGetV1 = "eitmad.customer.get.v1";
         public const string EitmadCustomerSearchV1 = "eitmad.customer.search.v1";
         public const string EitmadFurnitureListV1 = "eitmad.furniture.list.v1";
@@ -91,13 +85,6 @@ public static class ProtocolIds
         public const string EitmadConfigChangedSubscribeV1 = "eitmad.config.changed.subscribe.v1";
         public const string EitmadPermissionsChangedSubscribeV1 = "eitmad.permissions.changed.subscribe.v1";
         public const string EitmadAuthorizationPolicyChangedSubscribeV1 = "eitmad.authorization.policy.changed.subscribe.v1";
-        public const string EitmadUpdateStateSubscribeV1 = "eitmad.update.state.subscribe.v1";
-        public const string EitmadSyncStatusSubscribeV1 = "eitmad.sync.status.subscribe.v1";
-        public const string EitmadRecordChangedSubscribeV1 = "eitmad.record.changed.subscribe.v1";
-        public const string EitmadBackgroundJobStatusSubscribeV1 = "eitmad.background-job.status.subscribe.v1";
-        public const string EitmadNotificationSubscribeV1 = "eitmad.notification.subscribe.v1";
-        public const string EitmadErrorSubscribeV1 = "eitmad.error.subscribe.v1";
-        public const string EitmadReferenceMarkerChangedSubscribeV1 = "eitmad.reference-marker.changed.subscribe.v1";
         public const string EitmadCustomerChangedSubscribeV1 = "eitmad.customer.changed.subscribe.v1";
         public const string EitmadMaterialChangedSubscribeV1 = "eitmad.material.changed.subscribe.v1";
         public const string EitmadFurnitureChangedSubscribeV1 = "eitmad.furniture.changed.subscribe.v1";
@@ -110,13 +97,6 @@ public static class ProtocolIds
         public const string EitmadConfigChangedEventV1 = "eitmad.config.changed.event.v1";
         public const string EitmadPermissionsChangedEventV1 = "eitmad.permissions.changed.event.v1";
         public const string EitmadAuthorizationPolicyChangedEventV1 = "eitmad.authorization.policy.changed.event.v1";
-        public const string EitmadUpdateStateEventV1 = "eitmad.update.state.event.v1";
-        public const string EitmadSyncStatusEventV1 = "eitmad.sync.status.event.v1";
-        public const string EitmadRecordChangedEventV1 = "eitmad.record.changed.event.v1";
-        public const string EitmadBackgroundJobStatusEventV1 = "eitmad.background-job.status.event.v1";
-        public const string EitmadNotificationEventV1 = "eitmad.notification.event.v1";
-        public const string EitmadErrorEventV1 = "eitmad.error.event.v1";
-        public const string EitmadReferenceMarkerChangedEventV1 = "eitmad.reference-marker.changed.event.v1";
         public const string EitmadCustomerChangedEventV1 = "eitmad.customer.changed.event.v1";
         public const string EitmadMaterialChangedEventV1 = "eitmad.material.changed.event.v1";
         public const string EitmadFurnitureChangedEventV1 = "eitmad.furniture.changed.event.v1";
@@ -172,7 +152,6 @@ public static class ProtocolIds
         public const string EitmadCapabilityServerUpdateDistributionV1 = "eitmad.capability.server-update-distribution.v1";
         public const string EitmadCapabilityServerAdministrationV1 = "eitmad.capability.server-administration.v1";
         public const string EitmadCapabilityUpdateV1 = "eitmad.capability.update.v1";
-        public const string EitmadCapabilityReferenceMarkerV1 = "eitmad.capability.reference-marker.v1";
         public const string EitmadCapabilityCustomerV1 = "eitmad.capability.customer.v1";
         public const string EitmadCapabilityMaterialV1 = "eitmad.capability.material.v1";
         public const string EitmadCapabilityPartV1 = "eitmad.capability.part.v1";
@@ -210,8 +189,6 @@ public static class ProtocolIds
         public const string EitmadPermissionServerAdminSupportExecuteV1 = "eitmad.permission.server.admin.support.execute.v1";
         public const string EitmadPermissionUpdateReadV1 = "eitmad.permission.update.read.v1";
         public const string EitmadPermissionUpdateReportInstallerV1 = "eitmad.permission.update.report-installer.v1";
-        public const string EitmadPermissionReferenceMarkerReadV1 = "eitmad.permission.reference-marker.read.v1";
-        public const string EitmadPermissionReferenceMarkerWriteV1 = "eitmad.permission.reference-marker.write.v1";
         public const string EitmadPermissionCustomerReadV1 = "eitmad.permission.customer.read.v1";
         public const string EitmadPermissionCustomerWriteV1 = "eitmad.permission.customer.write.v1";
         public const string EitmadPermissionProductReadV1 = "eitmad.permission.product.read.v1";
@@ -246,7 +223,6 @@ public static class ProtocolIds
     public static class SchemaIds
     {
         public const string EitmadSchemaProtocolV1 = "eitmad.schema.protocol.v1";
-        public const string EitmadSchemaReferenceMarkerV1 = "eitmad.schema.reference-marker.v1";
         public const string EitmadSchemaCustomerV1 = "eitmad.schema.customer.v1";
         public const string EitmadSchemaMaterialV1 = "eitmad.schema.material.v1";
         public const string EitmadSchemaPartV1 = "eitmad.schema.part.v1";
@@ -299,8 +275,6 @@ public static class ProtocolIds
         public const string EitmadErrorUpdateDistributionUnavailableV1 = "eitmad.error.update-distribution-unavailable.v1";
         public const string EitmadErrorAdminUnavailableV1 = "eitmad.error.admin-unavailable.v1";
         public const string EitmadErrorUpdateInstallerFailedV1 = "eitmad.error.update-installer-failed.v1";
-        public const string EitmadErrorReferenceMarkerRevisionConflictV1 = "eitmad.error.reference-marker-revision-conflict.v1";
-        public const string EitmadErrorReferenceMarkerUnavailableV1 = "eitmad.error.reference-marker-unavailable.v1";
         public const string EitmadErrorCustomerNotFoundV1 = "eitmad.error.customer-not-found.v1";
         public const string EitmadErrorCustomerRevisionConflictV1 = "eitmad.error.customer-revision-conflict.v1";
         public const string EitmadErrorCustomerUnavailableV1 = "eitmad.error.customer-unavailable.v1";
@@ -332,8 +306,6 @@ public static class ProtocolIds
 
     public static class MessageIds
     {
-        public const string EitmadNotificationSyncCompleteV1 = "eitmad.notification.sync-complete.v1";
-        public const string EitmadNotificationUpdateReadyV1 = "eitmad.notification.update-ready.v1";
         public const string EitmadMessageAuthorizationDeniedV1 = "eitmad.message.authorization-denied.v1";
         public const string EitmadMessageAuthorizationLastOwnerV1 = "eitmad.message.authorization-last-owner.v1";
         public const string EitmadMessageAuthorizationPolicyConflictV1 = "eitmad.message.authorization-policy-conflict.v1";
@@ -378,8 +350,6 @@ public static class ProtocolIds
         public const string EitmadMessageUpdateDistributionUnavailableV1 = "eitmad.message.update-distribution-unavailable.v1";
         public const string EitmadMessageAdminUnavailableV1 = "eitmad.message.admin-unavailable.v1";
         public const string EitmadMessageUpdateInstallerFailedV1 = "eitmad.message.update-installer-failed.v1";
-        public const string EitmadMessageReferenceMarkerRevisionConflictV1 = "eitmad.message.reference-marker-revision-conflict.v1";
-        public const string EitmadMessageReferenceMarkerUnavailableV1 = "eitmad.message.reference-marker-unavailable.v1";
         public const string EitmadMessageCustomerNotFoundV1 = "eitmad.message.customer-not-found.v1";
         public const string EitmadMessageCustomerRevisionConflictV1 = "eitmad.message.customer-revision-conflict.v1";
         public const string EitmadMessageCustomerUnavailableV1 = "eitmad.message.customer-unavailable.v1";

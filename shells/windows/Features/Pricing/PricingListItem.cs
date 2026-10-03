@@ -68,5 +68,5 @@ public sealed class PricingListItem : ObservableObject
 
     public string StatusLabel => IsActive ? "نشط" : "غير نشط";
 
-    private static string FormatMoney(decimal value) => $"{value.ToString("N0", CultureInfo.InvariantCulture)} YER";
+    private static string FormatMoney(decimal value) => $"{value.ToString("N0", CultureInfo.InvariantCulture)} ر.ي";
 }

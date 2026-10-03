@@ -158,17 +158,3 @@ pub struct DiagnosticReport {
     pub elapsed_micros: u64,
     pub performance_expectations: PerformanceExpectations,
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn only_active_lifecycle_states_are_live() {
-        assert!(LifecycleState::Starting.is_live());
-        assert!(LifecycleState::Ready.is_live());
-        assert!(LifecycleState::Stopping.is_live());
-        assert!(!LifecycleState::Stopped.is_live());
-        assert!(!LifecycleState::Failed.is_live());
-    }
-}

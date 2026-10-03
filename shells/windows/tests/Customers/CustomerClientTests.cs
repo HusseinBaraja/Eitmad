@@ -148,21 +148,6 @@ public sealed class CustomerClientTests
     }
 
     [TestMethod]
-    public async Task FakeEngineLimitsCustomersToItsAuthorizedBranch()
-    {
-        await using var engine = new FakeEngine();
-        var foreign = Customer(engine, "عميل فرع آخر", "700000002");
-        foreign.Scope = new ScopeRef { Kind = "branch", Id = Guid.NewGuid() };
-        engine.Customers.Add(foreign);
-        await using var client = new CustomerClient(engine);
-
-        Assert.AreEqual(CustomerFailureKind.NotFound, (await client.GetAsync(foreign.Id)).Failure);
-        Assert.AreEqual(0, (await client.SearchAsync("عميل فرع آخر")).Value!.Count);
-        Assert.AreEqual(CustomerFailureKind.NotFound,
-            (await client.UpdateAsync(foreign, foreign.Name, foreign.Phone, "", "")).Failure);
-    }
-
-    [TestMethod]
     public async Task SubscriptionReadFailureResubscribesWithoutEngineGenerationChange()
     {
         await using var engine = new FakeEngine();
@@ -184,7 +169,6 @@ public sealed class CustomerClientTests
         Assert.AreEqual(1, engine.SubscriptionCount);
     }
 
-    /// <summary>Verifies subscription updates refresh customer details without losing the current selection.</summary>
     [TestMethod]
     public async Task SelectedCustomerRefreshesFromSubscriptionWithoutLosingSelection()
     {
@@ -230,23 +214,6 @@ public sealed class CustomerClientTests
     }
 
     [TestMethod]
-    public async Task MissingCustomerAndNormalizedSearchUseTypedResults()
-    {
-        await using var engine = new FakeEngine();
-        engine.Customers.Add(Customer(engine, "إعـتماد القيسي", "+٩٦٧ (٧٧٧) ١٢٣-٤٥٦"));
-        await using var client = new CustomerClient(engine);
-
-        var byName = await client.SearchAsync("اعتماد القيسي");
-        var byPhone = await client.SearchAsync("+967777123456");
-        var missing = await client.GetAsync(Guid.NewGuid());
-
-        Assert.AreEqual(engine.Customers.Single().Id, byName.Value!.Single().Id);
-        Assert.AreEqual(engine.Customers.Single().Id, byPhone.Value!.Single().Id);
-        Assert.AreEqual(CustomerFailureKind.NotFound, missing.Failure);
-    }
-
-    /// <summary>Verifies reopened quotation refresh does not report synthetic revision as customer change.</summary>
-    [TestMethod]
     public async Task ReopenedQuotationRefreshDoesNotReportSyntheticRevisionAsCustomerChange()
     {
         await using var engine = new FakeEngine();
@@ -277,7 +244,6 @@ public sealed class CustomerClientTests
         Assert.AreEqual(notice, model.QuotationNotice);
     }
 
-    /// <summary>Verifies new customer save rejects invalid phone and duplicate submission.</summary>
     [TestMethod]
     public async Task NewCustomerSaveRejectsInvalidPhoneAndDuplicateSubmission()
     {
@@ -303,7 +269,6 @@ public sealed class CustomerClientTests
         Assert.IsFalse(model.IsCustomerSaveBusy);
     }
 
-    /// <summary>Verifies later customer search discards an obsolete response.</summary>
     [TestMethod]
     public async Task LaterCustomerSearchDiscardsAnObsoleteResponse()
     {

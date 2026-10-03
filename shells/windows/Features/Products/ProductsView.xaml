@@ -84,11 +84,6 @@
                                                                         <Path Data="M11,6 L32,6 L37,22 L6,22Z" Fill="#D5AA6D" Stroke="#79512A" StrokeThickness="1.4" />
                                                                         <Path Data="M21,22 L21,39 M13,40 L29,40" Stroke="#79512A" StrokeThickness="2" />
                                                                     </Grid>
-                                                                    <Border x:Name="ContrastCell3" CornerRadius="9">
-                                                                        <Border.Background>
-                                                                            <ImageBrush ImageSource="{Binding Image}" Stretch="UniformToFill" />
-                                                                        </Border.Background>
-                                                                    </Border>
                                                                 </Grid>
                                                             </Border>
                                                         </Border>
@@ -179,7 +174,7 @@
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <Border x:Name="RowSurface" MinHeight="76" Background="Transparent" BorderBrush="{StaticResource LineBrush}" BorderThickness="0">
-                                                            <controls:AmountDisplay HorizontalAlignment="Center" VerticalAlignment="Center" AmountText="{Binding PurchaseCostLabel}" UnitText="YER" UnitPlacement="After"></controls:AmountDisplay>
+                                                            <controls:AmountDisplay HorizontalAlignment="Center" VerticalAlignment="Center" AmountText="{Binding PurchaseCostLabel}" UnitText="ر.ي" UnitPlacement="After"></controls:AmountDisplay>
                                                         </Border>
                                                         <DataTemplate.Triggers>
                                                             <DataTrigger Binding="{Binding IsArchived}" Value="True">

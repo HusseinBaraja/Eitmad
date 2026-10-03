@@ -13,7 +13,6 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 [TestClass]
 public sealed class QuotationFinalActionsRenderedTests
 {
-    /// <summary>Verifies required fields, preview return, and customer-only document pagination in the rendered flow.</summary>
     [TestMethod]
     public void RequiredFieldsPreviewBackAndCustomerOnlyPagination()
     {
@@ -64,7 +63,7 @@ public sealed class QuotationFinalActionsRenderedTests
                     Assert.IsTrue(WpfTestHost.FindByName<Button>(preview, "PrintButton").IsKeyboardFocusWithin);
                     var text = new TextRange(preview.Document.ContentStart, preview.Document.ContentEnd).Text;
                     Assert.IsFalse(text.Contains(model.Notes));
-                    Assert.IsTrue(text.Contains(model.FinalTotal.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) + " YER"));
+                    Assert.IsTrue(text.Contains(model.FinalTotal.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) + " ر.ي"));
                     Assert.IsTrue(text.Contains(model.QuotationLines[1].Options));
                     WpfTestHost.Capture(modal, "quotation-customer-preview");
                     var back = WpfTestHost.FindByAutomationName<Button>(preview, "رجوع");

@@ -38,30 +38,6 @@ public partial class Command
     public RevokeScopeRelationship? AsAuthorizationRelationshipRevoke() =>
         Kind == AuthorizationRelationshipRevokeKind ? PayloadAs<RevokeScopeRelationship>() : null;
 
-    public const string OperationCancelKind = "eitmad.operation.cancel.v1";
-
-    public static Command ForOperationCancel(CancelOperation payload) =>
-        new() { Kind = OperationCancelKind, Payload = payload };
-
-    public CancelOperation? AsOperationCancel() =>
-        Kind == OperationCancelKind ? PayloadAs<CancelOperation>() : null;
-
-    public const string UpdateReportInstallerOutcomeKind = "eitmad.update.report-installer-outcome.v1";
-
-    public static Command ForUpdateReportInstallerOutcome(ReportInstallerOutcome payload) =>
-        new() { Kind = UpdateReportInstallerOutcomeKind, Payload = payload };
-
-    public ReportInstallerOutcome? AsUpdateReportInstallerOutcome() =>
-        Kind == UpdateReportInstallerOutcomeKind ? PayloadAs<ReportInstallerOutcome>() : null;
-
-    public const string ReferenceMarkerUpsertKind = "eitmad.reference-marker.upsert.v1";
-
-    public static Command ForReferenceMarkerUpsert(UpsertReferenceMarker payload) =>
-        new() { Kind = ReferenceMarkerUpsertKind, Payload = payload };
-
-    public UpsertReferenceMarker? AsReferenceMarkerUpsert() =>
-        Kind == ReferenceMarkerUpsertKind ? PayloadAs<UpsertReferenceMarker>() : null;
-
     public const string CustomerCreateKind = "eitmad.customer.create.v1";
 
     public static Command ForCustomerCreate(CreateCustomer payload) =>
@@ -182,6 +158,159 @@ public partial class Command
     };
 }
 
+public partial class CommandResult
+{
+    [JsonPropertyName("kind")]
+    public string Kind { get; set; } = string.Empty;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("payload")]
+    public object? Payload { get; set; }
+
+    public const string ConfigurationUpdatedKind = "configurationUpdated";
+
+    public static CommandResult ForConfigurationUpdated(ConfigSnapshot payload) =>
+        new() { Kind = ConfigurationUpdatedKind, Payload = payload };
+
+    public ConfigSnapshot? AsConfigurationUpdated() =>
+        Kind == ConfigurationUpdatedKind ? PayloadAs<ConfigSnapshot>() : null;
+
+    public const string RelationshipGrantedKind = "relationshipGranted";
+
+    public static CommandResult ForRelationshipGranted(RelationshipMutationResult payload) =>
+        new() { Kind = RelationshipGrantedKind, Payload = payload };
+
+    public RelationshipMutationResult? AsRelationshipGranted() =>
+        Kind == RelationshipGrantedKind ? PayloadAs<RelationshipMutationResult>() : null;
+
+    public const string RelationshipRevokedKind = "relationshipRevoked";
+
+    public static CommandResult ForRelationshipRevoked(RelationshipMutationResult payload) =>
+        new() { Kind = RelationshipRevokedKind, Payload = payload };
+
+    public RelationshipMutationResult? AsRelationshipRevoked() =>
+        Kind == RelationshipRevokedKind ? PayloadAs<RelationshipMutationResult>() : null;
+
+    public const string CustomerCreatedKind = "customerCreated";
+
+    public static CommandResult ForCustomerCreated(CustomerMutationResult payload) =>
+        new() { Kind = CustomerCreatedKind, Payload = payload };
+
+    public CustomerMutationResult? AsCustomerCreated() =>
+        Kind == CustomerCreatedKind ? PayloadAs<CustomerMutationResult>() : null;
+
+    public const string CustomerUpdatedKind = "customerUpdated";
+
+    public static CommandResult ForCustomerUpdated(CustomerMutationResult payload) =>
+        new() { Kind = CustomerUpdatedKind, Payload = payload };
+
+    public CustomerMutationResult? AsCustomerUpdated() =>
+        Kind == CustomerUpdatedKind ? PayloadAs<CustomerMutationResult>() : null;
+
+    public const string MaterialCategorySavedKind = "materialCategorySaved";
+
+    public static CommandResult ForMaterialCategorySaved(MaterialCategory payload) =>
+        new() { Kind = MaterialCategorySavedKind, Payload = payload };
+
+    public MaterialCategory? AsMaterialCategorySaved() =>
+        Kind == MaterialCategorySavedKind ? PayloadAs<MaterialCategory>() : null;
+
+    public const string MaterialUnitSavedKind = "materialUnitSaved";
+
+    public static CommandResult ForMaterialUnitSaved(MaterialUnit payload) =>
+        new() { Kind = MaterialUnitSavedKind, Payload = payload };
+
+    public MaterialUnit? AsMaterialUnitSaved() =>
+        Kind == MaterialUnitSavedKind ? PayloadAs<MaterialUnit>() : null;
+
+    public const string MaterialSavedKind = "materialSaved";
+
+    public static CommandResult ForMaterialSaved(Material payload) =>
+        new() { Kind = MaterialSavedKind, Payload = payload };
+
+    public Material? AsMaterialSaved() =>
+        Kind == MaterialSavedKind ? PayloadAs<Material>() : null;
+
+    public const string FurnitureSavedKind = "furnitureSaved";
+
+    public static CommandResult ForFurnitureSaved(Furniture payload) =>
+        new() { Kind = FurnitureSavedKind, Payload = payload };
+
+    public Furniture? AsFurnitureSaved() =>
+        Kind == FurnitureSavedKind ? PayloadAs<Furniture>() : null;
+
+    public const string FurnitureCategorySavedKind = "furnitureCategorySaved";
+
+    public static CommandResult ForFurnitureCategorySaved(FurnitureCategory payload) =>
+        new() { Kind = FurnitureCategorySavedKind, Payload = payload };
+
+    public FurnitureCategory? AsFurnitureCategorySaved() =>
+        Kind == FurnitureCategorySavedKind ? PayloadAs<FurnitureCategory>() : null;
+
+    public const string ProductSavedKind = "productSaved";
+
+    public static CommandResult ForProductSaved(Product payload) =>
+        new() { Kind = ProductSavedKind, Payload = payload };
+
+    public Product? AsProductSaved() =>
+        Kind == ProductSavedKind ? PayloadAs<Product>() : null;
+
+    public const string ProductCategorySavedKind = "productCategorySaved";
+
+    public static CommandResult ForProductCategorySaved(ProductCategory payload) =>
+        new() { Kind = ProductCategorySavedKind, Payload = payload };
+
+    public ProductCategory? AsProductCategorySaved() =>
+        Kind == ProductCategorySavedKind ? PayloadAs<ProductCategory>() : null;
+
+    public const string PartSavedKind = "partSaved";
+
+    public static CommandResult ForPartSaved(Part payload) =>
+        new() { Kind = PartSavedKind, Payload = payload };
+
+    public Part? AsPartSaved() =>
+        Kind == PartSavedKind ? PayloadAs<Part>() : null;
+
+    public const string PartCategorySavedKind = "partCategorySaved";
+
+    public static CommandResult ForPartCategorySaved(PartCategory payload) =>
+        new() { Kind = PartCategorySavedKind, Payload = payload };
+
+    public PartCategory? AsPartCategorySaved() =>
+        Kind == PartCategorySavedKind ? PayloadAs<PartCategory>() : null;
+
+    public const string DesktopAccountCreatedKind = "desktopAccountCreated";
+
+    public static CommandResult ForDesktopAccountCreated(DesktopAccountSummary payload) =>
+        new() { Kind = DesktopAccountCreatedKind, Payload = payload };
+
+    public DesktopAccountSummary? AsDesktopAccountCreated() =>
+        Kind == DesktopAccountCreatedKind ? PayloadAs<DesktopAccountSummary>() : null;
+
+    public const string DesktopAccountUpdatedKind = "desktopAccountUpdated";
+
+    public static CommandResult ForDesktopAccountUpdated(DesktopAccountSummary payload) =>
+        new() { Kind = DesktopAccountUpdatedKind, Payload = payload };
+
+    public DesktopAccountSummary? AsDesktopAccountUpdated() =>
+        Kind == DesktopAccountUpdatedKind ? PayloadAs<DesktopAccountSummary>() : null;
+
+    public const string DesktopAccountDeactivatedKind = "desktopAccountDeactivated";
+
+    public static CommandResult ForDesktopAccountDeactivated(DesktopAccountSummary payload) =>
+        new() { Kind = DesktopAccountDeactivatedKind, Payload = payload };
+
+    public DesktopAccountSummary? AsDesktopAccountDeactivated() =>
+        Kind == DesktopAccountDeactivatedKind ? PayloadAs<DesktopAccountSummary>() : null;
+
+    internal T? PayloadAs<T>() => Payload switch
+    {
+        T typed => typed,
+        JsonElement element => element.Deserialize<T>(Converter.Settings),
+        _ => default,
+    };
+}
+
 public partial class Event
 {
     [JsonPropertyName("kind")]
@@ -214,62 +343,6 @@ public partial class Event
 
     public AuthorizationPolicyChangeNotice? AsAuthorizationPolicyChangedEvent() =>
         Kind == AuthorizationPolicyChangedEventKind ? PayloadAs<AuthorizationPolicyChangeNotice>() : null;
-
-    public const string UpdateStateEventKind = "eitmad.update.state.event.v1";
-
-    public static Event ForUpdateStateEvent(UpdateState payload) =>
-        new() { Kind = UpdateStateEventKind, Payload = payload };
-
-    public UpdateState? AsUpdateStateEvent() =>
-        Kind == UpdateStateEventKind ? PayloadAs<UpdateState>() : null;
-
-    public const string SyncStatusEventKind = "eitmad.sync.status.event.v1";
-
-    public static Event ForSyncStatusEvent(SyncStatus payload) =>
-        new() { Kind = SyncStatusEventKind, Payload = payload };
-
-    public SyncStatus? AsSyncStatusEvent() =>
-        Kind == SyncStatusEventKind ? PayloadAs<SyncStatus>() : null;
-
-    public const string RecordChangedEventKind = "eitmad.record.changed.event.v1";
-
-    public static Event ForRecordChangedEvent(RecordChangeNotice payload) =>
-        new() { Kind = RecordChangedEventKind, Payload = payload };
-
-    public RecordChangeNotice? AsRecordChangedEvent() =>
-        Kind == RecordChangedEventKind ? PayloadAs<RecordChangeNotice>() : null;
-
-    public const string BackgroundJobStatusEventKind = "eitmad.background-job.status.event.v1";
-
-    public static Event ForBackgroundJobStatusEvent(BackgroundJobStatus payload) =>
-        new() { Kind = BackgroundJobStatusEventKind, Payload = payload };
-
-    public BackgroundJobStatus? AsBackgroundJobStatusEvent() =>
-        Kind == BackgroundJobStatusEventKind ? PayloadAs<BackgroundJobStatus>() : null;
-
-    public const string NotificationEventKind = "eitmad.notification.event.v1";
-
-    public static Event ForNotificationEvent(Notification payload) =>
-        new() { Kind = NotificationEventKind, Payload = payload };
-
-    public Notification? AsNotificationEvent() =>
-        Kind == NotificationEventKind ? PayloadAs<Notification>() : null;
-
-    public const string ErrorEventKind = "eitmad.error.event.v1";
-
-    public static Event ForErrorEvent(ScopedError payload) =>
-        new() { Kind = ErrorEventKind, Payload = payload };
-
-    public ScopedError? AsErrorEvent() =>
-        Kind == ErrorEventKind ? PayloadAs<ScopedError>() : null;
-
-    public const string ReferenceMarkerChangedEventKind = "eitmad.reference-marker.changed.event.v1";
-
-    public static Event ForReferenceMarkerChangedEvent(ReferenceMarkerChangeNotice payload) =>
-        new() { Kind = ReferenceMarkerChangedEventKind, Payload = payload };
-
-    public ReferenceMarkerChangeNotice? AsReferenceMarkerChangedEvent() =>
-        Kind == ReferenceMarkerChangedEventKind ? PayloadAs<ReferenceMarkerChangeNotice>() : null;
 
     public const string CustomerChangedEventKind = "eitmad.customer.changed.event.v1";
 
@@ -538,30 +611,6 @@ public partial class Query
     public ListScopeRelationships? AsAuthorizationRelationshipsList() =>
         Kind == AuthorizationRelationshipsListKind ? PayloadAs<ListScopeRelationships>() : null;
 
-    public const string UpdateGetStateKind = "eitmad.update.get-state.v1";
-
-    public static Query ForUpdateGetState(GetUpdateState payload) =>
-        new() { Kind = UpdateGetStateKind, Payload = payload };
-
-    public GetUpdateState? AsUpdateGetState() =>
-        Kind == UpdateGetStateKind ? PayloadAs<GetUpdateState>() : null;
-
-    public const string SyncGetStatusKind = "eitmad.sync.get-status.v1";
-
-    public static Query ForSyncGetStatus(GetSyncStatus payload) =>
-        new() { Kind = SyncGetStatusKind, Payload = payload };
-
-    public GetSyncStatus? AsSyncGetStatus() =>
-        Kind == SyncGetStatusKind ? PayloadAs<GetSyncStatus>() : null;
-
-    public const string ReferenceMarkerListKind = "eitmad.reference-marker.list.v1";
-
-    public static Query ForReferenceMarkerList(ListReferenceMarkers payload) =>
-        new() { Kind = ReferenceMarkerListKind, Payload = payload };
-
-    public ListReferenceMarkers? AsReferenceMarkerList() =>
-        Kind == ReferenceMarkerListKind ? PayloadAs<ListReferenceMarkers>() : null;
-
     public const string CustomerGetKind = "eitmad.customer.get.v1";
 
     public static Query ForCustomerGet(GetCustomer payload) =>
@@ -739,30 +788,6 @@ public partial class QueryResult
     public RelationshipPage? AsScopeRelationships() =>
         Kind == ScopeRelationshipsKind ? PayloadAs<RelationshipPage>() : null;
 
-    public const string UpdateStateKind = "updateState";
-
-    public static QueryResult ForUpdateState(UpdateState payload) =>
-        new() { Kind = UpdateStateKind, Payload = payload };
-
-    public UpdateState? AsUpdateState() =>
-        Kind == UpdateStateKind ? PayloadAs<UpdateState>() : null;
-
-    public const string SyncStatusKind = "syncStatus";
-
-    public static QueryResult ForSyncStatus(SyncStatus payload) =>
-        new() { Kind = SyncStatusKind, Payload = payload };
-
-    public SyncStatus? AsSyncStatus() =>
-        Kind == SyncStatusKind ? PayloadAs<SyncStatus>() : null;
-
-    public const string ReferenceMarkersKind = "referenceMarkers";
-
-    public static QueryResult ForReferenceMarkers(ReferenceMarkerPage payload) =>
-        new() { Kind = ReferenceMarkersKind, Payload = payload };
-
-    public ReferenceMarkerPage? AsReferenceMarkers() =>
-        Kind == ReferenceMarkersKind ? PayloadAs<ReferenceMarkerPage>() : null;
-
     public const string CustomerKind = "customer";
 
     public static QueryResult ForCustomer(Customer payload) =>
@@ -907,104 +932,6 @@ public partial class QueryResult
     };
 }
 
-public partial class ServerClientMessage
-{
-    [JsonPropertyName("kind")]
-    public string Kind { get; set; } = string.Empty;
-
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    [JsonPropertyName("payload")]
-    public object? Payload { get; set; }
-
-    public const string ServerHelloKind = "eitmad.server.hello.v1";
-
-    public static ServerClientMessage ForServerHello(ServerConnectionHello payload) =>
-        new() { Kind = ServerHelloKind, Payload = payload };
-
-    public ServerConnectionHello? AsServerHello() =>
-        Kind == ServerHelloKind ? PayloadAs<ServerConnectionHello>() : null;
-
-    public const string ServerSyncKind = "eitmad.server.sync.v1";
-
-    public static ServerClientMessage ForServerSync(SyncTransportFrame payload) =>
-        new() { Kind = ServerSyncKind, Payload = payload };
-
-    public SyncTransportFrame? AsServerSync() =>
-        Kind == ServerSyncKind ? PayloadAs<SyncTransportFrame>() : null;
-
-    public const string ServerSubscribeKind = "eitmad.server.subscribe.v1";
-
-    public static ServerClientMessage ForServerSubscribe(ServerSubscriptionRequest payload) =>
-        new() { Kind = ServerSubscribeKind, Payload = payload };
-
-    public ServerSubscriptionRequest? AsServerSubscribe() =>
-        Kind == ServerSubscribeKind ? PayloadAs<ServerSubscriptionRequest>() : null;
-
-    public const string ServerAcknowledgeKind = "eitmad.server.acknowledge.v1";
-
-    public static ServerClientMessage ForServerAcknowledge(ServerSubscriptionAcknowledgement payload) =>
-        new() { Kind = ServerAcknowledgeKind, Payload = payload };
-
-    public ServerSubscriptionAcknowledgement? AsServerAcknowledge() =>
-        Kind == ServerAcknowledgeKind ? PayloadAs<ServerSubscriptionAcknowledgement>() : null;
-
-    internal T? PayloadAs<T>() => Payload switch
-    {
-        T typed => typed,
-        JsonElement element => element.Deserialize<T>(Converter.Settings),
-        _ => default,
-    };
-}
-
-public partial class ServerMessage
-{
-    [JsonPropertyName("kind")]
-    public string Kind { get; set; } = string.Empty;
-
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    [JsonPropertyName("payload")]
-    public object? Payload { get; set; }
-
-    public const string ServerHelloAcceptedKind = "eitmad.server.hello-accepted.v1";
-
-    public static ServerMessage ForServerHelloAccepted(PeerHello payload) =>
-        new() { Kind = ServerHelloAcceptedKind, Payload = payload };
-
-    public PeerHello? AsServerHelloAccepted() =>
-        Kind == ServerHelloAcceptedKind ? PayloadAs<PeerHello>() : null;
-
-    public const string ServerSyncMessageKind = "eitmad.server.sync-message.v1";
-
-    public static ServerMessage ForServerSyncMessage(SyncMessage payload) =>
-        new() { Kind = ServerSyncMessageKind, Payload = payload };
-
-    public SyncMessage? AsServerSyncMessage() =>
-        Kind == ServerSyncMessageKind ? PayloadAs<SyncMessage>() : null;
-
-    public const string ServerEventKind = "eitmad.server.event.v1";
-
-    public static ServerMessage ForServerEvent(ServerSubscriptionEvent payload) =>
-        new() { Kind = ServerEventKind, Payload = payload };
-
-    public ServerSubscriptionEvent? AsServerEvent() =>
-        Kind == ServerEventKind ? PayloadAs<ServerSubscriptionEvent>() : null;
-
-    public const string ServerFailureKind = "eitmad.server.failure.v1";
-
-    public static ServerMessage ForServerFailure(ServerFailure payload) =>
-        new() { Kind = ServerFailureKind, Payload = payload };
-
-    public ServerFailure? AsServerFailure() =>
-        Kind == ServerFailureKind ? PayloadAs<ServerFailure>() : null;
-
-    internal T? PayloadAs<T>() => Payload switch
-    {
-        T typed => typed,
-        JsonElement element => element.Deserialize<T>(Converter.Settings),
-        _ => default,
-    };
-}
-
 public partial class Subscription
 {
     [JsonPropertyName("kind")]
@@ -1037,62 +964,6 @@ public partial class Subscription
 
     public AuthorizationPolicyChanges? AsAuthorizationPolicyChangedSubscribe() =>
         Kind == AuthorizationPolicyChangedSubscribeKind ? PayloadAs<AuthorizationPolicyChanges>() : null;
-
-    public const string UpdateStateSubscribeKind = "eitmad.update.state.subscribe.v1";
-
-    public static Subscription ForUpdateStateSubscribe(UpdateStateChanges payload) =>
-        new() { Kind = UpdateStateSubscribeKind, Payload = payload };
-
-    public UpdateStateChanges? AsUpdateStateSubscribe() =>
-        Kind == UpdateStateSubscribeKind ? PayloadAs<UpdateStateChanges>() : null;
-
-    public const string SyncStatusSubscribeKind = "eitmad.sync.status.subscribe.v1";
-
-    public static Subscription ForSyncStatusSubscribe(SyncStatusChanges payload) =>
-        new() { Kind = SyncStatusSubscribeKind, Payload = payload };
-
-    public SyncStatusChanges? AsSyncStatusSubscribe() =>
-        Kind == SyncStatusSubscribeKind ? PayloadAs<SyncStatusChanges>() : null;
-
-    public const string RecordChangedSubscribeKind = "eitmad.record.changed.subscribe.v1";
-
-    public static Subscription ForRecordChangedSubscribe(RecordChanges payload) =>
-        new() { Kind = RecordChangedSubscribeKind, Payload = payload };
-
-    public RecordChanges? AsRecordChangedSubscribe() =>
-        Kind == RecordChangedSubscribeKind ? PayloadAs<RecordChanges>() : null;
-
-    public const string BackgroundJobStatusSubscribeKind = "eitmad.background-job.status.subscribe.v1";
-
-    public static Subscription ForBackgroundJobStatusSubscribe(BackgroundJobChanges payload) =>
-        new() { Kind = BackgroundJobStatusSubscribeKind, Payload = payload };
-
-    public BackgroundJobChanges? AsBackgroundJobStatusSubscribe() =>
-        Kind == BackgroundJobStatusSubscribeKind ? PayloadAs<BackgroundJobChanges>() : null;
-
-    public const string NotificationSubscribeKind = "eitmad.notification.subscribe.v1";
-
-    public static Subscription ForNotificationSubscribe(Notifications payload) =>
-        new() { Kind = NotificationSubscribeKind, Payload = payload };
-
-    public Notifications? AsNotificationSubscribe() =>
-        Kind == NotificationSubscribeKind ? PayloadAs<Notifications>() : null;
-
-    public const string ErrorSubscribeKind = "eitmad.error.subscribe.v1";
-
-    public static Subscription ForErrorSubscribe(Errors payload) =>
-        new() { Kind = ErrorSubscribeKind, Payload = payload };
-
-    public Errors? AsErrorSubscribe() =>
-        Kind == ErrorSubscribeKind ? PayloadAs<Errors>() : null;
-
-    public const string ReferenceMarkerChangedSubscribeKind = "eitmad.reference-marker.changed.subscribe.v1";
-
-    public static Subscription ForReferenceMarkerChangedSubscribe(ReferenceMarkerChanges payload) =>
-        new() { Kind = ReferenceMarkerChangedSubscribeKind, Payload = payload };
-
-    public ReferenceMarkerChanges? AsReferenceMarkerChangedSubscribe() =>
-        Kind == ReferenceMarkerChangedSubscribeKind ? PayloadAs<ReferenceMarkerChanges>() : null;
 
     public const string CustomerChangedSubscribeKind = "eitmad.customer.changed.subscribe.v1";
 
@@ -1142,132 +1013,7 @@ public partial class Subscription
     };
 }
 
-public partial class SyncMessage
-{
-    [JsonPropertyName("kind")]
-    public string Kind { get; set; } = string.Empty;
-
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    [JsonPropertyName("payload")]
-    public object? Payload { get; set; }
-
-    public const string SyncNegotiateKind = "eitmad.sync.negotiate.v1";
-
-    public static SyncMessage ForSyncNegotiate(SyncNegotiation payload) =>
-        new() { Kind = SyncNegotiateKind, Payload = payload };
-
-    public SyncNegotiation? AsSyncNegotiate() =>
-        Kind == SyncNegotiateKind ? PayloadAs<SyncNegotiation>() : null;
-
-    public const string SyncPullKind = "eitmad.sync.pull.v1";
-
-    public static SyncMessage ForSyncPull(PullRequest payload) =>
-        new() { Kind = SyncPullKind, Payload = payload };
-
-    public PullRequest? AsSyncPull() =>
-        Kind == SyncPullKind ? PayloadAs<PullRequest>() : null;
-
-    public const string SyncChangesKind = "eitmad.sync.changes.v1";
-
-    public static SyncMessage ForSyncChanges(ChangeBatch payload) =>
-        new() { Kind = SyncChangesKind, Payload = payload };
-
-    public ChangeBatch? AsSyncChanges() =>
-        Kind == SyncChangesKind ? PayloadAs<ChangeBatch>() : null;
-
-    public const string SyncSubmitLocalKind = "eitmad.sync.submit-local.v1";
-
-    public static SyncMessage ForSyncSubmitLocal(LocalChangeSubmission payload) =>
-        new() { Kind = SyncSubmitLocalKind, Payload = payload };
-
-    public LocalChangeSubmission? AsSyncSubmitLocal() =>
-        Kind == SyncSubmitLocalKind ? PayloadAs<LocalChangeSubmission>() : null;
-
-    public const string SyncLocalResultKind = "eitmad.sync.local-result.v1";
-
-    public static SyncMessage ForSyncLocalResult(LocalChangeResult payload) =>
-        new() { Kind = SyncLocalResultKind, Payload = payload };
-
-    public LocalChangeResult? AsSyncLocalResult() =>
-        Kind == SyncLocalResultKind ? PayloadAs<LocalChangeResult>() : null;
-
-    public const string SyncReconcileKind = "eitmad.sync.reconcile.v1";
-
-    public static SyncMessage ForSyncReconcile(ReconciliationDelivery payload) =>
-        new() { Kind = SyncReconcileKind, Payload = payload };
-
-    public ReconciliationDelivery? AsSyncReconcile() =>
-        Kind == SyncReconcileKind ? PayloadAs<ReconciliationDelivery>() : null;
-
-    public const string SyncAcknowledgeKind = "eitmad.sync.acknowledge.v1";
-
-    public static SyncMessage ForSyncAcknowledge(BatchAcknowledgement payload) =>
-        new() { Kind = SyncAcknowledgeKind, Payload = payload };
-
-    public BatchAcknowledgement? AsSyncAcknowledge() =>
-        Kind == SyncAcknowledgeKind ? PayloadAs<BatchAcknowledgement>() : null;
-
-    public const string SyncConflictKind = "eitmad.sync.conflict.v1";
-
-    public static SyncMessage ForSyncConflict(ConflictNotice payload) =>
-        new() { Kind = SyncConflictKind, Payload = payload };
-
-    public ConflictNotice? AsSyncConflict() =>
-        Kind == SyncConflictKind ? PayloadAs<ConflictNotice>() : null;
-
-    public const string SyncBackpressureKind = "eitmad.sync.backpressure.v1";
-
-    public static SyncMessage ForSyncBackpressure(RetryAfter payload) =>
-        new() { Kind = SyncBackpressureKind, Payload = payload };
-
-    public RetryAfter? AsSyncBackpressure() =>
-        Kind == SyncBackpressureKind ? PayloadAs<RetryAfter>() : null;
-
-    public const string SyncSnapshotManifestKind = "eitmad.sync.snapshot-manifest.v1";
-
-    public static SyncMessage ForSyncSnapshotManifest(SnapshotManifest payload) =>
-        new() { Kind = SyncSnapshotManifestKind, Payload = payload };
-
-    public SnapshotManifest? AsSyncSnapshotManifest() =>
-        Kind == SyncSnapshotManifestKind ? PayloadAs<SnapshotManifest>() : null;
-
-    public const string SyncSnapshotChunkKind = "eitmad.sync.snapshot-chunk.v1";
-
-    public static SyncMessage ForSyncSnapshotChunk(SnapshotChunk payload) =>
-        new() { Kind = SyncSnapshotChunkKind, Payload = payload };
-
-    public SnapshotChunk? AsSyncSnapshotChunk() =>
-        Kind == SyncSnapshotChunkKind ? PayloadAs<SnapshotChunk>() : null;
-
-    public const string SyncSnapshotCompleteKind = "eitmad.sync.snapshot-complete.v1";
-
-    public static SyncMessage ForSyncSnapshotComplete(SnapshotCompletion payload) =>
-        new() { Kind = SyncSnapshotCompleteKind, Payload = payload };
-
-    public SnapshotCompletion? AsSyncSnapshotComplete() =>
-        Kind == SyncSnapshotCompleteKind ? PayloadAs<SnapshotCompletion>() : null;
-
-    public const string SyncSnapshotRequiredKind = "eitmad.sync.snapshot-required.v1";
-
-    public static SyncMessage ForSyncSnapshotRequired(SnapshotRequired payload) =>
-        new() { Kind = SyncSnapshotRequiredKind, Payload = payload };
-
-    public SnapshotRequired? AsSyncSnapshotRequired() =>
-        Kind == SyncSnapshotRequiredKind ? PayloadAs<SnapshotRequired>() : null;
-
-    internal T? PayloadAs<T>() => Payload switch
-    {
-        T typed => typed,
-        JsonElement element => element.Deserialize<T>(Converter.Settings),
-        _ => default,
-    };
-}
-
 public partial class AuthorizationPolicyChanges
-{
-}
-
-public partial class BackgroundJobChanges
 {
 }
 
@@ -1276,10 +1022,6 @@ public partial class ConfigurationChanges
 }
 
 public partial class CustomerChanges
-{
-}
-
-public partial class Errors
 {
 }
 
@@ -1295,14 +1037,6 @@ public partial class GetEffectivePermissions
 {
 }
 
-public partial class GetSyncStatus
-{
-}
-
-public partial class GetUpdateState
-{
-}
-
 public partial class ListDesktopAccounts
 {
 }
@@ -1315,10 +1049,6 @@ public partial class MaterialChanges
 {
 }
 
-public partial class Notifications
-{
-}
-
 public partial class PartChanges
 {
 }
@@ -1328,21 +1058,5 @@ public partial class PermissionChanges
 }
 
 public partial class ProductChanges
-{
-}
-
-public partial class RecordChanges
-{
-}
-
-public partial class ReferenceMarkerChanges
-{
-}
-
-public partial class SyncStatusChanges
-{
-}
-
-public partial class UpdateStateChanges
 {
 }

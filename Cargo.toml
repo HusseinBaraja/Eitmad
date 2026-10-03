@@ -12,7 +12,6 @@ members = [
     "crates/product",
     "crates/furniture",
     "crates/observability-audit",
-    "crates/reference-marker",
     "crates/secret-storage",
     "crates/server-connection",
     "crates/storage",

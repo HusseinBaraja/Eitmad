@@ -25,8 +25,8 @@
        <TextBlock Text="{Binding Dimensions}" FlowDirection="LeftToRight" TextAlignment="Right"/>
        <WrapPanel Margin="0,10,0,0">
         <StackPanel MinWidth="100" Margin="0,0,0,8"><TextBlock Text="الكمية"/><TextBlock Text="{Binding Quantity}" FontSize="18"/></StackPanel>
-        <StackPanel MinWidth="160" Margin="0,0,0,8"><TextBlock Text="سعر الوحدة"/><controls:AmountDisplay AmountText="{Binding UnitPrice, StringFormat=N0}" UnitText="YER" FontSize="18" HorizontalAlignment="Right"/></StackPanel>
-        <StackPanel MinWidth="170" Margin="0,0,0,8"><TextBlock Text="الإجمالي"/><controls:AmountDisplay AmountText="{Binding LineTotal, StringFormat=N0}" UnitText="YER" FontSize="22" FontWeight="Bold" HorizontalAlignment="Right"/></StackPanel>
+        <StackPanel MinWidth="160" Margin="0,0,0,8"><TextBlock Text="سعر الوحدة"/><controls:AmountDisplay AmountText="{Binding UnitPrice, StringFormat=N0}" UnitText="ر.ي" FontSize="18" HorizontalAlignment="Right"/></StackPanel>
+        <StackPanel MinWidth="170" Margin="0,0,0,8"><TextBlock Text="الإجمالي"/><controls:AmountDisplay AmountText="{Binding LineTotal, StringFormat=N0}" UnitText="ر.ي" FontSize="22" FontWeight="Bold" HorizontalAlignment="Right"/></StackPanel>
        </WrapPanel>
        <WrapPanel>
         <Button Content="تعديل" Style="{StaticResource SecondaryButton}" Click="EditClick" AutomationProperties.Name="{Binding Name, StringFormat=تعديل {0}}" Margin="0,4,0,0"/>
@@ -77,21 +77,21 @@
   </StackPanel>
   <Border BorderBrush="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}" BorderThickness="0,2,0,0" Padding="0,20" Margin="0,28,0,0">
    <StackPanel>
-    <Grid Margin="0,0,0,16" FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Grid.Column="1" Text="المجموع الفرعي" FlowDirection="RightToLeft" FontSize="18"/><controls:AmountDisplay AmountText="{Binding Subtotal, StringFormat=N0}" UnitText="YER" FontSize="20" HorizontalAlignment="Left"/></Grid>
+    <Grid Margin="0,0,0,16" FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Grid.Column="1" Text="المجموع الفرعي" FlowDirection="RightToLeft" FontSize="18"/><controls:AmountDisplay AmountText="{Binding Subtotal, StringFormat=N0}" UnitText="ر.ي" FontSize="20" HorizontalAlignment="Left"/></Grid>
     <controls:FormField Label="الخصم" ErrorText="{Binding DiscountError}" LabelTarget="{Binding ElementName=DiscountInput}" HorizontalAlignment="Right" Margin="0,0,0,12">
      <StackPanel Orientation="Horizontal" FlowDirection="LeftToRight">
       <TextBox x:Name="DiscountInput" Width="100" Text="{Binding DiscountInput, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" AutomationProperties.Name="نسبة الخصم" TextAlignment="Center"/>
       <TextBlock Text="%" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="18"/>
      </StackPanel>
     </controls:FormField>
-    <Grid Margin="0,0,0,16" FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Grid.Column="1" Text="قيمة الخصم" FlowDirection="RightToLeft" FontSize="18"/><controls:AmountDisplay AmountText="{Binding DiscountAmountLabel}" UnitText="YER" FontSize="20" HorizontalAlignment="Left"/></Grid>
+    <Grid Margin="0,0,0,16" FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Grid.Column="1" Text="قيمة الخصم" FlowDirection="RightToLeft" FontSize="18"/><controls:AmountDisplay AmountText="{Binding DiscountAmountLabel}" UnitText="ر.ي" FontSize="20" HorizontalAlignment="Left"/></Grid>
     <StackPanel Margin="0,0,0,16" Visibility="{Binding RequiresDiscountApproval, Converter={StaticResource BooleanToVisibility}}">
      <controls:StatusBadge Text="{Binding DiscountStatus}" Tone="Neutral" HorizontalAlignment="Right" AutomationProperties.LiveSetting="Polite"/>
      <TextBlock Text="{Binding DiscountGuidance}" TextWrapping="Wrap" Margin="0,8"/>
      <Button Content="طلب موافقة" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Click="RequestApprovalClick" AutomationProperties.Name="طلب موافقة" Visibility="{Binding CanRequestDiscountApproval, Converter={StaticResource BooleanToVisibility}}"/>
     </StackPanel>
     <TextBlock Text="{Binding TotalHeading}" FontSize="22" FontWeight="Bold"/>
-    <controls:AmountDisplay AmountText="{Binding FinalTotalLabel}" UnitText="YER" FontSize="36" FontWeight="Bold" HorizontalAlignment="Left" Margin="0,8,0,18"/>
+    <controls:AmountDisplay AmountText="{Binding FinalTotalLabel}" UnitText="ر.ي" FontSize="36" FontWeight="Bold" HorizontalAlignment="Left" Margin="0,8,0,18"/>
     <WrapPanel HorizontalAlignment="Left">
      <Button Content="حفظ عرض السعر" Style="{StaticResource PrimaryButton}" Click="SaveQuotationClick" IsEnabled="{Binding CanSaveQuotation}" AutomationProperties.Name="حفظ عرض السعر"/>
      <Button x:Name="PrintPreviewButton" Content="طباعة" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="PrintPreviewClick" IsEnabled="{Binding CanPreviewCustomer}" AutomationProperties.Name="طباعة"/>

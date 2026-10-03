@@ -5,9 +5,6 @@ public enum Command: Codable, Sendable {
     case configUpdate(UpdateConfiguration)
     case authorizationRelationshipGrant(GrantScopeRelationship)
     case authorizationRelationshipRevoke(RevokeScopeRelationship)
-    case operationCancel(CancelOperation)
-    case updateReportInstallerOutcome(ReportInstallerOutcome)
-    case referenceMarkerUpsert(UpsertReferenceMarker)
     case customerCreate(CreateCustomer)
     case customerUpdate(UpdateCustomer)
     case materialCategorySave(SaveMaterialCategory)
@@ -27,9 +24,6 @@ public enum Command: Codable, Sendable {
         case configUpdate = "eitmad.config.update.v1"
         case authorizationRelationshipGrant = "eitmad.authorization.relationship.grant.v1"
         case authorizationRelationshipRevoke = "eitmad.authorization.relationship.revoke.v1"
-        case operationCancel = "eitmad.operation.cancel.v1"
-        case updateReportInstallerOutcome = "eitmad.update.report-installer-outcome.v1"
-        case referenceMarkerUpsert = "eitmad.reference-marker.upsert.v1"
         case customerCreate = "eitmad.customer.create.v1"
         case customerUpdate = "eitmad.customer.update.v1"
         case materialCategorySave = "eitmad.material-category.save.v1"
@@ -57,9 +51,6 @@ public enum Command: Codable, Sendable {
         case .configUpdate: self = .configUpdate(try container.decode(UpdateConfiguration.self, forKey: .payload))
         case .authorizationRelationshipGrant: self = .authorizationRelationshipGrant(try container.decode(GrantScopeRelationship.self, forKey: .payload))
         case .authorizationRelationshipRevoke: self = .authorizationRelationshipRevoke(try container.decode(RevokeScopeRelationship.self, forKey: .payload))
-        case .operationCancel: self = .operationCancel(try container.decode(CancelOperation.self, forKey: .payload))
-        case .updateReportInstallerOutcome: self = .updateReportInstallerOutcome(try container.decode(ReportInstallerOutcome.self, forKey: .payload))
-        case .referenceMarkerUpsert: self = .referenceMarkerUpsert(try container.decode(UpsertReferenceMarker.self, forKey: .payload))
         case .customerCreate: self = .customerCreate(try container.decode(CreateCustomer.self, forKey: .payload))
         case .customerUpdate: self = .customerUpdate(try container.decode(UpdateCustomer.self, forKey: .payload))
         case .materialCategorySave: self = .materialCategorySave(try container.decode(SaveMaterialCategory.self, forKey: .payload))
@@ -88,15 +79,6 @@ public enum Command: Codable, Sendable {
             try container.encode(payload, forKey: .payload)
         case .authorizationRelationshipRevoke(let payload):
             try container.encode(Kind.authorizationRelationshipRevoke, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        case .operationCancel(let payload):
-            try container.encode(Kind.operationCancel, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        case .updateReportInstallerOutcome(let payload):
-            try container.encode(Kind.updateReportInstallerOutcome, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        case .referenceMarkerUpsert(let payload):
-            try container.encode(Kind.referenceMarkerUpsert, forKey: .kind)
             try container.encode(payload, forKey: .payload)
         case .customerCreate(let payload):
             try container.encode(Kind.customerCreate, forKey: .kind)
@@ -143,17 +125,134 @@ public enum Command: Codable, Sendable {
         }
     }
 }
+public enum CommandResult: Codable, Sendable {
+    case configurationUpdated(ConfigSnapshot)
+    case relationshipGranted(RelationshipMutationResult)
+    case relationshipRevoked(RelationshipMutationResult)
+    case customerCreated(CustomerMutationResult)
+    case customerUpdated(CustomerMutationResult)
+    case materialCategorySaved(MaterialCategory)
+    case materialUnitSaved(MaterialUnit)
+    case materialSaved(Material)
+    case furnitureSaved(Furniture)
+    case furnitureCategorySaved(FurnitureCategory)
+    case productSaved(Product)
+    case productCategorySaved(ProductCategory)
+    case partSaved(Part)
+    case partCategorySaved(PartCategory)
+    case desktopAccountCreated(DesktopAccountSummary)
+    case desktopAccountUpdated(DesktopAccountSummary)
+    case desktopAccountDeactivated(DesktopAccountSummary)
+
+    private enum Kind: String, Codable, Sendable {
+        case configurationUpdated = "configurationUpdated"
+        case relationshipGranted = "relationshipGranted"
+        case relationshipRevoked = "relationshipRevoked"
+        case customerCreated = "customerCreated"
+        case customerUpdated = "customerUpdated"
+        case materialCategorySaved = "materialCategorySaved"
+        case materialUnitSaved = "materialUnitSaved"
+        case materialSaved = "materialSaved"
+        case furnitureSaved = "furnitureSaved"
+        case furnitureCategorySaved = "furnitureCategorySaved"
+        case productSaved = "productSaved"
+        case productCategorySaved = "productCategorySaved"
+        case partSaved = "partSaved"
+        case partCategorySaved = "partCategorySaved"
+        case desktopAccountCreated = "desktopAccountCreated"
+        case desktopAccountUpdated = "desktopAccountUpdated"
+        case desktopAccountDeactivated = "desktopAccountDeactivated"
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case kind
+        case payload
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        switch try container.decode(Kind.self, forKey: .kind) {
+        case .configurationUpdated: self = .configurationUpdated(try container.decode(ConfigSnapshot.self, forKey: .payload))
+        case .relationshipGranted: self = .relationshipGranted(try container.decode(RelationshipMutationResult.self, forKey: .payload))
+        case .relationshipRevoked: self = .relationshipRevoked(try container.decode(RelationshipMutationResult.self, forKey: .payload))
+        case .customerCreated: self = .customerCreated(try container.decode(CustomerMutationResult.self, forKey: .payload))
+        case .customerUpdated: self = .customerUpdated(try container.decode(CustomerMutationResult.self, forKey: .payload))
+        case .materialCategorySaved: self = .materialCategorySaved(try container.decode(MaterialCategory.self, forKey: .payload))
+        case .materialUnitSaved: self = .materialUnitSaved(try container.decode(MaterialUnit.self, forKey: .payload))
+        case .materialSaved: self = .materialSaved(try container.decode(Material.self, forKey: .payload))
+        case .furnitureSaved: self = .furnitureSaved(try container.decode(Furniture.self, forKey: .payload))
+        case .furnitureCategorySaved: self = .furnitureCategorySaved(try container.decode(FurnitureCategory.self, forKey: .payload))
+        case .productSaved: self = .productSaved(try container.decode(Product.self, forKey: .payload))
+        case .productCategorySaved: self = .productCategorySaved(try container.decode(ProductCategory.self, forKey: .payload))
+        case .partSaved: self = .partSaved(try container.decode(Part.self, forKey: .payload))
+        case .partCategorySaved: self = .partCategorySaved(try container.decode(PartCategory.self, forKey: .payload))
+        case .desktopAccountCreated: self = .desktopAccountCreated(try container.decode(DesktopAccountSummary.self, forKey: .payload))
+        case .desktopAccountUpdated: self = .desktopAccountUpdated(try container.decode(DesktopAccountSummary.self, forKey: .payload))
+        case .desktopAccountDeactivated: self = .desktopAccountDeactivated(try container.decode(DesktopAccountSummary.self, forKey: .payload))
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .configurationUpdated(let payload):
+            try container.encode(Kind.configurationUpdated, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .relationshipGranted(let payload):
+            try container.encode(Kind.relationshipGranted, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .relationshipRevoked(let payload):
+            try container.encode(Kind.relationshipRevoked, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .customerCreated(let payload):
+            try container.encode(Kind.customerCreated, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .customerUpdated(let payload):
+            try container.encode(Kind.customerUpdated, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .materialCategorySaved(let payload):
+            try container.encode(Kind.materialCategorySaved, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .materialUnitSaved(let payload):
+            try container.encode(Kind.materialUnitSaved, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .materialSaved(let payload):
+            try container.encode(Kind.materialSaved, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .furnitureSaved(let payload):
+            try container.encode(Kind.furnitureSaved, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .furnitureCategorySaved(let payload):
+            try container.encode(Kind.furnitureCategorySaved, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .productSaved(let payload):
+            try container.encode(Kind.productSaved, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .productCategorySaved(let payload):
+            try container.encode(Kind.productCategorySaved, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .partSaved(let payload):
+            try container.encode(Kind.partSaved, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .partCategorySaved(let payload):
+            try container.encode(Kind.partCategorySaved, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .desktopAccountCreated(let payload):
+            try container.encode(Kind.desktopAccountCreated, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .desktopAccountUpdated(let payload):
+            try container.encode(Kind.desktopAccountUpdated, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .desktopAccountDeactivated(let payload):
+            try container.encode(Kind.desktopAccountDeactivated, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        }
+    }
+}
 public enum Event: Codable, Sendable {
     case configChangedEvent(ConfigSnapshot)
     case permissionsChangedEvent(EffectivePermissions)
     case authorizationPolicyChangedEvent(AuthorizationPolicyChangeNotice)
-    case updateStateEvent(UpdateState)
-    case syncStatusEvent(SyncStatus)
-    case recordChangedEvent(RecordChangeNotice)
-    case backgroundJobStatusEvent(BackgroundJobStatus)
-    case notificationEvent(Notification)
-    case errorEvent(ScopedError)
-    case referenceMarkerChangedEvent(ReferenceMarkerChangeNotice)
     case customerChangedEvent(CustomerChangeNotice)
     case materialChangedEvent(MaterialChangeNotice)
     case furnitureChangedEvent(FurnitureChangeNotice)
@@ -164,13 +263,6 @@ public enum Event: Codable, Sendable {
         case configChangedEvent = "eitmad.config.changed.event.v1"
         case permissionsChangedEvent = "eitmad.permissions.changed.event.v1"
         case authorizationPolicyChangedEvent = "eitmad.authorization.policy.changed.event.v1"
-        case updateStateEvent = "eitmad.update.state.event.v1"
-        case syncStatusEvent = "eitmad.sync.status.event.v1"
-        case recordChangedEvent = "eitmad.record.changed.event.v1"
-        case backgroundJobStatusEvent = "eitmad.background-job.status.event.v1"
-        case notificationEvent = "eitmad.notification.event.v1"
-        case errorEvent = "eitmad.error.event.v1"
-        case referenceMarkerChangedEvent = "eitmad.reference-marker.changed.event.v1"
         case customerChangedEvent = "eitmad.customer.changed.event.v1"
         case materialChangedEvent = "eitmad.material.changed.event.v1"
         case furnitureChangedEvent = "eitmad.furniture.changed.event.v1"
@@ -189,13 +281,6 @@ public enum Event: Codable, Sendable {
         case .configChangedEvent: self = .configChangedEvent(try container.decode(ConfigSnapshot.self, forKey: .payload))
         case .permissionsChangedEvent: self = .permissionsChangedEvent(try container.decode(EffectivePermissions.self, forKey: .payload))
         case .authorizationPolicyChangedEvent: self = .authorizationPolicyChangedEvent(try container.decode(AuthorizationPolicyChangeNotice.self, forKey: .payload))
-        case .updateStateEvent: self = .updateStateEvent(try container.decode(UpdateState.self, forKey: .payload))
-        case .syncStatusEvent: self = .syncStatusEvent(try container.decode(SyncStatus.self, forKey: .payload))
-        case .recordChangedEvent: self = .recordChangedEvent(try container.decode(RecordChangeNotice.self, forKey: .payload))
-        case .backgroundJobStatusEvent: self = .backgroundJobStatusEvent(try container.decode(BackgroundJobStatus.self, forKey: .payload))
-        case .notificationEvent: self = .notificationEvent(try container.decode(Notification.self, forKey: .payload))
-        case .errorEvent: self = .errorEvent(try container.decode(ScopedError.self, forKey: .payload))
-        case .referenceMarkerChangedEvent: self = .referenceMarkerChangedEvent(try container.decode(ReferenceMarkerChangeNotice.self, forKey: .payload))
         case .customerChangedEvent: self = .customerChangedEvent(try container.decode(CustomerChangeNotice.self, forKey: .payload))
         case .materialChangedEvent: self = .materialChangedEvent(try container.decode(MaterialChangeNotice.self, forKey: .payload))
         case .furnitureChangedEvent: self = .furnitureChangedEvent(try container.decode(FurnitureChangeNotice.self, forKey: .payload))
@@ -215,27 +300,6 @@ public enum Event: Codable, Sendable {
             try container.encode(payload, forKey: .payload)
         case .authorizationPolicyChangedEvent(let payload):
             try container.encode(Kind.authorizationPolicyChangedEvent, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        case .updateStateEvent(let payload):
-            try container.encode(Kind.updateStateEvent, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        case .syncStatusEvent(let payload):
-            try container.encode(Kind.syncStatusEvent, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        case .recordChangedEvent(let payload):
-            try container.encode(Kind.recordChangedEvent, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        case .backgroundJobStatusEvent(let payload):
-            try container.encode(Kind.backgroundJobStatusEvent, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        case .notificationEvent(let payload):
-            try container.encode(Kind.notificationEvent, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        case .errorEvent(let payload):
-            try container.encode(Kind.errorEvent, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        case .referenceMarkerChangedEvent(let payload):
-            try container.encode(Kind.referenceMarkerChangedEvent, forKey: .kind)
             try container.encode(payload, forKey: .payload)
         case .customerChangedEvent(let payload):
             try container.encode(Kind.customerChangedEvent, forKey: .kind)
@@ -341,7 +405,7 @@ public enum IpcServerMessage: Codable, Sendable {
     case ipcEvent(EventEnvelope)
     case ipcSubscriptionClosed(SubscriptionClosedEnvelope)
     case ipcShutdownResponse(ShutdownResponse)
-    case ipcFailure(IpcFailureResponse)
+    case ipcFailure(IPCFailureResponse)
 
     private enum Kind: String, Codable, Sendable {
         case ipcHandshakeResponse = "eitmad.ipc.handshake-response.v1"
@@ -373,7 +437,7 @@ public enum IpcServerMessage: Codable, Sendable {
         case .ipcEvent: self = .ipcEvent(try container.decode(EventEnvelope.self, forKey: .payload))
         case .ipcSubscriptionClosed: self = .ipcSubscriptionClosed(try container.decode(SubscriptionClosedEnvelope.self, forKey: .payload))
         case .ipcShutdownResponse: self = .ipcShutdownResponse(try container.decode(ShutdownResponse.self, forKey: .payload))
-        case .ipcFailure: self = .ipcFailure(try container.decode(IpcFailureResponse.self, forKey: .payload))
+        case .ipcFailure: self = .ipcFailure(try container.decode(IPCFailureResponse.self, forKey: .payload))
         }
     }
 
@@ -417,9 +481,6 @@ public enum Query: Codable, Sendable {
     case configGet(GetConfiguration)
     case permissionsGetEffective(GetEffectivePermissions)
     case authorizationRelationshipsList(ListScopeRelationships)
-    case updateGetState(GetUpdateState)
-    case syncGetStatus(GetSyncStatus)
-    case referenceMarkerList(ListReferenceMarkers)
     case customerGet(GetCustomer)
     case customerSearch(SearchCustomers)
     case furnitureList(ListFurnitures)
@@ -442,9 +503,6 @@ public enum Query: Codable, Sendable {
         case configGet = "eitmad.config.get.v1"
         case permissionsGetEffective = "eitmad.permissions.get-effective.v1"
         case authorizationRelationshipsList = "eitmad.authorization.relationships.list.v1"
-        case updateGetState = "eitmad.update.get-state.v1"
-        case syncGetStatus = "eitmad.sync.get-status.v1"
-        case referenceMarkerList = "eitmad.reference-marker.list.v1"
         case customerGet = "eitmad.customer.get.v1"
         case customerSearch = "eitmad.customer.search.v1"
         case furnitureList = "eitmad.furniture.list.v1"
@@ -475,9 +533,6 @@ public enum Query: Codable, Sendable {
         case .configGet: self = .configGet(try container.decode(GetConfiguration.self, forKey: .payload))
         case .permissionsGetEffective: self = .permissionsGetEffective(try container.decode(GetEffectivePermissions.self, forKey: .payload))
         case .authorizationRelationshipsList: self = .authorizationRelationshipsList(try container.decode(ListScopeRelationships.self, forKey: .payload))
-        case .updateGetState: self = .updateGetState(try container.decode(GetUpdateState.self, forKey: .payload))
-        case .syncGetStatus: self = .syncGetStatus(try container.decode(GetSyncStatus.self, forKey: .payload))
-        case .referenceMarkerList: self = .referenceMarkerList(try container.decode(ListReferenceMarkers.self, forKey: .payload))
         case .customerGet: self = .customerGet(try container.decode(GetCustomer.self, forKey: .payload))
         case .customerSearch: self = .customerSearch(try container.decode(SearchCustomers.self, forKey: .payload))
         case .furnitureList: self = .furnitureList(try container.decode(ListFurnitures.self, forKey: .payload))
@@ -509,15 +564,6 @@ public enum Query: Codable, Sendable {
             try container.encode(payload, forKey: .payload)
         case .authorizationRelationshipsList(let payload):
             try container.encode(Kind.authorizationRelationshipsList, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        case .updateGetState(let payload):
-            try container.encode(Kind.updateGetState, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        case .syncGetStatus(let payload):
-            try container.encode(Kind.syncGetStatus, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        case .referenceMarkerList(let payload):
-            try container.encode(Kind.referenceMarkerList, forKey: .kind)
             try container.encode(payload, forKey: .payload)
         case .customerGet(let payload):
             try container.encode(Kind.customerGet, forKey: .kind)
@@ -577,9 +623,6 @@ public enum QueryResult: Codable, Sendable {
     case configuration(ConfigSnapshot)
     case effectivePermissions(EffectivePermissions)
     case scopeRelationships(RelationshipPage)
-    case updateState(UpdateState)
-    case syncStatus(SyncStatus)
-    case referenceMarkers(ReferenceMarkerPage)
     case customer(Customer)
     case customers(CustomerPage)
     case furnitures(FurniturePage)
@@ -602,9 +645,6 @@ public enum QueryResult: Codable, Sendable {
         case configuration = "configuration"
         case effectivePermissions = "effectivePermissions"
         case scopeRelationships = "scopeRelationships"
-        case updateState = "updateState"
-        case syncStatus = "syncStatus"
-        case referenceMarkers = "referenceMarkers"
         case customer = "customer"
         case customers = "customers"
         case furnitures = "furnitures"
@@ -635,9 +675,6 @@ public enum QueryResult: Codable, Sendable {
         case .configuration: self = .configuration(try container.decode(ConfigSnapshot.self, forKey: .payload))
         case .effectivePermissions: self = .effectivePermissions(try container.decode(EffectivePermissions.self, forKey: .payload))
         case .scopeRelationships: self = .scopeRelationships(try container.decode(RelationshipPage.self, forKey: .payload))
-        case .updateState: self = .updateState(try container.decode(UpdateState.self, forKey: .payload))
-        case .syncStatus: self = .syncStatus(try container.decode(SyncStatus.self, forKey: .payload))
-        case .referenceMarkers: self = .referenceMarkers(try container.decode(ReferenceMarkerPage.self, forKey: .payload))
         case .customer: self = .customer(try container.decode(Customer.self, forKey: .payload))
         case .customers: self = .customers(try container.decode(CustomerPage.self, forKey: .payload))
         case .furnitures: self = .furnitures(try container.decode(FurniturePage.self, forKey: .payload))
@@ -669,15 +706,6 @@ public enum QueryResult: Codable, Sendable {
             try container.encode(payload, forKey: .payload)
         case .scopeRelationships(let payload):
             try container.encode(Kind.scopeRelationships, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        case .updateState(let payload):
-            try container.encode(Kind.updateState, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        case .syncStatus(let payload):
-            try container.encode(Kind.syncStatus, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        case .referenceMarkers(let payload):
-            try container.encode(Kind.referenceMarkers, forKey: .kind)
             try container.encode(payload, forKey: .payload)
         case .customer(let payload):
             try container.encode(Kind.customer, forKey: .kind)
@@ -733,109 +761,10 @@ public enum QueryResult: Codable, Sendable {
         }
     }
 }
-public enum ServerClientMessage: Codable, Sendable {
-    case serverHello(ServerConnectionHello)
-    case serverSync(SyncTransportFrame)
-    case serverSubscribe(ServerSubscriptionRequest)
-    case serverAcknowledge(ServerSubscriptionAcknowledgement)
-
-    private enum Kind: String, Codable, Sendable {
-        case serverHello = "eitmad.server.hello.v1"
-        case serverSync = "eitmad.server.sync.v1"
-        case serverSubscribe = "eitmad.server.subscribe.v1"
-        case serverAcknowledge = "eitmad.server.acknowledge.v1"
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case kind
-        case payload
-    }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        switch try container.decode(Kind.self, forKey: .kind) {
-        case .serverHello: self = .serverHello(try container.decode(ServerConnectionHello.self, forKey: .payload))
-        case .serverSync: self = .serverSync(try container.decode(SyncTransportFrame.self, forKey: .payload))
-        case .serverSubscribe: self = .serverSubscribe(try container.decode(ServerSubscriptionRequest.self, forKey: .payload))
-        case .serverAcknowledge: self = .serverAcknowledge(try container.decode(ServerSubscriptionAcknowledgement.self, forKey: .payload))
-        }
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        switch self {
-        case .serverHello(let payload):
-            try container.encode(Kind.serverHello, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        case .serverSync(let payload):
-            try container.encode(Kind.serverSync, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        case .serverSubscribe(let payload):
-            try container.encode(Kind.serverSubscribe, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        case .serverAcknowledge(let payload):
-            try container.encode(Kind.serverAcknowledge, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        }
-    }
-}
-public enum ServerMessage: Codable, Sendable {
-    case serverHelloAccepted(PeerHello)
-    case serverSyncMessage(SyncMessage)
-    case serverEvent(ServerSubscriptionEvent)
-    case serverFailure(ServerFailure)
-
-    private enum Kind: String, Codable, Sendable {
-        case serverHelloAccepted = "eitmad.server.hello-accepted.v1"
-        case serverSyncMessage = "eitmad.server.sync-message.v1"
-        case serverEvent = "eitmad.server.event.v1"
-        case serverFailure = "eitmad.server.failure.v1"
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case kind
-        case payload
-    }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        switch try container.decode(Kind.self, forKey: .kind) {
-        case .serverHelloAccepted: self = .serverHelloAccepted(try container.decode(PeerHello.self, forKey: .payload))
-        case .serverSyncMessage: self = .serverSyncMessage(try container.decode(SyncMessage.self, forKey: .payload))
-        case .serverEvent: self = .serverEvent(try container.decode(ServerSubscriptionEvent.self, forKey: .payload))
-        case .serverFailure: self = .serverFailure(try container.decode(ServerFailure.self, forKey: .payload))
-        }
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        switch self {
-        case .serverHelloAccepted(let payload):
-            try container.encode(Kind.serverHelloAccepted, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        case .serverSyncMessage(let payload):
-            try container.encode(Kind.serverSyncMessage, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        case .serverEvent(let payload):
-            try container.encode(Kind.serverEvent, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        case .serverFailure(let payload):
-            try container.encode(Kind.serverFailure, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        }
-    }
-}
 public enum Subscription: Codable, Sendable {
     case configChangedSubscribe(ConfigurationChanges)
     case permissionsChangedSubscribe(PermissionChanges)
     case authorizationPolicyChangedSubscribe(AuthorizationPolicyChanges)
-    case updateStateSubscribe(UpdateStateChanges)
-    case syncStatusSubscribe(SyncStatusChanges)
-    case recordChangedSubscribe(RecordChanges)
-    case backgroundJobStatusSubscribe(BackgroundJobChanges)
-    case notificationSubscribe(Notifications)
-    case errorSubscribe(Errors)
-    case referenceMarkerChangedSubscribe(ReferenceMarkerChanges)
     case customerChangedSubscribe(CustomerChanges)
     case materialChangedSubscribe(MaterialChanges)
     case furnitureChangedSubscribe(FurnitureChanges)
@@ -846,13 +775,6 @@ public enum Subscription: Codable, Sendable {
         case configChangedSubscribe = "eitmad.config.changed.subscribe.v1"
         case permissionsChangedSubscribe = "eitmad.permissions.changed.subscribe.v1"
         case authorizationPolicyChangedSubscribe = "eitmad.authorization.policy.changed.subscribe.v1"
-        case updateStateSubscribe = "eitmad.update.state.subscribe.v1"
-        case syncStatusSubscribe = "eitmad.sync.status.subscribe.v1"
-        case recordChangedSubscribe = "eitmad.record.changed.subscribe.v1"
-        case backgroundJobStatusSubscribe = "eitmad.background-job.status.subscribe.v1"
-        case notificationSubscribe = "eitmad.notification.subscribe.v1"
-        case errorSubscribe = "eitmad.error.subscribe.v1"
-        case referenceMarkerChangedSubscribe = "eitmad.reference-marker.changed.subscribe.v1"
         case customerChangedSubscribe = "eitmad.customer.changed.subscribe.v1"
         case materialChangedSubscribe = "eitmad.material.changed.subscribe.v1"
         case furnitureChangedSubscribe = "eitmad.furniture.changed.subscribe.v1"
@@ -871,13 +793,6 @@ public enum Subscription: Codable, Sendable {
         case .configChangedSubscribe: self = .configChangedSubscribe(try container.decode(ConfigurationChanges.self, forKey: .payload))
         case .permissionsChangedSubscribe: self = .permissionsChangedSubscribe(try container.decode(PermissionChanges.self, forKey: .payload))
         case .authorizationPolicyChangedSubscribe: self = .authorizationPolicyChangedSubscribe(try container.decode(AuthorizationPolicyChanges.self, forKey: .payload))
-        case .updateStateSubscribe: self = .updateStateSubscribe(try container.decode(UpdateStateChanges.self, forKey: .payload))
-        case .syncStatusSubscribe: self = .syncStatusSubscribe(try container.decode(SyncStatusChanges.self, forKey: .payload))
-        case .recordChangedSubscribe: self = .recordChangedSubscribe(try container.decode(RecordChanges.self, forKey: .payload))
-        case .backgroundJobStatusSubscribe: self = .backgroundJobStatusSubscribe(try container.decode(BackgroundJobChanges.self, forKey: .payload))
-        case .notificationSubscribe: self = .notificationSubscribe(try container.decode(Notifications.self, forKey: .payload))
-        case .errorSubscribe: self = .errorSubscribe(try container.decode(Errors.self, forKey: .payload))
-        case .referenceMarkerChangedSubscribe: self = .referenceMarkerChangedSubscribe(try container.decode(ReferenceMarkerChanges.self, forKey: .payload))
         case .customerChangedSubscribe: self = .customerChangedSubscribe(try container.decode(CustomerChanges.self, forKey: .payload))
         case .materialChangedSubscribe: self = .materialChangedSubscribe(try container.decode(MaterialChanges.self, forKey: .payload))
         case .furnitureChangedSubscribe: self = .furnitureChangedSubscribe(try container.decode(FurnitureChanges.self, forKey: .payload))
@@ -898,27 +813,6 @@ public enum Subscription: Codable, Sendable {
         case .authorizationPolicyChangedSubscribe(let payload):
             try container.encode(Kind.authorizationPolicyChangedSubscribe, forKey: .kind)
             try container.encode(payload, forKey: .payload)
-        case .updateStateSubscribe(let payload):
-            try container.encode(Kind.updateStateSubscribe, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        case .syncStatusSubscribe(let payload):
-            try container.encode(Kind.syncStatusSubscribe, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        case .recordChangedSubscribe(let payload):
-            try container.encode(Kind.recordChangedSubscribe, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        case .backgroundJobStatusSubscribe(let payload):
-            try container.encode(Kind.backgroundJobStatusSubscribe, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        case .notificationSubscribe(let payload):
-            try container.encode(Kind.notificationSubscribe, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        case .errorSubscribe(let payload):
-            try container.encode(Kind.errorSubscribe, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        case .referenceMarkerChangedSubscribe(let payload):
-            try container.encode(Kind.referenceMarkerChangedSubscribe, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
         case .customerChangedSubscribe(let payload):
             try container.encode(Kind.customerChangedSubscribe, forKey: .kind)
             try container.encode(payload, forKey: .payload)
@@ -937,124 +831,151 @@ public enum Subscription: Codable, Sendable {
         }
     }
 }
-public enum SyncMessage: Codable, Sendable {
-    case syncNegotiate(SyncNegotiation)
-    case syncPull(PullRequest)
-    case syncChanges(ChangeBatch)
-    case syncSubmitLocal(LocalChangeSubmission)
-    case syncLocalResult(LocalChangeResult)
-    case syncReconcile(ReconciliationDelivery)
-    case syncAcknowledge(BatchAcknowledgement)
-    case syncConflict(ConflictNotice)
-    case syncBackpressure(RetryAfter)
-    case syncSnapshotManifest(SnapshotManifest)
-    case syncSnapshotChunk(SnapshotChunk)
-    case syncSnapshotComplete(SnapshotCompletion)
-    case syncSnapshotRequired(SnapshotRequired)
+public enum CommandOutcome: Codable, Sendable {
+    case succeeded(CommandResult)
+    case failed(ContractError)
 
     private enum Kind: String, Codable, Sendable {
-        case syncNegotiate = "eitmad.sync.negotiate.v1"
-        case syncPull = "eitmad.sync.pull.v1"
-        case syncChanges = "eitmad.sync.changes.v1"
-        case syncSubmitLocal = "eitmad.sync.submit-local.v1"
-        case syncLocalResult = "eitmad.sync.local-result.v1"
-        case syncReconcile = "eitmad.sync.reconcile.v1"
-        case syncAcknowledge = "eitmad.sync.acknowledge.v1"
-        case syncConflict = "eitmad.sync.conflict.v1"
-        case syncBackpressure = "eitmad.sync.backpressure.v1"
-        case syncSnapshotManifest = "eitmad.sync.snapshot-manifest.v1"
-        case syncSnapshotChunk = "eitmad.sync.snapshot-chunk.v1"
-        case syncSnapshotComplete = "eitmad.sync.snapshot-complete.v1"
-        case syncSnapshotRequired = "eitmad.sync.snapshot-required.v1"
+        case succeeded = "succeeded"
+        case failed = "failed"
     }
 
     private enum CodingKeys: String, CodingKey {
-        case kind
+        case status
         case payload
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        switch try container.decode(Kind.self, forKey: .kind) {
-        case .syncNegotiate: self = .syncNegotiate(try container.decode(SyncNegotiation.self, forKey: .payload))
-        case .syncPull: self = .syncPull(try container.decode(PullRequest.self, forKey: .payload))
-        case .syncChanges: self = .syncChanges(try container.decode(ChangeBatch.self, forKey: .payload))
-        case .syncSubmitLocal: self = .syncSubmitLocal(try container.decode(LocalChangeSubmission.self, forKey: .payload))
-        case .syncLocalResult: self = .syncLocalResult(try container.decode(LocalChangeResult.self, forKey: .payload))
-        case .syncReconcile: self = .syncReconcile(try container.decode(ReconciliationDelivery.self, forKey: .payload))
-        case .syncAcknowledge: self = .syncAcknowledge(try container.decode(BatchAcknowledgement.self, forKey: .payload))
-        case .syncConflict: self = .syncConflict(try container.decode(ConflictNotice.self, forKey: .payload))
-        case .syncBackpressure: self = .syncBackpressure(try container.decode(RetryAfter.self, forKey: .payload))
-        case .syncSnapshotManifest: self = .syncSnapshotManifest(try container.decode(SnapshotManifest.self, forKey: .payload))
-        case .syncSnapshotChunk: self = .syncSnapshotChunk(try container.decode(SnapshotChunk.self, forKey: .payload))
-        case .syncSnapshotComplete: self = .syncSnapshotComplete(try container.decode(SnapshotCompletion.self, forKey: .payload))
-        case .syncSnapshotRequired: self = .syncSnapshotRequired(try container.decode(SnapshotRequired.self, forKey: .payload))
+        switch try container.decode(Kind.self, forKey: .status) {
+        case .succeeded: self = .succeeded(try container.decode(CommandResult.self, forKey: .payload))
+        case .failed: self = .failed(try container.decode(ContractError.self, forKey: .payload))
         }
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
-        case .syncNegotiate(let payload):
-            try container.encode(Kind.syncNegotiate, forKey: .kind)
+        case .succeeded(let payload):
+            try container.encode(Kind.succeeded, forKey: .status)
             try container.encode(payload, forKey: .payload)
-        case .syncPull(let payload):
-            try container.encode(Kind.syncPull, forKey: .kind)
+        case .failed(let payload):
+            try container.encode(Kind.failed, forKey: .status)
             try container.encode(payload, forKey: .payload)
-        case .syncChanges(let payload):
-            try container.encode(Kind.syncChanges, forKey: .kind)
+        }
+    }
+}
+public enum HandshakeOutcome: Codable, Sendable {
+    case accepted(HandshakeAccepted)
+    case rejected(HandshakeRejection)
+
+    private enum Kind: String, Codable, Sendable {
+        case accepted = "accepted"
+        case rejected = "rejected"
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case status
+        case payload
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        switch try container.decode(Kind.self, forKey: .status) {
+        case .accepted: self = .accepted(try container.decode(HandshakeAccepted.self, forKey: .payload))
+        case .rejected: self = .rejected(try container.decode(HandshakeRejection.self, forKey: .payload))
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .accepted(let payload):
+            try container.encode(Kind.accepted, forKey: .status)
             try container.encode(payload, forKey: .payload)
-        case .syncSubmitLocal(let payload):
-            try container.encode(Kind.syncSubmitLocal, forKey: .kind)
+        case .rejected(let payload):
+            try container.encode(Kind.rejected, forKey: .status)
             try container.encode(payload, forKey: .payload)
-        case .syncLocalResult(let payload):
-            try container.encode(Kind.syncLocalResult, forKey: .kind)
+        }
+    }
+}
+public enum QueryOutcome: Codable, Sendable {
+    case succeeded(QueryResult)
+    case failed(ContractError)
+
+    private enum Kind: String, Codable, Sendable {
+        case succeeded = "succeeded"
+        case failed = "failed"
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case status
+        case payload
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        switch try container.decode(Kind.self, forKey: .status) {
+        case .succeeded: self = .succeeded(try container.decode(QueryResult.self, forKey: .payload))
+        case .failed: self = .failed(try container.decode(ContractError.self, forKey: .payload))
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .succeeded(let payload):
+            try container.encode(Kind.succeeded, forKey: .status)
             try container.encode(payload, forKey: .payload)
-        case .syncReconcile(let payload):
-            try container.encode(Kind.syncReconcile, forKey: .kind)
+        case .failed(let payload):
+            try container.encode(Kind.failed, forKey: .status)
             try container.encode(payload, forKey: .payload)
-        case .syncAcknowledge(let payload):
-            try container.encode(Kind.syncAcknowledge, forKey: .kind)
+        }
+    }
+}
+public enum SubscriptionOutcome: Codable, Sendable {
+    case succeeded(SubscriptionAccepted)
+    case failed(ContractError)
+
+    private enum Kind: String, Codable, Sendable {
+        case succeeded = "succeeded"
+        case failed = "failed"
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case status
+        case payload
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        switch try container.decode(Kind.self, forKey: .status) {
+        case .succeeded: self = .succeeded(try container.decode(SubscriptionAccepted.self, forKey: .payload))
+        case .failed: self = .failed(try container.decode(ContractError.self, forKey: .payload))
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .succeeded(let payload):
+            try container.encode(Kind.succeeded, forKey: .status)
             try container.encode(payload, forKey: .payload)
-        case .syncConflict(let payload):
-            try container.encode(Kind.syncConflict, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        case .syncBackpressure(let payload):
-            try container.encode(Kind.syncBackpressure, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        case .syncSnapshotManifest(let payload):
-            try container.encode(Kind.syncSnapshotManifest, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        case .syncSnapshotChunk(let payload):
-            try container.encode(Kind.syncSnapshotChunk, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        case .syncSnapshotComplete(let payload):
-            try container.encode(Kind.syncSnapshotComplete, forKey: .kind)
-            try container.encode(payload, forKey: .payload)
-        case .syncSnapshotRequired(let payload):
-            try container.encode(Kind.syncSnapshotRequired, forKey: .kind)
+        case .failed(let payload):
+            try container.encode(Kind.failed, forKey: .status)
             try container.encode(payload, forKey: .payload)
         }
     }
 }
 public struct AuthorizationPolicyChanges: Codable, Sendable {}
-public struct BackgroundJobChanges: Codable, Sendable {}
 public struct ConfigurationChanges: Codable, Sendable {}
 public struct CustomerChanges: Codable, Sendable {}
-public struct Errors: Codable, Sendable {}
 public struct FurnitureChanges: Codable, Sendable {}
 public struct GetConfiguration: Codable, Sendable {}
 public struct GetEffectivePermissions: Codable, Sendable {}
-public struct GetSyncStatus: Codable, Sendable {}
-public struct GetUpdateState: Codable, Sendable {}
 public struct ListDesktopAccounts: Codable, Sendable {}
 public struct ListMaterialReferences: Codable, Sendable {}
 public struct MaterialChanges: Codable, Sendable {}
-public struct Notifications: Codable, Sendable {}
 public struct PartChanges: Codable, Sendable {}
 public struct PermissionChanges: Codable, Sendable {}
 public struct ProductChanges: Codable, Sendable {}
-public struct RecordChanges: Codable, Sendable {}
-public struct ReferenceMarkerChanges: Codable, Sendable {}
-public struct SyncStatusChanges: Codable, Sendable {}
-public struct UpdateStateChanges: Codable, Sendable {}

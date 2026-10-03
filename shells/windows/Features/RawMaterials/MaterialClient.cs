@@ -1,7 +1,6 @@
 using System.IO;
 using Eitmad.Contracts;
 using Eitmad.Platform.Windows.LocalIpc;
-using Eitmad.Platform.Windows.ProcessSupervision;
 using Eitmad.Platform.Windows.Shell;
 
 namespace Eitmad.WindowsShell.Features.RawMaterials;
@@ -18,16 +17,18 @@ public sealed record MaterialResult<T>(T? Value, MaterialFailureKind Failure)
 public sealed record MaterialSnapshot(MaterialReferences References, IReadOnlyList<Material> Materials);
 
 /// <summary>Thin typed IPC adapter for material definitions and change notifications.</summary>
-public sealed class MaterialClient(IEngineShellBridge engine) : IAsyncDisposable
+public sealed class MaterialClient : IAsyncDisposable
 {
-    private readonly SemaphoreSlim gate = new(1, 1);
-    private IEngineSubscription? subscription;
-    private CancellationTokenSource? pumpCancellation;
-    private SynchronizationContext? uiContext;
-    private long generation = -1;
-    private bool active;
-    private bool disposed;
-    private bool connectedAndReady;
+    private readonly IEngineShellBridge engine;
+    private readonly EngineChangeFeed changes;
+
+    public MaterialClient(IEngineShellBridge engine)
+    {
+        this.engine = engine;
+        changes = new EngineChangeFeed(engine, ProtocolIds.Capabilities.EitmadCapabilityMaterialV1,
+            Subscription.ForMaterialChangedSubscribe(new MaterialChanges()),
+            notice => { if (notice is null || notice.AsMaterialChangedEvent() is not null) SignalChanged(); });
+    }
 
     public event EventHandler? Changed;
 
@@ -85,92 +86,11 @@ public sealed class MaterialClient(IEngineShellBridge engine) : IAsyncDisposable
         { return MaterialFailureKind.Unavailable; }
     }
 
-    public async Task ActivateAsync()
-    {
-        if (disposed || active) return;
-        active = true;
-        uiContext = SynchronizationContext.Current;
-        var snapshot = engine.Snapshot;
-        connectedAndReady = snapshot.IpcHealth == EngineIpcHealthState.Connected
-            && snapshot.LastLifecycle?.Ready == true;
-        engine.StateChanged += EngineStateChanged;
-        await RefreshSubscriptionAsync();
-    }
+    public Task ActivateAsync() => changes.ActivateAsync();
 
-    private void EngineStateChanged(EngineSupervisionSnapshot snapshot)
-    {
-        if (!active) return;
-        var ready = snapshot.IpcHealth == EngineIpcHealthState.Connected
-            && snapshot.LastLifecycle?.Ready == true;
-        if (!ready)
-        {
-            connectedAndReady = false;
-            return;
-        }
+    private void SignalChanged() => Changed?.Invoke(this, EventArgs.Empty);
 
-        var restored = !connectedAndReady;
-        connectedAndReady = true;
-        if (snapshot.Generation != generation) _ = RefreshSubscriptionAsync();
-        else if (restored) SignalChanged();
-    }
-
-    private async Task RefreshSubscriptionAsync()
-    {
-        if (!engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityMaterialV1)) return;
-        await gate.WaitAsync();
-        try
-        {
-            if (!active || disposed || generation == engine.Snapshot.Generation && subscription is not null) return;
-            await DropSubscriptionAsync();
-            var current = await engine.SubscribeAsync(Subscription.ForMaterialChangedSubscribe(new MaterialChanges()));
-            subscription = current;
-            generation = engine.Snapshot.Generation;
-            pumpCancellation = new CancellationTokenSource();
-            current.ResyncRequired += SignalChanged;
-            _ = PumpAsync(current, pumpCancellation.Token);
-            SignalChanged();
-        }
-        catch (EngineIpcException) { SignalChanged(); }
-        finally { gate.Release(); }
-    }
-
-    private async Task PumpAsync(IEngineSubscription current, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await foreach (var delivered in current.ReadAllAsync(cancellationToken))
-            {
-                if (EngineContractCodec.DecodeEvent(delivered).AsMaterialChangedEvent() is not null) SignalChanged();
-                current.Acknowledge(delivered);
-            }
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
-        catch (Exception error) when (error is EngineIpcException or IOException or InvalidDataException)
-        { SignalChanged(); }
-    }
-
-    private void SignalChanged()
-    {
-        if (uiContext is null) Changed?.Invoke(this, EventArgs.Empty);
-        else uiContext.Post(_ => Changed?.Invoke(this, EventArgs.Empty), null);
-    }
-
-    private async Task DropSubscriptionAsync()
-    {
-        pumpCancellation?.Cancel(); pumpCancellation?.Dispose(); pumpCancellation = null;
-        if (subscription is { } current) { subscription = null; await current.DisposeAsync(); }
-        generation = -1;
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        if (disposed) return;
-        disposed = true; active = false;
-        engine.StateChanged -= EngineStateChanged;
-        await gate.WaitAsync();
-        try { await DropSubscriptionAsync(); }
-        finally { gate.Release(); gate.Dispose(); }
-    }
+    public ValueTask DisposeAsync() => changes.DisposeAsync();
 
     public static string ArabicMessage(MaterialFailureKind failure) => failure switch
     {

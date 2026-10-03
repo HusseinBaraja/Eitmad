@@ -89,7 +89,7 @@ public sealed class PricingViewModel : ObservableObject
         }
     }
 
-    public string EditorMargin => $"{editorMargin.ToString("N0", CultureInfo.InvariantCulture)} YER";
+    public string EditorMargin => $"{editorMargin.ToString("N0", CultureInfo.InvariantCulture)} ر.ي";
 
     public bool HasNegativeEditorMargin => editorMargin < 0m;
 

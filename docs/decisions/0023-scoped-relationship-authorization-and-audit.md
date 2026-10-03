@@ -64,4 +64,4 @@ Storage version 6 is additive for supported histories. Protocol `1.3` is capabil
 
 ## Verification
 
-Tests prove direct and denied access, role membership, inherited permission, conditional access, tenant/workspace isolation, cross-scope edge rejection, unauthorized reads/writes, sync and plugin rejection, audit completeness/redaction, append-only persistence, migration/recovery, contract drift, and C# round-trip. See [authorization and audit](../developer/subsystems/authorization.md) and the [protocol 1.3 release](../releases/protocol-1-3-scoped-authorization-audit.md).
+Tests prove direct and denied access, role membership, inherited permission, conditional access, tenant/workspace isolation, cross-scope edge rejection, unauthorized reads/writes, sync and plugin rejection, audit completeness/redaction, append-only persistence, migration/recovery, contract drift, and C# round-trip. See [authorization and audit](../developer/subsystems/authorization.md).

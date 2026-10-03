@@ -53,6 +53,8 @@ List queries use UUID cursors and limits from 1 to 100. Search terms are bounded
 
 One immediate SQLite transaction writes current state, immutable Product history, stable option ownership, audit, exact retry response, and a compact publication outbox event. A mandatory write failure rolls back every write. Retry hashes bind actor, scope, operation, and input; a changed request cannot reuse a saved retry key. The runtime publishes committed events and recovers the outbox after restart. Multi-device reconciliation for these definitions is not implemented in this change; local durable storage and outbox events do not imply synchronization.
 
+The shell keeps Rust records for list loading and creates editable copies only when an editor opens. List rows are immutable display projections.
+
 The shell uses asynchronous IPC, subscriptions, and cancellable refreshes. It retains the revision opened in the editor across refreshes. A conflict or validation error keeps the editor open. An unknown outcome keeps the request and retry key for an exact retry, including an unavailable command response. Until that retry succeeds or returns a known failure, a different payload is rejected. Product and category requests use separate retry state. Reconnect refreshes authoritative state. If data is unavailable, the list states that failure without claiming that records were deleted. Media attachment persistence is outside this definition contract; the transient image picker has been removed.
 
 ## Verify and extend

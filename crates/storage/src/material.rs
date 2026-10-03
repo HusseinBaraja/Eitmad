@@ -192,38 +192,6 @@ impl AuthorityStore {
         transaction.commit().map_err(|_| StorageError)?;
         Ok(outcome)
     }
-
-    /// Gets one exact material record for revision and reference checks.
-    /// # Errors
-    /// Returns an unavailable error for invalid durable data.
-    pub fn get_material(
-        &self,
-        scope: &ScopeRef,
-        id: MaterialId,
-    ) -> Result<Option<Material>, StorageError> {
-        get_record(
-            &self.open_connection()?,
-            scope,
-            "materials",
-            &id.value().to_string(),
-        )
-    }
-
-    /// Gets one exact unit for immutable referenced conversion checks.
-    /// # Errors
-    /// Returns an unavailable error for invalid durable data.
-    pub fn get_material_unit(
-        &self,
-        scope: &ScopeRef,
-        id: eitmad_contracts::material::MaterialUnitId,
-    ) -> Result<Option<MaterialUnit>, StorageError> {
-        get_record(
-            &self.open_connection()?,
-            scope,
-            "material_units",
-            &id.value().to_string(),
-        )
-    }
 }
 
 fn read_records<T: serde::de::DeserializeOwned>(

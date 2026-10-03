@@ -23,9 +23,3 @@ export function findGeneratedDrift(repository, generatedDirectory, outputs) {
   }
   return drift;
 }
-
-export function missingBindingIdentifiers(registry, bindingSource) {
-  return Object.values(registry)
-    .flat()
-    .filter((identifier) => !bindingSource.includes(`\"${identifier}\"`));
-}

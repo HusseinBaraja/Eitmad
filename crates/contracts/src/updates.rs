@@ -2,10 +2,9 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    errors::ErrorCode,
     identity::DeviceId,
     server::UpdateChannelId,
-    transport::{CapabilityId, UnixMillis, UpdateHandoffId},
+    transport::{CapabilityId, UnixMillis},
 };
 
 uuid_id!(UpdateManifestId);
@@ -134,63 +133,5 @@ pub enum UpdateCheckOutcome {
     },
     Incompatible {
         reason: UpdateIneligibilityReason,
-    },
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(tag = "kind", content = "payload", rename_all = "camelCase")]
-pub enum InstallerOutcome {
-    Succeeded { installed_version: ReleaseVersion },
-    Failed { error_code: ErrorCode },
-    Cancelled,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(tag = "kind", content = "payload", rename_all = "camelCase")]
-pub enum UpdateState {
-    Idle,
-    Checking,
-    Available {
-        version: ReleaseVersion,
-    },
-    Downloading {
-        version: ReleaseVersion,
-        #[schemars(range(max = 10000))]
-        progress_bps: u16,
-    },
-    Paused {
-        version: ReleaseVersion,
-        #[schemars(range(max = 10000))]
-        progress_bps: u16,
-    },
-    Preflight {
-        version: ReleaseVersion,
-    },
-    Ready {
-        version: ReleaseVersion,
-    },
-    InstallationHandoff {
-        handoff_id: UpdateHandoffId,
-        version: ReleaseVersion,
-    },
-    Installing {
-        handoff_id: UpdateHandoffId,
-        version: ReleaseVersion,
-    },
-    Verifying {
-        version: ReleaseVersion,
-    },
-    Succeeded {
-        version: ReleaseVersion,
-    },
-    Failed {
-        version: Option<ReleaseVersion>,
-        error_code: ErrorCode,
-    },
-    Revoked {
-        version: ReleaseVersion,
-    },
-    RecoveryRequired {
-        error_code: ErrorCode,
     },
 }

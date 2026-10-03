@@ -21,9 +21,6 @@ use crate::{
         GetProductRevision, ListProductCategories, ListProducts, Product, ProductCategories,
         ProductPage,
     },
-    reference_marker::{ListReferenceMarkers, ReferenceMarkerPage},
-    sync::SyncStatus,
-    updates::UpdateState,
 };
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -31,12 +28,6 @@ pub struct GetConfiguration {}
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct GetEffectivePermissions {}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct GetUpdateState {}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct GetSyncStatus {}
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -89,9 +80,6 @@ tagged_contract! {
         Configuration(GetConfiguration) => "eitmad.config.get.v1",
         EffectivePermissions(GetEffectivePermissions) => "eitmad.permissions.get-effective.v1",
         ScopeRelationships(ListScopeRelationships) => "eitmad.authorization.relationships.list.v1",
-        UpdateState(GetUpdateState) => "eitmad.update.get-state.v1",
-        SyncStatus(GetSyncStatus) => "eitmad.sync.get-status.v1",
-        ReferenceMarkers(ListReferenceMarkers) => "eitmad.reference-marker.list.v1",
         Customer(GetCustomer) => "eitmad.customer.get.v1",
         Customers(SearchCustomers) => "eitmad.customer.search.v1",
         Furnitures(ListFurnitures) => "eitmad.furniture.list.v1",
@@ -118,9 +106,6 @@ pub enum QueryResult {
     Configuration(ConfigSnapshot),
     EffectivePermissions(EffectivePermissions),
     ScopeRelationships(RelationshipPage),
-    UpdateState(UpdateState),
-    SyncStatus(SyncStatus),
-    ReferenceMarkers(ReferenceMarkerPage),
     Customer(Customer),
     Customers(CustomerPage),
     Furnitures(FurniturePage),

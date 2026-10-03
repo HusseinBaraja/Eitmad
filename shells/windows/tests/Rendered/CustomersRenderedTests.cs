@@ -103,8 +103,8 @@ public sealed class CustomersRenderedTests
         WpfTestHost.Run(width, height, window =>
         {
             var customer = new CustomerPreview(contract,
-                [new("QUO-2026-0084", new(2026, 9, 12), "سرير وادي ظهر، مرتبة الراحة", "محوّل", "345,000 YER")],
-                [new("ORD-2026-0084", new(2026, 9, 13), "سرير وادي ظهر، مرتبة الراحة", "قيد الإنتاج", "345,000 YER")]);
+                [new("QUO-2026-0084", new(2026, 9, 12), "سرير وادي ظهر، مرتبة الراحة", "محوّل", "345,000 ر.ي")],
+                [new("ORD-2026-0084", new(2026, 9, 13), "سرير وادي ظهر، مرتبة الراحة", "قيد الإنتاج", "345,000 ر.ي")]);
             var view = new CustomerDetailView { DataContext = customer };
             view.Attach(new CustomerClient(engine));
             window.Content = view;

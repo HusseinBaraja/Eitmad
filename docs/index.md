@@ -24,21 +24,20 @@ No user workflow is ready to document. When the first product flow exists, Engli
 ## Develop the system
 
 - [Start developing Eitmad](developer/index.md): contribution setup, ownership boundaries, tests, and feature documentation.
-- [Build the first real product](developer/build-first-product.md): required domain, scope, authorization, contract, storage, sync, Arabic, shell, test, and documentation sequence.
 - [Implement Manager and Receptionist workflows](developer/subsystems/manager-receptionist-workflows.md): accepted permissions, visibility, customer, catalog, pricing, quotation, approval, fulfillment, delivery, and offline behavior.
 - [Extend Rust-owned configuration](developer/subsystems/configuration.md): defaults, validation, revisions, redaction, import/export, and events.
 - [Extend scoped authorization and audit](developer/subsystems/authorization.md): tuples, roles, inheritance, conditions, isolation, boundary gates, and complete redacted audit.
 - [Extend persistent tenant identity](developer/subsystems/identity-foundation.md): device, account, session, scope topology, offline behavior, and audit attribution.
 - [Extend synchronization and shared transports](developer/subsystems/synchronization.md): offline edits, one simulation/LAN/WAN interface, authentication/encryption, reconnect/backoff, relay degradation, conflicts, and safe extension.
-- [Extend the modular server authority](developer/subsystems/server-authority.md): accounts, tenants, devices, authentication, licensing, update assignment, PostgreSQL isolation, snapshots, and subscriptions.
+- [Extend the modular server authority](developer/subsystems/server-authority.md): accounts, tenants, devices, authentication, update assignment, PostgreSQL isolation, snapshots, and subscriptions.
 - [Extend WAN relay coordination](developer/subsystems/wan-relay-coordination.md): sessions, routes, reconnect, health, failures, authorization, and tenant isolation.
 - [Publish and evaluate signed updates](developer/subsystems/update-distribution.md): Ed25519 manifests, channels, rollout, compatibility, packages, and key configuration.
 - [Extend server administration](developer/subsystems/server-administration.md): diagnostics, backup, migration, audit, visibility, and support workflows.
 - [Understand the target architecture](architecture/index.md): Rust authority, trust boundaries, synchronization, security, and updates.
-- [Review base readiness](architecture/base-application-readiness-audit.md): audit evidence, closed critical defects, current limitations, and production blockers.
+- [Known limitations](architecture/known-limitations.md): current product, platform, deployment, and evidence limits.
 - [Use protocol v1 contracts](api/index.md): exact Rust-owned contracts, compatibility, generation, and native bindings.
 - [Review architectural decisions](decisions/index.md): durable choices, reasons, and consequences.
-- [Review releases and compatibility](releases/index.md): protocol rollout, rollback, and migration notes.
+- [Validate a release candidate](operations/validate-release-candidate.md): verify current release artifacts and required checks.
 - [Use approved terminology](glossary.md): English definitions and canonical Arabic UI terms.
 
 ## Operate or deploy the system

@@ -131,7 +131,7 @@ class RepositoryPolicyTests(unittest.TestCase):
 
     def test_documentation_impact_ignores_test_only_changes(self) -> None:
         changed = {
-            "crates/contracts/codegen/test/platform-bindings.test.mjs",
+            "crates/contracts/codegen/test/contract-checks.test.mjs",
             "shells/windows/tests/Users/UsersPresentationTests.cs",
             "crates/engine-runtime/src/dispatcher.rs",
         }
@@ -154,6 +154,20 @@ class RepositoryPolicyTests(unittest.TestCase):
         ):
             errors: list[str] = []
             policy.check_documentation_impact("base", errors)
+        self.assertEqual(["behavior, delivery, or CI changed without a documentation change"], errors)
+
+    def test_documentation_impact_requires_docs_for_deleted_production_rust(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_value:
+            with (
+                patch.object(policy, "ROOT", Path(temp_value)),
+                patch.object(
+                    policy,
+                    "changed_files",
+                    return_value={"crates/retired/src/lib.rs"},
+                ),
+            ):
+                errors: list[str] = []
+                policy.check_documentation_impact("base", errors)
         self.assertEqual(["behavior, delivery, or CI changed without a documentation change"], errors)
 
     def test_unsafe_logging_rejects_secret_field_without_redaction(self) -> None:

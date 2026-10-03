@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust engine and Windows platform maintainers"
-last_verified: "2026-09-21"
+last_verified: "2026-10-02"
 review_triggers:
   - "local IPC framing, authentication, dispatch, timeout, payload, or shutdown behavior changes"
 keywords:
@@ -54,17 +54,17 @@ sequenceDiagram
     IPC-->>Shell: ordered EventEnvelope
 ```
 
-The handshake is mandatory. The Windows shell advertises protocol `1.9`. The process handshake proves possession of the supervised launch token and returns a Rust-owned device principal without user permissions. Typed `desktop-sign-in`, `desktop-session-state`, and `desktop-sign-out` messages require protocol `1.7`; desktop-account management requires protocol `1.8` and `eitmad.capability.desktop-account-management.v1`; customer operations require protocol `1.9` and `eitmad.capability.customer.v1`. Rust verifies a provisioned account password before returning a distinct user context and session expiry. Commands, queries, and subscriptions require that exact connection-bound user context and a live durable session. Sign-out, expiry, account deactivation, or a role-changing session revocation blocks later dispatch. The shell keeps the user context in memory and never stores credentials or tokens.
+The handshake is mandatory. The engine and Windows shell negotiate protocol `1.13` only. The process handshake proves possession of the supervised launch token and returns a Rust-owned device principal without user permissions. Desktop-account management requires `eitmad.capability.desktop-account-management.v1`; customer operations require `eitmad.capability.customer.v1`. Rust verifies a provisioned account password before returning a distinct user context and session expiry. Commands, queries, and subscriptions require that exact connection-bound user context and a live durable session. Sign-out, expiry, account deactivation, or a role-changing session revocation blocks later dispatch. The shell keeps the user context in memory and never stores credentials or tokens.
 
 A desktop session transition is also a client isolation boundary. Before sign-in or sign-out, the Windows adapter fails pending account requests, completes and removes active subscription queues, removes early-event buffers, and clears supervisor subscription registrations. The shell then clears account-specific snapshots before another surface becomes visible. A late response from the prior authorization is ignored because its pending request registration no longer exists. The next account creates fresh queries and subscriptions with its own Rust-returned authorization context.
 
 ## Subscription streams and payload ownership
 
-Rust currently defines streams for configuration, effective permissions, authorization-policy revisions, sync status/progress, update state, record-change metadata, background jobs, notifications, and asynchronous errors. Record events carry scope, record ID, schema ID, operation, revision, and change time—not encoded domain payloads. The consuming vertical must query its authoritative projection after a fresh or forced resync.
+Rust defines streams for configuration, effective permissions, authorization-policy revisions, customers, materials, Parts, Furniture, and Products. Product events carry compact scoped identity and revision metadata without encoded domain payloads. Unimplemented foundation streams and sync/update queries are not part of the IPC contract. The consuming vertical must query its authoritative projection after a fresh or forced resync.
 
-Every publisher supplies an authorized `ScopeRef`. The broker rejects events whose embedded configuration, authorization-policy, record, job, notification, or error scope disagrees. Subscription authorization occurs after session validation and before replay lookup; an unknown, expired, wrong-stream, or wrong-scope cursor produces the same `eitmad.error.ipc-subscription-resync-required.v1` result.
+Every publisher supplies an authorized `ScopeRef`. The broker rejects events whose embedded configuration, authorization-policy, or product scope disagrees. Subscription authorization occurs after session validation and before replay lookup; an unknown, expired, wrong-stream, or wrong-scope cursor produces the same `eitmad.error.ipc-subscription-resync-required.v1` result.
 
-Policy mutations signal active pumps to reauthorize, and every event is reauthorized again at the writer boundary. Policy-change notifications remain active while a write is blocked. If access is revoked before writing starts, a protocol `1.2` stream closes with `authorizationRevoked` and reports only its last fully written cursor. If revocation arrives during a partial or blocked write, Rust terminates the connection so the peer cannot accept a partial frame. Protocol `1.0` and `1.1` revoked connections terminate safely instead of receiving an unknown close-reason variant.
+Policy mutations signal active pumps to reauthorize, and every event is reauthorized again at the writer boundary. Policy-change notifications remain active while a write is blocked. If access is revoked before writing starts, the stream closes with `authorizationRevoked` and reports only its last fully written cursor. If revocation arrives during a partial or blocked write, Rust terminates the connection so the peer cannot accept a partial frame.
 
 Subscription authorization remains deny-by-default and is rechecked before delivery. Query outcomes now create mandatory redacted audit records. The command or background process that caused a state change retains its vertical's atomic authorization and audit obligations.
 
@@ -76,7 +76,7 @@ Replay is in-memory and valid only for the current engine generation. The broker
 
 ## Backpressure and drop policy
 
-The engine live channel and each Windows consumer queue hold 256 events. Configuration, permission, authorization-policy, sync, and update status are replaceable state: if their cursor is evicted during lag, the broker delivers the newest retained value. Background-job status, record changes, notifications, and errors are discrete and are never silently dropped because one scope can contain multiple independent records or jobs. If a discrete gap cannot be replayed, Rust sends `SubscriptionClosed` with reason `backpressure`; the Windows client completes that bounded stream with a typed failure so its owner can replace the stream and authoritative snapshot.
+The engine live channel and each Windows consumer queue hold 256 events. Configuration, permission, and authorization-policy projections are replaceable state: if their cursor is evicted during lag, the broker delivers the newest retained value. Product changes are discrete and are never silently dropped because one scope can contain multiple independent records. If a discrete gap cannot be replayed, Rust sends `SubscriptionClosed` with reason `backpressure`; the Windows client completes that bounded stream with a typed failure so its owner can replace the stream and authoritative snapshot.
 
 Slow shells never block authoritative producers. Repeated backpressure therefore reduces shell availability, not engine correctness. A vertical must reduce event frequency or add a query/page boundary instead of increasing bounds ad hoc.
 
@@ -106,6 +106,6 @@ Explicit unsubscribe receives `SubscriptionClosed` with `clientRequested` before
 
 The transport preserves canonical Unicode and does not add bidirectional controls. Tests round-trip a multi-megabyte synthetic Arabic/Latin value such as `خزانة Wardrobe 120 cm - فرع صنعاء`. The Windows shell now owns RTL layout, Arabic labels, accessibility surfaces, localized `messageId` rendering, and directional isolation of machine identifiers. The IPC capability continues to preserve canonical values without adding presentation controls.
 
-Focused Rust tests cover protocol `1.0` fallback, subscription capability gates, scope mismatch, replay, cursor isolation, ordering, coalescing, discrete overflow, command/query behavior, and frame bounds. Windows scenarios cover bounded event queues, processed cursor acknowledgement, normal reattachment, overflow followed by usable reattachment, real-engine negotiation, and graceful shutdown. Extend event production through `EventBroker`; keep payload meaning and authoritative queries in the owning vertical.
+Focused Rust tests cover outdated-beta handshake rejection, subscription capability gates, scope mismatch, replay, cursor isolation, ordering, coalescing, discrete overflow, command/query behavior, and frame bounds. Windows scenarios cover bounded event queues, processed cursor acknowledgement, normal reattachment, overflow followed by usable reattachment, real-engine negotiation, and graceful shutdown. Extend event production through `EventBroker`; keep payload meaning and authoritative queries in the owning vertical.
 
 For the durable event-stream decision, see [ADR-0018](../../decisions/0018-bounded-resumable-local-ipc-events.md). For exact contracts, see [protocol v1](../../api/index.md). For threats, see the [local IPC threat model](../../architecture/local-ipc-threat-model.md). For recovery, use [Resolve local IPC failures](../../troubleshooting/local-ipc-failures.md).

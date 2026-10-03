@@ -47,7 +47,6 @@ Record the UTC time, stable error identifier, HTTP status, correlation ID, tenan
 | `bootstrap` exits with a usage failure (`eitmad.error.contract-invalid.v1`) | Wrong argument count for `eitmad-server bootstrap` | Count arguments: command plus tenant code, tenant name, organization name, owner username | Rerun with exactly four values; quote Arabic display names that contain spaces |
 | An operation returns an open conflict | Base revision was stale and no safe domain merge exists | Inspect conflict ID, revisions, and provenance through an authorized view | Use the domain resolution workflow; keep both inputs and history |
 | A subscription repeats an event | Client acknowledgement did not commit or reconnect resumed from an older cursor | Compare durable cursor and event ID | Apply idempotently, acknowledge only after local commit, then resume |
-| License is denied | Expired beyond grace, suspended, unavailable outside allowed grace, or entitlement absent | Read effective license state through the authorized boundary | Repair provider state or entitlement; suspension must not receive grace |
 
 ## Check a failed server connection
 

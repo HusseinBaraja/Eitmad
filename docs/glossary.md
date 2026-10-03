@@ -145,7 +145,6 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | لقطة الإعدادات | Configuration snapshot | The stable, revisioned, redacted projection that a shell may read; it is not a shell-owned config file. |
 | مركز العمليات | Operations center | The Arabic-first Windows shell surface that presents Rust-owned health, readiness, sync, update, configuration, job, notification, and error state. It is not a control-plane authority. |
 | لوحة التحكم | Dashboard | The Arabic-first Windows landing surface. When it shows **وضع المعاينة**, furniture operations values are visual fixtures and are not live Rust-owned state. |
-| العلامة المرجعية | Reference marker | A product-neutral, scoped, bounded text value used to prove the complete architecture path. Rust owns validation, authorization, storage, audit, sync, and contracts. The Windows UI calls it **الميزة المرجعية**. |
 | المحرك غير متاح الآن | Engine unavailable | A Windows shell availability state that means the supervised process or typed IPC channel is not usable. It does not mean authoritative data was deleted. |
 | تعديل الإعدادات | Configuration patch | A typed optimistic request containing expected revision and changed keys; Rust validates and commits it atomically. |
 | مراجعة الإعدادات | Configuration revision | A monotonic per-scope number incremented once by a real effective patch, not by a no-op or replay. |
@@ -164,7 +163,6 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | نقطة امتداد التدقيق | Audit extension point | A typed durable marker that classifies a common execution boundary or reserves future approval, ledger, conflict, security-event, or undo-critical linkage; a workflow marker does not implement that workflow. |
 | معرّف الارتباط | Correlation ID | A non-secret identifier that connects structured operational evidence across boundaries; it is not identity, authorization, or a business record key. |
 | سجل منظم | Structured log | A Rust-produced diagnostic event whose fields are allowlisted, typed, classified, correlated, and redacted before serialization. |
-| التشخيص الحساس المؤقت | Temporary sensitive debug | An owner-permission-gated, localized-warning, audited mode that may reveal `Sensitive` fields until its enforced expiry, supports early disable, and always redacts `Secret` fields. No user-facing label exists yet. |
 | مخزن الأسرار | Secret store | The Rust-owned capability that keeps typed secret material in an OS credential store or, only when necessary, an authenticated encrypted fallback. |
 | مرجع السر | Secret reference | A typed non-secret identifier that configuration or domain state may retain instead of secret material. |
 | المزامنة | Synchronization | The protocol-driven exchange and reconciliation of authorized state across processes, devices, or servers. Its business meaning does not change between simulation, LAN, direct WAN, or relay routes. |

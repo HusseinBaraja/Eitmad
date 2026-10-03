@@ -295,9 +295,6 @@ async fn update_assignment(
             UpdateAssignmentError::Invalid => {
                 ApiError::bad_request("eitmad.error.contract-invalid.v1")
             }
-            UpdateAssignmentError::Denied => {
-                ApiError::forbidden("eitmad.error.authorization-denied.v1")
-            }
             UpdateAssignmentError::Unavailable => ApiError::unavailable(),
         })
 }

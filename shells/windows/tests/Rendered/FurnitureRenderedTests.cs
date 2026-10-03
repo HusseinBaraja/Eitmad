@@ -13,7 +13,6 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 [TestClass]
 public sealed class FurnitureRenderedTests
 {
-    /// <summary>Rejects delayed review margins after each staged variant mutation, even when IPC ignores cancellation.</summary>
     [TestMethod]
     [DataRow("add")]
     [DataRow("edit")]
@@ -76,7 +75,6 @@ public sealed class FurnitureRenderedTests
         }, engine: engine);
     }
 
-    /// <summary>Verifies complete editor saves reopens and keeps conflict and retry fields.</summary>
     [TestMethod]
     [DataRow(1920, 1080)]
     [DataRow(1338, 753)]
@@ -140,7 +138,6 @@ public sealed class FurnitureRenderedTests
             }
         }, engine: engine);
     }
-    /// <summary>Verifies variant customization dialog renders native accessible bounds and choices.</summary>
     [TestMethod]
     public void VariantCustomizationDialogRendersNativeAccessibleBoundsAndChoices()
     {
@@ -157,8 +154,6 @@ public sealed class FurnitureRenderedTests
             var input = view.ViewModel.SaveInput(FurnitureState.Draft); Assert.AreEqual(1000L, input.Variants[0].Customization.Minimum.WidthMm); Assert.AreEqual(1600L, input.Variants[0].Customization.Maximum.WidthMm);
         }, engine: engine);
     }
-    /// <summary>Invokes an accessible Furniture action and pumps native layout work.</summary>
     private static void Click(FurnitureView view, string name) { WpfTestHost.FindByAutomationName<Button>(view, name).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); WpfTestHost.CompleteLayout(view); }
-    /// <summary>Invokes wizard navigation and pumps pending native layout work.</summary>
     private static void Next(FurnitureView view) { WpfTestHost.FindByName<Button>(view, "NextButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); WpfTestHost.CompleteLayout(view); }
 }

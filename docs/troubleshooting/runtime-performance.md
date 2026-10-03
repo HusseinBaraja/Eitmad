@@ -47,8 +47,8 @@ The diagnostic report does not contain paths, product payloads, secrets, relatio
 
 1. Run `diagnose` three times against the same stopped runtime directory. Separate one-time OS cache effects from repeatable slow checks.
 2. Start the Windows app and wait two minutes without interaction or pending sync. Compare process CPU time over a five-minute window and record working set. The engine and shell use blocking pipe, channel, subscription, signal, and process waits; there is no product-state polling loop to tune.
-3. Exercise 100 synthetic `GetConfiguration` or `ListReferenceMarkers` queries and 100 synthetic marker commands through the named pipe. Use unique create IDs or correct expected revisions and idempotency keys. Record p50, p95, maximum, error count, and frame size. Do not use customer scopes.
-4. Queue synthetic marker work offline, then reconnect. Confirm batches never exceed 50, transport attempts stop after five failures, and cancellation stops reconnect delay promptly.
+3. Exercise 100 synthetic `GetConfiguration` queries and 100 synthetic material commands through the named pipe in a temporary test installation. Use correct expected revisions and idempotency keys. Record p50, p95, maximum, error count, and frame size. Do not use customer scopes.
+4. Use the focused sync transport fixture to queue synthetic work offline, then reconnect. The desktop has no background sync connector. Confirm batches never exceed 50, transport attempts stop after five failures, and cancellation stops reconnect delay promptly.
 5. Compare results with a release build. Debug builds are useful for functional diagnosis but not performance acceptance.
 
 ## Evidence and resolution
@@ -69,7 +69,6 @@ The diagnostic report does not contain paths, product payloads, secrets, relatio
 - Active subscriptions per connection: 64.
 - Local IPC replay: 1,024 events and 16 MiB.
 - Startup publication recovery: pages of 64, maximum 1,024 events.
-- Reference marker page: 100 items; sync batch: 50 records.
 - General sync pending local changes and pending commands: 2,048 each.
 - Sync transport default retry attempts: 5, with capped backoff.
 
@@ -79,4 +78,4 @@ These limits prevent excessive idle memory, disk, and network amplification. Rea
 
 After a fix, rerun release diagnostics, common IPC sampling, one idle window, background sync, focused tests, and clean app start/stop. Escalate with versions, stable IDs, aggregate timings, counts, and sanitized resource samples. Do not attach database files, raw frames, labels, bearer tokens, paths, or customer data.
 
-Related pages: [engine startup](engine-startup-failures.md), [local IPC failures](local-ipc-failures.md), [synchronization failures](synchronization-failures.md), [engine runtime](../developer/subsystems/engine-runtime.md), and [reference marker](../developer/subsystems/reference-marker.md).
+Related pages: [engine startup](engine-startup-failures.md), [local IPC failures](local-ipc-failures.md), [synchronization failures](synchronization-failures.md), [engine runtime](../developer/subsystems/engine-runtime.md).

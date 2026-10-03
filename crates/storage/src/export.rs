@@ -324,46 +324,81 @@ fn publish_without_clobber(temporary: &Path, destination: &Path) -> Result<(), S
 
 #[cfg(test)]
 mod tests {
-    use eitmad_contracts::identity::{AccountId, OrganizationId, UserId, WorkspaceId};
     use tempfile::TempDir;
 
     use super::*;
-    use crate::IdentityTopology;
-
-    fn topology(tenant: u128) -> IdentityTopology {
-        IdentityTopology {
-            tenant_id: TenantId::new(Uuid::from_u128(tenant)),
-            user_id: UserId::new(Uuid::from_u128(tenant + 10)),
-            account_id: AccountId::new(Uuid::from_u128(tenant + 20)),
-            organization_id: Some(OrganizationId::new(Uuid::from_u128(tenant + 30))),
-            workspace_id: Some(WorkspaceId::new(Uuid::from_u128(tenant + 40))),
-            created_at: UnixMillis(1),
-        }
+    fn seed_tenant(store: &AuthorityStore, tenant: u128) -> (TenantId, Uuid) {
+        let tenant_id = TenantId::new(Uuid::from_u128(tenant));
+        let user_id = Uuid::from_u128(tenant + 10);
+        let account_id = Uuid::from_u128(tenant + 20);
+        store
+            .write_transaction(|connection| {
+                connection
+                    .execute(
+                        "INSERT INTO identity_tenants VALUES (?1, 1)",
+                        [tenant_id.value().to_string()],
+                    )
+                    .map_err(|_| StorageError)?;
+                connection
+                    .execute(
+                        "INSERT INTO identity_users VALUES (?1, 1)",
+                        [user_id.to_string()],
+                    )
+                    .map_err(|_| StorageError)?;
+                connection
+                    .execute(
+                        "INSERT INTO identity_accounts VALUES (?1, ?2, ?3, 1)",
+                        rusqlite::params![
+                            account_id.to_string(),
+                            user_id.to_string(),
+                            tenant_id.value().to_string()
+                        ],
+                    )
+                    .map_err(|_| StorageError)?;
+                let organization_id = Uuid::from_u128(tenant + 30).to_string();
+                connection
+                    .execute(
+                        "INSERT INTO identity_organizations VALUES (?1, ?2, 1)",
+                        rusqlite::params![organization_id, tenant_id.value().to_string()],
+                    )
+                    .map_err(|_| StorageError)?;
+                connection
+                    .execute(
+                        "INSERT INTO identity_workspaces VALUES (?1, ?2, ?3, 1)",
+                        rusqlite::params![
+                            Uuid::from_u128(tenant + 40).to_string(),
+                            tenant_id.value().to_string(),
+                            organization_id
+                        ],
+                    )
+                    .map_err(|_| StorageError)?;
+                Ok(())
+            })
+            .unwrap();
+        (tenant_id, account_id)
     }
 
     #[test]
     fn portable_export_is_atomic_scoped_and_excludes_sensitive_state() {
         let directory = TempDir::new().unwrap();
         let store = AuthorityStore::open(directory.path()).unwrap();
-        let first = topology(1);
-        let second = topology(2);
-        store.persist_identity_topology(&first).unwrap();
-        store.persist_identity_topology(&second).unwrap();
+        let (first_tenant, first_account) = seed_tenant(&store, 1);
+        let (second_tenant, _) = seed_tenant(&store, 2);
 
         let destination = directory.path().join("tenant.json");
         store
-            .export_tenant_data(first.tenant_id, &destination, UnixMillis(50))
+            .export_tenant_data(first_tenant, &destination, UnixMillis(50))
             .unwrap();
         let contents = fs::read_to_string(&destination).unwrap();
-        assert!(contents.contains(&first.tenant_id.value().to_string()));
-        assert!(contents.contains(&first.account_id.value().to_string()));
-        assert!(!contents.contains(&second.tenant_id.value().to_string()));
+        assert!(contents.contains(&first_tenant.value().to_string()));
+        assert!(contents.contains(&first_account.to_string()));
+        assert!(!contents.contains(&second_tenant.value().to_string()));
         assert!(!contents.contains("session"));
         assert!(!contents.contains("audit"));
         assert!(!contents.contains("device"));
         assert!(
             store
-                .export_tenant_data(first.tenant_id, &destination, UnixMillis(51))
+                .export_tenant_data(first_tenant, &destination, UnixMillis(51))
                 .is_err()
         );
         assert!(

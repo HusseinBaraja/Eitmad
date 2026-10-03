@@ -893,7 +893,6 @@ dependencies = [
  "eitmad-observability-audit",
  "eitmad-part",
  "eitmad-product",
- "eitmad-reference-marker",
  "eitmad-storage",
  "eitmad-sync",
  "fs2",
@@ -988,23 +987,6 @@ dependencies = [
  "eitmad-authorization",
  "eitmad-contracts",
  "eitmad-material",
- "eitmad-observability-audit",
- "eitmad-storage",
- "rusqlite",
- "serde",
- "serde_json",
- "sha2",
- "tempfile",
- "uuid",
-]
-
-[[package]]
-name = "eitmad-reference-marker"
-version = "0.0.0"
-dependencies = [
- "base64",
- "eitmad-authorization",
- "eitmad-contracts",
  "eitmad-observability-audit",
  "eitmad-storage",
  "rusqlite",

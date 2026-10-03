@@ -7,7 +7,23 @@ namespace Eitmad.WindowsShell.Tests.Furniture;
 [TestClass]
 public sealed class FurniturePresentationTests
 {
-    /// <summary>Protects list-only search, lazy picker loading, and reuse of historical compositions after Part resync.</summary>
+    [TestMethod]
+    public void MissingPartRevisionKeepsEditAndDuplicateClosed()
+    {
+        var fixture = new FurnitureFixtures();
+        fixture.Seed();
+        var model = new FurnitureViewModel();
+        model.ApplyDurableData(fixture.Snapshot() with { Parts = [], Compositions = [] });
+        var row = model.VisibleFurniture.Single();
+
+        Assert.IsFalse(model.BeginEdit(row));
+        model.DuplicateFurniture(row);
+        Assert.IsFalse(model.IsEditorOpen);
+        Assert.AreNotEqual("", model.DataStateText);
+        Assert.HasCount(0, model.SelectedParts);
+        Assert.HasCount(1, model.VisibleFurniture);
+    }
+
     [TestMethod]
     public async Task SearchLoadsOnlyRowsAndEditorsReuseImmutableReferences()
     {
@@ -42,7 +58,6 @@ public sealed class FurniturePresentationTests
         Assert.AreEqual(7L, refreshed.Value!.Compositions.Single(p => p.Revision == 7).Revision);
     }
 
-    /// <summary>Keeps an unsaved category on the information step and separates its error from numeric conversion errors.</summary>
     [TestMethod]
     public void UnsavedCategoryCannotContinueOrSaveAndWhitespaceResolvesSavedCategory()
     {
@@ -53,7 +68,6 @@ public sealed class FurniturePresentationTests
         model.EditorCategory = $" {f.Category.Name} ";
         Assert.IsTrue(model.MoveToParts()); Assert.AreEqual(f.Category.Id, model.SaveInput(FurnitureState.Draft).CategoryId);
     }
-    /// <summary>Verifies reopen retains exact part references and edit revision across refresh.</summary>
     [TestMethod]
     public void ReopenRetainsExactPartReferencesAndEditRevisionAcrossRefresh()
     {
@@ -65,7 +79,6 @@ public sealed class FurniturePresentationTests
         Assert.AreEqual(color, input.Colors[0].Id); Assert.AreEqual(handle, input.Handles[0].Id);
         model.ClearSession(); Assert.IsFalse(model.CanManage); Assert.IsFalse(model.IsEditorOpen); Assert.AreEqual("", model.InternalNotes); Assert.HasCount(0, model.VisibleFurniture);
     }
-    /// <summary>Verifies duplicate stays unsaved with new option and variant identities.</summary>
     [TestMethod]
     public void DuplicateStaysUnsavedWithNewOptionAndVariantIdentities()
     {
@@ -73,7 +86,6 @@ public sealed class FurniturePresentationTests
         var input = model.SaveInput(FurnitureState.Draft); Assert.IsNull(input.Id); Assert.IsNull(input.ExpectedRevision);
         Assert.AreNotEqual(old.Variants[0].Id, input.Variants[0].Id); Assert.AreNotEqual(old.Colors[0].Id, input.Colors[0].Id); Assert.HasCount(1, model.VisibleFurniture);
     }
-    /// <summary>Verifies inputs preserve exact millimetres and reject fractional money and part counts.</summary>
     [TestMethod]
     public void InputsPreserveExactMillimetresAndRejectFractionalMoneyAndPartCounts()
     {
@@ -82,7 +94,6 @@ public sealed class FurniturePresentationTests
         Assert.ThrowsExactly<FormatException>(() => model.Variants[0].SellingPriceInput = "١٢٫٥"); model.Variants[0].SellingPriceInput = "٢٠٠٬٠٠٠"; Assert.AreEqual(200000m, model.Variants[0].SellingPrice);
         model.SelectedParts[0].Quantity = 1.5m; Assert.ThrowsExactly<FormatException>(() => model.SaveInput(FurnitureState.Draft));
     }
-    /// <summary>Verifies customization and compatibility round trip without shell cost formula.</summary>
     [TestMethod]
     public void CustomizationAndCompatibilityRoundTripWithoutShellCostFormula()
     {
@@ -91,7 +102,6 @@ public sealed class FurniturePresentationTests
         Assert.IsTrue(model.SaveVariant()); var input = model.SaveInput(FurnitureState.Draft); Assert.AreEqual(1000L, input.Variants[0].Customization.Minimum.WidthMm); Assert.HasCount(1, input.Variants[0].ColorIds);
         model.ApplyReview(f.Review); Assert.AreEqual(18900m, model.CurrentPartsCost); Assert.AreEqual("181,100", model.Variants[0].MarginLabel);
     }
-    /// <summary>Verifies unknown save retries exact key and refuses different payload.</summary>
     [TestMethod]
     public async Task UnknownSaveRetriesExactKeyAndRefusesDifferentPayload()
     {
@@ -104,7 +114,6 @@ public sealed class FurniturePresentationTests
         input.Name = "different"; Assert.AreEqual(FurnitureFailureKind.Conflict, await client.SaveAsync(input)); input.Name = "خزانة السكينة";
         engine.CommandHandler = accepted; Assert.AreEqual(FurnitureFailureKind.None, await client.SaveAsync(input)); Assert.AreEqual(key, engine.LastIdempotencyKey);
     }
-    /// <summary>Verifies client maps conflict denial and typed subscriptions.</summary>
     [TestMethod]
     public async Task ClientMapsConflictDenialAndTypedSubscriptions()
     {

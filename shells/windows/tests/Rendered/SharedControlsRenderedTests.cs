@@ -80,7 +80,6 @@ public sealed class SharedControlsRenderedTests
         throw new InvalidOperationException("The search field has no layout panel.");
     }
 
-    /// <summary>Verifies selector footer actions remain attached to the correct feature and selector.</summary>
     [TestMethod]
     public void SelectorFootersKeepTheOwningSelectorAndFeatureActions()
     {

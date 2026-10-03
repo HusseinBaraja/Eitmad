@@ -14,7 +14,6 @@ try
     await tests.UnavailableEngineIsTyped();
     await tests.TypedRequestsRequireConnectedEngine();
     await tests.ConfigurationPatchRequiresIdempotency();
-    tests.FrameLimitMatchesRustContract();
     tests.SubscriptionQueueIsBounded();
     tests.SubscriptionAcknowledgementNeverRegresses();
     await tests.SupervisedSubscriptionSurvivesReattach();
@@ -76,8 +75,8 @@ internal sealed class SupervisionScenarios
             () => fixture.Supervisor.QueryAsync(Query.ForConfigGet(new GetConfiguration())),
             "typed query requires connected engine");
         await Assert.ThrowsAsync<EngineIpcException>(
-            () => fixture.Supervisor.SubmitConfigurationPatchAsync(
-                new UpdateConfiguration { ExpectedRevision = 1, Changes = [] },
+            () => fixture.Supervisor.SubmitCommandAsync(
+                Command.ForConfigUpdate(new UpdateConfiguration { ExpectedRevision = 1, Changes = [] }),
                 Guid.NewGuid()),
             "typed configuration patch requires connected engine");
     }
@@ -86,14 +85,11 @@ internal sealed class SupervisionScenarios
     {
         var fixture = new SupervisorFixture();
         await Assert.ThrowsAsync<ArgumentException>(
-            () => fixture.Supervisor.SubmitConfigurationPatchAsync(
-                new UpdateConfiguration { ExpectedRevision = 1, Changes = [] },
+            () => fixture.Supervisor.SubmitCommandAsync(
+                Command.ForConfigUpdate(new UpdateConfiguration { ExpectedRevision = 1, Changes = [] }),
                 Guid.Empty),
             "typed configuration patch requires idempotency");
     }
-
-    public void FrameLimitMatchesRustContract() =>
-        Assert.Equal(8_388_608, EngineIpcClient.MaximumFrameBytes, "IPC frame limit");
 
     public void SubscriptionQueueIsBounded()
     {
@@ -125,7 +121,7 @@ internal sealed class SupervisionScenarios
     public async Task SupervisedSubscriptionSurvivesReattach()
     {
         await using var supervised = new SupervisedEngineSubscription(
-            Subscription.ForSyncStatusSubscribe(new SyncStatusChanges()));
+            Subscription.ForConfigChangedSubscribe(new ConfigurationChanges()));
         var first = new EngineSubscription(Guid.NewGuid(), Guid.NewGuid(), resumed: false);
         supervised.Attach(first, resetCursor: false);
         var firstEvent = EventEnvelope(first.SubscriptionId);
@@ -145,7 +141,7 @@ internal sealed class SupervisionScenarios
     public async Task SupervisedSubscriptionRecoversAfterQueueOverflow()
     {
         await using var supervised = new SupervisedEngineSubscription(
-            Subscription.ForSyncStatusSubscribe(new SyncStatusChanges()));
+            Subscription.ForConfigChangedSubscribe(new ConfigurationChanges()));
         var overflowing = new EngineSubscription(Guid.NewGuid(), Guid.NewGuid(), resumed: false);
         supervised.Attach(overflowing, resetCursor: false);
         for (var index = 0; index <= EngineSubscription.Capacity; index++)
@@ -204,7 +200,7 @@ internal sealed class SupervisionScenarios
         Cursor = Guid.NewGuid(),
         Event = new Dictionary<string, object>
         {
-            ["kind"] = Event.SyncStatusEventKind,
+            ["kind"] = Event.ConfigChangedEventKind,
             ["payload"] = new Dictionary<string, object>(),
         },
         OccurredAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
@@ -396,7 +392,7 @@ internal sealed class SupervisionScenarios
                 }), Guid.NewGuid());
             Assert.Equal(CommandOutcomeStatus.Succeeded, createdResponse.Outcome.Status,
                 "real customer create succeeds in branch scope");
-            var created = createdResponse.Outcome.Payload.Payload?.Customer
+            var created = createdResponse.Outcome.Payload.AsCustomerCreated()?.Customer
                 ?? throw new InvalidOperationException("Real engine omitted the created customer.");
 
             var persistedPart = await SaveMultiMaterialPart(supervisor);
@@ -411,21 +407,10 @@ internal sealed class SupervisionScenarios
                 ?? throw new InvalidOperationException("Real engine omitted the configuration snapshot.");
             await using var configurationSubscription = await supervisor.SubscribeAsync(
                 Subscription.ForConfigChangedSubscribe(new ConfigurationChanges()));
-            var syncResponse = await supervisor.QueryAsync(Query.ForSyncGetStatus(new GetSyncStatus()));
-            Assert.True(
-                syncResponse.Outcome.Status == CommandOutcomeStatus.Succeeded
-                    || !string.IsNullOrWhiteSpace(syncResponse.Outcome.Payload.Code),
-                "real sync query returns typed state or typed error");
-            var updateResponse = await supervisor.QueryAsync(Query.ForUpdateGetState(new GetUpdateState()));
-            Assert.True(
-                updateResponse.Outcome.Status == CommandOutcomeStatus.Succeeded
-                    || !string.IsNullOrWhiteSpace(updateResponse.Outcome.Payload.Code),
-                "real update query returns typed state or typed error");
-
             var persistedProduct = await SaveSupplierProduct(supervisor);
 
-            var patchResponse = await supervisor.SubmitConfigurationPatchAsync(
-                new UpdateConfiguration
+            var patchResponse = await supervisor.SubmitCommandAsync(
+                Command.ForConfigUpdate(new UpdateConfiguration
                 {
                     ExpectedRevision = configuration.Revision,
                     Changes =
@@ -436,7 +421,7 @@ internal sealed class SupervisionScenarios
                             Value = new ConfigWriteValue { Kind = ConfigWriteValueKind.Text, Value = "ar-YE" },
                         },
                     ],
-                },
+                }),
                 Guid.NewGuid());
             Assert.Equal(CommandOutcomeStatus.Failed, patchResponse.Outcome.Status, "manager configuration write denial");
             Assert.Equal(
@@ -526,7 +511,7 @@ internal sealed class SupervisionScenarios
         var reviewed=await supervisor.QueryAsync(Query.ForFurnitureReview(input));Assert.Equal(18900L,reviewed.Outcome.Payload.AsFurnitureReview()!.PartsCostYer,"Rust Furniture composition review");
         var key=Guid.NewGuid();var saved=await supervisor.SubmitCommandAsync(Command.ForFurnitureSave(input),key);
         Assert.Equal(CommandOutcomeStatus.Succeeded,saved.Outcome.Status,"Furniture commit");
-        var retried=await supervisor.SubmitCommandAsync(Command.ForFurnitureSave(input),key);Assert.Equal(saved.Outcome.Payload.Payload.Id,retried.Outcome.Payload.Payload.Id,"Furniture retry identity");
+        var retried=await supervisor.SubmitCommandAsync(Command.ForFurnitureSave(input),key);Assert.Equal(saved.Outcome.Payload.AsFurnitureSaved()!.Id,retried.Outcome.Payload.AsFurnitureSaved()!.Id,"Furniture retry identity");
         var page=await supervisor.QueryAsync(Query.ForFurnitureList(new ListFurnitures { Term="خزانة اختبار",Limit=100 }));var value=page.Outcome.Payload.AsFurnitures()!.Items.Single();
         using var timeout=new CancellationTokenSource(TimeSpan.FromSeconds(10));
         await foreach(var delivered in events.ReadAllAsync(timeout.Token)) { var notice=EngineContractCodec.DecodeEvent(delivered).AsFurnitureChangedEvent();events.Acknowledge(delivered);Assert.Equal(value.Id,notice!.Id,"Furniture event after commit");break; }
@@ -558,7 +543,7 @@ internal sealed class SupervisionScenarios
         var saved = await supervisor.SubmitCommandAsync(Command.ForProductSave(input), key);
         Assert.Equal(CommandOutcomeStatus.Succeeded, saved.Outcome.Status, "product commit");
         var retried = await supervisor.SubmitCommandAsync(Command.ForProductSave(input), key);
-        Assert.Equal(saved.Outcome.Payload.Payload!.Id, retried.Outcome.Payload.Payload!.Id, "product exact retry identity");
+        Assert.Equal(saved.Outcome.Payload.AsProductSaved()!.Id, retried.Outcome.Payload.AsProductSaved()!.Id, "product exact retry identity");
         var page = await supervisor.QueryAsync(Query.ForProductList(new ListProducts { Term = "", Limit = 100 }));
         var product = page.Outcome.Payload.AsProducts()!.Items.Single();
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
@@ -631,7 +616,7 @@ internal sealed class SupervisionScenarios
         var saved = await supervisor.SubmitCommandAsync(command,key);
         Assert.Equal(CommandOutcomeStatus.Succeeded,saved.Outcome.Status,"real part save");
         var retried = await supervisor.SubmitCommandAsync(command,key);
-        Assert.Equal(saved.Outcome.Payload.Payload!.Id,retried.Outcome.Payload.Payload!.Id,"part retry preserves identity");
+        Assert.Equal(saved.Outcome.Payload.AsPartSaved()!.Id,retried.Outcome.Payload.AsPartSaved()!.Id,"part retry preserves identity");
         var parts = await supervisor.QueryAsync(Query.ForPartList(new ListParts { Term = "", Limit = 100 }));
         var part = parts.Outcome.Payload.AsParts()!.Items.Single().Part;
         using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(5));

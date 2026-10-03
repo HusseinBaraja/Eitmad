@@ -31,7 +31,6 @@ public partial class RawMaterialsView : UserControl
     {
         client = new MaterialClient(engine);
         client.Changed += (_, _) => _ = RefreshAsync();
-        ViewModel.EnableDurableMode();
         ViewModel.SearchChanged += (_, _) => _ = RefreshAsync();
     }
 
@@ -60,7 +59,7 @@ public partial class RawMaterialsView : UserControl
             var result = await client.LoadAsync(ViewModel.SearchText.Trim(), cancellation.Token);
             if (version != refreshVersion) return;
             if (result.Succeeded) ViewModel.ApplyDurableData(result.Value!.References, result.Value.Materials);
-            else ViewModel.DurableUnavailable(MaterialClient.ArabicMessage(result.Failure));
+            else ViewModel.Unavailable(MaterialClient.ArabicMessage(result.Failure));
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
     }
@@ -106,7 +105,6 @@ public partial class RawMaterialsView : UserControl
         if (MaterialFromMenuItem(sender) is { } material)
         {
             ViewModel.Duplicate(material);
-            if (client is null) RestartFeedbackTimer();
             Dispatcher.BeginInvoke(EditorNameBox.Focus, DispatcherPriority.Input);
         }
     }
@@ -115,52 +113,40 @@ public partial class RawMaterialsView : UserControl
     {
         if (MaterialFromMenuItem(sender) is { } material)
         {
-            if (client is null) { ViewModel.Archive(material); RestartFeedbackTimer(); return; }
-            if (material.Revision is not { } revision || material.CategoryId is not { } categoryId
-                || material.UnitId is not { } unitId) return;
+            if (client is null) { ViewModel.Unavailable(MaterialClient.ArabicMessage(MaterialFailureKind.Unavailable)); return; }
             var failure = await client.SaveAsync(new SaveMaterial
             {
-                Id = material.Id, ExpectedRevision = revision, Name = material.Name,
-                CategoryId = categoryId, UnitId = unitId, CurrentCostYer = (long)material.CurrentCost,
+                Id = material.Id, ExpectedRevision = material.Revision, Name = material.Name,
+                CategoryId = material.CategoryId, UnitId = material.UnitId, CurrentCostYer = (long)material.CurrentCost,
                 Archived = true,
             });
             if (failure == MaterialFailureKind.None)
-            { ViewModel.DurableSaved("أُرشفت المادة الخام."); await RefreshAsync(); RestartFeedbackTimer(); }
-            else ViewModel.DurableUnavailable(MaterialClient.ArabicMessage(failure));
+            { ViewModel.Saved("أُرشفت المادة الخام."); await RefreshAsync(); RestartFeedbackTimer(); }
+            else ViewModel.Unavailable(MaterialClient.ArabicMessage(failure));
         }
     }
 
     private async void SaveEditorClick(object sender, RoutedEventArgs eventArgs)
     {
-        if (client is not null)
+        if (client is null) { ViewModel.Fail(MaterialClient.ArabicMessage(MaterialFailureKind.Unavailable)); return; }
+
+        var category = ViewModel.EditorCategories.FirstOrDefault(item => item.Id == ViewModel.EditorCategoryId);
+        var unit = ViewModel.EditorUnits.FirstOrDefault(item => item.Id == ViewModel.EditorUnitId);
+        if (category?.Id is not { } categoryId || unit?.Id is not { } unitId
+            || !TryParseWholeCost(EditorCostBox.Text, out var cost))
+        { ViewModel.Fail("اختر تصنيفاً ووحدة، وأدخل تكلفة صحيحة بالريال اليمني."); return; }
+        ViewModel.EditorCost = cost;
+        var failure = await client.SaveAsync(new SaveMaterial
         {
-            var category = ViewModel.EditorCategories.FirstOrDefault(item => item.Id == ViewModel.EditorCategoryId);
-            var unit = ViewModel.EditorUnits.FirstOrDefault(item => item.Id == ViewModel.EditorUnitId);
-            if (category?.Id is not { } categoryId || unit?.Id is not { } unitId
-                || !TryParseWholeCost(EditorCostBox.Text, out var cost))
-            { ViewModel.DurableError("اختر تصنيفاً ووحدة، وأدخل تكلفة صحيحة بالريال اليمني."); return; }
-            ViewModel.EditorCost = cost;
-            var failure = await client.SaveAsync(new SaveMaterial
-            {
-                Id = ViewModel.EditingMaterial?.Revision is not null ? ViewModel.EditingMaterial.Id : null,
-                ExpectedRevision = ViewModel.EditingMaterial?.Revision,
-                Name = ViewModel.EditorName.Trim(), CategoryId = categoryId, UnitId = unitId,
-                CurrentCostYer = cost,
-                Archived = ViewModel.EditingMaterial?.IsArchived ?? false,
-            });
-            if (failure == MaterialFailureKind.None)
-            { ViewModel.DurableSaved("حُفظت المادة الخام."); await RefreshAsync(); RestartFeedbackTimer(); }
-            else ViewModel.DurableError(MaterialClient.ArabicMessage(failure));
-            return;
-        }
-        if (ViewModel.SaveEditor())
-        {
-            RestartFeedbackTimer();
-        }
-        else
-        {
-            EditorNameBox.Focus();
-        }
+            Id = ViewModel.EditingMaterial?.Id,
+            ExpectedRevision = ViewModel.EditingMaterial?.Revision,
+            Name = ViewModel.EditorName.Trim(), CategoryId = categoryId, UnitId = unitId,
+            CurrentCostYer = cost,
+            Archived = ViewModel.EditingMaterial?.IsArchived ?? false,
+        });
+        if (failure == MaterialFailureKind.None)
+        { ViewModel.Saved("حُفظت المادة الخام."); await RefreshAsync(); RestartFeedbackTimer(); }
+        else ViewModel.Fail(MaterialClient.ArabicMessage(failure));
     }
 
     private static bool TryParseWholeCost(string input, out long cost)
@@ -239,71 +225,64 @@ public partial class RawMaterialsView : UserControl
     {
         if (sender is Button { DataContext: RawMaterialReferenceOption reference })
         {
-            if (client is null) { ViewModel.ArchiveReference(reference); return; }
-            if (reference.Id is not { } id || reference.Revision is not { } revision) return;
+            if (client is null) { ViewModel.Fail(MaterialClient.ArabicMessage(MaterialFailureKind.Unavailable), reference: true); return; }
             var failure = ViewModel.IsCategoryReference
                 ? await client.SaveAsync(new SaveMaterialCategory
-                    { Id = id, ExpectedRevision = revision, Name = reference.Name, Archived = true })
+                    { Id = reference.Id, ExpectedRevision = reference.Revision, Name = reference.Name, Archived = true })
                 : await client.SaveAsync(new SaveMaterialUnit
-                    { Id = id, ExpectedRevision = revision, Name = reference.Name, Symbol = reference.ShortName,
+                    { Id = reference.Id, ExpectedRevision = reference.Revision, Name = reference.Name, Symbol = reference.ShortName,
                       Dimension = reference.Dimension, Numerator = reference.Numerator,
                       Denominator = reference.Denominator, Archived = true });
             if (failure == MaterialFailureKind.None)
             {
-                ViewModel.DurableSaved("أُرشف المرجع.");
+                ViewModel.Saved("أُرشف المرجع.");
                 await RefreshAsync();
                 RestartFeedbackTimer();
             }
-            else ViewModel.DurableError(MaterialClient.ArabicMessage(failure), reference: true);
+            else ViewModel.Fail(MaterialClient.ArabicMessage(failure), reference: true);
         }
     }
 
     private async void SaveReferenceClick(object sender, RoutedEventArgs eventArgs)
     {
-        if (client is not null)
+        if (client is null) { ViewModel.Fail(MaterialClient.ArabicMessage(MaterialFailureKind.Unavailable), reference: true); return; }
+
+        MaterialFailureKind failure;
+        var selected = ViewModel.EditingReference;
+        if (ViewModel.IsCategoryReference)
+            failure = await client.SaveAsync(new SaveMaterialCategory
+                { Id = selected?.Id, ExpectedRevision = selected?.Revision,
+                  Name = ViewModel.ReferenceName.Trim(), Archived = selected?.IsArchived ?? false });
+        else
         {
-            MaterialFailureKind failure;
-            var selected = ViewModel.EditingReference;
-            if (ViewModel.IsCategoryReference)
-                failure = await client.SaveAsync(new SaveMaterialCategory
-                    { Id = selected?.Id, ExpectedRevision = selected?.Revision,
-                      Name = ViewModel.ReferenceName.Trim(), Archived = selected?.IsArchived ?? false });
+            if (!long.TryParse(UnitNumeratorBox.Text, NumberStyles.None, CultureInfo.InvariantCulture, out var numerator)
+                || !long.TryParse(UnitDenominatorBox.Text, NumberStyles.None, CultureInfo.InvariantCulture, out var denominator)
+                || numerator <= 0 || denominator <= 0)
+            { ViewModel.Fail("أدخل بسطاً ومقاماً صحيحين أكبر من صفر.", reference: true); return; }
+            failure = await client.SaveAsync(new SaveMaterialUnit
+                { Id = selected?.Id, ExpectedRevision = selected?.Revision,
+                  Name = ViewModel.ReferenceName.Trim(), Symbol = ViewModel.ReferenceShortName.Trim(),
+                  Dimension = ViewModel.ReferenceDimension, Numerator = numerator,
+                  Denominator = denominator, Archived = selected?.IsArchived ?? false });
+        }
+        if (failure == MaterialFailureKind.None)
+        {
+            var name = ViewModel.ReferenceName.Trim();
+            var isCategory = ViewModel.IsCategoryReference;
+            ViewModel.Saved("حُفظ المرجع.");
+            await RefreshAsync();
+            if (isCategory)
+            {
+                if (selected?.Id is { } id) ViewModel.EditorCategoryId = id;
+                else ViewModel.EditorCategory = name;
+            }
             else
             {
-                if (!long.TryParse(UnitNumeratorBox.Text, NumberStyles.None, CultureInfo.InvariantCulture, out var numerator)
-                    || !long.TryParse(UnitDenominatorBox.Text, NumberStyles.None, CultureInfo.InvariantCulture, out var denominator)
-                    || numerator <= 0 || denominator <= 0)
-                { ViewModel.DurableError("أدخل بسطاً ومقاماً صحيحين أكبر من صفر.", reference: true); return; }
-                failure = await client.SaveAsync(new SaveMaterialUnit
-                    { Id = selected?.Id, ExpectedRevision = selected?.Revision,
-                      Name = ViewModel.ReferenceName.Trim(), Symbol = ViewModel.ReferenceShortName.Trim(),
-                      Dimension = ViewModel.ReferenceDimension, Numerator = numerator,
-                      Denominator = denominator, Archived = selected?.IsArchived ?? false });
+                if (selected?.Id is { } id) ViewModel.EditorUnitId = id;
+                else ViewModel.EditorUnit = name;
             }
-            if (failure == MaterialFailureKind.None)
-            {
-                var name = ViewModel.ReferenceName.Trim();
-                var isCategory = ViewModel.IsCategoryReference;
-                ViewModel.DurableSaved("حُفظ المرجع.");
-                await RefreshAsync();
-                if (isCategory)
-                {
-                    if (selected?.Id is { } id) ViewModel.EditorCategoryId = id;
-                    else ViewModel.EditorCategory = name;
-                }
-                else
-                {
-                    if (selected?.Id is { } id) ViewModel.EditorUnitId = id;
-                    else ViewModel.EditorUnit = name;
-                }
-            }
-            else ViewModel.DurableError(MaterialClient.ArabicMessage(failure), reference: true);
-            return;
         }
-        if (!ViewModel.SaveReferenceEditor())
-        {
-            ReferenceNameBox.Focus();
-        }
+        else ViewModel.Fail(MaterialClient.ArabicMessage(failure), reference: true);
     }
 
     private void CancelReferenceClick(object sender, RoutedEventArgs eventArgs) => ViewModel.CancelReferenceEditor();

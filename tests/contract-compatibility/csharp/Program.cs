@@ -10,9 +10,6 @@ using var fixture = JsonDocument.Parse(File.ReadAllText(args[0]));
 var queryJson = fixture.RootElement.GetProperty("query").GetRawText();
 var query = JsonSerializer.Deserialize<QueryEnvelope>(queryJson, Converter.Settings)
     ?? throw new InvalidOperationException("C# binding did not decode the Rust query fixture.");
-var queryProtocol10Json = fixture.RootElement.GetProperty("queryProtocol10").GetRawText();
-var queryProtocol10 = JsonSerializer.Deserialize<QueryEnvelope>(queryProtocol10Json, Converter.Settings)
-    ?? throw new InvalidOperationException("C# binding did not decode the Rust protocol 1.0 fixture.");
 
 static string? QueryKind(QueryEnvelope envelope) =>
     envelope.Query.TryGetValue("kind", out var kind)
@@ -26,9 +23,7 @@ static string? QueryKind(QueryEnvelope envelope) =>
 
 if (QueryKind(query) != Query.ConfigGetKind
     || query.ProtocolVersion.Major != ProtocolIds.Version.Major
-    || query.ProtocolVersion.Minor != ProtocolIds.Version.Minor
-    || queryProtocol10.ProtocolVersion.Minor != 0
-    || QueryKind(queryProtocol10) != Query.ConfigGetKind)
+    || query.ProtocolVersion.Minor != ProtocolIds.Version.Minor)
 {
     throw new InvalidOperationException("C# binding decoded the wrong query version or identifier.");
 }
@@ -54,29 +49,6 @@ if (decodedError.Parameters[0].Name != "expected-revision"
     throw new InvalidOperationException(
         "C# binding changed the safe structured error parameter during round-trip."
     );
-}
-
-var observationSeverity = JsonSerializer.Deserialize<ObservationSeverity>(
-    fixture.RootElement.GetProperty("observationSeverity").GetRawText(),
-    Converter.Settings
-);
-var observationClassification = JsonSerializer.Deserialize<DataClassification>(
-    fixture.RootElement.GetProperty("observationClassification").GetRawText(),
-    Converter.Settings
-);
-var observationValueKind = JsonSerializer.Deserialize<ObservationValueKind>(
-    fixture.RootElement.GetProperty("observationValueKind").GetRawText(),
-    Converter.Settings
-);
-if (fixture.RootElement.GetProperty("observationEventId").GetString()
-        != "eitmad.observation.engine-failure.v1"
-    || fixture.RootElement.GetProperty("observationFieldName").GetString() != "operation"
-    || fixture.RootElement.GetProperty("observationComponentId").GetString() != "engine-runtime"
-    || observationSeverity != ObservationSeverity.Error
-    || observationClassification != DataClassification.Sensitive
-    || observationValueKind != ObservationValueKind.Identifier)
-{
-    throw new InvalidOperationException("C# binding changed an observability contract value.");
 }
 
 var samplesJson = fixture.RootElement.GetProperty("mixedDirectionSamples").GetRawText();

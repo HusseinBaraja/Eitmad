@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust identity and storage maintainers"
-last_verified: "2026-09-21"
+last_verified: "2026-10-03"
 review_triggers:
   - "identity topology, session lifecycle, tenant isolation, offline policy, or audit attribution changes"
 keywords:
@@ -24,11 +24,11 @@ Rust owns stable identity IDs and their local persistence. Storage version 5 add
 
 `TenantId` is the isolation root. An account binds one `UserId` to one tenant. Organizations and workspaces belong to one tenant; a workspace may belong to an organization in that same tenant. A device is installation-local and tenant-neutral. A session binds its principal, account, user, device, tenant, optional organization/workspace, issue/expiry times, last observation, connectivity, and closure state.
 
-The public storage boundary accepts typed IDs from `eitmad-contracts`. It never exposes a raw SQLite connection. `persist_identity_topology` commits the tenant/user/account/organization/workspace graph atomically and verifies conflict results. Composite foreign keys reject cross-tenant account, organization, workspace, and session references.
+The public storage boundary accepts typed IDs from `eitmad-contracts`. It never exposes a raw SQLite connection. Local installation bootstrap and desktop-account administration own topology writes and commit them with audit. Composite foreign keys reject cross-tenant account, organization, workspace, and session references.
 
 ## Offline session behavior
 
-A persisted session may be `Online` or `Offline`. Connectivity does not bypass expiry or closure: `PersistentSession::is_locally_usable_at` requires an issued, unexpired, open session. `refresh_session` moves the last-seen time forward and records connectivity only for an active, unexpired session. `close_session` is tenant-scoped and idempotent.
+A persisted session may be `Online` or `Offline`. Connectivity does not bypass expiry or closure: `PersistentSession::is_locally_usable_at` requires an issued, unexpired, open session. `persist_desktop_session` and `close_desktop_session` commit sign-in and sign-out with audit. Closure matches the tenant, principal, device, and session; repeated sign-out adds no duplicate audit.
 
 No bearer token, refresh token, or password is stored in the identity tables. Storage version 10 adds `desktop_accounts` for separate, provisioned Manager and Receptionist accounts and their Argon2 password verifiers. The installation owner is a provisioning identity; the process handshake projects a device principal without its owner relation. `DesktopAuthenticator` verifies a password, then issues a separate eight-hour durable user session. Offline sign-in requires the password. Session validation checks the account, device, tenant, scope, expiry, and closure before IPC dispatch. Sign-in or sign-out commits the session change and a user-attributed audit record in one transaction.
 
@@ -49,7 +49,7 @@ Identity authority uses opaque UUIDs and does not branch on language. Future dis
 ## Failure modes and recovery
 
 - A missing referenced identity or cross-tenant reference rolls back the transaction and returns sanitized `StorageError`.
-- An expired or closed session cannot be refreshed and returns `false` without changing state. IPC commands and queries also fail before dispatch.
+- An expired or closed session fails validation before IPC command or query dispatch.
 - Corrupt, drifted, newer, or out-of-window storage prevents readiness before identity access.
 - Offline operation never fabricates a tenant or silently moves a session between scopes.
 
@@ -57,6 +57,6 @@ Use [recover local storage](../../operations/recover-local-storage.md) before an
 
 ## Tests and extension points
 
-Colocated tests cover reopen persistence, offline expiry, online refresh, durable closure, tenant-scoped lookup, and foreign-key isolation. Audit tests cover stored session/device attribution. Export tests prove tenant filtering and sensitive-table exclusion.
+Colocated tests cover audited desktop-session persistence after reopen, offline expiry, durable closure, tenant-scoped lookup, and foreign-key isolation. Audit tests cover stored session/device attribution. Export tests prove tenant filtering and sensitive-table exclusion.
 
-Add identity behavior in this vertical. Add the next immutable feature migration, preserve the storage 2–5 compatibility window or release a deliberate new window, and test denial, offline behavior, audit attribution, Arabic/mixed-direction display boundaries, and recovery. Also review [local storage](local-storage.md), [ADR-0022](../../decisions/0022-persistent-tenant-identity-and-safe-storage-recovery.md), and the [storage v5 release note](../../releases/storage-v5-identity-recovery.md).
+Add identity behavior in this vertical. Add the next immutable feature migration, preserve the declared storage compatibility window, and test denial, offline behavior, audit attribution, Arabic/mixed-direction display boundaries, and recovery. Also review [local storage](local-storage.md), [ADR-0022](../../decisions/0022-persistent-tenant-identity-and-safe-storage-recovery.md), and the [storage recovery](../../operations/recover-local-storage.md).

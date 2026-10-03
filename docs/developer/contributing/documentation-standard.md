@@ -89,7 +89,7 @@ In the same logical change:
 For an ordinary documentation change, audit only the changed pages. For example:
 
 ```powershell
-python .agents/skills/maintain-project-documentation/scripts/audit_docs.py --root docs --files docs/developer/subsystems/reference-marker.md
+python .agents/skills/maintain-project-documentation/scripts/audit_docs.py --root docs --files docs/developer/subsystems/raw-materials.md
 ```
 
 Run the full audit only when shared navigation, indexes, or the documentation system changed:

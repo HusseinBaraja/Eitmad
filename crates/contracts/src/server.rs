@@ -13,11 +13,9 @@ use crate::{
 
 uuid_id!(InviteId);
 uuid_id!(TokenFamilyId);
-uuid_id!(LicenseId);
 uuid_id!(EntitlementAssignmentId);
 uuid_id!(ServerEventId);
 
-open_id!(EntitlementId, "license entitlement identifier");
 open_id!(UpdateChannelId, "update channel identifier");
 open_id!(ServerErrorCode, "server error identifier");
 
@@ -87,33 +85,6 @@ impl std::fmt::Display for ServerIdentifierError {
 }
 
 impl std::error::Error for ServerIdentifierError {}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub enum AccountStatus {
-    PendingActivation,
-    Active,
-    Disabled,
-    Locked,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct AccountSummary {
-    pub account_id: AccountId,
-    pub user_id: UserId,
-    pub tenant_id: TenantId,
-    pub username: String,
-    pub status: AccountStatus,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct OrganizationSummary {
-    pub organization_id: OrganizationId,
-    pub tenant_id: TenantId,
-    pub display_name: String,
-}
 
 /// Rust-owned branch identity registered by a tenant owner.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -224,45 +195,6 @@ pub struct AuthenticatedServerSession {
 pub struct AuthenticationResult {
     pub session: AuthenticatedServerSession,
     pub tokens: IssuedTokens,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct CreateInviteRequest {
-    pub username: String,
-    pub organization_ids: Vec<OrganizationId>,
-    pub delivery_destination: Option<String>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct InviteCreated {
-    pub invite_id: InviteId,
-    pub account_id: AccountId,
-    pub expires_at: UnixMillis,
-    pub delivery_id: ServerEventId,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub enum LicenseStatus {
-    Active,
-    Grace,
-    Expired,
-    Suspended,
-    Unknown,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct LicenseState {
-    pub license_id: LicenseId,
-    pub tenant_id: TenantId,
-    pub provider_revision: String,
-    pub status: LicenseStatus,
-    pub valid_until: Option<UnixMillis>,
-    pub grace_until: Option<UnixMillis>,
-    pub entitlements: Vec<EntitlementId>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]

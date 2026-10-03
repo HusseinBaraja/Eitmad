@@ -27,7 +27,6 @@ pub const CAPABILITIES: &[&str] = &[
     "eitmad.capability.server-update-distribution.v1",
     "eitmad.capability.server-administration.v1",
     "eitmad.capability.update.v1",
-    "eitmad.capability.reference-marker.v1",
     "eitmad.capability.customer.v1",
     "eitmad.capability.material.v1",
     "eitmad.capability.part.v1",
@@ -89,8 +88,6 @@ pub const PERMISSIONS: &[&str] = &[
     "eitmad.permission.server.admin.support.execute.v1",
     "eitmad.permission.update.read.v1",
     "eitmad.permission.update.report-installer.v1",
-    "eitmad.permission.reference-marker.read.v1",
-    "eitmad.permission.reference-marker.write.v1",
     "eitmad.permission.customer.read.v1",
     "eitmad.permission.customer.write.v1",
     "eitmad.permission.product.read.v1",
@@ -152,8 +149,6 @@ pub const ERROR_CODES: &[&str] = &[
     "eitmad.error.update-distribution-unavailable.v1",
     "eitmad.error.admin-unavailable.v1",
     "eitmad.error.update-installer-failed.v1",
-    "eitmad.error.reference-marker-revision-conflict.v1",
-    "eitmad.error.reference-marker-unavailable.v1",
     "eitmad.error.customer-not-found.v1",
     "eitmad.error.customer-revision-conflict.v1",
     "eitmad.error.customer-unavailable.v1",
@@ -184,8 +179,6 @@ pub const ERROR_CODES: &[&str] = &[
 ];
 
 pub const MESSAGE_IDS: &[&str] = &[
-    "eitmad.notification.sync-complete.v1",
-    "eitmad.notification.update-ready.v1",
     "eitmad.message.authorization-denied.v1",
     "eitmad.message.authorization-last-owner.v1",
     "eitmad.message.authorization-policy-conflict.v1",
@@ -230,8 +223,6 @@ pub const MESSAGE_IDS: &[&str] = &[
     "eitmad.message.update-distribution-unavailable.v1",
     "eitmad.message.admin-unavailable.v1",
     "eitmad.message.update-installer-failed.v1",
-    "eitmad.message.reference-marker-revision-conflict.v1",
-    "eitmad.message.reference-marker-unavailable.v1",
     "eitmad.message.customer-not-found.v1",
     "eitmad.message.customer-revision-conflict.v1",
     "eitmad.message.customer-unavailable.v1",
@@ -281,7 +272,6 @@ pub const RELATIONS: &[&str] = &[
 ];
 pub const DOMAIN_SCHEMA_IDS: &[&str] = &[
     "eitmad.schema.protocol.v1",
-    "eitmad.schema.reference-marker.v1",
     "eitmad.schema.customer.v1",
     "eitmad.schema.material.v1",
     "eitmad.schema.part.v1",

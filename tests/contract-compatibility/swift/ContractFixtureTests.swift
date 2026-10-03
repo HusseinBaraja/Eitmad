@@ -2,15 +2,8 @@ import Foundation
 
 private struct Fixture: Decodable {
     let query: QueryEnvelope
-    let queryProtocol10: QueryEnvelope
     let queryResponse: QueryResponseEnvelope
     let structuredError: ContractError
-    let observationEventId: String
-    let observationFieldName: String
-    let observationComponentId: String
-    let observationSeverity: ObservationSeverity
-    let observationClassification: DataClassification
-    let observationValueKind: ObservationValueKind
     let mixedDirectionSamples: [String]
 }
 
@@ -24,10 +17,18 @@ private struct ContractFixtureTests {
         let fixture = try JSONDecoder().decode(Fixture.self, from: data)
         let encoded = try JSONEncoder().encode(fixture.query)
         let decoded = try JSONDecoder().decode(QueryEnvelope.self, from: encoded)
-        let encodedProtocol10 = try JSONEncoder().encode(fixture.queryProtocol10)
-        let decodedProtocol10 = try JSONDecoder().decode(QueryEnvelope.self, from: encodedProtocol10)
         let encodedResponse = try JSONEncoder().encode(fixture.queryResponse)
         let decodedResponse = try JSONDecoder().decode(QueryResponseEnvelope.self, from: encodedResponse)
+        let response = try JSONDecoder().decode(QueryOutcome.self, from: JSONEncoder().encode(fixture.queryResponse.outcome))
+        guard case .succeeded(.configuration(let configuration)) = response,
+              configuration.revision == 7 else {
+            throw ContractTestError.responseCorrupted
+        }
+        let failed = QueryOutcome.failed(fixture.structuredError)
+        let decodedFailure = try JSONDecoder().decode(QueryOutcome.self, from: JSONEncoder().encode(failed))
+        guard try hasSameJSON(decodedFailure, failed) else {
+            throw ContractTestError.structuredErrorCorrupted
+        }
         let encodedError = try JSONEncoder().encode(fixture.structuredError)
         let decodedError = try JSONDecoder().decode(ContractError.self, from: encodedError)
         let encodedSamples = try JSONEncoder().encode(fixture.mixedDirectionSamples)
@@ -36,22 +37,11 @@ private struct ContractFixtureTests {
         guard try hasSameJSON(decoded, fixture.query) else {
             throw ContractTestError.queryCorrupted
         }
-        guard try hasSameJSON(decodedProtocol10, fixture.queryProtocol10) else {
-            throw ContractTestError.queryCorrupted
-        }
         guard try hasSameJSON(decodedResponse, fixture.queryResponse) else {
             throw ContractTestError.responseCorrupted
         }
         guard try hasSameJSON(decodedError, fixture.structuredError) else {
             throw ContractTestError.structuredErrorCorrupted
-        }
-        guard fixture.observationEventId == "eitmad.observation.engine-failure.v1",
-              fixture.observationFieldName == "operation",
-              fixture.observationComponentId == "engine-runtime",
-              fixture.observationSeverity == .error,
-              fixture.observationClassification == .sensitive,
-              fixture.observationValueKind == .identifier else {
-            throw ContractTestError.observabilityContractCorrupted
         }
         guard decodedSamples == fixture.mixedDirectionSamples else {
             throw ContractTestError.textCorrupted
@@ -74,7 +64,6 @@ private enum ContractTestError: Error {
     case queryCorrupted
     case responseCorrupted
     case structuredErrorCorrupted
-    case observabilityContractCorrupted
     case textCorrupted
     case identifierValidationDrift
 }

@@ -1,5 +1,5 @@
-//! Operation ingestion: local-first operations and server-authoritative
-//! commands with idempotency, conflict durability, and event publication.
+//! Local-first operation ingestion with idempotency, conflict durability,
+//! and event publication.
 
 use std::sync::Arc;
 
@@ -10,9 +10,8 @@ use uuid::Uuid;
 use eitmad_contracts::identity::ScopeRef;
 use eitmad_contracts::server::AuthenticatedServerSession;
 use eitmad_contracts::sync::{
-    BatchAcknowledgement, ChangeBatch, ChangeId, ChangeOperation, ChangeRecord, Checkpoint,
-    CommandDisposition, ConflictId, ConflictRecord, ConflictStatus, DeliveryId, RecordChangeNotice,
-    RecordId, SyncMode,
+    BatchAcknowledgement, ChangeBatch, ChangeOperation, ChangeRecord, Checkpoint, ConflictId,
+    ConflictRecord, ConflictStatus, DeliveryId, RecordChangeNotice, SyncMode,
 };
 use eitmad_contracts::transport::{CorrelationId, IdempotencyKey, SchemaId, UnixMillis};
 use eitmad_server_audit::{
@@ -21,8 +20,8 @@ use eitmad_server_audit::{
 
 use crate::database::{SyncDatabase, tenant_transaction};
 use crate::domain::{
-    AuthoritativeChangeDraft, CommandSubmission, DomainRegistry, DomainRegistryError,
-    DomainSyncHandler, DomainValidationError, LocalOperationDraft, SyncIntent,
+    DomainRegistry, DomainRegistryError, DomainSyncHandler, DomainValidationError,
+    LocalOperationDraft, SyncIntent,
 };
 
 /// History floor applied to every stored operation.
@@ -159,24 +158,6 @@ fn local_operation_audit<'a>(
     }
 }
 
-fn command_audit<'a>(
-    session: &'a AuthenticatedServerSession,
-    command: &'a CommandSubmission,
-    correlation_id: CorrelationId,
-    now: UnixMillis,
-) -> SyncAuditContext<'a> {
-    SyncAuditContext {
-        session,
-        scope: &command.scope,
-        operation: "eitmad.server.sync.submit-command.v1",
-        target_kind: "sync-record",
-        target_id: command.record_id.value(),
-        correlation_id,
-        idempotency_key: Some(command.idempotency_key),
-        now,
-    }
-}
-
 fn pull_audit<'a>(request: &PullPageRequest<'a>) -> SyncAuditContext<'a> {
     SyncAuditContext {
         session: request.session,
@@ -275,48 +256,6 @@ impl SyncCoordinator {
             self.record_boundary_outcome(audit.envelope(outcome, Some(code)))
                 .await?;
             return Err(error.into());
-        }
-        Ok(handler)
-    }
-
-    async fn command_handler(
-        &self,
-        session: &AuthenticatedServerSession,
-        command: &CommandSubmission,
-        audit: &SyncAuditContext<'_>,
-    ) -> Result<Arc<dyn DomainSyncHandler>, OperationError> {
-        let handler = match self
-            .registry
-            .get(&command.schema_id, command.schema_version)
-        {
-            Ok(handler) => handler,
-            Err(error) => {
-                self.record_boundary_outcome(audit.envelope(
-                    ServerAuditOutcome::Invalid,
-                    Some("eitmad.error.server-client-incompatible.v1"),
-                ))
-                .await?;
-                return Err(error.into());
-            }
-        };
-        if handler.descriptor().mode != SyncMode::ServerAuthoritative {
-            self.record_boundary_outcome(audit.envelope(
-                ServerAuditOutcome::Invalid,
-                Some("eitmad.error.contract-invalid.v1"),
-            ))
-            .await?;
-            return Err(OperationError::WrongMode);
-        }
-        if !handler
-            .authorize(session, &command.scope, SyncIntent::Write)
-            .await
-        {
-            self.record_boundary_outcome(audit.envelope(
-                ServerAuditOutcome::Denied,
-                Some("eitmad.error.authorization-denied.v1"),
-            ))
-            .await?;
-            return Err(OperationError::Denied);
         }
         Ok(handler)
     }
@@ -451,150 +390,6 @@ impl SyncCoordinator {
             change: Box::new(change),
         })
     }
-
-    /// Runs one registered server-authoritative command inside the server
-    /// transaction and returns the authoritative change or a durable denial.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`OperationError`] for unknown domains, denials, or an
-    /// unavailable authority.
-    pub async fn submit_command(
-        &self,
-        session: &AuthenticatedServerSession,
-        command: &CommandSubmission,
-        correlation_id: CorrelationId,
-        now: UnixMillis,
-    ) -> Result<CommandDisposition, OperationError> {
-        let audit = command_audit(session, command, correlation_id, now);
-        let handler = self.command_handler(session, command, &audit).await?;
-
-        let fingerprint = fingerprint_command(command);
-        let mut transaction = tenant_transaction(&self.pool, session.tenant_id)
-            .await
-            .map_err(|_| OperationError::Unavailable)?;
-        ensure_command_scope(&mut transaction, session.tenant_id, command).await?;
-        lock_scope(
-            &mut transaction,
-            session.tenant_id,
-            &command.scope,
-            &command.schema_id,
-        )
-        .await?;
-
-        if let Some(stored) =
-            load_stored_disposition(&mut transaction, session.tenant_id, command, &fingerprint)
-                .await?
-        {
-            return Ok(stored);
-        }
-
-        match handler.execute_command(session, command) {
-            Ok(draft) => {
-                let change = match commit_authoritative_change(
-                    &mut transaction,
-                    session.tenant_id,
-                    command,
-                    &fingerprint,
-                    draft,
-                    now,
-                )
-                .await
-                {
-                    Ok(change) => change,
-                    Err(OperationError::Invalid) => {
-                        append_audit(
-                            &mut transaction,
-                            &audit.envelope(
-                                ServerAuditOutcome::Invalid,
-                                Some("eitmad.error.contract-invalid.v1"),
-                            ),
-                        )
-                        .await
-                        .map_err(|_| OperationError::Unavailable)?;
-                        transaction
-                            .commit()
-                            .await
-                            .map_err(|_| OperationError::Unavailable)?;
-                        return Err(OperationError::Invalid);
-                    }
-                    Err(error) => return Err(error),
-                };
-                append_audit(
-                    &mut transaction,
-                    &audit.envelope(ServerAuditOutcome::Succeeded, None),
-                )
-                .await
-                .map_err(|_| OperationError::Unavailable)?;
-                transaction
-                    .commit()
-                    .await
-                    .map_err(|_| OperationError::Unavailable)?;
-                Ok(CommandDisposition::Accepted {
-                    authoritative_change: change.map(Box::new),
-                })
-            }
-            Err(DomainValidationError::Denied) => {
-                commit_command_denial(
-                    transaction,
-                    session.tenant_id,
-                    command,
-                    &fingerprint,
-                    &audit,
-                    now,
-                )
-                .await
-            }
-            Err(error) => {
-                let outcome = match error {
-                    DomainValidationError::Denied => ServerAuditOutcome::Denied,
-                    DomainValidationError::Invalid => ServerAuditOutcome::Invalid,
-                    DomainValidationError::Conflict => ServerAuditOutcome::Conflict,
-                };
-                append_audit(
-                    &mut transaction,
-                    &audit.envelope(outcome, Some("eitmad.error.contract-invalid.v1")),
-                )
-                .await
-                .map_err(|_| OperationError::Unavailable)?;
-                transaction
-                    .commit()
-                    .await
-                    .map_err(|_| OperationError::Unavailable)?;
-                Err(error.into())
-            }
-        }
-    }
-}
-
-async fn commit_command_denial(
-    mut transaction: sqlx::Transaction<'_, sqlx::Postgres>,
-    tenant_id: eitmad_contracts::identity::TenantId,
-    command: &CommandSubmission,
-    fingerprint: &[u8],
-    audit: &SyncAuditContext<'_>,
-    now: UnixMillis,
-) -> Result<CommandDisposition, OperationError> {
-    store_denial(&mut transaction, tenant_id, command, fingerprint, now)
-        .await
-        .map_err(|_| OperationError::Unavailable)?;
-    append_audit(
-        &mut transaction,
-        &audit.envelope(
-            ServerAuditOutcome::Denied,
-            Some("eitmad.error.authorization-denied.v1"),
-        ),
-    )
-    .await
-    .map_err(|_| OperationError::Unavailable)?;
-    transaction
-        .commit()
-        .await
-        .map_err(|_| OperationError::Unavailable)?;
-    Ok(CommandDisposition::Denied {
-        reason: eitmad_contracts::sync::ErrorCodeRef::parse("eitmad.error.authorization-denied.v1")
-            .map_err(|_| OperationError::Invalid)?,
-    })
 }
 
 impl SyncCoordinator {
@@ -804,10 +599,6 @@ fn fingerprint_draft(draft: &LocalOperationDraft) -> [u8; 32] {
     fingerprint_json(draft)
 }
 
-fn fingerprint_command(command: &CommandSubmission) -> [u8; 32] {
-    fingerprint_json(command)
-}
-
 fn fingerprint_json(value: &impl serde::Serialize) -> [u8; 32] {
     let encoded =
         serde_json::to_vec(value).expect("draft serialization cannot fail for owned data");
@@ -827,21 +618,6 @@ async fn ensure_scope(
         SyncMode::ServerAuthoritative => "server_authoritative",
     };
     upsert_scope(transaction, tenant_id, &draft.scope, &draft.schema_id, mode).await
-}
-
-async fn ensure_command_scope(
-    transaction: &mut Tx<'_>,
-    tenant_id: eitmad_contracts::identity::TenantId,
-    command: &CommandSubmission,
-) -> Result<(), OperationError> {
-    upsert_scope(
-        transaction,
-        tenant_id,
-        &command.scope,
-        &command.schema_id,
-        "server_authoritative",
-    )
-    .await
 }
 
 async fn upsert_scope(
@@ -931,37 +707,6 @@ async fn load_stored_result(
 enum StoredLocalResult {
     Applied(Box<ChangeRecord>),
     Conflict(ConflictId),
-}
-
-async fn load_stored_disposition(
-    transaction: &mut Tx<'_>,
-    tenant_id: eitmad_contracts::identity::TenantId,
-    command: &CommandSubmission,
-    fingerprint: &[u8],
-) -> Result<Option<CommandDisposition>, OperationError> {
-    let row = sqlx::query(
-        "SELECT request_fingerprint, result_json FROM sync.idempotency_results
-         WHERE tenant_id = $1 AND scope_kind = $2 AND scope_id = $3
-           AND schema_id = $4 AND idempotency_key = $5",
-    )
-    .bind(tenant_id.value())
-    .bind(command.scope.kind.as_str())
-    .bind(command.scope.id.value())
-    .bind(command.schema_id.as_str())
-    .bind(command.idempotency_key.value())
-    .fetch_optional(&mut **transaction)
-    .await
-    .map_err(|_| OperationError::Unavailable)?;
-    let Some(row) = row else {
-        return Ok(None);
-    };
-    let stored_fingerprint: Vec<u8> = row.get("request_fingerprint");
-    if stored_fingerprint != fingerprint {
-        return Err(OperationError::IdempotencyMismatch);
-    }
-    let disposition: CommandDisposition =
-        serde_json::from_value(row.get("result_json")).map_err(|_| OperationError::Unavailable)?;
-    Ok(Some(disposition))
 }
 
 async fn current_record_revision(
@@ -1171,168 +916,6 @@ async fn commit_change(
     Ok(change)
 }
 
-async fn commit_authoritative_change(
-    transaction: &mut Tx<'_>,
-    tenant_id: eitmad_contracts::identity::TenantId,
-    command: &CommandSubmission,
-    fingerprint: &[u8],
-    draft: AuthoritativeChangeDraft,
-    now: UnixMillis,
-) -> Result<Option<ChangeRecord>, OperationError> {
-    let current_revision = current_record_revision_for(
-        transaction,
-        tenant_id,
-        &command.scope,
-        &command.schema_id,
-        command.record_id,
-    )
-    .await
-    .map_err(|_| OperationError::Unavailable)?;
-    let stale = command
-        .base_revision
-        .is_some_and(|base| base != current_revision);
-    if stale {
-        return Err(OperationError::Invalid);
-    }
-
-    let new_revision = current_revision.saturating_add(1);
-    let sequence = advance_head(transaction, tenant_id, &command.scope, &command.schema_id)
-        .await
-        .map_err(|_| OperationError::Unavailable)?;
-    let checkpoint = Uuid::new_v4();
-    let change = build_authoritative_change(command, &draft, new_revision, now);
-
-    sqlx::query(
-        "INSERT INTO sync.operations
-             (tenant_id, scope_kind, scope_id, schema_id, sequence, checkpoint,
-              change_id, idempotency_key, request_fingerprint, change_json,
-              created_at, retention_until)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
-    )
-    .bind(tenant_id.value())
-    .bind(command.scope.kind.as_str())
-    .bind(command.scope.id.value())
-    .bind(command.schema_id.as_str())
-    .bind(i64::try_from(sequence).unwrap_or(i64::MAX))
-    .bind(checkpoint)
-    .bind(change.change_id.value())
-    .bind(change.idempotency_key.value())
-    .bind(fingerprint.to_vec())
-    .bind(serde_json::to_value(&change).map_err(|_| OperationError::Unavailable)?)
-    .bind(now.0)
-    .bind(now.0 + OPERATION_RETENTION_MS)
-    .execute(&mut **transaction)
-    .await
-    .map_err(|_| OperationError::Unavailable)?;
-
-    write_projection_from(
-        transaction,
-        tenant_id,
-        &command.scope,
-        &command.schema_id,
-        &change,
-        now,
-    )
-    .await
-    .map_err(|_| OperationError::Unavailable)?;
-
-    let disposition = CommandDisposition::Accepted {
-        authoritative_change: Some(Box::new(change.clone())),
-    };
-    sqlx::query(
-        "INSERT INTO sync.idempotency_results
-             (tenant_id, scope_kind, scope_id, schema_id, idempotency_key,
-              request_fingerprint, result_json, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
-    )
-    .bind(tenant_id.value())
-    .bind(command.scope.kind.as_str())
-    .bind(command.scope.id.value())
-    .bind(command.schema_id.as_str())
-    .bind(change.idempotency_key.value())
-    .bind(fingerprint.to_vec())
-    .bind(serde_json::to_value(&disposition).map_err(|_| OperationError::Unavailable)?)
-    .bind(now.0)
-    .execute(&mut **transaction)
-    .await
-    .map_err(|_| OperationError::Unavailable)?;
-
-    mark_checkpoint(
-        transaction,
-        tenant_id,
-        &command.scope,
-        &command.schema_id,
-        sequence,
-        checkpoint,
-    )
-    .await
-    .map_err(|_| OperationError::Unavailable)?;
-    publish_notice(
-        transaction,
-        tenant_id,
-        command.scope.clone(),
-        &command.schema_id,
-        &change,
-        now,
-    )
-    .await
-    .map_err(|_| OperationError::Unavailable)?;
-    Ok(Some(change))
-}
-
-fn build_authoritative_change(
-    command: &CommandSubmission,
-    draft: &AuthoritativeChangeDraft,
-    revision: u64,
-    now: UnixMillis,
-) -> ChangeRecord {
-    ChangeRecord {
-        change_id: ChangeId::new(Uuid::new_v4()),
-        record_id: command.record_id,
-        scope: command.scope.clone(),
-        operation: draft.operation,
-        base_revision: command.base_revision,
-        revision,
-        changed_at: now,
-        idempotency_key: command.idempotency_key,
-        payload: draft.payload.clone(),
-        merge: None,
-    }
-}
-
-async fn store_denial(
-    transaction: &mut Tx<'_>,
-    tenant_id: eitmad_contracts::identity::TenantId,
-    command: &CommandSubmission,
-    fingerprint: &[u8],
-    now: UnixMillis,
-) -> Result<(), sqlx::Error> {
-    let reason =
-        eitmad_contracts::sync::ErrorCodeRef::parse("eitmad.error.authorization-denied.v1")
-            .map_err(|_| sqlx::Error::Protocol("stable denial code missing".to_owned()))?;
-    let disposition = CommandDisposition::Denied { reason };
-    sqlx::query(
-        "INSERT INTO sync.idempotency_results
-             (tenant_id, scope_kind, scope_id, schema_id, idempotency_key,
-              request_fingerprint, result_json, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
-    )
-    .bind(tenant_id.value())
-    .bind(command.scope.kind.as_str())
-    .bind(command.scope.id.value())
-    .bind(command.schema_id.as_str())
-    .bind(command.idempotency_key.value())
-    .bind(fingerprint.to_vec())
-    .bind(
-        serde_json::to_value(&disposition)
-            .map_err(|_| sqlx::Error::Protocol("serialize".to_owned()))?,
-    )
-    .bind(now.0)
-    .execute(&mut **transaction)
-    .await?;
-    Ok(())
-}
-
 async fn advance_head(
     transaction: &mut Tx<'_>,
     tenant_id: eitmad_contracts::identity::TenantId,
@@ -1454,28 +1037,6 @@ async fn publish_notice(
     .await
 }
 
-async fn current_record_revision_for(
-    transaction: &mut Tx<'_>,
-    tenant_id: eitmad_contracts::identity::TenantId,
-    scope: &ScopeRef,
-    schema_id: &eitmad_contracts::transport::SchemaId,
-    record_id: RecordId,
-) -> Result<u64, sqlx::Error> {
-    let revision: Option<i64> = sqlx::query_scalar::<_, i64>(
-        "SELECT revision FROM sync.records
-         WHERE tenant_id = $1 AND scope_kind = $2 AND scope_id = $3
-           AND schema_id = $4 AND record_id = $5",
-    )
-    .bind(tenant_id.value())
-    .bind(scope.kind.as_str())
-    .bind(scope.id.value())
-    .bind(schema_id.as_str())
-    .bind(record_id.value())
-    .fetch_optional(&mut **transaction)
-    .await?;
-    Ok(u64::try_from(revision.unwrap_or(0)).unwrap_or(u64::MAX))
-}
-
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
@@ -1484,6 +1045,7 @@ mod tests {
     use eitmad_contracts::identity::{
         AccountId, DeviceId, ScopeId, ScopeKind, SessionId, TenantId, UserId,
     };
+    use eitmad_contracts::sync::{ChangeId, RecordId};
     use eitmad_contracts::transport::{IdempotencyKey, SchemaId};
 
     struct DenyingHandler;
@@ -1513,14 +1075,6 @@ mod tests {
             _draft: &LocalOperationDraft,
         ) -> Result<(), DomainValidationError> {
             panic!("authorization must run before validation")
-        }
-
-        fn execute_command(
-            &self,
-            _session: &AuthenticatedServerSession,
-            _command: &CommandSubmission,
-        ) -> Result<AuthoritativeChangeDraft, DomainValidationError> {
-            panic!("authorization must run before command execution")
         }
     }
 

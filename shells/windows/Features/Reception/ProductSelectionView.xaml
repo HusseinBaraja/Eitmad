@@ -43,7 +43,7 @@
     <Grid Margin="0,18,0,12" FlowDirection="LeftToRight">
      <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
      <TextBlock Grid.Column="1" Text="الإجمالي" FlowDirection="RightToLeft" FontSize="24" FontWeight="Bold"/>
-     <controls:AmountDisplay AmountText="{Binding LineTotalLabel}" UnitText="YER" UnitPlacement="After" FontSize="24" FontWeight="Bold" HorizontalAlignment="Left"/>
+     <controls:AmountDisplay AmountText="{Binding LineTotalLabel}" UnitText="ر.ي" UnitPlacement="After" FontSize="24" FontWeight="Bold" HorizontalAlignment="Left"/>
     </Grid>
     <TextBlock Text="{Binding Guidance}" Margin="0,0,0,8"/>
     <Button x:Name="AddButton" Content="{Binding ActionLabel}" Style="{StaticResource PrimaryButton}" MinHeight="52" IsEnabled="{Binding CanAdd}" Click="AddClick" AutomationProperties.Name="{Binding ActionLabel}"/>

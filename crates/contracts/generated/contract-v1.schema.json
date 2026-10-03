@@ -113,9 +113,6 @@
     },
     "update_client_profile": {
       "$ref": "#/definitions/UpdateClientProfile"
-    },
-    "update_state": {
-      "$ref": "#/definitions/UpdateState"
     }
   },
   "required": [
@@ -145,7 +142,6 @@
     "administration_backup_status",
     "administration_migration_status",
     "administration_support_workflow",
-    "update_state",
     "sync_status",
     "effective_permissions",
     "lifecycle_snapshot",
@@ -245,67 +241,6 @@
     "AuthorizationPolicyChanges": {
       "type": "object"
     },
-    "BackgroundJobChanges": {
-      "type": "object"
-    },
-    "BackgroundJobState": {
-      "type": "string",
-      "enum": [
-        "queued",
-        "running",
-        "succeeded",
-        "failed",
-        "cancelled"
-      ]
-    },
-    "BackgroundJobStatus": {
-      "type": "object",
-      "properties": {
-        "completedUnits": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0
-        },
-        "error": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/ContractError"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "jobId": {
-          "type": "string",
-          "format": "uuid"
-        },
-        "jobKind": {
-          "type": "string"
-        },
-        "scope": {
-          "$ref": "#/definitions/ScopeRef"
-        },
-        "state": {
-          "$ref": "#/definitions/BackgroundJobState"
-        },
-        "totalUnits": {
-          "type": [
-            "integer",
-            "null"
-          ],
-          "format": "uint64",
-          "minimum": 0
-        }
-      },
-      "required": [
-        "jobId",
-        "scope",
-        "jobKind",
-        "state",
-        "completedUnits"
-      ]
-    },
     "BackupState": {
       "type": "string",
       "enum": [
@@ -404,18 +339,6 @@
       },
       "required": [
         "usages"
-      ]
-    },
-    "CancelOperation": {
-      "type": "object",
-      "properties": {
-        "operationId": {
-          "type": "string",
-          "format": "uuid"
-        }
-      },
-      "required": [
-        "operationId"
       ]
     },
     "ChangeBatch": {
@@ -613,54 +536,6 @@
             },
             "payload": {
               "$ref": "#/definitions/RevokeScopeRelationship"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "eitmad.operation.cancel.v1"
-            },
-            "payload": {
-              "$ref": "#/definitions/CancelOperation"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "eitmad.update.report-installer-outcome.v1"
-            },
-            "payload": {
-              "$ref": "#/definitions/ReportInstallerOutcome"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "eitmad.reference-marker.upsert.v1"
-            },
-            "payload": {
-              "$ref": "#/definitions/UpsertReferenceMarker"
             }
           },
           "required": [
@@ -1096,63 +971,6 @@
             },
             "payload": {
               "$ref": "#/definitions/RelationshipMutationResult"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "operationCancelled"
-            },
-            "payload": {
-              "type": "object",
-              "properties": {
-                "operation_id": {
-                  "type": "string",
-                  "format": "uuid"
-                }
-              },
-              "required": [
-                "operation_id"
-              ]
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "installerOutcomeRecorded"
-            },
-            "payload": {
-              "$ref": "#/definitions/UpdateState"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "referenceMarkerUpserted"
-            },
-            "payload": {
-              "$ref": "#/definitions/ReferenceMarker"
             }
           },
           "required": [
@@ -2648,9 +2466,6 @@
         }
       ]
     },
-    "Errors": {
-      "type": "object"
-    },
     "Event": {
       "description": "Ordered values emitted by subscriptions.",
       "oneOf": [
@@ -2695,118 +2510,6 @@
             },
             "payload": {
               "$ref": "#/definitions/AuthorizationPolicyChangeNotice"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "eitmad.update.state.event.v1"
-            },
-            "payload": {
-              "$ref": "#/definitions/UpdateState"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "eitmad.sync.status.event.v1"
-            },
-            "payload": {
-              "$ref": "#/definitions/SyncStatus"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "eitmad.record.changed.event.v1"
-            },
-            "payload": {
-              "$ref": "#/definitions/RecordChangeNotice"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "eitmad.background-job.status.event.v1"
-            },
-            "payload": {
-              "$ref": "#/definitions/BackgroundJobStatus"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "eitmad.notification.event.v1"
-            },
-            "payload": {
-              "$ref": "#/definitions/Notification"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "eitmad.error.event.v1"
-            },
-            "payload": {
-              "$ref": "#/definitions/ScopedError"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "eitmad.reference-marker.changed.event.v1"
-            },
-            "payload": {
-              "$ref": "#/definitions/ReferenceMarkerChangeNotice"
             }
           },
           "required": [
@@ -3432,12 +3135,6 @@
         "forNewWork"
       ]
     },
-    "GetSyncStatus": {
-      "type": "object"
-    },
-    "GetUpdateState": {
-      "type": "object"
-    },
     "GrantScopeRelationship": {
       "type": "object",
       "properties": {
@@ -3657,70 +3354,6 @@
         "healthy",
         "degraded",
         "unhealthy"
-      ]
-    },
-    "InstallerOutcome": {
-      "oneOf": [
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "succeeded"
-            },
-            "payload": {
-              "type": "object",
-              "properties": {
-                "installed_version": {
-                  "$ref": "#/definitions/SemVer"
-                }
-              },
-              "required": [
-                "installed_version"
-              ]
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "failed"
-            },
-            "payload": {
-              "type": "object",
-              "properties": {
-                "error_code": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "error_code"
-              ]
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "cancelled"
-            }
-          },
-          "required": [
-            "kind"
-          ]
-        }
       ]
     },
     "IpcClientMessage": {
@@ -4297,27 +3930,6 @@
         "term",
         "limit",
         "selectableOnly"
-      ]
-    },
-    "ListReferenceMarkers": {
-      "type": "object",
-      "properties": {
-        "after": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "format": "uuid"
-        },
-        "limit": {
-          "type": "integer",
-          "format": "uint32",
-          "maximum": 100,
-          "minimum": 1
-        }
-      },
-      "required": [
-        "limit"
       ]
     },
     "ListScopeRelationships": {
@@ -4929,56 +4541,6 @@
           ]
         }
       ]
-    },
-    "Notification": {
-      "type": "object",
-      "properties": {
-        "correlationId": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "format": "uuid"
-        },
-        "messageId": {
-          "type": "string"
-        },
-        "notificationId": {
-          "type": "string",
-          "format": "uuid"
-        },
-        "parameters": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/ErrorParameter"
-          }
-        },
-        "scope": {
-          "$ref": "#/definitions/ScopeRef"
-        },
-        "severity": {
-          "$ref": "#/definitions/NotificationSeverity"
-        }
-      },
-      "required": [
-        "notificationId",
-        "scope",
-        "severity",
-        "messageId",
-        "parameters"
-      ]
-    },
-    "NotificationSeverity": {
-      "type": "string",
-      "enum": [
-        "information",
-        "success",
-        "warning",
-        "error"
-      ]
-    },
-    "Notifications": {
-      "type": "object"
     },
     "ObservationSeverity": {
       "type": "string",
@@ -5804,54 +5366,6 @@
           "properties": {
             "kind": {
               "type": "string",
-              "const": "eitmad.update.get-state.v1"
-            },
-            "payload": {
-              "$ref": "#/definitions/GetUpdateState"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "eitmad.sync.get-status.v1"
-            },
-            "payload": {
-              "$ref": "#/definitions/GetSyncStatus"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "eitmad.reference-marker.list.v1"
-            },
-            "payload": {
-              "$ref": "#/definitions/ListReferenceMarkers"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
               "const": "eitmad.customer.get.v1"
             },
             "payload": {
@@ -6274,54 +5788,6 @@
           "properties": {
             "kind": {
               "type": "string",
-              "const": "updateState"
-            },
-            "payload": {
-              "$ref": "#/definitions/UpdateState"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "syncStatus"
-            },
-            "payload": {
-              "$ref": "#/definitions/SyncStatus"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "referenceMarkers"
-            },
-            "payload": {
-              "$ref": "#/definitions/ReferenceMarkerPage"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
               "const": "customer"
             },
             "payload": {
@@ -6677,107 +6143,6 @@
         "changedAt"
       ]
     },
-    "RecordChanges": {
-      "type": "object"
-    },
-    "ReferenceMarker": {
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string",
-          "format": "uuid"
-        },
-        "label": {
-          "type": "string"
-        },
-        "revision": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0
-        },
-        "scope": {
-          "$ref": "#/definitions/ScopeRef"
-        },
-        "syncState": {
-          "$ref": "#/definitions/ReferenceMarkerSyncState"
-        },
-        "updatedAt": {
-          "type": "integer",
-          "format": "int64"
-        }
-      },
-      "required": [
-        "id",
-        "scope",
-        "label",
-        "revision",
-        "updatedAt",
-        "syncState"
-      ]
-    },
-    "ReferenceMarkerChangeNotice": {
-      "type": "object",
-      "properties": {
-        "changeId": {
-          "type": "string",
-          "format": "uuid"
-        },
-        "changedAt": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "markerId": {
-          "type": "string",
-          "format": "uuid"
-        },
-        "revision": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0
-        },
-        "scope": {
-          "$ref": "#/definitions/ScopeRef"
-        }
-      },
-      "required": [
-        "markerId",
-        "scope",
-        "revision",
-        "changedAt",
-        "changeId"
-      ]
-    },
-    "ReferenceMarkerChanges": {
-      "type": "object"
-    },
-    "ReferenceMarkerPage": {
-      "type": "object",
-      "properties": {
-        "items": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/ReferenceMarker"
-          }
-        },
-        "next": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "format": "uuid"
-        }
-      },
-      "required": [
-        "items"
-      ]
-    },
-    "ReferenceMarkerSyncState": {
-      "type": "string",
-      "enum": [
-        "pending",
-        "confirmed"
-      ]
-    },
     "RegisterBranchRequest": {
       "description": "Rust-owned branch identity registered by a tenant owner.",
       "type": "object",
@@ -7122,22 +6487,6 @@
         "reconnecting",
         "closed",
         "failed"
-      ]
-    },
-    "ReportInstallerOutcome": {
-      "type": "object",
-      "properties": {
-        "handoffId": {
-          "type": "string",
-          "format": "uuid"
-        },
-        "outcome": {
-          "$ref": "#/definitions/InstallerOutcome"
-        }
-      },
-      "required": [
-        "handoffId",
-        "outcome"
       ]
     },
     "RequiredBy": {
@@ -7714,21 +7063,6 @@
         "scope"
       ]
     },
-    "ScopedError": {
-      "type": "object",
-      "properties": {
-        "error": {
-          "$ref": "#/definitions/ContractError"
-        },
-        "scope": {
-          "$ref": "#/definitions/ScopeRef"
-        }
-      },
-      "required": [
-        "scope",
-        "error"
-      ]
-    },
     "SearchCustomers": {
       "type": "object",
       "properties": {
@@ -8266,118 +7600,6 @@
             },
             "payload": {
               "$ref": "#/definitions/AuthorizationPolicyChanges"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "eitmad.update.state.subscribe.v1"
-            },
-            "payload": {
-              "$ref": "#/definitions/UpdateStateChanges"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "eitmad.sync.status.subscribe.v1"
-            },
-            "payload": {
-              "$ref": "#/definitions/SyncStatusChanges"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "eitmad.record.changed.subscribe.v1"
-            },
-            "payload": {
-              "$ref": "#/definitions/RecordChanges"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "eitmad.background-job.status.subscribe.v1"
-            },
-            "payload": {
-              "$ref": "#/definitions/BackgroundJobChanges"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "eitmad.notification.subscribe.v1"
-            },
-            "payload": {
-              "$ref": "#/definitions/Notifications"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "eitmad.error.subscribe.v1"
-            },
-            "payload": {
-              "$ref": "#/definitions/Errors"
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "eitmad.reference-marker.changed.subscribe.v1"
-            },
-            "payload": {
-              "$ref": "#/definitions/ReferenceMarkerChanges"
             }
           },
           "required": [
@@ -9234,9 +8456,6 @@
         }
       ]
     },
-    "SyncStatusChanges": {
-      "type": "object"
-    },
     "SyncTransportFrame": {
       "description": "One transport-independent sync frame used by simulation, LAN, and WAN links.",
       "type": "object",
@@ -9807,383 +9026,6 @@
         "downloadUrl",
         "sizeBytes",
         "sha256Hex"
-      ]
-    },
-    "UpdateState": {
-      "oneOf": [
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "idle"
-            }
-          },
-          "required": [
-            "kind"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "checking"
-            }
-          },
-          "required": [
-            "kind"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "available"
-            },
-            "payload": {
-              "type": "object",
-              "properties": {
-                "version": {
-                  "$ref": "#/definitions/SemVer"
-                }
-              },
-              "required": [
-                "version"
-              ]
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "downloading"
-            },
-            "payload": {
-              "type": "object",
-              "properties": {
-                "progress_bps": {
-                  "type": "integer",
-                  "format": "uint16",
-                  "maximum": 10000,
-                  "minimum": 0
-                },
-                "version": {
-                  "$ref": "#/definitions/SemVer"
-                }
-              },
-              "required": [
-                "version",
-                "progress_bps"
-              ]
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "paused"
-            },
-            "payload": {
-              "type": "object",
-              "properties": {
-                "progress_bps": {
-                  "type": "integer",
-                  "format": "uint16",
-                  "maximum": 10000,
-                  "minimum": 0
-                },
-                "version": {
-                  "$ref": "#/definitions/SemVer"
-                }
-              },
-              "required": [
-                "version",
-                "progress_bps"
-              ]
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "preflight"
-            },
-            "payload": {
-              "type": "object",
-              "properties": {
-                "version": {
-                  "$ref": "#/definitions/SemVer"
-                }
-              },
-              "required": [
-                "version"
-              ]
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "ready"
-            },
-            "payload": {
-              "type": "object",
-              "properties": {
-                "version": {
-                  "$ref": "#/definitions/SemVer"
-                }
-              },
-              "required": [
-                "version"
-              ]
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "installationHandoff"
-            },
-            "payload": {
-              "type": "object",
-              "properties": {
-                "handoff_id": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "version": {
-                  "$ref": "#/definitions/SemVer"
-                }
-              },
-              "required": [
-                "handoff_id",
-                "version"
-              ]
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "installing"
-            },
-            "payload": {
-              "type": "object",
-              "properties": {
-                "handoff_id": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "version": {
-                  "$ref": "#/definitions/SemVer"
-                }
-              },
-              "required": [
-                "handoff_id",
-                "version"
-              ]
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "verifying"
-            },
-            "payload": {
-              "type": "object",
-              "properties": {
-                "version": {
-                  "$ref": "#/definitions/SemVer"
-                }
-              },
-              "required": [
-                "version"
-              ]
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "succeeded"
-            },
-            "payload": {
-              "type": "object",
-              "properties": {
-                "version": {
-                  "$ref": "#/definitions/SemVer"
-                }
-              },
-              "required": [
-                "version"
-              ]
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "failed"
-            },
-            "payload": {
-              "type": "object",
-              "properties": {
-                "error_code": {
-                  "type": "string"
-                },
-                "version": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/definitions/SemVer"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
-                }
-              },
-              "required": [
-                "error_code"
-              ]
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "revoked"
-            },
-            "payload": {
-              "type": "object",
-              "properties": {
-                "version": {
-                  "$ref": "#/definitions/SemVer"
-                }
-              },
-              "required": [
-                "version"
-              ]
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string",
-              "const": "recoveryRequired"
-            },
-            "payload": {
-              "type": "object",
-              "properties": {
-                "error_code": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "error_code"
-              ]
-            }
-          },
-          "required": [
-            "kind",
-            "payload"
-          ]
-        }
-      ]
-    },
-    "UpdateStateChanges": {
-      "type": "object"
-    },
-    "UpsertReferenceMarker": {
-      "type": "object",
-      "properties": {
-        "expectedRevision": {
-          "type": [
-            "integer",
-            "null"
-          ],
-          "format": "uint64",
-          "minimum": 0
-        },
-        "label": {
-          "type": "string"
-        },
-        "markerId": {
-          "type": "string",
-          "format": "uuid"
-        }
-      },
-      "required": [
-        "markerId",
-        "label"
       ]
     }
   }

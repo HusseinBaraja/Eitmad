@@ -2,7 +2,6 @@ using Eitmad.Contracts;
 using Eitmad.Platform.Windows.LocalIpc;
 using Eitmad.Platform.Windows.ProcessSupervision;
 using Eitmad.Platform.Windows.Shell;
-using Eitmad.WindowsShell.Features.Operations;
 
 namespace Eitmad.WindowsShell.Features.Authentication;
 
@@ -25,10 +24,11 @@ public sealed class SessionEndedEventArgs(SessionEndReason reason) : EventArgs
 
 public sealed class SessionPermissionException : Exception;
 
-public interface IDesktopSessionController : IShellLifetimeCoordinator
+public interface IDesktopSessionController : IAsyncDisposable
 {
     event EventHandler<SessionEndedEventArgs>? SessionEnded;
     Task StartAsync(CancellationToken cancellationToken = default);
+    Task StopAsync(CancellationToken cancellationToken = default);
     Task<AuthenticatedSurface> SignInAsync(string username, string password, CancellationToken cancellationToken = default);
     Task SignOutAsync(CancellationToken cancellationToken = default);
 }
@@ -36,16 +36,14 @@ public interface IDesktopSessionController : IShellLifetimeCoordinator
 public sealed class DesktopSessionController : IDesktopSessionController
 {
     private readonly IEngineShellBridge engine;
-    private readonly OperationsCoordinator operations;
     private readonly SemaphoreSlim transition = new(1, 1);
     private CancellationTokenSource? expiryCancellation;
     private bool active;
     private bool disposed;
 
-    public DesktopSessionController(IEngineShellBridge engine, OperationsCoordinator operations)
+    public DesktopSessionController(IEngineShellBridge engine)
     {
         this.engine = engine;
-        this.operations = operations;
     }
 
     public event EventHandler<SessionEndedEventArgs>? SessionEnded;
@@ -53,7 +51,7 @@ public sealed class DesktopSessionController : IDesktopSessionController
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
         engine.StateChanged += ObserveEngineState;
-        await operations.StartAsync(cancellationToken);
+        await engine.StartAsync(cancellationToken);
     }
 
     public async Task<AuthenticatedSurface> SignInAsync(
@@ -65,19 +63,18 @@ public sealed class DesktopSessionController : IDesktopSessionController
         try
         {
             ObjectDisposedException.ThrowIf(disposed, this);
-            await DeactivateLocalStateAsync(cancellationToken);
+            DeactivateLocalState();
             var session = await engine.SignInAsync(username, password, cancellationToken);
             try
             {
                 var surface = ResolveSurface(session.AccountRole);
                 active = true;
-                await operations.ActivateSessionAsync(cancellationToken);
                 ScheduleExpiry(session.ExpiresAt);
                 return surface;
             }
             catch
             {
-                await DeactivateLocalStateAsync(CancellationToken.None);
+                DeactivateLocalState();
                 try { await engine.SignOutAsync(CancellationToken.None); }
                 catch (EngineIpcException) { }
                 throw;
@@ -94,7 +91,7 @@ public sealed class DesktopSessionController : IDesktopSessionController
         await transition.WaitAsync(cancellationToken);
         try
         {
-            await DeactivateLocalStateAsync(cancellationToken);
+            DeactivateLocalState();
             await engine.SignOutAsync(cancellationToken);
         }
         finally
@@ -103,7 +100,7 @@ public sealed class DesktopSessionController : IDesktopSessionController
         }
     }
 
-    public Task StopAsync(CancellationToken cancellationToken = default) => operations.StopAsync(cancellationToken);
+    public Task StopAsync(CancellationToken cancellationToken = default) => engine.StopAsync(cancellationToken);
 
     public async ValueTask DisposeAsync()
     {
@@ -113,7 +110,7 @@ public sealed class DesktopSessionController : IDesktopSessionController
         expiryCancellation?.Cancel();
         expiryCancellation?.Dispose();
         expiryCancellation = null;
-        await operations.DisposeAsync();
+        await engine.DisposeAsync();
         transition.Dispose();
     }
 
@@ -124,13 +121,12 @@ public sealed class DesktopSessionController : IDesktopSessionController
         _ => throw new SessionPermissionException(),
     };
 
-    private async Task DeactivateLocalStateAsync(CancellationToken cancellationToken)
+    private void DeactivateLocalState()
     {
         active = false;
         expiryCancellation?.Cancel();
         expiryCancellation?.Dispose();
         expiryCancellation = null;
-        await operations.DeactivateSessionAsync(cancellationToken);
     }
 
     private void ScheduleExpiry(long? expiresAt)
@@ -167,7 +163,7 @@ public sealed class DesktopSessionController : IDesktopSessionController
         try
         {
             if (!active) return;
-            await DeactivateLocalStateAsync(CancellationToken.None);
+            DeactivateLocalState();
             try { await engine.SignOutAsync(CancellationToken.None); }
             catch (EngineIpcException) { }
         }

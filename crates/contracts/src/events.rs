@@ -3,20 +3,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     authorization::AuthorizationPolicyChangeNotice,
-    background_jobs::BackgroundJobStatus,
     config::ConfigSnapshot,
     customer::CustomerChangeNotice,
-    errors::ContractError,
     furniture::{FurnitureChangeNotice, FurnitureChanges},
-    identity::ScopeRef,
     material::MaterialChangeNotice,
-    notifications::Notification,
     part::{PartChangeNotice, PartChanges},
     permissions::EffectivePermissions,
     product::{ProductChangeNotice, ProductChanges},
-    reference_marker::ReferenceMarkerChangeNotice,
-    sync::{RecordChangeNotice, SyncStatus},
-    updates::UpdateState,
 };
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -29,38 +22,10 @@ pub struct PermissionChanges {}
 pub struct AuthorizationPolicyChanges {}
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct UpdateStateChanges {}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct SyncStatusChanges {}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct RecordChanges {}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct BackgroundJobChanges {}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct Notifications {}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct Errors {}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct ReferenceMarkerChanges {}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct CustomerChanges {}
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct MaterialChanges {}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct ScopedError {
-    pub scope: ScopeRef,
-    pub error: ContractError,
-}
 
 tagged_contract! {
     /// Resumable streams requested by clients.
@@ -68,13 +33,6 @@ tagged_contract! {
         Configuration(ConfigurationChanges) => "eitmad.config.changed.subscribe.v1",
         Permissions(PermissionChanges) => "eitmad.permissions.changed.subscribe.v1",
         AuthorizationPolicy(AuthorizationPolicyChanges) => "eitmad.authorization.policy.changed.subscribe.v1",
-        UpdateState(UpdateStateChanges) => "eitmad.update.state.subscribe.v1",
-        SyncStatus(SyncStatusChanges) => "eitmad.sync.status.subscribe.v1",
-        RecordChanges(RecordChanges) => "eitmad.record.changed.subscribe.v1",
-        BackgroundJobs(BackgroundJobChanges) => "eitmad.background-job.status.subscribe.v1",
-        Notifications(Notifications) => "eitmad.notification.subscribe.v1",
-        Errors(Errors) => "eitmad.error.subscribe.v1",
-        ReferenceMarkers(ReferenceMarkerChanges) => "eitmad.reference-marker.changed.subscribe.v1",
         Customers(CustomerChanges) => "eitmad.customer.changed.subscribe.v1",
         Materials(MaterialChanges) => "eitmad.material.changed.subscribe.v1",
         Furnitures(FurnitureChanges) => "eitmad.furniture.changed.subscribe.v1",
@@ -89,13 +47,6 @@ tagged_contract! {
         ConfigurationChanged(ConfigSnapshot) => "eitmad.config.changed.event.v1",
         PermissionsChanged(EffectivePermissions) => "eitmad.permissions.changed.event.v1",
         AuthorizationPolicyChanged(AuthorizationPolicyChangeNotice) => "eitmad.authorization.policy.changed.event.v1",
-        UpdateStateChanged(UpdateState) => "eitmad.update.state.event.v1",
-        SyncStatusChanged(SyncStatus) => "eitmad.sync.status.event.v1",
-        RecordChanged(RecordChangeNotice) => "eitmad.record.changed.event.v1",
-        BackgroundJobChanged(BackgroundJobStatus) => "eitmad.background-job.status.event.v1",
-        NotificationRaised(Notification) => "eitmad.notification.event.v1",
-        ErrorRaised(ScopedError) => "eitmad.error.event.v1",
-        ReferenceMarkerChanged(ReferenceMarkerChangeNotice) => "eitmad.reference-marker.changed.event.v1",
         CustomerChanged(CustomerChangeNotice) => "eitmad.customer.changed.event.v1",
         MaterialChanged(MaterialChangeNotice) => "eitmad.material.changed.event.v1",
         FurnitureChanged(FurnitureChangeNotice) => "eitmad.furniture.changed.event.v1",
@@ -112,8 +63,6 @@ impl Event {
             Self::ConfigurationChanged(_)
                 | Self::PermissionsChanged(_)
                 | Self::AuthorizationPolicyChanged(_)
-                | Self::UpdateStateChanged(_)
-                | Self::SyncStatusChanged(_)
         )
     }
 
@@ -126,13 +75,6 @@ impl Event {
             Self::AuthorizationPolicyChanged(_) => {
                 "eitmad.authorization.policy.changed.subscribe.v1"
             }
-            Self::UpdateStateChanged(_) => "eitmad.update.state.subscribe.v1",
-            Self::SyncStatusChanged(_) => "eitmad.sync.status.subscribe.v1",
-            Self::RecordChanged(_) => "eitmad.record.changed.subscribe.v1",
-            Self::BackgroundJobChanged(_) => "eitmad.background-job.status.subscribe.v1",
-            Self::NotificationRaised(_) => "eitmad.notification.subscribe.v1",
-            Self::ErrorRaised(_) => "eitmad.error.subscribe.v1",
-            Self::ReferenceMarkerChanged(_) => "eitmad.reference-marker.changed.subscribe.v1",
             Self::CustomerChanged(_) => "eitmad.customer.changed.subscribe.v1",
             Self::MaterialChanged(_) => "eitmad.material.changed.subscribe.v1",
             Self::FurnitureChanged(_) => "eitmad.furniture.changed.subscribe.v1",
@@ -147,29 +89,7 @@ impl Subscription {
     pub const fn is_coalescible(&self) -> bool {
         matches!(
             self,
-            Self::Configuration(_)
-                | Self::Permissions(_)
-                | Self::AuthorizationPolicy(_)
-                | Self::UpdateState(_)
-                | Self::SyncStatus(_)
+            Self::Configuration(_) | Self::Permissions(_) | Self::AuthorizationPolicy(_)
         )
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn background_job_stream_is_discrete() {
-        assert!(!Subscription::BackgroundJobs(BackgroundJobChanges {}).is_coalescible());
-    }
-
-    #[test]
-    fn authorization_policy_stream_is_coalescible() {
-        assert!(
-            Subscription::AuthorizationPolicy(AuthorizationPolicyChanges::default())
-                .is_coalescible()
-        );
     }
 }

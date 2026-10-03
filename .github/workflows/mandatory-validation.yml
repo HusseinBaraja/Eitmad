@@ -127,6 +127,7 @@ jobs:
         run: >-
           swiftc
           shells/macos/generated/EitmadContracts.generated.swift
+          shells/macos/generated/EitmadContractsUnions.generated.swift
           shells/macos/generated/ProtocolIds.generated.swift
           tests/contract-compatibility/swift/ContractFixtureTests.swift
           -o "$RUNNER_TEMP/eitmad-contract-tests"

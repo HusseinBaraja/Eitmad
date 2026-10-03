@@ -77,4 +77,4 @@ Run:
 cargo test -p eitmad-admin-plane -p eitmad-control-plane -p eitmad-server
 ```
 
-Related pages: [server authority](server-authority.md), [authorization](authorization.md), [privacy-preserving observability](privacy-preserving-observability.md), [ADR-0026](../../decisions/0026-compose-authorized-operational-server-planes.md), and [protocol 1.5 rollout](../../releases/protocol-1-5-operational-server-planes.md).
+Related pages: [server authority](server-authority.md), [authorization](authorization.md), [privacy-preserving observability](privacy-preserving-observability.md), [ADR-0026](../../decisions/0026-compose-authorized-operational-server-planes.md), and [server operations](../../operations/run-server-authority.md).

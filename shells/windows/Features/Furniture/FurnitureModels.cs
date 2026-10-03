@@ -5,45 +5,16 @@ using MediaColorConverter = System.Windows.Media.ColorConverter;
 
 namespace Eitmad.WindowsShell.Features.Furniture;
 
-/// <summary>Represents one furniture row on the transient manager preview.</summary>
-public sealed class FurnitureListItem
+public sealed record FurnitureListItem(
+    Guid Id,
+    string Name,
+    string Category,
+    int VariantCount,
+    decimal SellingPrice,
+    string ThumbnailKind,
+    bool IsArchived,
+    bool IsDraft)
 {
-    public FurnitureListItem(
-        Guid id,
-        string name,
-        string category,
-        int variantCount,
-        decimal sellingPrice,
-        string thumbnailKind,
-        bool isArchived = false,
-        bool isDraft = false)
-    {
-        Id = id;
-        Name = name;
-        Category = category;
-        VariantCount = variantCount;
-        SellingPrice = sellingPrice;
-        ThumbnailKind = thumbnailKind;
-        IsArchived = isArchived;
-        IsDraft = isDraft;
-    }
-
-    public Guid Id { get; }
-
-    public string Name { get; set; }
-
-    public string Category { get; set; }
-
-    public int VariantCount { get; set; }
-
-    public decimal SellingPrice { get; set; }
-
-    public string ThumbnailKind { get; }
-
-    public bool IsArchived { get; set; }
-
-    public bool IsDraft { get; set; }
-
     public bool CanArchive => !IsArchived;
 
     public string VariantCountLabel => VariantCount switch
@@ -103,7 +74,6 @@ public sealed class FurniturePartUsage : ObservableObject
 
     public string TotalCostLabel => TotalCost.ToString("N0", CultureInfo.InvariantCulture);
 
-    public FurniturePartUsage Copy() => new(Part, Quantity);
 }
 
 /// <summary>Represents one fixed manager-defined furniture size in the preview.</summary>
@@ -198,7 +168,6 @@ public sealed class FurnitureVariant : ObservableObject
 
     public string MarginCaption => HasNegativeMargin ? "خسارة متوقعة" : "هامش الربح";
 
-    /// <summary>Copies unsaved presentation values without committing a record.</summary>
     public FurnitureVariant Copy(string name) =>
         new(Guid.NewGuid(), name, Width, Height, Depth, CalculatedCost, SellingPrice) { Customization=Customization,ColorIds=ColorIds.ToArray(),HandleIds=HandleIds.ToArray() };
 
@@ -254,8 +223,6 @@ public sealed class FurnitureColorOption : ObservableObject
 
     public string ToggleActionLabel => IsActive ? "تعطيل" : "تفعيل";
 
-    /// <summary>Copies unsaved presentation values without committing a record.</summary>
-    public FurnitureColorOption Copy() => new(Id, Name, SwatchHex, PriceAdjustment, IsActive);
 }
 
 /// <summary>Represents one selectable furniture handle in the transient options preview.</summary>
@@ -320,5 +287,4 @@ public sealed class FurnitureHandleOption : ObservableObject
     public string ToggleActionLabel => IsActive ? "تعطيل" : "تفعيل";
 
     /// <summary>Copies unsaved presentation values without committing a record.</summary>
-    public FurnitureHandleOption Copy() => new(Id, Name, HandleKind, PriceAdjustment, IsActive);
 }

@@ -10,7 +10,7 @@ namespace Eitmad.WindowsShell.Features.Reception;
 public sealed record SalesCatalogItem(Guid Id, string Name, string Category, string Description,
     string VariantSummary, decimal Price, bool HasStartingPrice, string ThumbnailKind, ImageSource? Image)
 {
-    public string PriceLabel => Price.ToString("N0", CultureInfo.InvariantCulture) + " YER";
+    public string PriceLabel => Price.ToString("N0", CultureInfo.InvariantCulture) + " ر.ي";
     public string PricePrefix => HasStartingPrice ? "ابتداءً من" : "السعر";
     public string SelectionName => "اختيار " + Name;
 }

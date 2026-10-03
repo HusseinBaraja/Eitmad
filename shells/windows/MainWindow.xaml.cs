@@ -4,7 +4,6 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Threading;
 using Eitmad.WindowsShell.Features.Authentication;
-using Eitmad.WindowsShell.Features.Operations;
 using Eitmad.Platform.Windows.Shell;
 using Button = System.Windows.Controls.Button;
 
@@ -26,7 +25,6 @@ public partial class MainWindow : Window
 
     /// <summary>Initializes the dashboard preview and its transient interactions.</summary>
     public MainWindow(
-        OperationsViewModel viewModel,
         IDesktopSessionController? sessions = null,
         bool showSignIn = true,
         IEngineShellBridge? engine = null)
@@ -78,7 +76,6 @@ public partial class MainWindow : Window
         };
         WorkOrdersSurface.ViewModel.PreviewStatusChanged += work => receptionOrders.PreviewProductionStatus(work.OrderNumber,
             work.IsCompleted ? Features.Orders.OrderStatus.Ready : Features.Orders.OrderStatus.InProduction, work.Number);
-        DataContext = viewModel;
         SignInSurface.Visibility = showSignIn ? Visibility.Visible : Visibility.Collapsed;
         ResponsiveRoot.Visibility = showSignIn ? Visibility.Collapsed : Visibility.Visible;
         Title = showSignIn ? "الاعتماد · تسجيل الدخول" : "الاعتماد · لوحة التحكم";

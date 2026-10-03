@@ -86,4 +86,4 @@ Run:
 cargo test -p eitmad-update-policy -p eitmad-update-plane -p eitmad-server
 ```
 
-Related pages: [server operations](../../operations/run-server-authority.md), [ADR-0013](../../decisions/0013-platform-native-update-adapters.md), [ADR-0026](../../decisions/0026-compose-authorized-operational-server-planes.md), and [protocol 1.5 rollout](../../releases/protocol-1-5-operational-server-planes.md).
+Related pages: [server operations](../../operations/run-server-authority.md), [ADR-0013](../../decisions/0013-platform-native-update-adapters.md), [ADR-0026](../../decisions/0026-compose-authorized-operational-server-planes.md), and [server operations](../../operations/run-server-authority.md).

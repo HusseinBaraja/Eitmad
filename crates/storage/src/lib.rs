@@ -45,14 +45,11 @@ use eitmad_contracts::{
 use eitmad_observability_audit::MutationAuditRecord;
 pub use export::{ExportDataClass, ExportScope, LOCAL_DATA_EXPORT_FORMAT, LocalDataExportPolicy};
 pub use furniture::{FurnitureRecord, FurnitureTransaction};
-pub use identity::{DeviceIdentity, IdentityTopology, PersistentSession, SessionConnectivity};
+pub use identity::{PersistentSession, SessionConnectivity};
 pub use material::{MaterialCommit, MaterialCommitOutcome, MaterialRecord};
 pub use part::{PartRecord, PartTransaction};
 pub use product::{ProductRecord, ProductTransaction};
 pub use recovery::{RecoveryArtifact, RecoveryArtifactKind, RestoreOutcome};
-pub use reference_marker::{
-    MAX_REFERENCE_MARKER_SYNC_BATCH, ReferenceMarkerCommit, ReferenceMarkerCommitOutcome,
-};
 use rusqlite::{Connection, OpenFlags, OptionalExtension as _, TransactionBehavior};
 pub use sync_state::{StoredSyncState, SyncStateCommitOutcome};
 
@@ -292,7 +289,8 @@ impl AuthorityStore {
             .transpose()
     }
 
-    /// Loads one bounded page of mutation events awaiting in-process publication.
+    /// Loads one bounded page of active mutation events awaiting publication.
+    /// Retired demo events remain stored but do not block product recovery.
     ///
     /// # Errors
     ///
@@ -308,7 +306,10 @@ impl AuthorityStore {
         let mut statement = connection
             .prepare(
                 "SELECT scope_kind, scope_id, idempotency_key, event_json, policy_changed
-                 FROM publication_outbox ORDER BY rowid LIMIT ?1",
+                 FROM publication_outbox
+                 WHERE json_extract(CAST(event_json AS TEXT), '$.kind')
+                     IS NOT 'eitmad.reference-marker.changed.event.v1'
+                 ORDER BY rowid LIMIT ?1",
             )
             .map_err(|_| StorageError)?;
         let rows = statement
@@ -713,6 +714,69 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
+
+    #[test]
+    fn retired_demo_outbox_does_not_block_product_recovery_or_delete_data() {
+        let directory = TempDir::new().unwrap();
+        let store = AuthorityStore::open(directory.path()).unwrap();
+        let connection = Connection::open(store.path()).unwrap();
+        let scope = ScopeRef {
+            kind: ScopeKind::parse("organization").unwrap(),
+            id: ScopeId::new(Uuid::from_u128(3)),
+        };
+        let event = Event::ConfigurationChanged(eitmad_contracts::config::ConfigSnapshot {
+            schema_version: 1,
+            revision: 0,
+            scope: scope.clone(),
+            entries: Vec::new(),
+        });
+        let retired = br#"{"kind":"eitmad.reference-marker.changed.event.v1","payload":{}}"#;
+        for (key, bytes) in [
+            (1, retired.to_vec()),
+            (2, serde_json::to_vec(&event).unwrap()),
+        ] {
+            connection
+                .execute(
+                    "INSERT INTO publication_outbox
+                 (scope_kind, scope_id, idempotency_key, event_json, policy_changed)
+                 VALUES (?1, ?2, ?3, ?4, 0)",
+                    rusqlite::params![
+                        scope.kind.as_str(),
+                        scope.id.value().to_string(),
+                        Uuid::from_u128(key).to_string(),
+                        bytes
+                    ],
+                )
+                .unwrap();
+        }
+        drop(connection);
+        let reopened = AuthorityStore::open(directory.path()).unwrap();
+        let page = reopened.pending_publications(1).unwrap();
+        assert_eq!(page.len(), 1);
+        assert_eq!(page[0].event, event);
+        reopened.complete_publications(&page).unwrap();
+        assert!(reopened.pending_publications(1).unwrap().is_empty());
+        let connection = Connection::open(reopened.path()).unwrap();
+        let preserved: Vec<u8> = connection
+            .query_row("SELECT event_json FROM publication_outbox", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(preserved, retired);
+        connection
+            .execute(
+                "INSERT INTO publication_outbox
+             (scope_kind, scope_id, idempotency_key, event_json, policy_changed)
+             VALUES ('organization', ?1, ?2, ?3, 0)",
+                rusqlite::params![
+                    scope.id.value().to_string(),
+                    Uuid::from_u128(4).to_string(),
+                    b"invalid".as_slice()
+                ],
+            )
+            .unwrap();
+        assert!(reopened.pending_publications(1).is_err());
+    }
 
     #[test]
     fn audit_rows_are_append_only() {

@@ -1,7 +1,7 @@
 using System.Globalization;
 using Eitmad.WindowsShell.Controls;
 
-namespace Eitmad.WindowsShell.Features.Operations;
+namespace Eitmad.WindowsShell;
 
 /// <summary>Existing synthetic dashboard preview rows, with typed table sort values.</summary>
 public sealed record DashboardQuotationPreview(string Number, string Customer, string Product,

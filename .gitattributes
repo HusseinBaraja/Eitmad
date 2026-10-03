@@ -1,0 +1,2 @@
+# Keep checksummed migration bytes identical on Windows and Linux.
+server/**/migrations/*.sql text eol=lf

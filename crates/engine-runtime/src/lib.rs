@@ -15,7 +15,7 @@ pub use authority_store::{
     AuthorityStoreComponent, AuthorityStoreHandle, AuthorityStoreHealthCheck,
 };
 pub use desktop_auth::{DesktopAuthenticationError, DesktopAuthenticator};
-pub use dispatcher::{CustomerSyncDispatchError, ProductDispatcher};
+pub use dispatcher::ProductDispatcher;
 
 use std::{
     env,
@@ -311,18 +311,6 @@ impl EngineRuntime {
 
         self.transition(LifecycleState::Ready, None);
         Ok(())
-    }
-
-    pub async fn refresh_health(&mut self) -> HealthStatus {
-        let checks = self.run_checks(None).await;
-        let status = overall_health(&checks);
-        self.snapshot.checks = checks;
-        self.snapshot.health = status;
-        self.snapshot.ready = self.snapshot.state == LifecycleState::Ready
-            && required_checks_pass(&self.snapshot.checks);
-        self.snapshot.observed_at = now();
-        self.publish();
-        status
     }
 
     /// Stops initialized components in reverse registration order.

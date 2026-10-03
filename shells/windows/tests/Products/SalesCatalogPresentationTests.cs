@@ -9,7 +9,6 @@ namespace Eitmad.WindowsShell.Tests.Products;
 [TestClass]
 public sealed class SalesCatalogPresentationTests
 {
-    /// <summary>Verifies catalog browsing is allowed before customer details but draft save requires them.</summary>
     [TestMethod]
     public void DraftSaveRequiresCustomerNameAndPhoneAfterBrowsing()
     {
@@ -29,7 +28,6 @@ public sealed class SalesCatalogPresentationTests
         Assert.IsFalse(model.ReviewSave());
     }
 
-    /// <summary>Verifies discount approval applies only to the exact reviewed quotation fields.</summary>
     [TestMethod]
     public void DiscountPreviewGatesSavingAndInvalidatesChangedRequests()
     {
@@ -69,7 +67,6 @@ public sealed class SalesCatalogPresentationTests
         Assert.IsTrue(model.ReviewSave());
     }
 
-    /// <summary>Verifies quotation editing, cancellation, totals, and customer selection through the presentation flow.</summary>
     [TestMethod]
     public async Task CurrentQuotationEditingCancellationTotalsAndCustomerFlow()
     {
@@ -107,14 +104,12 @@ public sealed class SalesCatalogPresentationTests
         Assert.IsTrue(model.QuotationNotice.Contains("لم يُحفظ عرض السعر"));
     }
 
-    /// <summary>Verifies historical product lines remain editable without offering current unpriced definitions.</summary>
     [TestMethod]
     public void HistoricalProductSnapshotRemainsEditableWithoutCurrentCatalogSelection() {
         var model=new SalesCatalogViewModel(Eitmad.WindowsShell.Tests.Furniture.FurnitureFixtures.SalesModel(),new ProductsViewModel());AddHistoricalProductLine(model,105000,"مزدوج");
         var line=model.QuotationLines.Single();model.EditLine(line);Assert.AreEqual("مزدوج",model.ProductSelection!.SelectedVariant!.Name);model.ProductSelection.Quantity=2;Assert.IsTrue(model.AddProductSelection());Assert.AreEqual(210000m,model.QuotationLines.Single().LineTotal);
     }
 
-    /// <summary>Verifies Arabic search and category filtering compose across active catalog items.</summary>
     [TestMethod]
     public void CatalogCombinesActiveItemsAndComposesArabicSearchWithCategories()
     {
@@ -132,14 +127,12 @@ public sealed class SalesCatalogPresentationTests
         Assert.AreEqual("خزانة السكينة", model.VisibleItems.Single().Name);
     }
 
-    /// <summary>Verifies reloading the catalog does not expose definitions without published selling prices.</summary>
     [TestMethod]
     public void ReloadExcludesUnpricedProductDefinitions() {
         var products=new ProductsViewModel();products.ApplyDurableData(ProductsPresentationTests.Data());
         var model=new SalesCatalogViewModel(Eitmad.WindowsShell.Tests.Furniture.FurnitureFixtures.SalesModel(),products);
         Assert.IsFalse(model.VisibleItems.Any(item=>item.Name=="مرتبة طبية"));
     }
-    /// <summary>Verifies furniture selection uses only active options and keeps quotation snapshots.</summary>
     [TestMethod]
     public void FurnitureSelectionUsesOnlyActiveOptionsAndKeepsQuotationSnapshots()
     {
@@ -174,7 +167,6 @@ public sealed class SalesCatalogPresentationTests
         Assert.HasCount(1, model.QuotationLines);
     }
 
-    /// <summary>Verifies unavailable sizes and overflow cannot be added.</summary>
     [TestMethod]
     public void UnavailableSizesAndOverflowCannotBeAdded()
     {
@@ -189,7 +181,6 @@ public sealed class SalesCatalogPresentationTests
         Assert.IsFalse(detail.CanAdd);
         Assert.AreEqual("—", detail.LineTotalLabel);
     }
-    /// <summary>Adds a synthetic stored product snapshot without depending on a current catalog selection.</summary>
     internal static void AddHistoricalProductLine(SalesCatalogViewModel model,decimal price=12000,string variantName="") {
         var item=new SalesCatalogItem(Guid.NewGuid(),"منتج تاريخي","منتجات","",variantName,price,variantName.Length>0,"Pillow",null);
         var variant=new SalesProductVariant(Guid.NewGuid(),variantName,price);

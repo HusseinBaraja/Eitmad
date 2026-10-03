@@ -13,13 +13,9 @@ internal sealed class FurnitureFixtures
     public FurnitureCategory Category { get; }
     public List<Definition> Definitions { get; } = [];
     public FurnitureReview Review { get; } = new() { PartsCostYer = 18900, RowCostsYer = [18900], MarginsYer = [181100] };
-    /// <summary>Creates a separate synthetic Furniture category for test projections.</summary>
     public FurnitureFixtures() => Category = new() { Id = Guid.NewGuid(), Scope = Parts.Scope, Name = "غرف النوم", Revision = 1 };
-    /// <summary>Combines fixed scoped definitions and Part references for presentation tests.</summary>
     public FurnitureSnapshot Snapshot() => new(new FurnitureCategories { Items = [Category] }, Definitions, true, true, Parts.Parts, [Parts.Category], Parts.Parts);
-    /// <summary>Creates a presentation model with explicit synthetic authority data.</summary>
     public FurnitureViewModel Model() { var model = new FurnitureViewModel(); model.ApplyDurableData(Snapshot()); return model; }
-    /// <summary>Creates one fixed saved definition with immutable Part references.</summary>
     public Definition Seed()
     {
         var value = new Definition
@@ -41,9 +37,7 @@ internal sealed class FurnitureFixtures
         };
         Definitions.Add(value); return value;
     }
-    /// <summary>Creates an explicit sales-only fixture independent of live manager definitions.</summary>
     public static FurnitureViewModel SalesModel() { var model = new FurnitureViewModel(); model.ApplyDurableData(SalesSnapshot()); model.FixtureSalesCatalog = true; return model; }
-    /// <summary>Builds synthetic published catalog items for reception tests.</summary>
     public static FurnitureSnapshot SalesSnapshot()
     {
         var f = new FurnitureFixtures(); var p = f.Seed(); p.Id = Guid.Parse("3fc526b4-2b79-45fd-984c-49258f55951d");
@@ -67,7 +61,6 @@ internal sealed class FurnitureFixtures
         }
         return new FurnitureSnapshot(new FurnitureCategories { Items = categories.ToArray() }, definitions, true, true, f.Parts.Parts, [f.Parts.Category], f.Parts.Parts);
     }
-    /// <summary>Returns typed fixed queries and confirmed synthetic saves for Furniture tests.</summary>
     public FakeEngine Engine()
     {
         var engine = Parts.Engine(); var partQueries = engine.QueryHandler!;
@@ -101,17 +94,13 @@ internal sealed class FurnitureFixtures
                     PartsCostYer = 18900,
                 };
                 Definitions.RemoveAll(p => p.Id == value.Id); Definitions.Add(value);
-                return Success(Result(PurpleKind.FurnitureSaved, value));
+                return Success(CommandResult.ForFurnitureSaved(value));
             }
-            if (command.AsFurnitureCategorySave() is { } category) { Category.Name = category.Name; return Success(Result(PurpleKind.FurnitureCategorySaved, Category)); }
+            if (command.AsFurnitureCategorySave() is { } category) { Category.Name = category.Name; return Success(CommandResult.ForFurnitureCategorySaved(Category)); }
             throw new InvalidOperationException("Unexpected fixture command.");
         };
         return engine;
     }
-    /// <summary>Serializes a fixed test value into its typed command result.</summary>
-    private static CommandResult Result<T>(PurpleKind kind, T value) => new() { Kind = kind, Payload = System.Text.Json.JsonSerializer.Deserialize<PayloadClass>(System.Text.Json.JsonSerializer.Serialize(value))! };
-    /// <summary>Wraps a fixed command payload in a confirmed synthetic outcome.</summary>
     public static CommandResponseEnvelope Success(CommandResult value) => new() { RequestId = Guid.NewGuid(), CorrelationId = Guid.NewGuid(), Outcome = new CommandOutcome { Status = CommandOutcomeStatus.Succeeded, Payload = value } };
-    /// <summary>Wraps a stable error identifier in a failed synthetic outcome.</summary>
     public static CommandResponseEnvelope Failure(string code) => new() { RequestId = Guid.NewGuid(), CorrelationId = Guid.NewGuid(), Outcome = new CommandOutcome { Status = CommandOutcomeStatus.Failed, Payload = new CommandResult { Code = code } } };
 }

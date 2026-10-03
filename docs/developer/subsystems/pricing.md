@@ -33,7 +33,7 @@ Rust does not yet provide a Pricing capability. The preview has no price command
 
 ## Manager workflow
 
-The list shows **المنتج**, **الخيار / المقاس**, **الفئة**, **تكلفة الشراء**, **سعر البيع**, **الهامش**, **الحالة**, and **تعديل سعر البيع**. Search matches product and variant after Arabic normalization, and the category filter composes with search. `YER` amounts use an explicit local LTR boundary inside the RTL layout.
+The list shows **المنتج**, **الخيار / المقاس**, **الفئة**, **تكلفة الشراء**, **سعر البيع**, **الهامش**, **الحالة**, and **تعديل سعر البيع**. Search matches product and variant after Arabic normalization, and the category filter composes with search. Amounts display **ر.ي** with an explicit local LTR boundary inside the RTL layout, following the [currency display rule](manager-receptionist-workflows.md#money).
 
 **تعديل سعر البيع** opens a small editor with the product, fixed variant, cost, selling-price input, and calculated absolute **هامش الربح**. Arabic-Indic digits and separators are accepted. Invalid input keeps the editor open with **أدخل سعر بيع صالحاً يساوي صفراً أو أكثر.** A negative margin remains visible in the preview so the manager can identify an unprofitable price.
 

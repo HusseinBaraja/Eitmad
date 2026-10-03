@@ -35,7 +35,7 @@ use eitmad_contracts::{
         QueryEnvelope, QueryOutcome, QueryResponseEnvelope, RequestId, SubscriptionEnvelope,
         UnixMillis,
     },
-    updates::{SignedUpdateManifest, UpdateCheckOutcome, UpdateClientProfile, UpdateState},
+    updates::{SignedUpdateManifest, UpdateCheckOutcome, UpdateClientProfile},
     versioning::{NegotiationOutcome, PeerHello},
 };
 use schemars::{JsonSchema, generate::SchemaSettings};
@@ -71,7 +71,6 @@ struct ContractSchemaRoot {
     administration_backup_status: BackupStatus,
     administration_migration_status: MigrationStatus,
     administration_support_workflow: SupportWorkflow,
-    update_state: UpdateState,
     sync_status: SyncStatus,
     effective_permissions: EffectivePermissions,
     lifecycle_snapshot: LifecycleSnapshot,
@@ -85,19 +84,20 @@ struct ContractSchemaRoot {
     catalog: ProtocolCatalog,
 }
 
+#[derive(JsonSchema)]
+#[allow(dead_code)]
+struct NativeShellSchemaRoot {
+    ipc_client_message: IpcClientMessage,
+    ipc_server_message: IpcServerMessage,
+    lifecycle_snapshot: LifecycleSnapshot,
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ConformanceFixture {
     query: QueryEnvelope,
-    query_protocol_1_0: QueryEnvelope,
     query_response: QueryResponseEnvelope,
     structured_error: ContractError,
-    observation_event_id: ObservationEventId,
-    observation_field_name: ObservationFieldName,
-    observation_component_id: ComponentId,
-    observation_severity: ObservationSeverity,
-    observation_classification: DataClassification,
-    observation_value_kind: ObservationValueKind,
     mixed_direction_samples: Vec<&'static str>,
 }
 
@@ -116,6 +116,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     write_json(
         &output.join("protocol-v1.json"),
         &ProtocolCatalog::current(),
+    )?;
+    write_json(
+        &output.join("native-shell-v1.schema.json"),
+        &SchemaSettings::draft07()
+            .into_generator()
+            .into_root_schema_for::<NativeShellSchemaRoot>(),
     )?;
     write_json(&output.join("protocol-v1.fixture.json"), &fixture()?)?;
     write_text(
@@ -152,8 +158,6 @@ fn fixture() -> Result<ConformanceFixture, Box<dyn std::error::Error>> {
         deadline: UnixMillis(1_800_000_000_000),
         query: Query::Configuration(GetConfiguration {}),
     };
-    let mut query_protocol_1_0 = query.clone();
-    query_protocol_1_0.protocol_version.minor = 0;
     let snapshot = ConfigSnapshot {
         schema_version: 1,
         revision: 7,
@@ -187,15 +191,8 @@ fn fixture() -> Result<ConformanceFixture, Box<dyn std::error::Error>> {
 
     Ok(ConformanceFixture {
         query,
-        query_protocol_1_0,
         query_response,
         structured_error,
-        observation_event_id: ObservationEventId::parse("eitmad.observation.engine-failure.v1")?,
-        observation_field_name: ObservationFieldName::parse("operation")?,
-        observation_component_id: ComponentId::parse("engine-runtime")?,
-        observation_severity: ObservationSeverity::Error,
-        observation_classification: DataClassification::Sensitive,
-        observation_value_kind: ObservationValueKind::Identifier,
         mixed_direction_samples: vec![
             "خزانة Wardrobe 120 cm - فرع صنعاء",
             "ملف عرض السعر Quote-١٢.pdf",
