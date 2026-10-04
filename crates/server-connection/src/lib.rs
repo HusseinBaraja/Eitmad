@@ -475,6 +475,13 @@ impl DirectServerDriver {
             .sock
             .socket
             .set_read_timeout(Some(POLL_TIMEOUT))
+            .and_then(|()| {
+                socket
+                    .get_mut()
+                    .sock
+                    .socket
+                    .set_write_timeout(Some(IO_TIMEOUT))
+            })
             .map_err(|_| unavailable(FailurePhase::Connect))?;
         // The established subscription has its own polling/cancellation lifecycle.
         socket.get_mut().sock.deadline = None;
