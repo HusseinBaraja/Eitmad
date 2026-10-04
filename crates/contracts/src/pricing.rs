@@ -164,7 +164,7 @@ pub struct PriceChangeNotice {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ConfirmPrice {
-    /// Internal advisory basis from the authorized catalog revision. Never returned in public snapshots.
+    /// Internal catalog cost. The server checks this against its stored revision; public snapshots omit it.
     pub cost_yer: i64,
     pub command: PublishPrice,
     pub colors: Vec<PriceAdjustment>,

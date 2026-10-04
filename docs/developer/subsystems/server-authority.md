@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "server platform maintainers"
-last_verified: "2026-10-03"
+last_verified: "2026-10-04"
 review_triggers:
   - "server identity, authorization, storage, synchronization, licensing, update assignment, or deployment boundaries change"
 keywords:
@@ -25,7 +25,7 @@ keywords:
 
 The foundation provides tenant and organization identity, accounts, registered devices, invitation activation, authentication tokens, session policy, relationship authorization, update-channel assignment, sync coordination, snapshots, operation history, resumable subscriptions, conflict records, WAN relay coordination, signed update distribution, operational status, fleet visibility, audit access, support workflows, and client compatibility negotiation.
 
-The server registers the branch-scoped Customer contact schema and handler as its first product domain. It does not provide billing, email, MFA challenge, package CDN, production relay payload routing, admin UI, backup scheduling, or customer conflict resolution. Other domain schemas remain unregistered.
+The server registers the branch-scoped Customer contact schema and handler as its first product domain. It does not provide billing, email, MFA challenge, package CDN, production relay payload routing, admin UI, backup scheduling, or customer conflict resolution. Other general sync domain schemas remain unregistered. The pricing boundary also stores immutable catalog dependencies for server cost validation; see [Pricing authority](pricing.md#authorization-and-durable-publication).
 
 ## Ownership and module boundaries
 
@@ -46,7 +46,7 @@ Native shells and network adapters must not copy these rules, access PostgreSQL,
 
 ## Contracts and compatibility
 
-Protocol `1.5` adds relay, signed update, and administration contracts and generated bindings. Protocol `1.6` changes only the local IPC handshake. The server WebSocket accepts protocol `1.4–1.6`, consumes `ServerClientMessage`, and emits `ServerMessage`. A client must first send `eitmad.server.hello.v1`; no sync or subscription traffic is valid before negotiation.
+Protocol `1.5` adds relay, signed update, and administration contracts and generated bindings. Protocol `1.6` changes only the local IPC handshake. The server WebSocket accepts protocol `1.4–1.16`, consumes `ServerClientMessage`, and emits `ServerMessage`. A client must first send `eitmad.server.hello.v1`; no sync or subscription traffic is valid before negotiation.
 
 The server requires these capabilities:
 
@@ -60,6 +60,8 @@ The server requires these capabilities:
 - `eitmad.capability.server-administration.v1`
 
 Negotiation selects an overlapping protocol and registered schema range. Missing capabilities, an unknown required schema, or no compatible version produces `eitmad.error.server-client-incompatible.v1` before normal traffic. Local IPC supports only the current desktop protocol; see [contract evolution](../../api/evolve-contracts-compatibly.md). Server sync needs at least `1.4`. Each relay, update-distribution, or administration HTTP request must send the base64url-encoded `PeerHello` JSON in `x-eitmad-peer-hello`; Rust requires protocol `1.5` or newer and the route capability before it authenticates or dispatches the request.
+
+Pricing and catalog-revision HTTP routes require protocol `1.16`. `/v1/catalog-revisions/synchronize` requires `eitmad.capability.catalog-revisions.v1`; pricing routes require `eitmad.capability.pricing.v1`. Catalog writes authorize the authenticated organization's Manager relationship, preserve immutable revisions under tenant RLS, and record redacted audit evidence. Price confirmation resolves cost and compatible options from those accepted revisions. See [Pricing contracts and recovery](pricing.md) for bounded dependency transfer and conflict handling.
 
 ## Identity, authentication, and sessions
 

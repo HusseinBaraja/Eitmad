@@ -2272,6 +2272,14 @@ mod tests {
     }
     struct TestPriceServer;
     impl eitmad_pricing::PriceConfirmation for TestPriceServer {
+        fn synchronize_catalog(
+            &self,
+            _: &AuthorizationContext,
+            _: &eitmad_contracts::catalog_revision::SynchronizeCatalogRevisions,
+            _: UnixMillis,
+        ) -> Result<(), eitmad_pricing::PricingError> {
+            Ok(())
+        }
         fn status(
             &self,
             _: &AuthorizationContext,
@@ -2314,6 +2322,14 @@ mod tests {
     }
     struct SlowPriceServer;
     impl eitmad_pricing::PriceConfirmation for SlowPriceServer {
+        fn synchronize_catalog(
+            &self,
+            _: &AuthorizationContext,
+            _: &eitmad_contracts::catalog_revision::SynchronizeCatalogRevisions,
+            _: UnixMillis,
+        ) -> Result<(), eitmad_pricing::PricingError> {
+            Ok(())
+        }
         fn read(
             &self,
             _: &AuthorizationContext,

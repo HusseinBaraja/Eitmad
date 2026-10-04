@@ -12,7 +12,7 @@ use sqlx::{PgPool, Row as _};
 
 #[derive(Clone)]
 pub struct PricingServer {
-    pool: PgPool,
+    pub(super) pool: PgPool,
 }
 impl PricingServer {
     /// Returns only public current snapshots to scoped Manager and Receptionist relationships.
@@ -116,34 +116,9 @@ impl PricingServer {
         let mut tx = tenant_transaction(&self.pool, actor.tenant_id)
             .await
             .map_err(|_| PricingError::Unconfirmed)?;
-        let allowed = manager_allowed(&mut tx, actor, scope.id.value()).await?;
-        if !allowed {
-            evidence(
-                &mut tx,
-                actor,
-                input,
-                correlation,
-                now,
-                ServerAuditOutcome::Denied,
-                Some("eitmad.error.authorization-denied.v1"),
-            )
-            .await?;
+        if let Err(error) = preflight(&mut tx, actor, input, correlation, now).await {
             tx.commit().await.map_err(|_| PricingError::Unconfirmed)?;
-            return Err(PricingError::Denied);
-        }
-        if let Err(e) = validate_publication(input) {
-            evidence(
-                &mut tx,
-                actor,
-                input,
-                correlation,
-                now,
-                ServerAuditOutcome::Invalid,
-                Some(eitmad_pricing::error_code(e)),
-            )
-            .await?;
-            tx.commit().await.map_err(|_| PricingError::Unconfirmed)?;
-            return Err(e);
+            return Err(error);
         }
         // Prevent concurrent first revisions and retry-key races, including across devices.
         sqlx::query("SELECT tenant_id FROM control.tenants WHERE tenant_id=$1 FOR UPDATE")
@@ -162,6 +137,20 @@ impl PricingServer {
                 .map_err(|_| PricingError::Unconfirmed);
         }
         let (kind, entry, variant) = input.command.target.identity();
+        if let Err(e) = crate::catalog_revision::validate_price(&mut tx, actor, input).await {
+            evidence(
+                &mut tx,
+                actor,
+                input,
+                correlation,
+                now,
+                ServerAuditOutcome::Invalid,
+                Some(eitmad_pricing::error_code(e)),
+            )
+            .await?;
+            tx.commit().await.map_err(|_| PricingError::Unconfirmed)?;
+            return Err(e);
+        }
         let row = sqlx::query("SELECT revision,record_json FROM sync.price_revisions WHERE tenant_id=$1 AND organization_id=$2 AND kind=$3 AND entry_id=$4 AND variant_id=$5 ORDER BY revision DESC LIMIT 1")
             .bind(actor.tenant_id.value()).bind(scope.id.value()).bind(kind).bind(entry).bind(variant).fetch_optional(&mut *tx).await.map_err(|_| PricingError::Unconfirmed)?;
         let latest: Option<PublishedPrice> = row
@@ -298,11 +287,52 @@ fn request_hash(
     )
     .to_vec())
 }
-async fn manager_allowed(
+pub(super) async fn manager_allowed(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     actor: &AuthenticatedServerSession,
     organization: uuid::Uuid,
 ) -> Result<bool, PricingError> {
     sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM control.organizations o JOIN control.relationship_tuples r ON r.tenant_id=o.tenant_id WHERE o.tenant_id=$1 AND o.organization_id=$2 AND r.subject_principal_id=$3 AND r.subject_kind='user' AND r.object_kind='organization' AND r.object_id=o.organization_id AND r.relation='eitmad.relation.organization.manager.v1')")
         .bind(actor.tenant_id.value()).bind(organization).bind(actor.user_id.value()).fetch_one(&mut **tx).await.map_err(|_| PricingError::Unconfirmed)
+}
+
+/// Authorizes and validates proposal shape before catalog lookup or tenant serialization.
+async fn preflight(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    actor: &AuthenticatedServerSession,
+    input: &ConfirmPrice,
+    correlation: CorrelationId,
+    now: UnixMillis,
+) -> Result<(), PricingError> {
+    let scope = input.command.target.scope();
+    let allowed = manager_allowed(tx, actor, scope.id.value()).await?;
+    if !allowed {
+        evidence(
+            tx,
+            actor,
+            input,
+            correlation,
+            now,
+            ServerAuditOutcome::Denied,
+            Some("eitmad.error.authorization-denied.v1"),
+        )
+        .await?;
+        return Err(PricingError::Denied);
+    }
+    let mut shape = input.clone();
+    shape.cost_yer = 0;
+    if let Err(e) = validate_publication(&shape) {
+        evidence(
+            tx,
+            actor,
+            input,
+            correlation,
+            now,
+            ServerAuditOutcome::Invalid,
+            Some(eitmad_pricing::error_code(e)),
+        )
+        .await?;
+        return Err(e);
+    }
+    Ok(())
 }

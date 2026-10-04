@@ -133,11 +133,48 @@ fn fixture(service: &ProductService, manager: &AuthorizationContext) -> SaveProd
 
 #[derive(Default)]
 struct Confirmed {
+    catalog: std::sync::Mutex<
+        std::collections::BTreeMap<
+            (&'static str, Uuid, u64),
+            eitmad_contracts::catalog_revision::CatalogRevision,
+        >,
+    >,
     deny_status: std::sync::atomic::AtomicBool,
     records: std::sync::Mutex<Vec<PublishedPrice>>,
     receipts: std::sync::Mutex<Vec<(ConfirmPrice, PublishedPrice)>>,
 }
 impl PriceConfirmation for Confirmed {
+    fn synchronize_catalog(
+        &self,
+        _: &AuthorizationContext,
+        input: &eitmad_contracts::catalog_revision::SynchronizeCatalogRevisions,
+        _: UnixMillis,
+    ) -> Result<(), PricingError> {
+        let mut catalog = self.catalog.lock().unwrap();
+        let mut staged = catalog.clone();
+        for record in &input.records {
+            let (kind, id, revision, scope) = record.identity();
+            if scope != &input.scope {
+                return Err(PricingError::Denied);
+            }
+            if let Some(existing) = staged.get(&(kind, id, revision)) {
+                if existing != record {
+                    return Err(PricingError::Reference);
+                }
+                continue;
+            }
+            validate_catalog_revision(record, &staged)?;
+            staged.insert((kind, id, revision), record.clone());
+            if staged
+                .get(&(kind, id, 0))
+                .is_none_or(|v| v.identity().2 < revision)
+            {
+                staged.insert((kind, id, 0), record.clone());
+            }
+        }
+        *catalog = staged;
+        Ok(())
+    }
     fn status(
         &self,
         _: &AuthorizationContext,
@@ -185,6 +222,10 @@ impl PriceConfirmation for Confirmed {
             };
         }
         let mut records = self.records.lock().unwrap();
+        let catalog = self.catalog.lock().unwrap();
+        let (kind, id, _) = input.command.target.identity();
+        let definition = catalog.get(&(kind, id, 0)).ok_or(PricingError::Reference)?;
+        validate_server_proposal(input, definition)?;
         let actual = records
             .iter()
             .rev()
@@ -770,6 +811,138 @@ fn manufactured_cost_options_and_selling_prices_use_part_revisions_and_exact_who
 }
 
 #[test]
+fn server_catalog_rejects_forged_product_cost_and_changed_immutable_revision() {
+    use eitmad_contracts::catalog_revision::{CatalogRevision, SynchronizeCatalogRevisions};
+    let dir = TempDir::new().unwrap();
+    let (store, products, manager, _) = setup(&dir);
+    let product = products
+        .save(
+            &mutation(manager.clone(), 20),
+            &fixture(&products, &manager),
+        )
+        .unwrap();
+    let server = Arc::new(Confirmed::default());
+    let service = PricingService::new(store.clone(), AuthorizationService::new(store))
+        .with_confirmation(server.clone());
+    let command = publish_input(target(&product));
+    service
+        .publish(
+            &mutation(manager.clone(), 30),
+            &command,
+            UnixMillis(i64::MAX),
+        )
+        .unwrap();
+    let mut proposal = server.receipts.lock().unwrap()[0].0.clone();
+    proposal.idempotency_key = IdempotencyKey::new(Uuid::from_u128(31));
+    proposal.command.expected_revision = Some(1);
+    proposal.command.selling_price_yer = 50_000;
+    proposal.cost_yer = 0;
+    assert_eq!(
+        server.confirm(&manager, &proposal, UnixMillis(i64::MAX)),
+        Err(PricingError::BelowCost)
+    );
+    proposal.command.confirm_below_cost = true;
+    assert_eq!(
+        server.confirm(&manager, &proposal, UnixMillis(i64::MAX)),
+        Err(PricingError::Reference)
+    );
+    proposal.cost_yer = 55_000;
+    assert_eq!(
+        server
+            .confirm(&manager, &proposal, UnixMillis(i64::MAX))
+            .unwrap()
+            .revision,
+        2
+    );
+    let mut altered = product;
+    altered.variants[0].purchase_cost_yer = Some(0);
+    assert_eq!(
+        server.synchronize_catalog(
+            &manager,
+            &SynchronizeCatalogRevisions {
+                scope: manager.scope.clone(),
+                records: vec![CatalogRevision::Product(Box::new(altered))],
+            },
+            UnixMillis(i64::MAX)
+        ),
+        Err(PricingError::Reference)
+    );
+    assert_eq!(server.receipts.lock().unwrap().len(), 2);
+}
+
+#[test]
+fn server_catalog_recalculates_part_and_furniture_costs_and_rejects_foreign_dependencies() {
+    use eitmad_contracts::catalog_revision::CatalogRevision;
+    let dir = TempDir::new().unwrap();
+    let (store, _, manager, _) = setup(&dir);
+    let furniture = FurnitureService::new(store.clone(), AuthorizationService::new(store.clone()));
+    let draft = furniture_fixture(&store, &furniture, &manager);
+    let saved = furniture
+        .save(&mutation(manager.clone(), 22), &draft)
+        .unwrap();
+    let service = PricingService::new(store.clone(), AuthorizationService::new(store));
+    let target = PriceTarget::Furniture(FurnitureReference {
+        scope: saved.scope.clone(),
+        furniture_id: saved.id,
+        variant_id: saved.variants[0].id,
+        revision: saved.revision,
+        schema_version: 1,
+    });
+    let records = service.catalog_revisions(&target).unwrap();
+    let mut known = std::collections::BTreeMap::new();
+    for record in records {
+        validate_catalog_revision(&record, &known).unwrap();
+        if let CatalogRevision::Part(p) = &record {
+            assert_eq!(p.cost.total_cost_yer, 9450);
+            let mut altered = p.clone();
+            altered.cost.total_cost_yer = 0;
+            assert_eq!(
+                validate_catalog_revision(&CatalogRevision::Part(altered), &known),
+                Err(PricingError::Invalid)
+            );
+            let mut altered = p.clone();
+            altered.cost.rows[0].material.current_cost_yer = 0;
+            assert_eq!(
+                validate_catalog_revision(&CatalogRevision::Part(altered), &known),
+                Err(PricingError::Reference)
+            );
+            let mut altered = p.clone();
+            altered.cost.rows[0].cost_yer -= 1;
+            assert_eq!(
+                validate_catalog_revision(&CatalogRevision::Part(altered), &known),
+                Err(PricingError::Invalid)
+            );
+        }
+        if let CatalogRevision::Furniture(f) = &record {
+            assert_eq!(publication_basis(&record, &target).unwrap().0, 18_900);
+            let mut altered = f.clone();
+            altered.parts_cost_yer = 0;
+            assert_eq!(
+                validate_catalog_revision(&CatalogRevision::Furniture(altered), &known),
+                Err(PricingError::Invalid)
+            );
+            let mut altered = f.clone();
+            altered.parts[0].reference.scope.id = ScopeId::new(Uuid::from_u128(999));
+            assert_eq!(
+                validate_catalog_revision(&CatalogRevision::Furniture(altered), &known),
+                Err(PricingError::Reference)
+            );
+            let mut stale = target.clone();
+            if let PriceTarget::Furniture(r) = &mut stale {
+                r.revision += 1;
+            }
+            assert_eq!(
+                publication_basis(&record, &stale),
+                Err(PricingError::Reference)
+            );
+        }
+        let (kind, id, revision, _) = record.identity();
+        known.insert((kind, id, revision), record.clone());
+        known.insert((kind, id, 0), record);
+    }
+}
+
+#[test]
 fn bounded_variant_pages_and_cache_first_retry_complete_without_duplicate_revisions() {
     let dir = TempDir::new().unwrap();
     let (store, products, manager, _) = setup(&dir);
@@ -812,6 +985,16 @@ fn bounded_variant_pages_and_cache_first_retry_complete_without_duplicate_revisi
             .into();
     let context = mutation(manager.clone(), 30);
     let prepared = service.prepare(&context, &input, &hash).unwrap();
+    server
+        .synchronize_catalog(
+            &manager,
+            &eitmad_contracts::catalog_revision::SynchronizeCatalogRevisions {
+                scope: manager.scope.clone(),
+                records: service.catalog_revisions(&input.target).unwrap(),
+            },
+            UnixMillis(i64::MAX),
+        )
+        .unwrap();
     let confirmed = server
         .confirm(&manager, &prepared, UnixMillis(i64::MAX))
         .unwrap();
@@ -940,6 +1123,16 @@ fn original_confirmed_intent_survives_newer_price_refresh_before_retry() {
         Sha256::digest(serde_json::to_vec(&(manager.identity.principal_id, &input)).unwrap())
             .into();
     let prepared = service.prepare(&context, &input, &hash).unwrap();
+    server
+        .synchronize_catalog(
+            &manager,
+            &eitmad_contracts::catalog_revision::SynchronizeCatalogRevisions {
+                scope: manager.scope.clone(),
+                records: service.catalog_revisions(&input.target).unwrap(),
+            },
+            UnixMillis(i64::MAX),
+        )
+        .unwrap();
     let original = server
         .confirm(&manager, &prepared, UnixMillis(i64::MAX))
         .unwrap();

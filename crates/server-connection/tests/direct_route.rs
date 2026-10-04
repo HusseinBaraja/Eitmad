@@ -1922,6 +1922,114 @@ fn pricing_test_client(
     .unwrap();
     eitmad_server_connection::DirectPriceClient::from_config(config, secrets, credential)
 }
+
+/// Creates the catalog authority fixture separately from its price proposal.
+fn pricing_catalog_fixture(
+    input: &eitmad_contracts::pricing::ConfirmPrice,
+) -> eitmad_contracts::catalog_revision::SynchronizeCatalogRevisions {
+    use eitmad_contracts::{
+        catalog_revision::{CatalogRevision, SynchronizeCatalogRevisions},
+        product::{Product, ProductCategory, ProductCategoryId, ProductVariant},
+    };
+    let eitmad_contracts::pricing::PriceTarget::Product(target) = &input.command.target else {
+        panic!("product fixture")
+    };
+    let category = ProductCategory {
+        id: ProductCategoryId::new(Uuid::from_u128(9_000_001)),
+        scope: target.scope.clone(),
+        name: "مراتب".into(),
+        archived: false,
+        revision: 1,
+        updated_at: UnixMillis(1),
+    };
+    let product = Product {
+        image: None,
+        id: target.product_id,
+        scope: target.scope.clone(),
+        name: "مرتبة اختبار".into(),
+        category_id: category.id,
+        category_name: category.name.clone(),
+        description: String::new(),
+        notes: String::new(),
+        variants: vec![ProductVariant {
+            id: target.variant_id,
+            name: "مفرد".into(),
+            purchase_cost_yer: Some(90_000),
+            archived: false,
+        }],
+        archived: false,
+        revision: target.revision,
+        updated_at: UnixMillis(1),
+    };
+    SynchronizeCatalogRevisions {
+        scope: target.scope.clone(),
+        records: vec![
+            CatalogRevision::ProductCategory(Box::new(category)),
+            CatalogRevision::Product(Box::new(product)),
+        ],
+    }
+}
+
+/// Exercises the real `PostgreSQL` cost authority, immutable replay, and missing-catalog rejection.
+async fn check_server_catalog_cost_policy(
+    database: &str,
+    server: &ProvisionedServer,
+    input: &eitmad_contracts::pricing::ConfirmPrice,
+) {
+    use eitmad_contracts::pricing::PriceTarget;
+    use eitmad_pricing::PricingError;
+    let pricing = eitmad_sync_plane::PricingServer::new(
+        SyncDatabase::connect(database, 2).await.unwrap().pool(),
+    );
+    let mut remote = input.clone();
+    if let PriceTarget::Product(r) = &mut remote.command.target {
+        r.scope = server.scope.clone();
+    }
+    remote.cost_yer = 0;
+    remote.command.selling_price_yer = 50_000;
+    remote.idempotency_key = IdempotencyKey::new(Uuid::new_v4());
+    let actor = &server.authentication.session;
+    let correlation = CorrelationId::new(Uuid::new_v4());
+    assert_eq!(
+        pricing
+            .publish(actor, &remote, correlation, UnixMillis(1))
+            .await,
+        Err(PricingError::Reference)
+    );
+    let catalog = pricing_catalog_fixture(&remote);
+    pricing
+        .synchronize_catalog(actor, &catalog, correlation, UnixMillis(2))
+        .await
+        .unwrap();
+    pricing
+        .synchronize_catalog(actor, &catalog, correlation, UnixMillis(2))
+        .await
+        .unwrap();
+    assert_eq!(
+        pricing
+            .publish(actor, &remote, correlation, UnixMillis(3))
+            .await,
+        Err(PricingError::BelowCost)
+    );
+    remote.command.confirm_below_cost = true;
+    assert_eq!(
+        pricing
+            .publish(actor, &remote, correlation, UnixMillis(3))
+            .await,
+        Err(PricingError::Reference)
+    );
+    let mut altered = catalog;
+    if let eitmad_contracts::catalog_revision::CatalogRevision::Product(p) = &mut altered.records[1]
+    {
+        p.variants[0].purchase_cost_yer = Some(0);
+    }
+    assert_eq!(
+        pricing
+            .synchronize_catalog(actor, &altered, correlation, UnixMillis(4))
+            .await,
+        Err(PricingError::Reference)
+    );
+}
 async fn deny_receptionist_price_publication(
     database: &str,
     server: &ProvisionedServer,
@@ -1963,6 +2071,17 @@ async fn deny_receptionist_price_publication(
         Err(PricingError::Denied)
     );
     let page = pricing.read(&receptionist, &query).await.unwrap();
+    assert_eq!(
+        pricing
+            .synchronize_catalog(
+                &receptionist,
+                &pricing_catalog_fixture(input),
+                CorrelationId::new(Uuid::new_v4()),
+                UnixMillis(2000)
+            )
+            .await,
+        Err(PricingError::Denied)
+    );
     assert_eq!(page.items.len(), 1);
     let json = serde_json::to_string(&page).unwrap();
     assert!(!json.contains("cost") && !json.contains("margin") && !json.contains("90000"));
@@ -2027,13 +2146,18 @@ async fn pricing_tls_confirmation_persists_retries_conflicts_and_denies_receptio
         handles: vec![],
         idempotency_key: IdempotencyKey::new(Uuid::new_v4()),
     };
+    check_server_catalog_cost_policy(&database, &server, &input).await;
     let c = client.clone();
     let a = actor.clone();
+    let catalog = pricing_catalog_fixture(&input);
     let request = input.clone();
-    let first = tokio::task::spawn_blocking(move || c.confirm(&a, &request, UnixMillis(i64::MAX)))
-        .await
-        .unwrap()
-        .unwrap();
+    let first = tokio::task::spawn_blocking(move || {
+        c.synchronize_catalog(&a, &catalog, UnixMillis(i64::MAX))?;
+        c.confirm(&a, &request, UnixMillis(i64::MAX))
+    })
+    .await
+    .unwrap()
+    .unwrap();
     assert_eq!(first.revision, 1);
     server
         .handle

@@ -1,5 +1,9 @@
 //! Rust-authoritative prices with distinct ready-made and manufactured references.
+mod catalog;
 mod money;
+pub use catalog::{
+    catalog_dependencies, publication_basis, validate_catalog_revision, validate_server_proposal,
+};
 use eitmad_authorization::{
     AuthorizationError, AuthorizationService, CATALOG_READ_PERMISSION, MutationContext,
     PRICING_COST_READ_PERMISSION, PRICING_WRITE_PERMISSION,
@@ -53,6 +57,15 @@ impl From<AuthorizationError> for PricingError {
 
 /// Authenticated server authority. Local IPC never accepts confirmation from the shell.
 pub trait PriceConfirmation: Send + Sync {
+    /// Synchronizes an audited catalog batch before confirming a new price intent.
+    /// # Errors
+    /// Rejects unauthorized, conflicting, invalid, or unavailable catalog revisions.
+    fn synchronize_catalog(
+        &self,
+        actor: &AuthorizationContext,
+        request: &eitmad_contracts::catalog_revision::SynchronizeCatalogRevisions,
+        deadline: UnixMillis,
+    ) -> Result<(), PricingError>;
     /// Reads a bounded page of current confirmed prices for the authorized organization.
     /// # Errors
     /// Rejects unauthorized or unavailable server reads.
@@ -352,6 +365,18 @@ impl PricingService {
             .and_then(|status| {
                 status.map_or_else(
                     || {
+                        let records = self.catalog_revisions(&prepared.command.target)?;
+                        for records in records.chunks(8) {
+                            self.confirmation.as_ref().ok_or(PricingError::Unconfirmed)?
+                                .synchronize_catalog(
+                                    &context.authorization,
+                                    &eitmad_contracts::catalog_revision::SynchronizeCatalogRevisions {
+                                        scope: context.authorization.scope.clone(),
+                                        records: records.to_vec(),
+                                    },
+                                    deadline,
+                                )?;
+                        }
                         self.confirmation
                             .as_ref()
                             .ok_or(PricingError::Unconfirmed)?

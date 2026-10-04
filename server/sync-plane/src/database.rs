@@ -144,6 +144,7 @@ impl SyncDatabase {
                     .bind(pricing_checksum).execute(&mut *transaction).await.map_err(SyncDatabaseError::Unavailable)?;
             }
         }
+        apply_catalog_migration(&mut transaction).await?;
         transaction
             .commit()
             .await
@@ -160,4 +161,32 @@ impl SyncDatabase {
     pub fn pool(&self) -> PgPool {
         self.pool.clone()
     }
+}
+
+/// Applies the immutable catalog migration within the existing migration lock.
+async fn apply_catalog_migration(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+) -> Result<(), SyncDatabaseError> {
+    let catalog_sql = include_str!("../migrations/0008_catalog_revisions.sql");
+    let catalog_checksum = format!("{:x}", Sha256::digest(catalog_sql.as_bytes()));
+    let existing: Option<String> =
+        sqlx::query_scalar("SELECT checksum FROM public.eitmad_server_migrations WHERE version=8")
+            .fetch_optional(&mut **transaction)
+            .await
+            .map_err(SyncDatabaseError::Unavailable)?;
+    match existing {
+        Some(value) if value != catalog_checksum => {
+            return Err(SyncDatabaseError::MigrationChecksum);
+        }
+        Some(_) => (),
+        None => {
+            sqlx::raw_sql(catalog_sql)
+                .execute(&mut **transaction)
+                .await
+                .map_err(SyncDatabaseError::Unavailable)?;
+            sqlx::query("INSERT INTO public.eitmad_server_migrations(version,migration_id,checksum) VALUES(8,'server.catalog-revisions.v1',$1)")
+                    .bind(catalog_checksum).execute(&mut **transaction).await.map_err(SyncDatabaseError::Unavailable)?;
+        }
+    }
+    Ok(())
 }

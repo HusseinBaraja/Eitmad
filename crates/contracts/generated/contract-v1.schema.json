@@ -120,6 +120,9 @@
     "sync_transport_frame": {
       "$ref": "#/definitions/SyncTransportFrame"
     },
+    "synchronize_catalog_revisions": {
+      "$ref": "#/definitions/SynchronizeCatalogRevisions"
+    },
     "update_check_outcome": {
       "$ref": "#/definitions/UpdateCheckOutcome"
     },
@@ -131,6 +134,7 @@
     }
   },
   "required": [
+    "synchronize_catalog_revisions",
     "confirm_price",
     "read_published_prices",
     "published_price_page",
@@ -434,6 +438,123 @@
         "id",
         "kind",
         "sha256"
+      ]
+    },
+    "CatalogRevision": {
+      "description": "One scoped definition. Calculated costs are checked against stored dependencies.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "unit"
+            },
+            "payload": {
+              "$ref": "#/definitions/MaterialUnit"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "material"
+            },
+            "payload": {
+              "$ref": "#/definitions/Material"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "part"
+            },
+            "payload": {
+              "$ref": "#/definitions/Part"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "productCategory"
+            },
+            "payload": {
+              "$ref": "#/definitions/ProductCategory"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "furnitureCategory"
+            },
+            "payload": {
+              "$ref": "#/definitions/FurnitureCategory"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "product"
+            },
+            "payload": {
+              "$ref": "#/definitions/Product"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "furniture"
+            },
+            "payload": {
+              "$ref": "#/definitions/Furniture"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        }
       ]
     },
     "ChangeBatch": {
@@ -1722,7 +1843,7 @@
           "$ref": "#/definitions/PublishPrice"
         },
         "costYer": {
-          "description": "Internal advisory basis from the authorized catalog revision. Never returned in public snapshots.",
+          "description": "Internal catalog cost. The server checks this against its stored revision; public snapshots omit it.",
           "type": "integer",
           "format": "int64"
         },
@@ -9508,6 +9629,25 @@
             "payload"
           ]
         }
+      ]
+    },
+    "SynchronizeCatalogRevisions": {
+      "description": "A dependency-ordered bounded batch; replay never changes an accepted revision.",
+      "type": "object",
+      "properties": {
+        "records": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CatalogRevision"
+          }
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "required": [
+        "scope",
+        "records"
       ]
     },
     "UnitDimension": {
