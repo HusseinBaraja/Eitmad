@@ -144,6 +144,7 @@ struct Confirmed {
     receipts: std::sync::Mutex<Vec<(ConfirmPrice, PublishedPrice)>>,
 }
 impl PriceConfirmation for Confirmed {
+    /// Stages a complete batch, rejects altered revisions, and validates dependencies before acceptance.
     fn synchronize_catalog(
         &self,
         _: &AuthorizationContext,
@@ -204,6 +205,7 @@ impl PriceConfirmation for Confirmed {
             next: None,
         })
     }
+    /// Replays exact receipts or validates the stored catalog basis before advancing the price revision.
     fn confirm(
         &self,
         _: &AuthorizationContext,
@@ -810,6 +812,7 @@ fn manufactured_cost_options_and_selling_prices_use_part_revisions_and_exact_who
     );
 }
 
+/// Checks that accepted supplier costs govern publication and cannot be replaced through revision replay.
 #[test]
 fn server_catalog_rejects_forged_product_cost_and_changed_immutable_revision() {
     use eitmad_contracts::catalog_revision::{CatalogRevision, SynchronizeCatalogRevisions};
@@ -870,6 +873,7 @@ fn server_catalog_rejects_forged_product_cost_and_changed_immutable_revision() {
     assert_eq!(server.receipts.lock().unwrap().len(), 2);
 }
 
+/// Checks the Material-to-Part-to-Furniture cost chain against forged totals and foreign dependencies.
 #[test]
 fn server_catalog_recalculates_part_and_furniture_costs_and_rejects_foreign_dependencies() {
     use eitmad_contracts::catalog_revision::CatalogRevision;
@@ -942,6 +946,7 @@ fn server_catalog_recalculates_part_and_furniture_costs_and_rejects_foreign_depe
     }
 }
 
+/// Checks bounded price pages and recovery from a lost confirmation without another publication.
 #[test]
 fn bounded_variant_pages_and_cache_first_retry_complete_without_duplicate_revisions() {
     let dir = TempDir::new().unwrap();
@@ -1104,6 +1109,7 @@ fn variant_pages_fill_across_definitions_and_filtered_batches_without_gaps() {
     assert_eq!(actual, expected);
 }
 
+/// Checks that refreshing a newer price preserves the original intent and its exact retry receipt.
 #[test]
 fn original_confirmed_intent_survives_newer_price_refresh_before_retry() {
     let dir = TempDir::new().unwrap();

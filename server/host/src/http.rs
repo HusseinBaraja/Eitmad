@@ -108,6 +108,7 @@ impl ServerState {
     }
 }
 
+/// Registers server routes with bounded request bodies and shared authority state.
 pub fn router(state: ServerState) -> Router {
     Router::new()
         .route("/livez", get(live))
@@ -1289,6 +1290,7 @@ async fn authenticate_headers(
     authenticate_access(state, &token, &proof).await
 }
 
+/// Requires the operation's protocol version and capability before token and device authentication.
 async fn authenticate_negotiated(
     state: &ServerState,
     headers: &HeaderMap,
@@ -1353,6 +1355,7 @@ async fn authenticate_access(
         .map_err(ApiError::authentication)
 }
 
+/// Advertises supported schemas and capabilities while requiring only shared transport foundations.
 fn server_hello(schemas: Vec<SchemaSupport>) -> PeerHello {
     let capabilities = [
         "eitmad.capability.sync.v1",
@@ -1546,6 +1549,7 @@ fn map_snapshot(error: &SnapshotError) -> ApiError {
 mod tests {
     use super::*;
 
+    /// Checks the declared protocol range and mandatory device-proof transport capability.
     #[test]
     fn server_requires_all_remote_boundary_capabilities() {
         let hello = server_hello(Vec::new());
@@ -1686,6 +1690,7 @@ mod tests {
             assert_eq!(response.status(), StatusCode::UNAUTHORIZED, "{uri}");
         }
     }
+    /// Checks that pricing and catalog routes reject missing authentication or capability negotiation.
     #[tokio::test]
     async fn pricing_http_denies_unauthenticated_and_incompatible_requests_before_storage() {
         use eitmad_contracts::{

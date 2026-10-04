@@ -62,6 +62,7 @@ fn remap_catalog_scope(
     Ok(())
 }
 impl DirectPriceClient {
+    /// Configures pinned HTTPS and stored credentials for the protocol 1.16 pricing boundary.
     #[must_use]
     pub fn from_config(
         config: DirectServerConfig,
@@ -80,6 +81,9 @@ impl DirectPriceClient {
     }
 }
 impl PriceConfirmation for DirectPriceClient {
+    /// Transfers a catalog batch after mapping its local organization and nested references.
+    /// # Errors
+    /// Rejects foreign scopes, server denial, invalid catalog data, and expired or unavailable requests.
     fn synchronize_catalog(
         &self,
         actor: &AuthorizationContext,

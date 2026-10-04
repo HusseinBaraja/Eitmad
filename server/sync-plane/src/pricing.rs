@@ -287,6 +287,7 @@ fn request_hash(
     )
     .to_vec())
 }
+/// Checks the authenticated user's Manager relationship to an organization in the current tenant.
 pub(super) async fn manager_allowed(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     actor: &AuthenticatedServerSession,
