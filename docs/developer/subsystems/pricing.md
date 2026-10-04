@@ -1,62 +1,90 @@
 ---
-title: "Extend the quick Pricing manager flow safely"
-description: "Understand the Arabic-first Pricing list, selling-price editor, margin state, tests, and Rust ownership boundary."
+title: "Extend server-confirmed Pricing safely"
+description: "Use Rust pricing, exact money arithmetic, protected cost projections, durable publication retries, and the native Pricing screen."
 audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Pricing capability maintainers"
-last_verified: "2026-09-19"
+last_verified: "2026-10-04"
 review_triggers:
-  - "Pricing contracts, price validation, or Windows Pricing UI behavior change"
+  - "Pricing contracts, confirmation policy, authorization, arithmetic, or Windows Pricing UI changes"
 keywords:
-  - "PricingView"
-  - "PricingViewModel"
-  - "PricingListItem"
+  - "PricingService"
+  - "DirectPriceClient"
+  - "pricing-unconfirmed"
   - "التسعير"
   - "تعديل سعر البيع"
-  - "سعر البيع"
   - "هامش الربح"
   - "YER"
 ---
 
-# Extend the quick Pricing manager flow safely
+# Extend server-confirmed Pricing safely
 
-The Windows **التسعير** page lets a manager review synthetic product variants and change a selling-price preview. It is a focused pricing surface, not the Furniture editor: it does not show raw materials, parts, or construction details.
+The **التسعير** screen projects Rust-owned prices. Managers review internal costs and margins, stage a whole-rial price, and publish it only after an authenticated server receipt. Receptionists receive confirmed public fields only. The [accepted workflow rules](manager-receptionist-workflows.md#money) remain the authority for money, costing, selling prices, discounts, scope, and confirmation policy.
 
-Production `YER` precision, Arabic **ر.ي** display, price revision, permission, snapshot, and server-confirmation behavior is accepted in the [Manager and Receptionist workflow specification](manager-receptionist-workflows.md). This page describes the current preview only.
+## Ownership and contracts
 
-## Ownership and current boundary
+`crates/pricing` owns arithmetic, current catalog validation, price review, option selection, publication intents, and permission-aware projections. Ready-made [Products](products.md) retain their fixed supplier variants and purchase costs. Manufactured [Furniture](furniture.md) retains its Part compositions, compatible sizes, colors, and handles. `PriceTarget` references either model; it does not merge their definitions.
 
-`shells/windows/Features/Pricing/PricingView.xaml` owns the native RTL list, filters, modal editor, focus target, and Arabic accessibility names. `PricingViewModel.cs` owns transient fixtures, Arabic-normalized search, category filtering, editor state, numeric input normalization, and margin calculation. `PricingListItem.cs` owns presentation labels and the selling-price, margin, and status projections. `MainWindow.xaml` owns the **التسعير** destination.
+Rust contracts declare protocol 1.15, capability `eitmad.capability.pricing.v1`, and schema `eitmad.schema.pricing.v1`. `PublishPrice` returns `PublishedPrice`; `Prices`, `PriceReview`, `SellingPrice`, and `DiscountTotal` queries return separate typed projections. `Prices` subscriptions carry public target/revision invalidations only. Native bindings are generated from these contracts.
 
-Rust does not yet provide a Pricing capability. The preview has no price command, query, subscription, capability, authorization check, scope, audit record, durable storage, or synchronization. Do not add those responsibilities to WPF.
+`crates/storage/src/pricing.rs` owns SQLite migration 21, immutable confirmed revisions, and durable unresolved intents. `server/sync-plane/src/pricing.rs` owns authenticated server authorization, compare-and-set publication, immutable receipts, and mandatory audit. PostgreSQL migration 7 adds tenant-isolated price tables. The server HTTP boundary exposes `/v1/pricing/publish`, `/v1/pricing/status`, and `/v1/pricing/read`; `DirectPriceClient` uses existing native credentials, device proof, TLS trust, and bounded requests.
 
-## Manager workflow
+`PricingClient.cs` sends generated contracts. `PricingViewModel.cs` owns temporary input, category filtering, and editor state. `PricingListItem.cs` formats returned values. WPF does not calculate cost, margin, effective selling price, or discount, and does not write authoritative data.
 
-The list shows **المنتج**, **الخيار / المقاس**, **الفئة**, **تكلفة الشراء**, **سعر البيع**, **الهامش**, **الحالة**, and **تعديل سعر البيع**. Search matches product and variant after Arabic normalization, and the category filter composes with search. Amounts display **ر.ي** with an explicit local LTR boundary inside the RTL layout, following the [currency display rule](manager-receptionist-workflows.md#money).
+## Arithmetic and snapshots
 
-**تعديل سعر البيع** opens a small editor with the product, fixed variant, cost, selling-price input, and calculated absolute **هامش الربح**. Arabic-Indic digits and separators are accepted. Invalid input keeps the editor open with **أدخل سعر بيع صالحاً يساوي صفراً أو أكثر.** A negative margin remains visible in the preview so the manager can identify an unprofitable price.
+Money uses checked signed 64-bit whole-YER integers. Fractional money, negative costs or adjustments, nonpositive published prices, invalid quantities, and overflow are rejected. Draft review permits zero. Product cost comes from the selected current supplier variant. Furniture cost comes from its saved immutable Part references; [Parts](parts.md) perform exact rational material costing and round the total once.
 
-Saving updates only the selected in-memory fixture and reports **حُدث سعر البيع في المعاينة المحلية فقط.** Canceling closes the editor without changing the item. When a different variant is selected, the editor margin is recalculated even if its formatted selling price is unchanged from the previous edit.
+Rust returns absolute margin as selling price minus current cost. `SellingPrice` verifies the current catalog reference and price revision, checks compatible active options, adds color and handle adjustments, and multiplies by a positive integer quantity with checked arithmetic. Its immutable public snapshot contains no cost, margin, composition, or notes. Existing issued snapshots must remain unchanged when later prices change.
 
-## Failure and recovery
+`DiscountTotal` sums valid line totals, uses basis points with 128-bit intermediate arithmetic, and rounds the subtotal discount once, half away from zero. It flags approval for rates above 500 basis points. For the accepted midpoint example, subtotal `1,010 YER` at `5.00%` produces discount `51 YER` and total `959 YER`. The calculator does not issue a quotation or grant discount approval; that workflow must consume the returned policy result in Rust.
 
-The preview has no durable save or rollback operation. Close the shell to discard local pricing changes. If the editor shows a margin from the previous variant after canceling and reopening, verify the selected item and rerun the focused Pricing tests; `BeginEdit` must refresh the margin for every selection.
+## Authorization and durable publication
 
-Do not treat a local feedback message as an authorized or synchronized price change. A production failure must come from the Rust command result and preserve the typed denial, validation, conflict, or retry state.
+Every query checks organization scope and `eitmad.permission.catalog.read.v1`. Cost review additionally requires `eitmad.permission.pricing.cost.read.v1`. Publication requires both pricing write and cost read. These permissions require explicit organization Manager relationships; owner status alone does not imply them. The server independently checks its authenticated organization relationships, and denies Receptionist publication and intent-status access.
+
+A Manager list includes active draft variants and authorized costs. A Receptionist list includes only prices that match the current active local catalog revision. Unauthorized `costYer` and `marginYer` fields are omitted during Rust serialization, rather than sent as hidden columns or null placeholders. Public server receipts and selections contain neither field. Policy changes close price subscriptions and clear shell projections and editor values before reload.
+
+Publication validates the current catalog reference, expected price revision, positive price, and explicit below-cost confirmation. Rust saves the exact intent and a redacted audit record before network work. It asks for the original command status before retrying the same server idempotency key. A missing receipt allows the same proposal to be submitted; an unavailable status or unknown response retains the intent and cannot report success. A later denial also retains the intent because it does not prove that an earlier unknown request failed to commit.
+
+The server serializes publication under its tenant lock, rejects stale expected revisions and older catalog references, assigns the next immutable price revision and confirmation time, and commits the receipt and audit in one transaction. The advisory cost basis comes from the authorized Rust catalog revision and is used for the below-cost confirmation check. This endpoint confirms a price proposal; it does not publish or synchronize Product/Furniture definitions.
+
+Rust checks the exact receipt and reauthorizes after network work. It commits the receipt, redacted mutation audit, idempotent response, intent resolution, and public event outbox atomically. If a cache refresh already imported that receipt, retry completes without a duplicate revision. An original confirmed receipt remains retrievable after a newer price exists. Audits record an explicit below-cost confirmation marker without storing cost or margin values.
+
+Cost changes keep the previous selling price and immutable snapshots. A changed catalog revision marks the Manager row **بانتظار النشر** and hides it from Receptionist pricing until a new matching price is confirmed. Other engines load current server prices on the first price-list page. Variant pages are bounded to the requested limit and use stable catalog/variant cursors.
+
+## Configure and recover
+
+Before enabling publication, register the engine organization and store an authenticated server session in Rust native secret storage. Set these engine-owned environment variables:
+
+| Variable | Value |
+| --- | --- |
+| `EITMAD_PRICING_SERVER` | HTTPS server endpoint |
+| `EITMAD_PRICING_TRUST_PEM` | Path to the approved TLS trust certificate |
+| `EITMAD_PRICING_CREDENTIAL_ID` | Serialized native `SecretId` reference, never token contents |
+
+The stored session must match the active Rust principal and tenant. The configured organization is the registered local organization. Missing or invalid companion configuration prevents startup; an absent endpoint permits confirmed-cache reads but cannot confirm a publication. Keep credentials and these settings outside WPF. See [direct server connection](server-authority.md) for authentication and trust mechanics.
+
+**تعديل سعر البيع** opens the selected variant editor. Rust asynchronously returns the reviewed margin. A below-cost draft shows **تأكيد نشر سعر أقل من التكلفة** and needs explicit confirmation. Arabic-Indic digits are accepted; fractional published money is rejected. Values remain LTR inside the RTL layout. Saving keeps the editor pending until Rust returns a confirmed receipt. An unknown outcome freezes the proposal and allows exact retry; changing it cannot create another intent. Denial clears restricted data. Conflict keeps the confirmed list and permits explicit reload. Session change clears all cached internal fields.
+
+When the server is unavailable, the screen labels the last confirmed cache. Refresh does not invent a successful publication. Restart preserves unresolved intents and confirmed prices. Recover by restoring the authorized server connection and retrying the original proposal. Do not delete intents, reset durable data, or replace idempotency keys to bypass a conflict. Follow [local storage recovery](../../troubleshooting/local-storage-recovery-failures.md) for database failures.
 
 ## Tests and verification
 
-Run the focused shell checks:
+Run the smallest focused checks after a pricing change:
 
 ```powershell
-dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --filter "FullyQualifiedName~Pricing"
+cargo test --locked -p eitmad-pricing
+cargo test --locked -p eitmad-engine-runtime pricing
+npm run contracts:verify --prefix crates/contracts/codegen
+dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --configuration Release --nologo -m:1 --filter "FullyQualifiedName~Pricing"
 ```
 
-`PricingPresentationTests` covers Arabic search normalization, category filtering, Arabic-numeral price input, validation, local save behavior, and the cancel-then-select regression for equal formatted selling prices. `PricingRenderedTests` creates the real WPF window at standard and compact sizes and checks list rendering, focus, validation, save, and cancel behavior.
+Rust tests cover approved arithmetic examples, Product/Furniture separation, option compatibility, overflow, durable audit and revisions, stale conflicts, below-cost confirmation, offline rejection, exact retry after refresh, and serialized Receptionist field omission. Dispatcher tests exercise direct backend review/publication denials and public notices. Subscription tests verify policy invalidation while catalog read remains allowed. Shell tests cover returned-margin projection, input, permission loss across pages, unknown retries, native editor focus, accessible warning controls, and Receptionist columns.
 
-## Future Rust vertical
+The real TLS/PostgreSQL test is `pricing_tls_confirmation_persists_retries_conflicts_and_denies_receptionists` in `crates/server-connection/tests/direct_route.rs`. It requires the same disposable database and trusted-certificate environment as the other direct-route tests. Run it with `cargo test -p eitmad-server-connection --test direct_route pricing_tls_confirmation -- --ignored`. It verifies server restart, status receipt recovery, stale CAS, Receptionist denial, public field omission, and immutable history. Do not claim this path passed when those prerequisites are absent.
 
-When Pricing becomes authoritative, implement the accepted workflow specification, define its versioned typed commands, queries, and subscriptions in Rust, and generate or validate the native bindings. Rust must own price and currency rules, relationship-based Manager authorization, explicit record scope, atomic mutation and audit, durable storage, idempotency, synchronization, and typed failure recovery. Keep the WPF page a thin projection and preserve the Arabic labels, LTR amount isolation, keyboard path, and explicit local-preview state.
+Rendered Pricing tests request the three repository baseline sizes. On the verification host, Windows scaling was 125%; actual application sizes were approximately `1554 × 882`, `1338 × 753`, and `720 × 560` DIP. The display capped the largest window. Exact full-screen `1920 × 1080` at 100% remains to be verified on a suitable display. Existing fixtures are confined to tests. Review [native UI verification](windows-native-shell.md) before release.
 
-Return to the [Windows shell subsystem guide](windows-native-shell.md) for shared layout and trust-boundary rules.
+Return to the [repository ownership map](../repository-layout.md) when adding an owner, or the [developer check guide](../index.md#choose-the-smallest-normal-proof) before extending verification.

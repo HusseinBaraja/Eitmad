@@ -1,7 +1,9 @@
 //! Server synchronization-plane authority.
 
 mod catalog_image;
+mod pricing;
 pub use catalog_image::CatalogImageServer;
+pub use pricing::PricingServer;
 mod boundary_audit;
 mod customer;
 mod database;

@@ -47,7 +47,7 @@ pub(crate) const MIGRATIONS: &[Migration] = &[Migration::new(18, "furniture.defi
 )];
 
 pub struct FurnitureTransaction<'a> {
-    connection: &'a rusqlite::Connection,
+    pub(crate) connection: &'a rusqlite::Connection,
 }
 #[derive(Clone, Copy)]
 pub enum FurnitureRecord<'a> {

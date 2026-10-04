@@ -269,6 +269,10 @@ namespace Eitmad.Contracts
         public SavePart CommandPartSave { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Command_PricingPublish")]
+        public PublishPrice CommandPricingPublish { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Command_ProductCategorySave")]
         public SaveProductCategory CommandProductCategorySave { get; set; }
 
@@ -333,6 +337,10 @@ namespace Eitmad.Contracts
         public Part CommandResultPartSaved { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("CommandResult_PricePublished")]
+        public PublishedPrice CommandResultPricePublished { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("CommandResult_ProductCategorySaved")]
         public ProductCategory CommandResultProductCategorySaved { get; set; }
 
@@ -375,6 +383,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Event_PermissionsChangedEvent")]
         public EffectivePermissions EventPermissionsChangedEvent { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Event_PricingChangedEvent")]
+        public PriceChangeNotice EventPricingChangedEvent { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Event_ProductChangedEvent")]
@@ -457,6 +469,14 @@ namespace Eitmad.Contracts
         public UnsubscribeResponse IpcServerMessageIpcUnsubscribeResponse { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("PriceTarget_Furniture")]
+        public FurnitureReference PriceTargetFurniture { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("PriceTarget_Product")]
+        public ProductReference PriceTargetProduct { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Query_AuthorizationRelationshipsList")]
         public ListScopeRelationships QueryAuthorizationRelationshipsList { get; set; }
 
@@ -529,6 +549,22 @@ namespace Eitmad.Contracts
         public Dictionary<string, object> QueryPermissionsGetEffective { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Query_PricingDiscount")]
+        public CalculateDiscount QueryPricingDiscount { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Query_PricingList")]
+        public ListPrices QueryPricingList { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Query_PricingReview")]
+        public ReviewPrice QueryPricingReview { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Query_PricingSelection")]
+        public PriceSelection QueryPricingSelection { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Query_ProductCategoryList")]
         public ListProductCategories QueryProductCategoryList { get; set; }
 
@@ -559,6 +595,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_DesktopAccounts")]
         public DesktopAccountPage QueryResultDesktopAccounts { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("QueryResult_DiscountTotal")]
+        public DiscountTotal QueryResultDiscountTotal { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_EffectivePermissions")]
@@ -609,6 +649,14 @@ namespace Eitmad.Contracts
         public PartPage QueryResultParts { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("QueryResult_PriceReview")]
+        public PriceReview QueryResultPriceReview { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("QueryResult_Prices")]
+        public PricePage QueryResultPrices { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_ProductCategories")]
         public ProductCategories QueryResultProductCategories { get; set; }
 
@@ -623,6 +671,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_ScopeRelationships")]
         public RelationshipPage QueryResultScopeRelationships { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("QueryResult_SellingPrice")]
+        public SellingPrice QueryResultSellingPrice { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Subscription_AuthorizationPolicyChangedSubscribe")]
@@ -651,6 +703,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Subscription_PermissionsChangedSubscribe")]
         public Dictionary<string, object> SubscriptionPermissionsChangedSubscribe { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Subscription_PricingChangedSubscribe")]
+        public Dictionary<string, object> SubscriptionPricingChangedSubscribe { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Subscription_ProductChangedSubscribe")]
@@ -1092,6 +1148,21 @@ namespace Eitmad.Contracts
         public long UnitRevision { get; set; }
     }
 
+    public partial class PublishPrice
+    {
+        [JsonPropertyName("confirmBelowCost")]
+        public bool ConfirmBelowCost { get; set; }
+
+        [JsonPropertyName("expectedRevision")]
+        public long? ExpectedRevision { get; set; }
+
+        [JsonPropertyName("sellingPriceYer")]
+        public long SellingPriceYer { get; set; }
+
+        [JsonPropertyName("target")]
+        public Dictionary<string, object> Target { get; set; }
+    }
+
     public partial class SaveProductCategory
     {
         [JsonPropertyName("archived")]
@@ -1507,6 +1578,42 @@ namespace Eitmad.Contracts
         public PartUsage Usage { get; set; }
     }
 
+    /// <summary>
+    /// Immutable public snapshot. Contains no purchase cost, margin, BOM, or notes.
+    /// </summary>
+    public partial class PublishedPrice
+    {
+        [JsonPropertyName("colors")]
+        public PriceAdjustment[] Colors { get; set; }
+
+        [JsonPropertyName("confirmedAt")]
+        public long ConfirmedAt { get; set; }
+
+        [JsonPropertyName("currency")]
+        public string Currency { get; set; }
+
+        [JsonPropertyName("handles")]
+        public PriceAdjustment[] Handles { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("sellingPriceYer")]
+        public long SellingPriceYer { get; set; }
+
+        [JsonPropertyName("target")]
+        public Dictionary<string, object> Target { get; set; }
+    }
+
+    public partial class PriceAdjustment
+    {
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("priceAdjustmentYer")]
+        public long PriceAdjustmentYer { get; set; }
+    }
+
     public partial class ProductCategory
     {
         [JsonPropertyName("archived")]
@@ -1715,6 +1822,15 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("permission")]
         public string Permission { get; set; }
+    }
+
+    public partial class PriceChangeNotice
+    {
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("target")]
+        public Dictionary<string, object> Target { get; set; }
     }
 
     public partial class ProductChangeNotice
@@ -2307,6 +2423,42 @@ namespace Eitmad.Contracts
         public Guid SubscriptionId { get; set; }
     }
 
+    public partial class FurnitureReference
+    {
+        [JsonPropertyName("furnitureId")]
+        public Guid FurnitureId { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("schemaVersion")]
+        public long SchemaVersion { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+
+        [JsonPropertyName("variantId")]
+        public Guid VariantId { get; set; }
+    }
+
+    public partial class ProductReference
+    {
+        [JsonPropertyName("productId")]
+        public Guid ProductId { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("schemaVersion")]
+        public long SchemaVersion { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+
+        [JsonPropertyName("variantId")]
+        public Guid VariantId { get; set; }
+    }
+
     public partial class ListScopeRelationships
     {
         [JsonPropertyName("after")]
@@ -2379,24 +2531,6 @@ namespace Eitmad.Contracts
         public FurnitureReference Reference { get; set; }
     }
 
-    public partial class FurnitureReference
-    {
-        [JsonPropertyName("furnitureId")]
-        public Guid FurnitureId { get; set; }
-
-        [JsonPropertyName("revision")]
-        public long Revision { get; set; }
-
-        [JsonPropertyName("schemaVersion")]
-        public long SchemaVersion { get; set; }
-
-        [JsonPropertyName("scope")]
-        public ScopeRef Scope { get; set; }
-
-        [JsonPropertyName("variantId")]
-        public Guid VariantId { get; set; }
-    }
-
     public partial class CheckFurnitureSelection
     {
         [JsonPropertyName("colorId")]
@@ -2463,6 +2597,54 @@ namespace Eitmad.Contracts
         public string Term { get; set; }
     }
 
+    public partial class CalculateDiscount
+    {
+        [JsonPropertyName("discountBasisPoints")]
+        public long DiscountBasisPoints { get; set; }
+
+        [JsonPropertyName("lineTotalsYer")]
+        public long[] LineTotalsYer { get; set; }
+    }
+
+    public partial class ListPrices
+    {
+        [JsonPropertyName("after")]
+        public string After { get; set; }
+
+        [JsonPropertyName("limit")]
+        public long Limit { get; set; }
+
+        [JsonPropertyName("term")]
+        public string Term { get; set; }
+    }
+
+    public partial class ReviewPrice
+    {
+        [JsonPropertyName("sellingPriceYer")]
+        public long SellingPriceYer { get; set; }
+
+        [JsonPropertyName("target")]
+        public Dictionary<string, object> Target { get; set; }
+    }
+
+    public partial class PriceSelection
+    {
+        [JsonPropertyName("colorId")]
+        public Guid? ColorId { get; set; }
+
+        [JsonPropertyName("handleId")]
+        public Guid? HandleId { get; set; }
+
+        [JsonPropertyName("priceRevision")]
+        public long PriceRevision { get; set; }
+
+        [JsonPropertyName("quantity")]
+        public long Quantity { get; set; }
+
+        [JsonPropertyName("target")]
+        public Dictionary<string, object> Target { get; set; }
+    }
+
     public partial class ListProductCategories
     {
         [JsonPropertyName("after")]
@@ -2499,24 +2681,6 @@ namespace Eitmad.Contracts
         public ProductReference Reference { get; set; }
     }
 
-    public partial class ProductReference
-    {
-        [JsonPropertyName("productId")]
-        public Guid ProductId { get; set; }
-
-        [JsonPropertyName("revision")]
-        public long Revision { get; set; }
-
-        [JsonPropertyName("schemaVersion")]
-        public long SchemaVersion { get; set; }
-
-        [JsonPropertyName("scope")]
-        public ScopeRef Scope { get; set; }
-
-        [JsonPropertyName("variantId")]
-        public Guid VariantId { get; set; }
-    }
-
     public partial class CatalogImageChunk
     {
         [JsonPropertyName("base64")]
@@ -2545,6 +2709,21 @@ namespace Eitmad.Contracts
     {
         [JsonPropertyName("accounts")]
         public DesktopAccountSummary[] Accounts { get; set; }
+    }
+
+    public partial class DiscountTotal
+    {
+        [JsonPropertyName("approvalRequired")]
+        public bool ApprovalRequired { get; set; }
+
+        [JsonPropertyName("discountYer")]
+        public long DiscountYer { get; set; }
+
+        [JsonPropertyName("subtotalYer")]
+        public long SubtotalYer { get; set; }
+
+        [JsonPropertyName("totalYer")]
+        public long TotalYer { get; set; }
     }
 
     public partial class FurnitureCategories
@@ -2643,6 +2822,78 @@ namespace Eitmad.Contracts
         public Part Part { get; set; }
     }
 
+    public partial class PriceReview
+    {
+        [JsonPropertyName("belowCost")]
+        public bool BelowCost { get; set; }
+
+        [JsonPropertyName("costYer")]
+        public long CostYer { get; set; }
+
+        [JsonPropertyName("marginYer")]
+        public long MarginYer { get; set; }
+    }
+
+    public partial class PricePage
+    {
+        [JsonPropertyName("canManage")]
+        public bool CanManage { get; set; }
+
+        [JsonPropertyName("canReadCosts")]
+        public bool CanReadCosts { get; set; }
+
+        [JsonPropertyName("items")]
+        public PriceItem[] Items { get; set; }
+
+        [JsonPropertyName("next")]
+        public string Next { get; set; }
+
+        [JsonPropertyName("serverAvailable")]
+        public bool ServerAvailable { get; set; }
+    }
+
+    public partial class PriceItem
+    {
+        [JsonPropertyName("categoryName")]
+        public string CategoryName { get; set; }
+
+        [JsonPropertyName("costYer")]
+        public long? CostYer { get; set; }
+
+        [JsonPropertyName("marginYer")]
+        public long? MarginYer { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("publicationRequired")]
+        public bool PublicationRequired { get; set; }
+
+        [JsonPropertyName("published")]
+        public PriceSummary Published { get; set; }
+
+        [JsonPropertyName("target")]
+        public Dictionary<string, object> Target { get; set; }
+
+        [JsonPropertyName("variantName")]
+        public string VariantName { get; set; }
+    }
+
+    public partial class PriceSummary
+    {
+        [JsonPropertyName("confirmedAt")]
+        public long ConfirmedAt { get; set; }
+
+        [JsonPropertyName("currency")]
+        public string Currency { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("sellingPriceYer")]
+        public long SellingPriceYer { get; set; }
+    }
+
     public partial class ProductCategories
     {
         [JsonPropertyName("items")]
@@ -2677,6 +2928,18 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("relationships")]
         public ScopeRelationship[] Relationships { get; set; }
+    }
+
+    public partial class SellingPrice
+    {
+        [JsonPropertyName("snapshot")]
+        public PublishedPrice Snapshot { get; set; }
+
+        [JsonPropertyName("totalYer")]
+        public long TotalYer { get; set; }
+
+        [JsonPropertyName("unitPriceYer")]
+        public long UnitPriceYer { get; set; }
     }
 
     public enum DetailKind { Compatibility, Deadline, Lifecycle, PayloadLimit, RevisionConflict, Validation };

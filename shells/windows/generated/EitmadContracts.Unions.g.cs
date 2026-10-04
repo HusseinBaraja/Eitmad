@@ -14,6 +14,14 @@ public partial class Command
     [JsonPropertyName("payload")]
     public object? Payload { get; set; }
 
+    public const string PricingPublishKind = "eitmad.pricing.publish.v1";
+
+    public static Command ForPricingPublish(PublishPrice payload) =>
+        new() { Kind = PricingPublishKind, Payload = payload };
+
+    public PublishPrice? AsPricingPublish() =>
+        Kind == PricingPublishKind ? PayloadAs<PublishPrice>() : null;
+
     public const string CatalogImageImportKind = "eitmad.catalog-image.import.v1";
 
     public static Command ForCatalogImageImport(ImportCatalogImage payload) =>
@@ -175,6 +183,14 @@ public partial class CommandResult
     [JsonPropertyName("payload")]
     public object? Payload { get; set; }
 
+    public const string PricePublishedKind = "pricePublished";
+
+    public static CommandResult ForPricePublished(PublishedPrice payload) =>
+        new() { Kind = PricePublishedKind, Payload = payload };
+
+    public PublishedPrice? AsPricePublished() =>
+        Kind == PricePublishedKind ? PayloadAs<PublishedPrice>() : null;
+
     public const string CatalogImageImportedKind = "catalogImageImported";
 
     public static CommandResult ForCatalogImageImported(CatalogImageRef payload) =>
@@ -335,6 +351,14 @@ public partial class Event
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("payload")]
     public object? Payload { get; set; }
+
+    public const string PricingChangedEventKind = "eitmad.pricing.changed.event.v1";
+
+    public static Event ForPricingChangedEvent(PriceChangeNotice payload) =>
+        new() { Kind = PricingChangedEventKind, Payload = payload };
+
+    public PriceChangeNotice? AsPricingChangedEvent() =>
+        Kind == PricingChangedEventKind ? PayloadAs<PriceChangeNotice>() : null;
 
     public const string ConfigChangedEventKind = "eitmad.config.changed.event.v1";
 
@@ -594,6 +618,39 @@ public partial class IpcServerMessage
     };
 }
 
+public partial class PriceTarget
+{
+    [JsonPropertyName("kind")]
+    public string Kind { get; set; } = string.Empty;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("payload")]
+    public object? Payload { get; set; }
+
+    public const string ProductKind = "product";
+
+    public static PriceTarget ForProduct(ProductReference payload) =>
+        new() { Kind = ProductKind, Payload = payload };
+
+    public ProductReference? AsProduct() =>
+        Kind == ProductKind ? PayloadAs<ProductReference>() : null;
+
+    public const string FurnitureKind = "furniture";
+
+    public static PriceTarget ForFurniture(FurnitureReference payload) =>
+        new() { Kind = FurnitureKind, Payload = payload };
+
+    public FurnitureReference? AsFurniture() =>
+        Kind == FurnitureKind ? PayloadAs<FurnitureReference>() : null;
+
+    internal T? PayloadAs<T>() => Payload switch
+    {
+        T typed => typed,
+        JsonElement element => element.Deserialize<T>(Converter.Settings),
+        _ => default,
+    };
+}
+
 public partial class Query
 {
     [JsonPropertyName("kind")]
@@ -602,6 +659,38 @@ public partial class Query
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("payload")]
     public object? Payload { get; set; }
+
+    public const string PricingListKind = "eitmad.pricing.list.v1";
+
+    public static Query ForPricingList(ListPrices payload) =>
+        new() { Kind = PricingListKind, Payload = payload };
+
+    public ListPrices? AsPricingList() =>
+        Kind == PricingListKind ? PayloadAs<ListPrices>() : null;
+
+    public const string PricingReviewKind = "eitmad.pricing.review.v1";
+
+    public static Query ForPricingReview(ReviewPrice payload) =>
+        new() { Kind = PricingReviewKind, Payload = payload };
+
+    public ReviewPrice? AsPricingReview() =>
+        Kind == PricingReviewKind ? PayloadAs<ReviewPrice>() : null;
+
+    public const string PricingSelectionKind = "eitmad.pricing.selection.v1";
+
+    public static Query ForPricingSelection(PriceSelection payload) =>
+        new() { Kind = PricingSelectionKind, Payload = payload };
+
+    public PriceSelection? AsPricingSelection() =>
+        Kind == PricingSelectionKind ? PayloadAs<PriceSelection>() : null;
+
+    public const string PricingDiscountKind = "eitmad.pricing.discount.v1";
+
+    public static Query ForPricingDiscount(CalculateDiscount payload) =>
+        new() { Kind = PricingDiscountKind, Payload = payload };
+
+    public CalculateDiscount? AsPricingDiscount() =>
+        Kind == PricingDiscountKind ? PayloadAs<CalculateDiscount>() : null;
 
     public const string CatalogImageGetKind = "eitmad.catalog-image.get.v1";
 
@@ -788,6 +877,38 @@ public partial class QueryResult
     [JsonPropertyName("payload")]
     public object? Payload { get; set; }
 
+    public const string PricesKind = "prices";
+
+    public static QueryResult ForPrices(PricePage payload) =>
+        new() { Kind = PricesKind, Payload = payload };
+
+    public PricePage? AsPrices() =>
+        Kind == PricesKind ? PayloadAs<PricePage>() : null;
+
+    public const string PriceReviewKind = "priceReview";
+
+    public static QueryResult ForPriceReview(PriceReview payload) =>
+        new() { Kind = PriceReviewKind, Payload = payload };
+
+    public PriceReview? AsPriceReview() =>
+        Kind == PriceReviewKind ? PayloadAs<PriceReview>() : null;
+
+    public const string SellingPriceKind = "sellingPrice";
+
+    public static QueryResult ForSellingPrice(SellingPrice payload) =>
+        new() { Kind = SellingPriceKind, Payload = payload };
+
+    public SellingPrice? AsSellingPrice() =>
+        Kind == SellingPriceKind ? PayloadAs<SellingPrice>() : null;
+
+    public const string DiscountTotalKind = "discountTotal";
+
+    public static QueryResult ForDiscountTotal(DiscountTotal payload) =>
+        new() { Kind = DiscountTotalKind, Payload = payload };
+
+    public DiscountTotal? AsDiscountTotal() =>
+        Kind == DiscountTotalKind ? PayloadAs<DiscountTotal>() : null;
+
     public const string CatalogImageKind = "catalogImage";
 
     public static QueryResult ForCatalogImage(CatalogImageChunk payload) =>
@@ -973,6 +1094,14 @@ public partial class Subscription
     [JsonPropertyName("payload")]
     public object? Payload { get; set; }
 
+    public const string PricingChangedSubscribeKind = "eitmad.pricing.changed.subscribe.v1";
+
+    public static Subscription ForPricingChangedSubscribe(PriceChanges payload) =>
+        new() { Kind = PricingChangedSubscribeKind, Payload = payload };
+
+    public PriceChanges? AsPricingChangedSubscribe() =>
+        Kind == PricingChangedSubscribeKind ? PayloadAs<PriceChanges>() : null;
+
     public const string ConfigChangedSubscribeKind = "eitmad.config.changed.subscribe.v1";
 
     public static Subscription ForConfigChangedSubscribe(ConfigurationChanges payload) =>
@@ -1086,6 +1215,10 @@ public partial class PartChanges
 }
 
 public partial class PermissionChanges
+{
+}
+
+public partial class PriceChanges
 {
 }
 

@@ -1,0 +1,967 @@
+use super::*;
+use eitmad_authorization::{MANAGER_RELATION, RECEPTIONIST_RELATION};
+use eitmad_contracts::{
+    authorization::{RelationId, RelationshipSubject},
+    commands::GrantScopeRelationship,
+    identity::{
+        AuthenticatedIdentity, PrincipalId, PrincipalKind, ScopeId, ScopeKind, SessionId, TenantId,
+    },
+    product::{ProductVariantId, SaveProduct, SaveProductCategory, SaveProductVariant},
+    transport::{CorrelationId, IdempotencyKey, UnixMillis},
+};
+use eitmad_product::ProductService;
+use tempfile::TempDir;
+use uuid::Uuid;
+/// Creates a deterministic synthetic user and organization authorization context.
+fn actor(principal: u128, organization: u128) -> AuthorizationContext {
+    AuthorizationContext {
+        session_id: SessionId::new(Uuid::from_u128(principal + 1_000)),
+        identity: AuthenticatedIdentity {
+            principal_id: PrincipalId::new(Uuid::from_u128(principal)),
+            principal_kind: PrincipalKind::User,
+            device_id: None,
+            service_id: None,
+        },
+        tenant_id: TenantId::new(Uuid::from_u128(organization)),
+        workspace_id: None,
+        scope: eitmad_contracts::identity::ScopeRef {
+            kind: ScopeKind::parse("organization").unwrap(),
+            id: ScopeId::new(Uuid::from_u128(organization)),
+        },
+    }
+}
+/// Creates deterministic audit and retry metadata for a synthetic operation.
+fn mutation(actor: AuthorizationContext, key: u128) -> MutationContext {
+    MutationContext {
+        authorization: actor,
+        correlation_id: CorrelationId::new(Uuid::from_u128(key + 10_000)),
+        causation_id: None,
+        idempotency_key: IdempotencyKey::new(Uuid::from_u128(key)),
+        occurred_at: UnixMillis(i64::try_from(key).unwrap()),
+    }
+}
+/// Bootstraps isolated authority storage with Manager and Receptionist relationships.
+fn setup(
+    dir: &TempDir,
+) -> (
+    AuthorityStore,
+    ProductService,
+    AuthorizationContext,
+    AuthorizationContext,
+) {
+    let store = AuthorityStore::open(dir.path()).unwrap();
+    let auth = AuthorizationService::new(store.clone());
+    let owner = actor(99, 50);
+    let manager = actor(100, 50);
+    let receptionist = actor(101, 50);
+    auth.bootstrap_owner(
+        &mutation(owner.clone(), 1),
+        &RelationshipSubject {
+            principal_id: owner.identity.principal_id,
+            principal_kind: PrincipalKind::User,
+        },
+    )
+    .unwrap();
+    for (key, subject, relation, version) in [
+        (2, manager.identity.principal_id, MANAGER_RELATION, 1),
+        (
+            3,
+            receptionist.identity.principal_id,
+            RECEPTIONIST_RELATION,
+            2,
+        ),
+    ] {
+        auth.grant_relationship(
+            &mutation(owner.clone(), key),
+            &GrantScopeRelationship {
+                expected_policy_version: version,
+                subject: RelationshipSubject {
+                    principal_id: subject,
+                    principal_kind: PrincipalKind::User,
+                },
+                relation: RelationId::parse(relation).unwrap(),
+            },
+        )
+        .unwrap();
+    }
+    (
+        store.clone(),
+        ProductService::new(store, auth),
+        manager,
+        receptionist,
+    )
+}
+
+/// Creates a synthetic active category and an unsaved product with fixed supplier options.
+fn fixture(service: &ProductService, manager: &AuthorizationContext) -> SaveProduct {
+    let category = service
+        .save_category(
+            &mutation(manager.clone(), 10),
+            &SaveProductCategory {
+                id: None,
+                expected_revision: None,
+                name: "مراتب".into(),
+                archived: false,
+            },
+        )
+        .unwrap();
+    SaveProduct {
+        image: None,
+        id: None,
+        expected_revision: None,
+        name: "مرتبة طبية".into(),
+        category_id: category.id,
+        description: "منتج جاهز".into(),
+        notes: "ملاحظة داخلية".into(),
+        variants: vec![
+            SaveProductVariant {
+                id: ProductVariantId::new(Uuid::from_u128(900)),
+                name: "مفرد".into(),
+                purchase_cost_yer: 55000,
+                archived: false,
+            },
+            SaveProductVariant {
+                id: ProductVariantId::new(Uuid::from_u128(901)),
+                name: "مزدوج".into(),
+                purchase_cost_yer: 80000,
+                archived: false,
+            },
+        ],
+        archived: false,
+    }
+}
+
+#[derive(Default)]
+struct Confirmed {
+    deny_status: std::sync::atomic::AtomicBool,
+    records: std::sync::Mutex<Vec<PublishedPrice>>,
+    receipts: std::sync::Mutex<Vec<(ConfirmPrice, PublishedPrice)>>,
+}
+impl PriceConfirmation for Confirmed {
+    fn status(
+        &self,
+        _: &AuthorizationContext,
+        request: &ConfirmPrice,
+        _: UnixMillis,
+    ) -> Result<Option<PublishedPrice>, PricingError> {
+        if self.deny_status.load(std::sync::atomic::Ordering::SeqCst) {
+            return Err(PricingError::Denied);
+        }
+        Ok(self
+            .receipts
+            .lock()
+            .unwrap()
+            .iter()
+            .find(|(intent, _)| intent == request)
+            .map(|(_, price)| price.clone()))
+    }
+
+    fn read(
+        &self,
+        _: &AuthorizationContext,
+        _: &ReadPublishedPrices,
+        _: UnixMillis,
+    ) -> Result<PublishedPricePage, PricingError> {
+        Ok(PublishedPricePage {
+            items: self.records.lock().unwrap().clone(),
+            next: None,
+        })
+    }
+    fn confirm(
+        &self,
+        _: &AuthorizationContext,
+        input: &ConfirmPrice,
+        _: UnixMillis,
+    ) -> Result<PublishedPrice, PricingError> {
+        let mut receipts = self.receipts.lock().unwrap();
+        if let Some((request, result)) = receipts
+            .iter()
+            .find(|(r, _)| r.idempotency_key == input.idempotency_key)
+        {
+            return if request == input {
+                Ok(result.clone())
+            } else {
+                Err(PricingError::Invalid)
+            };
+        }
+        let mut records = self.records.lock().unwrap();
+        let actual = records
+            .iter()
+            .rev()
+            .find(|p| p.target.identity() == input.command.target.identity())
+            .map(|p| p.revision);
+        if actual != input.command.expected_revision {
+            return Err(PricingError::Conflict {
+                expected: input.command.expected_revision,
+                actual,
+            });
+        }
+        let value = PublishedPrice {
+            target: input.command.target.clone(),
+            currency: "YER".into(),
+            selling_price_yer: input.command.selling_price_yer,
+            colors: input.colors.clone(),
+            handles: input.handles.clone(),
+            revision: actual.unwrap_or(0) + 1,
+            confirmed_at: UnixMillis(1000),
+        };
+        records.push(value.clone());
+        receipts.push((input.clone(), value.clone()));
+        Ok(value)
+    }
+}
+fn target(product: &Product) -> PriceTarget {
+    PriceTarget::Product(ProductReference {
+        scope: product.scope.clone(),
+        product_id: product.id,
+        variant_id: product.variants[0].id,
+        revision: product.revision,
+        schema_version: 1,
+    })
+}
+fn prices() -> ListPrices {
+    ListPrices {
+        term: String::new(),
+        after: None,
+        limit: 100,
+    }
+}
+fn publish_input(target: PriceTarget) -> PublishPrice {
+    PublishPrice {
+        target,
+        expected_revision: None,
+        selling_price_yer: 70_000,
+        confirm_below_cost: false,
+    }
+}
+
+#[test]
+fn approved_discount_examples_round_once_and_enforce_the_exact_threshold() {
+    for (lines, bps, subtotal, discount_yer, total, approval) in [
+        (vec![200_000, 85_000], 500, 285_000, 14_250, 270_750, false),
+        (vec![100_000], 501, 100_000, 5_010, 94_990, true),
+        (vec![1, 1], 2500, 2, 1, 1, true),
+        (vec![1010], 500, 1010, 51, 959, false),
+        (vec![10_001], 500, 10_001, 500, 9_501, false),
+        (vec![i64::MAX], 10_000, i64::MAX, i64::MAX, 0, true),
+    ] {
+        assert_eq!(
+            discount(&CalculateDiscount {
+                line_totals_yer: lines,
+                discount_basis_points: bps
+            })
+            .unwrap(),
+            DiscountTotal {
+                subtotal_yer: subtotal,
+                discount_yer,
+                total_yer: total,
+                approval_required: approval
+            }
+        );
+    }
+    for input in [
+        CalculateDiscount {
+            line_totals_yer: vec![-1],
+            discount_basis_points: 500,
+        },
+        CalculateDiscount {
+            line_totals_yer: vec![i64::MAX, 1],
+            discount_basis_points: 0,
+        },
+        CalculateDiscount {
+            line_totals_yer: vec![100],
+            discount_basis_points: 10001,
+        },
+    ] {
+        assert_eq!(discount(&input), Err(PricingError::Invalid));
+    }
+}
+
+#[test]
+fn manager_publication_is_durable_audited_idempotent_and_stale_updates_conflict() {
+    let dir = TempDir::new().unwrap();
+    let (store, products, manager, receptionist) = setup(&dir);
+    let saved = products
+        .save(
+            &mutation(manager.clone(), 20),
+            &fixture(&products, &manager),
+        )
+        .unwrap();
+    let server = Arc::new(Confirmed::default());
+    let service = PricingService::new(store.clone(), AuthorizationService::new(store.clone()))
+        .with_confirmation(server);
+    let input = publish_input(target(&saved));
+    let mut fractional = serde_json::to_value(&input).unwrap();
+    fractional["sellingPriceYer"] = serde_json::json!(1.5);
+    assert!(serde_json::from_value::<PublishPrice>(fractional).is_err());
+    let published = service
+        .publish(&mutation(manager.clone(), 30), &input, UnixMillis(i64::MAX))
+        .unwrap();
+    assert_eq!(published.revision, 1);
+    assert_eq!(published.selling_price_yer, 70_000);
+    assert_eq!(
+        service
+            .publish(&mutation(manager.clone(), 30), &input, UnixMillis(i64::MAX))
+            .unwrap(),
+        published
+    );
+    let reopened = PricingService::new(
+        AuthorityStore::open(dir.path()).unwrap(),
+        AuthorizationService::new(store.clone()),
+    );
+    let row = &reopened.list(&manager, &prices()).unwrap().items[0];
+    assert_eq!(row.cost_yer, Some(55_000));
+    assert_eq!(row.margin_yer, Some(15_000));
+    assert_eq!(
+        reopened.list(&receptionist, &prices()).unwrap().items.len(),
+        1
+    );
+    assert_eq!(
+        service.publish(&mutation(manager.clone(), 31), &input, UnixMillis(i64::MAX)),
+        Err(PricingError::Conflict {
+            expected: None,
+            actual: Some(1)
+        })
+    );
+    let db = rusqlite::Connection::open(dir.path().join("eitmad.sqlite3")).unwrap();
+    let audits:u32=db.query_row("SELECT COUNT(*) FROM mutation_audit WHERE operation='eitmad.pricing.publish.v1' AND resulting_revision=1",[],|r|r.get(0)).unwrap();
+    assert_eq!(audits, 1);
+    assert!(
+        db.execute("UPDATE pricing_revisions SET revision=2", [])
+            .is_err()
+    );
+    assert!(db.execute("DELETE FROM pricing_revisions", []).is_err());
+}
+
+#[test]
+fn receptionist_payload_and_direct_queries_never_include_cost_or_margin() {
+    let dir = TempDir::new().unwrap();
+    let (store, products, manager, receptionist) = setup(&dir);
+    let saved = products
+        .save(
+            &mutation(manager.clone(), 20),
+            &fixture(&products, &manager),
+        )
+        .unwrap();
+    let service = PricingService::new(store.clone(), AuthorizationService::new(store))
+        .with_confirmation(Arc::new(Confirmed::default()));
+    assert!(
+        service
+            .list(&receptionist, &prices())
+            .unwrap()
+            .items
+            .is_empty()
+    );
+    let input = publish_input(target(&saved));
+    service
+        .publish(&mutation(manager.clone(), 30), &input, UnixMillis(i64::MAX))
+        .unwrap();
+    let page = service.list(&receptionist, &prices()).unwrap();
+    let json = serde_json::to_string(&page).unwrap();
+    for field in [
+        "costYer",
+        "marginYer",
+        "purchaseCostYer",
+        "partsCostYer",
+        "notes",
+        "parts",
+        "55000",
+        "ملاحظة داخلية",
+    ] {
+        assert!(!json.contains(field), "leaked {field}");
+    }
+    assert!(!page.can_manage);
+    assert!(!page.can_read_costs);
+    assert_eq!(
+        service.review(
+            &receptionist,
+            &ReviewPrice {
+                target: input.target.clone(),
+                selling_price_yer: 70_000
+            }
+        ),
+        Err(PricingError::Denied)
+    );
+    assert_eq!(
+        service.publish(
+            &mutation(receptionist.clone(), 31),
+            &input,
+            UnixMillis(i64::MAX)
+        ),
+        Err(PricingError::Denied)
+    );
+    let selection = service
+        .selection(
+            &receptionist,
+            &PriceSelection {
+                target: input.target,
+                price_revision: 1,
+                color_id: None,
+                handle_id: None,
+                quantity: 3,
+            },
+        )
+        .unwrap();
+    assert_eq!(selection.total_yer, 210_000);
+    let json = serde_json::to_string(&selection).unwrap();
+    assert!(!json.contains("cost"));
+    assert!(!json.contains("margin"));
+    assert_eq!(
+        service.list(&actor(100, 60), &prices()),
+        Err(PricingError::Denied)
+    );
+}
+
+#[test]
+fn below_cost_requires_explicit_confirmation_and_offline_never_publishes() {
+    let dir = TempDir::new().unwrap();
+    let (store, products, manager, receptionist) = setup(&dir);
+    let saved = products
+        .save(
+            &mutation(manager.clone(), 20),
+            &fixture(&products, &manager),
+        )
+        .unwrap();
+    let service = PricingService::new(store.clone(), AuthorizationService::new(store.clone()));
+    let mut input = publish_input(target(&saved));
+    input.selling_price_yer = 50_000;
+    assert_eq!(
+        service.publish(&mutation(manager.clone(), 30), &input, UnixMillis(i64::MAX)),
+        Err(PricingError::BelowCost)
+    );
+    input.confirm_below_cost = true;
+    assert_eq!(
+        service.publish(&mutation(manager.clone(), 31), &input, UnixMillis(i64::MAX)),
+        Err(PricingError::Unconfirmed)
+    );
+    assert!(
+        service
+            .list(&receptionist, &prices())
+            .unwrap()
+            .items
+            .is_empty()
+    );
+    let reopened = PricingService::new(
+        AuthorityStore::open(dir.path()).unwrap(),
+        AuthorizationService::new(store),
+    )
+    .with_confirmation(Arc::new(Confirmed::default()));
+    // A restarted shell can use a new key; Rust retries the original durable server intent.
+    let price = reopened
+        .publish(&mutation(manager.clone(), 32), &input, UnixMillis(i64::MAX))
+        .unwrap();
+    assert_eq!(price.revision, 1);
+    let db = rusqlite::Connection::open(dir.path().join("eitmad.sqlite3")).unwrap();
+    let confirmation:String=db.query_row("SELECT changed_identifiers FROM mutation_audit WHERE resulting_revision=1 AND operation='eitmad.pricing.publish.v1'",[],|r|r.get(0)).unwrap();
+    assert!(confirmation.contains("below-cost-confirmed"));
+}
+
+#[test]
+fn cost_changes_preserve_price_and_old_price_snapshots_but_require_new_publication() {
+    let dir = TempDir::new().unwrap();
+    let (store, products, manager, receptionist) = setup(&dir);
+    let mut draft = fixture(&products, &manager);
+    let saved = products
+        .save(&mutation(manager.clone(), 20), &draft)
+        .unwrap();
+    let service = PricingService::new(store.clone(), AuthorizationService::new(store))
+        .with_confirmation(Arc::new(Confirmed::default()));
+    let input = publish_input(target(&saved));
+    let old = service
+        .publish(&mutation(manager.clone(), 30), &input, UnixMillis(i64::MAX))
+        .unwrap();
+    draft.id = Some(saved.id);
+    draft.expected_revision = Some(1);
+    draft.variants[0].purchase_cost_yer = 60_000;
+    let updated = products
+        .save(&mutation(manager.clone(), 40), &draft)
+        .unwrap();
+    let rows = service.list(&manager, &prices()).unwrap();
+    let row = &rows.items[0];
+    assert!(row.publication_required);
+    assert_eq!(row.published.as_ref().unwrap().selling_price_yer, 70_000);
+    assert_eq!(row.margin_yer, Some(10_000));
+    assert!(
+        service
+            .list(&receptionist, &prices())
+            .unwrap()
+            .items
+            .is_empty()
+    );
+    assert_eq!(
+        service.selection(
+            &receptionist,
+            &PriceSelection {
+                target: input.target,
+                price_revision: 1,
+                color_id: None,
+                handle_id: None,
+                quantity: 1
+            }
+        ),
+        Err(PricingError::Reference)
+    );
+    let next = PublishPrice {
+        target: target(&updated),
+        expected_revision: Some(1),
+        selling_price_yer: 75_000,
+        confirm_below_cost: false,
+    };
+    service
+        .publish(&mutation(manager, 41), &next, UnixMillis(i64::MAX))
+        .unwrap();
+    assert_eq!(old.selling_price_yer, 70_000);
+    assert_eq!(old.revision, 1);
+}
+
+use eitmad_contracts::{
+    furniture::*,
+    material::{
+        Material, MaterialQuantity, MaterialUnit, SaveMaterial, SaveMaterialCategory,
+        SaveMaterialUnit, UnitDimension,
+    },
+    part::{PartUsage, SavePart, SavePartCategory},
+};
+use eitmad_furniture::FurnitureService;
+use eitmad_material::MaterialService;
+use eitmad_part::PartService;
+fn fixtures(
+    store: &AuthorityStore,
+    service: &PartService,
+    manager: &AuthorizationContext,
+) -> (SavePart, Vec<Material>, Vec<MaterialUnit>) {
+    let materials = MaterialService::new(store.clone(), AuthorizationService::new(store.clone()));
+    let category = materials
+        .save_category(
+            &mutation(manager.clone(), 10),
+            &SaveMaterialCategory {
+                id: None,
+                expected_revision: None,
+                name: "أخشاب".into(),
+                archived: false,
+            },
+        )
+        .unwrap();
+    let part_category = service
+        .save_category(
+            &mutation(manager.clone(), 11),
+            &SavePartCategory {
+                id: None,
+                expected_revision: None,
+                name: "خزانة ملابس".into(),
+                archived: false,
+            },
+        )
+        .unwrap();
+    let mut records = Vec::new();
+    let mut units = Vec::new();
+    for (key, name, symbol, dimension, cost) in [
+        (12, "MDF 18mm", "m²", UnitDimension::Area, 7250),
+        (14, "Edge Band", "m", UnitDimension::Length, 250),
+    ] {
+        let unit = materials
+            .save_unit(
+                &mutation(manager.clone(), key),
+                &SaveMaterialUnit {
+                    id: None,
+                    expected_revision: None,
+                    name: symbol.into(),
+                    symbol: symbol.into(),
+                    dimension,
+                    numerator: 1,
+                    denominator: 1,
+                    archived: false,
+                },
+            )
+            .unwrap();
+        records.push(
+            materials
+                .save_material(
+                    &mutation(manager.clone(), key + 1),
+                    &SaveMaterial {
+                        id: None,
+                        expected_revision: None,
+                        name: name.into(),
+                        category_id: category.id,
+                        unit_id: unit.id,
+                        current_cost_yer: cost,
+                        archived: false,
+                    },
+                )
+                .unwrap(),
+        );
+        units.push(unit);
+    }
+    let usages = records
+        .iter()
+        .zip(&units)
+        .zip(["1.2", "3"])
+        .map(|((m, u), q)| PartUsage {
+            material_id: m.id,
+            material_revision: m.revision,
+            unit_id: u.id,
+            unit_revision: u.revision,
+            quantity: MaterialQuantity::parse(q.into()).unwrap(),
+        })
+        .collect();
+    (
+        SavePart {
+            id: None,
+            expected_revision: None,
+            name: "جانب خزانة".into(),
+            category_id: part_category.id,
+            description: "جزء تجريبي".into(),
+            usages,
+            archived: false,
+        },
+        records,
+        units,
+    )
+}
+
+/// Creates the default Furniture test fixture.
+fn furniture_fixture(
+    store: &AuthorityStore,
+    service: &FurnitureService,
+    manager: &AuthorizationContext,
+) -> SaveFurniture {
+    let parts = PartService::new(store.clone(), AuthorizationService::new(store.clone()));
+    let (input, _, _) = fixtures(store, &parts, manager);
+    let part = parts.save(&mutation(manager.clone(), 20), &input).unwrap();
+    let category = service
+        .save_category(
+            &mutation(manager.clone(), 21),
+            &SaveFurnitureCategory {
+                id: None,
+                expected_revision: None,
+                name: "غرف النوم".into(),
+                archived: false,
+            },
+        )
+        .unwrap();
+    SaveFurniture {
+        image: None,
+        id: None,
+        expected_revision: None,
+        name: "خزانة اختبار".into(),
+        category_id: category.id,
+        description: "تعريف اختبار".into(),
+        notes: "داخلي".into(),
+        parts: vec![FurniturePart {
+            reference: part.composition,
+            quantity: 2,
+        }],
+        variants: vec![FurnitureVariant {
+            id: FurnitureVariantId::new(Uuid::from_u128(900)),
+            name: "صغير".into(),
+            dimensions: dims(1200),
+            customization: Some(FurnitureCustomization {
+                minimum: dims(1000),
+                maximum: dims(2000),
+            }),
+            selling_price_yer: 25000,
+            archived: false,
+            color_ids: vec![Uuid::from_u128(901)],
+            handle_ids: vec![],
+        }],
+        colors: vec![FurnitureOption {
+            id: Uuid::from_u128(901),
+            name: "أبيض".into(),
+            visual: "#FFFFFF".into(),
+            price_adjustment_yer: 500,
+            archived: false,
+        }],
+        handles: vec![FurnitureOption {
+            id: Uuid::from_u128(902),
+            name: "قياسي".into(),
+            visual: "Standard".into(),
+            price_adjustment_yer: 1000,
+            archived: false,
+        }],
+        state: FurnitureState::Active,
+        confirm_below_cost: false,
+    }
+}
+/// Builds fixed dimensions in millimetres for domain tests.
+fn dims(width: u32) -> FurnitureDimensions {
+    FurnitureDimensions {
+        width_mm: width,
+        height_mm: 2000,
+        depth_mm: 550,
+    }
+}
+
+#[test]
+fn manufactured_cost_options_and_selling_prices_use_part_revisions_and_exact_whole_rials() {
+    let dir = TempDir::new().unwrap();
+    let (store, _, manager, receptionist) = setup(&dir);
+    let furniture = FurnitureService::new(store.clone(), AuthorizationService::new(store.clone()));
+    let draft = furniture_fixture(&store, &furniture, &manager);
+    let saved = furniture
+        .save(&mutation(manager.clone(), 22), &draft)
+        .unwrap();
+    let pricing = PricingService::new(store.clone(), AuthorizationService::new(store.clone()))
+        .with_confirmation(Arc::new(Confirmed::default()));
+    let target = PriceTarget::Furniture(FurnitureReference {
+        scope: saved.scope.clone(),
+        furniture_id: saved.id,
+        variant_id: saved.variants[0].id,
+        revision: saved.revision,
+        schema_version: 1,
+    });
+    let review = pricing
+        .review(
+            &manager,
+            &ReviewPrice {
+                target: target.clone(),
+                selling_price_yer: 25_000,
+            },
+        )
+        .unwrap();
+    assert_eq!(review.cost_yer, 18_900);
+    assert_eq!(review.margin_yer, 6_100);
+    let mut input = publish_input(target.clone());
+    input.selling_price_yer = 25_000;
+    pricing
+        .publish(&mutation(manager.clone(), 30), &input, UnixMillis(i64::MAX))
+        .unwrap();
+    let mut selection = PriceSelection {
+        target: target.clone(),
+        price_revision: 1,
+        color_id: Some(Uuid::from_u128(901)),
+        handle_id: Some(Uuid::from_u128(902)),
+        quantity: 2,
+    };
+    let price = pricing.selection(&receptionist, &selection).unwrap();
+    assert_eq!(price.unit_price_yer, 26_500);
+    assert_eq!(price.total_yer, 53_000);
+    let json = serde_json::to_string(&price).unwrap();
+    for forbidden in ["parts", "cost", "margin", "notes"] {
+        assert!(!json.contains(forbidden));
+    }
+    selection.handle_id = Some(Uuid::from_u128(999));
+    assert_eq!(
+        pricing.selection(&receptionist, &selection),
+        Err(PricingError::Reference)
+    );
+    selection.handle_id = None;
+    selection.quantity = 0;
+    assert_eq!(
+        pricing.selection(&receptionist, &selection),
+        Err(PricingError::Reference)
+    );
+    selection.quantity = 2;
+    input.selling_price_yer = i64::MAX;
+    input.expected_revision = Some(1);
+    assert_eq!(
+        pricing.publish(&mutation(manager.clone(), 31), &input, UnixMillis(i64::MAX)),
+        Err(PricingError::Invalid)
+    );
+    input.target = target;
+    input.selling_price_yer = i64::MAX - 1500;
+    pricing
+        .publish(&mutation(manager, 32), &input, UnixMillis(i64::MAX))
+        .unwrap();
+    selection.price_revision = 2;
+    assert_eq!(
+        pricing.selection(&receptionist, &selection),
+        Err(PricingError::Invalid)
+    );
+}
+
+#[test]
+fn bounded_variant_pages_and_cache_first_retry_complete_without_duplicate_revisions() {
+    let dir = TempDir::new().unwrap();
+    let (store, products, manager, _) = setup(&dir);
+    let saved = products
+        .save(
+            &mutation(manager.clone(), 20),
+            &fixture(&products, &manager),
+        )
+        .unwrap();
+    let server = Arc::new(Confirmed::default());
+    let service = PricingService::new(store.clone(), AuthorizationService::new(store.clone()))
+        .with_confirmation(server.clone());
+    let first = service
+        .list(
+            &manager,
+            &ListPrices {
+                limit: 1,
+                ..prices()
+            },
+        )
+        .unwrap();
+    assert_eq!(first.items.len(), 1);
+    let second = service
+        .list(
+            &manager,
+            &ListPrices {
+                after: first.next,
+                limit: 1,
+                ..prices()
+            },
+        )
+        .unwrap();
+    assert_eq!(second.items.len(), 1);
+    assert_ne!(first.items[0].target, second.items[0].target);
+    assert!(
+        service
+            .list(
+                &manager,
+                &ListPrices {
+                    after: second.next,
+                    limit: 1,
+                    ..prices()
+                }
+            )
+            .unwrap()
+            .items
+            .is_empty()
+    );
+    let input = publish_input(target(&saved));
+    // Simulate a lost response after the server commit, then a cache refresh before retry.
+    let hash: [u8; 32] =
+        Sha256::digest(serde_json::to_vec(&(manager.identity.principal_id, &input)).unwrap())
+            .into();
+    let context = mutation(manager.clone(), 30);
+    let prepared = service.prepare(&context, &input, &hash).unwrap();
+    let confirmed = server
+        .confirm(&manager, &prepared, UnixMillis(i64::MAX))
+        .unwrap();
+    server
+        .deny_status
+        .store(true, std::sync::atomic::Ordering::SeqCst);
+    assert_eq!(
+        service.publish(&context, &input, UnixMillis(i64::MAX)),
+        Err(PricingError::Denied)
+    );
+    let retained: u32 = rusqlite::Connection::open(store.path())
+        .unwrap()
+        .query_row("SELECT COUNT(*) FROM pricing_intents", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(retained, 1);
+    server
+        .deny_status
+        .store(false, std::sync::atomic::Ordering::SeqCst);
+    service
+        .refresh(&mutation(manager.clone(), 31), UnixMillis(i64::MAX))
+        .unwrap();
+    assert_eq!(
+        service
+            .publish(&context, &input, UnixMillis(i64::MAX))
+            .unwrap(),
+        confirmed
+    );
+    assert_eq!(
+        service
+            .publish(&context, &input, UnixMillis(i64::MAX))
+            .unwrap(),
+        confirmed
+    );
+    let db = rusqlite::Connection::open(store.path()).unwrap();
+    let count: u32 = db
+        .query_row("SELECT COUNT(*) FROM pricing_revisions", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(count, 1);
+    let audits: u32 = db.query_row("SELECT COUNT(*) FROM mutation_audit WHERE operation='eitmad.pricing.publish.v1' AND resulting_revision=1", [], |r| r.get(0)).unwrap();
+    assert_eq!(audits, 1);
+}
+
+#[test]
+fn original_confirmed_intent_survives_newer_price_refresh_before_retry() {
+    let dir = TempDir::new().unwrap();
+    let (store, products, manager, _) = setup(&dir);
+    let saved = products
+        .save(
+            &mutation(manager.clone(), 20),
+            &fixture(&products, &manager),
+        )
+        .unwrap();
+    let server = Arc::new(Confirmed::default());
+    let service = PricingService::new(store.clone(), AuthorizationService::new(store))
+        .with_confirmation(server.clone());
+    let input = publish_input(target(&saved));
+    let context = mutation(manager.clone(), 30);
+    let hash: [u8; 32] =
+        Sha256::digest(serde_json::to_vec(&(manager.identity.principal_id, &input)).unwrap())
+            .into();
+    let prepared = service.prepare(&context, &input, &hash).unwrap();
+    let original = server
+        .confirm(&manager, &prepared, UnixMillis(i64::MAX))
+        .unwrap();
+    let mut newer = prepared.clone();
+    newer.idempotency_key = IdempotencyKey::new(Uuid::from_u128(31));
+    newer.command.expected_revision = Some(1);
+    newer.command.selling_price_yer = 75000;
+    server
+        .confirm(&manager, &newer, UnixMillis(i64::MAX))
+        .unwrap();
+    service
+        .refresh(&mutation(manager.clone(), 32), UnixMillis(i64::MAX))
+        .unwrap();
+    assert_eq!(
+        service
+            .publish(&context, &input, UnixMillis(i64::MAX))
+            .unwrap(),
+        original
+    );
+    assert_eq!(
+        service.list(&manager, &prices()).unwrap().items[0]
+            .published
+            .as_ref()
+            .unwrap()
+            .revision,
+        2
+    );
+}
+
+#[test]
+fn receipt_audit_failure_retains_intent_and_withholds_price_until_atomic_retry() {
+    let dir = TempDir::new().unwrap();
+    let (store, products, manager, receptionist) = setup(&dir);
+    let saved = products
+        .save(
+            &mutation(manager.clone(), 20),
+            &fixture(&products, &manager),
+        )
+        .unwrap();
+    let server = Arc::new(Confirmed::default());
+    let service = PricingService::new(store.clone(), AuthorizationService::new(store.clone()))
+        .with_confirmation(server.clone());
+    let db = rusqlite::Connection::open(store.path()).unwrap();
+    db.execute_batch("CREATE TRIGGER fail_price_audit BEFORE INSERT ON mutation_audit WHEN NEW.operation='eitmad.pricing.publish.v1' AND NEW.resulting_revision IS NOT NULL BEGIN SELECT RAISE(ABORT, 'synthetic audit failure'); END;").unwrap();
+    let input = publish_input(target(&saved));
+    let context = mutation(manager.clone(), 30);
+    assert_eq!(
+        service.publish(&context, &input, UnixMillis(i64::MAX)),
+        Err(PricingError::Unconfirmed)
+    );
+    assert!(
+        service
+            .list(&receptionist, &prices())
+            .unwrap()
+            .items
+            .is_empty()
+    );
+    let intents: u32 = db
+        .query_row("SELECT COUNT(*) FROM pricing_intents", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(intents, 1);
+    db.execute_batch("DROP TRIGGER fail_price_audit").unwrap();
+    assert_eq!(
+        service
+            .publish(&context, &input, UnixMillis(i64::MAX))
+            .unwrap()
+            .revision,
+        1
+    );
+    assert_eq!(server.records.lock().unwrap().len(), 1);
+    assert_eq!(
+        service.list(&receptionist, &prices()).unwrap().items.len(),
+        1
+    );
+    let intents: u32 = db
+        .query_row("SELECT COUNT(*) FROM pricing_intents", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(intents, 0);
+}

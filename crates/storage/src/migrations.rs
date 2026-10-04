@@ -148,6 +148,7 @@ fn registry() -> Vec<Migration> {
         .chain(product::MIGRATIONS)
         .chain(furniture::MIGRATIONS)
         .chain(crate::catalog_image::MIGRATIONS)
+        .chain(crate::pricing::MIGRATIONS)
         .copied()
         .collect()
 }

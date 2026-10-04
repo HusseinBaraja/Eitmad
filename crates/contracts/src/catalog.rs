@@ -10,6 +10,7 @@ use crate::{
 };
 
 pub const CAPABILITIES: &[&str] = &[
+    "eitmad.capability.pricing.v1",
     "eitmad.capability.engine-lifecycle.v1",
     "eitmad.capability.local-ipc.v1",
     "eitmad.capability.desktop-user-session.v1",
@@ -62,6 +63,9 @@ pub const UPDATE_MANIFEST_PUBLISH_PERMISSION: &str =
     "eitmad.permission.server.update-manifest.publish.v1";
 
 pub const PERMISSIONS: &[&str] = &[
+    "eitmad.permission.catalog.read.v1",
+    "eitmad.permission.pricing.write.v1",
+    "eitmad.permission.pricing.cost.read.v1",
     "eitmad.permission.config.read.v1",
     "eitmad.permission.config.write.v1",
     "eitmad.permission.config.import.v1",
@@ -107,6 +111,11 @@ pub const PERMISSIONS: &[&str] = &[
 ];
 
 pub const ERROR_CODES: &[&str] = &[
+    "eitmad.error.pricing-invalid.v1",
+    "eitmad.error.pricing-reference-invalid.v1",
+    "eitmad.error.pricing-revision-conflict.v1",
+    "eitmad.error.pricing-below-cost.v1",
+    "eitmad.error.pricing-unconfirmed.v1",
     "eitmad.error.authorization-denied.v1",
     "eitmad.error.authorization-last-owner.v1",
     "eitmad.error.authorization-policy-conflict.v1",
@@ -183,6 +192,11 @@ pub const ERROR_CODES: &[&str] = &[
 ];
 
 pub const MESSAGE_IDS: &[&str] = &[
+    "eitmad.message.pricing-invalid.v1",
+    "eitmad.message.pricing-reference-invalid.v1",
+    "eitmad.message.pricing-revision-conflict.v1",
+    "eitmad.message.pricing-below-cost.v1",
+    "eitmad.message.pricing-unconfirmed.v1",
     "eitmad.message.authorization-denied.v1",
     "eitmad.message.authorization-last-owner.v1",
     "eitmad.message.authorization-policy-conflict.v1",
@@ -278,6 +292,7 @@ pub const RELATIONS: &[&str] = &[
     "eitmad.relation.organization.owner.v1",
 ];
 pub const DOMAIN_SCHEMA_IDS: &[&str] = &[
+    "eitmad.schema.pricing.v1",
     "eitmad.schema.protocol.v1",
     "eitmad.schema.customer.v1",
     "eitmad.schema.material.v1",

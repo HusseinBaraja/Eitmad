@@ -52,6 +52,9 @@ pub const FURNITURE_WRITE_PERMISSION: &str = "eitmad.permission.furniture.write.
 pub const PRODUCT_READ_PERMISSION: &str = "eitmad.permission.product.read.v1";
 pub const PRODUCT_WRITE_PERMISSION: &str = "eitmad.permission.product.write.v1";
 pub const PRODUCT_COST_READ_PERMISSION: &str = "eitmad.permission.product.cost.read.v1";
+pub const CATALOG_READ_PERMISSION: &str = "eitmad.permission.catalog.read.v1";
+pub const PRICING_WRITE_PERMISSION: &str = "eitmad.permission.pricing.write.v1";
+pub const PRICING_COST_READ_PERMISSION: &str = "eitmad.permission.pricing.cost.read.v1";
 pub const PART_READ_PERMISSION: &str = "eitmad.permission.part.read.v1";
 pub const PART_WRITE_PERMISSION: &str = "eitmad.permission.part.write.v1";
 pub const MATERIAL_READ_PERMISSION: &str = "eitmad.permission.material.read.v1";
@@ -80,6 +83,9 @@ const POLICY_PERMISSIONS: &[&str] = &[
     PRODUCT_READ_PERMISSION,
     PRODUCT_WRITE_PERMISSION,
     PRODUCT_COST_READ_PERMISSION,
+    CATALOG_READ_PERMISSION,
+    PRICING_WRITE_PERMISSION,
+    PRICING_COST_READ_PERMISSION,
     PART_READ_PERMISSION,
     PART_WRITE_PERMISSION,
     MATERIAL_READ_PERMISSION,
@@ -203,11 +209,14 @@ impl AuthorizationService {
                     CONFIG_READ_PERMISSION | PERMISSIONS_READ_PERMISSION => {
                         member && organization_scope
                     }
-                    PRODUCT_READ_PERMISSION => (manager || receptionist) && organization_scope,
-                    PRODUCT_WRITE_PERMISSION | PRODUCT_COST_READ_PERMISSION => {
-                        manager && organization_scope
+                    PRODUCT_READ_PERMISSION | CATALOG_READ_PERMISSION => {
+                        (manager || receptionist) && organization_scope
                     }
-                    CATALOG_DRAFT_WRITE_PERMISSION
+                    PRICING_WRITE_PERMISSION
+                    | PRICING_COST_READ_PERMISSION
+                    | PRODUCT_WRITE_PERMISSION
+                    | PRODUCT_COST_READ_PERMISSION
+                    | CATALOG_DRAFT_WRITE_PERMISSION
                     | DESKTOP_ACCOUNTS_MANAGE_PERMISSION
                     | FURNITURE_READ_PERMISSION
                     | FURNITURE_WRITE_PERMISSION

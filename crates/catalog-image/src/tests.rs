@@ -252,7 +252,10 @@ fn import_survives_source_removal_upgrade_restart_and_exact_retry_without_path_d
     let connection = rusqlite::Connection::open(store.path()).unwrap();
     connection
         .execute_batch(
-            "DROP INDEX catalog_image_upload_due;
+            "DROP TABLE pricing_intents;
+        DROP TABLE pricing_revisions;
+        DELETE FROM schema_migrations WHERE version=21;
+        DROP INDEX catalog_image_upload_due;
         ALTER TABLE catalog_image_uploads DROP COLUMN next_attempt_at;
         DELETE FROM schema_migrations WHERE version=20;",
         )

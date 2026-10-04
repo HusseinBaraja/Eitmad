@@ -30,6 +30,7 @@ pub struct MaterialChanges {}
 tagged_contract! {
     /// Resumable streams requested by clients.
     pub enum Subscription {
+        Prices(crate::pricing::PriceChanges) => "eitmad.pricing.changed.subscribe.v1",
         Configuration(ConfigurationChanges) => "eitmad.config.changed.subscribe.v1",
         Permissions(PermissionChanges) => "eitmad.permissions.changed.subscribe.v1",
         AuthorizationPolicy(AuthorizationPolicyChanges) => "eitmad.authorization.policy.changed.subscribe.v1",
@@ -44,6 +45,7 @@ tagged_contract! {
 tagged_contract! {
     /// Ordered values emitted by subscriptions.
     pub enum Event {
+        PriceChanged(crate::pricing::PriceChangeNotice) => "eitmad.pricing.changed.event.v1",
         ConfigurationChanged(ConfigSnapshot) => "eitmad.config.changed.event.v1",
         PermissionsChanged(EffectivePermissions) => "eitmad.permissions.changed.event.v1",
         AuthorizationPolicyChanged(AuthorizationPolicyChangeNotice) => "eitmad.authorization.policy.changed.event.v1",
@@ -70,6 +72,7 @@ impl Event {
     #[must_use]
     pub const fn subscription_kind(&self) -> &'static str {
         match self {
+            Self::PriceChanged(_) => "eitmad.pricing.changed.subscribe.v1",
             Self::ConfigurationChanged(_) => "eitmad.config.changed.subscribe.v1",
             Self::PermissionsChanged(_) => "eitmad.permissions.changed.subscribe.v1",
             Self::AuthorizationPolicyChanged(_) => {

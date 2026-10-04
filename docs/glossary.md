@@ -100,7 +100,7 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 
 | Arabic term | English term | Working definition |
 | --- | --- | --- |
-| التسعير | Pricing | The Manager-controlled publication of a whole-YER selling price for one catalog revision and variant. The current Windows page remains a transient preview. |
+| التسعير | Pricing | The Manager-controlled publication of a whole-YER selling price for one catalog revision and variant. Rust owns calculations and permissions; the Windows page projects confirmed prices. |
 | التكلفة | Cost | Resource value consumed or expected to be consumed; the precise cost model is domain-specific. |
 | السعر | Price | The amount offered or charged to a customer, excluding or including adjustments as explicitly defined. |
 | سعر البيع | Selling price | A positive whole-YER amount published by a Manager for one catalog revision and variant. Changing it creates a new revision and does not rewrite issued documents. |

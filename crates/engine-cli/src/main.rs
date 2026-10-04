@@ -243,6 +243,31 @@ fn configured_dispatcher(
         let client = configured?;
         dispatcher = dispatcher.with_catalog_image_transfer(Arc::new(client));
     }
+    if let Some(endpoint) = std::env::var_os("EITMAD_PRICING_SERVER") {
+        let trust = std::env::var_os("EITMAD_PRICING_TRUST_PEM").ok_or(())?;
+        let credential = std::env::var("EITMAD_PRICING_CREDENTIAL_ID").map_err(|_| ())?;
+        let scope = eitmad_contracts::identity::ScopeRef {
+            kind: eitmad_contracts::identity::ScopeKind::parse("organization").map_err(|_| ())?,
+            id: eitmad_contracts::identity::ScopeId::new(
+                store.local_organization_id().map_err(|_| ())?.value(),
+            ),
+        };
+        let config = eitmad_server_connection::DirectServerConfig::new(
+            endpoint.to_str().ok_or(())?,
+            scope,
+            eitmad_contracts::transport::SchemaId::parse("eitmad.schema.pricing.v1")
+                .map_err(|_| ())?,
+            1,
+            &PathBuf::from(trust),
+        )
+        .map_err(|_| ())?;
+        let secrets = eitmad_secret_storage::SecretStore::open(directory, None).map_err(|_| ())?;
+        let credential = serde_json::from_str::<eitmad_contracts::secrets::SecretId>(&credential)
+            .map_err(|_| ())?;
+        dispatcher = dispatcher.with_price_confirmation(Arc::new(
+            eitmad_server_connection::DirectPriceClient::from_config(config, secrets, credential),
+        ));
+    }
     Ok((Arc::new(dispatcher), media_enabled))
 }
 

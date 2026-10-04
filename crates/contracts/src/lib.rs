@@ -24,6 +24,7 @@ pub mod material;
 pub mod observability;
 pub mod part;
 pub mod permissions;
+pub mod pricing;
 pub mod product;
 pub mod queries;
 pub mod relay;

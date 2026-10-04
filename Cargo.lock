@@ -945,6 +945,7 @@ dependencies = [
  "eitmad-material",
  "eitmad-observability-audit",
  "eitmad-part",
+ "eitmad-pricing",
  "eitmad-product",
  "eitmad-storage",
  "eitmad-sync",
@@ -1036,6 +1037,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "eitmad-pricing"
+version = "0.0.0"
+dependencies = [
+ "eitmad-authorization",
+ "eitmad-contracts",
+ "eitmad-furniture",
+ "eitmad-material",
+ "eitmad-observability-audit",
+ "eitmad-part",
+ "eitmad-product",
+ "eitmad-storage",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "uuid",
+]
+
+[[package]]
 name = "eitmad-product"
 version = "0.0.0"
 dependencies = [
@@ -1093,6 +1114,7 @@ dependencies = [
  "eitmad-contracts",
  "eitmad-control-plane",
  "eitmad-postgres-support",
+ "eitmad-pricing",
  "eitmad-relay-plane",
  "eitmad-server-audit",
  "eitmad-sync-plane",
@@ -1137,6 +1159,7 @@ dependencies = [
  "eitmad-customer",
  "eitmad-observability-audit",
  "eitmad-postgres-support",
+ "eitmad-pricing",
  "eitmad-secret-storage",
  "eitmad-server",
  "eitmad-server-audit",
@@ -1196,6 +1219,7 @@ dependencies = [
  "eitmad-catalog-image",
  "eitmad-contracts",
  "eitmad-postgres-support",
+ "eitmad-pricing",
  "eitmad-server-audit",
  "serde",
  "serde_json",

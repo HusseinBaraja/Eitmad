@@ -38,7 +38,7 @@ pub(crate) const MIGRATIONS: &[Migration] = &[Migration::new(17, "product.defini
 )];
 
 pub struct ProductTransaction<'a> {
-    connection: &'a rusqlite::Connection,
+    pub(crate) connection: &'a rusqlite::Connection,
 }
 #[derive(Clone, Copy)]
 pub enum ProductRecord<'a> {
