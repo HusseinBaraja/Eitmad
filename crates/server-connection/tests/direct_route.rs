@@ -214,27 +214,52 @@ fn frame(protocol: eitmad_contracts::versioning::ProtocolVersion) -> SyncTranspo
     }
 }
 
+struct LiveTestServer {
+    handle: axum_server::Handle<SocketAddr>,
+}
+
+impl LiveTestServer {
+    fn graceful_shutdown(&self, duration: Option<Duration>) {
+        self.handle.graceful_shutdown(duration);
+    }
+}
+
+impl Drop for LiveTestServer {
+    fn drop(&mut self) {
+        self.handle.shutdown();
+    }
+}
+
 async fn start_server(
     address: SocketAddr,
     state: ServerState,
     certificate: &Path,
     private_key: &Path,
-) -> axum_server::Handle<SocketAddr> {
+) -> LiveTestServer {
     let tls = RustlsConfig::from_pem_file(certificate, private_key)
         .await
         .unwrap();
     let handle = axum_server::Handle::new();
     let server_handle = handle.clone();
-    tokio::spawn(async move {
-        axum_server::bind_rustls(address, tls)
-            .handle(server_handle)
-            .serve(router(state).into_make_service())
-            .await
+    tokio::task::spawn_blocking(move || {
+        // Model a separate server process: upgraded sessions must end with its runtime.
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(2)
+            .enable_all()
+            .build()
             .unwrap();
+        runtime.block_on(async move {
+            axum_server::bind_rustls(address, tls)
+                .handle(server_handle)
+                .serve(router(state).into_make_service())
+                .await
+                .unwrap();
+        });
     });
+    let server = LiveTestServer { handle };
     for _ in 0..50 {
         if std::net::TcpStream::connect_timeout(&address, Duration::from_millis(25)).is_ok() {
-            return handle;
+            return server;
         }
         tokio::time::sleep(Duration::from_millis(20)).await;
     }
@@ -345,7 +370,7 @@ struct ProvisionedServer {
     branches: BranchService,
     state: ServerState,
     address: SocketAddr,
-    handle: axum_server::Handle<SocketAddr>,
+    handle: LiveTestServer,
     authentication: AuthenticationResult,
     device_id: DeviceId,
     second_authentication: AuthenticationResult,
@@ -598,7 +623,7 @@ async fn assert_rejected_connections(inputs: RejectedConnectionInputs<'_>) {
 
 async fn assert_reconnect_after_shutdown(
     transport: WanAdapter<DirectServerDriver>,
-    handle: axum_server::Handle<SocketAddr>,
+    handle: LiveTestServer,
     state: ServerState,
     address: SocketAddr,
     certificate: &Path,
@@ -1267,7 +1292,24 @@ fn assert_isolated_customer_cycle(
     assert_eq!(preserved.name, offline.customer.name);
     assert_ne!(preserved.name, first_edit.customer.name);
     assert_eq!(preserved.sync_state, CustomerSyncState::Conflicted);
-    assert_eq!(second.engine.conflicts().len(), 1);
+    let reopened = AuthorityStore::open(second.directory.path()).unwrap();
+    let customers = CustomerService::new(reopened.clone(), AuthorizationService::new(reopened));
+    let persisted = customers
+        .get(
+            &second.actor,
+            &GetCustomer {
+                customer_id: customer.id,
+            },
+        )
+        .unwrap();
+    assert_eq!(persisted.name, offline.customer.name);
+    assert_eq!(persisted.sync_state, CustomerSyncState::Conflicted);
+    assert!(
+        customers
+            .sync_batch(&second.actor.scope, 10)
+            .unwrap()
+            .is_empty()
+    );
     (first, second)
 }
 
@@ -1718,15 +1760,22 @@ async fn concurrent_catalog_uploads_respect_retention_and_exact_retries(
             .await,
         Ok(reference.clone())
     );
+    let mut tx = pool.begin().await.unwrap();
+    sqlx::query("SELECT set_config('eitmad.tenant_id', $1, true)")
+        .bind(server.authentication.session.tenant_id.value().to_string())
+        .execute(&mut *tx)
+        .await
+        .unwrap();
     let retained: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM sync.catalog_images WHERE tenant_id=$1 AND organization_id=$2",
     )
     .bind(server.authentication.session.tenant_id.value())
     .bind(server.scope.id.value())
-    .fetch_one(&pool)
+    .fetch_one(&mut *tx)
     .await
     .unwrap();
     assert_eq!(retained, 4096);
+    tx.commit().await.unwrap();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
