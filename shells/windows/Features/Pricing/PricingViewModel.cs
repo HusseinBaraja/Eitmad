@@ -1,210 +1,107 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using Eitmad.Contracts;
 
 namespace Eitmad.WindowsShell.Features.Pricing;
 
-/// <summary>
-/// Owns ephemeral list and quick-edit state for the pricing preview.
-/// Rust-authoritative price commands, authorization, audit, and storage are not available yet.
-/// </summary>
+/// <summary>Owns temporary input and projects Rust-returned costs, margins, and prices.</summary>
 public sealed class PricingViewModel : ObservableObject
 {
     public const string AllCategories = "كل الفئات";
-
-    private readonly List<PricingListItem> prices;
+    private readonly List<PricingListItem> prices = [];
     private PricingListItem? editingPrice;
-    private string searchText = string.Empty;
-    private string selectedCategory = AllCategories;
-    private bool isEditorOpen;
-    private string editorSellingPrice = string.Empty;
-    private decimal editorMargin;
-    private string editorError = string.Empty;
-    private string feedbackMessage = string.Empty;
-
-    public PricingViewModel()
-    {
-        prices =
-        [
-            new(Guid.Parse("61719ec5-ea1c-4906-a521-6016dd9c7771"), "خزانة ملابس", "صغير", "غرف النوم", 160_000m, 200_000m),
-            new(Guid.Parse("80f0805d-b336-4473-83bf-1e08066462f8"), "خزانة ملابس", "كبير", "غرف النوم", 245_000m, 310_000m),
-            new(Guid.Parse("59e96722-2605-4a4e-b35e-34c4a3fabf32"), "طاولة طعام", "ستة كراسي", "غرف الطعام", 285_000m, 360_000m),
-            new(Guid.Parse("42951f5d-fc92-4f6d-b697-a6191894402a"), "كرسي استقبال", "قياسي", "المكاتب", 68_000m, 85_000m),
-            new(Guid.Parse("9fa9b03a-4dd6-478a-a1cf-418424ac462f"), "مكتبة جدارية", "عرض 180 سم", "غرف المعيشة", 190_000m, 235_000m, isActive: false),
-        ];
-
-        Categories = [AllCategories, .. prices.Select(item => item.Category).Distinct()];
-        VisiblePrices = [];
-        RefreshVisiblePrices();
-    }
-
-    public IReadOnlyList<string> Categories { get; }
-
-    public ObservableCollection<PricingListItem> VisiblePrices { get; }
-
-    public string SearchText
-    {
-        get => searchText;
-        set
-        {
-            if (Set(ref searchText, value ?? string.Empty))
-            {
-                RefreshVisiblePrices();
-            }
-        }
-    }
-
-    public string SelectedCategory
-    {
-        get => selectedCategory;
-        set
-        {
-            if (Set(ref selectedCategory, value ?? AllCategories))
-            {
-                RefreshVisiblePrices();
-            }
-        }
-    }
-
-    public bool IsEditorOpen
-    {
-        get => isEditorOpen;
-        private set => Set(ref isEditorOpen, value);
-    }
-
-    public string EditorProduct => editingPrice?.Product ?? string.Empty;
-
-    public string EditorVariant => editingPrice?.Variant ?? string.Empty;
-
-    public string EditorCost => editingPrice?.CostLabel ?? string.Empty;
-
+    private PriceReview? review;
+    private string searchText = "", selectedCategory = AllCategories, editorSellingPrice = "", editorError = "", feedbackMessage = "";
+    private string availabilityMessage = "جار تحميل الأسعار…";
+    private bool isEditorOpen, isBusy, savePending, confirmBelowCost, canManage, canReadCosts;
+    public event EventHandler? SearchChanged;
+    public event EventHandler? EditorPriceChanged;
+    public ObservableCollection<PricingListItem> VisiblePrices { get; } = [];
+    public ObservableCollection<string> Categories { get; } = [AllCategories];
+    public string SearchText { get => searchText; set { if (Set(ref searchText, value ?? "")) SearchChanged?.Invoke(this, EventArgs.Empty); } }
+    public string SelectedCategory { get => selectedCategory; set { if (Set(ref selectedCategory, value ?? AllCategories)) RefreshVisiblePrices(); } }
+    public bool IsEditorOpen { get => isEditorOpen; private set => Set(ref isEditorOpen, value); }
+    public bool CanManage { get => canManage; private set { Set(ref canManage, value); Raise(nameof(CanEdit)); } }
+    public bool CanReadCosts { get => canReadCosts; private set { Set(ref canReadCosts, value); Raise(nameof(CanEdit)); } }
+    public bool IsBusy { get => isBusy; set { Set(ref isBusy, value); Raise(nameof(CanEdit)); Raise(nameof(CanSave)); } }
+    public bool SavePending { get => savePending; set { Set(ref savePending, value); Raise(nameof(CanEdit)); } }
+    public bool CanEdit => CanManage && CanReadCosts && !IsBusy && !SavePending;
+    public bool CanSave => CanManage && CanReadCosts && !IsBusy;
+    public string AvailabilityMessage { get => availabilityMessage; private set => Set(ref availabilityMessage, value); }
+    public string EditorProduct => editingPrice?.Product ?? "";
+    public string EditorVariant => editingPrice?.Variant ?? "";
+    public string EditorCost => PricingListItem.FormatMoney(review?.CostYer ?? editingPrice?.Cost);
+    public string EditorMargin => PricingListItem.FormatMoney(review?.MarginYer);
+    public bool HasNegativeEditorMargin => review?.BelowCost == true;
+    public bool ConfirmBelowCost { get => confirmBelowCost; set => Set(ref confirmBelowCost, value); }
     public string EditorSellingPrice
     {
         get => editorSellingPrice;
-        set
-        {
-            if (Set(ref editorSellingPrice, value ?? string.Empty))
-            {
-                UpdateEditorMargin();
-            }
-        }
+        set { if (!Set(ref editorSellingPrice, value ?? "")) return; review = null; ConfirmBelowCost = false; EditorError = ""; RaiseReview(); EditorPriceChanged?.Invoke(this, EventArgs.Empty); }
     }
-
-    public string EditorMargin => $"{editorMargin.ToString("N0", CultureInfo.InvariantCulture)} ر.ي";
-
-    public bool HasNegativeEditorMargin => editorMargin < 0m;
-
-    public string EditorError
-    {
-        get => editorError;
-        private set
-        {
-            if (Set(ref editorError, value))
-            {
-                Raise(nameof(HasEditorError));
-            }
-        }
-    }
-
+    public string EditorError { get => editorError; private set { Set(ref editorError, value); Raise(nameof(HasEditorError)); } }
     public bool HasEditorError => EditorError.Length > 0;
-
-    public string FeedbackMessage
-    {
-        get => feedbackMessage;
-        private set
-        {
-            if (Set(ref feedbackMessage, value))
-            {
-                Raise(nameof(HasFeedback));
-            }
-        }
-    }
-
+    public string FeedbackMessage { get => feedbackMessage; private set { Set(ref feedbackMessage, value); Raise(nameof(HasFeedback)); } }
     public bool HasFeedback => FeedbackMessage.Length > 0;
-
     public bool HasNoVisiblePrices => VisiblePrices.Count == 0;
-
     public string VisibleCountLabel => $"{VisiblePrices.Count} من {prices.Count} أسعار";
+    public long EditorVersion { get; private set; }
 
+    public void ApplyDurableData(PricePage page)
+    {
+        CanManage = page.CanManage; CanReadCosts = page.CanReadCosts;
+        if (!CanManage || !CanReadCosts) CancelEditor(force: true);
+        prices.Clear();
+        foreach (var record in page.Items)
+        {
+            if (!CanReadCosts) { record.CostYer = null; record.MarginYer = null; }
+            if (CanManage || record.Published is not null) prices.Add(new(record));
+        }
+        Categories.Clear(); Categories.Add(AllCategories);
+        foreach (var category in prices.Select(p => p.Category).Distinct()) Categories.Add(category);
+        if (!Categories.Contains(SelectedCategory)) SelectedCategory = AllCategories;
+        AvailabilityMessage = page.ServerAvailable ? "أسعار مؤكدة من الخادم — القيم الداخلية حسب الصلاحية" : "الخادم غير متاح — عرض آخر أسعار مؤكدة، والنشر يحتاج اتصالاً.";
+        RefreshVisiblePrices();
+    }
+    public void ClearSession()
+    {
+        CancelEditor(force: true); prices.Clear(); VisiblePrices.Clear(); Categories.Clear(); Categories.Add(AllCategories);
+        CanManage = false; CanReadCosts = false; SavePending = false; IsBusy = false; FeedbackMessage = "";
+        AvailabilityMessage = "بيانات الأسعار غير متاحة."; Raise(nameof(VisibleCountLabel));
+    }
+    public void Unavailable(string message) { ClearSession(); AvailabilityMessage = message; }
     public void BeginEdit(PricingListItem item)
     {
-        ArgumentNullException.ThrowIfNull(item);
-        editingPrice = item;
-        EditorSellingPrice = item.SellingPrice.ToString("N0", CultureInfo.InvariantCulture);
-        UpdateEditorMargin();
-        EditorError = string.Empty;
-        IsEditorOpen = true;
-        RaiseEditorDetails();
+        if (!CanEdit || !prices.Contains(item)) return;
+        ++EditorVersion; editingPrice = item; review = null; ConfirmBelowCost = false;
+        EditorSellingPrice = (item.SellingPrice ?? 0).ToString("N0", CultureInfo.InvariantCulture);
+        EditorError = ""; IsEditorOpen = true; Raise(nameof(EditorProduct)); Raise(nameof(EditorVariant)); RaiseReview();
+        EditorPriceChanged?.Invoke(this, EventArgs.Empty);
     }
-
-    public void CancelEditor()
+    public void CancelEditor(bool force = false)
     {
-        IsEditorOpen = false;
-        EditorError = string.Empty;
-        editingPrice = null;
+        if (!force && (IsBusy || SavePending)) return;
+        ++EditorVersion; IsEditorOpen = false; EditorError = ""; editingPrice = null; review = null;
+        editorSellingPrice = ""; ConfirmBelowCost = false; Raise(nameof(EditorSellingPrice)); RaiseReview();
     }
-
-    public bool SaveEditor()
+    public ReviewPrice? ReviewInput() => editingPrice is not null && TryParsePrice(EditorSellingPrice, out var price)
+        ? new() { Target = editingPrice.Record.Target, SellingPriceYer = price } : null;
+    public void ApplyReview(PriceReview value) { review = value; RaiseReview(); }
+    public PublishPrice? SaveInput()
     {
-        if (editingPrice is null || !TryParsePrice(EditorSellingPrice, out var sellingPrice) || sellingPrice < 0m)
-        {
-            EditorError = "أدخل سعر بيع صالحاً يساوي صفراً أو أكثر.";
-            return false;
-        }
-
-        editingPrice.SellingPrice = decimal.Round(sellingPrice, 0, MidpointRounding.AwayFromZero);
-        FeedbackMessage = "حُدث سعر البيع في المعاينة المحلية فقط.";
-        IsEditorOpen = false;
-        EditorError = string.Empty;
-        editingPrice = null;
-        return true;
+        if (editingPrice is null || !TryParsePrice(EditorSellingPrice, out var price) || price <= 0) { Fail(PricingClient.ArabicMessage(PricingFailure.Invalid)); return null; }
+        if (HasNegativeEditorMargin && !ConfirmBelowCost) { Fail(PricingClient.ArabicMessage(PricingFailure.BelowCost)); return null; }
+        return new() { Target = editingPrice.Record.Target, ExpectedRevision = editingPrice.Record.Published?.Revision, SellingPriceYer = price, ConfirmBelowCost = ConfirmBelowCost };
     }
-
-    public void ClearFeedback() => FeedbackMessage = string.Empty;
-
-    private void UpdateEditorMargin()
-    {
-        if (editingPrice is not null && TryParsePrice(EditorSellingPrice, out var sellingPrice))
-        {
-            editorMargin = sellingPrice - editingPrice.Cost;
-            EditorError = string.Empty;
-        }
-        else
-        {
-            editorMargin = 0m;
-        }
-
-        Raise(nameof(EditorMargin));
-        Raise(nameof(HasNegativeEditorMargin));
-    }
-
-    private void RaiseEditorDetails()
-    {
-        Raise(nameof(EditorProduct));
-        Raise(nameof(EditorVariant));
-        Raise(nameof(EditorCost));
-        Raise(nameof(EditorMargin));
-        Raise(nameof(HasNegativeEditorMargin));
-    }
-
+    public void Saved() { SavePending = false; CancelEditor(force: true); FeedbackMessage = "نُشر سعر البيع بتأكيد الخادم وحُفظ سجل التغيير."; }
+    public void Fail(string message) => EditorError = message;
+    public void ClearFeedback() => FeedbackMessage = "";
+    private void RaiseReview() { Raise(nameof(EditorCost)); Raise(nameof(EditorMargin)); Raise(nameof(HasNegativeEditorMargin)); }
     private void RefreshVisiblePrices()
     {
-        var search = PreviewText.NormalizeSearch(SearchText.Trim());
-        var matches = prices.Where(item =>
-            (search.Length == 0
-             || PreviewText.NormalizeSearch(item.Product).Contains(search, StringComparison.CurrentCultureIgnoreCase)
-             || PreviewText.NormalizeSearch(item.Variant).Contains(search, StringComparison.CurrentCultureIgnoreCase))
-            && (SelectedCategory == AllCategories || item.Category == SelectedCategory));
-
         VisiblePrices.Clear();
-        foreach (var item in matches)
-        {
-            VisiblePrices.Add(item);
-        }
-
-        Raise(nameof(HasNoVisiblePrices));
-        Raise(nameof(VisibleCountLabel));
+        foreach (var item in prices.Where(p => SelectedCategory == AllCategories || p.Category == SelectedCategory)) VisiblePrices.Add(item);
+        Raise(nameof(HasNoVisiblePrices)); Raise(nameof(VisibleCountLabel));
     }
-
-    private static bool TryParsePrice(string value, out decimal result) =>
-        decimal.TryParse(PreviewText.NormalizeNumericInput(value), NumberStyles.Number, CultureInfo.InvariantCulture, out result);
+    private static bool TryParsePrice(string value, out long result) => long.TryParse(PreviewText.NormalizeNumericInput(value).Trim(), NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out result) && result >= 0;
 }

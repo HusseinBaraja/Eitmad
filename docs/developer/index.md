@@ -32,7 +32,7 @@ Read `AGENTS.md` at the repository root, then review:
 
 Then read only the subsystem page that owns the change.
 
-For customer, catalog, pricing, quotation, order, work-order, or delivery implementation, use the [Manager and Receptionist workflow specification](subsystems/manager-receptionist-workflows.md) as the accepted product behavior. The existing Windows feature pages describe preview presentation only.
+For customer, catalog, pricing, quotation, order, work-order, or delivery implementation, use the [Manager and Receptionist workflow specification](subsystems/manager-receptionist-workflows.md) as the accepted product behavior. Follow each subsystem’s documented Rust or preview boundary; [Pricing](subsystems/pricing.md) now uses Rust calculations and server-confirmed publication.
 
 The implemented Rust customer contact boundary is documented in [Maintain customer contact records](subsystems/customers.md).
 The durable image boundary is documented in [Import and transfer durable catalog images](subsystems/catalog-images.md).

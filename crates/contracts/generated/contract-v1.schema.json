@@ -24,6 +24,9 @@
     "command_response": {
       "$ref": "#/definitions/CommandResponseEnvelope"
     },
+    "confirm_price": {
+      "$ref": "#/definitions/ConfirmPrice"
+    },
     "diagnostic_report": {
       "$ref": "#/definitions/DiagnosticReport"
     },
@@ -69,11 +72,17 @@
     "peer_hello": {
       "$ref": "#/definitions/PeerHello"
     },
+    "published_price_page": {
+      "$ref": "#/definitions/PublishedPricePage"
+    },
     "query_request": {
       "$ref": "#/definitions/QueryEnvelope"
     },
     "query_response": {
       "$ref": "#/definitions/QueryResponseEnvelope"
+    },
+    "read_published_prices": {
+      "$ref": "#/definitions/ReadPublishedPrices"
     },
     "register_branch_request": {
       "$ref": "#/definitions/RegisterBranchRequest"
@@ -122,6 +131,9 @@
     }
   },
   "required": [
+    "confirm_price",
+    "read_published_prices",
+    "published_price_page",
     "ipc_client_message",
     "ipc_server_message",
     "command_request",
@@ -326,6 +338,27 @@
         "deliveryId",
         "checkpoint",
         "acceptedRecords"
+      ]
+    },
+    "CalculateDiscount": {
+      "type": "object",
+      "properties": {
+        "discountBasisPoints": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "lineTotalsYer": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "required": [
+        "lineTotalsYer",
+        "discountBasisPoints"
       ]
     },
     "CalculatePartCost": {
@@ -557,6 +590,22 @@
     "Command": {
       "description": "Authoritative state-changing requests.",
       "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.pricing.publish.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/PublishPrice"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
         {
           "type": "object",
           "properties": {
@@ -1008,6 +1057,22 @@
     },
     "CommandResult": {
       "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "pricePublished"
+            },
+            "payload": {
+              "$ref": "#/definitions/PublishedPrice"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
         {
           "type": "object",
           "properties": {
@@ -1643,6 +1708,43 @@
     "ConfigurationChanges": {
       "type": "object"
     },
+    "ConfirmPrice": {
+      "description": "Authenticated engine-to-server proposal. The server assigns revision and time.",
+      "type": "object",
+      "properties": {
+        "colors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PriceAdjustment"
+          }
+        },
+        "command": {
+          "$ref": "#/definitions/PublishPrice"
+        },
+        "costYer": {
+          "description": "Internal advisory basis from the authorized catalog revision. Never returned in public snapshots.",
+          "type": "integer",
+          "format": "int64"
+        },
+        "handles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PriceAdjustment"
+          }
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "costYer",
+        "command",
+        "colors",
+        "handles",
+        "idempotencyKey"
+      ]
+    },
     "ConflictNotice": {
       "type": "object",
       "properties": {
@@ -2231,6 +2333,32 @@
         "pendingSupportWorkflows"
       ]
     },
+    "DiscountTotal": {
+      "type": "object",
+      "properties": {
+        "approvalRequired": {
+          "type": "boolean"
+        },
+        "discountYer": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "subtotalYer": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "totalYer": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "subtotalYer",
+        "discountYer",
+        "totalYer",
+        "approvalRequired"
+      ]
+    },
     "DownloadCatalogImage": {
       "type": "object",
       "properties": {
@@ -2578,6 +2706,22 @@
     "Event": {
       "description": "Ordered values emitted by subscriptions.",
       "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.pricing.changed.event.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/PriceChangeNotice"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
         {
           "type": "object",
           "properties": {
@@ -4034,6 +4178,30 @@
         "limit"
       ]
     },
+    "ListPrices": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "limit": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 100,
+          "minimum": 1
+        },
+        "term": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "term",
+        "limit"
+      ]
+    },
     "ListProductCategories": {
       "type": "object",
       "properties": {
@@ -5059,6 +5227,247 @@
         "denied"
       ]
     },
+    "PriceAdjustment": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "priceAdjustmentYer": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "id",
+        "priceAdjustmentYer"
+      ]
+    },
+    "PriceChangeNotice": {
+      "type": "object",
+      "properties": {
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "target": {
+          "$ref": "#/definitions/PriceTarget"
+        }
+      },
+      "required": [
+        "target",
+        "revision"
+      ]
+    },
+    "PriceChanges": {
+      "type": "object"
+    },
+    "PriceItem": {
+      "type": "object",
+      "properties": {
+        "categoryName": {
+          "type": "string"
+        },
+        "costYer": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "marginYer": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "name": {
+          "type": "string"
+        },
+        "publicationRequired": {
+          "type": "boolean"
+        },
+        "published": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PriceSummary"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "target": {
+          "$ref": "#/definitions/PriceTarget"
+        },
+        "variantName": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "publicationRequired",
+        "target",
+        "name",
+        "variantName",
+        "categoryName"
+      ]
+    },
+    "PricePage": {
+      "type": "object",
+      "properties": {
+        "canManage": {
+          "type": "boolean"
+        },
+        "canReadCosts": {
+          "type": "boolean"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PriceItem"
+          }
+        },
+        "next": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "serverAvailable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "serverAvailable",
+        "items",
+        "canManage",
+        "canReadCosts"
+      ]
+    },
+    "PriceReview": {
+      "type": "object",
+      "properties": {
+        "belowCost": {
+          "type": "boolean"
+        },
+        "costYer": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "marginYer": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "costYer",
+        "marginYer",
+        "belowCost"
+      ]
+    },
+    "PriceSelection": {
+      "type": "object",
+      "properties": {
+        "colorId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "handleId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "priceRevision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "quantity": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "target": {
+          "$ref": "#/definitions/PriceTarget"
+        }
+      },
+      "required": [
+        "target",
+        "priceRevision",
+        "quantity"
+      ]
+    },
+    "PriceSummary": {
+      "type": "object",
+      "properties": {
+        "confirmedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "currency": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "sellingPriceYer": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "currency",
+        "sellingPriceYer",
+        "revision",
+        "confirmedAt"
+      ]
+    },
+    "PriceTarget": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "product"
+            },
+            "payload": {
+              "$ref": "#/definitions/ProductReference"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "furniture"
+            },
+            "payload": {
+              "$ref": "#/definitions/FurnitureReference"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        }
+      ]
+    },
     "PrincipalKind": {
       "type": "string",
       "enum": [
@@ -5452,6 +5861,100 @@
         "minor"
       ]
     },
+    "PublishPrice": {
+      "type": "object",
+      "properties": {
+        "confirmBelowCost": {
+          "type": "boolean"
+        },
+        "expectedRevision": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "sellingPriceYer": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "target": {
+          "$ref": "#/definitions/PriceTarget"
+        }
+      },
+      "required": [
+        "target",
+        "sellingPriceYer",
+        "confirmBelowCost"
+      ]
+    },
+    "PublishedPrice": {
+      "description": "Immutable public snapshot. Contains no purchase cost, margin, BOM, or notes.",
+      "type": "object",
+      "properties": {
+        "colors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PriceAdjustment"
+          }
+        },
+        "confirmedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "currency": {
+          "type": "string"
+        },
+        "handles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PriceAdjustment"
+          }
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "sellingPriceYer": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "target": {
+          "$ref": "#/definitions/PriceTarget"
+        }
+      },
+      "required": [
+        "target",
+        "currency",
+        "sellingPriceYer",
+        "colors",
+        "handles",
+        "revision",
+        "confirmedAt"
+      ]
+    },
+    "PublishedPricePage": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PublishedPrice"
+          }
+        },
+        "next": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "items"
+      ]
+    },
     "PullRequest": {
       "type": "object",
       "properties": {
@@ -5476,6 +5979,70 @@
     "Query": {
       "description": "Authorized read-only requests.",
       "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.pricing.list.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ListPrices"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.pricing.review.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ReviewPrice"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.pricing.selection.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/PriceSelection"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.pricing.discount.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/CalculateDiscount"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
         {
           "type": "object",
           "properties": {
@@ -5919,6 +6486,70 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "prices"
+            },
+            "payload": {
+              "$ref": "#/definitions/PricePage"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "priceReview"
+            },
+            "payload": {
+              "$ref": "#/definitions/PriceReview"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "sellingPrice"
+            },
+            "payload": {
+              "$ref": "#/definitions/SellingPrice"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "discountTotal"
+            },
+            "payload": {
+              "$ref": "#/definitions/DiscountTotal"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "catalogImage"
             },
             "payload": {
@@ -6250,6 +6881,29 @@
             "payload"
           ]
         }
+      ]
+    },
+    "ReadPublishedPrices": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "limit": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "required": [
+        "scope",
+        "limit"
       ]
     },
     "ReconciliationDelivery": {
@@ -6760,6 +7414,22 @@
             "retryAfterMs"
           ]
         }
+      ]
+    },
+    "ReviewPrice": {
+      "type": "object",
+      "properties": {
+        "sellingPriceYer": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "target": {
+          "$ref": "#/definitions/PriceTarget"
+        }
+      },
+      "required": [
+        "target",
+        "sellingPriceYer"
       ]
     },
     "RevokeScopeRelationship": {
@@ -7303,6 +7973,27 @@
         "limit"
       ]
     },
+    "SellingPrice": {
+      "type": "object",
+      "properties": {
+        "snapshot": {
+          "$ref": "#/definitions/PublishedPrice"
+        },
+        "totalYer": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "unitPriceYer": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "snapshot",
+        "unitPriceYer",
+        "totalYer"
+      ]
+    },
     "SemVer": {
       "type": "string",
       "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
@@ -7774,6 +8465,22 @@
     "Subscription": {
       "description": "Resumable streams requested by clients.",
       "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.pricing.changed.subscribe.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/PriceChanges"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
         {
           "type": "object",
           "properties": {

@@ -20,6 +20,7 @@ eitmad-customer = { path = "../customer" }
 eitmad-material = { path = "../material" }
 eitmad-part = { path = "../part" }
 eitmad-product = { path = "../product" }
+eitmad-pricing = { path = "../pricing" }
 eitmad-furniture = { path = "../furniture" }
 eitmad-observability-audit = { path = "../observability-audit" }
 eitmad-storage = { path = "../storage" }

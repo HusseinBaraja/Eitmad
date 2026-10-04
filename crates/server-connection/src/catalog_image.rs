@@ -1,8 +1,5 @@
 //! Bounded authenticated HTTP transfer for catalog images.
-use super::{
-    DirectServerDriver, URL_SAFE_NO_PAD, connect_tls, device_proof, host_header,
-    parse_http_response, remaining_io,
-};
+use super::{DirectServerDriver, remaining_io};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use eitmad_catalog_image::{CatalogImageTransfer, ImageError};
 use eitmad_contracts::{
@@ -14,72 +11,37 @@ use eitmad_contracts::{
     secrets::SecretId,
     transport::UnixMillis,
 };
-use std::{
-    io::{Read as _, Write as _},
-    sync::Mutex,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
 pub struct DirectCatalogImageClient {
-    driver: Mutex<DirectServerDriver>,
-    credential_id: SecretId,
-    remote_scope: ScopeRef,
+    http: crate::authenticated_http::AuthenticatedHttpClient,
 }
 impl DirectCatalogImageClient {
-    /// Binds image requests to a configured driver and native-store credential identifier.
     #[must_use]
     pub fn new(driver: DirectServerDriver, credential_id: SecretId) -> Self {
         Self {
-            remote_scope: driver.config.scope.clone(),
-            driver: Mutex::new(driver),
-            credential_id,
+            http: crate::authenticated_http::AuthenticatedHttpClient::new(driver, credential_id),
         }
     }
-
-    /// Opens a media route using native secret storage and the declared server trust anchor.
-    /// # Panics
-    /// Panics only if a built-in protocol identifier is invalid.
     #[must_use]
     pub fn from_config(
         config: super::DirectServerConfig,
         secrets: eitmad_secret_storage::SecretStore,
         credential_id: SecretId,
     ) -> Self {
-        use eitmad_contracts::{
-            transport::CapabilityId,
-            updates::ReleaseVersion,
-            versioning::{PeerHello, PeerKind, SupportedProtocol},
-        };
-        let hello = PeerHello {
-            peer_kind: PeerKind::Engine,
-            product_version: ReleaseVersion::new(semver::Version::new(0, 0, 0)),
-            protocols: vec![SupportedProtocol {
-                major: 1,
-                minimum_minor: 14,
-                maximum_minor: 14,
-            }],
-            capabilities: eitmad_contracts::catalog::CAPABILITIES
-                .iter()
-                .map(|id| CapabilityId::parse(*id).expect("registered capability"))
-                .collect(),
-            required_capabilities: vec![
-                CapabilityId::parse("eitmad.capability.catalog-image.v1")
-                    .expect("registered capability"),
-            ],
-            schemas: vec![],
-        };
-        Self::new(
-            DirectServerDriver::new(config, secrets, hello),
-            credential_id,
-        )
+        Self {
+            http: crate::authenticated_http::AuthenticatedHttpClient::from_config(
+                config,
+                secrets,
+                credential_id,
+                "eitmad.capability.catalog-image.v1",
+                14,
+            ),
+        }
     }
-
-    /// Resolves the registered server organization without accepting a shell-supplied scope.
     fn remote_scope(&self) -> ScopeRef {
-        self.remote_scope.clone()
+        self.http.remote_scope()
     }
-
-    /// Binds the local actor to stored identity and bounds one authenticated media response.
     fn request<T: serde::de::DeserializeOwned>(
         &self,
         actor: &AuthorizationContext,
@@ -87,83 +49,14 @@ impl DirectCatalogImageClient {
         input: &impl serde::Serialize,
         budget: Instant,
     ) -> Result<T, ImageError> {
-        remaining_io(budget).map_err(|_| ImageError::Unavailable)?;
-        // Do not spend another image worker waiting behind a network operation.
-        let driver = self
-            .driver
-            .try_lock()
-            .map_err(|_| ImageError::Unavailable)?;
-        remaining_io(budget).map_err(|_| ImageError::Unavailable)?;
-        if actor.scope.kind.as_str() != "organization"
-            || actor.scope.id.value() != actor.tenant_id.value()
-        {
-            return Err(ImageError::Denied);
-        }
-        let mut credential = driver
-            .load_credential(&self.credential_id)
-            .map_err(|_| ImageError::Denied)?;
-        driver
-            .refresh_if_due(&self.credential_id, &mut credential, budget)
-            .map_err(|_| ImageError::Unavailable)?;
-        if Some(actor.identity.principal_id.value())
-            != credential
-                .user_id
-                .map(eitmad_contracts::identity::UserId::value)
-            || Some(actor.tenant_id) != credential.tenant_id
-        {
-            return Err(ImageError::Denied);
-        }
-        remaining_io(budget).map_err(|_| ImageError::Unavailable)?;
-        let mut url = driver.config.endpoint.clone();
-        url.set_path(route);
-        let mut stream =
-            connect_tls(&url, &driver.config.tls, budget).map_err(|_| ImageError::Unavailable)?;
-        let host = host_header(&url).map_err(|_| ImageError::Unavailable)?;
-        let proof = URL_SAFE_NO_PAD.encode(
-            serde_json::to_vec(&device_proof(&credential)).map_err(|_| ImageError::Invalid)?,
-        );
-        let peer = URL_SAFE_NO_PAD
-            .encode(serde_json::to_vec(&driver.local_hello).map_err(|_| ImageError::Invalid)?);
-        let body = serde_json::to_vec(input).map_err(|_| ImageError::Invalid)?;
-        if body.len() > MAX_IMAGE_BYTES.div_ceil(3) * 4 + 4096 {
-            return Err(ImageError::Invalid);
-        }
-        let header = format!(
-            "POST {route} HTTP/1.1\r\nHost: {host}\r\nAuthorization: Bearer {}\r\nx-eitmad-device-proof: {proof}\r\nx-eitmad-peer-hello: {peer}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-            credential.access_token,
-            body.len()
-        );
-        stream
-            .write_all(header.as_bytes())
-            .and_then(|()| stream.write_all(&body))
-            .and_then(|()| stream.flush())
-            .map_err(|_| ImageError::Unavailable)?;
-        let maximum = IMAGE_CHUNK_BYTES * 2 + 8192;
-        let mut response = Vec::new();
-        let mut buffer = [0; 8192];
-        while response.len() <= maximum {
-            remaining_io(budget).map_err(|_| ImageError::Unavailable)?;
-            let limit = buffer.len().min(maximum + 1 - response.len());
-            let count = stream
-                .read(&mut buffer[..limit])
-                .map_err(|_| ImageError::Unavailable)?;
-            if count == 0 {
-                break;
-            }
-            response.extend_from_slice(&buffer[..count]);
-        }
-        remaining_io(budget).map_err(|_| ImageError::Unavailable)?;
-        if response.len() > maximum {
-            return Err(ImageError::Invalid);
-        }
-        let (status, bytes) = parse_http_response(&response).map_err(|_| ImageError::Invalid)?;
-        match status {
-            200 => serde_json::from_slice(&bytes).map_err(|_| ImageError::Invalid),
-            401 | 403 => Err(ImageError::Denied),
-            400 => Err(ImageError::Invalid),
-            404 => Err(ImageError::NotFound),
-            _ => Err(ImageError::Unavailable),
-        }
+        self.http
+            .request(actor, route, input, budget)
+            .map_err(|e| match e {
+                crate::authenticated_http::HttpError::Denied => ImageError::Denied,
+                crate::authenticated_http::HttpError::Invalid => ImageError::Invalid,
+                crate::authenticated_http::HttpError::NotFound => ImageError::NotFound,
+                _ => ImageError::Unavailable,
+            })
     }
 }
 impl CatalogImageTransfer for DirectCatalogImageClient {
@@ -301,6 +194,52 @@ mod tests {
     }
 
     #[test]
+    fn catalog_image_hello_negotiates_with_a_minor_14_server() {
+        use eitmad_contracts::versioning::{
+            NegotiationOutcome, PeerKind, SupportedProtocol, negotiate,
+        };
+        let _ = rustls::crypto::ring::default_provider().install_default();
+        let directory = tempfile::TempDir::new().unwrap();
+        let store =
+            SecretStore::open(directory.path(), Some(FallbackEncryptionKey::new([7; 32]))).unwrap();
+        let id = SecretId::new(
+            SecretKind::parse("image-protocol-test").unwrap(),
+            SecretReferenceId::new(Uuid::new_v4()),
+        );
+        let scope = ScopeRef {
+            kind: ScopeKind::parse("organization").unwrap(),
+            id: ScopeId::new(Uuid::new_v4()),
+        };
+        let client = test_client(
+            url::Url::parse("https://127.0.0.1:8443/").unwrap(),
+            scope,
+            store,
+            id,
+        );
+        let hello = client.http.driver.lock().unwrap().local_hello.clone();
+        let mut server = hello.clone();
+        server.peer_kind = PeerKind::Server;
+        server.protocols = vec![SupportedProtocol {
+            major: 1,
+            minimum_minor: 14,
+            maximum_minor: 14,
+        }];
+        let NegotiationOutcome::Accepted(session) = negotiate(&server, &hello) else {
+            panic!("Catalog images must negotiate their declared protocol");
+        };
+        assert!(
+            session
+                .capabilities
+                .contains(&hello.required_capabilities[0])
+        );
+        server.capabilities.clear();
+        assert!(matches!(
+            negotiate(&server, &hello),
+            NegotiationOutcome::Rejected(_)
+        ));
+    }
+
+    #[test]
     fn stalled_media_and_credential_refresh_release_transfer_admission() {
         let _ = rustls::crypto::ring::default_provider().install_default();
         for refresh in [false, true] {
@@ -387,7 +326,7 @@ mod tests {
                 Err(ImageError::Unavailable)
             );
             assert!(
-                client.driver.try_lock().is_ok(),
+                client.http.driver.try_lock().is_ok(),
                 "An expired transfer must release its admission before the peer exits"
             );
             // A timed-out refresh must retain the credential for a later retry.

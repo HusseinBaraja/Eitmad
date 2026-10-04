@@ -44,6 +44,12 @@ internal static class WpfTestHost
                     var data = RawMaterials.MaterialFixtures.Snapshot();
                     materials.ViewModel.ApplyDurableData(data.References, data.Materials);
                 }
+                if (engine is null && window.FindName("PricingSurface") is Features.Pricing.PricingView pricing)
+                {
+                    var priceEngine = new TestDoubles.FakeEngine();
+                    priceEngine.QueryHandler = _ => new Contracts.QueryResponseEnvelope { Outcome = new Contracts.QueryOutcome { Status = Contracts.CommandOutcomeStatus.Succeeded, Payload = Contracts.QueryResult.ForPrices(Pricing.PricingPresentationTests.Data()) } };
+                    pricing.Attach(priceEngine);
+                }
                 window.Show();
                 window.Activate();
                 CompleteLayout(window);

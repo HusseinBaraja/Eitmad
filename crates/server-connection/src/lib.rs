@@ -1,7 +1,10 @@
 //! Authenticated direct connection from the Rust desktop engine to the server.
 
+mod authenticated_http;
 mod catalog_image;
+mod pricing;
 pub use catalog_image::DirectCatalogImageClient;
+pub use pricing::DirectPriceClient;
 
 use std::{
     io::{Read, Write},
@@ -718,34 +721,30 @@ fn connect_tls(
     };
     for address in addresses {
         let timeout = remaining_io(deadline).map_err(|_| unavailable(FailurePhase::Connect))?;
-        match TcpStream::connect_timeout(&address, timeout.min(CONNECT_TIMEOUT)) {
-            Ok(stream) => {
-                stream
-                    .set_read_timeout(Some(IO_TIMEOUT))
-                    .and_then(|()| stream.set_write_timeout(Some(IO_TIMEOUT)))
-                    .map_err(|_| unavailable(FailurePhase::Connect))?;
-                let name =
-                    ServerName::try_from(host.to_owned()).map_err(|_| encryption_failure())?;
-                let mut connection = ClientConnection::new(Arc::clone(config), name)
-                    .map_err(|_| encryption_failure())?;
-                let mut stream = DeadlineSocket {
-                    socket: stream,
-                    deadline: Some(deadline),
-                };
-                connection.complete_io(&mut stream).map_err(|error| {
-                    if error
-                        .get_ref()
-                        .is_some_and(<dyn std::error::Error + Send + Sync>::is::<rustls::Error>)
-                    {
-                        encryption_failure()
-                    } else {
-                        unavailable(FailurePhase::Connect)
-                    }
-                })?;
-                remaining_io(deadline).map_err(|_| unavailable(FailurePhase::Connect))?;
-                return Ok(StreamOwned::new(connection, stream));
-            }
-            Err(_) => continue,
+        if let Ok(stream) = TcpStream::connect_timeout(&address, timeout.min(CONNECT_TIMEOUT)) {
+            stream
+                .set_read_timeout(Some(IO_TIMEOUT))
+                .and_then(|()| stream.set_write_timeout(Some(IO_TIMEOUT)))
+                .map_err(|_| unavailable(FailurePhase::Connect))?;
+            let name = ServerName::try_from(host.to_owned()).map_err(|_| encryption_failure())?;
+            let mut connection = ClientConnection::new(Arc::clone(config), name)
+                .map_err(|_| encryption_failure())?;
+            let mut stream = DeadlineSocket {
+                socket: stream,
+                deadline: Some(deadline),
+            };
+            connection.complete_io(&mut stream).map_err(|error| {
+                if error
+                    .get_ref()
+                    .is_some_and(<dyn std::error::Error + Send + Sync>::is::<rustls::Error>)
+                {
+                    encryption_failure()
+                } else {
+                    unavailable(FailurePhase::Connect)
+                }
+            })?;
+            remaining_io(deadline).map_err(|_| unavailable(FailurePhase::Connect))?;
+            return Ok(StreamOwned::new(connection, stream));
         }
     }
     Err(unavailable(FailurePhase::Connect))

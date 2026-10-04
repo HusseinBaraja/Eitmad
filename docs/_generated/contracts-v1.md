@@ -43,6 +43,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Commands
 
+- `eitmad.pricing.publish.v1`
 - `eitmad.catalog-image.import.v1`
 - `eitmad.config.update.v1`
 - `eitmad.authorization.relationship.grant.v1`
@@ -64,6 +65,10 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Queries
 
+- `eitmad.pricing.list.v1`
+- `eitmad.pricing.review.v1`
+- `eitmad.pricing.selection.v1`
+- `eitmad.pricing.discount.v1`
 - `eitmad.catalog-image.get.v1`
 - `eitmad.config.get.v1`
 - `eitmad.permissions.get-effective.v1`
@@ -88,6 +93,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Subscriptions
 
+- `eitmad.pricing.changed.subscribe.v1`
 - `eitmad.config.changed.subscribe.v1`
 - `eitmad.permissions.changed.subscribe.v1`
 - `eitmad.authorization.policy.changed.subscribe.v1`
@@ -99,6 +105,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Events
 
+- `eitmad.pricing.changed.event.v1`
 - `eitmad.config.changed.event.v1`
 - `eitmad.permissions.changed.event.v1`
 - `eitmad.authorization.policy.changed.event.v1`
@@ -137,6 +144,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Capabilities
 
+- `eitmad.capability.pricing.v1`
 - `eitmad.capability.engine-lifecycle.v1`
 - `eitmad.capability.local-ipc.v1`
 - `eitmad.capability.desktop-user-session.v1`
@@ -164,6 +172,9 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Permissions
 
+- `eitmad.permission.catalog.read.v1`
+- `eitmad.permission.pricing.write.v1`
+- `eitmad.permission.pricing.cost.read.v1`
 - `eitmad.permission.config.read.v1`
 - `eitmad.permission.config.write.v1`
 - `eitmad.permission.config.import.v1`
@@ -221,6 +232,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Schema identifiers
 
+- `eitmad.schema.pricing.v1`
 - `eitmad.schema.protocol.v1`
 - `eitmad.schema.customer.v1`
 - `eitmad.schema.material.v1`
@@ -231,6 +243,11 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Error codes
 
+- `eitmad.error.pricing-invalid.v1`
+- `eitmad.error.pricing-reference-invalid.v1`
+- `eitmad.error.pricing-revision-conflict.v1`
+- `eitmad.error.pricing-below-cost.v1`
+- `eitmad.error.pricing-unconfirmed.v1`
 - `eitmad.error.authorization-denied.v1`
 - `eitmad.error.authorization-last-owner.v1`
 - `eitmad.error.authorization-policy-conflict.v1`
@@ -307,6 +324,11 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Localization message identifiers
 
+- `eitmad.message.pricing-invalid.v1`
+- `eitmad.message.pricing-reference-invalid.v1`
+- `eitmad.message.pricing-revision-conflict.v1`
+- `eitmad.message.pricing-below-cost.v1`
+- `eitmad.message.pricing-unconfirmed.v1`
 - `eitmad.message.authorization-denied.v1`
 - `eitmad.message.authorization-last-owner.v1`
 - `eitmad.message.authorization-policy-conflict.v1`

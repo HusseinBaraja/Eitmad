@@ -44,6 +44,7 @@ pub struct ProductDispatcher {
     images: eitmad_catalog_image::CatalogImageService,
     image_workers: Arc<tokio::sync::Semaphore>,
     products: ProductService,
+    pricing: eitmad_pricing::PricingService,
     furnitures: FurnitureService,
     accounts: DesktopAccountService,
     events: Arc<dyn ProductEventPublisher>,
@@ -92,6 +93,7 @@ impl ProductDispatcher {
         let materials = MaterialService::new(store.clone(), authorization.clone());
         let furnitures = FurnitureService::new(store.clone(), authorization.clone());
         let products = ProductService::new(store.clone(), authorization.clone());
+        let pricing = eitmad_pricing::PricingService::new(store.clone(), authorization.clone());
         let parts = PartService::new(store.clone(), authorization.clone());
         let accounts = DesktopAccountService::new(store.clone(), authorization.clone());
         let images =
@@ -106,6 +108,7 @@ impl ProductDispatcher {
             images,
             image_workers: Arc::new(tokio::sync::Semaphore::new(2)),
             products,
+            pricing,
             furnitures,
             accounts,
             events,
@@ -115,6 +118,15 @@ impl ProductDispatcher {
     #[must_use]
     pub const fn authorization(&self) -> &AuthorizationService {
         &self.authorization
+    }
+
+    #[must_use]
+    pub fn with_price_confirmation(
+        mut self,
+        confirmation: Arc<dyn eitmad_pricing::PriceConfirmation>,
+    ) -> Self {
+        self.pricing = self.pricing.with_confirmation(confirmation);
+        self
     }
 
     #[must_use]
@@ -134,6 +146,87 @@ impl ProductDispatcher {
         self.images.retry_uploads()
     }
 
+    async fn pricing_query(
+        &self,
+        context: &DispatchContext,
+        query: Query,
+    ) -> Result<QueryResult, ContractError> {
+        match query {
+            Query::Prices(query) => {
+                let pricing = self.pricing.clone();
+                let actor = context.authorization.clone();
+                let deadline = context.deadline;
+                let correlation_id = context.correlation_id;
+                tokio::task::spawn_blocking(move || {
+                    let mut server_available = false;
+                    if query.after.is_none() {
+                        let context = MutationContext {
+                            authorization: actor.clone(),
+                            correlation_id,
+                            causation_id: None,
+                            idempotency_key: eitmad_contracts::transport::IdempotencyKey::new(
+                                uuid::Uuid::new_v4(),
+                            ),
+                            occurred_at: now(),
+                        };
+                        // Bound remote refresh and reserve time for local confirmed-cache reads.
+                        let refresh_deadline = eitmad_contracts::transport::UnixMillis(
+                            deadline
+                                .0
+                                .saturating_sub(1_000)
+                                .min(now().0.saturating_add(2_000)),
+                        );
+                        match pricing.refresh(&context, refresh_deadline) {
+                            Ok(()) => server_available = true,
+                            Err(eitmad_pricing::PricingError::Unconfirmed) => (),
+                            Err(e) => return Err(e),
+                        }
+                    }
+                    let mut page = pricing.list(&actor, &query)?;
+                    page.server_available = server_available;
+                    Ok(page)
+                })
+                .await
+                .map_err(|_| pricing_error(eitmad_pricing::PricingError::Unconfirmed, context))?
+                .map(QueryResult::Prices)
+                .map_err(|e| pricing_error(e, context))
+            }
+            Query::PriceReview(query) => self
+                .pricing
+                .review(&context.authorization, &query)
+                .map(QueryResult::PriceReview)
+                .map_err(|e| pricing_error(e, context)),
+            Query::SellingPrice(query) => self
+                .pricing
+                .selection(&context.authorization, &query)
+                .map(QueryResult::SellingPrice)
+                .map_err(|e| pricing_error(e, context)),
+            Query::DiscountTotal(query) => self
+                .pricing
+                .calculate_discount(&context.authorization, &query)
+                .map(QueryResult::DiscountTotal)
+                .map_err(|e| pricing_error(e, context)),
+            _ => unreachable!("only pricing queries are routed here"),
+        }
+    }
+    async fn publish_price(
+        &self,
+        context: &DispatchContext,
+        mutation: &MutationContext,
+        command: eitmad_contracts::pricing::PublishPrice,
+    ) -> Result<CommandResult, ContractError> {
+        let pricing = self.pricing.clone();
+        let actor = mutation.clone();
+        let deadline = context.deadline;
+        let result =
+            tokio::task::spawn_blocking(move || pricing.publish(&actor, &command, deadline))
+                .await
+                .map_err(|_| pricing_error(eitmad_pricing::PricingError::Unconfirmed, context))?
+                .map_err(|e| pricing_error(e, context))?;
+        self.publish_pending(context, mutation.idempotency_key)
+            .map_err(|()| pricing_error(eitmad_pricing::PricingError::Unconfirmed, context))?;
+        Ok(CommandResult::PricePublished(result))
+    }
     fn mutation_context(context: &DispatchContext) -> Result<MutationContext, Box<ContractError>> {
         let idempotency_key = context.idempotency_key.ok_or_else(|| {
             Box::new(error(
@@ -556,6 +649,9 @@ impl CommandDispatcher for ProductDispatcher {
             Command::CreateCustomer(command) => self
                 .create_customer(&context, &mutation, &command)
                 .map_err(|error| *error),
+            Command::PublishPrice(command) => {
+                self.publish_price(&context, &mutation, command).await
+            }
             Command::UpdateCustomer(command) => self
                 .update_customer(&context, &mutation, &command)
                 .map_err(|error| *error),
@@ -654,6 +750,10 @@ impl QueryDispatcher for ProductDispatcher {
                 .get(&context.authorization, &query)
                 .map(QueryResult::Customer)
                 .map_err(|error| customer_error(error, &context)),
+            query @ (Query::Prices(_)
+            | Query::PriceReview(_)
+            | Query::SellingPrice(_)
+            | Query::DiscountTotal(_)) => self.pricing_query(&context, query).await,
             Query::Customers(query) => self
                 .customers
                 .search(&context.authorization, &query)
@@ -710,6 +810,7 @@ impl QueryDispatcher for ProductDispatcher {
             Subscription::Customers(_) => CUSTOMER_READ_PERMISSION,
             Subscription::Furnitures(_) => FURNITURE_READ_PERMISSION,
             Subscription::Products(_) => PRODUCT_READ_PERMISSION,
+            Subscription::Prices(_) => eitmad_authorization::CATALOG_READ_PERMISSION,
             Subscription::Parts(_) => PART_READ_PERMISSION,
             Subscription::Materials(_) => MATERIAL_READ_PERMISSION,
             Subscription::AuthorizationPolicy(_) => AUTHORIZATION_MANAGE_PERMISSION,
@@ -718,6 +819,30 @@ impl QueryDispatcher for ProductDispatcher {
             .authorize(&context.authorization, permission)
             .map_err(|error| authorization_contract_error(error, context.correlation_id, None))
     }
+}
+
+fn pricing_error(value: eitmad_pricing::PricingError, context: &DispatchContext) -> ContractError {
+    let code = eitmad_pricing::error_code(value);
+    let message = code.replace(".error.", ".message.");
+    let detail = if let eitmad_pricing::PricingError::Conflict { expected, actual } = value {
+        Some(ErrorDetail::RevisionConflict {
+            expected: expected.unwrap_or(0),
+            actual: actual.unwrap_or(0),
+        })
+    } else {
+        None
+    };
+    contract_error(
+        code,
+        &message,
+        context.correlation_id,
+        if value == eitmad_pricing::PricingError::Unconfirmed {
+            RetryDisposition::SafeAfterDelay(1000)
+        } else {
+            RetryDisposition::Never
+        },
+        detail,
+    )
 }
 
 fn customer_error(error_value: CustomerError, context: &DispatchContext) -> ContractError {
@@ -2143,6 +2268,262 @@ mod tests {
             tokio::time::timeout(std::time::Duration::from_millis(20), events.recv())
                 .await
                 .is_err()
+        );
+    }
+    struct TestPriceServer;
+    impl eitmad_pricing::PriceConfirmation for TestPriceServer {
+        fn status(
+            &self,
+            _: &AuthorizationContext,
+            _: &eitmad_contracts::pricing::ConfirmPrice,
+            _: UnixMillis,
+        ) -> Result<Option<eitmad_contracts::pricing::PublishedPrice>, eitmad_pricing::PricingError>
+        {
+            Ok(None)
+        }
+
+        fn read(
+            &self,
+            _: &AuthorizationContext,
+            _: &eitmad_contracts::pricing::ReadPublishedPrices,
+            _: UnixMillis,
+        ) -> Result<eitmad_contracts::pricing::PublishedPricePage, eitmad_pricing::PricingError>
+        {
+            Ok(eitmad_contracts::pricing::PublishedPricePage {
+                items: vec![],
+                next: None,
+            })
+        }
+        fn confirm(
+            &self,
+            _: &AuthorizationContext,
+            input: &eitmad_contracts::pricing::ConfirmPrice,
+            _: UnixMillis,
+        ) -> Result<eitmad_contracts::pricing::PublishedPrice, eitmad_pricing::PricingError>
+        {
+            Ok(eitmad_contracts::pricing::PublishedPrice {
+                target: input.command.target.clone(),
+                currency: "YER".into(),
+                selling_price_yer: input.command.selling_price_yer,
+                colors: input.colors.clone(),
+                handles: input.handles.clone(),
+                revision: input.command.expected_revision.unwrap_or(0) + 1,
+                confirmed_at: UnixMillis(1000),
+            })
+        }
+    }
+    struct SlowPriceServer;
+    impl eitmad_pricing::PriceConfirmation for SlowPriceServer {
+        fn read(
+            &self,
+            _: &AuthorizationContext,
+            _: &eitmad_contracts::pricing::ReadPublishedPrices,
+            deadline: UnixMillis,
+        ) -> Result<eitmad_contracts::pricing::PublishedPricePage, eitmad_pricing::PricingError>
+        {
+            let remaining = u64::try_from(deadline.0.saturating_sub(now().0)).unwrap_or(0);
+            std::thread::sleep(std::time::Duration::from_millis(remaining));
+            Err(eitmad_pricing::PricingError::Unconfirmed)
+        }
+        fn status(
+            &self,
+            actor: &AuthorizationContext,
+            input: &eitmad_contracts::pricing::ConfirmPrice,
+            deadline: UnixMillis,
+        ) -> Result<Option<eitmad_contracts::pricing::PublishedPrice>, eitmad_pricing::PricingError>
+        {
+            eitmad_pricing::PriceConfirmation::status(&TestPriceServer, actor, input, deadline)
+        }
+        fn confirm(
+            &self,
+            actor: &AuthorizationContext,
+            input: &eitmad_contracts::pricing::ConfirmPrice,
+            deadline: UnixMillis,
+        ) -> Result<eitmad_contracts::pricing::PublishedPrice, eitmad_pricing::PricingError>
+        {
+            eitmad_pricing::PriceConfirmation::confirm(&TestPriceServer, actor, input, deadline)
+        }
+    }
+
+    #[tokio::test]
+    async fn pricing_slow_refresh_returns_confirmed_cache_before_query_deadline() {
+        use eitmad_contracts::pricing::{ListPrices, PublishPrice};
+        let (_directory, dispatcher, _) = dispatcher();
+        grant_material_roles(&dispatcher);
+        let dispatcher = dispatcher.with_price_confirmation(Arc::new(TestPriceServer));
+        let target = pricing_fixture(&dispatcher).await;
+        dispatcher
+            .dispatch_command(
+                material_actor(720, 3),
+                Command::PublishPrice(PublishPrice {
+                    target: target.clone(),
+                    expected_revision: None,
+                    selling_price_yer: 70000,
+                    confirm_below_cost: false,
+                }),
+            )
+            .await
+            .unwrap();
+        let dispatcher = dispatcher.with_price_confirmation(Arc::new(SlowPriceServer));
+        for budget in [1_300, 30_000] {
+            let mut context = material_actor(721, 4);
+            context.deadline = UnixMillis(now().0 + budget);
+            let timeout =
+                std::time::Duration::from_millis(u64::try_from(budget.min(3_000)).unwrap());
+            let result = tokio::time::timeout(
+                timeout,
+                dispatcher.dispatch_query(
+                    context,
+                    Query::Prices(ListPrices {
+                        term: String::new(),
+                        after: None,
+                        limit: 100,
+                    }),
+                ),
+            )
+            .await
+            .expect("Refresh must leave time for the confirmed-cache response")
+            .unwrap();
+            let QueryResult::Prices(page) = result else {
+                panic!("prices")
+            };
+            assert!(!page.server_available);
+            assert_eq!(page.items.len(), 1);
+            assert_eq!(page.items[0].target, target);
+            assert_eq!(
+                page.items[0].published.as_ref().unwrap().selling_price_yer,
+                70000
+            );
+        }
+    }
+
+    async fn pricing_fixture(
+        dispatcher: &ProductDispatcher,
+    ) -> eitmad_contracts::pricing::PriceTarget {
+        use eitmad_contracts::{
+            pricing::PriceTarget,
+            product::{
+                ProductReference, ProductVariantId, SaveProduct, SaveProductCategory,
+                SaveProductVariant,
+            },
+        };
+        let CommandResult::ProductCategorySaved(category) = dispatcher
+            .dispatch_command(
+                material_actor(710, 3),
+                Command::SaveProductCategory(SaveProductCategory {
+                    id: None,
+                    expected_revision: None,
+                    name: "مراتب".into(),
+                    archived: false,
+                }),
+            )
+            .await
+            .unwrap()
+        else {
+            panic!("category")
+        };
+        let CommandResult::ProductSaved(product) = dispatcher
+            .dispatch_command(
+                material_actor(711, 3),
+                Command::SaveProduct(SaveProduct {
+                    id: None,
+                    expected_revision: None,
+                    image: None,
+                    name: "مرتبة".into(),
+                    category_id: category.id,
+                    description: "جاهزة".into(),
+                    notes: "ملاحظة داخلية".into(),
+                    archived: false,
+                    variants: vec![SaveProductVariant {
+                        id: ProductVariantId::new(Uuid::from_u128(712)),
+                        name: "مفرد".into(),
+                        purchase_cost_yer: 55000,
+                        archived: false,
+                    }],
+                }),
+            )
+            .await
+            .unwrap()
+        else {
+            panic!("product")
+        };
+        PriceTarget::Product(ProductReference {
+            scope: product.scope,
+            product_id: product.id,
+            variant_id: product.variants[0].id,
+            revision: product.revision,
+            schema_version: 1,
+        })
+    }
+    #[tokio::test]
+    async fn pricing_dispatch_returns_public_receipts_and_denies_receptionist_internal_routes() {
+        use eitmad_contracts::pricing::{ListPrices, PublishPrice, ReviewPrice};
+        let (_directory, dispatcher, broker) = dispatcher();
+        grant_material_roles(&dispatcher);
+        let dispatcher = dispatcher.with_price_confirmation(Arc::new(TestPriceServer));
+        let target = pricing_fixture(&dispatcher).await;
+        let (_, mut events) = broker
+            .subscribe(
+                authorization().scope,
+                Subscription::Prices(eitmad_contracts::pricing::PriceChanges {}),
+                None,
+            )
+            .unwrap();
+        let input = PublishPrice {
+            target: target.clone(),
+            expected_revision: None,
+            selling_price_yer: 70000,
+            confirm_below_cost: false,
+        };
+        let result = dispatcher
+            .dispatch_command(material_actor(713, 3), Command::PublishPrice(input.clone()))
+            .await
+            .unwrap();
+        assert!(matches!(result, CommandResult::PricePublished(_)));
+        let event = serde_json::to_string(&events.recv().await.unwrap().event).unwrap();
+        assert!(!event.contains("cost") && !event.contains("margin"));
+        let page = dispatcher
+            .dispatch_query(
+                material_actor(714, 4),
+                Query::Prices(ListPrices {
+                    term: String::new(),
+                    after: None,
+                    limit: 100,
+                }),
+            )
+            .await
+            .unwrap();
+        let QueryResult::Prices(ref public) = page else {
+            panic!("page")
+        };
+        assert_eq!(public.items.len(), 1);
+        let payload = serde_json::to_string(&page).unwrap();
+        for forbidden in ["costYer", "marginYer", "purchaseCostYer", "55000", "notes"] {
+            assert!(!payload.contains(forbidden), "leaked {forbidden}");
+        }
+        let denied = dispatcher
+            .dispatch_query(
+                material_actor(715, 4),
+                Query::PriceReview(ReviewPrice {
+                    target,
+                    selling_price_yer: 70000,
+                }),
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(denied.code.as_str(), "eitmad.error.authorization-denied.v1");
+        let denied = dispatcher
+            .dispatch_command(material_actor(716, 4), Command::PublishPrice(input.clone()))
+            .await
+            .unwrap_err();
+        assert_eq!(denied.code.as_str(), "eitmad.error.authorization-denied.v1");
+        let stale = dispatcher
+            .dispatch_command(material_actor(717, 3), Command::PublishPrice(input))
+            .await
+            .unwrap_err();
+        assert_eq!(
+            stale.code.as_str(),
+            "eitmad.error.pricing-revision-conflict.v1"
         );
     }
 }

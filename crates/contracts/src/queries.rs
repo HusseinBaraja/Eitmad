@@ -77,6 +77,10 @@ impl<'de> Deserialize<'de> for ListScopeRelationships {
 tagged_contract! {
     /// Authorized read-only requests.
     pub enum Query {
+        Prices(crate::pricing::ListPrices) => "eitmad.pricing.list.v1",
+        PriceReview(crate::pricing::ReviewPrice) => "eitmad.pricing.review.v1",
+        SellingPrice(crate::pricing::PriceSelection) => "eitmad.pricing.selection.v1",
+        DiscountTotal(crate::pricing::CalculateDiscount) => "eitmad.pricing.discount.v1",
         CatalogImage(crate::catalog_image::GetCatalogImage) => "eitmad.catalog-image.get.v1",
         Configuration(GetConfiguration) => "eitmad.config.get.v1",
         EffectivePermissions(GetEffectivePermissions) => "eitmad.permissions.get-effective.v1",
@@ -104,6 +108,10 @@ tagged_contract! {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", content = "payload", rename_all = "camelCase")]
 pub enum QueryResult {
+    Prices(crate::pricing::PricePage),
+    PriceReview(crate::pricing::PriceReview),
+    SellingPrice(crate::pricing::SellingPrice),
+    DiscountTotal(crate::pricing::DiscountTotal),
     CatalogImage(crate::catalog_image::CatalogImageChunk),
     Configuration(ConfigSnapshot),
     EffectivePermissions(EffectivePermissions),

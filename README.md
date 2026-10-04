@@ -31,9 +31,9 @@ The Windows Furniture editor uses six steps: `المعلومات`, `الأجزا
 
 The Windows **المنتجات** page manages ready-made items that the company purchases and sells as-is. Its compact table and short **إضافة منتج** / **تعديل المنتج** page support images, shared category interaction, purchase and selling prices, calculated margins, optional supplier variants, notes, duplicate, and confirmed archive. The current workflow uses in-memory preview state only; Rust authorization, audit, storage, and synchronization are not implemented for Products yet.
 
-## Quick pricing preview
+## Server-confirmed pricing
 
-The separate Windows **التسعير** page lets a manager search product variants, filter by category, and open **تعديل سعر البيع** without entering the full Furniture editor. The current quick edit changes in-memory preview state only; Rust authorization, audit, storage, and synchronization are not implemented for product pricing yet.
+The separate Windows **التسعير** page lets a manager search product variants, filter by category, and open **تعديل سعر البيع** without entering the full Furniture editor. Rust returns costs, margins, option adjustments, and prices for separate ready-made Product and manufactured Furniture references. Publication requires an authenticated server receipt and creates an immutable, durable, audited price revision. Receptionist IPC projections omit internal costs and margins.
 
 ## Manager quotation review
 

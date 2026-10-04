@@ -4,7 +4,7 @@ import Foundation
 public enum ProtocolIds {
     public enum Version {
         public static let major = 1
-        public static let minor = 14
+        public static let minor = 15
     }
 
     public enum IpcMessages {
@@ -30,6 +30,7 @@ public enum ProtocolIds {
     }
 
     public enum Commands {
+        public static let eitmadPricingPublishV1 = "eitmad.pricing.publish.v1"
         public static let eitmadCatalogImageImportV1 = "eitmad.catalog-image.import.v1"
         public static let eitmadConfigUpdateV1 = "eitmad.config.update.v1"
         public static let eitmadAuthorizationRelationshipGrantV1 = "eitmad.authorization.relationship.grant.v1"
@@ -51,6 +52,10 @@ public enum ProtocolIds {
     }
 
     public enum Queries {
+        public static let eitmadPricingListV1 = "eitmad.pricing.list.v1"
+        public static let eitmadPricingReviewV1 = "eitmad.pricing.review.v1"
+        public static let eitmadPricingSelectionV1 = "eitmad.pricing.selection.v1"
+        public static let eitmadPricingDiscountV1 = "eitmad.pricing.discount.v1"
         public static let eitmadCatalogImageGetV1 = "eitmad.catalog-image.get.v1"
         public static let eitmadConfigGetV1 = "eitmad.config.get.v1"
         public static let eitmadPermissionsGetEffectiveV1 = "eitmad.permissions.get-effective.v1"
@@ -75,6 +80,7 @@ public enum ProtocolIds {
     }
 
     public enum Subscriptions {
+        public static let eitmadPricingChangedSubscribeV1 = "eitmad.pricing.changed.subscribe.v1"
         public static let eitmadConfigChangedSubscribeV1 = "eitmad.config.changed.subscribe.v1"
         public static let eitmadPermissionsChangedSubscribeV1 = "eitmad.permissions.changed.subscribe.v1"
         public static let eitmadAuthorizationPolicyChangedSubscribeV1 = "eitmad.authorization.policy.changed.subscribe.v1"
@@ -86,6 +92,7 @@ public enum ProtocolIds {
     }
 
     public enum Events {
+        public static let eitmadPricingChangedEventV1 = "eitmad.pricing.changed.event.v1"
         public static let eitmadConfigChangedEventV1 = "eitmad.config.changed.event.v1"
         public static let eitmadPermissionsChangedEventV1 = "eitmad.permissions.changed.event.v1"
         public static let eitmadAuthorizationPolicyChangedEventV1 = "eitmad.authorization.policy.changed.event.v1"
@@ -124,6 +131,7 @@ public enum ProtocolIds {
     }
 
     public enum Capabilities {
+        public static let eitmadCapabilityPricingV1 = "eitmad.capability.pricing.v1"
         public static let eitmadCapabilityEngineLifecycleV1 = "eitmad.capability.engine-lifecycle.v1"
         public static let eitmadCapabilityLocalIpcV1 = "eitmad.capability.local-ipc.v1"
         public static let eitmadCapabilityDesktopUserSessionV1 = "eitmad.capability.desktop-user-session.v1"
@@ -151,6 +159,9 @@ public enum ProtocolIds {
     }
 
     public enum Permissions {
+        public static let eitmadPermissionCatalogReadV1 = "eitmad.permission.catalog.read.v1"
+        public static let eitmadPermissionPricingWriteV1 = "eitmad.permission.pricing.write.v1"
+        public static let eitmadPermissionPricingCostReadV1 = "eitmad.permission.pricing.cost.read.v1"
         public static let eitmadPermissionConfigReadV1 = "eitmad.permission.config.read.v1"
         public static let eitmadPermissionConfigWriteV1 = "eitmad.permission.config.write.v1"
         public static let eitmadPermissionConfigImportV1 = "eitmad.permission.config.import.v1"
@@ -208,6 +219,7 @@ public enum ProtocolIds {
     }
 
     public enum SchemaIds {
+        public static let eitmadSchemaPricingV1 = "eitmad.schema.pricing.v1"
         public static let eitmadSchemaProtocolV1 = "eitmad.schema.protocol.v1"
         public static let eitmadSchemaCustomerV1 = "eitmad.schema.customer.v1"
         public static let eitmadSchemaMaterialV1 = "eitmad.schema.material.v1"
@@ -218,6 +230,11 @@ public enum ProtocolIds {
     }
 
     public enum ErrorCodes {
+        public static let eitmadErrorPricingInvalidV1 = "eitmad.error.pricing-invalid.v1"
+        public static let eitmadErrorPricingReferenceInvalidV1 = "eitmad.error.pricing-reference-invalid.v1"
+        public static let eitmadErrorPricingRevisionConflictV1 = "eitmad.error.pricing-revision-conflict.v1"
+        public static let eitmadErrorPricingBelowCostV1 = "eitmad.error.pricing-below-cost.v1"
+        public static let eitmadErrorPricingUnconfirmedV1 = "eitmad.error.pricing-unconfirmed.v1"
         public static let eitmadErrorAuthorizationDeniedV1 = "eitmad.error.authorization-denied.v1"
         public static let eitmadErrorAuthorizationLastOwnerV1 = "eitmad.error.authorization-last-owner.v1"
         public static let eitmadErrorAuthorizationPolicyConflictV1 = "eitmad.error.authorization-policy-conflict.v1"
@@ -294,6 +311,11 @@ public enum ProtocolIds {
     }
 
     public enum MessageIds {
+        public static let eitmadMessagePricingInvalidV1 = "eitmad.message.pricing-invalid.v1"
+        public static let eitmadMessagePricingReferenceInvalidV1 = "eitmad.message.pricing-reference-invalid.v1"
+        public static let eitmadMessagePricingRevisionConflictV1 = "eitmad.message.pricing-revision-conflict.v1"
+        public static let eitmadMessagePricingBelowCostV1 = "eitmad.message.pricing-below-cost.v1"
+        public static let eitmadMessagePricingUnconfirmedV1 = "eitmad.message.pricing-unconfirmed.v1"
         public static let eitmadMessageAuthorizationDeniedV1 = "eitmad.message.authorization-denied.v1"
         public static let eitmadMessageAuthorizationLastOwnerV1 = "eitmad.message.authorization-last-owner.v1"
         public static let eitmadMessageAuthorizationPolicyConflictV1 = "eitmad.message.authorization-policy-conflict.v1"

@@ -1889,3 +1889,197 @@ fn assert_reopened_catalog_access(
         Err(ImageError::Denied)
     );
 }
+
+fn pricing_test_client(
+    directory: &Path,
+    server: &ProvisionedServer,
+    endpoint: &str,
+    trust: &Path,
+) -> eitmad_server_connection::DirectPriceClient {
+    let secrets = SecretStore::open(
+        directory.join("secrets"),
+        Some(FallbackEncryptionKey::new([7; 32])),
+    )
+    .unwrap();
+    let credential = SecretId::new(
+        SecretKind::parse("pricing-test").unwrap(),
+        SecretReferenceId::new(Uuid::new_v4()),
+    );
+    store_session(
+        &secrets,
+        &credential,
+        server.authentication.clone(),
+        [11; 32],
+    )
+    .unwrap();
+    let config = DirectServerConfig::new(
+        endpoint,
+        server.scope.clone(),
+        SchemaId::parse("eitmad.schema.pricing.v1").unwrap(),
+        1,
+        trust,
+    )
+    .unwrap();
+    eitmad_server_connection::DirectPriceClient::from_config(config, secrets, credential)
+}
+async fn deny_receptionist_price_publication(
+    database: &str,
+    server: &ProvisionedServer,
+    input: &eitmad_contracts::pricing::ConfirmPrice,
+) {
+    use eitmad_contracts::{identity::UserId, pricing::ReadPublishedPrices};
+    use eitmad_pricing::PricingError;
+    let pool = SyncDatabase::connect(database, 2).await.unwrap().pool();
+    let pricing = eitmad_sync_plane::PricingServer::new(pool.clone());
+    let mut receptionist = server.authentication.session.clone();
+    receptionist.user_id = UserId::new(Uuid::new_v4());
+    let mut tx = pool.begin().await.unwrap();
+    sqlx::query("SELECT set_config('eitmad.tenant_id', $1, true)")
+        .bind(receptionist.tenant_id.value().to_string())
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO control.relationship_tuples(tenant_id,subject_principal_id,subject_kind,relation,object_kind,object_id,created_at) VALUES($1,$2,'user','eitmad.relation.organization.receptionist.v1','organization',$3,1)")
+        .bind(receptionist.tenant_id.value()).bind(receptionist.user_id.value()).bind(server.scope.id.value()).execute(&mut *tx).await.unwrap();
+    tx.commit().await.unwrap();
+    assert_eq!(
+        pricing
+            .publish(
+                &receptionist,
+                input,
+                CorrelationId::new(Uuid::new_v4()),
+                UnixMillis(2000)
+            )
+            .await,
+        Err(PricingError::Denied)
+    );
+    let query = ReadPublishedPrices {
+        scope: server.scope.clone(),
+        after: None,
+        limit: 100,
+    };
+    assert_eq!(
+        pricing.status(&receptionist, input).await,
+        Err(PricingError::Denied)
+    );
+    let page = pricing.read(&receptionist, &query).await.unwrap();
+    assert_eq!(page.items.len(), 1);
+    let json = serde_json::to_string(&page).unwrap();
+    assert!(!json.contains("cost") && !json.contains("margin") && !json.contains("90000"));
+    let mut foreign = query;
+    foreign.scope.id = ScopeId::new(Uuid::new_v4());
+    assert_eq!(
+        pricing.read(&receptionist, &foreign).await,
+        Err(PricingError::Denied)
+    );
+    let mut tx = pool.begin().await.unwrap();
+    sqlx::query("SELECT set_config('eitmad.tenant_id', $1, true)")
+        .bind(receptionist.tenant_id.value().to_string())
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    assert!(
+        sqlx::query("DELETE FROM sync.price_revisions WHERE tenant_id=$1")
+            .bind(receptionist.tenant_id.value())
+            .execute(&mut *tx)
+            .await
+            .is_err()
+    );
+}
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires disposable PostgreSQL and trusted development certificates"]
+async fn pricing_tls_confirmation_persists_retries_conflicts_and_denies_receptionists() {
+    use eitmad_contracts::{
+        pricing::{ConfirmPrice, PriceTarget, PublishPrice},
+        product::{ProductId, ProductReference, ProductVariantId},
+    };
+    use eitmad_pricing::{PriceConfirmation, PricingError};
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let database = env::var("EITMAD_DIRECT_TEST_DATABASE_URL").unwrap();
+    let certificate = required_path("EITMAD_DIRECT_TEST_CERTIFICATE");
+    let key = required_path("EITMAD_DIRECT_TEST_PRIVATE_KEY");
+    let trust = required_path("EITMAD_DIRECT_TEST_TRUSTED_CERTIFICATE");
+    let server = provision_server(&database, &certificate, &key).await;
+    let endpoint = format!("https://localhost:{}/", server.address.port());
+    let local = tempfile::TempDir::new().unwrap();
+    let (_, actor) = catalog_local_authority(local.path(), &server.authentication.session);
+    let client = Arc::new(pricing_test_client(
+        local.path(),
+        &server,
+        &endpoint,
+        &trust,
+    ));
+    let input = ConfirmPrice {
+        command: PublishPrice {
+            target: PriceTarget::Product(ProductReference {
+                scope: actor.scope.clone(),
+                product_id: ProductId::new(Uuid::new_v4()),
+                variant_id: ProductVariantId::new(Uuid::new_v4()),
+                revision: 1,
+                schema_version: 1,
+            }),
+            expected_revision: None,
+            selling_price_yer: 100_000,
+            confirm_below_cost: false,
+        },
+        cost_yer: 90000,
+        colors: vec![],
+        handles: vec![],
+        idempotency_key: IdempotencyKey::new(Uuid::new_v4()),
+    };
+    let c = client.clone();
+    let a = actor.clone();
+    let request = input.clone();
+    let first = tokio::task::spawn_blocking(move || c.confirm(&a, &request, UnixMillis(i64::MAX)))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(first.revision, 1);
+    server
+        .handle
+        .graceful_shutdown(Some(Duration::from_secs(1)));
+    tokio::time::sleep(Duration::from_millis(1200)).await;
+    let handle = start_server(server.address, server.state.clone(), &certificate, &key).await;
+    let c = client.clone();
+    let a = actor.clone();
+    let request = input.clone();
+    assert_eq!(
+        tokio::task::spawn_blocking(move || c.status(&a, &request, UnixMillis(i64::MAX)))
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap(),
+        first
+    );
+    let mut update = input.clone();
+    update.idempotency_key = IdempotencyKey::new(Uuid::new_v4());
+    update.command.expected_revision = Some(1);
+    update.command.selling_price_yer = 110_000;
+    let c = client.clone();
+    let a = actor.clone();
+    let request = update.clone();
+    assert_eq!(
+        tokio::task::spawn_blocking(move || c.confirm(&a, &request, UnixMillis(i64::MAX)))
+            .await
+            .unwrap()
+            .unwrap()
+            .revision,
+        2
+    );
+    update.idempotency_key = IdempotencyKey::new(Uuid::new_v4());
+    let c = client.clone();
+    let a = actor.clone();
+    let request = update.clone();
+    assert!(matches!(
+        tokio::task::spawn_blocking(move || c.confirm(&a, &request, UnixMillis(i64::MAX)))
+            .await
+            .unwrap(),
+        Err(PricingError::Conflict { .. })
+    ));
+    let mut remote = update;
+    if let PriceTarget::Product(target) = &mut remote.command.target {
+        target.scope = server.scope.clone();
+    }
+    deny_receptionist_price_publication(&database, &server, &remote).await;
+    handle.graceful_shutdown(Some(Duration::from_secs(1)));
+}

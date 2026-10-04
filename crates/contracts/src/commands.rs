@@ -65,6 +65,7 @@ pub struct UpdateCustomer {
 tagged_contract! {
     /// Authoritative state-changing requests.
     pub enum Command {
+        PublishPrice(crate::pricing::PublishPrice) => "eitmad.pricing.publish.v1",
         ImportCatalogImage(crate::catalog_image::ImportCatalogImage) => "eitmad.catalog-image.import.v1",
         UpdateConfiguration(UpdateConfiguration) => "eitmad.config.update.v1",
         GrantScopeRelationship(GrantScopeRelationship) => "eitmad.authorization.relationship.grant.v1",
@@ -89,6 +90,7 @@ tagged_contract! {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", content = "payload", rename_all = "camelCase")]
 pub enum CommandResult {
+    PricePublished(crate::pricing::PublishedPrice),
     CatalogImageImported(crate::catalog_image::CatalogImageRef),
     ConfigurationUpdated(ConfigSnapshot),
     RelationshipGranted(RelationshipMutationResult),

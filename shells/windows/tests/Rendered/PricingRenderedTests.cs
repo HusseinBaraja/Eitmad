@@ -1,9 +1,11 @@
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
+using Eitmad.Contracts;
 using Eitmad.WindowsShell.Controls;
 using Eitmad.WindowsShell.Features.Pricing;
+using Eitmad.WindowsShell.Tests.Pricing;
+using Eitmad.WindowsShell.Tests.TestDoubles;
 
 namespace Eitmad.WindowsShell.Tests.Rendered;
 
@@ -11,95 +13,161 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 public sealed class PricingRenderedTests
 {
     [TestMethod]
-    public void PricingHeaderAndRowsScrollTogetherBelowTheFilters()
+    [DataRow(false)]
+    [DataRow(true)]
+    public void UnexpectedPublicationFailureKeepsExactRetryAndIgnoresEndedSession(bool endSession)
     {
-        WpfTestHost.Run(780, 745, window =>
+        var engine = new FakeEngine();
+        engine.QueryHandler = query => new QueryResponseEnvelope { Outcome = new QueryOutcome { Status = CommandOutcomeStatus.Succeeded,
+            Payload = query.AsPricingList() is not null ? QueryResult.ForPrices(PricingPresentationTests.Data()) : QueryResult.ForPriceReview(new PriceReview { CostYer = 160_000, MarginYer = 40_000 }) } };
+        WpfTestHost.Run(1338, 753, window =>
         {
             WpfTestHost.FindByName<Button>(window, "PricingNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
             var view = WpfTestHost.Descendants<PricingView>(window).Single();
-            var search = WpfTestHost.FindByName<TextBox>(view, "PricingSearchBox");
-            var rows = WpfTestHost.FindByName<OperationsTable>(view, "PricingRows");
-            var scroll = WpfTestHost.Descendants<ScrollViewer>(rows).Single(element => element.Name == "DG_ScrollViewer");
-            var column = rows.Columns[0];
-            column.Width = 300;
-            WpfTestHost.CompleteLayout(window);
-            Assert.IsTrue(search.TransformToAncestor(view).Transform(new Point()).Y > 80);
-            Assert.IsTrue(scroll.TransformToAncestor(view).Transform(new Point()).Y >= search.TransformToAncestor(view).Transform(new Point(0, search.ActualHeight)).Y);
-            scroll.ScrollToHorizontalOffset(scroll.ScrollableWidth / 2);
+            WpfTestHost.FindByAutomationName<Button>(view, "تعديل سعر البيع").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.PumpDispatcher();
+            engine.CommandHandler = _ =>
+            {
+                if (endSession) view.ClearSession();
+                throw new System.Text.Json.JsonException("Synthetic malformed reply");
+            };
+            var save = WpfTestHost.FindByAutomationName<Button>(view, "حفظ سعر البيع");
+            save.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.PumpDispatcher();
+            Assert.IsFalse(view.ViewModel.IsBusy);
+            if (endSession)
+            {
+                Assert.IsFalse(view.ViewModel.SavePending);
+                Assert.IsFalse(view.ViewModel.IsEditorOpen);
+                Assert.IsFalse(view.ViewModel.HasEditorError);
+                return;
+            }
+            Assert.IsTrue(view.ViewModel.SavePending);
+            Assert.IsTrue(view.ViewModel.IsEditorOpen);
+            Assert.IsFalse(view.ViewModel.CanEdit);
+            Assert.IsTrue(view.ViewModel.CanSave);
+            Assert.AreEqual(PricingClient.ArabicMessage(PricingFailure.Unconfirmed), view.ViewModel.EditorError);
+            var originalKey = engine.LastIdempotencyKey;
+            engine.CommandHandler = command =>
+            {
+                var input = command.AsPricingPublish()!;
+                Assert.AreEqual(200_000L, input.SellingPriceYer);
+                return new CommandResponseEnvelope { Outcome = new CommandOutcome { Status = CommandOutcomeStatus.Succeeded,
+                    Payload = CommandResult.ForPricePublished(new PublishedPrice { Target = input.Target, Currency = "YER", Revision = 2, SellingPriceYer = input.SellingPriceYer, Colors = [], Handles = [] }) } };
+            };
+            save.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(view);
-            var header = WpfTestHost.Descendants<DataGridColumnHeader>(rows).Single(element => element.Column == column);
-            var cell = WpfTestHost.Descendants<DataGridCell>(rows).First(element => element.Column == column);
-            Assert.AreEqual(header.TransformToAncestor(rows).Transform(new Point()).X, cell.TransformToAncestor(rows).Transform(new Point()).X, 1);
-            Assert.AreEqual(header.ActualWidth, cell.ActualWidth, 1);
-        });
+            Assert.AreEqual(originalKey, engine.LastIdempotencyKey);
+            Assert.IsFalse(view.ViewModel.SavePending);
+            Assert.IsFalse(view.ViewModel.IsEditorOpen);
+        }, engine: engine);
     }
 
     [TestMethod]
-    public void PricingListAndFocusedPriceEditorRenderAccessibleInteractions()
+    public void ConfirmedPublicationWithFailedReloadDoesNotBecomeAnUnconfirmedRetry()
     {
+        var engine = new FakeEngine();
+        var published = false;
+        engine.QueryHandler = query =>
+        {
+            if (published && query.AsPricingList() is not null) throw new System.Text.Json.JsonException("Synthetic malformed list");
+            return new QueryResponseEnvelope { Outcome = new QueryOutcome { Status = CommandOutcomeStatus.Succeeded,
+                Payload = query.AsPricingList() is not null ? QueryResult.ForPrices(PricingPresentationTests.Data()) : QueryResult.ForPriceReview(new PriceReview { CostYer = 160_000, MarginYer = 40_000 }) } };
+        };
+        engine.CommandHandler = command =>
+        {
+            published = true;
+            var input = command.AsPricingPublish()!;
+            return new CommandResponseEnvelope { Outcome = new CommandOutcome { Status = CommandOutcomeStatus.Succeeded,
+                Payload = CommandResult.ForPricePublished(new PublishedPrice { Target = input.Target, Currency = "YER", Revision = 2, SellingPriceYer = input.SellingPriceYer, Colors = [], Handles = [] }) } };
+        };
         WpfTestHost.Run(1338, 753, window =>
         {
-            WpfTestHost.FindByName<Button>(window, "PricingNavButton")
-                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.FindByName<Button>(window, "PricingNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
-
             var view = WpfTestHost.Descendants<PricingView>(window).Single();
-            Assert.AreEqual(Visibility.Visible, view.Visibility);
-            Assert.AreEqual("البحث عن منتج أو مقاس", AutomationProperties.GetName(WpfTestHost.FindByName<TextBox>(view, "PricingSearchBox")));
-            Assert.IsGreaterThan(0, view.ViewModel.VisiblePrices.Count);
-            Assert.IsFalse(WpfTestHost.Descendants<TextBlock>(view).Any(text => text.Text is "المواد الخام" or "الأجزاء"));
-
-            var original = view.ViewModel.VisiblePrices[0];
-            WpfTestHost.FindByAutomationName<Button>(view, "تعديل سعر البيع")
-                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.FindByAutomationName<Button>(view, "تعديل سعر البيع").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.PumpDispatcher();
-
-            var input = WpfTestHost.FindByName<TextBox>(view, "PriceInput");
-            Assert.IsTrue(view.ViewModel.IsEditorOpen);
-            Assert.IsTrue(input.IsKeyboardFocusWithin);
-            Assert.AreEqual(original.Product, view.ViewModel.EditorProduct);
-            Assert.AreEqual(original.Variant, view.ViewModel.EditorVariant);
-
-            input.Text = "غير صالح";
-            WpfTestHost.FindByAutomationName<Button>(view, "حفظ سعر البيع")
-                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.FindByAutomationName<Button>(view, "حفظ سعر البيع").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(view);
-            Assert.IsTrue(view.ViewModel.IsEditorOpen);
-            Assert.IsTrue(input.IsKeyboardFocusWithin);
-
-            input.Text = "220000";
-            WpfTestHost.FindByAutomationName<Button>(view, "حفظ سعر البيع")
-                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            WpfTestHost.CompleteLayout(view);
-
+            Assert.IsTrue(published);
+            Assert.IsFalse(view.ViewModel.IsBusy);
+            Assert.IsFalse(view.ViewModel.SavePending);
             Assert.IsFalse(view.ViewModel.IsEditorOpen);
-            Assert.AreEqual(220_000m, original.SellingPrice);
-            StringAssert.Contains(view.ViewModel.FeedbackMessage, "المعاينة المحلية فقط");
-        });
+            Assert.IsEmpty(view.ViewModel.VisiblePrices);
+            StringAssert.Contains(view.ViewModel.AvailabilityMessage, "تعذر تحميل الأسعار");
+        }, engine: engine);
     }
 
     [TestMethod]
-    public void PricingEditorCancelLeavesThePriceUnchanged()
+    [DataRow(1920, 1080)]
+    [DataRow(1338, 753)]
+    [DataRow(720, 560)]
+    public void PricingListEditorAndBelowCostWarningRenderAtBaselineSizes(int width, int height)
     {
-        WpfTestHost.Run(780, 745, window =>
+        var page = PricingPresentationTests.Data();
+        var engine = new FakeEngine();
+        engine.QueryHandler = query => new QueryResponseEnvelope { Outcome = new QueryOutcome { Status = CommandOutcomeStatus.Succeeded,
+            Payload = query.AsPricingList() is not null ? QueryResult.ForPrices(page) : QueryResult.ForPriceReview(new PriceReview { CostYer = 160_000, MarginYer = -10_000, BelowCost = true }) } };
+        engine.CommandHandler = command =>
         {
-            WpfTestHost.FindByName<Button>(window, "PricingNavButton")
-                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            var input = command.AsPricingPublish()!;
+            page.Items[0].Published = new PriceSummary { Currency = "YER", Revision = 2, SellingPriceYer = input.SellingPriceYer };
+            page.Items[0].MarginYer = 60_000;
+            return new CommandResponseEnvelope { Outcome = new CommandOutcome { Status = CommandOutcomeStatus.Succeeded,
+                Payload = CommandResult.ForPricePublished(new PublishedPrice { Target = input.Target, Currency = "YER", SellingPriceYer = input.SellingPriceYer, Revision = 2, Colors = [], Handles = [] }) } };
+        };
+        WpfTestHost.Run(width, height, window =>
+        {
+            WpfTestHost.FindByName<Button>(window, "PricingNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
             var view = WpfTestHost.Descendants<PricingView>(window).Single();
-            var original = view.ViewModel.VisiblePrices[0];
-            var price = original.SellingPrice;
+            Assert.HasCount(2, view.ViewModel.VisiblePrices);
+            var dpi = System.Windows.Media.VisualTreeHelper.GetDpi(window);
+            Console.WriteLine($"Pricing render: {window.ActualWidth} x {window.ActualHeight} DIP; display scaling {dpi.DpiScaleX * 100}%");
 
-            WpfTestHost.FindByAutomationName<Button>(view, "تعديل سعر البيع")
-                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.Capture(window, $"pricing-{Math.Round(window.ActualWidth)}x{Math.Round(window.ActualHeight)}-{dpi.DpiScaleX * 100}percent");
+            WpfTestHost.FindByAutomationName<Button>(view, "تعديل سعر البيع").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.PumpDispatcher();
-            WpfTestHost.FindByName<TextBox>(view, "PriceInput").Text = "999999";
-            WpfTestHost.FindByAutomationName<Button>(view, "إلغاء تعديل السعر")
-                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-
+            var input = WpfTestHost.FindByName<TextBox>(view, "PriceInput");
+            Assert.IsTrue(input.IsKeyboardFocusWithin);
+            input.Text = "220000.5";
+            WpfTestHost.FindByAutomationName<Button>(view, "حفظ سعر البيع").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.IsTrue(view.ViewModel.HasEditorError);
+            view.ViewModel.ApplyReview(new PriceReview { CostYer = 160_000, MarginYer = -10_000, BelowCost = true });
+            WpfTestHost.CompleteLayout(view);
+            var warning = WpfTestHost.FindByAutomationName<CheckBox>(view, "تأكيد نشر سعر أقل من التكلفة");
+            Assert.IsTrue(warning.IsVisible);
+            input.Focus();
+            input.MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.Next));
+            Assert.IsTrue(warning.IsKeyboardFocusWithin);
+            WpfTestHost.Capture(window, $"pricing-warning-{Math.Round(window.ActualWidth)}x{Math.Round(window.ActualHeight)}-{dpi.DpiScaleX * 100}percent");
+            input.Text = "220000";
+            WpfTestHost.FindByAutomationName<Button>(view, "حفظ سعر البيع").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(view);
             Assert.IsFalse(view.ViewModel.IsEditorOpen);
-            Assert.AreEqual(price, original.SellingPrice);
-        });
+            Assert.AreEqual(220_000L, view.ViewModel.VisiblePrices[0].SellingPrice);
+            StringAssert.Contains(view.ViewModel.FeedbackMessage, "بتأكيد الخادم");
+        }, engine: engine);
+    }
+    [TestMethod]
+    public void ReceptionistPricingColumnsAndEditorAreWithheld()
+    {
+        var engine = new FakeEngine();
+        engine.QueryHandler = _ => new QueryResponseEnvelope { Outcome = new QueryOutcome { Status = CommandOutcomeStatus.Succeeded, Payload = QueryResult.ForPrices(PricingPresentationTests.Data(false)) } };
+        WpfTestHost.Run(1338, 753, window =>
+        {
+            WpfTestHost.FindByName<Button>(window, "PricingNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var view = WpfTestHost.Descendants<PricingView>(window).Single();
+            var table = WpfTestHost.FindByName<OperationsTable>(view, "PricingRows");
+            Assert.AreEqual(Visibility.Collapsed, table.Columns[2].Visibility);
+            Assert.AreEqual(Visibility.Collapsed, table.Columns[4].Visibility);
+            Assert.AreEqual(Visibility.Collapsed, table.Columns[6].Visibility);
+            Assert.IsFalse(table.IsRowInvocationEnabled);
+            Assert.IsTrue(view.ViewModel.VisiblePrices.All(row => row.Cost is null && row.Margin is null));
+            WpfTestHost.Capture(window, "pricing-receptionist-1338x753-125percent");
+        }, engine: engine);
     }
 }

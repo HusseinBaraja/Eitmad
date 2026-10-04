@@ -121,6 +121,15 @@ pub fn router(state: ServerState) -> Router {
                 .layer(axum::extract::DefaultBodyLimit::max(12 * 1024 * 1024)),
         )
         .route("/v1/catalog-images/read", post(read_catalog_image))
+        .route(
+            "/v1/pricing/publish",
+            post(publish_price).layer(axum::extract::DefaultBodyLimit::max(64 * 1024)),
+        )
+        .route("/v1/pricing/read", post(read_prices))
+        .route(
+            "/v1/pricing/status",
+            post(price_status).layer(axum::extract::DefaultBodyLimit::max(64 * 1024)),
+        )
         .route("/v1/customer-branches", post(register_customer_branch))
         .route("/v1/update-assignment", get(update_assignment))
         .route("/v1/updates/check", post(check_update))
@@ -252,7 +261,75 @@ async fn refresh(
         .map_err(ApiError::authentication)
 }
 
-/// Negotiates media support and authenticates the session before accepting a scoped upload.
+/// Negotiates pricing support and authenticates the public organization read.
+async fn read_prices(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(input): Json<eitmad_contracts::pricing::ReadPublishedPrices>,
+) -> Result<Json<eitmad_contracts::pricing::PublishedPricePage>, ApiError> {
+    let actor = authenticate_negotiated(&state, &headers, "eitmad.capability.pricing.v1").await?;
+    state
+        .sync
+        .pricing()
+        .read(&actor, &input)
+        .await
+        .map(Json)
+        .map_err(|e| {
+            ApiError::new(
+                match e {
+                    eitmad_pricing::PricingError::Denied => StatusCode::FORBIDDEN,
+                    eitmad_pricing::PricingError::Invalid => StatusCode::BAD_REQUEST,
+                    _ => StatusCode::SERVICE_UNAVAILABLE,
+                },
+                eitmad_pricing::error_code(e),
+            )
+        })
+}
+async fn publish_price(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(input): Json<eitmad_contracts::pricing::ConfirmPrice>,
+) -> Result<Json<eitmad_contracts::pricing::PublishedPrice>, ApiError> {
+    let actor = authenticate_negotiated(&state, &headers, "eitmad.capability.pricing.v1").await?;
+    state
+        .sync
+        .pricing()
+        .publish(&actor, &input, new_correlation_id(), unix_millis_now())
+        .await
+        .map(Json)
+        .map_err(|e| {
+            let status = match e {
+                eitmad_pricing::PricingError::Denied => StatusCode::FORBIDDEN,
+                eitmad_pricing::PricingError::Conflict { .. } => StatusCode::CONFLICT,
+                eitmad_pricing::PricingError::Unconfirmed => StatusCode::SERVICE_UNAVAILABLE,
+                _ => StatusCode::BAD_REQUEST,
+            };
+            ApiError::new(status, eitmad_pricing::error_code(e))
+        })
+}
+
+async fn price_status(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(input): Json<eitmad_contracts::pricing::ConfirmPrice>,
+) -> Result<Json<Option<eitmad_contracts::pricing::PublishedPrice>>, ApiError> {
+    let actor = authenticate_negotiated(&state, &headers, "eitmad.capability.pricing.v1").await?;
+    state
+        .sync
+        .pricing()
+        .status(&actor, &input)
+        .await
+        .map(Json)
+        .map_err(|e| {
+            let status = match e {
+                eitmad_pricing::PricingError::Denied => StatusCode::FORBIDDEN,
+                eitmad_pricing::PricingError::Unconfirmed => StatusCode::SERVICE_UNAVAILABLE,
+                _ => StatusCode::BAD_REQUEST,
+            };
+            ApiError::new(status, eitmad_pricing::error_code(e))
+        })
+}
+
 async fn upload_catalog_image(
     State(state): State<ServerState>,
     headers: HeaderMap,
@@ -1189,6 +1266,11 @@ async fn authenticate_negotiated(
         .and_then(|value| URL_SAFE_NO_PAD.decode(value).ok())
         .and_then(|value| serde_json::from_slice::<PeerHello>(&value).ok())
         .ok_or_else(|| ApiError::bad_request("eitmad.error.server-client-incompatible.v1"))?;
+    let minimum_minor = if required_capability.as_str() == "eitmad.capability.pricing.v1" {
+        15
+    } else {
+        5
+    };
     let mut boundary = state.server_hello.clone();
     boundary.required_capabilities = vec![required_capability];
     let NegotiationOutcome::Accepted(negotiated) = negotiate(&boundary, &peer) else {
@@ -1196,7 +1278,7 @@ async fn authenticate_negotiated(
             "eitmad.error.server-client-incompatible.v1",
         ));
     };
-    if negotiated.protocol.major != 1 || negotiated.protocol.minor < 5 {
+    if negotiated.protocol.major != 1 || negotiated.protocol.minor < minimum_minor {
         return Err(ApiError::bad_request(
             "eitmad.error.server-client-incompatible.v1",
         ));
@@ -1236,6 +1318,7 @@ fn server_hello(schemas: Vec<SchemaSupport>) -> PeerHello {
     let capabilities = [
         "eitmad.capability.sync.v1",
         "eitmad.capability.catalog-image.v1",
+        "eitmad.capability.pricing.v1",
         "eitmad.capability.server-connection.v1",
         "eitmad.capability.server-device-proof.v1",
         "eitmad.capability.server-snapshot-chunks.v1",
@@ -1257,7 +1340,12 @@ fn server_hello(schemas: Vec<SchemaSupport>) -> PeerHello {
         }],
         required_capabilities: capabilities
             .iter()
-            .filter(|c| c.as_str() != "eitmad.capability.catalog-image.v1")
+            .filter(|c| {
+                !matches!(
+                    c.as_str(),
+                    "eitmad.capability.catalog-image.v1" | "eitmad.capability.pricing.v1"
+                )
+            })
             .cloned()
             .collect(),
         capabilities,
@@ -1420,7 +1508,7 @@ mod tests {
     fn server_requires_all_remote_boundary_capabilities() {
         let hello = server_hello(Vec::new());
         assert_eq!(hello.protocols[0].minimum_minor, 4);
-        assert_eq!(hello.protocols[0].maximum_minor, 14);
+        assert_eq!(hello.protocols[0].maximum_minor, 15);
         assert!(hello.required_capabilities.iter().any(|capability| {
             capability.as_str() == "eitmad.capability.server-device-proof.v1"
         }));
@@ -1554,6 +1642,75 @@ mod tests {
                 .await
                 .unwrap();
             assert_eq!(response.status(), StatusCode::UNAUTHORIZED, "{uri}");
+        }
+    }
+    #[tokio::test]
+    async fn pricing_http_denies_unauthenticated_and_incompatible_requests_before_storage() {
+        use eitmad_contracts::{
+            pricing::{ConfirmPrice, PriceTarget, PublishPrice, ReadPublishedPrices},
+            product::{ProductId, ProductReference, ProductVariantId},
+            transport::IdempotencyKey,
+        };
+        use tower::ServiceExt as _;
+        let scope = ScopeRef {
+            kind: ScopeKind::parse("organization").unwrap(),
+            id: ScopeId::new(Uuid::from_u128(50)),
+        };
+        let publication = ConfirmPrice {
+            command: PublishPrice {
+                target: PriceTarget::Product(ProductReference {
+                    scope: scope.clone(),
+                    product_id: ProductId::new(Uuid::from_u128(51)),
+                    variant_id: ProductVariantId::new(Uuid::from_u128(52)),
+                    revision: 1,
+                    schema_version: 1,
+                }),
+                expected_revision: None,
+                selling_price_yer: 12500,
+                confirm_below_cost: false,
+            },
+            cost_yer: 10000,
+            colors: vec![],
+            handles: vec![],
+            idempotency_key: IdempotencyKey::new(Uuid::from_u128(53)),
+        };
+        let body = serde_json::to_vec(&publication).unwrap();
+        let read = serde_json::to_vec(&ReadPublishedPrices {
+            scope,
+            after: None,
+            limit: 100,
+        })
+        .unwrap();
+        for (compatible, status) in [
+            (true, StatusCode::UNAUTHORIZED),
+            (false, StatusCode::BAD_REQUEST),
+        ] {
+            let mut peer = server_hello(Vec::new());
+            peer.peer_kind = PeerKind::Engine;
+            if !compatible {
+                peer.capabilities
+                    .retain(|c| c.as_str() != "eitmad.capability.pricing.v1");
+            }
+            let encoded = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&peer).unwrap());
+            for (uri, payload) in [
+                ("/v1/pricing/publish", &body),
+                ("/v1/pricing/status", &body),
+                ("/v1/pricing/read", &read),
+            ] {
+                let response = router(test_state())
+                    .oneshot(
+                        axum::http::Request::builder()
+                            .method("POST")
+                            .uri(uri)
+                            .header("x-eitmad-peer-hello", &encoded)
+                            .header("Content-Type", "application/json")
+                            .body(axum::body::Body::from(payload.clone()))
+                            .unwrap(),
+                    )
+                    .await
+                    .unwrap();
+                assert_eq!(response.status(), status, "{uri}");
+            }
         }
     }
 }
