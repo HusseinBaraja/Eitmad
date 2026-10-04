@@ -12,6 +12,27 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 public sealed class CatalogImageThumbnailsTests
 {
     [TestMethod]
+    [DataRow(128, 2048, 2048, 128, 2048)]
+    [DataRow(1, 2048, 96, 1, 96)]
+    [DataRow(2048, 128, 96, 96, 6)]
+    [DataRow(24, 16, 2048, 24, 16)]
+    [DataRow(1, 1, 96, 1, 1)]
+    public void DecodeBoundsBothSidesWithoutUpscaling(int width, int height, int bound, int expectedWidth, int expectedHeight)
+    {
+        WpfTestHost.Run(720, 560, _ =>
+        {
+            var client = new CatalogImageClient(ImageEngine(() => { }, width, height));
+            var load = client.LoadAsync(Reference(), bound);
+            Complete(load);
+            var bitmap = load.GetAwaiter().GetResult() as BitmapSource;
+            Assert.IsNotNull(bitmap);
+            Assert.AreEqual(expectedWidth, bitmap.PixelWidth);
+            Assert.AreEqual(expectedHeight, bitmap.PixelHeight);
+            Assert.IsTrue(bitmap.IsFrozen);
+        });
+    }
+
+    [TestMethod]
     public void RefreshReusesReferenceCacheAndSessionClearRequiresAuthorizedReads()
     {
         WpfTestHost.Run(720, 560, _ =>
@@ -88,11 +109,11 @@ public sealed class CatalogImageThumbnailsTests
 
     private static CatalogImageRef Reference() => new() { Id = Guid.NewGuid(), Kind = CatalogImageKind.Product, Sha256 = new string('0', 64) };
 
-    private static FakeEngine ImageEngine(Action read)
+    private static FakeEngine ImageEngine(Action read, int width = 1, int height = 1)
     {
         using var content = new System.IO.MemoryStream();
         var encoder = new PngBitmapEncoder();
-        encoder.Frames.Add(BitmapFrame.Create(BitmapSource.Create(1, 1, 96, 96, PixelFormats.Gray8, null, new byte[] { 1 }, 1)));
+        encoder.Frames.Add(BitmapFrame.Create(BitmapSource.Create(width, height, 96, 96, PixelFormats.Gray8, null, new byte[width * height], width)));
         encoder.Save(content);
         var png = content.ToArray();
         return new FakeEngine { QueryHandler = query =>

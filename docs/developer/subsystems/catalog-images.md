@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "catalog image capability"
-last_verified: "2026-10-03"
+last_verified: "2026-10-04"
 review_triggers:
   - "image contracts, decoder limits, permissions, retention, or server transfer changes"
 keywords:
@@ -26,7 +26,7 @@ Product and Furniture revisions can retain one optional immutable image referenc
 
 Rust accepts regular PNG or JPEG files of at most 8 MiB. It rejects malformed or truncated images, sides above 8192 pixels, decoded area above 16 Mi pixels, and decoder allocations above 64 MiB. Imported output is a PNG with each side at most 2048 pixels and at most 8 MiB. Native IPC and server reads return at most 64 KiB of image content per response. Upload requests carry at most 8 MiB of decoded content within a 12 MiB HTTP body limit. The receiving server and client validate the content digest, asset ID, format, and decoded limits independently.
 
-The dispatcher admits at most two image imports or reads across IPC sessions. A blocking worker retains its slot after IPC cancellation. Imports check the request deadline between read, decode, resize, encode, and commit stages. Downloads check it between chunks and before cache insertion. Temporary unavailability uses `SafeAfterDelay`; expired requests use the IPC deadline error.
+The dispatcher admits at most two image imports or reads across IPC sessions. A blocking worker retains its slot after IPC cancellation. Imports check the request deadline between read, decode, resize, encode, and commit stages. Downloads check it between chunks and before cache insertion. Media transfer uses the remaining request budget for credential refresh, DNS waits, TCP connection attempts, and every TLS read and write. A busy media driver returns retryable unavailability instead of blocking another image worker; reading the configured scope requires no network lock. System DNS runs with at most two admitted resolvers across the process. An expired caller stops waiting, while its resolver retains admission until the system call exits. Temporary unavailability uses `SafeAfterDelay`; expired requests use the IPC deadline error.
 
 The source path is transient import input. Retry evidence stores its request hash and the resulting reference. It stores neither the path nor image content. Debug output and errors omit paths, decoder messages, image bytes, and base64. Logs must never serialize these request bodies or raw IPC frames.
 
@@ -40,7 +40,7 @@ Replacement imports another asset and saves a new definition revision. Removal s
 
 ## Native workflow and partial failure
 
-The Manager uses **اختيار صورة** in the Product or Furniture editor, then saves the definition. **إزالة الصورة** stages removal. The native shell performs no selected-file reads, database access, authorization, or network transfer. It renders Rust chunks through an in-memory WPF decoder on a worker thread. Late image loads cannot restore a changed editor or an ended session.
+The Manager uses **اختيار صورة** in the Product or Furniture editor, then saves the definition. **إزالة الصورة** stages removal. The native shell performs no selected-file reads, database access, authorization, or network transfer. It renders Rust chunks through an in-memory WPF decoder on a worker thread. Thumbnails and editor previews bound both decoded dimensions, preserve the aspect ratio to integer-pixel precision, and never enlarge the source. Late image loads cannot restore a changed editor or an ended session.
 
 Catalog text and prices load before thumbnails. Each view retains at most 128 decoded thumbnails, keyed by asset ID and digest, and applies cache hits before loading misses with two concurrent workers. Product search waits 250 ms to coalesce typing. Session changes and permission invalidation clear the cache and invalidate outstanding loads. A failed image read leaves those fields available. A server outage does not block local import or definition save. Rust retains upload work across restart and retries in the background. An authenticated exact acknowledgement removes the pending item. Image reads use a local cache first; a cache miss uses the authorized server route and validates bytes before caching them. Cached assets remain readable offline under current local authorization.
 
@@ -64,7 +64,7 @@ If text loads but an image is missing, check the current owning read permission 
 
 ## Verify and extend
 
-Run `cargo test -p eitmad-catalog-image -p eitmad-product -p eitmad-furniture` for synthetic invalid inputs, restart, exact retries, optional attachments, replacement history, scope denial, tampered transfer rejection, and durable outage recovery. Run `CatalogImageRenderedTests` and the affected Product/Furniture shell tests for native rendering and image removal. The available display runs at 125% scaling: captures use 1553.6 × 881.6, 1338.4 × 752.8, and 720 × 560 DIPs. Exact 1920 × 1080 rendering at 100% scaling remains unverified. The existing Windows adapter real-engine scenario imports synthetic assets, removes source files, saves references, and reads them after engine restart.
+Run `cargo test -p eitmad-catalog-image -p eitmad-product -p eitmad-furniture` for synthetic invalid inputs, restart, exact retries, optional attachments, replacement history, scope denial, tampered transfer rejection, and durable outage recovery. Run `cargo test -p eitmad-server-connection --lib` for stalled media and credential-refresh TLS peers, admission recovery, slow-response deadlines, and bounded abandoned DNS work. Run `CatalogImageThumbnailsTests` for portrait, landscape, and small-source decode bounds, cache behavior, and session invalidation. Run `CatalogImageRenderedTests` and the affected Product/Furniture shell tests for native rendering and image removal. The available display runs at 125% scaling: captures use 1553.6 × 881.6, 1338.4 × 752.8, and 720 × 560 DIPs. Exact 1920 × 1080 rendering at 100% scaling remains unverified. The existing Windows adapter real-engine scenario imports synthetic assets, removes source files, saves references, and reads them after engine restart.
 
 `crates/server-connection/tests/direct_route.rs` contains the ignored `catalog_image_transfers_between_authorized_clients_and_survives_restart` test. Use a fresh disposable PostgreSQL database and the trusted development certificate variables documented in [the direct desktop connection test](../../operations/run-server-authority.md#run-the-direct-desktop-connection-test). The test transfers a multi-chunk synthetic image over HTTPS between two authenticated devices, restarts the server, checks the second client's durable offline cache, and rejects foreign-organization and ungranted-principal reads. It also verifies Receptionist Product reads, denied writes, concurrent uploads competing for the final retention slot, and exact retries at the limit. The ignored `legacy_credentials_refresh_identity_before_access_token_expiry` test uses a separate fresh database to verify identity recovery for existing credentials. Production data and personal photographs are not test inputs.
 

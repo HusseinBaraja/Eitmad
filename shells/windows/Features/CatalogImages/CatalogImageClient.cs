@@ -19,9 +19,9 @@ public sealed class CatalogImageClient(IEngineShellBridge engine)
     }
 
     /// <summary>Assembles bounded Rust chunks and decodes a frozen presentation image off the UI thread.</summary>
-    public async Task<ImageSource?> LoadAsync(CatalogImageRef? reference, int decodeWidth, CancellationToken cancellation = default)
+    public async Task<ImageSource?> LoadAsync(CatalogImageRef? reference, int decodeSize, CancellationToken cancellation = default)
     {
-        if (reference is null || !engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityCatalogImageV1)) return null;
+        if (reference is null || decodeSize <= 0 || !engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityCatalogImageV1)) return null;
         try
         {
             using var content = new MemoryStream();
@@ -42,8 +42,14 @@ public sealed class CatalogImageClient(IEngineShellBridge engine)
             return await Task.Run<ImageSource>(() =>
             {
                 using var source = new MemoryStream(data);
+                var frame = BitmapDecoder.Create(source, BitmapCreateOptions.DelayCreation, BitmapCacheOption.None).Frames[0];
+                var scale = Math.Min(1d, decodeSize / (double)Math.Max(frame.PixelWidth, frame.PixelHeight));
+                source.Position = 0;
                 var bitmap = new BitmapImage(); bitmap.BeginInit();
-                bitmap.CacheOption = BitmapCacheOption.OnLoad; bitmap.DecodePixelWidth = decodeWidth;
+                bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                // Both dimensions must be explicit: a width alone can enlarge a narrow portrait.
+                bitmap.DecodePixelWidth = Math.Max(1, (int)Math.Floor(frame.PixelWidth * scale));
+                bitmap.DecodePixelHeight = Math.Max(1, (int)Math.Floor(frame.PixelHeight * scale));
                 bitmap.StreamSource = source; bitmap.EndInit(); bitmap.Freeze();
                 return bitmap;
             }, cancellation);

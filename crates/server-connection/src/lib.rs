@@ -5,9 +5,13 @@ pub use catalog_image::DirectCatalogImageClient;
 
 use std::{
     io::{Read, Write},
-    net::{TcpStream, ToSocketAddrs},
+    net::{SocketAddr, TcpStream, ToSocketAddrs},
     path::Path,
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+        mpsc,
+    },
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
@@ -50,7 +54,87 @@ const MAX_WIRE_BYTES: usize = 1024 * 1024;
 const MAX_AUTH_RESPONSE_BYTES: usize = 16 * 1024;
 const REFRESH_MARGIN_MS: i64 = 30_000;
 
-type TlsStream = StreamOwned<ClientConnection, TcpStream>;
+type TlsStream = StreamOwned<ClientConnection, DeadlineSocket>;
+
+/// Keeps one monotonic budget across all TLS reads and writes, including a slow peer.
+struct DeadlineSocket {
+    socket: TcpStream,
+    deadline: Option<Instant>,
+}
+
+impl DeadlineSocket {
+    fn remaining(&self) -> std::io::Result<Option<Duration>> {
+        self.deadline.map(remaining_io).transpose()
+    }
+}
+
+impl Read for DeadlineSocket {
+    fn read(&mut self, bytes: &mut [u8]) -> std::io::Result<usize> {
+        if let Some(remaining) = self.remaining()? {
+            self.socket
+                .set_read_timeout(Some(remaining.min(IO_TIMEOUT)))?;
+        }
+        self.socket.read(bytes)
+    }
+}
+
+impl Write for DeadlineSocket {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        if let Some(remaining) = self.remaining()? {
+            self.socket
+                .set_write_timeout(Some(remaining.min(IO_TIMEOUT)))?;
+        }
+        self.socket.write(bytes)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.remaining()?;
+        self.socket.flush()
+    }
+}
+
+fn remaining_io(deadline: Instant) -> std::io::Result<Duration> {
+    deadline
+        .checked_duration_since(Instant::now())
+        .filter(|value| !value.is_zero())
+        .ok_or_else(|| std::io::Error::from(std::io::ErrorKind::TimedOut))
+}
+
+// System DNS cannot be canceled. Retain admission until it exits, while callers
+// stop waiting at their own deadline. Never accumulate detached resolver work.
+static DNS_WORKERS: AtomicUsize = AtomicUsize::new(0);
+struct DnsAdmission;
+impl Drop for DnsAdmission {
+    fn drop(&mut self) {
+        DNS_WORKERS.fetch_sub(1, Ordering::AcqRel);
+    }
+}
+
+fn resolve_before(
+    resolve: impl FnOnce() -> std::io::Result<Vec<SocketAddr>> + Send + 'static,
+    deadline: Instant,
+) -> Result<Vec<SocketAddr>, TransportFailure> {
+    remaining_io(deadline).map_err(|_| unavailable(FailurePhase::Connect))?;
+    DNS_WORKERS
+        .fetch_update(Ordering::AcqRel, Ordering::Acquire, |count| {
+            (count < 2).then_some(count + 1)
+        })
+        .map_err(|_| unavailable(FailurePhase::Connect))?;
+    let admission = DnsAdmission;
+    let (sender, receiver) = mpsc::sync_channel(1);
+    std::thread::Builder::new()
+        .name("eitmad-dns".into())
+        .spawn(move || {
+            let _admission = admission;
+            let result = resolve();
+            let _ = sender.send(result);
+        })
+        .map_err(|_| unavailable(FailurePhase::Connect))?;
+    receiver
+        .recv_timeout(remaining_io(deadline).map_err(|_| unavailable(FailurePhase::Connect))?)
+        .map_err(|_| unavailable(FailurePhase::Connect))?
+        .map_err(|_| unavailable(FailurePhase::Connect))
+}
 
 /// TLS trust and one scoped server sync route. The PEM file is an explicit trust anchor.
 pub struct DirectServerConfig {
@@ -236,6 +320,7 @@ impl DirectServerDriver {
         &self,
         id: &SecretId,
         credential: &mut StoredCredential,
+        deadline: Instant,
     ) -> Result<(), TransportFailure> {
         let now = unix_millis_now();
         if credential.user_id.is_some()
@@ -255,7 +340,7 @@ impl DirectServerDriver {
         let body =
             Zeroizing::new(serde_json::to_vec(&request).map_err(|_| authentication_failure())?);
         request.refresh_token.zeroize();
-        let result = self.post_refresh(&body).inspect_err(|failure| {
+        let result = self.post_refresh(&body, deadline).inspect_err(|failure| {
             if failure.kind == TransportFailureKind::AuthenticationFailed {
                 let _ = self.store.delete(id);
             }
@@ -290,9 +375,13 @@ impl DirectServerDriver {
         })
     }
 
-    fn post_refresh(&self, body: &[u8]) -> Result<AuthenticationResult, TransportFailure> {
+    fn post_refresh(
+        &self,
+        body: &[u8],
+        deadline: Instant,
+    ) -> Result<AuthenticationResult, TransportFailure> {
         let url = self.config.refresh_url();
-        let mut stream = connect_tls(&url, &self.config.tls)?;
+        let mut stream = connect_tls(&url, &self.config.tls, deadline)?;
         let host = host_header(&url)?;
         let header = format!(
             "POST /v1/auth/refresh HTTP/1.1\r\nHost: {host}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
@@ -327,7 +416,11 @@ impl DirectServerDriver {
         credential: &StoredCredential,
     ) -> Result<PeerHello, TransportFailure> {
         let url = self.config.websocket_url();
-        let stream = connect_tls(&url, &self.config.tls)?;
+        let stream = connect_tls(
+            &url,
+            &self.config.tls,
+            Instant::now() + CONNECT_TIMEOUT + IO_TIMEOUT,
+        )?;
         let proof = URL_SAFE_NO_PAD.encode(
             serde_json::to_vec(&device_proof(credential)).map_err(|_| authentication_failure())?,
         );
@@ -380,8 +473,11 @@ impl DirectServerDriver {
         socket
             .get_mut()
             .sock
+            .socket
             .set_read_timeout(Some(POLL_TIMEOUT))
             .map_err(|_| unavailable(FailurePhase::Connect))?;
+        // The established subscription has its own polling/cancellation lifecycle.
+        socket.get_mut().sock.deadline = None;
         self.socket = Some(socket);
         Ok(remote_hello)
     }
@@ -409,7 +505,11 @@ impl ConnectionDriver for DirectServerDriver {
         if credential.account_id != account_id || credential.device_id != device_id {
             return Err(authentication_failure());
         }
-        self.refresh_if_due(id, &mut credential)?;
+        self.refresh_if_due(
+            id,
+            &mut credential,
+            Instant::now() + CONNECT_TIMEOUT + IO_TIMEOUT,
+        )?;
         let start = Instant::now();
         let remote_hello = self.open_socket(&credential).inspect_err(|failure| {
             if failure.kind == TransportFailureKind::AuthenticationFailed {
@@ -587,15 +687,31 @@ fn device_proof(credential: &StoredCredential) -> DeviceProof {
     }
 }
 
-fn connect_tls(url: &Url, config: &Arc<ClientConfig>) -> Result<TlsStream, TransportFailure> {
+fn connect_tls(
+    url: &Url,
+    config: &Arc<ClientConfig>,
+    deadline: Instant,
+) -> Result<TlsStream, TransportFailure> {
     let host = url.host_str().ok_or_else(encryption_failure)?;
     let port = url.port_or_known_default().ok_or_else(encryption_failure)?;
-    let addresses = (host, port)
-        .to_socket_addrs()
-        .map_err(|_| unavailable(FailurePhase::Connect))?;
-    let mut last_error = None;
+    let addresses = match url.host().ok_or_else(encryption_failure)? {
+        url::Host::Ipv4(ip) => vec![SocketAddr::new(ip.into(), port)],
+        url::Host::Ipv6(ip) => vec![SocketAddr::new(ip.into(), port)],
+        url::Host::Domain(host) => {
+            let host = host.to_owned();
+            resolve_before(
+                move || {
+                    (host.as_str(), port)
+                        .to_socket_addrs()
+                        .map(|addresses| addresses.take(16).collect())
+                },
+                deadline,
+            )?
+        }
+    };
     for address in addresses {
-        match TcpStream::connect_timeout(&address, CONNECT_TIMEOUT) {
+        let timeout = remaining_io(deadline).map_err(|_| unavailable(FailurePhase::Connect))?;
+        match TcpStream::connect_timeout(&address, timeout.min(CONNECT_TIMEOUT)) {
             Ok(stream) => {
                 stream
                     .set_read_timeout(Some(IO_TIMEOUT))
@@ -605,7 +721,10 @@ fn connect_tls(url: &Url, config: &Arc<ClientConfig>) -> Result<TlsStream, Trans
                     ServerName::try_from(host.to_owned()).map_err(|_| encryption_failure())?;
                 let mut connection = ClientConnection::new(Arc::clone(config), name)
                     .map_err(|_| encryption_failure())?;
-                let mut stream = stream;
+                let mut stream = DeadlineSocket {
+                    socket: stream,
+                    deadline: Some(deadline),
+                };
                 connection.complete_io(&mut stream).map_err(|error| {
                     if error
                         .get_ref()
@@ -616,12 +735,12 @@ fn connect_tls(url: &Url, config: &Arc<ClientConfig>) -> Result<TlsStream, Trans
                         unavailable(FailurePhase::Connect)
                     }
                 })?;
+                remaining_io(deadline).map_err(|_| unavailable(FailurePhase::Connect))?;
                 return Ok(StreamOwned::new(connection, stream));
             }
-            Err(error) => last_error = Some(error),
+            Err(_) => continue,
         }
     }
-    let _ = last_error;
     Err(unavailable(FailurePhase::Connect))
 }
 
@@ -788,6 +907,79 @@ fn unavailable(phase: FailurePhase) -> TransportFailure {
 mod tests {
     use super::*;
     use eitmad_contracts::{server::ServerErrorCode, transport::CorrelationId};
+
+    #[test]
+    fn expired_dns_waits_retain_bounded_resolver_admission() {
+        let mut releases = Vec::new();
+        for _ in 0..2 {
+            let (release, wait) = mpsc::channel();
+            releases.push(release);
+            let result = resolve_before(
+                move || {
+                    let _ = wait.recv_timeout(Duration::from_secs(3));
+                    Ok(vec![])
+                },
+                Instant::now() + Duration::from_millis(50),
+            );
+            assert_eq!(
+                result.unwrap_err().kind,
+                TransportFailureKind::ServerUnavailable
+            );
+        }
+        let result = resolve_before(
+            || panic!("No additional DNS work may start"),
+            Instant::now() + Duration::from_secs(1),
+        );
+        assert_eq!(
+            result.unwrap_err().kind,
+            TransportFailureKind::ServerUnavailable
+        );
+        for release in releases {
+            release.send(()).unwrap();
+        }
+        let end = Instant::now() + Duration::from_secs(2);
+        while DNS_WORKERS.load(Ordering::Acquire) != 0 {
+            assert!(Instant::now() < end, "Resolver admission did not recover");
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert!(
+            !resolve_before(
+                || Ok(vec!["127.0.0.1:443".parse().unwrap()]),
+                Instant::now() + Duration::from_secs(1)
+            )
+            .unwrap()
+            .is_empty()
+        );
+    }
+
+    #[test]
+    fn repeated_socket_reads_cannot_extend_the_total_deadline() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let socket = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (mut peer, _) = listener.accept().unwrap();
+        let sender = std::thread::spawn(move || {
+            for _ in 0..50 {
+                if peer.write_all(&[0]).is_err() {
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(20));
+            }
+        });
+        let start = Instant::now();
+        let mut socket = DeadlineSocket {
+            socket,
+            deadline: Some(start + Duration::from_millis(120)),
+        };
+        let mut bytes = Vec::new();
+        assert!(socket.read_to_end(&mut bytes).is_err());
+        assert!(
+            !bytes.is_empty(),
+            "The peer must make progress before the deadline"
+        );
+        assert!(start.elapsed() < Duration::from_millis(750));
+        drop(socket);
+        sender.join().unwrap();
+    }
 
     #[test]
     fn legacy_credential_loads_without_granting_an_image_identity() {
