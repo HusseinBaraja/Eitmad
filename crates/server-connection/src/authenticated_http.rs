@@ -47,6 +47,7 @@ impl AuthenticatedHttpClient {
         secrets: eitmad_secret_storage::SecretStore,
         credential_id: SecretId,
         capability: &str,
+        minimum_minor: u16,
     ) -> Self {
         use eitmad_contracts::{
             transport::CapabilityId,
@@ -58,8 +59,8 @@ impl AuthenticatedHttpClient {
             product_version: ReleaseVersion::new(semver::Version::new(0, 0, 0)),
             protocols: vec![SupportedProtocol {
                 major: 1,
-                minimum_minor: 15,
-                maximum_minor: 15,
+                minimum_minor,
+                maximum_minor: minimum_minor,
             }],
             capabilities: eitmad_contracts::catalog::CAPABILITIES
                 .iter()

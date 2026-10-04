@@ -804,20 +804,7 @@ fn bounded_variant_pages_and_cache_first_retry_complete_without_duplicate_revisi
         .unwrap();
     assert_eq!(second.items.len(), 1);
     assert_ne!(first.items[0].target, second.items[0].target);
-    assert!(
-        service
-            .list(
-                &manager,
-                &ListPrices {
-                    after: second.next,
-                    limit: 1,
-                    ..prices()
-                }
-            )
-            .unwrap()
-            .items
-            .is_empty()
-    );
+    assert!(second.next.is_none());
     let input = publish_input(target(&saved));
     // Simulate a lost response after the server commit, then a cache refresh before retry.
     let hash: [u8; 32] =
@@ -865,6 +852,73 @@ fn bounded_variant_pages_and_cache_first_retry_complete_without_duplicate_revisi
     assert_eq!(count, 1);
     let audits: u32 = db.query_row("SELECT COUNT(*) FROM mutation_audit WHERE operation='eitmad.pricing.publish.v1' AND resulting_revision=1", [], |r| r.get(0)).unwrap();
     assert_eq!(audits, 1);
+}
+
+#[test]
+fn variant_pages_fill_across_definitions_and_filtered_batches_without_gaps() {
+    let dir = TempDir::new().unwrap();
+    let (store, products, manager, _) = setup(&dir);
+    let mut input = fixture(&products, &manager);
+    let mut expected = Vec::new();
+    for index in 0..12 {
+        input.name = if index < 9 {
+            "مصباح"
+        } else {
+            "مرتبة"
+        }
+        .into();
+        for (variant_index, variant) in input.variants.iter_mut().enumerate() {
+            variant.id = ProductVariantId::new(Uuid::from_u128(
+                2000 + index * 2 + u128::try_from(variant_index).unwrap(),
+            ));
+        }
+        let saved = products
+            .save(&mutation(manager.clone(), 20 + index), &input)
+            .unwrap();
+        if index >= 9 {
+            for variant in &saved.variants {
+                expected.push(PriceTarget::Product(ProductReference {
+                    variant_id: variant.id,
+                    ..match target(&saved) {
+                        PriceTarget::Product(reference) => reference,
+                        PriceTarget::Furniture(_) => unreachable!(),
+                    }
+                }));
+            }
+        }
+    }
+    expected.sort_by_key(PriceTarget::identity);
+    let service = PricingService::new(store.clone(), AuthorizationService::new(store));
+    let first = service.list(&manager, &prices()).unwrap();
+    assert_eq!(first.items.len(), 24);
+    assert!(first.next.is_none());
+
+    let query = ListPrices {
+        term: "مرتبة".into(),
+        limit: 4,
+        ..prices()
+    };
+    let first = service.list(&manager, &query).unwrap();
+    assert_eq!(first.items.len(), 4);
+    assert!(first.next.is_some());
+    let second = service
+        .list(
+            &manager,
+            &ListPrices {
+                after: first.next,
+                ..query
+            },
+        )
+        .unwrap();
+    assert_eq!(second.items.len(), 2);
+    assert!(second.next.is_none());
+    let actual: Vec<_> = first
+        .items
+        .into_iter()
+        .chain(second.items)
+        .map(|p| p.target)
+        .collect();
+    assert_eq!(actual, expected);
 }
 
 #[test]

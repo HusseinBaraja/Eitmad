@@ -218,7 +218,7 @@ impl PricingService {
         let can_manage = self.allowed(actor, PRICING_WRITE_PERMISSION)?;
         let costs = self.allowed(actor, PRICING_COST_READ_PERMISSION)?;
         self.store.transact_pricing(false, |tx| {
-            // A definition page is bounded, including its variant continuation.
+            // Fill the variant page across bounded definition batches, including filtered gaps.
             let after = input.after.as_deref().unwrap_or("");
             let catalog_after = if after.matches(':').count() == 2 {
                 after
@@ -229,25 +229,43 @@ impl PricingService {
             } else {
                 format!("{after}~")
             };
-            let ids = tx.catalog_ids(&actor.scope, &catalog_after, 1)?;
-            let mut next = ids.last().map(|(kind, id)| format!("{kind}:{id}"));
+            let batch_limit = input.limit + 1;
+            let mut cursor = catalog_after;
             let mut items = Vec::new();
-            for (kind, id) in ids {
-                items.extend(list_definition(
-                    tx,
-                    &actor.scope,
-                    &kind,
-                    id,
-                    (can_manage, costs),
-                    &input.term,
-                )?);
+            loop {
+                let ids = tx.catalog_ids(&actor.scope, &cursor, batch_limit)?;
+                if ids.is_empty() {
+                    break;
+                }
+                for (kind, id) in &ids {
+                    let mut variants = list_definition(
+                        tx,
+                        &actor.scope,
+                        kind,
+                        *id,
+                        (can_manage, costs),
+                        &input.term,
+                    )?;
+                    variants.retain(|item| item_cursor(&item.target).as_str() > after);
+                    items.extend(variants);
+                    if items.len() > input.limit as usize {
+                        break;
+                    }
+                }
+                if items.len() > input.limit as usize || ids.len() < batch_limit as usize {
+                    break;
+                }
+                if let Some((kind, id)) = ids.last() {
+                    cursor = format!("{kind}:{id}~");
+                }
             }
             items.sort_by_key(|item| item_cursor(&item.target));
-            items.retain(|item| item_cursor(&item.target).as_str() > after);
-            if items.len() > input.limit as usize {
+            let next = if items.len() > input.limit as usize {
                 items.truncate(input.limit as usize);
-                next = items.last().map(|item| item_cursor(&item.target));
-            }
+                items.last().map(|item| item_cursor(&item.target))
+            } else {
+                None
+            };
             Ok(PricePage {
                 server_available: false,
                 items,

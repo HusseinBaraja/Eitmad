@@ -169,7 +169,14 @@ impl ProductDispatcher {
                             ),
                             occurred_at: now(),
                         };
-                        match pricing.refresh(&context, deadline) {
+                        // Bound remote refresh and reserve time for local confirmed-cache reads.
+                        let refresh_deadline = eitmad_contracts::transport::UnixMillis(
+                            deadline
+                                .0
+                                .saturating_sub(1_000)
+                                .min(now().0.saturating_add(2_000)),
+                        );
+                        match pricing.refresh(&context, refresh_deadline) {
                             Ok(()) => server_available = true,
                             Err(eitmad_pricing::PricingError::Unconfirmed) => (),
                             Err(e) => return Err(e),
@@ -2305,6 +2312,91 @@ mod tests {
             })
         }
     }
+    struct SlowPriceServer;
+    impl eitmad_pricing::PriceConfirmation for SlowPriceServer {
+        fn read(
+            &self,
+            _: &AuthorizationContext,
+            _: &eitmad_contracts::pricing::ReadPublishedPrices,
+            deadline: UnixMillis,
+        ) -> Result<eitmad_contracts::pricing::PublishedPricePage, eitmad_pricing::PricingError>
+        {
+            let remaining = u64::try_from(deadline.0.saturating_sub(now().0)).unwrap_or(0);
+            std::thread::sleep(std::time::Duration::from_millis(remaining));
+            Err(eitmad_pricing::PricingError::Unconfirmed)
+        }
+        fn status(
+            &self,
+            actor: &AuthorizationContext,
+            input: &eitmad_contracts::pricing::ConfirmPrice,
+            deadline: UnixMillis,
+        ) -> Result<Option<eitmad_contracts::pricing::PublishedPrice>, eitmad_pricing::PricingError>
+        {
+            eitmad_pricing::PriceConfirmation::status(&TestPriceServer, actor, input, deadline)
+        }
+        fn confirm(
+            &self,
+            actor: &AuthorizationContext,
+            input: &eitmad_contracts::pricing::ConfirmPrice,
+            deadline: UnixMillis,
+        ) -> Result<eitmad_contracts::pricing::PublishedPrice, eitmad_pricing::PricingError>
+        {
+            eitmad_pricing::PriceConfirmation::confirm(&TestPriceServer, actor, input, deadline)
+        }
+    }
+
+    #[tokio::test]
+    async fn pricing_slow_refresh_returns_confirmed_cache_before_query_deadline() {
+        use eitmad_contracts::pricing::{ListPrices, PublishPrice};
+        let (_directory, dispatcher, _) = dispatcher();
+        grant_material_roles(&dispatcher);
+        let dispatcher = dispatcher.with_price_confirmation(Arc::new(TestPriceServer));
+        let target = pricing_fixture(&dispatcher).await;
+        dispatcher
+            .dispatch_command(
+                material_actor(720, 3),
+                Command::PublishPrice(PublishPrice {
+                    target: target.clone(),
+                    expected_revision: None,
+                    selling_price_yer: 70000,
+                    confirm_below_cost: false,
+                }),
+            )
+            .await
+            .unwrap();
+        let dispatcher = dispatcher.with_price_confirmation(Arc::new(SlowPriceServer));
+        for budget in [1_300, 30_000] {
+            let mut context = material_actor(721, 4);
+            context.deadline = UnixMillis(now().0 + budget);
+            let timeout =
+                std::time::Duration::from_millis(u64::try_from(budget.min(3_000)).unwrap());
+            let result = tokio::time::timeout(
+                timeout,
+                dispatcher.dispatch_query(
+                    context,
+                    Query::Prices(ListPrices {
+                        term: String::new(),
+                        after: None,
+                        limit: 100,
+                    }),
+                ),
+            )
+            .await
+            .expect("Refresh must leave time for the confirmed-cache response")
+            .unwrap();
+            let QueryResult::Prices(page) = result else {
+                panic!("prices")
+            };
+            assert!(!page.server_available);
+            assert_eq!(page.items.len(), 1);
+            assert_eq!(page.items[0].target, target);
+            assert_eq!(
+                page.items[0].published.as_ref().unwrap().selling_price_yer,
+                70000
+            );
+        }
+    }
+
     async fn pricing_fixture(
         dispatcher: &ProductDispatcher,
     ) -> eitmad_contracts::pricing::PriceTarget {

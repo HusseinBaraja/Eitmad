@@ -13,6 +13,94 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 public sealed class PricingRenderedTests
 {
     [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void UnexpectedPublicationFailureKeepsExactRetryAndIgnoresEndedSession(bool endSession)
+    {
+        var engine = new FakeEngine();
+        engine.QueryHandler = query => new QueryResponseEnvelope { Outcome = new QueryOutcome { Status = CommandOutcomeStatus.Succeeded,
+            Payload = query.AsPricingList() is not null ? QueryResult.ForPrices(PricingPresentationTests.Data()) : QueryResult.ForPriceReview(new PriceReview { CostYer = 160_000, MarginYer = 40_000 }) } };
+        WpfTestHost.Run(1338, 753, window =>
+        {
+            WpfTestHost.FindByName<Button>(window, "PricingNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var view = WpfTestHost.Descendants<PricingView>(window).Single();
+            WpfTestHost.FindByAutomationName<Button>(view, "تعديل سعر البيع").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.PumpDispatcher();
+            engine.CommandHandler = _ =>
+            {
+                if (endSession) view.ClearSession();
+                throw new System.Text.Json.JsonException("Synthetic malformed reply");
+            };
+            var save = WpfTestHost.FindByAutomationName<Button>(view, "حفظ سعر البيع");
+            save.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.PumpDispatcher();
+            Assert.IsFalse(view.ViewModel.IsBusy);
+            if (endSession)
+            {
+                Assert.IsFalse(view.ViewModel.SavePending);
+                Assert.IsFalse(view.ViewModel.IsEditorOpen);
+                Assert.IsFalse(view.ViewModel.HasEditorError);
+                return;
+            }
+            Assert.IsTrue(view.ViewModel.SavePending);
+            Assert.IsTrue(view.ViewModel.IsEditorOpen);
+            Assert.IsFalse(view.ViewModel.CanEdit);
+            Assert.IsTrue(view.ViewModel.CanSave);
+            Assert.AreEqual(PricingClient.ArabicMessage(PricingFailure.Unconfirmed), view.ViewModel.EditorError);
+            var originalKey = engine.LastIdempotencyKey;
+            engine.CommandHandler = command =>
+            {
+                var input = command.AsPricingPublish()!;
+                Assert.AreEqual(200_000L, input.SellingPriceYer);
+                return new CommandResponseEnvelope { Outcome = new CommandOutcome { Status = CommandOutcomeStatus.Succeeded,
+                    Payload = CommandResult.ForPricePublished(new PublishedPrice { Target = input.Target, Currency = "YER", Revision = 2, SellingPriceYer = input.SellingPriceYer, Colors = [], Handles = [] }) } };
+            };
+            save.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(view);
+            Assert.AreEqual(originalKey, engine.LastIdempotencyKey);
+            Assert.IsFalse(view.ViewModel.SavePending);
+            Assert.IsFalse(view.ViewModel.IsEditorOpen);
+        }, engine: engine);
+    }
+
+    [TestMethod]
+    public void ConfirmedPublicationWithFailedReloadDoesNotBecomeAnUnconfirmedRetry()
+    {
+        var engine = new FakeEngine();
+        var published = false;
+        engine.QueryHandler = query =>
+        {
+            if (published && query.AsPricingList() is not null) throw new System.Text.Json.JsonException("Synthetic malformed list");
+            return new QueryResponseEnvelope { Outcome = new QueryOutcome { Status = CommandOutcomeStatus.Succeeded,
+                Payload = query.AsPricingList() is not null ? QueryResult.ForPrices(PricingPresentationTests.Data()) : QueryResult.ForPriceReview(new PriceReview { CostYer = 160_000, MarginYer = 40_000 }) } };
+        };
+        engine.CommandHandler = command =>
+        {
+            published = true;
+            var input = command.AsPricingPublish()!;
+            return new CommandResponseEnvelope { Outcome = new CommandOutcome { Status = CommandOutcomeStatus.Succeeded,
+                Payload = CommandResult.ForPricePublished(new PublishedPrice { Target = input.Target, Currency = "YER", Revision = 2, SellingPriceYer = input.SellingPriceYer, Colors = [], Handles = [] }) } };
+        };
+        WpfTestHost.Run(1338, 753, window =>
+        {
+            WpfTestHost.FindByName<Button>(window, "PricingNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var view = WpfTestHost.Descendants<PricingView>(window).Single();
+            WpfTestHost.FindByAutomationName<Button>(view, "تعديل سعر البيع").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.PumpDispatcher();
+            WpfTestHost.FindByAutomationName<Button>(view, "حفظ سعر البيع").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(view);
+            Assert.IsTrue(published);
+            Assert.IsFalse(view.ViewModel.IsBusy);
+            Assert.IsFalse(view.ViewModel.SavePending);
+            Assert.IsFalse(view.ViewModel.IsEditorOpen);
+            Assert.IsEmpty(view.ViewModel.VisiblePrices);
+            StringAssert.Contains(view.ViewModel.AvailabilityMessage, "تعذر تحميل الأسعار");
+        }, engine: engine);
+    }
+
+    [TestMethod]
     [DataRow(1920, 1080)]
     [DataRow(1338, 753)]
     [DataRow(720, 560)]

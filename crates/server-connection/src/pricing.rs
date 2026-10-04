@@ -27,6 +27,7 @@ impl DirectPriceClient {
                 secrets,
                 credential,
                 "eitmad.capability.pricing.v1",
+                15,
             ),
         }
     }
@@ -40,17 +41,7 @@ impl PriceConfirmation for DirectPriceClient {
     ) -> Result<eitmad_contracts::pricing::PublishedPricePage, PricingError> {
         let mut request = input.clone();
         request.scope = self.http.remote_scope();
-        let remaining = deadline
-            .0
-            .checked_sub(now().0)
-            .filter(|v| *v > 0)
-            .ok_or(PricingError::Unconfirmed)?;
-        let budget = Instant::now()
-            + Duration::from_millis(
-                u64::try_from(remaining)
-                    .map_err(|_| PricingError::Unconfirmed)?
-                    .min(10_000),
-            );
+        let budget = request_budget(deadline)?;
         let mut page: eitmad_contracts::pricing::PublishedPricePage = self
             .http
             .request(actor, "/v1/pricing/read", &request, budget)
@@ -80,17 +71,7 @@ impl PriceConfirmation for DirectPriceClient {
             PriceTarget::Product(r) => r.scope = self.http.remote_scope(),
             PriceTarget::Furniture(r) => r.scope = self.http.remote_scope(),
         }
-        let remaining = deadline
-            .0
-            .checked_sub(now().0)
-            .filter(|v| *v > 0)
-            .ok_or(PricingError::Unconfirmed)?;
-        let budget = Instant::now()
-            + Duration::from_millis(
-                u64::try_from(remaining)
-                    .map_err(|_| PricingError::Unconfirmed)?
-                    .min(10_000),
-            );
+        let budget = request_budget(deadline)?;
         let mut result: Option<PublishedPrice> = self
             .http
             .request(actor, "/v1/pricing/status", &request, budget)
@@ -114,17 +95,7 @@ impl PriceConfirmation for DirectPriceClient {
         deadline: UnixMillis,
     ) -> Result<PublishedPrice, PricingError> {
         eitmad_pricing::validate_publication(input)?;
-        let remaining = deadline
-            .0
-            .checked_sub(now().0)
-            .filter(|v| *v > 0)
-            .ok_or(PricingError::Unconfirmed)?;
-        let budget = Instant::now()
-            + Duration::from_millis(
-                u64::try_from(remaining)
-                    .map_err(|_| PricingError::Unconfirmed)?
-                    .min(10_000),
-            );
+        let budget = request_budget(deadline)?;
         let mut request = input.clone();
         let scope = self.http.remote_scope();
         match &mut request.command.target {
@@ -150,6 +121,18 @@ impl PriceConfirmation for DirectPriceClient {
         Ok(result)
     }
 }
+fn request_budget(deadline: UnixMillis) -> Result<Instant, PricingError> {
+    let remaining = deadline
+        .0
+        .checked_sub(now().0)
+        .filter(|v| *v > 0)
+        .ok_or(PricingError::Unconfirmed)?;
+    let millis = u64::try_from(remaining)
+        .map_err(|_| PricingError::Unconfirmed)?
+        .min(10_000);
+    Ok(Instant::now() + Duration::from_millis(millis))
+}
+
 fn now() -> UnixMillis {
     UnixMillis(
         i64::try_from(

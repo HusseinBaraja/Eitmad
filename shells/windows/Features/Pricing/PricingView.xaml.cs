@@ -67,6 +67,13 @@ public partial class PricingView : UserControl
             UpdateColumns();
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
+        catch (Exception)
+        {
+            if (version != refreshVersion || !activated) return;
+            ClearProjection();
+            ViewModel.Unavailable("تعذر تحميل الأسعار. أعد تحميلها للمحاولة مجدداً.");
+            UpdateColumns();
+        }
     }
     private void UpdateColumns()
     {
@@ -111,8 +118,15 @@ public partial class PricingView : UserControl
             if (!activated || session != sessionVersion) return;
             ViewModel.SavePending = result.Failure == PricingFailure.Unconfirmed;
             if (result.Succeeded) { ViewModel.Saved(); await RefreshAsync(); Feedback.RestartDuration(); }
-            else if (result.Failure == PricingFailure.Denied) { ClearProjection(); _ = RefreshAsync(); }
+            else if (result.Failure == PricingFailure.Denied) { ClearProjection(); await RefreshAsync(); }
             else { ViewModel.Fail(PricingClient.ArabicMessage(result.Failure)); PriceInput.Focus(); }
+        }
+        catch (Exception)
+        {
+            // Consume late failures as well; only the current session can show retry state.
+            if (!activated || session != sessionVersion) return;
+            ViewModel.SavePending = true;
+            ViewModel.Fail(PricingClient.ArabicMessage(PricingFailure.Unconfirmed));
         }
         finally { if (session == sessionVersion) ViewModel.IsBusy = false; }
     }

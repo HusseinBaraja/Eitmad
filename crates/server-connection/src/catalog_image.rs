@@ -35,6 +35,7 @@ impl DirectCatalogImageClient {
                 secrets,
                 credential_id,
                 "eitmad.capability.catalog-image.v1",
+                14,
             ),
         }
     }
@@ -190,6 +191,52 @@ mod tests {
             ),
         };
         Arc::new(DirectCatalogImageClient::from_config(config, store, id))
+    }
+
+    #[test]
+    fn catalog_image_hello_negotiates_with_a_minor_14_server() {
+        use eitmad_contracts::versioning::{
+            NegotiationOutcome, PeerKind, SupportedProtocol, negotiate,
+        };
+        let _ = rustls::crypto::ring::default_provider().install_default();
+        let directory = tempfile::TempDir::new().unwrap();
+        let store =
+            SecretStore::open(directory.path(), Some(FallbackEncryptionKey::new([7; 32]))).unwrap();
+        let id = SecretId::new(
+            SecretKind::parse("image-protocol-test").unwrap(),
+            SecretReferenceId::new(Uuid::new_v4()),
+        );
+        let scope = ScopeRef {
+            kind: ScopeKind::parse("organization").unwrap(),
+            id: ScopeId::new(Uuid::new_v4()),
+        };
+        let client = test_client(
+            url::Url::parse("https://127.0.0.1:8443/").unwrap(),
+            scope,
+            store,
+            id,
+        );
+        let hello = client.http.driver.lock().unwrap().local_hello.clone();
+        let mut server = hello.clone();
+        server.peer_kind = PeerKind::Server;
+        server.protocols = vec![SupportedProtocol {
+            major: 1,
+            minimum_minor: 14,
+            maximum_minor: 14,
+        }];
+        let NegotiationOutcome::Accepted(session) = negotiate(&server, &hello) else {
+            panic!("Catalog images must negotiate their declared protocol");
+        };
+        assert!(
+            session
+                .capabilities
+                .contains(&hello.required_capabilities[0])
+        );
+        server.capabilities.clear();
+        assert!(matches!(
+            negotiate(&server, &hello),
+            NegotiationOutcome::Rejected(_)
+        ));
     }
 
     #[test]
