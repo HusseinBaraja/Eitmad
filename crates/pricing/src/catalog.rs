@@ -12,12 +12,16 @@ type RevisionKey = (&'static str, Uuid, u64);
 
 /// Lists stored dependencies; revision zero denotes the current category.
 /// # Errors
-/// Rejects unbounded dependency collections before database work.
+/// Rejects unbounded collections and zero Part revisions before database work.
 pub fn catalog_dependencies(record: &CatalogRevision) -> Result<Vec<RevisionKey>, PricingError> {
     if matches!(record, CatalogRevision::Part(p) if p.cost.rows.is_empty() || p.cost.rows.len() > 100)
         || matches!(record, CatalogRevision::Furniture(f) if f.parts.len() > 100)
     {
         return Err(PricingError::Invalid);
+    }
+    if matches!(record, CatalogRevision::Furniture(f) if f.parts.iter().any(|p| p.reference.revision == 0))
+    {
+        return Err(PricingError::Reference);
     }
     Ok(match record {
         CatalogRevision::Part(p) => p
@@ -313,6 +317,13 @@ fn validate_furniture(
         else {
             return Err(PricingError::Reference);
         };
+        if part.id != r.part_id
+            || part.revision != r.revision
+            || part.scope != r.scope
+            || part.composition != *r
+        {
+            return Err(PricingError::Reference);
+        }
         total = total
             .checked_add(
                 part.cost

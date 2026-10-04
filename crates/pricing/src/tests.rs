@@ -946,6 +946,64 @@ fn server_catalog_recalculates_part_and_furniture_costs_and_rejects_foreign_depe
     }
 }
 
+/// Rejects latest-Part aliases and mismatched identities in immutable Furniture dependencies.
+#[test]
+fn server_catalog_requires_exact_furniture_part_references() {
+    use eitmad_contracts::catalog_revision::CatalogRevision;
+    use eitmad_contracts::part::PartId;
+    let dir = TempDir::new().unwrap();
+    let (store, _, manager, _) = setup(&dir);
+    let furniture = FurnitureService::new(store.clone(), AuthorizationService::new(store.clone()));
+    let draft = furniture_fixture(&store, &furniture, &manager);
+    let saved = furniture
+        .save(&mutation(manager.clone(), 22), &draft)
+        .unwrap();
+    let service = PricingService::new(store.clone(), AuthorizationService::new(store));
+    let target = PriceTarget::Furniture(FurnitureReference {
+        scope: saved.scope.clone(),
+        furniture_id: saved.id,
+        variant_id: saved.variants[0].id,
+        revision: saved.revision,
+        schema_version: 1,
+    });
+    let mut known = std::collections::BTreeMap::new();
+    for record in service.catalog_revisions(&target).unwrap() {
+        validate_catalog_revision(&record, &known).unwrap();
+        let (kind, id, revision, _) = record.identity();
+        known.insert((kind, id, revision), record.clone());
+        known.insert((kind, id, 0), record);
+    }
+    let mut altered = saved.clone();
+    altered.parts[0].reference.revision = 0;
+    let record = CatalogRevision::Furniture(Box::new(altered));
+    assert_eq!(
+        validate_catalog_revision(&record, &known),
+        Err(PricingError::Reference)
+    );
+    assert_eq!(catalog_dependencies(&record), Err(PricingError::Reference));
+
+    let reference = &saved.parts[0].reference;
+    let key = ("part", reference.part_id.value(), reference.revision);
+    let CatalogRevision::Part(part) = known.get(&key).unwrap() else {
+        panic!("fixture must contain the referenced Part");
+    };
+    let part = part.clone();
+    for mismatch in 0..4 {
+        let mut altered = part.clone();
+        match mismatch {
+            0 => altered.id = PartId::new(Uuid::from_u128(999)),
+            1 => altered.revision += 1,
+            2 => altered.scope.id = ScopeId::new(Uuid::from_u128(999)),
+            _ => altered.composition.revision += 1,
+        }
+        known.insert(key, CatalogRevision::Part(altered));
+        assert_eq!(
+            validate_catalog_revision(&CatalogRevision::Furniture(Box::new(saved.clone())), &known),
+            Err(PricingError::Reference)
+        );
+    }
+}
+
 /// Checks bounded price pages and recovery from a lost confirmation without another publication.
 #[test]
 fn bounded_variant_pages_and_cache_first_retry_complete_without_duplicate_revisions() {
