@@ -12,6 +12,7 @@ pub mod administration;
 pub mod authorization;
 pub mod catalog;
 pub mod catalog_image;
+pub mod catalog_revision;
 pub mod commands;
 pub mod config;
 pub mod customer;

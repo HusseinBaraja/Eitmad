@@ -9,7 +9,7 @@ public static class ProtocolIds
     public static class Version
     {
         public const long Major = 1;
-        public const long Minor = 15;
+        public const long Minor = 16;
     }
 
     public static class IpcMessages
@@ -144,6 +144,7 @@ public static class ProtocolIds
 
     public static class Capabilities
     {
+        public const string EitmadCapabilityCatalogRevisionsV1 = "eitmad.capability.catalog-revisions.v1";
         public const string EitmadCapabilityPricingV1 = "eitmad.capability.pricing.v1";
         public const string EitmadCapabilityEngineLifecycleV1 = "eitmad.capability.engine-lifecycle.v1";
         public const string EitmadCapabilityLocalIpcV1 = "eitmad.capability.local-ipc.v1";
@@ -236,6 +237,7 @@ public static class ProtocolIds
 
     public static class SchemaIds
     {
+        public const string EitmadSchemaCatalogRevisionsV1 = "eitmad.schema.catalog-revisions.v1";
         public const string EitmadSchemaPricingV1 = "eitmad.schema.pricing.v1";
         public const string EitmadSchemaProtocolV1 = "eitmad.schema.protocol.v1";
         public const string EitmadSchemaCustomerV1 = "eitmad.schema.customer.v1";

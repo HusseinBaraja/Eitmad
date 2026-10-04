@@ -2272,6 +2272,15 @@ mod tests {
     }
     struct TestPriceServer;
     impl eitmad_pricing::PriceConfirmation for TestPriceServer {
+        /// Accepts catalog transfer so dispatcher tests can isolate routing and receipt handling.
+        fn synchronize_catalog(
+            &self,
+            _: &AuthorizationContext,
+            _: &eitmad_contracts::catalog_revision::SynchronizeCatalogRevisions,
+            _: UnixMillis,
+        ) -> Result<(), eitmad_pricing::PricingError> {
+            Ok(())
+        }
         fn status(
             &self,
             _: &AuthorizationContext,
@@ -2314,6 +2323,15 @@ mod tests {
     }
     struct SlowPriceServer;
     impl eitmad_pricing::PriceConfirmation for SlowPriceServer {
+        /// Accepts catalog transfer without adding latency to the simulated slow price read.
+        fn synchronize_catalog(
+            &self,
+            _: &AuthorizationContext,
+            _: &eitmad_contracts::catalog_revision::SynchronizeCatalogRevisions,
+            _: UnixMillis,
+        ) -> Result<(), eitmad_pricing::PricingError> {
+            Ok(())
+        }
         fn read(
             &self,
             _: &AuthorizationContext,

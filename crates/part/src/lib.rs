@@ -374,13 +374,7 @@ fn calculate(
         {
             return Err(PartError::InvalidReference);
         }
-        let quantity = quantity(&usage.quantity)?;
-        let exact = quantity
-            * BigRational::new(
-                BigInt::from(unit.numerator) * BigInt::from(cost_unit.denominator),
-                BigInt::from(unit.denominator) * BigInt::from(cost_unit.numerator),
-            )
-            * BigInt::from(material.current_cost_yer);
+        let exact = usage_cost(usage, &material, &unit, &cost_unit)?;
         let cost_yer = round(&exact)?;
         total += exact;
         let mut usage = usage.clone();
@@ -398,6 +392,60 @@ fn calculate(
         rows,
         total_cost_yer: round(&total)?,
     })
+}
+/// Checks immutable Part costs using the same exact arithmetic as local composition.
+/// # Errors
+/// Rejects inconsistent references, incompatible units, altered row costs, and overflow.
+pub fn verify_snapshot_cost(cost: &PartCost) -> Result<(), PartError> {
+    if cost.rows.is_empty() || cost.rows.len() > 100 {
+        return Err(PartError::Invalid);
+    }
+    let mut total = BigRational::zero();
+    let mut seen = std::collections::HashSet::new();
+    for row in &cost.rows {
+        if !seen.insert(row.usage.material_id)
+            || row.material.id != row.usage.material_id
+            || row.material.revision != row.usage.material_revision
+            || row.unit.id != row.usage.unit_id
+            || row.unit.revision != row.usage.unit_revision
+            || row.cost_unit.id != row.material.unit_id
+        {
+            return Err(PartError::InvalidReference);
+        }
+        let exact = usage_cost(&row.usage, &row.material, &row.unit, &row.cost_unit)?;
+        if row.cost_yer != round(&exact)? {
+            return Err(PartError::Invalid);
+        }
+        total += exact;
+    }
+    if cost.total_cost_yer != round(&total)? {
+        return Err(PartError::Invalid);
+    }
+    Ok(())
+}
+
+/// Computes one exact rational cost; both live reviews and immutable verification use it.
+fn usage_cost(
+    usage: &PartUsage,
+    material: &eitmad_contracts::material::Material,
+    unit: &eitmad_contracts::material::MaterialUnit,
+    cost_unit: &eitmad_contracts::material::MaterialUnit,
+) -> Result<BigRational, PartError> {
+    if material.current_cost_yer < 0
+        || unit.dimension != cost_unit.dimension
+        || unit.numerator == 0
+        || unit.denominator == 0
+        || cost_unit.numerator == 0
+        || cost_unit.denominator == 0
+    {
+        return Err(PartError::InvalidReference);
+    }
+    Ok(quantity(&usage.quantity)?
+        * BigRational::new(
+            BigInt::from(unit.numerator) * BigInt::from(cost_unit.denominator),
+            BigInt::from(unit.denominator) * BigInt::from(cost_unit.numerator),
+        )
+        * BigInt::from(material.current_cost_yer))
 }
 /// Converts validated fixed-point quantity text to an exact rational without floating-point loss.
 fn quantity(value: &MaterialQuantity) -> Result<BigRational, PartError> {

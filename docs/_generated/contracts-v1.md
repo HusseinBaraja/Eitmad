@@ -144,6 +144,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Capabilities
 
+- `eitmad.capability.catalog-revisions.v1`
 - `eitmad.capability.pricing.v1`
 - `eitmad.capability.engine-lifecycle.v1`
 - `eitmad.capability.local-ipc.v1`
@@ -232,6 +233,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Schema identifiers
 
+- `eitmad.schema.catalog-revisions.v1`
 - `eitmad.schema.pricing.v1`
 - `eitmad.schema.protocol.v1`
 - `eitmad.schema.customer.v1`

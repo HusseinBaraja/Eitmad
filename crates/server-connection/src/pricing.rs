@@ -11,10 +11,58 @@ use eitmad_contracts::{
 };
 use eitmad_pricing::{PriceConfirmation, PricingError};
 use std::time::{Duration, Instant};
+/// Uses authenticated HTTPS for immutable catalog transfer and price confirmation.
 pub struct DirectPriceClient {
     http: AuthenticatedHttpClient,
 }
+/// Maps only engine-owned scopes to the registered remote organization, including nested references.
+fn remap_catalog_scope(
+    record: &mut eitmad_contracts::catalog_revision::CatalogRevision,
+    local_scope: &eitmad_contracts::identity::ScopeRef,
+    scope: &eitmad_contracts::identity::ScopeRef,
+) -> Result<(), PricingError> {
+    use eitmad_contracts::catalog_revision::CatalogRevision;
+    if record.identity().3 != local_scope {
+        return Err(PricingError::Denied);
+    }
+    match record {
+        CatalogRevision::Unit(v) => v.scope = scope.clone(),
+        CatalogRevision::Material(v) => v.scope = scope.clone(),
+        CatalogRevision::ProductCategory(v) => v.scope = scope.clone(),
+        CatalogRevision::FurnitureCategory(v) => v.scope = scope.clone(),
+        CatalogRevision::Product(v) => v.scope = scope.clone(),
+        CatalogRevision::Furniture(v) => {
+            if v.parts.iter().any(|u| &u.reference.scope != local_scope) {
+                return Err(PricingError::Denied);
+            }
+            v.scope = scope.clone();
+            for usage in &mut v.parts {
+                usage.reference.scope = scope.clone();
+            }
+        }
+        CatalogRevision::Part(v) => {
+            if &v.composition.scope != local_scope
+                || v.cost.rows.iter().any(|r| {
+                    &r.material.scope != local_scope
+                        || &r.unit.scope != local_scope
+                        || &r.cost_unit.scope != local_scope
+                })
+            {
+                return Err(PricingError::Denied);
+            }
+            v.scope = scope.clone();
+            v.composition.scope = scope.clone();
+            for row in &mut v.cost.rows {
+                row.material.scope = scope.clone();
+                row.unit.scope = scope.clone();
+                row.cost_unit.scope = scope.clone();
+            }
+        }
+    }
+    Ok(())
+}
 impl DirectPriceClient {
+    /// Configures pinned HTTPS and stored credentials for the protocol 1.16 pricing boundary.
     #[must_use]
     pub fn from_config(
         config: DirectServerConfig,
@@ -27,12 +75,42 @@ impl DirectPriceClient {
                 secrets,
                 credential,
                 "eitmad.capability.pricing.v1",
-                15,
+                16,
             ),
         }
     }
 }
 impl PriceConfirmation for DirectPriceClient {
+    /// Transfers a catalog batch after mapping its local organization and nested references.
+    /// # Errors
+    /// Rejects foreign scopes, server denial, invalid catalog data, and expired or unavailable requests.
+    fn synchronize_catalog(
+        &self,
+        actor: &AuthorizationContext,
+        input: &eitmad_contracts::catalog_revision::SynchronizeCatalogRevisions,
+        deadline: UnixMillis,
+    ) -> Result<(), PricingError> {
+        if input.scope != actor.scope {
+            return Err(PricingError::Denied);
+        }
+        let mut request = input.clone();
+        request.scope = self.http.remote_scope();
+        for record in &mut request.records {
+            remap_catalog_scope(record, &actor.scope, &request.scope)?;
+        }
+        self.http
+            .request::<()>(
+                actor,
+                "/v1/catalog-revisions/synchronize",
+                &request,
+                request_budget(deadline)?,
+            )
+            .map_err(|e| match e {
+                HttpError::Denied => PricingError::Denied,
+                HttpError::Invalid => PricingError::Reference,
+                _ => PricingError::Unconfirmed,
+            })
+    }
     fn read(
         &self,
         actor: &AuthorizationContext,

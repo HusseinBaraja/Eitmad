@@ -45,6 +45,7 @@ use uuid::Uuid;
 #[derive(JsonSchema)]
 #[allow(dead_code)]
 struct ContractSchemaRoot {
+    synchronize_catalog_revisions: eitmad_contracts::catalog_revision::SynchronizeCatalogRevisions,
     confirm_price: eitmad_contracts::pricing::ConfirmPrice,
     read_published_prices: eitmad_contracts::pricing::ReadPublishedPrices,
     published_price_page: eitmad_contracts::pricing::PublishedPricePage,

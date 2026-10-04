@@ -108,6 +108,7 @@ impl ServerState {
     }
 }
 
+/// Registers server routes with bounded request bodies and shared authority state.
 pub fn router(state: ServerState) -> Router {
     Router::new()
         .route("/livez", get(live))
@@ -121,6 +122,11 @@ pub fn router(state: ServerState) -> Router {
                 .layer(axum::extract::DefaultBodyLimit::max(12 * 1024 * 1024)),
         )
         .route("/v1/catalog-images/read", post(read_catalog_image))
+        .route(
+            "/v1/catalog-revisions/synchronize",
+            post(synchronize_catalog_revisions)
+                .layer(axum::extract::DefaultBodyLimit::max(4 * 1024 * 1024)),
+        )
         .route(
             "/v1/pricing/publish",
             post(publish_price).layer(axum::extract::DefaultBodyLimit::max(64 * 1024)),
@@ -259,6 +265,37 @@ async fn refresh(
         .await
         .map(Json)
         .map_err(ApiError::authentication)
+}
+
+/// Authenticates a bounded catalog transfer before writing immutable price dependencies.
+async fn synchronize_catalog_revisions(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(input): Json<eitmad_contracts::catalog_revision::SynchronizeCatalogRevisions>,
+) -> Result<Json<()>, ApiError> {
+    let actor =
+        authenticate_negotiated(&state, &headers, "eitmad.capability.catalog-revisions.v1").await?;
+    state
+        .sync
+        .pricing()
+        .synchronize_catalog(
+            &actor,
+            &input,
+            CorrelationId::new(Uuid::new_v4()),
+            unix_millis_now(),
+        )
+        .await
+        .map(Json)
+        .map_err(|e| {
+            ApiError::new(
+                match e {
+                    eitmad_pricing::PricingError::Denied => StatusCode::FORBIDDEN,
+                    eitmad_pricing::PricingError::Unconfirmed => StatusCode::SERVICE_UNAVAILABLE,
+                    _ => StatusCode::BAD_REQUEST,
+                },
+                eitmad_pricing::error_code(e),
+            )
+        })
 }
 
 /// Negotiates pricing support and authenticates the public organization read.
@@ -1253,6 +1290,7 @@ async fn authenticate_headers(
     authenticate_access(state, &token, &proof).await
 }
 
+/// Requires the operation's protocol version and capability before token and device authentication.
 async fn authenticate_negotiated(
     state: &ServerState,
     headers: &HeaderMap,
@@ -1266,8 +1304,11 @@ async fn authenticate_negotiated(
         .and_then(|value| URL_SAFE_NO_PAD.decode(value).ok())
         .and_then(|value| serde_json::from_slice::<PeerHello>(&value).ok())
         .ok_or_else(|| ApiError::bad_request("eitmad.error.server-client-incompatible.v1"))?;
-    let minimum_minor = if required_capability.as_str() == "eitmad.capability.pricing.v1" {
-        15
+    let minimum_minor = if matches!(
+        required_capability.as_str(),
+        "eitmad.capability.pricing.v1" | "eitmad.capability.catalog-revisions.v1"
+    ) {
+        16
     } else {
         5
     };
@@ -1314,11 +1355,13 @@ async fn authenticate_access(
         .map_err(ApiError::authentication)
 }
 
+/// Advertises supported schemas and capabilities while requiring only shared transport foundations.
 fn server_hello(schemas: Vec<SchemaSupport>) -> PeerHello {
     let capabilities = [
         "eitmad.capability.sync.v1",
         "eitmad.capability.catalog-image.v1",
         "eitmad.capability.pricing.v1",
+        "eitmad.capability.catalog-revisions.v1",
         "eitmad.capability.server-connection.v1",
         "eitmad.capability.server-device-proof.v1",
         "eitmad.capability.server-snapshot-chunks.v1",
@@ -1343,7 +1386,9 @@ fn server_hello(schemas: Vec<SchemaSupport>) -> PeerHello {
             .filter(|c| {
                 !matches!(
                     c.as_str(),
-                    "eitmad.capability.catalog-image.v1" | "eitmad.capability.pricing.v1"
+                    "eitmad.capability.catalog-image.v1"
+                        | "eitmad.capability.pricing.v1"
+                        | "eitmad.capability.catalog-revisions.v1"
                 )
             })
             .cloned()
@@ -1504,11 +1549,12 @@ fn map_snapshot(error: &SnapshotError) -> ApiError {
 mod tests {
     use super::*;
 
+    /// Checks the declared protocol range and mandatory device-proof transport capability.
     #[test]
     fn server_requires_all_remote_boundary_capabilities() {
         let hello = server_hello(Vec::new());
         assert_eq!(hello.protocols[0].minimum_minor, 4);
-        assert_eq!(hello.protocols[0].maximum_minor, 15);
+        assert_eq!(hello.protocols[0].maximum_minor, 16);
         assert!(hello.required_capabilities.iter().any(|capability| {
             capability.as_str() == "eitmad.capability.server-device-proof.v1"
         }));
@@ -1644,6 +1690,7 @@ mod tests {
             assert_eq!(response.status(), StatusCode::UNAUTHORIZED, "{uri}");
         }
     }
+    /// Checks that pricing and catalog routes reject missing authentication or capability negotiation.
     #[tokio::test]
     async fn pricing_http_denies_unauthenticated_and_incompatible_requests_before_storage() {
         use eitmad_contracts::{
@@ -1675,6 +1722,13 @@ mod tests {
             idempotency_key: IdempotencyKey::new(Uuid::from_u128(53)),
         };
         let body = serde_json::to_vec(&publication).unwrap();
+        let catalog = serde_json::to_vec(
+            &eitmad_contracts::catalog_revision::SynchronizeCatalogRevisions {
+                scope: scope.clone(),
+                records: vec![],
+            },
+        )
+        .unwrap();
         let read = serde_json::to_vec(&ReadPublishedPrices {
             scope,
             after: None,
@@ -1688,14 +1742,19 @@ mod tests {
             let mut peer = server_hello(Vec::new());
             peer.peer_kind = PeerKind::Engine;
             if !compatible {
-                peer.capabilities
-                    .retain(|c| c.as_str() != "eitmad.capability.pricing.v1");
+                peer.capabilities.retain(|c| {
+                    !matches!(
+                        c.as_str(),
+                        "eitmad.capability.pricing.v1" | "eitmad.capability.catalog-revisions.v1"
+                    )
+                });
             }
             let encoded = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&peer).unwrap());
             for (uri, payload) in [
                 ("/v1/pricing/publish", &body),
                 ("/v1/pricing/status", &body),
                 ("/v1/pricing/read", &read),
+                ("/v1/catalog-revisions/synchronize", &catalog),
             ] {
                 let response = router(test_state())
                     .oneshot(

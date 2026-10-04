@@ -13,6 +13,7 @@ workspace = true
 eitmad-authorization = { path = "../authorization" }
 eitmad-contracts = { path = "../contracts" }
 eitmad-material = { path = "../material" }
+eitmad-part = { path = "../part" }
 eitmad-observability-audit = { path = "../observability-audit" }
 eitmad-storage = { path = "../storage" }
 serde = "=1.0.228"
@@ -21,7 +22,6 @@ sha2 = "=0.10.9"
 uuid = { version = "=1.23.4", features = ["v4"] }
 
 [dev-dependencies]
-eitmad-part = { path = "../part" }
 eitmad-product = { path = "../product" }
 eitmad-furniture = { path = "../furniture" }
 tempfile = "=3.24.0"
