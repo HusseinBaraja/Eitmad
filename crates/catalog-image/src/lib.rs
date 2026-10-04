@@ -7,6 +7,7 @@ use eitmad_contracts::{
         ImportCatalogImage, MAX_IMAGE_BYTES,
     },
     identity::AuthorizationContext,
+    transport::UnixMillis,
 };
 use eitmad_observability_audit::{AuditTarget, MutationAuditRecord};
 use eitmad_storage::{AuthorityStore, DurableIdempotency};
@@ -26,6 +27,7 @@ pub enum ImageError {
     Unavailable,
 }
 impl From<eitmad_storage::StorageError> for ImageError {
+    /// Exposes only retryable unavailability at the image boundary, without storage details.
     fn from(_: eitmad_storage::StorageError) -> Self {
         Self::Unavailable
     }
@@ -49,6 +51,7 @@ pub trait CatalogImageTransfer: Send + Sync {
         &self,
         actor: &AuthorizationContext,
         image: &CatalogImageRef,
+        deadline: UnixMillis,
     ) -> Result<Vec<u8>, ImageError>;
 }
 
@@ -59,6 +62,7 @@ pub struct CatalogImageService {
     transfer: Option<Arc<dyn CatalogImageTransfer>>,
 }
 impl CatalogImageService {
+    /// Creates a local image authority; network transfer remains disabled until configured.
     #[must_use]
     pub const fn new(store: AuthorityStore, authorization: AuthorizationService) -> Self {
         Self {
@@ -67,12 +71,14 @@ impl CatalogImageService {
             transfer: None,
         }
     }
+    /// Attaches the authenticated Rust transfer adapter without changing local persistence.
     #[must_use]
     pub fn with_transfer(mut self, transfer: Arc<dyn CatalogImageTransfer>) -> Self {
         self.transfer = Some(transfer);
         self
     }
 
+    /// Requires the owning capability permission in an organization scope before accessing bytes.
     fn authorize(
         &self,
         actor: &AuthorizationContext,
@@ -103,7 +109,9 @@ impl CatalogImageService {
         &self,
         actor: &MutationContext,
         input: &ImportCatalogImage,
+        deadline: UnixMillis,
     ) -> Result<CatalogImageRef, ImageError> {
+        check_deadline(deadline)?;
         self.authorize(&actor.authorization, input.kind, true)?;
         self.authorize(&actor.authorization, input.kind, false)?;
         let mut hash = Sha256::new();
@@ -121,6 +129,7 @@ impl CatalogImageService {
             return serde_json::from_slice(&retry.response_json)
                 .map_err(|_| ImageError::Unavailable);
         }
+        check_deadline(deadline)?;
         let file = File::open(&input.source_path).map_err(|_| ImageError::Invalid)?;
         let metadata = file.metadata().map_err(|_| ImageError::Invalid)?;
         if !metadata.is_file() || metadata.len() > MAX_IMAGE_BYTES as u64 {
@@ -130,7 +139,7 @@ impl CatalogImageService {
         file.take((MAX_IMAGE_BYTES + 1) as u64)
             .read_to_end(&mut bytes)
             .map_err(|_| ImageError::Invalid)?;
-        let content = normalize(&bytes)?;
+        let content = normalize_before(&bytes, deadline)?;
         let reference = reference(input.kind, &content);
         let mut audit = MutationAuditRecord::from_authorization(
             &actor.authorization,
@@ -150,6 +159,8 @@ impl CatalogImageService {
             response_json: serde_json::to_vec(&reference).map_err(|_| ImageError::Unavailable)?,
         };
         // Storage commits before transfer, so a temporary network failure does not lose the imported asset.
+        check_deadline(deadline)?;
+        self.authorize(&actor.authorization, input.kind, true)?;
         self.store.insert_catalog_image(
             &actor.authorization.scope,
             &reference,
@@ -192,29 +203,38 @@ impl CatalogImageService {
         };
         let mut uploaded = 0;
         for (actor, image) in self.store.pending_catalog_images()? {
-            if self.authorize(&actor, image.kind, true).is_err() {
-                continue;
+            let outcome = self.authorize(&actor, image.kind, true).and_then(|()| {
+                let bytes = self
+                    .store
+                    .catalog_image(&actor.scope, &image)?
+                    .ok_or(ImageError::NotFound)?;
+                transfer.upload(&actor, &image, &bytes)
+            });
+            if outcome == Err(ImageError::Unavailable) {
+                break;
             }
-            let bytes = self
-                .store
-                .catalog_image(&actor.scope, &image)?
-                .ok_or(ImageError::NotFound)?;
-            if transfer.upload(&actor, &image, &bytes).is_ok() {
-                let audit = MutationAuditRecord::from_authorization(
-                    &actor,
-                    eitmad_authorization::now(),
-                    eitmad_contracts::transport::CorrelationId::new(uuid::Uuid::new_v4()),
-                    "eitmad.catalog-image.upload-acknowledged.v1",
-                    AuditTarget {
-                        kind: "catalog-image".into(),
-                        identifiers: vec![image.id.to_string()],
-                    },
-                );
+            let audit = MutationAuditRecord::from_authorization(
+                &actor,
+                eitmad_authorization::now(),
+                eitmad_contracts::transport::CorrelationId::new(uuid::Uuid::new_v4()),
+                if outcome.is_ok() {
+                    "eitmad.catalog-image.upload-acknowledged.v1"
+                } else {
+                    "eitmad.catalog-image.upload-deferred.v1"
+                },
+                AuditTarget {
+                    kind: "catalog-image".into(),
+                    identifiers: vec![image.id.to_string()],
+                },
+            );
+            if outcome.is_ok() {
                 self.store
                     .acknowledge_catalog_image(&actor.scope, &image, &audit)?;
                 uploaded += 1;
+                break;
             }
-            break;
+            self.store
+                .defer_catalog_image(&actor.scope, &image, &audit)?;
         }
         Ok(uploaded)
     }
@@ -226,17 +246,22 @@ impl CatalogImageService {
         &self,
         actor: &AuthorizationContext,
         query: &GetCatalogImage,
+        deadline: UnixMillis,
     ) -> Result<CatalogImageChunk, ImageError> {
+        check_deadline(deadline)?;
         self.authorize(actor, query.reference.kind, false)?;
         if let Some(content) = self.store.catalog_image(&actor.scope, &query.reference)? {
+            check_deadline(deadline)?;
             return chunk(&query.reference, &content, query.offset);
         }
         let content = self
             .transfer
             .as_ref()
             .ok_or(ImageError::NotFound)?
-            .download(actor, &query.reference)?;
+            .download(actor, &query.reference, deadline)?;
+        check_deadline(deadline)?;
         validate_asset(&query.reference, &content)?;
+        check_deadline(deadline)?;
         self.authorize(actor, query.reference.kind, false)?;
         let audit = MutationAuditRecord::from_authorization(
             actor,
@@ -264,19 +289,40 @@ impl CatalogImageService {
 /// # Errors
 /// Returns Invalid without decoder diagnostics or content.
 pub fn normalize(bytes: &[u8]) -> Result<Vec<u8>, ImageError> {
+    normalize_before(bytes, UnixMillis(i64::MAX))
+}
+
+/// Checks the request budget between bounded decoder, resize, and encoder stages.
+fn normalize_before(bytes: &[u8], deadline: UnixMillis) -> Result<Vec<u8>, ImageError> {
+    check_deadline(deadline)?;
     let image = decode(bytes)?;
+    check_deadline(deadline)?;
     let image = image.thumbnail(2048, 2048);
+    check_deadline(deadline)?;
     let mut output = Cursor::new(Vec::new());
     image
         .write_to(&mut output, ImageFormat::Png)
         .map_err(|_| ImageError::Invalid)?;
     let bytes = output.into_inner();
+    check_deadline(deadline)?;
     if bytes.len() > MAX_IMAGE_BYTES {
         return Err(ImageError::Invalid);
     }
     Ok(bytes)
 }
 
+/// Stops image work at a stage boundary when its request budget has expired.
+/// # Errors
+/// Returns a retryable unavailable result after the deadline.
+pub fn check_deadline(deadline: UnixMillis) -> Result<(), ImageError> {
+    if eitmad_authorization::now().0 >= deadline.0 {
+        Err(ImageError::Unavailable)
+    } else {
+        Ok(())
+    }
+}
+
+/// Applies independent codec, input, side, pixel, and allocation bounds before decoding.
 fn decode(bytes: &[u8]) -> Result<image::DynamicImage, ImageError> {
     if bytes.is_empty() || bytes.len() > MAX_IMAGE_BYTES {
         return Err(ImageError::Invalid);
@@ -300,6 +346,7 @@ fn decode(bytes: &[u8]) -> Result<image::DynamicImage, ImageError> {
     reader.decode().map_err(|_| ImageError::Invalid)
 }
 
+/// Derives a content identity that cannot alias across Product and Furniture capabilities.
 #[must_use]
 pub fn reference(kind: CatalogImageKind, bytes: &[u8]) -> CatalogImageRef {
     let digest = Sha256::digest(bytes);

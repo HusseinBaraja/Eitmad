@@ -42,10 +42,13 @@ public sealed partial class FurnitureViewModel : ObservableObject
     private string shortDescription = string.Empty;
     private string internalNotes = string.Empty;
     public long ImageEditVersion { get; private set; }
+    /// <summary>Prevents an earlier image read from restoring a changed editor reference.</summary>
     public void InvalidateImageLoad() => ++ImageEditVersion;
     private Eitmad.Contracts.CatalogImageRef? editorImageReference;
     public Eitmad.Contracts.CatalogImageRef? EditorImageReference => editorImageReference;
+    /// <summary>Stages the confirmed reference and its transient preview for the next definition save.</summary>
     public void SetImportedImage(Eitmad.Contracts.CatalogImageRef? reference, ImageSource? image) { editorImageReference=reference; ProductImage=image; ProductImageName=reference is null ? "" : "صورة مستوردة"; }
+    /// <summary>Updates only the currently projected row identified by the authorized result.</summary>
     public void ApplyImage(Guid id, ImageSource? image) { var row=furniture.FirstOrDefault(p=>p.Id==id); if(row is not null) row.Image=image; }
     private ImageSource? productImage;
     private string productImageName = string.Empty;

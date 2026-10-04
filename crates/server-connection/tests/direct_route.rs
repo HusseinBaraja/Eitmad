@@ -754,6 +754,85 @@ async fn real_server_authentication_tls_sync_and_reconnect() {
     store.delete(&invalid_id).unwrap();
 }
 
+fn remove_stored_session_identity(store: &SecretStore, credential_id: &SecretId) {
+    let material = store.get(credential_id).unwrap().unwrap();
+    let mut legacy: serde_json::Value = serde_json::from_slice(material.expose_secret()).unwrap();
+    legacy.as_object_mut().unwrap().remove("userId");
+    legacy.as_object_mut().unwrap().remove("tenantId");
+    store
+        .set(
+            credential_id,
+            eitmad_secret_storage::SecretMaterial::new(serde_json::to_vec(&legacy).unwrap())
+                .unwrap(),
+        )
+        .unwrap();
+}
+
+fn assert_stored_session_identity(store: &SecretStore, credential_id: &SecretId) {
+    let material = store.get(credential_id).unwrap().unwrap();
+    let refreshed: serde_json::Value = serde_json::from_slice(material.expose_secret()).unwrap();
+    assert!(refreshed["userId"].is_string());
+    assert!(refreshed["tenantId"].is_string());
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires disposable PostgreSQL and trusted development certificates"]
+async fn legacy_credentials_refresh_identity_before_access_token_expiry() {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let database = env::var("EITMAD_DIRECT_TEST_DATABASE_URL").unwrap();
+    let certificate = required_path("EITMAD_DIRECT_TEST_CERTIFICATE");
+    let key = required_path("EITMAD_DIRECT_TEST_PRIVATE_KEY");
+    let trust = required_path("EITMAD_DIRECT_TEST_TRUSTED_CERTIFICATE");
+    let server = provision_server(&database, &certificate, &key).await;
+    assert!(
+        server.authentication.tokens.access_expires_at.0
+            > eitmad_control_plane::unix_millis_now().0
+    );
+    let workspace = tempfile::tempdir().unwrap();
+    let store =
+        SecretStore::open(workspace.path(), Some(FallbackEncryptionKey::new([7; 32]))).unwrap();
+    let credential_id = SecretId::new(
+        SecretKind::parse("legacy-test-session").unwrap(),
+        SecretReferenceId::new(Uuid::new_v4()),
+    );
+    store_session(
+        &store,
+        &credential_id,
+        server.authentication.clone(),
+        [11; 32],
+    )
+    .unwrap();
+    remove_stored_session_identity(&store, &credential_id);
+    let endpoint = format!("https://localhost:{}/", server.address.port());
+    let config = DirectServerConfig::new(&endpoint, server.scope, schema_id(), 1, &trust).unwrap();
+    let wan_endpoint = config.wan_endpoint();
+    let driver = DirectServerDriver::new(config, store.clone(), hello());
+    let mut transport = WanAdapter::new(
+        wan_endpoint,
+        driver,
+        hello(),
+        TransportAuthentication::AccountDevice {
+            account_id: server.authentication.session.account_id,
+            device_id: server.device_id,
+            credential: credential_id.clone(),
+        },
+        RetryPolicy::default(),
+    )
+    .unwrap();
+    tokio::task::spawn_blocking(move || {
+        transport
+            .connect(eitmad_control_plane::unix_millis_now())
+            .unwrap();
+        transport.disconnect(eitmad_control_plane::unix_millis_now());
+    })
+    .await
+    .unwrap();
+    assert_stored_session_identity(&store, &credential_id);
+    server
+        .handle
+        .graceful_shutdown(Some(Duration::from_secs(1)));
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires an empty disposable PostgreSQL database and generated development certificates"]
 async fn customer_changes_use_the_real_route_and_postgres_scope() {
@@ -1463,6 +1542,7 @@ async fn import_catalog_test_asset(
                 kind: CatalogImageKind::Product,
                 source_path: source.to_str().unwrap().into(),
             },
+            eitmad_contracts::transport::UnixMillis(i64::MAX),
         )
         .unwrap();
     let expected = store
@@ -1506,6 +1586,149 @@ async fn reject_invalid_catalog_server_upload(database: &str, server: &Provision
     );
 }
 
+async fn receptionist_catalog_image_access(
+    database: &str,
+    server: &ProvisionedServer,
+    reference: &eitmad_contracts::catalog_image::CatalogImageRef,
+    content: &[u8],
+) {
+    use base64::Engine as _;
+    use eitmad_catalog_image::ImageError;
+    use eitmad_contracts::{
+        catalog_image::{
+            CatalogImageKind, DownloadCatalogImage, GetCatalogImage, UploadCatalogImage,
+        },
+        identity::UserId,
+    };
+    let pool = SyncDatabase::connect(database, 2).await.unwrap().pool();
+    let media = eitmad_sync_plane::CatalogImageServer::new(pool.clone());
+    let mut receptionist = server.authentication.session.clone();
+    receptionist.user_id = UserId::new(Uuid::new_v4());
+    let mut tx = pool.begin().await.unwrap();
+    sqlx::query("SELECT set_config('eitmad.tenant_id', $1, true)")
+        .bind(receptionist.tenant_id.value().to_string())
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO control.relationship_tuples(tenant_id,subject_principal_id,subject_kind,relation,object_kind,object_id,created_at)
+        VALUES($1,$2,'user','eitmad.relation.organization.receptionist.v1','organization',$3,1)")
+        .bind(receptionist.tenant_id.value()).bind(receptionist.user_id.value()).bind(server.scope.id.value()).execute(&mut *tx).await.unwrap();
+    tx.commit().await.unwrap();
+    let query = DownloadCatalogImage {
+        scope: server.scope.clone(),
+        image: GetCatalogImage {
+            reference: reference.clone(),
+            offset: 0,
+        },
+    };
+    assert!(media.download(&receptionist, &query).await.is_ok());
+    assert_eq!(
+        media
+            .upload(
+                &receptionist,
+                UploadCatalogImage {
+                    scope: server.scope.clone(),
+                    reference: reference.clone(),
+                    base64: base64::engine::general_purpose::STANDARD.encode(content)
+                },
+                CorrelationId::new(Uuid::new_v4()),
+                eitmad_control_plane::unix_millis_now()
+            )
+            .await,
+        Err(ImageError::Denied)
+    );
+    let mut furniture = query.clone();
+    furniture.image.reference.kind = CatalogImageKind::Furniture;
+    assert_eq!(
+        media.download(&receptionist, &furniture).await,
+        Err(ImageError::Denied)
+    );
+    receptionist.user_id = UserId::new(Uuid::new_v4());
+    assert_eq!(
+        media.download(&receptionist, &query).await,
+        Err(ImageError::Denied)
+    );
+}
+
+async fn concurrent_catalog_uploads_respect_retention_and_exact_retries(
+    database: &str,
+    server: &ProvisionedServer,
+    reference: &eitmad_contracts::catalog_image::CatalogImageRef,
+    content: &[u8],
+) {
+    use base64::Engine as _;
+    use eitmad_catalog_image::{ImageError, normalize, reference as image_reference};
+    use eitmad_contracts::catalog_image::{CatalogImageKind, UploadCatalogImage};
+    let pool = SyncDatabase::connect(database, 2).await.unwrap().pool();
+    let media = eitmad_sync_plane::CatalogImageServer::new(pool.clone());
+    let mut tx = pool.begin().await.unwrap();
+    sqlx::query("SELECT set_config('eitmad.tenant_id', $1, true)")
+        .bind(server.authentication.session.tenant_id.value().to_string())
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    // Synthetic storage fixture leaves exactly one slot; application uploads still validate codecs.
+    sqlx::query("INSERT INTO sync.catalog_images(tenant_id,organization_id,id,kind,sha256,content)
+        SELECT $1,$2,md5('quota-fixture-' || n::text)::uuid,'product','synthetic',decode('00','hex') FROM generate_series(1,4094) n")
+        .bind(server.authentication.session.tenant_id.value()).bind(server.scope.id.value()).execute(&mut *tx).await.unwrap();
+    tx.commit().await.unwrap();
+    let input = |width| {
+        let mut png = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::new_rgb8(width, 1)
+            .write_to(&mut png, image::ImageFormat::Png)
+            .unwrap();
+        let bytes = normalize(&png.into_inner()).unwrap();
+        UploadCatalogImage {
+            scope: server.scope.clone(),
+            reference: image_reference(CatalogImageKind::Product, &bytes),
+            base64: base64::engine::general_purpose::STANDARD.encode(bytes),
+        }
+    };
+    let (first, second) = tokio::join!(
+        media.upload(
+            &server.authentication.session,
+            input(1),
+            CorrelationId::new(Uuid::new_v4()),
+            eitmad_control_plane::unix_millis_now()
+        ),
+        media.upload(
+            &server.authentication.session,
+            input(2),
+            CorrelationId::new(Uuid::new_v4()),
+            eitmad_control_plane::unix_millis_now()
+        ),
+    );
+    assert!(matches!(
+        (&first, &second),
+        (Ok(_), Err(ImageError::Invalid)) | (Err(ImageError::Invalid), Ok(_))
+    ));
+    let retry = UploadCatalogImage {
+        scope: server.scope.clone(),
+        reference: reference.clone(),
+        base64: base64::engine::general_purpose::STANDARD.encode(content),
+    };
+    assert_eq!(
+        media
+            .upload(
+                &server.authentication.session,
+                retry,
+                CorrelationId::new(Uuid::new_v4()),
+                eitmad_control_plane::unix_millis_now()
+            )
+            .await,
+        Ok(reference.clone())
+    );
+    let retained: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM sync.catalog_images WHERE tenant_id=$1 AND organization_id=$2",
+    )
+    .bind(server.authentication.session.tenant_id.value())
+    .bind(server.scope.id.value())
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(retained, 4096);
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires disposable PostgreSQL and trusted development certificates"]
 async fn catalog_image_transfers_between_authorized_clients_and_survives_restart() {
@@ -1523,6 +1746,7 @@ async fn catalog_image_transfers_between_authorized_clients_and_survives_restart
     let second = tempfile::TempDir::new().unwrap();
     let (actor, reference, expected) =
         import_catalog_test_asset(first.path(), &server, &endpoint, &trust).await;
+    receptionist_catalog_image_access(&database, &server, &reference, &expected).await;
     server
         .handle
         .graceful_shutdown(Some(Duration::from_secs(1)));
@@ -1548,10 +1772,16 @@ async fn catalog_image_transfers_between_authorized_clients_and_survives_restart
         offset: 0,
     };
     let read_actor = second_actor.clone();
-    let chunk = tokio::task::spawn_blocking(move || reader.get(&read_actor, &query))
-        .await
-        .unwrap()
-        .unwrap();
+    let chunk = tokio::task::spawn_blocking(move || {
+        reader.get(
+            &read_actor,
+            &query,
+            eitmad_contracts::transport::UnixMillis(i64::MAX),
+        )
+    })
+    .await
+    .unwrap()
+    .unwrap();
     assert_eq!(chunk.total_bytes as usize, expected.len());
     assert_eq!(
         second_store
@@ -1560,19 +1790,7 @@ async fn catalog_image_transfers_between_authorized_clients_and_survives_restart
             .unwrap(),
         expected
     );
-    let reopened = AuthorityStore::open(second.path()).unwrap();
-    let offline = CatalogImageService::new(reopened.clone(), AuthorizationService::new(reopened));
-    assert!(
-        offline
-            .get(
-                &second_actor,
-                &GetCatalogImage {
-                    reference: reference.clone(),
-                    offset: 0
-                }
-            )
-            .is_ok()
-    );
+    assert_reopened_catalog_access(second.path(), &second_actor, &reference);
     let mut foreign = server.scope.clone();
     foreign.id = ScopeId::new(Uuid::new_v4());
     let foreign_client = catalog_image_client(
@@ -1586,22 +1804,39 @@ async fn catalog_image_transfers_between_authorized_clients_and_survives_restart
     let rejected = reference.clone();
     let rejected_actor = actor.clone();
     assert_eq!(
-        tokio::task::spawn_blocking(move || foreign_client.download(&rejected_actor, &rejected))
-            .await
-            .unwrap(),
+        tokio::task::spawn_blocking(move || foreign_client.download(
+            &rejected_actor,
+            &rejected,
+            eitmad_contracts::transport::UnixMillis(i64::MAX)
+        ))
+        .await
+        .unwrap(),
         Err(ImageError::Denied)
     );
-    let mut denied = second_actor;
+    concurrent_catalog_uploads_respect_retention_and_exact_retries(
+        &database, &server, &reference, &expected,
+    )
+    .await;
+    handle.graceful_shutdown(Some(Duration::from_secs(1)));
+}
+
+fn assert_reopened_catalog_access(
+    directory: &Path,
+    actor: &AuthorizationContext,
+    reference: &eitmad_contracts::catalog_image::CatalogImageRef,
+) {
+    use eitmad_catalog_image::{CatalogImageService, ImageError};
+    let reopened = AuthorityStore::open(directory).unwrap();
+    let offline = CatalogImageService::new(reopened.clone(), AuthorizationService::new(reopened));
+    let query = eitmad_contracts::catalog_image::GetCatalogImage {
+        reference: reference.clone(),
+        offset: 0,
+    };
+    assert!(offline.get(actor, &query, UnixMillis(i64::MAX)).is_ok());
+    let mut denied = actor.clone();
     denied.identity.principal_id = PrincipalId::new(Uuid::new_v4());
     assert_eq!(
-        offline.get(
-            &denied,
-            &GetCatalogImage {
-                reference,
-                offset: 0
-            }
-        ),
+        offline.get(&denied, &query, UnixMillis(i64::MAX)),
         Err(ImageError::Denied)
     );
-    handle.graceful_shutdown(Some(Duration::from_secs(1)));
 }

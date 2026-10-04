@@ -31,12 +31,15 @@ public sealed class ProductsViewModel : ObservableObject
     public string AvailabilityMessage { get => availabilityMessage; private set { Set(ref availabilityMessage, value); Raise(nameof(PageSubtitle)); } }
     public string PageSubtitle => AvailabilityMessage.Length > 0 ? AvailabilityMessage : "المنتجات محفوظة محلياً — سعر البيع من التسعير";
     public long ImageEditVersion { get; private set; }
+    /// <summary>Prevents an earlier image read from restoring a changed editor reference.</summary>
     public void InvalidateImageLoad() => ++ImageEditVersion;
     private CatalogImageRef? editorImageReference;
     public CatalogImageRef? EditorImageReference => editorImageReference;
     private System.Windows.Media.ImageSource? productImage;
     public System.Windows.Media.ImageSource? ProductImage { get => productImage; private set => Set(ref productImage,value); }
+    /// <summary>Stages the confirmed reference and its transient preview for the next definition save.</summary>
     public void SetImportedImage(CatalogImageRef? reference, System.Windows.Media.ImageSource? image) { editorImageReference = reference; ProductImage = image; }
+    /// <summary>Updates only the currently projected row identified by the authorized result.</summary>
     public void ApplyImage(Guid id, System.Windows.Media.ImageSource? image) { var row=products.FirstOrDefault(p=>p.Id==id); if(row is not null) row.Image=image; }
     private ProductListItem? editingProduct;
     private Product? editingRecord, pendingArchiveRecord;

@@ -252,6 +252,7 @@ async fn refresh(
         .map_err(ApiError::authentication)
 }
 
+/// Negotiates media support and authenticates the session before accepting a scoped upload.
 async fn upload_catalog_image(
     State(state): State<ServerState>,
     headers: HeaderMap,
@@ -272,6 +273,7 @@ async fn upload_catalog_image(
         .map(Json)
         .map_err(map_image)
 }
+/// Authenticates and negotiates media reads before requesting an authorized bounded chunk.
 async fn read_catalog_image(
     State(state): State<ServerState>,
     headers: HeaderMap,
@@ -287,6 +289,7 @@ async fn read_catalog_image(
         .map(Json)
         .map_err(map_image)
 }
+/// Projects redacted image failures into the HTTP boundary's registered error categories.
 fn map_image(error: eitmad_catalog_image::ImageError) -> ApiError {
     match error {
         eitmad_catalog_image::ImageError::Denied => {

@@ -147,6 +147,7 @@ impl FurnitureService {
             })?
     }
 
+    /// Checks the exact scoped Furniture asset before retaining a new definition revision.
     fn validate_image(
         &self,
         context: &MutationContext,

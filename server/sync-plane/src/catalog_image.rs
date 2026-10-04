@@ -14,16 +14,23 @@ use eitmad_contracts::{
 use eitmad_server_audit::{ServerAuditEnvelope, ServerAuditEvent, ServerAuditOutcome, append};
 use sqlx::{PgPool, Row as _};
 
+const MAX_ORGANIZATION_IMAGE_BYTES: i64 = 512 * 1024 * 1024;
+const MAX_ORGANIZATION_IMAGES: i64 = 4096;
+const MAX_TENANT_IMAGE_BYTES: i64 = 2 * 1024 * 1024 * 1024;
+const MAX_TENANT_IMAGES: i64 = 16384;
+
 #[derive(Clone)]
 pub struct CatalogImageServer {
     pool: PgPool,
 }
 impl CatalogImageServer {
+    /// Uses the sync database for tenant-isolated retained assets and mutation audit.
     #[must_use]
     pub const fn new(pool: PgPool) -> Self {
         Self { pool }
     }
 
+    /// Opens a tenant transaction only when the user has the owning organization relationship.
     async fn authorize(
         &self,
         actor: &AuthenticatedServerSession,
@@ -37,18 +44,23 @@ impl CatalogImageServer {
         let mut tx = tenant_transaction(&self.pool, actor.tenant_id)
             .await
             .map_err(|_| ImageError::Unavailable)?;
-        let permission = match (kind, write) {
-            (CatalogImageKind::Product, true) => "eitmad.permission.product.write.v1",
-            (CatalogImageKind::Product, false) => "eitmad.permission.product.read.v1",
-            (CatalogImageKind::Furniture, true) => "eitmad.permission.furniture.write.v1",
-            (CatalogImageKind::Furniture, false) => "eitmad.permission.furniture.read.v1",
+        let relations: &[&str] = match (kind, write) {
+            (CatalogImageKind::Product, false) => &[
+                "eitmad.relation.organization.manager.v1",
+                "eitmad.relation.organization.owner.v1",
+                "eitmad.relation.organization.receptionist.v1",
+            ],
+            _ => &[
+                "eitmad.relation.organization.manager.v1",
+                "eitmad.relation.organization.owner.v1",
+            ],
         };
         let allowed: bool = sqlx::query_scalar("SELECT EXISTS (
             SELECT 1 FROM control.organizations o JOIN control.relationship_tuples r ON r.tenant_id=o.tenant_id
             WHERE o.tenant_id=$1 AND o.organization_id=$2 AND r.subject_principal_id=$3 AND r.subject_kind='user'
-              AND ((r.object_kind='organization' AND r.object_id=o.organization_id AND r.relation IN ('eitmad.relation.organization.manager.v1','eitmad.relation.organization.owner.v1',$4))
+              AND ((r.object_kind='organization' AND r.object_id=o.organization_id AND r.relation=ANY($4))
                 OR (r.object_kind='tenant' AND r.object_id=o.tenant_id AND r.relation='eitmad.relation.organization.owner.v1')))")
-            .bind(actor.tenant_id.value()).bind(scope.id.value()).bind(actor.user_id.value()).bind(permission)
+            .bind(actor.tenant_id.value()).bind(scope.id.value()).bind(actor.user_id.value()).bind(relations)
             .fetch_one(&mut *tx).await.map_err(|_| ImageError::Unavailable)?;
         if !allowed {
             return Err(ImageError::Denied);
@@ -82,6 +94,33 @@ impl CatalogImageServer {
         })
         .await
         .map_err(|_| ImageError::Unavailable)??;
+        // Serialize new retained assets across all organizations in the tenant.
+        sqlx::query("SELECT tenant_id FROM control.tenants WHERE tenant_id=$1 FOR UPDATE")
+            .bind(actor.tenant_id.value())
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(|_| ImageError::Unavailable)?;
+        let existing: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM sync.catalog_images WHERE tenant_id=$1 AND organization_id=$2 AND id=$3)")
+            .bind(actor.tenant_id.value()).bind(input.scope.id.value()).bind(input.reference.id)
+            .fetch_one(&mut *tx).await.map_err(|_| ImageError::Unavailable)?;
+        if !existing {
+            let usage = sqlx::query("SELECT COUNT(*) AS tenant_count, COALESCE(SUM(octet_length(content)),0)::bigint AS tenant_bytes,
+                COUNT(*) FILTER(WHERE organization_id=$2) AS organization_count,
+                COALESCE(SUM(octet_length(content)) FILTER(WHERE organization_id=$2),0)::bigint AS organization_bytes
+                FROM sync.catalog_images WHERE tenant_id=$1")
+                .bind(actor.tenant_id.value()).bind(input.scope.id.value()).fetch_one(&mut *tx).await
+                .map_err(|_| ImageError::Unavailable)?;
+            let length = i64::try_from(bytes.len()).map_err(|_| ImageError::Invalid)?;
+            if !within_retention_budget(
+                usage.get("tenant_count"),
+                usage.get("tenant_bytes"),
+                usage.get("organization_count"),
+                usage.get("organization_bytes"),
+                length,
+            ) {
+                return Err(ImageError::Invalid);
+            }
+        }
         let result=sqlx::query("INSERT INTO sync.catalog_images(tenant_id,organization_id,id,kind,sha256,content) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING")
             .bind(actor.tenant_id.value()).bind(input.scope.id.value()).bind(input.reference.id).bind(kind(input.reference.kind)).bind(&input.reference.sha256).bind(&bytes)
             .execute(&mut *tx).await.map_err(|_| ImageError::Unavailable)?;
@@ -142,9 +181,47 @@ impl CatalogImageServer {
         })
     }
 }
+/// Uses the storage discriminator for the owning catalog capability.
 fn kind(kind: CatalogImageKind) -> &'static str {
     match kind {
         CatalogImageKind::Product => "product",
         CatalogImageKind::Furniture => "furniture",
+    }
+}
+
+/// Checks both aggregate scopes before charging one new immutable asset.
+const fn within_retention_budget(
+    tenant_count: i64,
+    tenant_bytes: i64,
+    organization_count: i64,
+    organization_bytes: i64,
+    added: i64,
+) -> bool {
+    tenant_count < MAX_TENANT_IMAGES
+        && organization_count < MAX_ORGANIZATION_IMAGES
+        && matches!(tenant_bytes.checked_add(added), Some(total) if total <= MAX_TENANT_IMAGE_BYTES)
+        && matches!(organization_bytes.checked_add(added), Some(total) if total <= MAX_ORGANIZATION_IMAGE_BYTES)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::within_retention_budget;
+
+    #[test]
+    fn new_assets_must_fit_both_tenant_and_organization_budgets() {
+        let organization_bytes = 512 * 1024 * 1024;
+        let tenant_bytes = 2 * 1024 * 1024 * 1024;
+        assert!(within_retention_budget(
+            16383,
+            tenant_bytes - 4,
+            4095,
+            organization_bytes - 4,
+            4
+        ));
+        assert!(!within_retention_budget(16384, 0, 0, 0, 1));
+        assert!(!within_retention_budget(4096, 0, 4096, 0, 1));
+        assert!(!within_retention_budget(1, tenant_bytes, 1, 0, 1));
+        assert!(!within_retention_budget(1, 0, 1, organization_bytes, 1));
+        assert!(!within_retention_budget(1, i64::MAX, 1, 0, 1));
     }
 }

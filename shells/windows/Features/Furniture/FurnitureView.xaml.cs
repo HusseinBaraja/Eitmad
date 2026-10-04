@@ -45,6 +45,7 @@ public partial class FurnitureView : UserControl
         await Dispatcher.BeginInvoke(FurnitureNameBox.Focus, DispatcherPriority.Input);
     }
 
+    /// <summary>Imports through Rust and applies the preview only to the same authorized editor.</summary>
     private async void ChooseImageClick(object sender, RoutedEventArgs args) {
         if(bridge is null || !ViewModel.CanEditFields || !ViewModel.IsEditorOpen) return;
         var pickerSession=sessionVersion; var pickerEditor=ViewModel.ImageEditVersion;
@@ -63,12 +64,14 @@ public partial class FurnitureView : UserControl
         catch(Exception e) when(e is Eitmad.Platform.Windows.LocalIpc.EngineIpcException or IOException or InvalidOperationException or ObjectDisposedException) { if(session==sessionVersion) ViewModel.ReportImageLoadError(); }
         finally { if(session==sessionVersion) ViewModel.IsBusy=false; }
     }
+    /// <summary>Loads the selected reference without restoring an ended session or changed editor.</summary>
     private async Task LoadEditorImageAsync() {
         if(bridge is null) return;
         var session=sessionVersion; var editor=ViewModel.ImageEditVersion; var reference=ViewModel.EditorImageReference;
         var image=await new CatalogImages.CatalogImageClient(bridge).LoadAsync(reference,2048);
         if(session==sessionVersion && editor==ViewModel.ImageEditVersion && ViewModel.IsEditorOpen) ViewModel.SetImportedImage(reference,image);
     }
+    /// <summary>Stages image removal while Rust retains historical revision assets.</summary>
     private void RemoveImageClick(object sender, RoutedEventArgs args) { if(ViewModel.CanEditFields) { ViewModel.InvalidateImageLoad(); ViewModel.SetImportedImage(null,null); } }
 
     private void OpenRowMenuClick(object sender, RoutedEventArgs eventArgs)

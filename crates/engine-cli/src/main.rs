@@ -200,6 +200,7 @@ fn seed_development_account(
     store.provision_desktop_account(installer, &account, username, now)
 }
 
+/// Requires a complete trusted media route before attaching the Rust transfer adapter.
 fn configured_dispatcher(
     store: &AuthorityStore,
     directory: &std::path::Path,
@@ -245,6 +246,7 @@ fn configured_dispatcher(
     Ok((Arc::new(dispatcher), media_enabled))
 }
 
+/// Drains durable work with a bounded delay and ends when engine shutdown cancels the worker.
 fn start_media_uploads(
     dispatcher: Arc<ProductDispatcher>,
     mut cancel: watch::Receiver<bool>,

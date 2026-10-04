@@ -156,8 +156,8 @@ pub fn store_session(
         return Err(authentication_failure());
     }
     let credential = StoredCredential {
-        user_id: result.session.user_id,
-        tenant_id: result.session.tenant_id,
+        user_id: Some(result.session.user_id),
+        tenant_id: Some(result.session.tenant_id),
         account_id: result.session.account_id,
         device_id: result.session.device_id,
         access_token: result.tokens.access_token,
@@ -176,8 +176,8 @@ pub fn store_session(
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct StoredCredential {
-    user_id: eitmad_contracts::identity::UserId,
-    tenant_id: eitmad_contracts::identity::TenantId,
+    user_id: Option<eitmad_contracts::identity::UserId>,
+    tenant_id: Option<eitmad_contracts::identity::TenantId>,
     account_id: AccountId,
     device_id: DeviceId,
     access_token: String,
@@ -238,7 +238,10 @@ impl DirectServerDriver {
         credential: &mut StoredCredential,
     ) -> Result<(), TransportFailure> {
         let now = unix_millis_now();
-        if credential.access_expires_at.0 > now.0.saturating_add(REFRESH_MARGIN_MS) {
+        if credential.user_id.is_some()
+            && credential.tenant_id.is_some()
+            && credential.access_expires_at.0 > now.0.saturating_add(REFRESH_MARGIN_MS)
+        {
             return Ok(());
         }
         if credential.refresh_expires_at.0 <= now.0 {
@@ -259,12 +262,20 @@ impl DirectServerDriver {
         })?;
         if result.session.account_id != credential.account_id
             || result.session.device_id != credential.device_id
+            || credential
+                .user_id
+                .is_some_and(|id| id != result.session.user_id)
+            || credential
+                .tenant_id
+                .is_some_and(|id| id != result.session.tenant_id)
         {
             let _ = self.store.delete(id);
             return Err(authentication_failure());
         }
         credential.access_token.zeroize();
         credential.refresh_token.zeroize();
+        credential.user_id = Some(result.session.user_id);
+        credential.tenant_id = Some(result.session.tenant_id);
         credential.access_token = result.tokens.access_token;
         credential.refresh_token = result.tokens.refresh_token;
         credential.access_expires_at = result.tokens.access_expires_at;
@@ -777,6 +788,21 @@ fn unavailable(phase: FailurePhase) -> TransportFailure {
 mod tests {
     use super::*;
     use eitmad_contracts::{server::ServerErrorCode, transport::CorrelationId};
+
+    #[test]
+    fn legacy_credential_loads_without_granting_an_image_identity() {
+        let seed = vec![0; 32];
+        let credential = serde_json::json!({
+            "accountId": Uuid::from_u128(1), "deviceId": Uuid::from_u128(2),
+            "accessToken": "synthetic-access", "refreshToken": "synthetic-refresh",
+            "accessExpiresAt": 1000, "refreshExpiresAt": 2000, "signingSeed": seed,
+        });
+        let stored: StoredCredential = serde_json::from_value(credential).unwrap();
+        assert!(stored.user_id.is_none());
+        assert!(stored.tenant_id.is_none());
+        assert_eq!(stored.account_id.value(), Uuid::from_u128(1));
+        assert_eq!(device_proof(&stored).device_id, stored.device_id);
+    }
 
     #[test]
     fn expired_access_token_retries_but_revoked_session_stops() {

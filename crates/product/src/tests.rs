@@ -511,6 +511,7 @@ fn image_replacement_retains_historical_assets_and_rejects_foreign_attachment() 
                         kind: CatalogImageKind::Product,
                         source_path: path.to_str().unwrap().into(),
                     },
+                    eitmad_contracts::transport::UnixMillis(i64::MAX),
                 )
                 .unwrap(),
         );

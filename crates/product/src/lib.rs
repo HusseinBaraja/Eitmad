@@ -146,6 +146,7 @@ impl ProductService {
             })?
     }
 
+    /// Checks the exact scoped Product asset before retaining a new definition revision.
     fn validate_image(
         &self,
         context: &MutationContext,

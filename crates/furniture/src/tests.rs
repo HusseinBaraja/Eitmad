@@ -599,6 +599,7 @@ fn image_replacement_retains_historical_furniture_references() {
                         kind: CatalogImageKind::Furniture,
                         source_path: path.to_str().unwrap().into(),
                     },
+                    eitmad_contracts::transport::UnixMillis(i64::MAX),
                 )
                 .unwrap(),
         );

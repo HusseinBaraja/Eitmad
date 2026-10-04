@@ -12,6 +12,7 @@ use eitmad_contracts::{
     },
     identity::AuthorizationContext,
     secrets::SecretId,
+    transport::UnixMillis,
 };
 use std::{
     io::{Read as _, Write as _},
@@ -23,6 +24,7 @@ pub struct DirectCatalogImageClient {
     credential_id: SecretId,
 }
 impl DirectCatalogImageClient {
+    /// Binds image requests to a configured driver and native-store credential identifier.
     #[must_use]
     pub fn new(driver: DirectServerDriver, credential_id: SecretId) -> Self {
         Self {
@@ -69,6 +71,7 @@ impl DirectCatalogImageClient {
         )
     }
 
+    /// Resolves the registered server organization without accepting a shell-supplied scope.
     fn remote_scope(&self) -> Result<eitmad_contracts::identity::ScopeRef, ImageError> {
         Ok(self
             .driver
@@ -79,13 +82,17 @@ impl DirectCatalogImageClient {
             .clone())
     }
 
+    /// Binds the local actor to stored identity and bounds one authenticated media response.
     fn request<T: serde::de::DeserializeOwned>(
         &self,
         actor: &AuthorizationContext,
         route: &str,
         input: &impl serde::Serialize,
+        deadline: UnixMillis,
     ) -> Result<T, ImageError> {
+        eitmad_catalog_image::check_deadline(deadline)?;
         let driver = self.driver.lock().map_err(|_| ImageError::Unavailable)?;
+        eitmad_catalog_image::check_deadline(deadline)?;
         if actor.scope.kind.as_str() != "organization"
             || actor.scope.id.value() != actor.tenant_id.value()
         {
@@ -94,18 +101,35 @@ impl DirectCatalogImageClient {
         let mut credential = driver
             .load_credential(&self.credential_id)
             .map_err(|_| ImageError::Denied)?;
-        if actor.identity.principal_id.value() != credential.user_id.value()
-            || actor.tenant_id != credential.tenant_id
-        {
-            return Err(ImageError::Denied);
-        }
         driver
             .refresh_if_due(&self.credential_id, &mut credential)
             .map_err(|_| ImageError::Unavailable)?;
+        if Some(actor.identity.principal_id.value())
+            != credential
+                .user_id
+                .map(eitmad_contracts::identity::UserId::value)
+            || Some(actor.tenant_id) != credential.tenant_id
+        {
+            return Err(ImageError::Denied);
+        }
+        eitmad_catalog_image::check_deadline(deadline)?;
         let mut url = driver.config.endpoint.clone();
         url.set_path(route);
         let mut stream =
             connect_tls(&url, &driver.config.tls).map_err(|_| ImageError::Unavailable)?;
+        let remaining = std::time::Duration::from_millis(
+            u64::try_from(deadline.0.saturating_sub(super::unix_millis_now().0))
+                .map_err(|_| ImageError::Unavailable)?,
+        );
+        if remaining.is_zero() {
+            return Err(ImageError::Unavailable);
+        }
+        let timeout = remaining.min(super::IO_TIMEOUT);
+        stream
+            .sock
+            .set_read_timeout(Some(timeout))
+            .and_then(|()| stream.sock.set_write_timeout(Some(timeout)))
+            .map_err(|_| ImageError::Unavailable)?;
         let host = host_header(&url).map_err(|_| ImageError::Unavailable)?;
         let proof = URL_SAFE_NO_PAD.encode(
             serde_json::to_vec(&device_proof(&credential)).map_err(|_| ImageError::Invalid)?,
@@ -128,10 +152,30 @@ impl DirectCatalogImageClient {
             .map_err(|_| ImageError::Unavailable)?;
         let maximum = IMAGE_CHUNK_BYTES * 2 + 8192;
         let mut response = Vec::new();
-        stream
-            .take((maximum + 1) as u64)
-            .read_to_end(&mut response)
-            .map_err(|_| ImageError::Unavailable)?;
+        let mut buffer = [0; 8192];
+        while response.len() <= maximum {
+            eitmad_catalog_image::check_deadline(deadline)?;
+            let remaining = u64::try_from(deadline.0.saturating_sub(super::unix_millis_now().0))
+                .map_err(|_| ImageError::Unavailable)?;
+            if remaining == 0 {
+                return Err(ImageError::Unavailable);
+            }
+            stream
+                .sock
+                .set_read_timeout(Some(
+                    std::time::Duration::from_millis(remaining).min(super::IO_TIMEOUT),
+                ))
+                .map_err(|_| ImageError::Unavailable)?;
+            let limit = buffer.len().min(maximum + 1 - response.len());
+            let count = stream
+                .read(&mut buffer[..limit])
+                .map_err(|_| ImageError::Unavailable)?;
+            if count == 0 {
+                break;
+            }
+            response.extend_from_slice(&buffer[..count]);
+        }
+        eitmad_catalog_image::check_deadline(deadline)?;
         if response.len() > maximum {
             return Err(ImageError::Invalid);
         }
@@ -146,6 +190,7 @@ impl DirectCatalogImageClient {
     }
 }
 impl CatalogImageTransfer for DirectCatalogImageClient {
+    /// Validates outgoing content and accepts only an exact immutable server acknowledgement.
     fn upload(
         &self,
         actor: &AuthorizationContext,
@@ -161,20 +206,24 @@ impl CatalogImageTransfer for DirectCatalogImageClient {
                 reference: image.clone(),
                 base64: STANDARD.encode(content),
             },
+            UnixMillis(super::unix_millis_now().0.saturating_add(30_000)),
         )?;
         if received != *image {
             return Err(ImageError::Invalid);
         }
         Ok(())
     }
+    /// Checks the deadline and each chunk before validating the assembled immutable asset.
     fn download(
         &self,
         actor: &AuthorizationContext,
         image: &CatalogImageRef,
+        deadline: UnixMillis,
     ) -> Result<Vec<u8>, ImageError> {
         let mut content = Vec::new();
         let mut expected = None;
         loop {
+            eitmad_catalog_image::check_deadline(deadline)?;
             let query = GetCatalogImage {
                 reference: image.clone(),
                 offset: u32::try_from(content.len()).map_err(|_| ImageError::Invalid)?,
@@ -186,6 +235,7 @@ impl CatalogImageTransfer for DirectCatalogImageClient {
                     scope: self.remote_scope()?,
                     image: query.clone(),
                 },
+                deadline,
             )?;
             let bytes = STANDARD
                 .decode(&value.base64)
@@ -205,7 +255,9 @@ impl CatalogImageTransfer for DirectCatalogImageClient {
                 break;
             }
         }
+        eitmad_catalog_image::check_deadline(deadline)?;
         eitmad_catalog_image::validate_asset(image, &content)?;
+        eitmad_catalog_image::check_deadline(deadline)?;
         Ok(content)
     }
 }

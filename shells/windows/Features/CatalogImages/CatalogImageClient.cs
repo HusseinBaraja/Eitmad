@@ -10,6 +10,7 @@ namespace Eitmad.WindowsShell.Features.CatalogImages;
 /// <summary>Native presentation adapter. Rust imports, validates, authorizes, and stores each image.</summary>
 public sealed class CatalogImageClient(IEngineShellBridge engine)
 {
+    /// <summary>Submits the native picker path to Rust and returns only a confirmed immutable reference.</summary>
     public async Task<CatalogImageRef?> ImportAsync(CatalogImageKind kind, string path, CancellationToken cancellation = default)
     {
         if (!engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityCatalogImageV1)) return null;
@@ -17,6 +18,7 @@ public sealed class CatalogImageClient(IEngineShellBridge engine)
         return response.Outcome.Status == CommandOutcomeStatus.Succeeded ? response.Outcome.Payload.AsCatalogImageImported() : null;
     }
 
+    /// <summary>Assembles bounded Rust chunks and decodes a frozen presentation image off the UI thread.</summary>
     public async Task<ImageSource?> LoadAsync(CatalogImageRef? reference, int decodeWidth, CancellationToken cancellation = default)
     {
         if (reference is null || !engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityCatalogImageV1)) return null;

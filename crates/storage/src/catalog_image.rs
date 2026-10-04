@@ -15,6 +15,9 @@ pub(crate) const MIGRATIONS: &[Migration] = &[Migration::new(19, "catalog.images
      CREATE TRIGGER catalog_image_no_update BEFORE UPDATE ON catalog_images BEGIN SELECT RAISE(ABORT,'immutable image'); END;
      CREATE TRIGGER catalog_image_no_delete BEFORE DELETE ON catalog_images BEGIN SELECT RAISE(ABORT,'retained image'); END;
      CREATE TABLE catalog_image_uploads(scope_kind TEXT NOT NULL, scope_id TEXT NOT NULL, id TEXT NOT NULL, actor_json BLOB NOT NULL, reference_json BLOB NOT NULL, PRIMARY KEY(scope_kind,scope_id,id));"
+), Migration::new(20, "catalog.image-upload-deferral.v1", "catalog-image",
+    "ALTER TABLE catalog_image_uploads ADD COLUMN next_attempt_at INTEGER NOT NULL DEFAULT 0;
+     CREATE INDEX catalog_image_upload_due ON catalog_image_uploads(next_attempt_at,scope_kind,scope_id,id);"
 )];
 
 impl AuthorityStore {
@@ -90,9 +93,9 @@ impl AuthorityStore {
         StorageError,
     > {
         let connection = self.open_connection()?;
-        let mut statement=connection.prepare("SELECT actor_json,reference_json FROM catalog_image_uploads ORDER BY scope_kind,scope_id,id LIMIT 16").map_err(|_|StorageError)?;
+        let mut statement=connection.prepare("SELECT actor_json,reference_json FROM catalog_image_uploads WHERE next_attempt_at<=?1 ORDER BY next_attempt_at,scope_kind,scope_id,id LIMIT 16").map_err(|_|StorageError)?;
         statement
-            .query_map([], |row| {
+            .query_map([now_millis()], |row| {
                 Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, Vec<u8>>(1)?))
             })
             .map_err(|_| StorageError)?
@@ -104,6 +107,25 @@ impl AuthorityStore {
                 ))
             })
             .collect()
+    }
+    /// Defers rejected work without deleting the retained asset or blocking untouched rows.
+    /// # Errors
+    /// Rolls back the deferral when its mandatory audit fails.
+    pub fn defer_catalog_image(
+        &self,
+        scope: &ScopeRef,
+        image: &CatalogImageRef,
+        audit: &MutationAuditRecord,
+    ) -> Result<(), StorageError> {
+        let (kind, scope_id) = scope_parts(scope);
+        self.write_transaction(|tx| {
+            let changed = tx.execute(
+                "UPDATE catalog_image_uploads SET next_attempt_at=?4 WHERE scope_kind=?1 AND scope_id=?2 AND id=?3",
+                params![kind, scope_id, image.id.to_string(), now_millis().saturating_add(60_000)],
+            ).map_err(|_| StorageError)?;
+            if changed > 0 { insert_audit(tx, audit)?; }
+            Ok(())
+        })
     }
     /// Removes pending work only after an exact authenticated acknowledgement.
     /// # Errors
@@ -127,4 +149,13 @@ impl AuthorityStore {
             Ok(())
         })
     }
+}
+
+/// Fails closed for retry scheduling if the system clock cannot be represented.
+fn now_millis() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()
+        .and_then(|time| i64::try_from(time.as_millis()).ok())
+        .unwrap_or(i64::MAX)
 }

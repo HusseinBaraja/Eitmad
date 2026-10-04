@@ -16,6 +16,10 @@ public sealed record ProductListItem(
     public System.Windows.Media.ImageSource? Image { get => image; set { image = value; PropertyChanged?.Invoke(this, new(nameof(Image))); } }
     public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
 
+    /// <summary>Keeps row identity stable when a thumbnail or binding handler changes.</summary>
+    public bool Equals(ProductListItem? other) => other is not null && Id == other.Id;
+    public override int GetHashCode() => Id.GetHashCode();
+
     public bool CanArchive => !IsArchived;
     public string PurchaseCostLabel => !HasPurchaseCost ? "—" : PurchaseCost.ToString("N0", CultureInfo.InvariantCulture);
     public string StatusLabel => IsArchived ? "مؤرشف" : "نشط";

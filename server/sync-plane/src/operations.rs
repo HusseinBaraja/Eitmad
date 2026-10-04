@@ -203,6 +203,7 @@ const fn validation_audit(error: DomainValidationError) -> (ServerAuditOutcome, 
 
 impl SyncCoordinator {
     #[must_use]
+    /// Uses the configured sync database for authorized catalog assets without publishing definitions.
     pub fn catalog_images(&self) -> crate::CatalogImageServer {
         crate::CatalogImageServer::new(self.pool.clone())
     }
