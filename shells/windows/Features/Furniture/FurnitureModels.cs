@@ -13,8 +13,16 @@ public sealed record FurnitureListItem(
     decimal SellingPrice,
     string ThumbnailKind,
     bool IsArchived,
-    bool IsDraft)
+    bool IsDraft) : System.ComponentModel.INotifyPropertyChanged
 {
+    private System.Windows.Media.ImageSource? image;
+    public System.Windows.Media.ImageSource? Image { get => image; set { image = value; PropertyChanged?.Invoke(this, new(nameof(Image))); } }
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
+    /// <summary>Keeps row identity stable when a thumbnail or binding handler changes.</summary>
+    public bool Equals(FurnitureListItem? other) => other is not null && Id == other.Id;
+    public override int GetHashCode() => Id.GetHashCode();
+
     public bool CanArchive => !IsArchived;
 
     public string VariantCountLabel => VariantCount switch

@@ -200,6 +200,75 @@ fn seed_development_account(
     store.provision_desktop_account(installer, &account, username, now)
 }
 
+/// Requires a complete trusted media route before attaching the Rust transfer adapter.
+fn configured_dispatcher(
+    store: &AuthorityStore,
+    directory: &std::path::Path,
+    event_broker: &EventBroker,
+) -> Result<(Arc<ProductDispatcher>, bool), ()> {
+    let mut dispatcher = ProductDispatcher::new(store.clone(), event_broker.clone());
+    let media_endpoint = std::env::var_os("EITMAD_MEDIA_SERVER");
+    let media_enabled = media_endpoint.is_some();
+    if let Some(endpoint) = media_endpoint {
+        let configured = (|| {
+            let trust = std::env::var_os("EITMAD_MEDIA_TRUST_PEM").ok_or(())?;
+            let credential = std::env::var("EITMAD_MEDIA_CREDENTIAL_ID").map_err(|_| ())?;
+            let scope = eitmad_contracts::identity::ScopeRef {
+                kind: eitmad_contracts::identity::ScopeKind::parse("organization")
+                    .map_err(|_| ())?,
+                id: eitmad_contracts::identity::ScopeId::new(
+                    store.local_organization_id().map_err(|_| ())?.value(),
+                ),
+            };
+            let config = eitmad_server_connection::DirectServerConfig::new(
+                endpoint.to_str().ok_or(())?,
+                scope,
+                eitmad_contracts::transport::SchemaId::parse("eitmad.schema.catalog-image.v1")
+                    .map_err(|_| ())?,
+                1,
+                &PathBuf::from(trust),
+            )
+            .map_err(|_| ())?;
+            let secrets =
+                eitmad_secret_storage::SecretStore::open(directory, None).map_err(|_| ())?;
+            let credential =
+                serde_json::from_str::<eitmad_contracts::secrets::SecretId>(&credential)
+                    .map_err(|_| ())?;
+            Ok::<_, ()>(
+                eitmad_server_connection::DirectCatalogImageClient::from_config(
+                    config, secrets, credential,
+                ),
+            )
+        })();
+        let client = configured?;
+        dispatcher = dispatcher.with_catalog_image_transfer(Arc::new(client));
+    }
+    Ok((Arc::new(dispatcher), media_enabled))
+}
+
+/// Drains durable work with a bounded delay and ends when engine shutdown cancels the worker.
+fn start_media_uploads(
+    dispatcher: Arc<ProductDispatcher>,
+    mut cancel: watch::Receiver<bool>,
+) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        loop {
+            if *cancel.borrow() {
+                break;
+            }
+            let worker = dispatcher.clone();
+            let result = tokio::task::spawn_blocking(move || worker.retry_catalog_images()).await;
+            if matches!(result,Ok(Ok(count)) if count>0) {
+                continue;
+            }
+            tokio::select! {
+                ()=tokio::time::sleep(std::time::Duration::from_secs(30)) => (),
+                _=cancel.changed() => break,
+            }
+        }
+    })
+}
+
 async fn run(
     mode: RunMode,
     supervisor_pid: Option<u32>,
@@ -249,7 +318,13 @@ async fn run(
     let _ipc_shutdown_guard = ipc_shutdown_sender.clone();
     let (ipc_cancel_sender, ipc_cancel_receiver) = watch::channel(false);
     let event_broker = EventBroker::new();
-    let dispatcher = Arc::new(ProductDispatcher::new(store.clone(), event_broker.clone()));
+    let Ok((dispatcher, media_enabled)) = configured_dispatcher(&store, &directory, &event_broker)
+    else {
+        emit_failure(&RuntimeFailure::component_unavailable());
+        let _ = runtime.shutdown(ShutdownReason::Explicit).await;
+        let _ = emitter.await;
+        return ExitCode::from(EXIT_RUNTIME_FAILURE);
+    };
     if dispatcher.drain_pending_publications().is_err() {
         emit_operational_failure(
             "eitmad.observation.event-publication-recovery-failed.v1",
@@ -278,6 +353,8 @@ async fn run(
                 return ExitCode::from(EXIT_RUNTIME_FAILURE);
             }
         };
+    let media_task =
+        media_enabled.then(|| start_media_uploads(dispatcher.clone(), ipc_cancel_receiver.clone()));
     let ipc_task = ipc_configuration.map(|configuration| {
         tokio::spawn(
             LocalIpcServer::new(configuration, dispatcher, ipc_shutdown_sender.clone())
@@ -290,6 +367,9 @@ async fn run(
     let reason = wait_for_shutdown(mode, &mut ipc_shutdown_receiver).await;
     let _ = ipc_cancel_sender.send(true);
     let ipc_stopped_cleanly = await_local_ipc(ipc_task).await;
+    if let Some(task) = media_task {
+        let _ = task.await;
+    }
     let outcome = runtime.shutdown(reason).await;
     let _ = emitter.await;
     exit_after_shutdown(&outcome, ipc_stopped_cleanly)

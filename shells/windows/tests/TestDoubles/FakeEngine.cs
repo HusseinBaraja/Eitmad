@@ -76,6 +76,7 @@ internal sealed class FakeEngine : IEngineShellBridge
         ProtocolIds.Capabilities.EitmadCapabilityPartV1,
         ProtocolIds.Capabilities.EitmadCapabilityProductV1,
         ProtocolIds.Capabilities.EitmadCapabilityFurnitureV1,
+        ProtocolIds.Capabilities.EitmadCapabilityCatalogImageV1,
     };
 
     public bool SupportsCapability(string capability) => SupportedCapabilities.Contains(capability);

@@ -41,6 +41,8 @@ pub struct ProductDispatcher {
     customers: CustomerService,
     materials: MaterialService,
     parts: PartService,
+    images: eitmad_catalog_image::CatalogImageService,
+    image_workers: Arc<tokio::sync::Semaphore>,
     products: ProductService,
     furnitures: FurnitureService,
     accounts: DesktopAccountService,
@@ -92,6 +94,8 @@ impl ProductDispatcher {
         let products = ProductService::new(store.clone(), authorization.clone());
         let parts = PartService::new(store.clone(), authorization.clone());
         let accounts = DesktopAccountService::new(store.clone(), authorization.clone());
+        let images =
+            eitmad_catalog_image::CatalogImageService::new(store.clone(), authorization.clone());
         Self {
             store,
             authorization,
@@ -99,6 +103,8 @@ impl ProductDispatcher {
             customers,
             materials,
             parts,
+            images,
+            image_workers: Arc::new(tokio::sync::Semaphore::new(2)),
             products,
             furnitures,
             accounts,
@@ -109,6 +115,23 @@ impl ProductDispatcher {
     #[must_use]
     pub const fn authorization(&self) -> &AuthorizationService {
         &self.authorization
+    }
+
+    #[must_use]
+    /// Configures one authenticated transfer path shared by image queries and the upload worker.
+    pub fn with_catalog_image_transfer(
+        mut self,
+        transfer: Arc<dyn eitmad_catalog_image::CatalogImageTransfer>,
+    ) -> Self {
+        self.images = self.images.with_transfer(transfer);
+        self
+    }
+
+    /// Runs one bounded upload batch on the engine background worker.
+    /// # Errors
+    /// Retains pending work on failure.
+    pub fn retry_catalog_images(&self) -> Result<usize, eitmad_catalog_image::ImageError> {
+        self.images.retry_uploads()
     }
 
     fn mutation_context(context: &DispatchContext) -> Result<MutationContext, Box<ContractError>> {
@@ -484,6 +507,25 @@ impl CommandDispatcher for ProductDispatcher {
     ) -> Result<CommandResult, ContractError> {
         let mutation = Self::mutation_context(&context).map_err(|error| *error)?;
         match command {
+            Command::ImportCatalogImage(input) => {
+                let permit = Arc::clone(&self.image_workers)
+                    .try_acquire_owned()
+                    .map_err(|_| {
+                        image_error(eitmad_catalog_image::ImageError::Unavailable, &context)
+                    })?;
+                let images = self.images.clone();
+                let mutation = mutation.clone();
+                let deadline = context.deadline;
+                tokio::task::spawn_blocking(move || {
+                    // The permit survives IPC timeout until the actual worker exits.
+                    let _permit = permit;
+                    images.import(&mutation, &input, deadline)
+                })
+                .await
+                .map_err(|_| image_error(eitmad_catalog_image::ImageError::Unavailable, &context))?
+                .map(CommandResult::CatalogImageImported)
+                .map_err(|e| image_error(e, &context))
+            }
             Command::UpdateConfiguration(command) => {
                 let outcome = self
                     .configuration
@@ -574,6 +616,24 @@ impl QueryDispatcher for ProductDispatcher {
     ) -> Result<QueryResult, ContractError> {
         let operation = query.kind();
         let result = match query {
+            Query::CatalogImage(input) => {
+                let permit = Arc::clone(&self.image_workers)
+                    .try_acquire_owned()
+                    .map_err(|_| {
+                        image_error(eitmad_catalog_image::ImageError::Unavailable, &context)
+                    })?;
+                let images = self.images.clone();
+                let actor = context.authorization.clone();
+                let deadline = context.deadline;
+                tokio::task::spawn_blocking(move || {
+                    let _permit = permit;
+                    images.get(&actor, &input, deadline)
+                })
+                .await
+                .map_err(|_| image_error(eitmad_catalog_image::ImageError::Unavailable, &context))?
+                .map(QueryResult::CatalogImage)
+                .map_err(|e| image_error(e, &context))
+            }
             Query::Configuration(_) => self
                 .configuration
                 .snapshot(&context.authorization)
@@ -1092,6 +1152,48 @@ fn contract_error(
     }
 }
 
+/// Preserves permanent failures, retryable unavailability, and the IPC deadline outcome.
+fn image_error(
+    value: eitmad_catalog_image::ImageError,
+    context: &DispatchContext,
+) -> ContractError {
+    let (code, message) = match value {
+        eitmad_catalog_image::ImageError::Denied => (
+            "eitmad.error.authorization-denied.v1",
+            "eitmad.message.authorization-denied.v1",
+        ),
+        eitmad_catalog_image::ImageError::Invalid => (
+            "eitmad.error.catalog-image-invalid.v1",
+            "eitmad.message.catalog-image-invalid.v1",
+        ),
+        eitmad_catalog_image::ImageError::NotFound => (
+            "eitmad.error.catalog-image-not-found.v1",
+            "eitmad.message.catalog-image-not-found.v1",
+        ),
+        eitmad_catalog_image::ImageError::Unavailable => (
+            "eitmad.error.catalog-image-unavailable.v1",
+            "eitmad.message.catalog-image-unavailable.v1",
+        ),
+    };
+    if value == eitmad_catalog_image::ImageError::Unavailable && now().0 >= context.deadline.0 {
+        return error(
+            "eitmad.error.ipc-deadline-exceeded.v1",
+            "eitmad.message.ipc-deadline-exceeded.v1",
+            context,
+            RetryDisposition::SafeAfterDelay(250),
+            Some(ErrorDetail::Deadline {
+                deadline: context.deadline,
+            }),
+        );
+    }
+    let retry = if value == eitmad_catalog_image::ImageError::Unavailable {
+        RetryDisposition::SafeAfterDelay(250)
+    } else {
+        RetryDisposition::Never
+    };
+    error(code, message, context, retry, None)
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::atomic::{AtomicBool, Ordering};
@@ -1231,6 +1333,125 @@ mod tests {
             )
             .unwrap();
         serde_json::from_str(&encoded).unwrap()
+    }
+
+    use eitmad_catalog_image::{CatalogImageTransfer, ImageError};
+    use eitmad_contracts::catalog_image::{CatalogImageKind, CatalogImageRef, GetCatalogImage};
+    struct BlockingImageTransfer {
+        entered: std::sync::mpsc::Sender<()>,
+        release: Arc<(std::sync::Mutex<bool>, std::sync::Condvar)>,
+    }
+    impl CatalogImageTransfer for BlockingImageTransfer {
+        fn upload(
+            &self,
+            _: &AuthorizationContext,
+            _: &CatalogImageRef,
+            _: &[u8],
+        ) -> Result<(), ImageError> {
+            Ok(())
+        }
+        fn download(
+            &self,
+            _: &AuthorizationContext,
+            _: &CatalogImageRef,
+            _: UnixMillis,
+        ) -> Result<Vec<u8>, ImageError> {
+            self.entered.send(()).unwrap();
+            let (lock, ready) = &*self.release;
+            let released = lock.lock().unwrap();
+            let _released = ready
+                .wait_timeout_while(released, std::time::Duration::from_secs(5), |released| {
+                    !*released
+                })
+                .unwrap();
+            Err(ImageError::Unavailable)
+        }
+    }
+
+    #[tokio::test]
+    async fn abandoned_image_requests_hold_worker_slots_until_blocking_work_finishes() {
+        let (_directory, dispatcher, _broker) = dispatcher();
+        dispatcher
+            .authorization
+            .grant_relationship(
+                &ProductDispatcher::mutation_context(&context(9001)).unwrap(),
+                &GrantScopeRelationship {
+                    expected_policy_version: 1,
+                    subject: RelationshipSubject {
+                        principal_id: authorization().identity.principal_id,
+                        principal_kind: PrincipalKind::User,
+                    },
+                    relation: RelationId::parse(eitmad_authorization::MANAGER_RELATION).unwrap(),
+                },
+            )
+            .unwrap();
+        let (entered, received) = std::sync::mpsc::channel();
+        let release = Arc::new((std::sync::Mutex::new(false), std::sync::Condvar::new()));
+        let dispatcher = dispatcher.with_catalog_image_transfer(Arc::new(BlockingImageTransfer {
+            entered,
+            release: Arc::clone(&release),
+        }));
+        let query = Query::CatalogImage(GetCatalogImage {
+            reference: CatalogImageRef {
+                id: Uuid::new_v4(),
+                kind: CatalogImageKind::Product,
+                sha256: "00".repeat(32),
+            },
+            offset: 0,
+        });
+        let mut requests = Vec::new();
+        for _ in 0..2 {
+            let worker = dispatcher.clone();
+            let query = query.clone();
+            requests.push(tokio::spawn(async move {
+                worker.dispatch_query(context(9002), query).await
+            }));
+        }
+        tokio::task::spawn_blocking(move || {
+            for _ in 0..2 {
+                received
+                    .recv_timeout(std::time::Duration::from_secs(3))
+                    .unwrap();
+            }
+        })
+        .await
+        .unwrap();
+        for request in requests {
+            request.abort();
+            let _ = request.await;
+        }
+        assert_eq!(dispatcher.image_workers.available_permits(), 0);
+        let failure = dispatcher
+            .dispatch_query(context(9003), query)
+            .await
+            .unwrap_err();
+        assert_eq!(failure.retry, RetryDisposition::SafeAfterDelay(250));
+        let import =
+            Command::ImportCatalogImage(eitmad_contracts::catalog_image::ImportCatalogImage {
+                kind: CatalogImageKind::Product,
+                source_path: "synthetic-missing.png".into(),
+            });
+        let failure = dispatcher
+            .dispatch_command(context(9004), import)
+            .await
+            .unwrap_err();
+        assert_eq!(
+            failure.code.as_str(),
+            "eitmad.error.catalog-image-unavailable.v1"
+        );
+        *release.0.lock().unwrap() = true;
+        release.1.notify_all();
+        tokio::time::timeout(std::time::Duration::from_secs(3), async {
+            while dispatcher.image_workers.available_permits() != 2 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(
+            image_error(ImageError::Invalid, &context(9005)).retry,
+            RetryDisposition::Never
+        );
     }
 
     #[tokio::test]

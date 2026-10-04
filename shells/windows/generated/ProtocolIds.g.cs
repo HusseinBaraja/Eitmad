@@ -9,7 +9,7 @@ public static class ProtocolIds
     public static class Version
     {
         public const long Major = 1;
-        public const long Minor = 13;
+        public const long Minor = 14;
     }
 
     public static class IpcMessages
@@ -37,6 +37,7 @@ public static class ProtocolIds
 
     public static class Commands
     {
+        public const string EitmadCatalogImageImportV1 = "eitmad.catalog-image.import.v1";
         public const string EitmadConfigUpdateV1 = "eitmad.config.update.v1";
         public const string EitmadAuthorizationRelationshipGrantV1 = "eitmad.authorization.relationship.grant.v1";
         public const string EitmadAuthorizationRelationshipRevokeV1 = "eitmad.authorization.relationship.revoke.v1";
@@ -58,6 +59,7 @@ public static class ProtocolIds
 
     public static class Queries
     {
+        public const string EitmadCatalogImageGetV1 = "eitmad.catalog-image.get.v1";
         public const string EitmadConfigGetV1 = "eitmad.config.get.v1";
         public const string EitmadPermissionsGetEffectiveV1 = "eitmad.permissions.get-effective.v1";
         public const string EitmadAuthorizationRelationshipsListV1 = "eitmad.authorization.relationships.list.v1";
@@ -155,6 +157,7 @@ public static class ProtocolIds
         public const string EitmadCapabilityCustomerV1 = "eitmad.capability.customer.v1";
         public const string EitmadCapabilityMaterialV1 = "eitmad.capability.material.v1";
         public const string EitmadCapabilityPartV1 = "eitmad.capability.part.v1";
+        public const string EitmadCapabilityCatalogImageV1 = "eitmad.capability.catalog-image.v1";
         public const string EitmadCapabilityProductV1 = "eitmad.capability.product.v1";
         public const string EitmadCapabilityFurnitureV1 = "eitmad.capability.furniture.v1";
         public const string EitmadCapabilityDesktopAccountManagementV1 = "eitmad.capability.desktop-account-management.v1";
@@ -226,6 +229,7 @@ public static class ProtocolIds
         public const string EitmadSchemaCustomerV1 = "eitmad.schema.customer.v1";
         public const string EitmadSchemaMaterialV1 = "eitmad.schema.material.v1";
         public const string EitmadSchemaPartV1 = "eitmad.schema.part.v1";
+        public const string EitmadSchemaCatalogImageV1 = "eitmad.schema.catalog-image.v1";
         public const string EitmadSchemaProductV1 = "eitmad.schema.product.v1";
         public const string EitmadSchemaFurnitureV1 = "eitmad.schema.furniture.v1";
     }
@@ -280,6 +284,9 @@ public static class ProtocolIds
         public const string EitmadErrorCustomerUnavailableV1 = "eitmad.error.customer-unavailable.v1";
         public const string EitmadErrorMaterialInvalidV1 = "eitmad.error.material-invalid.v1";
         public const string EitmadErrorPartInvalidV1 = "eitmad.error.part-invalid.v1";
+        public const string EitmadErrorCatalogImageInvalidV1 = "eitmad.error.catalog-image-invalid.v1";
+        public const string EitmadErrorCatalogImageNotFoundV1 = "eitmad.error.catalog-image-not-found.v1";
+        public const string EitmadErrorCatalogImageUnavailableV1 = "eitmad.error.catalog-image-unavailable.v1";
         public const string EitmadErrorProductInvalidV1 = "eitmad.error.product-invalid.v1";
         public const string EitmadErrorFurnitureInvalidV1 = "eitmad.error.furniture-invalid.v1";
         public const string EitmadErrorPartNotFoundV1 = "eitmad.error.part-not-found.v1";
@@ -355,6 +362,9 @@ public static class ProtocolIds
         public const string EitmadMessageCustomerUnavailableV1 = "eitmad.message.customer-unavailable.v1";
         public const string EitmadMessageMaterialInvalidV1 = "eitmad.message.material-invalid.v1";
         public const string EitmadMessagePartInvalidV1 = "eitmad.message.part-invalid.v1";
+        public const string EitmadMessageCatalogImageInvalidV1 = "eitmad.message.catalog-image-invalid.v1";
+        public const string EitmadMessageCatalogImageNotFoundV1 = "eitmad.message.catalog-image-not-found.v1";
+        public const string EitmadMessageCatalogImageUnavailableV1 = "eitmad.message.catalog-image-unavailable.v1";
         public const string EitmadMessageProductInvalidV1 = "eitmad.message.product-invalid.v1";
         public const string EitmadMessageFurnitureInvalidV1 = "eitmad.message.furniture-invalid.v1";
         public const string EitmadMessagePartNotFoundV1 = "eitmad.message.part-not-found.v1";

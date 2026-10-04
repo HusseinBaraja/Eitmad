@@ -100,6 +100,28 @@ impl SyncDatabase {
             .await
             .map_err(SyncDatabaseError::Unavailable)?;
         }
+        let media_sql = include_str!("../migrations/0006_catalog_images.sql");
+        let media_checksum = format!("{:x}", Sha256::digest(media_sql.as_bytes()));
+        let existing: Option<String> = sqlx::query_scalar(
+            "SELECT checksum FROM public.eitmad_server_migrations WHERE version=6",
+        )
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(SyncDatabaseError::Unavailable)?;
+        match existing {
+            Some(value) if value != media_checksum => {
+                return Err(SyncDatabaseError::MigrationChecksum);
+            }
+            Some(_) => (),
+            None => {
+                sqlx::raw_sql(media_sql)
+                    .execute(&mut *transaction)
+                    .await
+                    .map_err(SyncDatabaseError::Unavailable)?;
+                sqlx::query("INSERT INTO public.eitmad_server_migrations(version,migration_id,checksum) VALUES(6,'server.catalog-images.v1',$1)")
+                    .bind(media_checksum).execute(&mut *transaction).await.map_err(SyncDatabaseError::Unavailable)?;
+            }
+        }
         transaction
             .commit()
             .await

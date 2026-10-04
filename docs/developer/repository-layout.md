@@ -32,6 +32,7 @@ Place behavior that changes together in the nearest vertical product capability.
 | `crates/part/` | Organization-scoped parts, separate categories, exact material costing, and immutable composition revisions | [Parts capability](subsystems/parts.md) |
 | `crates/furniture/` | Organization-scoped Furniture production definitions, Part revision composition, permitted sizes and options, and immutable history | [Furniture capability](subsystems/furniture.md) |
 | `crates/product/` | Organization-scoped ready-made definitions, fixed supplier variants, purchase-cost access, and immutable historical revisions | [Products capability](subsystems/products.md) |
+| `crates/catalog-image/` | Bounded image import, immutable scoped assets, authorized reads, and durable server transfer | [Catalog images](subsystems/catalog-images.md) |
 | `crates/storage/` | SQLite setup, feature migrations, drift checks, transactions, scoped repositories, and recovery hooks | [Local storage guide](subsystems/local-storage.md) |
 | `crates/sync/` | Unified synchronization protocol | `crates/sync/OWNERSHIP.md` |
 | `crates/server-connection/` | Rust desktop engine direct TLS/WebSocket connection, device proof, and token lifecycle | `crates/server-connection/OWNERSHIP.md` |

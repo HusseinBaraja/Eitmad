@@ -115,6 +115,12 @@ pub fn router(state: ServerState) -> Router {
         .route("/v1/auth/activate", post(activate))
         .route("/v1/auth/login", post(login))
         .route("/v1/auth/refresh", post(refresh))
+        .route(
+            "/v1/catalog-images/upload",
+            post(upload_catalog_image)
+                .layer(axum::extract::DefaultBodyLimit::max(12 * 1024 * 1024)),
+        )
+        .route("/v1/catalog-images/read", post(read_catalog_image))
         .route("/v1/customer-branches", post(register_customer_branch))
         .route("/v1/update-assignment", get(update_assignment))
         .route("/v1/updates/check", post(check_update))
@@ -244,6 +250,60 @@ async fn refresh(
         .await
         .map(Json)
         .map_err(ApiError::authentication)
+}
+
+/// Negotiates media support and authenticates the session before accepting a scoped upload.
+async fn upload_catalog_image(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(input): Json<eitmad_contracts::catalog_image::UploadCatalogImage>,
+) -> Result<Json<eitmad_contracts::catalog_image::CatalogImageRef>, ApiError> {
+    let actor =
+        authenticate_negotiated(&state, &headers, "eitmad.capability.catalog-image.v1").await?;
+    state
+        .sync
+        .catalog_images()
+        .upload(
+            &actor,
+            input,
+            CorrelationId::new(Uuid::new_v4()),
+            unix_millis_now(),
+        )
+        .await
+        .map(Json)
+        .map_err(map_image)
+}
+/// Authenticates and negotiates media reads before requesting an authorized bounded chunk.
+async fn read_catalog_image(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(input): Json<eitmad_contracts::catalog_image::DownloadCatalogImage>,
+) -> Result<Json<eitmad_contracts::catalog_image::CatalogImageChunk>, ApiError> {
+    let actor =
+        authenticate_negotiated(&state, &headers, "eitmad.capability.catalog-image.v1").await?;
+    state
+        .sync
+        .catalog_images()
+        .download(&actor, &input)
+        .await
+        .map(Json)
+        .map_err(map_image)
+}
+/// Projects redacted image failures into the HTTP boundary's registered error categories.
+fn map_image(error: eitmad_catalog_image::ImageError) -> ApiError {
+    match error {
+        eitmad_catalog_image::ImageError::Denied => {
+            ApiError::forbidden("eitmad.error.authorization-denied.v1")
+        }
+        eitmad_catalog_image::ImageError::Invalid => {
+            ApiError::bad_request("eitmad.error.catalog-image-invalid.v1")
+        }
+        eitmad_catalog_image::ImageError::NotFound => ApiError::new(
+            StatusCode::NOT_FOUND,
+            "eitmad.error.catalog-image-not-found.v1",
+        ),
+        eitmad_catalog_image::ImageError::Unavailable => ApiError::unavailable(),
+    }
 }
 
 async fn register_customer_branch(
@@ -1175,6 +1235,7 @@ async fn authenticate_access(
 fn server_hello(schemas: Vec<SchemaSupport>) -> PeerHello {
     let capabilities = [
         "eitmad.capability.sync.v1",
+        "eitmad.capability.catalog-image.v1",
         "eitmad.capability.server-connection.v1",
         "eitmad.capability.server-device-proof.v1",
         "eitmad.capability.server-snapshot-chunks.v1",
@@ -1192,9 +1253,13 @@ fn server_hello(schemas: Vec<SchemaSupport>) -> PeerHello {
         protocols: vec![SupportedProtocol {
             major: 1,
             minimum_minor: 4,
-            maximum_minor: 6,
+            maximum_minor: eitmad_contracts::PROTOCOL_VERSION.minor,
         }],
-        required_capabilities: capabilities.clone(),
+        required_capabilities: capabilities
+            .iter()
+            .filter(|c| c.as_str() != "eitmad.capability.catalog-image.v1")
+            .cloned()
+            .collect(),
         capabilities,
         schemas,
     }
@@ -1355,7 +1420,7 @@ mod tests {
     fn server_requires_all_remote_boundary_capabilities() {
         let hello = server_hello(Vec::new());
         assert_eq!(hello.protocols[0].minimum_minor, 4);
-        assert_eq!(hello.protocols[0].maximum_minor, 6);
+        assert_eq!(hello.protocols[0].maximum_minor, 14);
         assert!(hello.required_capabilities.iter().any(|capability| {
             capability.as_str() == "eitmad.capability.server-device-proof.v1"
         }));

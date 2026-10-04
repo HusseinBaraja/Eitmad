@@ -39,7 +39,7 @@ Definitions use stable scoped UUIDs, separate Furniture category IDs, descriptio
 
 The shell keeps Rust records for list loading and creates editable copies only when an editor opens. List rows are immutable display projections.
 
-Images remain optional presentation previews. The information step labels them as unsaved; image bytes and local paths are outside this contract. Other definition fields persist. Multi-device synchronization is not implemented by this local save or its outbox.
+One optional [durable catalog image](catalog-images.md) is retained per revision. The information step imports through Rust and stages replacement or removal until save. Local paths are never stored as references. Asset transfer is implemented separately; multi-device definition synchronization is not implemented by this local save or its outbox.
 
 ## Composition, dimensions, and option rules
 

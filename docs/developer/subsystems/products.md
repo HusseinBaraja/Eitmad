@@ -55,7 +55,7 @@ One immediate SQLite transaction writes current state, immutable Product history
 
 The shell keeps Rust records for list loading and creates editable copies only when an editor opens. List rows are immutable display projections.
 
-The shell uses asynchronous IPC, subscriptions, and cancellable refreshes. It retains the revision opened in the editor across refreshes. A conflict or validation error keeps the editor open. An unknown outcome keeps the request and retry key for an exact retry, including an unavailable command response. Until that retry succeeds or returns a known failure, a different payload is rejected. Product and category requests use separate retry state. Reconnect refreshes authoritative state. If data is unavailable, the list states that failure without claiming that records were deleted. Media attachment persistence is outside this definition contract; the transient image picker has been removed.
+The shell uses asynchronous IPC, subscriptions, and cancellable refreshes. It retains the revision opened in the editor across refreshes. A conflict or validation error keeps the editor open. An unknown outcome keeps the request and retry key for an exact retry, including an unavailable command response. Until that retry succeeds or returns a known failure, a different payload is rejected. Product and category requests use separate retry state. Reconnect refreshes authoritative state. If data is unavailable, the list states that failure without claiming that records were deleted. One optional [durable catalog image](catalog-images.md) is retained per revision. The native picker imports through Rust; image read failure does not block catalog text. Replacement and removal preserve earlier revision references.
 
 ## Verify and extend
 

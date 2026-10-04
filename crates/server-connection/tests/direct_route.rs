@@ -214,27 +214,52 @@ fn frame(protocol: eitmad_contracts::versioning::ProtocolVersion) -> SyncTranspo
     }
 }
 
+struct LiveTestServer {
+    handle: axum_server::Handle<SocketAddr>,
+}
+
+impl LiveTestServer {
+    fn graceful_shutdown(&self, duration: Option<Duration>) {
+        self.handle.graceful_shutdown(duration);
+    }
+}
+
+impl Drop for LiveTestServer {
+    fn drop(&mut self) {
+        self.handle.shutdown();
+    }
+}
+
 async fn start_server(
     address: SocketAddr,
     state: ServerState,
     certificate: &Path,
     private_key: &Path,
-) -> axum_server::Handle<SocketAddr> {
+) -> LiveTestServer {
     let tls = RustlsConfig::from_pem_file(certificate, private_key)
         .await
         .unwrap();
     let handle = axum_server::Handle::new();
     let server_handle = handle.clone();
-    tokio::spawn(async move {
-        axum_server::bind_rustls(address, tls)
-            .handle(server_handle)
-            .serve(router(state).into_make_service())
-            .await
+    tokio::task::spawn_blocking(move || {
+        // Model a separate server process: upgraded sessions must end with its runtime.
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(2)
+            .enable_all()
+            .build()
             .unwrap();
+        runtime.block_on(async move {
+            axum_server::bind_rustls(address, tls)
+                .handle(server_handle)
+                .serve(router(state).into_make_service())
+                .await
+                .unwrap();
+        });
     });
+    let server = LiveTestServer { handle };
     for _ in 0..50 {
         if std::net::TcpStream::connect_timeout(&address, Duration::from_millis(25)).is_ok() {
-            return handle;
+            return server;
         }
         tokio::time::sleep(Duration::from_millis(20)).await;
     }
@@ -345,7 +370,7 @@ struct ProvisionedServer {
     branches: BranchService,
     state: ServerState,
     address: SocketAddr,
-    handle: axum_server::Handle<SocketAddr>,
+    handle: LiveTestServer,
     authentication: AuthenticationResult,
     device_id: DeviceId,
     second_authentication: AuthenticationResult,
@@ -598,7 +623,7 @@ async fn assert_rejected_connections(inputs: RejectedConnectionInputs<'_>) {
 
 async fn assert_reconnect_after_shutdown(
     transport: WanAdapter<DirectServerDriver>,
-    handle: axum_server::Handle<SocketAddr>,
+    handle: LiveTestServer,
     state: ServerState,
     address: SocketAddr,
     certificate: &Path,
@@ -752,6 +777,85 @@ async fn real_server_authentication_tls_sync_and_reconnect() {
     .await;
     store.delete(&credential_id).unwrap();
     store.delete(&invalid_id).unwrap();
+}
+
+fn remove_stored_session_identity(store: &SecretStore, credential_id: &SecretId) {
+    let material = store.get(credential_id).unwrap().unwrap();
+    let mut legacy: serde_json::Value = serde_json::from_slice(material.expose_secret()).unwrap();
+    legacy.as_object_mut().unwrap().remove("userId");
+    legacy.as_object_mut().unwrap().remove("tenantId");
+    store
+        .set(
+            credential_id,
+            eitmad_secret_storage::SecretMaterial::new(serde_json::to_vec(&legacy).unwrap())
+                .unwrap(),
+        )
+        .unwrap();
+}
+
+fn assert_stored_session_identity(store: &SecretStore, credential_id: &SecretId) {
+    let material = store.get(credential_id).unwrap().unwrap();
+    let refreshed: serde_json::Value = serde_json::from_slice(material.expose_secret()).unwrap();
+    assert!(refreshed["userId"].is_string());
+    assert!(refreshed["tenantId"].is_string());
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires disposable PostgreSQL and trusted development certificates"]
+async fn legacy_credentials_refresh_identity_before_access_token_expiry() {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let database = env::var("EITMAD_DIRECT_TEST_DATABASE_URL").unwrap();
+    let certificate = required_path("EITMAD_DIRECT_TEST_CERTIFICATE");
+    let key = required_path("EITMAD_DIRECT_TEST_PRIVATE_KEY");
+    let trust = required_path("EITMAD_DIRECT_TEST_TRUSTED_CERTIFICATE");
+    let server = provision_server(&database, &certificate, &key).await;
+    assert!(
+        server.authentication.tokens.access_expires_at.0
+            > eitmad_control_plane::unix_millis_now().0
+    );
+    let workspace = tempfile::tempdir().unwrap();
+    let store =
+        SecretStore::open(workspace.path(), Some(FallbackEncryptionKey::new([7; 32]))).unwrap();
+    let credential_id = SecretId::new(
+        SecretKind::parse("legacy-test-session").unwrap(),
+        SecretReferenceId::new(Uuid::new_v4()),
+    );
+    store_session(
+        &store,
+        &credential_id,
+        server.authentication.clone(),
+        [11; 32],
+    )
+    .unwrap();
+    remove_stored_session_identity(&store, &credential_id);
+    let endpoint = format!("https://localhost:{}/", server.address.port());
+    let config = DirectServerConfig::new(&endpoint, server.scope, schema_id(), 1, &trust).unwrap();
+    let wan_endpoint = config.wan_endpoint();
+    let driver = DirectServerDriver::new(config, store.clone(), hello());
+    let mut transport = WanAdapter::new(
+        wan_endpoint,
+        driver,
+        hello(),
+        TransportAuthentication::AccountDevice {
+            account_id: server.authentication.session.account_id,
+            device_id: server.device_id,
+            credential: credential_id.clone(),
+        },
+        RetryPolicy::default(),
+    )
+    .unwrap();
+    tokio::task::spawn_blocking(move || {
+        transport
+            .connect(eitmad_control_plane::unix_millis_now())
+            .unwrap();
+        transport.disconnect(eitmad_control_plane::unix_millis_now());
+    })
+    .await
+    .unwrap();
+    assert_stored_session_identity(&store, &credential_id);
+    server
+        .handle
+        .graceful_shutdown(Some(Duration::from_secs(1)));
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -1188,7 +1292,24 @@ fn assert_isolated_customer_cycle(
     assert_eq!(preserved.name, offline.customer.name);
     assert_ne!(preserved.name, first_edit.customer.name);
     assert_eq!(preserved.sync_state, CustomerSyncState::Conflicted);
-    assert_eq!(second.engine.conflicts().len(), 1);
+    let reopened = AuthorityStore::open(second.directory.path()).unwrap();
+    let customers = CustomerService::new(reopened.clone(), AuthorizationService::new(reopened));
+    let persisted = customers
+        .get(
+            &second.actor,
+            &GetCustomer {
+                customer_id: customer.id,
+            },
+        )
+        .unwrap();
+    assert_eq!(persisted.name, offline.customer.name);
+    assert_eq!(persisted.sync_state, CustomerSyncState::Conflicted);
+    assert!(
+        customers
+            .sync_batch(&second.actor.scope, 10)
+            .unwrap()
+            .is_empty()
+    );
     (first, second)
 }
 
@@ -1337,4 +1458,434 @@ async fn two_isolated_customer_engines_recover_and_preserve_conflicts() {
     provisioned
         .handle
         .graceful_shutdown(Some(Duration::from_secs(1)));
+}
+
+fn catalog_image_client(
+    directory: &Path,
+    authentication: AuthenticationResult,
+    seed: [u8; 32],
+    remote_scope: &ScopeRef,
+    endpoint: &str,
+    certificate: &Path,
+) -> eitmad_server_connection::DirectCatalogImageClient {
+    let secrets = SecretStore::open(
+        directory.join("secrets"),
+        Some(FallbackEncryptionKey::new([7; 32])),
+    )
+    .unwrap();
+    let credential = SecretId::new(
+        SecretKind::parse("catalog-image-test").unwrap(),
+        SecretReferenceId::new(Uuid::new_v4()),
+    );
+    store_session(&secrets, &credential, authentication, seed).unwrap();
+    let config = DirectServerConfig::new(
+        endpoint,
+        remote_scope.clone(),
+        SchemaId::parse("eitmad.schema.catalog-image.v1").unwrap(),
+        1,
+        certificate,
+    )
+    .unwrap();
+    eitmad_server_connection::DirectCatalogImageClient::from_config(config, secrets, credential)
+}
+fn catalog_local_authority(
+    directory: &Path,
+    session: &eitmad_contracts::server::AuthenticatedServerSession,
+) -> (AuthorityStore, AuthorizationContext) {
+    let store = AuthorityStore::open(directory).unwrap();
+    let actor = AuthorizationContext {
+        session_id: session.session_id,
+        identity: AuthenticatedIdentity {
+            principal_id: PrincipalId::new(session.user_id.value()),
+            principal_kind: PrincipalKind::User,
+            device_id: Some(session.device_id),
+            service_id: None,
+        },
+        tenant_id: session.tenant_id,
+        workspace_id: None,
+        scope: ScopeRef {
+            kind: ScopeKind::parse("organization").unwrap(),
+            id: ScopeId::new(session.tenant_id.value()),
+        },
+    };
+    let auth = AuthorizationService::new(store.clone());
+    let mutation = MutationContext {
+        authorization: actor.clone(),
+        correlation_id: CorrelationId::new(Uuid::new_v4()),
+        causation_id: None,
+        idempotency_key: IdempotencyKey::new(Uuid::new_v4()),
+        occurred_at: eitmad_control_plane::unix_millis_now(),
+    };
+    let subject = RelationshipSubject {
+        principal_id: actor.identity.principal_id,
+        principal_kind: PrincipalKind::User,
+    };
+    auth.bootstrap_owner(&mutation, &subject).unwrap();
+    auth.grant_relationship(
+        &MutationContext {
+            idempotency_key: IdempotencyKey::new(Uuid::new_v4()),
+            ..mutation
+        },
+        &GrantScopeRelationship {
+            expected_policy_version: 1,
+            subject,
+            relation: RelationId::parse(MANAGER_RELATION).unwrap(),
+        },
+    )
+    .unwrap();
+    (store, actor)
+}
+async fn import_catalog_test_asset(
+    directory: &Path,
+    server: &ProvisionedServer,
+    endpoint: &str,
+    trust: &Path,
+) -> (
+    AuthorizationContext,
+    eitmad_contracts::catalog_image::CatalogImageRef,
+    Vec<u8>,
+) {
+    use eitmad_catalog_image::CatalogImageService;
+    use eitmad_contracts::catalog_image::{CatalogImageKind, ImportCatalogImage};
+    let (store, actor) = catalog_local_authority(directory, &server.authentication.session);
+    let upload = Arc::new(catalog_image_client(
+        directory,
+        server.authentication.clone(),
+        [11; 32],
+        &server.scope,
+        endpoint,
+        trust,
+    ));
+    let source = directory.join("synthetic.png");
+    // Enough synthetic entropy to exercise more than one bounded transfer chunk.
+    let bitmap = image::RgbImage::from_fn(480, 320, |x, y| {
+        image::Rgb([
+            u8::try_from((x * 17 + y * 13) % 256).unwrap(),
+            u8::try_from((x * 31 + y * 29) % 256).unwrap(),
+            u8::try_from((x * y + 47) % 256).unwrap(),
+        ])
+    });
+    bitmap
+        .save_with_format(&source, image::ImageFormat::Png)
+        .unwrap();
+    let service = CatalogImageService::new(store.clone(), AuthorizationService::new(store.clone()))
+        .with_transfer(upload.clone());
+    let mutation = MutationContext {
+        authorization: actor.clone(),
+        correlation_id: CorrelationId::new(Uuid::new_v4()),
+        causation_id: None,
+        idempotency_key: IdempotencyKey::new(Uuid::new_v4()),
+        occurred_at: eitmad_control_plane::unix_millis_now(),
+    };
+    let reference = service
+        .import(
+            &mutation,
+            &ImportCatalogImage {
+                kind: CatalogImageKind::Product,
+                source_path: source.to_str().unwrap().into(),
+            },
+            eitmad_contracts::transport::UnixMillis(i64::MAX),
+        )
+        .unwrap();
+    let expected = store
+        .catalog_image(&actor.scope, &reference)
+        .unwrap()
+        .unwrap();
+    assert!(expected.len() > 64 * 1024);
+    std::fs::remove_file(source).unwrap();
+    assert_eq!(
+        tokio::task::spawn_blocking(move || service.retry_uploads())
+            .await
+            .unwrap(),
+        Ok(1)
+    );
+    (actor, reference, expected)
+}
+
+async fn reject_invalid_catalog_server_upload(database: &str, server: &ProvisionedServer) {
+    use base64::Engine as _;
+    use eitmad_catalog_image::ImageError;
+    use eitmad_contracts::catalog_image::{CatalogImageKind, UploadCatalogImage};
+    let media = eitmad_sync_plane::CatalogImageServer::new(
+        SyncDatabase::connect(database, 2).await.unwrap().pool(),
+    );
+    let malformed = b"synthetic malformed image";
+    let request = UploadCatalogImage {
+        scope: server.scope.clone(),
+        reference: eitmad_catalog_image::reference(CatalogImageKind::Product, malformed),
+        base64: base64::engine::general_purpose::STANDARD.encode(malformed),
+    };
+    assert_eq!(
+        media
+            .upload(
+                &server.authentication.session,
+                request,
+                CorrelationId::new(Uuid::new_v4()),
+                eitmad_control_plane::unix_millis_now()
+            )
+            .await,
+        Err(ImageError::Invalid)
+    );
+}
+
+async fn receptionist_catalog_image_access(
+    database: &str,
+    server: &ProvisionedServer,
+    reference: &eitmad_contracts::catalog_image::CatalogImageRef,
+    content: &[u8],
+) {
+    use base64::Engine as _;
+    use eitmad_catalog_image::ImageError;
+    use eitmad_contracts::{
+        catalog_image::{
+            CatalogImageKind, DownloadCatalogImage, GetCatalogImage, UploadCatalogImage,
+        },
+        identity::UserId,
+    };
+    let pool = SyncDatabase::connect(database, 2).await.unwrap().pool();
+    let media = eitmad_sync_plane::CatalogImageServer::new(pool.clone());
+    let mut receptionist = server.authentication.session.clone();
+    receptionist.user_id = UserId::new(Uuid::new_v4());
+    let mut tx = pool.begin().await.unwrap();
+    sqlx::query("SELECT set_config('eitmad.tenant_id', $1, true)")
+        .bind(receptionist.tenant_id.value().to_string())
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO control.relationship_tuples(tenant_id,subject_principal_id,subject_kind,relation,object_kind,object_id,created_at)
+        VALUES($1,$2,'user','eitmad.relation.organization.receptionist.v1','organization',$3,1)")
+        .bind(receptionist.tenant_id.value()).bind(receptionist.user_id.value()).bind(server.scope.id.value()).execute(&mut *tx).await.unwrap();
+    tx.commit().await.unwrap();
+    let query = DownloadCatalogImage {
+        scope: server.scope.clone(),
+        image: GetCatalogImage {
+            reference: reference.clone(),
+            offset: 0,
+        },
+    };
+    assert!(media.download(&receptionist, &query).await.is_ok());
+    assert_eq!(
+        media
+            .upload(
+                &receptionist,
+                UploadCatalogImage {
+                    scope: server.scope.clone(),
+                    reference: reference.clone(),
+                    base64: base64::engine::general_purpose::STANDARD.encode(content)
+                },
+                CorrelationId::new(Uuid::new_v4()),
+                eitmad_control_plane::unix_millis_now()
+            )
+            .await,
+        Err(ImageError::Denied)
+    );
+    let mut furniture = query.clone();
+    furniture.image.reference.kind = CatalogImageKind::Furniture;
+    assert_eq!(
+        media.download(&receptionist, &furniture).await,
+        Err(ImageError::Denied)
+    );
+    receptionist.user_id = UserId::new(Uuid::new_v4());
+    assert_eq!(
+        media.download(&receptionist, &query).await,
+        Err(ImageError::Denied)
+    );
+}
+
+async fn concurrent_catalog_uploads_respect_retention_and_exact_retries(
+    database: &str,
+    server: &ProvisionedServer,
+    reference: &eitmad_contracts::catalog_image::CatalogImageRef,
+    content: &[u8],
+) {
+    use base64::Engine as _;
+    use eitmad_catalog_image::{ImageError, normalize, reference as image_reference};
+    use eitmad_contracts::catalog_image::{CatalogImageKind, UploadCatalogImage};
+    let pool = SyncDatabase::connect(database, 2).await.unwrap().pool();
+    let media = eitmad_sync_plane::CatalogImageServer::new(pool.clone());
+    let mut tx = pool.begin().await.unwrap();
+    sqlx::query("SELECT set_config('eitmad.tenant_id', $1, true)")
+        .bind(server.authentication.session.tenant_id.value().to_string())
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    // Synthetic storage fixture leaves exactly one slot; application uploads still validate codecs.
+    sqlx::query("INSERT INTO sync.catalog_images(tenant_id,organization_id,id,kind,sha256,content)
+        SELECT $1,$2,md5('quota-fixture-' || n::text)::uuid,'product','synthetic',decode('00','hex') FROM generate_series(1,4094) n")
+        .bind(server.authentication.session.tenant_id.value()).bind(server.scope.id.value()).execute(&mut *tx).await.unwrap();
+    tx.commit().await.unwrap();
+    let input = |width| {
+        let mut png = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::new_rgb8(width, 1)
+            .write_to(&mut png, image::ImageFormat::Png)
+            .unwrap();
+        let bytes = normalize(&png.into_inner()).unwrap();
+        UploadCatalogImage {
+            scope: server.scope.clone(),
+            reference: image_reference(CatalogImageKind::Product, &bytes),
+            base64: base64::engine::general_purpose::STANDARD.encode(bytes),
+        }
+    };
+    let (first, second) = tokio::join!(
+        media.upload(
+            &server.authentication.session,
+            input(1),
+            CorrelationId::new(Uuid::new_v4()),
+            eitmad_control_plane::unix_millis_now()
+        ),
+        media.upload(
+            &server.authentication.session,
+            input(2),
+            CorrelationId::new(Uuid::new_v4()),
+            eitmad_control_plane::unix_millis_now()
+        ),
+    );
+    assert!(matches!(
+        (&first, &second),
+        (Ok(_), Err(ImageError::Invalid)) | (Err(ImageError::Invalid), Ok(_))
+    ));
+    let retry = UploadCatalogImage {
+        scope: server.scope.clone(),
+        reference: reference.clone(),
+        base64: base64::engine::general_purpose::STANDARD.encode(content),
+    };
+    assert_eq!(
+        media
+            .upload(
+                &server.authentication.session,
+                retry,
+                CorrelationId::new(Uuid::new_v4()),
+                eitmad_control_plane::unix_millis_now()
+            )
+            .await,
+        Ok(reference.clone())
+    );
+    let mut tx = pool.begin().await.unwrap();
+    sqlx::query("SELECT set_config('eitmad.tenant_id', $1, true)")
+        .bind(server.authentication.session.tenant_id.value().to_string())
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    let retained: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM sync.catalog_images WHERE tenant_id=$1 AND organization_id=$2",
+    )
+    .bind(server.authentication.session.tenant_id.value())
+    .bind(server.scope.id.value())
+    .fetch_one(&mut *tx)
+    .await
+    .unwrap();
+    assert_eq!(retained, 4096);
+    tx.commit().await.unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires disposable PostgreSQL and trusted development certificates"]
+async fn catalog_image_transfers_between_authorized_clients_and_survives_restart() {
+    use eitmad_catalog_image::{CatalogImageService, CatalogImageTransfer, ImageError};
+    use eitmad_contracts::catalog_image::GetCatalogImage;
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let database = env::var("EITMAD_DIRECT_TEST_DATABASE_URL").unwrap();
+    let certificate = required_path("EITMAD_DIRECT_TEST_CERTIFICATE");
+    let key = required_path("EITMAD_DIRECT_TEST_PRIVATE_KEY");
+    let trust = required_path("EITMAD_DIRECT_TEST_TRUSTED_CERTIFICATE");
+    let server = provision_server(&database, &certificate, &key).await;
+    reject_invalid_catalog_server_upload(&database, &server).await;
+    let endpoint = format!("https://localhost:{}/", server.address.port());
+    let first = tempfile::TempDir::new().unwrap();
+    let second = tempfile::TempDir::new().unwrap();
+    let (actor, reference, expected) =
+        import_catalog_test_asset(first.path(), &server, &endpoint, &trust).await;
+    receptionist_catalog_image_access(&database, &server, &reference, &expected).await;
+    server
+        .handle
+        .graceful_shutdown(Some(Duration::from_secs(1)));
+    tokio::time::sleep(Duration::from_millis(1200)).await;
+    let handle = start_server(server.address, server.state.clone(), &certificate, &key).await;
+    let (second_store, second_actor) =
+        catalog_local_authority(second.path(), &server.second_authentication.session);
+    let download = Arc::new(catalog_image_client(
+        second.path(),
+        server.second_authentication.clone(),
+        [12; 32],
+        &server.scope,
+        &endpoint,
+        &trust,
+    ));
+    let reader = CatalogImageService::new(
+        second_store.clone(),
+        AuthorizationService::new(second_store.clone()),
+    )
+    .with_transfer(download);
+    let query = GetCatalogImage {
+        reference: reference.clone(),
+        offset: 0,
+    };
+    let read_actor = second_actor.clone();
+    let chunk = tokio::task::spawn_blocking(move || {
+        reader.get(
+            &read_actor,
+            &query,
+            eitmad_contracts::transport::UnixMillis(i64::MAX),
+        )
+    })
+    .await
+    .unwrap()
+    .unwrap();
+    assert_eq!(chunk.total_bytes as usize, expected.len());
+    assert_eq!(
+        second_store
+            .catalog_image(&second_actor.scope, &reference)
+            .unwrap()
+            .unwrap(),
+        expected
+    );
+    assert_reopened_catalog_access(second.path(), &second_actor, &reference);
+    let mut foreign = server.scope.clone();
+    foreign.id = ScopeId::new(Uuid::new_v4());
+    let foreign_client = catalog_image_client(
+        first.path(),
+        server.authentication.clone(),
+        [11; 32],
+        &foreign,
+        &endpoint,
+        &trust,
+    );
+    let rejected = reference.clone();
+    let rejected_actor = actor.clone();
+    assert_eq!(
+        tokio::task::spawn_blocking(move || foreign_client.download(
+            &rejected_actor,
+            &rejected,
+            eitmad_contracts::transport::UnixMillis(i64::MAX)
+        ))
+        .await
+        .unwrap(),
+        Err(ImageError::Denied)
+    );
+    concurrent_catalog_uploads_respect_retention_and_exact_retries(
+        &database, &server, &reference, &expected,
+    )
+    .await;
+    handle.graceful_shutdown(Some(Duration::from_secs(1)));
+}
+
+fn assert_reopened_catalog_access(
+    directory: &Path,
+    actor: &AuthorizationContext,
+    reference: &eitmad_contracts::catalog_image::CatalogImageRef,
+) {
+    use eitmad_catalog_image::{CatalogImageService, ImageError};
+    let reopened = AuthorityStore::open(directory).unwrap();
+    let offline = CatalogImageService::new(reopened.clone(), AuthorizationService::new(reopened));
+    let query = eitmad_contracts::catalog_image::GetCatalogImage {
+        reference: reference.clone(),
+        offset: 0,
+    };
+    assert!(offline.get(actor, &query, UnixMillis(i64::MAX)).is_ok());
+    let mut denied = actor.clone();
+    denied.identity.principal_id = PrincipalId::new(Uuid::new_v4());
+    assert_eq!(
+        offline.get(&denied, &query, UnixMillis(i64::MAX)),
+        Err(ImageError::Denied)
+    );
 }

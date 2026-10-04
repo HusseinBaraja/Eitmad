@@ -43,6 +43,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Commands
 
+- `eitmad.catalog-image.import.v1`
 - `eitmad.config.update.v1`
 - `eitmad.authorization.relationship.grant.v1`
 - `eitmad.authorization.relationship.revoke.v1`
@@ -63,6 +64,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Queries
 
+- `eitmad.catalog-image.get.v1`
 - `eitmad.config.get.v1`
 - `eitmad.permissions.get-effective.v1`
 - `eitmad.authorization.relationships.list.v1`
@@ -155,6 +157,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.capability.customer.v1`
 - `eitmad.capability.material.v1`
 - `eitmad.capability.part.v1`
+- `eitmad.capability.catalog-image.v1`
 - `eitmad.capability.product.v1`
 - `eitmad.capability.furniture.v1`
 - `eitmad.capability.desktop-account-management.v1`
@@ -222,6 +225,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.schema.customer.v1`
 - `eitmad.schema.material.v1`
 - `eitmad.schema.part.v1`
+- `eitmad.schema.catalog-image.v1`
 - `eitmad.schema.product.v1`
 - `eitmad.schema.furniture.v1`
 
@@ -275,6 +279,9 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.error.customer-unavailable.v1`
 - `eitmad.error.material-invalid.v1`
 - `eitmad.error.part-invalid.v1`
+- `eitmad.error.catalog-image-invalid.v1`
+- `eitmad.error.catalog-image-not-found.v1`
+- `eitmad.error.catalog-image-unavailable.v1`
 - `eitmad.error.product-invalid.v1`
 - `eitmad.error.furniture-invalid.v1`
 - `eitmad.error.part-not-found.v1`
@@ -349,6 +356,9 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.message.customer-unavailable.v1`
 - `eitmad.message.material-invalid.v1`
 - `eitmad.message.part-invalid.v1`
+- `eitmad.message.catalog-image-invalid.v1`
+- `eitmad.message.catalog-image-not-found.v1`
+- `eitmad.message.catalog-image-unavailable.v1`
 - `eitmad.message.product-invalid.v1`
 - `eitmad.message.furniture-invalid.v1`
 - `eitmad.message.part-not-found.v1`

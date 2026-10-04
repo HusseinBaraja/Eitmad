@@ -147,6 +147,28 @@ impl FurnitureService {
             })?
     }
 
+    /// Checks the exact scoped Furniture asset before retaining a new definition revision.
+    fn validate_image(
+        &self,
+        context: &MutationContext,
+        input: &SaveFurniture,
+    ) -> Result<(), FurnitureError> {
+        eitmad_catalog_image::CatalogImageService::new(
+            self.store.clone(),
+            self.authorization.clone(),
+        )
+        .attach(
+            &context.authorization,
+            eitmad_contracts::catalog_image::CatalogImageKind::Furniture,
+            input.image.as_deref(),
+        )
+        .map_err(|e| match e {
+            eitmad_catalog_image::ImageError::Denied => FurnitureError::Denied,
+            eitmad_catalog_image::ImageError::Unavailable => FurnitureError::Unavailable,
+            _ => FurnitureError::InvalidReference,
+        })
+    }
+
     /// Saves one audited definition revision. Removed options become archived, never deleted.
     /// # Errors
     /// Rejects denied, invalid, stale, cross-scope, or unavailable saves.
@@ -157,6 +179,7 @@ impl FurnitureService {
     ) -> Result<Furniture, FurnitureError> {
         const OP: &str = "eitmad.furniture.save.v1";
         self.write(context, OP)?;
+        self.validate_image(context, input)?;
         validate_text(&input.name, 160, false)?;
         validate_description(&input.description)?;
         validate_description(&input.notes)?;
@@ -931,6 +954,7 @@ fn definition(
 ) -> Furniture {
     let (id, revision) = identity;
     Furniture {
+        image: input.image.clone(),
         id,
         scope: context.authorization.scope.clone(),
         name: input.name.clone(),

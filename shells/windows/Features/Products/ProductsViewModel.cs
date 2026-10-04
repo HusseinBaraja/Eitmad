@@ -30,6 +30,17 @@ public sealed class ProductsViewModel : ObservableObject
     private string availabilityMessage = "جار تحميل المنتجات…";
     public string AvailabilityMessage { get => availabilityMessage; private set { Set(ref availabilityMessage, value); Raise(nameof(PageSubtitle)); } }
     public string PageSubtitle => AvailabilityMessage.Length > 0 ? AvailabilityMessage : "المنتجات محفوظة محلياً — سعر البيع من التسعير";
+    public long ImageEditVersion { get; private set; }
+    /// <summary>Prevents an earlier image read from restoring a changed editor reference.</summary>
+    public void InvalidateImageLoad() => ++ImageEditVersion;
+    private CatalogImageRef? editorImageReference;
+    public CatalogImageRef? EditorImageReference => editorImageReference;
+    private System.Windows.Media.ImageSource? productImage;
+    public System.Windows.Media.ImageSource? ProductImage { get => productImage; private set => Set(ref productImage,value); }
+    /// <summary>Stages the confirmed reference and its transient preview for the next definition save.</summary>
+    public void SetImportedImage(CatalogImageRef? reference, System.Windows.Media.ImageSource? image) { editorImageReference = reference; ProductImage = image; }
+    /// <summary>Updates only the currently projected row identified by the authorized result.</summary>
+    public void ApplyImage(Guid id, System.Windows.Media.ImageSource? image) { var row=products.FirstOrDefault(p=>p.Id==id); if(row is not null) row.Image=image; }
     private ProductListItem? editingProduct;
     private Product? editingRecord, pendingArchiveRecord;
     private Guid? editorCategoryId;
@@ -94,6 +105,7 @@ public sealed class ProductsViewModel : ObservableObject
     /// <summary>Removes cached records, restricted fields, staged requests, and management flags after invalidation.</summary>
     public void ClearSession()
     {
+        ++ImageEditVersion; SetImportedImage(null,null);
         SavePending = false; IsBusy = false; IsEditorOpen = false; IsCategoryEditorOpen = false; IsCategoryManagerOpen = false; IsArchiveConfirmationOpen = false;
         editingRecord = null; pendingArchiveRecord = null; editorCategoryId = null; editingProduct = null; pendingArchiveProduct = null; editingCategory = null; EditorName = ""; EditorCategory = ""; ShortDescription = ""; Notes = ""; PurchaseCost = 0; Variants.Clear(); CategoryName = ""; CategoryError = ""; EditorError = ""; FeedbackMessage = "";
         searchText = ""; Raise(nameof(SearchText)); SelectedCategory = AllCategories; SelectedStatus = AllStatuses; CategoryOptions = [AllCategories]; Raise(nameof(CategoryOptions)); CanManage = false; CanReadCosts = false; records.Clear(); Categories.Clear(); ActiveCategories.Clear(); Unavailable("جار تحميل المنتجات…");
@@ -318,6 +330,7 @@ public sealed class ProductsViewModel : ObservableObject
     public void BeginCreate()
     {
         if (SavePending || !CanManage) return;
+        ++ImageEditVersion; SetImportedImage(null,null);
         singleVariantId = Guid.NewGuid();
         editingRecord = null; editorCategoryId = null;
         editingProduct = null;
@@ -341,6 +354,7 @@ public sealed class ProductsViewModel : ObservableObject
         singleVariantId = records[product.Id].Variants.FirstOrDefault()?.Id ?? Guid.NewGuid();
         editingProduct = product;
         editingRecord = records[product.Id];
+        ++ImageEditVersion; SetImportedImage(editingRecord.Image, product.Image);
         var retained = Categories.FirstOrDefault(c => c.Id == editingRecord.CategoryId);
         if (retained is not null && !ActiveCategories.Contains(retained)) ActiveCategories.Add(retained);
         EditorCategoryId = editingRecord.CategoryId;
@@ -378,6 +392,7 @@ public sealed class ProductsViewModel : ObservableObject
     /// <summary>Closes unsaved editing only when no unknown save outcome requires an exact retry.</summary>
     public void CancelEditor()
     {
+        ++ImageEditVersion;
         if (SavePending) return;
         IsEditorOpen = false;
         EditorError = string.Empty;
@@ -405,7 +420,7 @@ public sealed class ProductsViewModel : ObservableObject
         var category = Categories.FirstOrDefault(c => c.Name == EditorCategory);
         var variants = HasVariants ? Variants.Select(v => new SaveProductVariant { Id = v.Id, Name = v.Name, PurchaseCostYer = WholeCost(v.PurchaseCost), Archived = v.IsArchived }).ToArray()
             : new[] { new SaveProductVariant { Id = singleVariantId, Name = "قياسي", PurchaseCostYer = WholeCost(PurchaseCost) } };
-        return new SaveProduct { Id = current?.Id, ExpectedRevision = current?.Revision, Name = EditorName, CategoryId = editorCategoryId ?? category?.Id ?? Guid.Empty, Description = ShortDescription, Notes = Notes, Variants = variants, Archived = current?.Archived ?? false };
+        return new SaveProduct { Image = editorImageReference!, Id = current?.Id, ExpectedRevision = current?.Revision, Name = EditorName, CategoryId = editorCategoryId ?? category?.Id ?? Guid.Empty, Description = ShortDescription, Notes = Notes, Variants = variants, Archived = current?.Archived ?? false };
     }
     /// <summary>Converts whole-YER input to the contract range and rejects fractions or integer overflow.</summary>
     private static long WholeCost(decimal value) => value == decimal.Truncate(value) ? checked((long)value) : throw new FormatException("whole YER required");
@@ -415,6 +430,7 @@ public sealed class ProductsViewModel : ObservableObject
         var p = pendingArchiveRecord!;
         return new SaveProduct
         {
+            Image = p.Image,
             Id = p.Id,
             ExpectedRevision = p.Revision,
             Name = p.Name,

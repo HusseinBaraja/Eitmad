@@ -341,7 +341,11 @@ mod tests {
         let connection = Connection::open(store.path()).unwrap();
         connection
             .execute_batch(
-                "DELETE FROM schema_migrations WHERE version = 18;
+                "DELETE FROM schema_migrations WHERE version = 20;
+                 DELETE FROM schema_migrations WHERE version = 19;
+                 DROP TABLE catalog_image_uploads;
+                 DROP TABLE catalog_images;
+                 DELETE FROM schema_migrations WHERE version = 18;
                  DROP TABLE furniture_part_compositions;
                  DROP TABLE furniture_option_identities;
                  DROP TABLE furniture_revisions;

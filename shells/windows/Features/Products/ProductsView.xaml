@@ -69,7 +69,9 @@
                                                     <DataTemplate>
                                                         <Border x:Name="RowSurface" MinHeight="76" Background="Transparent" BorderBrush="{StaticResource LineBrush}" BorderThickness="0">
                                                             <Border x:Name="ContrastCell1" Width="54" Height="54" CornerRadius="10" Background="#F2E7DC" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                                <Grid>
+                                                                <Grid><Grid>
+    <Grid.Style><Style TargetType="Grid"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Image}" Value="{x:Null}"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></Grid.Style>
+
                                                                     <Grid x:Name="MattressThumb" Visibility="Collapsed">
                                                                         <Border x:Name="ContrastCell2" Width="42" Height="25" CornerRadius="5" Background="#DCE6E4" BorderBrush="#7A958F" BorderThickness="1" />
                                                                         <Path Data="M8,26 L39,26 M11,16 L11,30 M36,16 L36,30" Stroke="#825A39" StrokeThickness="2" Stretch="Uniform" Width="40" Height="28" />
@@ -84,7 +86,7 @@
                                                                         <Path Data="M11,6 L32,6 L37,22 L6,22Z" Fill="#D5AA6D" Stroke="#79512A" StrokeThickness="1.4" />
                                                                         <Path Data="M21,22 L21,39 M13,40 L29,40" Stroke="#79512A" StrokeThickness="2" />
                                                                     </Grid>
-                                                                </Grid>
+                                                                </Grid><Image Source="{Binding Image}" Stretch="Uniform" FlowDirection="LeftToRight" automation:AutomationProperties.Name="{Binding Name}"/></Grid>
                                                             </Border>
                                                         </Border>
                                                         <DataTemplate.Triggers>
@@ -274,6 +276,16 @@
                                 <controls:FormField Label="وصف قصير" Margin="0,17,0,0">
                                     <TextBox Text="{Binding ShortDescription, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" Height="88" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top" automation:AutomationProperties.Name="الوصف القصير للمنتج" />
                                 </controls:FormField>
+                                <controls:FormField Label="الصورة" Margin="0,17,0,0">
+                                    <StackPanel>
+                                        <Image Source="{Binding ProductImage}" Height="120" Stretch="Uniform" FlowDirection="LeftToRight" automation:AutomationProperties.Name="صورة المنتج"/>
+                                        <WrapPanel Margin="0,8,0,0">
+                                            <Button Content="اختيار صورة" Style="{StaticResource SecondaryButton}" Click="ChooseImageClick" IsEnabled="{Binding CanEdit}" automation:AutomationProperties.Name="اختيار صورة المنتج"/>
+                                            <Button Content="إزالة الصورة" Margin="8,0,0,0" Style="{StaticResource SecondaryButton}" Click="RemoveImageClick" IsEnabled="{Binding CanEdit}" automation:AutomationProperties.Name="إزالة صورة المنتج"/>
+                                        </WrapPanel>
+                                    </StackPanel>
+                                </controls:FormField>
+
                             </StackPanel>
                         </Grid>
                     </Border>

@@ -16,6 +16,7 @@ public partial class FurnitureView
     private long editorVersion;
     private bool activated;
     private SaveFurnitureCategory? pendingCategory;
+    private readonly CatalogImages.CatalogImageThumbnails thumbnails = new();
 
     /// <summary>Connects presentation requests to the engine bridge and scoped refresh flow.</summary>
     public void Attach(IEngineShellBridge engine)
@@ -44,6 +45,7 @@ public partial class FurnitureView
     {
         ++sessionVersion; ++refreshVersion; ++reviewVersion; ++partSearchVersion; ++editorVersion; editorCancellation?.Cancel(); partSearchCancellation?.Cancel();
         refreshCancellation?.Cancel(); reviewCancellation?.Cancel(); pendingCategory=null; ViewModel.ClearSession();
+        thumbnails.Clear();
     }
     /// <summary>Removes restricted records, costs, retry input, and editor fields when authority ends.</summary>
     public void ClearSession()
@@ -57,6 +59,7 @@ public partial class FurnitureView
         refreshCancellation?.Cancel(); reviewCancellation?.Cancel(); partSearchCancellation?.Cancel();
         refreshCancellation?.Dispose(); reviewCancellation?.Dispose(); partSearchCancellation?.Dispose();
         editorCancellation?.Cancel(); editorCancellation?.Dispose();
+        thumbnails.Clear();
         if (client is not null) await client.DisposeAsync();
     }
     /// <summary>Coalesces search or change requests and applies only the latest list response.</summary>
@@ -71,7 +74,13 @@ public partial class FurnitureView
             ViewModel.IsLoading=true;
             var result = await client.LoadAsync(ViewModel.SearchText.Trim(), cancel.Token, reloadCategories);
             if (version != refreshVersion) return;
-            if (result.Succeeded) ViewModel.ApplyDurableData(result.Value!);
+            if (result.Succeeded) {
+                ViewModel.ApplyDurableData(result.Value!);
+                var images=new CatalogImages.CatalogImageClient(bridge!);
+                await thumbnails.ApplyAsync(images,
+                    result.Value!.Furniture.Where(p => p.Image is not null).Select(p => (p.Id, p.Image!)),
+                    (id, image) => { if (version == refreshVersion) ViewModel.ApplyImage(id, image); }, cancel.Token);
+            }
             else { if (result.Failure == FurnitureFailureKind.Denied) ClearRestrictedData(); ViewModel.Unavailable(FurnitureClient.ArabicMessage(result.Failure)); }
         }
         catch (OperationCanceledException) when (cancel.IsCancellationRequested) { }

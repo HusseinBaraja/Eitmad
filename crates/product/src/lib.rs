@@ -146,6 +146,28 @@ impl ProductService {
             })?
     }
 
+    /// Checks the exact scoped Product asset before retaining a new definition revision.
+    fn validate_image(
+        &self,
+        context: &MutationContext,
+        input: &SaveProduct,
+    ) -> Result<(), ProductError> {
+        eitmad_catalog_image::CatalogImageService::new(
+            self.store.clone(),
+            self.authorization.clone(),
+        )
+        .attach(
+            &context.authorization,
+            eitmad_contracts::catalog_image::CatalogImageKind::Product,
+            input.image.as_deref(),
+        )
+        .map_err(|e| match e {
+            eitmad_catalog_image::ImageError::Denied => ProductError::Denied,
+            eitmad_catalog_image::ImageError::Unavailable => ProductError::Unavailable,
+            _ => ProductError::InvalidReference,
+        })
+    }
+
     /// Saves one audited definition revision. Removed options become archived, never deleted.
     /// # Errors
     /// Rejects denied, invalid, stale, cross-scope, or unavailable saves.
@@ -156,6 +178,7 @@ impl ProductService {
     ) -> Result<Product, ProductError> {
         const OP: &str = "eitmad.product.save.v1";
         self.write(context, OP)?;
+        self.validate_image(context, input)?;
         // A writer must also be allowed to receive the internal-cost save result.
         self.authorization
             .authorize(&context.authorization, PRODUCT_COST_READ_PERMISSION)
@@ -205,6 +228,7 @@ impl ProductService {
                 };
                 let revision = next_revision(actual)?;
                 let record = Product {
+                    image: input.image.clone(),
                     id,
                     scope: scope.clone(),
                     name: input.name.clone(),
