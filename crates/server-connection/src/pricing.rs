@@ -64,7 +64,7 @@ pub(crate) fn remap_catalog_scope(
     Ok(())
 }
 impl DirectPriceClient {
-    /// Configures pinned HTTPS and stored credentials for the protocol 1.16 pricing boundary.
+    /// Configures pinned HTTPS and stored credentials for the protocol 1.17 pricing boundary.
     #[must_use]
     pub fn from_config(
         config: DirectServerConfig,
@@ -77,7 +77,7 @@ impl DirectPriceClient {
                 secrets,
                 credential,
                 "eitmad.capability.pricing.v1",
-                16,
+                17,
             ),
         }
     }

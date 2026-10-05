@@ -1308,7 +1308,7 @@ async fn authenticate_negotiated(
         required_capability.as_str(),
         "eitmad.capability.pricing.v1" | "eitmad.capability.catalog-revisions.v1"
     ) {
-        16
+        17
     } else {
         5
     };
@@ -1735,12 +1735,15 @@ mod tests {
             limit: 100,
         })
         .unwrap();
-        for (compatible, status) in [
-            (true, StatusCode::UNAUTHORIZED),
-            (false, StatusCode::BAD_REQUEST),
+        for (compatible, minor, status) in [
+            (true, 17, StatusCode::UNAUTHORIZED),
+            (true, 16, StatusCode::BAD_REQUEST),
+            (false, 17, StatusCode::BAD_REQUEST),
         ] {
             let mut peer = server_hello(Vec::new());
             peer.peer_kind = PeerKind::Engine;
+            peer.protocols[0].minimum_minor = minor;
+            peer.protocols[0].maximum_minor = minor;
             if !compatible {
                 peer.capabilities.retain(|c| {
                     !matches!(
@@ -1769,6 +1772,16 @@ mod tests {
                     .await
                     .unwrap();
                 assert_eq!(response.status(), status, "{uri}");
+                if status == StatusCode::BAD_REQUEST {
+                    let bytes = axum::body::to_bytes(response.into_body(), 4096)
+                        .await
+                        .unwrap();
+                    let failure: ServerFailure = serde_json::from_slice(&bytes).unwrap();
+                    assert_eq!(
+                        failure.code.as_str(),
+                        "eitmad.error.server-client-incompatible.v1"
+                    );
+                }
             }
         }
     }
