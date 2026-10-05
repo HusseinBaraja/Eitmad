@@ -1664,6 +1664,7 @@ namespace Eitmad.Contracts
         /// <summary>
         /// Internal notes are withheld with purchase costs.
         /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("notes")]
         public string Notes { get; set; }
 

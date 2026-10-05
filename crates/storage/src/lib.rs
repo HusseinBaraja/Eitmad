@@ -3,6 +3,8 @@
 mod audit;
 mod authorization;
 mod catalog_image;
+mod catalog_sync;
+pub use catalog_sync::CatalogSyncProjection;
 mod configuration;
 mod customer;
 mod desktop_auth;
@@ -57,7 +59,7 @@ use rusqlite::{Connection, OpenFlags, OptionalExtension as _, TransactionBehavio
 pub use sync_state::{StoredSyncState, SyncStateCommitOutcome};
 
 pub const DATABASE_FILE_NAME: &str = "eitmad.sqlite3";
-pub const CURRENT_STORAGE_VERSION: u32 = 21;
+pub const CURRENT_STORAGE_VERSION: u32 = 22;
 pub const MIN_SUPPORTED_STORAGE_VERSION: u32 = 2;
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 pub const MAX_PUBLICATION_RECOVERY_PAGE: u32 = 64;

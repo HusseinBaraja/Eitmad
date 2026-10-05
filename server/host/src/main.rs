@@ -88,10 +88,11 @@ async fn execute() -> Result<(), MainError> {
         println!("expiresAt={}", result.expires_at.0);
         return Ok(());
     }
-    let domains = DomainRegistry::new([
+    let mut handlers = eitmad_sync_plane::CatalogSyncHandler::handlers(&sync_database.pool());
+    handlers.push(
         Arc::new(CustomerSyncHandler::new(sync_database.pool())) as Arc<dyn DomainSyncHandler>
-    ])
-    .map_err(|_| MainError::Configuration)?;
+    );
+    let domains = DomainRegistry::new(handlers).map_err(|_| MainError::Configuration)?;
     let sync = SyncCoordinator::new(&sync_database, domains);
     let state = compose_server_state(&config, control, sync, &admin_database)?;
     tracing::info!(listen = %config.listen, "server ready");

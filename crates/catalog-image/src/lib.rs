@@ -102,6 +102,31 @@ impl CatalogImageService {
             })
     }
 
+    fn authorize_read(
+        &self,
+        actor: &AuthorizationContext,
+        image: &CatalogImageRef,
+    ) -> Result<(), ImageError> {
+        match self.authorize(actor, image.kind, false) {
+            Ok(()) => (),
+            Err(ImageError::Denied) if image.kind == CatalogImageKind::Furniture => {
+                self.authorization
+                    .authorize(actor, eitmad_authorization::CATALOG_READ_PERMISSION)
+                    .map_err(|_| ImageError::Denied)?;
+                if !self
+                    .store
+                    .catalog_sales(&actor.scope)?
+                    .iter()
+                    .any(|entry| entry.image.as_deref() == Some(image))
+                {
+                    return Err(ImageError::Denied);
+                }
+            }
+            Err(error) => return Err(error),
+        }
+        Ok(())
+    }
+
     /// Imports without retaining or logging the picker path. Retry by content is immutable.
     /// # Errors
     /// Rejects denied access, non-regular files, oversized input, invalid codecs, and decoded bounds.
@@ -249,7 +274,7 @@ impl CatalogImageService {
         deadline: UnixMillis,
     ) -> Result<CatalogImageChunk, ImageError> {
         check_deadline(deadline)?;
-        self.authorize(actor, query.reference.kind, false)?;
+        self.authorize_read(actor, &query.reference)?;
         if let Some(content) = self.store.catalog_image(&actor.scope, &query.reference)? {
             check_deadline(deadline)?;
             return chunk(&query.reference, &content, query.offset);
@@ -262,7 +287,7 @@ impl CatalogImageService {
         check_deadline(deadline)?;
         validate_asset(&query.reference, &content)?;
         check_deadline(deadline)?;
-        self.authorize(actor, query.reference.kind, false)?;
+        self.authorize_read(actor, &query.reference)?;
         let audit = MutationAuditRecord::from_authorization(
             actor,
             eitmad_authorization::now(),

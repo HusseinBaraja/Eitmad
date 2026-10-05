@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "catalog image capability"
-last_verified: "2026-10-04"
+last_verified: "2026-10-05"
 review_triggers:
   - "image contracts, decoder limits, permissions, retention, or server transfer changes"
 keywords:
@@ -32,7 +32,7 @@ The source path is transient import input. Retry evidence stores its request has
 
 ## Scope, authorization, audit, and history
 
-Local import requires the owning Product or Furniture write and read permissions. Every read requires its owning read permission. Attachment validation rejects wrong capability kinds, missing assets, and references from another scope. The existing local authority uses a tenant-rooted organization scope; the configured server route maps that scope to the installation's registered organization. Credential user and tenant must match the local actor. Server reads and uploads enforce the authenticated tenant and organization relationship before accessing bytes. Product image reads permit the organization Receptionist relationship; Furniture reads and all writes require Manager or Owner. PostgreSQL also forces tenant row-level security.
+Local import requires the owning Product or Furniture write and read permissions. Every read requires its owning read permission or an authorized confirmed sales reference. Attachment validation rejects wrong capability kinds, missing assets, and references from another scope. The existing local authority uses a tenant-rooted organization scope; the configured server route maps that scope to the installation's registered organization. Credential user and tenant must match the local actor. Server reads and uploads enforce the authenticated tenant and organization relationship before accessing bytes. Product image reads permit the organization Receptionist relationship; Private Furniture reads and all writes require the existing Manager or Owner relationship. A Receptionist can read a Furniture image only while an active confirmed sales projection references its ID and digest; both Rust cache access and the server enforce that rule. PostgreSQL also forces tenant row-level security.
 
 Local storage migration `catalog.images.v1` is version `19`; migration `catalog.image-upload-deferral.v1` (`20`) adds the retry schedule; server sync migration `0006_catalog_images.sql` stores organization assets. Image insertion, import retry evidence, pending upload work, and a redacted audit record commit atomically. Server insertion and audit commit atomically. Local cache insertion and upload acknowledgement also require audit. SQLite and PostgreSQL prevent image updates and deletion.
 
@@ -44,7 +44,7 @@ The Manager uses **اختيار صورة** in the Product or Furniture editor, t
 
 Catalog text and prices load before thumbnails. Each view retains at most 128 decoded thumbnails, keyed by asset ID and digest, and applies cache hits before loading misses with two concurrent workers. Product search waits 250 ms to coalesce typing. Session changes and permission invalidation clear the cache and invalidate outstanding loads. A failed image read leaves those fields available. A server outage does not block local import or definition save. Rust retains upload work across restart and retries in the background. An authenticated exact acknowledgement removes the pending item. Image reads use a local cache first; a cache miss uses the authorized server route and validates bytes before caching them. Cached assets remain readable offline under current local authorization.
 
-Image transfer does not publish or synchronize Product or Furniture definitions. Their existing local definition workflows and private Manager projection remain unchanged. A second authorized client must receive the immutable reference through an authorized catalog definition or consuming workflow; image transfer alone cannot invent that catalog relationship. Receptionist catalog publication remains outside this capability.
+Image transfer does not publish or synchronize Product or Furniture definitions. Their existing local definition workflows and private Manager projection remain unchanged. A second authorized client must receive the immutable reference through an authorized catalog definition or consuming workflow; image transfer alone cannot invent that catalog relationship. [Catalog replication](synchronization.md#catalog-replication) carries those references to separate clients. Image transfer does not confirm a catalog definition or price.
 
 ## Configure the engine transfer route
 

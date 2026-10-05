@@ -70,6 +70,28 @@ pub trait DomainSyncHandler: Send + Sync {
     ///
     /// Returns a denial, invalid-payload, or conflict result.
     fn validate_local(&self, draft: &LocalOperationDraft) -> Result<(), DomainValidationError>;
+    /// Validates and retains dependencies inside the operation/audit transaction.
+    /// # Errors
+    /// Rejects missing references or unavailable authority without an accepted prefix.
+    async fn retain_local(
+        &self,
+        _tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        _session: &AuthenticatedServerSession,
+        _draft: &LocalOperationDraft,
+        _now: eitmad_contracts::transport::UnixMillis,
+    ) -> Result<(), crate::OperationError> {
+        Ok(())
+    }
+    /// Filters domain fields before any history or snapshot leaves the server.
+    /// # Errors
+    /// Rejects invalid stored data or revoked access.
+    async fn project(
+        &self,
+        _session: &AuthenticatedServerSession,
+        change: eitmad_contracts::sync::ChangeRecord,
+    ) -> Result<eitmad_contracts::sync::ChangeRecord, crate::OperationError> {
+        Ok(change)
+    }
     /// Produces an optional authoritative conflict resolution.
     ///
     /// # Errors

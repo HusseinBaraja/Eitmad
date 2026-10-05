@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust synchronization maintainers"
-last_verified: "2026-08-24"
+last_verified: "2026-10-05"
 review_triggers:
   - "sync contracts, reconciliation, transport, persistence, authorization, cache, or conflict behavior changes"
 keywords:
@@ -41,7 +41,21 @@ keywords:
 
 Native shells display returned state and localized recovery choices. They must not open SQLite, alter queues, merge payloads, retry denied work, infer freshness, or reproduce these contracts. LAN and WAN transports carry the same typed records; transport choice cannot change reconciliation semantics.
 
-The PostgreSQL server sync plane implements registered domain handlers, durable operations, idempotency, conflicts, checkpoints, snapshot-backed history, and resumable subscriptions. The combined host supplies HTTPS, one WebSocket boundary, and authenticated relay coordination. Its domain registry registers `eitmad.schema.customer.v1` through the customer handler. `eitmad-server-connection` supplies the direct WAN route. `CustomerSyncCycle` connects the customer outbox to this route and the shared engine; its caller supplies an enrolled server session and schedules cycles on a Rust worker thread. LAN discovery and relay payload routing remain separate work. A production driver must not move authentication, secret access, authorization, or sync semantics into a native shell. See [WAN relay coordination](wan-relay-coordination.md).
+The PostgreSQL server sync plane implements registered domain handlers, durable operations, idempotency, conflicts, checkpoints, snapshot-backed history, and resumable subscriptions. The combined host supplies HTTPS, one WebSocket boundary, and authenticated relay coordination. Its domain registry registers Customer, Material, Part, Product, Furniture, public catalog, and Pricing handlers. `eitmad-server-connection` supplies the direct WAN route. `CustomerSyncCycle` connects the customer outbox to this route and the shared engine; its caller supplies an enrolled server session and schedules cycles on a Rust worker thread. LAN discovery and relay payload routing remain separate work. A production driver must not move authentication, secret access, authorization, or sync semantics into a native shell. See [WAN relay coordination](wan-relay-coordination.md).
+
+## Catalog replication
+
+`DirectCatalogSyncClient` connects durable catalog work to the existing authenticated WAN adapter and `SubmitLocal`, `Pull`, and `Acknowledge` messages. It requires protocol 1.17. It uses the Pricing server endpoint, trust, and native credential settings; it adds no wire protocol or shell-owned networking. See [Pricing configuration](pricing.md#configure-and-recover).
+
+Private Material, Part, Product, and Furniture schema streams are local-first. Each immutable domain revision has a stable envelope ID; a different payload cannot replace that ID. A save commits transfer work with its existing mutation audit. The cycle bootstraps existing local records once, sends bounded dependency-ordered work, and preserves exact Material, unit, Part, and definition revisions. An interrupted sender keeps pending work for exact retry. A missing dependency rejects the dependent definition.
+
+The public `eitmad.schema.catalog-public.v1` and Pricing streams are server-authoritative. Price confirmation commits a complete public definition/variant and its receipt in one server transaction. A changed current definition or archived category withdraws its sales entry in that same accepted mutation. Historical definitions and prices remain retained. An accepted private edit does not publish its proposed price.
+
+Server handlers enforce tenant RLS and organization relationships. Material, Part, and private Furniture reads require Manager. Product reads permit Receptionist access with purchase costs and internal notes removed before history or snapshot serialization. The public entry type contains no costs, margins, Part compositions, or internal notes. A Branch Receptionist can read the owning organization's public catalog. See each capability's accepted authority policy.
+
+The receiving engine decodes an entire page before committing its read model, checkpoint, audit, immutable price history, and price-change outbox. Private streams finish in dependency order before Furniture projection. A stale checkpoint uses the existing manifest/chunk/completion route. The client stages the complete snapshot, checks identities, counts, per-chunk and whole checksums, expiry, and bounded size, then commits once. No received prefix becomes a confirmed sales entry. Restart retains the old confirmed projection and resumes or repeats the interrupted transfer. The Rust worker refreshes registered readers and drains committed events; native shells use existing subscriptions.
+
+The focused real TLS/PostgreSQL scenario is `catalog_sync::catalog_reaches_separate_receptionist_and_recovers_without_private_fields` in `crates/server-connection/tests/direct_route/catalog_sync.rs`. It uses isolated Manager and Receptionist stores and an ordinary PostgreSQL role. Follow [real-server verification](../../operations/run-server-authority.md#verify-catalog-delivery-and-recovery).
 
 ## One transport interface and wire protocol
 

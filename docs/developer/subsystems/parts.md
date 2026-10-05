@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Parts capability maintainers"
-last_verified: "2026-09-30"
+last_verified: "2026-10-05"
 review_triggers:
   - "Parts domain contracts, Rust projections, or Windows Parts UI behavior change"
 keywords:
@@ -39,7 +39,7 @@ New references must be active. Existing unchanged references can remain after ar
 
 The bounded part list returns `PartProjection`: `part` is the saved definition and cost snapshot, while `currentCost` is an advisory calculation against current material costs. A material change updates that projection on reload. It does not change the saved part revision, composition, or selling price.
 
-A `CompositionReference` contains the organization scope, Part ID, revision, and schema version `1`. Resolving it returns the immutable saved part, quantities, material definitions and revisions, consumption and cost units and revisions, and original calculated cost. SQLite rejects updates or deletion of a composition row. Commercial records must retain this exact reference and their issued display snapshot; they must never substitute the current-cost projection. If a commercial workflow needs a new cost snapshot, the Manager saves a new part revision first. Furniture publication and commercial issuance are separate future capabilities.
+A `CompositionReference` contains the organization scope, Part ID, revision, and schema version `1`. Resolving it returns the immutable saved part, quantities, material definitions and revisions, consumption and cost units and revisions, and original calculated cost. SQLite rejects updates or deletion of a composition row. Commercial records must retain this exact reference and their issued display snapshot; they must never substitute the current-cost projection. If a commercial workflow needs a new cost snapshot, the Manager saves a new part revision first. [Pricing](pricing.md) confirms Furniture publication separately; commercial issuance remains a separate capability.
 
 The approved example is `1.2 m² × 7,250 YER` plus `3 m × 250 YER`, giving `9,450 YER`. Rust uses arbitrary-precision rational arithmetic and rounds the aggregate once, half away from zero. Individual row amounts are rounded for display and can sum differently from the exact rounded aggregate. The final amount must fit signed 64-bit whole-YER money.
 
@@ -51,7 +51,7 @@ Protocol `1.11` negotiates optional `eitmad.capability.part.v1` and `eitmad.sche
 
 One immediate transaction checks the part revision, category, material and unit references, and reviewed material/unit revisions. It calculates the cost and writes the part, immutable composition, usage rows, redacted audit, retry result, and publication outbox together. A mandatory audit or storage failure rolls back all of these writes. Changed part or reviewed material revisions return `eitmad.error.part-revision-conflict.v1`. Exact retries use the original key and return the original result. Reusing a key for different input or another principal is rejected.
 
-The engine publishes after commit and recovers pending publication through the existing outbox. These records are local authority data; they do not use customer synchronization and do not claim server confirmation. Follow [local storage recovery](local-storage.md) for migration backups and rollback limits.
+The engine publishes after commit and recovers pending publication through the existing outbox. Part categories and immutable compositions use the existing sync protocol through the [catalog cycle](synchronization.md#catalog-replication). Dependency ordering preserves exact Material and unit revisions. Private local save does not claim catalog publication. Receptionists cannot read Part payloads. Follow [local storage recovery](local-storage.md) for migration backups and rollback limits.
 
 ## Windows manager flow
 

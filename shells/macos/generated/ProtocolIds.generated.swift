@@ -4,7 +4,7 @@ import Foundation
 public enum ProtocolIds {
     public enum Version {
         public static let major = 1
-        public static let minor = 16
+        public static let minor = 17
     }
 
     public enum IpcMessages {
@@ -220,6 +220,7 @@ public enum ProtocolIds {
     }
 
     public enum SchemaIds {
+        public static let eitmadSchemaCatalogPublicV1 = "eitmad.schema.catalog-public.v1"
         public static let eitmadSchemaCatalogRevisionsV1 = "eitmad.schema.catalog-revisions.v1"
         public static let eitmadSchemaPricingV1 = "eitmad.schema.pricing.v1"
         public static let eitmadSchemaProtocolV1 = "eitmad.schema.protocol.v1"

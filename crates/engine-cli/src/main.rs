@@ -208,7 +208,8 @@ fn configured_dispatcher(
 ) -> Result<(Arc<ProductDispatcher>, bool), ()> {
     let mut dispatcher = ProductDispatcher::new(store.clone(), event_broker.clone());
     let media_endpoint = std::env::var_os("EITMAD_MEDIA_SERVER");
-    let media_enabled = media_endpoint.is_some();
+    let media_enabled =
+        media_endpoint.is_some() || std::env::var_os("EITMAD_PRICING_SERVER").is_some();
     if let Some(endpoint) = media_endpoint {
         let configured = (|| {
             let trust = std::env::var_os("EITMAD_MEDIA_TRUST_PEM").ok_or(())?;
@@ -264,6 +265,14 @@ fn configured_dispatcher(
         let secrets = eitmad_secret_storage::SecretStore::open(directory, None).map_err(|_| ())?;
         let credential = serde_json::from_str::<eitmad_contracts::secrets::SecretId>(&credential)
             .map_err(|_| ())?;
+        dispatcher = dispatcher.with_catalog_replication(Arc::new(
+            eitmad_server_connection::DirectCatalogSyncClient::from_config(
+                config.clone(),
+                secrets.clone(),
+                credential.clone(),
+                store.clone(),
+            ),
+        ));
         dispatcher = dispatcher.with_price_confirmation(Arc::new(
             eitmad_server_connection::DirectPriceClient::from_config(config, secrets, credential),
         ));
@@ -282,7 +291,13 @@ fn start_media_uploads(
                 break;
             }
             let worker = dispatcher.clone();
-            let result = tokio::task::spawn_blocking(move || worker.retry_catalog_images()).await;
+            let result = tokio::task::spawn_blocking(move || {
+                let images = worker.retry_catalog_images().unwrap_or(0);
+                worker
+                    .retry_catalog_replication()
+                    .map(|catalog| images + catalog)
+            })
+            .await;
             if matches!(result,Ok(Ok(count)) if count>0) {
                 continue;
             }

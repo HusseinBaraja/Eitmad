@@ -259,6 +259,17 @@ impl PartTransaction<'_> {
             }
         }
         insert_audit(self.connection, audit)?;
+        let revision = match record {
+            PartRecord::Part(v) => {
+                eitmad_contracts::catalog_revision::CatalogRevision::Part(Box::new(v.clone()))
+            }
+            PartRecord::Category(v) => {
+                eitmad_contracts::catalog_revision::CatalogRevision::PartCategory(Box::new(
+                    v.clone(),
+                ))
+            }
+        };
+        crate::catalog_sync::enqueue(self.connection, &revision, audit)?;
         let mut retry = retry.clone();
         retry.response_json = json;
         insert_idempotency(self.connection, scope, operation, &retry)?;

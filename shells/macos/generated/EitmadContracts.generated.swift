@@ -1749,7 +1749,7 @@ public struct Product: Codable, Sendable {
     public let image: CatalogImageRef?
     public let name: String
     /// Internal notes are withheld with purchase costs.
-    public let notes: String
+    public let notes: String?
     public let revision: Int
     public let scope: ScopeRef
     public let updatedAt: Int
@@ -1761,7 +1761,7 @@ public struct Product: Codable, Sendable {
         case categoryName, description, id, image, name, notes, revision, scope, updatedAt, variants
     }
 
-    public init(archived: Bool, categoryID: String, categoryName: String, description: String, id: String, image: CatalogImageRef?, name: String, notes: String, revision: Int, scope: ScopeRef, updatedAt: Int, variants: [ProductVariant]) {
+    public init(archived: Bool, categoryID: String, categoryName: String, description: String, id: String, image: CatalogImageRef?, name: String, notes: String?, revision: Int, scope: ScopeRef, updatedAt: Int, variants: [ProductVariant]) {
         self.archived = archived
         self.categoryID = categoryID
         self.categoryName = categoryName

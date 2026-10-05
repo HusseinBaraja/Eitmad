@@ -2,6 +2,8 @@
 
 mod catalog_image;
 mod catalog_revision;
+mod catalog_sync;
+pub use catalog_sync::CatalogSyncHandler;
 mod pricing;
 pub use catalog_image::CatalogImageServer;
 pub use pricing::PricingServer;

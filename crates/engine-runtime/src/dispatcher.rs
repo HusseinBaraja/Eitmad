@@ -45,6 +45,7 @@ pub struct ProductDispatcher {
     image_workers: Arc<tokio::sync::Semaphore>,
     products: ProductService,
     pricing: eitmad_pricing::PricingService,
+    catalog_replication: Option<Arc<dyn eitmad_pricing::CatalogReplication>>,
     furnitures: FurnitureService,
     accounts: DesktopAccountService,
     events: Arc<dyn ProductEventPublisher>,
@@ -109,6 +110,7 @@ impl ProductDispatcher {
             image_workers: Arc::new(tokio::sync::Semaphore::new(2)),
             products,
             pricing,
+            catalog_replication: None,
             furnitures,
             accounts,
             events,
@@ -118,6 +120,38 @@ impl ProductDispatcher {
     #[must_use]
     pub const fn authorization(&self) -> &AuthorizationService {
         &self.authorization
+    }
+    #[must_use]
+    pub fn with_catalog_replication(
+        mut self,
+        replication: Arc<dyn eitmad_pricing::CatalogReplication>,
+    ) -> Self {
+        self.catalog_replication = Some(replication);
+        self
+    }
+    /// Retries durable Manager work under current local and remote authority.
+    /// # Errors
+    /// Leaves rejected and interrupted work durable for recovery.
+    pub fn retry_catalog_replication(&self) -> Result<usize, eitmad_pricing::PricingError> {
+        let Some(replication) = &self.catalog_replication else {
+            return Ok(0);
+        };
+        let mut count = 0;
+        for actor in self.store.pending_catalog_actors()? {
+            match replication.synchronize(
+                &actor,
+                eitmad_contracts::transport::UnixMillis(now().0.saturating_add(10_000)),
+            ) {
+                Ok(transferred) => count += transferred,
+                Err(
+                    eitmad_pricing::PricingError::Denied | eitmad_pricing::PricingError::Reference,
+                ) => (),
+                Err(e) => return Err(e),
+            }
+        }
+        self.drain_pending_publications()
+            .map_err(|_| eitmad_pricing::PricingError::Unconfirmed)?;
+        Ok(count)
     }
 
     #[must_use]
@@ -157,9 +191,27 @@ impl ProductDispatcher {
                 let actor = context.authorization.clone();
                 let deadline = context.deadline;
                 let correlation_id = context.correlation_id;
+                let replication = self.catalog_replication.clone();
                 tokio::task::spawn_blocking(move || {
                     let mut server_available = false;
                     if query.after.is_none() {
+                        if let Some(replication) = &replication {
+                            match replication.synchronize(
+                                &actor,
+                                eitmad_contracts::transport::UnixMillis(
+                                    deadline
+                                        .0
+                                        .saturating_sub(1_000)
+                                        .min(now().0.saturating_add(10_000)),
+                                ),
+                            ) {
+                                Ok(_) => server_available = true,
+                                Err(eitmad_pricing::PricingError::Unconfirmed) => (),
+                                Err(e) => return Err(e),
+                            }
+                        }
+                    }
+                    if query.after.is_none() && replication.is_none() {
                         let context = MutationContext {
                             authorization: actor.clone(),
                             correlation_id,

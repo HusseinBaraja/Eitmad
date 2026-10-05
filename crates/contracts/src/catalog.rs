@@ -293,6 +293,7 @@ pub const RELATIONS: &[&str] = &[
     "eitmad.relation.organization.owner.v1",
 ];
 pub const DOMAIN_SCHEMA_IDS: &[&str] = &[
+    "eitmad.schema.catalog-public.v1",
     "eitmad.schema.catalog-revisions.v1",
     "eitmad.schema.pricing.v1",
     "eitmad.schema.protocol.v1",

@@ -33,8 +33,9 @@ impl PricingServer {
         let mut tx = tenant_transaction(&self.pool, actor.tenant_id)
             .await
             .map_err(|_| PricingError::Unconfirmed)?;
-        let allowed: bool=sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM control.organizations o JOIN control.relationship_tuples r ON r.tenant_id=o.tenant_id WHERE o.tenant_id=$1 AND o.organization_id=$2 AND r.subject_principal_id=$3 AND r.subject_kind='user' AND r.object_kind='organization' AND r.object_id=o.organization_id AND r.relation IN ('eitmad.relation.organization.manager.v1','eitmad.relation.organization.receptionist.v1'))")
-            .bind(actor.tenant_id.value()).bind(input.scope.id.value()).bind(actor.user_id.value()).fetch_one(&mut *tx).await.map_err(|_|PricingError::Unconfirmed)?;
+        let allowed = crate::catalog_sync::reader_allowed(&mut tx, actor, &input.scope)
+            .await
+            .map_err(|_| PricingError::Unconfirmed)?;
         if !allowed {
             return Err(PricingError::Denied);
         }
@@ -193,6 +194,7 @@ impl PricingServer {
         )
         .await?;
         let record = receipt(input, actual, now);
+        crate::catalog_revision::publish_entry(&mut tx, actor, &record, now).await?;
         tx.commit().await.map_err(|_| PricingError::Unconfirmed)?;
         Ok(record)
     }

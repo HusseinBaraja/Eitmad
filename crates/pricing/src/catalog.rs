@@ -10,6 +10,106 @@ use uuid::Uuid;
 
 type RevisionKey = (&'static str, Uuid, u64);
 
+/// Returns the existing capability schema that owns a private revision.
+#[must_use]
+pub fn revision_schema(record: &CatalogRevision) -> &'static str {
+    match record {
+        CatalogRevision::Unit(_)
+        | CatalogRevision::Material(_)
+        | CatalogRevision::MaterialCategory(_) => "eitmad.schema.material.v1",
+        CatalogRevision::Part(_) | CatalogRevision::PartCategory(_) => "eitmad.schema.part.v1",
+        CatalogRevision::Product(_) | CatalogRevision::ProductCategory(_) => {
+            "eitmad.schema.product.v1"
+        }
+        CatalogRevision::Furniture(_) | CatalogRevision::FurnitureCategory(_) => {
+            "eitmad.schema.furniture.v1"
+        }
+    }
+}
+
+/// A stable envelope identity for an immutable domain revision, independent of transfer attempts.
+#[must_use]
+pub fn revision_record_id(record: &CatalogRevision) -> Uuid {
+    let (kind, id, revision, _) = record.identity();
+    catalog_record_id(&format!("{kind}:{id}:{revision}"))
+}
+
+/// Derives a scoped record key without introducing a transport-specific identity.
+#[must_use]
+pub fn catalog_record_id(identity: &str) -> Uuid {
+    use sha2::{Digest as _, Sha256};
+    let digest = Sha256::digest(identity.as_bytes());
+    let mut bytes = [0; 16];
+    bytes.copy_from_slice(&digest[..16]);
+    Uuid::from_bytes(bytes)
+}
+
+/// Builds an explicit public allowlist from one validated definition and its exact price receipt.
+/// # Errors
+/// Rejects missing, archived, or mismatched definition/variant references.
+pub fn public_entry(
+    record: &CatalogRevision,
+    price: &eitmad_contracts::pricing::PublishedPrice,
+) -> Result<eitmad_contracts::catalog_revision::CatalogEntry, PricingError> {
+    publication_basis(record, &price.target)?;
+    let mut entry = eitmad_contracts::catalog_revision::CatalogEntry {
+        price: price.clone(),
+        name: String::new(),
+        category_name: String::new(),
+        description: String::new(),
+        variant_name: String::new(),
+        image: None,
+        dimensions: None,
+        customization: None,
+        colors: vec![],
+        handles: vec![],
+    };
+    let variant_id = price.target.identity().2;
+    match record {
+        CatalogRevision::Product(p) => {
+            entry.name.clone_from(&p.name);
+            entry.category_name.clone_from(&p.category_name);
+            entry.description.clone_from(&p.description);
+            entry.image.clone_from(&p.image);
+            entry.variant_name.clone_from(
+                &p.variants
+                    .iter()
+                    .find(|v| v.id.value() == variant_id)
+                    .ok_or(PricingError::Reference)?
+                    .name,
+            );
+        }
+        CatalogRevision::Furniture(f) => {
+            let variant = f
+                .variants
+                .iter()
+                .find(|v| v.id.value() == variant_id)
+                .ok_or(PricingError::Reference)?;
+            entry.name.clone_from(&f.name);
+            entry.category_name.clone_from(&f.category_name);
+            entry.description.clone_from(&f.description);
+            entry.image.clone_from(&f.image);
+            entry.variant_name.clone_from(&variant.name);
+            entry.dimensions = Some(variant.dimensions.clone());
+            entry.customization.clone_from(&variant.customization);
+            entry.colors = f
+                .colors
+                .iter()
+                .filter(|o| price.colors.iter().any(|p| p.id == o.id))
+                .cloned()
+                .collect();
+            entry.handles = f
+                .handles
+                .iter()
+                .filter(|o| price.handles.iter().any(|p| p.id == o.id))
+                .cloned()
+                .collect();
+        }
+        _ => return Err(PricingError::Reference),
+    }
+    Ok(entry)
+}
+
 /// Lists stored dependencies; revision zero denotes the current category.
 /// # Errors
 /// Rejects unbounded collections and zero Part revisions before database work.
@@ -24,18 +124,19 @@ pub fn catalog_dependencies(record: &CatalogRevision) -> Result<Vec<RevisionKey>
         return Err(PricingError::Reference);
     }
     Ok(match record {
-        CatalogRevision::Part(p) => p
-            .cost
-            .rows
-            .iter()
-            .flat_map(|r| {
+        CatalogRevision::Part(p) => std::iter::once(("part-category", p.category_id.value(), 0))
+            .chain(p.cost.rows.iter().flat_map(|r| {
                 [
                     ("material", r.material.id.value(), r.material.revision),
                     ("unit", r.unit.id.value(), r.unit.revision),
                     ("unit", r.cost_unit.id.value(), r.cost_unit.revision),
                 ]
-            })
+            }))
             .collect(),
+        CatalogRevision::Material(m) => vec![
+            ("material-category", m.category_id.value(), 0),
+            ("unit", m.unit_id.value(), 0),
+        ],
         CatalogRevision::Product(p) => vec![("product-category", p.category_id.value(), 0)],
         CatalogRevision::Furniture(f) => {
             std::iter::once(("furniture-category", f.category_id.value(), 0))
@@ -80,6 +181,8 @@ pub fn validate_catalog_revision(
                 return Err(PricingError::Invalid);
             }
         }
+        CatalogRevision::MaterialCategory(v) => name(&v.name)?,
+        CatalogRevision::PartCategory(v) => name(&v.name)?,
         CatalogRevision::Material(v) => {
             name(&v.name)?;
             if v.current_cost_yer < 0
@@ -179,7 +282,7 @@ impl PricingService {
             let mut insert = |record: CatalogRevision| -> Result<(), PricingError> {
                 let (kind, id, revision, _) = record.identity();
                 let order = match kind {
-                    "unit" => 0,
+                    "unit" | "material-category" | "part-category" => 0,
                     "material" => 1,
                     "part" => 2,
                     "product-category" | "furniture-category" => 3,
@@ -220,7 +323,17 @@ impl PricingService {
                             .furnitures()
                             .composition(&usage.reference)?
                             .ok_or(PricingError::Reference)?;
+                        let category = tx
+                            .furnitures()
+                            .part_category(&r.scope, part.category_id.value())?
+                            .ok_or(PricingError::Reference)?;
+                        insert(CatalogRevision::PartCategory(Box::new(category)))?;
                         for row in &part.cost.rows {
+                            let category = tx
+                                .furnitures()
+                                .material_category(&r.scope, row.material.category_id.value())?
+                                .ok_or(PricingError::Reference)?;
+                            insert(CatalogRevision::MaterialCategory(Box::new(category)))?;
                             insert(CatalogRevision::Unit(Box::new(row.unit.clone())))?;
                             insert(CatalogRevision::Unit(Box::new(row.cost_unit.clone())))?;
                             insert(CatalogRevision::Material(Box::new(row.material.clone())))?;

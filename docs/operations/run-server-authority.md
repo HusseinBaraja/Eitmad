@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "server platform maintainers"
-last_verified: "2026-08-27"
+last_verified: "2026-10-05"
 review_triggers:
   - "server configuration, CLI, migrations, health routes, TLS, backup, or recovery changes"
 keywords:
@@ -140,3 +140,13 @@ cargo test -p eitmad-server-connection --test direct_route real_server_authentic
 ```
 
 The test starts the real HTTPS/WebSocket host with a registered synthetic sync schema. It requires a valid signed device proof and token, receives and acknowledges a real `SyncMessage::Changes` from PostgreSQL, delivers cancellation, rejects an invalid token and unrelated CA, rotates an expiring token pair, stops the server, observes transport loss, and reconnects after the shared backoff. A missing database or certificate path fails the command; it is not a skipped success. The test does not exercise discovery or relay routing.
+
+## Verify catalog delivery and recovery
+
+Use the direct-route certificate settings above and a new disposable PostgreSQL database. The migration role must have neither superuser nor `BYPASSRLS` rights; the test checks those privileges. Use a fresh database for each real-server scenario because each bootstraps its own synthetic tenant.
+
+```powershell
+cargo test --locked -p eitmad-server-connection --test direct_route catalog_reaches_separate -- --ignored
+```
+
+This scenario checks dependency interruption, separate Manager and Receptionist clients, public field omission, tenant RLS, private-stream denial, filtered Product history/snapshots, Furniture image references, a failed snapshot commit, server and client restart, exact cost dependencies, and archive propagation. It does not verify native rendering. Restore the same authorized route after interruption; do not delete checkpoints, history, or transfer work. See [catalog replication](../developer/subsystems/synchronization.md#catalog-replication).

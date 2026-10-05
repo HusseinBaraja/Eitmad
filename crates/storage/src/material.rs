@@ -309,6 +309,20 @@ fn commit_on(
         return Ok(MaterialCommitOutcome::DuplicateName);
     }
     persist_record(tx, commit, kind, &scope_id, &id)?;
+    let revision = match record {
+        MaterialRecord::Material(v) => {
+            eitmad_contracts::catalog_revision::CatalogRevision::Material(Box::new(v.clone()))
+        }
+        MaterialRecord::Category(v) => {
+            eitmad_contracts::catalog_revision::CatalogRevision::MaterialCategory(Box::new(
+                v.clone(),
+            ))
+        }
+        MaterialRecord::Unit(v) => {
+            eitmad_contracts::catalog_revision::CatalogRevision::Unit(Box::new(v.clone()))
+        }
+    };
+    crate::catalog_sync::enqueue(tx, &revision, commit.audit)?;
     let mut audit = commit.audit.clone();
     audit.outcome = AuditOutcome::Succeeded;
     audit.previous_revision = actual;

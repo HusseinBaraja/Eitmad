@@ -10,6 +10,11 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies]
+eitmad-material = { path = "../material" }
+sha2 = "=0.10.9"
+eitmad-authorization = { path = "../authorization" }
+eitmad-storage = { path = "../storage" }
+eitmad-observability-audit = { path = "../observability-audit" }
 eitmad-pricing = { path = "../pricing" }
 eitmad-catalog-image = { path = "../catalog-image" }
 base64 = "=0.22.1"
@@ -27,6 +32,10 @@ uuid = { version = "=1.23.4", features = ["v4"] }
 zeroize = "=1.8.1"
 
 [dev-dependencies]
+eitmad-part = { path = "../part" }
+eitmad-product = { path = "../product" }
+eitmad-furniture = { path = "../furniture" }
+rusqlite = { version = "=0.39.0", default-features = false, features = ["bundled"] }
 image = { version = "=0.25.5", default-features = false, features = ["png", "jpeg"] }
 async-trait = "=0.1.89"
 axum-server = { version = "=0.8.0", features = ["tls-rustls"] }

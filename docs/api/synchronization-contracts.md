@@ -5,7 +5,7 @@ audience: "api"
 page_type: "reference"
 status: "active"
 owner: "Rust contract and synchronization maintainers"
-last_verified: "2026-10-02"
+last_verified: "2026-10-05"
 review_triggers:
   - "a type or identifier in crates/contracts/src/sync.rs changes"
   - "the shared transport frame in crates/contracts/src/sync_transport.rs changes"
@@ -44,6 +44,8 @@ keywords:
 | `SyncTransportPayload` | Existing `SyncMessage`, cancellation, heartbeat, or heartbeat acknowledgement |
 
 An upsert without `payload` and a tombstone with `payload` are invalid. `EncodedDomainPayload.schema_id` and `schema_version` select a previously negotiated domain schema; the sync layer treats `base64` as opaque.
+
+Protocol 1.17 registers `eitmad.schema.catalog-public.v1`. Its `CatalogEntry` contains an exact published price target and the permitted sales fields from that definition. `CatalogRevision` also carries Material and Part categories. These payloads use the existing synchronization envelopes. See [catalog replication](../developer/subsystems/synchronization.md#catalog-replication) for modes, authorization, atomic projection, and recovery.
 
 ## Identities and revisions
 

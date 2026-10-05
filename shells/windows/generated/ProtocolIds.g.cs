@@ -9,7 +9,7 @@ public static class ProtocolIds
     public static class Version
     {
         public const long Major = 1;
-        public const long Minor = 16;
+        public const long Minor = 17;
     }
 
     public static class IpcMessages
@@ -237,6 +237,7 @@ public static class ProtocolIds
 
     public static class SchemaIds
     {
+        public const string EitmadSchemaCatalogPublicV1 = "eitmad.schema.catalog-public.v1";
         public const string EitmadSchemaCatalogRevisionsV1 = "eitmad.schema.catalog-revisions.v1";
         public const string EitmadSchemaPricingV1 = "eitmad.schema.pricing.v1";
         public const string EitmadSchemaProtocolV1 = "eitmad.schema.protocol.v1";

@@ -321,6 +321,12 @@ impl SyncCoordinator {
         let mut transaction = tenant_transaction(&self.pool, session.tenant_id)
             .await
             .map_err(|_| OperationError::Unavailable)?;
+        // Catalog dependency ingestion and publication use the same lock order.
+        sqlx::query("SELECT tenant_id FROM control.tenants WHERE tenant_id=$1 FOR UPDATE")
+            .bind(session.tenant_id.value())
+            .fetch_one(&mut *transaction)
+            .await
+            .map_err(|_| OperationError::Unavailable)?;
         ensure_scope(
             &mut transaction,
             session.tenant_id,
@@ -376,6 +382,9 @@ impl SyncCoordinator {
             return Ok(OperationResult::ConflictRecorded { conflict_id });
         }
 
+        handler
+            .retain_local(&mut transaction, session, draft, now)
+            .await?;
         let change = commit_change(
             &mut transaction,
             session.tenant_id,
@@ -432,32 +441,20 @@ impl SyncCoordinator {
             .await?;
             return Err(OperationError::Invalid);
         }
-        self.read_handler(session, scope, schema_id, schema_version, &audit)
+        let handler = self
+            .read_handler(session, scope, schema_id, schema_version, &audit)
             .await?;
 
         let mut transaction = tenant_transaction(&self.pool, session.tenant_id)
             .await
             .map_err(|_| OperationError::Unavailable)?;
-        let after_sequence = if after.is_some_and(|checkpoint| checkpoint.value().is_nil()) {
-            0
-        } else if let Some(checkpoint) = after {
-            sqlx::query_scalar::<_, i64>(
-                "SELECT sequence FROM sync.operations
-                 WHERE tenant_id = $1 AND scope_kind = $2 AND scope_id = $3
-                   AND schema_id = $4 AND checkpoint = $5",
-            )
-            .bind(session.tenant_id.value())
-            .bind(scope.kind.as_str())
-            .bind(scope.id.value())
-            .bind(schema_id.as_str())
-            .bind(checkpoint.value())
-            .fetch_optional(&mut *transaction)
-            .await
-            .map_err(|_| OperationError::Unavailable)?
-            .ok_or(OperationError::SnapshotRequired)?
-        } else {
-            0
+        let mode = match handler.descriptor().mode {
+            SyncMode::LocalFirst => "local_first",
+            SyncMode::ServerAuthoritative => "server_authoritative",
         };
+        upsert_scope(&mut transaction, session.tenant_id, scope, schema_id, mode).await?;
+        let after_sequence =
+            checkpoint_sequence(&mut transaction, session, scope, schema_id, after).await?;
         let rows = sqlx::query(
             "SELECT sequence, checkpoint, change_json
              FROM sync.operations
@@ -488,12 +485,13 @@ impl SyncCoordinator {
             .map(|row| serde_json::from_value::<ChangeRecord>(row.get("change_json")))
             .collect::<Result<Vec<_>, _>>()
             .map_err(|_| OperationError::Unavailable)?;
+        let projected = project_changes(handler.as_ref(), session, records).await?;
         let batch = ChangeBatch::new(
             DeliveryId::new(Uuid::new_v4()),
             IdempotencyKey::new(Uuid::new_v4()),
             after,
             checkpoint,
-            records,
+            projected,
             has_more,
         )
         .map_err(|_| OperationError::Invalid)?;
@@ -926,6 +924,44 @@ async fn commit_change(
     Ok(change)
 }
 
+/// Appends a domain-owned committed projection using the same history, checkpoints, and notices.
+pub(super) async fn append_domain_change(
+    transaction: &mut Tx<'_>,
+    session: &AuthenticatedServerSession,
+    mut draft: LocalOperationDraft,
+    mode: SyncMode,
+    now: UnixMillis,
+) -> Result<ChangeRecord, OperationError> {
+    let descriptor = crate::DomainDescriptor {
+        schema_id: draft.schema_id.clone(),
+        minimum_schema_version: 1,
+        maximum_schema_version: 1,
+        mode,
+    };
+    ensure_scope(transaction, session.tenant_id, &draft, &descriptor).await?;
+    lock_scope(
+        transaction,
+        session.tenant_id,
+        &draft.scope,
+        &draft.schema_id,
+    )
+    .await?;
+    let revision = current_record_revision(transaction, session.tenant_id, &draft)
+        .await
+        .map_err(|_| OperationError::Unavailable)?;
+    draft.base_revision = (revision > 0).then_some(revision);
+    let fingerprint = fingerprint_draft(&draft);
+    commit_change(
+        transaction,
+        session.tenant_id,
+        &draft,
+        revision,
+        &fingerprint,
+        now,
+    )
+    .await
+}
+
 async fn advance_head(
     transaction: &mut Tx<'_>,
     tenant_id: eitmad_contracts::identity::TenantId,
@@ -1045,6 +1081,47 @@ async fn publish_notice(
         now,
     )
     .await
+}
+
+async fn project_changes(
+    handler: &dyn DomainSyncHandler,
+    session: &AuthenticatedServerSession,
+    records: Vec<ChangeRecord>,
+) -> Result<Vec<ChangeRecord>, OperationError> {
+    let mut projected = Vec::with_capacity(records.len());
+    for record in records {
+        projected.push(handler.project(session, record).await?);
+    }
+    Ok(projected)
+}
+async fn checkpoint_sequence(
+    transaction: &mut Tx<'_>,
+    session: &AuthenticatedServerSession,
+    scope: &ScopeRef,
+    schema_id: &SchemaId,
+    after: Option<Checkpoint>,
+) -> Result<i64, OperationError> {
+    let sequence = if after.is_some_and(|checkpoint| checkpoint.value().is_nil()) {
+        0
+    } else if let Some(checkpoint) = after {
+        sqlx::query_scalar::<_, i64>(
+            "SELECT sequence FROM sync.operations
+                 WHERE tenant_id = $1 AND scope_kind = $2 AND scope_id = $3
+                   AND schema_id = $4 AND checkpoint = $5",
+        )
+        .bind(session.tenant_id.value())
+        .bind(scope.kind.as_str())
+        .bind(scope.id.value())
+        .bind(schema_id.as_str())
+        .bind(checkpoint.value())
+        .fetch_optional(&mut **transaction)
+        .await
+        .map_err(|_| OperationError::Unavailable)?
+        .ok_or(OperationError::SnapshotRequired)?
+    } else {
+        0
+    };
+    Ok(sequence)
 }
 
 #[cfg(test)]
