@@ -121,6 +121,7 @@ impl ProductDispatcher {
     pub const fn authorization(&self) -> &AuthorizationService {
         &self.authorization
     }
+    /// Attaches the Rust-owned catalog worker used by price queries and background retries.
     #[must_use]
     pub fn with_catalog_replication(
         mut self,

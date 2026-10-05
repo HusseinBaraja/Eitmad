@@ -107,6 +107,8 @@ async fn synchronize(
     Ok(())
 }
 
+/// Validates exact dependencies before retaining a new revision and withdrawing stale sales.
+/// Returns false for an identical retry; callers own authorization, locking, audit, and commit.
 pub(super) async fn retain(
     tx: &mut Transaction<'_, Postgres>,
     actor: &AuthenticatedServerSession,

@@ -210,6 +210,8 @@ impl PricingTransaction<'_> {
         )
     }
 }
+/// Retains an immutable confirmed price and accepts typed-equal retries at the same revision.
+/// Rejects changed values so callers can roll back the surrounding projection transaction.
 pub(crate) fn cache_price(
     connection: &rusqlite::Connection,
     price: &PublishedPrice,

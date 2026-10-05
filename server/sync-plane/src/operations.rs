@@ -1090,6 +1090,8 @@ async fn publish_notice(
     .await
 }
 
+/// Resolves a checkpoint only within the authenticated tenant, scope, and schema.
+/// Missing or nil checkpoints start at zero; an unknown checkpoint requires a snapshot.
 async fn checkpoint_sequence(
     transaction: &mut Tx<'_>,
     session: &AuthenticatedServerSession,

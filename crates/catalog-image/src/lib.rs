@@ -102,6 +102,8 @@ impl CatalogImageService {
             })
     }
 
+    /// Allows Furniture image reads through an active public sale when private access is denied.
+    /// The caller still needs catalog-read permission and an exact scoped image reference.
     fn authorize_read(
         &self,
         actor: &AuthorizationContext,

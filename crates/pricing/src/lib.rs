@@ -320,6 +320,8 @@ impl PricingService {
             })
         })
     }
+    /// Searches and pages confirmed public sales without returning private costs or margins.
+    /// The caller must authorize catalog access before reading the scoped cache.
     fn public_list(
         &self,
         actor: &AuthorizationContext,
