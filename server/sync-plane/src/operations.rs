@@ -485,7 +485,9 @@ impl SyncCoordinator {
             .map(|row| serde_json::from_value::<ChangeRecord>(row.get("change_json")))
             .collect::<Result<Vec<_>, _>>()
             .map_err(|_| OperationError::Unavailable)?;
-        let projected = project_changes(handler.as_ref(), session, records).await?;
+        let projected = handler
+            .project_page(&mut transaction, session, scope, records)
+            .await?;
         let batch = ChangeBatch::new(
             DeliveryId::new(Uuid::new_v4()),
             IdempotencyKey::new(Uuid::new_v4()),
@@ -1008,16 +1010,19 @@ async fn write_projection_from(
     change: &ChangeRecord,
     now: UnixMillis,
 ) -> Result<(), sqlx::Error> {
+    let image = crate::catalog_sync::public_image_reference(change);
     sqlx::query(
         "INSERT INTO sync.records
              (tenant_id, scope_kind, scope_id, schema_id, record_id,
-              revision, tombstone, change_json, changed_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+              revision, tombstone, change_json, changed_at, public_image_id, public_image_sha256)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
          ON CONFLICT (tenant_id, scope_kind, scope_id, schema_id, record_id)
          DO UPDATE SET revision = EXCLUDED.revision,
                        tombstone = EXCLUDED.tombstone,
                        change_json = EXCLUDED.change_json,
-                       changed_at = EXCLUDED.changed_at",
+                       changed_at = EXCLUDED.changed_at,
+                       public_image_id = EXCLUDED.public_image_id,
+                       public_image_sha256 = EXCLUDED.public_image_sha256",
     )
     .bind(tenant_id.value())
     .bind(scope.kind.as_str())
@@ -1028,6 +1033,8 @@ async fn write_projection_from(
     .bind(change.operation == ChangeOperation::Tombstone)
     .bind(serde_json::to_value(change).map_err(|_| sqlx::Error::Protocol("serialize".to_owned()))?)
     .bind(now.0)
+    .bind(image.as_ref().map(|(id, _)| *id))
+    .bind(image.as_ref().map(|(_, sha)| sha.as_str()))
     .execute(&mut **transaction)
     .await?;
     Ok(())
@@ -1083,17 +1090,6 @@ async fn publish_notice(
     .await
 }
 
-async fn project_changes(
-    handler: &dyn DomainSyncHandler,
-    session: &AuthenticatedServerSession,
-    records: Vec<ChangeRecord>,
-) -> Result<Vec<ChangeRecord>, OperationError> {
-    let mut projected = Vec::with_capacity(records.len());
-    for record in records {
-        projected.push(handler.project(session, record).await?);
-    }
-    Ok(projected)
-}
 async fn checkpoint_sequence(
     transaction: &mut Tx<'_>,
     session: &AuthenticatedServerSession,

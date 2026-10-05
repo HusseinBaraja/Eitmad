@@ -53,12 +53,13 @@ public sealed class PricingClient : IAsyncDisposable
         var items = new List<PriceItem>();
         string? after = null;
         bool manage = true, costs = true, serverAvailable = false;
+        CatalogSyncIssue[] syncIssues = [];
         do
         {
             var result = await QueryAsync(Query.ForPricingList(new ListPrices { Term = term, After = after!, Limit = 100 }), p => p.AsPrices(), cancellationToken);
             if (!result.Succeeded) return result;
             var page = result.Value!;
-            if (after is null) serverAvailable = page.ServerAvailable;
+            if (after is null) { serverAvailable = page.ServerAvailable; syncIssues = page.CatalogSyncIssues ?? []; }
             items.AddRange(page.Items);
             manage &= page.CanManage;
             costs &= page.CanReadCosts;
@@ -67,7 +68,7 @@ public sealed class PricingClient : IAsyncDisposable
         } while (after is not null);
         if (!costs) foreach (var item in items) { item.CostYer = null; item.MarginYer = null; }
         if (!manage) items.RemoveAll(item => item.Published is null);
-        return new(new PricePage { Items = items.ToArray(), CanManage = manage, CanReadCosts = costs, ServerAvailable = serverAvailable }, PricingFailure.None);
+        return new(new PricePage { Items = items.ToArray(), CanManage = manage, CanReadCosts = costs, ServerAvailable = serverAvailable, CatalogSyncIssues = manage ? syncIssues : [] }, PricingFailure.None);
     }
     public Task<PricingResult<PriceReview>> ReviewAsync(ReviewPrice input, CancellationToken cancellationToken = default) =>
         QueryAsync(Query.ForPricingReview(input), p => p.AsPriceReview(), cancellationToken);

@@ -174,8 +174,8 @@ impl CatalogImageServer {
                 {
                     return Err(ImageError::Denied);
                 }
-                let referenced:bool=sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM sync.records WHERE tenant_id=$1 AND scope_kind='organization' AND scope_id=$2 AND schema_id=$3 AND NOT tombstone AND (convert_from(decode(change_json->'payload'->>'base64','base64'),'UTF8')::jsonb->'image'->>'id')=$4 AND (convert_from(decode(change_json->'payload'->>'base64','base64'),'UTF8')::jsonb->'image'->>'sha256')=$5)")
-                    .bind(actor.tenant_id.value()).bind(input.scope.id.value()).bind(crate::catalog_sync::PUBLIC_SCHEMA).bind(image.id.to_string()).bind(&image.sha256).fetch_one(&mut *tx).await.map_err(|_|ImageError::Unavailable)?;
+                let referenced:bool=sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM sync.records WHERE tenant_id=$1 AND scope_kind='organization' AND scope_id=$2 AND schema_id='eitmad.schema.catalog-public.v1' AND NOT tombstone AND public_image_id=$3 AND public_image_sha256=$4)")
+                    .bind(actor.tenant_id.value()).bind(input.scope.id.value()).bind(image.id).bind(&image.sha256).fetch_one(&mut *tx).await.map_err(|_|ImageError::Unavailable)?;
                 if !referenced {
                     return Err(ImageError::Denied);
                 }

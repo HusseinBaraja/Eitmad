@@ -13,6 +13,7 @@ public sealed class PricingViewModel : ObservableObject
     private PriceReview? review;
     private string searchText = "", selectedCategory = AllCategories, editorSellingPrice = "", editorError = "", feedbackMessage = "";
     private string availabilityMessage = "جار تحميل الأسعار…";
+    private string syncIssueMessage = "";
     private bool isEditorOpen, isBusy, savePending, confirmBelowCost, canManage, canReadCosts;
     public event EventHandler? SearchChanged;
     public event EventHandler? EditorPriceChanged;
@@ -28,6 +29,8 @@ public sealed class PricingViewModel : ObservableObject
     public bool CanEdit => CanManage && CanReadCosts && !IsBusy && !SavePending;
     public bool CanSave => CanManage && CanReadCosts && !IsBusy;
     public string AvailabilityMessage { get => availabilityMessage; private set => Set(ref availabilityMessage, value); }
+    public string SyncIssueMessage { get => syncIssueMessage; private set { Set(ref syncIssueMessage, value); Raise(nameof(HasSyncIssues)); } }
+    public bool HasSyncIssues => SyncIssueMessage.Length > 0;
     public string EditorProduct => editingPrice?.Product ?? "";
     public string EditorVariant => editingPrice?.Variant ?? "";
     public string EditorCost => PricingListItem.FormatMoney(review?.CostYer ?? editingPrice?.Cost);
@@ -61,12 +64,17 @@ public sealed class PricingViewModel : ObservableObject
         foreach (var category in prices.Select(p => p.Category).Distinct()) Categories.Add(category);
         if (!Categories.Contains(SelectedCategory)) SelectedCategory = AllCategories;
         AvailabilityMessage = page.ServerAvailable ? "أسعار مؤكدة من الخادم — القيم الداخلية حسب الصلاحية" : "الخادم غير متاح — عرض آخر أسعار مؤكدة، والنشر يحتاج اتصالاً.";
+        SyncIssueMessage = CanManage && page.CatalogSyncIssues is { Length: > 0 } issues
+            ? "تحتاج مزامنة هذه التعريفات إلى مراجعة: " + string.Join("، ", issues.Take(3).Select(issue => issue.Name))
+                + (issues.Length > 3 ? " وغيرها" : "") + ". صحّح التعريف واحفظ إصداراً جديداً؛ تبقى التعريفات التي تعتمد على الإصدار المرفوض معلّقة."
+            : "";
         RefreshVisiblePrices();
     }
     public void ClearSession()
     {
         CancelEditor(force: true); prices.Clear(); VisiblePrices.Clear(); Categories.Clear(); Categories.Add(AllCategories);
         CanManage = false; CanReadCosts = false; SavePending = false; IsBusy = false; FeedbackMessage = "";
+        SyncIssueMessage = "";
         AvailabilityMessage = "بيانات الأسعار غير متاحة."; Raise(nameof(VisibleCountLabel));
     }
     public void Unavailable(string message) { ClearSession(); AvailabilityMessage = message; }

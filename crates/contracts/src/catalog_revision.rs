@@ -67,3 +67,14 @@ pub struct SynchronizeCatalogRevisions {
     pub scope: ScopeRef,
     pub records: Vec<CatalogRevision>,
 }
+
+/// Repair information for a Manager. The rejected payload and server response stay in Rust storage.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CatalogSyncIssue {
+    pub kind: String,
+    pub id: uuid::Uuid,
+    pub revision: u64,
+    pub name: String,
+    pub conflicted: bool,
+}

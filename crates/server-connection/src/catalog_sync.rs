@@ -38,6 +38,7 @@ pub struct DirectCatalogSyncClient {
     worker: std::sync::Mutex<()>,
 }
 impl DirectCatalogSyncClient {
+    /// Composes scoped catalog storage with the pinned server route and Rust-owned credential reference.
     #[must_use]
     pub fn from_config(
         config: DirectServerConfig,
@@ -55,6 +56,7 @@ impl DirectCatalogSyncClient {
             worker: std::sync::Mutex::new(()),
         }
     }
+    /// Checks the current local permission for the owning private schema or public catalog.
     fn require(
         &self,
         actor: &AuthorizationContext,
@@ -97,6 +99,7 @@ impl DirectCatalogSyncClient {
             .authorize(actor, permission)
             .map_err(Into::into)
     }
+    /// Builds an authenticated WAN connection only when the credential user and tenant match the actor.
     fn transport(
         &self,
         actor: &AuthorizationContext,
@@ -171,6 +174,7 @@ impl DirectCatalogSyncClient {
         )
         .map_err(|_| PricingError::Unconfirmed)
     }
+    /// Validates complete role-specific pages before committing projections, audit, and checkpoints.
     fn download(
         &self,
         actor: &AuthorizationContext,
@@ -255,6 +259,7 @@ impl DirectCatalogSyncClient {
         transport.disconnect(now());
         Ok(())
     }
+    /// Rejects foreign scopes and invalid envelopes before remapping an entire page into local authority.
     fn decode_page(
         &self,
         actor: &AuthorizationContext,
@@ -335,7 +340,112 @@ impl DirectCatalogSyncClient {
         Ok((private, public))
     }
 }
+impl DirectCatalogSyncClient {
+    /// Transfers one immutable revision or retains its terminal rejection with an audit.
+    fn upload_revision(
+        &self,
+        actor: &AuthorizationContext,
+        record: &CatalogRevision,
+        deadline: UnixMillis,
+    ) -> Result<bool, PricingError> {
+        let schema = eitmad_pricing::revision_schema(record);
+        self.require(actor, schema, true)?;
+        if matches!(record, CatalogRevision::Unit(_)) {
+            self.authorization
+                .authorize(actor, "eitmad.permission.material-unit.manage.v1")?;
+        }
+        let mut remote = record.clone();
+        crate::pricing::remap_catalog_scope(&mut remote, &actor.scope, &self.config.scope)?;
+        let id = eitmad_pricing::revision_record_id(&remote);
+        let change = ChangeRecord {
+            change_id: ChangeId::new(id),
+            record_id: RecordId::new(id),
+            scope: self.config.scope.clone(),
+            operation: ChangeOperation::Upsert,
+            base_revision: None,
+            revision: 1,
+            changed_at: UnixMillis(0),
+            idempotency_key: IdempotencyKey::new(id),
+            payload: Some(EncodedDomainPayload {
+                schema_id: SchemaId::parse(schema).map_err(|_| PricingError::Invalid)?,
+                schema_version: 1,
+                base64: STANDARD
+                    .encode(serde_json::to_vec(&remote).map_err(|_| PricingError::Invalid)?),
+            }),
+            merge: None,
+        };
+        let mut transport = self.transport(actor, schema, deadline)?;
+        transport
+            .connect(now())
+            .map_err(|_| PricingError::Unconfirmed)?;
+        let response = exchange(
+            &mut transport,
+            SyncMessage::SubmitLocal(LocalChangeSubmission {
+                change: change.clone(),
+            }),
+            deadline,
+        )?;
+        match response.message {
+            SyncMessage::LocalResult(result) if result.submitted_change_id == change.change_id => {
+                match result.disposition {
+                    LocalChangeDisposition::Applied {
+                        authoritative_change,
+                    }
+                    | LocalChangeDisposition::Replayed {
+                        authoritative_change,
+                    } if authoritative_change.record_id == change.record_id
+                        && authoritative_change.payload == change.payload
+                        && authoritative_change.scope == change.scope => {}
+                    disposition @ (LocalChangeDisposition::Rejected { .. }
+                    | LocalChangeDisposition::Conflicted { .. }) => {
+                        self.require(actor, schema, true)?;
+                        self.record_rejection(actor, record, &disposition)?;
+                        transport.disconnect(now());
+                        return Ok(false);
+                    }
+                    _ => return Err(PricingError::Unconfirmed),
+                }
+            }
+            _ => return Err(PricingError::Unconfirmed),
+        }
+        self.require(actor, schema, true)?;
+        self.store.acknowledge_catalog_revision(
+            record,
+            &audit(actor, "eitmad.catalog.sync.acknowledge.v1"),
+        )?;
+        transport.disconnect(now());
+        Ok(true)
+    }
+
+    /// Preserves repair evidence without preventing unrelated catalog delivery.
+    fn record_rejection(
+        &self,
+        actor: &AuthorizationContext,
+        record: &CatalogRevision,
+        disposition: &LocalChangeDisposition,
+    ) -> Result<(), PricingError> {
+        let mut evidence = audit(actor, "eitmad.catalog.sync.reject.v1");
+        let (kind, id, revision, _) = record.identity();
+        evidence.target = AuditTarget {
+            kind: kind.into(),
+            identifiers: vec![id.to_string()],
+        };
+        evidence.resulting_revision = Some(revision);
+        evidence = evidence.with_outcome(
+            if matches!(disposition, LocalChangeDisposition::Conflicted { .. }) {
+                eitmad_observability_audit::AuditOutcome::Conflict
+            } else {
+                eitmad_observability_audit::AuditOutcome::Invalid
+            },
+            Some("eitmad.error.pricing-reference-invalid.v1".into()),
+        );
+        self.store
+            .reject_catalog_revision(record, disposition, &evidence)?;
+        Ok(())
+    }
+}
 impl CatalogReplication for DirectCatalogSyncClient {
+    /// Runs bounded dependency-ordered uploads and private/public downloads under one worker lock.
     fn synchronize(
         &self,
         actor: &AuthorizationContext,
@@ -360,74 +470,34 @@ impl CatalogReplication for DirectCatalogSyncClient {
         if manager {
             self.store
                 .seed_catalog_sync(actor, &audit(actor, "eitmad.catalog.sync.bootstrap.v1"))?;
-            for record in self.store.pending_catalog_revisions(&actor.scope)? {
-                let schema = eitmad_pricing::revision_schema(&record);
-                self.require(actor, schema, true)?;
-                if matches!(&record, CatalogRevision::Unit(_)) {
-                    self.authorization
-                        .authorize(actor, "eitmad.permission.material-unit.manage.v1")?;
+            let mut after = None;
+            let mut attempts = 0;
+            while attempts < 50 {
+                let records = self
+                    .store
+                    .pending_catalog_revisions(&actor.scope, after.as_ref())?;
+                if records.is_empty() {
+                    break;
                 }
-                let mut remote = record.clone();
-                crate::pricing::remap_catalog_scope(&mut remote, &actor.scope, &self.config.scope)?;
-                let id = eitmad_pricing::revision_record_id(&remote);
-                let change = ChangeRecord {
-                    change_id: ChangeId::new(id),
-                    record_id: RecordId::new(id),
-                    scope: self.config.scope.clone(),
-                    operation: ChangeOperation::Upsert,
-                    base_revision: None,
-                    revision: 1,
-                    changed_at: UnixMillis(0),
-                    idempotency_key: IdempotencyKey::new(id),
-                    payload: Some(EncodedDomainPayload {
-                        schema_id: SchemaId::parse(schema).map_err(|_| PricingError::Invalid)?,
-                        schema_version: 1,
-                        base64: STANDARD.encode(
-                            serde_json::to_vec(&remote).map_err(|_| PricingError::Invalid)?,
-                        ),
-                    }),
-                    merge: None,
-                };
-                let mut transport = self.transport(actor, schema, deadline)?;
-                transport
-                    .connect(now())
-                    .map_err(|_| PricingError::Unconfirmed)?;
-                let response = exchange(
-                    &mut transport,
-                    SyncMessage::SubmitLocal(LocalChangeSubmission {
-                        change: change.clone(),
-                    }),
-                    deadline,
-                )?;
-                match response.message {
-                    SyncMessage::LocalResult(result)
-                        if result.submitted_change_id == change.change_id =>
-                    {
-                        match result.disposition {
-                            LocalChangeDisposition::Applied {
-                                authoritative_change,
-                            }
-                            | LocalChangeDisposition::Replayed {
-                                authoritative_change,
-                            } if authoritative_change.record_id == change.record_id
-                                && authoritative_change.payload == change.payload
-                                && authoritative_change.scope == change.scope => {}
-                            LocalChangeDisposition::Rejected { .. }
-                            | LocalChangeDisposition::Conflicted { .. } => {
-                                return Err(PricingError::Reference);
-                            }
-                            _ => return Err(PricingError::Unconfirmed),
-                        }
+                for record in records {
+                    after = Some(record.clone());
+                    if now().0 >= deadline.0 {
+                        return Err(PricingError::Unconfirmed);
                     }
-                    _ => return Err(PricingError::Unconfirmed),
+                    let dependencies = eitmad_pricing::catalog_dependencies(&record)?;
+                    if !self
+                        .store
+                        .catalog_dependencies_ready(&actor.scope, &dependencies)?
+                    {
+                        // Keep exact dependents pending. Later accepted dependencies release them.
+                        continue;
+                    }
+                    if attempts >= 50 {
+                        break;
+                    }
+                    attempts += 1;
+                    count += usize::from(self.upload_revision(actor, &record, deadline)?);
                 }
-                self.require(actor, schema, true)?;
-                self.store.acknowledge_catalog_revision(
-                    &record,
-                    &audit(actor, "eitmad.catalog.sync.acknowledge.v1"),
-                )?;
-                transport.disconnect(now());
-                count += 1;
             }
             for schema in [
                 "eitmad.schema.material.v1",
@@ -442,6 +512,7 @@ impl CatalogReplication for DirectCatalogSyncClient {
         Ok(count)
     }
 }
+/// Builds redacted mutation evidence without catalog payloads or transport credentials.
 fn audit(actor: &AuthorizationContext, operation: &str) -> MutationAuditRecord {
     MutationAuditRecord::from_authorization(
         actor,
@@ -454,6 +525,7 @@ fn audit(actor: &AuthorizationContext, operation: &str) -> MutationAuditRecord {
         },
     )
 }
+/// Rebinds a validated remote price reference to its authenticated local organization scope.
 fn remap_price(
     price: &mut eitmad_contracts::pricing::PublishedPrice,
     scope: &eitmad_contracts::identity::ScopeRef,
@@ -463,6 +535,7 @@ fn remap_price(
         eitmad_contracts::pricing::PriceTarget::Furniture(r) => r.scope = scope.clone(),
     }
 }
+/// Sends one ordered message and waits for a matching stream response within the deadline.
 fn exchange<T: SyncTransport>(
     transport: &mut T,
     message: SyncMessage,
@@ -497,6 +570,7 @@ struct Response {
     message: SyncMessage,
     stream: SyncStreamId,
 }
+/// Receives only the requested stream and rejects unexpected frames or expired deadlines.
 fn receive_message<T: SyncTransport>(
     transport: &mut T,
     stream: SyncStreamId,

@@ -242,6 +242,11 @@ impl PricingService {
         }
         let can_manage = self.allowed(actor, PRICING_WRITE_PERMISSION)?;
         let costs = self.allowed(actor, PRICING_COST_READ_PERMISSION)?;
+        let catalog_sync_issues = if can_manage {
+            self.store.catalog_sync_issues(&actor.scope)?
+        } else {
+            vec![]
+        };
         if !can_manage
             && self
                 .store
@@ -306,6 +311,7 @@ impl PricingService {
                 None
             };
             Ok(PricePage {
+                catalog_sync_issues,
                 server_available: false,
                 items,
                 next,
@@ -356,6 +362,7 @@ impl PricingService {
             None
         };
         Ok(PricePage {
+            catalog_sync_issues: vec![],
             server_available: false,
             items,
             next,

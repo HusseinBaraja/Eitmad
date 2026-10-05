@@ -143,7 +143,7 @@ pub(super) async fn retain(
     invalidate_public(tx, actor, record, now).await?;
     Ok(true)
 }
-
+/// Appends immutable catalog history with the stable revision identity used by exact WAN retries.
 async fn append_revision(
     tx: &mut Transaction<'_, Postgres>,
     actor: &AuthenticatedServerSession,

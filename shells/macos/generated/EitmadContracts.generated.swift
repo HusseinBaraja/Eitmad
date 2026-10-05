@@ -3062,16 +3062,36 @@ public struct PriceReview: Codable, Sendable {
 // MARK: - PricePage
 public struct PricePage: Codable, Sendable {
     public let canManage, canReadCosts: Bool
+    /// Unresolved catalog transfer failures, returned only to an authorized Manager.
+    public let catalogSyncIssues: [CatalogSyncIssue]
     public let items: [PriceItem]
     public let next: String?
     public let serverAvailable: Bool
 
-    public init(canManage: Bool, canReadCosts: Bool, items: [PriceItem], next: String?, serverAvailable: Bool) {
+    public init(canManage: Bool, canReadCosts: Bool, catalogSyncIssues: [CatalogSyncIssue], items: [PriceItem], next: String?, serverAvailable: Bool) {
         self.canManage = canManage
         self.canReadCosts = canReadCosts
+        self.catalogSyncIssues = catalogSyncIssues
         self.items = items
         self.next = next
         self.serverAvailable = serverAvailable
+    }
+}
+
+/// Repair information for a Manager. The rejected payload and server response stay in Rust
+/// storage.
+// MARK: - CatalogSyncIssue
+public struct CatalogSyncIssue: Codable, Sendable {
+    public let conflicted: Bool
+    public let id, kind, name: String
+    public let revision: Int
+
+    public init(conflicted: Bool, id: String, kind: String, name: String, revision: Int) {
+        self.conflicted = conflicted
+        self.id = id
+        self.kind = kind
+        self.name = name
+        self.revision = revision
     }
 }
 

@@ -196,19 +196,18 @@ impl ProductDispatcher {
                     let mut server_available = false;
                     if query.after.is_none() {
                         if let Some(replication) = &replication {
-                            match replication.synchronize(
-                                &actor,
-                                eitmad_contracts::transport::UnixMillis(
-                                    deadline
-                                        .0
-                                        .saturating_sub(1_000)
-                                        .min(now().0.saturating_add(10_000)),
-                                ),
-                            ) {
-                                Ok(_) => server_available = true,
-                                Err(eitmad_pricing::PricingError::Unconfirmed) => (),
-                                Err(e) => return Err(e),
-                            }
+                            // A remote failure must not prevent an authorized cache read.
+                            server_available = replication
+                                .synchronize(
+                                    &actor,
+                                    eitmad_contracts::transport::UnixMillis(
+                                        deadline
+                                            .0
+                                            .saturating_sub(1_000)
+                                            .min(now().0.saturating_add(10_000)),
+                                    ),
+                                )
+                                .is_ok();
                         }
                     }
                     if query.after.is_none() && replication.is_none() {
@@ -228,11 +227,7 @@ impl ProductDispatcher {
                                 .saturating_sub(1_000)
                                 .min(now().0.saturating_add(2_000)),
                         );
-                        match pricing.refresh(&context, refresh_deadline) {
-                            Ok(()) => server_available = true,
-                            Err(eitmad_pricing::PricingError::Unconfirmed) => (),
-                            Err(e) => return Err(e),
-                        }
+                        server_available = pricing.refresh(&context, refresh_deadline).is_ok();
                     }
                     let mut page = pricing.list(&actor, &query)?;
                     page.server_available = server_available;
@@ -2463,6 +2458,72 @@ mod tests {
             assert_eq!(
                 page.items[0].published.as_ref().unwrap().selling_price_yer,
                 70000
+            );
+        }
+    }
+
+    struct FailedCatalogReplication(eitmad_pricing::PricingError);
+    impl eitmad_pricing::CatalogReplication for FailedCatalogReplication {
+        fn synchronize(
+            &self,
+            _: &AuthorizationContext,
+            _: UnixMillis,
+        ) -> Result<usize, eitmad_pricing::PricingError> {
+            Err(self.0)
+        }
+    }
+
+    #[tokio::test]
+    async fn pricing_replication_failures_preserve_authorized_confirmed_cache() {
+        use eitmad_contracts::pricing::{ListPrices, PublishPrice};
+        let (_directory, dispatcher, _) = dispatcher();
+        grant_material_roles(&dispatcher);
+        let mut dispatcher = dispatcher.with_price_confirmation(Arc::new(TestPriceServer));
+        let target = pricing_fixture(&dispatcher).await;
+        dispatcher
+            .dispatch_command(
+                material_actor(820, 3),
+                Command::PublishPrice(PublishPrice {
+                    target: target.clone(),
+                    expected_revision: None,
+                    selling_price_yer: 70_000,
+                    confirm_below_cost: false,
+                }),
+            )
+            .await
+            .unwrap();
+        for failure in [
+            eitmad_pricing::PricingError::Reference,
+            eitmad_pricing::PricingError::Denied,
+            eitmad_pricing::PricingError::Unconfirmed,
+        ] {
+            dispatcher =
+                dispatcher.with_catalog_replication(Arc::new(FailedCatalogReplication(failure)));
+            let query = Query::Prices(ListPrices {
+                term: String::new(),
+                after: None,
+                limit: 100,
+            });
+            let QueryResult::Prices(page) = dispatcher
+                .dispatch_query(material_actor(821, 3), query.clone())
+                .await
+                .unwrap()
+            else {
+                panic!("prices")
+            };
+            assert!(!page.server_available);
+            assert_eq!(
+                page.items[0].published.as_ref().unwrap().selling_price_yer,
+                70_000
+            );
+            assert_eq!(
+                dispatcher
+                    .dispatch_query(material_actor(822, 999), query)
+                    .await
+                    .unwrap_err()
+                    .code
+                    .as_str(),
+                "eitmad.error.authorization-denied.v1"
             );
         }
     }

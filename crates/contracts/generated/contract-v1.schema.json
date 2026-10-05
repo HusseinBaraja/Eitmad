@@ -665,6 +665,37 @@
         }
       ]
     },
+    "CatalogSyncIssue": {
+      "description": "Repair information for a Manager. The rejected payload and server response stay in Rust storage.",
+      "type": "object",
+      "properties": {
+        "conflicted": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "revision",
+        "name",
+        "conflicted"
+      ]
+    },
     "ChangeBatch": {
       "type": "object",
       "properties": {
@@ -5553,6 +5584,13 @@
         "canReadCosts": {
           "type": "boolean"
         },
+        "catalogSyncIssues": {
+          "description": "Unresolved catalog transfer failures, returned only to an authorized Manager.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CatalogSyncIssue"
+          }
+        },
         "items": {
           "type": "array",
           "items": {
@@ -5570,6 +5608,7 @@
         }
       },
       "required": [
+        "catalogSyncIssues",
         "serverAvailable",
         "items",
         "canManage",

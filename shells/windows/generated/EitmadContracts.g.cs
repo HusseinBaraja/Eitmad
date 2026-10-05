@@ -2843,6 +2843,12 @@ namespace Eitmad.Contracts
         [JsonPropertyName("canReadCosts")]
         public bool CanReadCosts { get; set; }
 
+        /// <summary>
+        /// Unresolved catalog transfer failures, returned only to an authorized Manager.
+        /// </summary>
+        [JsonPropertyName("catalogSyncIssues")]
+        public CatalogSyncIssue[] CatalogSyncIssues { get; set; }
+
         [JsonPropertyName("items")]
         public PriceItem[] Items { get; set; }
 
@@ -2851,6 +2857,28 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("serverAvailable")]
         public bool ServerAvailable { get; set; }
+    }
+
+    /// <summary>
+    /// Repair information for a Manager. The rejected payload and server response stay in Rust
+    /// storage.
+    /// </summary>
+    public partial class CatalogSyncIssue
+    {
+        [JsonPropertyName("conflicted")]
+        public bool Conflicted { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("kind")]
+        public string Kind { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
     }
 
     public partial class PriceItem

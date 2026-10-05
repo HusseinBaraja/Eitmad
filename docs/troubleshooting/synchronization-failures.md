@@ -38,7 +38,7 @@ The Rust sync engine preserves local-first edits offline and preserves server-au
 - LAN health is `Degraded` with `PartialNetwork`, or discovery returns `NoLanPeer`.
 - WAN health is `Degraded` on a relay, or connection returns `ServerUnavailable` or `RelayUnavailable`.
 - Sync state fails to open with `StorageUnavailable`, `StorageConflict`, `CorruptState`, or `UnsupportedStateVersion`.
-- Future Arabic UI may expose reviewed equivalents of `المزامنة معلقة` or `تعارض المزامنة`; no native sync workflow exists yet.
+- The Manager Pricing page can show `تحتاج مزامنة هذه التعريفات إلى مراجعة` while confirmed cached prices remain available. Other generic sync lifecycle projection remains future work.
 
 ## Fast checks
 
@@ -79,6 +79,7 @@ The Rust sync engine preserves local-first edits offline and preserves server-au
 | `ScopeMismatch` or authorization denial | Cross-scope/unpermitted delivery | Reject it, validate channel identity, and follow authorization troubleshooting | Original local state is unchanged; denial audit is present when storage is available |
 | `IncompatibleMode` | Scope reopened under another strategy | Restore the configured mode; plan a data migration to change strategy | Engine opens without rewriting existing state |
 | `IncompatiblePeer` | No common protocol, capability, or required schema | Deploy compatible peers or restore supported schema range | Negotiation succeeds before any delivery |
+| Catalog repair notice in Pricing | A server rejected or conflicted one retained catalog revision | Save a corrected definition as a new revision; revise exact historical dependents when needed. Never edit stored revisions, exceptions, checkpoints, or audit rows | Unrelated transfer and downloads continue; repaired current dependencies release waiting work |
 | `StorageConflict` | Competing writer revision | Stop duplicate authority and reopen from disk | One engine owns the scope and pending work remains |
 | `UnsupportedStateVersion` | Row or serialized state belongs to an unsupported engine schema | Deploy a compatible engine or explicit state migration | Engine opens without manual marker or JSON edits |
 | `CorruptState` or migration failure | Unreadable state/schema/history | Stop writes and use validated storage recovery | Integrity, history, migration 7, and engine reopen pass |

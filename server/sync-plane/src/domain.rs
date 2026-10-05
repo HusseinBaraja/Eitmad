@@ -82,15 +82,17 @@ pub trait DomainSyncHandler: Send + Sync {
     ) -> Result<(), crate::OperationError> {
         Ok(())
     }
-    /// Filters domain fields before any history or snapshot leaves the server.
+    /// Filters a complete page within its existing tenant transaction before delivery.
     /// # Errors
     /// Rejects invalid stored data or revoked access.
-    async fn project(
+    async fn project_page(
         &self,
+        _tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         _session: &AuthenticatedServerSession,
-        change: eitmad_contracts::sync::ChangeRecord,
-    ) -> Result<eitmad_contracts::sync::ChangeRecord, crate::OperationError> {
-        Ok(change)
+        _scope: &ScopeRef,
+        changes: Vec<eitmad_contracts::sync::ChangeRecord>,
+    ) -> Result<Vec<eitmad_contracts::sync::ChangeRecord>, crate::OperationError> {
+        Ok(changes)
     }
     /// Produces an optional authoritative conflict resolution.
     ///

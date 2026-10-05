@@ -146,6 +146,7 @@ impl SyncDatabase {
         }
         apply_catalog_migration(&mut transaction).await?;
         apply_synchronization_migration(&mut transaction).await?;
+        apply_image_reference_migration(&mut transaction).await?;
         transaction
             .commit()
             .await
@@ -192,6 +193,7 @@ async fn apply_catalog_migration(
     Ok(())
 }
 
+/// Applies the catalog sync constraints without changing retained migration bytes.
 async fn apply_synchronization_migration(
     transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
 ) -> Result<(), SyncDatabaseError> {
@@ -211,6 +213,81 @@ async fn apply_synchronization_migration(
                 .await
                 .map_err(SyncDatabaseError::Unavailable)?;
             sqlx::query("INSERT INTO public.eitmad_server_migrations(version,migration_id,checksum) VALUES(9,'server.catalog-synchronization.v1',$1)").bind(checksum).execute(&mut **transaction).await.map_err(SyncDatabaseError::Unavailable)?;
+        }
+    }
+    Ok(())
+}
+
+/// Adds indexed public image references and preserves readable pre-existing publications.
+async fn apply_image_reference_migration(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+) -> Result<(), SyncDatabaseError> {
+    let sql = include_str!("../migrations/0010_catalog_image_references.sql");
+    let checksum = format!("{:x}", Sha256::digest(sql.as_bytes()));
+    let existing: Option<String> =
+        sqlx::query_scalar("SELECT checksum FROM public.eitmad_server_migrations WHERE version=10")
+            .fetch_optional(&mut **transaction)
+            .await
+            .map_err(SyncDatabaseError::Unavailable)?;
+    match existing {
+        Some(value) if value != checksum => return Err(SyncDatabaseError::MigrationChecksum),
+        Some(_) => (),
+        None => {
+            sqlx::raw_sql(sql)
+                .execute(&mut **transaction)
+                .await
+                .map_err(SyncDatabaseError::Unavailable)?;
+            // Keyset pages keep migration memory bounded, including malformed retained entries.
+            let tenants = sqlx::query_scalar::<_, uuid::Uuid>(
+                "SELECT tenant_id FROM control.tenants ORDER BY tenant_id",
+            )
+            .fetch_all(&mut **transaction)
+            .await
+            .map_err(SyncDatabaseError::Unavailable)?;
+            for tenant_id in tenants {
+                sqlx::query("SELECT set_config('eitmad.tenant_id',$1,true)")
+                    .bind(tenant_id.to_string())
+                    .execute(&mut **transaction)
+                    .await
+                    .map_err(SyncDatabaseError::Unavailable)?;
+                let mut after: Option<(uuid::Uuid, String, uuid::Uuid, uuid::Uuid)> = None;
+                loop {
+                    let rows = sqlx::query("SELECT tenant_id,scope_kind,scope_id,record_id,change_json FROM sync.records WHERE schema_id='eitmad.schema.catalog-public.v1' AND NOT tombstone AND ($1::uuid IS NULL OR (tenant_id,scope_kind,scope_id,record_id)>($1,$2,$3,$4)) ORDER BY tenant_id,scope_kind,scope_id,record_id LIMIT 100")
+                    .bind(after.as_ref().map(|v| v.0)).bind(after.as_ref().map(|v| v.1.as_str()))
+                    .bind(after.as_ref().map(|v| v.2)).bind(after.as_ref().map(|v| v.3))
+                    .fetch_all(&mut **transaction).await.map_err(SyncDatabaseError::Unavailable)?;
+                    if rows.is_empty() {
+                        break;
+                    }
+                    for row in rows {
+                        let tenant: uuid::Uuid = row.get("tenant_id");
+                        let kind: String = row.get("scope_kind");
+                        let scope: uuid::Uuid = row.get("scope_id");
+                        let id: uuid::Uuid = row.get("record_id");
+                        after = Some((tenant, kind.clone(), scope, id));
+                        let Ok(change) = serde_json::from_value::<
+                            eitmad_contracts::sync::ChangeRecord,
+                        >(row.get("change_json")) else {
+                            continue;
+                        };
+                        if change.scope.kind.as_str() != kind
+                            || change.scope.id.value() != scope
+                            || change.record_id.value() != id
+                        {
+                            continue;
+                        }
+                        if let Some((image, digest)) =
+                            crate::catalog_sync::public_image_reference(&change)
+                        {
+                            sqlx::query("UPDATE sync.records SET public_image_id=$5,public_image_sha256=$6 WHERE tenant_id=$1 AND scope_kind=$2 AND scope_id=$3 AND record_id=$4 AND schema_id='eitmad.schema.catalog-public.v1'")
+                            .bind(tenant).bind(kind).bind(scope).bind(id).bind(image).bind(digest)
+                            .execute(&mut **transaction).await.map_err(SyncDatabaseError::Unavailable)?;
+                        }
+                    }
+                }
+            }
+            sqlx::query("INSERT INTO public.eitmad_server_migrations(version,migration_id,checksum) VALUES(10,'server.catalog-image-references.v1',$1)")
+                .bind(checksum).execute(&mut **transaction).await.map_err(SyncDatabaseError::Unavailable)?;
         }
     }
     Ok(())

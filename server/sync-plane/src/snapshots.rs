@@ -170,15 +170,10 @@ impl SyncCoordinator {
             .registry
             .get(schema_id, request.schema_version)
             .map_err(|_| SnapshotError::Domain)?;
-        let mut projected = Vec::with_capacity(records.len());
-        for record in records {
-            projected.push(
-                handler
-                    .project(session, record)
-                    .await
-                    .map_err(|_| SnapshotError::Unavailable)?,
-            );
-        }
+        let projected = handler
+            .project_page(&mut transaction, session, scope, records)
+            .await
+            .map_err(|_| SnapshotError::Unavailable)?;
         let snapshot = store_snapshot(
             &mut transaction,
             &SnapshotScope {

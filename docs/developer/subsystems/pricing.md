@@ -60,6 +60,8 @@ Rust checks the exact receipt and reauthorizes after network work. It commits th
 
 Cost changes keep the previous selling price and immutable snapshots. A changed catalog revision marks the Manager row **بانتظار النشر** and hides it from Receptionist pricing until a new matching price is confirmed. Other engines receive complete public entries on the first price-list page and on restart-safe background cycles. Confirmed price revisions remain immutable after withdrawal or replacement. Variant pages scan bounded definition batches until the requested page is full or the catalog ends, including gaps from search and permissions. A continuation exists only when another matching variant is available and identifies the last returned variant.
 
+Catalog replication or remote refresh failure leaves the price query available from its authorized confirmed local cache with `server_available=false`. Local authorization and validation still apply. Manager pages also return scoped catalog repair issues; Receptionist pages omit them. The native Pricing page displays those issues without hiding cached prices. See [catalog replication](synchronization.md#catalog-replication) for revision repair and retained audit behavior.
+
 ## Configure and recover
 
 Before enabling publication, register the engine organization and store an authenticated server session in Rust native secret storage. Set these engine-owned environment variables:
