@@ -107,6 +107,7 @@ public sealed class PricingRenderedTests
     public void PricingListEditorAndBelowCostWarningRenderAtBaselineSizes(int width, int height)
     {
         var page = PricingPresentationTests.Data();
+        page.CatalogSyncIssues = [new CatalogSyncIssue { Kind = "product-category", Id = Guid.NewGuid(), Revision = 1, Name = "فئة المنتجات الجاهزة" }];
         var engine = new FakeEngine();
         engine.QueryHandler = query => new QueryResponseEnvelope { Outcome = new QueryOutcome { Status = CommandOutcomeStatus.Succeeded,
             Payload = query.AsPricingList() is not null ? QueryResult.ForPrices(page) : QueryResult.ForPriceReview(new PriceReview { CostYer = 160_000, MarginYer = -10_000, BelowCost = true }) } };
@@ -124,6 +125,7 @@ public sealed class PricingRenderedTests
             WpfTestHost.CompleteLayout(window);
             var view = WpfTestHost.Descendants<PricingView>(window).Single();
             Assert.HasCount(2, view.ViewModel.VisiblePrices);
+            Assert.IsTrue(WpfTestHost.FindByName<TextBlock>(view, "CatalogSyncIssueNotice").IsVisible);
             var dpi = System.Windows.Media.VisualTreeHelper.GetDpi(window);
             Console.WriteLine($"Pricing render: {window.ActualWidth} x {window.ActualHeight} DIP; display scaling {dpi.DpiScaleX * 100}%");
 

@@ -132,7 +132,7 @@ impl SyncCoordinator {
         let scope_row = sqlx::query(
             "SELECT head_checkpoint, server_generation
              FROM sync.scopes
-             WHERE tenant_id = $1 AND scope_kind = $2 AND scope_id = $3 AND schema_id = $4",
+             WHERE tenant_id = $1 AND scope_kind = $2 AND scope_id = $3 AND schema_id = $4 FOR SHARE",
         )
         .bind(session.tenant_id.value())
         .bind(scope.kind.as_str())
@@ -166,6 +166,14 @@ impl SyncCoordinator {
             .map(|row| serde_json::from_value(row.get("change_json")))
             .collect::<Result<Vec<ChangeRecord>, _>>()
             .map_err(|_| SnapshotError::Unavailable)?;
+        let handler = self
+            .registry
+            .get(schema_id, request.schema_version)
+            .map_err(|_| SnapshotError::Domain)?;
+        let projected = handler
+            .project_page(&mut transaction, session, scope, records)
+            .await
+            .map_err(|_| SnapshotError::Unavailable)?;
         let snapshot = store_snapshot(
             &mut transaction,
             &SnapshotScope {
@@ -175,7 +183,7 @@ impl SyncCoordinator {
                 checkpoint,
                 generation,
             },
-            &records,
+            &projected,
             now,
             valid_for_ms,
         )

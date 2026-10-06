@@ -16,7 +16,7 @@ pub struct DirectPriceClient {
     http: AuthenticatedHttpClient,
 }
 /// Maps only engine-owned scopes to the registered remote organization, including nested references.
-fn remap_catalog_scope(
+pub(crate) fn remap_catalog_scope(
     record: &mut eitmad_contracts::catalog_revision::CatalogRevision,
     local_scope: &eitmad_contracts::identity::ScopeRef,
     scope: &eitmad_contracts::identity::ScopeRef,
@@ -26,6 +26,8 @@ fn remap_catalog_scope(
         return Err(PricingError::Denied);
     }
     match record {
+        CatalogRevision::MaterialCategory(v) => v.scope = scope.clone(),
+        CatalogRevision::PartCategory(v) => v.scope = scope.clone(),
         CatalogRevision::Unit(v) => v.scope = scope.clone(),
         CatalogRevision::Material(v) => v.scope = scope.clone(),
         CatalogRevision::ProductCategory(v) => v.scope = scope.clone(),
@@ -62,7 +64,7 @@ fn remap_catalog_scope(
     Ok(())
 }
 impl DirectPriceClient {
-    /// Configures pinned HTTPS and stored credentials for the protocol 1.16 pricing boundary.
+    /// Configures pinned HTTPS and stored credentials for the protocol 1.17 pricing boundary.
     #[must_use]
     pub fn from_config(
         config: DirectServerConfig,
@@ -75,7 +77,7 @@ impl DirectPriceClient {
                 secrets,
                 credential,
                 "eitmad.capability.pricing.v1",
-                16,
+                17,
             ),
         }
     }

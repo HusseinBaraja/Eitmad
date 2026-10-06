@@ -159,9 +159,30 @@ impl CatalogImageServer {
         input: &DownloadCatalogImage,
     ) -> Result<CatalogImageChunk, ImageError> {
         let image = &input.image.reference;
-        let mut tx = self
-            .authorize(actor, &input.scope, image.kind, false)
-            .await?;
+        let mut tx = match self.authorize(actor, &input.scope, image.kind, false).await {
+            Ok(tx) => tx,
+            Err(ImageError::Denied)
+                if image.kind == CatalogImageKind::Furniture
+                    && input.scope.kind.as_str() == "organization" =>
+            {
+                let mut tx = tenant_transaction(&self.pool, actor.tenant_id)
+                    .await
+                    .map_err(|_| ImageError::Unavailable)?;
+                if !crate::catalog_sync::reader_allowed(&mut tx, actor, &input.scope)
+                    .await
+                    .map_err(|_| ImageError::Unavailable)?
+                {
+                    return Err(ImageError::Denied);
+                }
+                let referenced:bool=sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM sync.records WHERE tenant_id=$1 AND scope_kind='organization' AND scope_id=$2 AND schema_id='eitmad.schema.catalog-public.v1' AND NOT tombstone AND public_image_id=$3 AND public_image_sha256=$4)")
+                    .bind(actor.tenant_id.value()).bind(input.scope.id.value()).bind(image.id).bind(&image.sha256).fetch_one(&mut *tx).await.map_err(|_|ImageError::Unavailable)?;
+                if !referenced {
+                    return Err(ImageError::Denied);
+                }
+                tx
+            }
+            Err(error) => return Err(error),
+        };
         let row = sqlx::query("SELECT octet_length(content) AS size, substring(content FROM $6 FOR $7) AS chunk FROM sync.catalog_images WHERE tenant_id=$1 AND organization_id=$2 AND id=$3 AND kind=$4 AND sha256=$5")
             .bind(actor.tenant_id.value()).bind(input.scope.id.value()).bind(image.id).bind(kind(image.kind)).bind(&image.sha256)
             .bind(i32::try_from(input.image.offset).map_err(|_| ImageError::Invalid)?.checked_add(1).ok_or(ImageError::Invalid)?).bind(i32::try_from(IMAGE_CHUNK_BYTES).map_err(|_| ImageError::Invalid)?)

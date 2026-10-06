@@ -116,6 +116,8 @@ pub struct ListPrices {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct PricePage {
+    /// Unresolved catalog transfer failures, returned only to an authorized Manager.
+    pub catalog_sync_issues: Vec<crate::catalog_revision::CatalogSyncIssue>,
     pub server_available: bool,
     pub items: Vec<PriceItem>,
     pub next: Option<String>,

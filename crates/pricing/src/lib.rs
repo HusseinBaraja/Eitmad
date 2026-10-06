@@ -2,7 +2,8 @@
 mod catalog;
 mod money;
 pub use catalog::{
-    catalog_dependencies, publication_basis, validate_catalog_revision, validate_server_proposal,
+    catalog_dependencies, catalog_record_id, public_entry, publication_basis, revision_record_id,
+    revision_schema, validate_catalog_revision, validate_server_proposal,
 };
 use eitmad_authorization::{
     AuthorizationError, AuthorizationService, CATALOG_READ_PERMISSION, MutationContext,
@@ -93,6 +94,17 @@ pub trait PriceConfirmation: Send + Sync {
         request: &ConfirmPrice,
         deadline: UnixMillis,
     ) -> Result<PublishedPrice, PricingError>;
+}
+/// Runs catalog replication on a Rust worker through the existing authenticated sync transport.
+pub trait CatalogReplication: Send + Sync {
+    /// Transfers bounded private work and commits complete public read models.
+    /// # Errors
+    /// Retains work and checkpoints on interruption, denial, or missing dependencies.
+    fn synchronize(
+        &self,
+        actor: &AuthorizationContext,
+        deadline: UnixMillis,
+    ) -> Result<usize, PricingError>;
 }
 #[derive(Clone)]
 pub struct PricingService {
@@ -230,6 +242,25 @@ impl PricingService {
         }
         let can_manage = self.allowed(actor, PRICING_WRITE_PERMISSION)?;
         let costs = self.allowed(actor, PRICING_COST_READ_PERMISSION)?;
+        let catalog_sync_issues = if can_manage {
+            self.store.catalog_sync_issues(&actor.scope)?
+        } else {
+            vec![]
+        };
+        if !can_manage
+            && self
+                .store
+                .catalog_checkpoint(
+                    actor,
+                    &eitmad_contracts::transport::SchemaId::parse(
+                        "eitmad.schema.catalog-public.v1",
+                    )
+                    .map_err(|_| PricingError::Invalid)?,
+                )?
+                .is_some()
+        {
+            return self.public_list(actor, input);
+        }
         self.store.transact_pricing(false, |tx| {
             // Fill the variant page across bounded definition batches, including filtered gaps.
             let after = input.after.as_deref().unwrap_or("");
@@ -280,12 +311,65 @@ impl PricingService {
                 None
             };
             Ok(PricePage {
+                catalog_sync_issues,
                 server_available: false,
                 items,
                 next,
                 can_manage,
                 can_read_costs: costs,
             })
+        })
+    }
+    /// Searches and pages confirmed public sales without returning private costs or margins.
+    /// The caller must authorize catalog access before reading the scoped cache.
+    fn public_list(
+        &self,
+        actor: &AuthorizationContext,
+        input: &ListPrices,
+    ) -> Result<PricePage, PricingError> {
+        let term = eitmad_material::normalize_search(&input.term);
+        let mut entries = self.store.catalog_sales(&actor.scope)?;
+        entries.sort_by_key(|entry| item_cursor(&entry.price.target));
+        let mut items = entries
+            .into_iter()
+            .filter(|e| {
+                item_cursor(&e.price.target) > input.after.clone().unwrap_or_default()
+                    && eitmad_material::normalize_search(&format!(
+                        "{} {} {}",
+                        e.name, e.variant_name, e.category_name
+                    ))
+                    .contains(&term)
+            })
+            .take(input.limit as usize + 1)
+            .map(|e| PriceItem {
+                publication_required: false,
+                target: e.price.target,
+                name: e.name,
+                variant_name: e.variant_name,
+                category_name: e.category_name,
+                published: Some(PriceSummary {
+                    currency: e.price.currency,
+                    selling_price_yer: e.price.selling_price_yer,
+                    revision: e.price.revision,
+                    confirmed_at: e.price.confirmed_at,
+                }),
+                cost_yer: None,
+                margin_yer: None,
+            })
+            .collect::<Vec<_>>();
+        let next = if items.len() > input.limit as usize {
+            items.truncate(input.limit as usize);
+            items.last().map(|i| item_cursor(&i.target))
+        } else {
+            None
+        };
+        Ok(PricePage {
+            catalog_sync_issues: vec![],
+            server_available: false,
+            items,
+            next,
+            can_manage: false,
+            can_read_costs: false,
         })
     }
     /// Reviews whole-rial draft prices with authoritative cost and margin; never publishes.
@@ -528,6 +612,42 @@ impl PricingService {
         input: &PriceSelection,
     ) -> Result<SellingPrice, PricingError> {
         self.require(actor, CATALOG_READ_PERMISSION)?;
+        if self
+            .store
+            .catalog_checkpoint(
+                actor,
+                &eitmad_contracts::transport::SchemaId::parse("eitmad.schema.catalog-public.v1")
+                    .map_err(|_| PricingError::Invalid)?,
+            )?
+            .is_some()
+            && !self.allowed(actor, PRICING_WRITE_PERMISSION)?
+        {
+            let entry = self
+                .store
+                .catalog_sales(&actor.scope)?
+                .into_iter()
+                .find(|e| e.price.target == input.target)
+                .ok_or(PricingError::Reference)?;
+            let price = entry.price;
+            if price.revision != input.price_revision || input.quantity == 0 {
+                return Err(PricingError::Reference);
+            }
+            let color = adjustment(&price.colors, input.color_id)?;
+            let handle = adjustment(&price.handles, input.handle_id)?;
+            let unit = price
+                .selling_price_yer
+                .checked_add(color)
+                .and_then(|v| v.checked_add(handle))
+                .ok_or(PricingError::Invalid)?;
+            let total = unit
+                .checked_mul(i64::from(input.quantity))
+                .ok_or(PricingError::Invalid)?;
+            return Ok(SellingPrice {
+                snapshot: price,
+                unit_price_yer: unit,
+                total_yer: total,
+            });
+        }
         self.store.transact_pricing(false, |tx| {
             let source = source(tx, actor, &input.target)?;
             let price = tx.latest(&input.target)?.ok_or(PricingError::Reference)?;

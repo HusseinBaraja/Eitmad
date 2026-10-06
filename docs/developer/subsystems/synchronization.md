@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust synchronization maintainers"
-last_verified: "2026-08-24"
+last_verified: "2026-10-05"
 review_triggers:
   - "sync contracts, reconciliation, transport, persistence, authorization, cache, or conflict behavior changes"
 keywords:
@@ -41,7 +41,23 @@ keywords:
 
 Native shells display returned state and localized recovery choices. They must not open SQLite, alter queues, merge payloads, retry denied work, infer freshness, or reproduce these contracts. LAN and WAN transports carry the same typed records; transport choice cannot change reconciliation semantics.
 
-The PostgreSQL server sync plane implements registered domain handlers, durable operations, idempotency, conflicts, checkpoints, snapshot-backed history, and resumable subscriptions. The combined host supplies HTTPS, one WebSocket boundary, and authenticated relay coordination. Its domain registry registers `eitmad.schema.customer.v1` through the customer handler. `eitmad-server-connection` supplies the direct WAN route. `CustomerSyncCycle` connects the customer outbox to this route and the shared engine; its caller supplies an enrolled server session and schedules cycles on a Rust worker thread. LAN discovery and relay payload routing remain separate work. A production driver must not move authentication, secret access, authorization, or sync semantics into a native shell. See [WAN relay coordination](wan-relay-coordination.md).
+The PostgreSQL server sync plane implements registered domain handlers, durable operations, idempotency, conflicts, checkpoints, snapshot-backed history, and resumable subscriptions. The combined host supplies HTTPS, one WebSocket boundary, and authenticated relay coordination. Its domain registry registers Customer, Material, Part, Product, Furniture, public catalog, and Pricing handlers. `eitmad-server-connection` supplies the direct WAN route. `CustomerSyncCycle` connects the customer outbox to this route and the shared engine; its caller supplies an enrolled server session and schedules cycles on a Rust worker thread. LAN discovery and relay payload routing remain separate work. A production driver must not move authentication, secret access, authorization, or sync semantics into a native shell. See [WAN relay coordination](wan-relay-coordination.md).
+
+## Catalog replication
+
+`DirectCatalogSyncClient` connects durable catalog work to the existing authenticated WAN adapter and `SubmitLocal`, `Pull`, and `Acknowledge` messages. It requires protocol 1.17. It uses the Pricing server endpoint, trust, and native credential settings; it adds no wire protocol or shell-owned networking. See [Pricing configuration](pricing.md#configure-and-recover).
+
+Private Material, Part, Product, and Furniture schema streams are local-first. Each immutable domain revision has a stable envelope ID; a different payload cannot replace that ID. A save commits transfer work with its existing mutation audit. The cycle bootstraps existing local records once, sends bounded dependency-ordered work, and preserves exact Material, unit, Part, and definition revisions. An interrupted sender keeps pending work for exact retry. Pending or rejected dependencies defer only their dependent definitions. Keyset scanning continues past blocked pages, so unrelated work remains eligible. A server rejection or conflict removes that revision from pending transfer in the same transaction as its retained disposition and redacted audit. Private and public downloads continue. A conflicting server revision for a quarantined local input is skipped during projection; the checkpoint still advances for the rest of the page. The retained local input remains available for repair.
+
+Manager price queries return up to 50 scoped `CatalogSyncIssue` identities and names, without rejected payloads or conflict responses. The Pricing page displays a persistent Arabic repair notice. Save a corrected definition as a new revision. Accepted category or current-unit repairs release deferred references; exact historical Material, unit, and Part dependencies require revised dependent definitions. A newer accepted revision hides a superseded repair notice but never deletes rejection or audit history. Receptionist price queries return no repair issues.
+
+The public `eitmad.schema.catalog-public.v1` and Pricing streams are server-authoritative. Price confirmation commits a complete public definition/variant and its receipt in one server transaction. A changed current definition or archived category withdraws its sales entry in that same accepted mutation. Historical definitions and prices remain retained. An accepted private edit does not publish its proposed price.
+
+Server handlers enforce tenant RLS and organization relationships. Material, Part, and private Furniture reads require Manager. Product reads permit Receptionist access with purchase costs and internal notes removed before history or snapshot serialization. Field projection runs once per page inside the existing tenant transaction. The public entry type contains no costs, margins, Part compositions, or internal notes. A Branch Receptionist can read the owning organization's public catalog. See each capability's accepted authority policy.
+
+The receiving engine decodes an entire page before committing its read model, checkpoint, audit, immutable price history, and price-change outbox. Private streams finish in dependency order before Furniture projection. A stale checkpoint uses the existing manifest/chunk/completion route. The client stages the complete snapshot, checks identities, counts, per-chunk and whole checksums, expiry, and bounded size, then commits once. No received prefix becomes a confirmed sales entry. Restart retains the old confirmed projection and resumes or repeats the interrupted transfer. The Rust worker retries every registered actor even when an earlier actor fails, drains committed events, and then reports the first failure. Worker-lock contention or a slow actor cannot prevent later actors from being attempted or strand notifications from committed pages. Native shells use existing subscriptions.
+
+The focused real TLS/PostgreSQL scenario is `catalog_sync::catalog_reaches_separate_receptionist_and_recovers_without_private_fields` in `crates/server-connection/tests/direct_route/catalog_sync.rs`. It uses isolated Manager and Receptionist stores and an ordinary PostgreSQL role. Follow [real-server verification](../../operations/run-server-authority.md#verify-catalog-delivery-and-recovery).
 
 ## One transport interface and wire protocol
 
@@ -105,7 +121,7 @@ The default `ConflictHook` returns `Defer`; this preserves the local visible val
 
 ## Server-authoritative client state
 
-The client library can preserve and reconcile this mode. No current product capability uses it, and the server has no command submission entry point.
+Public catalog and Pricing streams use server-authoritative projections. The generic client library can also preserve pending commands in this mode, but the server has no generic command submission entry point.
 
 1. A server snapshot populates confirmed cache state, checkpoint, generation, and `valid_until`.
 2. `queue_command` authorizes and durably queues a typed command. An optional optimistic change is projected over confirmed state and is returned as `RecordAuthority::Optimistic`.

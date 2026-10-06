@@ -18,6 +18,9 @@
     "catalog": {
       "$ref": "#/definitions/ProtocolCatalog"
     },
+    "catalog_entry": {
+      "$ref": "#/definitions/CatalogEntry"
+    },
     "command_request": {
       "$ref": "#/definitions/CommandEnvelope"
     },
@@ -134,6 +137,7 @@
     }
   },
   "required": [
+    "catalog_entry",
     "synchronize_catalog_revisions",
     "confirm_price",
     "read_published_prices",
@@ -386,6 +390,78 @@
         "usages"
       ]
     },
+    "CatalogEntry": {
+      "description": "Server-confirmed sales projection. Private definitions and cost dependencies never occur here.",
+      "type": "object",
+      "properties": {
+        "categoryName": {
+          "type": "string"
+        },
+        "colors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FurnitureOption"
+          }
+        },
+        "customization": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/FurnitureCustomization"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "description": {
+          "type": "string"
+        },
+        "dimensions": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/FurnitureDimensions"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "handles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FurnitureOption"
+          }
+        },
+        "image": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/CatalogImageRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "price": {
+          "$ref": "#/definitions/PublishedPrice"
+        },
+        "variantName": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "price",
+        "name",
+        "categoryName",
+        "description",
+        "variantName",
+        "colors",
+        "handles"
+      ]
+    },
     "CatalogImageChunk": {
       "type": "object",
       "properties": {
@@ -443,6 +519,38 @@
     "CatalogRevision": {
       "description": "One scoped definition. Calculated costs are checked against stored dependencies.",
       "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "materialCategory"
+            },
+            "payload": {
+              "$ref": "#/definitions/MaterialCategory"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "partCategory"
+            },
+            "payload": {
+              "$ref": "#/definitions/PartCategory"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
         {
           "type": "object",
           "properties": {
@@ -555,6 +663,37 @@
             "payload"
           ]
         }
+      ]
+    },
+    "CatalogSyncIssue": {
+      "description": "Repair information for a Manager. The rejected payload and server response stay in Rust storage.",
+      "type": "object",
+      "properties": {
+        "conflicted": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "revision",
+        "name",
+        "conflicted"
       ]
     },
     "ChangeBatch": {
@@ -5445,6 +5584,13 @@
         "canReadCosts": {
           "type": "boolean"
         },
+        "catalogSyncIssues": {
+          "description": "Unresolved catalog transfer failures, returned only to an authorized Manager.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CatalogSyncIssue"
+          }
+        },
         "items": {
           "type": "array",
           "items": {
@@ -5462,6 +5608,7 @@
         }
       },
       "required": [
+        "catalogSyncIssues",
         "serverAvailable",
         "items",
         "canManage",
@@ -5662,7 +5809,6 @@
         "categoryId",
         "categoryName",
         "description",
-        "notes",
         "variants",
         "archived",
         "revision",

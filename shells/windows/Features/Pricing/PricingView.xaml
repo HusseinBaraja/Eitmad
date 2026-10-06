@@ -7,6 +7,9 @@
         <controls:PageHeader Grid.Row="0" Title="التسعير" Subtitle="{Binding AvailabilityMessage}"></controls:PageHeader>
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
             <StackPanel Margin="32,24,32,30">
+                <TextBlock x:Name="CatalogSyncIssueNotice" Text="{Binding SyncIssueMessage}" TextWrapping="Wrap" Margin="0,0,0,12"
+                           Visibility="{Binding HasSyncIssues, Converter={StaticResource BooleanToVisibility}}"
+                           automation:AutomationProperties.Name="تعريفات تحتاج مراجعة المزامنة" />
                 <Button Content="إعادة تحميل الأسعار" Click="ReloadClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,0,0,12" automation:AutomationProperties.Name="إعادة تحميل الأسعار" />
                 <layout:AdaptiveFieldsPanel MinItemWidth="220" Margin="0,0,0,17">
                     <controls:FormField Label="البحث">

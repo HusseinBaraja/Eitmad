@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Products capability maintainers"
-last_verified: "2026-10-01"
+last_verified: "2026-10-05"
 review_triggers:
   - "Product contracts, category ownership, pricing rules, or Windows Products UI behavior change"
 keywords:
@@ -41,7 +41,7 @@ Updates require the exact expected Product or category revision. A Product updat
 
 Historical references contain scope, Product ID, variant ID, revision, and schema version. `product-revision.get` resolves that exact immutable revision. For new work, its `forNewWork` flag additionally requires the current revision, an active Product, active category, and active referenced variant. `product.list` with `selectableOnly` returns only active definitions and active variants. A retained archived category can remain on its existing Product, but cannot be assigned to a new Product. Existing quotation and order snapshots remain readable through their owning capability.
 
-These are local durable definitions, not published catalog revisions. Catalog publication, selling-price policy, quotation issue, and server-confirmed catalog archive remain owned by the accepted sales workflow. The Products editor does not save selling prices or calculate margins. The Receptionist catalog does not offer unpriced Product definitions for new sales. Historical quotation previews resolve their stored snapshots independently of current definitions.
+These are local durable definitions, not published catalog revisions. [Pricing](pricing.md) owns server-confirmed catalog publication and selling-price policy. Quotation issue remains separate. The Products editor does not save selling prices or calculate margins. The Receptionist catalog does not offer unpriced Product definitions for new sales. Historical quotation previews resolve their stored snapshots independently of current definitions.
 
 ## Contracts, storage, and recovery
 
@@ -51,7 +51,7 @@ Protocol `1.12` advertises `eitmad.capability.product.v1` and `eitmad.schema.pro
 
 List queries use UUID cursors and limits from 1 to 100. Search terms are bounded to 256 UTF-8 bytes; Rust normalizes Arabic only for matching. Names preserve supplied text and reject unsafe direction controls. Descriptions and internal notes are bounded to 4096 bytes. Native text and numbers remain in RTL layouts with LTR money input and display.
 
-One immediate SQLite transaction writes current state, immutable Product history, stable option ownership, audit, exact retry response, and a compact publication outbox event. A mandatory write failure rolls back every write. Retry hashes bind actor, scope, operation, and input; a changed request cannot reuse a saved retry key. The runtime publishes committed events and recovers the outbox after restart. Multi-device reconciliation for these definitions is not implemented in this change; local durable storage and outbox events do not imply synchronization.
+One immediate SQLite transaction writes current state, immutable Product history, stable option ownership, audit, exact retry response, and a compact publication outbox event. A mandatory write failure rolls back every write. Retry hashes bind actor, scope, operation, and input; a changed request cannot reuse a saved retry key. The runtime publishes committed events and recovers the outbox after restart. The [catalog sync cycle](synchronization.md#catalog-replication) transfers immutable definitions and categories through the real route. Server reads and snapshots omit purchase costs and internal notes for Receptionists. The confirmed sales projection exposes only priced active variants.
 
 The shell keeps Rust records for list loading and creates editable copies only when an editor opens. List rows are immutable display projections.
 

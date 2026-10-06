@@ -341,7 +341,14 @@ mod tests {
         let connection = Connection::open(store.path()).unwrap();
         connection
             .execute_batch(
-                "DROP TABLE pricing_intents;
+                "DROP TABLE catalog_sync_clients;
+                 DROP TABLE catalog_sales_records;
+                 DROP TABLE catalog_sync_checkpoints;
+                 DROP TABLE catalog_sync_exceptions;
+                 DROP TABLE catalog_sync_revisions;
+                 DELETE FROM schema_migrations WHERE version = 23;
+                 DELETE FROM schema_migrations WHERE version = 22;
+                 DROP TABLE pricing_intents;
                  DROP TABLE pricing_revisions;
                  DELETE FROM schema_migrations WHERE version = 21;
                  DELETE FROM schema_migrations WHERE version = 20;

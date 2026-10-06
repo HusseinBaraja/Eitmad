@@ -45,6 +45,7 @@ pub struct ProductDispatcher {
     image_workers: Arc<tokio::sync::Semaphore>,
     products: ProductService,
     pricing: eitmad_pricing::PricingService,
+    catalog_replication: Option<Arc<dyn eitmad_pricing::CatalogReplication>>,
     furnitures: FurnitureService,
     accounts: DesktopAccountService,
     events: Arc<dyn ProductEventPublisher>,
@@ -109,6 +110,7 @@ impl ProductDispatcher {
             image_workers: Arc::new(tokio::sync::Semaphore::new(2)),
             products,
             pricing,
+            catalog_replication: None,
             furnitures,
             accounts,
             events,
@@ -118,6 +120,43 @@ impl ProductDispatcher {
     #[must_use]
     pub const fn authorization(&self) -> &AuthorizationService {
         &self.authorization
+    }
+    /// Attaches the Rust-owned catalog worker used by price queries and background retries.
+    #[must_use]
+    pub fn with_catalog_replication(
+        mut self,
+        replication: Arc<dyn eitmad_pricing::CatalogReplication>,
+    ) -> Self {
+        self.catalog_replication = Some(replication);
+        self
+    }
+    /// Retries durable Manager work under current local and remote authority.
+    /// # Errors
+    /// Retries every actor and drains committed notifications before returning the first failure.
+    pub fn retry_catalog_replication(&self) -> Result<usize, eitmad_pricing::PricingError> {
+        let Some(replication) = &self.catalog_replication else {
+            return Ok(0);
+        };
+        let mut count = 0;
+        let mut failure = None;
+        for actor in self.store.pending_catalog_actors()? {
+            match replication.synchronize(
+                &actor,
+                eitmad_contracts::transport::UnixMillis(now().0.saturating_add(10_000)),
+            ) {
+                Ok(transferred) => count += transferred,
+                Err(
+                    eitmad_pricing::PricingError::Denied | eitmad_pricing::PricingError::Reference,
+                ) => (),
+                Err(error) => {
+                    failure.get_or_insert(error);
+                }
+            }
+        }
+        if self.drain_pending_publications().is_err() {
+            failure.get_or_insert(eitmad_pricing::PricingError::Unconfirmed);
+        }
+        failure.map_or(Ok(count), Err)
     }
 
     #[must_use]
@@ -157,9 +196,26 @@ impl ProductDispatcher {
                 let actor = context.authorization.clone();
                 let deadline = context.deadline;
                 let correlation_id = context.correlation_id;
+                let replication = self.catalog_replication.clone();
                 tokio::task::spawn_blocking(move || {
                     let mut server_available = false;
                     if query.after.is_none() {
+                        if let Some(replication) = &replication {
+                            // A remote failure must not prevent an authorized cache read.
+                            server_available = replication
+                                .synchronize(
+                                    &actor,
+                                    eitmad_contracts::transport::UnixMillis(
+                                        deadline
+                                            .0
+                                            .saturating_sub(1_000)
+                                            .min(now().0.saturating_add(10_000)),
+                                    ),
+                                )
+                                .is_ok();
+                        }
+                    }
+                    if query.after.is_none() && replication.is_none() {
                         let context = MutationContext {
                             authorization: actor.clone(),
                             correlation_id,
@@ -176,11 +232,7 @@ impl ProductDispatcher {
                                 .saturating_sub(1_000)
                                 .min(now().0.saturating_add(2_000)),
                         );
-                        match pricing.refresh(&context, refresh_deadline) {
-                            Ok(()) => server_available = true,
-                            Err(eitmad_pricing::PricingError::Unconfirmed) => (),
-                            Err(e) => return Err(e),
-                        }
+                        server_available = pricing.refresh(&context, refresh_deadline).is_ok();
                     }
                     let mut page = pricing.list(&actor, &query)?;
                     page.server_available = server_available;
@@ -2270,6 +2322,109 @@ mod tests {
                 .is_err()
         );
     }
+    /// Proves transient sync failures cannot strand other actors or committed notifications.
+    #[tokio::test]
+    async fn catalog_retry_continues_other_actors_and_drains_after_failure() {
+        use eitmad_observability_audit::{AuditTarget, MutationAuditRecord};
+        use eitmad_pricing::PricingError;
+
+        #[derive(Default)]
+        struct InterruptedReplication(std::sync::Mutex<Vec<PrincipalId>>);
+        impl eitmad_pricing::CatalogReplication for InterruptedReplication {
+            fn synchronize(
+                &self,
+                actor: &AuthorizationContext,
+                _: UnixMillis,
+            ) -> Result<usize, PricingError> {
+                let mut actors = self.0.lock().unwrap();
+                actors.push(actor.identity.principal_id);
+                match actors.len() {
+                    1 => Err(PricingError::Unconfirmed),
+                    2 => Err(PricingError::Invalid),
+                    _ => Ok(2),
+                }
+            }
+        }
+
+        let (_directory, mut dispatcher, broker) = dispatcher();
+        dispatcher.events = Arc::new(FailOncePublisher {
+            broker: broker.clone(),
+            fail_next: AtomicBool::new(true),
+        });
+        let auth = authorization();
+        let (_, mut events) = broker
+            .subscribe(
+                auth.scope.clone(),
+                Subscription::Configuration(ConfigurationChanges {}),
+                None,
+            )
+            .unwrap();
+        let mutation = context(910);
+        let key = mutation.idempotency_key.unwrap();
+        assert!(
+            dispatcher
+                .dispatch_command(
+                    mutation,
+                    Command::UpdateConfiguration(UpdateConfiguration {
+                        expected_revision: 0,
+                        changes: vec![ConfigChange {
+                            key: ConfigKey::parse("eitmad.config.locale.primary.v1").unwrap(),
+                            value: ConfigWriteValue::Text("en-US".into()),
+                        }],
+                    }),
+                )
+                .await
+                .is_err()
+        );
+        assert!(
+            dispatcher
+                .store
+                .pending_publication(&auth.scope, key)
+                .unwrap()
+                .is_some()
+        );
+        let expected = [1, 3, 4].map(|id| PrincipalId::new(Uuid::from_u128(id)));
+        for principal in expected {
+            let mut actor = auth.clone();
+            actor.identity.principal_id = principal;
+            let audit = MutationAuditRecord::from_authorization(
+                &actor,
+                now(),
+                CorrelationId::new(Uuid::new_v4()),
+                "eitmad.catalog.sync.register.v1",
+                AuditTarget {
+                    kind: "catalog-sync".into(),
+                    identifiers: vec![],
+                },
+            );
+            dispatcher
+                .store
+                .register_catalog_client(&actor, &audit)
+                .unwrap();
+        }
+        let replication = Arc::new(InterruptedReplication::default());
+        let dispatcher = dispatcher.with_catalog_replication(replication.clone());
+        assert_eq!(
+            dispatcher.retry_catalog_replication(),
+            Err(PricingError::Unconfirmed)
+        );
+        let mut attempted = replication.0.lock().unwrap().clone();
+        attempted.sort_by_key(|id| id.value());
+        assert_eq!(attempted, expected);
+        assert!(
+            dispatcher
+                .store
+                .pending_publication(&auth.scope, key)
+                .unwrap()
+                .is_none()
+        );
+        let notice = tokio::time::timeout(std::time::Duration::from_secs(1), events.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(matches!(notice.event, Event::ConfigurationChanged(_)));
+    }
+
     struct TestPriceServer;
     impl eitmad_pricing::PriceConfirmation for TestPriceServer {
         /// Accepts catalog transfer so dispatcher tests can isolate routing and receipt handling.
@@ -2411,6 +2566,72 @@ mod tests {
             assert_eq!(
                 page.items[0].published.as_ref().unwrap().selling_price_yer,
                 70000
+            );
+        }
+    }
+
+    struct FailedCatalogReplication(eitmad_pricing::PricingError);
+    impl eitmad_pricing::CatalogReplication for FailedCatalogReplication {
+        fn synchronize(
+            &self,
+            _: &AuthorizationContext,
+            _: UnixMillis,
+        ) -> Result<usize, eitmad_pricing::PricingError> {
+            Err(self.0)
+        }
+    }
+
+    #[tokio::test]
+    async fn pricing_replication_failures_preserve_authorized_confirmed_cache() {
+        use eitmad_contracts::pricing::{ListPrices, PublishPrice};
+        let (_directory, dispatcher, _) = dispatcher();
+        grant_material_roles(&dispatcher);
+        let mut dispatcher = dispatcher.with_price_confirmation(Arc::new(TestPriceServer));
+        let target = pricing_fixture(&dispatcher).await;
+        dispatcher
+            .dispatch_command(
+                material_actor(820, 3),
+                Command::PublishPrice(PublishPrice {
+                    target: target.clone(),
+                    expected_revision: None,
+                    selling_price_yer: 70_000,
+                    confirm_below_cost: false,
+                }),
+            )
+            .await
+            .unwrap();
+        for failure in [
+            eitmad_pricing::PricingError::Reference,
+            eitmad_pricing::PricingError::Denied,
+            eitmad_pricing::PricingError::Unconfirmed,
+        ] {
+            dispatcher =
+                dispatcher.with_catalog_replication(Arc::new(FailedCatalogReplication(failure)));
+            let query = Query::Prices(ListPrices {
+                term: String::new(),
+                after: None,
+                limit: 100,
+            });
+            let QueryResult::Prices(page) = dispatcher
+                .dispatch_query(material_actor(821, 3), query.clone())
+                .await
+                .unwrap()
+            else {
+                panic!("prices")
+            };
+            assert!(!page.server_available);
+            assert_eq!(
+                page.items[0].published.as_ref().unwrap().selling_price_yer,
+                70_000
+            );
+            assert_eq!(
+                dispatcher
+                    .dispatch_query(material_actor(822, 999), query)
+                    .await
+                    .unwrap_err()
+                    .code
+                    .as_str(),
+                "eitmad.error.authorization-denied.v1"
             );
         }
     }

@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Furniture capability maintainers"
-last_verified: "2026-10-02"
+last_verified: "2026-10-05"
 review_triggers:
   - "Furniture contracts, Rust projections, pricing rules, or Windows Furniture UI behavior change"
 keywords:
@@ -35,11 +35,11 @@ The manager **الأثاث** list and its six-step editor save organization-scop
 
 `crates/furniture` owns validation, costs, selections, permissions, and revision behavior. Contracts live in `crates/contracts/src/furniture.rs`; `crates/storage/src/furniture.rs` owns migration `furniture.definitions.v1`, storage version `18`. The engine dispatcher supplies typed IPC and committed change notices. `shells/windows/Features/Furniture` stages unsaved fields and renders Rust results.
 
-Definitions use stable scoped UUIDs, separate Furniture category IDs, descriptions, internal notes, Parts, fixed variants, colors, handles, and `Draft`, `Active`, or `Archived` state. Active means a complete private manager definition. It does not mean a published catalog entry or a confirmed selling price. **حفظ كمسودة** and **حفظ التعريف** save local definitions; archive removes a definition from new definition selection. Catalog publication, published-price changes, quotation issuance, and server-confirmed catalog archive remain future capabilities. The Receptionist catalog does not receive these private definitions. Its remaining preview tests use explicit synthetic projections.
+Definitions use stable scoped UUIDs, separate Furniture category IDs, descriptions, internal notes, Parts, fixed variants, colors, handles, and `Draft`, `Active`, or `Archived` state. Active means a complete private manager definition. It does not mean a published catalog entry or a confirmed selling price. **حفظ كمسودة** and **حفظ التعريف** save local definitions; archive removes a definition from new definition selection. [Pricing](pricing.md) confirms catalog publication and published-price changes. Server acceptance of a changed or archived private definition withdraws its previous sales projection; a new active revision needs a matching publication. Quotation issuance remains separate. The Receptionist catalog receives an explicit public sales projection, never these private definitions. Its remaining preview tests use explicit synthetic projections.
 
 The shell keeps Rust records for list loading and creates editable copies only when an editor opens. List rows are immutable display projections.
 
-One optional [durable catalog image](catalog-images.md) is retained per revision. The information step imports through Rust and stages replacement or removal until save. Local paths are never stored as references. Asset transfer is implemented separately; multi-device definition synchronization is not implemented by this local save or its outbox.
+One optional [durable catalog image](catalog-images.md) is retained per revision. The information step imports through Rust and stages replacement or removal until save. Local paths are never stored as references. Asset transfer remains separate. The [catalog cycle](synchronization.md#catalog-replication) transfers the reference with the immutable definition, after its exact Part dependencies.
 
 ## Composition, dimensions, and option rules
 

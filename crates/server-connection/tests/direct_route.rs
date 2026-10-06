@@ -68,6 +68,8 @@ use eitmad_sync_plane::{
     DomainValidationError, LocalOperationDraft, SyncCoordinator, SyncDatabase, SyncIntent,
 };
 use uuid::Uuid;
+#[path = "direct_route/catalog_sync.rs"]
+mod catalog_sync;
 
 struct TestDomain;
 
@@ -458,11 +460,12 @@ async fn provision_server(
     )
     .await;
     grant_organization_manager(&control_database, &authentication, &scope).await;
-    let registry = DomainRegistry::new([
+    let mut handlers = eitmad_sync_plane::CatalogSyncHandler::handlers(&sync_database.pool());
+    handlers.extend([
         Arc::new(TestDomain) as Arc<dyn DomainSyncHandler>,
         Arc::new(CustomerSyncHandler::new(sync_database.pool())) as Arc<dyn DomainSyncHandler>,
-    ])
-    .unwrap();
+    ]);
+    let registry = DomainRegistry::new(handlers).unwrap();
     let state = ServerState::new(control, SyncCoordinator::new(&sync_database, registry));
     let address = {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();

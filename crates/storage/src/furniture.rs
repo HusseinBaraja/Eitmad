@@ -95,6 +95,26 @@ impl AuthorityStore {
 }
 
 impl FurnitureTransaction<'_> {
+    /// Reads a scoped dependency category without exposing another capability's transaction.
+    /// # Errors
+    /// Rejects invalid durable data.
+    pub fn part_category(
+        &self,
+        scope: &ScopeRef,
+        id: uuid::Uuid,
+    ) -> Result<Option<eitmad_contracts::part::PartCategory>, StorageError> {
+        self.record(scope, "part_categories", id)
+    }
+    /// Reads the category of an immutable material snapshot.
+    /// # Errors
+    /// Rejects invalid durable data.
+    pub fn material_category(
+        &self,
+        scope: &ScopeRef,
+        id: uuid::Uuid,
+    ) -> Result<Option<eitmad_contracts::material::MaterialCategory>, StorageError> {
+        self.record(scope, "material_categories", id)
+    }
     /// Reads a scoped category.
     /// # Errors
     /// Fails on invalid durable data.
@@ -319,6 +339,17 @@ impl FurnitureTransaction<'_> {
             }
         }
         insert_audit(self.connection, audit)?;
+        let revision = match record {
+            FurnitureRecord::Furniture(v) => {
+                eitmad_contracts::catalog_revision::CatalogRevision::Furniture(Box::new(v.clone()))
+            }
+            FurnitureRecord::Category(v) => {
+                eitmad_contracts::catalog_revision::CatalogRevision::FurnitureCategory(Box::new(
+                    v.clone(),
+                ))
+            }
+        };
+        crate::catalog_sync::enqueue(self.connection, &revision, audit)?;
         let mut retry = retry.clone();
         retry.response_json = json;
         insert_idempotency(self.connection, scope, operation, &retry)?;

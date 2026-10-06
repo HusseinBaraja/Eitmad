@@ -60,23 +60,7 @@ impl PricingTransaction<'_> {
         insert_audit(self.connection, audit)
     }
     fn insert_price(&self, price: &PublishedPrice) -> Result<(), StorageError> {
-        let (scope_kind, scope_id) = scope_parts(price.target.scope());
-        let (kind, entry, variant) = price.target.identity();
-        self.connection
-            .execute(
-                "INSERT INTO pricing_revisions VALUES(?1,?2,?3,?4,?5,?6,?7)",
-                params![
-                    scope_kind,
-                    scope_id,
-                    kind,
-                    entry.to_string(),
-                    variant.to_string(),
-                    i64::try_from(price.revision).map_err(|_| StorageError)?,
-                    serde_json::to_vec(price).map_err(|_| StorageError)?
-                ],
-            )
-            .map_err(|_| StorageError)?;
-        Ok(())
+        cache_price(self.connection, price)
     }
     #[must_use]
     pub const fn products(&self) -> ProductTransaction<'_> {
@@ -225,4 +209,39 @@ impl PricingTransaction<'_> {
             publication,
         )
     }
+}
+/// Retains an immutable confirmed price and accepts typed-equal retries at the same revision.
+/// Rejects changed values so callers can roll back the surrounding projection transaction.
+pub(crate) fn cache_price(
+    connection: &rusqlite::Connection,
+    price: &PublishedPrice,
+) -> Result<(), StorageError> {
+    let (scope_kind, scope_id) = scope_parts(price.target.scope());
+    let (kind, entry, variant) = price.target.identity();
+    let revision = i64::try_from(price.revision).map_err(|_| StorageError)?;
+    let existing:Option<Vec<u8>>=connection.query_row("SELECT record_json FROM pricing_revisions WHERE scope_kind=?1 AND scope_id=?2 AND kind=?3 AND entry_id=?4 AND variant_id=?5 AND revision=?6",params![scope_kind,scope_id,kind,entry.to_string(),variant.to_string(),revision],|r|r.get(0)).optional().map_err(|_|StorageError)?;
+    if let Some(existing) = existing {
+        return if serde_json::from_slice::<PublishedPrice>(&existing).map_err(|_| StorageError)?
+            == *price
+        {
+            Ok(())
+        } else {
+            Err(StorageError)
+        };
+    }
+    connection
+        .execute(
+            "INSERT INTO pricing_revisions VALUES(?1,?2,?3,?4,?5,?6,?7)",
+            params![
+                scope_kind,
+                scope_id,
+                kind,
+                entry.to_string(),
+                variant.to_string(),
+                i64::try_from(price.revision).map_err(|_| StorageError)?,
+                serde_json::to_vec(price).map_err(|_| StorageError)?
+            ],
+        )
+        .map_err(|_| StorageError)?;
+    Ok(())
 }

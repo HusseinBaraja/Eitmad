@@ -7,6 +7,22 @@ namespace Eitmad.WindowsShell.Tests.Pricing;
 [TestClass]
 public sealed class PricingPresentationTests
 {
+    [TestMethod]
+    public void SyncRepairNoticeIsManagerOnlyAndClearsWhenSessionEnds()
+    {
+        var model = new PricingViewModel();
+        var page = Data();
+        page.CatalogSyncIssues = [new CatalogSyncIssue { Kind = "product-category", Id = Guid.NewGuid(), Revision = 1, Name = "فئة اختبار" }];
+        model.ApplyDurableData(page);
+        Assert.IsTrue(model.HasSyncIssues);
+        Assert.HasCount(2, model.VisiblePrices);
+        model.ClearSession();
+        Assert.IsFalse(model.HasSyncIssues);
+        page.CanManage = false;
+        model.ApplyDurableData(page);
+        Assert.IsFalse(model.HasSyncIssues);
+    }
+
     internal static PricePage Data(bool costs = true) => new()
     {
         CanManage = costs, CanReadCosts = costs,

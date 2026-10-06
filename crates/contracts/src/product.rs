@@ -69,6 +69,7 @@ pub struct Product {
     pub category_name: String,
     pub description: String,
     /// Internal notes are withheld with purchase costs.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub notes: String,
     pub variants: Vec<ProductVariant>,
     pub archived: bool,

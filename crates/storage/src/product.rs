@@ -278,6 +278,17 @@ impl ProductTransaction<'_> {
             }
         }
         insert_audit(self.connection, audit)?;
+        let revision = match record {
+            ProductRecord::Product(v) => {
+                eitmad_contracts::catalog_revision::CatalogRevision::Product(Box::new(v.clone()))
+            }
+            ProductRecord::Category(v) => {
+                eitmad_contracts::catalog_revision::CatalogRevision::ProductCategory(Box::new(
+                    v.clone(),
+                ))
+            }
+        };
+        crate::catalog_sync::enqueue(self.connection, &revision, audit)?;
         let mut retry = retry.clone();
         retry.response_json = json;
         insert_idempotency(self.connection, scope, operation, &retry)?;

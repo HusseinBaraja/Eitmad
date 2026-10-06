@@ -3,6 +3,7 @@ use crate::{
     database::tenant_transaction,
     pricing::{PricingServer, manager_allowed},
 };
+use base64::Engine as _;
 use eitmad_contracts::{
     catalog_revision::{CatalogRevision, SynchronizeCatalogRevisions},
     identity::ScopeRef,
@@ -85,43 +86,244 @@ async fn synchronize(
         .await
         .map_err(|_| PricingError::Unconfirmed)?;
     for record in &input.records {
-        let (kind, id, revision, scope) = record.identity();
-        if scope != &input.scope {
+        if record.identity().3 != &input.scope {
             return Err(PricingError::Denied);
         }
-        let bytes = serde_json::to_vec(record).map_err(|_| PricingError::Invalid)?;
-        if bytes.len() > 512 * 1024 {
-            return Err(PricingError::Invalid);
+        let inserted = retain(tx, actor, record, now).await?;
+        if inserted {
+            append_revision(tx, actor, record, now).await?;
+            evidence(
+                tx,
+                actor,
+                (&input.scope, Some(record.identity().1)),
+                correlation,
+                now,
+                ServerAuditOutcome::Succeeded,
+                None,
+            )
+            .await?;
         }
-        let dependencies = catalog_dependencies(record)?;
-        if let Some(existing) = load(tx, actor, scope, kind, id, revision).await? {
-            if existing != *record {
-                return Err(PricingError::Reference);
-            }
-            continue;
+    }
+    Ok(())
+}
+
+/// Validates exact dependencies before retaining a new revision and withdrawing stale sales.
+/// Returns false for an identical retry; callers own authorization, locking, audit, and commit.
+pub(super) async fn retain(
+    tx: &mut Transaction<'_, Postgres>,
+    actor: &AuthenticatedServerSession,
+    record: &CatalogRevision,
+    now: UnixMillis,
+) -> Result<bool, PricingError> {
+    let (kind, id, revision, scope) = record.identity();
+    if scope.kind.as_str() != "organization" {
+        return Err(PricingError::Denied);
+    }
+    let bytes = serde_json::to_vec(record).map_err(|_| PricingError::Invalid)?;
+    if bytes.len() > 512 * 1024 {
+        return Err(PricingError::Invalid);
+    }
+    let dependencies = catalog_dependencies(record)?;
+    if let Some(existing) = load(tx, actor, scope, kind, id, revision).await? {
+        if existing != *record {
+            return Err(PricingError::Reference);
         }
-        let mut known = BTreeMap::new();
-        for (kind, id, revision) in dependencies {
-            let dependency = load(tx, actor, scope, kind, id, revision)
-                .await?
-                .ok_or(PricingError::Reference)?;
-            known.insert((kind, id, revision), dependency);
-        }
-        validate_catalog_revision(record, &known)?;
-        sqlx::query("INSERT INTO sync.catalog_revisions(tenant_id,organization_id,kind,entry_id,revision,record_json) VALUES($1,$2,$3,$4,$5,$6)")
+        return Ok(false);
+    }
+    let mut known = BTreeMap::new();
+    for (kind, id, revision) in dependencies {
+        let dependency = load(tx, actor, scope, kind, id, revision)
+            .await?
+            .ok_or(PricingError::Reference)?;
+        known.insert((kind, id, revision), dependency);
+    }
+    validate_catalog_revision(record, &known)?;
+    sqlx::query("INSERT INTO sync.catalog_revisions(tenant_id,organization_id,kind,entry_id,revision,record_json) VALUES($1,$2,$3,$4,$5,$6)")
             .bind(actor.tenant_id.value()).bind(scope.id.value()).bind(kind).bind(id)
             .bind(i64::try_from(revision).map_err(|_| PricingError::Invalid)?).bind(bytes)
             .execute(&mut **tx).await.map_err(|_| PricingError::Unconfirmed)?;
-        evidence(
+    invalidate_public(tx, actor, record, now).await?;
+    Ok(true)
+}
+/// Appends immutable catalog history with the stable revision identity used by exact WAN retries.
+async fn append_revision(
+    tx: &mut Transaction<'_, Postgres>,
+    actor: &AuthenticatedServerSession,
+    record: &CatalogRevision,
+    now: UnixMillis,
+) -> Result<(), PricingError> {
+    let schema = eitmad_pricing::revision_schema(record);
+    let id = eitmad_pricing::revision_record_id(record);
+    crate::operations::append_domain_change(
+        tx,
+        actor,
+        crate::LocalOperationDraft {
+            change_id: eitmad_contracts::sync::ChangeId::new(id),
+            scope: record.identity().3.clone(),
+            schema_id: eitmad_contracts::transport::SchemaId::parse(schema)
+                .map_err(|_| PricingError::Invalid)?,
+            schema_version: 1,
+            record_id: eitmad_contracts::sync::RecordId::new(id),
+            operation: eitmad_contracts::sync::ChangeOperation::Upsert,
+            base_revision: None,
+            idempotency_key: eitmad_contracts::transport::IdempotencyKey::new(id),
+            payload: Some(
+                crate::catalog_sync::payload(schema, record)
+                    .map_err(|_| PricingError::Unconfirmed)?,
+            ),
+        },
+        eitmad_contracts::sync::SyncMode::LocalFirst,
+        now,
+    )
+    .await
+    .map_err(|_| PricingError::Unconfirmed)?;
+    Ok(())
+}
+
+/// A changed current definition invalidates its sales records; historical dependencies cannot do so.
+async fn invalidate_public(
+    tx: &mut Transaction<'_, Postgres>,
+    actor: &AuthenticatedServerSession,
+    record: &CatalogRevision,
+    now: UnixMillis,
+) -> Result<(), PricingError> {
+    let (kind, id, revision, scope) = record.identity();
+    if !matches!(
+        kind,
+        "product" | "furniture" | "product-category" | "furniture-category"
+    ) {
+        return Ok(());
+    }
+    let latest = load(tx, actor, scope, kind, id, 0)
+        .await?
+        .ok_or(PricingError::Reference)?;
+    if latest.identity().2 != revision {
+        return Ok(());
+    }
+    if matches!(record,CatalogRevision::ProductCategory(c) if !c.archived)
+        || matches!(record,CatalogRevision::FurnitureCategory(c) if !c.archived)
+    {
+        return Ok(());
+    }
+    let rows: Vec<serde_json::Value> = sqlx::query_scalar("SELECT change_json FROM sync.records WHERE tenant_id=$1 AND scope_kind='organization' AND scope_id=$2 AND schema_id=$3 AND NOT tombstone")
+        .bind(actor.tenant_id.value()).bind(scope.id.value()).bind(crate::catalog_sync::PUBLIC_SCHEMA).fetch_all(&mut **tx).await.map_err(|_| PricingError::Unconfirmed)?;
+    for row in rows {
+        let change: eitmad_contracts::sync::ChangeRecord =
+            serde_json::from_value(row).map_err(|_| PricingError::Unconfirmed)?;
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(
+                &change
+                    .payload
+                    .as_ref()
+                    .ok_or(PricingError::Unconfirmed)?
+                    .base64,
+            )
+            .map_err(|_| PricingError::Unconfirmed)?;
+        let entry: eitmad_contracts::catalog_revision::CatalogEntry =
+            serde_json::from_slice(&bytes).map_err(|_| PricingError::Unconfirmed)?;
+        let (target_kind, target_id, _) = entry.price.target.identity();
+        let matches = if kind.ends_with("-category") {
+            let definition = load(
+                tx,
+                actor,
+                scope,
+                target_kind,
+                target_id,
+                entry.price.target.revision(),
+            )
+            .await?;
+            match definition {
+                Some(CatalogRevision::Product(p)) => p.category_id.value() == id,
+                Some(CatalogRevision::Furniture(f)) => f.category_id.value() == id,
+                _ => false,
+            }
+        } else {
+            kind == target_kind && id == target_id && entry.price.target.revision() != revision
+        };
+        if matches {
+            for schema in [
+                crate::catalog_sync::PUBLIC_SCHEMA,
+                "eitmad.schema.pricing.v1",
+            ] {
+                crate::operations::append_domain_change(
+                    tx,
+                    actor,
+                    crate::LocalOperationDraft {
+                        change_id: eitmad_contracts::sync::ChangeId::new(Uuid::new_v4()),
+                        scope: scope.clone(),
+                        schema_id: eitmad_contracts::transport::SchemaId::parse(schema)
+                            .map_err(|_| PricingError::Invalid)?,
+                        schema_version: 1,
+                        record_id: change.record_id,
+                        operation: eitmad_contracts::sync::ChangeOperation::Tombstone,
+                        base_revision: None,
+                        idempotency_key: eitmad_contracts::transport::IdempotencyKey::new(
+                            Uuid::new_v4(),
+                        ),
+                        payload: None,
+                    },
+                    eitmad_contracts::sync::SyncMode::ServerAuthoritative,
+                    now,
+                )
+                .await
+                .map_err(|_| PricingError::Unconfirmed)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Commits the public definition and price as one indivisible sales projection.
+pub(super) async fn publish_entry(
+    tx: &mut Transaction<'_, Postgres>,
+    actor: &AuthenticatedServerSession,
+    price: &eitmad_contracts::pricing::PublishedPrice,
+    now: UnixMillis,
+) -> Result<(), PricingError> {
+    let (kind, id, variant) = price.target.identity();
+    let definition = load(
+        tx,
+        actor,
+        price.target.scope(),
+        kind,
+        id,
+        price.target.revision(),
+    )
+    .await?
+    .ok_or(PricingError::Reference)?;
+    let entry = eitmad_pricing::public_entry(&definition, price)?;
+    for (schema, payload) in [
+        (
+            crate::catalog_sync::PUBLIC_SCHEMA,
+            crate::catalog_sync::payload(crate::catalog_sync::PUBLIC_SCHEMA, &entry),
+        ),
+        (
+            "eitmad.schema.pricing.v1",
+            crate::catalog_sync::payload("eitmad.schema.pricing.v1", price),
+        ),
+    ] {
+        crate::operations::append_domain_change(
             tx,
             actor,
-            (scope, Some(id)),
-            correlation,
+            crate::LocalOperationDraft {
+                change_id: eitmad_contracts::sync::ChangeId::new(Uuid::new_v4()),
+                scope: price.target.scope().clone(),
+                schema_id: eitmad_contracts::transport::SchemaId::parse(schema)
+                    .map_err(|_| PricingError::Invalid)?,
+                schema_version: 1,
+                record_id: eitmad_contracts::sync::RecordId::new(
+                    eitmad_pricing::catalog_record_id(&format!("{kind}:{id}:{variant}")),
+                ),
+                operation: eitmad_contracts::sync::ChangeOperation::Upsert,
+                base_revision: None,
+                idempotency_key: eitmad_contracts::transport::IdempotencyKey::new(Uuid::new_v4()),
+                payload: Some(payload.map_err(|_| PricingError::Unconfirmed)?),
+            },
+            eitmad_contracts::sync::SyncMode::ServerAuthoritative,
             now,
-            ServerAuditOutcome::Succeeded,
-            None,
         )
-        .await?;
+        .await
+        .map_err(|_| PricingError::Unconfirmed)?;
     }
     Ok(())
 }

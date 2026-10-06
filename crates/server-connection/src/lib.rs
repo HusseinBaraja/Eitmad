@@ -2,6 +2,8 @@
 
 mod authenticated_http;
 mod catalog_image;
+mod catalog_sync;
+pub use catalog_sync::DirectCatalogSyncClient;
 mod pricing;
 pub use catalog_image::DirectCatalogImageClient;
 pub use pricing::DirectPriceClient;
@@ -140,6 +142,7 @@ fn resolve_before(
 }
 
 /// TLS trust and one scoped server sync route. The PEM file is an explicit trust anchor.
+#[derive(Clone)]
 pub struct DirectServerConfig {
     endpoint: Url,
     scope: ScopeRef,
