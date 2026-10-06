@@ -1042,6 +1042,7 @@ version = "0.0.0"
 dependencies = [
  "eitmad-authorization",
  "eitmad-contracts",
+ "eitmad-customer",
  "eitmad-furniture",
  "eitmad-material",
  "eitmad-observability-audit",

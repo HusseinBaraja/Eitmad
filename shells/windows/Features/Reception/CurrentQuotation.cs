@@ -67,9 +67,9 @@ public sealed partial class SalesCatalogViewModel
     public string QuotationNumber { get => quotationNumber; set { if (Set(ref quotationNumber, value)) Raise(nameof(QuotationHeading)); } }
     public string QuotationHeading => string.IsNullOrWhiteSpace(QuotationNumber) ? "عرض سعر جديد" : QuotationNumber;
     public bool IsQuotationEmpty => QuotationLines.Count == 0;
-    public decimal Subtotal => QuotationLines.Sum(line => line.LineTotal);
-    public decimal Discount => IsDiscountValid ? decimal.Round(Subtotal * (discountPercent / 100m), 0, MidpointRounding.AwayFromZero) : 0;
-    public decimal FinalTotal => Subtotal - Discount;
+    public decimal Subtotal => catalogClient is not null ? evaluation?.Totals?.SubtotalYer ?? 0 : QuotationLines.Sum(line => line.LineTotal);
+    public decimal Discount => catalogClient is not null ? evaluation?.Totals?.DiscountYer ?? 0 : IsDiscountValid ? decimal.Round(Subtotal * (discountPercent / 100m), 0, MidpointRounding.AwayFromZero) : 0;
+    public decimal FinalTotal => catalogClient is not null ? evaluation?.Totals?.TotalYer ?? 0 : Subtotal - Discount;
     private bool showRequiredErrors;
     public string CustomerNameError => showRequiredErrors && string.IsNullOrWhiteSpace(CustomerName)
         ? "أدخل اسم العميل"
@@ -99,6 +99,7 @@ public sealed partial class SalesCatalogViewModel
     {
         if (applyingCustomer) return;
         SelectedCustomer = null;
+        QueueQuotationEvaluation();
         invalidCustomerFields = new HashSet<string>();
         CustomerOperationError = string.Empty;
         QueueCustomerSearch(value);
@@ -151,6 +152,7 @@ public sealed partial class SalesCatalogViewModel
         CustomerName = customer.Name; Phone = customer.Phone; Address = customer.Address; Notes = customer.Notes;
         applyingCustomer = false;
         SelectedCustomer = customer;
+        QueueQuotationEvaluation();
         invalidCustomerFields = new HashSet<string>();
         Raise(nameof(CustomerNameError));
         Raise(nameof(PhoneError));
@@ -227,6 +229,7 @@ public sealed partial class SalesCatalogViewModel
         if (!result.Succeeded)
         {
             SelectedCustomer = null;
+            QueueQuotationEvaluation();
             CustomerOperationError = Features.Customers.CustomerClient.ArabicMessage(result.Failure);
             return;
         }

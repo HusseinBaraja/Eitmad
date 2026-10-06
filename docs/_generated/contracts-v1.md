@@ -65,6 +65,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Queries
 
+- `eitmad.quotation.evaluate.v1`
 - `eitmad.sales-catalog.list.v1`
 - `eitmad.sales-catalog.get.v1`
 - `eitmad.sales-catalog.check.v1`
@@ -147,6 +148,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Capabilities
 
+- `eitmad.capability.quotation-evaluation.v1`
 - `eitmad.capability.sales-catalog.v1`
 - `eitmad.capability.catalog-revisions.v1`
 - `eitmad.capability.pricing.v1`
@@ -237,6 +239,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Schema identifiers
 
+- `eitmad.schema.quotation-evaluation.v1`
 - `eitmad.schema.catalog-public.v1`
 - `eitmad.schema.catalog-revisions.v1`
 - `eitmad.schema.pricing.v1`

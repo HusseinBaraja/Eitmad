@@ -577,6 +577,10 @@ namespace Eitmad.Contracts
         public GetProductRevision QueryProductRevisionGet { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Query_QuotationEvaluate")]
+        public EvaluateQuotation QueryQuotationEvaluate { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Query_SalesCatalogCheck")]
         public CheckSalesConfiguration QuerySalesCatalogCheck { get; set; }
 
@@ -679,6 +683,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_Products")]
         public ProductPage QueryResultProducts { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("QueryResult_QuotationEvaluation")]
+        public QuotationEvaluation QueryResultQuotationEvaluation { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_SalesCatalog")]
@@ -2706,6 +2714,45 @@ namespace Eitmad.Contracts
         public ProductReference Reference { get; set; }
     }
 
+    public partial class EvaluateQuotation
+    {
+        [JsonPropertyName("customer")]
+        public QuotationCustomerIntent Customer { get; set; }
+
+        [JsonPropertyName("discountBasisPoints")]
+        public long DiscountBasisPoints { get; set; }
+
+        [JsonPropertyName("lines")]
+        public QuotationLineIntent[] Lines { get; set; }
+    }
+
+    public partial class QuotationCustomerIntent
+    {
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+    }
+
+    public partial class QuotationLineIntent
+    {
+        [JsonPropertyName("configuration")]
+        public CheckSalesConfiguration Configuration { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+    }
+
+    public partial class CheckSalesConfiguration
+    {
+        [JsonPropertyName("dimensions")]
+        public FurnitureDimensions Dimensions { get; set; }
+
+        [JsonPropertyName("selection")]
+        public PriceSelection Selection { get; set; }
+    }
+
     public partial class CatalogImageChunk
     {
         [JsonPropertyName("base64")]
@@ -2971,6 +3018,117 @@ namespace Eitmad.Contracts
         public Guid? Next { get; set; }
     }
 
+    public partial class QuotationEvaluation
+    {
+        [JsonPropertyName("currency")]
+        public string Currency { get; set; }
+
+        [JsonPropertyName("customer")]
+        public QuotationCustomerSnapshot Customer { get; set; }
+
+        [JsonPropertyName("discountBasisPoints")]
+        public long DiscountBasisPoints { get; set; }
+
+        [JsonPropertyName("errors")]
+        public QuotationFieldError[] Errors { get; set; }
+
+        [JsonPropertyName("lines")]
+        public EvaluatedQuotationLine[] Lines { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+
+        /// <summary>
+        /// Cache evaluation is never evidence that issuance can succeed online.
+        /// </summary>
+        [JsonPropertyName("serverAvailable")]
+        public bool ServerAvailable { get; set; }
+
+        /// <summary>
+        /// Present only when every field and checked calculation is valid.
+        /// </summary>
+        [JsonPropertyName("totals")]
+        public DiscountTotal Totals { get; set; }
+    }
+
+    public partial class QuotationCustomerSnapshot
+    {
+        [JsonPropertyName("address")]
+        public string Address { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("phone")]
+        public string Phone { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+    }
+
+    public partial class QuotationFieldError
+    {
+        [JsonPropertyName("field")]
+        public QuotationField Field { get; set; }
+
+        [JsonPropertyName("issue")]
+        public QuotationIssue Issue { get; set; }
+
+        [JsonPropertyName("lineId")]
+        public Guid? LineId { get; set; }
+    }
+
+    public partial class EvaluatedQuotationLine
+    {
+        [JsonPropertyName("colorId")]
+        public Guid? ColorId { get; set; }
+
+        [JsonPropertyName("colorName")]
+        public string ColorName { get; set; }
+
+        [JsonPropertyName("description")]
+        public string Description { get; set; }
+
+        [JsonPropertyName("dimensions")]
+        public FurnitureDimensions Dimensions { get; set; }
+
+        [JsonPropertyName("handleId")]
+        public Guid? HandleId { get; set; }
+
+        [JsonPropertyName("handleName")]
+        public string HandleName { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("price")]
+        public SellingPrice Price { get; set; }
+
+        [JsonPropertyName("quantity")]
+        public long Quantity { get; set; }
+
+        [JsonPropertyName("variantName")]
+        public string VariantName { get; set; }
+    }
+
+    public partial class SellingPrice
+    {
+        [JsonPropertyName("snapshot")]
+        public PublishedPrice Snapshot { get; set; }
+
+        [JsonPropertyName("totalYer")]
+        public long TotalYer { get; set; }
+
+        [JsonPropertyName("unitPriceYer")]
+        public long UnitPriceYer { get; set; }
+    }
+
     public partial class SalesCatalogPage
     {
         [JsonPropertyName("categories")]
@@ -3050,18 +3208,6 @@ namespace Eitmad.Contracts
         public bool ServerAvailable { get; set; }
     }
 
-    public partial class SellingPrice
-    {
-        [JsonPropertyName("snapshot")]
-        public PublishedPrice Snapshot { get; set; }
-
-        [JsonPropertyName("totalYer")]
-        public long TotalYer { get; set; }
-
-        [JsonPropertyName("unitPriceYer")]
-        public long UnitPriceYer { get; set; }
-    }
-
     public partial class RelationshipPage
     {
         [JsonPropertyName("nextAfter")]
@@ -3072,15 +3218,6 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("relationships")]
         public ScopeRelationship[] Relationships { get; set; }
-    }
-
-    public partial class CheckSalesConfiguration
-    {
-        [JsonPropertyName("dimensions")]
-        public FurnitureDimensions Dimensions { get; set; }
-
-        [JsonPropertyName("selection")]
-        public PriceSelection Selection { get; set; }
     }
 
     public partial class GetSalesCatalogItem
@@ -3165,6 +3302,10 @@ namespace Eitmad.Contracts
     /// </summary>
     public enum SubscriptionCloseReason { AuthorizationRevoked, Backpressure, ClientRequested, EngineStopping, ProjectionInvalidated };
 
+    public enum QuotationField { ColorId, Customer, CustomerRevision, Dimensions, DiscountBasisPoints, HandleId, LineId, Lines, PriceRevision, Quantity, Target, Total };
+
+    public enum QuotationIssue { Duplicate, Invalid, Overflow, Required, Stale, Unavailable };
+
     public partial struct ErrorParameterValueValue
     {
         public long? Integer;
@@ -3234,6 +3375,8 @@ namespace Eitmad.Contracts
                 RequiredByConverter.Singleton,
                 HandshakeOutcomeStatusConverter.Singleton,
                 SubscriptionCloseReasonConverter.Singleton,
+                QuotationFieldConverter.Singleton,
+                QuotationIssueConverter.Singleton,
                 new DateOnlyConverter(),
                 new TimeOnlyConverter(),
                 IsoDateTimeOffsetConverter.Singleton
@@ -4524,6 +4667,144 @@ namespace Eitmad.Contracts
         }
 
         public static readonly SubscriptionCloseReasonConverter Singleton = new SubscriptionCloseReasonConverter();
+    }
+
+    internal class QuotationFieldConverter : JsonConverter<QuotationField>
+    {
+        public override bool CanConvert(Type t) => t == typeof(QuotationField);
+
+        public override QuotationField Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "colorId":
+                    return QuotationField.ColorId;
+                case "customer":
+                    return QuotationField.Customer;
+                case "customerRevision":
+                    return QuotationField.CustomerRevision;
+                case "dimensions":
+                    return QuotationField.Dimensions;
+                case "discountBasisPoints":
+                    return QuotationField.DiscountBasisPoints;
+                case "handleId":
+                    return QuotationField.HandleId;
+                case "lineId":
+                    return QuotationField.LineId;
+                case "lines":
+                    return QuotationField.Lines;
+                case "priceRevision":
+                    return QuotationField.PriceRevision;
+                case "quantity":
+                    return QuotationField.Quantity;
+                case "target":
+                    return QuotationField.Target;
+                case "total":
+                    return QuotationField.Total;
+            }
+            throw new Exception("Cannot unmarshal type QuotationField");
+        }
+
+        public override void Write(Utf8JsonWriter writer, QuotationField value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case QuotationField.ColorId:
+                    JsonSerializer.Serialize(writer, "colorId", options);
+                    return;
+                case QuotationField.Customer:
+                    JsonSerializer.Serialize(writer, "customer", options);
+                    return;
+                case QuotationField.CustomerRevision:
+                    JsonSerializer.Serialize(writer, "customerRevision", options);
+                    return;
+                case QuotationField.Dimensions:
+                    JsonSerializer.Serialize(writer, "dimensions", options);
+                    return;
+                case QuotationField.DiscountBasisPoints:
+                    JsonSerializer.Serialize(writer, "discountBasisPoints", options);
+                    return;
+                case QuotationField.HandleId:
+                    JsonSerializer.Serialize(writer, "handleId", options);
+                    return;
+                case QuotationField.LineId:
+                    JsonSerializer.Serialize(writer, "lineId", options);
+                    return;
+                case QuotationField.Lines:
+                    JsonSerializer.Serialize(writer, "lines", options);
+                    return;
+                case QuotationField.PriceRevision:
+                    JsonSerializer.Serialize(writer, "priceRevision", options);
+                    return;
+                case QuotationField.Quantity:
+                    JsonSerializer.Serialize(writer, "quantity", options);
+                    return;
+                case QuotationField.Target:
+                    JsonSerializer.Serialize(writer, "target", options);
+                    return;
+                case QuotationField.Total:
+                    JsonSerializer.Serialize(writer, "total", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type QuotationField");
+        }
+
+        public static readonly QuotationFieldConverter Singleton = new QuotationFieldConverter();
+    }
+
+    internal class QuotationIssueConverter : JsonConverter<QuotationIssue>
+    {
+        public override bool CanConvert(Type t) => t == typeof(QuotationIssue);
+
+        public override QuotationIssue Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "duplicate":
+                    return QuotationIssue.Duplicate;
+                case "invalid":
+                    return QuotationIssue.Invalid;
+                case "overflow":
+                    return QuotationIssue.Overflow;
+                case "required":
+                    return QuotationIssue.Required;
+                case "stale":
+                    return QuotationIssue.Stale;
+                case "unavailable":
+                    return QuotationIssue.Unavailable;
+            }
+            throw new Exception("Cannot unmarshal type QuotationIssue");
+        }
+
+        public override void Write(Utf8JsonWriter writer, QuotationIssue value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case QuotationIssue.Duplicate:
+                    JsonSerializer.Serialize(writer, "duplicate", options);
+                    return;
+                case QuotationIssue.Invalid:
+                    JsonSerializer.Serialize(writer, "invalid", options);
+                    return;
+                case QuotationIssue.Overflow:
+                    JsonSerializer.Serialize(writer, "overflow", options);
+                    return;
+                case QuotationIssue.Required:
+                    JsonSerializer.Serialize(writer, "required", options);
+                    return;
+                case QuotationIssue.Stale:
+                    JsonSerializer.Serialize(writer, "stale", options);
+                    return;
+                case QuotationIssue.Unavailable:
+                    JsonSerializer.Serialize(writer, "unavailable", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type QuotationIssue");
+        }
+
+        public static readonly QuotationIssueConverter Singleton = new QuotationIssueConverter();
     }
 
     public class DateOnlyConverter : JsonConverter<DateOnly>

@@ -52,6 +52,7 @@ public enum ProtocolIds {
     }
 
     public enum Queries {
+        public static let eitmadQuotationEvaluateV1 = "eitmad.quotation.evaluate.v1"
         public static let eitmadSalesCatalogListV1 = "eitmad.sales-catalog.list.v1"
         public static let eitmadSalesCatalogGetV1 = "eitmad.sales-catalog.get.v1"
         public static let eitmadSalesCatalogCheckV1 = "eitmad.sales-catalog.check.v1"
@@ -134,6 +135,7 @@ public enum ProtocolIds {
     }
 
     public enum Capabilities {
+        public static let eitmadCapabilityQuotationEvaluationV1 = "eitmad.capability.quotation-evaluation.v1"
         public static let eitmadCapabilitySalesCatalogV1 = "eitmad.capability.sales-catalog.v1"
         public static let eitmadCapabilityCatalogRevisionsV1 = "eitmad.capability.catalog-revisions.v1"
         public static let eitmadCapabilityPricingV1 = "eitmad.capability.pricing.v1"
@@ -224,6 +226,7 @@ public enum ProtocolIds {
     }
 
     public enum SchemaIds {
+        public static let eitmadSchemaQuotationEvaluationV1 = "eitmad.schema.quotation-evaluation.v1"
         public static let eitmadSchemaCatalogPublicV1 = "eitmad.schema.catalog-public.v1"
         public static let eitmadSchemaCatalogRevisionsV1 = "eitmad.schema.catalog-revisions.v1"
         public static let eitmadSchemaPricingV1 = "eitmad.schema.pricing.v1"

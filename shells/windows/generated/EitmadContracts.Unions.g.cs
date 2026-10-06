@@ -660,6 +660,14 @@ public partial class Query
     [JsonPropertyName("payload")]
     public object? Payload { get; set; }
 
+    public const string QuotationEvaluateKind = "eitmad.quotation.evaluate.v1";
+
+    public static Query ForQuotationEvaluate(EvaluateQuotation payload) =>
+        new() { Kind = QuotationEvaluateKind, Payload = payload };
+
+    public EvaluateQuotation? AsQuotationEvaluate() =>
+        Kind == QuotationEvaluateKind ? PayloadAs<EvaluateQuotation>() : null;
+
     public const string SalesCatalogListKind = "eitmad.sales-catalog.list.v1";
 
     public static Query ForSalesCatalogList(ListSalesCatalog payload) =>
@@ -900,6 +908,14 @@ public partial class QueryResult
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("payload")]
     public object? Payload { get; set; }
+
+    public const string QuotationEvaluationKind = "quotationEvaluation";
+
+    public static QueryResult ForQuotationEvaluation(QuotationEvaluation payload) =>
+        new() { Kind = QuotationEvaluationKind, Payload = payload };
+
+    public QuotationEvaluation? AsQuotationEvaluation() =>
+        Kind == QuotationEvaluationKind ? PayloadAs<QuotationEvaluation>() : null;
 
     public const string SalesCatalogKind = "salesCatalog";
 

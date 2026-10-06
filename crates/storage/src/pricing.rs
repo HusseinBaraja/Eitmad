@@ -48,6 +48,27 @@ impl AuthorityStore {
     }
 }
 impl PricingTransaction<'_> {
+    /// Reads current public variants in the pricing snapshot.
+    /// # Errors
+    /// Rejects malformed or unavailable projections.
+    pub fn sales_item(
+        &self,
+        scope: &ScopeRef,
+        target: &PriceTarget,
+    ) -> Result<Vec<eitmad_contracts::catalog_revision::CatalogEntry>, StorageError> {
+        crate::catalog_sync::catalog_sales_item_on(self.connection, scope, target)
+    }
+    /// Reads a branch customer in the same snapshot as the quotation lines.
+    /// # Errors
+    /// Rejects malformed or unavailable customer data.
+    pub fn customer(
+        &self,
+        scope: &ScopeRef,
+        id: eitmad_contracts::customer::CustomerId,
+    ) -> Result<Option<eitmad_contracts::customer::Customer>, StorageError> {
+        crate::customer::get_customer_on(self.connection, scope, id)
+    }
+
     /// Stores a newer authenticated server cache revision with mutation audit.
     /// # Errors
     /// Rejects conflicting history or failed audit writes.

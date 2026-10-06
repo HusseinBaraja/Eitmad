@@ -864,6 +864,7 @@
           "$ref": "#/definitions/PriceSelection"
         }
       },
+      "additionalProperties": false,
       "required": [
         "selection"
       ]
@@ -2982,6 +2983,107 @@
             "value"
           ]
         }
+      ]
+    },
+    "EvaluateQuotation": {
+      "type": "object",
+      "properties": {
+        "customer": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/QuotationCustomerIntent"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "discountBasisPoints": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "lines": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/QuotationLineIntent"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "lines",
+        "discountBasisPoints"
+      ]
+    },
+    "EvaluatedQuotationLine": {
+      "type": "object",
+      "properties": {
+        "colorId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "colorName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "description": {
+          "type": "string"
+        },
+        "dimensions": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/FurnitureDimensions"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "handleId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "handleName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        },
+        "price": {
+          "$ref": "#/definitions/SellingPrice"
+        },
+        "quantity": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "variantName": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "variantName",
+        "quantity",
+        "price"
       ]
     },
     "Event": {
@@ -5729,6 +5831,7 @@
           "$ref": "#/definitions/PriceTarget"
         }
       },
+      "additionalProperties": false,
       "required": [
         "target",
         "priceRevision",
@@ -6313,6 +6416,22 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "eitmad.quotation.evaluate.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/EvaluateQuotation"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "eitmad.sales-catalog.list.v1"
             },
             "payload": {
@@ -6863,6 +6982,22 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "quotationEvaluation"
+            },
+            "payload": {
+              "$ref": "#/definitions/QuotationEvaluation"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "salesCatalog"
             },
             "payload": {
@@ -7306,6 +7441,185 @@
             "payload"
           ]
         }
+      ]
+    },
+    "QuotationCustomerIntent": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "revision"
+      ]
+    },
+    "QuotationCustomerSnapshot": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        },
+        "phone": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "id",
+        "revision",
+        "name",
+        "phone"
+      ]
+    },
+    "QuotationEvaluation": {
+      "type": "object",
+      "properties": {
+        "currency": {
+          "type": "string"
+        },
+        "customer": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/QuotationCustomerSnapshot"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "discountBasisPoints": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/QuotationFieldError"
+          }
+        },
+        "lines": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/EvaluatedQuotationLine"
+          }
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        },
+        "serverAvailable": {
+          "description": "Cache evaluation is never evidence that issuance can succeed online.",
+          "type": "boolean"
+        },
+        "totals": {
+          "description": "Present only when every field and checked calculation is valid.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/DiscountTotal"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "scope",
+        "lines",
+        "currency",
+        "discountBasisPoints",
+        "errors",
+        "serverAvailable"
+      ]
+    },
+    "QuotationField": {
+      "type": "string",
+      "enum": [
+        "customer",
+        "customerRevision",
+        "lines",
+        "lineId",
+        "target",
+        "priceRevision",
+        "quantity",
+        "dimensions",
+        "colorId",
+        "handleId",
+        "discountBasisPoints",
+        "total"
+      ]
+    },
+    "QuotationFieldError": {
+      "type": "object",
+      "properties": {
+        "field": {
+          "$ref": "#/definitions/QuotationField"
+        },
+        "issue": {
+          "$ref": "#/definitions/QuotationIssue"
+        },
+        "lineId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "field",
+        "issue"
+      ]
+    },
+    "QuotationIssue": {
+      "type": "string",
+      "enum": [
+        "required",
+        "invalid",
+        "duplicate",
+        "stale",
+        "unavailable",
+        "overflow"
+      ]
+    },
+    "QuotationLineIntent": {
+      "type": "object",
+      "properties": {
+        "configuration": {
+          "$ref": "#/definitions/CheckSalesConfiguration"
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "configuration"
       ]
     },
     "ReadPublishedPrices": {

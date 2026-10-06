@@ -43,6 +43,7 @@ public sealed partial class SalesCatalogViewModel
     private void ClearCatalog()
     {
         ++catalogVersion; ++selectionVersion; ++checkVersion;
+        ClearQuotationEvaluation();
         catalogCancellation?.Cancel(); selectionCancellation?.Cancel(); checkCancellation?.Cancel();
         catalogLoaded = false;
         applyingCatalog = true;
@@ -53,11 +54,12 @@ public sealed partial class SalesCatalogViewModel
         CatalogStatus = "بيانات الكتالوج غير متاحة."; Raise(nameof(IsEmpty));
     }
     /// <summary>Removes the public projection and unsaved lines after session or authorization invalidation.</summary>
-    private void CatalogInvalidated(object? sender, EventArgs args) { ClearCatalog(); QuotationLines.Clear(); }
+    private void CatalogInvalidated(object? sender, EventArgs args) { catalogActive = false; ClearCatalog(); QuotationLines.Clear(); }
     /// <summary>Revokes checked selection state and refreshes the page while preserving existing quotation snapshots.</summary>
     private void CatalogChanged(object? sender, EventArgs args)
     {
         ++checkVersion; checkCancellation?.Cancel();
+        InvalidateDiscountRequest();
         Selection?.Fail("تغير الكتالوج أو الاتصال. حدّث الصنف للتحقق من الاختيار.");
         ProductSelection?.Fail("تغير الكتالوج أو الاتصال. حدّث الصنف للتحقق من الاختيار.");
         if (catalogActive) QueueCatalogLoad();
@@ -105,7 +107,7 @@ public sealed partial class SalesCatalogViewModel
     /// <summary>Displays a catalog failure and clears protected session data on authorization denial.</summary>
     private void CatalogFailure(PricingFailure failure)
     {
-        if (failure == PricingFailure.Denied) { ClearCatalog(); QuotationLines.Clear(); }
+        if (failure == PricingFailure.Denied) { catalogActive = false; ClearCatalog(); QuotationLines.Clear(); }
         nextCatalogPage = null; Raise(nameof(HasNextPage)); CatalogStatus = SalesCatalogClient.Message(failure);
     }
     /// <summary>Labels server-confirmed data or a cached projection whose prices and availability may be stale.</summary>

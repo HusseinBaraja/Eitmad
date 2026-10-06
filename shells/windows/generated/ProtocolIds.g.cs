@@ -60,6 +60,7 @@ public static class ProtocolIds
 
     public static class Queries
     {
+        public const string EitmadQuotationEvaluateV1 = "eitmad.quotation.evaluate.v1";
         public const string EitmadSalesCatalogListV1 = "eitmad.sales-catalog.list.v1";
         public const string EitmadSalesCatalogGetV1 = "eitmad.sales-catalog.get.v1";
         public const string EitmadSalesCatalogCheckV1 = "eitmad.sales-catalog.check.v1";
@@ -147,6 +148,7 @@ public static class ProtocolIds
 
     public static class Capabilities
     {
+        public const string EitmadCapabilityQuotationEvaluationV1 = "eitmad.capability.quotation-evaluation.v1";
         public const string EitmadCapabilitySalesCatalogV1 = "eitmad.capability.sales-catalog.v1";
         public const string EitmadCapabilityCatalogRevisionsV1 = "eitmad.capability.catalog-revisions.v1";
         public const string EitmadCapabilityPricingV1 = "eitmad.capability.pricing.v1";
@@ -241,6 +243,7 @@ public static class ProtocolIds
 
     public static class SchemaIds
     {
+        public const string EitmadSchemaQuotationEvaluationV1 = "eitmad.schema.quotation-evaluation.v1";
         public const string EitmadSchemaCatalogPublicV1 = "eitmad.schema.catalog-public.v1";
         public const string EitmadSchemaCatalogRevisionsV1 = "eitmad.schema.catalog-revisions.v1";
         public const string EitmadSchemaPricingV1 = "eitmad.schema.pricing.v1";

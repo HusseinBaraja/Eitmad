@@ -28,6 +28,7 @@ pub mod permissions;
 pub mod pricing;
 pub mod product;
 pub mod queries;
+pub mod quotation;
 pub mod relay;
 pub mod runtime;
 pub mod sales_catalog;

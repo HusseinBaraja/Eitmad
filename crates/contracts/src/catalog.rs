@@ -10,6 +10,7 @@ use crate::{
 };
 
 pub const CAPABILITIES: &[&str] = &[
+    "eitmad.capability.quotation-evaluation.v1",
     "eitmad.capability.sales-catalog.v1",
     "eitmad.capability.catalog-revisions.v1",
     "eitmad.capability.pricing.v1",
@@ -294,6 +295,7 @@ pub const RELATIONS: &[&str] = &[
     "eitmad.relation.organization.owner.v1",
 ];
 pub const DOMAIN_SCHEMA_IDS: &[&str] = &[
+    "eitmad.schema.quotation-evaluation.v1",
     "eitmad.schema.catalog-public.v1",
     "eitmad.schema.catalog-revisions.v1",
     "eitmad.schema.pricing.v1",

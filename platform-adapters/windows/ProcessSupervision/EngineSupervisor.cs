@@ -103,7 +103,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
                 ProtocolVersion = SessionProtocol(client),
                 RequestId = requestId,
                 CorrelationId = Guid.NewGuid(),
-                Authorization = query.Kind is Query.CustomerGetKind or Query.CustomerSearchKind
+                Authorization = query.Kind is Query.CustomerGetKind or Query.CustomerSearchKind or Query.QuotationEvaluateKind
                     ? client.AuthorizationForCustomer : client.Authorization,
                 Deadline = DeadlineAfter(requestTimeout),
                 Query = ToPayloadDictionary(query),
@@ -691,6 +691,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
                 ProtocolIds.Capabilities.EitmadCapabilityProductV1,
                 ProtocolIds.Capabilities.EitmadCapabilityFurnitureV1,
                 ProtocolIds.Capabilities.EitmadCapabilitySalesCatalogV1,
+                ProtocolIds.Capabilities.EitmadCapabilityQuotationEvaluationV1,
                 ProtocolIds.Capabilities.EitmadCapabilityPricingV1,
                 ProtocolIds.Capabilities.EitmadCapabilityCatalogImageV1,
                 ProtocolIds.Capabilities.EitmadCapabilityDesktopAccountManagementV1,
@@ -702,6 +703,11 @@ public sealed class EngineSupervisor : IAsyncDisposable
             ],
             Schemas =
             [
+                new SchemaSupport
+                {
+                    SchemaId = ProtocolIds.SchemaIds.EitmadSchemaQuotationEvaluationV1,
+                    MinimumVersion = 1, MaximumVersion = 1, SchemaSupportRequired = false,
+                },
                 new SchemaSupport
                 {
                     SchemaId = ProtocolIds.SchemaIds.EitmadSchemaCustomerV1,

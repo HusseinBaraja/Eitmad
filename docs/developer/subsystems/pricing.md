@@ -38,7 +38,7 @@ Money uses checked signed 64-bit whole-YER integers. Fractional money, negative 
 
 Rust returns absolute margin as selling price minus current cost. `SellingPrice` verifies the current catalog reference and price revision, checks compatible active options, adds color and handle adjustments, and multiplies by a positive integer quantity with checked arithmetic. Its immutable public snapshot contains no cost, margin, composition, or notes. Existing issued snapshots must remain unchanged when later prices change.
 
-`DiscountTotal` sums valid line totals, uses basis points with 128-bit intermediate arithmetic, and rounds the subtotal discount once, half away from zero. It flags approval for rates above 500 basis points. For the accepted midpoint example, subtotal `1,010 YER` at `5.00%` produces discount `51 YER` and total `959 YER`. The calculator does not issue a quotation or grant discount approval; that workflow must consume the returned policy result in Rust.
+`DiscountTotal` sums valid line totals, uses basis points with 128-bit intermediate arithmetic, and rounds the subtotal discount once, half away from zero. It flags approval for rates above 500 basis points. For the accepted midpoint example, subtotal `1,010 YER` at `5.00%` produces discount `51 YER` and total `959 YER`. The calculator does not issue a quotation or grant discount approval. [Quotation evaluation](quotations.md#authoritative-quotation-evaluation) derives its input line totals from validated public configurations in one read snapshot, then consumes this policy result in Rust.
 
 ## Authorization and durable publication
 

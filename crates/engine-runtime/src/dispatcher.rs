@@ -255,6 +255,31 @@ impl ProductDispatcher {
         query: Query,
     ) -> Result<QueryResult, ContractError> {
         match query {
+            Query::QuotationEvaluation(input) => {
+                let pricing = self.pricing.clone();
+                let actor = context.authorization.clone();
+                let replication = self.catalog_replication.clone();
+                let deadline = eitmad_contracts::transport::UnixMillis(
+                    context
+                        .deadline
+                        .0
+                        .saturating_sub(1000)
+                        .min(now().0.saturating_add(10_000)),
+                );
+                tokio::task::spawn_blocking(move || {
+                    let catalog_actor = pricing.authorize_quotation(&actor)?;
+                    let available = replication
+                        .as_ref()
+                        .is_some_and(|r| r.synchronize(&catalog_actor, deadline).is_ok());
+                    let mut result = pricing.evaluate_quotation(&actor, &input)?;
+                    result.server_available = available;
+                    Ok::<_, eitmad_pricing::PricingError>(result)
+                })
+                .await
+                .map_err(|_| pricing_error(eitmad_pricing::PricingError::Unconfirmed, context))?
+                .map(QueryResult::QuotationEvaluation)
+                .map_err(|e| pricing_error(e, context))
+            }
             query @ (Query::SalesCatalog(_)
             | Query::SalesCatalogItem(_)
             | Query::SalesConfiguration(_)) => self.sales_catalog_query(context, query).await,
@@ -869,7 +894,8 @@ impl QueryDispatcher for ProductDispatcher {
                 .get(&context.authorization, &query)
                 .map(QueryResult::Customer)
                 .map_err(|error| customer_error(error, &context)),
-            query @ (Query::Prices(_)
+            query @ (Query::QuotationEvaluation(_)
+            | Query::Prices(_)
             | Query::SalesCatalog(_)
             | Query::SalesCatalogItem(_)
             | Query::SalesConfiguration(_)
@@ -2896,6 +2922,7 @@ mod tests {
             panic!("configuration")
         };
         assert_eq!(checked.price.total_yer, 140_000);
+        assert_public_quotation_evaluation(&reader_dispatcher, &target, price.revision).await;
         let encoded = serde_json::to_string(&result).unwrap();
         for field in ["cost", "margin", "parts", "notes", "55000"] {
             assert!(!encoded.contains(field), "{field}");
@@ -2908,6 +2935,76 @@ mod tests {
                 .code
                 .as_str(),
             "eitmad.error.authorization-denied.v1"
+        );
+    }
+
+    async fn assert_public_quotation_evaluation(
+        reader_dispatcher: &ProductDispatcher,
+        target: &eitmad_contracts::pricing::PriceTarget,
+        price_revision: u64,
+    ) {
+        use eitmad_contracts::{pricing::PriceSelection, sales_catalog::CheckSalesConfiguration};
+        // The same receptionist evaluates a complete quotation from public-only catalog data.
+        let mut branch = material_actor(736, 4);
+        branch.authorization.scope = branch_authorization().scope;
+        authorize_customer_branch(reader_dispatcher, &branch.authorization);
+        let CommandResult::CustomerCreated(customer) = reader_dispatcher
+            .dispatch_command(
+                branch.clone(),
+                Command::CreateCustomer(CreateCustomer {
+                    name: CustomerName::parse("عميل تجريبي").unwrap(),
+                    phone: CustomerPhone::parse("777123456").unwrap(),
+                    address: None,
+                    notes: None,
+                }),
+            )
+            .await
+            .unwrap()
+        else {
+            panic!("customer");
+        };
+        let QueryResult::QuotationEvaluation(evaluation) = reader_dispatcher
+            .dispatch_query(
+                branch,
+                Query::QuotationEvaluation(eitmad_contracts::quotation::EvaluateQuotation {
+                    customer: Some(eitmad_contracts::quotation::QuotationCustomerIntent {
+                        id: customer.customer.id,
+                        revision: customer.customer.revision,
+                    }),
+                    lines: vec![eitmad_contracts::quotation::QuotationLineIntent {
+                        id: Uuid::new_v4(),
+                        configuration: CheckSalesConfiguration {
+                            selection: PriceSelection {
+                                target: target.clone(),
+                                price_revision,
+                                color_id: None,
+                                handle_id: None,
+                                quantity: 2,
+                            },
+                            dimensions: None,
+                        },
+                    }],
+                    discount_basis_points: 501,
+                }),
+            )
+            .await
+            .unwrap()
+        else {
+            panic!("evaluation");
+        };
+        assert!(evaluation.errors.is_empty());
+        assert_eq!(
+            evaluation.totals.unwrap(),
+            eitmad_contracts::pricing::DiscountTotal {
+                subtotal_yer: 140_000,
+                discount_yer: 7014,
+                total_yer: 132_986,
+                approval_required: true,
+            }
+        );
+        assert_eq!(
+            last_audit_outcome(reader_dispatcher, "eitmad.quotation.evaluate.v1"),
+            AuditOutcome::Succeeded
         );
     }
 
