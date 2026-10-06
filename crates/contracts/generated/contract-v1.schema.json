@@ -957,6 +957,38 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "eitmad.quotation-draft.create.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/CreateQuotationDraft"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.quotation-draft.update.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/UpdateQuotationDraft"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "eitmad.customer.create.v1"
             },
             "payload": {
@@ -1412,6 +1444,38 @@
             },
             "payload": {
               "$ref": "#/definitions/RelationshipMutationResult"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "quotationDraftCreated"
+            },
+            "payload": {
+              "$ref": "#/definitions/QuotationDraft"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "quotationDraftUpdated"
+            },
+            "payload": {
+              "$ref": "#/definitions/QuotationDraft"
             }
           },
           "required": [
@@ -2175,6 +2239,18 @@
         "role"
       ]
     },
+    "CreateQuotationDraft": {
+      "type": "object",
+      "properties": {
+        "intent": {
+          "$ref": "#/definitions/EvaluateQuotation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "intent"
+      ]
+    },
     "Customer": {
       "type": "object",
       "properties": {
@@ -2789,6 +2865,33 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "quotationDraftValidation"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "errors": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/QuotationFieldError"
+                  }
+                }
+              },
+              "required": [
+                "errors"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "revisionConflict"
             },
             "payload": {
@@ -3146,6 +3249,22 @@
             },
             "payload": {
               "$ref": "#/definitions/AuthorizationPolicyChangeNotice"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.quotation-draft.changed.event.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/QuotationDraftChangeNotice"
             }
           },
           "required": [
@@ -3797,6 +3916,19 @@
       "required": [
         "reference",
         "forNewWork"
+      ]
+    },
+    "GetQuotationDraft": {
+      "type": "object",
+      "properties": {
+        "draftId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "draftId"
       ]
     },
     "GetSalesCatalogItem": {
@@ -4644,6 +4776,27 @@
         "term",
         "limit",
         "selectableOnly"
+      ]
+    },
+    "ListQuotationDrafts": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "limit": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "limit"
       ]
     },
     "ListSalesCatalog": {
@@ -6416,6 +6569,38 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "eitmad.quotation-draft.get.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/GetQuotationDraft"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.quotation-draft.list.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ListQuotationDrafts"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "eitmad.quotation.evaluate.v1"
             },
             "payload": {
@@ -6982,6 +7167,38 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "quotationDraft"
+            },
+            "payload": {
+              "$ref": "#/definitions/QuotationDraft"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "quotationDrafts"
+            },
+            "payload": {
+              "$ref": "#/definitions/QuotationDraftPage"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "quotationEvaluation"
             },
             "payload": {
@@ -7492,6 +7709,156 @@
         "revision",
         "name",
         "phone"
+      ]
+    },
+    "QuotationDraft": {
+      "type": "object",
+      "properties": {
+        "conflict": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/QuotationDraftConflict"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        },
+        "snapshot": {
+          "$ref": "#/definitions/QuotationDraftSnapshot"
+        },
+        "syncState": {
+          "$ref": "#/definitions/QuotationDraftSyncState"
+        },
+        "updatedAt": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "scope",
+        "snapshot",
+        "updatedAt",
+        "syncState"
+      ]
+    },
+    "QuotationDraftChangeNotice": {
+      "type": "object",
+      "properties": {
+        "changeId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "changedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "draftId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "required": [
+        "draftId",
+        "scope",
+        "revision",
+        "changedAt",
+        "changeId"
+      ]
+    },
+    "QuotationDraftChanges": {
+      "type": "object",
+      "additionalProperties": false
+    },
+    "QuotationDraftConflict": {
+      "type": "object",
+      "properties": {
+        "remote": {
+          "description": "Retained authoritative input; the local snapshot remains visible.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ChangeRecord"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "serverConflictId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        }
+      }
+    },
+    "QuotationDraftPage": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/QuotationDraft"
+          }
+        },
+        "next": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "items"
+      ]
+    },
+    "QuotationDraftSnapshot": {
+      "type": "object",
+      "properties": {
+        "evaluation": {
+          "$ref": "#/definitions/QuotationEvaluation"
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "intent": {
+          "$ref": "#/definitions/EvaluateQuotation"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "revision",
+        "intent",
+        "evaluation"
+      ]
+    },
+    "QuotationDraftSyncState": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "confirmed",
+        "rejected",
+        "conflicted"
       ]
     },
     "QuotationEvaluation": {
@@ -9357,6 +9724,22 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "eitmad.quotation-draft.changed.subscribe.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/QuotationDraftChanges"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "eitmad.customer.changed.subscribe.v1"
             },
             "payload": {
@@ -10790,6 +11173,29 @@
         "downloadUrl",
         "sizeBytes",
         "sha256Hex"
+      ]
+    },
+    "UpdateQuotationDraft": {
+      "type": "object",
+      "properties": {
+        "draftId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "intent": {
+          "$ref": "#/definitions/EvaluateQuotation"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "draftId",
+        "expectedRevision",
+        "intent"
       ]
     },
     "UploadCatalogImage": {

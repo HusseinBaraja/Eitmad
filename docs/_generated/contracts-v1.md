@@ -48,6 +48,8 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.config.update.v1`
 - `eitmad.authorization.relationship.grant.v1`
 - `eitmad.authorization.relationship.revoke.v1`
+- `eitmad.quotation-draft.create.v1`
+- `eitmad.quotation-draft.update.v1`
 - `eitmad.customer.create.v1`
 - `eitmad.customer.update.v1`
 - `eitmad.material-category.save.v1`
@@ -65,6 +67,8 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Queries
 
+- `eitmad.quotation-draft.get.v1`
+- `eitmad.quotation-draft.list.v1`
 - `eitmad.quotation.evaluate.v1`
 - `eitmad.sales-catalog.list.v1`
 - `eitmad.sales-catalog.get.v1`
@@ -101,6 +105,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.config.changed.subscribe.v1`
 - `eitmad.permissions.changed.subscribe.v1`
 - `eitmad.authorization.policy.changed.subscribe.v1`
+- `eitmad.quotation-draft.changed.subscribe.v1`
 - `eitmad.customer.changed.subscribe.v1`
 - `eitmad.material.changed.subscribe.v1`
 - `eitmad.furniture.changed.subscribe.v1`
@@ -113,6 +118,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.config.changed.event.v1`
 - `eitmad.permissions.changed.event.v1`
 - `eitmad.authorization.policy.changed.event.v1`
+- `eitmad.quotation-draft.changed.event.v1`
 - `eitmad.customer.changed.event.v1`
 - `eitmad.material.changed.event.v1`
 - `eitmad.furniture.changed.event.v1`
@@ -148,6 +154,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Capabilities
 
+- `eitmad.capability.quotation-draft.v1`
 - `eitmad.capability.quotation-evaluation.v1`
 - `eitmad.capability.sales-catalog.v1`
 - `eitmad.capability.catalog-revisions.v1`
@@ -222,6 +229,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.permission.material.write.v1`
 - `eitmad.permission.material-unit.manage.v1`
 - `eitmad.permission.catalog.draft.write.v1`
+- `eitmad.permission.quotation.draft.read.v1`
 - `eitmad.permission.quotation.draft.write.v1`
 - `eitmad.permission.desktop-accounts.manage.v1`
 
@@ -239,6 +247,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Schema identifiers
 
+- `eitmad.schema.quotation-draft.v1`
 - `eitmad.schema.quotation-evaluation.v1`
 - `eitmad.schema.catalog-public.v1`
 - `eitmad.schema.catalog-revisions.v1`
@@ -301,6 +310,10 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.error.update-distribution-unavailable.v1`
 - `eitmad.error.admin-unavailable.v1`
 - `eitmad.error.update-installer-failed.v1`
+- `eitmad.error.quotation-draft-not-found.v1`
+- `eitmad.error.quotation-draft-conflict.v1`
+- `eitmad.error.quotation-draft-invalid.v1`
+- `eitmad.error.quotation-draft-unavailable.v1`
 - `eitmad.error.customer-not-found.v1`
 - `eitmad.error.customer-revision-conflict.v1`
 - `eitmad.error.customer-unavailable.v1`
@@ -383,6 +396,10 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.message.update-distribution-unavailable.v1`
 - `eitmad.message.admin-unavailable.v1`
 - `eitmad.message.update-installer-failed.v1`
+- `eitmad.message.quotation-draft-not-found.v1`
+- `eitmad.message.quotation-draft-conflict.v1`
+- `eitmad.message.quotation-draft-invalid.v1`
+- `eitmad.message.quotation-draft-unavailable.v1`
 - `eitmad.message.customer-not-found.v1`
 - `eitmad.message.customer-revision-conflict.v1`
 - `eitmad.message.customer-unavailable.v1`

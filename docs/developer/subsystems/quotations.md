@@ -29,7 +29,7 @@ Production lifecycle, `5.00%` threshold, approval fingerprint, price snapshot, v
 
 `shells/windows/Features/Quotations/QuotationsView.xaml` owns the native RTL list, filters, detail surface, conditional approval actions, focus target, and Arabic accessibility names. `QuotationsViewModel.cs` owns synthetic rows, Arabic-normalized search, status and relative-date filters, selected detail state, and approval routing. `QuotationModels.cs` owns line totals, quotation totals, status labels, discount percentages, and local approval state. `MainWindow.xaml` owns the **عروض الأسعار** destination.
 
-Rust provides read-only quotation evaluation through `crates/pricing/src/quotation.rs`. Quotation persistence, issuance, approval decisions, conversion, numbering, and synchronization remain unimplemented. The manager list and handoffs remain fixtures.
+Rust provides quotation evaluation through `crates/pricing/src/quotation.rs` and durable drafts through `crates/pricing/src/drafts.rs`. Draft persistence and server transfer are implemented without shell connections. Issuance, approval decisions, conversion, and numbering remain unimplemented. The manager list and handoffs remain fixtures.
 
 ## Authoritative quotation evaluation
 
@@ -44,6 +44,26 @@ The dispatcher attempts a bounded authorized catalog refresh when replication is
 For a live catalog session, `QuotationEvaluationState.cs` sends intent after customer, line, discount, or catalog changes. It clears old totals immediately, cancels replaced requests, and discards replies with an obsolete version or session. WPF displays returned totals and approval requirements. Local fixture approval cannot authorize a live evaluation. Discounts accept at most two decimal percentage places for exact conversion to basis points. Standalone synthetic previews retain their temporary calculations.
 
 Focused Rust tests in `crates/pricing/src/tests/quotation.rs` cover accepted rounding, threshold boundaries, public furniture adjustments, customer and catalog changes, scope denial, invalid intent, and overflow. Contract tests reject forged authority fields and fractional numeric inputs. `QuotationEvaluationTests` checks returned totals, validation errors, obsolete replies, session end, and fixture isolation. Run `cargo test -p eitmad-pricing quotation`, `cargo test -p eitmad-contracts quotation`, and the shell test filter `FullyQualifiedName~QuotationEvaluationTests`.
+
+## Durable quotation drafts
+
+Protocol `1.19` registers `eitmad.capability.quotation-draft.v1` and `eitmad.schema.quotation-draft.v1`, schema version 1. `CreateQuotationDraft` and `UpdateQuotationDraft` accept only evaluator intent. `GetQuotationDraft`, `ListQuotationDrafts`, and `QuotationDraftChanges` use the authenticated branch. Lists use a stable UUID cursor with limits from 1 through 100. Notifications contain identity, scope, revision, time, and change identity; subscribers must query the authorized snapshot.
+
+`QuotationDraftService` owns this boundary next to the evaluator. It assigns a UUID and revision 1, then increments revisions with compare-and-swap. Drafts have no official number, approval grant, or issuance state. Receptionists need the branch-scoped `eitmad.permission.quotation.draft.write.v1`. Managers and assigned Receptionists can read under `eitmad.permission.quotation.draft.read.v1`; Manager permission does not grant draft mutation. Lists, direct reads, and subscriptions use the same exact branch scope.
+
+SQLite migration `quotation.drafts.v1` stores the configured intent and evaluator result, including the customer reference and public price snapshots. Evaluation and save share one SQLite writer transaction. The transaction also stores the successful audit, principal-bound request fingerprint and replay result, subscription publication, and bounded sync outbox. Failed mandatory writes roll back all of them. An exact authorized retry returns the original identity and result before new evaluation. A changed request under the same key fails closed.
+
+Reads preserve saved prices after catalog changes. An update that refers to a changed customer, catalog definition, or price returns field errors without replacing the draft. Refresh must be explicit. A save from confirmed cached catalog data remains a local draft and cannot prove issuance eligibility. Draft content and pending publication survive engine restart.
+
+`QuotationDraftSyncCycle` uses the shared local-first protocol and a schema-specific durable engine checkpoint. It stages at most 50 changes, sends them through the real server connection, projects pages before advancing the checkpoint, and acknowledges each page. Authenticated enrollment maps local branch and catalog scopes to their server identities; the shell cannot supply this mapping. Transport failure leaves outbox work available for retry. PostgreSQL migration `0011_quotation_drafts.sql` retains immutable draft revisions under tenant RLS and exact branch authorization. The domain handler verifies the customer snapshot against its scoped retained contact revision, and verifies public descriptions and evaluated amounts against retained catalog and price revisions. A stale published revision can transfer as draft content; transfer does not issue it or silently replace its price. Customer delivery must arrive first; an absent server customer revision leaves the draft retryable.
+
+Concurrent edits create a server conflict instead of applying a generic merge. The local draft remains visible with `conflicted` state, server conflict identity, and the remote input. Later queued revisions of that draft cannot bypass the first conflict. Rejected and conflicted work remains durable but stops automatic resubmission. Updates are blocked until a future explicit resolution workflow; no resolution or issuance UI is connected in this task.
+
+Focused tests in `crates/pricing/src/tests/quotation.rs` cover restart, atomic rollback, retry, stale input, authorization, and competing projection. The ignored live test `quotation_drafts_restart_transfer_replay_and_conflict_through_real_server` in `crates/server-connection/tests/direct_route/quotation_drafts.rs` uses two isolated SQLite authorities, the TLS host, and a disposable PostgreSQL role without superuser or `BYPASSRLS` rights. It covers forged price and customer snapshots, interrupted acknowledgement, replay, second-client delivery, two queued competing edits, immutable revisions, and tenant isolation. Use the certificate and database setup in [server operations](../../operations/run-server-authority.md#run-the-direct-desktop-connection-test), then run:
+
+```powershell
+cargo test -p eitmad-server-connection --test direct_route quotation_drafts_restart_transfer_replay_and_conflict_through_real_server -- --ignored
+```
 
 ## Manager workflow
 
@@ -97,6 +117,6 @@ dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --filter "Full
 
 ## Future Rust vertical
 
-For durable quotations and issuance, extend the read-only evaluation boundary with the accepted workflow specification, versioned typed commands and subscriptions in Rust, and generated native bindings. Rust must own quotation lifecycle, discount policy, relationship-based authorization, explicit scope, atomic approval and audit, durable storage, idempotency, synchronization, and typed recovery. Preserve the read-only detail shape and Arabic mixed-direction amount handling while keeping WPF as a thin adapter.
+For quotation issuance, extend the durable draft and evaluation boundaries with the accepted workflow specification, versioned typed commands and subscriptions in Rust, and generated native bindings. Rust must own quotation lifecycle, discount policy, relationship-based authorization, explicit scope, atomic approval and audit, durable storage, idempotency, synchronization, and typed recovery. Preserve the read-only detail shape and Arabic mixed-direction amount handling while keeping WPF as a thin adapter.
 
 Return to the [Windows shell subsystem guide](windows-native-shell.md) for shared layout and trust-boundary rules.

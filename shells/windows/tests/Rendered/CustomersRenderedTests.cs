@@ -154,19 +154,19 @@ public sealed class CustomersRenderedTests
             Assert.AreEqual("بانتظار المزامنة", preview.SyncStateLabel);
             Assert.IsTrue(edit.IsEnabled);
 
-            contract.SyncState = CustomerSyncState.Confirmed;
+            contract.SyncState = SyncState.Confirmed;
             preview.Observe(contract);
             WpfTestHost.CompleteLayout(window);
             Assert.AreEqual("مؤكد من الخادم", preview.SyncStateLabel);
             Assert.IsTrue(edit.IsEnabled);
 
-            contract.SyncState = CustomerSyncState.Rejected;
+            contract.SyncState = SyncState.Rejected;
             preview.Observe(contract);
             WpfTestHost.CompleteLayout(window);
             Assert.AreEqual("رُفضت المزامنة", preview.SyncStateLabel);
             Assert.IsFalse(edit.IsEnabled);
 
-            contract.SyncState = CustomerSyncState.Conflicted;
+            contract.SyncState = SyncState.Conflicted;
             preview.Observe(contract);
             WpfTestHost.CompleteLayout(window);
             Assert.AreEqual("تعارض يحتاج مراجعة", preview.SyncStateLabel);
@@ -185,7 +185,7 @@ public sealed class CustomersRenderedTests
         Notes = notes!,
         Status = CustomerStatus.Active,
         Revision = 1,
-        SyncState = CustomerSyncState.Pending,
+        SyncState = SyncState.Pending,
         UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
     };
 }

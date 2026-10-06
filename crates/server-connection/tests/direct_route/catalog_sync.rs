@@ -1339,3 +1339,6 @@ fn price_targets(
     });
     (furniture_target, product_target)
 }
+
+#[path = "quotation_drafts.rs"]
+mod quotation_drafts;

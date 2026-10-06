@@ -381,6 +381,17 @@ struct ProvisionedServer {
     branch_scope: ScopeRef,
 }
 
+fn direct_test_domains(sync_database: &SyncDatabase) -> DomainRegistry {
+    let mut handlers = eitmad_sync_plane::CatalogSyncHandler::handlers(&sync_database.pool());
+    handlers.extend([
+        Arc::new(TestDomain) as Arc<dyn DomainSyncHandler>,
+        Arc::new(CustomerSyncHandler::new(sync_database.pool())) as Arc<dyn DomainSyncHandler>,
+        Arc::new(eitmad_sync_plane::QuotationDraftSyncHandler::new(
+            sync_database.pool(),
+        )) as Arc<dyn DomainSyncHandler>,
+    ]);
+    DomainRegistry::new(handlers).unwrap()
+}
 async fn provision_server(
     database_url: &str,
     certificate: &Path,
@@ -460,12 +471,7 @@ async fn provision_server(
     )
     .await;
     grant_organization_manager(&control_database, &authentication, &scope).await;
-    let mut handlers = eitmad_sync_plane::CatalogSyncHandler::handlers(&sync_database.pool());
-    handlers.extend([
-        Arc::new(TestDomain) as Arc<dyn DomainSyncHandler>,
-        Arc::new(CustomerSyncHandler::new(sync_database.pool())) as Arc<dyn DomainSyncHandler>,
-    ]);
-    let registry = DomainRegistry::new(handlers).unwrap();
+    let registry = direct_test_domains(&sync_database);
     let state = ServerState::new(control, SyncCoordinator::new(&sync_database, registry));
     let address = {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();

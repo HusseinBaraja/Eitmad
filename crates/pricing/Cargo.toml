@@ -10,6 +10,8 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies]
+base64 = "=0.22.1"
+eitmad-sync = { path = "../sync" }
 eitmad-authorization = { path = "../authorization" }
 eitmad-contracts = { path = "../contracts" }
 eitmad-material = { path = "../material" }

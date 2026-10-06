@@ -197,4 +197,42 @@ mod tests {
             }
         }
     }
+    #[test]
+    fn quotation_draft_commands_reject_client_prices_and_unknown_fields() {
+        use crate::{
+            commands::Command,
+            quotation_draft::{CreateQuotationDraft, QuotationDraftId, UpdateQuotationDraft},
+        };
+        let intent: EvaluateQuotation =
+            serde_json::from_value(request()["payload"].clone()).unwrap();
+        let commands = [
+            Command::CreateQuotationDraft(CreateQuotationDraft {
+                intent: intent.clone(),
+            }),
+            Command::UpdateQuotationDraft(UpdateQuotationDraft {
+                draft_id: QuotationDraftId::new(uuid::Uuid::from_u128(55)),
+                expected_revision: 1,
+                intent,
+            }),
+        ];
+        for command in commands {
+            let value = serde_json::to_value(command).unwrap();
+            let parsed: Command = serde_json::from_value(value.clone()).unwrap();
+            assert_eq!(serde_json::to_value(parsed).unwrap(), value);
+            for path in [
+                "/payload",
+                "/payload/intent",
+                "/payload/intent/lines/0/configuration/selection",
+            ] {
+                let mut forged = value.clone();
+                forged
+                    .pointer_mut(path)
+                    .unwrap()
+                    .as_object_mut()
+                    .unwrap()
+                    .insert("totalYer".into(), serde_json::json!(1));
+                assert!(serde_json::from_value::<Command>(forged).is_err());
+            }
+        }
+    }
 }

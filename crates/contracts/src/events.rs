@@ -34,6 +34,7 @@ tagged_contract! {
         Configuration(ConfigurationChanges) => "eitmad.config.changed.subscribe.v1",
         Permissions(PermissionChanges) => "eitmad.permissions.changed.subscribe.v1",
         AuthorizationPolicy(AuthorizationPolicyChanges) => "eitmad.authorization.policy.changed.subscribe.v1",
+        QuotationDrafts(crate::quotation_draft::QuotationDraftChanges) => "eitmad.quotation-draft.changed.subscribe.v1",
         Customers(CustomerChanges) => "eitmad.customer.changed.subscribe.v1",
         Materials(MaterialChanges) => "eitmad.material.changed.subscribe.v1",
         Furnitures(FurnitureChanges) => "eitmad.furniture.changed.subscribe.v1",
@@ -49,6 +50,7 @@ tagged_contract! {
         ConfigurationChanged(ConfigSnapshot) => "eitmad.config.changed.event.v1",
         PermissionsChanged(EffectivePermissions) => "eitmad.permissions.changed.event.v1",
         AuthorizationPolicyChanged(AuthorizationPolicyChangeNotice) => "eitmad.authorization.policy.changed.event.v1",
+        QuotationDraftChanged(crate::quotation_draft::QuotationDraftChangeNotice) => "eitmad.quotation-draft.changed.event.v1",
         CustomerChanged(CustomerChangeNotice) => "eitmad.customer.changed.event.v1",
         MaterialChanged(MaterialChangeNotice) => "eitmad.material.changed.event.v1",
         FurnitureChanged(FurnitureChangeNotice) => "eitmad.furniture.changed.event.v1",
@@ -78,6 +80,7 @@ impl Event {
             Self::AuthorizationPolicyChanged(_) => {
                 "eitmad.authorization.policy.changed.subscribe.v1"
             }
+            Self::QuotationDraftChanged(_) => "eitmad.quotation-draft.changed.subscribe.v1",
             Self::CustomerChanged(_) => "eitmad.customer.changed.subscribe.v1",
             Self::MaterialChanged(_) => "eitmad.material.changed.subscribe.v1",
             Self::FurnitureChanged(_) => "eitmad.furniture.changed.subscribe.v1",

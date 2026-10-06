@@ -346,7 +346,7 @@ internal sealed class FakeEngine : IEngineShellBridge
                 Notes = createCustomer.Notes,
                 Status = CustomerStatus.Active,
                 Revision = 1,
-                SyncState = CustomerSyncState.Pending,
+                SyncState = SyncState.Pending,
                 UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             };
             Customers.Add(changedCustomer);
@@ -369,7 +369,7 @@ internal sealed class FakeEngine : IEngineShellBridge
                 Notes = updateCustomer.Notes,
                 Status = current.Status,
                 Revision = current.Revision + 1,
-                SyncState = CustomerSyncState.Pending,
+                SyncState = SyncState.Pending,
                 UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             };
             Customers[index] = changedCustomer;

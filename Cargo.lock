@@ -1040,6 +1040,7 @@ dependencies = [
 name = "eitmad-pricing"
 version = "0.0.0"
 dependencies = [
+ "base64",
  "eitmad-authorization",
  "eitmad-contracts",
  "eitmad-customer",
@@ -1049,6 +1050,7 @@ dependencies = [
  "eitmad-part",
  "eitmad-product",
  "eitmad-storage",
+ "eitmad-sync",
  "rusqlite",
  "serde",
  "serde_json",

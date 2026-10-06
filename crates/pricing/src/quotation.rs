@@ -29,86 +29,9 @@ impl PricingService {
         {
             return Err(PricingError::Denied);
         }
-        let result = self.store.transact_pricing(false, |tx| {
-            let mut result = QuotationEvaluation {
-                scope: actor.scope.clone(),
-                customer: None,
-                lines: vec![],
-                currency: "YER".into(),
-                discount_basis_points: input.discount_basis_points,
-                totals: None,
-                errors: vec![],
-                server_available: false,
-            };
-            evaluate_customer(tx, &actor.scope, input.customer.as_ref(), &mut result)?;
-            if input.discount_basis_points > 10_000 {
-                error(
-                    &mut result,
-                    None,
-                    Field::DiscountBasisPoints,
-                    Issue::Invalid,
-                );
-            }
-            if input.lines.is_empty() || input.lines.len() > 1000 {
-                error(&mut result, None, Field::Lines, Issue::Invalid);
-                return Ok::<_, PricingError>(result);
-            }
-            let mut ids = HashSet::new();
-            for line in &input.lines {
-                if line.id.is_nil() || !ids.insert(line.id) {
-                    error(
-                        &mut result,
-                        Some(line.id),
-                        Field::LineId,
-                        if line.id.is_nil() {
-                            Issue::Invalid
-                        } else {
-                            Issue::Duplicate
-                        },
-                    );
-                    continue;
-                }
-                let target = &line.configuration.selection.target;
-                let (_, item_id, variant_id) = target.identity();
-                if target.schema_version() != 1
-                    || target.revision() == 0
-                    || item_id.is_nil()
-                    || variant_id.is_nil()
-                {
-                    error(&mut result, Some(line.id), Field::Target, Issue::Invalid);
-                    continue;
-                }
-                let entries = tx.sales_item(&catalog_actor.scope, target)?;
-                let Some(entry) = entries.into_iter().find(|e| e.price.target == *target) else {
-                    error(&mut result, Some(line.id), Field::Target, Issue::Stale);
-                    continue;
-                };
-                match validate_configuration(entry, &line.configuration) {
-                    Ok(checked) => result.lines.push(project_line(line, checked)),
-                    Err((field, cause)) => error(
-                        &mut result,
-                        Some(line.id),
-                        field,
-                        match cause {
-                            PricingError::Conflict { .. } => Issue::Stale,
-                            PricingError::Reference => Issue::Unavailable,
-                            _ if field == Field::Total => Issue::Overflow,
-                            _ => Issue::Invalid,
-                        },
-                    ),
-                }
-            }
-            if result.errors.is_empty() {
-                match discount(&CalculateDiscount {
-                    line_totals_yer: result.lines.iter().map(|l| l.price.total_yer).collect(),
-                    discount_basis_points: input.discount_basis_points,
-                }) {
-                    Ok(totals) => result.totals = Some(totals),
-                    Err(_) => error(&mut result, None, Field::Total, Issue::Overflow),
-                }
-            }
-            Ok(result)
-        })?;
+        let result = self
+            .store
+            .transact_pricing(false, |tx| evaluate_on(tx, actor, &catalog_actor, input))?;
         self.authorize_quotation(actor)?;
         Ok(result)
     }
@@ -137,6 +60,92 @@ impl PricingService {
     }
 }
 
+pub(crate) fn evaluate_on(
+    tx: &eitmad_storage::PricingTransaction<'_>,
+    actor: &AuthorizationContext,
+    catalog_actor: &AuthorizationContext,
+    input: &EvaluateQuotation,
+) -> Result<QuotationEvaluation, PricingError> {
+    let mut result = QuotationEvaluation {
+        scope: actor.scope.clone(),
+        customer: None,
+        lines: vec![],
+        currency: "YER".into(),
+        discount_basis_points: input.discount_basis_points,
+        totals: None,
+        errors: vec![],
+        server_available: false,
+    };
+    evaluate_customer(tx, &actor.scope, input.customer.as_ref(), &mut result)?;
+    if input.discount_basis_points > 10_000 {
+        error(
+            &mut result,
+            None,
+            Field::DiscountBasisPoints,
+            Issue::Invalid,
+        );
+    }
+    if input.lines.is_empty() || input.lines.len() > 1000 {
+        error(&mut result, None, Field::Lines, Issue::Invalid);
+        return Ok::<_, PricingError>(result);
+    }
+    let mut ids = HashSet::new();
+    for line in &input.lines {
+        if line.id.is_nil() || !ids.insert(line.id) {
+            error(
+                &mut result,
+                Some(line.id),
+                Field::LineId,
+                if line.id.is_nil() {
+                    Issue::Invalid
+                } else {
+                    Issue::Duplicate
+                },
+            );
+            continue;
+        }
+        let target = &line.configuration.selection.target;
+        let (_, item_id, variant_id) = target.identity();
+        if target.schema_version() != 1
+            || target.revision() == 0
+            || item_id.is_nil()
+            || variant_id.is_nil()
+        {
+            error(&mut result, Some(line.id), Field::Target, Issue::Invalid);
+            continue;
+        }
+        let entries = tx.sales_item(&catalog_actor.scope, target)?;
+        let Some(entry) = entries.into_iter().find(|e| e.price.target == *target) else {
+            error(&mut result, Some(line.id), Field::Target, Issue::Stale);
+            continue;
+        };
+        match validate_configuration(entry, &line.configuration) {
+            Ok(checked) => result.lines.push(project_line(line, checked)),
+            Err((field, cause)) => error(
+                &mut result,
+                Some(line.id),
+                field,
+                match cause {
+                    PricingError::Conflict { .. } => Issue::Stale,
+                    PricingError::Reference => Issue::Unavailable,
+                    _ if field == Field::Total => Issue::Overflow,
+                    _ => Issue::Invalid,
+                },
+            ),
+        }
+    }
+    if result.errors.is_empty() {
+        match discount(&CalculateDiscount {
+            line_totals_yer: result.lines.iter().map(|l| l.price.total_yer).collect(),
+            discount_basis_points: input.discount_basis_points,
+        }) {
+            Ok(totals) => result.totals = Some(totals),
+            Err(_) => error(&mut result, None, Field::Total, Issue::Overflow),
+        }
+    }
+    Ok(result)
+}
+
 fn error(
     result: &mut QuotationEvaluation,
     line_id: Option<uuid::Uuid>,
@@ -160,7 +169,7 @@ fn customer_snapshot(customer: eitmad_contracts::customer::Customer) -> Quotatio
     }
 }
 
-fn project_line(
+pub(crate) fn project_line(
     line: &eitmad_contracts::quotation::QuotationLineIntent,
     checked: eitmad_contracts::sales_catalog::SalesConfiguration,
 ) -> EvaluatedQuotationLine {
@@ -184,6 +193,55 @@ fn project_line(
         quantity: selection.quantity,
         price: checked.price,
     }
+}
+
+/// Verifies stored draft amounts and public descriptions against exact historical entries.
+/// Draft transfer accepts stale published revisions; it never grants issuance eligibility.
+/// # Errors
+/// Rejects substituted prices, configurations, totals, identities, or authority fields.
+pub fn validate_draft_snapshot(
+    snapshot: &eitmad_contracts::quotation_draft::QuotationDraftSnapshot,
+    entries: &[eitmad_contracts::catalog_revision::CatalogEntry],
+) -> Result<(), PricingError> {
+    let input = &snapshot.intent;
+    let evaluation = &snapshot.evaluation;
+    let customer = input.customer.as_ref().ok_or(PricingError::Invalid)?;
+    let saved = evaluation.customer.as_ref().ok_or(PricingError::Invalid)?;
+    if snapshot.id.value().is_nil()
+        || snapshot.revision == 0
+        || customer.id != saved.id
+        || customer.revision != saved.revision
+        || customer.revision == 0
+        || input.lines.is_empty()
+        || input.lines.len() > 1000
+        || input.lines.len() != evaluation.lines.len()
+        || input.lines.len() != entries.len()
+        || !evaluation.errors.is_empty()
+        || evaluation.currency != "YER"
+        || input.discount_basis_points != evaluation.discount_basis_points
+        || evaluation.server_available
+    {
+        return Err(PricingError::Invalid);
+    }
+    let mut ids = HashSet::new();
+    for ((line, saved), entry) in input.lines.iter().zip(&evaluation.lines).zip(entries) {
+        if line.id.is_nil() || !ids.insert(line.id) {
+            return Err(PricingError::Invalid);
+        }
+        let checked =
+            validate_configuration(entry.clone(), &line.configuration).map_err(|(_, e)| e)?;
+        if project_line(line, checked) != *saved {
+            return Err(PricingError::Invalid);
+        }
+    }
+    let totals = discount(&CalculateDiscount {
+        line_totals_yer: evaluation.lines.iter().map(|l| l.price.total_yer).collect(),
+        discount_basis_points: input.discount_basis_points,
+    })?;
+    if evaluation.totals.as_ref() != Some(&totals) {
+        return Err(PricingError::Invalid);
+    }
+    Ok(())
 }
 
 fn evaluate_customer(

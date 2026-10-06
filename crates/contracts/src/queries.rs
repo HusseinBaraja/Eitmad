@@ -77,6 +77,8 @@ impl<'de> Deserialize<'de> for ListScopeRelationships {
 tagged_contract! {
     /// Authorized read-only requests.
     pub enum Query {
+        QuotationDraft(crate::quotation_draft::GetQuotationDraft) => "eitmad.quotation-draft.get.v1",
+        QuotationDrafts(crate::quotation_draft::ListQuotationDrafts) => "eitmad.quotation-draft.list.v1",
         QuotationEvaluation(crate::quotation::EvaluateQuotation) => "eitmad.quotation.evaluate.v1",
         SalesCatalog(crate::sales_catalog::ListSalesCatalog) => "eitmad.sales-catalog.list.v1",
         SalesCatalogItem(crate::sales_catalog::GetSalesCatalogItem) => "eitmad.sales-catalog.get.v1",
@@ -112,6 +114,8 @@ tagged_contract! {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", content = "payload", rename_all = "camelCase")]
 pub enum QueryResult {
+    QuotationDraft(Box<crate::quotation_draft::QuotationDraft>),
+    QuotationDrafts(crate::quotation_draft::QuotationDraftPage),
     QuotationEvaluation(crate::quotation::QuotationEvaluation),
     SalesCatalog(crate::sales_catalog::SalesCatalogPage),
     SalesCatalogItem(crate::sales_catalog::SalesCatalogDetails),

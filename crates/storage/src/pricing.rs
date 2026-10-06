@@ -23,7 +23,7 @@ pub(crate) const MIGRATIONS: &[Migration] = &[Migration::new(21, "pricing.confir
       PRIMARY KEY(scope_kind,scope_id,request_hash));")];
 
 pub struct PricingTransaction<'a> {
-    connection: &'a rusqlite::Connection,
+    pub(crate) connection: &'a rusqlite::Connection,
 }
 impl AuthorityStore {
     /// Keeps catalog validation, price state, audit, retries, and events atomic.

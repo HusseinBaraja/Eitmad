@@ -49,6 +49,8 @@ Protocol 1.17 registers `eitmad.schema.catalog-public.v1`. Its `CatalogEntry` co
 
 Protocol 1.18 adds `eitmad.capability.sales-catalog.v1` and typed local queries `eitmad.sales-catalog.list.v1`, `eitmad.sales-catalog.get.v1`, and `eitmad.sales-catalog.check.v1`. They read the scoped public projection and validate an exact unsaved configuration without exposing private definitions. See [Receptionist sales catalog](../developer/subsystems/pricing.md#receptionist-sales-catalog) for limits, authorization, and freshness.
 
+Protocol `1.19` registers `eitmad.schema.quotation-draft.v1` for local-first branch drafts. Its `QuotationDraftSnapshot` retains evaluator intent and public evaluation. Existing `SubmitLocal`, `LocalResult`, incremental pull, and acknowledgement envelopes carry it without a separate transport. See [durable drafts](../developer/subsystems/quotations.md#durable-quotation-drafts) for authority, permissions, checkpoint isolation, stale prices, and conflicts.
+
 ## Identities and revisions
 
 `RecordId` identifies the domain record. `ChangeId` identifies one mutation and permits echo acknowledgement. `DeliveryId` identifies a received envelope. `IdempotencyKey` identifies caller intent and is checked independently from delivery identity. `Checkpoint` is opaque progress state; clients compare identity or resume from it but do not derive ordering from UUID bytes.

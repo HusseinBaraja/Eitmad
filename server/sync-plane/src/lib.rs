@@ -9,6 +9,8 @@ pub use catalog_image::CatalogImageServer;
 pub use pricing::PricingServer;
 mod boundary_audit;
 mod customer;
+mod quotation_draft;
+pub use quotation_draft::QuotationDraftSyncHandler;
 mod database;
 mod domain;
 mod operations;

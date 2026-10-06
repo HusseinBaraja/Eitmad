@@ -54,6 +54,22 @@ public partial class Command
     public RevokeScopeRelationship? AsAuthorizationRelationshipRevoke() =>
         Kind == AuthorizationRelationshipRevokeKind ? PayloadAs<RevokeScopeRelationship>() : null;
 
+    public const string QuotationDraftCreateKind = "eitmad.quotation-draft.create.v1";
+
+    public static Command ForQuotationDraftCreate(CreateQuotationDraft payload) =>
+        new() { Kind = QuotationDraftCreateKind, Payload = payload };
+
+    public CreateQuotationDraft? AsQuotationDraftCreate() =>
+        Kind == QuotationDraftCreateKind ? PayloadAs<CreateQuotationDraft>() : null;
+
+    public const string QuotationDraftUpdateKind = "eitmad.quotation-draft.update.v1";
+
+    public static Command ForQuotationDraftUpdate(UpdateQuotationDraft payload) =>
+        new() { Kind = QuotationDraftUpdateKind, Payload = payload };
+
+    public UpdateQuotationDraft? AsQuotationDraftUpdate() =>
+        Kind == QuotationDraftUpdateKind ? PayloadAs<UpdateQuotationDraft>() : null;
+
     public const string CustomerCreateKind = "eitmad.customer.create.v1";
 
     public static Command ForCustomerCreate(CreateCustomer payload) =>
@@ -223,6 +239,22 @@ public partial class CommandResult
     public RelationshipMutationResult? AsRelationshipRevoked() =>
         Kind == RelationshipRevokedKind ? PayloadAs<RelationshipMutationResult>() : null;
 
+    public const string QuotationDraftCreatedKind = "quotationDraftCreated";
+
+    public static CommandResult ForQuotationDraftCreated(QuotationDraft payload) =>
+        new() { Kind = QuotationDraftCreatedKind, Payload = payload };
+
+    public QuotationDraft? AsQuotationDraftCreated() =>
+        Kind == QuotationDraftCreatedKind ? PayloadAs<QuotationDraft>() : null;
+
+    public const string QuotationDraftUpdatedKind = "quotationDraftUpdated";
+
+    public static CommandResult ForQuotationDraftUpdated(QuotationDraft payload) =>
+        new() { Kind = QuotationDraftUpdatedKind, Payload = payload };
+
+    public QuotationDraft? AsQuotationDraftUpdated() =>
+        Kind == QuotationDraftUpdatedKind ? PayloadAs<QuotationDraft>() : null;
+
     public const string CustomerCreatedKind = "customerCreated";
 
     public static CommandResult ForCustomerCreated(CustomerMutationResult payload) =>
@@ -383,6 +415,14 @@ public partial class Event
 
     public AuthorizationPolicyChangeNotice? AsAuthorizationPolicyChangedEvent() =>
         Kind == AuthorizationPolicyChangedEventKind ? PayloadAs<AuthorizationPolicyChangeNotice>() : null;
+
+    public const string QuotationDraftChangedEventKind = "eitmad.quotation-draft.changed.event.v1";
+
+    public static Event ForQuotationDraftChangedEvent(QuotationDraftChangeNotice payload) =>
+        new() { Kind = QuotationDraftChangedEventKind, Payload = payload };
+
+    public QuotationDraftChangeNotice? AsQuotationDraftChangedEvent() =>
+        Kind == QuotationDraftChangedEventKind ? PayloadAs<QuotationDraftChangeNotice>() : null;
 
     public const string CustomerChangedEventKind = "eitmad.customer.changed.event.v1";
 
@@ -660,6 +700,22 @@ public partial class Query
     [JsonPropertyName("payload")]
     public object? Payload { get; set; }
 
+    public const string QuotationDraftGetKind = "eitmad.quotation-draft.get.v1";
+
+    public static Query ForQuotationDraftGet(GetQuotationDraft payload) =>
+        new() { Kind = QuotationDraftGetKind, Payload = payload };
+
+    public GetQuotationDraft? AsQuotationDraftGet() =>
+        Kind == QuotationDraftGetKind ? PayloadAs<GetQuotationDraft>() : null;
+
+    public const string QuotationDraftListKind = "eitmad.quotation-draft.list.v1";
+
+    public static Query ForQuotationDraftList(ListQuotationDrafts payload) =>
+        new() { Kind = QuotationDraftListKind, Payload = payload };
+
+    public ListQuotationDrafts? AsQuotationDraftList() =>
+        Kind == QuotationDraftListKind ? PayloadAs<ListQuotationDrafts>() : null;
+
     public const string QuotationEvaluateKind = "eitmad.quotation.evaluate.v1";
 
     public static Query ForQuotationEvaluate(EvaluateQuotation payload) =>
@@ -908,6 +964,22 @@ public partial class QueryResult
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("payload")]
     public object? Payload { get; set; }
+
+    public const string QuotationDraftKind = "quotationDraft";
+
+    public static QueryResult ForQuotationDraft(QuotationDraft payload) =>
+        new() { Kind = QuotationDraftKind, Payload = payload };
+
+    public QuotationDraft? AsQuotationDraft() =>
+        Kind == QuotationDraftKind ? PayloadAs<QuotationDraft>() : null;
+
+    public const string QuotationDraftsKind = "quotationDrafts";
+
+    public static QueryResult ForQuotationDrafts(QuotationDraftPage payload) =>
+        new() { Kind = QuotationDraftsKind, Payload = payload };
+
+    public QuotationDraftPage? AsQuotationDrafts() =>
+        Kind == QuotationDraftsKind ? PayloadAs<QuotationDraftPage>() : null;
 
     public const string QuotationEvaluationKind = "quotationEvaluation";
 
@@ -1190,6 +1262,14 @@ public partial class Subscription
     public AuthorizationPolicyChanges? AsAuthorizationPolicyChangedSubscribe() =>
         Kind == AuthorizationPolicyChangedSubscribeKind ? PayloadAs<AuthorizationPolicyChanges>() : null;
 
+    public const string QuotationDraftChangedSubscribeKind = "eitmad.quotation-draft.changed.subscribe.v1";
+
+    public static Subscription ForQuotationDraftChangedSubscribe(QuotationDraftChanges payload) =>
+        new() { Kind = QuotationDraftChangedSubscribeKind, Payload = payload };
+
+    public QuotationDraftChanges? AsQuotationDraftChangedSubscribe() =>
+        Kind == QuotationDraftChangedSubscribeKind ? PayloadAs<QuotationDraftChanges>() : null;
+
     public const string CustomerChangedSubscribeKind = "eitmad.customer.changed.subscribe.v1";
 
     public static Subscription ForCustomerChangedSubscribe(CustomerChanges payload) =>
@@ -1287,5 +1367,9 @@ public partial class PriceChanges
 }
 
 public partial class ProductChanges
+{
+}
+
+public partial class QuotationDraftChanges
 {
 }
