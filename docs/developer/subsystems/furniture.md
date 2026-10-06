@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Furniture capability maintainers"
-last_verified: "2026-10-05"
+last_verified: "2026-10-06"
 review_triggers:
   - "Furniture contracts, Rust projections, pricing rules, or Windows Furniture UI behavior change"
 keywords:
@@ -47,7 +47,7 @@ A definition requires 1–100 distinct Parts. Each usage has a positive whole co
 
 Rust computes definition cost as the checked integer sum of each immutable Part cost times its whole count. Fixed sizes share that specified composition cost; there is no invented volume multiplier. Cost does not change a proposed selling price. Rust review supplies row totals and margins to the editor. Later material changes do not rewrite the Furniture revision or its saved cost.
 
-A definition has 1–100 fixed variants. Width, height, and depth are integer millimetres in `1..=100000`. The native editor accepts centimetres with at most one decimal place, displays **سم**, and converts without rounding. Each variant can retain optional minimum and maximum dimensions. The fixed size must be within every bound. Without customization bounds, a prospective selection must exactly match the fixed size.
+A definition has 1–100 fixed variants. Width, height, and depth are integer millimetres in `1..=100000`. The native editor accepts centimetres with at most one decimal place, displays **سم**, and converts without rounding. Each variant can retain optional minimum and maximum dimensions. The fixed size must be within every bound. Without customization bounds, a prospective selection must exactly match the fixed size. The public [Receptionist sales configuration](pricing.md#receptionist-sales-catalog) reuses `validate_selection_dimensions` for the same fixed-size and inclusive customization rules without reading private Furniture definitions.
 
 Colors and handles each have at most 100 stable options, names, supported visual values, non-negative whole-YER adjustments, and active/archive state. A variant can name compatible color and handle IDs; an empty compatibility list allows all options of that kind. Missing, duplicated, foreign, incompatible, or unavailable option references are rejected. Removed options and variants are retained as archived, and archived option IDs cannot be reactivated or moved to another definition or option kind. Color visuals are six-digit RGB hex values; handles use the existing native `Standard`, `BlackMetal`, and `Brass` illustrations.
 

@@ -13,6 +13,7 @@ workspace = true
 eitmad-authorization = { path = "../authorization" }
 eitmad-contracts = { path = "../contracts" }
 eitmad-material = { path = "../material" }
+eitmad-furniture = { path = "../furniture" }
 eitmad-part = { path = "../part" }
 eitmad-observability-audit = { path = "../observability-audit" }
 eitmad-storage = { path = "../storage" }
@@ -23,6 +24,5 @@ uuid = { version = "=1.23.4", features = ["v4"] }
 
 [dev-dependencies]
 eitmad-product = { path = "../product" }
-eitmad-furniture = { path = "../furniture" }
 tempfile = "=3.24.0"
 rusqlite = { version = "=0.39.0", default-features = false, features = ["bundled"] }

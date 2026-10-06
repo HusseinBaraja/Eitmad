@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "sales and fulfillment capability maintainers"
-last_verified: "2026-09-21"
+last_verified: "2026-10-06"
 review_triggers:
   - "Manager or Receptionist permissions, record visibility, money, catalog, quotation, order, work-order, delivery, or offline behavior changes"
 keywords:
@@ -25,7 +25,7 @@ keywords:
 
 This page is the normative implementation specification for the Manager and Receptionist sales-to-delivery workflows. Rust owns every rule, permission, record, calculation, transition, audit result, and synchronization outcome defined here. The Windows shell projects Rust state and keeps only temporary input and navigation state.
 
-The current Windows screens are design evidence. Their fixture values, preview roles, status transitions, `5%` constant, `QT-PREVIEW` numbers, calculated totals, and in-memory handoffs are not implemented product behavior. Where a preview differs from this page, this page controls future implementation.
+The remaining Windows quotation and fulfillment previews are design evidence. Their fixture values, preview roles, status transitions, `5%` constant, `QT-PREVIEW` numbers, calculated totals, and in-memory handoffs are not implemented product behavior. The [Receptionist sales catalog](pricing.md#receptionist-sales-catalog) now uses authorized public Rust reads and configuration checks. Its selected quotation lines remain unsaved WPF snapshots. Where a preview differs from this page, this page controls future implementation.
 
 The accepted product choices are recorded in [ADR-0028](../../decisions/0028-manager-receptionist-sales-workflows.md). The architecture boundaries remain controlled by the [target architecture](../../architecture/target-architecture.md), [scoped authorization](authorization.md), and [synchronization model](synchronization.md).
 

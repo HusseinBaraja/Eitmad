@@ -53,8 +53,10 @@ public partial class MainWindow : Window
             _ = FurnitureSurface.DisposeAsync();
             _ = ProductsSurface.DisposeAsync();
             _ = PricingSurface.DisposeAsync();
+            _ = ReceptionistSurface.DisposeCatalogAsync();
         };
         ReceptionistSurface.SetCatalogSources(FurnitureSurface.ViewModel, ProductsSurface.ViewModel);
+        if (engine is not null) ReceptionistSurface.AttachCatalog(engine);
         QuotationsSurface.ViewModel.UsePreviewQuotations(ReceptionistSurface.Handoffs.Quotations);
         var receptionOrders = ReceptionistSurface.PreviewOrders.ViewModel;
         OrdersSurface.ViewModel.UsePreviewOrders(receptionOrders.PreviewOrders);
@@ -93,6 +95,7 @@ public partial class MainWindow : Window
         try
         {
             await ReceptionistSurface.ActivateCustomersAsync();
+            await ReceptionistSurface.ActivateCatalogAsync();
         }
         catch (Exception error) when (error is Eitmad.Platform.Windows.LocalIpc.EngineIpcException
             or IOException or ObjectDisposedException)
@@ -130,6 +133,7 @@ public partial class MainWindow : Window
     private void ManagerTitleBarSearchSubmitted(object? sender, Controls.ShellSearchEventArgs eventArgs) =>
         ShowToast($"نتائج المعاينة عن: {eventArgs.Query}");
 
+    /// <summary>Clears receptionist projections and stops session adapters before switching accounts.</summary>
     private async Task SwitchAccountAsync()
     {
         if (!sessionActive || switchingAccount || sessions is null)
@@ -142,6 +146,7 @@ public partial class MainWindow : Window
         try
         {
             await ReceptionistSurface.DeactivateCustomersAsync();
+            await ReceptionistSurface.DeactivateCatalogAsync();
             await sessions.SignOutAsync();
             ShowSignIn();
         }
@@ -176,12 +181,14 @@ public partial class MainWindow : Window
     private void SessionEnded(object? sender, SessionEndedEventArgs eventArgs) =>
         Dispatcher.Invoke(() => _ = CompleteSessionEndAsync(eventArgs.Reason));
 
+    /// <summary>Clears session-owned views and projections before returning to sign-in.</summary>
     private async Task CompleteSessionEndAsync(SessionEndReason reason)
     {
         SignInSurface.IsEnabled = false;
         try
         {
             await ReceptionistSurface.DeactivateCustomersAsync();
+            await ReceptionistSurface.DeactivateCatalogAsync();
         }
         finally
         {

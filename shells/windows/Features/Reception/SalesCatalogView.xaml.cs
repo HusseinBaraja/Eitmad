@@ -35,14 +35,20 @@ public partial class SalesCatalogView : UserControl
         ((SalesCatalogViewModel)DataContext).IsReviewingQuotation = true;
         RestoreQuotationFocus();
     }
-    private void SelectClick(object sender, RoutedEventArgs e)
+    /// <summary>Waits for item details before moving keyboard focus into the selection editor.</summary>
+    private async void SelectClick(object sender, RoutedEventArgs e)
     {
         if (sender is Button { DataContext: SalesCatalogItem item })
         {
             lastSelectionButton = (Button)sender;
             ((SalesCatalogViewModel)DataContext).Select(item);
+            await ((SalesCatalogViewModel)DataContext).LastCatalogOperation;
             if (((SalesCatalogViewModel)DataContext).IsSelecting)
                 FocusEditor();
         }
     }
+    /// <summary>Requests the first bounded catalog page with the current search and category.</summary>
+    private void ReloadClick(object sender, RoutedEventArgs e) => ((SalesCatalogViewModel)DataContext).Reload();
+    /// <summary>Waits for the next Rust-provided catalog page without blocking the UI thread.</summary>
+    private async void NextClick(object sender, RoutedEventArgs e) => await ((SalesCatalogViewModel)DataContext).NextPageAsync();
 }

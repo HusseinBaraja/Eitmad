@@ -5,7 +5,7 @@ audience: "api"
 page_type: "reference"
 status: "active"
 owner: "Rust contract and synchronization maintainers"
-last_verified: "2026-10-05"
+last_verified: "2026-10-06"
 review_triggers:
   - "a type or identifier in crates/contracts/src/sync.rs changes"
   - "the shared transport frame in crates/contracts/src/sync_transport.rs changes"
@@ -46,6 +46,8 @@ keywords:
 An upsert without `payload` and a tombstone with `payload` are invalid. `EncodedDomainPayload.schema_id` and `schema_version` select a previously negotiated domain schema; the sync layer treats `base64` as opaque.
 
 Protocol 1.17 registers `eitmad.schema.catalog-public.v1`. Its `CatalogEntry` contains an exact published price target and the permitted sales fields from that definition. `CatalogRevision` also carries Material and Part categories. These payloads use the existing synchronization envelopes. See [catalog replication](../developer/subsystems/synchronization.md#catalog-replication) for modes, authorization, atomic projection, and recovery.
+
+Protocol 1.18 adds `eitmad.capability.sales-catalog.v1` and typed local queries `eitmad.sales-catalog.list.v1`, `eitmad.sales-catalog.get.v1`, and `eitmad.sales-catalog.check.v1`. They read the scoped public projection and validate an exact unsaved configuration without exposing private definitions. See [Receptionist sales catalog](../developer/subsystems/pricing.md#receptionist-sales-catalog) for limits, authorization, and freshness.
 
 ## Identities and revisions
 

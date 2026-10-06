@@ -4,7 +4,7 @@ import Foundation
 public enum ProtocolIds {
     public enum Version {
         public static let major = 1
-        public static let minor = 17
+        public static let minor = 18
     }
 
     public enum IpcMessages {
@@ -52,6 +52,9 @@ public enum ProtocolIds {
     }
 
     public enum Queries {
+        public static let eitmadSalesCatalogListV1 = "eitmad.sales-catalog.list.v1"
+        public static let eitmadSalesCatalogGetV1 = "eitmad.sales-catalog.get.v1"
+        public static let eitmadSalesCatalogCheckV1 = "eitmad.sales-catalog.check.v1"
         public static let eitmadPricingListV1 = "eitmad.pricing.list.v1"
         public static let eitmadPricingReviewV1 = "eitmad.pricing.review.v1"
         public static let eitmadPricingSelectionV1 = "eitmad.pricing.selection.v1"
@@ -131,6 +134,7 @@ public enum ProtocolIds {
     }
 
     public enum Capabilities {
+        public static let eitmadCapabilitySalesCatalogV1 = "eitmad.capability.sales-catalog.v1"
         public static let eitmadCapabilityCatalogRevisionsV1 = "eitmad.capability.catalog-revisions.v1"
         public static let eitmadCapabilityPricingV1 = "eitmad.capability.pricing.v1"
         public static let eitmadCapabilityEngineLifecycleV1 = "eitmad.capability.engine-lifecycle.v1"

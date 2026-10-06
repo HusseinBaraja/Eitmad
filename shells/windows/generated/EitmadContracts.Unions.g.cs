@@ -660,6 +660,30 @@ public partial class Query
     [JsonPropertyName("payload")]
     public object? Payload { get; set; }
 
+    public const string SalesCatalogListKind = "eitmad.sales-catalog.list.v1";
+
+    public static Query ForSalesCatalogList(ListSalesCatalog payload) =>
+        new() { Kind = SalesCatalogListKind, Payload = payload };
+
+    public ListSalesCatalog? AsSalesCatalogList() =>
+        Kind == SalesCatalogListKind ? PayloadAs<ListSalesCatalog>() : null;
+
+    public const string SalesCatalogGetKind = "eitmad.sales-catalog.get.v1";
+
+    public static Query ForSalesCatalogGet(GetSalesCatalogItem payload) =>
+        new() { Kind = SalesCatalogGetKind, Payload = payload };
+
+    public GetSalesCatalogItem? AsSalesCatalogGet() =>
+        Kind == SalesCatalogGetKind ? PayloadAs<GetSalesCatalogItem>() : null;
+
+    public const string SalesCatalogCheckKind = "eitmad.sales-catalog.check.v1";
+
+    public static Query ForSalesCatalogCheck(CheckSalesConfiguration payload) =>
+        new() { Kind = SalesCatalogCheckKind, Payload = payload };
+
+    public CheckSalesConfiguration? AsSalesCatalogCheck() =>
+        Kind == SalesCatalogCheckKind ? PayloadAs<CheckSalesConfiguration>() : null;
+
     public const string PricingListKind = "eitmad.pricing.list.v1";
 
     public static Query ForPricingList(ListPrices payload) =>
@@ -876,6 +900,30 @@ public partial class QueryResult
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("payload")]
     public object? Payload { get; set; }
+
+    public const string SalesCatalogKind = "salesCatalog";
+
+    public static QueryResult ForSalesCatalog(SalesCatalogPage payload) =>
+        new() { Kind = SalesCatalogKind, Payload = payload };
+
+    public SalesCatalogPage? AsSalesCatalog() =>
+        Kind == SalesCatalogKind ? PayloadAs<SalesCatalogPage>() : null;
+
+    public const string SalesCatalogItemKind = "salesCatalogItem";
+
+    public static QueryResult ForSalesCatalogItem(SalesCatalogDetails payload) =>
+        new() { Kind = SalesCatalogItemKind, Payload = payload };
+
+    public SalesCatalogDetails? AsSalesCatalogItem() =>
+        Kind == SalesCatalogItemKind ? PayloadAs<SalesCatalogDetails>() : null;
+
+    public const string SalesConfigurationKind = "salesConfiguration";
+
+    public static QueryResult ForSalesConfiguration(SalesConfiguration payload) =>
+        new() { Kind = SalesConfigurationKind, Payload = payload };
+
+    public SalesConfiguration? AsSalesConfiguration() =>
+        Kind == SalesConfigurationKind ? PayloadAs<SalesConfiguration>() : null;
 
     public const string PricesKind = "prices";
 

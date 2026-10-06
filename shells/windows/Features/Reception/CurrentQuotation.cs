@@ -2,27 +2,34 @@ using System.Collections.ObjectModel;
 
 namespace Eitmad.WindowsShell.Features.Reception;
 
-// Immutable selections from synthetic catalog fixtures; never durable quotation records.
+// Temporary selection snapshots; these are not durable or issued quotation records.
 public sealed record PreviewQuotationLine
 {
     public Guid Id { get; init; } = Guid.NewGuid();
     public SalesCatalogItem Item { get; }
     public FurnitureSelectionViewModel? Furniture { get; }
     public ProductSelectionViewModel? Product { get; }
+    /// <summary>Copies furniture choices, dimensions, and the checked configuration into an independent unsaved quotation snapshot.</summary>
     public PreviewQuotationLine(FurnitureSelectionViewModel value)
     {
         Item = value.Item;
         Furniture = new(value.Item, value.Sizes, value.Colors, value.Handles)
-        { SelectedSize = value.SelectedSize, SelectedColor = value.SelectedColor, SelectedHandle = value.SelectedHandle, Quantity = value.Quantity };
+        { SelectedSize = value.SelectedSize, Quantity = value.Quantity };
+        Furniture.SelectedColor = Furniture.Colors.FirstOrDefault(o => o.Id == value.SelectedColor?.Id);
+        Furniture.SelectedHandle = Furniture.Handles.FirstOrDefault(o => o.Id == value.SelectedHandle?.Id);
+        Furniture.WidthCm = value.WidthCm; Furniture.HeightCm = value.HeightCm; Furniture.DepthCm = value.DepthCm;
+        if (value.Configuration is { } configuration) Furniture.Apply(configuration);
     }
+    /// <summary>Copies the product variant, quantity, and checked configuration into an independent unsaved quotation snapshot.</summary>
     public PreviewQuotationLine(ProductSelectionViewModel value)
     {
         Item = value.Item;
         Product = new(value.Item, value.Variants) { SelectedVariant = value.SelectedVariant, Quantity = value.Quantity };
+        if (value.Configuration is { } configuration) Product.Apply(configuration);
     }
     public string Name => Item.Name;
     public string Variant => Furniture?.SelectedSize?.Name ?? Product?.SelectedVariant?.Name ?? string.Empty;
-    public string Dimensions => Furniture?.SelectedSize?.DimensionsLabel ?? string.Empty;
+    public string Dimensions => Furniture?.Configuration?.Dimensions is { } d ? SalesCatalogViewModel.DimensionsLabel(d) : Furniture?.SelectedSize?.DimensionsLabel ?? string.Empty;
     public string? Color => Furniture?.SelectedColor?.Name;
     public string? Handle => Furniture?.SelectedHandle?.Name;
     public string Options => string.Join(" · ", new[] { Variant, Color is null ? null : "اللون: " + Color, Handle is null ? null : "المقبض: " + Handle }.Where(s => !string.IsNullOrEmpty(s)));
@@ -279,14 +286,21 @@ public sealed partial class SalesCatalogViewModel
             CloseSelection();
         }
     }
+    /// <summary>Stages a copy for editing and revalidation while keeping the existing quotation line unchanged.</summary>
     public void EditLine(PreviewQuotationLine line)
     {
         if (!QuotationLines.Contains(line)) return;
         CloseSelection(); editingLine = line;
         if (line.Furniture is { } f) Selection = new(f.Item, f.Sizes, f.Colors, f.Handles)
-        { SelectedSize = f.SelectedSize, SelectedColor = f.SelectedColor, SelectedHandle = f.SelectedHandle, Quantity = f.Quantity, IsEditing = true };
+        { SelectedSize = f.SelectedSize, Quantity = f.Quantity, IsEditing = true };
+        if (Selection is { } furniture) { furniture.SelectedColor = furniture.Colors.FirstOrDefault(o => o.Id == line.Furniture?.SelectedColor?.Id); furniture.SelectedHandle = furniture.Handles.FirstOrDefault(o => o.Id == line.Furniture?.SelectedHandle?.Id); }
         if (line.Product is { } p) ProductSelection = new(p.Item, p.Variants)
         { SelectedVariant = p.SelectedVariant, Quantity = p.Quantity, IsEditing = true };
+        if (catalogClient is not null) {
+            if (Selection is { } current) { current.WidthCm = line.Furniture!.WidthCm; current.HeightCm = line.Furniture.HeightCm; current.DepthCm = line.Furniture.DepthCm; current.Changed += (_, _) => QueueConfigurationCheck(); }
+            if (ProductSelection is { } product) product.Changed += (_, _) => QueueConfigurationCheck();
+            QueueConfigurationCheck();
+        }
         IsReviewingQuotation = false;
     }
     public void DuplicateLine(PreviewQuotationLine line) { if (QuotationLines.Contains(line)) QuotationLines.Insert(QuotationLines.IndexOf(line) + 1, line with { Id = Guid.NewGuid() }); }

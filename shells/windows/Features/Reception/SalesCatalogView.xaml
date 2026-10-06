@@ -18,7 +18,7 @@
         </Grid.RowDefinitions>
         <StackPanel>
             <TextBlock Text="المنتجات" FontSize="28" FontWeight="Bold" Style="{StaticResource CatalogText}"/>
-            <TextBlock Text="معاينة ببيانات تجريبية — لا يتم حفظ الاختيار" Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" Margin="0,4,0,16" Style="{StaticResource CatalogText}"/>
+            <TextBlock Text="{Binding CatalogStatus}" Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" Margin="0,4,0,16" Style="{StaticResource CatalogText}" AutomationProperties.LiveSetting="Polite"/>
         </StackPanel>
         <TextBox Grid.Row="1" x:Name="CatalogSearch" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SearchInput}" controls:ControlOptions.Placeholder="ابحث عن منتج..." AutomationProperties.Name="ابحث عن منتج"/>
         <ListBox Grid.Row="2" ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}" BorderThickness="0" Background="Transparent" Margin="0,14,0,16" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="فئات المنتجات">
@@ -51,9 +51,9 @@
                                     <Image Source="{Binding Image}" Stretch="Uniform" FlowDirection="LeftToRight"/>
                                 </Grid>
                                 <StackPanel Margin="18,14,18,18">
-                                    <TextBlock Text="{Binding Name}" FontSize="20" FontWeight="SemiBold" MinHeight="36" Style="{StaticResource CatalogText}"/>
-                                    <TextBlock Text="{Binding Description}" Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" FontSize="12" MinHeight="50" Margin="0,5,0,6" Style="{StaticResource CatalogText}"/>
-                                    <TextBlock Text="{Binding VariantSummary}" FontSize="14" Margin="0,0,0,10" Style="{StaticResource CatalogText}"/>
+                                    <TextBlock reception:SalesText.Value="{Binding Name}" FontSize="20" FontWeight="SemiBold" MinHeight="36" Style="{StaticResource CatalogText}"/>
+                                    <TextBlock reception:SalesText.Value="{Binding Description}" Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" FontSize="12" MinHeight="50" Margin="0,5,0,6" Style="{StaticResource CatalogText}"/>
+                                    <TextBlock reception:SalesText.Value="{Binding VariantSummary}" FontSize="14" Margin="0,0,0,10" Style="{StaticResource CatalogText}"/>
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
                                         <TextBlock Text="{Binding PricePrefix}" VerticalAlignment="Center" Margin="0,0,8,0" Style="{StaticResource CatalogText}"/>
                                         <TextBlock Text="{Binding PriceLabel}" FlowDirection="LeftToRight" FontSize="18" FontWeight="SemiBold" Style="{StaticResource CatalogText}"/>
@@ -70,7 +70,13 @@
             <TextBlock Text="لا توجد منتجات مطابقة" FontSize="22" Margin="0,0,0,18" Style="{StaticResource CatalogText}"/>
             <Button Content="مسح الفلاتر" Style="{StaticResource SecondaryButton}" Click="ClearClick" AutomationProperties.Name="مسح الفلاتر"/>
         </StackPanel>
-        <TextBlock Grid.Row="4" Text="{Binding SelectionNotice}" Margin="0,8,0,0" AutomationProperties.LiveSetting="Polite" Style="{StaticResource CatalogText}"/>
+        <StackPanel Grid.Row="4">
+            <TextBlock Text="{Binding SelectionNotice}" Margin="0,8,0,0" AutomationProperties.LiveSetting="Polite" Style="{StaticResource CatalogText}"/>
+            <WrapPanel>
+                <Button Content="تحديث الكتالوج" Click="ReloadClick" Style="{StaticResource SecondaryButton}" AutomationProperties.Name="تحديث الكتالوج"/>
+                <Button Content="الصفحة التالية" Click="NextClick" Style="{StaticResource SecondaryButton}" Margin="8,0" Visibility="{Binding HasNextPage, Converter={StaticResource BooleanToVisibility}}" AutomationProperties.Name="الصفحة التالية"/>
+            </WrapPanel>
+        </StackPanel>
     </Grid>
         <reception:FurnitureSelectionView x:Name="SelectionView" DataContext="{Binding Selection}" Visibility="{Binding DataContext.IsSelectingFurniture, Converter={StaticResource BooleanToVisibility}, RelativeSource={RelativeSource AncestorType=reception:SalesCatalogView}}" />
         <reception:ProductSelectionView x:Name="ProductSelectionView" DataContext="{Binding ProductSelection}" Visibility="{Binding DataContext.IsSelectingProduct, Converter={StaticResource BooleanToVisibility}, RelativeSource={RelativeSource AncestorType=reception:SalesCatalogView}}" />

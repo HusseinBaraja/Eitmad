@@ -1,6 +1,6 @@
 <UserControl x:Class="Eitmad.WindowsShell.Features.Reception.ProductSelectionView"
  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
- xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls" FlowDirection="RightToLeft" Language="ar-YE">
+ xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls" xmlns:reception="clr-namespace:Eitmad.WindowsShell.Features.Reception" FlowDirection="RightToLeft" Language="ar-YE">
  <UserControl.Resources><ResourceDictionary><ResourceDictionary.MergedDictionaries><ResourceDictionary Source="../../Resources/SalesCatalogVisuals.xaml"/><ResourceDictionary Source="../../Resources/SalesSelectionStyles.xaml"/></ResourceDictionary.MergedDictionaries>
   <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
    <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}"/>
@@ -10,7 +10,8 @@
  <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
  <StackPanel Margin="28,18" TextBlock.Foreground="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}">
   <Button x:Name="BackButton" Content="{Binding BackLabel}" HorizontalAlignment="Right" Style="{StaticResource SecondaryButton}" Click="BackClick" AutomationProperties.Name="{Binding BackLabel}"/>
-  <TextBlock Text="معاينة ببيانات تجريبية — عرض السعر مؤقت ولا يتم حفظه" Margin="0,12"/>
+  <TextBlock Text="الاختيار وعرض السعر مؤقتان ولا يتم حفظهما" Margin="0,12"/>
+  <Button Content="تحديث الصنف" Click="RefreshClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" AutomationProperties.Name="تحديث الصنف"/>
   <Grid Margin="0,0,0,18">
    <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="3*"/></Grid.ColumnDefinitions>
    <Border Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}" CornerRadius="12" Height="250" Margin="0,0,20,0">
@@ -20,8 +21,8 @@
     </Grid>
    </Border>
    <StackPanel Grid.Column="1" VerticalAlignment="Center">
-    <TextBlock Text="{Binding Item.Name}" FontSize="30" FontWeight="Bold" TextWrapping="Wrap"/>
-    <TextBlock Text="{Binding Item.Description}" FontSize="16" Margin="0,10,0,0" TextWrapping="Wrap"/>
+    <TextBlock reception:SalesText.Value="{Binding Item.Name}" FontSize="30" FontWeight="Bold" TextWrapping="Wrap"/>
+    <TextBlock reception:SalesText.Value="{Binding Item.Description}" FontSize="16" Margin="0,10,0,0" TextWrapping="Wrap"/>
    </StackPanel>
   </Grid>
   <StackPanel Visibility="{Binding HasVariants, Converter={StaticResource BooleanToVisibility}}">

@@ -542,6 +542,9 @@ public enum PriceTarget: Codable, Sendable {
     }
 }
 public enum Query: Codable, Sendable {
+    case salesCatalogList(ListSalesCatalog)
+    case salesCatalogGet(GetSalesCatalogItem)
+    case salesCatalogCheck(CheckSalesConfiguration)
     case pricingList(ListPrices)
     case pricingReview(ReviewPrice)
     case pricingSelection(PriceSelection)
@@ -569,6 +572,9 @@ public enum Query: Codable, Sendable {
     case desktopAccountList(ListDesktopAccounts)
 
     private enum Kind: String, Codable, Sendable {
+        case salesCatalogList = "eitmad.sales-catalog.list.v1"
+        case salesCatalogGet = "eitmad.sales-catalog.get.v1"
+        case salesCatalogCheck = "eitmad.sales-catalog.check.v1"
         case pricingList = "eitmad.pricing.list.v1"
         case pricingReview = "eitmad.pricing.review.v1"
         case pricingSelection = "eitmad.pricing.selection.v1"
@@ -604,6 +610,9 @@ public enum Query: Codable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         switch try container.decode(Kind.self, forKey: .kind) {
+        case .salesCatalogList: self = .salesCatalogList(try container.decode(ListSalesCatalog.self, forKey: .payload))
+        case .salesCatalogGet: self = .salesCatalogGet(try container.decode(GetSalesCatalogItem.self, forKey: .payload))
+        case .salesCatalogCheck: self = .salesCatalogCheck(try container.decode(CheckSalesConfiguration.self, forKey: .payload))
         case .pricingList: self = .pricingList(try container.decode(ListPrices.self, forKey: .payload))
         case .pricingReview: self = .pricingReview(try container.decode(ReviewPrice.self, forKey: .payload))
         case .pricingSelection: self = .pricingSelection(try container.decode(PriceSelection.self, forKey: .payload))
@@ -635,6 +644,15 @@ public enum Query: Codable, Sendable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
+        case .salesCatalogList(let payload):
+            try container.encode(Kind.salesCatalogList, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .salesCatalogGet(let payload):
+            try container.encode(Kind.salesCatalogGet, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .salesCatalogCheck(let payload):
+            try container.encode(Kind.salesCatalogCheck, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
         case .pricingList(let payload):
             try container.encode(Kind.pricingList, forKey: .kind)
             try container.encode(payload, forKey: .payload)
@@ -714,6 +732,9 @@ public enum Query: Codable, Sendable {
     }
 }
 public enum QueryResult: Codable, Sendable {
+    case salesCatalog(SalesCatalogPage)
+    case salesCatalogItem(SalesCatalogDetails)
+    case salesConfiguration(SalesConfiguration)
     case prices(PricePage)
     case priceReview(PriceReview)
     case sellingPrice(SellingPrice)
@@ -741,6 +762,9 @@ public enum QueryResult: Codable, Sendable {
     case desktopAccounts(DesktopAccountPage)
 
     private enum Kind: String, Codable, Sendable {
+        case salesCatalog = "salesCatalog"
+        case salesCatalogItem = "salesCatalogItem"
+        case salesConfiguration = "salesConfiguration"
         case prices = "prices"
         case priceReview = "priceReview"
         case sellingPrice = "sellingPrice"
@@ -776,6 +800,9 @@ public enum QueryResult: Codable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         switch try container.decode(Kind.self, forKey: .kind) {
+        case .salesCatalog: self = .salesCatalog(try container.decode(SalesCatalogPage.self, forKey: .payload))
+        case .salesCatalogItem: self = .salesCatalogItem(try container.decode(SalesCatalogDetails.self, forKey: .payload))
+        case .salesConfiguration: self = .salesConfiguration(try container.decode(SalesConfiguration.self, forKey: .payload))
         case .prices: self = .prices(try container.decode(PricePage.self, forKey: .payload))
         case .priceReview: self = .priceReview(try container.decode(PriceReview.self, forKey: .payload))
         case .sellingPrice: self = .sellingPrice(try container.decode(SellingPrice.self, forKey: .payload))
@@ -807,6 +834,15 @@ public enum QueryResult: Codable, Sendable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
+        case .salesCatalog(let payload):
+            try container.encode(Kind.salesCatalog, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .salesCatalogItem(let payload):
+            try container.encode(Kind.salesCatalogItem, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .salesConfiguration(let payload):
+            try container.encode(Kind.salesConfiguration, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
         case .prices(let payload):
             try container.encode(Kind.prices, forKey: .kind)
             try container.encode(payload, forKey: .payload)

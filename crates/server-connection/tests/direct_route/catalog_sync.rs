@@ -2,8 +2,14 @@
 use super::*;
 use base64::engine::general_purpose::STANDARD;
 use eitmad_contracts::{
-    catalog_revision::CatalogRevision, furniture::*, identity::UserId, material::*, part::*,
-    pricing::*, product::*,
+    catalog_revision::CatalogRevision,
+    furniture::*,
+    identity::UserId,
+    material::*,
+    part::*,
+    pricing::*,
+    product::*,
+    sales_catalog::{CheckSalesConfiguration, GetSalesCatalogItem, ListSalesCatalog},
 };
 use eitmad_pricing::{CatalogReplication, PriceConfirmation, PricingError, PricingService};
 /// Creates synthetic mutation metadata without reusing an intent key.
@@ -594,8 +600,49 @@ impl CatalogScenario {
                 == expected[..(fetched.total_bytes as usize)
                     .min(eitmad_contracts::catalog_image::IMAGE_CHUNK_BYTES)]
         );
-        let published = page(&self.reception_store, &self.reception);
+        let catalog = PricingService::new(
+            self.reception_store.clone(),
+            AuthorizationService::new(self.reception_store.clone()),
+        );
+        let published = catalog
+            .sales_catalog(
+                &self.reception,
+                &ListSalesCatalog {
+                    term: String::new(),
+                    category: None,
+                    after: None,
+                    limit: 30,
+                },
+            )
+            .unwrap();
         assert_eq!(published.items.len(), 2);
+        for entry in &published.items {
+            let details = catalog
+                .sales_catalog_item(
+                    &self.reception,
+                    &GetSalesCatalogItem {
+                        target: entry.price.target.clone(),
+                    },
+                )
+                .unwrap();
+            assert!(details.variants.contains(entry));
+            let checked = catalog
+                .sales_configuration(
+                    &self.reception,
+                    &CheckSalesConfiguration {
+                        selection: PriceSelection {
+                            target: entry.price.target.clone(),
+                            price_revision: entry.price.revision,
+                            color_id: entry.colors.first().map(|o| o.id),
+                            handle_id: entry.handles.first().map(|o| o.id),
+                            quantity: 2,
+                        },
+                        dimensions: entry.dimensions.clone(),
+                    },
+                )
+                .unwrap();
+            assert_eq!(checked.price.total_yer, checked.price.unit_price_yer * 2);
+        }
         let serialized = serde_json::to_string(&published).unwrap();
         for field in [
             "cost",

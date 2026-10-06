@@ -185,12 +185,79 @@ impl ProductDispatcher {
         self.images.retry_uploads()
     }
 
+    /// Authorizes public reads, attempts refresh within the deadline, and rechecks access before returning confirmed cache data.
+    async fn sales_catalog_query(
+        &self,
+        context: &DispatchContext,
+        query: Query,
+    ) -> Result<QueryResult, ContractError> {
+        let pricing = self.pricing.clone();
+        let actor = context.authorization.clone();
+        let replication = self.catalog_replication.clone();
+        let deadline = eitmad_contracts::transport::UnixMillis(
+            context
+                .deadline
+                .0
+                .saturating_sub(1_000)
+                .min(now().0.saturating_add(10_000)),
+        );
+        tokio::task::spawn_blocking(move || {
+            // Validate and authorize before network work. Recheck after replication.
+            match &query {
+                Query::SalesCatalog(q) => {
+                    pricing.sales_catalog(&actor, q)?;
+                }
+                Query::SalesCatalogItem(q) => {
+                    if q.target.scope() != &actor.scope {
+                        return Err(eitmad_pricing::PricingError::Denied);
+                    }
+                }
+                Query::SalesConfiguration(q) => {
+                    if q.selection.target.scope() != &actor.scope {
+                        return Err(eitmad_pricing::PricingError::Denied);
+                    }
+                }
+                _ => unreachable!(),
+            }
+            let refresh = !matches!(&query, Query::SalesCatalog(q) if q.after.is_some());
+            let available = refresh
+                && replication
+                    .as_ref()
+                    .is_some_and(|r| r.synchronize(&actor, deadline).is_ok());
+            match query {
+                Query::SalesCatalog(q) => {
+                    let mut p = pricing.sales_catalog(&actor, &q)?;
+                    p.server_available = available;
+                    Ok(QueryResult::SalesCatalog(p))
+                }
+                Query::SalesCatalogItem(q) => {
+                    let mut p = pricing.sales_catalog_item(&actor, &q)?;
+                    p.server_available = available;
+                    Ok(QueryResult::SalesCatalogItem(p))
+                }
+                Query::SalesConfiguration(q) => {
+                    let mut p = pricing.sales_configuration(&actor, &q)?;
+                    p.server_available = available;
+                    Ok(QueryResult::SalesConfiguration(Box::new(p)))
+                }
+                _ => unreachable!(),
+            }
+        })
+        .await
+        .map_err(|_| pricing_error(eitmad_pricing::PricingError::Unconfirmed, context))?
+        .map_err(|e| pricing_error(e, context))
+    }
+
+    /// Routes public catalog queries to their bounded refresh path and retains existing authorized pricing routes.
     async fn pricing_query(
         &self,
         context: &DispatchContext,
         query: Query,
     ) -> Result<QueryResult, ContractError> {
         match query {
+            query @ (Query::SalesCatalog(_)
+            | Query::SalesCatalogItem(_)
+            | Query::SalesConfiguration(_)) => self.sales_catalog_query(context, query).await,
             Query::Prices(query) => {
                 let pricing = self.pricing.clone();
                 let actor = context.authorization.clone();
@@ -803,6 +870,9 @@ impl QueryDispatcher for ProductDispatcher {
                 .map(QueryResult::Customer)
                 .map_err(|error| customer_error(error, &context)),
             query @ (Query::Prices(_)
+            | Query::SalesCatalog(_)
+            | Query::SalesCatalogItem(_)
+            | Query::SalesConfiguration(_)
             | Query::PriceReview(_)
             | Query::SellingPrice(_)
             | Query::DiscountTotal(_)) => self.pricing_query(&context, query).await,
@@ -2694,6 +2764,153 @@ mod tests {
             schema_version: 1,
         })
     }
+    /// Projects a synthetic server-confirmed public revision into the separate receptionist client store.
+    fn project_catalog_entry(
+        receiver: &ProductDispatcher,
+        entry: &eitmad_contracts::catalog_revision::CatalogEntry,
+        actor: &AuthorizationContext,
+    ) {
+        use eitmad_contracts::{
+            sync::{ChangeId, ChangeOperation, ChangeRecord, Checkpoint, RecordId},
+            transport::SchemaId,
+        };
+        use eitmad_observability_audit::{AuditTarget, MutationAuditRecord};
+        let change = ChangeRecord {
+            change_id: ChangeId::new(Uuid::new_v4()),
+            record_id: RecordId::new(Uuid::new_v4()),
+            scope: actor.scope.clone(),
+            operation: ChangeOperation::Upsert,
+            base_revision: None,
+            revision: 1,
+            changed_at: now(),
+            idempotency_key: IdempotencyKey::new(Uuid::new_v4()),
+            payload: None,
+            merge: None,
+        };
+        let audit = MutationAuditRecord::from_authorization(
+            actor,
+            now(),
+            CorrelationId::new(Uuid::new_v4()),
+            "eitmad.catalog.sync.project.v1",
+            AuditTarget {
+                kind: "catalog-sync".into(),
+                identifiers: vec![],
+            },
+        );
+        receiver
+            .store
+            .project_catalog_page(
+                actor,
+                &SchemaId::parse("eitmad.schema.catalog-public.v1").unwrap(),
+                Checkpoint::new(Uuid::new_v4()),
+                &eitmad_storage::CatalogSyncProjection {
+                    private: &[],
+                    public: &[(change, Some(entry.clone()))],
+                    normalize_name: eitmad_material::normalize_search,
+                },
+                &audit,
+            )
+            .unwrap();
+    }
+
+    /// Verifies receptionist reads and configuration checks work from another client publication without private definitions.
+    #[tokio::test]
+    async fn sales_catalog_dispatch_reads_another_client_publication_without_private_definitions() {
+        use eitmad_contracts::{
+            catalog_revision::CatalogRevision,
+            pricing::{PriceSelection, PublishPrice},
+            sales_catalog::{CheckSalesConfiguration, ListSalesCatalog},
+        };
+        let (_manager_dir, manager_dispatcher, _) = dispatcher();
+        grant_material_roles(&manager_dispatcher);
+        let manager_dispatcher =
+            manager_dispatcher.with_price_confirmation(Arc::new(TestPriceServer));
+        let target = pricing_fixture(&manager_dispatcher).await;
+        let CommandResult::PricePublished(price) = manager_dispatcher
+            .dispatch_command(
+                material_actor(730, 3),
+                Command::PublishPrice(PublishPrice {
+                    target: target.clone(),
+                    expected_revision: None,
+                    selling_price_yer: 70000,
+                    confirm_below_cost: false,
+                }),
+            )
+            .await
+            .unwrap()
+        else {
+            panic!("price")
+        };
+        let eitmad_contracts::pricing::PriceTarget::Product(reference) = &target else {
+            panic!("product")
+        };
+        let product = manager_dispatcher
+            .products
+            .revision(
+                &material_actor(731, 3).authorization,
+                &eitmad_contracts::product::GetProductRevision {
+                    reference: reference.clone(),
+                    for_new_work: true,
+                },
+            )
+            .unwrap();
+        let entry =
+            eitmad_pricing::public_entry(&CatalogRevision::Product(Box::new(product)), &price)
+                .unwrap();
+        let (_reader_dir, reader_dispatcher, _) = dispatcher();
+        grant_material_roles(&reader_dispatcher);
+        let actor = material_actor(732, 4).authorization;
+        project_catalog_entry(&reader_dispatcher, &entry, &actor);
+        let browse = ListSalesCatalog {
+            term: "مرتبه".into(),
+            category: None,
+            after: None,
+            limit: 30,
+        };
+        let QueryResult::SalesCatalog(page) = reader_dispatcher
+            .dispatch_query(material_actor(733, 4), Query::SalesCatalog(browse.clone()))
+            .await
+            .unwrap()
+        else {
+            panic!("catalog")
+        };
+        assert_eq!(page.items, vec![entry]);
+        assert!(!page.server_available);
+        let result = reader_dispatcher
+            .dispatch_query(
+                material_actor(734, 4),
+                Query::SalesConfiguration(CheckSalesConfiguration {
+                    selection: PriceSelection {
+                        target: target.clone(),
+                        price_revision: price.revision,
+                        color_id: None,
+                        handle_id: None,
+                        quantity: 2,
+                    },
+                    dimensions: None,
+                }),
+            )
+            .await
+            .unwrap();
+        let QueryResult::SalesConfiguration(ref checked) = result else {
+            panic!("configuration")
+        };
+        assert_eq!(checked.price.total_yer, 140_000);
+        let encoded = serde_json::to_string(&result).unwrap();
+        for field in ["cost", "margin", "parts", "notes", "55000"] {
+            assert!(!encoded.contains(field), "{field}");
+        }
+        assert_eq!(
+            reader_dispatcher
+                .dispatch_query(material_actor(735, 8), Query::SalesCatalog(browse))
+                .await
+                .unwrap_err()
+                .code
+                .as_str(),
+            "eitmad.error.authorization-denied.v1"
+        );
+    }
+
     #[tokio::test]
     async fn pricing_dispatch_returns_public_receipts_and_denies_receptionist_internal_routes() {
         use eitmad_contracts::pricing::{ListPrices, PublishPrice, ReviewPrice};

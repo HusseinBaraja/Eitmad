@@ -21,13 +21,16 @@ public partial class ProductSelectionView : UserControl
         ((SalesCatalogViewModel)catalog.DataContext).CloseSelection();
         catalog.RestoreSelectionFocus();
     }
-    private void AddClick(object sender, RoutedEventArgs e)
+    /// <summary>Rechecks the configuration through Rust before adding the unsaved line and restoring catalog or review focus.</summary>
+    private async void AddClick(object sender, RoutedEventArgs e)
     {
         var editing = ((ProductSelectionViewModel)DataContext).IsEditing;
-        if (!((SalesCatalogViewModel)Catalog.DataContext).AddProductSelection()) return;
+        if (!await ((SalesCatalogViewModel)Catalog.DataContext).AddValidatedSelectionAsync(true)) return;
         if (editing) { Catalog.RestoreQuotationFocus(); return; }
         var selection = (ProductSelectionViewModel)DataContext;
         AddedNotice.Message = $"تمت الإضافة إلى عرض السعر (معاينة فقط)\n{selection.Item.Name} · {selection.SelectedVariant?.Name ?? string.Empty} · الكمية: {selection.Quantity}";
         AddedNotice.RestartDuration();
     }
+    /// <summary>Reloads current public choices and restores keyboard focus to the selection editor.</summary>
+    private async void RefreshClick(object sender, RoutedEventArgs e) { await ((SalesCatalogViewModel)Catalog.DataContext).RefreshSelectionAsync(); Catalog.FocusEditor(); }
 }

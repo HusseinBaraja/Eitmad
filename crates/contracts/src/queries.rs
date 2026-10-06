@@ -77,6 +77,9 @@ impl<'de> Deserialize<'de> for ListScopeRelationships {
 tagged_contract! {
     /// Authorized read-only requests.
     pub enum Query {
+        SalesCatalog(crate::sales_catalog::ListSalesCatalog) => "eitmad.sales-catalog.list.v1",
+        SalesCatalogItem(crate::sales_catalog::GetSalesCatalogItem) => "eitmad.sales-catalog.get.v1",
+        SalesConfiguration(crate::sales_catalog::CheckSalesConfiguration) => "eitmad.sales-catalog.check.v1",
         Prices(crate::pricing::ListPrices) => "eitmad.pricing.list.v1",
         PriceReview(crate::pricing::ReviewPrice) => "eitmad.pricing.review.v1",
         SellingPrice(crate::pricing::PriceSelection) => "eitmad.pricing.selection.v1",
@@ -108,6 +111,9 @@ tagged_contract! {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", content = "payload", rename_all = "camelCase")]
 pub enum QueryResult {
+    SalesCatalog(crate::sales_catalog::SalesCatalogPage),
+    SalesCatalogItem(crate::sales_catalog::SalesCatalogDetails),
+    SalesConfiguration(Box<crate::sales_catalog::SalesConfiguration>),
     Prices(crate::pricing::PricePage),
     PriceReview(crate::pricing::PriceReview),
     SellingPrice(crate::pricing::SellingPrice),

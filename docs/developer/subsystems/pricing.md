@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Pricing capability maintainers"
-last_verified: "2026-10-05"
+last_verified: "2026-10-06"
 review_triggers:
   - "Pricing contracts, confirmation policy, authorization, arithmetic, or Windows Pricing UI changes"
 keywords:
@@ -62,6 +62,20 @@ Cost changes keep the previous selling price and immutable snapshots. A changed 
 
 Catalog replication or remote refresh failure leaves the price query available from its authorized confirmed local cache with `server_available=false`. Local authorization and validation still apply. Manager pages also return scoped catalog repair issues; Receptionist pages omit them. The native Pricing page displays those issues without hiding cached prices. See [catalog replication](synchronization.md#catalog-replication) for revision repair and retained audit behavior.
 
+## Receptionist sales catalog
+
+Protocol 1.18 adds `eitmad.capability.sales-catalog.v1`. `SalesCatalog`, `SalesCatalogItem`, and `SalesConfiguration` queries use the scoped `catalog-public.v1` projection in `catalog_sales_records`. Every query requires `eitmad.permission.catalog.read.v1`. These queries never fall back to private Product or Furniture tables. Returned `CatalogEntry` values contain confirmed prices, public descriptions, images, variants, dimensions, customization bounds, and compatible active options. They contain no costs, margins, supplier information, Part compositions, or internal notes.
+
+Rust normalizes Arabic search across item, variant, and category names. Search and category fields are limited to 256 UTF-8 bytes. A page contains at most 100 variants; WPF requests 30. Each storage search scans at most 20 batches of 100 records. Its UUID continuation identifies the last returned match, or the last scanned record when the scan budget ends. An empty page can therefore have a continuation. Category filters and an item's complete active variant set are each bounded to 100. WPF replaces each page instead of loading the entire catalog. Selecting a card requests the current item's variants separately.
+
+`SalesConfiguration` checks the exact published definition and price revision, positive whole quantity, active compatible color and handle IDs, and Furniture dimensions. It reuses the Furniture capability's dimension rules: fixed dimensions must match exactly, and custom dimensions must be within the published inclusive bounds. Nonempty option sections require a choice. Product selections reject Furniture dimensions and options. Rust returns checked whole-YER additions, unit price, and total; WPF only formats them. Current availability means an active published definition and its permitted variants and options. It does not imply inventory or reservation.
+
+The first list page, item lookup, and configuration check attempt the established catalog replication cycle within its bounded deadline. Continuation pages read the durable public cache. `server_available=false` labels last-confirmed cache data; a successful local check does not prove server freshness or quotation issuance eligibility. Changed definitions and archives invalidate exact selections. A price revision conflict requires explicit item refresh and review. Unsaved lines retain their checked snapshot and never silently reprice.
+
+`SalesCatalogClient` sends generated contracts and follows the existing public Prices subscription. WPF owns only filters, navigation, pending input, and temporary quotation lines. A change notice invalidates an open selection and refreshes the list. Adding a line checks it again through Rust. Loading, empty results, denial, stale price, changed or archived references, and engine disconnection have separate Arabic feedback. Denial and session changes clear retained projections and temporary lines. Server disconnection can retain an authorized confirmed cache with a freshness warning; engine disconnection disables validation. Images use the existing public [catalog image](catalog-images.md) path.
+
+The native catalog and selection design stays under `Features/Reception`. Custom centimetre inputs convert exactly to integer millimetres before Rust validation. Numeric values and Latin identifiers use native LTR boundaries inside the Arabic RTL layout. See the [Windows shell guide](windows-native-shell.md) for navigation and focused rendered checks.
+
 ## Configure and recover
 
 Before enabling publication, register the engine organization and store an authenticated server session in Rust native secret storage. Set these engine-owned environment variables:
@@ -86,11 +100,17 @@ Run the smallest focused checks after a pricing change:
 cargo test --locked -p eitmad-pricing
 cargo test --locked -p eitmad-server pricing_http
 cargo test --locked -p eitmad-engine-runtime pricing
+cargo test --locked -p eitmad-engine-runtime sales_catalog
 npm run contracts:verify --prefix crates/contracts/codegen
 dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --configuration Release --nologo -m:1 --filter "FullyQualifiedName~Pricing"
+dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --configuration Release --nologo -m:1 --filter "FullyQualifiedName~SalesCatalog"
 ```
 
 Rust tests cover forged Product costs, altered Part row and aggregate costs, Furniture cost recomputation, foreign dependencies, immutable revision conflicts, stale references, and approved arithmetic examples, Product/Furniture separation, option compatibility, overflow, durable audit and revisions, stale conflicts, below-cost confirmation, offline rejection, exact retry after refresh, and serialized Receptionist field omission. Dispatcher tests exercise direct backend review/publication denials and public notices. Subscription tests verify policy invalidation while catalog read remains allowed. Shell tests cover returned-margin projection, input, permission loss across pages, unknown retries, native editor focus, accessible warning controls, and Receptionist columns.
+
+Sales catalog tests use manager-created Product and Furniture definitions projected into a separate Receptionist store without private definitions. They cover public-field omission, Arabic filters, continuation through sparse batches, stale prices, changed definitions, tombstones, custom bounds, compatible options, quantities, and overflow. The real Windows adapter path negotiates the catalog capability and rejects unpublished definitions through all three query types. `SalesCatalogAuthorityTests` and `SalesCatalogAuthorityRenderedTests` cover delayed replies, session changes, explicit refresh, cached snapshots, keyboard paths, mixed-direction values, and unavailable-engine feedback.
+
+The real TLS/PostgreSQL test `catalog_reaches_separate_receptionist_and_recovers_without_private_fields` also browses and checks both item types through these public queries. It requires the direct-route test database and certificates; compilation alone does not verify live server delivery.
 
 The real TLS/PostgreSQL test is `pricing_tls_confirmation_persists_retries_conflicts_and_denies_receptionists` in `crates/server-connection/tests/direct_route.rs`. It requires the same disposable database and trusted-certificate environment as the other direct-route tests. Run it with `cargo test -p eitmad-server-connection --test direct_route pricing_tls_confirmation -- --ignored`. It verifies missing-catalog rejection, forged-cost rejection, immutable catalog replay/conflict, catalog transfer denial, server restart, status receipt recovery, stale CAS, Receptionist denial, public field omission, and immutable history. The PostgreSQL test requires explicit execution; a normal workspace test run leaves it ignored. Do not claim this path passed when those prerequisites are absent.
 
