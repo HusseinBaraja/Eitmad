@@ -3,8 +3,8 @@ using System.Globalization;
 
 namespace Eitmad.WindowsShell.Features.Quotations;
 
-/// <summary>Owns synthetic list, detail, and discount-approval state for the manager preview.</summary>
-public sealed class QuotationsViewModel : ObservableObject
+/// <summary>Presents authorized drafts, details, and isolated approval fixtures.</summary>
+public sealed partial class QuotationsViewModel : ObservableObject
 {
     public const string AllStatuses = "كل الحالات";
     public const string DraftStatus = "مسودة";
@@ -110,14 +110,14 @@ public sealed class QuotationsViewModel : ObservableObject
     private bool approvalsOnly;
     public bool ApprovalsOnly { get => approvalsOnly; set { if (Set(ref approvalsOnly, value)) { Raise(nameof(ListTitle)); Raise(nameof(EmptyTitle)); Raise(nameof(EmptyDescription)); RefreshVisibleQuotations(); } } }
     public string EmptyTitle => ApprovalsOnly ? "لا توجد طلبات خصم معلقة" : "لا توجد عروض أسعار مطابقة";
-    public string EmptyDescription => ApprovalsOnly ? "تظهر هنا طلبات الاستقبال المؤقتة في هذه الجلسة. راجع عوامل التصفية أيضاً." : "غيّر البحث أو عوامل التصفية.";
+    public string EmptyDescription => draftClient is not null ? "تظهر المسودات المحفوظة في الفرع. الموافقات غير متاحة بعد." : ApprovalsOnly ? "تظهر هنا طلبات الاستقبال المؤقتة في هذه الجلسة. راجع عوامل التصفية أيضاً." : "غيّر البحث أو عوامل التصفية.";
     public string ListTitle => ApprovalsOnly ? "موافقات الخصم" : "عروض الأسعار";
     public void OpenApprovals()
     {
         CloseQuotation(); SearchText = ""; SelectedDate = AllDates; SelectedStatus = AllStatuses; ApprovalsOnly = true;
     }
 
-    public string ListSubtitle => IsReceptionist ? "بيانات تجريبية للمعاينة فقط" : "معاينة مؤقتة — عروض الاستقبال وطلبات الخصم في هذه الجلسة فقط";
+    public string ListSubtitle => draftClient is not null ? ListState : IsReceptionist ? "بيانات تجريبية للمعاينة فقط" : "معاينة مؤقتة — عروض الاستقبال وطلبات الخصم في هذه الجلسة فقط";
     public bool IsReceptionist { get; }
     public bool ShowManagerApproval => !IsReceptionist && SelectedQuotation?.HasPendingDiscountApproval == true;
     public string SearchName => IsReceptionist ? "البحث برقم عرض السعر أو العميل أو رقم الهاتف" : "البحث برقم عرض السعر أو العميل";

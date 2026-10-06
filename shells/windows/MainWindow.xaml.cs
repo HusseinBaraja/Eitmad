@@ -13,6 +13,7 @@ public partial class MainWindow : Window
 {
     private readonly IDesktopSessionController? sessions;
     private readonly Features.Customers.CustomerClient? customerClient;
+    private readonly Features.Quotations.QuotationDraftClient? quotationDraftClient;
     private bool sessionActive;
     private bool switchingAccount;
 
@@ -54,10 +55,17 @@ public partial class MainWindow : Window
             _ = ProductsSurface.DisposeAsync();
             _ = PricingSurface.DisposeAsync();
             _ = ReceptionistSurface.DisposeCatalogAsync();
+            if (quotationDraftClient is not null) _ = quotationDraftClient.DisposeAsync();
         };
         ReceptionistSurface.SetCatalogSources(FurnitureSurface.ViewModel, ProductsSurface.ViewModel);
         if (engine is not null) ReceptionistSurface.AttachCatalog(engine);
-        QuotationsSurface.ViewModel.UsePreviewQuotations(ReceptionistSurface.Handoffs.Quotations);
+        if (engine is null) QuotationsSurface.ViewModel.UsePreviewQuotations(ReceptionistSurface.Handoffs.Quotations);
+        else
+        {
+            quotationDraftClient = new(engine);
+            ReceptionistSurface.AttachDraftClient(quotationDraftClient);
+            QuotationsSurface.ViewModel.AttachDraftClient(quotationDraftClient);
+        }
         var receptionOrders = ReceptionistSurface.PreviewOrders.ViewModel;
         OrdersSurface.ViewModel.UsePreviewOrders(receptionOrders.PreviewOrders);
         WorkOrdersSurface.ViewModel.UseOrderFixtures(receptionOrders.PreviewOrders);
@@ -91,6 +99,8 @@ public partial class MainWindow : Window
         SignInSurface.Visibility = Visibility.Collapsed;
         sessionActive = true;
         ShowAccount(surface);
+        if (surface == AuthenticatedSurface.Manager) await QuotationsSurface.ViewModel.ActivateDraftsAsync();
+        else await ReceptionistSurface.ReceptionQuotations.ViewModel.ActivateDraftsAsync();
         if (surface != AuthenticatedSurface.Receptionist) return;
         try
         {
@@ -147,6 +157,7 @@ public partial class MainWindow : Window
         {
             await ReceptionistSurface.DeactivateCustomersAsync();
             await ReceptionistSurface.DeactivateCatalogAsync();
+            if (quotationDraftClient is not null) await quotationDraftClient.DeactivateAsync();
             await sessions.SignOutAsync();
             ShowSignIn();
         }
@@ -189,6 +200,7 @@ public partial class MainWindow : Window
         {
             await ReceptionistSurface.DeactivateCustomersAsync();
             await ReceptionistSurface.DeactivateCatalogAsync();
+            if (quotationDraftClient is not null) await quotationDraftClient.DeactivateAsync();
         }
         finally
         {
@@ -210,6 +222,8 @@ public partial class MainWindow : Window
     /// <summary>Hides account pages and clears their cached state when the desktop session ends.</summary>
     private void HideAccountSurfaces()
     {
+        QuotationsSurface.ViewModel.ClearDrafts();
+        ReceptionistSurface.ReceptionQuotations.ViewModel.ClearDrafts();
         PartsSurface.ClearSession();
         FurnitureSurface.ClearSession();
         ProductsSurface.ClearSession();

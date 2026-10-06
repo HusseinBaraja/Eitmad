@@ -155,7 +155,10 @@ async fn quotation_drafts_restart_transfer_replay_and_conflict_through_real_serv
         &scenario.trust,
     );
     authorize_draft_writer(&mut first, tenant);
-    authorize_draft_writer(&mut second, tenant);
+    // The second desktop initially has Manager read authority without draft-write authority.
+    second.actor.tenant_id = tenant;
+    second.request.object.tenant_id = tenant;
+    second.restart_engine();
     let (_, catalog_actor_a) = catalog_local_authority(
         first.directory.path(),
         &scenario.server.authentication.session,
@@ -186,6 +189,13 @@ async fn quotation_drafts_restart_transfer_replay_and_conflict_through_real_serv
     cycle(catalog_b, catalog_actor_b).await.unwrap();
     let catalog_scope = scenario.server.scope.clone();
     let mut target = scenario.product_target.clone();
+    let mut furniture_target = scenario.furniture_target.clone();
+    if let PriceTarget::Furniture(v) = &mut furniture_target {
+        v.scope = ScopeRef {
+            kind: ScopeKind::parse("organization").unwrap(),
+            id: ScopeId::new(tenant.value()),
+        };
+    }
     match &mut target {
         PriceTarget::Product(v) => {
             v.scope = ScopeRef {
@@ -215,6 +225,8 @@ async fn quotation_drafts_restart_transfer_replay_and_conflict_through_real_serv
     let fixture = DraftTransferFixture {
         created_customer,
         target,
+        furniture_target,
+        dimensions: scenario.furniture.variants[0].dimensions.clone(),
         auth_a,
         auth_b,
         endpoint,
@@ -271,6 +283,8 @@ async fn verify_server_permissions(scenario: &CatalogScenario) -> sqlx::PgPool {
 struct DraftTransferFixture {
     created_customer: Customer,
     target: PriceTarget,
+    furniture_target: PriceTarget,
+    dimensions: eitmad_contracts::furniture::FurnitureDimensions,
     auth_a: AuthenticationResult,
     auth_b: AuthenticationResult,
     endpoint: String,
@@ -375,9 +389,21 @@ fn verify_clients(
         [12; 32],
         (&fixture.endpoint, &fixture.trust, &fixture.catalog_scope),
     );
-    let command = CreateQuotationDraft {
-        intent: draft_intent(fixture.created_customer.id, fixture.target),
-    };
+    let mut intent = draft_intent(fixture.created_customer.id, fixture.target);
+    intent.lines.push(QuotationLineIntent {
+        id: Uuid::new_v4(),
+        configuration: CheckSalesConfiguration {
+            selection: PriceSelection {
+                target: fixture.furniture_target,
+                price_revision: 1,
+                quantity: 2,
+                color_id: None,
+                handle_id: None,
+            },
+            dimensions: Some(fixture.dimensions),
+        },
+    });
+    let command = CreateQuotationDraft { intent };
     let save_context = first.client.mutation();
     let created = first.drafts.create(&save_context, &command).unwrap();
     let reopened = AuthorityStore::open(first.client.directory.path()).unwrap();
@@ -403,10 +429,35 @@ fn verify_clients(
     expected.evaluation.scope = second.client.actor.scope.clone();
     assert_eq!(received.snapshot, expected);
     assert_eq!(received.sync_state, QuotationDraftSyncState::Confirmed);
+    assert_eq!(received.snapshot.evaluation.lines.len(), 2);
+    assert_eq!(
+        received
+            .snapshot
+            .evaluation
+            .totals
+            .as_ref()
+            .unwrap()
+            .total_yer,
+        104_500
+    );
+    assert_eq!(
+        second.drafts.update(
+            &second.client.mutation(),
+            &UpdateQuotationDraft {
+                draft_id: received.snapshot.id,
+                expected_revision: received.snapshot.revision,
+                intent: received.snapshot.intent.clone(),
+            },
+        ),
+        Err(eitmad_pricing::QuotationDraftError::Denied),
+    );
     assert_eq!(
         first.drafts.create(&save_context, &command).unwrap(),
         created
     );
+    // Switch the second desktop to an authorized editor only for the competing-write checks.
+    let tenant = second.client.actor.tenant_id;
+    authorize_draft_writer(&mut second.client, tenant);
     verify_competing_updates(&mut first, &mut second, &created)
 }
 fn verify_interrupted_delivery(client: &mut DraftTestClient) {

@@ -36,7 +36,7 @@ public sealed partial class SalesCatalogViewModel
     /// <summary>Cancels pending reads and removes catalog and unsaved quotation data when the session ends.</summary>
     public async Task DeactivateCatalogAsync()
     {
-        catalogActive = false; ClearCatalog(); QuotationLines.Clear();
+        catalogActive = false; ClearCatalog(); QuotationLines.Clear(); ClearDraftSession();
         if (catalogClient is not null) await catalogClient.DeactivateAsync();
     }
     /// <summary>Invalidates outstanding replies and clears selections, filters, thumbnails, and pagination state.</summary>
@@ -54,7 +54,7 @@ public sealed partial class SalesCatalogViewModel
         CatalogStatus = "بيانات الكتالوج غير متاحة."; Raise(nameof(IsEmpty));
     }
     /// <summary>Removes the public projection and unsaved lines after session or authorization invalidation.</summary>
-    private void CatalogInvalidated(object? sender, EventArgs args) { catalogActive = false; ClearCatalog(); QuotationLines.Clear(); }
+    private void CatalogInvalidated(object? sender, EventArgs args) { catalogActive = false; ClearCatalog(); QuotationLines.Clear(); ClearDraftSession(); }
     /// <summary>Revokes checked selection state and refreshes the page while preserving existing quotation snapshots.</summary>
     private void CatalogChanged(object? sender, EventArgs args)
     {

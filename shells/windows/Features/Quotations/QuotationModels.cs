@@ -28,11 +28,12 @@ public sealed record QuotationLineItem(
     int Quantity,
     decimal UnitPrice)
 {
+    public decimal? EvaluatedTotal { get; init; }
     public bool IsFurniture { get; init; } = true;
     public string Dimensions { get; init; } = "";
     public string ThumbnailKind { get; init; } = "wardrobe";
     public System.Windows.Media.ImageSource? Image { get; init; }
-    public decimal Total => checked(Quantity * UnitPrice);
+    public decimal Total => EvaluatedTotal ?? checked(Quantity * UnitPrice);
 
     public string QuantityLabel => Quantity.ToString(CultureInfo.InvariantCulture);
 
@@ -46,6 +47,9 @@ public sealed record QuotationLineItem(
 /// <summary>Represents one quotation row and its transient approval preview state.</summary>
 public sealed class QuotationListItem : ObservableObject
 {
+    public Eitmad.Contracts.QuotationDraft? Draft { get; init; }
+    public bool HasDraft => Draft is not null;
+    public string DraftNotice => Draft is { } draft ? QuotationDraftClient.SyncLabel(draft) + " — إصدار العرض والطباعة والموافقة والتحويل غير متاحة بعد." : "";
     private DiscountApprovalDecision approvalDecision;
 
     public QuotationListItem(
@@ -75,10 +79,10 @@ public sealed class QuotationListItem : ObservableObject
     public string Address { get; init; } = "";
     public string Notes { get; init; } = "";
 
-    public bool CanEdit => !HasPendingDiscountApproval && (Status is QuotationStatus.Draft or QuotationStatus.Active or QuotationStatus.WaitingApproval);
+    public bool CanEdit => Draft is { } draft ? draft.SyncState is Eitmad.Contracts.SyncState.Pending or Eitmad.Contracts.SyncState.Confirmed : !HasPendingDiscountApproval && (Status is QuotationStatus.Draft or QuotationStatus.Active or QuotationStatus.WaitingApproval);
     public bool IsWaitingApproval => HasPendingDiscountApproval;
     public bool NeedsApprovalToComplete { get; init; }
-    public bool CanPrint => CanEdit && (!NeedsApprovalToComplete && !RequiresDiscountApproval || ApprovalDecision == DiscountApprovalDecision.Approved);
+    public bool CanPrint => Draft is null && CanEdit && (!NeedsApprovalToComplete && !RequiresDiscountApproval || ApprovalDecision == DiscountApprovalDecision.Approved);
     public string ReceptionActivity { get; init; } = "عينة مستقلة";
 
     public Guid Id { get; }
@@ -116,13 +120,13 @@ public sealed class QuotationListItem : ObservableObject
         }
     }
 
-    public decimal Subtotal => Items.Sum(item => item.Total);
+    public decimal Subtotal => Draft?.Snapshot.Evaluation.Totals.SubtotalYer ?? Items.Sum(item => item.Total);
 
-    public decimal FinalTotal => Subtotal - Discount;
+    public decimal FinalTotal => Draft?.Snapshot.Evaluation.Totals.TotalYer ?? Subtotal - Discount;
 
-    public decimal DiscountPercent => Subtotal == 0m ? 0m : decimal.Round(Discount / Subtotal * 100m, 1);
+    public decimal DiscountPercent => Draft is { } draft ? draft.Snapshot.Intent.DiscountBasisPoints / 100m : Subtotal == 0m ? 0m : decimal.Round(Discount / Subtotal * 100m, 1);
 
-    public bool HasPendingDiscountApproval => RequiresDiscountApproval && ApprovalDecision == DiscountApprovalDecision.None;
+    public bool HasPendingDiscountApproval => Draft is null && RequiresDiscountApproval && ApprovalDecision == DiscountApprovalDecision.None;
 
     public bool HasApprovalDecision => ApprovalDecision != DiscountApprovalDecision.None;
 

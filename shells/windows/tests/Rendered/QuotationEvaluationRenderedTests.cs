@@ -42,7 +42,7 @@ public sealed class QuotationEvaluationRenderedTests
                 WpfTestHost.Capture(window, $"quotation-evaluation-lines-{width}");
                 WpfTestHost.Descendants<ScrollViewer>(view).First().ScrollToBottom(); WpfTestHost.CompleteLayout(window);
                 Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(view).Any(t => t.Text == "959"));
-                Assert.IsTrue(WpfTestHost.FindByName<Button>(view, "PrintPreviewButton").IsEnabled);
+                Assert.IsFalse(WpfTestHost.FindByName<Button>(view, "PrintPreviewButton").IsEnabled);
                 WpfTestHost.Capture(window, $"quotation-evaluation-summary-{width}");
                 WpfTestHost.FindByName<TextBox>(view, "DiscountInput").Text = "5.001";
                 WpfTestHost.CompleteLayout(window);

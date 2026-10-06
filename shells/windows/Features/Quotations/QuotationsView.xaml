@@ -173,6 +173,7 @@
             </controls:PageHeader>
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                 <StackPanel Margin="32,22,32,30">
+                    <controls:FeedbackNotice x:Name="DraftNotice" Message="{Binding SelectedQuotation.DraftNotice}" Visibility="{Binding SelectedQuotation.HasDraft, Converter={StaticResource BooleanToVisibility}}" Margin="0,0,0,12"/>
                     <Border x:Name="ApprovalSection" Style="{StaticResource Card}" Padding="20" Margin="0,0,0,16" Visibility="{Binding ShowManagerApproval, Converter={StaticResource BooleanToVisibility}}">
                         <StackPanel>
                             <TextBlock Text="موافقة الخصم مطلوبة" FontSize="18" FontWeight="SemiBold"/>

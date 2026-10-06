@@ -9,16 +9,47 @@ public partial class ReceptionistHomeView : UserControl
 {
     private Features.Customers.CustomerClient? customerClient;
     private SalesCatalogClient? catalogClient;
+    private Eitmad.Platform.Windows.Shell.IEngineShellBridge? quotationEngine;
+    private Features.Quotations.QuotationDraftClient? draftClient;
+    private long editorSession;
     /// <summary>Connects the receptionist catalog view model to the public engine query adapter.</summary>
     public void AttachCatalog(Eitmad.Platform.Windows.Shell.IEngineShellBridge engine)
     {
+        quotationEngine = engine;
         catalogClient = new(engine);
         ((SalesCatalogViewModel)CatalogContent.DataContext).AttachCatalogClient(catalogClient);
+    }
+    public void AttachDraftClient(Features.Quotations.QuotationDraftClient client)
+    {
+        draftClient = client;
+        ((SalesCatalogViewModel)CatalogContent.DataContext).AttachDraftClient(client);
+        ReceptionQuotations.ViewModel.AttachDraftClient(client);
+        ReceptionQuotations.LiveEditorFactory = CreateDraftEditorAsync;
+    }
+    private async Task<SalesCatalogViewModel?> CreateDraftEditorAsync(Features.Quotations.QuotationListItem? row)
+    {
+        if (quotationEngine is null || draftClient is null) return null;
+        var session = editorSession;
+        var editor = new SalesCatalogViewModel(new Features.Furniture.FurnitureViewModel(), new Features.Products.ProductsViewModel(), customerClient);
+        editor.AttachCatalogClient(new SalesCatalogClient(quotationEngine)); editor.AttachDraftClient(draftClient);
+        await editor.ActivateCatalogAsync();
+        if (session != editorSession) { await editor.DisposeEditorAsync(); return null; }
+        if (row is not null && !await editor.OpenDraftAsync(row.Id))
+        {
+            ShowNotice(editor.QuotationNotice); await editor.DisposeEditorAsync(); return null;
+        }
+        if (session != editorSession) { await editor.DisposeEditorAsync(); return null; }
+        return editor;
     }
     /// <summary>Starts catalog loading after the receptionist session becomes active.</summary>
     public Task ActivateCatalogAsync() => ((SalesCatalogViewModel)CatalogContent.DataContext).ActivateCatalogAsync();
     /// <summary>Clears catalog and temporary quotation state before the session is replaced.</summary>
-    public Task DeactivateCatalogAsync() => ((SalesCatalogViewModel)CatalogContent.DataContext).DeactivateCatalogAsync();
+    public async Task DeactivateCatalogAsync()
+    {
+        ++editorSession;
+        ReceptionQuotations.CloseEditors();
+        await ((SalesCatalogViewModel)CatalogContent.DataContext).DeactivateCatalogAsync();
+    }
     /// <summary>Stops the catalog session and releases its change feed when the home view closes.</summary>
     public async ValueTask DisposeCatalogAsync() { await DeactivateCatalogAsync(); if (catalogClient is not null) await catalogClient.DisposeAsync(); }
     private CancellationTokenSource? customerLoadCancellation;

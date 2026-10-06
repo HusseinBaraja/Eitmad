@@ -10,7 +10,7 @@
  <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
  <StackPanel Margin="28,18" TextBlock.Foreground="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}">
   <Button x:Name="BackButton" Content="{Binding BackLabel}" HorizontalAlignment="Right" Style="{StaticResource SecondaryButton}" Click="BackClick" AutomationProperties.Name="{Binding BackLabel}"/>
-  <TextBlock Text="الاختيار وعرض السعر مؤقتان ولا يتم حفظهما" Margin="0,12"/>
+  <TextBlock Text="{Binding PersistenceNotice}" TextWrapping="Wrap" Margin="0,12"/>
   <Button Content="تحديث الصنف" Click="RefreshClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" AutomationProperties.Name="تحديث الصنف"/>
   <Grid Margin="0,0,0,18">
    <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="3*"/></Grid.ColumnDefinitions>

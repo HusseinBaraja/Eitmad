@@ -16,12 +16,13 @@ public partial class CurrentQuotationView : UserControl
         while (parent is not null && parent is not SalesCatalogView) parent = VisualTreeHelper.GetParent(parent);
         (parent as SalesCatalogView)?.RestoreSelectionFocus();
     }
-    private void EditClick(object sender, RoutedEventArgs e)
+    private async void EditClick(object sender, RoutedEventArgs e)
     {
         Model.EditLine((PreviewQuotationLine)((Button)sender).DataContext);
-        DependencyObject parent = this;
-        while (parent is not SalesCatalogView) parent = VisualTreeHelper.GetParent(parent);
-        ((SalesCatalogView)parent).FocusEditor();
+        await Model.LastCatalogOperation;
+        DependencyObject? parent = this;
+        while (parent is not null && parent is not SalesCatalogView) parent = VisualTreeHelper.GetParent(parent);
+        (parent as SalesCatalogView)?.FocusEditor();
     }
     private void DuplicateClick(object sender, RoutedEventArgs e) => Model.DuplicateLine((PreviewQuotationLine)((Button)sender).DataContext);
     private void RemoveClick(object sender, RoutedEventArgs e) { Model.QuotationLines.Remove((PreviewQuotationLine)((Button)sender).DataContext); ContinueButton.Focus(); }
@@ -34,7 +35,12 @@ public partial class CurrentQuotationView : UserControl
     }
     private void CancelCustomerClick(object sender, RoutedEventArgs e) { Model.CancelNewCustomer(); CustomerNameInput.Focus(); }
     private void RequestApprovalClick(object sender, RoutedEventArgs e) { Model.RequestDiscountApproval(); if (Model.IsDiscountPending) SaveDraftButton.Focus(); else FocusMissingField(); }
-    private void SaveDraftClick(object sender, RoutedEventArgs e) { if (!Model.ReviewDraftSave()) FocusMissingField(); }
+    private async void SaveDraftClick(object sender, RoutedEventArgs e) { if (!await Model.SaveDraftAsync()) FocusMissingField(); }
+    private async void ReloadDraftClick(object sender, RoutedEventArgs e)
+    {
+        if (System.Windows.MessageBox.Show(Window.GetWindow(this), "ستُستبدل التعديلات غير المحفوظة بالنسخة المحفوظة. هل تريد المتابعة؟", "إعادة فتح المسودة", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) != MessageBoxResult.Yes) return;
+        await Model.ReloadDraftAsync(); ContinueButton.Focus();
+    }
     private void SaveQuotationClick(object sender, RoutedEventArgs e) { if (!Model.ReviewSave()) FocusMissingField(); }
     private void FocusMissingField()
     {

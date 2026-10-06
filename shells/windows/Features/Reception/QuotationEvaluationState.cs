@@ -30,7 +30,7 @@ public sealed partial class SalesCatalogViewModel
         var lines = new List<QuotationLineIntent>();
         foreach (var line in QuotationLines)
         {
-            var configuration = line.Furniture?.ConfigurationInput() ?? line.Product?.ConfigurationInput();
+            var configuration = line.Intent;
             if (configuration is null) { QuotationNotice = "حدّث الأصناف واختر إعداداتها من الكتالوج."; return; }
             lines.Add(new() { Id = line.Id, Configuration = configuration });
         }
@@ -51,6 +51,7 @@ public sealed partial class SalesCatalogViewModel
             var result = await catalogClient!.EvaluateAsync(input, token);
             if (version != evaluationVersion || token.IsCancellationRequested || !catalogActive) return;
             evaluation = result.Value;
+            if (evaluation is not null) ApplyEvaluatedLines(evaluation);
             QuotationNotice = !result.Succeeded ? SalesCatalogClient.Message(result.Failure)
                 : evaluation!.Errors.Length > 0 ? EvaluationMessage(evaluation.Errors[0])
                 : evaluation.ServerAvailable ? "تم تقييم عرض السعر — لم يُحفظ أو يصدر."
@@ -64,6 +65,17 @@ public sealed partial class SalesCatalogViewModel
     {
         Raise(nameof(Evaluation)); Raise(nameof(Subtotal)); Raise(nameof(SubtotalLabel));
         RaiseDiscountState();
+    }
+
+    private void ApplyEvaluatedLines(QuotationEvaluation value)
+    {
+        applyingDraft = true;
+        foreach (var result in value.Lines)
+        {
+            var index = QuotationLines.ToList().FindIndex(line => line.Id == result.Id);
+            if (index >= 0) QuotationLines[index] = QuotationLines[index] with { SavedEvaluation = result };
+        }
+        applyingDraft = false;
     }
 
     /// <summary>Formats typed field failures without raw diagnostics or a shell-owned pricing decision.</summary>

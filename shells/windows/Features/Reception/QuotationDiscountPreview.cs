@@ -50,10 +50,10 @@ public sealed partial class SalesCatalogViewModel
     public bool RequiresDiscountApproval => catalogClient is not null ? evaluation?.Totals?.ApprovalRequired == true : IsDiscountValid && discountPercent > PreviewDiscountLimit;
     public bool IsDiscountPending => catalogClient is null && discountPending;
     public bool CanRequestDiscountApproval => catalogClient is null && RequiresDiscountApproval && !discountPending && !IsDiscountApproved && !IsQuotationEmpty;
-    public bool CanSaveQuotation => catalogClient is not null ? IsDiscountValid && evaluation?.Totals is { ApprovalRequired: false } : IsDiscountValid && (!RequiresDiscountApproval || IsDiscountApproved);
-    public bool CanSaveDraft => IsDiscountValid && !IsQuotationEmpty && (catalogClient is null || evaluation?.Totals is not null);
+    public bool CanSaveQuotation => catalogClient is null && IsDiscountValid && (!RequiresDiscountApproval || IsDiscountApproved);
+    public bool CanSaveDraft => !IsDraftBusy && !draftConflict && IsDiscountValid && !IsQuotationEmpty && (catalogClient is null || catalogActive && (uncertainSave || evaluation?.Totals is not null));
     public string DiscountStatus => IsDiscountApproved ? "تمت الموافقة على الخصم — معاينة فقط" : IsDiscountRejected ? "رُفض الخصم — عدّل العرض أو اطلب الموافقة مجدداً" : IsDiscountPending ? "بانتظار موافقة المدير" : RequiresDiscountApproval ? "يتطلب موافقة المدير" : "";
-    public string DiscountGuidance => IsDiscountApproved ? "يمكنك الآن إكمال عرض السعر في المعاينة" : IsDiscountRejected ? "خفّض الخصم أو عدّل العرض ثم اطلب الموافقة مجدداً" : "يمكنك مراجعة العرض وحفظه كمسودة حتى الموافقة على الخصم";
+    public string DiscountGuidance => IsLiveQuotation ? "يمكن حفظ المسودة. طلب الموافقة وإصدار عرض السعر غير متاحين بعد." : IsDiscountApproved ? "يمكنك الآن إكمال عرض السعر في المعاينة" : IsDiscountRejected ? "خفّض الخصم أو عدّل العرض ثم اطلب الموافقة مجدداً" : "يمكنك مراجعة العرض وحفظه كمسودة حتى الموافقة على الخصم";
     public string TotalHeading => RequiresDiscountApproval && !IsDiscountApproved ? "الإجمالي بعد الخصم المطلوب" : "الإجمالي النهائي";
 
     public void RequestDiscountApproval()
@@ -67,6 +67,7 @@ public sealed partial class SalesCatalogViewModel
 
     public bool ReviewDraftSave()
     {
+        if (draftClient is not null) { QuotationNotice = "استخدم حفظ كمسودة لتأكيد الحفظ من المحرك."; return false; }
         if (!CheckRequiredFields()) return false;
         if (!CanSaveDraft) return false;
         PublishPreview?.Invoke(this, discountPending);
@@ -76,6 +77,8 @@ public sealed partial class SalesCatalogViewModel
 
     private void InvalidateDiscountRequest()
     {
+        if (applyingDraft) return;
+        hasUnsavedEdits = true; Raise(nameof(DraftState));
         if (approvalPreview is not null) System.ComponentModel.PropertyChangedEventManager.RemoveHandler(approvalPreview, ApprovalChanged, "");
         approvalPreview = null;
         discountPending = false;

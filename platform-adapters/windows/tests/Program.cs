@@ -494,12 +494,47 @@ internal sealed class SupervisionScenarios
             }), Guid.NewGuid());
             Assert.Equal(ProtocolIds.ErrorCodes.EitmadErrorCustomerRevisionConflictV1,
                 staleResponse.Outcome.Payload.Code, "stale edit cannot overwrite current customer");
+            await VerifyQuotationDraftBranchBoundary(supervisor, found);
             await supervisor.StopAsync();
         }
         finally
         {
             Directory.Delete(runtimeDirectory, recursive: true);
         }
+    }
+
+    /// <summary>Uses real negotiated IPC to prove draft reads, events, validation, and role denial use the branch context.</summary>
+    private static async Task VerifyQuotationDraftBranchBoundary(EngineSupervisor supervisor, Customer customer)
+    {
+        Assert.True(supervisor.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityQuotationDraftV1), "draft capability negotiated");
+        await using var subscription = await supervisor.SubscribeAsync(Subscription.ForQuotationDraftChangedSubscribe(new()));
+        var list = await supervisor.QueryAsync(Query.ForQuotationDraftList(new() { Limit = 100 }));
+        Assert.Equal(CommandOutcomeStatus.Succeeded, list.Outcome.Status, "Manager draft list uses authorized branch");
+        Assert.Equal(0, list.Outcome.Payload.AsQuotationDrafts()!.Items.Length, "no synthetic quotation rows from Rust");
+        var intent = new EvaluateQuotation { Customer = new() { Id = customer.Id, Revision = customer.Revision + 1 }, Lines = [], DiscountBasisPoints = 0 };
+        var denied = await supervisor.SubmitCommandAsync(Command.ForQuotationDraftCreate(new() { Intent = intent }), Guid.NewGuid());
+        Assert.Equal(ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1, denied.Outcome.Payload.Code, "Manager cannot create draft");
+        // SaveSupplierProduct intentionally changes this account's role to invalidate subscriptions.
+        var accounts = await supervisor.QueryAsync(Query.ForDesktopAccountList(new()));
+        var account = accounts.Outcome.Payload.AsDesktopAccounts()!.Accounts.Single(a => a.Username == "rec");
+        var restored = await supervisor.SubmitCommandAsync(Command.ForDesktopAccountUpdate(new()
+        {
+            AccountId = account.AccountId, ExpectedRevision = account.Revision,
+            DisplayName = account.DisplayName, Role = DesktopAccountRole.Receptionist,
+        }), Guid.NewGuid());
+        Assert.Equal(CommandOutcomeStatus.Succeeded, restored.Outcome.Status, "restore Receptionist test authority");
+        await supervisor.SignOutAsync();
+        var reception = await supervisor.SignInAsync("rec", "rec");
+        Assert.Equal(DesktopAccountRole.Receptionist, reception.AccountRole, "Rust receptionist role");
+        Assert.Equal("branch", reception.CustomerAuthorization?.Scope.Kind, "Rust receptionist branch");
+        var receptionList = await supervisor.QueryAsync(Query.ForQuotationDraftList(new() { Limit = 100 }));
+        Assert.Equal(CommandOutcomeStatus.Succeeded, receptionList.Outcome.Status, "Receptionist branch read");
+        var evaluation = await supervisor.QueryAsync(Query.ForQuotationEvaluate(intent));
+        Assert.Equal(CommandOutcomeStatus.Succeeded, evaluation.Outcome.Status, "Receptionist branch evaluation");
+        var failed = await supervisor.SubmitCommandAsync(Command.ForQuotationDraftCreate(new() { Intent = intent }), Guid.NewGuid());
+        Assert.Equal(ProtocolIds.ErrorCodes.EitmadErrorQuotationDraftInvalidV1, failed.Outcome.Payload.Code, "Receptionist reaches draft field validation in branch");
+        Assert.Equal(DetailKind.QuotationDraftValidation, failed.Outcome.Payload.Detail.Kind, "typed draft errors reach native client");
+        Assert.True(failed.Outcome.Payload.Detail.Payload.Errors.Any(error => error.Field == QuotationField.Lines), "empty lines rejected by Rust");
     }
 
     /// <summary>Builds the synthetic definition used to verify durable Furniture IPC.</summary>
