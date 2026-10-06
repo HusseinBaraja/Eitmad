@@ -133,6 +133,7 @@ public partial class MainWindow : Window
     private void ManagerTitleBarSearchSubmitted(object? sender, Controls.ShellSearchEventArgs eventArgs) =>
         ShowToast($"نتائج المعاينة عن: {eventArgs.Query}");
 
+    /// <summary>Clears receptionist projections and stops session adapters before switching accounts.</summary>
     private async Task SwitchAccountAsync()
     {
         if (!sessionActive || switchingAccount || sessions is null)
@@ -180,6 +181,7 @@ public partial class MainWindow : Window
     private void SessionEnded(object? sender, SessionEndedEventArgs eventArgs) =>
         Dispatcher.Invoke(() => _ = CompleteSessionEndAsync(eventArgs.Reason));
 
+    /// <summary>Clears session-owned views and projections before returning to sign-in.</summary>
     private async Task CompleteSessionEndAsync(SessionEndReason reason)
     {
         SignInSurface.IsEnabled = false;

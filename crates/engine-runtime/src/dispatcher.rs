@@ -185,6 +185,7 @@ impl ProductDispatcher {
         self.images.retry_uploads()
     }
 
+    /// Authorizes public reads, attempts refresh within the deadline, and rechecks access before returning confirmed cache data.
     async fn sales_catalog_query(
         &self,
         context: &DispatchContext,
@@ -247,6 +248,7 @@ impl ProductDispatcher {
         .map_err(|e| pricing_error(e, context))
     }
 
+    /// Routes public catalog queries to their bounded refresh path and retains existing authorized pricing routes.
     async fn pricing_query(
         &self,
         context: &DispatchContext,
@@ -2762,6 +2764,7 @@ mod tests {
             schema_version: 1,
         })
     }
+    /// Projects a synthetic server-confirmed public revision into the separate receptionist client store.
     fn project_catalog_entry(
         receiver: &ProductDispatcher,
         entry: &eitmad_contracts::catalog_revision::CatalogEntry,
@@ -2810,6 +2813,7 @@ mod tests {
             .unwrap();
     }
 
+    /// Verifies receptionist reads and configuration checks work from another client publication without private definitions.
     #[tokio::test]
     async fn sales_catalog_dispatch_reads_another_client_publication_without_private_definitions() {
         use eitmad_contracts::{

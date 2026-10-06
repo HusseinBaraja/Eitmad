@@ -9,6 +9,7 @@ public sealed record PreviewQuotationLine
     public SalesCatalogItem Item { get; }
     public FurnitureSelectionViewModel? Furniture { get; }
     public ProductSelectionViewModel? Product { get; }
+    /// <summary>Copies furniture choices, dimensions, and the checked configuration into an independent unsaved quotation snapshot.</summary>
     public PreviewQuotationLine(FurnitureSelectionViewModel value)
     {
         Item = value.Item;
@@ -19,6 +20,7 @@ public sealed record PreviewQuotationLine
         Furniture.WidthCm = value.WidthCm; Furniture.HeightCm = value.HeightCm; Furniture.DepthCm = value.DepthCm;
         if (value.Configuration is { } configuration) Furniture.Apply(configuration);
     }
+    /// <summary>Copies the product variant, quantity, and checked configuration into an independent unsaved quotation snapshot.</summary>
     public PreviewQuotationLine(ProductSelectionViewModel value)
     {
         Item = value.Item;
@@ -284,6 +286,7 @@ public sealed partial class SalesCatalogViewModel
             CloseSelection();
         }
     }
+    /// <summary>Stages a copy for editing and revalidation while keeping the existing quotation line unchanged.</summary>
     public void EditLine(PreviewQuotationLine line)
     {
         if (!QuotationLines.Contains(line)) return;

@@ -12,6 +12,7 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 [TestClass]
 public sealed class SalesCatalogAuthorityRenderedTests
 {
+    /// <summary>Verifies rendered public choices, keyboard paths, and isolated mixed-direction values at the configured window sizes.</summary>
     [TestMethod]
     [DataRow(1920, 1080)]
     [DataRow(1338, 753)]
@@ -87,6 +88,7 @@ public sealed class SalesCatalogAuthorityRenderedTests
             finally { Finish(model.DeactivateCatalogAsync()); Finish(client.DisposeAsync().AsTask()); Finish(engine.DisposeAsync().AsTask()); }
         });
     }
+    /// <summary>Pumps the STA dispatcher until an asynchronous catalog operation completes, with a bounded test timeout.</summary>
     private static void Finish(Task task)
     {
         task = task.WaitAsync(TimeSpan.FromSeconds(10));

@@ -10,6 +10,7 @@ namespace Eitmad.WindowsShell.Tests.Products;
 [TestClass]
 public sealed class SalesCatalogAuthorityTests
 {
+    /// <summary>Creates a synthetic public entry with bounded furniture customization and a revisioned selling price.</summary>
     internal static CatalogEntry Entry(bool furniture = false)
     {
         var target = furniture ? PriceTarget.ForFurniture(new FurnitureReference { Scope = new() { Kind = "organization", Id = Guid.NewGuid() }, FurnitureId = Guid.NewGuid(), VariantId = Guid.NewGuid(), Revision = 1, SchemaVersion = 1 })
@@ -22,8 +23,11 @@ public sealed class SalesCatalogAuthorityTests
             Customization = furniture ? new() { Minimum = dims, Maximum = new() { WidthMm = 1500, HeightMm = 2000, DepthMm = 600 } } : null!
         };
     }
+    /// <summary>Wraps a synthetic public query result in a successful engine response.</summary>
     internal static QueryResponseEnvelope Response(QueryResult value) => new() { Outcome = new() { Status = CommandOutcomeStatus.Succeeded, Payload = value } };
+    /// <summary>Returns a typed failure code without private diagnostics or cost data.</summary>
     internal static QueryResponseEnvelope Failure(string code) => new() { Outcome = new() { Status = CommandOutcomeStatus.Failed, Payload = new() { Code = code } } };
+    /// <summary>Returns synthetic Rust totals distinct from card prices to detect shell-owned recalculation.</summary>
     internal static QueryResponseEnvelope Handle(Query query, CatalogEntry entry)
     {
         if (query.AsSalesCatalogList() is not null) return Response(QueryResult.ForSalesCatalog(new() { Items = [entry], Categories = [entry.CategoryName], ServerAvailable = false }));
@@ -33,10 +37,12 @@ public sealed class SalesCatalogAuthorityTests
         }));
         return Failure(ProtocolIds.ErrorCodes.EitmadErrorContractInvalidV1);
     }
+    /// <summary>Attaches the catalog adapter to the same selection view model used by the receptionist shell.</summary>
     private static SalesCatalogViewModel Model(SalesCatalogClient client)
     {
         var model = new SalesCatalogViewModel(new FurnitureViewModel(), new ProductsViewModel()); model.AttachCatalogClient(client); return model;
     }
+    /// <summary>Verifies Rust totals, add-time revision checks, and preservation of the original line during refresh and editing.</summary>
     [TestMethod]
     public async Task LiveCatalogUsesRustTotalsRechecksAddAndKeepsSnapshotDuringEditing()
     {
@@ -57,6 +63,7 @@ public sealed class SalesCatalogAuthorityTests
         Assert.IsFalse(model.ProductSelection.CanAdd); Assert.AreEqual(25554m, model.QuotationLines[0].LineTotal);
         await model.DeactivateCatalogAsync(); Assert.IsFalse(model.IsSelecting); Assert.HasCount(0, model.QuotationLines);
     }
+    /// <summary>Verifies filters reach a bounded Rust query and authorization denial removes protected projection state.</summary>
     [TestMethod]
     public async Task SearchAndCategoryGoToOneBoundedRustPageAndDenialClearsProjection()
     {
@@ -69,6 +76,7 @@ public sealed class SalesCatalogAuthorityTests
         var queries = 0; engine.QueryHandler = _ => { queries++; return Failure(ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1); };
         await model.NextPageAsync(); Assert.AreEqual(1, queries); Assert.HasCount(0, model.VisibleItems); Assert.IsFalse(model.HasNextPage); Assert.IsFalse(model.IsEmpty); Assert.IsTrue(model.CatalogStatus.Contains("صلاحية"));
     }
+    /// <summary>Verifies delayed replies cannot restore selections or validation after session or input changes.</summary>
     [TestMethod]
     public async Task LateSelectionAndValidationCannotReturnAfterSessionEndsOrInputChanges()
     {
@@ -86,6 +94,7 @@ public sealed class SalesCatalogAuthorityTests
         Assert.IsFalse(selection.CanAdd); Assert.IsTrue(selection.Guidance.Contains("السنتيمتر"));
         await model.DeactivateCatalogAsync(); Assert.IsFalse(model.IsSelecting);
     }
+    /// <summary>Verifies disconnection and archived targets show explicit failures and prevent adding unchecked configurations.</summary>
     [TestMethod]
     public async Task EngineDisconnectionAndArchivedItemRemainExplicitAndCannotAdd()
     {

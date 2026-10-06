@@ -9,13 +9,17 @@ public partial class ReceptionistHomeView : UserControl
 {
     private Features.Customers.CustomerClient? customerClient;
     private SalesCatalogClient? catalogClient;
+    /// <summary>Connects the receptionist catalog view model to the public engine query adapter.</summary>
     public void AttachCatalog(Eitmad.Platform.Windows.Shell.IEngineShellBridge engine)
     {
         catalogClient = new(engine);
         ((SalesCatalogViewModel)CatalogContent.DataContext).AttachCatalogClient(catalogClient);
     }
+    /// <summary>Starts catalog loading after the receptionist session becomes active.</summary>
     public Task ActivateCatalogAsync() => ((SalesCatalogViewModel)CatalogContent.DataContext).ActivateCatalogAsync();
+    /// <summary>Clears catalog and temporary quotation state before the session is replaced.</summary>
     public Task DeactivateCatalogAsync() => ((SalesCatalogViewModel)CatalogContent.DataContext).DeactivateCatalogAsync();
+    /// <summary>Stops the catalog session and releases its change feed when the home view closes.</summary>
     public async ValueTask DisposeCatalogAsync() { await DeactivateCatalogAsync(); if (catalogClient is not null) await catalogClient.DisposeAsync(); }
     private CancellationTokenSource? customerLoadCancellation;
     private string customerReturnDestination = "الطلبات";

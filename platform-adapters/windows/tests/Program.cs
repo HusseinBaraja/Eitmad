@@ -538,6 +538,7 @@ internal sealed class SupervisionScenarios
         await supervisor.SignOutAsync();await supervisor.SignInAsync("admin","admin");return value;
     }
 
+    /// <summary>Verifies real-engine public queries exclude unpublished manager definitions and reject unavailable targets.</summary>
     private static async Task VerifyReceptionistCatalogBoundary(EngineSupervisor supervisor, Furniture furniture)
     {
         var response = await supervisor.QueryAsync(Query.ForSalesCatalogList(new ListSalesCatalog { Term = "خزانة", Limit = 30 }));

@@ -21,6 +21,7 @@ public partial class FurnitureSelectionView : UserControl
         ((SalesCatalogViewModel)catalog.DataContext).CloseSelection();
         catalog.RestoreSelectionFocus();
     }
+    /// <summary>Rechecks the configuration through Rust before adding the unsaved line and restoring catalog or review focus.</summary>
     private async void AddClick(object sender, RoutedEventArgs e)
     {
         var editing = ((FurnitureSelectionViewModel)DataContext).IsEditing;
@@ -30,5 +31,6 @@ public partial class FurnitureSelectionView : UserControl
         AddedNotice.Message = $"تمت الإضافة إلى عرض السعر (معاينة فقط)\n{selection.Item.Name} · {selection.SelectedSize!.Name} · الكمية: {selection.Quantity}";
         AddedNotice.RestartDuration();
     }
+    /// <summary>Reloads current public choices and restores keyboard focus to the selection editor.</summary>
     private async void RefreshClick(object sender, RoutedEventArgs e) { await ((SalesCatalogViewModel)Catalog.DataContext).RefreshSelectionAsync(); Catalog.FocusEditor(); }
 }

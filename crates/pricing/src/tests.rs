@@ -100,6 +100,7 @@ fn published_product_entry() -> eitmad_contracts::catalog_revision::CatalogEntry
     public_entry(&CatalogRevision::Product(Box::new(saved)), &receipt).unwrap()
 }
 
+/// Verifies scoped Arabic search, public prices, stale revisions, and withdrawal across separate manager and receptionist stores.
 #[test]
 fn sales_catalog_separate_client_search_pages_prices_and_withdrawal_are_public_only() {
     use eitmad_contracts::sales_catalog::{
@@ -203,6 +204,7 @@ fn sales_catalog_separate_client_search_pages_prices_and_withdrawal_are_public_o
     );
 }
 
+/// Verifies sparse filtering and continuation cross bounded storage batches without losing matching entries.
 #[test]
 fn sales_catalog_sparse_pages_cross_storage_batches_without_gaps() {
     use eitmad_contracts::sales_catalog::ListSalesCatalog;
@@ -297,6 +299,7 @@ fn published_furniture_entry() -> eitmad_contracts::catalog_revision::CatalogEnt
     public_entry(&CatalogRevision::Furniture(Box::new(saved)), &receipt).unwrap()
 }
 
+/// Verifies public furniture configuration rejects invalid bounds, incompatible options, invalid quantity, and arithmetic overflow.
 #[test]
 fn sales_catalog_furniture_checks_dimensions_compatible_options_quantity_and_overflow() {
     use eitmad_contracts::sales_catalog::CheckSalesConfiguration;
