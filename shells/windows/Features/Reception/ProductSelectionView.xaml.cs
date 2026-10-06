@@ -21,13 +21,14 @@ public partial class ProductSelectionView : UserControl
         ((SalesCatalogViewModel)catalog.DataContext).CloseSelection();
         catalog.RestoreSelectionFocus();
     }
-    private void AddClick(object sender, RoutedEventArgs e)
+    private async void AddClick(object sender, RoutedEventArgs e)
     {
         var editing = ((ProductSelectionViewModel)DataContext).IsEditing;
-        if (!((SalesCatalogViewModel)Catalog.DataContext).AddProductSelection()) return;
+        if (!await ((SalesCatalogViewModel)Catalog.DataContext).AddValidatedSelectionAsync(true)) return;
         if (editing) { Catalog.RestoreQuotationFocus(); return; }
         var selection = (ProductSelectionViewModel)DataContext;
         AddedNotice.Message = $"تمت الإضافة إلى عرض السعر (معاينة فقط)\n{selection.Item.Name} · {selection.SelectedVariant?.Name ?? string.Empty} · الكمية: {selection.Quantity}";
         AddedNotice.RestartDuration();
     }
+    private async void RefreshClick(object sender, RoutedEventArgs e) { await ((SalesCatalogViewModel)Catalog.DataContext).RefreshSelectionAsync(); Catalog.FocusEditor(); }
 }

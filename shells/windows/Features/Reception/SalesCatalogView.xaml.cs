@@ -35,14 +35,17 @@ public partial class SalesCatalogView : UserControl
         ((SalesCatalogViewModel)DataContext).IsReviewingQuotation = true;
         RestoreQuotationFocus();
     }
-    private void SelectClick(object sender, RoutedEventArgs e)
+    private async void SelectClick(object sender, RoutedEventArgs e)
     {
         if (sender is Button { DataContext: SalesCatalogItem item })
         {
             lastSelectionButton = (Button)sender;
             ((SalesCatalogViewModel)DataContext).Select(item);
+            await ((SalesCatalogViewModel)DataContext).LastCatalogOperation;
             if (((SalesCatalogViewModel)DataContext).IsSelecting)
                 FocusEditor();
         }
     }
+    private void ReloadClick(object sender, RoutedEventArgs e) => ((SalesCatalogViewModel)DataContext).Reload();
+    private async void NextClick(object sender, RoutedEventArgs e) => await ((SalesCatalogViewModel)DataContext).NextPageAsync();
 }

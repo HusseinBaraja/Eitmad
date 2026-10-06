@@ -1305,6 +1305,7 @@ fn default_engine_hello() -> PeerHello {
             "eitmad.capability.catalog-image.v1",
             "eitmad.capability.product.v1",
             "eitmad.capability.pricing.v1",
+            "eitmad.capability.sales-catalog.v1",
             "eitmad.capability.furniture.v1",
             "eitmad.capability.part.v1",
             "eitmad.capability.material.v1",

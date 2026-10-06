@@ -10,6 +10,7 @@ use crate::{
 };
 
 pub const CAPABILITIES: &[&str] = &[
+    "eitmad.capability.sales-catalog.v1",
     "eitmad.capability.catalog-revisions.v1",
     "eitmad.capability.pricing.v1",
     "eitmad.capability.engine-lifecycle.v1",

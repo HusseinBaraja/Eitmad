@@ -6,16 +6,17 @@ using Eitmad.WindowsShell.Features.Products;
 
 namespace Eitmad.WindowsShell.Features.Reception;
 
-/// <summary>A sales-only projection of transient manager preview data, not an IPC contract.</summary>
+/// <summary>Formats the Rust public catalog for native cards and temporary selections.</summary>
 public sealed record SalesCatalogItem(Guid Id, string Name, string Category, string Description,
     string VariantSummary, decimal Price, bool HasStartingPrice, string ThumbnailKind, ImageSource? Image)
 {
+    public Eitmad.Contracts.CatalogEntry? Entry { get; init; }
     public string PriceLabel => Price.ToString("N0", CultureInfo.InvariantCulture) + " ر.ي";
     public string PricePrefix => HasStartingPrice ? "ابتداءً من" : "السعر";
     public string SelectionName => "اختيار " + Name;
 }
 
-/// <summary>Filters preview presentation state. Production catalog queries remain Rust-owned.</summary>
+/// <summary>Stages unsaved selections; live search, availability, and validation are Rust-owned.</summary>
 public sealed partial class SalesCatalogViewModel : ObservableObject
 {
     private readonly FurnitureViewModel furniture;
@@ -37,21 +38,22 @@ public sealed partial class SalesCatalogViewModel : ObservableObject
 
     public ObservableCollection<SalesCatalogItem> VisibleItems { get; } = [];
     public ObservableCollection<string> Categories { get; } = [];
-    public bool IsEmpty => VisibleItems.Count == 0;
+    public bool IsEmpty => VisibleItems.Count == 0 && !IsCatalogLoading && (catalogClient is null || catalogLoaded);
     public string SelectionNotice { get => selectionNotice; private set => Set(ref selectionNotice, value); }
     public string SearchText
     {
         get => searchText;
-        set { if (Set(ref searchText, value ?? string.Empty)) Refresh(); }
+        set { if (Set(ref searchText, value ?? string.Empty)) { if (catalogClient is null) Refresh(); else QueueCatalogLoad(); } }
     }
     public string SelectedCategory
     {
         get => selectedCategory;
-        set { if (Set(ref selectedCategory, value ?? "الكل")) Refresh(); }
+        set { if (Set(ref selectedCategory, value ?? "الكل")) { if (catalogClient is null) Refresh(); else if (!applyingCatalog) QueueCatalogLoad(); } }
     }
 
     public void Reload()
     {
+        if (catalogClient is not null) { QueueCatalogLoad(); return; }
         items = [.. furniture.GetSalesCatalogItems(), .. products.GetSalesCatalogItems()];
         var category = selectedCategory;
         Categories.Clear();
@@ -80,7 +82,7 @@ public sealed partial class SalesCatalogViewModel : ObservableObject
     public bool IsSelecting => IsSelectingFurniture || IsSelectingProduct;
     public ObservableCollection<PreviewQuotationLine> QuotationLines { get; } = [];
     public string QuotationLabel => $"عرض السعر · {QuotationLines.Count} عناصر";
-    public void CloseSelection() { Selection = null; ProductSelection = null; if (editingLine is not null) IsReviewingQuotation = true; editingLine = null; }
+    public void CloseSelection() { ++selectionVersion; ++checkVersion; selectionCancellation?.Cancel(); checkCancellation?.Cancel(); Selection = null; ProductSelection = null; if (editingLine is not null) IsReviewingQuotation = true; editingLine = null; }
     public bool AddProductSelection()
     {
         if (ProductSelection is not { CanAdd: true } current) return false;
@@ -97,6 +99,7 @@ public sealed partial class SalesCatalogViewModel : ObservableObject
     public void Select(SalesCatalogItem item)
     {
         if (!VisibleItems.Contains(item)) return;
+        if (catalogClient is not null) { LastCatalogOperation = SelectAsync(item); return; }
         Selection = furniture.GetSalesSelection(item.Id);
         ProductSelection = Selection is null ? products.GetSalesSelection(item.Id) : null;
         if (!IsSelecting)

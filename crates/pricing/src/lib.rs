@@ -1,6 +1,7 @@
 //! Rust-authoritative prices with distinct ready-made and manufactured references.
 mod catalog;
 mod money;
+mod sales_catalog;
 pub use catalog::{
     catalog_dependencies, catalog_record_id, public_entry, publication_basis, revision_record_id,
     revision_schema, validate_catalog_revision, validate_server_proposal,

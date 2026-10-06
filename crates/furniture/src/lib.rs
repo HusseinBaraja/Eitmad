@@ -676,6 +676,23 @@ fn within(
     .iter()
     .all(|(v, min, max)| min <= v && v <= max)
 }
+
+/// Checks dimensions against the same fixed-size or inclusive customization rule as manager selections.
+/// # Errors
+/// Rejects nonpositive, oversized, or unpermitted dimensions.
+pub fn validate_selection_dimensions(
+    dimensions: &eitmad_contracts::furniture::FurnitureDimensions,
+    fixed: &eitmad_contracts::furniture::FurnitureDimensions,
+    customization: Option<&eitmad_contracts::furniture::FurnitureCustomization>,
+) -> Result<(), FurnitureError> {
+    validate_dimensions(dimensions)?;
+    if customization.map_or(dimensions != fixed, |c| {
+        !within(dimensions, &c.minimum, &c.maximum)
+    }) {
+        return Err(FurnitureError::Invalid);
+    }
+    Ok(())
+}
 /// Calculates exact count-based Part costs using immutable composition references on the save transaction.
 fn validate_composition(
     tx: &FurnitureTransaction<'_>,
@@ -891,7 +908,6 @@ impl FurnitureService {
                 for_new_work: true,
             },
         )?;
-        validate_dimensions(&input.dimensions)?;
         let v = definition
             .variants
             .iter()
@@ -900,14 +916,7 @@ impl FurnitureService {
         if input.quantity == 0 || input.quantity > 1_000_000 {
             return Err(FurnitureError::Invalid);
         }
-        if v.customization
-            .as_ref()
-            .map_or(input.dimensions != v.dimensions, |c| {
-                !within(&input.dimensions, &c.minimum, &c.maximum)
-            })
-        {
-            return Err(FurnitureError::Invalid);
-        }
+        validate_selection_dimensions(&input.dimensions, &v.dimensions, v.customization.as_ref())?;
         let mut price = v.selling_price_yer;
         for (selected, options, allowed) in [
             (input.color_id, &definition.colors, &v.color_ids),

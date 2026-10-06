@@ -1,6 +1,6 @@
 <UserControl x:Class="Eitmad.WindowsShell.Features.Reception.FurnitureSelectionView"
  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
- xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls" FlowDirection="RightToLeft" Language="ar-YE">
+ xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls" xmlns:reception="clr-namespace:Eitmad.WindowsShell.Features.Reception" FlowDirection="RightToLeft" Language="ar-YE">
  <UserControl.Resources><ResourceDictionary><ResourceDictionary.MergedDictionaries><ResourceDictionary Source="../../Resources/SalesCatalogVisuals.xaml"/><ResourceDictionary Source="../../Resources/SalesSelectionStyles.xaml"/></ResourceDictionary.MergedDictionaries>
   <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
    <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}"/>
@@ -10,7 +10,8 @@
  <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
  <StackPanel Margin="28,18" TextBlock.Foreground="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}">
   <Button x:Name="BackButton" Content="{Binding BackLabel}" HorizontalAlignment="Right" Style="{StaticResource SecondaryButton}" Click="BackClick" AutomationProperties.Name="{Binding BackLabel}"/>
-  <TextBlock Text="معاينة ببيانات تجريبية — عرض السعر مؤقت ولا يتم حفظه" Margin="0,12"/>
+  <TextBlock Text="الاختيار وعرض السعر مؤقتان ولا يتم حفظهما" Margin="0,12"/>
+  <Button Content="تحديث الصنف" Click="RefreshClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" AutomationProperties.Name="تحديث الصنف"/>
   <Grid Margin="0,0,0,18">
    <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="3*"/></Grid.ColumnDefinitions>
    <Border Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}" CornerRadius="12" Height="250" Margin="0,0,20,0">
@@ -20,8 +21,8 @@
     </Grid>
    </Border>
    <StackPanel Grid.Column="1" VerticalAlignment="Center">
-    <TextBlock Text="{Binding Item.Name}" FontSize="30" FontWeight="Bold" TextWrapping="Wrap"/>
-    <TextBlock Text="{Binding Item.Description}" FontSize="16" Margin="0,10,0,0" TextWrapping="Wrap"/>
+    <TextBlock reception:SalesText.Value="{Binding Item.Name}" FontSize="30" FontWeight="Bold" TextWrapping="Wrap"/>
+    <TextBlock reception:SalesText.Value="{Binding Item.Description}" FontSize="16" Margin="0,10,0,0" TextWrapping="Wrap"/>
    </StackPanel>
   </Grid>
   <TextBlock Text="اختر المقاس" FontSize="22" FontWeight="Bold" Margin="0,0,0,4"/>
@@ -33,6 +34,20 @@
     <TextBlock Text="{Binding PriceLabel}" FlowDirection="LeftToRight" FontSize="18" FontWeight="Bold"/>
    </StackPanel></DataTemplate></ListBox.ItemTemplate>
   </ListBox>
+  <StackPanel Visibility="{Binding CanCustomize, Converter={StaticResource BooleanToVisibility}}">
+   <TextBlock Text="المقاسات بالسنتيمتر" FontSize="20" Margin="0,12,0,8"/>
+   <WrapPanel>
+    <TextBlock Text="المسموح من" Margin="0,0,8,0"/>
+    <TextBlock Text="{Binding MinimumDimensionsLabel}" FlowDirection="LeftToRight" Margin="0,0,8,0"/>
+    <TextBlock Text="إلى" Margin="0,0,8,0"/>
+    <TextBlock Text="{Binding MaximumDimensionsLabel}" FlowDirection="LeftToRight"/>
+   </WrapPanel>
+   <WrapPanel Margin="0,8">
+    <StackPanel Margin="0,0,8,0"><TextBlock Text="العرض (سم)"/><TextBox Width="110" Text="{Binding WidthCm, UpdateSourceTrigger=PropertyChanged}" FlowDirection="LeftToRight" AutomationProperties.Name="العرض بالسنتيمتر"/></StackPanel>
+    <StackPanel Margin="0,0,8,0"><TextBlock Text="الارتفاع (سم)"/><TextBox Width="110" Text="{Binding HeightCm, UpdateSourceTrigger=PropertyChanged}" FlowDirection="LeftToRight" AutomationProperties.Name="الارتفاع بالسنتيمتر"/></StackPanel>
+    <StackPanel><TextBlock Text="العمق (سم)"/><TextBox Width="110" Text="{Binding DepthCm, UpdateSourceTrigger=PropertyChanged}" FlowDirection="LeftToRight" AutomationProperties.Name="العمق بالسنتيمتر"/></StackPanel>
+   </WrapPanel>
+  </StackPanel>
   <StackPanel Visibility="{Binding HasColors, Converter={StaticResource BooleanToVisibility}}">
    <TextBlock Text="اختر اللون" FontSize="22" FontWeight="Bold" Margin="0,16,0,12"/>
    <ListBox x:Name="ColorsList" Style="{StaticResource Options}" ItemsSource="{Binding Colors}" SelectedItem="{Binding SelectedColor}" AutomationProperties.Name="اختر اللون">
@@ -66,8 +81,8 @@
      <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
      <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
      <TextBlock Text="سعر الأثاث"/><TextBlock Grid.Column="1" Text="{Binding BasePriceLabel}" FlowDirection="LeftToRight"/>
-     <TextBlock Grid.Row="1" Text="{Binding SelectedColor.Name}"/><TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedColor.PriceLabel}" FlowDirection="LeftToRight"/>
-     <TextBlock Grid.Row="2" Text="{Binding SelectedHandle.Name}"/><TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedHandle.PriceLabel}" FlowDirection="LeftToRight"/>
+     <TextBlock Grid.Row="1" reception:SalesText.Value="{Binding SelectedColor.Name}"/><TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedColor.PriceLabel}" FlowDirection="LeftToRight"/>
+     <TextBlock Grid.Row="2" reception:SalesText.Value="{Binding SelectedHandle.Name}"/><TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedHandle.PriceLabel}" FlowDirection="LeftToRight"/>
      <TextBlock Grid.Row="3" Text="إضافات الخيارات"/><TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding AdditionsLabel}" FlowDirection="LeftToRight"/>
      <TextBlock Grid.Row="4" Text="سعر الوحدة" FontSize="18" FontWeight="SemiBold" Margin="0,8"/><TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding UnitPriceLabel}" FlowDirection="LeftToRight" FontSize="18" Margin="0,8"/>
      <TextBlock Grid.Row="5" Text="الإجمالي" FontSize="26" FontWeight="Bold"/><TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding LineTotalLabel}" FontSize="26" FontWeight="Bold" FlowDirection="LeftToRight"/>

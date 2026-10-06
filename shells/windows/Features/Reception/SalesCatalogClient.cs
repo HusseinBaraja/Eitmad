@@ -1,0 +1,67 @@
+using System.IO;
+using System.Text.Json;
+using Eitmad.Contracts;
+using Eitmad.Platform.Windows.LocalIpc;
+using Eitmad.Platform.Windows.Shell;
+using Eitmad.WindowsShell.Features.Pricing;
+
+namespace Eitmad.WindowsShell.Features.Reception;
+
+/// <summary>Public catalog IPC only. No manager definitions or cost queries.</summary>
+public sealed class SalesCatalogClient : IAsyncDisposable
+{
+    private readonly IEngineShellBridge engine;
+    private readonly EngineChangeFeed changes;
+    private SynchronizationContext? context;
+    internal Features.CatalogImages.CatalogImageClient Images { get; }
+    public SalesCatalogClient(IEngineShellBridge engine)
+    {
+        this.engine = engine;
+        Images = new(engine);
+        changes = new(engine, ProtocolIds.Capabilities.EitmadCapabilitySalesCatalogV1,
+            Subscription.ForPricingChangedSubscribe(new PriceChanges()), _ => Changed?.Invoke(this, EventArgs.Empty),
+            Invalidate, refreshOnStart: false, notifyUnavailable: true);
+    }
+    public event EventHandler? Changed;
+    public event EventHandler? ProjectionInvalidated;
+    public Task ActivateAsync() { context = SynchronizationContext.Current; return changes.ActivateAsync(); }
+    private void Invalidate() { if (context is null) ProjectionInvalidated?.Invoke(this, EventArgs.Empty); else context.Post(_ => ProjectionInvalidated?.Invoke(this, EventArgs.Empty), null); }
+    public Task DeactivateAsync() => changes.DeactivateAsync();
+    public ValueTask DisposeAsync() => changes.DisposeAsync();
+    public Task<PricingResult<SalesCatalogPage>> LoadAsync(string term, string? category, Guid? after, CancellationToken token) =>
+        QueryAsync(Query.ForSalesCatalogList(new ListSalesCatalog { Term = term, Category = category!, After = after, Limit = 30 }), r => r.AsSalesCatalog(), token);
+    public Task<PricingResult<SalesCatalogDetails>> ItemAsync(Dictionary<string, object> target, CancellationToken token) =>
+        QueryAsync(Query.ForSalesCatalogGet(new GetSalesCatalogItem { Target = target }), r => r.AsSalesCatalogItem(), token);
+    internal static PriceTarget Target(CatalogEntry entry) => JsonSerializer.Deserialize<PriceTarget>(JsonSerializer.Serialize(entry.Price.Target))!;
+    public Task<PricingResult<SalesConfiguration>> CheckAsync(CheckSalesConfiguration input, CancellationToken token) =>
+        QueryAsync(Query.ForSalesCatalogCheck(input), r => r.AsSalesConfiguration(), token);
+    private async Task<PricingResult<T>> QueryAsync<T>(Query query, Func<QueryResult, T?> read, CancellationToken token) where T : class
+    {
+        if (!engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilitySalesCatalogV1)) return new(null, PricingFailure.Unconfirmed);
+        try
+        {
+            var response = await engine.QueryAsync(query, token);
+            if (response.Outcome.Status == CommandOutcomeStatus.Succeeded && read(response.Outcome.Payload) is { } value) return new(value, PricingFailure.None);
+            return new(null, Map(response.Outcome.Payload.Code));
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
+        catch (EngineIpcException e) { return new(null, Map(e.ContractError?.Code)); }
+        catch (Exception e) when (e is IOException or InvalidOperationException or ObjectDisposedException or JsonException) { return new(null, PricingFailure.Unconfirmed); }
+    }
+    private static PricingFailure Map(string? code) => code switch
+            {
+                ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1 => PricingFailure.Denied,
+                ProtocolIds.ErrorCodes.EitmadErrorPricingInvalidV1 or ProtocolIds.ErrorCodes.EitmadErrorContractInvalidV1 => PricingFailure.Invalid,
+                ProtocolIds.ErrorCodes.EitmadErrorPricingReferenceInvalidV1 => PricingFailure.Reference,
+                ProtocolIds.ErrorCodes.EitmadErrorPricingRevisionConflictV1 => PricingFailure.Conflict,
+                _ => PricingFailure.Unconfirmed
+            };
+    public static string Message(PricingFailure failure) => failure switch
+    {
+        PricingFailure.Denied => "ليس لديك صلاحية لعرض الكتالوج.",
+        PricingFailure.Invalid => "تحقق من المقاسات والكمية والخيارات المسموحة.",
+        PricingFailure.Reference => "الصنف مؤرشف أو تغير تعريفه أو خياراته. حدّث الصنف واختر من جديد.",
+        PricingFailure.Conflict => "تغير سعر البيع. حدّث الصنف وراجع السعر الجديد.",
+        _ => "تعذر الاتصال بالمحرك. الاختيار غير متحقق؛ أعد المحاولة."
+    };
+}

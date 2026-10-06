@@ -12,6 +12,360 @@ use eitmad_contracts::{
 use eitmad_product::ProductService;
 use tempfile::TempDir;
 use uuid::Uuid;
+
+/// Applies a decoded public stream page to a separate client through the real atomic projection.
+fn project_sales(
+    store: &AuthorityStore,
+    reader: &AuthorizationContext,
+    entries: Vec<(
+        u128,
+        u64,
+        Option<eitmad_contracts::catalog_revision::CatalogEntry>,
+    )>,
+) {
+    use eitmad_contracts::sync::{ChangeId, ChangeOperation, ChangeRecord, Checkpoint, RecordId};
+    let records: Vec<_> = entries
+        .into_iter()
+        .map(|(id, revision, entry)| {
+            (
+                ChangeRecord {
+                    change_id: ChangeId::new(Uuid::new_v4()),
+                    record_id: RecordId::new(Uuid::from_u128(id)),
+                    scope: reader.scope.clone(),
+                    operation: if entry.is_some() {
+                        ChangeOperation::Upsert
+                    } else {
+                        ChangeOperation::Tombstone
+                    },
+                    base_revision: None,
+                    revision,
+                    changed_at: UnixMillis(100),
+                    idempotency_key: IdempotencyKey::new(Uuid::new_v4()),
+                    payload: None,
+                    merge: None,
+                },
+                entry,
+            )
+        })
+        .collect();
+    let evidence = MutationAuditRecord::from_authorization(
+        reader,
+        UnixMillis(100),
+        CorrelationId::new(Uuid::new_v4()),
+        "eitmad.catalog.sync.project.v1",
+        AuditTarget {
+            kind: "catalog-sync".into(),
+            identifiers: vec![],
+        },
+    );
+    store
+        .project_catalog_page(
+            reader,
+            &eitmad_contracts::transport::SchemaId::parse("eitmad.schema.catalog-public.v1")
+                .unwrap(),
+            Checkpoint::new(Uuid::new_v4()),
+            &eitmad_storage::CatalogSyncProjection {
+                private: &[],
+                public: &records,
+                normalize_name: eitmad_material::normalize_search,
+            },
+            &evidence,
+        )
+        .unwrap();
+}
+
+/// Creates a real manager definition and a confirmed public receipt.
+fn published_product_entry() -> eitmad_contracts::catalog_revision::CatalogEntry {
+    use eitmad_contracts::catalog_revision::CatalogRevision;
+    let manager_dir = TempDir::new().unwrap();
+    let (manager_store, products, manager, _) = setup(&manager_dir);
+    let saved = products
+        .save(
+            &mutation(manager.clone(), 20),
+            &fixture(&products, &manager),
+        )
+        .unwrap();
+    let manager_pricing = PricingService::new(
+        manager_store.clone(),
+        AuthorizationService::new(manager_store),
+    )
+    .with_confirmation(Arc::new(Confirmed::default()));
+    let receipt = manager_pricing
+        .publish(
+            &mutation(manager, 30),
+            &publish_input(target(&saved)),
+            UnixMillis(i64::MAX),
+        )
+        .unwrap();
+    public_entry(&CatalogRevision::Product(Box::new(saved)), &receipt).unwrap()
+}
+
+#[test]
+fn sales_catalog_separate_client_search_pages_prices_and_withdrawal_are_public_only() {
+    use eitmad_contracts::sales_catalog::{
+        CheckSalesConfiguration, GetSalesCatalogItem, ListSalesCatalog,
+    };
+    let entry = published_product_entry();
+    let reader_dir = TempDir::new().unwrap();
+    let (reader_store, _, _, reader) = setup(&reader_dir);
+    // No private Product or category is copied to this client.
+    project_sales(&reader_store, &reader, vec![(1, 1, Some(entry.clone()))]);
+    let service = PricingService::new(
+        reader_store.clone(),
+        AuthorizationService::new(reader_store.clone()),
+    );
+    let query = ListSalesCatalog {
+        term: "مرتبه طبيه".into(),
+        category: Some("مراتب".into()),
+        after: None,
+        limit: 1,
+    };
+    let page = service.sales_catalog(&reader, &query).unwrap();
+    assert_eq!(page.items, vec![entry.clone()]);
+    assert_eq!(page.next, None);
+    assert!(!page.server_available);
+    let details = service
+        .sales_catalog_item(
+            &reader,
+            &GetSalesCatalogItem {
+                target: entry.price.target.clone(),
+            },
+        )
+        .unwrap();
+    assert_eq!(details.variants, vec![entry.clone()]);
+    let mut input = CheckSalesConfiguration {
+        selection: PriceSelection {
+            target: entry.price.target.clone(),
+            price_revision: 1,
+            color_id: None,
+            handle_id: None,
+            quantity: 2,
+        },
+        dimensions: None,
+    };
+    let checked = service.sales_configuration(&reader, &input).unwrap();
+    assert_eq!(checked.price.unit_price_yer, 70000);
+    assert_eq!(checked.price.total_yer, 140_000);
+    for payload in [
+        serde_json::to_string(&page).unwrap(),
+        serde_json::to_string(&details).unwrap(),
+        serde_json::to_string(&checked).unwrap(),
+    ] {
+        for forbidden in ["cost", "margin", "parts", "notes", "55000", "ملاحظة داخلية"]
+        {
+            assert!(!payload.contains(forbidden), "{forbidden}");
+        }
+    }
+    assert_eq!(
+        service.sales_catalog(&actor(777, 50), &query),
+        Err(PricingError::Denied)
+    );
+    let mut foreign = input.clone();
+    if let PriceTarget::Product(r) = &mut foreign.selection.target {
+        r.scope = actor(1, 51).scope;
+    }
+    assert_eq!(
+        service.sales_configuration(&reader, &foreign),
+        Err(PricingError::Reference)
+    );
+    let mut changed = entry.clone();
+    changed.price.revision = 2;
+    changed.price.selling_price_yer = 71000;
+    project_sales(&reader_store, &reader, vec![(1, 2, Some(changed.clone()))]);
+    assert!(matches!(
+        service.sales_configuration(&reader, &input),
+        Err(PricingError::Conflict {
+            actual: Some(2),
+            ..
+        })
+    ));
+    input.selection.price_revision = 2;
+    if let PriceTarget::Product(r) = &mut changed.price.target {
+        r.revision += 1;
+    }
+    changed.price.revision = 3;
+    project_sales(&reader_store, &reader, vec![(1, 3, Some(changed))]);
+    assert_eq!(
+        service.sales_configuration(&reader, &input),
+        Err(PricingError::Reference)
+    );
+    project_sales(&reader_store, &reader, vec![(1, 4, None)]);
+    assert!(
+        service
+            .sales_catalog(&reader, &query)
+            .unwrap()
+            .items
+            .is_empty()
+    );
+    assert_eq!(
+        service.sales_configuration(&reader, &input),
+        Err(PricingError::Reference)
+    );
+}
+
+#[test]
+fn sales_catalog_sparse_pages_cross_storage_batches_without_gaps() {
+    use eitmad_contracts::sales_catalog::ListSalesCatalog;
+    let entry = published_product_entry();
+    let reader_dir = TempDir::new().unwrap();
+    let (reader_store, _, _, reader) = setup(&reader_dir);
+    let service = PricingService::new(
+        reader_store.clone(),
+        AuthorizationService::new(reader_store.clone()),
+    );
+    // Sparse matches cross multiple storage batches without dropping or repeating a row.
+    let records = (2..=206u128)
+        .map(|id| {
+            let mut e = entry.clone();
+            if let PriceTarget::Product(r) = &mut e.price.target {
+                r.product_id = eitmad_contracts::product::ProductId::new(Uuid::from_u128(id));
+            }
+            e.name = if id % 50 == 0 {
+                "منتج مطابق"
+            } else {
+                "منتج آخر"
+            }
+            .into();
+            (id, 1, Some(e))
+        })
+        .collect();
+    project_sales(&reader_store, &reader, records);
+    let mut query = ListSalesCatalog {
+        term: "مطابق".into(),
+        category: None,
+        after: None,
+        limit: 2,
+    };
+    let first = service.sales_catalog(&reader, &query).unwrap();
+    assert_eq!(first.items.len(), 2);
+    assert_eq!(first.next, Some(Uuid::from_u128(100)));
+    query.after = first.next;
+    let second = service.sales_catalog(&reader, &query).unwrap();
+    assert_eq!(second.items.len(), 2);
+    assert_eq!(second.next, None);
+    query.limit = 101;
+    assert_eq!(
+        service.sales_catalog(&reader, &query),
+        Err(PricingError::Invalid)
+    );
+}
+
+/// Publishes the manager Furniture fixture with explicit customization bounds.
+fn published_furniture_entry() -> eitmad_contracts::catalog_revision::CatalogEntry {
+    use eitmad_contracts::{
+        catalog_revision::CatalogRevision,
+        furniture::{FurnitureCustomization, FurnitureDimensions},
+    };
+    let manager_dir = TempDir::new().unwrap();
+    let (store, _, manager, _) = setup(&manager_dir);
+    let furniture_service =
+        FurnitureService::new(store.clone(), AuthorizationService::new(store.clone()));
+    let mut definition = furniture_fixture(&store, &furniture_service, &manager);
+    let d = definition.variants[0].dimensions.clone();
+    definition.variants[0].customization = Some(FurnitureCustomization {
+        minimum: d.clone(),
+        maximum: FurnitureDimensions {
+            width_mm: d.width_mm + 100,
+            height_mm: d.height_mm,
+            depth_mm: d.depth_mm,
+        },
+    });
+    let saved = furniture_service
+        .save(&mutation(manager.clone(), 24), &definition)
+        .unwrap();
+    let target = PriceTarget::Furniture(FurnitureReference {
+        scope: manager.scope.clone(),
+        furniture_id: saved.id,
+        variant_id: saved.variants[0].id,
+        revision: saved.revision,
+        schema_version: 1,
+    });
+    let manager_pricing = PricingService::new(store.clone(), AuthorizationService::new(store))
+        .with_confirmation(Arc::new(Confirmed::default()));
+    let receipt = manager_pricing
+        .publish(
+            &mutation(manager, 30),
+            &PublishPrice {
+                target,
+                expected_revision: None,
+                selling_price_yer: 250_000,
+                confirm_below_cost: false,
+            },
+            UnixMillis(i64::MAX),
+        )
+        .unwrap();
+    public_entry(&CatalogRevision::Furniture(Box::new(saved)), &receipt).unwrap()
+}
+
+#[test]
+fn sales_catalog_furniture_checks_dimensions_compatible_options_quantity_and_overflow() {
+    use eitmad_contracts::sales_catalog::CheckSalesConfiguration;
+    let entry = published_furniture_entry();
+    let d = entry.dimensions.clone().unwrap();
+    let reader_dir = TempDir::new().unwrap();
+    let (reader_store, _, _, reader) = setup(&reader_dir);
+    project_sales(&reader_store, &reader, vec![(1, 1, Some(entry.clone()))]);
+    let service = PricingService::new(
+        reader_store.clone(),
+        AuthorizationService::new(reader_store.clone()),
+    );
+    let mut input = CheckSalesConfiguration {
+        selection: PriceSelection {
+            target: entry.price.target.clone(),
+            price_revision: 1,
+            color_id: entry.colors.first().map(|o| o.id),
+            handle_id: entry.handles.first().map(|o| o.id),
+            quantity: 2,
+        },
+        dimensions: Some(d.clone()),
+    };
+    let accepted = service.sales_configuration(&reader, &input).unwrap();
+    assert_eq!(accepted.dimensions, Some(d.clone()));
+    input.dimensions.as_mut().unwrap().width_mm += 100;
+    assert!(service.sales_configuration(&reader, &input).is_ok());
+    input.dimensions.as_mut().unwrap().width_mm += 1;
+    assert_eq!(
+        service.sales_configuration(&reader, &input),
+        Err(PricingError::Invalid)
+    );
+    input.dimensions = Some(d);
+    input.selection.color_id = Some(Uuid::new_v4());
+    assert_eq!(
+        service.sales_configuration(&reader, &input),
+        Err(PricingError::Reference)
+    );
+    input.selection.color_id = None;
+    assert_eq!(
+        service.sales_configuration(&reader, &input),
+        Err(PricingError::Reference)
+    );
+    input.selection.color_id = entry.colors.first().map(|o| o.id);
+    input.selection.quantity = 0;
+    assert_eq!(
+        service.sales_configuration(&reader, &input),
+        Err(PricingError::Invalid)
+    );
+    input.selection.quantity = 2;
+    let mut fixed = entry.clone();
+    fixed.customization = None;
+    fixed.price.revision = 2;
+    project_sales(&reader_store, &reader, vec![(1, 2, Some(fixed.clone()))]);
+    input.selection.price_revision = 2;
+    input.dimensions.as_mut().unwrap().width_mm += 1;
+    assert_eq!(
+        service.sales_configuration(&reader, &input),
+        Err(PricingError::Invalid)
+    );
+    input.dimensions = entry.dimensions.clone();
+    fixed.price.revision = 3;
+    fixed.price.selling_price_yer = i64::MAX;
+    project_sales(&reader_store, &reader, vec![(1, 3, Some(fixed))]);
+    input.selection.price_revision = 3;
+    assert_eq!(
+        service.sales_configuration(&reader, &input),
+        Err(PricingError::Invalid)
+    );
+}
 /// Creates a deterministic synthetic user and organization authorization context.
 fn actor(principal: u128, organization: u128) -> AuthorizationContext {
     AuthorizationContext {

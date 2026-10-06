@@ -21,13 +21,14 @@ public partial class FurnitureSelectionView : UserControl
         ((SalesCatalogViewModel)catalog.DataContext).CloseSelection();
         catalog.RestoreSelectionFocus();
     }
-    private void AddClick(object sender, RoutedEventArgs e)
+    private async void AddClick(object sender, RoutedEventArgs e)
     {
         var editing = ((FurnitureSelectionViewModel)DataContext).IsEditing;
-        if (!((SalesCatalogViewModel)Catalog.DataContext).AddSelection()) return;
+        if (!await ((SalesCatalogViewModel)Catalog.DataContext).AddValidatedSelectionAsync(false)) return;
         if (editing) { Catalog.RestoreQuotationFocus(); return; }
         var selection = (FurnitureSelectionViewModel)DataContext;
         AddedNotice.Message = $"تمت الإضافة إلى عرض السعر (معاينة فقط)\n{selection.Item.Name} · {selection.SelectedSize!.Name} · الكمية: {selection.Quantity}";
         AddedNotice.RestartDuration();
     }
+    private async void RefreshClick(object sender, RoutedEventArgs e) { await ((SalesCatalogViewModel)Catalog.DataContext).RefreshSelectionAsync(); Catalog.FocusEditor(); }
 }

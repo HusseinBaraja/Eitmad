@@ -30,6 +30,7 @@ pub mod product;
 pub mod queries;
 pub mod relay;
 pub mod runtime;
+pub mod sales_catalog;
 pub mod secrets;
 pub mod server;
 pub mod sync;

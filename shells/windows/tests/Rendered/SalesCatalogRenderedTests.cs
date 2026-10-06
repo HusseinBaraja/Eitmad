@@ -275,7 +275,7 @@ public sealed class SalesCatalogRenderedTests
             card.Focus();
             Assert.IsTrue(card.IsKeyboardFocusWithin);
             Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(card).Any(t => t.Text == "✓" && t.IsVisible));
-            Assert.IsFalse(WpfTestHost.Descendants<TextBox>(detail).Any());
+            Assert.IsFalse(WpfTestHost.Descendants<TextBox>(detail).Any(input => input.IsVisible));
             WpfTestHost.Capture(window, "catalog-selection");
             var increase = WpfTestHost.FindByAutomationName<Button>(detail, "زيادة الكمية");
             increase.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));

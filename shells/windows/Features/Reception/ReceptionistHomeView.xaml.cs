@@ -8,6 +8,15 @@ namespace Eitmad.WindowsShell.Features.Reception;
 public partial class ReceptionistHomeView : UserControl
 {
     private Features.Customers.CustomerClient? customerClient;
+    private SalesCatalogClient? catalogClient;
+    public void AttachCatalog(Eitmad.Platform.Windows.Shell.IEngineShellBridge engine)
+    {
+        catalogClient = new(engine);
+        ((SalesCatalogViewModel)CatalogContent.DataContext).AttachCatalogClient(catalogClient);
+    }
+    public Task ActivateCatalogAsync() => ((SalesCatalogViewModel)CatalogContent.DataContext).ActivateCatalogAsync();
+    public Task DeactivateCatalogAsync() => ((SalesCatalogViewModel)CatalogContent.DataContext).DeactivateCatalogAsync();
+    public async ValueTask DisposeCatalogAsync() { await DeactivateCatalogAsync(); if (catalogClient is not null) await catalogClient.DisposeAsync(); }
     private CancellationTokenSource? customerLoadCancellation;
     private string customerReturnDestination = "الطلبات";
     private IInputElement? customerReturnFocus;

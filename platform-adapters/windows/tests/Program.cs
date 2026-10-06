@@ -374,6 +374,9 @@ internal sealed class SupervisionScenarios
             Assert.True(
                 supervisor.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityCustomerV1),
                 "real customer capability negotiated");
+            Assert.True(
+                supervisor.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilitySalesCatalogV1),
+                "real public sales catalog capability negotiated");
             Assert.False(
                 supervisor.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilitySyncV1),
                 "unwired sync capability is not negotiated");
@@ -531,7 +534,28 @@ internal sealed class SupervisionScenarios
         var deniedImage = await supervisor.QueryAsync(Query.ForCatalogImageGet(new GetCatalogImage { Reference = image, Offset = 0 }));
         Assert.Equal(ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1, deniedImage.Outcome.Payload.Code, "Receptionist internal image read denied");
         var denied=await supervisor.SubmitCommandAsync(Command.ForFurnitureSave(input),Guid.NewGuid());Assert.Equal(ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1,denied.Outcome.Payload.Code,"Receptionist cannot write Furniture");
+        await VerifyReceptionistCatalogBoundary(supervisor, value);
         await supervisor.SignOutAsync();await supervisor.SignInAsync("admin","admin");return value;
+    }
+
+    private static async Task VerifyReceptionistCatalogBoundary(EngineSupervisor supervisor, Furniture furniture)
+    {
+        var response = await supervisor.QueryAsync(Query.ForSalesCatalogList(new ListSalesCatalog { Term = "خزانة", Limit = 30 }));
+        Assert.Equal(CommandOutcomeStatus.Succeeded, response.Outcome.Status, "public catalog typed IPC succeeds");
+        var page = response.Outcome.Payload.AsSalesCatalog()!;
+        Assert.Equal(0, page.Items.Length, "unpublished private definitions stay out of public catalog");
+        Assert.False(page.ServerAvailable, "disconnected catalog explicitly reports last-confirmed cache");
+        var target = PriceTarget.ForFurniture(new FurnitureReference {
+            Scope = furniture.Scope, FurnitureId = furniture.Id, Revision = furniture.Revision,
+            VariantId = furniture.Variants[0].Id, SchemaVersion = 1,
+        });
+        var fields = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(System.Text.Json.JsonSerializer.Serialize(target))!;
+        var details = await supervisor.QueryAsync(Query.ForSalesCatalogGet(new GetSalesCatalogItem { Target = fields }));
+        Assert.Equal(ProtocolIds.ErrorCodes.EitmadErrorPricingReferenceInvalidV1, details.Outcome.Payload.Code, "private Furniture cannot resolve through public detail query");
+        var checkedSelection = await supervisor.QueryAsync(Query.ForSalesCatalogCheck(new CheckSalesConfiguration {
+            Selection = new() { Target = fields, PriceRevision = 1, Quantity = 1 }, Dimensions = furniture.Variants[0].Dimensions,
+        }));
+        Assert.Equal(ProtocolIds.ErrorCodes.EitmadErrorPricingReferenceInvalidV1, checkedSelection.Outcome.Payload.Code, "unpublished configuration fails through native IPC");
     }
 
     private static async Task<CatalogImageRef> ImportSyntheticCatalogImage(EngineSupervisor supervisor, string directory, CatalogImageKind kind)

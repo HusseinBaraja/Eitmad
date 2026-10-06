@@ -11,6 +11,7 @@ use eitmad_contracts::{
 };
 use eitmad_observability_audit::MutationAuditRecord;
 use rusqlite::{OptionalExtension as _, params};
+use uuid::Uuid;
 
 /// Fully decoded role-filtered changes and the owning capability's Arabic name normalizer.
 pub struct CatalogSyncProjection<'a> {
@@ -333,6 +334,77 @@ impl AuthorityStore {
             .map(|r| {
                 serde_json::from_slice(&r.map_err(|_| StorageError)?).map_err(|_| StorageError)
             })
+            .collect()
+    }
+
+    /// Reads a bounded public batch. Private definition tables are never joined.
+    /// # Errors
+    /// Rejects unavailable or invalid durable projections.
+    pub fn catalog_sales_batch(
+        &self,
+        scope: &ScopeRef,
+        after: Option<Uuid>,
+    ) -> Result<Vec<(Uuid, CatalogEntry)>, StorageError> {
+        let (sk, si) = scope_parts(scope);
+        let connection = self.open_connection()?;
+        let mut stmt = connection.prepare("SELECT id,record_json FROM catalog_sales_records WHERE scope_kind=?1 AND scope_id=?2 AND NOT tombstone AND id>?3 ORDER BY id LIMIT 100").map_err(|_|StorageError)?;
+        stmt.query_map(
+            params![sk, si, after.map(|id| id.to_string()).unwrap_or_default()],
+            |r| Ok((r.get::<_, String>(0)?, r.get::<_, Vec<u8>>(1)?)),
+        )
+        .map_err(|_| StorageError)?
+        .map(|r| {
+            let (id, json) = r.map_err(|_| StorageError)?;
+            Ok((
+                Uuid::parse_str(&id).map_err(|_| StorageError)?,
+                serde_json::from_slice(&json).map_err(|_| StorageError)?,
+            ))
+        })
+        .collect()
+    }
+
+    /// Returns only current public variants for an item, including on clients without private definitions.
+    /// # Errors
+    /// Rejects unavailable storage or an oversized public definition.
+    pub fn catalog_sales_item(
+        &self,
+        scope: &ScopeRef,
+        target: &eitmad_contracts::pricing::PriceTarget,
+    ) -> Result<Vec<CatalogEntry>, StorageError> {
+        let (sk, si) = scope_parts(scope);
+        let (kind, id, _) = target.identity();
+        let path = if kind == "product" {
+            "$.price.target.payload.productId"
+        } else {
+            "$.price.target.payload.furnitureId"
+        };
+        let connection = self.open_connection()?;
+        let mut stmt=connection.prepare("SELECT record_json FROM catalog_sales_records WHERE scope_kind=?1 AND scope_id=?2 AND NOT tombstone AND json_extract(CAST(record_json AS TEXT),'$.price.target.kind')=?3 AND json_extract(CAST(record_json AS TEXT),?4)=?5 ORDER BY id LIMIT 101").map_err(|_|StorageError)?;
+        let entries: Vec<CatalogEntry> = stmt
+            .query_map(params![sk, si, kind, path, id.to_string()], |r| {
+                r.get::<_, Vec<u8>>(0)
+            })
+            .map_err(|_| StorageError)?
+            .map(|r| {
+                serde_json::from_slice(&r.map_err(|_| StorageError)?).map_err(|_| StorageError)
+            })
+            .collect::<Result<_, _>>()?;
+        if entries.len() > 100 {
+            return Err(StorageError);
+        }
+        Ok(entries)
+    }
+
+    /// Returns bounded category filters from active public records.
+    /// # Errors
+    /// Rejects unavailable projections.
+    pub fn catalog_sales_categories(&self, scope: &ScopeRef) -> Result<Vec<String>, StorageError> {
+        let (sk, si) = scope_parts(scope);
+        let connection = self.open_connection()?;
+        let mut stmt=connection.prepare("SELECT DISTINCT json_extract(CAST(record_json AS TEXT),'$.categoryName') FROM catalog_sales_records WHERE scope_kind=?1 AND scope_id=?2 AND NOT tombstone ORDER BY 1 LIMIT 100").map_err(|_|StorageError)?;
+        stmt.query_map(params![sk, si], |r| r.get::<_, String>(0))
+            .map_err(|_| StorageError)?
+            .map(|r| r.map_err(|_| StorageError))
             .collect()
     }
 }

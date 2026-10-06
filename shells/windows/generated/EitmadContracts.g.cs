@@ -577,6 +577,18 @@ namespace Eitmad.Contracts
         public GetProductRevision QueryProductRevisionGet { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Query_SalesCatalogCheck")]
+        public CheckSalesConfiguration QuerySalesCatalogCheck { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Query_SalesCatalogGet")]
+        public GetSalesCatalogItem QuerySalesCatalogGet { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Query_SalesCatalogList")]
+        public ListSalesCatalog QuerySalesCatalogList { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_CatalogImage")]
         public CatalogImageChunk QueryResultCatalogImage { get; set; }
 
@@ -667,6 +679,18 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_Products")]
         public ProductPage QueryResultProducts { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("QueryResult_SalesCatalog")]
+        public SalesCatalogPage QueryResultSalesCatalog { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("QueryResult_SalesCatalogItem")]
+        public SalesCatalogDetails QueryResultSalesCatalogItem { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("QueryResult_SalesConfiguration")]
+        public SalesConfiguration QueryResultSalesConfiguration { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_ScopeRelationships")]
@@ -2947,16 +2971,83 @@ namespace Eitmad.Contracts
         public Guid? Next { get; set; }
     }
 
-    public partial class RelationshipPage
+    public partial class SalesCatalogPage
     {
-        [JsonPropertyName("nextAfter")]
-        public Guid? NextAfter { get; set; }
+        [JsonPropertyName("categories")]
+        public string[] Categories { get; set; }
 
-        [JsonPropertyName("policyVersion")]
-        public long PolicyVersion { get; set; }
+        [JsonPropertyName("items")]
+        public CatalogEntry[] Items { get; set; }
 
-        [JsonPropertyName("relationships")]
-        public ScopeRelationship[] Relationships { get; set; }
+        [JsonPropertyName("next")]
+        public Guid? Next { get; set; }
+
+        [JsonPropertyName("serverAvailable")]
+        public bool ServerAvailable { get; set; }
+    }
+
+    /// <summary>
+    /// Server-confirmed sales projection. Private definitions and cost dependencies never occur
+    /// here.
+    /// </summary>
+    public partial class CatalogEntry
+    {
+        [JsonPropertyName("categoryName")]
+        public string CategoryName { get; set; }
+
+        [JsonPropertyName("colors")]
+        public FurnitureOption[] Colors { get; set; }
+
+        [JsonPropertyName("customization")]
+        public FurnitureCustomization Customization { get; set; }
+
+        [JsonPropertyName("description")]
+        public string Description { get; set; }
+
+        [JsonPropertyName("dimensions")]
+        public FurnitureDimensions Dimensions { get; set; }
+
+        [JsonPropertyName("handles")]
+        public FurnitureOption[] Handles { get; set; }
+
+        [JsonPropertyName("image")]
+        public CatalogImageRef Image { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("price")]
+        public PublishedPrice Price { get; set; }
+
+        [JsonPropertyName("variantName")]
+        public string VariantName { get; set; }
+    }
+
+    public partial class SalesCatalogDetails
+    {
+        [JsonPropertyName("serverAvailable")]
+        public bool ServerAvailable { get; set; }
+
+        [JsonPropertyName("variants")]
+        public CatalogEntry[] Variants { get; set; }
+    }
+
+    public partial class SalesConfiguration
+    {
+        [JsonPropertyName("additionsYer")]
+        public long AdditionsYer { get; set; }
+
+        [JsonPropertyName("dimensions")]
+        public FurnitureDimensions Dimensions { get; set; }
+
+        [JsonPropertyName("entry")]
+        public CatalogEntry Entry { get; set; }
+
+        [JsonPropertyName("price")]
+        public SellingPrice Price { get; set; }
+
+        [JsonPropertyName("serverAvailable")]
+        public bool ServerAvailable { get; set; }
     }
 
     public partial class SellingPrice
@@ -2969,6 +3060,48 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("unitPriceYer")]
         public long UnitPriceYer { get; set; }
+    }
+
+    public partial class RelationshipPage
+    {
+        [JsonPropertyName("nextAfter")]
+        public Guid? NextAfter { get; set; }
+
+        [JsonPropertyName("policyVersion")]
+        public long PolicyVersion { get; set; }
+
+        [JsonPropertyName("relationships")]
+        public ScopeRelationship[] Relationships { get; set; }
+    }
+
+    public partial class CheckSalesConfiguration
+    {
+        [JsonPropertyName("dimensions")]
+        public FurnitureDimensions Dimensions { get; set; }
+
+        [JsonPropertyName("selection")]
+        public PriceSelection Selection { get; set; }
+    }
+
+    public partial class GetSalesCatalogItem
+    {
+        [JsonPropertyName("target")]
+        public Dictionary<string, object> Target { get; set; }
+    }
+
+    public partial class ListSalesCatalog
+    {
+        [JsonPropertyName("after")]
+        public Guid? After { get; set; }
+
+        [JsonPropertyName("category")]
+        public string Category { get; set; }
+
+        [JsonPropertyName("limit")]
+        public long Limit { get; set; }
+
+        [JsonPropertyName("term")]
+        public string Term { get; set; }
     }
 
     public enum DetailKind { Compatibility, Deadline, Lifecycle, PayloadLimit, RevisionConflict, Validation };
