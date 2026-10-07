@@ -87,7 +87,7 @@ public sealed partial class QuotationsViewModel
                         var index = rows.FindIndex(row => row.Id == record.Quotation.Id);
                         var draft = new QuotationDraft { Scope = record.Scope, Snapshot = record.Quotation, UpdatedAt = record.ChangedAt, SyncState = SyncState.Confirmed, PermittedActions = record.PermittedActions };
                         // Keep pending local draft edits visible until server confirmation.
-                        if (index >= 0 && record.State is Eitmad.Contracts.QuotationState.Draft or Eitmad.Contracts.QuotationState.PendingApproval && rows[index].Draft!.Snapshot.Revision > record.Quotation.Revision) continue;
+                        if (index >= 0 && (record.State is Eitmad.Contracts.QuotationState.Draft or Eitmad.Contracts.QuotationState.PendingApproval) && rows[index].Draft!.Snapshot.Revision > record.Quotation.Revision) continue;
                         var row = Project(draft, rows.FirstOrDefault(r => r.Id == record.Quotation.Id)?.Approval, record);
                         if (index >= 0) rows[index] = row; else rows.Add(row);
                     }

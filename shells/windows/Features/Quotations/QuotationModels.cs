@@ -95,7 +95,7 @@ public sealed class QuotationListItem : ObservableObject
     public bool CanEdit => Draft is not null || Lifecycle is not null ? Permits(Eitmad.Contracts.QuotationPermittedAction.Edit) : !HasPendingDiscountApproval && (Status is QuotationStatus.Draft or QuotationStatus.Active or QuotationStatus.WaitingApproval);
     public bool IsWaitingApproval => HasPendingDiscountApproval;
     public bool NeedsApprovalToComplete { get; init; }
-    public bool CanPrint => Lifecycle is not null ? Permits(Eitmad.Contracts.QuotationPermittedAction.Print) : Draft is null && CanEdit && (!NeedsApprovalToComplete && !RequiresDiscountApproval || ApprovalDecision == DiscountApprovalDecision.Approved);
+    public bool CanPrint => Lifecycle is not null ? Lifecycle.Number is not null && Permits(Eitmad.Contracts.QuotationPermittedAction.Print) : Draft is null && CanEdit && (!NeedsApprovalToComplete && !RequiresDiscountApproval || ApprovalDecision == DiscountApprovalDecision.Approved);
     public string ReceptionActivity { get; init; } = "عينة مستقلة";
 
     public Guid Id { get; }

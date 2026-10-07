@@ -9,6 +9,8 @@ CREATE TABLE sync.quotation_receipts (
  tenant_id uuid NOT NULL, idempotency_key uuid NOT NULL, request_hash bytea NOT NULL,
  response_json bytea NOT NULL, PRIMARY KEY(tenant_id,idempotency_key)
 );
+CREATE INDEX quotation_due_expiry ON sync.quotation_history(tenant_id,valid_until,draft_id,revision)
+ WHERE state='Issued';
 -- Reservations commit independently: a later failed issue can leave a gap, never recycle a number.
 CREATE TABLE sync.quotation_numbers (
  tenant_id uuid NOT NULL, organization_id uuid NOT NULL, calendar_year integer NOT NULL,

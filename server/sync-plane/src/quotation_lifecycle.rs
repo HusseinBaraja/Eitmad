@@ -3,11 +3,13 @@ use crate::{database::tenant_transaction, quotation_approval as approvals};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use eitmad_contracts::{
     identity::{PrincipalId, ScopeRef},
-    quotation_approval::{ConfirmDiscountApproval, DiscountApprovalAction, DiscountApprovalState},
+    quotation_approval::{
+        ConfirmDiscountApproval, DiscountApproval, DiscountApprovalAction, DiscountApprovalState,
+    },
     quotation_draft::{QuotationDraftId, QuotationDraftSnapshot},
     quotation_lifecycle::{
-        ConfirmQuotation, QuotationAction, QuotationPage, QuotationPermittedAction as A,
-        QuotationRecord, QuotationState as S, ReadQuotations,
+        ConfirmQuotation, IssueQuotation, QuotationAction, QuotationPage,
+        QuotationPermittedAction as A, QuotationRecord, QuotationState as S, ReadQuotations,
     },
     server::AuthenticatedServerSession,
     sync::{ChangeId, ChangeOperation, EncodedDomainPayload, RecordId, SyncMode},
@@ -47,7 +49,6 @@ impl QuotationLifecycleServer {
         let mut tx = tenant_transaction(&self.pool, actor.tenant_id)
             .await
             .map_err(|_| E::Unavailable)?;
-        lock(&mut tx, actor).await?;
         let organization = approvals::authorize(&mut tx, actor, &input.scope, false, false)
             .await
             .map_err(map_approval)?;
@@ -88,25 +89,25 @@ impl QuotationLifecycleServer {
         scope: &ScopeRef,
         now: UnixMillis,
     ) -> Result<(), E> {
-        let mut after = None;
         loop {
-            let page = self
-                .list(
-                    actor,
-                    &ReadQuotations {
-                        scope: scope.clone(),
-                        query: eitmad_contracts::quotation_lifecycle::ListQuotations {
-                            after,
-                            limit: 100,
-                        },
-                    },
-                    now,
-                )
-                .await?;
-            after = page.next;
-            if after.is_none() {
+            let mut tx = tenant_transaction(&self.pool, actor.tenant_id)
+                .await
+                .map_err(|_| E::Unavailable)?;
+            approvals::authorize(&mut tx, actor, scope, false, false)
+                .await
+                .map_err(map_approval)?;
+            // The partial index finds due issued history. Exclude superseded revisions.
+            let ids: Vec<Uuid> = sqlx::query_scalar("SELECT h.draft_id FROM sync.quotation_history h WHERE h.tenant_id=$1 AND (($2='branch' AND h.branch_id=$3) OR ($2='organization' AND h.organization_id=$3)) AND h.state='Issued' AND h.valid_until<$4 AND NOT EXISTS (SELECT 1 FROM sync.quotation_history n WHERE n.tenant_id=h.tenant_id AND n.draft_id=h.draft_id AND n.revision>h.revision) ORDER BY h.valid_until,h.draft_id LIMIT 100")
+                .bind(actor.tenant_id.value()).bind(scope.kind.as_str()).bind(scope.id.value()).bind(now.0).fetch_all(&mut *tx).await.map_err(|_| E::Unavailable)?;
+            if ids.is_empty() {
                 return Ok(());
             }
+            for id in ids {
+                if let Some(mut value) = latest(&mut tx, actor, QuotationDraftId::new(id)).await? {
+                    expire(&mut tx, actor, &mut value, now).await?;
+                }
+            }
+            tx.commit().await.map_err(|_| E::Unavailable)?;
         }
     }
 
@@ -120,7 +121,9 @@ impl QuotationLifecycleServer {
         correlation: CorrelationId,
         now: UnixMillis,
     ) -> Result<QuotationRecord, E> {
-        self.expire_due(actor, &input.scope, now).await?;
+        self.expire_target(actor, input, now).await?;
+        // No pool connection or tenant lock is retained during the independent reservation.
+        let reservation = self.reserve_for_issue(actor, input, now).await;
         let mut tx = tenant_transaction(&self.pool, actor.tenant_id)
             .await
             .map_err(|_| E::Unavailable)?;
@@ -128,9 +131,16 @@ impl QuotationLifecycleServer {
         let mut value = latest(&mut tx, actor, input.action.draft_id())
             .await?
             .ok_or(E::Conflict)?;
-        let result = self
-            .authorized_transition(&mut tx, actor, input, &mut value, correlation, now)
-            .await;
+        let result = Self::authorized_transition(
+            &mut tx,
+            actor,
+            input,
+            &mut value,
+            correlation,
+            now,
+            reservation,
+        )
+        .await;
         match result {
             Ok(value) => {
                 tx.commit().await.map_err(|_| E::Unavailable)?;
@@ -150,13 +160,13 @@ impl QuotationLifecycleServer {
     }
 
     async fn authorized_transition(
-        &self,
         tx: &mut Transaction<'_, Postgres>,
         actor: &AuthenticatedServerSession,
         input: &ConfirmQuotation,
         value: &mut QuotationRecord,
         correlation: CorrelationId,
         now: UnixMillis,
+        reservation: Result<Option<String>, E>,
     ) -> Result<QuotationRecord, E> {
         authorize_action(tx, actor, input, value).await?;
         let hash =
@@ -172,7 +182,7 @@ impl QuotationLifecycleServer {
         if input.action.expected_revision() != value.revision {
             return Err(E::Conflict);
         }
-        self.apply(tx, actor, input, value, now).await?;
+        Self::apply(tx, actor, input, value, now, reservation?).await?;
         value.revision = value.revision.checked_add(1).ok_or(E::Unavailable)?;
         value.changed_at = now;
         value.changed_by = PrincipalId::new(actor.user_id.value());
@@ -192,43 +202,19 @@ impl QuotationLifecycleServer {
     }
 
     async fn apply(
-        &self,
         tx: &mut Transaction<'_, Postgres>,
         actor: &AuthenticatedServerSession,
         input: &ConfirmQuotation,
         value: &mut QuotationRecord,
         now: UnixMillis,
+        reservation: Option<String>,
     ) -> Result<(), E> {
         match &input.action {
             QuotationAction::Issue(command) => {
-                let draft = approvals::load_draft(tx, actor, &value.scope, command.draft_id)
-                    .await
-                    .map_err(map_approval)?
-                    .ok_or(E::Conflict)?;
-                if draft.revision != command.expected_draft_revision {
-                    return Err(E::Conflict);
-                }
-                let approval = approvals::latest(tx, actor, command.draft_id)
-                    .await
-                    .map_err(map_approval)?;
-                let snapshot =
-                    issuance_snapshot(actor.tenant_id, value, &draft, approval.as_ref(), now)?;
-                approvals::validate_current_prices(tx, actor, &snapshot, value.organization_id)
-                    .await
-                    .map_err(|e| {
-                        if e == eitmad_pricing::ApprovalError::Conflict {
-                            E::StalePrice
-                        } else {
-                            map_approval(e)
-                        }
-                    })?;
-                validate_active_customer(tx, actor, &snapshot).await?;
+                let (snapshot, approval) = validate_issue(tx, actor, value, command, now).await?;
                 value.quotation = snapshot;
                 if value.number.is_none() {
-                    value.number = Some(
-                        self.reserve_number(actor, value.organization_id, now)
-                            .await?,
-                    );
+                    value.number = Some(reservation.ok_or(E::Unavailable)?);
                 }
                 value.state = S::Issued;
                 value.issued_at = Some(now);
@@ -294,6 +280,60 @@ impl QuotationLifecycleServer {
         Ok(())
     }
 
+    async fn expire_target(
+        &self,
+        actor: &AuthenticatedServerSession,
+        input: &ConfirmQuotation,
+        now: UnixMillis,
+    ) -> Result<(), E> {
+        let mut tx = tenant_transaction(&self.pool, actor.tenant_id)
+            .await
+            .map_err(|_| E::Unavailable)?;
+        let organization = approvals::authorize(&mut tx, actor, &input.scope, false, false)
+            .await
+            .map_err(map_approval)?;
+        if let Some(mut value) = latest(&mut tx, actor, input.action.draft_id()).await? {
+            if value.organization_id != organization
+                || input.scope.kind.as_str() == "branch" && value.scope != input.scope
+            {
+                return Err(E::Denied);
+            }
+            expire(&mut tx, actor, &mut value, now).await?;
+        }
+        tx.commit().await.map_err(|_| E::Unavailable)
+    }
+
+    async fn reserve_for_issue(
+        &self,
+        actor: &AuthenticatedServerSession,
+        input: &ConfirmQuotation,
+        now: UnixMillis,
+    ) -> Result<Option<String>, E> {
+        let QuotationAction::Issue(command) = &input.action else {
+            return Ok(None);
+        };
+        let mut tx = tenant_transaction(&self.pool, actor.tenant_id)
+            .await
+            .map_err(|_| E::Unavailable)?;
+        let value = latest(&mut tx, actor, command.draft_id)
+            .await?
+            .ok_or(E::Conflict)?;
+        authorize_action(&mut tx, actor, input, &value).await?;
+        let received: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM sync.quotation_receipts WHERE tenant_id=$1 AND idempotency_key=$2)")
+            .bind(actor.tenant_id.value()).bind(input.idempotency_key.value()).fetch_one(&mut *tx).await.map_err(|_| E::Unavailable)?;
+        if received || value.number.is_some() {
+            return Ok(None);
+        }
+        if command.expected_revision != value.revision {
+            return Err(E::Conflict);
+        }
+        validate_issue(&mut tx, actor, &value, command, now).await?;
+        tx.commit().await.map_err(|_| E::Unavailable)?;
+        self.reserve_number(actor, value.organization_id, now)
+            .await
+            .map(Some)
+    }
+
     async fn reserve_number(
         &self,
         actor: &AuthenticatedServerSession,
@@ -349,6 +389,10 @@ async fn load_or_initialize(
     organization: Uuid,
     now: UnixMillis,
 ) -> Result<QuotationRecord, E> {
+    if let Some(value) = latest(tx, actor, id).await? {
+        return Ok(value);
+    }
+    lock(tx, actor).await?;
     if let Some(value) = latest(tx, actor, id).await? {
         return Ok(value);
     }
@@ -442,6 +486,38 @@ async fn project_actions(
         value.permitted_actions = quotation_actions(value, reception, manager);
     }
     Ok(())
+}
+
+async fn validate_issue(
+    tx: &mut Transaction<'_, Postgres>,
+    actor: &AuthenticatedServerSession,
+    value: &QuotationRecord,
+    command: &IssueQuotation,
+    now: UnixMillis,
+) -> Result<(QuotationDraftSnapshot, Option<DiscountApproval>), E> {
+    let draft = approvals::load_draft(tx, actor, &value.scope, command.draft_id)
+        .await
+        .map_err(map_approval)?
+        .ok_or(E::Conflict)?;
+    if draft.revision != command.expected_draft_revision {
+        return Err(E::Conflict);
+    }
+    let approval = approvals::latest(tx, actor, command.draft_id)
+        .await
+        .map_err(map_approval)?;
+    let snapshot = issuance_snapshot(actor.tenant_id, value, &draft, approval.as_ref(), now)?;
+    quotation_expiry(now, value.validity_days)?;
+    approvals::validate_current_prices(tx, actor, &snapshot, value.organization_id)
+        .await
+        .map_err(|e| {
+            if e == eitmad_pricing::ApprovalError::Conflict {
+                E::StalePrice
+            } else {
+                map_approval(e)
+            }
+        })?;
+    validate_active_customer(tx, actor, &snapshot).await?;
+    Ok((snapshot, approval))
 }
 
 async fn validate_active_customer(
@@ -561,6 +637,13 @@ async fn expire(
     value: &mut QuotationRecord,
     now: UnixMillis,
 ) -> Result<(), E> {
+    if value.state != S::Issued || value.valid_until.is_none_or(|v| now.0 <= v.0) {
+        return Ok(());
+    }
+    lock(tx, actor).await?;
+    *value = latest(tx, actor, value.quotation.id)
+        .await?
+        .ok_or(E::Conflict)?;
     if value.state != S::Issued || value.valid_until.is_none_or(|v| now.0 <= v.0) {
         return Ok(());
     }

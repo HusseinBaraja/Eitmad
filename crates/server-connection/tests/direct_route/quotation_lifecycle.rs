@@ -99,7 +99,7 @@ pub(super) fn run(
     assert_ne!(first.is_ok(), second.is_ok());
     let issued = first.clone().or(second.clone()).unwrap();
     assert_eq!(issued.state, QuotationState::Issued);
-    assert!(issued.number.as_ref().unwrap().ends_with("-00001"));
+    assert!(issued.number.as_ref().unwrap().starts_with("QT-"));
     assert_eq!(issued.quotation, original.snapshot);
     watches.wait(issued.quotation.id, issued.revision);
     verify_issue_retry(
@@ -129,6 +129,14 @@ pub(super) fn run(
         server_actor,
     );
     verify_issue_rollback(reception, customer, target.clone(), clients, pool);
+    verify_bounded_pool_and_large_document(
+        reception,
+        customer,
+        target.clone(),
+        clients,
+        pool,
+        server_actor,
+    );
     verify_catalog_change(reception, customer, target, clients, &cancelled);
     watches.stop();
 }
@@ -639,6 +647,19 @@ fn verify_issue_rollback(
     let before = current(&*clients.reception, &actor, draft.snapshot.id);
     let request = issue_request(&before, &actor.scope);
     let runtime = tokio::runtime::Handle::current();
+    let last_number: i64 = runtime.block_on(async {
+        let mut tx = pool.begin().await.unwrap();
+        sqlx::query("SELECT set_config('eitmad.tenant_id',$1,true)")
+            .bind(actor.tenant_id.value().to_string())
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        sqlx::query_scalar("SELECT max(last_number) FROM sync.quotation_numbers WHERE tenant_id=$1")
+            .bind(actor.tenant_id.value())
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap()
+    });
     runtime.block_on(sqlx::raw_sql("CREATE FUNCTION audit.fail_issue_test() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.operation='eitmad.quotation.issue.v1' THEN RAISE EXCEPTION 'synthetic audit failure'; END IF; RETURN NEW; END $$; CREATE TRIGGER fail_issue_test BEFORE INSERT ON audit.server_records FOR EACH ROW EXECUTE FUNCTION audit.fail_issue_test();").execute(pool)).unwrap();
     let failed = clients
         .reception
@@ -653,5 +674,121 @@ fn verify_issue_rollback(
         .reception
         .quotation_transition(&actor, &request, UnixMillis(i64::MAX))
         .unwrap();
-    assert!(issued.number.unwrap().ends_with("-00004"));
+    assert!(
+        issued
+            .number
+            .unwrap()
+            .ends_with(&format!("-{:05}", last_number + 2))
+    );
+}
+
+fn verify_bounded_pool_and_large_document(
+    reception: &mut DraftTestClient,
+    customer: CustomerId,
+    target: PriceTarget,
+    clients: &ApprovalClients,
+    pool: &sqlx::PgPool,
+    server_actor: &AuthenticatedServerSession,
+) {
+    let actor = reception.client.actor.clone();
+    let mut intent = draft_intent(customer, target);
+    let line = intent.lines[0].clone();
+    intent.lines = (0..240)
+        .map(|_| {
+            let mut copy = line.clone();
+            copy.id = Uuid::new_v4();
+            copy
+        })
+        .collect();
+    let draft = reception
+        .drafts
+        .create(
+            &reception.client.mutation(),
+            &CreateQuotationDraft { intent },
+        )
+        .unwrap();
+    clients
+        .reception
+        .transition(
+            &actor,
+            &eitmad_contracts::quotation_approval::ConfirmDiscountApproval {
+                scope: actor.scope.clone(),
+                idempotency_key: IdempotencyKey::new(Uuid::new_v4()),
+                action: eitmad_contracts::quotation_approval::DiscountApprovalAction::Refresh(
+                    draft.snapshot.clone(),
+                ),
+            },
+            UnixMillis(i64::MAX),
+        )
+        .unwrap();
+    // A legitimate commercial record exceeds the old image-route response budget.
+    assert!(serde_json::to_vec(&draft.snapshot).unwrap().len() > 136 * 1024);
+    let before = current(&*clients.reception, &actor, draft.snapshot.id);
+    let request = issue_request(&before, &actor.scope);
+    let server_scope = current(&*clients.manager, &clients.manager_actor, draft.snapshot.id).scope;
+    let issued = tokio::runtime::Handle::current().block_on(async {
+        let single = sqlx::PgPoolOptions::new()
+            .max_connections(1)
+            .acquire_timeout(Duration::from_secs(2))
+            .connect_with((*pool.connect_options()).clone())
+            .await
+            .unwrap();
+        let server = eitmad_sync_plane::QuotationLifecycleServer::new(single.clone());
+        let mut locked = pool.begin().await.unwrap();
+        sqlx::query("SELECT tenant_id FROM control.tenants WHERE tenant_id=$1 FOR UPDATE")
+            .bind(server_actor.tenant_id.value())
+            .fetch_one(&mut *locked)
+            .await
+            .unwrap();
+        let listed = tokio::time::timeout(
+            Duration::from_secs(2),
+            server.list(
+                server_actor,
+                &ReadQuotations {
+                    scope: server_scope.clone(),
+                    query: ListQuotations {
+                        after: None,
+                        limit: 100,
+                    },
+                },
+                eitmad_control_plane::unix_millis_now(),
+            ),
+        )
+        .await
+        .expect("Initialized read must not wait for the tenant write lock")
+        .unwrap();
+        assert!(
+            listed
+                .items
+                .iter()
+                .any(|r| r.quotation.id == before.quotation.id)
+        );
+        locked.rollback().await.unwrap();
+        let issued = tokio::time::timeout(
+            Duration::from_secs(10),
+            server.transition(
+                server_actor,
+                &ConfirmQuotation {
+                    scope: server_scope.clone(),
+                    ..request.clone()
+                },
+                CorrelationId::new(Uuid::new_v4()),
+                eitmad_control_plane::unix_millis_now(),
+            ),
+        )
+        .await
+        .expect("First issuance must complete with one pool connection")
+        .unwrap();
+        single.close().await;
+        issued
+    });
+    assert_eq!(issued.quotation.evaluation.lines.len(), 240);
+    // The retained command reply also crosses the large transition-response boundary.
+    let repeated = clients
+        .reception
+        .quotation_transition(&actor, &request, UnixMillis(i64::MAX))
+        .unwrap();
+    assert_eq!(repeated.revision, issued.revision);
+    assert_eq!(repeated.number, issued.number);
+    assert_frozen(&repeated.quotation, &draft.snapshot);
 }

@@ -143,12 +143,14 @@ impl AuthenticatedHttpClient {
             .and_then(|()| stream.write_all(&body))
             .and_then(|()| stream.flush())
             .map_err(|_| HttpError::Unavailable)?;
-        let maximum =
-            if route == "/v1/pricing/read" || route.starts_with("/v1/quotation-approvals/") {
-                4 * 1024 * 1024
-            } else {
-                IMAGE_CHUNK_BYTES * 2 + 8192
-            };
+        let maximum = if route == "/v1/pricing/read"
+            || route.starts_with("/v1/quotation-approvals/")
+            || route.starts_with("/v1/quotations/")
+        {
+            4 * 1024 * 1024
+        } else {
+            IMAGE_CHUNK_BYTES * 2 + 8192
+        };
         let mut response = Vec::new();
         let mut buffer = [0; 8192];
         while response.len() <= maximum {

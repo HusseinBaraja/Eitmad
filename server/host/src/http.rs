@@ -54,6 +54,8 @@ use uuid::Uuid;
 
 use crate::ServerConfig;
 
+type QuotationExpiryScope = (Uuid, String, Uuid);
+
 #[derive(Clone)]
 pub struct ServerState {
     control: ControlPlane,
@@ -64,6 +66,9 @@ pub struct ServerState {
     updates: Option<UpdateCatalog>,
     administration: Option<AdministrationService>,
     approval_notifications: Arc<tokio::sync::OnceCell<ApprovalNotifications>>,
+    quotation_expiry_checks: Arc<
+        tokio::sync::Mutex<std::collections::HashMap<QuotationExpiryScope, std::time::Instant>>,
+    >,
 }
 
 impl ServerState {
@@ -89,6 +94,9 @@ impl ServerState {
             updates: None,
             administration: None,
             approval_notifications: Arc::new(tokio::sync::OnceCell::new()),
+            quotation_expiry_checks: Arc::new(tokio::sync::Mutex::new(
+                std::collections::HashMap::new(),
+            )),
         }
     }
 
@@ -128,6 +136,39 @@ impl ServerState {
             Ok(ApprovalNotifications{wake,stop})
         }).await?;
         Ok(notifications.wake.subscribe())
+    }
+
+    async fn expire_quotations(
+        &self,
+        session: &eitmad_contracts::server::AuthenticatedServerSession,
+        scope: &ScopeRef,
+    ) -> Result<(), ApiError> {
+        let key = (
+            session.tenant_id.value(),
+            scope.kind.as_str().to_owned(),
+            scope.id.value(),
+        );
+        let instant = std::time::Instant::now();
+        {
+            let mut checks = self.quotation_expiry_checks.lock().await;
+            checks.retain(|_, checked| {
+                instant.duration_since(*checked) < SESSION_REVALIDATION_INTERVAL
+            });
+            if checks.contains_key(&key) {
+                return Ok(());
+            }
+            checks.insert(key.clone(), instant);
+        }
+        let result = self
+            .sync
+            .quotations()
+            .expire_due(session, scope, unix_millis_now())
+            .await
+            .map_err(map_quotation);
+        if result.is_err() {
+            self.quotation_expiry_checks.lock().await.remove(&key);
+        }
+        result
     }
 
     pub fn set_ready(&self, value: bool) {
@@ -1050,8 +1091,8 @@ async fn stream_session(
                     break;
                 }
                 if let ApprovalCursor::Subscribed(cursor)=&mut approval_cursor {
-                    if send_approval_events(&mut socket,&state,&session,&scope,&schema_id,cursor).await.is_err(){
-                        let _=send_failure(&mut socket,"eitmad.error.authorization-denied.v1").await;break;
+                    if let Err(e)=send_revalidated_events(&mut socket,&state,&session,&scope,&schema_id,cursor).await{
+                        let _=send_failure(&mut socket,e.code.as_str()).await;break;
                     }
                 }
                 continue;
@@ -1147,7 +1188,7 @@ async fn accept_stream_hello(
     Ok(session)
 }
 
-async fn send_approval_events(
+async fn send_revalidated_events(
     socket: &mut WebSocket,
     state: &ServerState,
     session: &eitmad_contracts::server::AuthenticatedServerSession,
@@ -1156,13 +1197,19 @@ async fn send_approval_events(
     cursor: &mut Option<eitmad_contracts::transport::EventCursor>,
 ) -> Result<(), ApiError> {
     if schema.as_str() == eitmad_pricing::QUOTATION_LIFECYCLE_SCHEMA {
-        state
-            .sync
-            .quotations()
-            .expire_due(session, scope, unix_millis_now())
-            .await
-            .map_err(map_quotation)?;
+        state.expire_quotations(session, scope).await?;
     }
+    send_approval_events(socket, state, session, scope, schema, cursor).await
+}
+
+async fn send_approval_events(
+    socket: &mut WebSocket,
+    state: &ServerState,
+    session: &eitmad_contracts::server::AuthenticatedServerSession,
+    scope: &ScopeRef,
+    schema: &SchemaId,
+    cursor: &mut Option<eitmad_contracts::transport::EventCursor>,
+) -> Result<(), ApiError> {
     loop {
         let page = state
             .sync
@@ -1216,7 +1263,7 @@ async fn handle_stream_message(
                 ) =>
         {
             let mut cursor = request.resume_after;
-            send_approval_events(
+            send_revalidated_events(
                 socket,
                 state,
                 context.session,

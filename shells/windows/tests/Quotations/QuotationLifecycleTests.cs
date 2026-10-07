@@ -41,6 +41,15 @@ public sealed class QuotationLifecycleTests
         }
     }
     [TestMethod]
+    public async Task UnnumberedLifecycleCannotOpenAnIssuedPrintDocument()
+    {
+        var fixture = new Fixture(); await using var engine = fixture.Engine; await using var client = new QuotationDraftClient(engine);
+        fixture.Record.PermittedActions = [QuotationPermittedAction.Print];
+        var model = new QuotationsViewModel(true); model.AttachDraftClient(client); await model.ActivateDraftsAsync(); model.OpenQuotation(model.VisibleQuotations.Single());
+        Assert.IsFalse(model.SelectedQuotation!.CanPrint);
+        await model.DeactivateDraftsAsync();
+    }
+    [TestMethod]
     public async Task IssueWaitsForConfirmationAndRetriesTheExactIntent()
     {
         var fixture = new Fixture { LoseReply = true }; await using var engine = fixture.Engine; await using var client = new QuotationDraftClient(engine);

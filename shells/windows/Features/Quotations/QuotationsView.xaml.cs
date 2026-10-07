@@ -68,7 +68,8 @@ public partial class QuotationsView : UserControl
     private void PrintQuotationClick(object sender, RoutedEventArgs e)
     {
         if (ViewModel.SelectedQuotation is not { CanPrint: true } quotation) return;
-        var document = quotation.Lifecycle is { } record ? Features.Reception.QuotationCustomerDocument.CreateIssued(record)
+        var document = quotation.Lifecycle is { Number: not null } record ? Features.Reception.QuotationCustomerDocument.CreateIssued(record)
+            : quotation.Lifecycle is not null ? null
             : createPreview is not null ? Features.Reception.QuotationCustomerDocument.CreateExistingPreview(createPreview(quotation), quotation.Date.ToDateTime(TimeOnly.MinValue)) : null;
         if (document is not null) ShowPreviewWindow(new PrintPreview { Document = document }, "معاينة عرض السعر");
     }
