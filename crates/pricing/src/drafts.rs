@@ -197,6 +197,9 @@ impl QuotationDraftService {
                     AuditOutcome::Conflict,
                     "eitmad.error.quotation-draft-conflict.v1",
                 ),
+                QuotationDraftError::IdempotencyMismatch => {
+                    (AuditOutcome::Invalid, "eitmad.error.contract-invalid.v1")
+                }
                 _ => (
                     AuditOutcome::Invalid,
                     "eitmad.error.quotation-draft-invalid.v1",

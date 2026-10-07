@@ -543,6 +543,37 @@ fn quotation_draft_failure_audit_matches_denial_conflict_and_validation() {
     );
 }
 
+#[test]
+fn quotation_draft_idempotency_mismatch_audit_preserves_original() {
+    let f = DraftSyncFixture::new();
+    let saved = mutation(f.actor.clone(), 1105);
+    let original = f
+        .drafts
+        .create(
+            &saved,
+            &CreateQuotationDraft {
+                intent: f.input.clone(),
+            },
+        )
+        .unwrap();
+    let mut mismatched = mutation(f.actor.clone(), 1106);
+    mismatched.idempotency_key = saved.idempotency_key;
+    let mut intent = f.input.clone();
+    intent.lines.clear();
+    assert_eq!(
+        f.drafts
+            .create(&mismatched, &CreateQuotationDraft { intent }),
+        Err(QuotationDraftError::IdempotencyMismatch)
+    );
+    assert_failure_audit(
+        &f.store,
+        &mismatched,
+        "invalid",
+        "eitmad.error.contract-invalid.v1",
+    );
+    assert_eq!(f.get(original.snapshot.id), original);
+}
+
 fn assert_failure_audit(
     store: &AuthorityStore,
     context: &MutationContext,
