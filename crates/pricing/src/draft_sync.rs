@@ -8,8 +8,8 @@ use eitmad_contracts::{
     identity::{AuthorizationContext, ScopeRef},
     quotation_draft::{QuotationDraftId, QuotationDraftSyncState},
     sync::{
-        BatchAcknowledgement, ChangeBatch, LocalChangeDisposition, LocalChangeSubmission,
-        PullRequest, ReconciliationDelivery, SyncMessage, SyncMode,
+        BatchAcknowledgement, ChangeBatch, ChangeId, ChangeRecord, LocalChangeDisposition,
+        LocalChangeSubmission, PullRequest, ReconciliationDelivery, SyncMessage, SyncMode,
     },
     sync_transport::{SyncFrameId, SyncStreamId, SyncTransportFrame, SyncTransportPayload},
     transport::{CorrelationId, IdempotencyKey, SchemaId},
@@ -72,20 +72,7 @@ impl<T: SyncTransport> QuotationDraftSyncCycle<'_, T> {
         if self.engine.domain_schema().map(SchemaId::as_str) != Some(QUOTATION_DRAFT_SCHEMA) {
             return Err(QuotationDraftSyncError::UnexpectedResponse);
         }
-        let pending = match self.drafts.sync_batch(self.actor, 50) {
-            Ok(pending) => pending,
-            Err(QuotationDraftError::Denied) => Vec::new(),
-            Err(e) => return Err(e.into()),
-        };
-        for change in &pending {
-            self.engine.stage_committed_local_change(
-                self.actor,
-                self.request,
-                self.audit,
-                change.clone(),
-            )?;
-        }
-        let result = self.run_connected(&pending);
+        let result = self.run_connected();
         if result.is_err() {
             self.transport.disconnect(now());
             let _ = self.engine.disconnect(self.actor, self.request, self.audit);
@@ -93,10 +80,27 @@ impl<T: SyncTransport> QuotationDraftSyncCycle<'_, T> {
         result
     }
 
-    fn run_connected(
-        &mut self,
-        pending: &[eitmad_contracts::sync::ChangeRecord],
-    ) -> Result<(), QuotationDraftSyncError> {
+    fn pending(&self) -> Result<Vec<ChangeRecord>, QuotationDraftSyncError> {
+        match self.drafts.sync_batch(self.actor, 50) {
+            Ok(pending) => Ok(pending),
+            Err(QuotationDraftError::Denied) => Ok(Vec::new()),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    fn stage_pending(&mut self, pending: &[ChangeRecord]) -> Result<(), SyncEngineError> {
+        for change in pending {
+            self.engine.stage_committed_local_change(
+                self.actor,
+                self.request,
+                self.audit,
+                change.clone(),
+            )?;
+        }
+        Ok(())
+    }
+
+    fn run_connected(&mut self) -> Result<(), QuotationDraftSyncError> {
         let session = self.transport.connect(now())?;
         let schema = NegotiatedSchema {
             schema_id: SchemaId::parse(QUOTATION_DRAFT_SCHEMA).expect("static draft schema"),
@@ -110,8 +114,23 @@ impl<T: SyncTransport> QuotationDraftSyncCycle<'_, T> {
             SyncMode::LocalFirst,
             &schema,
         )?;
-        self.submit_pending(pending)?;
+        let mut pending = self.pending()?;
+        match self.stage_pending(&pending) {
+            Ok(()) => {}
+            Err(SyncEngineError::InvalidChange) => {
+                // A projection can commit before engine reconciliation fails.
+                // Replay that page before staging edits based on its revision.
+                self.pull()?;
+                pending = self.pending()?;
+                self.stage_pending(&pending)?;
+            }
+            Err(error) => return Err(error.into()),
+        }
+        self.submit_pending(&pending)?;
+        self.pull()
+    }
 
+    fn pull(&mut self) -> Result<(), QuotationDraftSyncError> {
         loop {
             let after = self.engine.metadata().checkpoint;
             let response = self.exchange(SyncMessage::Pull(PullRequest {
@@ -152,12 +171,6 @@ impl<T: SyncTransport> QuotationDraftSyncCycle<'_, T> {
         let mut blocked = std::collections::HashSet::new();
         for change in pending {
             if blocked.contains(&change.record_id) {
-                self.engine.hold_committed_local_change(
-                    self.actor,
-                    self.request,
-                    self.audit,
-                    change.change_id,
-                )?;
                 continue;
             }
             let mut server_change = change.clone();
@@ -208,14 +221,11 @@ impl<T: SyncTransport> QuotationDraftSyncCycle<'_, T> {
             };
             if let Some((state, conflict)) = exception {
                 blocked.insert(change.record_id);
-                // Dequeue first: if the draft status write fails, the durable
-                // outbox retries this submission on the next cycle.
-                self.engine.hold_committed_local_change(
-                    self.actor,
-                    self.request,
-                    self.audit,
-                    change.change_id,
-                )?;
+                // Dequeue all revisions before hiding the draft from sync_batch.
+                // A failed status write retries without holding an absent change.
+                for queued in pending.iter().filter(|c| c.record_id == change.record_id) {
+                    self.hold_pending_change(queued.change_id)?;
+                }
                 self.drafts.mark_sync_exception(
                     self.actor,
                     QuotationDraftId::new(change.record_id.value()),
@@ -225,6 +235,23 @@ impl<T: SyncTransport> QuotationDraftSyncCycle<'_, T> {
                     now(),
                 )?;
             }
+        }
+        Ok(())
+    }
+
+    fn hold_pending_change(&mut self, change_id: ChangeId) -> Result<(), SyncEngineError> {
+        if self
+            .engine
+            .pending_changes()
+            .iter()
+            .any(|c| c.change_id == change_id)
+        {
+            self.engine.hold_committed_local_change(
+                self.actor,
+                self.request,
+                self.audit,
+                change_id,
+            )?;
         }
         Ok(())
     }

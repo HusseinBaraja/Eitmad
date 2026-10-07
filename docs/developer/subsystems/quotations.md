@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Quotation capability maintainers"
-last_verified: "2026-10-06"
+last_verified: "2026-10-07"
 review_triggers:
   - "Quotation contracts, approval rules, or Windows quotation UI behavior change"
 keywords:
@@ -58,6 +58,10 @@ Reads preserve saved prices after catalog changes. An update that refers to a ch
 `QuotationDraftSyncCycle` uses the shared local-first protocol and a schema-specific durable engine checkpoint. It stages at most 50 changes, sends them through the real server connection, projects pages before advancing the checkpoint, and acknowledges each page. Authenticated enrollment maps local branch and catalog scopes to their server identities; the shell cannot supply this mapping. Transport failure leaves outbox work available for retry. PostgreSQL migration `0011_quotation_drafts.sql` retains immutable draft revisions under tenant RLS and exact branch authorization. The domain handler verifies the customer snapshot against its scoped retained contact revision, and verifies public descriptions and evaluated amounts against retained catalog and price revisions. A stale published revision can transfer as draft content; transfer does not issue it or silently replace its price. Customer delivery must arrive first; an absent server customer revision leaves the draft retryable.
 
 Concurrent edits create a server conflict instead of applying a generic merge. The local draft remains visible with `conflicted` state, server conflict identity, and the remote input. Later queued revisions of that draft cannot bypass the first conflict. Rejected and conflicted work remains durable but stops automatic resubmission. Updates are blocked until a future explicit resolution workflow; no resolution or issuance UI is connected in this task.
+
+If a draft projection commits but engine reconciliation fails, a later local edit can refer to a revision absent from the engine. The next cycle replays the outstanding server page before staging and submitting that edit. It reads the outbox again after replay so newly confirmed or conflicted work is not submitted from an obsolete batch. For a rejected or conflicted submission, the cycle removes all queued revisions of that draft before saving its terminal state. If that status write fails, the next cycle retries the server result and status write without dequeuing already held changes. Local content and its durable outbox remain intact throughout recovery.
+
+Failed draft saves record the authorization-denied code for denials, the quotation-draft-conflict code for stale revisions and unresolved conflicts, and the quotation-draft-invalid code for other audited errors. Unavailable storage does not create a separate failure audit. Regression tests in `crates/pricing/src/tests/quotation/draft_sync.rs` cover both recovery paths through restart and verify the recorded audit outcomes and codes.
 
 Focused tests in `crates/pricing/src/tests/quotation.rs` cover restart, atomic rollback, retry, stale input, authorization, and competing projection. The ignored live test `quotation_drafts_restart_transfer_replay_and_conflict_through_real_server` in `crates/server-connection/tests/direct_route/quotation_drafts.rs` uses two isolated SQLite authorities, the TLS host, and a disposable PostgreSQL role without superuser or `BYPASSRLS` rights. It covers forged price and customer snapshots, interrupted acknowledgement, replay, second-client delivery, two queued competing edits, immutable revisions, and tenant isolation. Use the certificate and database setup in [server operations](../../operations/run-server-authority.md#run-the-direct-desktop-connection-test), then run:
 

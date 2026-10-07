@@ -188,23 +188,23 @@ impl QuotationDraftService {
             Ok(draft)
         });
         if let Err(e) = &result {
-            if !matches!(e, QuotationDraftError::Unavailable) {
-                self.store
-                    .append_audit(&audit(context, operation, Some(id)).with_outcome(
-                        if matches!(e, QuotationDraftError::Denied) {
-                            AuditOutcome::Denied
-                        } else if matches!(
-                            e,
-                            QuotationDraftError::Conflict { .. }
-                                | QuotationDraftError::UnresolvedConflict
-                        ) {
-                            AuditOutcome::Conflict
-                        } else {
-                            AuditOutcome::Invalid
-                        },
-                        Some("eitmad.error.quotation-draft-invalid.v1".into()),
-                    ))?;
-            }
+            let (outcome, code) = match e {
+                QuotationDraftError::Unavailable => return result,
+                QuotationDraftError::Denied => {
+                    (AuditOutcome::Denied, "eitmad.error.authorization-denied.v1")
+                }
+                QuotationDraftError::Conflict { .. } | QuotationDraftError::UnresolvedConflict => (
+                    AuditOutcome::Conflict,
+                    "eitmad.error.quotation-draft-conflict.v1",
+                ),
+                _ => (
+                    AuditOutcome::Invalid,
+                    "eitmad.error.quotation-draft-invalid.v1",
+                ),
+            };
+            self.store.append_audit(
+                &audit(context, operation, Some(id)).with_outcome(outcome, Some(code.into())),
+            )?;
         }
         result
     }

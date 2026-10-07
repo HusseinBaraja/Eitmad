@@ -393,6 +393,8 @@ fn verify_clients(
         [12; 32],
         (&fixture.endpoint, &fixture.trust, &fixture.catalog_scope),
     );
+    let first_customer_state = customer_sync_state(&first);
+    let second_customer_state = customer_sync_state(&second);
     let mut intent = draft_intent(fixture.created_customer.id, fixture.target);
     intent.lines.push(QuotationLineIntent {
         id: Uuid::new_v4(),
@@ -462,8 +464,22 @@ fn verify_clients(
     // Switch the second desktop to an authorized editor only for the competing-write checks.
     let tenant = second.client.actor.tenant_id;
     authorize_draft_writer(&mut second.client, tenant);
-    verify_competing_updates(&mut first, &mut second, &created)
+    let conflict = verify_competing_updates(&mut first, &mut second, &created);
+    // Compare durable customer state, including revision and bytes, per client.
+    assert_eq!(customer_sync_state(&first), first_customer_state);
+    assert_eq!(customer_sync_state(&second), second_customer_state);
+    conflict
 }
+
+fn customer_sync_state(client: &DraftTestClient) -> eitmad_storage::StoredSyncState {
+    client
+        .client
+        .store
+        .read_sync_state(&client.client.actor.scope)
+        .unwrap()
+        .unwrap()
+}
+
 fn verify_interrupted_delivery(client: &mut DraftTestClient) {
     use base64::{Engine as _, engine::general_purpose::STANDARD};
     client
@@ -550,11 +566,6 @@ fn verify_competing_updates(
     second.engine = draft_engine(&second.client);
     second.run();
     assert_eq!(second.get(created.snapshot.id), conflict);
-    // Draft cycles must leave both existing customer checkpoints unchanged.
-    assert_eq!(
-        first.client.engine.metadata().checkpoint,
-        second.client.engine.metadata().checkpoint
-    );
     conflict
 }
 async fn verify_postgres_history(
