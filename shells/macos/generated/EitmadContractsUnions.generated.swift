@@ -1218,4 +1218,3 @@ public struct PartChanges: Codable, Sendable {}
 public struct PermissionChanges: Codable, Sendable {}
 public struct PriceChanges: Codable, Sendable {}
 public struct ProductChanges: Codable, Sendable {}
-public struct QuotationDraftChanges: Codable, Sendable {}

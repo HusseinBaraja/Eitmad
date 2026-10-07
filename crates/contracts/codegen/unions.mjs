@@ -149,11 +149,17 @@ function renderCsharpUnion(union) {
   return lines.join("\n");
 }
 
-export function renderSwiftUnions(unions, emptyPayloads = []) {
+export function renderSwiftUnions(unions, emptyPayloads = [], swiftModels = "") {
   const blocks = unions.map(renderSwiftUnion);
-  const structs = emptyPayloads.map(
-    (name) => `\npublic struct ${name}: Codable, Sendable {}`,
+  // Quicktype emits closed empty objects but can omit open empty objects.
+  // Render only the payload types absent from its models to avoid redeclarations.
+  const declared = new Set(
+    [...swiftModels.matchAll(/^public (?:struct|class|enum) (\w+)/gm)].map((match) => match[1]),
   );
+  const structs = emptyPayloads
+    .map((name) => swiftNameStyle("", true, name))
+    .filter((name) => !declared.has(name))
+    .map((name) => `\npublic struct ${name}: Codable, Sendable {}`);
   return `// Generated from Rust contracts. Do not edit.\nimport Foundation\n\n${blocks.join("\n")}${structs.join("")}\n`;
 }
 

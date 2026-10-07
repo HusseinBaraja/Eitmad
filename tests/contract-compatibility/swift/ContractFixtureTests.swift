@@ -46,6 +46,20 @@ private struct ContractFixtureTests {
         guard decodedSamples == fixture.mixedDirectionSamples else {
             throw ContractTestError.textCorrupted
         }
+        // Cover both Quicktype-owned closed payloads and renderer-owned open payloads.
+        let subscriptions: [Subscription] = [
+            .quotationDraftChangedSubscribe(QuotationDraftChanges()),
+            .configChangedSubscribe(ConfigurationChanges()),
+        ]
+        for subscription in subscriptions {
+            let encoded = try JSONEncoder().encode(subscription)
+            let decoded = try JSONDecoder().decode(Subscription.self, from: encoded)
+            guard try hasSameJSON(decoded, subscription),
+                  let object = try JSONSerialization.jsonObject(with: encoded) as? [String: Any],
+                  let payload = object["payload"] as? [String: Any], payload.isEmpty else {
+                throw ContractTestError.subscriptionCorrupted
+            }
+        }
         guard OpenProtocolId(rawValue: ProtocolIds.Capabilities.eitmadCapabilitySyncV1) != nil,
               OpenProtocolId(rawValue: "Eitmad Sync") == nil else {
             throw ContractTestError.identifierValidationDrift
@@ -64,6 +78,7 @@ private enum ContractTestError: Error {
     case queryCorrupted
     case responseCorrupted
     case structuredErrorCorrupted
+    case subscriptionCorrupted
     case textCorrupted
     case identifierValidationDrift
 }
