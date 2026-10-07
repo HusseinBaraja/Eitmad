@@ -26,7 +26,9 @@ impl QuotationDraftSyncHandler {
         Self { pool }
     }
 }
-fn snapshot(draft: &LocalOperationDraft) -> Result<QuotationDraftSnapshot, DomainValidationError> {
+pub(super) fn snapshot(
+    draft: &LocalOperationDraft,
+) -> Result<QuotationDraftSnapshot, DomainValidationError> {
     if draft.schema_id.as_str() != QUOTATION_DRAFT_SCHEMA
         || draft.schema_version != 1
         || draft.scope.kind.as_str() != "branch"
@@ -94,46 +96,7 @@ impl DomainSyncHandler for QuotationDraftSyncHandler {
         draft: &LocalOperationDraft,
         _now: UnixMillis,
     ) -> Result<(), OperationError> {
-        let value = snapshot(draft)?;
-        let organization: uuid::Uuid = sqlx::query_scalar(
-            "SELECT organization_id FROM control.branches WHERE tenant_id=$1 AND branch_id=$2",
-        )
-        .bind(session.tenant_id.value())
-        .bind(draft.scope.id.value())
-        .fetch_one(&mut **tx)
-        .await
-        .map_err(|_| OperationError::Denied)?;
-        let customer = value
-            .intent
-            .customer
-            .as_ref()
-            .ok_or(OperationError::Invalid)?;
-        validate_customer(tx, session, &draft.scope, &value).await?;
-        let mut entries = Vec::with_capacity(value.intent.lines.len());
-        for line in &value.intent.lines {
-            let selection = &line.configuration.selection;
-            let target = &selection.target;
-            if target.scope().kind.as_str() != "organization"
-                || target.scope().id.value() != organization
-            {
-                return Err(OperationError::Denied);
-            }
-            let (kind, id, variant) = target.identity();
-            let definition:Vec<u8>=sqlx::query_scalar("SELECT record_json FROM sync.catalog_revisions WHERE tenant_id=$1 AND organization_id=$2 AND kind=$3 AND entry_id=$4 AND revision=$5").bind(session.tenant_id.value()).bind(organization).bind(kind).bind(id).bind(i64::try_from(target.revision()).map_err(|_| OperationError::Invalid)?).fetch_optional(&mut **tx).await.map_err(|_| OperationError::Unavailable)?.ok_or(OperationError::Invalid)?;
-            let price:Vec<u8>=sqlx::query_scalar("SELECT record_json FROM sync.price_revisions WHERE tenant_id=$1 AND organization_id=$2 AND kind=$3 AND entry_id=$4 AND variant_id=$5 AND revision=$6").bind(session.tenant_id.value()).bind(organization).bind(kind).bind(id).bind(variant).bind(i64::try_from(selection.price_revision).map_err(|_| OperationError::Invalid)?).fetch_optional(&mut **tx).await.map_err(|_| OperationError::Unavailable)?.ok_or(OperationError::Invalid)?;
-            let definition: CatalogRevision =
-                serde_json::from_slice(&definition).map_err(|_| OperationError::Unavailable)?;
-            let price: PublishedPrice =
-                serde_json::from_slice(&price).map_err(|_| OperationError::Unavailable)?;
-            entries.push(
-                eitmad_pricing::public_entry(&definition, &price)
-                    .map_err(|_| OperationError::Invalid)?,
-            );
-        }
-        eitmad_pricing::validate_draft_snapshot(&value, &entries)
-            .map_err(|_| OperationError::Invalid)?;
-        sqlx::query("INSERT INTO sync.quotation_draft_revisions(tenant_id,branch_id,draft_id,revision,customer_id,snapshot_json) VALUES($1,$2,$3,$4,$5,$6)").bind(session.tenant_id.value()).bind(draft.scope.id.value()).bind(value.id.value()).bind(i64::try_from(value.revision).map_err(|_| OperationError::Invalid)?).bind(customer.id.value()).bind(serde_json::to_vec(&value).map_err(|_| OperationError::Invalid)?).execute(&mut **tx).await.map_err(|_| OperationError::Unavailable)?;
-        Ok(())
+        retain_snapshot(tx, session, draft, _now).await
     }
 }
 
@@ -194,5 +157,56 @@ async fn validate_customer(
     {
         return Err(OperationError::Invalid);
     }
+    Ok(())
+}
+
+pub(super) async fn retain_snapshot(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    session: &AuthenticatedServerSession,
+    draft: &LocalOperationDraft,
+    now: UnixMillis,
+) -> Result<(), OperationError> {
+    let value = snapshot(draft)?;
+    let organization: uuid::Uuid = sqlx::query_scalar(
+        "SELECT organization_id FROM control.branches WHERE tenant_id=$1 AND branch_id=$2",
+    )
+    .bind(session.tenant_id.value())
+    .bind(draft.scope.id.value())
+    .fetch_one(&mut **tx)
+    .await
+    .map_err(|_| OperationError::Denied)?;
+    let customer = value
+        .intent
+        .customer
+        .as_ref()
+        .ok_or(OperationError::Invalid)?;
+    validate_customer(tx, session, &draft.scope, &value).await?;
+    let mut entries = Vec::with_capacity(value.intent.lines.len());
+    for line in &value.intent.lines {
+        let selection = &line.configuration.selection;
+        let target = &selection.target;
+        if target.scope().kind.as_str() != "organization"
+            || target.scope().id.value() != organization
+        {
+            return Err(OperationError::Denied);
+        }
+        let (kind, id, variant) = target.identity();
+        let definition:Vec<u8>=sqlx::query_scalar("SELECT record_json FROM sync.catalog_revisions WHERE tenant_id=$1 AND organization_id=$2 AND kind=$3 AND entry_id=$4 AND revision=$5").bind(session.tenant_id.value()).bind(organization).bind(kind).bind(id).bind(i64::try_from(target.revision()).map_err(|_| OperationError::Invalid)?).fetch_optional(&mut **tx).await.map_err(|_| OperationError::Unavailable)?.ok_or(OperationError::Invalid)?;
+        let price:Vec<u8>=sqlx::query_scalar("SELECT record_json FROM sync.price_revisions WHERE tenant_id=$1 AND organization_id=$2 AND kind=$3 AND entry_id=$4 AND variant_id=$5 AND revision=$6").bind(session.tenant_id.value()).bind(organization).bind(kind).bind(id).bind(variant).bind(i64::try_from(selection.price_revision).map_err(|_| OperationError::Invalid)?).fetch_optional(&mut **tx).await.map_err(|_| OperationError::Unavailable)?.ok_or(OperationError::Invalid)?;
+        let definition: CatalogRevision =
+            serde_json::from_slice(&definition).map_err(|_| OperationError::Unavailable)?;
+        let price: PublishedPrice =
+            serde_json::from_slice(&price).map_err(|_| OperationError::Unavailable)?;
+        entries.push(
+            eitmad_pricing::public_entry(&definition, &price)
+                .map_err(|_| OperationError::Invalid)?,
+        );
+    }
+    eitmad_pricing::validate_draft_snapshot(&value, &entries)
+        .map_err(|_| OperationError::Invalid)?;
+    sqlx::query("INSERT INTO sync.quotation_draft_revisions(tenant_id,branch_id,draft_id,revision,customer_id,snapshot_json) VALUES($1,$2,$3,$4,$5,$6)").bind(session.tenant_id.value()).bind(draft.scope.id.value()).bind(value.id.value()).bind(i64::try_from(value.revision).map_err(|_| OperationError::Invalid)?).bind(customer.id.value()).bind(serde_json::to_vec(&value).map_err(|_| OperationError::Invalid)?).execute(&mut **tx).await.map_err(|_| OperationError::Unavailable)?;
+    crate::quotation_approval::invalidate_for_draft(tx, session, &draft.scope, &value, now)
+        .await
+        .map_err(|_| OperationError::Unavailable)?;
     Ok(())
 }

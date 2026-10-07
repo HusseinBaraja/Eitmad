@@ -172,7 +172,7 @@ fn maximum_database_connections() -> Result<u32, ServerConfigError> {
     let value = std::env::var("EITMAD_SERVER_MAX_CONNECTIONS")
         .map_or(Ok(16), |value| value.parse())
         .map_err(|_| ServerConfigError::Invalid)?;
-    if !(3..=192).contains(&value) {
+    if !(4..=192).contains(&value) {
         return Err(ServerConfigError::Invalid);
     }
     Ok(value)

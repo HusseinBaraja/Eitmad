@@ -5,8 +5,10 @@ mod catalog_image;
 mod catalog_sync;
 pub use catalog_sync::DirectCatalogSyncClient;
 mod pricing;
+mod quotation_approval;
 pub use catalog_image::DirectCatalogImageClient;
 pub use pricing::DirectPriceClient;
+pub use quotation_approval::DirectDiscountApprovalClient;
 
 use std::{
     io::{Read, Write},

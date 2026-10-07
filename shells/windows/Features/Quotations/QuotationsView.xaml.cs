@@ -150,7 +150,7 @@ public partial class QuotationsView : UserControl
         Dispatcher.BeginInvoke(QuotationSearchBox.Focus, DispatcherPriority.Input);
     }
 
-    private void ApproveDiscountClick(object sender, RoutedEventArgs eventArgs) { ViewModel.ApproveDiscount(); BackToQuotationsButton.Focus(); }
+    private async void ApproveDiscountClick(object sender, RoutedEventArgs eventArgs) { ViewModel.ApproveDiscount(); await ViewModel.LastApprovalDecision; BackToQuotationsButton.Focus(); }
 
-    private void RejectDiscountClick(object sender, RoutedEventArgs eventArgs) { ViewModel.RejectDiscount(); BackToQuotationsButton.Focus(); }
+    private async void RejectDiscountClick(object sender, RoutedEventArgs eventArgs) { ViewModel.RejectDiscount(); await ViewModel.LastApprovalDecision; BackToQuotationsButton.Focus(); }
 }

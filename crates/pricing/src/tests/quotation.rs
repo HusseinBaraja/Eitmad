@@ -1,4 +1,5 @@
 use super::*;
+mod approval;
 mod draft_sync;
 use eitmad_contracts::{
     commands::CreateCustomer,

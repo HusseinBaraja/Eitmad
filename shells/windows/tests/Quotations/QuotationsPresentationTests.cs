@@ -61,19 +61,20 @@ public sealed class QuotationsPresentationTests
         Assert.AreEqual(480_000m, pendingApproval.Subtotal);
         Assert.AreEqual(72_000m, pendingApproval.Discount);
         Assert.AreEqual(408_000m, pendingApproval.FinalTotal);
-        Assert.IsTrue(pendingApproval.HasPendingDiscountApproval);
+        Assert.IsFalse(pendingApproval.HasPendingDiscountApproval);
+        Assert.IsFalse(viewModel.CanDecideApproval);
 
         viewModel.ApproveDiscount();
 
-        Assert.AreEqual(DiscountApprovalDecision.Approved, pendingApproval.ApprovalDecision);
+        Assert.AreEqual(DiscountApprovalDecision.None, pendingApproval.ApprovalDecision);
         Assert.IsFalse(pendingApproval.HasPendingDiscountApproval);
-        StringAssert.Contains(pendingApproval.ApprovalDecisionLabel, "الموافقة");
+        Assert.AreEqual("", pendingApproval.ApprovalDecisionLabel);
 
         var rejectionPreview = new QuotationsViewModel();
         rejectionPreview.OpenQuotation(rejectionPreview.VisibleQuotations[0]);
         rejectionPreview.RejectDiscount();
-        Assert.AreEqual(DiscountApprovalDecision.Rejected, rejectionPreview.SelectedQuotation!.ApprovalDecision);
-        StringAssert.Contains(rejectionPreview.SelectedQuotation.ApprovalDecisionLabel, "رفض");
+        Assert.AreEqual(DiscountApprovalDecision.None, rejectionPreview.SelectedQuotation!.ApprovalDecision);
+        Assert.AreEqual("", rejectionPreview.SelectedQuotation.ApprovalDecisionLabel);
 
         viewModel.CloseQuotation();
         var readOnlyQuotation = viewModel.VisibleQuotations[1];

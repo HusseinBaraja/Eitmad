@@ -936,6 +936,7 @@ version = "0.0.0"
 dependencies = [
  "argon2",
  "async-trait",
+ "base64",
  "eitmad-authorization",
  "eitmad-catalog-image",
  "eitmad-configuration",

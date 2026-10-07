@@ -8,7 +8,7 @@ public sealed partial class QuotationsViewModel
 {
     private QuotationDraftClient? draftClient;
     private CancellationTokenSource? draftLoad;
-    private long loadVersion;
+    private long loadVersion, approvalSession;
     private bool draftsActive;
     private string listState = "المسودات غير متاحة.";
     public string ListState { get => listState; private set { Set(ref listState, value); Raise(nameof(ListSubtitle)); } }
@@ -18,6 +18,7 @@ public sealed partial class QuotationsViewModel
         draftClient = client;
         UsePreviewQuotations(new ObservableCollection<QuotationListItem>());
         client.Changed += DraftsChanged;
+        client.ApprovalChanged += DraftsChanged;
         client.Invalidated += DraftsInvalidated;
         Raise(nameof(ListSubtitle)); Raise(nameof(EmptyDescription));
     }
@@ -33,6 +34,7 @@ public sealed partial class QuotationsViewModel
     public void ClearDrafts()
     {
         if (draftClient is null) return;
+        ++approvalSession; decisionIntent = null; decisionKey = Guid.Empty; ApprovalReason = ""; DecisionNotice = ""; isApprovalBusy = false; Raise(nameof(CanDecideApproval));
         draftsActive = false; ++loadVersion; draftLoad?.Cancel();
         CloseQuotation(); quotations.Clear(); RefreshVisibleQuotations(); ListState = "المسودات غير متاحة.";
     }
@@ -55,17 +57,33 @@ public sealed partial class QuotationsViewModel
                     CloseQuotation(); quotations.Clear(); RefreshVisibleQuotations();
                     ListState = QuotationDraftClient.Message(result.Failure); return;
                 }
-                rows.AddRange(result.Value!.Items.Select(Project)); after = result.Value.Next;
+                rows.AddRange(result.Value!.Items.Select(draft => Project(draft))); after = result.Value.Next;
             } while (after is not null);
+            if (draftClient!.SupportsApprovals) {
+                var approvals = new List<DiscountApproval>(); Guid? cursor = null;
+                do {
+                    var result = await draftClient.ApprovalsAsync(cursor, token);
+                    if (token.IsCancellationRequested || version != loadVersion || !draftsActive) return;
+                    if (!result.Succeeded) { DecisionNotice = QuotationDraftClient.ApprovalMessage(result.Failure); break; }
+                    approvals.AddRange(result.Value!.Items); cursor = result.Value.Next;
+                } while (cursor is not null);
+                if (approvals.Any(a => a.RequestId == decisionRequest && a.State != DiscountApprovalState.Pending)) decisionIntent = null;
+                foreach (var approval in approvals) {
+                    var index = rows.FindIndex(row => row.Id == approval.Quotation.Id);
+                    var draft = index >= 0 && (IsReceptionist || approval.State != DiscountApprovalState.Pending) ? rows[index].Draft! : new QuotationDraft { Scope = approval.Scope, Snapshot = approval.Quotation, UpdatedAt = approval.RequestedAt, SyncState = SyncState.Confirmed };
+                    var row = Project(draft, approval);
+                    if (index >= 0) rows[index] = row; else rows.Add(row);
+                }
+            }
             var selected = SelectedQuotation?.Id;
             quotations.Clear(); foreach (var row in rows) quotations.Add(row);
             if (selected is { } id) SelectedQuotation = quotations.FirstOrDefault(row => row.Id == id);
             RefreshVisibleQuotations();
-            ListState = "مسودات محفوظة — إصدار العرض والطباعة والموافقة والتحويل غير متاحة بعد.";
+            ListState = "المسودات وطلبات الخصم — الإصدار والطباعة والتحويل غير متاحة بعد.";
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { }
     }
-    internal static QuotationListItem Project(QuotationDraft draft)
+    internal static QuotationListItem Project(QuotationDraft draft, DiscountApproval? approval = null)
     {
         var value = draft.Snapshot.Evaluation; var customer = value.Customer;
         return new(draft.Snapshot.Id, "بدون رقم رسمي", customer.Name,
@@ -75,7 +93,7 @@ public sealed partial class QuotationsViewModel
                 EvaluatedTotal = line.Price.TotalYer, IsFurniture = line.Dimensions is not null,
                 Dimensions = line.Dimensions is { } d ? SalesCatalogViewModel.DimensionsLabel(d) : "",
             }).ToArray(), phone: customer.Phone) {
-                Draft = draft, CustomerId = customer.Id, Address = customer.Address ?? "",
+                Draft = draft, Approval = approval, CustomerId = customer.Id, Address = customer.Address ?? "",
                 NeedsApprovalToComplete = value.Totals.ApprovalRequired, ReceptionActivity = QuotationDraftClient.SyncLabel(draft),
             };
     }

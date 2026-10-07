@@ -1,7 +1,12 @@
 //! Rust-authoritative prices with distinct ready-made and manufactured references.
+mod approval;
 mod catalog;
 mod money;
 mod quotation;
+pub use approval::{
+    ApprovalError, DISCOUNT_APPROVAL_SCHEMA, DiscountApprovalServer, approval_error_code,
+    approval_fingerprint, decide_approval, same_commercial_terms,
+};
 pub use quotation::validate_draft_snapshot;
 mod draft_sync;
 mod drafts;

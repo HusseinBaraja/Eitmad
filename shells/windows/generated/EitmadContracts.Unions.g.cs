@@ -14,6 +14,22 @@ public partial class Command
     [JsonPropertyName("payload")]
     public object? Payload { get; set; }
 
+    public const string QuotationApprovalRequestKind = "eitmad.quotation-approval.request.v1";
+
+    public static Command ForQuotationApprovalRequest(RequestDiscountApproval payload) =>
+        new() { Kind = QuotationApprovalRequestKind, Payload = payload };
+
+    public RequestDiscountApproval? AsQuotationApprovalRequest() =>
+        Kind == QuotationApprovalRequestKind ? PayloadAs<RequestDiscountApproval>() : null;
+
+    public const string QuotationApprovalDecideKind = "eitmad.quotation-approval.decide.v1";
+
+    public static Command ForQuotationApprovalDecide(DecideDiscountApproval payload) =>
+        new() { Kind = QuotationApprovalDecideKind, Payload = payload };
+
+    public DecideDiscountApproval? AsQuotationApprovalDecide() =>
+        Kind == QuotationApprovalDecideKind ? PayloadAs<DecideDiscountApproval>() : null;
+
     public const string PricingPublishKind = "eitmad.pricing.publish.v1";
 
     public static Command ForPricingPublish(PublishPrice payload) =>
@@ -198,6 +214,14 @@ public partial class CommandResult
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("payload")]
     public object? Payload { get; set; }
+
+    public const string DiscountApprovalKind = "discountApproval";
+
+    public static CommandResult ForDiscountApproval(DiscountApproval payload) =>
+        new() { Kind = DiscountApprovalKind, Payload = payload };
+
+    public DiscountApproval? AsDiscountApproval() =>
+        Kind == DiscountApprovalKind ? PayloadAs<DiscountApproval>() : null;
 
     public const string PricePublishedKind = "pricePublished";
 
@@ -415,6 +439,14 @@ public partial class Event
 
     public AuthorizationPolicyChangeNotice? AsAuthorizationPolicyChangedEvent() =>
         Kind == AuthorizationPolicyChangedEventKind ? PayloadAs<AuthorizationPolicyChangeNotice>() : null;
+
+    public const string QuotationApprovalChangedEventKind = "eitmad.quotation-approval.changed.event.v1";
+
+    public static Event ForQuotationApprovalChangedEvent(DiscountApprovalNotice payload) =>
+        new() { Kind = QuotationApprovalChangedEventKind, Payload = payload };
+
+    public DiscountApprovalNotice? AsQuotationApprovalChangedEvent() =>
+        Kind == QuotationApprovalChangedEventKind ? PayloadAs<DiscountApprovalNotice>() : null;
 
     public const string QuotationDraftChangedEventKind = "eitmad.quotation-draft.changed.event.v1";
 
@@ -708,6 +740,14 @@ public partial class Query
     public GetQuotationDraft? AsQuotationDraftGet() =>
         Kind == QuotationDraftGetKind ? PayloadAs<GetQuotationDraft>() : null;
 
+    public const string QuotationApprovalListKind = "eitmad.quotation-approval.list.v1";
+
+    public static Query ForQuotationApprovalList(ListDiscountApprovals payload) =>
+        new() { Kind = QuotationApprovalListKind, Payload = payload };
+
+    public ListDiscountApprovals? AsQuotationApprovalList() =>
+        Kind == QuotationApprovalListKind ? PayloadAs<ListDiscountApprovals>() : null;
+
     public const string QuotationDraftListKind = "eitmad.quotation-draft.list.v1";
 
     public static Query ForQuotationDraftList(ListQuotationDrafts payload) =>
@@ -964,6 +1004,14 @@ public partial class QueryResult
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("payload")]
     public object? Payload { get; set; }
+
+    public const string DiscountApprovalsKind = "discountApprovals";
+
+    public static QueryResult ForDiscountApprovals(DiscountApprovalPage payload) =>
+        new() { Kind = DiscountApprovalsKind, Payload = payload };
+
+    public DiscountApprovalPage? AsDiscountApprovals() =>
+        Kind == DiscountApprovalsKind ? PayloadAs<DiscountApprovalPage>() : null;
 
     public const string QuotationDraftKind = "quotationDraft";
 
@@ -1262,6 +1310,14 @@ public partial class Subscription
     public AuthorizationPolicyChanges? AsAuthorizationPolicyChangedSubscribe() =>
         Kind == AuthorizationPolicyChangedSubscribeKind ? PayloadAs<AuthorizationPolicyChanges>() : null;
 
+    public const string QuotationApprovalChangedSubscribeKind = "eitmad.quotation-approval.changed.subscribe.v1";
+
+    public static Subscription ForQuotationApprovalChangedSubscribe(DiscountApprovalChanges payload) =>
+        new() { Kind = QuotationApprovalChangedSubscribeKind, Payload = payload };
+
+    public DiscountApprovalChanges? AsQuotationApprovalChangedSubscribe() =>
+        Kind == QuotationApprovalChangedSubscribeKind ? PayloadAs<DiscountApprovalChanges>() : null;
+
     public const string QuotationDraftChangedSubscribeKind = "eitmad.quotation-draft.changed.subscribe.v1";
 
     public static Subscription ForQuotationDraftChangedSubscribe(QuotationDraftChanges payload) =>
@@ -1327,6 +1383,10 @@ public partial class ConfigurationChanges
 }
 
 public partial class CustomerChanges
+{
+}
+
+public partial class DiscountApprovalChanges
 {
 }
 

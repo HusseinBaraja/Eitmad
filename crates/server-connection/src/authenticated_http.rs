@@ -94,8 +94,10 @@ impl AuthenticatedHttpClient {
         // Do not spend another image worker waiting behind a network operation.
         let driver = self.driver.try_lock().map_err(|_| HttpError::Unavailable)?;
         remaining_io(budget).map_err(|_| HttpError::Unavailable)?;
-        if actor.scope.kind.as_str() != "organization"
-            || actor.scope.id.value() != actor.tenant_id.value()
+        if !(actor.scope.kind.as_str() == "organization"
+            && actor.scope.id.value() == actor.tenant_id.value()
+            || actor.scope.kind.as_str() == "branch"
+                && route.starts_with("/v1/quotation-approvals/"))
         {
             return Err(HttpError::Denied);
         }
@@ -138,11 +140,12 @@ impl AuthenticatedHttpClient {
             .and_then(|()| stream.write_all(&body))
             .and_then(|()| stream.flush())
             .map_err(|_| HttpError::Unavailable)?;
-        let maximum = if route == "/v1/pricing/read" {
-            4 * 1024 * 1024
-        } else {
-            IMAGE_CHUNK_BYTES * 2 + 8192
-        };
+        let maximum =
+            if route == "/v1/pricing/read" || route.starts_with("/v1/quotation-approvals/") {
+                4 * 1024 * 1024
+            } else {
+                IMAGE_CHUNK_BYTES * 2 + 8192
+            };
         let mut response = Vec::new();
         let mut buffer = [0; 8192];
         while response.len() <= maximum {

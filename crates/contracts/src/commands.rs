@@ -65,6 +65,8 @@ pub struct UpdateCustomer {
 tagged_contract! {
     /// Authoritative state-changing requests.
     pub enum Command {
+        RequestDiscountApproval(crate::quotation_approval::RequestDiscountApproval) => "eitmad.quotation-approval.request.v1",
+        DecideDiscountApproval(crate::quotation_approval::DecideDiscountApproval) => "eitmad.quotation-approval.decide.v1",
         PublishPrice(crate::pricing::PublishPrice) => "eitmad.pricing.publish.v1",
         ImportCatalogImage(crate::catalog_image::ImportCatalogImage) => "eitmad.catalog-image.import.v1",
         UpdateConfiguration(UpdateConfiguration) => "eitmad.config.update.v1",
@@ -92,6 +94,7 @@ tagged_contract! {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", content = "payload", rename_all = "camelCase")]
 pub enum CommandResult {
+    DiscountApproval(Box<crate::quotation_approval::DiscountApproval>),
     PricePublished(crate::pricing::PublishedPrice),
     CatalogImageImported(crate::catalog_image::CatalogImageRef),
     ConfigurationUpdated(ConfigSnapshot),

@@ -27,6 +27,9 @@
     "command_response": {
       "$ref": "#/definitions/CommandResponseEnvelope"
     },
+    "confirm_discount_approval": {
+      "$ref": "#/definitions/ConfirmDiscountApproval"
+    },
     "confirm_price": {
       "$ref": "#/definitions/ConfirmPrice"
     },
@@ -84,6 +87,9 @@
     "query_response": {
       "$ref": "#/definitions/QueryResponseEnvelope"
     },
+    "read_discount_approvals": {
+      "$ref": "#/definitions/ReadDiscountApprovals"
+    },
     "read_published_prices": {
       "$ref": "#/definitions/ReadPublishedPrices"
     },
@@ -137,6 +143,8 @@
     }
   },
   "required": [
+    "confirm_discount_approval",
+    "read_discount_approvals",
     "catalog_entry",
     "synchronize_catalog_revisions",
     "confirm_price",
@@ -877,6 +885,38 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "eitmad.quotation-approval.request.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/RequestDiscountApproval"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.quotation-approval.decide.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/DecideDiscountApproval"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "eitmad.pricing.publish.v1"
             },
             "payload": {
@@ -1371,6 +1411,22 @@
     },
     "CommandResult": {
       "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "discountApproval"
+            },
+            "payload": {
+              "$ref": "#/definitions/DiscountApproval"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
         {
           "type": "object",
           "properties": {
@@ -2054,6 +2110,28 @@
     "ConfigurationChanges": {
       "type": "object"
     },
+    "ConfirmDiscountApproval": {
+      "description": "Only the authenticated Rust engine sends a validated persisted snapshot for promotion.",
+      "type": "object",
+      "properties": {
+        "action": {
+          "$ref": "#/definitions/DiscountApprovalAction"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "idempotencyKey",
+        "action"
+      ]
+    },
     "ConfirmPrice": {
       "description": "Authenticated engine-to-server proposal. The server assigns revision and time.",
       "type": "object",
@@ -2424,6 +2502,50 @@
         "expectedRevision"
       ]
     },
+    "DecideDiscountApproval": {
+      "type": "object",
+      "properties": {
+        "decision": {
+          "$ref": "#/definitions/DiscountDecision"
+        },
+        "draftId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "fingerprint": {
+          "type": "string"
+        },
+        "quotationRevision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "draftId",
+        "requestId",
+        "quotationRevision",
+        "expectedRevision",
+        "fingerprint",
+        "decision"
+      ]
+    },
     "DesktopAccountPage": {
       "type": "object",
       "properties": {
@@ -2689,6 +2811,209 @@
         "services",
         "activeRelaySessions",
         "pendingSupportWorkflows"
+      ]
+    },
+    "DiscountApproval": {
+      "type": "object",
+      "properties": {
+        "correlationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "decidedAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "decider": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "fingerprint": {
+          "type": "string"
+        },
+        "organizationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "proposedValidUntil": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "quotation": {
+          "$ref": "#/definitions/QuotationDraftSnapshot"
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "requestedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "requester": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        },
+        "state": {
+          "$ref": "#/definitions/DiscountApprovalState"
+        },
+        "validityDays": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "scope",
+        "organizationId",
+        "requestId",
+        "revision",
+        "quotation",
+        "fingerprint",
+        "validityDays",
+        "proposedValidUntil",
+        "requester",
+        "requestedAt",
+        "state",
+        "correlationId"
+      ]
+    },
+    "DiscountApprovalAction": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "request"
+            },
+            "payload": {
+              "$ref": "#/definitions/QuotationDraftSnapshot"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "refresh"
+            },
+            "payload": {
+              "$ref": "#/definitions/QuotationDraftSnapshot"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "decide"
+            },
+            "payload": {
+              "$ref": "#/definitions/DecideDiscountApproval"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "payload"
+          ]
+        }
+      ]
+    },
+    "DiscountApprovalChanges": {
+      "type": "object",
+      "additionalProperties": false
+    },
+    "DiscountApprovalNotice": {
+      "type": "object",
+      "properties": {
+        "draftId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "required": [
+        "scope",
+        "draftId",
+        "revision"
+      ]
+    },
+    "DiscountApprovalPage": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DiscountApproval"
+          }
+        },
+        "next": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "items"
+      ]
+    },
+    "DiscountApprovalState": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected",
+        "invalidated"
+      ]
+    },
+    "DiscountDecision": {
+      "type": "string",
+      "enum": [
+        "approve",
+        "reject"
       ]
     },
     "DiscountTotal": {
@@ -3249,6 +3574,22 @@
             },
             "payload": {
               "$ref": "#/definitions/AuthorizationPolicyChangeNotice"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.quotation-approval.changed.event.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/DiscountApprovalNotice"
             }
           },
           "required": [
@@ -4579,6 +4920,27 @@
     },
     "ListDesktopAccounts": {
       "type": "object"
+    },
+    "ListDiscountApprovals": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "limit": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "limit"
+      ]
     },
     "ListFurnitureCategories": {
       "type": "object",
@@ -6585,6 +6947,22 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "eitmad.quotation-approval.list.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ListDiscountApprovals"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "eitmad.quotation-draft.list.v1"
             },
             "payload": {
@@ -7162,6 +7540,22 @@
     },
     "QueryResult": {
       "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "discountApprovals"
+            },
+            "payload": {
+              "$ref": "#/definitions/DiscountApprovalPage"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
         {
           "type": "object",
           "properties": {
@@ -7989,6 +8383,22 @@
         "configuration"
       ]
     },
+    "ReadDiscountApprovals": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "$ref": "#/definitions/ListDiscountApprovals"
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "query"
+      ]
+    },
     "ReadPublishedPrices": {
       "type": "object",
       "properties": {
@@ -8442,6 +8852,25 @@
         "reconnecting",
         "closed",
         "failed"
+      ]
+    },
+    "RequestDiscountApproval": {
+      "type": "object",
+      "properties": {
+        "draftId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "draftId",
+        "expectedRevision"
       ]
     },
     "RequiredBy": {
@@ -9712,6 +10141,22 @@
             },
             "payload": {
               "$ref": "#/definitions/AuthorizationPolicyChanges"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.quotation-approval.changed.subscribe.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/DiscountApprovalChanges"
             }
           },
           "required": [

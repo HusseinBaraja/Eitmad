@@ -61,6 +61,9 @@ pub const MATERIAL_READ_PERMISSION: &str = "eitmad.permission.material.read.v1";
 pub const MATERIAL_WRITE_PERMISSION: &str = "eitmad.permission.material.write.v1";
 pub const MATERIAL_UNIT_MANAGE_PERMISSION: &str = "eitmad.permission.material-unit.manage.v1";
 pub const CATALOG_DRAFT_WRITE_PERMISSION: &str = "eitmad.permission.catalog.draft.write.v1";
+pub const DISCOUNT_REQUEST_PERMISSION: &str = "eitmad.permission.quotation.approval.request.v1";
+pub const DISCOUNT_DECIDE_PERMISSION: &str = "eitmad.permission.quotation.approval.decide.v1";
+pub const DISCOUNT_READ_PERMISSION: &str = "eitmad.permission.quotation.approval.read.v1";
 pub const QUOTATION_DRAFT_READ_PERMISSION: &str = "eitmad.permission.quotation.draft.read.v1";
 pub const QUOTATION_DRAFT_WRITE_PERMISSION: &str = "eitmad.permission.quotation.draft.write.v1";
 pub const DESKTOP_ACCOUNTS_MANAGE_PERMISSION: &str = "eitmad.permission.desktop-accounts.manage.v1";
@@ -71,6 +74,9 @@ const ORGANIZATION_SCOPE: &str = "organization";
 const BRANCH_SCOPE: &str = "branch";
 
 const POLICY_PERMISSIONS: &[&str] = &[
+    DISCOUNT_REQUEST_PERMISSION,
+    DISCOUNT_DECIDE_PERMISSION,
+    DISCOUNT_READ_PERMISSION,
     AUTHORIZATION_MANAGE_PERMISSION,
     CONFIG_EXPORT_PERMISSION,
     CONFIG_IMPORT_PERMISSION,
@@ -230,8 +236,15 @@ impl AuthorizationService {
                     CUSTOMER_READ_PERMISSION | CUSTOMER_WRITE_PERMISSION => {
                         (manager || receptionist) && branch_scope
                     }
+                    DISCOUNT_REQUEST_PERMISSION | QUOTATION_DRAFT_WRITE_PERMISSION => {
+                        receptionist && branch_scope
+                    }
+                    DISCOUNT_DECIDE_PERMISSION => manager && (branch_scope || organization_scope),
+                    DISCOUNT_READ_PERMISSION => {
+                        (manager && (branch_scope || organization_scope))
+                            || (receptionist && branch_scope)
+                    }
                     QUOTATION_DRAFT_READ_PERMISSION => (manager || receptionist) && branch_scope,
-                    QUOTATION_DRAFT_WRITE_PERMISSION => receptionist && branch_scope,
                     _ => false,
                 } {
                     PermissionDecision::Granted

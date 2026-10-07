@@ -39,7 +39,7 @@ Run the combined control, sync, relay, update, and administration server only wi
 | `EITMAD_SERVER_TLS_CERTIFICATE` | For TLS | PEM certificate path |
 | `EITMAD_SERVER_TLS_PRIVATE_KEY` | For TLS | PEM private-key path; secret path |
 | `EITMAD_SERVER_ALLOW_INSECURE_LOOPBACK` | Development only | Must be `true` to serve plaintext on loopback |
-| `EITMAD_SERVER_MAX_CONNECTIONS` | No | Total PostgreSQL connection budget, 3 through 192; default 16. The server splits it across control, sync, and administration pools. |
+| `EITMAD_SERVER_MAX_CONNECTIONS` | No | Total PostgreSQL connection budget, 4 through 192; default 16. The server splits it across control, sync, and administration pools. The sync pool includes one shared approval notification listener. |
 | `EITMAD_SERVER_UPDATE_MANIFEST_DIRECTORY` | Yes | Dedicated durable directory for immutable signed manifest JSON files |
 | `EITMAD_SERVER_UPDATE_OPERATOR_TENANT_ID` | Yes | Tenant UUID for the operator scope allowed to publish global update channels |
 | `EITMAD_SERVER_UPDATE_KEY_ID` | Yes | Trusted update signing-key identifier |

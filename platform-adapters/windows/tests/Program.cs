@@ -527,6 +527,11 @@ internal sealed class SupervisionScenarios
         var reception = await supervisor.SignInAsync("rec", "rec");
         Assert.Equal(DesktopAccountRole.Receptionist, reception.AccountRole, "Rust receptionist role");
         Assert.Equal("branch", reception.CustomerAuthorization?.Scope.Kind, "Rust receptionist branch");
+        var approvalDenied = await supervisor.SubmitCommandAsync(Command.ForQuotationApprovalDecide(new() {
+            DraftId = Guid.NewGuid(), RequestId = Guid.NewGuid(), QuotationRevision = 1, ExpectedRevision = 1,
+            Fingerprint = "synthetic-forged", Decision = DiscountDecision.Approve,
+        }), Guid.NewGuid());
+        Assert.Equal(ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1, approvalDenied.Outcome.Payload.Code, "Receptionist cannot approve through direct IPC");
         var receptionList = await supervisor.QueryAsync(Query.ForQuotationDraftList(new() { Limit = 100 }));
         Assert.Equal(CommandOutcomeStatus.Succeeded, receptionList.Outcome.Status, "Receptionist branch read");
         var evaluation = await supervisor.QueryAsync(Query.ForQuotationEvaluate(intent));

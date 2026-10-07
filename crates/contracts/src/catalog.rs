@@ -10,6 +10,7 @@ use crate::{
 };
 
 pub const CAPABILITIES: &[&str] = &[
+    "eitmad.capability.quotation-approval.v1",
     "eitmad.capability.quotation-draft.v1",
     "eitmad.capability.quotation-evaluation.v1",
     "eitmad.capability.sales-catalog.v1",
@@ -67,6 +68,9 @@ pub const UPDATE_MANIFEST_PUBLISH_PERMISSION: &str =
     "eitmad.permission.server.update-manifest.publish.v1";
 
 pub const PERMISSIONS: &[&str] = &[
+    "eitmad.permission.quotation.approval.request.v1",
+    "eitmad.permission.quotation.approval.decide.v1",
+    "eitmad.permission.quotation.approval.read.v1",
     "eitmad.permission.catalog.read.v1",
     "eitmad.permission.pricing.write.v1",
     "eitmad.permission.pricing.cost.read.v1",
@@ -116,6 +120,9 @@ pub const PERMISSIONS: &[&str] = &[
 ];
 
 pub const ERROR_CODES: &[&str] = &[
+    "eitmad.error.quotation-approval-invalid.v1",
+    "eitmad.error.quotation-approval-conflict.v1",
+    "eitmad.error.quotation-approval-unavailable.v1",
     "eitmad.error.pricing-invalid.v1",
     "eitmad.error.pricing-reference-invalid.v1",
     "eitmad.error.pricing-revision-conflict.v1",
@@ -201,6 +208,9 @@ pub const ERROR_CODES: &[&str] = &[
 ];
 
 pub const MESSAGE_IDS: &[&str] = &[
+    "eitmad.message.quotation-approval-invalid.v1",
+    "eitmad.message.quotation-approval-conflict.v1",
+    "eitmad.message.quotation-approval-unavailable.v1",
     "eitmad.message.pricing-invalid.v1",
     "eitmad.message.pricing-reference-invalid.v1",
     "eitmad.message.pricing-revision-conflict.v1",
@@ -305,6 +315,7 @@ pub const RELATIONS: &[&str] = &[
     "eitmad.relation.organization.owner.v1",
 ];
 pub const DOMAIN_SCHEMA_IDS: &[&str] = &[
+    "eitmad.schema.quotation-approval.v1",
     "eitmad.schema.quotation-draft.v1",
     "eitmad.schema.quotation-evaluation.v1",
     "eitmad.schema.catalog-public.v1",

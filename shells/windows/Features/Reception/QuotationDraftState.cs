@@ -19,15 +19,16 @@ public sealed partial class SalesCatalogViewModel
     public bool IsDraftBusy { get => isDraftBusy; private set { Set(ref isDraftBusy, value); RaiseDiscountState(); } }
     public bool CanReloadDraft => savedDraft is not null && !IsDraftBusy;
     public string DraftState => savedDraft is null ? "تعديلات محلية — لم يُؤكد حفظ مسودة" : QuotationDraftClient.SyncLabel(savedDraft) + (hasUnsavedEdits ? " — تعديلات غير محفوظة" : "");
-    public string FutureActionsNotice => IsLiveQuotation ? "إصدار عرض السعر والطباعة وطلب الموافقة والتحويل إلى طلب غير متاحة بعد." : "";
+    public string FutureActionsNotice => IsLiveQuotation ? "إصدار عرض السعر والطباعة والتحويل إلى طلب غير متاحة بعد." : "";
     public string QuotationEditorGuidance => IsLiveQuotation ? "التعديلات محلية حتى تأكيد حفظ المسودة. اختر عميلاً محفوظاً؛ الأسعار والإجمالي من المحرك." : "معاينة عرض السعر — بيانات العميل تُحفظ في محرك الاعتماد";
     public void AttachDraftClient(QuotationDraftClient client)
     {
         draftClient = client; PublishPreview = null;
-        client.Changed += DraftChanged; client.Invalidated += DraftInvalidated;
+        client.Changed += DraftChanged; client.ApprovalChanged += ServerApprovalChanged; client.Invalidated += DraftInvalidated;
         Raise(nameof(FutureActionsNotice));
     }
     private void DraftInvalidated(object? sender, EventArgs e) { catalogActive = false; ClearCatalog(); QuotationLines.Clear(); ClearDraftSession(); }
+    private void ServerApprovalChanged(object? sender, EventArgs e) { if (catalogActive) _ = RefreshApprovalAsync(); }
     private void DraftChanged(object? sender, EventArgs e) { if (catalogActive && savedDraft is not null && !IsDraftBusy) _ = RefreshDraftStatusAsync(); }
     private async Task RefreshDraftStatusAsync()
     {
@@ -50,7 +51,7 @@ public sealed partial class SalesCatalogViewModel
     }
     private void ClearDraftSession()
     {
-        ++draftSession; savedDraft = null; retryCommand = null; retryFingerprint = null; draftConflict = uncertainSave = false; hasUnsavedEdits = true;
+        ++draftSession; ++approvalReadVersion; savedDraft = null; serverApproval = null; approvalCommand = null; approvalKey = Guid.Empty; retryCommand = null; retryFingerprint = null; draftConflict = uncertainSave = false; hasUnsavedEdits = true;
         SelectedCustomer = null; applyingCustomer = true; CustomerName = Phone = Address = Notes = ""; applyingCustomer = false;
         customerSearchCancellation?.Cancel(); ++customerSearchVersion; CustomerMatches.Clear();
         QuotationNumber = ""; RaiseDraftState();
@@ -67,7 +68,7 @@ public sealed partial class SalesCatalogViewModel
             if (session != draftSession || !catalogActive) return false;
             if (!result.Succeeded) { QuotationNotice = QuotationDraftClient.Message(result.Failure); return false; }
             if (version != evaluationVersion) { QuotationNotice = "تغيرت تعديلاتك أثناء التحميل. احتُفظ بها؛ أعد فتح المسودة للمراجعة."; return false; }
-            ApplyDraft(result.Value!); return true;
+            ApplyDraft(result.Value!); await RefreshApprovalAsync(); return true;
         }
         finally { IsDraftBusy = false; RaiseDraftState(); }
     }
@@ -95,7 +96,7 @@ public sealed partial class SalesCatalogViewModel
     public Task<bool> ReloadDraftAsync() => savedDraft is { } current ? OpenDraftAsync(current.Snapshot.Id) : Task.FromResult(false);
     public async Task DisposeEditorAsync()
     {
-        if (draftClient is not null) { draftClient.Changed -= DraftChanged; draftClient.Invalidated -= DraftInvalidated; }
+        if (draftClient is not null) { draftClient.Changed -= DraftChanged; draftClient.ApprovalChanged -= ServerApprovalChanged; draftClient.Invalidated -= DraftInvalidated; }
         if (customerClient is not null) customerClient.Changed -= CustomerChanged;
         await DeactivateCatalogAsync();
         if (catalogClient is not null) { catalogClient.Changed -= CatalogChanged; catalogClient.ProjectionInvalidated -= CatalogInvalidated; await catalogClient.DisposeAsync(); }
@@ -134,6 +135,7 @@ public sealed partial class SalesCatalogViewModel
             QuotationNumber = "مسودة بدون رقم رسمي";
             if (!hasUnsavedEdits) { evaluation = savedDraft.Snapshot.Evaluation; ApplyEvaluatedLines(evaluation); RaiseEvaluation(); }
             QuotationNotice = DraftState;
+            await RefreshApprovalAsync();
             return true;
         }
         finally { IsDraftBusy = false; RaiseDraftState(); }

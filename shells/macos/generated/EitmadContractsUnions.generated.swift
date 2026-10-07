@@ -2,6 +2,8 @@
 import Foundation
 
 public enum Command: Codable, Sendable {
+    case quotationApprovalRequest(RequestDiscountApproval)
+    case quotationApprovalDecide(DecideDiscountApproval)
     case pricingPublish(PublishPrice)
     case catalogImageImport(ImportCatalogImage)
     case configUpdate(UpdateConfiguration)
@@ -25,6 +27,8 @@ public enum Command: Codable, Sendable {
     case desktopAccountDeactivate(DeactivateDesktopAccount)
 
     private enum Kind: String, Codable, Sendable {
+        case quotationApprovalRequest = "eitmad.quotation-approval.request.v1"
+        case quotationApprovalDecide = "eitmad.quotation-approval.decide.v1"
         case pricingPublish = "eitmad.pricing.publish.v1"
         case catalogImageImport = "eitmad.catalog-image.import.v1"
         case configUpdate = "eitmad.config.update.v1"
@@ -56,6 +60,8 @@ public enum Command: Codable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         switch try container.decode(Kind.self, forKey: .kind) {
+        case .quotationApprovalRequest: self = .quotationApprovalRequest(try container.decode(RequestDiscountApproval.self, forKey: .payload))
+        case .quotationApprovalDecide: self = .quotationApprovalDecide(try container.decode(DecideDiscountApproval.self, forKey: .payload))
         case .pricingPublish: self = .pricingPublish(try container.decode(PublishPrice.self, forKey: .payload))
         case .catalogImageImport: self = .catalogImageImport(try container.decode(ImportCatalogImage.self, forKey: .payload))
         case .configUpdate: self = .configUpdate(try container.decode(UpdateConfiguration.self, forKey: .payload))
@@ -83,6 +89,12 @@ public enum Command: Codable, Sendable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
+        case .quotationApprovalRequest(let payload):
+            try container.encode(Kind.quotationApprovalRequest, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .quotationApprovalDecide(let payload):
+            try container.encode(Kind.quotationApprovalDecide, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
         case .pricingPublish(let payload):
             try container.encode(Kind.pricingPublish, forKey: .kind)
             try container.encode(payload, forKey: .payload)
@@ -150,6 +162,7 @@ public enum Command: Codable, Sendable {
     }
 }
 public enum CommandResult: Codable, Sendable {
+    case discountApproval(DiscountApproval)
     case pricePublished(PublishedPrice)
     case catalogImageImported(CatalogImageRef)
     case configurationUpdated(ConfigSnapshot)
@@ -173,6 +186,7 @@ public enum CommandResult: Codable, Sendable {
     case desktopAccountDeactivated(DesktopAccountSummary)
 
     private enum Kind: String, Codable, Sendable {
+        case discountApproval = "discountApproval"
         case pricePublished = "pricePublished"
         case catalogImageImported = "catalogImageImported"
         case configurationUpdated = "configurationUpdated"
@@ -204,6 +218,7 @@ public enum CommandResult: Codable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         switch try container.decode(Kind.self, forKey: .kind) {
+        case .discountApproval: self = .discountApproval(try container.decode(DiscountApproval.self, forKey: .payload))
         case .pricePublished: self = .pricePublished(try container.decode(PublishedPrice.self, forKey: .payload))
         case .catalogImageImported: self = .catalogImageImported(try container.decode(CatalogImageRef.self, forKey: .payload))
         case .configurationUpdated: self = .configurationUpdated(try container.decode(ConfigSnapshot.self, forKey: .payload))
@@ -231,6 +246,9 @@ public enum CommandResult: Codable, Sendable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
+        case .discountApproval(let payload):
+            try container.encode(Kind.discountApproval, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
         case .pricePublished(let payload):
             try container.encode(Kind.pricePublished, forKey: .kind)
             try container.encode(payload, forKey: .payload)
@@ -302,6 +320,7 @@ public enum Event: Codable, Sendable {
     case configChangedEvent(ConfigSnapshot)
     case permissionsChangedEvent(EffectivePermissions)
     case authorizationPolicyChangedEvent(AuthorizationPolicyChangeNotice)
+    case quotationApprovalChangedEvent(DiscountApprovalNotice)
     case quotationDraftChangedEvent(QuotationDraftChangeNotice)
     case customerChangedEvent(CustomerChangeNotice)
     case materialChangedEvent(MaterialChangeNotice)
@@ -314,6 +333,7 @@ public enum Event: Codable, Sendable {
         case configChangedEvent = "eitmad.config.changed.event.v1"
         case permissionsChangedEvent = "eitmad.permissions.changed.event.v1"
         case authorizationPolicyChangedEvent = "eitmad.authorization.policy.changed.event.v1"
+        case quotationApprovalChangedEvent = "eitmad.quotation-approval.changed.event.v1"
         case quotationDraftChangedEvent = "eitmad.quotation-draft.changed.event.v1"
         case customerChangedEvent = "eitmad.customer.changed.event.v1"
         case materialChangedEvent = "eitmad.material.changed.event.v1"
@@ -334,6 +354,7 @@ public enum Event: Codable, Sendable {
         case .configChangedEvent: self = .configChangedEvent(try container.decode(ConfigSnapshot.self, forKey: .payload))
         case .permissionsChangedEvent: self = .permissionsChangedEvent(try container.decode(EffectivePermissions.self, forKey: .payload))
         case .authorizationPolicyChangedEvent: self = .authorizationPolicyChangedEvent(try container.decode(AuthorizationPolicyChangeNotice.self, forKey: .payload))
+        case .quotationApprovalChangedEvent: self = .quotationApprovalChangedEvent(try container.decode(DiscountApprovalNotice.self, forKey: .payload))
         case .quotationDraftChangedEvent: self = .quotationDraftChangedEvent(try container.decode(QuotationDraftChangeNotice.self, forKey: .payload))
         case .customerChangedEvent: self = .customerChangedEvent(try container.decode(CustomerChangeNotice.self, forKey: .payload))
         case .materialChangedEvent: self = .materialChangedEvent(try container.decode(MaterialChangeNotice.self, forKey: .payload))
@@ -357,6 +378,9 @@ public enum Event: Codable, Sendable {
             try container.encode(payload, forKey: .payload)
         case .authorizationPolicyChangedEvent(let payload):
             try container.encode(Kind.authorizationPolicyChangedEvent, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .quotationApprovalChangedEvent(let payload):
+            try container.encode(Kind.quotationApprovalChangedEvent, forKey: .kind)
             try container.encode(payload, forKey: .payload)
         case .quotationDraftChangedEvent(let payload):
             try container.encode(Kind.quotationDraftChangedEvent, forKey: .kind)
@@ -573,6 +597,7 @@ public enum PriceTarget: Codable, Sendable {
 }
 public enum Query: Codable, Sendable {
     case quotationDraftGet(GetQuotationDraft)
+    case quotationApprovalList(ListDiscountApprovals)
     case quotationDraftList(ListQuotationDrafts)
     case quotationEvaluate(EvaluateQuotation)
     case salesCatalogList(ListSalesCatalog)
@@ -606,6 +631,7 @@ public enum Query: Codable, Sendable {
 
     private enum Kind: String, Codable, Sendable {
         case quotationDraftGet = "eitmad.quotation-draft.get.v1"
+        case quotationApprovalList = "eitmad.quotation-approval.list.v1"
         case quotationDraftList = "eitmad.quotation-draft.list.v1"
         case quotationEvaluate = "eitmad.quotation.evaluate.v1"
         case salesCatalogList = "eitmad.sales-catalog.list.v1"
@@ -647,6 +673,7 @@ public enum Query: Codable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         switch try container.decode(Kind.self, forKey: .kind) {
         case .quotationDraftGet: self = .quotationDraftGet(try container.decode(GetQuotationDraft.self, forKey: .payload))
+        case .quotationApprovalList: self = .quotationApprovalList(try container.decode(ListDiscountApprovals.self, forKey: .payload))
         case .quotationDraftList: self = .quotationDraftList(try container.decode(ListQuotationDrafts.self, forKey: .payload))
         case .quotationEvaluate: self = .quotationEvaluate(try container.decode(EvaluateQuotation.self, forKey: .payload))
         case .salesCatalogList: self = .salesCatalogList(try container.decode(ListSalesCatalog.self, forKey: .payload))
@@ -685,6 +712,9 @@ public enum Query: Codable, Sendable {
         switch self {
         case .quotationDraftGet(let payload):
             try container.encode(Kind.quotationDraftGet, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .quotationApprovalList(let payload):
+            try container.encode(Kind.quotationApprovalList, forKey: .kind)
             try container.encode(payload, forKey: .payload)
         case .quotationDraftList(let payload):
             try container.encode(Kind.quotationDraftList, forKey: .kind)
@@ -780,6 +810,7 @@ public enum Query: Codable, Sendable {
     }
 }
 public enum QueryResult: Codable, Sendable {
+    case discountApprovals(DiscountApprovalPage)
     case quotationDraft(QuotationDraft)
     case quotationDrafts(QuotationDraftPage)
     case quotationEvaluation(QuotationEvaluation)
@@ -813,6 +844,7 @@ public enum QueryResult: Codable, Sendable {
     case desktopAccounts(DesktopAccountPage)
 
     private enum Kind: String, Codable, Sendable {
+        case discountApprovals = "discountApprovals"
         case quotationDraft = "quotationDraft"
         case quotationDrafts = "quotationDrafts"
         case quotationEvaluation = "quotationEvaluation"
@@ -854,6 +886,7 @@ public enum QueryResult: Codable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         switch try container.decode(Kind.self, forKey: .kind) {
+        case .discountApprovals: self = .discountApprovals(try container.decode(DiscountApprovalPage.self, forKey: .payload))
         case .quotationDraft: self = .quotationDraft(try container.decode(QuotationDraft.self, forKey: .payload))
         case .quotationDrafts: self = .quotationDrafts(try container.decode(QuotationDraftPage.self, forKey: .payload))
         case .quotationEvaluation: self = .quotationEvaluation(try container.decode(QuotationEvaluation.self, forKey: .payload))
@@ -891,6 +924,9 @@ public enum QueryResult: Codable, Sendable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
+        case .discountApprovals(let payload):
+            try container.encode(Kind.discountApprovals, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
         case .quotationDraft(let payload):
             try container.encode(Kind.quotationDraft, forKey: .kind)
             try container.encode(payload, forKey: .payload)
@@ -992,6 +1028,7 @@ public enum Subscription: Codable, Sendable {
     case configChangedSubscribe(ConfigurationChanges)
     case permissionsChangedSubscribe(PermissionChanges)
     case authorizationPolicyChangedSubscribe(AuthorizationPolicyChanges)
+    case quotationApprovalChangedSubscribe(DiscountApprovalChanges)
     case quotationDraftChangedSubscribe(QuotationDraftChanges)
     case customerChangedSubscribe(CustomerChanges)
     case materialChangedSubscribe(MaterialChanges)
@@ -1004,6 +1041,7 @@ public enum Subscription: Codable, Sendable {
         case configChangedSubscribe = "eitmad.config.changed.subscribe.v1"
         case permissionsChangedSubscribe = "eitmad.permissions.changed.subscribe.v1"
         case authorizationPolicyChangedSubscribe = "eitmad.authorization.policy.changed.subscribe.v1"
+        case quotationApprovalChangedSubscribe = "eitmad.quotation-approval.changed.subscribe.v1"
         case quotationDraftChangedSubscribe = "eitmad.quotation-draft.changed.subscribe.v1"
         case customerChangedSubscribe = "eitmad.customer.changed.subscribe.v1"
         case materialChangedSubscribe = "eitmad.material.changed.subscribe.v1"
@@ -1024,6 +1062,7 @@ public enum Subscription: Codable, Sendable {
         case .configChangedSubscribe: self = .configChangedSubscribe(try container.decode(ConfigurationChanges.self, forKey: .payload))
         case .permissionsChangedSubscribe: self = .permissionsChangedSubscribe(try container.decode(PermissionChanges.self, forKey: .payload))
         case .authorizationPolicyChangedSubscribe: self = .authorizationPolicyChangedSubscribe(try container.decode(AuthorizationPolicyChanges.self, forKey: .payload))
+        case .quotationApprovalChangedSubscribe: self = .quotationApprovalChangedSubscribe(try container.decode(DiscountApprovalChanges.self, forKey: .payload))
         case .quotationDraftChangedSubscribe: self = .quotationDraftChangedSubscribe(try container.decode(QuotationDraftChanges.self, forKey: .payload))
         case .customerChangedSubscribe: self = .customerChangedSubscribe(try container.decode(CustomerChanges.self, forKey: .payload))
         case .materialChangedSubscribe: self = .materialChangedSubscribe(try container.decode(MaterialChanges.self, forKey: .payload))
@@ -1047,6 +1086,9 @@ public enum Subscription: Codable, Sendable {
             try container.encode(payload, forKey: .payload)
         case .authorizationPolicyChangedSubscribe(let payload):
             try container.encode(Kind.authorizationPolicyChangedSubscribe, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .quotationApprovalChangedSubscribe(let payload):
+            try container.encode(Kind.quotationApprovalChangedSubscribe, forKey: .kind)
             try container.encode(payload, forKey: .payload)
         case .quotationDraftChangedSubscribe(let payload):
             try container.encode(Kind.quotationDraftChangedSubscribe, forKey: .kind)

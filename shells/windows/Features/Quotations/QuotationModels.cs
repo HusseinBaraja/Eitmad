@@ -48,9 +48,9 @@ public sealed record QuotationLineItem(
 public sealed class QuotationListItem : ObservableObject
 {
     public Eitmad.Contracts.QuotationDraft? Draft { get; init; }
+    public Eitmad.Contracts.DiscountApproval? Approval { get; init; }
     public bool HasDraft => Draft is not null;
-    public string DraftNotice => Draft is { } draft ? QuotationDraftClient.SyncLabel(draft) + " — إصدار العرض والطباعة والموافقة والتحويل غير متاحة بعد." : "";
-    private DiscountApprovalDecision approvalDecision;
+    public string DraftNotice => Draft is { } draft ? QuotationDraftClient.SyncLabel(draft) + " — إصدار العرض والطباعة والتحويل غير متاحة بعد." : "";
 
     public QuotationListItem(
         Guid id,
@@ -101,34 +101,24 @@ public sealed class QuotationListItem : ObservableObject
 
     public bool RequiresDiscountApproval { get; }
 
-    public DiscountApprovalDecision ApprovalDecision
-    {
-        get => approvalDecision;
-        private set
-        {
-            if (approvalDecision == value)
-            {
-                return;
-            }
-
-            approvalDecision = value;
-            Raise();
-            Raise(nameof(HasPendingDiscountApproval));
-            Raise(nameof(HasApprovalDecision));
-            Raise(nameof(ApprovalDecisionLabel));
-            Raise(nameof(IsWaitingApproval)); Raise(nameof(CanEdit)); Raise(nameof(CanPrint)); Raise(nameof(StatusLabel));
-        }
-    }
+    public DiscountApprovalDecision ApprovalDecision => Approval?.State switch {
+        Eitmad.Contracts.DiscountApprovalState.Approved => DiscountApprovalDecision.Approved,
+        Eitmad.Contracts.DiscountApprovalState.Rejected => DiscountApprovalDecision.Rejected,
+        _ => DiscountApprovalDecision.None,
+    };
 
     public decimal Subtotal => Draft?.Snapshot.Evaluation.Totals.SubtotalYer ?? Items.Sum(item => item.Total);
 
     public decimal FinalTotal => Draft?.Snapshot.Evaluation.Totals.TotalYer ?? Subtotal - Discount;
 
+    public string DiscountPercentLabel => DiscountPercent.ToString("0.##", CultureInfo.InvariantCulture) + "%";
+    public string DiscountAmountLabel => Discount.ToString("N0", CultureInfo.InvariantCulture);
+
     public decimal DiscountPercent => Draft is { } draft ? draft.Snapshot.Intent.DiscountBasisPoints / 100m : Subtotal == 0m ? 0m : decimal.Round(Discount / Subtotal * 100m, 1);
 
-    public bool HasPendingDiscountApproval => Draft is null && RequiresDiscountApproval && ApprovalDecision == DiscountApprovalDecision.None;
+    public bool HasPendingDiscountApproval => Approval?.State == Eitmad.Contracts.DiscountApprovalState.Pending;
 
-    public bool HasApprovalDecision => ApprovalDecision != DiscountApprovalDecision.None;
+    public bool HasApprovalDecision => Approval is not null && Approval.State != Eitmad.Contracts.DiscountApprovalState.Pending;
 
     public bool IsDraft => Status == QuotationStatus.Draft;
 
@@ -146,7 +136,7 @@ public sealed class QuotationListItem : ObservableObject
 
     public string FinalTotalLabel => FormatMoney(FinalTotal);
 
-    public string StatusLabel => HasApprovalDecision ? (ApprovalDecision == DiscountApprovalDecision.Approved ? "الخصم مقبول" : "الخصم مرفوض") : HasPendingDiscountApproval ? "بانتظار الموافقة" : Status switch
+    public string StatusLabel => Approval is not null ? QuotationDraftClient.ApprovalLabel(Approval) : HasApprovalDecision ? (ApprovalDecision == DiscountApprovalDecision.Approved ? "الخصم مقبول" : "الخصم مرفوض") : HasPendingDiscountApproval ? "بانتظار الموافقة" : Status switch
     {
         QuotationStatus.Draft => "مسودة",
         QuotationStatus.Active => "نشط",
@@ -157,22 +147,7 @@ public sealed class QuotationListItem : ObservableObject
         _ => throw new InvalidOperationException("Unsupported quotation status."),
     };
 
-    public string ApprovalDecisionLabel => ApprovalDecision switch
-    {
-        DiscountApprovalDecision.Approved => "تمت معاينة الموافقة على الخصم محلياً.",
-        DiscountApprovalDecision.Rejected => "تمت معاينة رفض الخصم محلياً.",
-        _ => string.Empty,
-    };
-
-    public void DecideDiscount(DiscountApprovalDecision decision)
-    {
-        if (!HasPendingDiscountApproval || decision == DiscountApprovalDecision.None)
-        {
-            return;
-        }
-
-        ApprovalDecision = decision;
-    }
+    public string ApprovalDecisionLabel => QuotationDraftClient.ApprovalLabel(Approval);
 
     private static string FormatMoney(decimal value) => $"{value.ToString("N0", CultureInfo.InvariantCulture)} ر.ي";
 }

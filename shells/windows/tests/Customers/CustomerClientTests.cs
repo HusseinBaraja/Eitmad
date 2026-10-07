@@ -182,7 +182,7 @@ public sealed class CustomerClientTests
         Products.SalesCatalogPresentationTests.AddHistoricalProductLine(model);
         model.DiscountInput = "10";
         model.RequestDiscountApproval();
-        Assert.IsTrue(model.IsDiscountPending);
+        Assert.IsFalse(model.IsDiscountPending);
         var pendingNotice = model.QuotationNotice;
         engine.Customers[0] = new Customer
         {
@@ -208,7 +208,7 @@ public sealed class CustomerClientTests
         await EventuallyAsync(() => model.SelectedCustomer?.Revision == 2);
         Assert.AreEqual("700000002", model.Phone);
         Assert.AreEqual(original.Id, model.SelectedCustomer!.Id);
-        Assert.IsTrue(model.IsDiscountPending);
+        Assert.IsFalse(model.IsDiscountPending);
         Assert.AreNotEqual(pendingNotice, model.QuotationNotice);
         StringAssert.Contains(model.QuotationNotice, "تغيرت بيانات العميل");
     }

@@ -43,6 +43,8 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Commands
 
+- `eitmad.quotation-approval.request.v1`
+- `eitmad.quotation-approval.decide.v1`
 - `eitmad.pricing.publish.v1`
 - `eitmad.catalog-image.import.v1`
 - `eitmad.config.update.v1`
@@ -68,6 +70,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 ## Queries
 
 - `eitmad.quotation-draft.get.v1`
+- `eitmad.quotation-approval.list.v1`
 - `eitmad.quotation-draft.list.v1`
 - `eitmad.quotation.evaluate.v1`
 - `eitmad.sales-catalog.list.v1`
@@ -105,6 +108,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.config.changed.subscribe.v1`
 - `eitmad.permissions.changed.subscribe.v1`
 - `eitmad.authorization.policy.changed.subscribe.v1`
+- `eitmad.quotation-approval.changed.subscribe.v1`
 - `eitmad.quotation-draft.changed.subscribe.v1`
 - `eitmad.customer.changed.subscribe.v1`
 - `eitmad.material.changed.subscribe.v1`
@@ -118,6 +122,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.config.changed.event.v1`
 - `eitmad.permissions.changed.event.v1`
 - `eitmad.authorization.policy.changed.event.v1`
+- `eitmad.quotation-approval.changed.event.v1`
 - `eitmad.quotation-draft.changed.event.v1`
 - `eitmad.customer.changed.event.v1`
 - `eitmad.material.changed.event.v1`
@@ -154,6 +159,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Capabilities
 
+- `eitmad.capability.quotation-approval.v1`
 - `eitmad.capability.quotation-draft.v1`
 - `eitmad.capability.quotation-evaluation.v1`
 - `eitmad.capability.sales-catalog.v1`
@@ -186,6 +192,9 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Permissions
 
+- `eitmad.permission.quotation.approval.request.v1`
+- `eitmad.permission.quotation.approval.decide.v1`
+- `eitmad.permission.quotation.approval.read.v1`
 - `eitmad.permission.catalog.read.v1`
 - `eitmad.permission.pricing.write.v1`
 - `eitmad.permission.pricing.cost.read.v1`
@@ -247,6 +256,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Schema identifiers
 
+- `eitmad.schema.quotation-approval.v1`
 - `eitmad.schema.quotation-draft.v1`
 - `eitmad.schema.quotation-evaluation.v1`
 - `eitmad.schema.catalog-public.v1`
@@ -262,6 +272,9 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Error codes
 
+- `eitmad.error.quotation-approval-invalid.v1`
+- `eitmad.error.quotation-approval-conflict.v1`
+- `eitmad.error.quotation-approval-unavailable.v1`
 - `eitmad.error.pricing-invalid.v1`
 - `eitmad.error.pricing-reference-invalid.v1`
 - `eitmad.error.pricing-revision-conflict.v1`
@@ -347,6 +360,9 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Localization message identifiers
 
+- `eitmad.message.quotation-approval-invalid.v1`
+- `eitmad.message.quotation-approval-conflict.v1`
+- `eitmad.message.quotation-approval-unavailable.v1`
 - `eitmad.message.pricing-invalid.v1`
 - `eitmad.message.pricing-reference-invalid.v1`
 - `eitmad.message.pricing-revision-conflict.v1`

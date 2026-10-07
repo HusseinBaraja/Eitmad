@@ -177,9 +177,15 @@
                     <Border x:Name="ApprovalSection" Style="{StaticResource Card}" Padding="20" Margin="0,0,0,16" Visibility="{Binding ShowManagerApproval, Converter={StaticResource BooleanToVisibility}}">
                         <StackPanel>
                             <TextBlock Text="موافقة الخصم مطلوبة" FontSize="18" FontWeight="SemiBold"/>
-                            <TextBlock Text="طلب من الاستقبال — راجع البنود والإجماليات. القرار مؤقت لهذه المعاينة فقط." TextWrapping="Wrap" Margin="0,6,0,8"/>
-                            <TextBlock Text="{Binding SelectedQuotation.DiscountDetailLabel}" FlowDirection="LeftToRight" TextAlignment="Right" FontSize="18" FontWeight="SemiBold"/>
-                            <WrapPanel Margin="0,12,0,0" Visibility="{Binding SelectedQuotation.HasPendingDiscountApproval, Converter={StaticResource BooleanToVisibility}}">
+                            <TextBlock Text="طلب من الاستقبال — راجع البنود والإجماليات. يلزم تأكيد الخادم للقرار." TextWrapping="Wrap" Margin="0,6,0,8"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <TextBlock Text="{Binding SelectedQuotation.DiscountPercentLabel}" FlowDirection="LeftToRight" FontSize="18" FontWeight="SemiBold" Margin="0,0,12,0"/>
+                                <controls:AmountDisplay AmountText="{Binding SelectedQuotation.DiscountAmountLabel}" UnitText="ر.ي" FontSize="18" FontWeight="SemiBold"/>
+                            </StackPanel>
+                            <TextBox Text="{Binding ApprovalReason, UpdateSourceTrigger=PropertyChanged}" MaxLength="240" automation:AutomationProperties.Name="سبب رفض الخصم" Margin="0,8,0,0"/>
+                            <TextBlock Text="سبب الرفض مطلوب عند الرفض" TextWrapping="Wrap"/>
+                            <controls:FeedbackNotice Message="{Binding DecisionNotice}" Margin="0,8,0,0"/>
+                            <WrapPanel IsEnabled="{Binding CanDecideApproval}" Margin="0,12,0,0" Visibility="{Binding SelectedQuotation.HasPendingDiscountApproval, Converter={StaticResource BooleanToVisibility}}">
                                 <Button Content="موافقة" Style="{StaticResource PrimaryButton}" Click="ApproveDiscountClick" automation:AutomationProperties.Name="الموافقة على خصم عرض السعر" Margin="0,0,0,6"/>
                                 <Button Content="رفض" Style="{StaticResource SecondaryButton}" Click="RejectDiscountClick" automation:AutomationProperties.Name="رفض خصم عرض السعر" Margin="10,0,0,6"/>
                             </WrapPanel>

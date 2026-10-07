@@ -4,7 +4,7 @@ import Foundation
 public enum ProtocolIds {
     public enum Version {
         public static let major = 1
-        public static let minor = 19
+        public static let minor = 20
     }
 
     public enum IpcMessages {
@@ -30,6 +30,8 @@ public enum ProtocolIds {
     }
 
     public enum Commands {
+        public static let eitmadQuotationApprovalRequestV1 = "eitmad.quotation-approval.request.v1"
+        public static let eitmadQuotationApprovalDecideV1 = "eitmad.quotation-approval.decide.v1"
         public static let eitmadPricingPublishV1 = "eitmad.pricing.publish.v1"
         public static let eitmadCatalogImageImportV1 = "eitmad.catalog-image.import.v1"
         public static let eitmadConfigUpdateV1 = "eitmad.config.update.v1"
@@ -55,6 +57,7 @@ public enum ProtocolIds {
 
     public enum Queries {
         public static let eitmadQuotationDraftGetV1 = "eitmad.quotation-draft.get.v1"
+        public static let eitmadQuotationApprovalListV1 = "eitmad.quotation-approval.list.v1"
         public static let eitmadQuotationDraftListV1 = "eitmad.quotation-draft.list.v1"
         public static let eitmadQuotationEvaluateV1 = "eitmad.quotation.evaluate.v1"
         public static let eitmadSalesCatalogListV1 = "eitmad.sales-catalog.list.v1"
@@ -92,6 +95,7 @@ public enum ProtocolIds {
         public static let eitmadConfigChangedSubscribeV1 = "eitmad.config.changed.subscribe.v1"
         public static let eitmadPermissionsChangedSubscribeV1 = "eitmad.permissions.changed.subscribe.v1"
         public static let eitmadAuthorizationPolicyChangedSubscribeV1 = "eitmad.authorization.policy.changed.subscribe.v1"
+        public static let eitmadQuotationApprovalChangedSubscribeV1 = "eitmad.quotation-approval.changed.subscribe.v1"
         public static let eitmadQuotationDraftChangedSubscribeV1 = "eitmad.quotation-draft.changed.subscribe.v1"
         public static let eitmadCustomerChangedSubscribeV1 = "eitmad.customer.changed.subscribe.v1"
         public static let eitmadMaterialChangedSubscribeV1 = "eitmad.material.changed.subscribe.v1"
@@ -105,6 +109,7 @@ public enum ProtocolIds {
         public static let eitmadConfigChangedEventV1 = "eitmad.config.changed.event.v1"
         public static let eitmadPermissionsChangedEventV1 = "eitmad.permissions.changed.event.v1"
         public static let eitmadAuthorizationPolicyChangedEventV1 = "eitmad.authorization.policy.changed.event.v1"
+        public static let eitmadQuotationApprovalChangedEventV1 = "eitmad.quotation-approval.changed.event.v1"
         public static let eitmadQuotationDraftChangedEventV1 = "eitmad.quotation-draft.changed.event.v1"
         public static let eitmadCustomerChangedEventV1 = "eitmad.customer.changed.event.v1"
         public static let eitmadMaterialChangedEventV1 = "eitmad.material.changed.event.v1"
@@ -141,6 +146,7 @@ public enum ProtocolIds {
     }
 
     public enum Capabilities {
+        public static let eitmadCapabilityQuotationApprovalV1 = "eitmad.capability.quotation-approval.v1"
         public static let eitmadCapabilityQuotationDraftV1 = "eitmad.capability.quotation-draft.v1"
         public static let eitmadCapabilityQuotationEvaluationV1 = "eitmad.capability.quotation-evaluation.v1"
         public static let eitmadCapabilitySalesCatalogV1 = "eitmad.capability.sales-catalog.v1"
@@ -173,6 +179,9 @@ public enum ProtocolIds {
     }
 
     public enum Permissions {
+        public static let eitmadPermissionQuotationApprovalRequestV1 = "eitmad.permission.quotation.approval.request.v1"
+        public static let eitmadPermissionQuotationApprovalDecideV1 = "eitmad.permission.quotation.approval.decide.v1"
+        public static let eitmadPermissionQuotationApprovalReadV1 = "eitmad.permission.quotation.approval.read.v1"
         public static let eitmadPermissionCatalogReadV1 = "eitmad.permission.catalog.read.v1"
         public static let eitmadPermissionPricingWriteV1 = "eitmad.permission.pricing.write.v1"
         public static let eitmadPermissionPricingCostReadV1 = "eitmad.permission.pricing.cost.read.v1"
@@ -234,6 +243,7 @@ public enum ProtocolIds {
     }
 
     public enum SchemaIds {
+        public static let eitmadSchemaQuotationApprovalV1 = "eitmad.schema.quotation-approval.v1"
         public static let eitmadSchemaQuotationDraftV1 = "eitmad.schema.quotation-draft.v1"
         public static let eitmadSchemaQuotationEvaluationV1 = "eitmad.schema.quotation-evaluation.v1"
         public static let eitmadSchemaCatalogPublicV1 = "eitmad.schema.catalog-public.v1"
@@ -249,6 +259,9 @@ public enum ProtocolIds {
     }
 
     public enum ErrorCodes {
+        public static let eitmadErrorQuotationApprovalInvalidV1 = "eitmad.error.quotation-approval-invalid.v1"
+        public static let eitmadErrorQuotationApprovalConflictV1 = "eitmad.error.quotation-approval-conflict.v1"
+        public static let eitmadErrorQuotationApprovalUnavailableV1 = "eitmad.error.quotation-approval-unavailable.v1"
         public static let eitmadErrorPricingInvalidV1 = "eitmad.error.pricing-invalid.v1"
         public static let eitmadErrorPricingReferenceInvalidV1 = "eitmad.error.pricing-reference-invalid.v1"
         public static let eitmadErrorPricingRevisionConflictV1 = "eitmad.error.pricing-revision-conflict.v1"
@@ -334,6 +347,9 @@ public enum ProtocolIds {
     }
 
     public enum MessageIds {
+        public static let eitmadMessageQuotationApprovalInvalidV1 = "eitmad.message.quotation-approval-invalid.v1"
+        public static let eitmadMessageQuotationApprovalConflictV1 = "eitmad.message.quotation-approval-conflict.v1"
+        public static let eitmadMessageQuotationApprovalUnavailableV1 = "eitmad.message.quotation-approval-unavailable.v1"
         public static let eitmadMessagePricingInvalidV1 = "eitmad.message.pricing-invalid.v1"
         public static let eitmadMessagePricingReferenceInvalidV1 = "eitmad.message.pricing-reference-invalid.v1"
         public static let eitmadMessagePricingRevisionConflictV1 = "eitmad.message.pricing-revision-conflict.v1"

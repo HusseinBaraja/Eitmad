@@ -353,6 +353,8 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
     public let commandPricingPublish: PublishPrice?
     public let commandProductCategorySave: SaveProductCategory?
     public let commandProductSave: SaveProduct?
+    public let commandQuotationApprovalDecide: DecideDiscountApproval?
+    public let commandQuotationApprovalRequest: RequestDiscountApproval?
     public let commandQuotationDraftCreate: CreateQuotationDraft?
     public let commandQuotationDraftUpdate: UpdateQuotationDraft?
     public let commandOutcomeFailed: ContractError?
@@ -361,6 +363,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
     public let commandResultConfigurationUpdated: ConfigSnapshot?
     public let commandResultCustomerCreated, commandResultCustomerUpdated: CustomerMutationResult?
     public let commandResultDesktopAccountCreated, commandResultDesktopAccountDeactivated, commandResultDesktopAccountUpdated: DesktopAccountSummary?
+    public let commandResultDiscountApproval: DiscountApproval?
     public let commandResultFurnitureCategorySaved: FurnitureCategory?
     public let commandResultFurnitureSaved: Furniture?
     public let commandResultMaterialCategorySaved: MaterialCategory?
@@ -382,6 +385,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
     public let eventPermissionsChangedEvent: EffectivePermissions?
     public let eventPricingChangedEvent: PriceChangeNotice?
     public let eventProductChangedEvent: ProductChangeNotice?
+    public let eventQuotationApprovalChangedEvent: DiscountApprovalNotice?
     public let eventQuotationDraftChangedEvent: QuotationDraftChangeNotice?
     public let handshakeOutcomeAccepted: HandshakeAccepted?
     public let handshakeOutcomeRejected: HandshakeRejection?
@@ -431,6 +435,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
     public let queryProductCategoryList: ListProductCategories?
     public let queryProductList: ListProducts?
     public let queryProductRevisionGet: GetProductRevision?
+    public let queryQuotationApprovalList: ListDiscountApprovals?
     public let queryQuotationDraftGet: GetQuotationDraft?
     public let queryQuotationDraftList: ListQuotationDrafts?
     public let queryQuotationEvaluate: EvaluateQuotation?
@@ -444,6 +449,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
     public let queryResultCustomer: Customer?
     public let queryResultCustomers: CustomerPage?
     public let queryResultDesktopAccounts: DesktopAccountPage?
+    public let queryResultDiscountApprovals: DiscountApprovalPage?
     public let queryResultDiscountTotal: DiscountTotal?
     public let queryResultEffectivePermissions: EffectivePermissions?
     public let queryResultFurnitureCategories: FurnitureCategories?
@@ -473,6 +479,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
     public let subscriptionAuthorizationPolicyChangedSubscribe, subscriptionConfigChangedSubscribe, subscriptionCustomerChangedSubscribe, subscriptionFurnitureChangedSubscribe: [String: JSONAny]?
     public let subscriptionMaterialChangedSubscribe, subscriptionPartChangedSubscribe, subscriptionPermissionsChangedSubscribe, subscriptionPricingChangedSubscribe: [String: JSONAny]?
     public let subscriptionProductChangedSubscribe: [String: JSONAny]?
+    public let subscriptionQuotationApprovalChangedSubscribe: DiscountApprovalChanges?
     public let subscriptionQuotationDraftChangedSubscribe: QuotationDraftChanges?
     public let subscriptionOutcomeFailed: ContractError?
     public let subscriptionOutcomeSucceeded: SubscriptionAccepted?
@@ -497,6 +504,8 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         case commandPricingPublish = "Command_PricingPublish"
         case commandProductCategorySave = "Command_ProductCategorySave"
         case commandProductSave = "Command_ProductSave"
+        case commandQuotationApprovalDecide = "Command_QuotationApprovalDecide"
+        case commandQuotationApprovalRequest = "Command_QuotationApprovalRequest"
         case commandQuotationDraftCreate = "Command_QuotationDraftCreate"
         case commandQuotationDraftUpdate = "Command_QuotationDraftUpdate"
         case commandOutcomeFailed = "CommandOutcome_Failed"
@@ -508,6 +517,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         case commandResultDesktopAccountCreated = "CommandResult_DesktopAccountCreated"
         case commandResultDesktopAccountDeactivated = "CommandResult_DesktopAccountDeactivated"
         case commandResultDesktopAccountUpdated = "CommandResult_DesktopAccountUpdated"
+        case commandResultDiscountApproval = "CommandResult_DiscountApproval"
         case commandResultFurnitureCategorySaved = "CommandResult_FurnitureCategorySaved"
         case commandResultFurnitureSaved = "CommandResult_FurnitureSaved"
         case commandResultMaterialCategorySaved = "CommandResult_MaterialCategorySaved"
@@ -531,6 +541,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         case eventPermissionsChangedEvent = "Event_PermissionsChangedEvent"
         case eventPricingChangedEvent = "Event_PricingChangedEvent"
         case eventProductChangedEvent = "Event_ProductChangedEvent"
+        case eventQuotationApprovalChangedEvent = "Event_QuotationApprovalChangedEvent"
         case eventQuotationDraftChangedEvent = "Event_QuotationDraftChangedEvent"
         case handshakeOutcomeAccepted = "HandshakeOutcome_Accepted"
         case handshakeOutcomeRejected = "HandshakeOutcome_Rejected"
@@ -580,6 +591,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         case queryProductCategoryList = "Query_ProductCategoryList"
         case queryProductList = "Query_ProductList"
         case queryProductRevisionGet = "Query_ProductRevisionGet"
+        case queryQuotationApprovalList = "Query_QuotationApprovalList"
         case queryQuotationDraftGet = "Query_QuotationDraftGet"
         case queryQuotationDraftList = "Query_QuotationDraftList"
         case queryQuotationEvaluate = "Query_QuotationEvaluate"
@@ -593,6 +605,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         case queryResultCustomer = "QueryResult_Customer"
         case queryResultCustomers = "QueryResult_Customers"
         case queryResultDesktopAccounts = "QueryResult_DesktopAccounts"
+        case queryResultDiscountApprovals = "QueryResult_DiscountApprovals"
         case queryResultDiscountTotal = "QueryResult_DiscountTotal"
         case queryResultEffectivePermissions = "QueryResult_EffectivePermissions"
         case queryResultFurnitureCategories = "QueryResult_FurnitureCategories"
@@ -628,12 +641,13 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         case subscriptionPermissionsChangedSubscribe = "Subscription_PermissionsChangedSubscribe"
         case subscriptionPricingChangedSubscribe = "Subscription_PricingChangedSubscribe"
         case subscriptionProductChangedSubscribe = "Subscription_ProductChangedSubscribe"
+        case subscriptionQuotationApprovalChangedSubscribe = "Subscription_QuotationApprovalChangedSubscribe"
         case subscriptionQuotationDraftChangedSubscribe = "Subscription_QuotationDraftChangedSubscribe"
         case subscriptionOutcomeFailed = "SubscriptionOutcome_Failed"
         case subscriptionOutcomeSucceeded = "SubscriptionOutcome_Succeeded"
     }
 
-    public init(commandAuthorizationRelationshipGrant: GrantScopeRelationship?, commandAuthorizationRelationshipRevoke: RevokeScopeRelationship?, commandCatalogImageImport: ImportCatalogImage?, commandConfigUpdate: UpdateConfiguration?, commandCustomerCreate: CreateCustomer?, commandCustomerUpdate: UpdateCustomer?, commandDesktopAccountCreate: CreateDesktopAccount?, commandDesktopAccountDeactivate: DeactivateDesktopAccount?, commandDesktopAccountUpdate: UpdateDesktopAccount?, commandFurnitureCategorySave: SaveFurnitureCategory?, commandFurnitureSave: SaveFurniture?, commandMaterialCategorySave: SaveMaterialCategory?, commandMaterialSave: SaveMaterial?, commandMaterialUnitSave: SaveMaterialUnit?, commandPartCategorySave: SavePartCategory?, commandPartSave: SavePart?, commandPricingPublish: PublishPrice?, commandProductCategorySave: SaveProductCategory?, commandProductSave: SaveProduct?, commandQuotationDraftCreate: CreateQuotationDraft?, commandQuotationDraftUpdate: UpdateQuotationDraft?, commandOutcomeFailed: ContractError?, commandOutcomeSucceeded: [String: JSONAny]?, commandResultCatalogImageImported: CatalogImageRef?, commandResultConfigurationUpdated: ConfigSnapshot?, commandResultCustomerCreated: CustomerMutationResult?, commandResultCustomerUpdated: CustomerMutationResult?, commandResultDesktopAccountCreated: DesktopAccountSummary?, commandResultDesktopAccountDeactivated: DesktopAccountSummary?, commandResultDesktopAccountUpdated: DesktopAccountSummary?, commandResultFurnitureCategorySaved: FurnitureCategory?, commandResultFurnitureSaved: Furniture?, commandResultMaterialCategorySaved: MaterialCategory?, commandResultMaterialSaved: Material?, commandResultMaterialUnitSaved: MaterialUnit?, commandResultPartCategorySaved: PartCategory?, commandResultPartSaved: Part?, commandResultPricePublished: PublishedPrice?, commandResultProductCategorySaved: ProductCategory?, commandResultProductSaved: Product?, commandResultQuotationDraftCreated: QuotationDraft?, commandResultQuotationDraftUpdated: QuotationDraft?, commandResultRelationshipGranted: RelationshipMutationResult?, commandResultRelationshipRevoked: RelationshipMutationResult?, eventAuthorizationPolicyChangedEvent: AuthorizationPolicyChangeNotice?, eventConfigChangedEvent: ConfigSnapshot?, eventCustomerChangedEvent: CustomerChangeNotice?, eventFurnitureChangedEvent: FurnitureChangeNotice?, eventMaterialChangedEvent: MaterialChangeNotice?, eventPartChangedEvent: PartChangeNotice?, eventPermissionsChangedEvent: EffectivePermissions?, eventPricingChangedEvent: PriceChangeNotice?, eventProductChangedEvent: ProductChangeNotice?, eventQuotationDraftChangedEvent: QuotationDraftChangeNotice?, handshakeOutcomeAccepted: HandshakeAccepted?, handshakeOutcomeRejected: HandshakeRejection?, ipcClientMessageIPCCommand: CommandEnvelope?, ipcClientMessageIPCDesktopSessionState: DesktopSessionRequest?, ipcClientMessageIPCDesktopSignIn: DesktopSignInRequest?, ipcClientMessageIPCDesktopSignOut: DesktopSessionRequest?, ipcClientMessageIPCHandshake: HandshakeRequest?, ipcClientMessageIPCQuery: QueryEnvelope?, ipcClientMessageIPCShutdown: ShutdownRequest?, ipcClientMessageIPCSubscribe: SubscriptionEnvelope?, ipcClientMessageIPCUnsubscribe: UnsubscribeRequest?, ipcServerMessageIPCCommandResponse: CommandResponseEnvelope?, ipcServerMessageIPCDesktopSessionResponse: DesktopSessionResponse?, ipcServerMessageIPCEvent: EventEnvelope?, ipcServerMessageIPCFailure: IPCFailureResponse?, ipcServerMessageIPCHandshakeResponse: HandshakeResponse?, ipcServerMessageIPCQueryResponse: QueryResponseEnvelope?, ipcServerMessageIPCShutdownResponse: ShutdownResponse?, ipcServerMessageIPCSubscribeResponse: SubscriptionResponseEnvelope?, ipcServerMessageIPCSubscriptionClosed: SubscriptionClosedEnvelope?, ipcServerMessageIPCUnsubscribeResponse: UnsubscribeResponse?, priceTargetFurniture: FurnitureReference?, priceTargetProduct: ProductReference?, queryAuthorizationRelationshipsList: ListScopeRelationships?, queryCatalogImageGet: GetCatalogImage?, queryConfigGet: [String: JSONAny]?, queryCustomerGet: GetCustomer?, queryCustomerSearch: SearchCustomers?, queryDesktopAccountList: [String: JSONAny]?, queryFurnitureCategoryList: ListFurnitureCategories?, queryFurnitureList: ListFurnitures?, queryFurnitureReview: SaveFurniture?, queryFurnitureRevisionGet: GetFurnitureRevision?, queryFurnitureSelectionCheck: CheckFurnitureSelection?, queryMaterialList: ListMaterials?, queryMaterialReferenceList: [String: JSONAny]?, queryPartCategoryList: ListPartCategories?, queryPartCompositionGet: GetPartComposition?, queryPartCost: CalculatePartCost?, queryPartList: ListParts?, queryPermissionsGetEffective: [String: JSONAny]?, queryPricingDiscount: CalculateDiscount?, queryPricingList: ListPrices?, queryPricingReview: ReviewPrice?, queryPricingSelection: PriceSelection?, queryProductCategoryList: ListProductCategories?, queryProductList: ListProducts?, queryProductRevisionGet: GetProductRevision?, queryQuotationDraftGet: GetQuotationDraft?, queryQuotationDraftList: ListQuotationDrafts?, queryQuotationEvaluate: EvaluateQuotation?, querySalesCatalogCheck: CheckSalesConfiguration?, querySalesCatalogGet: GetSalesCatalogItem?, querySalesCatalogList: ListSalesCatalog?, queryOutcomeFailed: ContractError?, queryOutcomeSucceeded: [String: JSONAny]?, queryResultCatalogImage: CatalogImageChunk?, queryResultConfiguration: ConfigSnapshot?, queryResultCustomer: Customer?, queryResultCustomers: CustomerPage?, queryResultDesktopAccounts: DesktopAccountPage?, queryResultDiscountTotal: DiscountTotal?, queryResultEffectivePermissions: EffectivePermissions?, queryResultFurnitureCategories: FurnitureCategories?, queryResultFurnitureReview: FurnitureReview?, queryResultFurnitureRevision: Furniture?, queryResultFurnitures: FurniturePage?, queryResultFurnitureSelection: FurnitureSelection?, queryResultMaterialReferences: MaterialReferences?, queryResultMaterials: MaterialPage?, queryResultPartCategories: PartCategories?, queryResultPartComposition: Part?, queryResultPartCost: PartCost?, queryResultParts: PartPage?, queryResultPriceReview: PriceReview?, queryResultPrices: PricePage?, queryResultProductCategories: ProductCategories?, queryResultProductRevision: Product?, queryResultProducts: ProductPage?, queryResultQuotationDraft: QuotationDraft?, queryResultQuotationDrafts: QuotationDraftPage?, queryResultQuotationEvaluation: QuotationEvaluation?, queryResultSalesCatalog: SalesCatalogPage?, queryResultSalesCatalogItem: SalesCatalogDetails?, queryResultSalesConfiguration: SalesConfiguration?, queryResultScopeRelationships: RelationshipPage?, queryResultSellingPrice: SellingPrice?, subscriptionAuthorizationPolicyChangedSubscribe: [String: JSONAny]?, subscriptionConfigChangedSubscribe: [String: JSONAny]?, subscriptionCustomerChangedSubscribe: [String: JSONAny]?, subscriptionFurnitureChangedSubscribe: [String: JSONAny]?, subscriptionMaterialChangedSubscribe: [String: JSONAny]?, subscriptionPartChangedSubscribe: [String: JSONAny]?, subscriptionPermissionsChangedSubscribe: [String: JSONAny]?, subscriptionPricingChangedSubscribe: [String: JSONAny]?, subscriptionProductChangedSubscribe: [String: JSONAny]?, subscriptionQuotationDraftChangedSubscribe: QuotationDraftChanges?, subscriptionOutcomeFailed: ContractError?, subscriptionOutcomeSucceeded: SubscriptionAccepted?) {
+    public init(commandAuthorizationRelationshipGrant: GrantScopeRelationship?, commandAuthorizationRelationshipRevoke: RevokeScopeRelationship?, commandCatalogImageImport: ImportCatalogImage?, commandConfigUpdate: UpdateConfiguration?, commandCustomerCreate: CreateCustomer?, commandCustomerUpdate: UpdateCustomer?, commandDesktopAccountCreate: CreateDesktopAccount?, commandDesktopAccountDeactivate: DeactivateDesktopAccount?, commandDesktopAccountUpdate: UpdateDesktopAccount?, commandFurnitureCategorySave: SaveFurnitureCategory?, commandFurnitureSave: SaveFurniture?, commandMaterialCategorySave: SaveMaterialCategory?, commandMaterialSave: SaveMaterial?, commandMaterialUnitSave: SaveMaterialUnit?, commandPartCategorySave: SavePartCategory?, commandPartSave: SavePart?, commandPricingPublish: PublishPrice?, commandProductCategorySave: SaveProductCategory?, commandProductSave: SaveProduct?, commandQuotationApprovalDecide: DecideDiscountApproval?, commandQuotationApprovalRequest: RequestDiscountApproval?, commandQuotationDraftCreate: CreateQuotationDraft?, commandQuotationDraftUpdate: UpdateQuotationDraft?, commandOutcomeFailed: ContractError?, commandOutcomeSucceeded: [String: JSONAny]?, commandResultCatalogImageImported: CatalogImageRef?, commandResultConfigurationUpdated: ConfigSnapshot?, commandResultCustomerCreated: CustomerMutationResult?, commandResultCustomerUpdated: CustomerMutationResult?, commandResultDesktopAccountCreated: DesktopAccountSummary?, commandResultDesktopAccountDeactivated: DesktopAccountSummary?, commandResultDesktopAccountUpdated: DesktopAccountSummary?, commandResultDiscountApproval: DiscountApproval?, commandResultFurnitureCategorySaved: FurnitureCategory?, commandResultFurnitureSaved: Furniture?, commandResultMaterialCategorySaved: MaterialCategory?, commandResultMaterialSaved: Material?, commandResultMaterialUnitSaved: MaterialUnit?, commandResultPartCategorySaved: PartCategory?, commandResultPartSaved: Part?, commandResultPricePublished: PublishedPrice?, commandResultProductCategorySaved: ProductCategory?, commandResultProductSaved: Product?, commandResultQuotationDraftCreated: QuotationDraft?, commandResultQuotationDraftUpdated: QuotationDraft?, commandResultRelationshipGranted: RelationshipMutationResult?, commandResultRelationshipRevoked: RelationshipMutationResult?, eventAuthorizationPolicyChangedEvent: AuthorizationPolicyChangeNotice?, eventConfigChangedEvent: ConfigSnapshot?, eventCustomerChangedEvent: CustomerChangeNotice?, eventFurnitureChangedEvent: FurnitureChangeNotice?, eventMaterialChangedEvent: MaterialChangeNotice?, eventPartChangedEvent: PartChangeNotice?, eventPermissionsChangedEvent: EffectivePermissions?, eventPricingChangedEvent: PriceChangeNotice?, eventProductChangedEvent: ProductChangeNotice?, eventQuotationApprovalChangedEvent: DiscountApprovalNotice?, eventQuotationDraftChangedEvent: QuotationDraftChangeNotice?, handshakeOutcomeAccepted: HandshakeAccepted?, handshakeOutcomeRejected: HandshakeRejection?, ipcClientMessageIPCCommand: CommandEnvelope?, ipcClientMessageIPCDesktopSessionState: DesktopSessionRequest?, ipcClientMessageIPCDesktopSignIn: DesktopSignInRequest?, ipcClientMessageIPCDesktopSignOut: DesktopSessionRequest?, ipcClientMessageIPCHandshake: HandshakeRequest?, ipcClientMessageIPCQuery: QueryEnvelope?, ipcClientMessageIPCShutdown: ShutdownRequest?, ipcClientMessageIPCSubscribe: SubscriptionEnvelope?, ipcClientMessageIPCUnsubscribe: UnsubscribeRequest?, ipcServerMessageIPCCommandResponse: CommandResponseEnvelope?, ipcServerMessageIPCDesktopSessionResponse: DesktopSessionResponse?, ipcServerMessageIPCEvent: EventEnvelope?, ipcServerMessageIPCFailure: IPCFailureResponse?, ipcServerMessageIPCHandshakeResponse: HandshakeResponse?, ipcServerMessageIPCQueryResponse: QueryResponseEnvelope?, ipcServerMessageIPCShutdownResponse: ShutdownResponse?, ipcServerMessageIPCSubscribeResponse: SubscriptionResponseEnvelope?, ipcServerMessageIPCSubscriptionClosed: SubscriptionClosedEnvelope?, ipcServerMessageIPCUnsubscribeResponse: UnsubscribeResponse?, priceTargetFurniture: FurnitureReference?, priceTargetProduct: ProductReference?, queryAuthorizationRelationshipsList: ListScopeRelationships?, queryCatalogImageGet: GetCatalogImage?, queryConfigGet: [String: JSONAny]?, queryCustomerGet: GetCustomer?, queryCustomerSearch: SearchCustomers?, queryDesktopAccountList: [String: JSONAny]?, queryFurnitureCategoryList: ListFurnitureCategories?, queryFurnitureList: ListFurnitures?, queryFurnitureReview: SaveFurniture?, queryFurnitureRevisionGet: GetFurnitureRevision?, queryFurnitureSelectionCheck: CheckFurnitureSelection?, queryMaterialList: ListMaterials?, queryMaterialReferenceList: [String: JSONAny]?, queryPartCategoryList: ListPartCategories?, queryPartCompositionGet: GetPartComposition?, queryPartCost: CalculatePartCost?, queryPartList: ListParts?, queryPermissionsGetEffective: [String: JSONAny]?, queryPricingDiscount: CalculateDiscount?, queryPricingList: ListPrices?, queryPricingReview: ReviewPrice?, queryPricingSelection: PriceSelection?, queryProductCategoryList: ListProductCategories?, queryProductList: ListProducts?, queryProductRevisionGet: GetProductRevision?, queryQuotationApprovalList: ListDiscountApprovals?, queryQuotationDraftGet: GetQuotationDraft?, queryQuotationDraftList: ListQuotationDrafts?, queryQuotationEvaluate: EvaluateQuotation?, querySalesCatalogCheck: CheckSalesConfiguration?, querySalesCatalogGet: GetSalesCatalogItem?, querySalesCatalogList: ListSalesCatalog?, queryOutcomeFailed: ContractError?, queryOutcomeSucceeded: [String: JSONAny]?, queryResultCatalogImage: CatalogImageChunk?, queryResultConfiguration: ConfigSnapshot?, queryResultCustomer: Customer?, queryResultCustomers: CustomerPage?, queryResultDesktopAccounts: DesktopAccountPage?, queryResultDiscountApprovals: DiscountApprovalPage?, queryResultDiscountTotal: DiscountTotal?, queryResultEffectivePermissions: EffectivePermissions?, queryResultFurnitureCategories: FurnitureCategories?, queryResultFurnitureReview: FurnitureReview?, queryResultFurnitureRevision: Furniture?, queryResultFurnitures: FurniturePage?, queryResultFurnitureSelection: FurnitureSelection?, queryResultMaterialReferences: MaterialReferences?, queryResultMaterials: MaterialPage?, queryResultPartCategories: PartCategories?, queryResultPartComposition: Part?, queryResultPartCost: PartCost?, queryResultParts: PartPage?, queryResultPriceReview: PriceReview?, queryResultPrices: PricePage?, queryResultProductCategories: ProductCategories?, queryResultProductRevision: Product?, queryResultProducts: ProductPage?, queryResultQuotationDraft: QuotationDraft?, queryResultQuotationDrafts: QuotationDraftPage?, queryResultQuotationEvaluation: QuotationEvaluation?, queryResultSalesCatalog: SalesCatalogPage?, queryResultSalesCatalogItem: SalesCatalogDetails?, queryResultSalesConfiguration: SalesConfiguration?, queryResultScopeRelationships: RelationshipPage?, queryResultSellingPrice: SellingPrice?, subscriptionAuthorizationPolicyChangedSubscribe: [String: JSONAny]?, subscriptionConfigChangedSubscribe: [String: JSONAny]?, subscriptionCustomerChangedSubscribe: [String: JSONAny]?, subscriptionFurnitureChangedSubscribe: [String: JSONAny]?, subscriptionMaterialChangedSubscribe: [String: JSONAny]?, subscriptionPartChangedSubscribe: [String: JSONAny]?, subscriptionPermissionsChangedSubscribe: [String: JSONAny]?, subscriptionPricingChangedSubscribe: [String: JSONAny]?, subscriptionProductChangedSubscribe: [String: JSONAny]?, subscriptionQuotationApprovalChangedSubscribe: DiscountApprovalChanges?, subscriptionQuotationDraftChangedSubscribe: QuotationDraftChanges?, subscriptionOutcomeFailed: ContractError?, subscriptionOutcomeSucceeded: SubscriptionAccepted?) {
         self.commandAuthorizationRelationshipGrant = commandAuthorizationRelationshipGrant
         self.commandAuthorizationRelationshipRevoke = commandAuthorizationRelationshipRevoke
         self.commandCatalogImageImport = commandCatalogImageImport
@@ -653,6 +667,8 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         self.commandPricingPublish = commandPricingPublish
         self.commandProductCategorySave = commandProductCategorySave
         self.commandProductSave = commandProductSave
+        self.commandQuotationApprovalDecide = commandQuotationApprovalDecide
+        self.commandQuotationApprovalRequest = commandQuotationApprovalRequest
         self.commandQuotationDraftCreate = commandQuotationDraftCreate
         self.commandQuotationDraftUpdate = commandQuotationDraftUpdate
         self.commandOutcomeFailed = commandOutcomeFailed
@@ -664,6 +680,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         self.commandResultDesktopAccountCreated = commandResultDesktopAccountCreated
         self.commandResultDesktopAccountDeactivated = commandResultDesktopAccountDeactivated
         self.commandResultDesktopAccountUpdated = commandResultDesktopAccountUpdated
+        self.commandResultDiscountApproval = commandResultDiscountApproval
         self.commandResultFurnitureCategorySaved = commandResultFurnitureCategorySaved
         self.commandResultFurnitureSaved = commandResultFurnitureSaved
         self.commandResultMaterialCategorySaved = commandResultMaterialCategorySaved
@@ -687,6 +704,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         self.eventPermissionsChangedEvent = eventPermissionsChangedEvent
         self.eventPricingChangedEvent = eventPricingChangedEvent
         self.eventProductChangedEvent = eventProductChangedEvent
+        self.eventQuotationApprovalChangedEvent = eventQuotationApprovalChangedEvent
         self.eventQuotationDraftChangedEvent = eventQuotationDraftChangedEvent
         self.handshakeOutcomeAccepted = handshakeOutcomeAccepted
         self.handshakeOutcomeRejected = handshakeOutcomeRejected
@@ -736,6 +754,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         self.queryProductCategoryList = queryProductCategoryList
         self.queryProductList = queryProductList
         self.queryProductRevisionGet = queryProductRevisionGet
+        self.queryQuotationApprovalList = queryQuotationApprovalList
         self.queryQuotationDraftGet = queryQuotationDraftGet
         self.queryQuotationDraftList = queryQuotationDraftList
         self.queryQuotationEvaluate = queryQuotationEvaluate
@@ -749,6 +768,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         self.queryResultCustomer = queryResultCustomer
         self.queryResultCustomers = queryResultCustomers
         self.queryResultDesktopAccounts = queryResultDesktopAccounts
+        self.queryResultDiscountApprovals = queryResultDiscountApprovals
         self.queryResultDiscountTotal = queryResultDiscountTotal
         self.queryResultEffectivePermissions = queryResultEffectivePermissions
         self.queryResultFurnitureCategories = queryResultFurnitureCategories
@@ -784,6 +804,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         self.subscriptionPermissionsChangedSubscribe = subscriptionPermissionsChangedSubscribe
         self.subscriptionPricingChangedSubscribe = subscriptionPricingChangedSubscribe
         self.subscriptionProductChangedSubscribe = subscriptionProductChangedSubscribe
+        self.subscriptionQuotationApprovalChangedSubscribe = subscriptionQuotationApprovalChangedSubscribe
         self.subscriptionQuotationDraftChangedSubscribe = subscriptionQuotationDraftChangedSubscribe
         self.subscriptionOutcomeFailed = subscriptionOutcomeFailed
         self.subscriptionOutcomeSucceeded = subscriptionOutcomeSucceeded
@@ -1424,6 +1445,55 @@ public struct SaveProductVariant: Codable, Sendable {
     }
 }
 
+// MARK: - DecideDiscountApproval
+public struct DecideDiscountApproval: Codable, Sendable {
+    public let decision: DiscountDecision
+    public let draftID: String
+    public let expectedRevision: Int
+    public let fingerprint: String
+    public let quotationRevision: Int
+    public let reason: String?
+    public let requestID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case decision
+        case draftID = "draftId"
+        case expectedRevision, fingerprint, quotationRevision, reason
+        case requestID = "requestId"
+    }
+
+    public init(decision: DiscountDecision, draftID: String, expectedRevision: Int, fingerprint: String, quotationRevision: Int, reason: String?, requestID: String) {
+        self.decision = decision
+        self.draftID = draftID
+        self.expectedRevision = expectedRevision
+        self.fingerprint = fingerprint
+        self.quotationRevision = quotationRevision
+        self.reason = reason
+        self.requestID = requestID
+    }
+}
+
+public enum DiscountDecision: String, Codable, Sendable {
+    case approve = "approve"
+    case reject = "reject"
+}
+
+// MARK: - RequestDiscountApproval
+public struct RequestDiscountApproval: Codable, Sendable {
+    public let draftID: String
+    public let expectedRevision: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case draftID = "draftId"
+        case expectedRevision
+    }
+
+    public init(draftID: String, expectedRevision: Int) {
+        self.draftID = draftID
+        self.expectedRevision = expectedRevision
+    }
+}
+
 // MARK: - CreateQuotationDraft
 public struct CreateQuotationDraft: Codable, Sendable {
     public let intent: EvaluateQuotation
@@ -1662,6 +1732,203 @@ public struct DesktopAccountSummary: Codable, Sendable {
     }
 }
 
+// MARK: - DiscountApproval
+public struct DiscountApproval: Codable, Sendable {
+    public let correlationID: String
+    public let decidedAt: Int?
+    public let decider: String?
+    public let fingerprint, organizationID: String
+    public let proposedValidUntil: Int
+    public let quotation: QuotationDraftSnapshot
+    public let reason: String?
+    public let requestedAt: Int
+    public let requester, requestID: String
+    public let revision: Int
+    public let scope: ScopeRef
+    public let state: DiscountApprovalState
+    public let validityDays: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case correlationID = "correlationId"
+        case decidedAt, decider, fingerprint
+        case organizationID = "organizationId"
+        case proposedValidUntil, quotation, reason, requestedAt, requester
+        case requestID = "requestId"
+        case revision, scope, state, validityDays
+    }
+
+    public init(correlationID: String, decidedAt: Int?, decider: String?, fingerprint: String, organizationID: String, proposedValidUntil: Int, quotation: QuotationDraftSnapshot, reason: String?, requestedAt: Int, requester: String, requestID: String, revision: Int, scope: ScopeRef, state: DiscountApprovalState, validityDays: Int) {
+        self.correlationID = correlationID
+        self.decidedAt = decidedAt
+        self.decider = decider
+        self.fingerprint = fingerprint
+        self.organizationID = organizationID
+        self.proposedValidUntil = proposedValidUntil
+        self.quotation = quotation
+        self.reason = reason
+        self.requestedAt = requestedAt
+        self.requester = requester
+        self.requestID = requestID
+        self.revision = revision
+        self.scope = scope
+        self.state = state
+        self.validityDays = validityDays
+    }
+}
+
+// MARK: - QuotationDraftSnapshot
+public struct QuotationDraftSnapshot: Codable, Sendable {
+    public let evaluation: QuotationEvaluation
+    public let id: String
+    public let intent: EvaluateQuotation
+    public let revision: Int
+
+    public init(evaluation: QuotationEvaluation, id: String, intent: EvaluateQuotation, revision: Int) {
+        self.evaluation = evaluation
+        self.id = id
+        self.intent = intent
+        self.revision = revision
+    }
+}
+
+// MARK: - QuotationEvaluation
+public struct QuotationEvaluation: Codable, Sendable {
+    public let currency: String
+    public let customer: QuotationCustomerSnapshot?
+    public let discountBasisPoints: Int
+    public let errors: [QuotationFieldError]
+    public let lines: [EvaluatedQuotationLine]
+    public let scope: ScopeRef
+    /// Cache evaluation is never evidence that issuance can succeed online.
+    public let serverAvailable: Bool
+    /// Present only when every field and checked calculation is valid.
+    public let totals: DiscountTotal?
+
+    public init(currency: String, customer: QuotationCustomerSnapshot?, discountBasisPoints: Int, errors: [QuotationFieldError], lines: [EvaluatedQuotationLine], scope: ScopeRef, serverAvailable: Bool, totals: DiscountTotal?) {
+        self.currency = currency
+        self.customer = customer
+        self.discountBasisPoints = discountBasisPoints
+        self.errors = errors
+        self.lines = lines
+        self.scope = scope
+        self.serverAvailable = serverAvailable
+        self.totals = totals
+    }
+}
+
+// MARK: - QuotationCustomerSnapshot
+public struct QuotationCustomerSnapshot: Codable, Sendable {
+    public let address: String?
+    public let id, name, phone: String
+    public let revision: Int
+
+    public init(address: String?, id: String, name: String, phone: String, revision: Int) {
+        self.address = address
+        self.id = id
+        self.name = name
+        self.phone = phone
+        self.revision = revision
+    }
+}
+
+// MARK: - EvaluatedQuotationLine
+public struct EvaluatedQuotationLine: Codable, Sendable {
+    public let colorID, colorName: String?
+    public let description: String
+    public let dimensions: FurnitureDimensions?
+    public let handleID, handleName: String?
+    public let id, name: String
+    public let price: SellingPrice
+    public let quantity: Int
+    public let variantName: String
+
+    public enum CodingKeys: String, CodingKey {
+        case colorID = "colorId"
+        case colorName, description, dimensions
+        case handleID = "handleId"
+        case handleName, id, name, price, quantity, variantName
+    }
+
+    public init(colorID: String?, colorName: String?, description: String, dimensions: FurnitureDimensions?, handleID: String?, handleName: String?, id: String, name: String, price: SellingPrice, quantity: Int, variantName: String) {
+        self.colorID = colorID
+        self.colorName = colorName
+        self.description = description
+        self.dimensions = dimensions
+        self.handleID = handleID
+        self.handleName = handleName
+        self.id = id
+        self.name = name
+        self.price = price
+        self.quantity = quantity
+        self.variantName = variantName
+    }
+}
+
+// MARK: - SellingPrice
+public struct SellingPrice: Codable, Sendable {
+    public let snapshot: PublishedPrice
+    public let totalYer, unitPriceYer: Int
+
+    public init(snapshot: PublishedPrice, totalYer: Int, unitPriceYer: Int) {
+        self.snapshot = snapshot
+        self.totalYer = totalYer
+        self.unitPriceYer = unitPriceYer
+    }
+}
+
+/// Immutable public snapshot. Contains no purchase cost, margin, BOM, or notes.
+// MARK: - PublishedPrice
+public struct PublishedPrice: Codable, Sendable {
+    public let colors: [PriceAdjustment]
+    public let confirmedAt: Int
+    public let currency: String
+    public let handles: [PriceAdjustment]
+    public let revision: Int
+    public let sellingPriceYer: Int
+    public let target: [String: JSONAny]
+
+    public init(colors: [PriceAdjustment], confirmedAt: Int, currency: String, handles: [PriceAdjustment], revision: Int, sellingPriceYer: Int, target: [String: JSONAny]) {
+        self.colors = colors
+        self.confirmedAt = confirmedAt
+        self.currency = currency
+        self.handles = handles
+        self.revision = revision
+        self.sellingPriceYer = sellingPriceYer
+        self.target = target
+    }
+}
+
+// MARK: - PriceAdjustment
+public struct PriceAdjustment: Codable, Sendable {
+    public let id: String
+    public let priceAdjustmentYer: Int
+
+    public init(id: String, priceAdjustmentYer: Int) {
+        self.id = id
+        self.priceAdjustmentYer = priceAdjustmentYer
+    }
+}
+
+// MARK: - DiscountTotal
+public struct DiscountTotal: Codable, Sendable {
+    public let approvalRequired: Bool
+    public let discountYer, subtotalYer, totalYer: Int
+
+    public init(approvalRequired: Bool, discountYer: Int, subtotalYer: Int, totalYer: Int) {
+        self.approvalRequired = approvalRequired
+        self.discountYer = discountYer
+        self.subtotalYer = subtotalYer
+        self.totalYer = totalYer
+    }
+}
+
+public enum DiscountApprovalState: String, Codable, Sendable {
+    case approved = "approved"
+    case invalidated = "invalidated"
+    case pending = "pending"
+    case rejected = "rejected"
+}
+
 // MARK: - FurnitureCategory
 public struct FurnitureCategory: Codable, Sendable {
     public let archived: Bool
@@ -1880,39 +2147,6 @@ public struct CostedUsage: Codable, Sendable {
     }
 }
 
-/// Immutable public snapshot. Contains no purchase cost, margin, BOM, or notes.
-// MARK: - PublishedPrice
-public struct PublishedPrice: Codable, Sendable {
-    public let colors: [PriceAdjustment]
-    public let confirmedAt: Int
-    public let currency: String
-    public let handles: [PriceAdjustment]
-    public let revision: Int
-    public let sellingPriceYer: Int
-    public let target: [String: JSONAny]
-
-    public init(colors: [PriceAdjustment], confirmedAt: Int, currency: String, handles: [PriceAdjustment], revision: Int, sellingPriceYer: Int, target: [String: JSONAny]) {
-        self.colors = colors
-        self.confirmedAt = confirmedAt
-        self.currency = currency
-        self.handles = handles
-        self.revision = revision
-        self.sellingPriceYer = sellingPriceYer
-        self.target = target
-    }
-}
-
-// MARK: - PriceAdjustment
-public struct PriceAdjustment: Codable, Sendable {
-    public let id: String
-    public let priceAdjustmentYer: Int
-
-    public init(id: String, priceAdjustmentYer: Int) {
-        self.id = id
-        self.priceAdjustmentYer = priceAdjustmentYer
-    }
-}
-
 // MARK: - ProductCategory
 public struct ProductCategory: Codable, Sendable {
     public let archived: Bool
@@ -2096,119 +2330,6 @@ public struct EncodedDomainPayload: Codable, Sendable {
     }
 }
 
-// MARK: - QuotationDraftSnapshot
-public struct QuotationDraftSnapshot: Codable, Sendable {
-    public let evaluation: QuotationEvaluation
-    public let id: String
-    public let intent: EvaluateQuotation
-    public let revision: Int
-
-    public init(evaluation: QuotationEvaluation, id: String, intent: EvaluateQuotation, revision: Int) {
-        self.evaluation = evaluation
-        self.id = id
-        self.intent = intent
-        self.revision = revision
-    }
-}
-
-// MARK: - QuotationEvaluation
-public struct QuotationEvaluation: Codable, Sendable {
-    public let currency: String
-    public let customer: QuotationCustomerSnapshot?
-    public let discountBasisPoints: Int
-    public let errors: [QuotationFieldError]
-    public let lines: [EvaluatedQuotationLine]
-    public let scope: ScopeRef
-    /// Cache evaluation is never evidence that issuance can succeed online.
-    public let serverAvailable: Bool
-    /// Present only when every field and checked calculation is valid.
-    public let totals: DiscountTotal?
-
-    public init(currency: String, customer: QuotationCustomerSnapshot?, discountBasisPoints: Int, errors: [QuotationFieldError], lines: [EvaluatedQuotationLine], scope: ScopeRef, serverAvailable: Bool, totals: DiscountTotal?) {
-        self.currency = currency
-        self.customer = customer
-        self.discountBasisPoints = discountBasisPoints
-        self.errors = errors
-        self.lines = lines
-        self.scope = scope
-        self.serverAvailable = serverAvailable
-        self.totals = totals
-    }
-}
-
-// MARK: - QuotationCustomerSnapshot
-public struct QuotationCustomerSnapshot: Codable, Sendable {
-    public let address: String?
-    public let id, name, phone: String
-    public let revision: Int
-
-    public init(address: String?, id: String, name: String, phone: String, revision: Int) {
-        self.address = address
-        self.id = id
-        self.name = name
-        self.phone = phone
-        self.revision = revision
-    }
-}
-
-// MARK: - EvaluatedQuotationLine
-public struct EvaluatedQuotationLine: Codable, Sendable {
-    public let colorID, colorName: String?
-    public let description: String
-    public let dimensions: FurnitureDimensions?
-    public let handleID, handleName: String?
-    public let id, name: String
-    public let price: SellingPrice
-    public let quantity: Int
-    public let variantName: String
-
-    public enum CodingKeys: String, CodingKey {
-        case colorID = "colorId"
-        case colorName, description, dimensions
-        case handleID = "handleId"
-        case handleName, id, name, price, quantity, variantName
-    }
-
-    public init(colorID: String?, colorName: String?, description: String, dimensions: FurnitureDimensions?, handleID: String?, handleName: String?, id: String, name: String, price: SellingPrice, quantity: Int, variantName: String) {
-        self.colorID = colorID
-        self.colorName = colorName
-        self.description = description
-        self.dimensions = dimensions
-        self.handleID = handleID
-        self.handleName = handleName
-        self.id = id
-        self.name = name
-        self.price = price
-        self.quantity = quantity
-        self.variantName = variantName
-    }
-}
-
-// MARK: - SellingPrice
-public struct SellingPrice: Codable, Sendable {
-    public let snapshot: PublishedPrice
-    public let totalYer, unitPriceYer: Int
-
-    public init(snapshot: PublishedPrice, totalYer: Int, unitPriceYer: Int) {
-        self.snapshot = snapshot
-        self.totalYer = totalYer
-        self.unitPriceYer = unitPriceYer
-    }
-}
-
-// MARK: - DiscountTotal
-public struct DiscountTotal: Codable, Sendable {
-    public let approvalRequired: Bool
-    public let discountYer, subtotalYer, totalYer: Int
-
-    public init(approvalRequired: Bool, discountYer: Int, subtotalYer: Int, totalYer: Int) {
-        self.approvalRequired = approvalRequired
-        self.discountYer = discountYer
-        self.subtotalYer = subtotalYer
-        self.totalYer = totalYer
-    }
-}
-
 // MARK: - RelationshipMutationResult
 public struct RelationshipMutationResult: Codable, Sendable {
     public let changed: Bool
@@ -2383,6 +2504,24 @@ public struct ProductChangeNotice: Codable, Sendable {
         self.category = category
         self.changedAt = changedAt
         self.id = id
+        self.revision = revision
+        self.scope = scope
+    }
+}
+
+// MARK: - DiscountApprovalNotice
+public struct DiscountApprovalNotice: Codable, Sendable {
+    public let draftID: String
+    public let revision: Int
+    public let scope: ScopeRef
+
+    public enum CodingKeys: String, CodingKey {
+        case draftID = "draftId"
+        case revision, scope
+    }
+
+    public init(draftID: String, revision: Int, scope: ScopeRef) {
+        self.draftID = draftID
         self.revision = revision
         self.scope = scope
     }
@@ -3312,6 +3451,17 @@ public struct GetProductRevision: Codable, Sendable {
     }
 }
 
+// MARK: - ListDiscountApprovals
+public struct ListDiscountApprovals: Codable, Sendable {
+    public let after: String?
+    public let limit: Int
+
+    public init(after: String?, limit: Int) {
+        self.after = after
+        self.limit = limit
+    }
+}
+
 // MARK: - GetQuotationDraft
 public struct GetQuotationDraft: Codable, Sendable {
     public let draftID: String
@@ -3368,6 +3518,17 @@ public struct DesktopAccountPage: Codable, Sendable {
 
     public init(accounts: [DesktopAccountSummary]) {
         self.accounts = accounts
+    }
+}
+
+// MARK: - DiscountApprovalPage
+public struct DiscountApprovalPage: Codable, Sendable {
+    public let items: [DiscountApproval]
+    public let next: String?
+
+    public init(items: [DiscountApproval], next: String?) {
+        self.items = items
+        self.next = next
     }
 }
 
@@ -3720,6 +3881,13 @@ public struct SubscriptionAccepted: Codable, Sendable {
         self.resumed = resumed
         self.streamCursor = streamCursor
         self.subscriptionID = subscriptionID
+    }
+}
+
+// MARK: - DiscountApprovalChanges
+public struct DiscountApprovalChanges: Codable, Sendable {
+
+    public init() {
     }
 }
 

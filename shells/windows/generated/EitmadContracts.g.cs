@@ -297,6 +297,14 @@ namespace Eitmad.Contracts
         public SaveProduct CommandProductSave { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Command_QuotationApprovalDecide")]
+        public DecideDiscountApproval CommandQuotationApprovalDecide { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Command_QuotationApprovalRequest")]
+        public RequestDiscountApproval CommandQuotationApprovalRequest { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Command_QuotationDraftCreate")]
         public CreateQuotationDraft CommandQuotationDraftCreate { get; set; }
 
@@ -331,6 +339,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("CommandResult_DesktopAccountUpdated")]
         public DesktopAccountSummary CommandResultDesktopAccountUpdated { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("CommandResult_DiscountApproval")]
+        public DiscountApproval CommandResultDiscountApproval { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("CommandResult_FurnitureCategorySaved")]
@@ -423,6 +435,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Event_ProductChangedEvent")]
         public ProductChangeNotice EventProductChangedEvent { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Event_QuotationApprovalChangedEvent")]
+        public DiscountApprovalNotice EventQuotationApprovalChangedEvent { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Event_QuotationDraftChangedEvent")]
@@ -613,6 +629,10 @@ namespace Eitmad.Contracts
         public GetProductRevision QueryProductRevisionGet { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Query_QuotationApprovalList")]
+        public ListDiscountApprovals QueryQuotationApprovalList { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Query_QuotationDraftGet")]
         public GetQuotationDraft QueryQuotationDraftGet { get; set; }
 
@@ -655,6 +675,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_DesktopAccounts")]
         public DesktopAccountPage QueryResultDesktopAccounts { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("QueryResult_DiscountApprovals")]
+        public DiscountApprovalPage QueryResultDiscountApprovals { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_DiscountTotal")]
@@ -795,6 +819,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Subscription_ProductChangedSubscribe")]
         public Dictionary<string, object> SubscriptionProductChangedSubscribe { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Subscription_QuotationApprovalChangedSubscribe")]
+        public DiscountApprovalChanges SubscriptionQuotationApprovalChangedSubscribe { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Subscription_QuotationDraftChangedSubscribe")]
@@ -1311,6 +1339,39 @@ namespace Eitmad.Contracts
         public long PurchaseCostYer { get; set; }
     }
 
+    public partial class DecideDiscountApproval
+    {
+        [JsonPropertyName("decision")]
+        public DiscountDecision Decision { get; set; }
+
+        [JsonPropertyName("draftId")]
+        public Guid DraftId { get; set; }
+
+        [JsonPropertyName("expectedRevision")]
+        public long ExpectedRevision { get; set; }
+
+        [JsonPropertyName("fingerprint")]
+        public string Fingerprint { get; set; }
+
+        [JsonPropertyName("quotationRevision")]
+        public long QuotationRevision { get; set; }
+
+        [JsonPropertyName("reason")]
+        public string Reason { get; set; }
+
+        [JsonPropertyName("requestId")]
+        public Guid RequestId { get; set; }
+    }
+
+    public partial class RequestDiscountApproval
+    {
+        [JsonPropertyName("draftId")]
+        public Guid DraftId { get; set; }
+
+        [JsonPropertyName("expectedRevision")]
+        public long ExpectedRevision { get; set; }
+    }
+
     public partial class CreateQuotationDraft
     {
         [JsonPropertyName("intent")]
@@ -1490,6 +1551,219 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("username")]
         public string Username { get; set; }
+    }
+
+    public partial class DiscountApproval
+    {
+        [JsonPropertyName("correlationId")]
+        public Guid CorrelationId { get; set; }
+
+        [JsonPropertyName("decidedAt")]
+        public long? DecidedAt { get; set; }
+
+        [JsonPropertyName("decider")]
+        public Guid? Decider { get; set; }
+
+        [JsonPropertyName("fingerprint")]
+        public string Fingerprint { get; set; }
+
+        [JsonPropertyName("organizationId")]
+        public Guid OrganizationId { get; set; }
+
+        [JsonPropertyName("proposedValidUntil")]
+        public long ProposedValidUntil { get; set; }
+
+        [JsonPropertyName("quotation")]
+        public QuotationDraftSnapshot Quotation { get; set; }
+
+        [JsonPropertyName("reason")]
+        public string Reason { get; set; }
+
+        [JsonPropertyName("requestedAt")]
+        public long RequestedAt { get; set; }
+
+        [JsonPropertyName("requester")]
+        public Guid Requester { get; set; }
+
+        [JsonPropertyName("requestId")]
+        public Guid RequestId { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+
+        [JsonPropertyName("state")]
+        public DiscountApprovalState State { get; set; }
+
+        [JsonPropertyName("validityDays")]
+        public long ValidityDays { get; set; }
+    }
+
+    public partial class QuotationDraftSnapshot
+    {
+        [JsonPropertyName("evaluation")]
+        public QuotationEvaluation Evaluation { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("intent")]
+        public EvaluateQuotation Intent { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+    }
+
+    public partial class QuotationEvaluation
+    {
+        [JsonPropertyName("currency")]
+        public string Currency { get; set; }
+
+        [JsonPropertyName("customer")]
+        public QuotationCustomerSnapshot Customer { get; set; }
+
+        [JsonPropertyName("discountBasisPoints")]
+        public long DiscountBasisPoints { get; set; }
+
+        [JsonPropertyName("errors")]
+        public QuotationFieldError[] Errors { get; set; }
+
+        [JsonPropertyName("lines")]
+        public EvaluatedQuotationLine[] Lines { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+
+        /// <summary>
+        /// Cache evaluation is never evidence that issuance can succeed online.
+        /// </summary>
+        [JsonPropertyName("serverAvailable")]
+        public bool ServerAvailable { get; set; }
+
+        /// <summary>
+        /// Present only when every field and checked calculation is valid.
+        /// </summary>
+        [JsonPropertyName("totals")]
+        public DiscountTotal Totals { get; set; }
+    }
+
+    public partial class QuotationCustomerSnapshot
+    {
+        [JsonPropertyName("address")]
+        public string Address { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("phone")]
+        public string Phone { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+    }
+
+    public partial class EvaluatedQuotationLine
+    {
+        [JsonPropertyName("colorId")]
+        public Guid? ColorId { get; set; }
+
+        [JsonPropertyName("colorName")]
+        public string ColorName { get; set; }
+
+        [JsonPropertyName("description")]
+        public string Description { get; set; }
+
+        [JsonPropertyName("dimensions")]
+        public FurnitureDimensions Dimensions { get; set; }
+
+        [JsonPropertyName("handleId")]
+        public Guid? HandleId { get; set; }
+
+        [JsonPropertyName("handleName")]
+        public string HandleName { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("price")]
+        public SellingPrice Price { get; set; }
+
+        [JsonPropertyName("quantity")]
+        public long Quantity { get; set; }
+
+        [JsonPropertyName("variantName")]
+        public string VariantName { get; set; }
+    }
+
+    public partial class SellingPrice
+    {
+        [JsonPropertyName("snapshot")]
+        public PublishedPrice Snapshot { get; set; }
+
+        [JsonPropertyName("totalYer")]
+        public long TotalYer { get; set; }
+
+        [JsonPropertyName("unitPriceYer")]
+        public long UnitPriceYer { get; set; }
+    }
+
+    /// <summary>
+    /// Immutable public snapshot. Contains no purchase cost, margin, BOM, or notes.
+    /// </summary>
+    public partial class PublishedPrice
+    {
+        [JsonPropertyName("colors")]
+        public PriceAdjustment[] Colors { get; set; }
+
+        [JsonPropertyName("confirmedAt")]
+        public long ConfirmedAt { get; set; }
+
+        [JsonPropertyName("currency")]
+        public string Currency { get; set; }
+
+        [JsonPropertyName("handles")]
+        public PriceAdjustment[] Handles { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("sellingPriceYer")]
+        public long SellingPriceYer { get; set; }
+
+        [JsonPropertyName("target")]
+        public Dictionary<string, object> Target { get; set; }
+    }
+
+    public partial class PriceAdjustment
+    {
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("priceAdjustmentYer")]
+        public long PriceAdjustmentYer { get; set; }
+    }
+
+    public partial class DiscountTotal
+    {
+        [JsonPropertyName("approvalRequired")]
+        public bool ApprovalRequired { get; set; }
+
+        [JsonPropertyName("discountYer")]
+        public long DiscountYer { get; set; }
+
+        [JsonPropertyName("subtotalYer")]
+        public long SubtotalYer { get; set; }
+
+        [JsonPropertyName("totalYer")]
+        public long TotalYer { get; set; }
     }
 
     public partial class FurnitureCategory
@@ -1741,42 +2015,6 @@ namespace Eitmad.Contracts
         public PartUsage Usage { get; set; }
     }
 
-    /// <summary>
-    /// Immutable public snapshot. Contains no purchase cost, margin, BOM, or notes.
-    /// </summary>
-    public partial class PublishedPrice
-    {
-        [JsonPropertyName("colors")]
-        public PriceAdjustment[] Colors { get; set; }
-
-        [JsonPropertyName("confirmedAt")]
-        public long ConfirmedAt { get; set; }
-
-        [JsonPropertyName("currency")]
-        public string Currency { get; set; }
-
-        [JsonPropertyName("handles")]
-        public PriceAdjustment[] Handles { get; set; }
-
-        [JsonPropertyName("revision")]
-        public long Revision { get; set; }
-
-        [JsonPropertyName("sellingPriceYer")]
-        public long SellingPriceYer { get; set; }
-
-        [JsonPropertyName("target")]
-        public Dictionary<string, object> Target { get; set; }
-    }
-
-    public partial class PriceAdjustment
-    {
-        [JsonPropertyName("id")]
-        public Guid Id { get; set; }
-
-        [JsonPropertyName("priceAdjustmentYer")]
-        public long PriceAdjustmentYer { get; set; }
-    }
-
     public partial class ProductCategory
     {
         [JsonPropertyName("archived")]
@@ -1952,135 +2190,6 @@ namespace Eitmad.Contracts
         public long SchemaVersion { get; set; }
     }
 
-    public partial class QuotationDraftSnapshot
-    {
-        [JsonPropertyName("evaluation")]
-        public QuotationEvaluation Evaluation { get; set; }
-
-        [JsonPropertyName("id")]
-        public Guid Id { get; set; }
-
-        [JsonPropertyName("intent")]
-        public EvaluateQuotation Intent { get; set; }
-
-        [JsonPropertyName("revision")]
-        public long Revision { get; set; }
-    }
-
-    public partial class QuotationEvaluation
-    {
-        [JsonPropertyName("currency")]
-        public string Currency { get; set; }
-
-        [JsonPropertyName("customer")]
-        public QuotationCustomerSnapshot Customer { get; set; }
-
-        [JsonPropertyName("discountBasisPoints")]
-        public long DiscountBasisPoints { get; set; }
-
-        [JsonPropertyName("errors")]
-        public QuotationFieldError[] Errors { get; set; }
-
-        [JsonPropertyName("lines")]
-        public EvaluatedQuotationLine[] Lines { get; set; }
-
-        [JsonPropertyName("scope")]
-        public ScopeRef Scope { get; set; }
-
-        /// <summary>
-        /// Cache evaluation is never evidence that issuance can succeed online.
-        /// </summary>
-        [JsonPropertyName("serverAvailable")]
-        public bool ServerAvailable { get; set; }
-
-        /// <summary>
-        /// Present only when every field and checked calculation is valid.
-        /// </summary>
-        [JsonPropertyName("totals")]
-        public DiscountTotal Totals { get; set; }
-    }
-
-    public partial class QuotationCustomerSnapshot
-    {
-        [JsonPropertyName("address")]
-        public string Address { get; set; }
-
-        [JsonPropertyName("id")]
-        public Guid Id { get; set; }
-
-        [JsonPropertyName("name")]
-        public string Name { get; set; }
-
-        [JsonPropertyName("phone")]
-        public string Phone { get; set; }
-
-        [JsonPropertyName("revision")]
-        public long Revision { get; set; }
-    }
-
-    public partial class EvaluatedQuotationLine
-    {
-        [JsonPropertyName("colorId")]
-        public Guid? ColorId { get; set; }
-
-        [JsonPropertyName("colorName")]
-        public string ColorName { get; set; }
-
-        [JsonPropertyName("description")]
-        public string Description { get; set; }
-
-        [JsonPropertyName("dimensions")]
-        public FurnitureDimensions Dimensions { get; set; }
-
-        [JsonPropertyName("handleId")]
-        public Guid? HandleId { get; set; }
-
-        [JsonPropertyName("handleName")]
-        public string HandleName { get; set; }
-
-        [JsonPropertyName("id")]
-        public Guid Id { get; set; }
-
-        [JsonPropertyName("name")]
-        public string Name { get; set; }
-
-        [JsonPropertyName("price")]
-        public SellingPrice Price { get; set; }
-
-        [JsonPropertyName("quantity")]
-        public long Quantity { get; set; }
-
-        [JsonPropertyName("variantName")]
-        public string VariantName { get; set; }
-    }
-
-    public partial class SellingPrice
-    {
-        [JsonPropertyName("snapshot")]
-        public PublishedPrice Snapshot { get; set; }
-
-        [JsonPropertyName("totalYer")]
-        public long TotalYer { get; set; }
-
-        [JsonPropertyName("unitPriceYer")]
-        public long UnitPriceYer { get; set; }
-    }
-
-    public partial class DiscountTotal
-    {
-        [JsonPropertyName("approvalRequired")]
-        public bool ApprovalRequired { get; set; }
-
-        [JsonPropertyName("discountYer")]
-        public long DiscountYer { get; set; }
-
-        [JsonPropertyName("subtotalYer")]
-        public long SubtotalYer { get; set; }
-
-        [JsonPropertyName("totalYer")]
-        public long TotalYer { get; set; }
-    }
-
     public partial class RelationshipMutationResult
     {
         [JsonPropertyName("changed")]
@@ -2226,6 +2335,18 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("id")]
         public Guid Id { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+    }
+
+    public partial class DiscountApprovalNotice
+    {
+        [JsonPropertyName("draftId")]
+        public Guid DraftId { get; set; }
 
         [JsonPropertyName("revision")]
         public long Revision { get; set; }
@@ -3064,6 +3185,15 @@ namespace Eitmad.Contracts
         public ProductReference Reference { get; set; }
     }
 
+    public partial class ListDiscountApprovals
+    {
+        [JsonPropertyName("after")]
+        public Guid? After { get; set; }
+
+        [JsonPropertyName("limit")]
+        public long Limit { get; set; }
+    }
+
     public partial class GetQuotationDraft
     {
         [JsonPropertyName("draftId")]
@@ -3107,6 +3237,15 @@ namespace Eitmad.Contracts
     {
         [JsonPropertyName("accounts")]
         public DesktopAccountSummary[] Accounts { get; set; }
+    }
+
+    public partial class DiscountApprovalPage
+    {
+        [JsonPropertyName("items")]
+        public DiscountApproval[] Items { get; set; }
+
+        [JsonPropertyName("next")]
+        public Guid? Next { get; set; }
     }
 
     public partial class FurnitureCategories
@@ -3450,6 +3589,10 @@ namespace Eitmad.Contracts
         public string Term { get; set; }
     }
 
+    public partial class DiscountApprovalChanges
+    {
+    }
+
     public partial class QuotationDraftChanges
     {
     }
@@ -3486,6 +3629,8 @@ namespace Eitmad.Contracts
 
     public enum UnitDimension { Area, Count, Length, Mass, Volume };
 
+    public enum DiscountDecision { Approve, Reject };
+
     public enum RestartRequirement { Application, Engine, None };
 
     public enum ConfigSensitivity { Public, Secret, Sensitive };
@@ -3495,6 +3640,8 @@ namespace Eitmad.Contracts
     public enum CustomerStatus { Active, Archived, Merged };
 
     public enum SyncState { Confirmed, Conflicted, Pending, Rejected };
+
+    public enum DiscountApprovalState { Approved, Invalidated, Pending, Rejected };
 
     public enum MergeStrategy { DomainMerge, KeepLocal, KeepRemote };
 
@@ -3580,12 +3727,14 @@ namespace Eitmad.Contracts
                 CustomerStatusConverter.Singleton,
                 SyncStateConverter.Singleton,
                 DesktopAccountRoleConverter.Singleton,
+                DiscountApprovalStateConverter.Singleton,
                 FurnitureStateConverter.Singleton,
                 UnitDimensionConverter.Singleton,
                 MergeStrategyConverter.Singleton,
                 ChangeOperationConverter.Singleton,
                 PrincipalKindConverter.Singleton,
                 ConfigWriteValueKindConverter.Singleton,
+                DiscountDecisionConverter.Singleton,
                 MaterialRecordKindConverter.Singleton,
                 PermissionDecisionConverter.Singleton,
                 PeerKindConverter.Singleton,
@@ -4465,6 +4614,50 @@ namespace Eitmad.Contracts
         public static readonly DesktopAccountRoleConverter Singleton = new DesktopAccountRoleConverter();
     }
 
+    internal class DiscountApprovalStateConverter : JsonConverter<DiscountApprovalState>
+    {
+        public override bool CanConvert(Type t) => t == typeof(DiscountApprovalState);
+
+        public override DiscountApprovalState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "approved":
+                    return DiscountApprovalState.Approved;
+                case "invalidated":
+                    return DiscountApprovalState.Invalidated;
+                case "pending":
+                    return DiscountApprovalState.Pending;
+                case "rejected":
+                    return DiscountApprovalState.Rejected;
+            }
+            throw new Exception("Cannot unmarshal type DiscountApprovalState");
+        }
+
+        public override void Write(Utf8JsonWriter writer, DiscountApprovalState value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case DiscountApprovalState.Approved:
+                    JsonSerializer.Serialize(writer, "approved", options);
+                    return;
+                case DiscountApprovalState.Invalidated:
+                    JsonSerializer.Serialize(writer, "invalidated", options);
+                    return;
+                case DiscountApprovalState.Pending:
+                    JsonSerializer.Serialize(writer, "pending", options);
+                    return;
+                case DiscountApprovalState.Rejected:
+                    JsonSerializer.Serialize(writer, "rejected", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type DiscountApprovalState");
+        }
+
+        public static readonly DiscountApprovalStateConverter Singleton = new DiscountApprovalStateConverter();
+    }
+
     internal class FurnitureStateConverter : JsonConverter<FurnitureState>
     {
         public override bool CanConvert(Type t) => t == typeof(FurnitureState);
@@ -4717,6 +4910,40 @@ namespace Eitmad.Contracts
         }
 
         public static readonly ConfigWriteValueKindConverter Singleton = new ConfigWriteValueKindConverter();
+    }
+
+    internal class DiscountDecisionConverter : JsonConverter<DiscountDecision>
+    {
+        public override bool CanConvert(Type t) => t == typeof(DiscountDecision);
+
+        public override DiscountDecision Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "approve":
+                    return DiscountDecision.Approve;
+                case "reject":
+                    return DiscountDecision.Reject;
+            }
+            throw new Exception("Cannot unmarshal type DiscountDecision");
+        }
+
+        public override void Write(Utf8JsonWriter writer, DiscountDecision value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case DiscountDecision.Approve:
+                    JsonSerializer.Serialize(writer, "approve", options);
+                    return;
+                case DiscountDecision.Reject:
+                    JsonSerializer.Serialize(writer, "reject", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type DiscountDecision");
+        }
+
+        public static readonly DiscountDecisionConverter Singleton = new DiscountDecisionConverter();
     }
 
     internal class MaterialRecordKindConverter : JsonConverter<MaterialRecordKind>

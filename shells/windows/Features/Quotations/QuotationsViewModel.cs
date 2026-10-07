@@ -110,7 +110,7 @@ public sealed partial class QuotationsViewModel : ObservableObject
     private bool approvalsOnly;
     public bool ApprovalsOnly { get => approvalsOnly; set { if (Set(ref approvalsOnly, value)) { Raise(nameof(ListTitle)); Raise(nameof(EmptyTitle)); Raise(nameof(EmptyDescription)); RefreshVisibleQuotations(); } } }
     public string EmptyTitle => ApprovalsOnly ? "لا توجد طلبات خصم معلقة" : "لا توجد عروض أسعار مطابقة";
-    public string EmptyDescription => draftClient is not null ? "تظهر المسودات المحفوظة في الفرع. الموافقات غير متاحة بعد." : ApprovalsOnly ? "تظهر هنا طلبات الاستقبال المؤقتة في هذه الجلسة. راجع عوامل التصفية أيضاً." : "غيّر البحث أو عوامل التصفية.";
+    public string EmptyDescription => draftClient is not null ? "تظهر المسودات وطلبات الخصم المؤكدة من الخادم." : ApprovalsOnly ? "تظهر هنا طلبات الاستقبال المؤقتة في هذه الجلسة. راجع عوامل التصفية أيضاً." : "غيّر البحث أو عوامل التصفية.";
     public string ListTitle => ApprovalsOnly ? "موافقات الخصم" : "عروض الأسعار";
     public void OpenApprovals()
     {
@@ -172,6 +172,7 @@ public sealed partial class QuotationsViewModel : ObservableObject
             if (Set(ref selectedQuotation, value))
             {
                 Raise(nameof(ShowManagerApproval));
+                Raise(nameof(CanDecideApproval));
                 Raise(nameof(IsListVisible));
                 Raise(nameof(IsDetailVisible));
             }
@@ -195,9 +196,9 @@ public sealed partial class QuotationsViewModel : ObservableObject
 
     public void CloseQuotation() => SelectedQuotation = null;
 
-    public void ApproveDiscount() { if (IsReceptionist) return; SelectedQuotation?.DecideDiscount(DiscountApprovalDecision.Approved); }
+    public void ApproveDiscount() => LastApprovalDecision = DecideApprovalAsync(Eitmad.Contracts.DiscountDecision.Approve);
 
-    public void RejectDiscount() { if (IsReceptionist) return; SelectedQuotation?.DecideDiscount(DiscountApprovalDecision.Rejected); }
+    public void RejectDiscount() => LastApprovalDecision = DecideApprovalAsync(Eitmad.Contracts.DiscountDecision.Reject);
 
     private void RefreshVisibleQuotations()
     {

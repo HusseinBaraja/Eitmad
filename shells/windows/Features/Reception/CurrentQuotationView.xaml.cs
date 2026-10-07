@@ -34,7 +34,7 @@ public partial class CurrentQuotationView : UserControl
         else (Model.CustomerNameError.Length > 0 ? CustomerNameInput : PhoneInput).Focus();
     }
     private void CancelCustomerClick(object sender, RoutedEventArgs e) { Model.CancelNewCustomer(); CustomerNameInput.Focus(); }
-    private void RequestApprovalClick(object sender, RoutedEventArgs e) { Model.RequestDiscountApproval(); if (Model.IsDiscountPending) SaveDraftButton.Focus(); else FocusMissingField(); }
+    private async void RequestApprovalClick(object sender, RoutedEventArgs e) { Model.RequestDiscountApproval(); await Model.LastApprovalRequest; if (Model.IsDiscountPending) SaveDraftButton.Focus(); else FocusMissingField(); }
     private async void SaveDraftClick(object sender, RoutedEventArgs e) { if (!await Model.SaveDraftAsync()) FocusMissingField(); }
     private async void ReloadDraftClick(object sender, RoutedEventArgs e)
     {

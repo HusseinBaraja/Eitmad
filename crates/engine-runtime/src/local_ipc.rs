@@ -1303,6 +1303,7 @@ fn default_engine_hello() -> PeerHello {
             "eitmad.capability.permissions.v1",
             "eitmad.capability.customer.v1",
             "eitmad.capability.quotation-draft.v1",
+            "eitmad.capability.quotation-approval.v1",
             "eitmad.capability.catalog-image.v1",
             "eitmad.capability.product.v1",
             "eitmad.capability.pricing.v1",
@@ -1324,64 +1325,25 @@ fn default_engine_hello() -> PeerHello {
             )
             .expect("static capability is valid"),
         ],
-        schemas: vec![
-            SchemaSupport {
-                schema_id: SchemaId::parse("eitmad.schema.quotation-draft.v1")
-                    .expect("draft schema"),
-                minimum_version: 1,
-                maximum_version: 1,
-                required: false,
-            },
-            SchemaSupport {
-                schema_id: SchemaId::parse("eitmad.schema.quotation-evaluation.v1")
-                    .expect("registered quotation schema"),
-                minimum_version: 1,
-                maximum_version: 1,
-                required: false,
-            },
-            SchemaSupport {
-                schema_id: SchemaId::parse("eitmad.schema.customer.v1")
-                    .expect("static schema ID is valid"),
-                minimum_version: 1,
-                maximum_version: 1,
-                required: false,
-            },
-            SchemaSupport {
-                schema_id: SchemaId::parse("eitmad.schema.part.v1")
-                    .expect("static schema ID is valid"),
-                minimum_version: 1,
-                maximum_version: 1,
-                required: false,
-            },
-            SchemaSupport {
-                schema_id: SchemaId::parse("eitmad.schema.product.v1")
-                    .expect("static schema ID is valid"),
-                minimum_version: 1,
-                maximum_version: 1,
-                required: false,
-            },
-            SchemaSupport {
-                schema_id: SchemaId::parse("eitmad.schema.pricing.v1")
-                    .expect("built-in pricing schema"),
-                minimum_version: 1,
-                maximum_version: 1,
-                required: false,
-            },
-            SchemaSupport {
-                schema_id: SchemaId::parse("eitmad.schema.furniture.v1")
-                    .expect("static schema ID is valid"),
-                minimum_version: 1,
-                maximum_version: 1,
-                required: false,
-            },
-            SchemaSupport {
-                schema_id: SchemaId::parse("eitmad.schema.material.v1")
-                    .expect("static schema ID is valid"),
-                minimum_version: 1,
-                maximum_version: 1,
-                required: false,
-            },
-        ],
+        schemas: [
+            "eitmad.schema.quotation-approval.v1",
+            "eitmad.schema.quotation-draft.v1",
+            "eitmad.schema.quotation-evaluation.v1",
+            "eitmad.schema.customer.v1",
+            "eitmad.schema.part.v1",
+            "eitmad.schema.product.v1",
+            "eitmad.schema.pricing.v1",
+            "eitmad.schema.furniture.v1",
+            "eitmad.schema.material.v1",
+        ]
+        .into_iter()
+        .map(|id| SchemaSupport {
+            schema_id: SchemaId::parse(id).expect("registered schema"),
+            minimum_version: 1,
+            maximum_version: 1,
+            required: false,
+        })
+        .collect(),
     }
 }
 

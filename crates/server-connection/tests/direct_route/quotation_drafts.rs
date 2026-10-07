@@ -626,3 +626,631 @@ async fn verify_postgres_history(
     assert_eq!(hidden, 0);
     tx.rollback().await.unwrap();
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires disposable PostgreSQL and trusted development certificates"]
+async fn discount_approval_cross_client_live_replay_invalidation_and_rejection() {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let mut scenario = CatalogScenario::new().await;
+    scenario.transfer_dependencies().await;
+    scenario.publish_prices().await;
+    let tenant = scenario.server.authentication.session.tenant_id;
+    let branch = scenario.server.branch_scope.clone();
+    let pool = verify_server_permissions(&scenario).await;
+    let mut reception = CustomerTestClient::new(
+        scenario.server.authentication.clone(),
+        scenario.server.device_id,
+        [11; 32],
+        &branch,
+        &scenario.endpoint,
+        &scenario.trust,
+    );
+    authorize_draft_writer(&mut reception, tenant);
+    let (_, catalog_actor) = catalog_local_authority(
+        reception.directory.path(),
+        &scenario.server.authentication.session,
+    );
+    let replication = replication(
+        reception.directory.path(),
+        reception.store.clone(),
+        scenario.server.authentication.clone(),
+        [11; 32],
+        &scenario.server.scope,
+        &scenario.endpoint,
+        &scenario.trust,
+    );
+    cycle(replication, catalog_actor).await.unwrap();
+    let (catalog, target, _) = draft_transfer_targets(&scenario, tenant.value());
+    let customer = reception
+        .customers
+        .create(
+            &reception.mutation(),
+            &CreateCustomer {
+                name: CustomerName::parse("عميل موافقة تجريبي").unwrap(),
+                phone: CustomerPhone::parse("777123456").unwrap(),
+                address: None,
+                notes: None,
+            },
+        )
+        .unwrap()
+        .customer;
+    let reception_connection = approval_connection(
+        reception.directory.path(),
+        scenario.server.authentication.clone(),
+        [11; 32],
+        &scenario,
+    );
+    let manager_directory = tempfile::tempdir().unwrap();
+    let manager_auth = approval_manager(&scenario).await;
+    let manager_connection = approval_connection(
+        manager_directory.path(),
+        manager_auth.clone(),
+        [12; 32],
+        &scenario,
+    );
+    let mut manager_actor = reception.actor.clone();
+    manager_actor.identity.principal_id = PrincipalId::new(manager_auth.session.user_id.value());
+    manager_actor.scope = ScopeRef {
+        kind: ScopeKind::parse("organization").unwrap(),
+        id: ScopeId::new(tenant.value()),
+    };
+    let pure_reception = approval_connection(
+        scenario.reception_directory.path(),
+        scenario.reception_auth.clone(),
+        [19; 32],
+        &scenario,
+    );
+    let mut pure_actor = reception.actor.clone();
+    pure_actor.identity.principal_id =
+        PrincipalId::new(scenario.reception_auth.session.user_id.value());
+    let auth = scenario.server.authentication.clone();
+    let endpoint = scenario.endpoint.clone();
+    let trust = scenario.trust.clone();
+    let clients = ApprovalClients {
+        reception: reception_connection,
+        manager: manager_connection,
+        manager_actor,
+        pure_reception,
+        pure_actor,
+    };
+    let final_request = tokio::task::spawn_blocking(move || {
+        let mut reception =
+            DraftTestClient::new(reception, auth, [11; 32], (&endpoint, &trust, &catalog));
+        run_approval_workflow(&mut reception, customer.id, target, &clients)
+    })
+    .await
+    .unwrap();
+    verify_approval_audit_rollback(&pool, &scenario.server.authentication.session, &branch).await;
+    verify_approval_history(&pool, tenant).await;
+    assert_eq!(
+        final_request.state,
+        eitmad_contracts::quotation_approval::DiscountApprovalState::Rejected
+    );
+    scenario
+        .server
+        .handle
+        .graceful_shutdown(Some(Duration::from_secs(1)));
+}
+
+struct ApprovalClients {
+    reception: Arc<eitmad_server_connection::DirectDiscountApprovalClient>,
+    manager: Arc<eitmad_server_connection::DirectDiscountApprovalClient>,
+    manager_actor: AuthorizationContext,
+    pure_reception: Arc<eitmad_server_connection::DirectDiscountApprovalClient>,
+    pure_actor: AuthorizationContext,
+}
+type ApprovalEvents =
+    std::sync::mpsc::Receiver<eitmad_contracts::quotation_approval::DiscountApprovalNotice>;
+
+fn run_approval_workflow(
+    reception: &mut DraftTestClient,
+    customer: CustomerId,
+    target: PriceTarget,
+    clients: &ApprovalClients,
+) -> eitmad_contracts::quotation_approval::DiscountApproval {
+    use eitmad_contracts::quotation_approval::*;
+    use eitmad_pricing::DiscountApprovalServer;
+    let mut intent = draft_intent(customer, target);
+    intent.discount_basis_points = 600;
+    let initial = reception
+        .drafts
+        .create(
+            &reception.client.mutation(),
+            &CreateQuotationDraft { intent },
+        )
+        .unwrap();
+    // Promotion must independently validate and persist a saved draft, without a prior draft WAN cycle.
+    let reception_actor = reception.client.actor.clone();
+    let (manager_events, manager_cancel, manager_watch) =
+        watch_approvals(clients.manager.clone(), clients.manager_actor.clone());
+    let (reception_events, reception_cancel, reception_watch) =
+        watch_approvals(clients.reception.clone(), reception_actor.clone());
+    let request = ConfirmDiscountApproval {
+        scope: reception_actor.scope.clone(),
+        idempotency_key: IdempotencyKey::new(Uuid::new_v4()),
+        action: DiscountApprovalAction::Request(initial.snapshot.clone()),
+    };
+    let pending = clients
+        .reception
+        .transition(&reception_actor, &request, UnixMillis(i64::MAX))
+        .unwrap()
+        .unwrap();
+    assert_eq!(pending.state, DiscountApprovalState::Pending);
+    assert_eq!(
+        clients
+            .reception
+            .transition(&reception_actor, &request, UnixMillis(i64::MAX))
+            .unwrap(),
+        Some(pending.clone())
+    );
+    wait_approval(
+        &manager_events,
+        &*clients.manager,
+        &clients.manager_actor,
+        pending.quotation.id,
+        DiscountApprovalState::Pending,
+    );
+    let (decide, duplicate) =
+        verify_approved_and_duplicate(clients, &reception_actor, &pending, &reception_events);
+    let next = invalidate_and_request(
+        reception,
+        clients,
+        &initial.snapshot,
+        &pending,
+        &duplicate,
+        &manager_events,
+    );
+    let rejected = verify_rejected(clients, &reception_actor, next, decide, &reception_events);
+    manager_cancel.store(true, std::sync::atomic::Ordering::Release);
+    reception_cancel.store(true, std::sync::atomic::Ordering::Release);
+    manager_watch.join().unwrap().unwrap();
+    reception_watch.join().unwrap().unwrap();
+    rejected
+}
+fn verify_denied_decisions(
+    clients: &ApprovalClients,
+    reception_actor: &AuthorizationContext,
+    decide: &eitmad_contracts::quotation_approval::ConfirmDiscountApproval,
+) {
+    use eitmad_contracts::quotation_approval::*;
+    use eitmad_pricing::{ApprovalError, DiscountApprovalServer};
+    let ApprovalClients {
+        reception: reception_connection,
+        pure_reception,
+        pure_actor,
+        ..
+    } = clients;
+    let self_decision = ConfirmDiscountApproval {
+        scope: reception_actor.scope.clone(),
+        ..decide.clone()
+    };
+    assert_eq!(
+        reception_connection.transition(reception_actor, &self_decision, UnixMillis(i64::MAX)),
+        Err(ApprovalError::Denied)
+    );
+    let forged = ConfirmDiscountApproval {
+        scope: pure_actor.scope.clone(),
+        ..decide.clone()
+    };
+    assert_eq!(
+        pure_reception.transition(pure_actor, &forged, UnixMillis(i64::MAX)),
+        Err(ApprovalError::Denied)
+    );
+}
+fn verify_approved_and_duplicate(
+    clients: &ApprovalClients,
+    reception_actor: &AuthorizationContext,
+    pending: &eitmad_contracts::quotation_approval::DiscountApproval,
+    reception_events: &ApprovalEvents,
+) -> (
+    eitmad_contracts::quotation_approval::ConfirmDiscountApproval,
+    eitmad_contracts::quotation_approval::ConfirmDiscountApproval,
+) {
+    use eitmad_contracts::quotation_approval::*;
+    use eitmad_pricing::{ApprovalError, DiscountApprovalServer};
+    let ApprovalClients {
+        reception: reception_connection,
+        manager: manager_connection,
+        manager_actor,
+        ..
+    } = clients;
+    let decision = DecideDiscountApproval {
+        draft_id: pending.quotation.id,
+        request_id: pending.request_id,
+        quotation_revision: pending.quotation.revision,
+        expected_revision: pending.revision,
+        fingerprint: pending.fingerprint.clone(),
+        decision: DiscountDecision::Approve,
+        reason: None,
+    };
+    let decide = ConfirmDiscountApproval {
+        scope: manager_actor.scope.clone(),
+        idempotency_key: IdempotencyKey::new(Uuid::new_v4()),
+        action: DiscountApprovalAction::Decide(decision.clone()),
+    };
+    verify_denied_decisions(clients, reception_actor, &decide);
+    let approved = manager_connection
+        .transition(manager_actor, &decide, UnixMillis(i64::MAX))
+        .unwrap()
+        .unwrap();
+    assert_eq!(approved.state, DiscountApprovalState::Approved);
+    wait_approval(
+        reception_events,
+        &**reception_connection,
+        reception_actor,
+        pending.quotation.id,
+        DiscountApprovalState::Approved,
+    );
+    assert_eq!(
+        manager_connection
+            .transition(manager_actor, &decide, UnixMillis(i64::MAX))
+            .unwrap(),
+        Some(approved)
+    );
+    let duplicate = ConfirmDiscountApproval {
+        idempotency_key: IdempotencyKey::new(Uuid::new_v4()),
+        ..decide.clone()
+    };
+    assert_eq!(
+        manager_connection.transition(manager_actor, &duplicate, UnixMillis(i64::MAX)),
+        Err(ApprovalError::Conflict)
+    );
+    let mut reused = decide.clone();
+    if let DiscountApprovalAction::Decide(c) = &mut reused.action {
+        c.decision = DiscountDecision::Reject;
+        c.reason = Some("سبب تجريبي".into());
+    }
+    assert_eq!(
+        manager_connection.transition(manager_actor, &reused, UnixMillis(i64::MAX)),
+        Err(ApprovalError::Invalid)
+    );
+    (decide, duplicate)
+}
+fn invalidate_and_request(
+    reception: &mut DraftTestClient,
+    clients: &ApprovalClients,
+    initial: &QuotationDraftSnapshot,
+    original: &eitmad_contracts::quotation_approval::DiscountApproval,
+    duplicate: &eitmad_contracts::quotation_approval::ConfirmDiscountApproval,
+    manager_events: &ApprovalEvents,
+) -> eitmad_contracts::quotation_approval::DiscountApproval {
+    use eitmad_contracts::quotation_approval::*;
+    use eitmad_pricing::{ApprovalError, DiscountApprovalServer};
+    let ApprovalClients {
+        reception: reception_connection,
+        manager: manager_connection,
+        manager_actor,
+        ..
+    } = clients;
+    let reception_actor = &reception.client.actor.clone();
+    // Match engine promotion: acknowledge the locally saved snapshot only after server confirmation.
+    for change in reception.drafts.sync_batch(reception_actor, 50).unwrap() {
+        reception
+            .drafts
+            .project_confirmed(reception_actor, &change, CorrelationId::new(Uuid::new_v4()))
+            .unwrap();
+    }
+    // A normal draft transfer must invalidate an already-approved commercial revision.
+    reception.run();
+    let mut intent = initial.intent.clone();
+    intent.discount_basis_points = 700;
+    let edited = reception.update(&UpdateQuotationDraft {
+        draft_id: initial.id,
+        expected_revision: 1,
+        intent,
+    });
+    reception.run();
+    wait_approval(
+        manager_events,
+        &**manager_connection,
+        manager_actor,
+        original.quotation.id,
+        DiscountApprovalState::Invalidated,
+    );
+    assert_eq!(
+        manager_connection.transition(manager_actor, duplicate, UnixMillis(i64::MAX)),
+        Err(ApprovalError::Conflict)
+    );
+    let request = ConfirmDiscountApproval {
+        idempotency_key: IdempotencyKey::new(Uuid::new_v4()),
+        action: DiscountApprovalAction::Request(edited.snapshot),
+        scope: reception_actor.scope.clone(),
+    };
+    let pending = reception_connection
+        .transition(reception_actor, &request, UnixMillis(i64::MAX))
+        .unwrap()
+        .unwrap();
+    assert_ne!(pending.request_id, original.request_id);
+    assert_ne!(pending.fingerprint, original.fingerprint);
+    wait_approval(
+        manager_events,
+        &**manager_connection,
+        manager_actor,
+        pending.quotation.id,
+        DiscountApprovalState::Pending,
+    );
+    pending
+}
+fn verify_rejected(
+    clients: &ApprovalClients,
+    reception_actor: &AuthorizationContext,
+    pending: eitmad_contracts::quotation_approval::DiscountApproval,
+    decide: eitmad_contracts::quotation_approval::ConfirmDiscountApproval,
+    reception_events: &ApprovalEvents,
+) -> eitmad_contracts::quotation_approval::DiscountApproval {
+    use eitmad_contracts::quotation_approval::*;
+    use eitmad_pricing::DiscountApprovalServer;
+    let ApprovalClients {
+        reception: reception_connection,
+        manager: manager_connection,
+        manager_actor,
+        ..
+    } = clients;
+    let reject = ConfirmDiscountApproval {
+        idempotency_key: IdempotencyKey::new(Uuid::new_v4()),
+        action: DiscountApprovalAction::Decide(DecideDiscountApproval {
+            draft_id: pending.quotation.id,
+            request_id: pending.request_id,
+            quotation_revision: pending.quotation.revision,
+            expected_revision: pending.revision,
+            fingerprint: pending.fingerprint,
+            decision: DiscountDecision::Reject,
+            reason: Some("الخصم مرتفع".into()),
+        }),
+        ..decide
+    };
+    let rejected = manager_connection
+        .transition(manager_actor, &reject, UnixMillis(i64::MAX))
+        .unwrap()
+        .unwrap();
+    assert_eq!(rejected.reason.as_deref(), Some("الخصم مرتفع"));
+    wait_approval(
+        reception_events,
+        &**reception_connection,
+        reception_actor,
+        pending.quotation.id,
+        DiscountApprovalState::Rejected,
+    );
+    assert_eq!(
+        manager_connection
+            .transition(manager_actor, &reject, UnixMillis(i64::MAX))
+            .unwrap(),
+        Some(rejected.clone())
+    );
+    rejected
+}
+
+async fn verify_approval_history(pool: &sqlx::PgPool, tenant: TenantId) {
+    let mut tx = pool.begin().await.unwrap();
+    sqlx::query("SELECT set_config('eitmad.tenant_id',$1,true)")
+        .bind(tenant.value().to_string())
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    let history: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM sync.quotation_approval_history WHERE tenant_id=$1",
+    )
+    .bind(tenant.value())
+    .fetch_one(&mut *tx)
+    .await
+    .unwrap();
+    assert_eq!(history, 5);
+    let audit:i64=sqlx::query_scalar("SELECT count(*) FROM audit.server_records WHERE tenant_id=$1 AND operation IN ('eitmad.quotation-approval.approve.v1','eitmad.quotation-approval.reject.v1') AND outcome='succeeded'").bind(tenant.value()).fetch_one(&mut *tx).await.unwrap();
+    assert_eq!(audit, 2);
+    assert!(
+        sqlx::query("UPDATE sync.quotation_approval_history SET revision=9 WHERE tenant_id=$1")
+            .bind(tenant.value())
+            .execute(&mut *tx)
+            .await
+            .is_err()
+    );
+    tx.rollback().await.unwrap();
+    let mut tx = pool.begin().await.unwrap();
+    sqlx::query("SELECT set_config('eitmad.tenant_id',$1,true)")
+        .bind(Uuid::new_v4().to_string())
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    let hidden: i64 = sqlx::query_scalar("SELECT count(*) FROM sync.quotation_approval_history")
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
+    assert_eq!(hidden, 0);
+}
+
+fn approval_connection(
+    directory: &Path,
+    authentication: AuthenticationResult,
+    seed: [u8; 32],
+    scenario: &CatalogScenario,
+) -> Arc<eitmad_server_connection::DirectDiscountApprovalClient> {
+    let secrets = SecretStore::open(
+        directory.join("approval-secrets"),
+        Some(FallbackEncryptionKey::new([7; 32])),
+    )
+    .unwrap();
+    let credential = SecretId::new(
+        SecretKind::parse("approval-test-session").unwrap(),
+        SecretReferenceId::new(Uuid::new_v4()),
+    );
+    store_session(&secrets, &credential, authentication, seed).unwrap();
+    let config = DirectServerConfig::new(
+        &scenario.endpoint,
+        scenario.server.scope.clone(),
+        SchemaId::parse(eitmad_pricing::DISCOUNT_APPROVAL_SCHEMA).unwrap(),
+        1,
+        &scenario.trust,
+    )
+    .unwrap();
+    Arc::new(
+        eitmad_server_connection::DirectDiscountApprovalClient::from_config(
+            config,
+            secrets,
+            credential,
+            scenario.server.branch_scope.clone(),
+        ),
+    )
+}
+fn watch_approvals(
+    client: Arc<eitmad_server_connection::DirectDiscountApprovalClient>,
+    actor: AuthorizationContext,
+) -> (
+    std::sync::mpsc::Receiver<eitmad_contracts::quotation_approval::DiscountApprovalNotice>,
+    Arc<std::sync::atomic::AtomicBool>,
+    std::thread::JoinHandle<Result<(), eitmad_pricing::ApprovalError>>,
+) {
+    use eitmad_pricing::DiscountApprovalServer;
+    let (send, receive) = std::sync::mpsc::channel();
+    let cancel = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let stopping = cancel.clone();
+    let thread = std::thread::spawn(move || {
+        client.watch(&actor, &stopping, &mut |notice| {
+            send.send(notice).unwrap();
+        })
+    });
+    (receive, cancel, thread)
+}
+fn wait_approval(
+    events: &std::sync::mpsc::Receiver<
+        eitmad_contracts::quotation_approval::DiscountApprovalNotice,
+    >,
+    client: &dyn eitmad_pricing::DiscountApprovalServer,
+    actor: &AuthorizationContext,
+    id: QuotationDraftId,
+    state: eitmad_contracts::quotation_approval::DiscountApprovalState,
+) {
+    let deadline = std::time::Instant::now() + Duration::from_secs(15);
+    loop {
+        let notice = events
+            .recv_timeout(deadline.saturating_duration_since(std::time::Instant::now()))
+            .unwrap_or_else(|e| panic!("live approval state {state:?} was not delivered: {e:?}"));
+        if notice.draft_id != id {
+            continue;
+        }
+        let page = client
+            .list(
+                actor,
+                &eitmad_contracts::quotation_approval::ListDiscountApprovals {
+                    after: None,
+                    limit: 100,
+                },
+                UnixMillis(i64::MAX),
+            )
+            .unwrap();
+        if page
+            .items
+            .iter()
+            .any(|a| a.quotation.id == id && a.state == state)
+        {
+            return;
+        }
+    }
+}
+
+async fn approval_manager(scenario: &CatalogScenario) -> AuthenticationResult {
+    let pool = SyncDatabase::connect(&scenario.database, 2)
+        .await
+        .unwrap()
+        .pool();
+    let tenant = scenario.server.authentication.session.tenant_id;
+    let user = UserId::new(Uuid::new_v4());
+    let account = Uuid::new_v4();
+    let mut tx = pool.begin().await.unwrap();
+    sqlx::query("SELECT set_config('eitmad.tenant_id',$1,true)")
+        .bind(tenant.value().to_string())
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO control.users VALUES($1,$2,1)")
+        .bind(tenant.value())
+        .bind(user.value())
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO control.accounts(tenant_id,account_id,user_id,username,canonical_username,status,password_hash,created_at,activated_at) SELECT tenant_id,$2,$3,'approval-manager','approval-manager','active',password_hash,1,1 FROM control.accounts WHERE tenant_id=$1 AND account_id=$4").bind(tenant.value()).bind(account).bind(user.value()).bind(scenario.server.authentication.session.account_id.value()).execute(&mut *tx).await.unwrap();
+    sqlx::query("INSERT INTO control.relationship_tuples(tenant_id,subject_principal_id,subject_kind,relation,object_kind,object_id,created_at) VALUES($1,$2,'user','eitmad.relation.organization.manager.v1','organization',$3,1)").bind(tenant.value()).bind(user.value()).bind(scenario.server.scope.id.value()).execute(&mut *tx).await.unwrap();
+    tx.commit().await.unwrap();
+    let signing = SigningKey::from_bytes(&[12; 32]);
+    ControlPlane::new(pool, TokenKey::new([9; 32]))
+        .authentication
+        .login(
+            &LoginRequest {
+                tenant_code: TenantCode::parse("direct-test").unwrap(),
+                username: "approval-manager".into(),
+                password: "synthetic-test-password-123".into(),
+                device_id: DeviceId::new(Uuid::new_v4()),
+                device_label: "مدير الموافقة".into(),
+                device_public_key: DevicePublicKey {
+                    algorithm: "ed25519".into(),
+                    base64: URL_SAFE_NO_PAD.encode(signing.verifying_key().as_bytes()),
+                },
+                device_proof: None,
+            },
+            CorrelationId::new(Uuid::new_v4()),
+            eitmad_authorization::now(),
+        )
+        .await
+        .unwrap()
+}
+
+async fn verify_approval_audit_rollback(
+    pool: &sqlx::PgPool,
+    actor: &AuthenticatedServerSession,
+    branch: &ScopeRef,
+) {
+    use eitmad_contracts::quotation_approval::*;
+    let server = eitmad_sync_plane::QuotationApprovalServer::new(pool.clone());
+    let page = server
+        .list(
+            actor,
+            &ReadDiscountApprovals {
+                scope: branch.clone(),
+                query: ListDiscountApprovals {
+                    after: None,
+                    limit: 100,
+                },
+            },
+        )
+        .await
+        .unwrap();
+    let retained = &page.items[0];
+    let request = ConfirmDiscountApproval {
+        scope: branch.clone(),
+        idempotency_key: IdempotencyKey::new(Uuid::new_v4()),
+        action: DiscountApprovalAction::Request(retained.quotation.clone()),
+    };
+    // Force the last mandatory write to fail after history and events have been staged.
+    sqlx::raw_sql("CREATE FUNCTION audit.fail_approval_test() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.operation='eitmad.quotation-approval.request.v1' THEN RAISE EXCEPTION 'synthetic audit failure'; END IF; RETURN NEW; END $$; CREATE TRIGGER fail_approval_test BEFORE INSERT ON audit.server_records FOR EACH ROW EXECUTE FUNCTION audit.fail_approval_test();").execute(pool).await.unwrap();
+    let result = server
+        .transition(
+            actor,
+            &request,
+            CorrelationId::new(Uuid::new_v4()),
+            eitmad_authorization::now(),
+        )
+        .await;
+    sqlx::raw_sql("DROP TRIGGER fail_approval_test ON audit.server_records; DROP FUNCTION audit.fail_approval_test();").execute(pool).await.unwrap();
+    assert_eq!(result, Err(eitmad_pricing::ApprovalError::Unavailable));
+    let page = server
+        .list(
+            actor,
+            &ReadDiscountApprovals {
+                scope: branch.clone(),
+                query: ListDiscountApprovals {
+                    after: None,
+                    limit: 100,
+                },
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(&page.items[0], retained);
+    let mut tx = pool.begin().await.unwrap();
+    sqlx::query("SELECT set_config('eitmad.tenant_id',$1,true)")
+        .bind(actor.tenant_id.value().to_string())
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    let receipts:i64=sqlx::query_scalar("SELECT count(*) FROM sync.quotation_approval_receipts WHERE tenant_id=$1 AND idempotency_key=$2").bind(actor.tenant_id.value()).bind(request.idempotency_key.value()).fetch_one(&mut *tx).await.unwrap();
+    assert_eq!(receipts, 0);
+}
