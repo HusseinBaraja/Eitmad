@@ -4,7 +4,7 @@ import Foundation
 public enum ProtocolIds {
     public enum Version {
         public static let major = 1
-        public static let minor = 18
+        public static let minor = 19
     }
 
     public enum IpcMessages {
@@ -35,6 +35,8 @@ public enum ProtocolIds {
         public static let eitmadConfigUpdateV1 = "eitmad.config.update.v1"
         public static let eitmadAuthorizationRelationshipGrantV1 = "eitmad.authorization.relationship.grant.v1"
         public static let eitmadAuthorizationRelationshipRevokeV1 = "eitmad.authorization.relationship.revoke.v1"
+        public static let eitmadQuotationDraftCreateV1 = "eitmad.quotation-draft.create.v1"
+        public static let eitmadQuotationDraftUpdateV1 = "eitmad.quotation-draft.update.v1"
         public static let eitmadCustomerCreateV1 = "eitmad.customer.create.v1"
         public static let eitmadCustomerUpdateV1 = "eitmad.customer.update.v1"
         public static let eitmadMaterialCategorySaveV1 = "eitmad.material-category.save.v1"
@@ -52,6 +54,9 @@ public enum ProtocolIds {
     }
 
     public enum Queries {
+        public static let eitmadQuotationDraftGetV1 = "eitmad.quotation-draft.get.v1"
+        public static let eitmadQuotationDraftListV1 = "eitmad.quotation-draft.list.v1"
+        public static let eitmadQuotationEvaluateV1 = "eitmad.quotation.evaluate.v1"
         public static let eitmadSalesCatalogListV1 = "eitmad.sales-catalog.list.v1"
         public static let eitmadSalesCatalogGetV1 = "eitmad.sales-catalog.get.v1"
         public static let eitmadSalesCatalogCheckV1 = "eitmad.sales-catalog.check.v1"
@@ -87,6 +92,7 @@ public enum ProtocolIds {
         public static let eitmadConfigChangedSubscribeV1 = "eitmad.config.changed.subscribe.v1"
         public static let eitmadPermissionsChangedSubscribeV1 = "eitmad.permissions.changed.subscribe.v1"
         public static let eitmadAuthorizationPolicyChangedSubscribeV1 = "eitmad.authorization.policy.changed.subscribe.v1"
+        public static let eitmadQuotationDraftChangedSubscribeV1 = "eitmad.quotation-draft.changed.subscribe.v1"
         public static let eitmadCustomerChangedSubscribeV1 = "eitmad.customer.changed.subscribe.v1"
         public static let eitmadMaterialChangedSubscribeV1 = "eitmad.material.changed.subscribe.v1"
         public static let eitmadFurnitureChangedSubscribeV1 = "eitmad.furniture.changed.subscribe.v1"
@@ -99,6 +105,7 @@ public enum ProtocolIds {
         public static let eitmadConfigChangedEventV1 = "eitmad.config.changed.event.v1"
         public static let eitmadPermissionsChangedEventV1 = "eitmad.permissions.changed.event.v1"
         public static let eitmadAuthorizationPolicyChangedEventV1 = "eitmad.authorization.policy.changed.event.v1"
+        public static let eitmadQuotationDraftChangedEventV1 = "eitmad.quotation-draft.changed.event.v1"
         public static let eitmadCustomerChangedEventV1 = "eitmad.customer.changed.event.v1"
         public static let eitmadMaterialChangedEventV1 = "eitmad.material.changed.event.v1"
         public static let eitmadFurnitureChangedEventV1 = "eitmad.furniture.changed.event.v1"
@@ -134,6 +141,8 @@ public enum ProtocolIds {
     }
 
     public enum Capabilities {
+        public static let eitmadCapabilityQuotationDraftV1 = "eitmad.capability.quotation-draft.v1"
+        public static let eitmadCapabilityQuotationEvaluationV1 = "eitmad.capability.quotation-evaluation.v1"
         public static let eitmadCapabilitySalesCatalogV1 = "eitmad.capability.sales-catalog.v1"
         public static let eitmadCapabilityCatalogRevisionsV1 = "eitmad.capability.catalog-revisions.v1"
         public static let eitmadCapabilityPricingV1 = "eitmad.capability.pricing.v1"
@@ -207,6 +216,7 @@ public enum ProtocolIds {
         public static let eitmadPermissionMaterialWriteV1 = "eitmad.permission.material.write.v1"
         public static let eitmadPermissionMaterialUnitManageV1 = "eitmad.permission.material-unit.manage.v1"
         public static let eitmadPermissionCatalogDraftWriteV1 = "eitmad.permission.catalog.draft.write.v1"
+        public static let eitmadPermissionQuotationDraftReadV1 = "eitmad.permission.quotation.draft.read.v1"
         public static let eitmadPermissionQuotationDraftWriteV1 = "eitmad.permission.quotation.draft.write.v1"
         public static let eitmadPermissionDesktopAccountsManageV1 = "eitmad.permission.desktop-accounts.manage.v1"
     }
@@ -224,6 +234,8 @@ public enum ProtocolIds {
     }
 
     public enum SchemaIds {
+        public static let eitmadSchemaQuotationDraftV1 = "eitmad.schema.quotation-draft.v1"
+        public static let eitmadSchemaQuotationEvaluationV1 = "eitmad.schema.quotation-evaluation.v1"
         public static let eitmadSchemaCatalogPublicV1 = "eitmad.schema.catalog-public.v1"
         public static let eitmadSchemaCatalogRevisionsV1 = "eitmad.schema.catalog-revisions.v1"
         public static let eitmadSchemaPricingV1 = "eitmad.schema.pricing.v1"
@@ -285,6 +297,10 @@ public enum ProtocolIds {
         public static let eitmadErrorUpdateDistributionUnavailableV1 = "eitmad.error.update-distribution-unavailable.v1"
         public static let eitmadErrorAdminUnavailableV1 = "eitmad.error.admin-unavailable.v1"
         public static let eitmadErrorUpdateInstallerFailedV1 = "eitmad.error.update-installer-failed.v1"
+        public static let eitmadErrorQuotationDraftNotFoundV1 = "eitmad.error.quotation-draft-not-found.v1"
+        public static let eitmadErrorQuotationDraftConflictV1 = "eitmad.error.quotation-draft-conflict.v1"
+        public static let eitmadErrorQuotationDraftInvalidV1 = "eitmad.error.quotation-draft-invalid.v1"
+        public static let eitmadErrorQuotationDraftUnavailableV1 = "eitmad.error.quotation-draft-unavailable.v1"
         public static let eitmadErrorCustomerNotFoundV1 = "eitmad.error.customer-not-found.v1"
         public static let eitmadErrorCustomerRevisionConflictV1 = "eitmad.error.customer-revision-conflict.v1"
         public static let eitmadErrorCustomerUnavailableV1 = "eitmad.error.customer-unavailable.v1"
@@ -367,6 +383,10 @@ public enum ProtocolIds {
         public static let eitmadMessageUpdateDistributionUnavailableV1 = "eitmad.message.update-distribution-unavailable.v1"
         public static let eitmadMessageAdminUnavailableV1 = "eitmad.message.admin-unavailable.v1"
         public static let eitmadMessageUpdateInstallerFailedV1 = "eitmad.message.update-installer-failed.v1"
+        public static let eitmadMessageQuotationDraftNotFoundV1 = "eitmad.message.quotation-draft-not-found.v1"
+        public static let eitmadMessageQuotationDraftConflictV1 = "eitmad.message.quotation-draft-conflict.v1"
+        public static let eitmadMessageQuotationDraftInvalidV1 = "eitmad.message.quotation-draft-invalid.v1"
+        public static let eitmadMessageQuotationDraftUnavailableV1 = "eitmad.message.quotation-draft-unavailable.v1"
         public static let eitmadMessageCustomerNotFoundV1 = "eitmad.message.customer-not-found.v1"
         public static let eitmadMessageCustomerRevisionConflictV1 = "eitmad.message.customer-revision-conflict.v1"
         public static let eitmadMessageCustomerUnavailableV1 = "eitmad.message.customer-unavailable.v1"

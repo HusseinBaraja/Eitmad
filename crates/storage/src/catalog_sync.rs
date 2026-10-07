@@ -371,28 +371,7 @@ impl AuthorityStore {
         scope: &ScopeRef,
         target: &eitmad_contracts::pricing::PriceTarget,
     ) -> Result<Vec<CatalogEntry>, StorageError> {
-        let (sk, si) = scope_parts(scope);
-        let (kind, id, _) = target.identity();
-        let path = if kind == "product" {
-            "$.price.target.payload.productId"
-        } else {
-            "$.price.target.payload.furnitureId"
-        };
-        let connection = self.open_connection()?;
-        let mut stmt=connection.prepare("SELECT record_json FROM catalog_sales_records WHERE scope_kind=?1 AND scope_id=?2 AND NOT tombstone AND json_extract(CAST(record_json AS TEXT),'$.price.target.kind')=?3 AND json_extract(CAST(record_json AS TEXT),?4)=?5 ORDER BY id LIMIT 101").map_err(|_|StorageError)?;
-        let entries: Vec<CatalogEntry> = stmt
-            .query_map(params![sk, si, kind, path, id.to_string()], |r| {
-                r.get::<_, Vec<u8>>(0)
-            })
-            .map_err(|_| StorageError)?
-            .map(|r| {
-                serde_json::from_slice(&r.map_err(|_| StorageError)?).map_err(|_| StorageError)
-            })
-            .collect::<Result<_, _>>()?;
-        if entries.len() > 100 {
-            return Err(StorageError);
-        }
-        Ok(entries)
+        catalog_sales_item_on(&self.open_connection()?, scope, target)
     }
 
     /// Returns bounded category filters from active public records.
@@ -615,6 +594,33 @@ fn import_relations(
         _ => (),
     }
     Ok(())
+}
+
+/// Reads public variants using the caller's consistent read transaction.
+pub(crate) fn catalog_sales_item_on(
+    connection: &rusqlite::Connection,
+    scope: &ScopeRef,
+    target: &eitmad_contracts::pricing::PriceTarget,
+) -> Result<Vec<CatalogEntry>, StorageError> {
+    let (sk, si) = scope_parts(scope);
+    let (kind, id, _) = target.identity();
+    let path = if kind == "product" {
+        "$.price.target.payload.productId"
+    } else {
+        "$.price.target.payload.furnitureId"
+    };
+    let mut stmt=connection.prepare("SELECT record_json FROM catalog_sales_records WHERE scope_kind=?1 AND scope_id=?2 AND NOT tombstone AND json_extract(CAST(record_json AS TEXT),'$.price.target.kind')=?3 AND json_extract(CAST(record_json AS TEXT),?4)=?5 ORDER BY id LIMIT 101").map_err(|_|StorageError)?;
+    let entries: Vec<CatalogEntry> = stmt
+        .query_map(params![sk, si, kind, path, id.to_string()], |r| {
+            r.get::<_, Vec<u8>>(0)
+        })
+        .map_err(|_| StorageError)?
+        .map(|r| serde_json::from_slice(&r.map_err(|_| StorageError)?).map_err(|_| StorageError))
+        .collect::<Result<_, _>>()?;
+    if entries.len() > 100 {
+        return Err(StorageError);
+    }
+    Ok(entries)
 }
 
 #[cfg(test)]

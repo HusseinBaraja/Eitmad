@@ -24,6 +24,23 @@ public partial class QuotationsView : UserControl
         if (ViewModel.IsReceptionist && ViewModel.SelectedQuotation is { } quotation) CustomerRequested?.Invoke(quotation.Id);
     }
     private Func<QuotationListItem?, Features.Reception.SalesCatalogViewModel>? createPreview;
+    public Func<QuotationListItem?, Task<Features.Reception.SalesCatalogViewModel?>>? LiveEditorFactory { get; set; }
+    private readonly List<Window> editorWindows = [];
+    private bool openingEditor;
+    public void CloseEditors() { foreach (var window in editorWindows.ToArray()) window.Close(); }
+    private async Task OpenLiveEditorAsync(QuotationListItem? row)
+    {
+        if (LiveEditorFactory is null || openingEditor) return;
+        openingEditor = true;
+        try
+        {
+            var editor = await LiveEditorFactory(row);
+            if (editor is null) return;
+            try { ShowPreviewWindow(new Features.Reception.SalesCatalogView { DataContext = editor, ShowQuotationHeader = true }, row is null ? "مسودة عرض سعر جديدة" : "تعديل مسودة عرض السعر"); }
+            finally { await editor.DisposeEditorAsync(); }
+        }
+        finally { openingEditor = false; }
+    }
 
     public void ConfigureReceptionist(Func<QuotationListItem?, Features.Reception.SalesCatalogViewModel> factory)
     {
@@ -34,15 +51,17 @@ public partial class QuotationsView : UserControl
         DataContext = ViewModel;
     }
 
-    private void NewQuotationClick(object sender, RoutedEventArgs e)
+    private async void NewQuotationClick(object sender, RoutedEventArgs e)
     {
+        if (LiveEditorFactory is not null) { await OpenLiveEditorAsync(null); return; }
         if (ViewModel.IsReceptionist && createPreview is not null)
             ShowPreviewWindow(new Features.Reception.SalesCatalogView { DataContext = createPreview(null), ShowQuotationHeader = true }, "عرض سعر جديد — معاينة فقط");
     }
 
-    private void EditQuotationClick(object sender, RoutedEventArgs e)
+    private async void EditQuotationClick(object sender, RoutedEventArgs e)
     {
         if (!ViewModel.IsReceptionist || ViewModel.SelectedQuotation is not { CanEdit: true } quotation || createPreview is null) return;
+        if (LiveEditorFactory is not null) { await OpenLiveEditorAsync(quotation); return; }
         ShowPreviewWindow(new Features.Reception.SalesCatalogView { DataContext = createPreview(quotation), ShowQuotationHeader = true }, "تعديل عرض السعر — معاينة فقط");
     }
 
@@ -102,7 +121,9 @@ public partial class QuotationsView : UserControl
             if (content is Features.Orders.OrdersView orders) orders.BackToOrdersButton.Focus();
         };
         window.Closed += (_, _) => { if (ViewModel.IsListVisible) QuotationSearchBox.Focus(); else BackToQuotationsButton.Focus(); };
-        window.ShowDialog();
+        editorWindows.Add(window);
+        try { window.ShowDialog(); }
+        finally { editorWindows.Remove(window); }
     }
 
     private void QuotationRowInvoked(object sender, RowInvokedEventArgs eventArgs) =>

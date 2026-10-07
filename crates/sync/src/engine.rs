@@ -177,6 +177,7 @@ pub struct SyncEngine {
     scope: ScopeRef,
     authorization: SyncAuthorization,
     conflict_hook: Arc<dyn ConflictHook>,
+    domain_schema: Option<SchemaId>,
     storage_revision: u64,
     state: EngineState,
     events: Vec<SyncEvent>,
@@ -222,11 +223,56 @@ impl SyncEngine {
         bootstrap_audit: &BoundaryAuditContext,
         conflict_hook: Arc<dyn ConflictHook>,
     ) -> Result<Self, SyncEngineError> {
+        Self::open_scoped(
+            store,
+            (scope, None),
+            mode,
+            authorization,
+            bootstrap_actor,
+            bootstrap_audit,
+            conflict_hook,
+        )
+    }
+    /// Opens a domain-specific stream in an unchanged authorized product scope.
+    /// # Errors
+    /// Rejects corrupt, unavailable, or incompatible durable state.
+    pub fn open_domain(
+        store: AuthorityStore,
+        scope: ScopeRef,
+        domain: (SyncMode, SchemaId),
+        authorization: SyncAuthorization,
+        actor: &AuthorizationContext,
+        audit: &BoundaryAuditContext,
+    ) -> Result<Self, SyncEngineError> {
+        Self::open_scoped(
+            store,
+            (scope, Some(domain.1)),
+            domain.0,
+            authorization,
+            actor,
+            audit,
+            Arc::new(DeferConflicts),
+        )
+    }
+    #[must_use]
+    pub fn domain_schema(&self) -> Option<&SchemaId> {
+        self.domain_schema.as_ref()
+    }
+    fn open_scoped(
+        store: AuthorityStore,
+        identity: (ScopeRef, Option<SchemaId>),
+        mode: SyncMode,
+        authorization: SyncAuthorization,
+        bootstrap_actor: &AuthorizationContext,
+        bootstrap_audit: &BoundaryAuditContext,
+        conflict_hook: Arc<dyn ConflictHook>,
+    ) -> Result<Self, SyncEngineError> {
+        let (scope, domain_schema) = identity;
         if bootstrap_actor.scope != scope {
             return Err(SyncEngineError::ScopeMismatch);
         }
         let stored = store
-            .read_sync_state(&scope)
+            .read_sync_domain_state(&scope, domain_schema.as_ref().map_or("", SchemaId::as_str))
             .map_err(|_| SyncEngineError::StorageUnavailable)?;
         let (storage_revision, state) = if let Some(stored) = stored {
             let state = decode_stored_state(&stored, mode)?;
@@ -236,8 +282,8 @@ impl SyncEngine {
             let encoded = serde_json::to_vec(&state).map_err(|_| SyncEngineError::CorruptState)?;
             let mutation_audit = audit_record(bootstrap_actor, bootstrap_audit, None);
             let revision = match store
-                .commit_sync_state(
-                    &scope,
+                .commit_sync_domain_state(
+                    (&scope, domain_schema.as_ref().map_or("", SchemaId::as_str)),
                     mode_name(mode),
                     ENGINE_STATE_VERSION,
                     0,
@@ -258,6 +304,7 @@ impl SyncEngine {
             scope,
             authorization,
             conflict_hook,
+            domain_schema,
             storage_revision,
             state,
             events: Vec::new(),
@@ -1150,8 +1197,11 @@ impl SyncEngine {
         let encoded = serde_json::to_vec(&self.state).map_err(|_| SyncEngineError::CorruptState)?;
         match self
             .store
-            .commit_sync_state(
-                &self.scope,
+            .commit_sync_domain_state(
+                (
+                    &self.scope,
+                    self.domain_schema.as_ref().map_or("", SchemaId::as_str),
+                ),
                 mode_name(self.state.metadata.mode),
                 ENGINE_STATE_VERSION,
                 self.storage_revision,

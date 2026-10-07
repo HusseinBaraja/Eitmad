@@ -318,7 +318,7 @@ public sealed class CustomerClientTests
         Notes = null!,
         Status = CustomerStatus.Active,
         Revision = 1,
-        SyncState = CustomerSyncState.Pending,
+        SyncState = SyncState.Pending,
         UpdatedAt = 1_800_000_000_000,
     };
 }

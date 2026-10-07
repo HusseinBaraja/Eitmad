@@ -12,7 +12,7 @@ use crate::{
 
 pub const PROTOCOL_VERSION: ProtocolVersion = ProtocolVersion {
     major: 1,
-    minor: 18,
+    minor: 19,
 };
 pub const MAX_PAGE_SIZE: u32 = 500;
 

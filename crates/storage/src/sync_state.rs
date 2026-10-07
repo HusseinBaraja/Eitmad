@@ -23,6 +23,17 @@ pub(crate) const MIGRATIONS: &[Migration] = &[Migration::new(
      );",
 )];
 
+pub(crate) const DOMAIN_MIGRATIONS: &[Migration] = &[Migration::new(25,"sync.domain-state.v1","sync",
+    "ALTER TABLE sync_scopes RENAME TO sync_scopes_legacy;
+     CREATE TABLE sync_scopes (
+       scope_kind TEXT NOT NULL, scope_id TEXT NOT NULL, schema_id TEXT NOT NULL DEFAULT '',
+       application_mode TEXT NOT NULL CHECK(application_mode IN ('local-first','server-authoritative')),
+       state_version INTEGER NOT NULL, revision INTEGER NOT NULL, state_json BLOB NOT NULL,
+       PRIMARY KEY(scope_kind,scope_id,schema_id));
+     INSERT INTO sync_scopes(scope_kind,scope_id,application_mode,state_version,revision,state_json)
+       SELECT scope_kind,scope_id,application_mode,state_version,revision,state_json FROM sync_scopes_legacy;
+     DROP TABLE sync_scopes_legacy;")];
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StoredSyncState {
     pub application_mode: String,
@@ -47,13 +58,23 @@ impl AuthorityStore {
         &self,
         scope: &ScopeRef,
     ) -> Result<Option<StoredSyncState>, StorageError> {
+        self.read_sync_domain_state(scope, "")
+    }
+    /// Reads a schema-specific checkpoint without sharing another domain's stream.
+    /// # Errors
+    /// Rejects unavailable or malformed state.
+    pub fn read_sync_domain_state(
+        &self,
+        scope: &ScopeRef,
+        schema: &str,
+    ) -> Result<Option<StoredSyncState>, StorageError> {
         self.read_transaction(|connection| {
             let (scope_kind, scope_id) = scope_parts(scope);
             connection
                 .query_row(
                     "SELECT application_mode, state_version, revision, state_json FROM sync_scopes
-                     WHERE scope_kind = ?1 AND scope_id = ?2",
-                    (&scope_kind, &scope_id),
+                     WHERE scope_kind = ?1 AND scope_id = ?2 AND schema_id = ?3",
+                    (&scope_kind, &scope_id, schema),
                     |row| {
                         Ok((
                             row.get::<_, String>(0)?,
@@ -91,13 +112,35 @@ impl AuthorityStore {
         state_json: &[u8],
         audit: &MutationAuditRecord,
     ) -> Result<SyncStateCommitOutcome, StorageError> {
+        self.commit_sync_domain_state(
+            (scope, ""),
+            application_mode,
+            state_version,
+            expected_revision,
+            state_json,
+            audit,
+        )
+    }
+    /// Commits one schema-specific state with compare-and-swap and audit.
+    /// # Errors
+    /// Rolls back on failed mandatory writes.
+    pub fn commit_sync_domain_state(
+        &self,
+        identity: (&ScopeRef, &str),
+        application_mode: &str,
+        state_version: u32,
+        expected_revision: u64,
+        state_json: &[u8],
+        audit: &MutationAuditRecord,
+    ) -> Result<SyncStateCommitOutcome, StorageError> {
+        let (scope, schema) = identity;
         self.write_transaction(|connection| {
             let (scope_kind, scope_id) = scope_parts(scope);
             let actual_revision = connection
                 .query_row(
                     "SELECT revision FROM sync_scopes
-                     WHERE scope_kind = ?1 AND scope_id = ?2",
-                    (&scope_kind, &scope_id),
+                     WHERE scope_kind = ?1 AND scope_id = ?2 AND schema_id = ?3",
+                    (&scope_kind, &scope_id, schema),
                     |row| row.get::<_, i64>(0),
                 )
                 .optional()
@@ -113,9 +156,9 @@ impl AuthorityStore {
             connection
                 .execute(
                     "INSERT INTO sync_scopes
-                         (scope_kind, scope_id, application_mode, state_version, revision, state_json)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6)
-                     ON CONFLICT(scope_kind, scope_id) DO UPDATE SET
+                         (scope_kind, scope_id, application_mode, state_version, revision, state_json, schema_id)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+                     ON CONFLICT(scope_kind, scope_id, schema_id) DO UPDATE SET
                          application_mode = excluded.application_mode,
                          state_version = excluded.state_version,
                          revision = excluded.revision,
@@ -126,7 +169,8 @@ impl AuthorityStore {
                         application_mode,
                         i64::from(state_version),
                         i64::try_from(revision).map_err(|_| StorageError)?,
-                        state_json
+                        state_json,
+                        schema
                     ],
                 )
                 .map_err(|_| StorageError)?;
@@ -252,6 +296,81 @@ mod tests {
                     [],
                 )
                 .is_err()
+        );
+    }
+    #[test]
+    fn domain_checkpoints_are_isolated_and_audited_in_one_branch() {
+        let directory = TempDir::new().unwrap();
+        let store = AuthorityStore::open(directory.path()).unwrap();
+        let branch = scope(99);
+        store
+            .commit_sync_state(
+                &branch,
+                "local-first",
+                1,
+                0,
+                b"customer",
+                &audit(branch.clone(), 991),
+            )
+            .unwrap();
+        store
+            .commit_sync_domain_state(
+                (&branch, "eitmad.schema.quotation-draft.v1"),
+                "local-first",
+                1,
+                0,
+                b"draft",
+                &audit(branch.clone(), 992),
+            )
+            .unwrap();
+        assert_eq!(
+            store.read_sync_state(&branch).unwrap().unwrap().state_json,
+            b"customer"
+        );
+        assert_eq!(
+            store
+                .read_sync_domain_state(&branch, "eitmad.schema.quotation-draft.v1")
+                .unwrap()
+                .unwrap()
+                .state_json,
+            b"draft"
+        );
+        assert!(matches!(
+            store
+                .commit_sync_domain_state(
+                    (&branch, "eitmad.schema.quotation-draft.v1"),
+                    "local-first",
+                    1,
+                    0,
+                    b"overwrite",
+                    &audit(branch.clone(), 993)
+                )
+                .unwrap(),
+            SyncStateCommitOutcome::RevisionConflict { actual_revision: 1 }
+        ));
+        Connection::open(store.path())
+            .unwrap()
+            .execute_batch("DROP TABLE mutation_audit")
+            .unwrap();
+        assert!(
+            store
+                .commit_sync_domain_state(
+                    (&branch, "eitmad.schema.quotation-draft.v1"),
+                    "local-first",
+                    1,
+                    1,
+                    b"uncommitted",
+                    &audit(branch.clone(), 994)
+                )
+                .is_err()
+        );
+        assert_eq!(
+            store
+                .read_sync_domain_state(&branch, "eitmad.schema.quotation-draft.v1")
+                .unwrap()
+                .unwrap()
+                .state_json,
+            b"draft"
         );
     }
 }

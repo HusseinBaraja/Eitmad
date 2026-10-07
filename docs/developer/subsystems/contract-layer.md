@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust contract maintainers"
-last_verified: "2026-10-02"
+last_verified: "2026-10-07"
 review_triggers:
   - "protocol ownership, wire format, generation, compatibility, or platform binding changes"
 keywords:
@@ -42,6 +42,8 @@ Rust tagged contracts (`tagged_contract!`) serialize as JSON objects that carry 
 1. Collects `kind`-tagged unions from the native Draft-07 schema (`crates/contracts/codegen/unions.mjs`). Swift also collects `status`-tagged outcomes so success payloads and structured failures remain distinct types.
 2. Renders typed union bindings itself into `shells/windows/generated/EitmadContracts.Unions.g.cs` (a C# class with a `Kind` string, an untyped payload, one `For<Pascal>` factory, and one `As<Pascal>()` typed accessor per kind) and `shells/macos/generated/EitmadContractsUnions.generated.swift` (a Swift `enum` with associated values plus full `Codable` conformance).
 3. Feeds quicktype a reduced schema in which each union definition is replaced by an empty object and every payload type stays reachable through a deterministic keep-alive container.
+
+Quicktype emits a Swift model for a closed empty payload (`additionalProperties: false`) but can omit an open empty payload. After Quicktype runs, the union renderer supplies only missing empty payload types. This gives each type one declaration across the two Swift files. The Swift conformance runner round-trips both closed quotation-draft and open configuration subscription payloads as empty JSON objects.
 
 Codegen tests check union discriminators and payload types. Swift payload names use the pinned Quicktype naming function. Both Swift generated files compile together in CI, and the fixture round-trips typed successful and failed query outcomes. Adding a Rust variant without regenerating fails drift verification. Nested tagged enums that mix payload-less struct variants remain collapsed by quicktype; extending the renderer to them is deliberate follow-up work, not an accident.
 

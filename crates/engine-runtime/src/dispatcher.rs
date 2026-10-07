@@ -39,6 +39,7 @@ pub struct ProductDispatcher {
     authorization: AuthorizationService,
     configuration: ConfigurationService,
     customers: CustomerService,
+    drafts: eitmad_pricing::QuotationDraftService,
     materials: MaterialService,
     parts: PartService,
     images: eitmad_catalog_image::CatalogImageService,
@@ -91,6 +92,8 @@ impl ProductDispatcher {
         let authorization = AuthorizationService::new(store.clone());
         let configuration = ConfigurationService::new(store.clone(), authorization.clone());
         let customers = CustomerService::new(store.clone(), authorization.clone());
+        let drafts =
+            eitmad_pricing::QuotationDraftService::new(store.clone(), authorization.clone());
         let materials = MaterialService::new(store.clone(), authorization.clone());
         let furnitures = FurnitureService::new(store.clone(), authorization.clone());
         let products = ProductService::new(store.clone(), authorization.clone());
@@ -104,6 +107,7 @@ impl ProductDispatcher {
             authorization,
             configuration,
             customers,
+            drafts,
             materials,
             parts,
             images,
@@ -255,6 +259,31 @@ impl ProductDispatcher {
         query: Query,
     ) -> Result<QueryResult, ContractError> {
         match query {
+            Query::QuotationEvaluation(input) => {
+                let pricing = self.pricing.clone();
+                let actor = context.authorization.clone();
+                let replication = self.catalog_replication.clone();
+                let deadline = eitmad_contracts::transport::UnixMillis(
+                    context
+                        .deadline
+                        .0
+                        .saturating_sub(1000)
+                        .min(now().0.saturating_add(10_000)),
+                );
+                tokio::task::spawn_blocking(move || {
+                    let catalog_actor = pricing.authorize_quotation(&actor)?;
+                    let available = replication
+                        .as_ref()
+                        .is_some_and(|r| r.synchronize(&catalog_actor, deadline).is_ok());
+                    let mut result = pricing.evaluate_quotation(&actor, &input)?;
+                    result.server_available = available;
+                    Ok::<_, eitmad_pricing::PricingError>(result)
+                })
+                .await
+                .map_err(|_| pricing_error(eitmad_pricing::PricingError::Unconfirmed, context))?
+                .map(QueryResult::QuotationEvaluation)
+                .map_err(|e| pricing_error(e, context))
+            }
             query @ (Query::SalesCatalog(_)
             | Query::SalesCatalogItem(_)
             | Query::SalesConfiguration(_)) => self.sales_catalog_query(context, query).await,
@@ -365,6 +394,60 @@ impl ProductDispatcher {
         })
     }
 
+    fn dispatch_account_change(
+        &self,
+        context: &DispatchContext,
+        mutation: &MutationContext,
+        command: Command,
+    ) -> Result<CommandResult, Box<ContractError>> {
+        let result = match command {
+            Command::UpdateDesktopAccount(input) => self
+                .accounts
+                .update(mutation, &input)
+                .map(CommandResult::DesktopAccountUpdated),
+            Command::DeactivateDesktopAccount(input) => self
+                .accounts
+                .deactivate(mutation, &input)
+                .map(CommandResult::DesktopAccountDeactivated),
+            _ => return Err(Box::new(unsupported(context))),
+        }
+        .map_err(|e| Box::new(desktop_account_error(e, context)))?;
+        self.publish_pending(context, mutation.idempotency_key)
+            .map_err(|()| {
+                Box::new(desktop_account_error(
+                    DesktopAccountError::Unavailable,
+                    context,
+                ))
+            })?;
+        Ok(result)
+    }
+    fn dispatch_draft_command(
+        &self,
+        context: &DispatchContext,
+        mutation: &MutationContext,
+        command: Command,
+    ) -> Result<CommandResult, Box<ContractError>> {
+        let result = match command {
+            Command::CreateQuotationDraft(input) => self
+                .drafts
+                .create(mutation, &input)
+                .map(|d| CommandResult::QuotationDraftCreated(Box::new(d))),
+            Command::UpdateQuotationDraft(input) => self
+                .drafts
+                .update(mutation, &input)
+                .map(|d| CommandResult::QuotationDraftUpdated(Box::new(d))),
+            _ => return Err(Box::new(unsupported(context))),
+        }
+        .map_err(|e| Box::new(draft_error(e, context)))?;
+        self.publish_pending(context, mutation.idempotency_key)
+            .map_err(|()| {
+                Box::new(draft_error(
+                    eitmad_pricing::QuotationDraftError::Unavailable,
+                    context,
+                ))
+            })?;
+        Ok(result)
+    }
     fn create_customer(
         &self,
         context: &DispatchContext,
@@ -765,6 +848,9 @@ impl CommandDispatcher for ProductDispatcher {
                     .map_err(|()| authorization_error(AuthorizationError::Unavailable, &context))?;
                 Ok(CommandResult::RelationshipRevoked(result))
             }
+            command @ (Command::CreateQuotationDraft(_) | Command::UpdateQuotationDraft(_)) => self
+                .dispatch_draft_command(&context, &mutation, command)
+                .map_err(|e| *e),
             Command::CreateCustomer(command) => self
                 .create_customer(&context, &mutation, &command)
                 .map_err(|error| *error),
@@ -795,27 +881,9 @@ impl CommandDispatcher for ProductDispatcher {
             Command::CreateDesktopAccount(command) => self
                 .create_desktop_account(&context, &mutation, &command)
                 .map_err(|error| *error),
-            Command::UpdateDesktopAccount(command) => {
-                let account = self
-                    .accounts
-                    .update(&mutation, &command)
-                    .map_err(|error| desktop_account_error(error, &context))?;
-                self.publish_pending(&context, mutation.idempotency_key)
-                    .map_err(|()| {
-                        desktop_account_error(DesktopAccountError::Unavailable, &context)
-                    })?;
-                Ok(CommandResult::DesktopAccountUpdated(account))
-            }
-            Command::DeactivateDesktopAccount(command) => {
-                let account = self
-                    .accounts
-                    .deactivate(&mutation, &command)
-                    .map_err(|error| desktop_account_error(error, &context))?;
-                self.publish_pending(&context, mutation.idempotency_key)
-                    .map_err(|()| {
-                        desktop_account_error(DesktopAccountError::Unavailable, &context)
-                    })?;
-                Ok(CommandResult::DesktopAccountDeactivated(account))
+            command @ (Command::UpdateDesktopAccount(_) | Command::DeactivateDesktopAccount(_)) => {
+                self.dispatch_account_change(&context, &mutation, command)
+                    .map_err(|e| *e)
             }
         }
     }
@@ -864,12 +932,23 @@ impl QueryDispatcher for ProductDispatcher {
                 .list_relationships(&context.authorization, &query)
                 .map(QueryResult::ScopeRelationships)
                 .map_err(|error| authorization_error(error, &context)),
+            Query::QuotationDraft(query) => self
+                .drafts
+                .get(&context.authorization, &query)
+                .map(|draft| QueryResult::QuotationDraft(Box::new(draft)))
+                .map_err(|e| draft_error(e, &context)),
+            Query::QuotationDrafts(query) => self
+                .drafts
+                .list(&context.authorization, &query)
+                .map(QueryResult::QuotationDrafts)
+                .map_err(|e| draft_error(e, &context)),
             Query::Customer(query) => self
                 .customers
                 .get(&context.authorization, &query)
                 .map(QueryResult::Customer)
                 .map_err(|error| customer_error(error, &context)),
-            query @ (Query::Prices(_)
+            query @ (Query::QuotationEvaluation(_)
+            | Query::Prices(_)
             | Query::SalesCatalog(_)
             | Query::SalesCatalogItem(_)
             | Query::SalesConfiguration(_)
@@ -930,6 +1009,9 @@ impl QueryDispatcher for ProductDispatcher {
             Subscription::Configuration(_) => CONFIG_READ_PERMISSION,
             Subscription::Permissions(_) => PERMISSIONS_READ_PERMISSION,
             Subscription::Customers(_) => CUSTOMER_READ_PERMISSION,
+            Subscription::QuotationDrafts(_) => {
+                eitmad_authorization::QUOTATION_DRAFT_READ_PERMISSION
+            }
             Subscription::Furnitures(_) => FURNITURE_READ_PERMISSION,
             Subscription::Products(_) => PRODUCT_READ_PERMISSION,
             Subscription::Prices(_) => eitmad_authorization::CATALOG_READ_PERMISSION,
@@ -965,6 +1047,62 @@ fn pricing_error(value: eitmad_pricing::PricingError, context: &DispatchContext)
         },
         detail,
     )
+}
+
+fn draft_error(
+    value: eitmad_pricing::QuotationDraftError,
+    context: &DispatchContext,
+) -> ContractError {
+    use eitmad_pricing::QuotationDraftError as E;
+    let (code, message, retry, detail) = match value {
+        E::Denied => (
+            "eitmad.error.authorization-denied.v1",
+            "eitmad.message.authorization-denied.v1",
+            RetryDisposition::Never,
+            None,
+        ),
+        E::NotFound => (
+            "eitmad.error.quotation-draft-not-found.v1",
+            "eitmad.message.quotation-draft-not-found.v1",
+            RetryDisposition::Never,
+            None,
+        ),
+        E::Conflict { expected, actual } => (
+            "eitmad.error.quotation-draft-conflict.v1",
+            "eitmad.message.quotation-draft-conflict.v1",
+            RetryDisposition::Never,
+            Some(ErrorDetail::RevisionConflict {
+                expected: expected.unwrap_or(0),
+                actual: actual.unwrap_or(0),
+            }),
+        ),
+        E::Invalid => (
+            "eitmad.error.quotation-draft-invalid.v1",
+            "eitmad.message.quotation-draft-invalid.v1",
+            RetryDisposition::Never,
+            None,
+        ),
+        E::Validation(errors) => (
+            "eitmad.error.quotation-draft-invalid.v1",
+            "eitmad.message.quotation-draft-invalid.v1",
+            RetryDisposition::Never,
+            Some(ErrorDetail::QuotationDraftValidation { errors }),
+        ),
+        E::UnresolvedConflict => (
+            "eitmad.error.quotation-draft-conflict.v1",
+            "eitmad.message.quotation-draft-conflict.v1",
+            RetryDisposition::Never,
+            None,
+        ),
+        E::IdempotencyMismatch => return unsupported(context),
+        E::Unavailable => (
+            "eitmad.error.quotation-draft-unavailable.v1",
+            "eitmad.message.quotation-draft-unavailable.v1",
+            RetryDisposition::SafeAfterDelay(1000),
+            None,
+        ),
+    };
+    contract_error(code, message, context.correlation_id, retry, detail)
 }
 
 fn customer_error(error_value: CustomerError, context: &DispatchContext) -> ContractError {
@@ -2896,6 +3034,7 @@ mod tests {
             panic!("configuration")
         };
         assert_eq!(checked.price.total_yer, 140_000);
+        assert_public_quotation_evaluation(&reader_dispatcher, &target, price.revision).await;
         let encoded = serde_json::to_string(&result).unwrap();
         for field in ["cost", "margin", "parts", "notes", "55000"] {
             assert!(!encoded.contains(field), "{field}");
@@ -2908,6 +3047,76 @@ mod tests {
                 .code
                 .as_str(),
             "eitmad.error.authorization-denied.v1"
+        );
+    }
+
+    async fn assert_public_quotation_evaluation(
+        reader_dispatcher: &ProductDispatcher,
+        target: &eitmad_contracts::pricing::PriceTarget,
+        price_revision: u64,
+    ) {
+        use eitmad_contracts::{pricing::PriceSelection, sales_catalog::CheckSalesConfiguration};
+        // The same receptionist evaluates a complete quotation from public-only catalog data.
+        let mut branch = material_actor(736, 4);
+        branch.authorization.scope = branch_authorization().scope;
+        authorize_customer_branch(reader_dispatcher, &branch.authorization);
+        let CommandResult::CustomerCreated(customer) = reader_dispatcher
+            .dispatch_command(
+                branch.clone(),
+                Command::CreateCustomer(CreateCustomer {
+                    name: CustomerName::parse("عميل تجريبي").unwrap(),
+                    phone: CustomerPhone::parse("777123456").unwrap(),
+                    address: None,
+                    notes: None,
+                }),
+            )
+            .await
+            .unwrap()
+        else {
+            panic!("customer");
+        };
+        let QueryResult::QuotationEvaluation(evaluation) = reader_dispatcher
+            .dispatch_query(
+                branch,
+                Query::QuotationEvaluation(eitmad_contracts::quotation::EvaluateQuotation {
+                    customer: Some(eitmad_contracts::quotation::QuotationCustomerIntent {
+                        id: customer.customer.id,
+                        revision: customer.customer.revision,
+                    }),
+                    lines: vec![eitmad_contracts::quotation::QuotationLineIntent {
+                        id: Uuid::new_v4(),
+                        configuration: CheckSalesConfiguration {
+                            selection: PriceSelection {
+                                target: target.clone(),
+                                price_revision,
+                                color_id: None,
+                                handle_id: None,
+                                quantity: 2,
+                            },
+                            dimensions: None,
+                        },
+                    }],
+                    discount_basis_points: 501,
+                }),
+            )
+            .await
+            .unwrap()
+        else {
+            panic!("evaluation");
+        };
+        assert!(evaluation.errors.is_empty());
+        assert_eq!(
+            evaluation.totals.unwrap(),
+            eitmad_contracts::pricing::DiscountTotal {
+                subtotal_yer: 140_000,
+                discount_yer: 7014,
+                total_yer: 132_986,
+                approval_required: true,
+            }
+        );
+        assert_eq!(
+            last_audit_outcome(reader_dispatcher, "eitmad.quotation.evaluate.v1"),
+            AuditOutcome::Succeeded
         );
     }
 

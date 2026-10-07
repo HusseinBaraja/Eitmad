@@ -10,11 +10,12 @@ public sealed partial class SalesCatalogViewModel
     private decimal discountPercent;
     private bool isDiscountValid = true;
     private bool discountPending;
+    private decimal? previewDiscountOverride;
     private Features.Quotations.QuotationListItem? approvalPreview;
     public Action<SalesCatalogViewModel, bool>? PublishPreview { get; set; }
     public Guid PreviewId { get; set; } = Guid.NewGuid();
-    public bool IsDiscountApproved => approvalPreview?.ApprovalDecision == Features.Quotations.DiscountApprovalDecision.Approved;
-    public bool IsDiscountRejected => approvalPreview?.ApprovalDecision == Features.Quotations.DiscountApprovalDecision.Rejected;
+    public bool IsDiscountApproved => catalogClient is null && approvalPreview?.ApprovalDecision == Features.Quotations.DiscountApprovalDecision.Approved;
+    public bool IsDiscountRejected => catalogClient is null && approvalPreview?.ApprovalDecision == Features.Quotations.DiscountApprovalDecision.Rejected;
     public void ObserveApproval(Features.Quotations.QuotationListItem quotation)
     {
         if (approvalPreview is not null) System.ComponentModel.PropertyChangedEventManager.RemoveHandler(approvalPreview, ApprovalChanged, "");
@@ -37,22 +38,30 @@ public sealed partial class SalesCatalogViewModel
             if (!Set(ref discountInput, value ?? "")) return;
             isDiscountValid = decimal.TryParse(PreviewText.NormalizeNumericInput(discountInput).Trim(),
                 NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out discountPercent)
-                && discountPercent is >= 0m and <= 100m;
+                && discountPercent is >= 0m and <= 100m
+                && discountPercent * 100m == decimal.Truncate(discountPercent * 100m);
             InvalidateDiscountRequest();
         }
     }
 
+    internal void SetPreviewDiscount(decimal amount, string input)
+    {
+        DiscountInput = input;
+        previewDiscountOverride = amount;
+        RaiseDiscountState();
+    }
+
     public bool IsDiscountValid => isDiscountValid;
-    public string DiscountError => IsDiscountValid ? "" : "أدخل نسبة من 0 إلى 100";
-    public string DiscountAmountLabel => IsDiscountValid ? Discount.ToString("N0", CultureInfo.InvariantCulture) : "—";
-    public string FinalTotalLabel => IsDiscountValid ? FinalTotal.ToString("N0", CultureInfo.InvariantCulture) : "—";
-    public bool RequiresDiscountApproval => IsDiscountValid && discountPercent > PreviewDiscountLimit;
-    public bool IsDiscountPending => discountPending;
-    public bool CanRequestDiscountApproval => RequiresDiscountApproval && !discountPending && !IsDiscountApproved && !IsQuotationEmpty;
-    public bool CanSaveQuotation => IsDiscountValid && (!RequiresDiscountApproval || IsDiscountApproved);
-    public bool CanSaveDraft => IsDiscountValid && !IsQuotationEmpty;
-    public string DiscountStatus => IsDiscountApproved ? "تمت الموافقة على الخصم — معاينة فقط" : IsDiscountRejected ? "رُفض الخصم — عدّل العرض أو اطلب الموافقة مجدداً" : discountPending ? "بانتظار موافقة المدير" : RequiresDiscountApproval ? "يتطلب موافقة المدير" : "";
-    public string DiscountGuidance => IsDiscountApproved ? "يمكنك الآن إكمال عرض السعر في المعاينة" : IsDiscountRejected ? "خفّض الخصم أو عدّل العرض ثم اطلب الموافقة مجدداً" : "يمكنك مراجعة العرض وحفظه كمسودة حتى الموافقة على الخصم";
+    public string DiscountError => IsDiscountValid ? "" : "أدخل نسبة من 0 إلى 100 بمنزلتين عشريتين كحد أقصى";
+    public string DiscountAmountLabel => catalogClient is not null && evaluation?.Totals is null ? "—" : IsDiscountValid ? Discount.ToString("N0", CultureInfo.InvariantCulture) : "—";
+    public string FinalTotalLabel => catalogClient is not null && evaluation?.Totals is null ? "—" : IsDiscountValid ? FinalTotal.ToString("N0", CultureInfo.InvariantCulture) : "—";
+    public bool RequiresDiscountApproval => catalogClient is not null ? evaluation?.Totals?.ApprovalRequired == true : IsDiscountValid && discountPercent > PreviewDiscountLimit;
+    public bool IsDiscountPending => catalogClient is null && discountPending;
+    public bool CanRequestDiscountApproval => catalogClient is null && RequiresDiscountApproval && !discountPending && !IsDiscountApproved && !IsQuotationEmpty;
+    public bool CanSaveQuotation => catalogClient is null && IsDiscountValid && (!RequiresDiscountApproval || IsDiscountApproved);
+    public bool CanSaveDraft => !IsDraftBusy && !draftConflict && IsDiscountValid && !IsQuotationEmpty && (catalogClient is null || catalogActive && (uncertainSave || evaluation?.Totals is not null));
+    public string DiscountStatus => IsDiscountApproved ? "تمت الموافقة على الخصم — معاينة فقط" : IsDiscountRejected ? "رُفض الخصم — عدّل العرض أو اطلب الموافقة مجدداً" : IsDiscountPending ? "بانتظار موافقة المدير" : RequiresDiscountApproval ? "يتطلب موافقة المدير" : "";
+    public string DiscountGuidance => IsLiveQuotation ? "يمكن حفظ المسودة. طلب الموافقة وإصدار عرض السعر غير متاحين بعد." : IsDiscountApproved ? "يمكنك الآن إكمال عرض السعر في المعاينة" : IsDiscountRejected ? "خفّض الخصم أو عدّل العرض ثم اطلب الموافقة مجدداً" : "يمكنك مراجعة العرض وحفظه كمسودة حتى الموافقة على الخصم";
     public string TotalHeading => RequiresDiscountApproval && !IsDiscountApproved ? "الإجمالي بعد الخصم المطلوب" : "الإجمالي النهائي";
 
     public void RequestDiscountApproval()
@@ -66,6 +75,7 @@ public sealed partial class SalesCatalogViewModel
 
     public bool ReviewDraftSave()
     {
+        if (draftClient is not null) { QuotationNotice = "استخدم حفظ كمسودة لتأكيد الحفظ من المحرك."; return false; }
         if (!CheckRequiredFields()) return false;
         if (!CanSaveDraft) return false;
         PublishPreview?.Invoke(this, discountPending);
@@ -75,11 +85,15 @@ public sealed partial class SalesCatalogViewModel
 
     private void InvalidateDiscountRequest()
     {
+        if (applyingDraft) return;
+        hasUnsavedEdits = true; Raise(nameof(DraftState));
         if (approvalPreview is not null) System.ComponentModel.PropertyChangedEventManager.RemoveHandler(approvalPreview, ApprovalChanged, "");
         approvalPreview = null;
+        previewDiscountOverride = null;
         discountPending = false;
         QuotationNotice = "";
         RaiseDiscountState();
+        QueueQuotationEvaluation();
     }
 
     private void RaiseDiscountState()

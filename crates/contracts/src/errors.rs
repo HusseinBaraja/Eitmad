@@ -37,6 +37,9 @@ pub enum ErrorDetail {
     Validation {
         fields: Vec<ErrorParameterName>,
     },
+    QuotationDraftValidation {
+        errors: Vec<crate::quotation::QuotationFieldError>,
+    },
     RevisionConflict {
         expected: u64,
         actual: u64,

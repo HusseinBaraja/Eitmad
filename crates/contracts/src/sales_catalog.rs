@@ -35,7 +35,7 @@ pub struct SalesCatalogDetails {
     pub server_available: bool,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CheckSalesConfiguration {
     pub selection: PriceSelection,
     pub dimensions: Option<FurnitureDimensions>,

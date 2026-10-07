@@ -1,6 +1,12 @@
 //! Rust-authoritative prices with distinct ready-made and manufactured references.
 mod catalog;
 mod money;
+mod quotation;
+pub use quotation::validate_draft_snapshot;
+mod draft_sync;
+mod drafts;
+pub use draft_sync::{QuotationDraftSyncCycle, QuotationDraftSyncError};
+pub use drafts::{QUOTATION_DRAFT_SCHEMA, QuotationDraftError, QuotationDraftService};
 mod sales_catalog;
 pub use catalog::{
     catalog_dependencies, catalog_record_id, public_entry, publication_basis, revision_record_id,

@@ -5,6 +5,16 @@ namespace Eitmad.WindowsShell.Features.Reception;
 // Temporary selection snapshots; these are not durable or issued quotation records.
 public sealed record PreviewQuotationLine
 {
+    public Eitmad.Contracts.CheckSalesConfiguration? SavedConfiguration { get; init; }
+    public Eitmad.Contracts.EvaluatedQuotationLine? SavedEvaluation { get; init; }
+    public bool IsFurniture => Furniture is not null || SavedConfiguration?.Dimensions is not null;
+    public Eitmad.Contracts.CheckSalesConfiguration? Intent => SavedConfiguration ?? Furniture?.ConfigurationInput() ?? Product?.ConfigurationInput();
+    public PreviewQuotationLine(Eitmad.Contracts.QuotationLineIntent intent, Eitmad.Contracts.EvaluatedQuotationLine value)
+    {
+        Id = intent.Id; SavedConfiguration = intent.Configuration; SavedEvaluation = value;
+        Item = new(Id, value.Name, "", value.Description, value.VariantName, value.Price.UnitPriceYer, false,
+            intent.Configuration.Dimensions is null ? "product" : "wardrobe", null);
+    }
     public Guid Id { get; init; } = Guid.NewGuid();
     public SalesCatalogItem Item { get; }
     public FurnitureSelectionViewModel? Furniture { get; }
@@ -27,15 +37,15 @@ public sealed record PreviewQuotationLine
         Product = new(value.Item, value.Variants) { SelectedVariant = value.SelectedVariant, Quantity = value.Quantity };
         if (value.Configuration is { } configuration) Product.Apply(configuration);
     }
-    public string Name => Item.Name;
-    public string Variant => Furniture?.SelectedSize?.Name ?? Product?.SelectedVariant?.Name ?? string.Empty;
-    public string Dimensions => Furniture?.Configuration?.Dimensions is { } d ? SalesCatalogViewModel.DimensionsLabel(d) : Furniture?.SelectedSize?.DimensionsLabel ?? string.Empty;
-    public string? Color => Furniture?.SelectedColor?.Name;
-    public string? Handle => Furniture?.SelectedHandle?.Name;
+    public string Name => SavedEvaluation?.Name ?? Item.Name;
+    public string Variant => SavedEvaluation?.VariantName ?? Furniture?.SelectedSize?.Name ?? Product?.SelectedVariant?.Name ?? string.Empty;
+    public string Dimensions => SavedEvaluation?.Dimensions is { } saved ? SalesCatalogViewModel.DimensionsLabel(saved) : Furniture?.Configuration?.Dimensions is { } d ? SalesCatalogViewModel.DimensionsLabel(d) : Furniture?.SelectedSize?.DimensionsLabel ?? string.Empty;
+    public string? Color => SavedEvaluation?.ColorName ?? Furniture?.SelectedColor?.Name;
+    public string? Handle => SavedEvaluation?.HandleName ?? Furniture?.SelectedHandle?.Name;
     public string Options => string.Join(" · ", new[] { Variant, Color is null ? null : "اللون: " + Color, Handle is null ? null : "المقبض: " + Handle }.Where(s => !string.IsNullOrEmpty(s)));
-    public int Quantity => Furniture?.Quantity ?? Product!.Quantity;
-    public decimal UnitPrice => Furniture?.UnitPrice ?? Product!.UnitPrice;
-    public decimal LineTotal => Furniture?.LineTotal ?? Product!.LineTotal;
+    public int Quantity => (int)(SavedEvaluation?.Quantity ?? Furniture?.Quantity ?? Product!.Quantity);
+    public decimal UnitPrice => SavedEvaluation?.Price.UnitPriceYer ?? Furniture?.UnitPrice ?? Product!.UnitPrice;
+    public decimal LineTotal => SavedEvaluation?.Price.TotalYer ?? Furniture?.LineTotal ?? Product!.LineTotal;
 }
 
 public sealed record PreviewCustomer(string Name, string Phone, string Address, string Notes, Guid? Id = null, long Revision = 0)
@@ -67,9 +77,10 @@ public sealed partial class SalesCatalogViewModel
     public string QuotationNumber { get => quotationNumber; set { if (Set(ref quotationNumber, value)) Raise(nameof(QuotationHeading)); } }
     public string QuotationHeading => string.IsNullOrWhiteSpace(QuotationNumber) ? "عرض سعر جديد" : QuotationNumber;
     public bool IsQuotationEmpty => QuotationLines.Count == 0;
-    public decimal Subtotal => QuotationLines.Sum(line => line.LineTotal);
-    public decimal Discount => IsDiscountValid ? decimal.Round(Subtotal * (discountPercent / 100m), 0, MidpointRounding.AwayFromZero) : 0;
-    public decimal FinalTotal => Subtotal - Discount;
+    public decimal Subtotal => catalogClient is not null ? evaluation?.Totals?.SubtotalYer ?? 0 : QuotationLines.Sum(line => line.LineTotal);
+    public decimal Discount => catalogClient is not null ? evaluation?.Totals?.DiscountYer ?? 0
+        : previewDiscountOverride ?? (IsDiscountValid ? decimal.Round(Subtotal * (discountPercent / 100m), 0, MidpointRounding.AwayFromZero) : 0);
+    public decimal FinalTotal => catalogClient is not null ? evaluation?.Totals?.TotalYer ?? 0 : Subtotal - Discount;
     private bool showRequiredErrors;
     public string CustomerNameError => showRequiredErrors && string.IsNullOrWhiteSpace(CustomerName)
         ? "أدخل اسم العميل"
@@ -85,7 +96,7 @@ public sealed partial class SalesCatalogViewModel
     public string Phone { get => phone; set { if (Set(ref phone, value)) { if (!applyingCustomer) InvalidateDiscountRequest(); CustomerInputChanged(value); Raise(nameof(PhoneError)); } } }
     public string Address { get => address; set { if (Set(ref address, value) && !applyingCustomer) InvalidateDiscountRequest(); } }
     public string Notes { get => notes; set { if (Set(ref notes, value) && !applyingCustomer) InvalidateDiscountRequest(); } }
-    public bool IsNewCustomer { get => isNewCustomer; private set => Set(ref isNewCustomer, value); }
+    public bool IsNewCustomer { get => isNewCustomer; private set { if (Set(ref isNewCustomer, value)) Raise(nameof(AreCustomerDetailsReadOnly)); } }
     public string QuotationNotice { get => quotationNotice; private set => Set(ref quotationNotice, value); }
     public void AttachCustomerClient(Features.Customers.CustomerClient client)
     {
@@ -99,6 +110,7 @@ public sealed partial class SalesCatalogViewModel
     {
         if (applyingCustomer) return;
         SelectedCustomer = null;
+        QueueQuotationEvaluation();
         invalidCustomerFields = new HashSet<string>();
         CustomerOperationError = string.Empty;
         QueueCustomerSearch(value);
@@ -151,6 +163,7 @@ public sealed partial class SalesCatalogViewModel
         CustomerName = customer.Name; Phone = customer.Phone; Address = customer.Address; Notes = customer.Notes;
         applyingCustomer = false;
         SelectedCustomer = customer;
+        QueueQuotationEvaluation();
         invalidCustomerFields = new HashSet<string>();
         Raise(nameof(CustomerNameError));
         Raise(nameof(PhoneError));
@@ -160,7 +173,7 @@ public sealed partial class SalesCatalogViewModel
     }
     public void BeginNewCustomer()
     {
-        previousCustomer = new(CustomerName, Phone, Address, Notes);
+        previousCustomer = SelectedCustomer ?? new(CustomerName, Phone, Address, Notes);
         IsNewCustomer = true;
         SelectedCustomer = null;
         CustomerName = Phone = Address = Notes = "";
@@ -227,6 +240,7 @@ public sealed partial class SalesCatalogViewModel
         if (!result.Succeeded)
         {
             SelectedCustomer = null;
+            QueueQuotationEvaluation();
             CustomerOperationError = Features.Customers.CustomerClient.ArabicMessage(result.Failure);
             return;
         }
@@ -269,9 +283,10 @@ public sealed partial class SalesCatalogViewModel
         }
         return true;
     }
-    public bool CanPreviewCustomer => CanSaveQuotation && !IsQuotationEmpty;
+    public bool CanPreviewCustomer => !IsLiveQuotation && CanSaveQuotation && !IsQuotationEmpty;
     private void RefreshQuotation()
     {
+        if (applyingDraft) return;
         InvalidateDiscountRequest();
         foreach (var property in new[] { nameof(QuotationLabel), nameof(IsQuotationEmpty), nameof(Subtotal), nameof(FinalTotal), nameof(ItemsError), nameof(CanPreviewCustomer) }) Raise(property);
         QuotationNotice = "";
@@ -290,17 +305,13 @@ public sealed partial class SalesCatalogViewModel
     public void EditLine(PreviewQuotationLine line)
     {
         if (!QuotationLines.Contains(line)) return;
+        if (catalogClient is not null) { LastCatalogOperation = EditSavedLineAsync(line); return; }
         CloseSelection(); editingLine = line;
         if (line.Furniture is { } f) Selection = new(f.Item, f.Sizes, f.Colors, f.Handles)
         { SelectedSize = f.SelectedSize, Quantity = f.Quantity, IsEditing = true };
         if (Selection is { } furniture) { furniture.SelectedColor = furniture.Colors.FirstOrDefault(o => o.Id == line.Furniture?.SelectedColor?.Id); furniture.SelectedHandle = furniture.Handles.FirstOrDefault(o => o.Id == line.Furniture?.SelectedHandle?.Id); }
         if (line.Product is { } p) ProductSelection = new(p.Item, p.Variants)
         { SelectedVariant = p.SelectedVariant, Quantity = p.Quantity, IsEditing = true };
-        if (catalogClient is not null) {
-            if (Selection is { } current) { current.WidthCm = line.Furniture!.WidthCm; current.HeightCm = line.Furniture.HeightCm; current.DepthCm = line.Furniture.DepthCm; current.Changed += (_, _) => QueueConfigurationCheck(); }
-            if (ProductSelection is { } product) product.Changed += (_, _) => QueueConfigurationCheck();
-            QueueConfigurationCheck();
-        }
         IsReviewingQuotation = false;
     }
     public void DuplicateLine(PreviewQuotationLine line) { if (QuotationLines.Contains(line)) QuotationLines.Insert(QuotationLines.IndexOf(line) + 1, line with { Id = Guid.NewGuid() }); }

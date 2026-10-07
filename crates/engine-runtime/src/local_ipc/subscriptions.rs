@@ -319,6 +319,7 @@ fn event_scope(event: &Event) -> Option<&ScopeRef> {
     match event {
         Event::ConfigurationChanged(snapshot) => Some(&snapshot.scope),
         Event::AuthorizationPolicyChanged(notice) => Some(&notice.scope),
+        Event::QuotationDraftChanged(notice) => Some(&notice.scope),
         Event::CustomerChanged(notice) => Some(&notice.scope),
         Event::MaterialChanged(notice) => Some(&notice.scope),
         Event::FurnitureChanged(notice) => Some(&notice.scope),

@@ -36,6 +36,7 @@ public sealed class ProductSelectionViewModel : ObservableObject
     public string ActionLabel => IsEditing ? "حفظ التعديلات" : "إضافة إلى عرض السعر";
     public string BackLabel => IsEditing ? "إلغاء" : "العودة إلى المنتجات";
     public SalesCatalogItem Item { get; }
+    public string PersistenceNotice => Item.Entry is null ? "الاختيار وعرض السعر مؤقتان ولا يتم حفظهما" : "الاختيار محلي. راجع عرض السعر ثم استخدم حفظ كمسودة لتأكيد الحفظ.";
     public IReadOnlyList<SalesProductVariant> Variants { get; }
     public bool HasVariants => Variants.Count > 0;
     public bool HasNoVariants => !HasVariants;

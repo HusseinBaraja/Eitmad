@@ -1,4 +1,5 @@
 use super::*;
+mod quotation;
 use eitmad_authorization::{MANAGER_RELATION, RECEPTIONIST_RELATION};
 use eitmad_contracts::{
     authorization::{RelationId, RelationshipSubject},

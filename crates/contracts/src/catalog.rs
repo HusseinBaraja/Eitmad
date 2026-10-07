@@ -10,6 +10,8 @@ use crate::{
 };
 
 pub const CAPABILITIES: &[&str] = &[
+    "eitmad.capability.quotation-draft.v1",
+    "eitmad.capability.quotation-evaluation.v1",
     "eitmad.capability.sales-catalog.v1",
     "eitmad.capability.catalog-revisions.v1",
     "eitmad.capability.pricing.v1",
@@ -108,6 +110,7 @@ pub const PERMISSIONS: &[&str] = &[
     "eitmad.permission.material.write.v1",
     "eitmad.permission.material-unit.manage.v1",
     "eitmad.permission.catalog.draft.write.v1",
+    "eitmad.permission.quotation.draft.read.v1",
     "eitmad.permission.quotation.draft.write.v1",
     "eitmad.permission.desktop-accounts.manage.v1",
 ];
@@ -161,6 +164,10 @@ pub const ERROR_CODES: &[&str] = &[
     "eitmad.error.update-distribution-unavailable.v1",
     "eitmad.error.admin-unavailable.v1",
     "eitmad.error.update-installer-failed.v1",
+    "eitmad.error.quotation-draft-not-found.v1",
+    "eitmad.error.quotation-draft-conflict.v1",
+    "eitmad.error.quotation-draft-invalid.v1",
+    "eitmad.error.quotation-draft-unavailable.v1",
     "eitmad.error.customer-not-found.v1",
     "eitmad.error.customer-revision-conflict.v1",
     "eitmad.error.customer-unavailable.v1",
@@ -243,6 +250,10 @@ pub const MESSAGE_IDS: &[&str] = &[
     "eitmad.message.update-distribution-unavailable.v1",
     "eitmad.message.admin-unavailable.v1",
     "eitmad.message.update-installer-failed.v1",
+    "eitmad.message.quotation-draft-not-found.v1",
+    "eitmad.message.quotation-draft-conflict.v1",
+    "eitmad.message.quotation-draft-invalid.v1",
+    "eitmad.message.quotation-draft-unavailable.v1",
     "eitmad.message.customer-not-found.v1",
     "eitmad.message.customer-revision-conflict.v1",
     "eitmad.message.customer-unavailable.v1",
@@ -294,6 +305,8 @@ pub const RELATIONS: &[&str] = &[
     "eitmad.relation.organization.owner.v1",
 ];
 pub const DOMAIN_SCHEMA_IDS: &[&str] = &[
+    "eitmad.schema.quotation-draft.v1",
+    "eitmad.schema.quotation-evaluation.v1",
     "eitmad.schema.catalog-public.v1",
     "eitmad.schema.catalog-revisions.v1",
     "eitmad.schema.pricing.v1",

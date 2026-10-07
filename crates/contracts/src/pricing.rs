@@ -125,7 +125,7 @@ pub struct PricePage {
     pub can_read_costs: bool,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PriceSelection {
     pub target: PriceTarget,
     pub price_revision: u64,

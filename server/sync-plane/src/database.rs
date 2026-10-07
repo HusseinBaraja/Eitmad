@@ -144,9 +144,7 @@ impl SyncDatabase {
                     .bind(pricing_checksum).execute(&mut *transaction).await.map_err(SyncDatabaseError::Unavailable)?;
             }
         }
-        apply_catalog_migration(&mut transaction).await?;
-        apply_synchronization_migration(&mut transaction).await?;
-        apply_image_reference_migration(&mut transaction).await?;
+        apply_domain_migrations(&mut transaction).await?;
         transaction
             .commit()
             .await
@@ -291,4 +289,37 @@ async fn apply_image_reference_migration(
         }
     }
     Ok(())
+}
+
+async fn apply_quotation_draft_migration(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+) -> Result<(), SyncDatabaseError> {
+    let sql = include_str!("../migrations/0011_quotation_drafts.sql");
+    let checksum = format!("{:x}", Sha256::digest(sql.as_bytes()));
+    let existing: Option<String> =
+        sqlx::query_scalar("SELECT checksum FROM public.eitmad_server_migrations WHERE version=11")
+            .fetch_optional(&mut **tx)
+            .await
+            .map_err(SyncDatabaseError::Unavailable)?;
+    match existing {
+        Some(value) if value != checksum => return Err(SyncDatabaseError::MigrationChecksum),
+        Some(_) => (),
+        None => {
+            sqlx::raw_sql(sql)
+                .execute(&mut **tx)
+                .await
+                .map_err(SyncDatabaseError::Unavailable)?;
+            sqlx::query("INSERT INTO public.eitmad_server_migrations(version,migration_id,checksum) VALUES(11,'server.quotation-drafts.v1',$1)").bind(checksum).execute(&mut **tx).await.map_err(SyncDatabaseError::Unavailable)?;
+        }
+    }
+    Ok(())
+}
+
+async fn apply_domain_migrations(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+) -> Result<(), SyncDatabaseError> {
+    apply_catalog_migration(tx).await?;
+    apply_synchronization_migration(tx).await?;
+    apply_image_reference_migration(tx).await?;
+    apply_quotation_draft_migration(tx).await
 }

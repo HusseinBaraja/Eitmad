@@ -16,13 +16,13 @@ public sealed class CustomerPreview(Customer customer, IReadOnlyList<CustomerHis
     public string Notes => string.IsNullOrWhiteSpace(Customer.Notes) ? "لا توجد ملاحظات" : Customer.Notes;
     public string SyncStateLabel => Customer.SyncState switch
     {
-        CustomerSyncState.Pending => "بانتظار المزامنة",
-        CustomerSyncState.Confirmed => "مؤكد من الخادم",
-        CustomerSyncState.Rejected => "رُفضت المزامنة",
-        CustomerSyncState.Conflicted => "تعارض يحتاج مراجعة",
+        SyncState.Pending => "بانتظار المزامنة",
+        SyncState.Confirmed => "مؤكد من الخادم",
+        SyncState.Rejected => "رُفضت المزامنة",
+        SyncState.Conflicted => "تعارض يحتاج مراجعة",
         _ => "حالة المزامنة غير متاحة",
     };
-    public bool CanEdit => Customer.SyncState is not (CustomerSyncState.Rejected or CustomerSyncState.Conflicted);
+    public bool CanEdit => Customer.SyncState is not (SyncState.Rejected or SyncState.Conflicted);
     public IReadOnlyList<CustomerHistoryItem> Quotations { get; } = quotations;
     public IReadOnlyList<CustomerHistoryItem> Orders { get; } = orders;
 

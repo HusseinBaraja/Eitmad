@@ -52,7 +52,6 @@ try {
   const swiftSchemaUnions = [...unions, ...collectUnions(schema, "status")];
   const emptyPayloads = collectEmptyPayloads(schema, unions);
   writeFileSync(csharpUnions, normalize(renderCsharpUnions(unions, emptyPayloads)));
-  writeFileSync(swiftUnions, normalize(renderSwiftUnions(swiftSchemaUnions, emptyPayloads)));
 
   const reducedSchemaPath = join(temporary, "contract-v1.reduced-schema.json");
   writeFileSync(reducedSchemaPath, JSON.stringify(reduceSchema(schema, unions)));
@@ -95,6 +94,11 @@ try {
     swift,
     swiftSchemaPath,
   ]);
+
+  writeFileSync(
+    swiftUnions,
+    normalize(renderSwiftUnions(swiftSchemaUnions, emptyPayloads, readFileSync(swift, "utf8"))),
+  );
 
   prependGeneratedHeader(csharp, "// Generated from Rust contracts. Do not edit.\n");
   prependGeneratedHeader(swift, "// Generated from Rust contracts. Do not edit.\n");

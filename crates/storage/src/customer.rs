@@ -241,24 +241,7 @@ impl AuthorityStore {
         scope: &ScopeRef,
         customer_id: CustomerId,
     ) -> Result<Option<Customer>, StorageError> {
-        self.read_transaction(|connection| {
-            let (scope_kind, scope_id) = scope_parts(scope);
-            connection
-                .query_row(
-                    "SELECT customer_id, name, phone, address, notes, status, revision,
-                            updated_at, COALESCE((SELECT state FROM customer_sync_exceptions e
-                              WHERE e.scope_kind = customers.scope_kind AND e.scope_id = customers.scope_id
-                                AND e.customer_id = customers.customer_id), sync_state)
-                     FROM customers
-                     WHERE scope_kind = ?1 AND scope_id = ?2 AND customer_id = ?3",
-                    params![scope_kind, scope_id, customer_id.value().to_string()],
-                    customer_row,
-                )
-                .optional()
-                .map_err(|_| StorageError)?
-                .map(|row| decode_customer(scope, row))
-                .transpose()
-        })
+        self.read_transaction(|connection| get_customer_on(connection, scope, customer_id))
     }
 
     /// Searches one exact scope using bounded normalized name and phone terms.
@@ -667,4 +650,28 @@ fn contains_pattern(value: &str) -> String {
         .replace('%', "\\%")
         .replace('_', "\\_");
     format!("%{escaped}%")
+}
+
+/// Reads a customer in the caller's consistent read transaction.
+pub(crate) fn get_customer_on(
+    connection: &rusqlite::Connection,
+    scope: &ScopeRef,
+    customer_id: CustomerId,
+) -> Result<Option<Customer>, StorageError> {
+    let (scope_kind, scope_id) = scope_parts(scope);
+    connection
+        .query_row(
+            "SELECT customer_id, name, phone, address, notes, status, revision,
+                updated_at, COALESCE((SELECT state FROM customer_sync_exceptions e
+                  WHERE e.scope_kind = customers.scope_kind AND e.scope_id = customers.scope_id
+                    AND e.customer_id = customers.customer_id), sync_state)
+         FROM customers
+         WHERE scope_kind = ?1 AND scope_id = ?2 AND customer_id = ?3",
+            params![scope_kind, scope_id, customer_id.value().to_string()],
+            customer_row,
+        )
+        .optional()
+        .map_err(|_| StorageError)?
+        .map(|row| decode_customer(scope, row))
+        .transpose()
 }

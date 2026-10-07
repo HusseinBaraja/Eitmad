@@ -252,7 +252,22 @@ fn import_survives_source_removal_upgrade_restart_and_exact_retry_without_path_d
     let connection = rusqlite::Connection::open(store.path()).unwrap();
     connection
         .execute_batch(
-            "DROP TABLE catalog_sync_exceptions;
+            "DROP TABLE quotation_draft_outbox;
+        DROP TABLE quotation_drafts;
+        DELETE FROM schema_migrations WHERE version=24;
+        ALTER TABLE sync_scopes RENAME TO sync_scopes_v25;
+        CREATE TABLE sync_scopes (
+            scope_kind TEXT NOT NULL, scope_id TEXT NOT NULL,
+            application_mode TEXT NOT NULL CHECK (application_mode IN ('local-first','server-authoritative')),
+            state_version INTEGER NOT NULL, revision INTEGER NOT NULL, state_json BLOB NOT NULL,
+            PRIMARY KEY (scope_kind, scope_id)
+        );
+        INSERT INTO sync_scopes(scope_kind,scope_id,application_mode,state_version,revision,state_json)
+            SELECT scope_kind,scope_id,application_mode,state_version,revision,state_json
+            FROM sync_scopes_v25 GROUP BY scope_kind,scope_id;
+        DROP TABLE sync_scopes_v25;
+        DELETE FROM schema_migrations WHERE version=25;
+        DROP TABLE catalog_sync_exceptions;
         DELETE FROM schema_migrations WHERE version=23;
         DROP TABLE catalog_sync_clients;
         DROP TABLE catalog_sales_records;

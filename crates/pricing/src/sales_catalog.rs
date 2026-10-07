@@ -118,69 +118,98 @@ impl PricingService {
             .into_iter()
             .find(|e| e.price.target == selection.target)
             .ok_or(PricingError::Reference)?;
-        if entry.price.revision != selection.price_revision {
-            return Err(PricingError::Conflict {
+        let result = validate_configuration(entry, input).map_err(|(_, error)| error)?;
+        self.require(actor, CATALOG_READ_PERMISSION)?;
+        Ok(result)
+    }
+}
+
+pub(crate) fn validate_configuration(
+    entry: eitmad_contracts::catalog_revision::CatalogEntry,
+    input: &CheckSalesConfiguration,
+) -> Result<SalesConfiguration, (eitmad_contracts::quotation::QuotationField, PricingError)> {
+    use eitmad_contracts::quotation::QuotationField as Field;
+    let selection = &input.selection;
+    if entry.price.target != selection.target || entry.price.currency != "YER" {
+        return Err((Field::Target, PricingError::Reference));
+    }
+    if entry.price.revision != selection.price_revision {
+        return Err((
+            Field::PriceRevision,
+            PricingError::Conflict {
                 expected: Some(selection.price_revision),
                 actual: Some(entry.price.revision),
-            });
-        }
-        if selection.quantity == 0 || selection.quantity > 1_000_000 {
-            return Err(PricingError::Invalid);
-        }
-        match &selection.target {
-            PriceTarget::Product(_)
-                if input.dimensions.is_some()
-                    || selection.color_id.is_some()
-                    || selection.handle_id.is_some() =>
-            {
-                return Err(PricingError::Invalid);
-            }
-            PriceTarget::Product(_) => {}
-            PriceTarget::Furniture(_) => {
-                eitmad_furniture::validate_selection_dimensions(
-                    input.dimensions.as_ref().ok_or(PricingError::Invalid)?,
-                    entry.dimensions.as_ref().ok_or(PricingError::Reference)?,
-                    entry.customization.as_ref(),
-                )
-                .map_err(|_| PricingError::Invalid)?;
-                for (selected, options) in [
-                    (selection.color_id, &entry.colors),
-                    (selection.handle_id, &entry.handles),
-                ] {
-                    if selected.map_or(!options.is_empty(), |id| {
-                        !options.iter().any(|o| o.id == id && !o.archived)
-                    }) {
-                        return Err(PricingError::Reference);
-                    }
+            },
+        ));
+    }
+    if selection.quantity == 0 || selection.quantity > 1_000_000 {
+        return Err((Field::Quantity, PricingError::Invalid));
+    }
+    match &selection.target {
+        PriceTarget::Product(_) => {
+            for (present, field) in [
+                (input.dimensions.is_some(), Field::Dimensions),
+                (selection.color_id.is_some(), Field::ColorId),
+                (selection.handle_id.is_some(), Field::HandleId),
+            ] {
+                if present {
+                    return Err((field, PricingError::Invalid));
                 }
             }
         }
-        let color = adjustment(&entry.price.colors, selection.color_id)?;
-        let handle = adjustment(&entry.price.handles, selection.handle_id)?;
-        let unit = entry
-            .price
-            .selling_price_yer
-            .checked_add(color)
-            .and_then(|v| v.checked_add(handle))
-            .ok_or(PricingError::Invalid)?;
-        if unit <= 0 {
-            return Err(PricingError::Invalid);
+        PriceTarget::Furniture(_) => {
+            eitmad_furniture::validate_selection_dimensions(
+                input
+                    .dimensions
+                    .as_ref()
+                    .ok_or((Field::Dimensions, PricingError::Invalid))?,
+                entry
+                    .dimensions
+                    .as_ref()
+                    .ok_or((Field::Dimensions, PricingError::Reference))?,
+                entry.customization.as_ref(),
+            )
+            .map_err(|_| (Field::Dimensions, PricingError::Invalid))?;
+            for (selected, options, field) in [
+                (selection.color_id, &entry.colors, Field::ColorId),
+                (selection.handle_id, &entry.handles, Field::HandleId),
+            ] {
+                if selected.map_or(!options.is_empty(), |id| {
+                    !options.iter().any(|o| o.id == id && !o.archived)
+                }) {
+                    return Err((field, PricingError::Reference));
+                }
+            }
         }
-        let total = unit
-            .checked_mul(i64::from(selection.quantity))
-            .ok_or(PricingError::Invalid)?;
-        let price = SellingPrice {
-            snapshot: entry.price.clone(),
-            unit_price_yer: unit,
-            total_yer: total,
-        };
-        self.require(actor, CATALOG_READ_PERMISSION)?;
-        Ok(SalesConfiguration {
-            entry,
-            dimensions: input.dimensions.clone(),
-            price,
-            additions_yer: color.checked_add(handle).ok_or(PricingError::Invalid)?,
-            server_available: false,
-        })
     }
+    let color =
+        adjustment(&entry.price.colors, selection.color_id).map_err(|e| (Field::ColorId, e))?;
+    let handle =
+        adjustment(&entry.price.handles, selection.handle_id).map_err(|e| (Field::HandleId, e))?;
+    if color < 0 || handle < 0 || entry.price.selling_price_yer <= 0 {
+        return Err((Field::Target, PricingError::Invalid));
+    }
+    let unit = entry
+        .price
+        .selling_price_yer
+        .checked_add(color)
+        .and_then(|v| v.checked_add(handle))
+        .ok_or((Field::Total, PricingError::Invalid))?;
+    let total = unit
+        .checked_mul(i64::from(selection.quantity))
+        .ok_or((Field::Total, PricingError::Invalid))?;
+    let price = SellingPrice {
+        snapshot: entry.price.clone(),
+        unit_price_yer: unit,
+        total_yer: total,
+    };
+    Ok(SalesConfiguration {
+        entry,
+        dimensions: input.dimensions.clone(),
+        price,
+        additions_yer: color
+            .checked_add(handle)
+            .ok_or((Field::Total, PricingError::Invalid))?,
+        server_available: false,
+    })
 }

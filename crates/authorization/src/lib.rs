@@ -61,6 +61,7 @@ pub const MATERIAL_READ_PERMISSION: &str = "eitmad.permission.material.read.v1";
 pub const MATERIAL_WRITE_PERMISSION: &str = "eitmad.permission.material.write.v1";
 pub const MATERIAL_UNIT_MANAGE_PERMISSION: &str = "eitmad.permission.material-unit.manage.v1";
 pub const CATALOG_DRAFT_WRITE_PERMISSION: &str = "eitmad.permission.catalog.draft.write.v1";
+pub const QUOTATION_DRAFT_READ_PERMISSION: &str = "eitmad.permission.quotation.draft.read.v1";
 pub const QUOTATION_DRAFT_WRITE_PERMISSION: &str = "eitmad.permission.quotation.draft.write.v1";
 pub const DESKTOP_ACCOUNTS_MANAGE_PERMISSION: &str = "eitmad.permission.desktop-accounts.manage.v1";
 
@@ -92,6 +93,7 @@ const POLICY_PERMISSIONS: &[&str] = &[
     MATERIAL_WRITE_PERMISSION,
     MATERIAL_UNIT_MANAGE_PERMISSION,
     CATALOG_DRAFT_WRITE_PERMISSION,
+    QUOTATION_DRAFT_READ_PERMISSION,
     QUOTATION_DRAFT_WRITE_PERMISSION,
     DESKTOP_ACCOUNTS_MANAGE_PERMISSION,
 ];
@@ -228,7 +230,8 @@ impl AuthorizationService {
                     CUSTOMER_READ_PERMISSION | CUSTOMER_WRITE_PERMISSION => {
                         (manager || receptionist) && branch_scope
                     }
-                    QUOTATION_DRAFT_WRITE_PERMISSION => receptionist && organization_scope,
+                    QUOTATION_DRAFT_READ_PERMISSION => (manager || receptionist) && branch_scope,
+                    QUOTATION_DRAFT_WRITE_PERMISSION => receptionist && branch_scope,
                     _ => false,
                 } {
                     PermissionDecision::Granted
@@ -773,10 +776,9 @@ mod tests {
             service.authorize(&authorization(2, 10), QUOTATION_DRAFT_WRITE_PERMISSION),
             Err(AuthorizationError::Denied)
         );
-        assert!(
-            service
-                .authorize(&authorization(3, 10), QUOTATION_DRAFT_WRITE_PERMISSION)
-                .is_ok()
+        assert_eq!(
+            service.authorize(&authorization(3, 10), QUOTATION_DRAFT_WRITE_PERMISSION),
+            Err(AuthorizationError::Denied)
         );
         assert_eq!(
             service.authorize(&authorization(3, 10), CATALOG_DRAFT_WRITE_PERMISSION),

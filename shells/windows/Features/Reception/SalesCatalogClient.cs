@@ -44,6 +44,11 @@ public sealed class SalesCatalogClient : IAsyncDisposable
     /// <summary>Asks Rust to validate options, dimensions, quantity, and the expected selling-price revision.</summary>
     public Task<PricingResult<SalesConfiguration>> CheckAsync(CheckSalesConfiguration input, CancellationToken token) =>
         QueryAsync(Query.ForSalesCatalogCheck(input), r => r.AsSalesConfiguration(), token);
+    /// <summary>Sends quotation intent only; Rust derives descriptions, amounts, and approval requirements.</summary>
+    public Task<PricingResult<QuotationEvaluation>> EvaluateAsync(EvaluateQuotation input, CancellationToken token) =>
+        engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityQuotationEvaluationV1)
+            ? QueryAsync(Query.ForQuotationEvaluate(input), r => r.AsQuotationEvaluation(), token)
+            : Task.FromResult(new PricingResult<QuotationEvaluation>(null, PricingFailure.Unconfirmed));
     /// <summary>Requires the negotiated catalog capability and maps contract failures without exposing engine diagnostics.</summary>
     private async Task<PricingResult<T>> QueryAsync<T>(Query query, Func<QueryResult, T?> read, CancellationToken token) where T : class
     {
