@@ -11,7 +11,7 @@ public sealed partial class QuotationsViewModel
     private string? decisionIntent;
     public string ApprovalReason { get => approvalReason; set => Set(ref approvalReason, value); }
     public string DecisionNotice { get => decisionNotice; private set => Set(ref decisionNotice, value); }
-    public bool CanDecideApproval => !isApprovalBusy && !IsReceptionist && SelectedQuotation?.Approval?.State == DiscountApprovalState.Pending;
+    public bool CanDecideApproval => !isApprovalBusy && !IsReceptionist && SelectedQuotation?.HasPendingDiscountApproval == true;
     public Task LastApprovalDecision { get; private set; } = Task.CompletedTask;
 
     private async Task DecideApprovalAsync(DiscountDecision decision)

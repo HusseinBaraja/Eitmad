@@ -109,7 +109,7 @@ impl ProductDispatcher {
             .map_err(|()| approval_error(ApprovalError::Unavailable, context))?;
         Ok(CommandResult::DiscountApproval(Box::new(value)))
     }
-    fn require_approval(
+    pub(super) fn require_approval(
         &self,
         context: &DispatchContext,
         permission: &str,

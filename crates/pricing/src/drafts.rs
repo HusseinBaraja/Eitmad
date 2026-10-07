@@ -147,6 +147,8 @@ impl QuotationDraftService {
             if actual != expected {
                 return Err(QuotationDraftError::Conflict { expected, actual });
             }
+            if current.as_ref().is_some_and(|d| d.snapshot.cancelled) { return Err(QuotationDraftError::UnresolvedConflict); }
+            if tx.confirmed_quotation(&context.authorization.scope, id)?.is_some_and(|q| !matches!(q.state, eitmad_contracts::quotation_lifecycle::QuotationState::Draft | eitmad_contracts::quotation_lifecycle::QuotationState::PendingApproval)) { return Err(QuotationDraftError::UnresolvedConflict); }
             if current.is_some_and(|d| {
                 matches!(
                     d.sync_state,
@@ -173,8 +175,11 @@ impl QuotationDraftService {
                 .filter(|v| i64::try_from(*v).is_ok())
                 .ok_or(QuotationDraftError::Unavailable)?;
             let draft = QuotationDraft {
+                permitted_actions: vec![],
+
                 scope: context.authorization.scope.clone(),
                 snapshot: QuotationDraftSnapshot {
+                    cancelled: false,
                     id,
                     revision,
                     intent: intent.clone(),
@@ -187,9 +192,23 @@ impl QuotationDraftService {
             Self::commit_evaluated(tx, context, operation, expected, hash, &draft)?;
             Ok(draft)
         });
+        self.audit_failure(context, operation, id, &result)?;
+        let mut result = result;
+        if let Ok(draft) = &mut result {
+            self.draft_actions(&context.authorization, draft)?;
+        }
+        result
+    }
+    fn audit_failure(
+        &self,
+        context: &MutationContext,
+        operation: &str,
+        id: QuotationDraftId,
+        result: &Result<QuotationDraft, QuotationDraftError>,
+    ) -> Result<(), QuotationDraftError> {
         if let Err(e) = &result {
             let (outcome, code) = match e {
-                QuotationDraftError::Unavailable => return result,
+                QuotationDraftError::Unavailable => return Ok(()),
                 QuotationDraftError::Denied => {
                     (AuditOutcome::Denied, "eitmad.error.authorization-denied.v1")
                 }
@@ -209,7 +228,156 @@ impl QuotationDraftService {
                 &audit(context, operation, Some(id)).with_outcome(outcome, Some(code.into())),
             )?;
         }
+        Ok(())
+    }
+    /// Cancels a local draft by retaining a terminal revision, audit, and sync work.
+    /// # Errors
+    /// Rejects issued, conflicted, cancelled, or competing draft revisions.
+    pub fn cancel(
+        &self,
+        context: &MutationContext,
+        command: &eitmad_contracts::quotation_draft::CancelQuotationDraft,
+    ) -> Result<QuotationDraft, QuotationDraftError> {
+        if let Err(e) = self.require(&context.authorization, QUOTATION_DRAFT_WRITE_PERMISSION) {
+            self.audit_failure(
+                context,
+                "eitmad.quotation-draft.cancel.v1",
+                command.draft_id,
+                &Err(e.clone()),
+            )?;
+            return Err(e);
+        }
+        let hash: [u8; 32] = Sha256::digest(
+            serde_json::to_vec(&(
+                "eitmad.quotation-draft.cancel.v1",
+                context.authorization.identity.principal_id,
+                command,
+            ))
+            .map_err(|_| QuotationDraftError::Unavailable)?,
+        )
+        .into();
+        let result = self.store.transact_pricing(true, |tx| {
+            self.require(&context.authorization, QUOTATION_DRAFT_WRITE_PERMISSION)?;
+            if let Some((saved,response)) = tx.quotation_draft_replay(&context.authorization.scope,context.idempotency_key)? {
+                return if saved == hash { serde_json::from_slice(&response).map_err(|_| QuotationDraftError::Unavailable) } else { Err(QuotationDraftError::IdempotencyMismatch) };
+            }
+            let mut value = tx.quotation_draft(&context.authorization.scope,command.draft_id)?.ok_or(QuotationDraftError::NotFound)?;
+            if value.snapshot.revision != command.expected_revision || value.snapshot.cancelled || matches!(value.sync_state, QuotationDraftSyncState::Conflicted | QuotationDraftSyncState::Rejected) { return Err(QuotationDraftError::UnresolvedConflict); }
+            if tx.confirmed_quotation(&context.authorization.scope,command.draft_id)?.is_some_and(|q| q.number.is_some() || !matches!(q.state, eitmad_contracts::quotation_lifecycle::QuotationState::Draft | eitmad_contracts::quotation_lifecycle::QuotationState::PendingApproval)) { return Err(QuotationDraftError::UnresolvedConflict); }
+            value.snapshot.revision = value.snapshot.revision.checked_add(1).ok_or(QuotationDraftError::Unavailable)?;
+            value.snapshot.cancelled = true; value.updated_at = context.occurred_at; value.sync_state = QuotationDraftSyncState::Pending;
+            value.permitted_actions.clear();
+            Self::commit_evaluated(tx,context,"eitmad.quotation-draft.cancel.v1",Some(command.expected_revision),hash,&value)?;
+            Ok(value)
+        });
+        self.audit_failure(
+            context,
+            "eitmad.quotation-draft.cancel.v1",
+            command.draft_id,
+            &result,
+        )?;
         result
+    }
+    /// Persists an authenticated server projection without granting cached mutation rights.
+    /// # Errors
+    /// Rolls back projection and audit together on unavailable storage.
+    pub fn cache_quotation(
+        &self,
+        actor: &AuthorizationContext,
+        value: &eitmad_contracts::quotation_lifecycle::QuotationRecord,
+        correlation: CorrelationId,
+    ) -> Result<(), QuotationDraftError> {
+        self.authorization
+            .authorize(actor, eitmad_authorization::QUOTATION_READ_PERMISSION)
+            .map_err(|_| QuotationDraftError::Denied)?;
+        let context = MutationContext {
+            authorization: actor.clone(),
+            correlation_id: correlation,
+            causation_id: None,
+            idempotency_key: eitmad_contracts::transport::IdempotencyKey::new(Uuid::new_v4()),
+            occurred_at: value.changed_at,
+        };
+        self.store
+            .transact_pricing(true, |tx| {
+                tx.cache_quotation(
+                    &actor.scope,
+                    value,
+                    &audit(
+                        &context,
+                        "eitmad.quotation.cache.v1",
+                        Some(value.quotation.id),
+                    )
+                    .with_outcome(AuditOutcome::Succeeded, None),
+                )
+            })
+            .map_err(QuotationDraftError::from)?;
+        if actor.scope.kind.as_str() == "branch"
+            && value.scope == actor.scope
+            && value.document_revision > 1
+            && matches!(
+                value.state,
+                eitmad_contracts::quotation_lifecycle::QuotationState::Draft
+                    | eitmad_contracts::quotation_lifecycle::QuotationState::PendingApproval
+            )
+        {
+            let change = ChangeRecord {
+                change_id: ChangeId::new(Uuid::new_v4()),
+                record_id: RecordId::new(value.quotation.id.value()),
+                scope: actor.scope.clone(),
+                operation: ChangeOperation::Upsert,
+                base_revision: None,
+                revision: value.quotation.revision,
+                changed_at: value.changed_at,
+                idempotency_key: context.idempotency_key,
+                merge: None,
+                payload: Some(EncodedDomainPayload {
+                    schema_id: SchemaId::parse(QUOTATION_DRAFT_SCHEMA)
+                        .map_err(|_| QuotationDraftError::Unavailable)?,
+                    schema_version: 1,
+                    base64: STANDARD.encode(
+                        serde_json::to_vec(&value.quotation)
+                            .map_err(|_| QuotationDraftError::Unavailable)?,
+                    ),
+                }),
+            };
+            self.project_confirmed(actor, &change, correlation)?;
+        }
+        Ok(())
+    }
+    fn draft_actions(
+        &self,
+        actor: &AuthorizationContext,
+        draft: &mut QuotationDraft,
+    ) -> Result<(), QuotationDraftError> {
+        use eitmad_contracts::quotation_lifecycle::QuotationPermittedAction as A;
+        draft.permitted_actions.clear();
+        let record = self.store.transact_pricing(false, |tx| {
+            tx.confirmed_quotation(&actor.scope, draft.snapshot.id)
+        })?;
+        if record.as_ref().is_some_and(|q| {
+            !matches!(
+                q.state,
+                eitmad_contracts::quotation_lifecycle::QuotationState::Draft
+                    | eitmad_contracts::quotation_lifecycle::QuotationState::PendingApproval
+            )
+        }) {
+            return Ok(());
+        }
+        if !draft.snapshot.cancelled
+            && !matches!(
+                draft.sync_state,
+                QuotationDraftSyncState::Conflicted | QuotationDraftSyncState::Rejected
+            )
+            && self
+                .require(actor, QUOTATION_DRAFT_WRITE_PERMISSION)
+                .is_ok()
+        {
+            draft.permitted_actions.push(A::Edit);
+            if record.is_none_or(|q| q.number.is_none()) {
+                draft.permitted_actions.push(A::Cancel);
+            }
+        }
+        Ok(())
     }
     fn commit_evaluated(
         tx: &eitmad_storage::PricingTransaction<'_>,
@@ -267,9 +435,12 @@ impl QuotationDraftService {
         query: &GetQuotationDraft,
     ) -> Result<QuotationDraft, QuotationDraftError> {
         self.require(actor, QUOTATION_DRAFT_READ_PERMISSION)?;
-        self.store
+        let mut value = self
+            .store
             .get_quotation_draft(&actor.scope, query.draft_id)?
-            .ok_or(QuotationDraftError::NotFound)
+            .ok_or(QuotationDraftError::NotFound)?;
+        self.draft_actions(actor, &mut value)?;
+        Ok(value)
     }
     /// Lists only the exact authorized branch.
     /// # Errors
@@ -283,9 +454,13 @@ impl QuotationDraftService {
         if !(1..=100).contains(&query.limit) {
             return Err(QuotationDraftError::Invalid);
         }
-        self.store
-            .list_quotation_drafts(&actor.scope, query.after, query.limit)
-            .map_err(Into::into)
+        let mut page = self
+            .store
+            .list_quotation_drafts(&actor.scope, query.after, query.limit)?;
+        for value in &mut page.items {
+            self.draft_actions(actor, value)?;
+        }
+        Ok(page)
     }
     /// Loads a bounded authorized publication batch.
     /// # Errors
@@ -333,6 +508,8 @@ impl QuotationDraftService {
             return Err(QuotationDraftError::Unavailable);
         }
         let draft = QuotationDraft {
+            permitted_actions: vec![],
+
             scope: actor.scope.clone(),
             snapshot,
             updated_at: change.changed_at,

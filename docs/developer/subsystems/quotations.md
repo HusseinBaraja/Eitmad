@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Quotation capability maintainers"
-last_verified: "2026-10-07"
+last_verified: "2026-10-08"
 review_triggers:
   - "Quotation contracts, approval rules, or Windows quotation UI behavior change"
 keywords:
@@ -21,9 +21,9 @@ keywords:
 
 # Extend the quotation review flow safely
 
-The Windows **عروض الأسعار** pages show authorized branch drafts for both roles. Receptionists create and reopen mixed Product/Furniture drafts through Rust; Managers review the same synchronized draft from their own client. Receptionists request discount approval from the server. Managers approve or reject from their own client. Issuance, printing, official numbering, and conversion remain unavailable in live sessions.
+The Windows **عروض الأسعار** pages show authorized branch drafts for both roles. Receptionists create and reopen mixed Product/Furniture drafts through Rust; Managers review the same synchronized draft from their own client. Receptionists request discount approval from the server. Managers approve or reject from their own client. Receptionists issue eligible quotations. Managers change draft validity, create revisions of issued or expired quotations, and cancel issued quotations. Both roles can print authorized confirmed snapshots. Acceptance and order conversion remain outside this implementation.
 
-Production lifecycle, `5.00%` threshold, approval fingerprint, price snapshot, validity, numbering, permission, and offline behavior is accepted in the [Manager and Receptionist workflow specification](manager-receptionist-workflows.md). Draft persistence and discount approval implement the current part of that lifecycle. Isolated fixture `Active`, conversion, and `QT-PREVIEW` behavior does not override the accepted specification.
+Production lifecycle, `5.00%` threshold, approval fingerprint, price snapshot, validity, numbering, permission, and offline behavior is accepted in the [Manager and Receptionist workflow specification](manager-receptionist-workflows.md). Draft persistence, discount approval, issuance, expiry, revision, and cancellation implement the current part of that lifecycle. Isolated fixture `Active`, conversion, and `QT-PREVIEW` behavior does not override the accepted specification.
 
 ## Ownership and current boundary
 
@@ -119,14 +119,30 @@ cargo test -p eitmad-engine-runtime discount_decision_direct
 cargo test -p eitmad-server-connection --test direct_route discount_approval_cross_client_live_replay_invalidation_and_rejection -- --ignored
 ```
 
-The live test uses distinct authenticated principals and separate clients, real TLS, and a disposable PostgreSQL role without superuser or `BYPASSRLS`. It checks live request and decision delivery, approval, rejection, exact retry, duplicate and stale decisions, commercial invalidation, self-decision, Receptionist denial, immutable history, audit, and tenant isolation. `DiscountApprovalTests` verifies shell confirmation, subscription return, retry identity, and session fencing. `DiscountApprovalRenderedTests` checks the changed native controls at the three baseline sizes.
+The live test uses distinct authenticated principals and separate clients, real TLS, and a disposable PostgreSQL role without superuser or `BYPASSRLS`. Lifecycle checks also cover exact issuance retry, competing issue and cancellation/revision requests, frozen snapshots, required approval, expiry on both clients, and stale catalog prices. It checks live request and decision delivery, approval, rejection, exact retry, duplicate and stale decisions, commercial invalidation, self-decision, Receptionist denial, immutable history, audit, and tenant isolation. `DiscountApprovalTests` verifies shell confirmation, subscription return, retry identity, and session fencing. `DiscountApprovalRenderedTests` checks the changed native controls at the three baseline sizes.
+
+## Server-confirmed lifecycle
+
+`crates/contracts/src/quotation_lifecycle.rs` owns the generated lifecycle contract. Protocol minor 21 negotiates `eitmad.capability.quotation-lifecycle.v1` and `eitmad.schema.quotation-lifecycle.v1`. Rust exposes typed issue, validity, revision, and cancellation commands, a scoped quotation query, and quotation-change subscriptions. Each reply supplies the actions permitted for the authenticated actor. WPF renders these actions and does not derive authorization from role flags.
+
+`server/sync-plane/src/quotation_lifecycle.rs` serializes transitions with draft, approval, and catalog writes. Issuance checks aggregate and draft revisions, current public catalog eligibility, active customer identity, and the exact approval fingerprint when required. Approval includes the applied validity and issue-day expiry; a request from an earlier calendar date must be requested and approved again. Contact-only changes retain the grant, and issuance freezes its original approved commercial revision. Manager-created revisions invalidate the previous grant.
+
+The server assigns the final `QT` number during first issuance. Its organization/year counter commits a reservation independently, so a failed issue can leave a gap. A number is retained through revision, expiry, and cancellation. Immutable PostgreSQL history, command receipts, redacted audit, and branch/organization events commit together. A retry with the same actor, key, and intent returns the retained result. A changed intent or competing revision fails without replacing a commercial record.
+
+The applied validity starts at 30 calendar days. Manager per-quotation changes require server confirmation and affect only open drafts. Extending an issued or expired quotation creates an editable document revision under the same official number and requires issuance again. Organization default-policy editing is not implemented by these commands. Server time controls expiry at the end of the resulting `Asia/Aden` calendar date. Reads, transitions, and active Rust subscriptions commit due expiry consistently. An inactive server without reads or subscriptions materializes due expiry on the next authorized access.
+
+Receptionists cancel unnumbered drafts through an audited local-first terminal revision; synchronization preserves the commercial record. Managers cancel issued quotations through the server with a required reason. Cancelled records remain readable and cannot be edited or reissued. There is no delete operation.
+
+The engine retains confirmed scoped history in SQLite. An unavailable server returns a cache page with `server_available = false` and no server-authoritative actions. Local Rust can still permit branch draft edits and cancellation. Confirmed immutable issued snapshots can still be printed. The shell labels the cache as offline. A server denial cannot fall back to cached content. Confirmed Manager revisions project into Receptionist drafts through the existing conflict-preserving projection. Unknown command responses retain the original intent and key; session changes fence late replies.
+
+The Windows role lists use **صادر**, **منتهي**, and **ملغي**, display the official number in an LTR boundary, and show the applied validity and document revision. The Receptionist editor uses **إصدار عرض السعر** only when Rust permits issue. Printed customer documents use the retained customer, line, price, discount, and validity snapshot. Live conversion remains unavailable.
 
 ## Verification
 
 Run the focused shell proof:
 
 ```powershell
-dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --configuration Release --nologo -m:1 --filter "FullyQualifiedName~DiscountApproval|FullyQualifiedName~QuotationDraft|FullyQualifiedName~QuotationEvaluation|FullyQualifiedName~SalesCatalogAuthority"
+dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --configuration Release --nologo -m:1 --filter "FullyQualifiedName~QuotationLifecycle|FullyQualifiedName~DiscountApproval|FullyQualifiedName~QuotationDraft|FullyQualifiedName~QuotationEvaluation|FullyQualifiedName~SalesCatalogAuthority"
 ```
 
 `QuotationDraftTests` covers mixed intent, immutable reopen, manager subscription refresh, typed price failures, explicit review, lost-reply idempotency, unsaved edits, revision conflict, and session fencing. `QuotationDraftRenderedTests` exercises the existing save and edit controls, failed save, reopened Furniture configuration, Manager list/detail, focus, and Arabic accessible names. Baseline cases request 1920 × 1080 fullscreen, 1338 × 753, and 720 × 560; report actual dimensions and scaling when the display cannot provide the exact baseline. Set `EITMAD_UI_CAPTURE_DIR` for synthetic captures. Rendering uses typed synthetic replies; real durability and server transfer require the Rust and adapter proofs below.
@@ -136,6 +152,8 @@ dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --configuratio
 ```powershell
 dotnet run --project platform-adapters/windows/tests/Eitmad.Platform.Windows.Tests.csproj --configuration Release -- --engine <absolute-path-to-target/debug/eitmad-engine-cli.exe>
 ```
+
+`QuotationLifecycleTests` covers Rust-supplied actions, unknown-response retry, and session fencing. `QuotationLifecycleRenderedTests` checks both role action screens, focus, and Arabic accessible names at the baseline sizes.
 
 Standalone fixture tests still cover print preview and conversion presentation. Fixtures cannot request or decide approval. Those tests do not establish production authority.
 

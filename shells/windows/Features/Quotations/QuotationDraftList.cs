@@ -19,6 +19,7 @@ public sealed partial class QuotationsViewModel
         UsePreviewQuotations(new ObservableCollection<QuotationListItem>());
         client.Changed += DraftsChanged;
         client.ApprovalChanged += DraftsChanged;
+        client.LifecycleChanged += DraftsChanged;
         client.Invalidated += DraftsInvalidated;
         Raise(nameof(ListSubtitle)); Raise(nameof(EmptyDescription));
     }
@@ -34,7 +35,7 @@ public sealed partial class QuotationsViewModel
     public void ClearDrafts()
     {
         if (draftClient is null) return;
-        ++approvalSession; decisionIntent = null; decisionKey = Guid.Empty; ApprovalReason = ""; DecisionNotice = ""; isApprovalBusy = false; Raise(nameof(CanDecideApproval));
+        ClearLifecycle(); ++approvalSession; decisionIntent = null; decisionKey = Guid.Empty; ApprovalReason = ""; DecisionNotice = ""; isApprovalBusy = false; Raise(nameof(CanDecideApproval));
         draftsActive = false; ++loadVersion; draftLoad?.Cancel();
         CloseQuotation(); quotations.Clear(); RefreshVisibleQuotations(); ListState = "المسودات غير متاحة.";
     }
@@ -46,7 +47,7 @@ public sealed partial class QuotationsViewModel
         ListState = "جارٍ تحميل المسودات...";
         try
         {
-            var rows = new List<QuotationListItem>(); Guid? after = null;
+            var rows = new List<QuotationListItem>(); Guid? after = null; var serverAvailable = true;
             do
             {
                 var result = await draftClient!.ListAsync(after, token);
@@ -75,25 +76,43 @@ public sealed partial class QuotationsViewModel
                     if (index >= 0) rows[index] = row; else rows.Add(row);
                 }
             }
+            if (draftClient.SupportsLifecycle) {
+                Guid? cursor = null;
+                do {
+                    var result = await draftClient.QuotationsAsync(cursor, token);
+                    if (token.IsCancellationRequested || version != loadVersion || !draftsActive) return;
+                    if (!result.Succeeded) { CloseQuotation(); quotations.Clear(); RefreshVisibleQuotations(); ListState = QuotationDraftClient.LifecycleMessage(result.Failure); return; }
+                    serverAvailable &= result.Value!.ServerAvailable;
+                    foreach (var record in result.Value.Items) {
+                        var index = rows.FindIndex(row => row.Id == record.Quotation.Id);
+                        var draft = new QuotationDraft { Scope = record.Scope, Snapshot = record.Quotation, UpdatedAt = record.ChangedAt, SyncState = SyncState.Confirmed, PermittedActions = record.PermittedActions };
+                        // Keep pending local draft edits visible until server confirmation.
+                        if (index >= 0 && record.State is Eitmad.Contracts.QuotationState.Draft or Eitmad.Contracts.QuotationState.PendingApproval && rows[index].Draft!.Snapshot.Revision > record.Quotation.Revision) continue;
+                        var row = Project(draft, rows.FirstOrDefault(r => r.Id == record.Quotation.Id)?.Approval, record);
+                        if (index >= 0) rows[index] = row; else rows.Add(row);
+                    }
+                    cursor = result.Value.Next;
+                } while (cursor is not null);
+            }
             var selected = SelectedQuotation?.Id;
             quotations.Clear(); foreach (var row in rows) quotations.Add(row);
             if (selected is { } id) SelectedQuotation = quotations.FirstOrDefault(row => row.Id == id);
             RefreshVisibleQuotations();
-            ListState = "المسودات وطلبات الخصم — الإصدار والطباعة والتحويل غير متاحة بعد.";
+            ListState = serverAvailable ? "عروض الأسعار المؤكدة" : "غير متصل — آخر حالة مؤكدة. الإصدار والتعديل غير متاحين.";
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { }
     }
-    internal static QuotationListItem Project(QuotationDraft draft, DiscountApproval? approval = null)
+    internal static QuotationListItem Project(QuotationDraft draft, DiscountApproval? approval = null, QuotationRecord? lifecycle = null)
     {
         var value = draft.Snapshot.Evaluation; var customer = value.Customer;
-        return new(draft.Snapshot.Id, "بدون رقم رسمي", customer.Name,
+        return new(draft.Snapshot.Id, lifecycle?.Number ?? "غير مرقم", customer.Name,
             DateOnly.FromDateTime(DateTimeOffset.FromUnixTimeMilliseconds(draft.UpdatedAt).LocalDateTime),
-            QuotationStatus.Draft, value.Totals.DiscountYer,
+            lifecycle?.State switch { Eitmad.Contracts.QuotationState.Issued => QuotationStatus.Active, Eitmad.Contracts.QuotationState.Expired => QuotationStatus.Expired, Eitmad.Contracts.QuotationState.Cancelled => QuotationStatus.Cancelled, _ => draft.Snapshot.Cancelled == true ? QuotationStatus.Cancelled : QuotationStatus.Draft }, value.Totals.DiscountYer,
             value.Lines.Select(line => new QuotationLineItem(line.Name, line.VariantName, line.ColorName ?? "—", line.HandleName ?? "—", (int)line.Quantity, line.Price.UnitPriceYer) {
                 EvaluatedTotal = line.Price.TotalYer, IsFurniture = line.Dimensions is not null,
                 Dimensions = line.Dimensions is { } d ? SalesCatalogViewModel.DimensionsLabel(d) : "",
             }).ToArray(), phone: customer.Phone) {
-                Draft = draft, Approval = approval, CustomerId = customer.Id, Address = customer.Address ?? "",
+                Draft = draft, Approval = approval, Lifecycle = lifecycle, CustomerId = customer.Id, Address = customer.Address ?? "",
                 NeedsApprovalToComplete = value.Totals.ApprovalRequired, ReceptionActivity = QuotationDraftClient.SyncLabel(draft),
             };
     }

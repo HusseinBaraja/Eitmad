@@ -3,6 +3,8 @@
 use std::sync::Arc;
 #[path = "discount_approval.rs"]
 mod discount_approval;
+#[path = "quotation_lifecycle.rs"]
+mod quotation_lifecycle;
 
 use crate::accounts::{DesktopAccountError, DesktopAccountService};
 use async_trait::async_trait;
@@ -42,6 +44,8 @@ pub struct ProductDispatcher {
     configuration: ConfigurationService,
     customers: CustomerService,
     drafts: eitmad_pricing::QuotationDraftService,
+    quotation_server: Option<Arc<dyn eitmad_pricing::QuotationServer>>,
+    quotation_watch: Arc<std::sync::Mutex<Option<quotation_lifecycle::QuotationWatch>>>,
     approval_server: Option<Arc<dyn eitmad_pricing::DiscountApprovalServer>>,
     approval_watch: Arc<std::sync::Mutex<Option<discount_approval::ApprovalWatch>>>,
     materials: MaterialService,
@@ -112,6 +116,8 @@ impl ProductDispatcher {
             configuration,
             customers,
             drafts,
+            quotation_server: None,
+            quotation_watch: Arc::new(std::sync::Mutex::new(None)),
             approval_server: None,
             approval_watch: discount_approval::empty_watch(),
             materials,
@@ -454,6 +460,10 @@ impl ProductDispatcher {
         command: Command,
     ) -> Result<CommandResult, Box<ContractError>> {
         let result = match command {
+            Command::CancelQuotationDraft(input) => self
+                .drafts
+                .cancel(mutation, &input)
+                .map(|d| CommandResult::QuotationDraftUpdated(Box::new(d))),
             Command::CreateQuotationDraft(input) => self
                 .drafts
                 .create(mutation, &input)
@@ -878,7 +888,15 @@ impl CommandDispatcher for ProductDispatcher {
             @ (Command::RequestDiscountApproval(_) | Command::DecideDiscountApproval(_)) => {
                 self.approval_command(&context, &mutation, command).await
             }
-            command @ (Command::CreateQuotationDraft(_) | Command::UpdateQuotationDraft(_)) => {
+            command @ (Command::IssueQuotation(_)
+            | Command::SetQuotationValidity(_)
+            | Command::ReviseQuotation(_)
+            | Command::CancelQuotation(_)) => {
+                self.quotation_command(&context, &mutation, command).await
+            }
+            command @ (Command::CreateQuotationDraft(_)
+            | Command::UpdateQuotationDraft(_)
+            | Command::CancelQuotationDraft(_)) => {
                 self.save_approval_draft(&context, &mutation, command).await
             }
             Command::CreateCustomer(command) => self
@@ -962,6 +980,7 @@ impl QueryDispatcher for ProductDispatcher {
                 .list_relationships(&context.authorization, &query)
                 .map(QueryResult::ScopeRelationships)
                 .map_err(|error| authorization_error(error, &context)),
+            Query::Quotations(query) => self.quotation_list(&context, query).await,
             Query::DiscountApprovals(query) => self.approval_list(&context, query).await,
             query @ (Query::QuotationDraft(_) | Query::QuotationDrafts(_)) => {
                 self.dispatch_draft_query(&context, query).map_err(|e| *e)
@@ -1033,6 +1052,7 @@ impl QueryDispatcher for ProductDispatcher {
             Subscription::Configuration(_) => CONFIG_READ_PERMISSION,
             Subscription::Permissions(_) => PERMISSIONS_READ_PERMISSION,
             Subscription::Customers(_) => CUSTOMER_READ_PERMISSION,
+            Subscription::Quotations(_) => eitmad_authorization::QUOTATION_READ_PERMISSION,
             Subscription::DiscountApprovals(_) => eitmad_authorization::DISCOUNT_READ_PERMISSION,
             Subscription::QuotationDrafts(_) => {
                 eitmad_authorization::QUOTATION_DRAFT_READ_PERMISSION
@@ -1047,6 +1067,18 @@ impl QueryDispatcher for ProductDispatcher {
         self.authorization
             .authorize(&context.authorization, permission)
             .map_err(|error| authorization_contract_error(error, context.correlation_id, None))?;
+        if matches!(subscription, Subscription::Quotations(_)) {
+            self.start_quotation_watch(&context.authorization)
+                .map_err(|e| {
+                    contract_error(
+                        eitmad_pricing::quotation_error_code(e),
+                        "eitmad.message.quotation-unavailable.v1",
+                        context.correlation_id,
+                        RetryDisposition::SafeAfterDelay(1000),
+                        None,
+                    )
+                })?;
+        }
         if matches!(subscription, Subscription::DiscountApprovals(_)) {
             self.start_approval_watch(&context.authorization)
                 .map_err(|e| {

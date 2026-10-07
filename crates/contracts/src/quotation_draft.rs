@@ -47,6 +47,8 @@ pub enum QuotationDraftSyncState {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuotationDraftSnapshot {
+    #[serde(default)]
+    pub cancelled: bool,
     pub id: QuotationDraftId,
     pub revision: u64,
     pub intent: EvaluateQuotation,
@@ -62,6 +64,8 @@ pub struct QuotationDraftConflict {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct QuotationDraft {
+    #[serde(default)]
+    pub permitted_actions: Vec<crate::quotation_lifecycle::QuotationPermittedAction>,
     pub scope: ScopeRef,
     pub snapshot: QuotationDraftSnapshot,
     pub updated_at: UnixMillis,
@@ -82,4 +86,11 @@ pub struct QuotationDraftChangeNotice {
     pub revision: u64,
     pub changed_at: UnixMillis,
     pub change_id: ChangeId,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CancelQuotationDraft {
+    pub draft_id: QuotationDraftId,
+    pub expected_revision: u64,
 }

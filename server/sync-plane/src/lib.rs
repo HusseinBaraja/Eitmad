@@ -10,6 +10,8 @@ pub use pricing::PricingServer;
 mod boundary_audit;
 mod customer;
 mod quotation_approval;
+mod quotation_lifecycle;
+pub use quotation_lifecycle::QuotationLifecycleServer;
 mod quotation_draft;
 pub use quotation_approval::QuotationApprovalServer;
 pub use quotation_draft::QuotationDraftSyncHandler;

@@ -146,7 +146,7 @@ impl QuotationApprovalServer {
     }
 }
 
-async fn authorize(
+pub(super) async fn authorize(
     tx: &mut Transaction<'_, Postgres>,
     actor: &AuthenticatedServerSession,
     scope: &ScopeRef,
@@ -187,7 +187,7 @@ async fn authorize(
     }
 }
 
-async fn latest(
+pub(super) async fn latest(
     tx: &mut Transaction<'_, Postgres>,
     actor: &AuthenticatedServerSession,
     id: QuotationDraftId,
@@ -213,7 +213,7 @@ pub(super) async fn invalidate_for_draft(
     if matches!(
         a.state,
         DiscountApprovalState::Pending | DiscountApprovalState::Approved
-    ) && !same_commercial_terms(&a.quotation, snapshot)
+    ) && (snapshot.cancelled || !same_commercial_terms(&a.quotation, snapshot))
     {
         a.state = DiscountApprovalState::Invalidated;
         a.revision += 1;
@@ -244,89 +244,137 @@ async fn apply(
         matches!(input.action, DiscountApprovalAction::Decide(_)),
     )
     .await?;
+    let id = match &input.action {
+        DiscountApprovalAction::Decide(c) => c.draft_id,
+        DiscountApprovalAction::Request(s) | DiscountApprovalAction::Refresh(s) => s.id,
+    };
+    if let Some(record) = crate::quotation_lifecycle::latest(tx, actor, id)
+        .await
+        .map_err(|_| E::Unavailable)?
+    {
+        if !matches!(
+            record.state,
+            eitmad_contracts::quotation_lifecycle::QuotationState::Draft
+                | eitmad_contracts::quotation_lifecycle::QuotationState::PendingApproval
+        ) {
+            return Err(E::Conflict);
+        }
+    }
     match &input.action {
         DiscountApprovalAction::Decide(command) => {
             apply_decision(tx, actor, input, command, organization, correlation, now).await
         }
         DiscountApprovalAction::Request(snapshot) | DiscountApprovalAction::Refresh(snapshot) => {
-            if snapshot.evaluation.scope != input.scope {
-                return Err(E::Denied);
-            }
-            let prior = load_draft(tx, actor, &input.scope, snapshot.id).await?;
-            let expected = prior.as_ref().map(|r| r.revision);
-            if let Some(prior) = &prior {
-                if snapshot.revision == prior.revision && snapshot != prior {
-                    return Err(E::Conflict);
-                }
-                if snapshot.revision != prior.revision
-                    && Some(snapshot.revision) != prior.revision.checked_add(1)
-                {
-                    return Err(E::Conflict);
-                }
-            } else if snapshot.revision != 1 {
-                return Err(E::Conflict);
-            }
-            let mut active = latest(tx, actor, snapshot.id).await?;
-            if active
-                .as_ref()
-                .is_some_and(|a| a.scope != input.scope || a.organization_id != organization)
-            {
-                return Err(E::Denied);
-            }
-            let requesting = matches!(input.action, DiscountApprovalAction::Request(_));
-            if requesting
-                && snapshot
-                    .evaluation
-                    .totals
-                    .as_ref()
-                    .is_none_or(|t| !t.approval_required)
-            {
-                return Err(E::Invalid);
-            }
-            // The server independently verifies customer, catalog, options, quantities, and integer money.
-            if prior.as_ref() != Some(snapshot) {
-                let change = draft_change(input, snapshot, expected)?;
-                crate::quotation_draft::snapshot(&change).map_err(|_| E::Invalid)?;
-                crate::quotation_draft::retain_snapshot(tx, actor, &change, now)
-                    .await
-                    .map_err(map_operation)?;
-                crate::operations::append_domain_change(
-                    tx,
-                    actor,
-                    change,
-                    SyncMode::LocalFirst,
-                    now,
-                )
-                .await
-                .map_err(map_operation)?;
-                active = latest(tx, actor, snapshot.id).await?;
-            }
-            if !requesting {
-                return Ok(active);
-            }
-            validate_current_prices(tx, actor, snapshot, organization).await?;
-            if let Some(a) = &active {
-                if matches!(
-                    a.state,
-                    DiscountApprovalState::Pending | DiscountApprovalState::Approved
-                ) && same_commercial_terms(&a.quotation, snapshot)
-                {
-                    return Ok(active);
-                }
-            }
-            let value = pending_request(
-                actor,
-                &input.scope,
-                snapshot,
-                organization,
-                active.as_ref(),
-                correlation,
-                now,
-            )?;
-            persist(tx, actor, &value, now).await?;
-            Ok(Some(value))
+            apply_request(tx, actor, input, snapshot, organization, correlation, now).await
         }
     }
+}
+
+fn validate_draft_revision(
+    prior: Option<&QuotationDraftSnapshot>,
+    snapshot: &QuotationDraftSnapshot,
+) -> Result<(), E> {
+    if let Some(prior) = prior {
+        if snapshot.revision == prior.revision && snapshot != prior {
+            return Err(E::Conflict);
+        }
+        if snapshot.revision != prior.revision
+            && Some(snapshot.revision) != prior.revision.checked_add(1)
+        {
+            return Err(E::Conflict);
+        }
+    } else if snapshot.revision != 1 {
+        return Err(E::Conflict);
+    }
+    Ok(())
+}
+async fn apply_request(
+    tx: &mut Transaction<'_, Postgres>,
+    actor: &AuthenticatedServerSession,
+    input: &ConfirmDiscountApproval,
+    snapshot: &QuotationDraftSnapshot,
+    organization: Uuid,
+    correlation: CorrelationId,
+    now: UnixMillis,
+) -> Result<Option<DiscountApproval>, E> {
+    if snapshot.evaluation.scope != input.scope {
+        return Err(E::Denied);
+    }
+    let prior = load_draft(tx, actor, &input.scope, snapshot.id).await?;
+    let expected = prior.as_ref().map(|r| r.revision);
+    validate_draft_revision(prior.as_ref(), snapshot)?;
+    let mut active = latest(tx, actor, snapshot.id).await?;
+    if active
+        .as_ref()
+        .is_some_and(|a| a.scope != input.scope || a.organization_id != organization)
+    {
+        return Err(E::Denied);
+    }
+    let requesting = matches!(input.action, DiscountApprovalAction::Request(_));
+    if requesting && snapshot.cancelled {
+        return Err(E::Conflict);
+    }
+    if requesting
+        && snapshot
+            .evaluation
+            .totals
+            .as_ref()
+            .is_none_or(|t| !t.approval_required)
+    {
+        return Err(E::Invalid);
+    }
+    // The server independently verifies customer, catalog, options, quantities, and integer money.
+    if prior.as_ref() != Some(snapshot) {
+        let change = draft_change(input, snapshot, expected)?;
+        crate::quotation_draft::snapshot(&change).map_err(|_| E::Invalid)?;
+        crate::quotation_draft::retain_snapshot(tx, actor, &change, now)
+            .await
+            .map_err(map_operation)?;
+        crate::operations::append_domain_change(tx, actor, change, SyncMode::LocalFirst, now)
+            .await
+            .map_err(map_operation)?;
+        active = latest(tx, actor, snapshot.id).await?;
+    }
+    if !requesting {
+        return Ok(active);
+    }
+    validate_current_prices(tx, actor, snapshot, organization).await?;
+    if let Some(a) = &active {
+        if matches!(
+            a.state,
+            DiscountApprovalState::Pending | DiscountApprovalState::Approved
+        ) && same_commercial_terms(&a.quotation, snapshot)
+            && eitmad_pricing::quotation_expiry(now, a.validity_days).ok()
+                == Some(a.proposed_valid_until)
+        {
+            return Ok(active);
+        }
+    }
+    let mut value = pending_request(
+        actor,
+        &input.scope,
+        snapshot,
+        organization,
+        active.as_ref(),
+        correlation,
+        now,
+    )?;
+    let lifecycle = crate::quotation_lifecycle::latest(tx, actor, snapshot.id)
+        .await
+        .map_err(|_| E::Unavailable)?
+        .ok_or(E::Unavailable)?;
+    value.validity_days = lifecycle.validity_days;
+    value.proposed_valid_until =
+        eitmad_pricing::quotation_expiry(now, value.validity_days).map_err(|_| E::Invalid)?;
+    value.fingerprint = approval_fingerprint(
+        actor.tenant_id,
+        organization,
+        snapshot,
+        value.validity_days,
+        value.proposed_valid_until,
+    )?;
+    persist(tx, actor, &value, now).await?;
+    Ok(Some(value))
 }
 
 async fn apply_decision(
@@ -370,7 +418,9 @@ fn pending_request(
     correlation: CorrelationId,
     now: UnixMillis,
 ) -> Result<DiscountApproval, E> {
-    let validity_days = 30;
+    let validity_days = active
+        .filter(|a| a.state != DiscountApprovalState::Invalidated)
+        .map_or(30, |a| a.validity_days);
     // Asia/Aden has a fixed UTC+03:00 offset; proposed expiry is the end of the calendar day.
     let valid_until = UnixMillis(
         ((now.0 + 10_800_000).div_euclid(86_400_000) + i64::from(validity_days) + 1) * 86_400_000
@@ -410,7 +460,7 @@ fn map_operation(e: crate::OperationError) -> E {
         _ => E::Invalid,
     }
 }
-fn draft_change(
+pub(super) fn draft_change(
     input: &ConfirmDiscountApproval,
     s: &QuotationDraftSnapshot,
     base: Option<u64>,
@@ -431,7 +481,7 @@ fn draft_change(
         }),
     })
 }
-async fn load_draft(
+pub(super) async fn load_draft(
     tx: &mut Transaction<'_, Postgres>,
     actor: &AuthenticatedServerSession,
     scope: &ScopeRef,
@@ -441,7 +491,7 @@ async fn load_draft(
     row.map(|b| serde_json::from_slice(&b).map_err(|_| E::Unavailable))
         .transpose()
 }
-async fn validate_current_prices(
+pub(super) async fn validate_current_prices(
     tx: &mut Transaction<'_, Postgres>,
     actor: &AuthenticatedServerSession,
     s: &QuotationDraftSnapshot,
@@ -475,7 +525,7 @@ async fn validate_current_prices(
     }
     Ok(())
 }
-async fn persist(
+pub(super) async fn persist(
     tx: &mut Transaction<'_, Postgres>,
     actor: &AuthenticatedServerSession,
     a: &DiscountApproval,
@@ -603,4 +653,27 @@ impl DomainSyncHandler for QuotationApprovalServer {
     fn validate_local(&self, _: &LocalOperationDraft) -> Result<(), DomainValidationError> {
         Err(DomainValidationError::Denied)
     }
+}
+
+pub(super) async fn invalidate(
+    tx: &mut Transaction<'_, Postgres>,
+    actor: &AuthenticatedServerSession,
+    scope: &ScopeRef,
+    id: QuotationDraftId,
+    now: UnixMillis,
+) -> Result<(), E> {
+    if let Some(mut a) = latest(tx, actor, id).await? {
+        if a.scope != *scope {
+            return Err(E::Denied);
+        }
+        if matches!(
+            a.state,
+            DiscountApprovalState::Pending | DiscountApprovalState::Approved
+        ) {
+            a.state = DiscountApprovalState::Invalidated;
+            a.revision = a.revision.checked_add(1).ok_or(E::Unavailable)?;
+            persist(tx, actor, &a, now).await?;
+        }
+    }
+    Ok(())
 }

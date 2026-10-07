@@ -1,4 +1,6 @@
 //! Real draft server delivery, lost acknowledgement, isolation, and competing offline edits.
+#[path = "quotation_lifecycle.rs"]
+mod lifecycle;
 use super::*;
 use eitmad_contracts::{
     quotation::{EvaluateQuotation, QuotationCustomerIntent, QuotationLineIntent},
@@ -674,54 +676,31 @@ async fn discount_approval_cross_client_live_replay_invalidation_and_rejection()
         )
         .unwrap()
         .customer;
-    let reception_connection = approval_connection(
-        reception.directory.path(),
-        scenario.server.authentication.clone(),
-        [11; 32],
-        &scenario,
-    );
     let manager_directory = tempfile::tempdir().unwrap();
-    let manager_auth = approval_manager(&scenario).await;
-    let manager_connection = approval_connection(
-        manager_directory.path(),
-        manager_auth.clone(),
-        [12; 32],
-        &scenario,
-    );
-    let mut manager_actor = reception.actor.clone();
-    manager_actor.identity.principal_id = PrincipalId::new(manager_auth.session.user_id.value());
-    manager_actor.scope = ScopeRef {
-        kind: ScopeKind::parse("organization").unwrap(),
-        id: ScopeId::new(tenant.value()),
-    };
-    let pure_reception = approval_connection(
-        scenario.reception_directory.path(),
-        scenario.reception_auth.clone(),
-        [19; 32],
-        &scenario,
-    );
-    let mut pure_actor = reception.actor.clone();
-    pure_actor.identity.principal_id =
-        PrincipalId::new(scenario.reception_auth.session.user_id.value());
+    let clients = lifecycle_clients(&reception, &scenario, manager_directory.path()).await;
     let auth = scenario.server.authentication.clone();
     let endpoint = scenario.endpoint.clone();
     let trust = scenario.trust.clone();
-    let clients = ApprovalClients {
-        reception: reception_connection,
-        manager: manager_connection,
-        manager_actor,
-        pure_reception,
-        pure_actor,
-    };
+    let lifecycle_pool = pool.clone();
+    let lifecycle_actor = auth.session.clone();
     let final_request = tokio::task::spawn_blocking(move || {
         let mut reception =
             DraftTestClient::new(reception, auth, [11; 32], (&endpoint, &trust, &catalog));
-        run_approval_workflow(&mut reception, customer.id, target, &clients)
+        let result = run_approval_workflow(&mut reception, customer.id, target.clone(), &clients);
+        lifecycle::run(
+            &mut reception,
+            customer.id,
+            target,
+            &clients,
+            &lifecycle_pool,
+            &lifecycle_actor,
+        );
+        result
     })
     .await
     .unwrap();
     verify_approval_audit_rollback(&pool, &scenario.server.authentication.session, &branch).await;
-    verify_approval_history(&pool, tenant).await;
+    verify_approval_history(&pool, tenant, final_request.quotation.id).await;
     assert_eq!(
         final_request.state,
         eitmad_contracts::quotation_approval::DiscountApprovalState::Rejected
@@ -732,7 +711,50 @@ async fn discount_approval_cross_client_live_replay_invalidation_and_rejection()
         .graceful_shutdown(Some(Duration::from_secs(1)));
 }
 
+async fn lifecycle_clients(
+    reception: &CustomerTestClient,
+    scenario: &CatalogScenario,
+    manager_directory: &Path,
+) -> ApprovalClients {
+    let tenant = scenario.server.authentication.session.tenant_id;
+    let reception_connection = approval_connection(
+        reception.directory.path(),
+        scenario.server.authentication.clone(),
+        [11; 32],
+        scenario,
+    );
+    let manager_auth = approval_manager(scenario).await;
+    let manager_connection =
+        approval_connection(manager_directory, manager_auth.clone(), [12; 32], scenario);
+    let mut manager_actor = reception.actor.clone();
+    manager_actor.identity.principal_id = PrincipalId::new(manager_auth.session.user_id.value());
+    manager_actor.scope = ScopeRef {
+        kind: ScopeKind::parse("organization").unwrap(),
+        id: ScopeId::new(tenant.value()),
+    };
+    let pure_reception = approval_connection(
+        scenario.reception_directory.path(),
+        scenario.reception_auth.clone(),
+        [19; 32],
+        scenario,
+    );
+    let mut pure_actor = reception.actor.clone();
+    pure_actor.identity.principal_id =
+        PrincipalId::new(scenario.reception_auth.session.user_id.value());
+    ApprovalClients {
+        reception: reception_connection,
+        manager: manager_connection,
+        manager_actor,
+        pure_reception,
+        pure_actor,
+        pricing: scenario.pricing.clone(),
+        pricing_actor: scenario.manager.clone(),
+    }
+}
+
 struct ApprovalClients {
+    pricing: PricingService,
+    pricing_actor: AuthorizationContext,
     reception: Arc<eitmad_server_connection::DirectDiscountApprovalClient>,
     manager: Arc<eitmad_server_connection::DirectDiscountApprovalClient>,
     manager_actor: AuthorizationContext,
@@ -1020,7 +1042,11 @@ fn verify_rejected(
     rejected
 }
 
-async fn verify_approval_history(pool: &sqlx::PgPool, tenant: TenantId) {
+async fn verify_approval_history(
+    pool: &sqlx::PgPool,
+    tenant: TenantId,
+    draft_id: QuotationDraftId,
+) {
     let mut tx = pool.begin().await.unwrap();
     sqlx::query("SELECT set_config('eitmad.tenant_id',$1,true)")
         .bind(tenant.value().to_string())
@@ -1028,14 +1054,15 @@ async fn verify_approval_history(pool: &sqlx::PgPool, tenant: TenantId) {
         .await
         .unwrap();
     let history: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM sync.quotation_approval_history WHERE tenant_id=$1",
+        "SELECT count(*) FROM sync.quotation_approval_history WHERE tenant_id=$1 AND draft_id=$2",
     )
     .bind(tenant.value())
+    .bind(draft_id.value())
     .fetch_one(&mut *tx)
     .await
     .unwrap();
     assert_eq!(history, 5);
-    let audit:i64=sqlx::query_scalar("SELECT count(*) FROM audit.server_records WHERE tenant_id=$1 AND operation IN ('eitmad.quotation-approval.approve.v1','eitmad.quotation-approval.reject.v1') AND outcome='succeeded'").bind(tenant.value()).fetch_one(&mut *tx).await.unwrap();
+    let audit:i64=sqlx::query_scalar("SELECT count(*) FROM audit.server_records WHERE tenant_id=$1 AND operation IN ('eitmad.quotation-approval.approve.v1','eitmad.quotation-approval.reject.v1') AND outcome='succeeded' AND target_id=$2").bind(tenant.value()).bind(draft_id.value()).fetch_one(&mut *tx).await.unwrap();
     assert_eq!(audit, 2);
     assert!(
         sqlx::query("UPDATE sync.quotation_approval_history SET revision=9 WHERE tenant_id=$1")

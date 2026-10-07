@@ -61,11 +61,11 @@ public sealed partial class SalesCatalogViewModel
     public string FinalTotalLabel => catalogClient is not null && evaluation?.Totals is null ? "—" : IsDiscountValid ? FinalTotal.ToString("N0", CultureInfo.InvariantCulture) : "—";
     public bool RequiresDiscountApproval => evaluation?.Totals?.ApprovalRequired == true;
     public bool IsDiscountPending => serverApproval?.State == Eitmad.Contracts.DiscountApprovalState.Pending;
-    public bool CanRequestDiscountApproval => draftClient?.SupportsApprovals == true && !IsDraftBusy && !draftConflict && RequiresDiscountApproval && !IsQuotationEmpty && (hasUnsavedEdits || !IsDiscountPending && !IsDiscountApproved);
-    public bool CanSaveQuotation => false;
-    public bool CanSaveDraft => !IsDraftBusy && !draftConflict && IsDiscountValid && !IsQuotationEmpty && (catalogClient is null || catalogActive && (uncertainSave || evaluation?.Totals is not null));
+    public bool CanRequestDiscountApproval => draftClient?.SupportsApprovals == true && LifecycleEditable && !IsDraftBusy && !draftConflict && RequiresDiscountApproval && !IsQuotationEmpty && (hasUnsavedEdits || !IsDiscountPending && !IsDiscountApproved);
+    public bool CanSaveQuotation => CanIssueQuotation;
+    public bool CanSaveDraft => LifecycleEditable && !IsDraftBusy && !draftConflict && IsDiscountValid && !IsQuotationEmpty && (catalogClient is null || catalogActive && (uncertainSave || evaluation?.Totals is not null));
     public string DiscountStatus => hasUnsavedEdits && serverApproval is not null ? "تغييرات غير محفوظة — أعد حفظ الشروط" : Features.Quotations.QuotationDraftClient.ApprovalLabel(serverApproval) is { Length: > 0 } status ? status : RequiresDiscountApproval ? "يتطلب موافقة المدير" : "";
-    public string DiscountGuidance => IsLiveQuotation ? serverApproval?.State == Eitmad.Contracts.DiscountApprovalState.Rejected ? "سبب الرفض: " + serverApproval.Reason : "احفظ الشروط ثم أرسل طلب الموافقة. إصدار عرض السعر غير متاح بعد." : IsDiscountApproved ? "يمكنك الآن إكمال عرض السعر في المعاينة" : IsDiscountRejected ? "خفّض الخصم أو عدّل العرض ثم اطلب الموافقة مجدداً" : "يمكنك مراجعة العرض وحفظه كمسودة حتى الموافقة على الخصم";
+    public string DiscountGuidance => IsLiveQuotation ? serverApproval?.State == Eitmad.Contracts.DiscountApprovalState.Rejected ? "سبب الرفض: " + serverApproval.Reason : "احفظ الشروط ثم أرسل طلب الموافقة. أصدر العرض بعد تأكيد الموافقة والشروط." : IsDiscountApproved ? "يمكنك الآن إكمال عرض السعر في المعاينة" : IsDiscountRejected ? "خفّض الخصم أو عدّل العرض ثم اطلب الموافقة مجدداً" : "يمكنك مراجعة العرض وحفظه كمسودة حتى الموافقة على الخصم";
     public string TotalHeading => RequiresDiscountApproval && !IsDiscountApproved ? "الإجمالي بعد الخصم المطلوب" : "الإجمالي النهائي";
 
     public void RequestDiscountApproval() => LastApprovalRequest = RequestDiscountApprovalAsync();
@@ -82,7 +82,7 @@ public sealed partial class SalesCatalogViewModel
             if (session != draftSession || !catalogActive) return;
             if (result.Succeeded) { serverApproval = result.Value; approvalCommand = null; approvalKey = Guid.Empty; }
             else if (result.Failure != Features.Quotations.DraftFailure.Unavailable) { approvalCommand = null; approvalKey = Guid.Empty; }
-            if (result.Succeeded) await RefreshApprovalAsync();
+            if (result.Succeeded) { await RefreshApprovalAsync(); await RefreshLifecycleAsync(); }
             if (session != draftSession || !catalogActive) return;
             QuotationNotice = result.Succeeded ? Features.Quotations.QuotationDraftClient.ApprovalLabel(serverApproval) : Features.Quotations.QuotationDraftClient.ApprovalMessage(result.Failure);
         }
@@ -130,7 +130,7 @@ public sealed partial class SalesCatalogViewModel
     {
         foreach (var property in new[] { nameof(IsDiscountValid), nameof(DiscountError), nameof(Discount),
             nameof(DiscountAmountLabel), nameof(FinalTotal), nameof(FinalTotalLabel), nameof(RequiresDiscountApproval),
-            nameof(IsDiscountPending), nameof(IsDiscountApproved), nameof(IsDiscountRejected), nameof(CanRequestDiscountApproval), nameof(CanSaveQuotation),
+            nameof(IsDiscountPending), nameof(IsDiscountApproved), nameof(IsDiscountRejected), nameof(CanRequestDiscountApproval), nameof(CanSaveQuotation), nameof(CanIssueQuotation),
             nameof(CanSaveDraft), nameof(DiscountStatus), nameof(DiscountGuidance), nameof(TotalHeading), nameof(CanPreviewCustomer) }) Raise(property);
     }
 }

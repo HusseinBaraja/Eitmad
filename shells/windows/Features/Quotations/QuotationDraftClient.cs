@@ -18,11 +18,16 @@ public sealed class QuotationDraftClient : IAsyncDisposable
     private readonly IEngineShellBridge engine;
     private readonly EngineChangeFeed changes;
     private readonly EngineChangeFeed approvals;
+    private readonly EngineChangeFeed lifecycle;
+    public bool SupportsLifecycle => engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityQuotationLifecycleV1);
     public bool SupportsApprovals => engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityQuotationApprovalV1);
     private SynchronizationContext? context;
     public QuotationDraftClient(IEngineShellBridge engine)
     {
         this.engine = engine;
+        lifecycle = new(engine, ProtocolIds.Capabilities.EitmadCapabilityQuotationLifecycleV1,
+            Subscription.ForQuotationChangedSubscribe(new()), _ => LifecycleChanged?.Invoke(this, EventArgs.Empty), Invalidate,
+            refreshOnStart: false, notifyUnavailable: true);
         approvals = new(engine, ProtocolIds.Capabilities.EitmadCapabilityQuotationApprovalV1,
             Subscription.ForQuotationApprovalChangedSubscribe(new()),
             _ => ApprovalChanged?.Invoke(this, EventArgs.Empty), Invalidate,
@@ -34,15 +39,16 @@ public sealed class QuotationDraftClient : IAsyncDisposable
     }
     public event EventHandler? Changed;
     public event EventHandler? ApprovalChanged;
+    public event EventHandler? LifecycleChanged;
     public event EventHandler? Invalidated;
-    public async Task ActivateAsync() { context = SynchronizationContext.Current; await changes.ActivateAsync(); await approvals.ActivateAsync(); }
+    public async Task ActivateAsync() { context = SynchronizationContext.Current; await changes.ActivateAsync(); await approvals.ActivateAsync(); await lifecycle.ActivateAsync(); }
     private void Invalidate()
     {
         if (context is null) Invalidated?.Invoke(this, EventArgs.Empty);
         else context.Post(_ => Invalidated?.Invoke(this, EventArgs.Empty), null);
     }
-    public async Task DeactivateAsync() { await changes.DeactivateAsync(); await approvals.DeactivateAsync(); }
-    public async ValueTask DisposeAsync() { await changes.DisposeAsync(); await approvals.DisposeAsync(); }
+    public async Task DeactivateAsync() { await changes.DeactivateAsync(); await approvals.DeactivateAsync(); await lifecycle.DeactivateAsync(); }
+    public async ValueTask DisposeAsync() { await changes.DisposeAsync(); await approvals.DisposeAsync(); await lifecycle.DisposeAsync(); }
     public Task<DraftResult<QuotationDraft>> GetAsync(Guid id, CancellationToken token = default) =>
         RequestAsync(async () => {
             var r = await engine.QueryAsync(Query.ForQuotationDraftGet(new() { DraftId = id }), token);
@@ -70,6 +76,24 @@ public sealed class QuotationDraftClient : IAsyncDisposable
             var r = await engine.SubmitCommandAsync(command, key, token);
             return Result(r.Outcome.Status, r.Outcome.Payload.AsDiscountApproval(), r.Outcome.Payload.Code, r.Outcome.Payload.Detail);
         }, token);
+    public Task<DraftResult<QuotationPage>> QuotationsAsync(Guid? after, CancellationToken token = default) =>
+        RequestAsync(async () => {
+            if (!SupportsLifecycle) return new DraftResult<QuotationPage>(null, DraftFailure.Unavailable, []);
+            var r = await engine.QueryAsync(Query.ForQuotationList(new() { After = after, Limit = 100 }), token);
+            return Result(r.Outcome.Status, r.Outcome.Payload.AsQuotations(), r.Outcome.Payload.Code, r.Outcome.Payload.Detail);
+        }, token);
+    public Task<DraftResult<QuotationRecord>> TransitionAsync(Command command, Guid key, CancellationToken token = default) =>
+        RequestAsync(async () => {
+            if (!SupportsLifecycle) return new DraftResult<QuotationRecord>(null, DraftFailure.Unavailable, []);
+            var r = await engine.SubmitCommandAsync(command, key, token);
+            return Result(r.Outcome.Status, r.Outcome.Payload.AsQuotation(), r.Outcome.Payload.Code, r.Outcome.Payload.Detail);
+        }, token);
+    public static string LifecycleMessage(DraftFailure failure) => failure switch {
+        DraftFailure.Conflict => "تغير العرض أو السعر أو الموافقة. حدّث العرض وراجع الشروط قبل المتابعة.",
+        DraftFailure.Invalid => "تحقق من مدة الصلاحية وسبب الإلغاء.",
+        DraftFailure.Denied => "ليس لديك صلاحية لهذه العملية.",
+        _ => "تعذر تأكيد العملية من الخادم. أعد محاولة العملية نفسها لتأكيد نتيجتها.",
+    };
     public static string ApprovalMessage(DraftFailure failure) => failure switch {
         DraftFailure.Invalid => "أدخل سبب الرفض وتحقق من بيانات الطلب.",
         DraftFailure.Conflict => "تغيرت شروط العرض أو اتُخذ قرار سابق. حدّث الطلب قبل المتابعة.",
@@ -94,8 +118,8 @@ public sealed class QuotationDraftClient : IAsyncDisposable
     }
     private static DraftResult<T> Result<T>(CommandOutcomeStatus status, T? value, string? code, ErrorDetail? detail) where T : class =>
         status == CommandOutcomeStatus.Succeeded && value is not null ? new(value, DraftFailure.None, []) : new(null, code switch {
-            ProtocolIds.ErrorCodes.EitmadErrorQuotationApprovalConflictV1 or ProtocolIds.ErrorCodes.EitmadErrorQuotationDraftConflictV1 => DraftFailure.Conflict,
-            ProtocolIds.ErrorCodes.EitmadErrorQuotationApprovalInvalidV1 or ProtocolIds.ErrorCodes.EitmadErrorQuotationDraftInvalidV1 or ProtocolIds.ErrorCodes.EitmadErrorContractInvalidV1 => DraftFailure.Invalid,
+            ProtocolIds.ErrorCodes.EitmadErrorQuotationStateConflictV1 or ProtocolIds.ErrorCodes.EitmadErrorQuotationStalePriceV1 or ProtocolIds.ErrorCodes.EitmadErrorQuotationApprovalRequiredV1 or ProtocolIds.ErrorCodes.EitmadErrorQuotationApprovalConflictV1 or ProtocolIds.ErrorCodes.EitmadErrorQuotationDraftConflictV1 => DraftFailure.Conflict,
+            ProtocolIds.ErrorCodes.EitmadErrorQuotationInvalidV1 or ProtocolIds.ErrorCodes.EitmadErrorQuotationApprovalInvalidV1 or ProtocolIds.ErrorCodes.EitmadErrorQuotationDraftInvalidV1 or ProtocolIds.ErrorCodes.EitmadErrorContractInvalidV1 => DraftFailure.Invalid,
             ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1 => DraftFailure.Denied,
             ProtocolIds.ErrorCodes.EitmadErrorQuotationDraftNotFoundV1 => DraftFailure.NotFound,
             _ => DraftFailure.Unavailable,

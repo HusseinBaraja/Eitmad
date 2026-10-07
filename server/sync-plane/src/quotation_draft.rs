@@ -180,6 +180,22 @@ pub(super) async fn retain_snapshot(
         .customer
         .as_ref()
         .ok_or(OperationError::Invalid)?;
+    if let Some(record) = crate::quotation_lifecycle::latest(tx, session, value.id)
+        .await
+        .map_err(|_| OperationError::Unavailable)?
+    {
+        if record.scope != draft.scope || record.organization_id != organization {
+            return Err(OperationError::Denied);
+        }
+        if !matches!(
+            record.state,
+            eitmad_contracts::quotation_lifecycle::QuotationState::Draft
+                | eitmad_contracts::quotation_lifecycle::QuotationState::PendingApproval
+        ) || record.quotation.cancelled
+        {
+            return Err(OperationError::Invalid);
+        }
+    }
     validate_customer(tx, session, &draft.scope, &value).await?;
     let mut entries = Vec::with_capacity(value.intent.lines.len());
     for line in &value.intent.lines {
@@ -205,6 +221,9 @@ pub(super) async fn retain_snapshot(
     eitmad_pricing::validate_draft_snapshot(&value, &entries)
         .map_err(|_| OperationError::Invalid)?;
     sqlx::query("INSERT INTO sync.quotation_draft_revisions(tenant_id,branch_id,draft_id,revision,customer_id,snapshot_json) VALUES($1,$2,$3,$4,$5,$6)").bind(session.tenant_id.value()).bind(draft.scope.id.value()).bind(value.id.value()).bind(i64::try_from(value.revision).map_err(|_| OperationError::Invalid)?).bind(customer.id.value()).bind(serde_json::to_vec(&value).map_err(|_| OperationError::Invalid)?).execute(&mut **tx).await.map_err(|_| OperationError::Unavailable)?;
+    crate::quotation_lifecycle::draft_changed(tx, session, &draft.scope, &value, organization, now)
+        .await
+        .map_err(|_| OperationError::Invalid)?;
     crate::quotation_approval::invalidate_for_draft(tx, session, &draft.scope, &value, now)
         .await
         .map_err(|_| OperationError::Unavailable)?;

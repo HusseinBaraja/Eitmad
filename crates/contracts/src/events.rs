@@ -34,6 +34,7 @@ tagged_contract! {
         Configuration(ConfigurationChanges) => "eitmad.config.changed.subscribe.v1",
         Permissions(PermissionChanges) => "eitmad.permissions.changed.subscribe.v1",
         AuthorizationPolicy(AuthorizationPolicyChanges) => "eitmad.authorization.policy.changed.subscribe.v1",
+        Quotations(crate::quotation_lifecycle::QuotationChanges) => "eitmad.quotation.changed.subscribe.v1",
         DiscountApprovals(crate::quotation_approval::DiscountApprovalChanges) => "eitmad.quotation-approval.changed.subscribe.v1",
         QuotationDrafts(crate::quotation_draft::QuotationDraftChanges) => "eitmad.quotation-draft.changed.subscribe.v1",
         Customers(CustomerChanges) => "eitmad.customer.changed.subscribe.v1",
@@ -51,6 +52,7 @@ tagged_contract! {
         ConfigurationChanged(ConfigSnapshot) => "eitmad.config.changed.event.v1",
         PermissionsChanged(EffectivePermissions) => "eitmad.permissions.changed.event.v1",
         AuthorizationPolicyChanged(AuthorizationPolicyChangeNotice) => "eitmad.authorization.policy.changed.event.v1",
+        QuotationChanged(crate::quotation_lifecycle::QuotationNotice) => "eitmad.quotation.changed.event.v1",
         DiscountApprovalChanged(crate::quotation_approval::DiscountApprovalNotice) => "eitmad.quotation-approval.changed.event.v1",
         QuotationDraftChanged(crate::quotation_draft::QuotationDraftChangeNotice) => "eitmad.quotation-draft.changed.event.v1",
         CustomerChanged(CustomerChangeNotice) => "eitmad.customer.changed.event.v1",
@@ -82,6 +84,7 @@ impl Event {
             Self::AuthorizationPolicyChanged(_) => {
                 "eitmad.authorization.policy.changed.subscribe.v1"
             }
+            Self::QuotationChanged(_) => "eitmad.quotation.changed.subscribe.v1",
             Self::DiscountApprovalChanged(_) => "eitmad.quotation-approval.changed.subscribe.v1",
             Self::QuotationDraftChanged(_) => "eitmad.quotation-draft.changed.subscribe.v1",
             Self::CustomerChanged(_) => "eitmad.customer.changed.subscribe.v1",

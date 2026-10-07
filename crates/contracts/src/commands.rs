@@ -65,6 +65,10 @@ pub struct UpdateCustomer {
 tagged_contract! {
     /// Authoritative state-changing requests.
     pub enum Command {
+        IssueQuotation(crate::quotation_lifecycle::IssueQuotation) => "eitmad.quotation.issue.v1",
+        SetQuotationValidity(crate::quotation_lifecycle::SetQuotationValidity) => "eitmad.quotation.validity.v1",
+        ReviseQuotation(crate::quotation_lifecycle::SetQuotationValidity) => "eitmad.quotation.revise.v1",
+        CancelQuotation(crate::quotation_lifecycle::CancelQuotation) => "eitmad.quotation.cancel.v1",
         RequestDiscountApproval(crate::quotation_approval::RequestDiscountApproval) => "eitmad.quotation-approval.request.v1",
         DecideDiscountApproval(crate::quotation_approval::DecideDiscountApproval) => "eitmad.quotation-approval.decide.v1",
         PublishPrice(crate::pricing::PublishPrice) => "eitmad.pricing.publish.v1",
@@ -72,6 +76,7 @@ tagged_contract! {
         UpdateConfiguration(UpdateConfiguration) => "eitmad.config.update.v1",
         GrantScopeRelationship(GrantScopeRelationship) => "eitmad.authorization.relationship.grant.v1",
         RevokeScopeRelationship(RevokeScopeRelationship) => "eitmad.authorization.relationship.revoke.v1",
+        CancelQuotationDraft(crate::quotation_draft::CancelQuotationDraft) => "eitmad.quotation-draft.cancel.v1",
         CreateQuotationDraft(crate::quotation_draft::CreateQuotationDraft) => "eitmad.quotation-draft.create.v1",
         UpdateQuotationDraft(crate::quotation_draft::UpdateQuotationDraft) => "eitmad.quotation-draft.update.v1",
         CreateCustomer(CreateCustomer) => "eitmad.customer.create.v1",
@@ -94,6 +99,7 @@ tagged_contract! {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", content = "payload", rename_all = "camelCase")]
 pub enum CommandResult {
+    Quotation(Box<crate::quotation_lifecycle::QuotationRecord>),
     DiscountApproval(Box<crate::quotation_approval::DiscountApproval>),
     PricePublished(crate::pricing::PublishedPrice),
     CatalogImageImported(crate::catalog_image::CatalogImageRef),

@@ -10,6 +10,7 @@ use crate::{
 };
 
 pub const CAPABILITIES: &[&str] = &[
+    "eitmad.capability.quotation-lifecycle.v1",
     "eitmad.capability.quotation-approval.v1",
     "eitmad.capability.quotation-draft.v1",
     "eitmad.capability.quotation-evaluation.v1",
@@ -68,6 +69,10 @@ pub const UPDATE_MANIFEST_PUBLISH_PERMISSION: &str =
     "eitmad.permission.server.update-manifest.publish.v1";
 
 pub const PERMISSIONS: &[&str] = &[
+    "eitmad.permission.quotation.read.v1",
+    "eitmad.permission.quotation.issue.v1",
+    "eitmad.permission.quotation.validity.manage.v1",
+    "eitmad.permission.quotation.cancel.v1",
     "eitmad.permission.quotation.approval.request.v1",
     "eitmad.permission.quotation.approval.decide.v1",
     "eitmad.permission.quotation.approval.read.v1",
@@ -120,6 +125,11 @@ pub const PERMISSIONS: &[&str] = &[
 ];
 
 pub const ERROR_CODES: &[&str] = &[
+    "eitmad.error.quotation-state-conflict.v1",
+    "eitmad.error.quotation-stale-price.v1",
+    "eitmad.error.quotation-approval-required.v1",
+    "eitmad.error.quotation-invalid.v1",
+    "eitmad.error.quotation-unavailable.v1",
     "eitmad.error.quotation-approval-invalid.v1",
     "eitmad.error.quotation-approval-conflict.v1",
     "eitmad.error.quotation-approval-unavailable.v1",
@@ -208,6 +218,11 @@ pub const ERROR_CODES: &[&str] = &[
 ];
 
 pub const MESSAGE_IDS: &[&str] = &[
+    "eitmad.message.quotation-state-conflict.v1",
+    "eitmad.message.quotation-stale-price.v1",
+    "eitmad.message.quotation-approval-required.v1",
+    "eitmad.message.quotation-invalid.v1",
+    "eitmad.message.quotation-unavailable.v1",
     "eitmad.message.quotation-approval-invalid.v1",
     "eitmad.message.quotation-approval-conflict.v1",
     "eitmad.message.quotation-approval-unavailable.v1",
@@ -315,6 +330,7 @@ pub const RELATIONS: &[&str] = &[
     "eitmad.relation.organization.owner.v1",
 ];
 pub const DOMAIN_SCHEMA_IDS: &[&str] = &[
+    "eitmad.schema.quotation-lifecycle.v1",
     "eitmad.schema.quotation-approval.v1",
     "eitmad.schema.quotation-draft.v1",
     "eitmad.schema.quotation-evaluation.v1",

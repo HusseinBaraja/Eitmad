@@ -31,6 +31,7 @@ pub mod queries;
 pub mod quotation;
 pub mod quotation_approval;
 pub mod quotation_draft;
+pub mod quotation_lifecycle;
 pub mod relay;
 pub mod runtime;
 pub mod sales_catalog;

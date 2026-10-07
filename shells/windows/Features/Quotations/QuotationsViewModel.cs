@@ -171,6 +171,8 @@ public sealed partial class QuotationsViewModel : ObservableObject
         {
             if (Set(ref selectedQuotation, value))
             {
+                if (value?.Lifecycle is { } record) ValidityInput = record.ValidityDays.ToString(CultureInfo.InvariantCulture);
+                CancellationReason = "";
                 Raise(nameof(ShowManagerApproval));
                 Raise(nameof(CanDecideApproval));
                 Raise(nameof(IsListVisible));

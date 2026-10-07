@@ -98,6 +98,9 @@ async fn execute() -> Result<(), MainError> {
     handlers.push(Arc::new(eitmad_sync_plane::QuotationDraftSyncHandler::new(
         sync_database.pool(),
     )) as Arc<dyn DomainSyncHandler>);
+    handlers.push(Arc::new(eitmad_sync_plane::QuotationLifecycleServer::new(
+        sync_database.pool(),
+    )));
     let domains = DomainRegistry::new(handlers).map_err(|_| MainError::Configuration)?;
     let sync = SyncCoordinator::new(&sync_database, domains);
     let state = compose_server_state(&config, control, sync, &admin_database)?;

@@ -174,6 +174,8 @@ pub fn router(state: ServerState) -> Router {
             post(quotation_approval_transition)
                 .layer(axum::extract::DefaultBodyLimit::max(1024 * 1024)),
         )
+        .route("/v1/quotations/transition", post(quotation_transition))
+        .route("/v1/quotations/read", post(quotation_read))
         .route(
             "/v1/quotation-approvals/read",
             post(quotation_approval_read),
@@ -1009,7 +1011,10 @@ async fn stream_session(
     schema_version: u32,
 ) {
     let StreamContext { token, session } = context;
-    let approval_stream = schema_id.as_str() == eitmad_pricing::DISCOUNT_APPROVAL_SCHEMA;
+    let approval_stream = matches!(
+        schema_id.as_str(),
+        eitmad_pricing::DISCOUNT_APPROVAL_SCHEMA | eitmad_pricing::QUOTATION_LIFECYCLE_SCHEMA
+    );
     let mut approval_listener = if approval_stream {
         if let Ok(listener) = state.approval_notifications().await {
             Some(listener)
@@ -1070,7 +1075,7 @@ async fn stream_session(
         };
         if negotiated.is_none() {
             let Ok(session) =
-                accept_stream_hello(&mut socket, &state, message, approval_stream).await
+                accept_stream_hello(&mut socket, &state, message, schema_id.as_str()).await
             else {
                 let _ =
                     send_failure(&mut socket, "eitmad.error.server-client-incompatible.v1").await;
@@ -1109,7 +1114,7 @@ async fn accept_stream_hello(
     socket: &mut WebSocket,
     state: &ServerState,
     message: ServerClientMessage,
-    approval: bool,
+    schema: &str,
 ) -> Result<NegotiatedSession, ApiError> {
     let incompatible = || ApiError::bad_request("eitmad.error.server-client-incompatible.v1");
     let ServerClientMessage::Hello(hello) = message else {
@@ -1121,12 +1126,18 @@ async fn accept_stream_hello(
     let NegotiationOutcome::Accepted(session) = negotiate(&state.server_hello, &hello.peer) else {
         return Err(incompatible());
     };
-    if approval
-        && (session.protocol.minor < 20
-            || !session
-                .capabilities
-                .iter()
-                .any(|c| c.as_str() == "eitmad.capability.quotation-approval.v1"))
+    let lifecycle = schema == eitmad_pricing::QUOTATION_LIFECYCLE_SCHEMA;
+    let live = lifecycle || schema == eitmad_pricing::DISCOUNT_APPROVAL_SCHEMA;
+    if live
+        && (session.protocol.minor < if lifecycle { 21 } else { 20 }
+            || !session.capabilities.iter().any(|c| {
+                c.as_str()
+                    == if lifecycle {
+                        "eitmad.capability.quotation-lifecycle.v1"
+                    } else {
+                        "eitmad.capability.quotation-approval.v1"
+                    }
+            }))
     {
         return Err(incompatible());
     }
@@ -1144,6 +1155,14 @@ async fn send_approval_events(
     schema: &SchemaId,
     cursor: &mut Option<eitmad_contracts::transport::EventCursor>,
 ) -> Result<(), ApiError> {
+    if schema.as_str() == eitmad_pricing::QUOTATION_LIFECYCLE_SCHEMA {
+        state
+            .sync
+            .quotations()
+            .expire_due(session, scope, unix_millis_now())
+            .await
+            .map_err(map_quotation)?;
+    }
     loop {
         let page = state
             .sync
@@ -1190,7 +1209,11 @@ async fn handle_stream_message(
     match message {
         ServerClientMessage::Subscribe(request)
             if request.schema_id == *context.schema_id
-                && context.schema_id.as_str() == eitmad_pricing::DISCOUNT_APPROVAL_SCHEMA =>
+                && matches!(
+                    context.schema_id.as_str(),
+                    eitmad_pricing::DISCOUNT_APPROVAL_SCHEMA
+                        | eitmad_pricing::QUOTATION_LIFECYCLE_SCHEMA
+                ) =>
         {
             let mut cursor = request.resume_after;
             send_approval_events(
@@ -1494,17 +1517,19 @@ async fn authenticate_negotiated(
         .and_then(|value| URL_SAFE_NO_PAD.decode(value).ok())
         .and_then(|value| serde_json::from_slice::<PeerHello>(&value).ok())
         .ok_or_else(|| ApiError::bad_request("eitmad.error.server-client-incompatible.v1"))?;
-    let minimum_minor = if required_capability.as_str() == "eitmad.capability.quotation-approval.v1"
-    {
-        20
-    } else if matches!(
-        required_capability.as_str(),
-        "eitmad.capability.pricing.v1" | "eitmad.capability.catalog-revisions.v1"
-    ) {
-        17
-    } else {
-        5
-    };
+    let minimum_minor =
+        if required_capability.as_str() == "eitmad.capability.quotation-lifecycle.v1" {
+            21
+        } else if required_capability.as_str() == "eitmad.capability.quotation-approval.v1" {
+            20
+        } else if matches!(
+            required_capability.as_str(),
+            "eitmad.capability.pricing.v1" | "eitmad.capability.catalog-revisions.v1"
+        ) {
+            17
+        } else {
+            5
+        };
     let mut boundary = state.server_hello.clone();
     boundary.required_capabilities = vec![required_capability];
     let NegotiationOutcome::Accepted(negotiated) = negotiate(&boundary, &peer) else {
@@ -1565,6 +1590,7 @@ async fn revalidate_stream(
 /// Advertises supported schemas and capabilities while requiring only shared transport foundations.
 fn server_hello(schemas: Vec<SchemaSupport>) -> PeerHello {
     let capabilities = [
+        "eitmad.capability.quotation-lifecycle.v1",
         "eitmad.capability.quotation-approval.v1",
         "eitmad.capability.sync.v1",
         "eitmad.capability.catalog-image.v1",
@@ -1594,7 +1620,8 @@ fn server_hello(schemas: Vec<SchemaSupport>) -> PeerHello {
             .filter(|c| {
                 !matches!(
                     c.as_str(),
-                    "eitmad.capability.quotation-approval.v1"
+                    "eitmad.capability.quotation-lifecycle.v1"
+                        | "eitmad.capability.quotation-approval.v1"
                         | "eitmad.capability.catalog-image.v1"
                         | "eitmad.capability.pricing.v1"
                         | "eitmad.capability.catalog-revisions.v1"
@@ -1752,6 +1779,49 @@ fn map_snapshot(error: &SnapshotError) -> ApiError {
         SnapshotError::Empty => ApiError::bad_request("eitmad.error.server-snapshot-required.v1"),
         SnapshotError::Unavailable => ApiError::unavailable(),
     }
+}
+
+async fn quotation_transition(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(input): Json<eitmad_contracts::quotation_lifecycle::ConfirmQuotation>,
+) -> Result<Json<eitmad_contracts::quotation_lifecycle::QuotationRecord>, ApiError> {
+    let actor =
+        authenticate_negotiated(&state, &headers, "eitmad.capability.quotation-lifecycle.v1")
+            .await?;
+    state
+        .sync
+        .quotations()
+        .transition(&actor, &input, new_correlation_id(), unix_millis_now())
+        .await
+        .map(Json)
+        .map_err(map_quotation)
+}
+async fn quotation_read(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(input): Json<eitmad_contracts::quotation_lifecycle::ReadQuotations>,
+) -> Result<Json<eitmad_contracts::quotation_lifecycle::QuotationPage>, ApiError> {
+    let actor =
+        authenticate_negotiated(&state, &headers, "eitmad.capability.quotation-lifecycle.v1")
+            .await?;
+    state
+        .sync
+        .quotations()
+        .list(&actor, &input, unix_millis_now())
+        .await
+        .map(Json)
+        .map_err(map_quotation)
+}
+fn map_quotation(e: eitmad_pricing::QuotationError) -> ApiError {
+    use eitmad_pricing::QuotationError as E;
+    let status = match e {
+        E::Denied => StatusCode::FORBIDDEN,
+        E::Invalid => StatusCode::BAD_REQUEST,
+        E::Conflict | E::StalePrice | E::ApprovalRequired => StatusCode::CONFLICT,
+        E::Unavailable => StatusCode::SERVICE_UNAVAILABLE,
+    };
+    ApiError::new(status, eitmad_pricing::quotation_error_code(e))
 }
 
 #[cfg(test)]

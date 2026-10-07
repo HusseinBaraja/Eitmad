@@ -511,6 +511,7 @@ internal sealed class SupervisionScenarios
         var list = await supervisor.QueryAsync(Query.ForQuotationDraftList(new() { Limit = 100 }));
         Assert.Equal(CommandOutcomeStatus.Succeeded, list.Outcome.Status, "Manager draft list uses authorized branch");
         Assert.Equal(0, list.Outcome.Payload.AsQuotationDrafts()!.Items.Length, "no synthetic quotation rows from Rust");
+        await VerifyQuotationLifecycleBoundary(supervisor, manager: true);
         var intent = new EvaluateQuotation { Customer = new() { Id = customer.Id, Revision = customer.Revision + 1 }, Lines = [], DiscountBasisPoints = 0 };
         var denied = await supervisor.SubmitCommandAsync(Command.ForQuotationDraftCreate(new() { Intent = intent }), Guid.NewGuid());
         Assert.Equal(ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1, denied.Outcome.Payload.Code, "Manager cannot create draft");
@@ -527,6 +528,7 @@ internal sealed class SupervisionScenarios
         var reception = await supervisor.SignInAsync("rec", "rec");
         Assert.Equal(DesktopAccountRole.Receptionist, reception.AccountRole, "Rust receptionist role");
         Assert.Equal("branch", reception.CustomerAuthorization?.Scope.Kind, "Rust receptionist branch");
+        await VerifyQuotationLifecycleBoundary(supervisor, manager: false);
         var approvalDenied = await supervisor.SubmitCommandAsync(Command.ForQuotationApprovalDecide(new() {
             DraftId = Guid.NewGuid(), RequestId = Guid.NewGuid(), QuotationRevision = 1, ExpectedRevision = 1,
             Fingerprint = "synthetic-forged", Decision = DiscountDecision.Approve,
@@ -540,6 +542,23 @@ internal sealed class SupervisionScenarios
         Assert.Equal(ProtocolIds.ErrorCodes.EitmadErrorQuotationDraftInvalidV1, failed.Outcome.Payload.Code, "Receptionist reaches draft field validation in branch");
         Assert.Equal(DetailKind.QuotationDraftValidation, failed.Outcome.Payload.Detail.Kind, "typed draft errors reach native client");
         Assert.True(failed.Outcome.Payload.Detail.Payload.Errors.Any(error => error.Field == QuotationField.Lines), "empty lines rejected by Rust");
+    }
+
+    private static async Task VerifyQuotationLifecycleBoundary(EngineSupervisor supervisor, bool manager)
+    {
+        Assert.True(supervisor.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityQuotationLifecycleV1), "lifecycle capability negotiated");
+        var page = await supervisor.QueryAsync(Query.ForQuotationList(new() { Limit = 100 }));
+        Assert.Equal(CommandOutcomeStatus.Succeeded, page.Outcome.Status, "authorized confirmed cache read");
+        Assert.True(!page.Outcome.Payload.AsQuotations()!.ServerAvailable, "unconfigured server is unavailable");
+        if (manager) {
+            var denied = await supervisor.SubmitCommandAsync(Command.ForQuotationIssue(new() { DraftId = Guid.NewGuid(), ExpectedRevision = 1, ExpectedDraftRevision = 1 }), Guid.NewGuid());
+            Assert.Equal(ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1, denied.Outcome.Payload.Code, "Manager cannot issue through IPC");
+        } else {
+            var denied = await supervisor.SubmitCommandAsync(Command.ForQuotationCancel(new() { DraftId = Guid.NewGuid(), ExpectedRevision = 1, Reason = "إلغاء تجريبي" }), Guid.NewGuid());
+            Assert.Equal(ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1, denied.Outcome.Payload.Code, "Receptionist cannot cancel issued quotations through IPC");
+            var unavailable = await supervisor.SubmitCommandAsync(Command.ForQuotationIssue(new() { DraftId = Guid.NewGuid(), ExpectedRevision = 1, ExpectedDraftRevision = 1 }), Guid.NewGuid());
+            Assert.Equal(ProtocolIds.ErrorCodes.EitmadErrorQuotationUnavailableV1, unavailable.Outcome.Payload.Code, "no server means no issuance success");
+        }
     }
 
     /// <summary>Builds the synthetic definition used to verify durable Furniture IPC.</summary>

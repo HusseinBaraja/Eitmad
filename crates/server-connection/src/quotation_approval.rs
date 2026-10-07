@@ -163,15 +163,35 @@ impl DiscountApprovalServer for DirectDiscountApprovalClient {
         cancel: &AtomicBool,
         notify: &mut dyn FnMut(DiscountApprovalNotice),
     ) -> Result<(), E> {
+        self.watch_domain(
+            actor,
+            cancel,
+            notify,
+            DISCOUNT_APPROVAL_SCHEMA,
+            "eitmad.capability.quotation-approval.v1",
+            20,
+        )
+    }
+}
+impl DirectDiscountApprovalClient {
+    fn watch_domain(
+        &self,
+        actor: &AuthorizationContext,
+        cancel: &AtomicBool,
+        notify: &mut dyn FnMut(DiscountApprovalNotice),
+        schema: &str,
+        capability: &str,
+        minor: u16,
+    ) -> Result<(), E> {
         let mut config = self.config.clone();
         config.scope = self.remote(actor)?;
-        config.schema_id = SchemaId::parse(DISCOUNT_APPROVAL_SCHEMA).expect("schema");
+        config.schema_id = SchemaId::parse(schema).expect("schema");
         let http = AuthenticatedHttpClient::from_config(
             config,
             self.secrets.clone(),
             self.credential.clone(),
-            "eitmad.capability.quotation-approval.v1",
-            20,
+            capability,
+            minor,
         );
         let mut driver = http.driver.lock().map_err(|_| E::Unavailable)?;
         let mut credential = driver
@@ -199,7 +219,7 @@ impl DiscountApprovalServer for DirectDiscountApprovalClient {
         crate::write_message(
             socket,
             &ServerClientMessage::Subscribe(ServerSubscriptionRequest {
-                schema_id: SchemaId::parse(DISCOUNT_APPROVAL_SCHEMA).expect("schema"),
+                schema_id: SchemaId::parse(schema).expect("schema"),
                 resume_after: None,
             }),
         )
@@ -210,7 +230,7 @@ impl DiscountApprovalServer for DirectDiscountApprovalClient {
             }
             match crate::read_message(socket, eitmad_sync::FailurePhase::Receive) {
                 Ok(ServerMessage::Event(event)) => {
-                    if event.change.schema_id.as_str() != DISCOUNT_APPROVAL_SCHEMA
+                    if event.change.schema_id.as_str() != schema
                         || event.change.scope != self.remote(actor)?
                     {
                         return Err(E::Unavailable);
@@ -237,5 +257,123 @@ impl DiscountApprovalServer for DirectDiscountApprovalClient {
             }
         }
         Ok(())
+    }
+}
+
+impl eitmad_pricing::QuotationServer for DirectDiscountApprovalClient {
+    fn quotation_transition(
+        &self,
+        actor: &AuthorizationContext,
+        request: &eitmad_contracts::quotation_lifecycle::ConfirmQuotation,
+        deadline: UnixMillis,
+    ) -> Result<
+        eitmad_contracts::quotation_lifecycle::QuotationRecord,
+        eitmad_pricing::QuotationError,
+    > {
+        let mut request = request.clone();
+        request.scope = self.remote(actor).map_err(quotation_error)?;
+        let http = AuthenticatedHttpClient::from_config(
+            self.config.clone(),
+            self.secrets.clone(),
+            self.credential.clone(),
+            "eitmad.capability.quotation-lifecycle.v1",
+            21,
+        );
+        let mut value: eitmad_contracts::quotation_lifecycle::QuotationRecord = http
+            .request(
+                actor,
+                "/v1/quotations/transition",
+                &request,
+                budget(deadline).map_err(quotation_error)?,
+            )
+            .map_err(quotation_http_error)?;
+        Self::localize_quotation(actor, &mut value);
+        Ok(value)
+    }
+    fn quotations(
+        &self,
+        actor: &AuthorizationContext,
+        query: &eitmad_contracts::quotation_lifecycle::ListQuotations,
+        deadline: UnixMillis,
+    ) -> Result<eitmad_contracts::quotation_lifecycle::QuotationPage, eitmad_pricing::QuotationError>
+    {
+        let http = AuthenticatedHttpClient::from_config(
+            self.config.clone(),
+            self.secrets.clone(),
+            self.credential.clone(),
+            "eitmad.capability.quotation-lifecycle.v1",
+            21,
+        );
+        let mut page: eitmad_contracts::quotation_lifecycle::QuotationPage = http
+            .request(
+                actor,
+                "/v1/quotations/read",
+                &eitmad_contracts::quotation_lifecycle::ReadQuotations {
+                    scope: self.remote(actor).map_err(quotation_error)?,
+                    query: query.clone(),
+                },
+                budget(deadline).map_err(quotation_error)?,
+            )
+            .map_err(quotation_http_error)?;
+        for value in &mut page.items {
+            Self::localize_quotation(actor, value);
+        }
+        Ok(page)
+    }
+    fn watch_quotations(
+        &self,
+        actor: &AuthorizationContext,
+        cancel: &AtomicBool,
+        notify: &mut dyn FnMut(eitmad_contracts::quotation_lifecycle::QuotationNotice),
+    ) -> Result<(), eitmad_pricing::QuotationError> {
+        self.watch_domain(
+            actor,
+            cancel,
+            &mut |n| {
+                notify(eitmad_contracts::quotation_lifecycle::QuotationNotice {
+                    scope: n.scope,
+                    draft_id: n.draft_id,
+                    revision: n.revision,
+                });
+            },
+            eitmad_pricing::QUOTATION_LIFECYCLE_SCHEMA,
+            "eitmad.capability.quotation-lifecycle.v1",
+            21,
+        )
+        .map_err(quotation_error)
+    }
+}
+impl DirectDiscountApprovalClient {
+    fn localize_quotation(
+        actor: &AuthorizationContext,
+        value: &mut eitmad_contracts::quotation_lifecycle::QuotationRecord,
+    ) {
+        let branch = if actor.scope.kind.as_str() == "branch" {
+            actor.scope.clone()
+        } else {
+            value.scope.clone()
+        };
+        let organization = ScopeRef {
+            kind: ScopeKind::parse("organization").expect("scope"),
+            id: ScopeId::new(actor.tenant_id.value()),
+        };
+        value.scope = branch.clone();
+        Self::map_snapshot(&mut value.quotation, &branch, &organization);
+    }
+}
+fn quotation_error(e: E) -> eitmad_pricing::QuotationError {
+    use eitmad_pricing::QuotationError as Q;
+    match e {
+        E::Denied => Q::Denied,
+        E::Invalid => Q::Invalid,
+        E::Conflict => Q::Conflict,
+        E::Unavailable => Q::Unavailable,
+    }
+}
+fn quotation_http_error(e: HttpError) -> eitmad_pricing::QuotationError {
+    match e {
+        HttpError::StalePrice => eitmad_pricing::QuotationError::StalePrice,
+        HttpError::ApprovalRequired => eitmad_pricing::QuotationError::ApprovalRequired,
+        e => quotation_error(error(e)),
     }
 }

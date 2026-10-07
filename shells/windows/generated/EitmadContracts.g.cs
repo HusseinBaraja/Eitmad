@@ -305,12 +305,32 @@ namespace Eitmad.Contracts
         public RequestDiscountApproval CommandQuotationApprovalRequest { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Command_QuotationCancel")]
+        public CancelQuotation CommandQuotationCancel { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Command_QuotationDraftCancel")]
+        public CancelQuotationDraft CommandQuotationDraftCancel { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Command_QuotationDraftCreate")]
         public CreateQuotationDraft CommandQuotationDraftCreate { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Command_QuotationDraftUpdate")]
         public UpdateQuotationDraft CommandQuotationDraftUpdate { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Command_QuotationIssue")]
+        public IssueQuotation CommandQuotationIssue { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Command_QuotationRevise")]
+        public SetQuotationValidity CommandQuotationRevise { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Command_QuotationValidity")]
+        public SetQuotationValidity CommandQuotationValidity { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("CommandResult_CatalogImageImported")]
@@ -385,6 +405,10 @@ namespace Eitmad.Contracts
         public Product CommandResultProductSaved { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("CommandResult_Quotation")]
+        public QuotationRecord CommandResultQuotation { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("CommandResult_QuotationDraftCreated")]
         public QuotationDraft CommandResultQuotationDraftCreated { get; set; }
 
@@ -439,6 +463,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Event_QuotationApprovalChangedEvent")]
         public DiscountApprovalNotice EventQuotationApprovalChangedEvent { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Event_QuotationChangedEvent")]
+        public QuotationNotice EventQuotationChangedEvent { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Event_QuotationDraftChangedEvent")]
@@ -645,6 +673,10 @@ namespace Eitmad.Contracts
         public EvaluateQuotation QueryQuotationEvaluate { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Query_QuotationList")]
+        public ListQuotations QueryQuotationList { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Query_SalesCatalogCheck")]
         public CheckSalesConfiguration QuerySalesCatalogCheck { get; set; }
 
@@ -765,6 +797,10 @@ namespace Eitmad.Contracts
         public QuotationEvaluation QueryResultQuotationEvaluation { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("QueryResult_Quotations")]
+        public QuotationPage QueryResultQuotations { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_SalesCatalog")]
         public SalesCatalogPage QueryResultSalesCatalog { get; set; }
 
@@ -823,6 +859,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Subscription_QuotationApprovalChangedSubscribe")]
         public DiscountApprovalChanges SubscriptionQuotationApprovalChangedSubscribe { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Subscription_QuotationChangedSubscribe")]
+        public QuotationChanges SubscriptionQuotationChangedSubscribe { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Subscription_QuotationDraftChangedSubscribe")]
@@ -1372,6 +1412,27 @@ namespace Eitmad.Contracts
         public long ExpectedRevision { get; set; }
     }
 
+    public partial class CancelQuotation
+    {
+        [JsonPropertyName("draftId")]
+        public Guid DraftId { get; set; }
+
+        [JsonPropertyName("expectedRevision")]
+        public long ExpectedRevision { get; set; }
+
+        [JsonPropertyName("reason")]
+        public string Reason { get; set; }
+    }
+
+    public partial class CancelQuotationDraft
+    {
+        [JsonPropertyName("draftId")]
+        public Guid DraftId { get; set; }
+
+        [JsonPropertyName("expectedRevision")]
+        public long ExpectedRevision { get; set; }
+    }
+
     public partial class CreateQuotationDraft
     {
         [JsonPropertyName("intent")]
@@ -1445,6 +1506,30 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("intent")]
         public EvaluateQuotation Intent { get; set; }
+    }
+
+    public partial class IssueQuotation
+    {
+        [JsonPropertyName("draftId")]
+        public Guid DraftId { get; set; }
+
+        [JsonPropertyName("expectedDraftRevision")]
+        public long ExpectedDraftRevision { get; set; }
+
+        [JsonPropertyName("expectedRevision")]
+        public long ExpectedRevision { get; set; }
+    }
+
+    public partial class SetQuotationValidity
+    {
+        [JsonPropertyName("draftId")]
+        public Guid DraftId { get; set; }
+
+        [JsonPropertyName("expectedRevision")]
+        public long ExpectedRevision { get; set; }
+
+        [JsonPropertyName("validityDays")]
+        public long ValidityDays { get; set; }
     }
 
     public partial class ConfigSnapshot
@@ -1603,6 +1688,10 @@ namespace Eitmad.Contracts
 
     public partial class QuotationDraftSnapshot
     {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("cancelled")]
+        public bool? Cancelled { get; set; }
+
         [JsonPropertyName("evaluation")]
         public QuotationEvaluation Evaluation { get; set; }
 
@@ -2100,10 +2189,68 @@ namespace Eitmad.Contracts
         public long? PurchaseCostYer { get; set; }
     }
 
+    public partial class QuotationRecord
+    {
+        [JsonPropertyName("approvalFingerprint")]
+        public string ApprovalFingerprint { get; set; }
+
+        [JsonPropertyName("approvalRequestId")]
+        public Guid? ApprovalRequestId { get; set; }
+
+        [JsonPropertyName("cancellationReason")]
+        public string CancellationReason { get; set; }
+
+        [JsonPropertyName("changedAt")]
+        public long ChangedAt { get; set; }
+
+        [JsonPropertyName("changedBy")]
+        public Guid ChangedBy { get; set; }
+
+        [JsonPropertyName("documentRevision")]
+        public long DocumentRevision { get; set; }
+
+        [JsonPropertyName("issuedAt")]
+        public long? IssuedAt { get; set; }
+
+        [JsonPropertyName("number")]
+        public string Number { get; set; }
+
+        [JsonPropertyName("organizationId")]
+        public Guid OrganizationId { get; set; }
+
+        /// <summary>
+        /// Derived from the authenticated actor and current server state, never client role flags.
+        /// </summary>
+        [JsonPropertyName("permittedActions")]
+        public QuotationPermittedAction[] PermittedActions { get; set; }
+
+        [JsonPropertyName("quotation")]
+        public QuotationDraftSnapshot Quotation { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+
+        [JsonPropertyName("state")]
+        public QuotationState State { get; set; }
+
+        [JsonPropertyName("validityDays")]
+        public long ValidityDays { get; set; }
+
+        [JsonPropertyName("validUntil")]
+        public long? ValidUntil { get; set; }
+    }
+
     public partial class QuotationDraft
     {
         [JsonPropertyName("conflict")]
         public QuotationDraftConflict Conflict { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("permittedActions")]
+        public QuotationPermittedAction[] PermittedActions { get; set; }
 
         [JsonPropertyName("scope")]
         public ScopeRef Scope { get; set; }
@@ -2344,6 +2491,18 @@ namespace Eitmad.Contracts
     }
 
     public partial class DiscountApprovalNotice
+    {
+        [JsonPropertyName("draftId")]
+        public Guid DraftId { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+    }
+
+    public partial class QuotationNotice
     {
         [JsonPropertyName("draftId")]
         public Guid DraftId { get; set; }
@@ -3209,6 +3368,15 @@ namespace Eitmad.Contracts
         public long Limit { get; set; }
     }
 
+    public partial class ListQuotations
+    {
+        [JsonPropertyName("after")]
+        public Guid? After { get; set; }
+
+        [JsonPropertyName("limit")]
+        public long Limit { get; set; }
+    }
+
     public partial class CatalogImageChunk
     {
         [JsonPropertyName("base64")]
@@ -3477,6 +3645,18 @@ namespace Eitmad.Contracts
         public Guid? Next { get; set; }
     }
 
+    public partial class QuotationPage
+    {
+        [JsonPropertyName("items")]
+        public QuotationRecord[] Items { get; set; }
+
+        [JsonPropertyName("next")]
+        public Guid? Next { get; set; }
+
+        [JsonPropertyName("serverAvailable")]
+        public bool ServerAvailable { get; set; }
+    }
+
     public partial class SalesCatalogPage
     {
         [JsonPropertyName("categories")]
@@ -3593,6 +3773,10 @@ namespace Eitmad.Contracts
     {
     }
 
+    public partial class QuotationChanges
+    {
+    }
+
     public partial class QuotationDraftChanges
     {
     }
@@ -3642,6 +3826,10 @@ namespace Eitmad.Contracts
     public enum SyncState { Confirmed, Conflicted, Pending, Rejected };
 
     public enum DiscountApprovalState { Approved, Invalidated, Pending, Rejected };
+
+    public enum QuotationPermittedAction { Cancel, Edit, Issue, ManageValidity, Print, RequestApproval, Revise };
+
+    public enum QuotationState { Cancelled, Draft, Expired, Issued, PendingApproval };
 
     public enum MergeStrategy { DomainMerge, KeepLocal, KeepRemote };
 
@@ -3730,6 +3918,8 @@ namespace Eitmad.Contracts
                 DiscountApprovalStateConverter.Singleton,
                 FurnitureStateConverter.Singleton,
                 UnitDimensionConverter.Singleton,
+                QuotationPermittedActionConverter.Singleton,
+                QuotationStateConverter.Singleton,
                 MergeStrategyConverter.Singleton,
                 ChangeOperationConverter.Singleton,
                 PrincipalKindConverter.Singleton,
@@ -4744,6 +4934,114 @@ namespace Eitmad.Contracts
         }
 
         public static readonly UnitDimensionConverter Singleton = new UnitDimensionConverter();
+    }
+
+    internal class QuotationPermittedActionConverter : JsonConverter<QuotationPermittedAction>
+    {
+        public override bool CanConvert(Type t) => t == typeof(QuotationPermittedAction);
+
+        public override QuotationPermittedAction Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "cancel":
+                    return QuotationPermittedAction.Cancel;
+                case "edit":
+                    return QuotationPermittedAction.Edit;
+                case "issue":
+                    return QuotationPermittedAction.Issue;
+                case "manageValidity":
+                    return QuotationPermittedAction.ManageValidity;
+                case "print":
+                    return QuotationPermittedAction.Print;
+                case "requestApproval":
+                    return QuotationPermittedAction.RequestApproval;
+                case "revise":
+                    return QuotationPermittedAction.Revise;
+            }
+            throw new Exception("Cannot unmarshal type QuotationPermittedAction");
+        }
+
+        public override void Write(Utf8JsonWriter writer, QuotationPermittedAction value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case QuotationPermittedAction.Cancel:
+                    JsonSerializer.Serialize(writer, "cancel", options);
+                    return;
+                case QuotationPermittedAction.Edit:
+                    JsonSerializer.Serialize(writer, "edit", options);
+                    return;
+                case QuotationPermittedAction.Issue:
+                    JsonSerializer.Serialize(writer, "issue", options);
+                    return;
+                case QuotationPermittedAction.ManageValidity:
+                    JsonSerializer.Serialize(writer, "manageValidity", options);
+                    return;
+                case QuotationPermittedAction.Print:
+                    JsonSerializer.Serialize(writer, "print", options);
+                    return;
+                case QuotationPermittedAction.RequestApproval:
+                    JsonSerializer.Serialize(writer, "requestApproval", options);
+                    return;
+                case QuotationPermittedAction.Revise:
+                    JsonSerializer.Serialize(writer, "revise", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type QuotationPermittedAction");
+        }
+
+        public static readonly QuotationPermittedActionConverter Singleton = new QuotationPermittedActionConverter();
+    }
+
+    internal class QuotationStateConverter : JsonConverter<QuotationState>
+    {
+        public override bool CanConvert(Type t) => t == typeof(QuotationState);
+
+        public override QuotationState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "cancelled":
+                    return QuotationState.Cancelled;
+                case "draft":
+                    return QuotationState.Draft;
+                case "expired":
+                    return QuotationState.Expired;
+                case "issued":
+                    return QuotationState.Issued;
+                case "pendingApproval":
+                    return QuotationState.PendingApproval;
+            }
+            throw new Exception("Cannot unmarshal type QuotationState");
+        }
+
+        public override void Write(Utf8JsonWriter writer, QuotationState value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case QuotationState.Cancelled:
+                    JsonSerializer.Serialize(writer, "cancelled", options);
+                    return;
+                case QuotationState.Draft:
+                    JsonSerializer.Serialize(writer, "draft", options);
+                    return;
+                case QuotationState.Expired:
+                    JsonSerializer.Serialize(writer, "expired", options);
+                    return;
+                case QuotationState.Issued:
+                    JsonSerializer.Serialize(writer, "issued", options);
+                    return;
+                case QuotationState.PendingApproval:
+                    JsonSerializer.Serialize(writer, "pendingApproval", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type QuotationState");
+        }
+
+        public static readonly QuotationStateConverter Singleton = new QuotationStateConverter();
     }
 
     internal class MergeStrategyConverter : JsonConverter<MergeStrategy>

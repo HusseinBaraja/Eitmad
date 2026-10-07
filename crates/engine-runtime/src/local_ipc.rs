@@ -1304,6 +1304,7 @@ fn default_engine_hello() -> PeerHello {
             "eitmad.capability.customer.v1",
             "eitmad.capability.quotation-draft.v1",
             "eitmad.capability.quotation-approval.v1",
+            "eitmad.capability.quotation-lifecycle.v1",
             "eitmad.capability.catalog-image.v1",
             "eitmad.capability.product.v1",
             "eitmad.capability.pricing.v1",
@@ -1327,6 +1328,7 @@ fn default_engine_hello() -> PeerHello {
         ],
         schemas: [
             "eitmad.schema.quotation-approval.v1",
+            "eitmad.schema.quotation-lifecycle.v1",
             "eitmad.schema.quotation-draft.v1",
             "eitmad.schema.quotation-evaluation.v1",
             "eitmad.schema.customer.v1",

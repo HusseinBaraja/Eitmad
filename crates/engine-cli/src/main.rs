@@ -277,6 +277,14 @@ fn configured_dispatcher(
             eitmad_server_connection::DirectPriceClient::from_config(config, secrets, credential),
         ));
     }
+    dispatcher = configured_quotations(dispatcher, directory)?;
+    Ok((Arc::new(dispatcher), media_enabled))
+}
+
+fn configured_quotations(
+    mut dispatcher: ProductDispatcher,
+    directory: &std::path::Path,
+) -> Result<ProductDispatcher, ()> {
     if let Some(endpoint) = std::env::var_os("EITMAD_QUOTATION_SERVER") {
         let trust = std::env::var_os("EITMAD_QUOTATION_TRUST_PEM").ok_or(())?;
         let credential = std::env::var("EITMAD_QUOTATION_CREDENTIAL_ID").map_err(|_| ())?;
@@ -307,13 +315,16 @@ fn configured_dispatcher(
         .map_err(|_| ())?;
         let secrets = eitmad_secret_storage::SecretStore::open(directory, None).map_err(|_| ())?;
         let credential = serde_json::from_str(&credential).map_err(|_| ())?;
-        dispatcher = dispatcher.with_discount_approvals(Arc::new(
+        let quotations = Arc::new(
             eitmad_server_connection::DirectDiscountApprovalClient::from_config(
                 config, secrets, credential, branch,
             ),
-        ));
+        );
+        dispatcher = dispatcher
+            .with_quotations(quotations.clone())
+            .with_discount_approvals(quotations);
     }
-    Ok((Arc::new(dispatcher), media_enabled))
+    Ok(dispatcher)
 }
 
 /// Drains durable work with a bounded delay and ends when engine shutdown cancels the worker.

@@ -1,5 +1,10 @@
 //! Rust-authoritative prices with distinct ready-made and manufactured references.
 mod approval;
+mod lifecycle;
+pub use lifecycle::{
+    QUOTATION_LIFECYCLE_SCHEMA, QuotationError, QuotationServer, issuance_snapshot,
+    quotation_actions, quotation_error_code, quotation_expiry,
+};
 mod catalog;
 mod money;
 mod quotation;

@@ -78,6 +78,7 @@ tagged_contract! {
     /// Authorized read-only requests.
     pub enum Query {
         QuotationDraft(crate::quotation_draft::GetQuotationDraft) => "eitmad.quotation-draft.get.v1",
+        Quotations(crate::quotation_lifecycle::ListQuotations) => "eitmad.quotation.list.v1",
         DiscountApprovals(crate::quotation_approval::ListDiscountApprovals) => "eitmad.quotation-approval.list.v1",
         QuotationDrafts(crate::quotation_draft::ListQuotationDrafts) => "eitmad.quotation-draft.list.v1",
         QuotationEvaluation(crate::quotation::EvaluateQuotation) => "eitmad.quotation.evaluate.v1",
@@ -115,6 +116,7 @@ tagged_contract! {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", content = "payload", rename_all = "camelCase")]
 pub enum QueryResult {
+    Quotations(crate::quotation_lifecycle::QuotationPage),
     DiscountApprovals(crate::quotation_approval::DiscountApprovalPage),
     QuotationDraft(Box<crate::quotation_draft::QuotationDraft>),
     QuotationDrafts(crate::quotation_draft::QuotationDraftPage),

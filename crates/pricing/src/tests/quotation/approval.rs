@@ -7,11 +7,12 @@ use eitmad_contracts::{
     quotation_draft::{QuotationDraftId, QuotationDraftSnapshot},
 };
 
-fn request() -> DiscountApproval {
+pub(super) fn request() -> DiscountApproval {
     let (_dir, _, service, actor, mut intent, _) = fixture_evaluation();
     intent.discount_basis_points = 501;
     let evaluation = service.evaluate_quotation(&actor, &intent).unwrap();
     let quotation = QuotationDraftSnapshot {
+        cancelled: false,
         id: QuotationDraftId::new(Uuid::from_u128(90)),
         revision: 1,
         intent,

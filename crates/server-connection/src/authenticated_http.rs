@@ -20,6 +20,8 @@ pub(crate) enum HttpError {
     Invalid,
     NotFound,
     Conflict,
+    StalePrice,
+    ApprovalRequired,
     Unavailable,
 }
 pub(crate) struct AuthenticatedHttpClient {
@@ -97,7 +99,8 @@ impl AuthenticatedHttpClient {
         if !(actor.scope.kind.as_str() == "organization"
             && actor.scope.id.value() == actor.tenant_id.value()
             || actor.scope.kind.as_str() == "branch"
-                && route.starts_with("/v1/quotation-approvals/"))
+                && (route.starts_with("/v1/quotation-approvals/")
+                    || route.starts_with("/v1/quotations/")))
         {
             return Err(HttpError::Denied);
         }
@@ -169,7 +172,22 @@ impl AuthenticatedHttpClient {
             401 | 403 => Err(HttpError::Denied),
             400 => Err(HttpError::Invalid),
             404 => Err(HttpError::NotFound),
-            409 => Err(HttpError::Conflict),
+            409 => {
+                let code = serde_json::from_slice::<serde_json::Value>(&bytes)
+                    .ok()
+                    .and_then(|v| {
+                        v.get("code")
+                            .and_then(serde_json::Value::as_str)
+                            .map(str::to_owned)
+                    });
+                Err(match code.as_deref() {
+                    Some("eitmad.error.quotation-stale-price.v1") => HttpError::StalePrice,
+                    Some("eitmad.error.quotation-approval-required.v1") => {
+                        HttpError::ApprovalRequired
+                    }
+                    _ => HttpError::Conflict,
+                })
+            }
             _ => Err(HttpError::Unavailable),
         }
     }

@@ -152,6 +152,7 @@ fn registry() -> Vec<Migration> {
         .chain(crate::catalog_sync::MIGRATIONS)
         .chain(crate::quotation_draft::MIGRATIONS)
         .chain(sync_state::DOMAIN_MIGRATIONS)
+        .chain(crate::quotation_lifecycle::MIGRATIONS)
         .copied()
         .collect()
 }
