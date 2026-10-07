@@ -93,12 +93,12 @@ public sealed class SalesCatalogRenderedTests
             discount.Focus(); Assert.IsTrue(discount.IsKeyboardFocusWithin);
             discount.Text = "5";
             WpfTestHost.CompleteLayout(window);
-            var save = WpfTestHost.FindByAutomationName<Button>(quotation, "حفظ عرض السعر");
-            Assert.IsFalse(save.IsEnabled);
+            var issue = WpfTestHost.FindByAutomationName<Button>(quotation, "إصدار عرض السعر");
+            Assert.IsFalse(issue.IsEnabled);
             WpfTestHost.Capture(window, "catalog-discount-allowed");
             discount.Text = "10";
             WpfTestHost.CompleteLayout(window);
-            Assert.IsFalse(save.IsEnabled);
+            Assert.IsFalse(issue.IsEnabled);
             var request = WpfTestHost.FindByAutomationName<Button>(quotation, "طلب موافقة");
             Assert.IsFalse(request.IsVisible);
             Assert.IsFalse(model.CanRequestDiscountApproval);

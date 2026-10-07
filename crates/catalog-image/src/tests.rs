@@ -252,7 +252,9 @@ fn import_survives_source_removal_upgrade_restart_and_exact_retry_without_path_d
     let connection = rusqlite::Connection::open(store.path()).unwrap();
     connection
         .execute_batch(
-            "DROP TABLE quotation_draft_outbox;
+            "DROP TABLE quotation_confirmed_history;
+        DELETE FROM schema_migrations WHERE version=26;
+        DROP TABLE quotation_draft_outbox;
         DROP TABLE quotation_drafts;
         DELETE FROM schema_migrations WHERE version=24;
         ALTER TABLE sync_scopes RENAME TO sync_scopes_v25;

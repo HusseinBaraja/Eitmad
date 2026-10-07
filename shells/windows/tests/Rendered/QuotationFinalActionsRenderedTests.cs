@@ -3,10 +3,12 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Threading;
+using System.Collections.ObjectModel;
 using Eitmad.WindowsShell.Controls;
 using Eitmad.WindowsShell.Features.Reception;
 using Eitmad.WindowsShell.Features.Furniture;
 using Eitmad.WindowsShell.Features.Products;
+using Eitmad.WindowsShell.Features.Quotations;
 
 namespace Eitmad.WindowsShell.Tests.Rendered;
 
@@ -22,9 +24,10 @@ public sealed class QuotationFinalActionsRenderedTests
             var view = new CurrentQuotationView { DataContext = model };
             window.Content = view;
             WpfTestHost.CompleteLayout(window);
-            var save = WpfTestHost.FindByAutomationName<Button>(view, "حفظ عرض السعر");
+            var issue = WpfTestHost.FindByAutomationName<Button>(view, "إصدار عرض السعر");
+            Assert.IsFalse(issue.IsEnabled);
             var draft = WpfTestHost.FindByAutomationName<Button>(view, "حفظ كمسودة");
-            save.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            draft.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.IsTrue(model.ItemsError.Length > 0);
             Assert.IsTrue(model.CustomerNameError.Length > 0);
             Assert.IsTrue(model.PhoneError.Length > 0);
@@ -33,12 +36,12 @@ public sealed class QuotationFinalActionsRenderedTests
             draft.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
             Assert.IsTrue(WpfTestHost.FindByName<TextBox>(view, "CustomerNameInput").IsKeyboardFocusWithin);
-            save.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            draft.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
             Assert.IsTrue(WpfTestHost.FindByName<TextBox>(view, "CustomerNameInput").IsKeyboardFocusWithin);
             WpfTestHost.Capture(window, "quotation-required-fields");
             model.CustomerName = "عميل تجريبي";
-            save.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            draft.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.IsTrue(WpfTestHost.FindByName<TextBox>(view, "PhoneInput").IsKeyboardFocusWithin);
             model.Phone = "000000000"; model.Address = "عنوان تجريبي"; model.Notes = "INTERNAL_ONLY_SENTINEL";
             Assert.AreEqual("", model.CustomerNameError); Assert.AreEqual("", model.PhoneError);
@@ -52,6 +55,18 @@ public sealed class QuotationFinalActionsRenderedTests
             WpfTestHost.Descendants<ScrollViewer>(view).First().ScrollToBottom();
             WpfTestHost.CompleteLayout(window);
             WpfTestHost.Capture(window, "quotation-final-actions");
+            Assert.IsFalse(WpfTestHost.FindByName<Button>(view, "PrintPreviewButton").IsEnabled);
+            var row = new QuotationListItem(Guid.NewGuid(), "QT-PREVIEW-00001", model.CustomerName,
+                new DateOnly(2026, 9, 15), QuotationStatus.Active, model.Discount,
+                model.QuotationLines.Select(line => new QuotationLineItem(line.Name, line.Variant,
+                    line.Color ?? "—", line.Handle ?? "—", line.Quantity, line.UnitPrice)
+                    { IsFurniture = line.IsFurniture, Dimensions = line.Dimensions }).ToArray(), phone: model.Phone);
+            var reviewed = new QuotationsView();
+            reviewed.ConfigureReceptionist(_ => model);
+            reviewed.ViewModel.UsePreviewQuotations(new ObservableCollection<QuotationListItem> { row });
+            reviewed.ViewModel.OpenQuotation(row);
+            window.Content = reviewed;
+            WpfTestHost.CompleteLayout(window);
             Exception? failure = null;
             window.Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(() =>
             {
@@ -73,13 +88,13 @@ public sealed class QuotationFinalActionsRenderedTests
                 catch (Exception error) { failure = error; }
                 finally { modal.Close(); }
             }));
-            var print = WpfTestHost.FindByName<Button>(view, "PrintPreviewButton");
+            var print = WpfTestHost.FindByAutomationName<Button>(reviewed, "طباعة عرض السعر");
             print.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             if (failure is not null) throw failure;
-            Assert.IsTrue(print.IsKeyboardFocusWithin);
+            Assert.IsTrue(WpfTestHost.FindByName<Button>(reviewed, "BackToQuotationsButton").IsKeyboardFocusWithin);
             Assert.HasCount(2, model.QuotationLines);
             for (var i = 0; i < 45; i++) model.DuplicateLine(model.QuotationLines[0]);
-            var document = QuotationCustomerDocument.Create(model, new DateTime(2026, 9, 15));
+            var document = QuotationCustomerDocument.CreateExistingPreview(model, new DateTime(2026, 9, 15));
             var paginator = ((IDocumentPaginatorSource)document).DocumentPaginator;
             paginator.ComputePageCount();
             Assert.IsTrue(paginator.PageCount > 1);
