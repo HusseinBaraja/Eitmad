@@ -78,7 +78,8 @@ public sealed partial class SalesCatalogViewModel
     public string QuotationHeading => string.IsNullOrWhiteSpace(QuotationNumber) ? "عرض سعر جديد" : QuotationNumber;
     public bool IsQuotationEmpty => QuotationLines.Count == 0;
     public decimal Subtotal => catalogClient is not null ? evaluation?.Totals?.SubtotalYer ?? 0 : QuotationLines.Sum(line => line.LineTotal);
-    public decimal Discount => catalogClient is not null ? evaluation?.Totals?.DiscountYer ?? 0 : IsDiscountValid ? decimal.Round(Subtotal * (discountPercent / 100m), 0, MidpointRounding.AwayFromZero) : 0;
+    public decimal Discount => catalogClient is not null ? evaluation?.Totals?.DiscountYer ?? 0
+        : previewDiscountOverride ?? (IsDiscountValid ? decimal.Round(Subtotal * (discountPercent / 100m), 0, MidpointRounding.AwayFromZero) : 0);
     public decimal FinalTotal => catalogClient is not null ? evaluation?.Totals?.TotalYer ?? 0 : Subtotal - Discount;
     private bool showRequiredErrors;
     public string CustomerNameError => showRequiredErrors && string.IsNullOrWhiteSpace(CustomerName)

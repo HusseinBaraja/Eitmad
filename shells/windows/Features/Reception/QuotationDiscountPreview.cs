@@ -10,6 +10,7 @@ public sealed partial class SalesCatalogViewModel
     private decimal discountPercent;
     private bool isDiscountValid = true;
     private bool discountPending;
+    private decimal? previewDiscountOverride;
     private Features.Quotations.QuotationListItem? approvalPreview;
     public Action<SalesCatalogViewModel, bool>? PublishPreview { get; set; }
     public Guid PreviewId { get; set; } = Guid.NewGuid();
@@ -41,6 +42,13 @@ public sealed partial class SalesCatalogViewModel
                 && discountPercent * 100m == decimal.Truncate(discountPercent * 100m);
             InvalidateDiscountRequest();
         }
+    }
+
+    internal void SetPreviewDiscount(decimal amount, string input)
+    {
+        DiscountInput = input;
+        previewDiscountOverride = amount;
+        RaiseDiscountState();
     }
 
     public bool IsDiscountValid => isDiscountValid;
@@ -81,6 +89,7 @@ public sealed partial class SalesCatalogViewModel
         hasUnsavedEdits = true; Raise(nameof(DraftState));
         if (approvalPreview is not null) System.ComponentModel.PropertyChangedEventManager.RemoveHandler(approvalPreview, ApprovalChanged, "");
         approvalPreview = null;
+        previewDiscountOverride = null;
         discountPending = false;
         QuotationNotice = "";
         RaiseDiscountState();

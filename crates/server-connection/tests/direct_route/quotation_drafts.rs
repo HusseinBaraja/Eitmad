@@ -187,24 +187,8 @@ async fn quotation_drafts_restart_transfer_replay_and_conflict_through_real_serv
     );
     cycle(catalog_a, catalog_actor_a).await.unwrap();
     cycle(catalog_b, catalog_actor_b).await.unwrap();
-    let catalog_scope = scenario.server.scope.clone();
-    let mut target = scenario.product_target.clone();
-    let mut furniture_target = scenario.furniture_target.clone();
-    if let PriceTarget::Furniture(v) = &mut furniture_target {
-        v.scope = ScopeRef {
-            kind: ScopeKind::parse("organization").unwrap(),
-            id: ScopeId::new(tenant.value()),
-        };
-    }
-    match &mut target {
-        PriceTarget::Product(v) => {
-            v.scope = ScopeRef {
-                kind: ScopeKind::parse("organization").unwrap(),
-                id: ScopeId::new(tenant.value()),
-            }
-        }
-        PriceTarget::Furniture(_) => unreachable!(),
-    }
+    let (catalog_scope, target, furniture_target) =
+        draft_transfer_targets(&scenario, tenant.value());
     let created_customer = first
         .customers
         .create(
@@ -242,6 +226,26 @@ async fn quotation_drafts_restart_transfer_replay_and_conflict_through_real_serv
         .server
         .handle
         .graceful_shutdown(Some(Duration::from_secs(1)));
+}
+
+fn draft_transfer_targets(
+    scenario: &CatalogScenario,
+    tenant_id: Uuid,
+) -> (ScopeRef, PriceTarget, PriceTarget) {
+    let organization_scope = ScopeRef {
+        kind: ScopeKind::parse("organization").unwrap(),
+        id: ScopeId::new(tenant_id),
+    };
+    let mut target = scenario.product_target.clone();
+    let mut furniture_target = scenario.furniture_target.clone();
+    match &mut target {
+        PriceTarget::Product(v) => v.scope = organization_scope.clone(),
+        PriceTarget::Furniture(_) => unreachable!(),
+    }
+    if let PriceTarget::Furniture(v) = &mut furniture_target {
+        v.scope = organization_scope;
+    }
+    (scenario.server.scope.clone(), target, furniture_target)
 }
 
 async fn verify_server_permissions(scenario: &CatalogScenario) -> sqlx::PgPool {

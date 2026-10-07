@@ -35,6 +35,9 @@ public sealed class PreviewHandoffRenderedTests
         {
             var reception = WpfTestHost.FindByName<ReceptionistHomeView>(window, "ReceptionistSurface");
             var manager = WpfTestHost.FindByName<QuotationsView>(window, "QuotationsSurface");
+            var customerClient = new Features.Customers.CustomerClient(engine);
+            reception.AttachCustomerClient(customerClient);
+            window.Closed += (_, _) => _ = customerClient.DisposeAsync();
             var editor = reception.Handoffs.Attach(new SalesCatalogViewModel(Eitmad.WindowsShell.Tests.Furniture.FurnitureFixtures.SalesModel(), new Features.Products.ProductsViewModel()));
             Products.SalesCatalogPresentationTests.AddHistoricalProductLine(editor);
             editor.CustomerName = "عميل اختبار الموافقة"; editor.Phone = "000000001";
@@ -129,7 +132,7 @@ public sealed class PreviewHandoffRenderedTests
             Assert.IsFalse(editor.IsDiscountPending);
             Assert.AreEqual(1, reception.Handoffs.Quotations.Count(item => item.Id == editor.PreviewId));
             StringAssert.Contains(reception.Handoffs.Quotations.Single(item => item.Id == editor.PreviewId).ReceptionActivity, "عُدّل");
-        }, engine: engine);
+        });
     }
 
     [TestMethod]
