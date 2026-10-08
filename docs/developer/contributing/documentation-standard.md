@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "task"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-09-12"
+last_verified: "2026-10-08"
 review_triggers:
   - "feature completion, documentation structure, language policy, or quality gates change"
 keywords:
@@ -67,6 +67,14 @@ Cover what applies:
 - tradeoffs, tests, and safe extension points.
 
 Link to the canonical definition instead of copying it. Use synthetic Arabic UI examples when needed, and never expose secrets, customer records, or unredacted logs.
+
+## Code documentation
+
+Require code documentation when a reader needs an explanation to use or modify a function or interface safely. Document public contracts, non-obvious invariants, authorization or data-integrity rules, side effects, ordering requirements, retry or idempotency rules, and failure or recovery behavior when the name, types, and implementation do not make them clear.
+
+Put the explanation at the owning boundary. Reuse accurate existing documentation and link to canonical pages when they contain the required detail. Do not repeat it on each helper. Self-explanatory constructors, accessors, simple delegation, event handlers, and tests do not need comments that restate their code.
+
+There is no docstring coverage percentage or function-count target. CodeRabbit disables its built-in coverage check and uses the required behavior documentation check in `.coderabbit.yaml`. A failure must identify the exact function or interface and the missing behavior that needs explanation.
 
 ## Complete the Arabic-first gate
 
