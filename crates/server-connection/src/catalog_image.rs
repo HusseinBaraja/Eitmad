@@ -161,13 +161,17 @@ mod tests {
 
     fn credential(refresh: bool, user: Uuid, tenant: TenantId) -> super::super::StoredCredential {
         super::super::StoredCredential {
-            user_id: (!refresh).then_some(eitmad_contracts::identity::UserId::new(user)),
-            tenant_id: (!refresh).then_some(tenant),
+            user_id: eitmad_contracts::identity::UserId::new(user),
+            tenant_id: tenant,
             account_id: eitmad_contracts::identity::AccountId::new(Uuid::new_v4()),
             device_id: eitmad_contracts::identity::DeviceId::new(Uuid::new_v4()),
             access_token: "synthetic-access".into(),
             refresh_token: "synthetic-refresh".into(),
-            access_expires_at: UnixMillis(super::super::unix_millis_now().0 + 120_000),
+            access_expires_at: UnixMillis(if refresh {
+                0
+            } else {
+                super::super::unix_millis_now().0 + 120_000
+            }),
             refresh_expires_at: UnixMillis(super::super::unix_millis_now().0 + 240_000),
             signing_seed: [7; 32],
         }

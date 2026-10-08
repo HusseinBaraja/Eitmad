@@ -110,11 +110,8 @@ impl AuthenticatedHttpClient {
         driver
             .refresh_if_due(&self.credential_id, &mut credential, budget)
             .map_err(|_| HttpError::Unavailable)?;
-        if Some(actor.identity.principal_id.value())
-            != credential
-                .user_id
-                .map(eitmad_contracts::identity::UserId::value)
-            || Some(actor.tenant_id) != credential.tenant_id
+        if actor.identity.principal_id.value() != credential.user_id.value()
+            || actor.tenant_id != credential.tenant_id
         {
             return Err(HttpError::Denied);
         }
