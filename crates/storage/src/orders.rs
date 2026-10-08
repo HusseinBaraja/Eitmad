@@ -124,8 +124,13 @@ impl AuthorityStore {
             }Ok(())
         })
     }
+    /// Returns at most 100 requests for the authenticated tenant, principal and scope.
+    /// Unresolved requests come before rejected requests so rejected history cannot
+    /// hide retryable intent. Each group is ordered by request key.
+    /// See `docs/developer/subsystems/orders.md` for the pending-operation recovery flow.
+    ///
     /// # Errors
-    /// Bounds pending intent reads and isolates tenant, principal and scope.
+    /// Returns an error if the scoped read or stored request decoding fails.
     pub fn pending_orders(
         &self,
         actor: &eitmad_contracts::identity::AuthorizationContext,
