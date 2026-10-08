@@ -34,14 +34,14 @@ public partial class CurrentQuotationView : UserControl
         else (Model.CustomerNameError.Length > 0 ? CustomerNameInput : PhoneInput).Focus();
     }
     private void CancelCustomerClick(object sender, RoutedEventArgs e) { Model.CancelNewCustomer(); CustomerNameInput.Focus(); }
-    private void RequestApprovalClick(object sender, RoutedEventArgs e) { Model.RequestDiscountApproval(); if (Model.IsDiscountPending) SaveDraftButton.Focus(); else FocusMissingField(); }
+    private async void RequestApprovalClick(object sender, RoutedEventArgs e) { Model.RequestDiscountApproval(); await Model.LastApprovalRequest; if (Model.IsDiscountPending) SaveDraftButton.Focus(); else FocusMissingField(); }
     private async void SaveDraftClick(object sender, RoutedEventArgs e) { if (!await Model.SaveDraftAsync()) FocusMissingField(); }
     private async void ReloadDraftClick(object sender, RoutedEventArgs e)
     {
         if (System.Windows.MessageBox.Show(Window.GetWindow(this), "ستُستبدل التعديلات غير المحفوظة بالنسخة المحفوظة. هل تريد المتابعة؟", "إعادة فتح المسودة", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) != MessageBoxResult.Yes) return;
         await Model.ReloadDraftAsync(); ContinueButton.Focus();
     }
-    private void SaveQuotationClick(object sender, RoutedEventArgs e) { if (!Model.ReviewSave()) FocusMissingField(); }
+    private async void SaveQuotationClick(object sender, RoutedEventArgs e) { if (!await Model.IssueQuotationAsync()) FocusMissingField(); }
     private void FocusMissingField()
     {
         FrameworkElement target = Model.IsQuotationEmpty ? ContinueButton : Model.CustomerNameError.Length > 0 ? CustomerNameInput : Model.PhoneError.Length > 0 ? PhoneInput : DiscountInput;

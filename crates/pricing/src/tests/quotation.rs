@@ -1,5 +1,7 @@
 use super::*;
+mod approval;
 mod draft_sync;
+mod lifecycle;
 use eitmad_contracts::{
     commands::CreateCustomer,
     customer::{CustomerName, CustomerPhone},
@@ -611,8 +613,9 @@ fn verify_draft_permissions(
                     draft_id: created.snapshot.id
                 }
             )
-            .unwrap(),
-        *created
+            .unwrap()
+            .snapshot,
+        created.snapshot
     );
     assert_eq!(
         service.update(

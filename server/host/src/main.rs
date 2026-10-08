@@ -92,9 +92,15 @@ async fn execute() -> Result<(), MainError> {
     handlers.push(
         Arc::new(CustomerSyncHandler::new(sync_database.pool())) as Arc<dyn DomainSyncHandler>
     );
+    handlers.push(Arc::new(eitmad_sync_plane::QuotationApprovalServer::new(
+        sync_database.pool(),
+    )));
     handlers.push(Arc::new(eitmad_sync_plane::QuotationDraftSyncHandler::new(
         sync_database.pool(),
     )) as Arc<dyn DomainSyncHandler>);
+    handlers.push(Arc::new(eitmad_sync_plane::QuotationLifecycleServer::new(
+        sync_database.pool(),
+    )));
     let domains = DomainRegistry::new(handlers).map_err(|_| MainError::Configuration)?;
     let sync = SyncCoordinator::new(&sync_database, domains);
     let state = compose_server_state(&config, control, sync, &admin_database)?;
@@ -116,9 +122,12 @@ async fn migrated_databases(
         .migrate()
         .await
         .map_err(|_| MainError::Migration)?;
-    let sync_database = SyncDatabase::connect(database_url, pool_budget)
-        .await
-        .map_err(|_| MainError::Database)?;
+    let sync_database = SyncDatabase::connect(
+        database_url,
+        pool_budget + maximum_database_connections - 3 * pool_budget,
+    )
+    .await
+    .map_err(|_| MainError::Database)?;
     sync_database
         .migrate()
         .await

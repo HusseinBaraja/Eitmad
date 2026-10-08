@@ -67,14 +67,21 @@ public partial class QuotationsView : UserControl
 
     private void PrintQuotationClick(object sender, RoutedEventArgs e)
     {
-        if (!ViewModel.IsReceptionist || ViewModel.SelectedQuotation is not { CanPrint: true } quotation || createPreview is null) return;
-        var preview = new PrintPreview { Document = Features.Reception.QuotationCustomerDocument.CreateExistingPreview(createPreview(quotation), quotation.Date.ToDateTime(TimeOnly.MinValue)) };
-        ShowPreviewWindow(preview, "معاينة عرض السعر");
+        if (ViewModel.SelectedQuotation is not { CanPrint: true } quotation) return;
+        var document = quotation.Lifecycle is { Number: not null } record ? Features.Reception.QuotationCustomerDocument.CreateIssued(record)
+            : quotation.Lifecycle is not null ? null
+            : createPreview is not null ? Features.Reception.QuotationCustomerDocument.CreateExistingPreview(createPreview(quotation), quotation.Date.ToDateTime(TimeOnly.MinValue)) : null;
+        if (document is not null) ShowPreviewWindow(new PrintPreview { Document = document }, "معاينة عرض السعر");
     }
+    private async void IssueClick(object sender, RoutedEventArgs e) { ViewModel.Issue(); await ViewModel.LastLifecycleAction; BackToQuotationsButton.Focus(); }
+    private async void ValidityClick(object sender, RoutedEventArgs e) { ViewModel.SetValidity(); await ViewModel.LastLifecycleAction; BackToQuotationsButton.Focus(); }
+    private async void ReviseClick(object sender, RoutedEventArgs e) { ViewModel.Revise(); await ViewModel.LastLifecycleAction; BackToQuotationsButton.Focus(); }
+    private async void CancelQuotationClick(object sender, RoutedEventArgs e) { ViewModel.Cancel(); await ViewModel.LastLifecycleAction; BackToQuotationsButton.Focus(); }
+    private async void RetryLifecycleClick(object sender, RoutedEventArgs e) { ViewModel.RetryLifecycle(); await ViewModel.LastLifecycleAction; BackToQuotationsButton.Focus(); }
 
     private void ConvertQuotationClick(object sender, RoutedEventArgs e)
     {
-        if (!ViewModel.IsReceptionist || ViewModel.SelectedQuotation is not { CanPrint: true } quotation) return;
+        if (!ViewModel.IsReceptionist || ViewModel.SelectedQuotation is not { CanConvert: true } quotation) return;
         ConversionDialog.DataContext = quotation;
         ConversionDialog.IsOpen = true;
     }
@@ -83,7 +90,7 @@ public partial class QuotationsView : UserControl
 
     private void ConfirmConversionClick(object sender, RoutedEventArgs e)
     {
-        if (!ConversionDialog.IsOpen || ConversionDialog.DataContext is not QuotationListItem { CanPrint: true } quotation) return;
+        if (!ConversionDialog.IsOpen || ConversionDialog.DataContext is not QuotationListItem { CanConvert: true } quotation) return;
         ConversionDialog.IsOpen = false;
         var view = new Features.Orders.OrdersView();
         view.ConfigureReceptionist();
@@ -150,7 +157,7 @@ public partial class QuotationsView : UserControl
         Dispatcher.BeginInvoke(QuotationSearchBox.Focus, DispatcherPriority.Input);
     }
 
-    private void ApproveDiscountClick(object sender, RoutedEventArgs eventArgs) { ViewModel.ApproveDiscount(); BackToQuotationsButton.Focus(); }
+    private async void ApproveDiscountClick(object sender, RoutedEventArgs eventArgs) { ViewModel.ApproveDiscount(); await ViewModel.LastApprovalDecision; BackToQuotationsButton.Focus(); }
 
-    private void RejectDiscountClick(object sender, RoutedEventArgs eventArgs) { ViewModel.RejectDiscount(); BackToQuotationsButton.Focus(); }
+    private async void RejectDiscountClick(object sender, RoutedEventArgs eventArgs) { ViewModel.RejectDiscount(); await ViewModel.LastApprovalDecision; BackToQuotationsButton.Focus(); }
 }

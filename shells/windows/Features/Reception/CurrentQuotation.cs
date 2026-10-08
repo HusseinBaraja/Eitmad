@@ -95,7 +95,7 @@ public sealed partial class SalesCatalogViewModel
     public string CustomerName { get => customerName; set { if (Set(ref customerName, value)) { if (!applyingCustomer) InvalidateDiscountRequest(); CustomerInputChanged(value); Raise(nameof(CustomerNameError)); } } }
     public string Phone { get => phone; set { if (Set(ref phone, value)) { if (!applyingCustomer) InvalidateDiscountRequest(); CustomerInputChanged(value); Raise(nameof(PhoneError)); } } }
     public string Address { get => address; set { if (Set(ref address, value) && !applyingCustomer) InvalidateDiscountRequest(); } }
-    public string Notes { get => notes; set { if (Set(ref notes, value) && !applyingCustomer) InvalidateDiscountRequest(); } }
+    public string Notes { get => notes; set => Set(ref notes, value); }
     public bool IsNewCustomer { get => isNewCustomer; private set { if (Set(ref isNewCustomer, value)) Raise(nameof(AreCustomerDetailsReadOnly)); } }
     public string QuotationNotice { get => quotationNotice; private set => Set(ref quotationNotice, value); }
     public void AttachCustomerClient(Features.Customers.CustomerClient client)
@@ -268,7 +268,7 @@ public sealed partial class SalesCatalogViewModel
     public bool ReviewSave()
     {
         if (!CheckRequiredFields()) return false;
-        if (!CanSaveQuotation) { QuotationNotice = DiscountError.Length > 0 ? DiscountError : DiscountStatus; return false; }
+        if (!CanSaveQuotation) { QuotationNotice = DiscountError.Length > 0 ? DiscountError : "إصدار عرض السعر غير متاح بعد، ولم يُحفظ عرض السعر"; return false; }
         PublishPreview?.Invoke(this, false);
         QuotationNotice = "المعاينة مكتملة — حفظ عرض السعر غير متاح بعد، ولم يُحفظ عرض السعر"; return true;
     }

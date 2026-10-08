@@ -32,11 +32,9 @@ public sealed class ReceptionHandoffPreview
         {
             CustomerId = editor.SelectedCustomer?.Id,
             Address = editor.Address, Notes = editor.Notes,
-            NeedsApprovalToComplete = editor.RequiresDiscountApproval,
+            NeedsApprovalToComplete = true,
             ReceptionActivity = requestApproval ? "طلب خصم من الاستقبال" : previous is null ? "جديد من الاستقبال" : "عُدّل في الاستقبال",
         };
-        if (editor.IsDiscountApproved) snapshot.DecideDiscount(DiscountApprovalDecision.Approved);
-        else if (editor.IsDiscountRejected && !requestApproval) snapshot.DecideDiscount(DiscountApprovalDecision.Rejected);
         if (previous is null) Quotations.Insert(0, snapshot);
         else Quotations[Quotations.IndexOf(previous)] = snapshot;
         editor.QuotationNumber = snapshot.Number;

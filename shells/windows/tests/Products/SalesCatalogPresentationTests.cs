@@ -24,12 +24,12 @@ public sealed class SalesCatalogPresentationTests
         model.DiscountInput = "10";
         model.RequestDiscountApproval();
         Assert.IsTrue(model.ReviewDraftSave());
-        Assert.IsTrue(model.IsDiscountPending);
+        Assert.IsFalse(model.IsDiscountPending);
         Assert.IsFalse(model.ReviewSave());
     }
 
     [TestMethod]
-    public void DiscountPreviewGatesSavingAndInvalidatesChangedRequests()
+    public void DiscountPreviewCannotGrantApprovalOrClaimIssuance()
     {
         var model = new SalesCatalogViewModel(Eitmad.WindowsShell.Tests.Furniture.FurnitureFixtures.SalesModel(), new ProductsViewModel());
         AddHistoricalProductLine(model,12000);
@@ -37,16 +37,16 @@ public sealed class SalesCatalogPresentationTests
         model.DiscountInput = "٥";
         Assert.AreEqual(600m, model.Discount);
         Assert.AreEqual(11_400m, model.FinalTotal);
-        Assert.IsTrue(model.ReviewSave());
+        Assert.IsFalse(model.ReviewSave());
         model.DiscountInput = "٥٫٥";
         Assert.AreEqual(660m, model.Discount);
-        Assert.IsTrue(model.CanRequestDiscountApproval);
+        Assert.IsFalse(model.CanRequestDiscountApproval);
         Assert.IsFalse(model.ReviewSave());
         model.RequestDiscountApproval();
-        Assert.IsTrue(model.IsDiscountPending);
+        Assert.IsFalse(model.IsDiscountPending);
         Assert.IsFalse(model.CanRequestDiscountApproval);
         Assert.IsTrue(model.ReviewDraftSave());
-        Assert.IsTrue(model.IsDiscountPending);
+        Assert.IsFalse(model.IsDiscountPending);
         Assert.IsFalse(model.ReviewSave());
         model.DuplicateLine(model.QuotationLines[0]);
         Assert.IsFalse(model.IsDiscountPending);
@@ -64,7 +64,7 @@ public sealed class SalesCatalogPresentationTests
         }
         model.DiscountInput = "0";
         Assert.AreEqual(model.Subtotal, model.FinalTotal);
-        Assert.IsTrue(model.ReviewSave());
+        Assert.IsFalse(model.ReviewSave());
     }
 
     [TestMethod]
@@ -100,7 +100,7 @@ public sealed class SalesCatalogPresentationTests
         model.BeginNewCustomer();
         model.CustomerName = "عميل معاينة جديد"; model.Phone = "000000001";
         Assert.IsTrue(await model.SaveNewCustomerAsync());
-        Assert.IsTrue(model.ReviewSave());
+        Assert.IsFalse(model.ReviewSave());
         Assert.IsTrue(model.QuotationNotice.Contains("لم يُحفظ عرض السعر"));
     }
 

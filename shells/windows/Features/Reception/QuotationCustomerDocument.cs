@@ -10,6 +10,44 @@ namespace Eitmad.WindowsShell.Features.Reception;
 
 public static class QuotationCustomerDocument
 {
+    public static FlowDocument CreateIssued(Eitmad.Contracts.QuotationRecord record)
+    {
+        if (record.Number is null || !record.PermittedActions.Contains(Eitmad.Contracts.QuotationPermittedAction.Print))
+            throw new InvalidOperationException("An authorized issued snapshot is required.");
+        var snapshot = record.Quotation.Evaluation;
+        var document = new FlowDocument {
+            FlowDirection = FlowDirection.RightToLeft, Language = System.Windows.Markup.XmlLanguage.GetLanguage("ar-YE"),
+            FontFamily = new FontFamily("Segoe UI"), FontSize = 14, Foreground = Brushes.Black, Background = Brushes.White,
+            PageWidth = 793.7, PageHeight = 1122.5, PagePadding = new Thickness(48), ColumnWidth = double.PositiveInfinity,
+        };
+        document.Blocks.Add(new Paragraph(new Run("الاعتماد — عرض سعر")) { FontSize = 24, FontWeight = FontWeights.Bold });
+        document.Blocks.Add(Pair("رقم عرض السعر", record.Number, true));
+        document.Blocks.Add(Pair("الإصدار", record.DocumentRevision.ToString(CultureInfo.InvariantCulture), true));
+        document.Blocks.Add(Pair("الحالة", record.State switch { Eitmad.Contracts.QuotationState.Cancelled => "ملغي", Eitmad.Contracts.QuotationState.Expired => "منتهي", _ => "صادر" }));
+        if (record.IssuedAt is { } issuedAt) document.Blocks.Add(Pair("تاريخ الإصدار", DateTimeOffset.FromUnixTimeMilliseconds(issuedAt).ToOffset(TimeSpan.FromHours(3)).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), true));
+        document.Blocks.Add(Pair("مدة الصلاحية بالأيام", record.ValidityDays.ToString(CultureInfo.InvariantCulture), true));
+        document.Blocks.Add(Pair("العميل", snapshot.Customer.Name));
+        document.Blocks.Add(Pair("رقم الهاتف", snapshot.Customer.Phone, true));
+        if (!string.IsNullOrWhiteSpace(snapshot.Customer.Address)) document.Blocks.Add(Pair("العنوان", snapshot.Customer.Address));
+        if (record.ValidUntil is { } until) document.Blocks.Add(Pair("صالح حتى", DateTimeOffset.FromUnixTimeMilliseconds(until).ToOffset(TimeSpan.FromHours(3)).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), true));
+        var table = new Table { CellSpacing = 0, Margin = new Thickness(0, 24, 0, 20) };
+        foreach (var width in new[] { 150d, 215d, 55d, 90d, 90d }) table.Columns.Add(new TableColumn { Width = new GridLength(width) });
+        var rows = new TableRowGroup(); table.RowGroups.Add(rows);
+        var header = new TableRow { FontWeight = FontWeights.Bold, Background = Brushes.Gainsboro };
+        foreach (var label in new[] { "الصنف", "الخيارات المحددة", "الكمية", "سعر الوحدة", "الإجمالي" }) header.Cells.Add(Cell(label));
+        rows.Rows.Add(header);
+        foreach (var line in snapshot.Lines) {
+            var options = string.Join(" · ", new[] { line.VariantName, line.ColorName, line.HandleName, line.Dimensions is { } d ? SalesCatalogViewModel.DimensionsLabel(d) : "" }.Where(v => !string.IsNullOrEmpty(v)));
+            var row = new TableRow(); row.Cells.Add(Cell(line.Name)); row.Cells.Add(Cell(options));
+            row.Cells.Add(Cell(line.Quantity.ToString(CultureInfo.InvariantCulture), true));
+            row.Cells.Add(Cell(Money(line.Price.UnitPriceYer), true)); row.Cells.Add(Cell(Money(line.Price.TotalYer), true)); rows.Rows.Add(row);
+        }
+        document.Blocks.Add(table);
+        document.Blocks.Add(Pair("المجموع الفرعي", Money(snapshot.Totals.SubtotalYer), true));
+        document.Blocks.Add(Pair("الخصم", Money(snapshot.Totals.DiscountYer), true));
+        document.Blocks.Add(Pair("الإجمالي النهائي", Money(snapshot.Totals.TotalYer), true));
+        return document;
+    }
     // Explicit customer-only projection. Never render the editor or its DataContext for printing.
     public static FlowDocument Create(SalesCatalogViewModel model, DateTime date)
     {

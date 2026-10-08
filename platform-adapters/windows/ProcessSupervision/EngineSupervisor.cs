@@ -103,7 +103,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
                 ProtocolVersion = SessionProtocol(client),
                 RequestId = requestId,
                 CorrelationId = Guid.NewGuid(),
-                Authorization = query.Kind is Query.CustomerGetKind or Query.CustomerSearchKind or Query.QuotationEvaluateKind or Query.QuotationDraftGetKind or Query.QuotationDraftListKind
+                Authorization = query.Kind is Query.QuotationApprovalListKind or Query.QuotationListKind ? client.AuthorizationForApprovals : query.Kind is Query.CustomerGetKind or Query.CustomerSearchKind or Query.QuotationEvaluateKind or Query.QuotationDraftGetKind or Query.QuotationDraftListKind
                     ? client.AuthorizationForCustomer : client.Authorization,
                 Deadline = DeadlineAfter(requestTimeout),
                 Query = ToPayloadDictionary(query),
@@ -163,7 +163,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
                 ProtocolVersion = SessionProtocol(client),
                 RequestId = Guid.NewGuid(),
                 CorrelationId = Guid.NewGuid(),
-                Authorization = command.Kind is Command.CustomerCreateKind or Command.CustomerUpdateKind or Command.QuotationDraftCreateKind or Command.QuotationDraftUpdateKind
+                Authorization = command.Kind is Command.QuotationIssueKind or Command.QuotationDraftCancelKind or Command.QuotationApprovalRequestKind or Command.CustomerCreateKind or Command.CustomerUpdateKind or Command.QuotationDraftCreateKind or Command.QuotationDraftUpdateKind
                     ? client.AuthorizationForCustomer : client.Authorization,
                 Deadline = DeadlineAfter(requestTimeout),
                 IdempotencyKey = idempotencyKey,
@@ -693,6 +693,8 @@ public sealed class EngineSupervisor : IAsyncDisposable
                 ProtocolIds.Capabilities.EitmadCapabilitySalesCatalogV1,
                 ProtocolIds.Capabilities.EitmadCapabilityQuotationEvaluationV1,
                 ProtocolIds.Capabilities.EitmadCapabilityQuotationDraftV1,
+                ProtocolIds.Capabilities.EitmadCapabilityQuotationApprovalV1,
+                ProtocolIds.Capabilities.EitmadCapabilityQuotationLifecycleV1,
                 ProtocolIds.Capabilities.EitmadCapabilityPricingV1,
                 ProtocolIds.Capabilities.EitmadCapabilityCatalogImageV1,
                 ProtocolIds.Capabilities.EitmadCapabilityDesktopAccountManagementV1,
@@ -704,6 +706,16 @@ public sealed class EngineSupervisor : IAsyncDisposable
             ],
             Schemas =
             [
+                new SchemaSupport
+                {
+                    SchemaId = ProtocolIds.SchemaIds.EitmadSchemaQuotationLifecycleV1,
+                    MinimumVersion = 1, MaximumVersion = 1,
+                },
+                new()
+                {
+                    SchemaId = ProtocolIds.SchemaIds.EitmadSchemaQuotationApprovalV1,
+                    MinimumVersion = 1, MaximumVersion = 1, SchemaSupportRequired = false,
+                },
                 new SchemaSupport
                 {
                     SchemaId = ProtocolIds.SchemaIds.EitmadSchemaQuotationDraftV1,
@@ -848,7 +860,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
             },
             RequestId = Guid.NewGuid(),
             CorrelationId = Guid.NewGuid(),
-            Authorization = contract.Kind is Subscription.CustomerChangedSubscribeKind or Subscription.QuotationDraftChangedSubscribeKind
+            Authorization = contract.Kind is Subscription.QuotationApprovalChangedSubscribeKind or Subscription.QuotationChangedSubscribeKind ? client.AuthorizationForApprovals : contract.Kind is Subscription.CustomerChangedSubscribeKind or Subscription.QuotationDraftChangedSubscribeKind
                 ? client.AuthorizationForCustomer : client.Authorization,
             Subscription = ToPayloadDictionary(contract),
             ResumeAfter = resumeAfter,

@@ -390,6 +390,12 @@ fn direct_test_domains(sync_database: &SyncDatabase) -> DomainRegistry {
             sync_database.pool(),
         )) as Arc<dyn DomainSyncHandler>,
     ]);
+    handlers.push(Arc::new(eitmad_sync_plane::QuotationApprovalServer::new(
+        sync_database.pool(),
+    )));
+    handlers.push(Arc::new(eitmad_sync_plane::QuotationLifecycleServer::new(
+        sync_database.pool(),
+    )));
     DomainRegistry::new(handlers).unwrap()
 }
 async fn provision_server(

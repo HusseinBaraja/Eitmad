@@ -54,6 +54,8 @@ use uuid::Uuid;
 
 use crate::ServerConfig;
 
+type QuotationExpiryScope = (Uuid, String, Uuid);
+
 #[derive(Clone)]
 pub struct ServerState {
     control: ControlPlane,
@@ -63,6 +65,10 @@ pub struct ServerState {
     relay: Option<RelayCoordinator>,
     updates: Option<UpdateCatalog>,
     administration: Option<AdministrationService>,
+    approval_notifications: Arc<tokio::sync::OnceCell<ApprovalNotifications>>,
+    quotation_expiry_checks: Arc<
+        tokio::sync::Mutex<std::collections::HashMap<QuotationExpiryScope, std::time::Instant>>,
+    >,
 }
 
 impl ServerState {
@@ -87,6 +93,10 @@ impl ServerState {
             relay: None,
             updates: None,
             administration: None,
+            approval_notifications: Arc::new(tokio::sync::OnceCell::new()),
+            quotation_expiry_checks: Arc::new(tokio::sync::Mutex::new(
+                std::collections::HashMap::new(),
+            )),
         }
     }
 
@@ -103,8 +113,76 @@ impl ServerState {
         self
     }
 
+    async fn approval_notifications(
+        &self,
+    ) -> Result<tokio::sync::broadcast::Receiver<()>, eitmad_pricing::ApprovalError> {
+        let notifications=self.approval_notifications.get_or_try_init(|| async {
+            // One listener per host, counted in the sync pool, independent of client count.
+            let mut listener=self.sync.quotation_approvals().listener().await?;
+            let (wake,_)=tokio::sync::broadcast::channel(16);
+            let (stop,mut stopping)=tokio::sync::watch::channel(false);
+            let publish=wake.clone();
+            tokio::spawn(async move {
+                loop {
+                    tokio::select! {
+                        _=stopping.changed()=>break,
+                        received=listener.recv()=> {
+                            let _=publish.send(());
+                            if received.is_err() {tokio::time::sleep(std::time::Duration::from_secs(1)).await;}
+                        }
+                    }
+                }
+            });
+            Ok(ApprovalNotifications{wake,stop})
+        }).await?;
+        Ok(notifications.wake.subscribe())
+    }
+
+    async fn expire_quotations(
+        &self,
+        session: &eitmad_contracts::server::AuthenticatedServerSession,
+        scope: &ScopeRef,
+    ) -> Result<(), ApiError> {
+        let key = (
+            session.tenant_id.value(),
+            scope.kind.as_str().to_owned(),
+            scope.id.value(),
+        );
+        let instant = std::time::Instant::now();
+        {
+            let mut checks = self.quotation_expiry_checks.lock().await;
+            checks.retain(|_, checked| {
+                instant.duration_since(*checked) < SESSION_REVALIDATION_INTERVAL
+            });
+            if checks.contains_key(&key) {
+                return Ok(());
+            }
+            checks.insert(key.clone(), instant);
+        }
+        let result = self
+            .sync
+            .quotations()
+            .expire_due(session, scope, unix_millis_now())
+            .await
+            .map_err(map_quotation);
+        if result.is_err() {
+            self.quotation_expiry_checks.lock().await.remove(&key);
+        }
+        result
+    }
+
     pub fn set_ready(&self, value: bool) {
         self.ready.store(value, Ordering::Release);
+    }
+}
+
+struct ApprovalNotifications {
+    wake: tokio::sync::broadcast::Sender<()>,
+    stop: tokio::sync::watch::Sender<bool>,
+}
+impl Drop for ApprovalNotifications {
+    fn drop(&mut self) {
+        let _ = self.stop.send(true);
     }
 }
 
@@ -132,6 +210,17 @@ pub fn router(state: ServerState) -> Router {
             post(publish_price).layer(axum::extract::DefaultBodyLimit::max(64 * 1024)),
         )
         .route("/v1/pricing/read", post(read_prices))
+        .route(
+            "/v1/quotation-approvals/transition",
+            post(quotation_approval_transition)
+                .layer(axum::extract::DefaultBodyLimit::max(1024 * 1024)),
+        )
+        .route("/v1/quotations/transition", post(quotation_transition))
+        .route("/v1/quotations/read", post(quotation_read))
+        .route(
+            "/v1/quotation-approvals/read",
+            post(quotation_approval_read),
+        )
         .route(
             "/v1/pricing/status",
             post(price_status).layer(axum::extract::DefaultBodyLimit::max(64 * 1024)),
@@ -296,6 +385,52 @@ async fn synchronize_catalog_revisions(
                 eitmad_pricing::error_code(e),
             )
         })
+}
+
+/// Negotiates discount support and authenticates the exact server transition.
+async fn quotation_approval_transition(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(input): Json<eitmad_contracts::quotation_approval::ConfirmDiscountApproval>,
+) -> Result<Json<Option<eitmad_contracts::quotation_approval::DiscountApproval>>, ApiError> {
+    let actor =
+        authenticate_negotiated(&state, &headers, "eitmad.capability.quotation-approval.v1")
+            .await?;
+    state
+        .sync
+        .quotation_approvals()
+        .transition(&actor, &input, new_correlation_id(), unix_millis_now())
+        .await
+        .map(Json)
+        .map_err(map_approval)
+}
+async fn quotation_approval_read(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(input): Json<eitmad_contracts::quotation_approval::ReadDiscountApprovals>,
+) -> Result<Json<eitmad_contracts::quotation_approval::DiscountApprovalPage>, ApiError> {
+    let actor =
+        authenticate_negotiated(&state, &headers, "eitmad.capability.quotation-approval.v1")
+            .await?;
+    state
+        .sync
+        .quotation_approvals()
+        .list(&actor, &input)
+        .await
+        .map(Json)
+        .map_err(map_approval)
+}
+fn map_approval(e: eitmad_pricing::ApprovalError) -> ApiError {
+    use eitmad_pricing::ApprovalError as E;
+    ApiError::new(
+        match e {
+            E::Denied => StatusCode::FORBIDDEN,
+            E::Conflict => StatusCode::CONFLICT,
+            E::Invalid => StatusCode::BAD_REQUEST,
+            E::Unavailable => StatusCode::SERVICE_UNAVAILABLE,
+        },
+        eitmad_pricing::approval_error_code(e),
+    )
 }
 
 /// Negotiates pricing support and authenticates the public organization read.
@@ -887,11 +1022,7 @@ async fn connect(
             stream_session(
                 socket,
                 state,
-                StreamContext {
-                    token,
-                    proof,
-                    session,
-                },
+                StreamContext { token, session },
                 scope,
                 schema_id,
                 query.schema_version,
@@ -904,8 +1035,12 @@ const SESSION_REVALIDATION_INTERVAL: std::time::Duration = std::time::Duration::
 
 struct StreamContext {
     token: String,
-    proof: DeviceProof,
     session: eitmad_contracts::server::AuthenticatedServerSession,
+}
+
+enum ApprovalCursor {
+    Unsubscribed,
+    Subscribed(Option<eitmad_contracts::transport::EventCursor>),
 }
 
 async fn stream_session(
@@ -916,22 +1051,49 @@ async fn stream_session(
     schema_id: SchemaId,
     schema_version: u32,
 ) {
-    let StreamContext {
-        token,
-        proof,
-        session,
-    } = context;
+    let StreamContext { token, session } = context;
+    let approval_stream = matches!(
+        schema_id.as_str(),
+        eitmad_pricing::DISCOUNT_APPROVAL_SCHEMA | eitmad_pricing::QUOTATION_LIFECYCLE_SCHEMA
+    );
+    let mut approval_listener = if approval_stream {
+        if let Ok(listener) = state.approval_notifications().await {
+            Some(listener)
+        } else {
+            let _ = send_failure(
+                &mut socket,
+                "eitmad.error.quotation-approval-unavailable.v1",
+            )
+            .await;
+            return;
+        }
+    } else {
+        None
+    };
+    let mut approval_cursor = ApprovalCursor::Unsubscribed;
     let mut negotiated: Option<NegotiatedSession> = None;
     let mut revalidation = tokio::time::interval(SESSION_REVALIDATION_INTERVAL);
     revalidation.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     revalidation.reset();
     loop {
         let received = tokio::select! {
+            notification=async {approval_listener.as_mut().expect("approval receiver").recv().await}, if matches!(approval_cursor,ApprovalCursor::Subscribed(_)) => {
+                if matches!(notification,Err(tokio::sync::broadcast::error::RecvError::Closed)) || revalidate_stream(&state,&token,&session).await.is_err() {break;}
+                if let ApprovalCursor::Subscribed(cursor)=&mut approval_cursor {
+                    if let Err(e)=send_approval_events(&mut socket,&state,&session,&scope,&schema_id,cursor).await {let _=send_failure(&mut socket,e.code.as_str()).await;break;}
+                }
+                continue;
+            }
             _ = revalidation.tick() => {
-                if let Err(error) = authenticate_access(&state, &token, &proof).await {
+                if let Err(error) = revalidate_stream(&state, &token, &session).await {
                     let _ = send_failure(&mut socket, error.code.as_str())
                         .await;
                     break;
+                }
+                if let ApprovalCursor::Subscribed(cursor)=&mut approval_cursor {
+                    if let Err(e)=send_revalidated_events(&mut socket,&state,&session,&scope,&schema_id,cursor).await{
+                        let _=send_failure(&mut socket,e.code.as_str()).await;break;
+                    }
                 }
                 continue;
             }
@@ -953,29 +1115,11 @@ async fn stream_session(
             continue;
         };
         if negotiated.is_none() {
-            let ServerClientMessage::Hello(hello) = message else {
+            let Ok(session) =
+                accept_stream_hello(&mut socket, &state, message, schema_id.as_str()).await
+            else {
                 let _ =
                     send_failure(&mut socket, "eitmad.error.server-client-incompatible.v1").await;
-                break;
-            };
-            let outcome = negotiate(&state.server_hello, &hello.peer);
-            if hello.api_version != eitmad_contracts::server::SERVER_API_VERSION
-                || !matches!(outcome, NegotiationOutcome::Accepted(_))
-            {
-                let _ =
-                    send_failure(&mut socket, "eitmad.error.server-client-incompatible.v1").await;
-                break;
-            }
-            if send_server_message(
-                &mut socket,
-                &ServerMessage::Hello(state.server_hello.clone()),
-            )
-            .await
-            .is_err()
-            {
-                break;
-            }
-            let NegotiationOutcome::Accepted(session) = outcome else {
                 break;
             };
             negotiated = Some(session);
@@ -988,7 +1132,14 @@ async fn stream_session(
             schema_version,
             negotiated: negotiated.as_ref().expect("hello negotiated"),
         };
-        let result = handle_stream_message(&mut socket, &state, &request_context, message).await;
+        let result = handle_stream_message(
+            &mut socket,
+            &state,
+            &request_context,
+            message,
+            &mut approval_cursor,
+        )
+        .await;
         if let Err(error) = result {
             if send_failure(&mut socket, error.code.as_str())
                 .await
@@ -996,6 +1147,93 @@ async fn stream_session(
             {
                 break;
             }
+        }
+    }
+}
+
+async fn accept_stream_hello(
+    socket: &mut WebSocket,
+    state: &ServerState,
+    message: ServerClientMessage,
+    schema: &str,
+) -> Result<NegotiatedSession, ApiError> {
+    let incompatible = || ApiError::bad_request("eitmad.error.server-client-incompatible.v1");
+    let ServerClientMessage::Hello(hello) = message else {
+        return Err(incompatible());
+    };
+    if hello.api_version != eitmad_contracts::server::SERVER_API_VERSION {
+        return Err(incompatible());
+    }
+    let NegotiationOutcome::Accepted(session) = negotiate(&state.server_hello, &hello.peer) else {
+        return Err(incompatible());
+    };
+    let lifecycle = schema == eitmad_pricing::QUOTATION_LIFECYCLE_SCHEMA;
+    let live = lifecycle || schema == eitmad_pricing::DISCOUNT_APPROVAL_SCHEMA;
+    if live
+        && (session.protocol.minor < if lifecycle { 21 } else { 20 }
+            || !session.capabilities.iter().any(|c| {
+                c.as_str()
+                    == if lifecycle {
+                        "eitmad.capability.quotation-lifecycle.v1"
+                    } else {
+                        "eitmad.capability.quotation-approval.v1"
+                    }
+            }))
+    {
+        return Err(incompatible());
+    }
+    send_server_message(socket, &ServerMessage::Hello(state.server_hello.clone()))
+        .await
+        .map_err(|()| ApiError::unavailable())?;
+    Ok(session)
+}
+
+async fn send_revalidated_events(
+    socket: &mut WebSocket,
+    state: &ServerState,
+    session: &eitmad_contracts::server::AuthenticatedServerSession,
+    scope: &ScopeRef,
+    schema: &SchemaId,
+    cursor: &mut Option<eitmad_contracts::transport::EventCursor>,
+) -> Result<(), ApiError> {
+    if schema.as_str() == eitmad_pricing::QUOTATION_LIFECYCLE_SCHEMA {
+        state.expire_quotations(session, scope).await?;
+    }
+    send_approval_events(socket, state, session, scope, schema, cursor).await
+}
+
+async fn send_approval_events(
+    socket: &mut WebSocket,
+    state: &ServerState,
+    session: &eitmad_contracts::server::AuthenticatedServerSession,
+    scope: &ScopeRef,
+    schema: &SchemaId,
+    cursor: &mut Option<eitmad_contracts::transport::EventCursor>,
+) -> Result<(), ApiError> {
+    loop {
+        let page = state
+            .sync
+            .subscription_page(eitmad_sync_plane::SubscriptionPageRequest {
+                session,
+                scope,
+                schema_id: schema,
+                schema_version: 1,
+                resume_after: *cursor,
+                maximum_events: 100,
+                correlation_id: new_correlation_id(),
+                now: unix_millis_now(),
+            })
+            .await
+            .map_err(map_subscription)?;
+        for event in page.events {
+            let next = event.cursor;
+            send_server_message(socket, &ServerMessage::Event(event))
+                .await
+                .map_err(|()| ApiError::unavailable())?;
+            *cursor = Some(next);
+        }
+        if !page.has_more {
+            return Ok(());
         }
     }
 }
@@ -1013,8 +1251,30 @@ async fn handle_stream_message(
     state: &ServerState,
     context: &StreamRequestContext<'_>,
     message: ServerClientMessage,
+    approval_cursor: &mut ApprovalCursor,
 ) -> Result<(), ApiError> {
     match message {
+        ServerClientMessage::Subscribe(request)
+            if request.schema_id == *context.schema_id
+                && matches!(
+                    context.schema_id.as_str(),
+                    eitmad_pricing::DISCOUNT_APPROVAL_SCHEMA
+                        | eitmad_pricing::QUOTATION_LIFECYCLE_SCHEMA
+                ) =>
+        {
+            let mut cursor = request.resume_after;
+            send_revalidated_events(
+                socket,
+                state,
+                context.session,
+                context.scope,
+                context.schema_id,
+                &mut cursor,
+            )
+            .await?;
+            *approval_cursor = ApprovalCursor::Subscribed(cursor);
+            Ok(())
+        }
         ServerClientMessage::Subscribe(request) if request.schema_id == *context.schema_id => {
             let page = state
                 .sync
@@ -1304,14 +1564,19 @@ async fn authenticate_negotiated(
         .and_then(|value| URL_SAFE_NO_PAD.decode(value).ok())
         .and_then(|value| serde_json::from_slice::<PeerHello>(&value).ok())
         .ok_or_else(|| ApiError::bad_request("eitmad.error.server-client-incompatible.v1"))?;
-    let minimum_minor = if matches!(
-        required_capability.as_str(),
-        "eitmad.capability.pricing.v1" | "eitmad.capability.catalog-revisions.v1"
-    ) {
-        17
-    } else {
-        5
-    };
+    let minimum_minor =
+        if required_capability.as_str() == "eitmad.capability.quotation-lifecycle.v1" {
+            21
+        } else if required_capability.as_str() == "eitmad.capability.quotation-approval.v1" {
+            20
+        } else if matches!(
+            required_capability.as_str(),
+            "eitmad.capability.pricing.v1" | "eitmad.capability.catalog-revisions.v1"
+        ) {
+            17
+        } else {
+            5
+        };
     let mut boundary = state.server_hello.clone();
     boundary.required_capabilities = vec![required_capability];
     let NegotiationOutcome::Accepted(negotiated) = negotiate(&boundary, &peer) else {
@@ -1355,9 +1620,25 @@ async fn authenticate_access(
         .map_err(ApiError::authentication)
 }
 
+async fn revalidate_stream(
+    state: &ServerState,
+    token: &str,
+    session: &eitmad_contracts::server::AuthenticatedServerSession,
+) -> Result<(), ApiError> {
+    state
+        .control
+        .authentication
+        .revalidate_access(token, session, unix_millis_now())
+        .await
+        .map(|_| ())
+        .map_err(ApiError::authentication)
+}
+
 /// Advertises supported schemas and capabilities while requiring only shared transport foundations.
 fn server_hello(schemas: Vec<SchemaSupport>) -> PeerHello {
     let capabilities = [
+        "eitmad.capability.quotation-lifecycle.v1",
+        "eitmad.capability.quotation-approval.v1",
         "eitmad.capability.sync.v1",
         "eitmad.capability.catalog-image.v1",
         "eitmad.capability.pricing.v1",
@@ -1386,7 +1667,9 @@ fn server_hello(schemas: Vec<SchemaSupport>) -> PeerHello {
             .filter(|c| {
                 !matches!(
                     c.as_str(),
-                    "eitmad.capability.catalog-image.v1"
+                    "eitmad.capability.quotation-lifecycle.v1"
+                        | "eitmad.capability.quotation-approval.v1"
+                        | "eitmad.capability.catalog-image.v1"
                         | "eitmad.capability.pricing.v1"
                         | "eitmad.capability.catalog-revisions.v1"
                 )
@@ -1543,6 +1826,49 @@ fn map_snapshot(error: &SnapshotError) -> ApiError {
         SnapshotError::Empty => ApiError::bad_request("eitmad.error.server-snapshot-required.v1"),
         SnapshotError::Unavailable => ApiError::unavailable(),
     }
+}
+
+async fn quotation_transition(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(input): Json<eitmad_contracts::quotation_lifecycle::ConfirmQuotation>,
+) -> Result<Json<eitmad_contracts::quotation_lifecycle::QuotationRecord>, ApiError> {
+    let actor =
+        authenticate_negotiated(&state, &headers, "eitmad.capability.quotation-lifecycle.v1")
+            .await?;
+    state
+        .sync
+        .quotations()
+        .transition(&actor, &input, new_correlation_id(), unix_millis_now())
+        .await
+        .map(Json)
+        .map_err(map_quotation)
+}
+async fn quotation_read(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(input): Json<eitmad_contracts::quotation_lifecycle::ReadQuotations>,
+) -> Result<Json<eitmad_contracts::quotation_lifecycle::QuotationPage>, ApiError> {
+    let actor =
+        authenticate_negotiated(&state, &headers, "eitmad.capability.quotation-lifecycle.v1")
+            .await?;
+    state
+        .sync
+        .quotations()
+        .list(&actor, &input, unix_millis_now())
+        .await
+        .map(Json)
+        .map_err(map_quotation)
+}
+fn map_quotation(e: eitmad_pricing::QuotationError) -> ApiError {
+    use eitmad_pricing::QuotationError as E;
+    let status = match e {
+        E::Denied => StatusCode::FORBIDDEN,
+        E::Invalid => StatusCode::BAD_REQUEST,
+        E::Conflict | E::StalePrice | E::ApprovalRequired => StatusCode::CONFLICT,
+        E::Unavailable => StatusCode::SERVICE_UNAVAILABLE,
+    };
+    ApiError::new(status, eitmad_pricing::quotation_error_code(e))
 }
 
 #[cfg(test)]

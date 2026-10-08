@@ -47,10 +47,23 @@ public sealed record QuotationLineItem(
 /// <summary>Represents one quotation row and its transient approval preview state.</summary>
 public sealed class QuotationListItem : ObservableObject
 {
+    public Eitmad.Contracts.QuotationRecord? Lifecycle { get; init; }
+    public bool Permits(Eitmad.Contracts.QuotationPermittedAction action) => (Lifecycle?.PermittedActions ?? Draft?.PermittedActions ?? []).Contains(action);
+    public bool CanIssue => Permits(Eitmad.Contracts.QuotationPermittedAction.Issue);
+    public bool CanRevise => Permits(Eitmad.Contracts.QuotationPermittedAction.Revise);
+    public bool CanManageValidity => Permits(Eitmad.Contracts.QuotationPermittedAction.ManageValidity);
+    public bool CanCancel => Permits(Eitmad.Contracts.QuotationPermittedAction.Cancel);
+    public bool IsPreview => Draft is null && Lifecycle is null;
+    public bool ShowValidityInput => CanManageValidity || CanRevise;
+    public bool ShowCancellationReason => CanCancel && Lifecycle?.Number is not null;
+    public bool CanPrintPreview => IsPreview && CanPrint;
+    public bool CanPrintConfirmed => Lifecycle is not null && CanPrint;
+    public bool CanConvert => Draft is null && Lifecycle is null && CanPrint;
+    public string ValidityLabel => Lifecycle is { } q ? $"الإصدار {q.DocumentRevision} · الصلاحية {q.ValidityDays} يوماً" + (q.ValidUntil is { } until ? " · ينتهي " + DateTimeOffset.FromUnixTimeMilliseconds(until).ToOffset(TimeSpan.FromHours(3)).ToString("yyyy/MM/dd", CultureInfo.InvariantCulture) : "") : "";
     public Eitmad.Contracts.QuotationDraft? Draft { get; init; }
+    public Eitmad.Contracts.DiscountApproval? Approval { get; init; }
     public bool HasDraft => Draft is not null;
-    public string DraftNotice => Draft is { } draft ? QuotationDraftClient.SyncLabel(draft) + " — إصدار العرض والطباعة والموافقة والتحويل غير متاحة بعد." : "";
-    private DiscountApprovalDecision approvalDecision;
+    public string DraftNotice => Draft is { } draft ? Lifecycle is null ? QuotationDraftClient.SyncLabel(draft) : ValidityLabel : "";
 
     public QuotationListItem(
         Guid id,
@@ -79,10 +92,10 @@ public sealed class QuotationListItem : ObservableObject
     public string Address { get; init; } = "";
     public string Notes { get; init; } = "";
 
-    public bool CanEdit => Draft is { } draft ? draft.SyncState is Eitmad.Contracts.SyncState.Pending or Eitmad.Contracts.SyncState.Confirmed : !HasPendingDiscountApproval && (Status is QuotationStatus.Draft or QuotationStatus.Active or QuotationStatus.WaitingApproval);
+    public bool CanEdit => Draft is not null || Lifecycle is not null ? Permits(Eitmad.Contracts.QuotationPermittedAction.Edit) : !HasPendingDiscountApproval && (Status is QuotationStatus.Draft or QuotationStatus.Active or QuotationStatus.WaitingApproval);
     public bool IsWaitingApproval => HasPendingDiscountApproval;
     public bool NeedsApprovalToComplete { get; init; }
-    public bool CanPrint => Draft is null && CanEdit && (!NeedsApprovalToComplete && !RequiresDiscountApproval || ApprovalDecision == DiscountApprovalDecision.Approved);
+    public bool CanPrint => Lifecycle is not null ? Lifecycle.Number is not null && Permits(Eitmad.Contracts.QuotationPermittedAction.Print) : Draft is null && CanEdit && (!NeedsApprovalToComplete && !RequiresDiscountApproval || ApprovalDecision == DiscountApprovalDecision.Approved);
     public string ReceptionActivity { get; init; } = "عينة مستقلة";
 
     public Guid Id { get; }
@@ -101,34 +114,24 @@ public sealed class QuotationListItem : ObservableObject
 
     public bool RequiresDiscountApproval { get; }
 
-    public DiscountApprovalDecision ApprovalDecision
-    {
-        get => approvalDecision;
-        private set
-        {
-            if (approvalDecision == value)
-            {
-                return;
-            }
-
-            approvalDecision = value;
-            Raise();
-            Raise(nameof(HasPendingDiscountApproval));
-            Raise(nameof(HasApprovalDecision));
-            Raise(nameof(ApprovalDecisionLabel));
-            Raise(nameof(IsWaitingApproval)); Raise(nameof(CanEdit)); Raise(nameof(CanPrint)); Raise(nameof(StatusLabel));
-        }
-    }
+    public DiscountApprovalDecision ApprovalDecision => Approval?.State switch {
+        Eitmad.Contracts.DiscountApprovalState.Approved => DiscountApprovalDecision.Approved,
+        Eitmad.Contracts.DiscountApprovalState.Rejected => DiscountApprovalDecision.Rejected,
+        _ => DiscountApprovalDecision.None,
+    };
 
     public decimal Subtotal => Draft?.Snapshot.Evaluation.Totals.SubtotalYer ?? Items.Sum(item => item.Total);
 
     public decimal FinalTotal => Draft?.Snapshot.Evaluation.Totals.TotalYer ?? Subtotal - Discount;
 
+    public string DiscountPercentLabel => DiscountPercent.ToString("0.##", CultureInfo.InvariantCulture) + "%";
+    public string DiscountAmountLabel => Discount.ToString("N0", CultureInfo.InvariantCulture);
+
     public decimal DiscountPercent => Draft is { } draft ? draft.Snapshot.Intent.DiscountBasisPoints / 100m : Subtotal == 0m ? 0m : decimal.Round(Discount / Subtotal * 100m, 1);
 
-    public bool HasPendingDiscountApproval => Draft is null && RequiresDiscountApproval && ApprovalDecision == DiscountApprovalDecision.None;
+    public bool HasPendingDiscountApproval => Approval?.State == Eitmad.Contracts.DiscountApprovalState.Pending && (Lifecycle is null || Lifecycle.State is Eitmad.Contracts.QuotationState.Draft or Eitmad.Contracts.QuotationState.PendingApproval);
 
-    public bool HasApprovalDecision => ApprovalDecision != DiscountApprovalDecision.None;
+    public bool HasApprovalDecision => Approval is not null && Approval.State != Eitmad.Contracts.DiscountApprovalState.Pending;
 
     public bool IsDraft => Status == QuotationStatus.Draft;
 
@@ -146,7 +149,7 @@ public sealed class QuotationListItem : ObservableObject
 
     public string FinalTotalLabel => FormatMoney(FinalTotal);
 
-    public string StatusLabel => HasApprovalDecision ? (ApprovalDecision == DiscountApprovalDecision.Approved ? "الخصم مقبول" : "الخصم مرفوض") : HasPendingDiscountApproval ? "بانتظار الموافقة" : Status switch
+    public string StatusLabel => Lifecycle is not null ? Lifecycle.State switch { Eitmad.Contracts.QuotationState.Issued => "صادر", Eitmad.Contracts.QuotationState.Expired => "منتهي", Eitmad.Contracts.QuotationState.Cancelled => "ملغي", Eitmad.Contracts.QuotationState.PendingApproval => "بانتظار الموافقة", _ => "مسودة" } : Approval is not null ? QuotationDraftClient.ApprovalLabel(Approval) : HasApprovalDecision ? (ApprovalDecision == DiscountApprovalDecision.Approved ? "الخصم مقبول" : "الخصم مرفوض") : HasPendingDiscountApproval ? "بانتظار الموافقة" : Status switch
     {
         QuotationStatus.Draft => "مسودة",
         QuotationStatus.Active => "نشط",
@@ -157,22 +160,7 @@ public sealed class QuotationListItem : ObservableObject
         _ => throw new InvalidOperationException("Unsupported quotation status."),
     };
 
-    public string ApprovalDecisionLabel => ApprovalDecision switch
-    {
-        DiscountApprovalDecision.Approved => "تمت معاينة الموافقة على الخصم محلياً.",
-        DiscountApprovalDecision.Rejected => "تمت معاينة رفض الخصم محلياً.",
-        _ => string.Empty,
-    };
-
-    public void DecideDiscount(DiscountApprovalDecision decision)
-    {
-        if (!HasPendingDiscountApproval || decision == DiscountApprovalDecision.None)
-        {
-            return;
-        }
-
-        ApprovalDecision = decision;
-    }
+    public string ApprovalDecisionLabel => QuotationDraftClient.ApprovalLabel(Approval);
 
     private static string FormatMoney(decimal value) => $"{value.ToString("N0", CultureInfo.InvariantCulture)} ر.ي";
 }

@@ -68,8 +68,8 @@ For implementation:
 
 1. Define the outcome and owning product capability.
 2. Mark only the applicable boundaries: Rust behavior, contract, authorization and audit, storage and sync, native shell, Arabic UI, operations, or documentation.
-3. Inspect the owner and its focused evidence.
-4. Implement the smallest correct patch. Update direct callers and generated artifacts with it.
+3. Inspect the owner and its focused evidence. Check which required behaviors are implemented, preview-only, or absent. Report missing authority or integration early when it materially increases the work; continue within the authorized scope.
+4. Implement the smallest correct patch. For multi-boundary work, make one minimal working path through the required boundaries and check it before completing the remaining states and UI. Update direct callers and generated artifacts with it.
 5. Run the smallest applicable proof defined in [Tests and Verification](#tests-and-verification).
 6. Inspect the final diff once for unrelated edits, temporary files, debug code, and accidental generated output.
 7. Stop when the requested outcome is complete and the applicable focused proof passes.
@@ -118,7 +118,7 @@ For a user-visible UI change, inspect the real rendered affected screen at all b
 If the required rendering environment is unavailable, complete the available build and static verification, state that rendered verification was not performed, and continue other safe in-scope work. Never claim visual, RTL, focus, or accessibility behavior that was not verified.
 
 * Capture responsiveness screenshots at all three baseline sizes with Windows display scaling set to 100%: full-screen on a `1920 × 1080` display, the default `1338 × 753` application window, and the minimum `720 × 560` application window. Do not substitute only a small window for the full-screen check.
-* If the environment cannot provide an exact baseline size, use the nearest supported size and report the actual dimensions and display scaling.
+* Check available display sizes and scaling before the first capture. Record actual window dimensions and scaling with the rendered results. If the environment cannot provide an exact baseline, use the nearest supported size and report the limitation; do not repeat captures to pursue an unavailable display setting.
 * Check keyboard, focus, popup placement, and accessible names only for new or changed interactions.
 * Check high contrast or text scaling only when colors, typography, sizing, or custom templates changed.
 * Use a rendered check for visual quality. XAML string scans and snapshots do not prove layout, shaping, focus, or usability.
@@ -130,6 +130,10 @@ If the required rendering environment is unavailable, complete the available bui
 Tests are risk controls, not a quantity or coverage target. Match verification effort to the risk and complexity of the change. Start with the smallest relevant test set and prefer the cheapest test that gives strong evidence of correctness. Expand verification only when a test fails, the change is high-risk, confidence is low, or the change can affect a broader suite. Do not rerun an unchanged expensive suite unless the change can affect it.
 
 Before implementing non-trivial behavior, write only the important acceptance criteria and likely failure modes. Do not produce an exhaustive failure list.
+
+Check the selected toolchain, lint rules, and integration prerequisites before a large patch. Use the repository's required minimum toolchain from the first Rust build. Keep the toolchain and build configuration consistent during focused verification to reuse the build cache. Compile and check affected code after the first structural change so contract, type, ownership, and lint failures appear early. Structure functions and test scenarios by behavior as you write them, within the existing lint rules; avoid late splitting of large functions or tests.
+
+Batch fixes for known independent compiler and lint errors before rerunning the failed check. Inspect changed helper signatures and their callers for type and ownership errors first. Run only one Cargo build, test, or Clippy command at a time against the same artifact directory; queued commands that wait for its lock do not provide parallel progress. Run independent Rust and .NET checks together only when they do not share state or rendered UI.
 
 Run relevant existing tests first. Add or update a test only when existing evidence cannot detect a credible regression in changed consequential behavior. Every new test must protect a meaningful behavior, invariant, regression, boundary, contract, or failure mode. Do not add tests that only mirror constants, literal strings, implementation details, obvious code paths, static copy, spacing, color, a trivial property, simple delegation, generated output, or framework behavior. Do not use brittle source-text assertions when behavior or focused rendering is the real proof.
 

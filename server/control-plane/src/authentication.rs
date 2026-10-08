@@ -213,6 +213,30 @@ impl AuthenticationService {
         proof: &DeviceProof,
         now: UnixMillis,
     ) -> Result<AuthenticatedServerSession, AuthenticationError> {
+        self.validate_access(access_token, Some(proof), None, now)
+            .await
+    }
+
+    /// Rechecks an already device-authenticated live connection without replaying its one-use proof.
+    /// # Errors
+    /// Rejects a changed session identity or expired, revoked, or unavailable credentials.
+    pub async fn revalidate_access(
+        &self,
+        access_token: &str,
+        session: &AuthenticatedServerSession,
+        now: UnixMillis,
+    ) -> Result<AuthenticatedServerSession, AuthenticationError> {
+        self.validate_access(access_token, None, Some(session), now)
+            .await
+    }
+
+    async fn validate_access(
+        &self,
+        access_token: &str,
+        proof: Option<&DeviceProof>,
+        existing: Option<&AuthenticatedServerSession>,
+        now: UnixMillis,
+    ) -> Result<AuthenticatedServerSession, AuthenticationError> {
         let token_hash = self.tokens.hash(access_token)?;
         let directory = sqlx::query(
             "SELECT tenant_id FROM control.token_directory
@@ -248,8 +272,15 @@ impl AuthenticationService {
         .map_err(|_| AuthenticationError::Unavailable)?
         .ok_or(AuthenticationError::Failed)?;
         let device_id = DeviceId::new(row.get("device_id"));
-        if proof.device_id != device_id {
-            return Err(AuthenticationError::InvalidDeviceProof);
+        if let Some(existing) = existing {
+            if existing.tenant_id != tenant_id
+                || existing.device_id != device_id
+                || existing.session_id.value() != row.get::<Uuid, _>("session_id")
+                || existing.account_id.value() != row.get::<Uuid, _>("account_id")
+                || existing.user_id.value() != row.get::<Uuid, _>("user_id")
+            {
+                return Err(AuthenticationError::Failed);
+            }
         }
         let expired = row.get::<i64, _>("access_expires_at") <= now.0
             || row.get::<i64, _>("expires_at") <= now.0
@@ -259,8 +290,15 @@ impl AuthenticationService {
         if expired {
             return Err(AuthenticationError::TokenExpired);
         }
-        verify_device_proof(proof, &row.get::<Vec<u8>, _>("public_key"), now)?;
-        consume_nonce(&mut transaction, proof, now).await?;
+        if let Some(proof) = proof {
+            if proof.device_id != device_id {
+                return Err(AuthenticationError::InvalidDeviceProof);
+            }
+            verify_device_proof(proof, &row.get::<Vec<u8>, _>("public_key"), now)?;
+            consume_nonce(&mut transaction, proof, now).await?;
+        } else if existing.is_none() {
+            return Err(AuthenticationError::Failed);
+        }
         let session_id = SessionId::new(row.get("session_id"));
         sqlx::query(
             "UPDATE control.sessions

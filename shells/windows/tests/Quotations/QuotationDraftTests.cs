@@ -48,7 +48,7 @@ public sealed class QuotationDraftTests
                 var input = command.AsQuotationDraftCreate()?.Intent ?? command.AsQuotationDraftUpdate()!.Intent;
                 if (command.AsQuotationDraftUpdate() is { } update && update.ExpectedRevision != Draft!.Snapshot.Revision)
                     return Failed(ProtocolIds.ErrorCodes.EitmadErrorQuotationDraftConflictV1);
-                Draft = new() { Scope = Evaluate(input).Scope, Snapshot = new() { Id = Draft?.Snapshot.Id ?? Guid.NewGuid(), Revision = (Draft?.Snapshot.Revision ?? 0) + 1, Intent = Copy(input), Evaluation = Copy(Evaluate(input)) }, SyncState = SyncState.Pending, UpdatedAt = 1791244800000 };
+                Draft = new() { PermittedActions = [QuotationPermittedAction.Edit, QuotationPermittedAction.Cancel], Scope = Evaluate(input).Scope, Snapshot = new() { Id = Draft?.Snapshot.Id ?? Guid.NewGuid(), Revision = (Draft?.Snapshot.Revision ?? 0) + 1, Intent = Copy(input), Evaluation = Copy(Evaluate(input)) }, SyncState = SyncState.Pending, UpdatedAt = 1791244800000 };
                 Replays.Add(engine.LastIdempotencyKey, Copy(Draft)); return Success(Copy(Draft), command);
             };
             return engine;

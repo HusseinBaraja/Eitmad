@@ -15,7 +15,7 @@ public sealed class PreviewHandoffRenderedTests
     [TestMethod]
     [DataRow(1338)]
     [DataRow(780)]
-    public void ReceptionRequestReachesInboxAndDecisionsGateTheExactEditor(double width)
+    public void ReceptionPreviewRetainsCustomerHandoffWithoutCreatingAnApproval(double width)
     {
         var engine = new FakeEngine();
         engine.Customers.Add(new Customer
@@ -66,72 +66,10 @@ public sealed class PreviewHandoffRenderedTests
             WpfTestHost.FindByName<Grid>(window, "ResponsiveRoot").Visibility = Visibility.Visible;
             WpfTestHost.CompleteLayout(window);
             editor.RequestDiscountApproval();
-            var request = reception.Handoffs.Quotations.Single(item => item.Id == editor.PreviewId);
-            Assert.IsTrue(request.HasPendingDiscountApproval);
-            WpfTestHost.Descendants<Button>(window).Single(button => (string?)button.Tag == "الموافقات").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            WpfTestHost.CompleteLayout(window);
-            Assert.IsTrue(manager.IsVisible);
-            Assert.IsTrue(manager.ViewModel.ApprovalsOnly);
-            Assert.IsTrue(manager.ViewModel.VisibleQuotations.Contains(request));
-            WpfTestHost.Capture(window, $"handoff-inbox-{width}");
-            manager.ViewModel.OpenQuotation(request);
-            WpfTestHost.CompleteLayout(window);
-            var approve = WpfTestHost.FindByAutomationName<Button>(manager, "الموافقة على خصم عرض السعر");
-            Assert.IsTrue(approve.Focus());
-            Assert.IsTrue(approve.IsKeyboardFocused);
-            WpfTestHost.Capture(window, $"handoff-approval-{width}");
-            if (width == 780)
-            {
-                window.SetValue(Controls.ControlOptions.HighContrastProperty, true);
-                WpfTestHost.CompleteLayout(window);
-                WpfTestHost.Capture(window, "handoff-approval-system-colors");
-                window.ClearValue(Controls.ControlOptions.HighContrastProperty);
-            }
-            approve.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            WpfTestHost.CompleteLayout(window);
-            Assert.IsTrue(editor.IsDiscountApproved);
-            Assert.IsTrue(editor.CanSaveQuotation);
-            Assert.IsFalse(manager.ViewModel.VisibleQuotations.Contains(request));
-            Assert.IsTrue(WpfTestHost.FindByName<Button>(manager, "BackToQuotationsButton").IsKeyboardFocused);
-            Assert.IsTrue(editor.ReviewSave());
-            var accepted = reception.Handoffs.Quotations.Single(item => item.Id == editor.PreviewId);
-            Assert.IsTrue(accepted.CanPrint);
-            var reopened = QuotationPreviewProjection.Create(accepted, Eitmad.WindowsShell.Tests.Furniture.FurnitureFixtures.SalesModel(), new Features.Products.ProductsViewModel());
-            Assert.IsTrue(reopened.CanSaveQuotation);
-            Assert.IsFalse(accepted.Items.Single().IsFurniture);
-            Assert.IsNotNull(reopened.QuotationLines.Single().Product);
-            Assert.IsNull(reopened.QuotationLines.Single().Furniture);
-            Assert.AreEqual(editor.Address, reopened.Address);
-            Assert.AreEqual(editor.Notes, reopened.Notes);
-            var detail = new CurrentQuotationView { DataContext = editor };
-            window.Content = detail;
-            WpfTestHost.CompleteLayout(window);
-            var save = WpfTestHost.FindByAutomationName<Button>(detail, "حفظ عرض السعر");
-            save.BringIntoView(); WpfTestHost.CompleteLayout(window);
-            WpfTestHost.Capture(window, $"handoff-approved-editor-{width}");
-            editor.DiscountInput = "11";
-            Assert.IsFalse(editor.CanSaveQuotation);
-            editor.RequestDiscountApproval();
-            var revised = reception.Handoffs.Quotations.Single(item => item.Id == editor.PreviewId);
-            revised.DecideDiscount(DiscountApprovalDecision.Rejected);
-            Assert.IsTrue(editor.IsDiscountRejected);
-            Assert.IsFalse(editor.CanSaveQuotation);
-            Assert.IsFalse(revised.CanPrint);
-            Assert.IsTrue(revised.CanEdit);
-            Assert.IsTrue(editor.ReviewDraftSave());
-            Assert.IsTrue(editor.IsDiscountRejected);
-            WpfTestHost.CompleteLayout(window);
-            WpfTestHost.Capture(window, $"handoff-rejected-editor-{width}");
-            editor.RequestDiscountApproval();
-            var oldRequest = reception.Handoffs.Quotations.Single(item => item.Id == editor.PreviewId);
-            editor.DuplicateLine(editor.QuotationLines[0]);
-            oldRequest.DecideDiscount(DiscountApprovalDecision.Approved);
-            Assert.IsFalse(editor.CanSaveQuotation, "A decision for the previous item snapshot must not approve edited items.");
-            editor.DiscountInput = "4";
-            Assert.IsTrue(editor.ReviewSave());
             Assert.IsFalse(editor.IsDiscountPending);
-            Assert.AreEqual(1, reception.Handoffs.Quotations.Count(item => item.Id == editor.PreviewId));
-            StringAssert.Contains(reception.Handoffs.Quotations.Single(item => item.Id == editor.PreviewId).ReceptionActivity, "عُدّل");
+            Assert.IsFalse(editor.CanSaveQuotation);
+            Assert.IsFalse(manager.ViewModel.VisibleQuotations.Any(row => row.Id == editor.PreviewId && row.HasPendingDiscountApproval));
+
         });
     }
 

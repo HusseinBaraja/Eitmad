@@ -10,5 +10,5 @@ pub use sqlx_core::{
 pub use sqlx_postgres::{PgConnection, PgPool, PgPoolOptions, PgRow, Postgres};
 
 pub mod postgres {
-    pub use sqlx_postgres::PgPoolOptions;
+    pub use sqlx_postgres::{PgListener, PgPoolOptions};
 }

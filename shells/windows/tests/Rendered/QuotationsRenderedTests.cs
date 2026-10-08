@@ -9,7 +9,7 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 public sealed class QuotationsRenderedTests
 {
     [TestMethod]
-    public void ManagerListAndApprovalDetailRenderAccessibleReviewActions()
+    public void ManagerPreviewDetailCannotMakeLocalApprovalDecisions()
     {
         WpfTestHost.Run(1338, 753, window =>
         {
@@ -31,16 +31,13 @@ public sealed class QuotationsRenderedTests
 
             Assert.IsTrue(view.ViewModel.IsDetailVisible);
             Assert.IsTrue(WpfTestHost.FindByName<Button>(view, "BackToQuotationsButton").IsKeyboardFocusWithin);
-            Assert.AreEqual(Visibility.Visible, WpfTestHost.FindByName<Border>(view, "ApprovalSection").Visibility);
+            Assert.AreEqual(Visibility.Collapsed, WpfTestHost.FindByName<Border>(view, "ApprovalSection").Visibility);
             Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(view).Any(text => text.Text == "سعر الوحدة"));
             Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(view).Any(text => text.Text == "الإجمالي النهائي"));
 
-            WpfTestHost.FindByAutomationName<Button>(view, "الموافقة على خصم عرض السعر")
-                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            WpfTestHost.CompleteLayout(view);
+            view.ViewModel.ApproveDiscount();
+            Assert.AreEqual(DiscountApprovalDecision.None, view.ViewModel.SelectedQuotation!.ApprovalDecision);
 
-            Assert.IsFalse(view.ViewModel.SelectedQuotation!.HasPendingDiscountApproval);
-            StringAssert.Contains(view.ViewModel.SelectedQuotation.ApprovalDecisionLabel, "الموافقة");
         });
     }
 
