@@ -67,7 +67,7 @@ public sealed class PreviewHandoffRenderedTests
             WpfTestHost.CompleteLayout(window);
             editor.RequestDiscountApproval();
             Assert.IsFalse(editor.IsDiscountPending);
-            Assert.IsFalse(editor.CanSaveQuotation);
+            Assert.IsFalse(editor.CanIssueQuotation);
             Assert.IsFalse(manager.ViewModel.VisibleQuotations.Any(row => row.Id == editor.PreviewId && row.HasPendingDiscountApproval));
 
         });

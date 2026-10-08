@@ -74,7 +74,7 @@ public sealed class DiscountApprovalTests
         Assert.IsTrue(editor.IsDiscountPending);
         authority.Publish(reception); await QuotationDraftTests.WaitFor(() => decision == DiscountDecision.Approve ? editor.IsDiscountApproved : editor.IsDiscountRejected);
         Assert.AreEqual(QuotationDraftClient.ApprovalLabel(authority.Approval), editor.QuotationNotice);
-        Assert.IsFalse(editor.CanSaveQuotation);
+        Assert.IsFalse(editor.CanIssueQuotation);
         if (decision == DiscountDecision.Reject) StringAssert.Contains(editor.DiscountGuidance, "الخصم مرتفع");
         editor.DiscountInput = "7"; await editor.LastQuotationEvaluation; Assert.IsFalse(editor.IsDiscountApproved); Assert.IsTrue(editor.CanRequestDiscountApproval);
         await model.DeactivateDraftsAsync(); await editor.DeactivateCatalogAsync();

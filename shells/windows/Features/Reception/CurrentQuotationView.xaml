@@ -94,7 +94,7 @@
     <TextBlock Text="{Binding TotalHeading}" FontSize="22" FontWeight="Bold"/>
     <controls:AmountDisplay AmountText="{Binding FinalTotalLabel}" UnitText="ر.ي" FontSize="36" FontWeight="Bold" HorizontalAlignment="Left" Margin="0,8,0,18"/>
     <WrapPanel HorizontalAlignment="Left">
-     <Button Content="إصدار عرض السعر" Style="{StaticResource PrimaryButton}" Click="SaveQuotationClick" IsEnabled="{Binding CanSaveQuotation}" AutomationProperties.Name="إصدار عرض السعر"/>
+     <Button Content="إصدار عرض السعر" Style="{StaticResource PrimaryButton}" Click="SaveQuotationClick" IsEnabled="{Binding CanIssueQuotation}" AutomationProperties.Name="إصدار عرض السعر"/>
      <Button x:Name="PrintPreviewButton" Content="طباعة" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="PrintPreviewClick" IsEnabled="{Binding CanPreviewCustomer}" AutomationProperties.Name="طباعة"/>
      <Button x:Name="SaveDraftButton" Content="حفظ كمسودة" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="SaveDraftClick" IsEnabled="{Binding CanSaveDraft}" AutomationProperties.Name="حفظ كمسودة"/>
     </WrapPanel>
