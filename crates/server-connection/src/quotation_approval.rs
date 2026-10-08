@@ -274,7 +274,7 @@ impl eitmad_pricing::QuotationServer for DirectDiscountApprovalClient {
             self.secrets.clone(),
             self.credential.clone(),
             "eitmad.capability.quotation-lifecycle.v1",
-            21,
+            22,
         );
         let mut value: eitmad_contracts::quotation_lifecycle::QuotationRecord = http
             .request(
@@ -299,7 +299,7 @@ impl eitmad_pricing::QuotationServer for DirectDiscountApprovalClient {
             self.secrets.clone(),
             self.credential.clone(),
             "eitmad.capability.quotation-lifecycle.v1",
-            21,
+            22,
         );
         let mut page: eitmad_contracts::quotation_lifecycle::QuotationPage = http
             .request(
@@ -335,7 +335,7 @@ impl eitmad_pricing::QuotationServer for DirectDiscountApprovalClient {
             },
             eitmad_pricing::QUOTATION_LIFECYCLE_SCHEMA,
             "eitmad.capability.quotation-lifecycle.v1",
-            21,
+            22,
         )
         .map_err(quotation_error)
     }

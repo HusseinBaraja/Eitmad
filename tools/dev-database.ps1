@@ -30,11 +30,11 @@ if (-not (Test-Path -LiteralPath (Join-Path $bin 'initdb.exe'))) {
 }
 if (-not (Test-Path -LiteralPath $credentialFile)) {
     $credentials = @{ Admin = [Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(32)); Test = [Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(32)); Port = $Port }
-    $credentials | ConvertTo-Json | Set-Content -LiteralPath $credentialFile
     # Keep credentials and the database cluster private to this Windows account.
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
     & icacls.exe $testRoot /inheritance:r /grant:r "${identity}:(OI)(CI)F" | Out-Null
     if ($LASTEXITCODE -ne 0) { throw 'Cannot restrict local test directory permissions' }
+    $credentials | ConvertTo-Json | Set-Content -LiteralPath $credentialFile
 }
 $credentials = Get-Content -LiteralPath $credentialFile -Raw | ConvertFrom-Json
 $Port = $credentials.Port

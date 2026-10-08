@@ -6,16 +6,23 @@ namespace Eitmad.WindowsShell.Features.Quotations;
 public sealed partial class QuotationsViewModel
 {
     private OrderClient? ordersClient;
+    private readonly Dictionary<Guid, (Command Command, Guid Key)> conversionRetries = [];
     public event Action<OrderListItem>? OrderConfirmed;
     public void AttachOrders(OrderClient client) => ordersClient = client;
     public async Task ConvertAsync()
     {
         if (ordersClient is null || lifecycleBusy || SelectedQuotation?.Lifecycle is not { } q || !q.PermittedActions.Contains(QuotationPermittedAction.Convert)) return;
+        var id = q.Quotation.Id;
+        if (!conversionRetries.TryGetValue(id, out var retry)) {
+            retry = (Command.ForOrderConvert(new() { DraftId = id, ExpectedRevision = q.Revision }), Guid.NewGuid());
+            conversionRetries.Add(id, retry);
+        }
         var session = approvalSession; lifecycleBusy = true; RaiseLifecycle();
         LifecycleNotice = "جارٍ تأكيد تحويل العرض من الخادم...";
         try {
-            var result = await ordersClient.SendAsync(Command.ForOrderConvert(new() { DraftId = q.Quotation.Id, ExpectedRevision = q.Revision }), Guid.NewGuid());
+            var result = await ordersClient.SendAsync(retry.Command, retry.Key);
             if (!draftsActive || session != approvalSession) return;
+            if (result.Succeeded || result.Failure != DraftFailure.Unavailable) conversionRetries.Remove(id);
             LifecycleNotice = result.Succeeded ? "أكد الخادم الطلب." : OrderClient.Message(result.Failure) + " راجع صفحة الطلبات.";
             LastDraftLoad = LoadDraftsAsync(); await LastDraftLoad;
             if (result.Succeeded && draftsActive && session == approvalSession) OrderConfirmed?.Invoke(OrdersViewModel.Project(result.Value!));

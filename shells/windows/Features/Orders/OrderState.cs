@@ -90,12 +90,13 @@ public sealed partial class OrdersViewModel
             OrderPermittedAction.Deliver => Command.ForOrderDeliver(new() { OrderId = value.Id, ExpectedRevision = value.Revision, Recipient = Recipient, Method = DeliveryMethod, Note = DeliveryNote }),
             _ => WorkCommand(value, action),
         };
+        if (retryCommand is null) { ActionNotice = "لا يوجد أمر عمل مناسب. حدّث الطلب."; return; }
         retryKey = Guid.NewGuid(); await SendAsync();
     }
-    private Command WorkCommand(OrderRecord value, OrderPermittedAction action)
+    private Command? WorkCommand(OrderRecord value, OrderPermittedAction action)
     {
         var start = action == OrderPermittedAction.StartWork;
-        var work = value.Work.First(w => w.State == (start ? WorkState.Planned : WorkState.InProgress));
+        if (value.Work.FirstOrDefault(w => w.State == (start ? WorkState.Planned : WorkState.InProgress)) is not { } work) return null;
         var input = new TransitionOrderWork { OrderId = value.Id, ExpectedRevision = value.Revision, WorkId = work.Id, Assignment = Assignment, DueAt = new DateTimeOffset(DateTime.SpecifyKind(DueDate.Date, DateTimeKind.Unspecified), TimeSpan.FromHours(3)).ToUnixTimeMilliseconds() };
         return start ? Command.ForOrderWorkStart(input) : Command.ForOrderWorkComplete(input);
     }

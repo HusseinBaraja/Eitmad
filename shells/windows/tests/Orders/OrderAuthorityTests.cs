@@ -68,6 +68,20 @@ public sealed class OrderAuthorityTests
         await model.DeactivateAsync();
     }
     [TestMethod]
+    [DataRow(OrderPermittedAction.StartWork)]
+    [DataRow(OrderPermittedAction.CompleteWork)]
+    public async Task MissingWorkItemDoesNotSendACommand(OrderPermittedAction action)
+    {
+        var fixture = new Fixture(true); await using var engine = fixture.Engine; await using var client = new OrderClient(engine);
+        fixture.Order.PermittedActions = [action];
+        var model = new OrdersViewModel(); model.Attach(client); await model.ActivateAsync(); model.OpenOrder(model.VisibleOrders.Single());
+        if (action == OrderPermittedAction.StartWork) model.StartWork(); else model.CompleteWork();
+        await model.LastAction;
+        Assert.IsNull(engine.LastCommand); Assert.IsFalse(model.CanRetry); Assert.IsTrue(model.ActionsAvailable);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(model.ActionNotice));
+        await model.DeactivateAsync();
+    }
+    [TestMethod]
     public async Task SignOutFencesLateOrderReplies()
     {
         var fixture = new Fixture(); await using var engine = fixture.Engine; await using var client = new OrderClient(engine);

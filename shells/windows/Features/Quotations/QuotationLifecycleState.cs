@@ -64,6 +64,6 @@ public sealed partial class QuotationsViewModel
         }
         finally { if (session == approvalSession) { lifecycleBusy = false; RaiseLifecycle(); } }
     }
-    private void ClearLifecycle() { lifecycleRetry = null; lifecycleKey = Guid.Empty; lifecycleBusy = false; LifecycleNotice = ""; RaiseLifecycle(); }
+    private void ClearLifecycle() { lifecycleRetry = null; lifecycleKey = Guid.Empty; conversionRetries.Clear(); lifecycleBusy = false; LifecycleNotice = ""; RaiseLifecycle(); }
     private void RaiseLifecycle() { Raise(nameof(LifecycleAvailable)); Raise(nameof(CanRetryLifecycle)); }
 }

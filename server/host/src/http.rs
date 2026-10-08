@@ -1178,14 +1178,7 @@ async fn accept_stream_hello(
     let lifecycle = schema == eitmad_pricing::QUOTATION_LIFECYCLE_SCHEMA;
     let live = orders || lifecycle || schema == eitmad_pricing::DISCOUNT_APPROVAL_SCHEMA;
     if live
-        && (session.protocol.minor
-            < if orders {
-                22
-            } else if lifecycle {
-                21
-            } else {
-                20
-            }
+        && (session.protocol.minor < if orders || lifecycle { 22 } else { 20 }
             || !session.capabilities.iter().any(|c| {
                 c.as_str()
                     == if orders {
@@ -1582,10 +1575,11 @@ async fn authenticate_negotiated(
         .and_then(|value| URL_SAFE_NO_PAD.decode(value).ok())
         .and_then(|value| serde_json::from_slice::<PeerHello>(&value).ok())
         .ok_or_else(|| ApiError::bad_request("eitmad.error.server-client-incompatible.v1"))?;
-    let minimum_minor = if required_capability.as_str() == "eitmad.capability.orders.v1" {
+    let minimum_minor = if matches!(
+        required_capability.as_str(),
+        "eitmad.capability.orders.v1" | "eitmad.capability.quotation-lifecycle.v1"
+    ) {
         22
-    } else if required_capability.as_str() == "eitmad.capability.quotation-lifecycle.v1" {
-        21
     } else if required_capability.as_str() == "eitmad.capability.quotation-approval.v1" {
         20
     } else if matches!(
@@ -2043,6 +2037,37 @@ mod tests {
             .await
             .unwrap_err();
         assert_eq!(error.status, StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn quotation_lifecycle_rejects_old_protocol_before_authentication() {
+        let state = test_state();
+        for (minor, status) in [
+            (21, StatusCode::BAD_REQUEST),
+            (22, StatusCode::UNAUTHORIZED),
+        ] {
+            let mut peer = server_hello(Vec::new());
+            peer.peer_kind = PeerKind::Engine;
+            peer.protocols[0].minimum_minor = minor;
+            peer.protocols[0].maximum_minor = minor;
+            let encoded = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&peer).unwrap());
+            let mut headers = HeaderMap::new();
+            headers.insert("x-eitmad-peer-hello", encoded.parse().unwrap());
+            let error = authenticate_negotiated(
+                &state,
+                &headers,
+                "eitmad.capability.quotation-lifecycle.v1",
+            )
+            .await
+            .unwrap_err();
+            assert_eq!(error.status, status);
+            if minor == 21 {
+                assert_eq!(
+                    error.code.as_str(),
+                    "eitmad.error.server-client-incompatible.v1"
+                );
+            }
+        }
     }
 
     #[tokio::test]
