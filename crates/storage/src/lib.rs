@@ -14,6 +14,7 @@ mod identity;
 mod local_authority;
 mod material;
 mod migrations;
+mod orders;
 mod part;
 mod pricing;
 mod quotation_draft;
@@ -62,7 +63,7 @@ use rusqlite::{Connection, OpenFlags, OptionalExtension as _, TransactionBehavio
 pub use sync_state::{StoredSyncState, SyncStateCommitOutcome};
 
 pub const DATABASE_FILE_NAME: &str = "eitmad.sqlite3";
-pub const CURRENT_STORAGE_VERSION: u32 = 26;
+pub const CURRENT_STORAGE_VERSION: u32 = 27;
 pub const MIN_SUPPORTED_STORAGE_VERSION: u32 = 2;
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 pub const MAX_PUBLICATION_RECOVERY_PAGE: u32 = 64;

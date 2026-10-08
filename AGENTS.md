@@ -199,6 +199,8 @@ Reuse successful results from the current task only when the relevant source, de
 
 ## Documentation Impact
 
+Require code documentation only where it explains behavior needed to use or modify code safely. Follow the [code documentation standard](docs/developer/contributing/documentation-standard.md#code-documentation); do not use a docstring coverage target.
+
 Assess documentation impact when a change affects a user workflow or Arabic term; a public contract; authorization, audit, privacy, or scope; durable data, sync, recovery, installation, update, or operations; ownership or a durable decision; or a reusable troubleshooting path. Use `.agents/skills/maintain-project-documentation/SKILL.md` only when that assessment identifies a required documentation change.
 
 If none applies, report no documentation impact and do not edit documentation or run a broad documentation audit. If it applies, update only affected canonical pages, indexes, glossary terms, decisions, and troubleshooting paths. Link to authority instead of copying it. Create a dedicated subsystem page only for a major capability with a real reader task.

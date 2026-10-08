@@ -194,6 +194,13 @@
                     </Border>
                     <controls:FeedbackNotice Message="{Binding SelectedQuotation.ApprovalDecisionLabel}" Visibility="{Binding SelectedQuotation.HasApprovalDecision, Converter={StaticResource BooleanToVisibility}}" Margin="0,0,0,12"/>
                     <StackPanel Margin="0,0,0,16" IsEnabled="{Binding LifecycleAvailable}">
+                        <StackPanel Visibility="{Binding SelectedQuotation.CanAccept, Converter={StaticResource BooleanToVisibility}}">
+                            <TextBlock Text="طريقة قبول العميل"/>
+                            <ComboBox ItemsSource="{Binding AcceptanceMethods}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding AcceptanceMethod}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="طريقة قبول عرض السعر"/>
+                            <TextBlock Text="ملاحظة القبول" Margin="0,8,0,4"/>
+                            <TextBox Text="{Binding AcceptanceNote, UpdateSourceTrigger=PropertyChanged}" MaxLength="240" Style="{StaticResource TextInput}" automation:AutomationProperties.Name="ملاحظة قبول العميل"/>
+                            <Button Content="تسجيل قبول العميل" Click="AcceptClick" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Right" Margin="0,8,0,8" automation:AutomationProperties.Name="تأكيد قبول العميل لعرض السعر"/>
+                        </StackPanel>
                         <StackPanel Visibility="{Binding SelectedQuotation.ShowValidityInput, Converter={StaticResource BooleanToVisibility}}"><TextBlock Text="مدة الصلاحية بالأيام" Margin="0,0,0,4"/>
                         <TextBox Text="{Binding ValidityInput, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" TextAlignment="Right" automation:AutomationProperties.Name="مدة صلاحية عرض السعر بالأيام"/></StackPanel>
                         <StackPanel Visibility="{Binding SelectedQuotation.ShowCancellationReason, Converter={StaticResource BooleanToVisibility}}"><TextBlock Text="سبب إلغاء العرض" Margin="0,8,0,4"/>
@@ -414,7 +421,8 @@
                     <controls:AmountDisplay AmountText="{Binding FinalTotalLabel}" FontSize="24" FontWeight="Bold"/>
                 </controls:FormField>
                 <TextBlock Text="تنتقل بيانات العميل والبنود والخيارات والكميات والأسعار والخصم دون إعادة إدخال." TextWrapping="Wrap" Margin="0,0,0,12"/>
-                <controls:FeedbackNotice Message="معاينة فقط — ستُعرض تفاصيل طلب تجريبي دون حفظه أو تغيير عرض السعر." Tone="Information"/>
+                <controls:FeedbackNotice Message="معاينة فقط — ستُعرض تفاصيل طلب تجريبي دون حفظه أو تغيير عرض السعر." Tone="Information" Visibility="{Binding IsPreview, Converter={StaticResource BooleanToVisibility}}"/>
+                <TextBlock Text="لا يُنشأ الطلب إلا بعد تأكيد الخادم. تحفظ الأسعار المعتمدة دون تغيير." TextWrapping="Wrap"/>
             </StackPanel>
         </controls:DialogHost>
     </Grid>

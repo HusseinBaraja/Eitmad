@@ -122,10 +122,23 @@ pub fn quotation_actions(record: &QuotationRecord, reception: bool, manager: boo
         }
         S::Issued => {
             actions.push(A::Print);
+            if reception {
+                actions.push(A::Accept);
+            }
             if manager {
                 actions.extend([A::Revise, A::Cancel]);
             }
         }
+        S::Accepted => {
+            actions.push(A::Print);
+            if reception {
+                actions.push(A::Convert);
+            }
+            if manager {
+                actions.push(A::Cancel);
+            }
+        }
+        S::Converted => actions.push(A::Print),
         S::Expired => {
             actions.push(A::Print);
             if manager {

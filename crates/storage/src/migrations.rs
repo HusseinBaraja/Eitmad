@@ -150,6 +150,7 @@ fn registry() -> Vec<Migration> {
         .chain(crate::quotation_draft::MIGRATIONS)
         .chain(sync_state::DOMAIN_MIGRATIONS)
         .chain(crate::quotation_lifecycle::MIGRATIONS)
+        .chain(crate::orders::MIGRATIONS)
         .copied()
         .collect()
 }
@@ -472,6 +473,41 @@ mod tests {
             migration.checksum(),
             "363ee83b93debcaeb5f083bf642bde9efd3cf023b706c007e86a186a7e4710ce"
         );
+    }
+
+    #[test]
+    fn orders_migration_upgrades_quotation_database_without_rewriting_history() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        let migrations = registry();
+        apply_registry(&mut connection, &migrations[..26]).unwrap();
+        connection
+            .execute(
+                "INSERT INTO quotation_confirmed_history VALUES('branch','scope','quotation',1,?1)",
+                [b"retained commercial snapshot".as_slice()],
+            )
+            .unwrap();
+        apply(&mut connection).unwrap();
+        assert_eq!(read_version(&connection).unwrap(), 27);
+        let snapshot: Vec<u8> = connection
+            .query_row(
+                "SELECT record_json FROM quotation_confirmed_history",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(snapshot, b"retained commercial snapshot");
+        connection.execute("INSERT INTO order_confirmed_history VALUES('tenant','branch','scope','order',1,?1)", [b"confirmed order".as_slice()]).unwrap();
+        assert!(
+            connection
+                .execute("UPDATE order_confirmed_history SET revision=2", [])
+                .is_err()
+        );
+        assert!(
+            connection
+                .execute("DELETE FROM order_confirmed_history", [])
+                .is_err()
+        );
+        apply(&mut connection).unwrap();
     }
 
     #[test]

@@ -73,6 +73,7 @@ public partial class QuotationsView : UserControl
             : createPreview is not null ? Features.Reception.QuotationCustomerDocument.CreateExistingPreview(createPreview(quotation), quotation.Date.ToDateTime(TimeOnly.MinValue)) : null;
         if (document is not null) ShowPreviewWindow(new PrintPreview { Document = document }, "معاينة عرض السعر");
     }
+    private async void AcceptClick(object sender, RoutedEventArgs e) { ViewModel.Accept(); await ViewModel.LastLifecycleAction; BackToQuotationsButton.Focus(); }
     private async void IssueClick(object sender, RoutedEventArgs e) { ViewModel.Issue(); await ViewModel.LastLifecycleAction; BackToQuotationsButton.Focus(); }
     private async void ValidityClick(object sender, RoutedEventArgs e) { ViewModel.SetValidity(); await ViewModel.LastLifecycleAction; BackToQuotationsButton.Focus(); }
     private async void ReviseClick(object sender, RoutedEventArgs e) { ViewModel.Revise(); await ViewModel.LastLifecycleAction; BackToQuotationsButton.Focus(); }
@@ -88,10 +89,11 @@ public partial class QuotationsView : UserControl
 
     private void CancelConversionClick(object sender, RoutedEventArgs e) => ConversionDialog.IsOpen = false;
 
-    private void ConfirmConversionClick(object sender, RoutedEventArgs e)
+    private async void ConfirmConversionClick(object sender, RoutedEventArgs e)
     {
         if (!ConversionDialog.IsOpen || ConversionDialog.DataContext is not QuotationListItem { CanConvert: true } quotation) return;
         ConversionDialog.IsOpen = false;
+        if (quotation.Lifecycle is not null) { await ViewModel.ConvertAsync(); BackToQuotationsButton.Focus(); return; }
         var view = new Features.Orders.OrdersView();
         view.ConfigureReceptionist();
         view.CustomerRequested += _ => CustomerRequested?.Invoke(quotation.Id);
@@ -101,9 +103,10 @@ public partial class QuotationsView : UserControl
         ShowPreviewWindow(view, "تفاصيل الطلب — معاينة فقط، لم يتم حفظ طلب");
     }
 
-    private void OpenLinkedOrderClick(object sender, RoutedEventArgs e)
+    private async void OpenLinkedOrderClick(object sender, RoutedEventArgs e)
     {
         if (!ViewModel.IsReceptionist || ViewModel.SelectedQuotation is not { IsConverted: true } quotation) return;
+        if (quotation.Lifecycle is not null) { await ViewModel.OpenLinkedOrderAsync(); return; }
         var view = new Features.Orders.OrdersView();
         view.ConfigureReceptionist();
         view.CustomerRequested += _ => CustomerRequested?.Invoke(quotation.Id);

@@ -34,6 +34,10 @@ impl ProductDispatcher {
         command: Command,
     ) -> Result<CommandResult, ContractError> {
         let (permission, action) = match command {
+            Command::AcceptQuotation(c) => (
+                eitmad_authorization::QUOTATION_ACCEPT_PERMISSION,
+                QuotationAction::Accept(c),
+            ),
             Command::IssueQuotation(c) => (
                 eitmad_authorization::QUOTATION_ISSUE_PERMISSION,
                 QuotationAction::Issue(c),

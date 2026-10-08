@@ -46,7 +46,7 @@ public partial class OrdersView : UserControl
     private void OriginalQuotationClick(object sender, RoutedEventArgs e)
     {
         if (ViewModel.SelectedOrder?.OriginalQuotation is not { } quotation) return;
-        ShowDocument(OrderCustomerDocument.CreateQuotation(quotation), "عرض السعر الأصلي — بيانات تجريبية");
+        ShowDocument(OrderCustomerDocument.CreateQuotation(quotation), ViewModel.IsLive ? "عرض السعر الأصلي" : "عرض السعر الأصلي — بيانات تجريبية");
     }
 
     private void ShowDocument(System.Windows.Documents.FlowDocument document, string title)
@@ -80,6 +80,12 @@ public partial class OrdersView : UserControl
         }
     }
 
+    private async void CancelOrderClick(object sender, RoutedEventArgs e) { ViewModel.CancelOrder(); await ViewModel.LastAction; BackToOrdersButton.Focus(); }
+    private async void SaveFulfillmentClick(object sender, RoutedEventArgs e) { ViewModel.SaveFulfillment(); await ViewModel.LastAction; BackToOrdersButton.Focus(); }
+    private async void DeliverOrderClick(object sender, RoutedEventArgs e) { ViewModel.DeliverOrder(); await ViewModel.LastAction; BackToOrdersButton.Focus(); }
+    private async void StartWorkClick(object sender, RoutedEventArgs e) { ViewModel.StartWork(); await ViewModel.LastAction; BackToOrdersButton.Focus(); }
+    private async void CompleteWorkClick(object sender, RoutedEventArgs e) { ViewModel.CompleteWork(); await ViewModel.LastAction; BackToOrdersButton.Focus(); }
+    private async void RetryOrderClick(object sender, RoutedEventArgs e) { ViewModel.Retry(); await ViewModel.LastAction; }
     private void BackToListClick(object sender, RoutedEventArgs eventArgs)
     {
         ViewModel.CloseOrder();

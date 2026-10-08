@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Quotation capability maintainers"
-last_verified: "2026-10-07"
+last_verified: "2026-10-08"
 review_triggers:
   - "Quotation contracts, approval rules, or Windows quotation UI behavior change"
 keywords:
@@ -21,7 +21,7 @@ keywords:
 
 # Extend the quotation review flow safely
 
-The Windows **عروض الأسعار** pages show authorized branch drafts for both roles. Receptionists create and reopen mixed Product/Furniture drafts through Rust; Managers review the same synchronized draft from their own client. Receptionists request discount approval from the server. Managers approve or reject from their own client. Receptionists issue eligible quotations. Managers change draft validity, create revisions of issued or expired quotations, and cancel issued quotations. Both roles can print authorized confirmed snapshots. Acceptance and order conversion remain outside this implementation.
+The Windows **عروض الأسعار** pages show authorized branch drafts for both roles. Receptionists create and reopen mixed Product/Furniture drafts through Rust; Managers review the same synchronized draft from their own client. Receptionists request discount approval from the server. Managers approve or reject from their own client. Receptionists issue eligible quotations. Managers change draft validity, create revisions of issued or expired quotations, and cancel issued quotations. Both roles can print authorized confirmed snapshots. Receptionists record customer acceptance and convert eligible accepted quotations into server-confirmed orders.
 
 Production lifecycle, `5.00%` threshold, approval fingerprint, price snapshot, validity, numbering, permission, and offline behavior is accepted in the [Manager and Receptionist workflow specification](manager-receptionist-workflows.md). Draft persistence, discount approval, issuance, expiry, revision, and cancellation implement the current part of that lifecycle. Isolated fixture `Active`, conversion, and `QT-PREVIEW` behavior does not override the accepted specification.
 
@@ -85,7 +85,7 @@ Both lists query Rust branch drafts with bounded pages and the returned UUID cur
 
 `QuotationDraftChanges` notices and resync/reconnect signals trigger authorized list reads. WPF does not poll. Subscription-driven refresh preserves the selected detail by draft identity. Denial or unavailable reads remove retained list content and show explicit feedback instead of samples. Editor notices refresh sync state without replacing unsaved lines; a newer revision requires explicit reopen. Session changes cancel reads, clear customer/draft projections, and close separate editors. Delayed results cannot restore the prior session.
 
-Managers receive read-only commercial detail and server decision controls for pending requests. A draft whose evaluation requires approval has no grant until an authorized Receptionist requests approval and a different authorized Manager decides. The server-confirmed lifecycle below supplies issuance, official numbering, validity management, and printing. Conversion remains unavailable. `ReceptionHandoffPreview` and `QuotationPreviewProjection` are isolated fixture helpers; production draft persistence and role handoff do not use them.
+Managers receive read-only commercial detail and server decision controls for pending requests. A draft whose evaluation requires approval has no grant until an authorized Receptionist requests approval and a different authorized Manager decides. The server-confirmed lifecycle below supplies issuance, official numbering, validity management, and printing. Acceptance and order conversion use the confirmed workflow described below. `ReceptionHandoffPreview` and `QuotationPreviewProjection` are isolated fixture helpers; production draft persistence and role handoff do not use them.
 
 ## Server-confirmed discount approval
 
@@ -123,7 +123,7 @@ The live test uses distinct authenticated principals and separate clients, real 
 
 ## Server-confirmed lifecycle
 
-`crates/contracts/src/quotation_lifecycle.rs` owns the generated lifecycle contract. Protocol minor 21 negotiates `eitmad.capability.quotation-lifecycle.v1` and `eitmad.schema.quotation-lifecycle.v1`. Rust exposes typed issue, validity, revision, and cancellation commands, a scoped quotation query, and quotation-change subscriptions. Each reply supplies the actions permitted for the authenticated actor. WPF renders these actions and does not derive authorization from role flags.
+`crates/contracts/src/quotation_lifecycle.rs` owns the generated lifecycle contract. Protocol minor 22 is required for `eitmad.capability.quotation-lifecycle.v1` and `eitmad.schema.quotation-lifecycle.v1`. Rust exposes typed issue, validity, revision, cancellation, and acceptance commands, a scoped quotation query, and quotation-change subscriptions. Each reply supplies the actions permitted for the authenticated actor. WPF renders these actions and does not derive authorization from role flags.
 
 `server/sync-plane/src/quotation_lifecycle.rs` serializes transitions with draft, approval, and catalog writes. Issuance checks aggregate and draft revisions, current public catalog eligibility, active customer identity, and the exact approval fingerprint when required. Approval includes the applied validity and issue-day expiry; a request from an earlier calendar date must be requested and approved again. Contact-only changes retain the grant, and issuance freezes its original approved commercial revision. Manager-created revisions invalidate the previous grant.
 
@@ -135,7 +135,7 @@ Receptionists cancel unnumbered drafts through an audited local-first terminal r
 
 The engine retains confirmed scoped history in SQLite. An unavailable server returns a cache page with `server_available = false` and no server-authoritative actions. Local Rust can still permit branch draft edits and cancellation. Confirmed immutable issued snapshots can still be printed. The shell labels the cache as offline. A server denial cannot fall back to cached content. Confirmed Manager revisions project into Receptionist drafts through the existing conflict-preserving projection. Unknown command responses retain the original intent and key; session changes fence late replies.
 
-The Windows role lists use **صادر**, **منتهي**, and **ملغي**, display the official number in an LTR boundary, and show the applied validity and document revision. The Receptionist editor uses **إصدار عرض السعر** only when Rust permits issue. Printed customer documents use the retained customer, line, price, discount, and validity snapshot. Live conversion remains unavailable.
+The Windows role lists use **صادر**, **منتهي**, and **ملغي**, display the official number in an LTR boundary, and show the applied validity and document revision. The Receptionist editor uses **إصدار عرض السعر** only when Rust permits issue. Printed customer documents use the retained customer, line, price, discount, and validity snapshot. Accepted quotations can be converted into confirmed orders through the workflow below.
 
 ## Verification
 
@@ -158,3 +158,7 @@ dotnet run --project platform-adapters/windows/tests/Eitmad.Platform.Windows.Tes
 Standalone fixture tests still cover print preview and conversion presentation. Fixtures cannot request or decide approval. Those tests do not establish production authority.
 
 Return to the [Windows shell subsystem guide](windows-native-shell.md) for shared layout and trust-boundary rules.
+
+## Acceptance and order conversion
+
+Protocol `1.22` adds server-confirmed acceptance of a valid Issued document. Receptionists record the acceptance method and optional note; Rust retains the actor, server time and document revision. Accepted quotations expose conversion to their assigned Receptionist. Successful conversion marks the quotation Converted and opens the confirmed order. The retained accepted commercial snapshot remains available from the order. See [orders](orders.md) for numbering, competing conversion, permissions, fulfillment and durable retry.

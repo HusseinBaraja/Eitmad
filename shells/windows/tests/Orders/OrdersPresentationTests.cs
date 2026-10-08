@@ -37,7 +37,7 @@ public sealed class OrdersPresentationTests
         Assert.AreEqual(35_000m, order.Discount);
         Assert.AreEqual(480_000m, order.FinalTotal);
         CollectionAssert.AreEquivalent(
-            new[] { "جديد", "قيد الإنتاج", "جاهز", "تم التسليم", "ملغي" },
+            new[] { "مؤكد", "قيد الإنتاج", "جاهز", "تم التسليم", "ملغي" },
             viewModel.VisibleOrders.Select(item => item.StatusLabel).ToArray());
 
         viewModel.CloseOrder();

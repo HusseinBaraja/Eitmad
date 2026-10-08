@@ -25,7 +25,7 @@ keywords:
 
 This page is the normative implementation specification for the Manager and Receptionist sales-to-delivery workflows. Rust owns every rule, permission, record, calculation, transition, audit result, and synchronization outcome defined here. The Windows shell projects Rust state and keeps only temporary input and navigation state.
 
-The remaining Windows quotation and fulfillment previews are design evidence. Their fixture values, preview roles, status transitions, `QT-PREVIEW` numbers, calculated totals, and in-memory handoffs are not implemented product behavior. The [Receptionist sales catalog](pricing.md#receptionist-sales-catalog) now uses authorized public Rust reads and configuration checks. Its selected quotation lines remain staged WPF snapshots until saved through [Rust draft persistence and discount approval](quotations.md). Where a preview differs from this page, this page controls future implementation.
+The connected quotation and [order workflow](orders.md) use Rust authority. Separate manufacturing previews remain design evidence. Their fixture values, preview roles, status transitions, `QT-PREVIEW` numbers, calculated totals, and in-memory handoffs are not implemented product behavior. The [Receptionist sales catalog](pricing.md#receptionist-sales-catalog) now uses authorized public Rust reads and configuration checks. Its selected quotation lines remain staged WPF snapshots until saved through [Rust draft persistence and discount approval](quotations.md). Where a preview differs from this page, this page controls future implementation.
 
 The accepted product choices are recorded in [ADR-0028](../../decisions/0028-manager-receptionist-sales-workflows.md). The architecture boundaries remain controlled by the [target architecture](../../architecture/target-architecture.md), [scoped authorization](authorization.md), and [synchronization model](synchronization.md).
 
@@ -103,6 +103,7 @@ The table defines the required versioned permission identifiers. The Rust contra
 | Cancel draft quotation | `eitmad.permission.quotation.draft.write.v1` | Denied | Assigned branches | Local-first while still a draft |
 | Cancel issued or accepted quotation | `eitmad.permission.quotation.cancel.v1` | All branches | Denied | Server confirmation |
 | Read order | `eitmad.permission.order.read.v1` | All branches | Assigned branches | Authorized Rust query; confirmed cache can be shown offline |
+| Edit fulfillment notes only | `eitmad.permission.order.fulfillment.write.v1` | All branches | Denied | Server confirmation; commercial snapshot is immutable |
 | Cancel order before delivery | `eitmad.permission.order.cancel.v1` | All branches | Denied | Server confirmation |
 | Read full work order | `eitmad.permission.work-order.read.v1` | All branches | Denied | Authorized Rust query |
 | Read readiness summary | `eitmad.permission.order.read.v1` | All branches | Assigned branches | Authorized Rust order projection |
@@ -282,7 +283,7 @@ Order state is derived from committed fulfillment state except for cancellation 
 | `Delivered` | **تم التسليم** | Receptionist recorded one confirmed delivery |
 | `Cancelled` | **ملغي** | Manager cancelled before delivery |
 
-There is no direct command to set `Confirmed`, `InProduction`, or `Ready`. Rust derives them. A Manager can cancel an undelivered Order. Cancellation cancels its Planned or In Progress Work Order, preserves completed Work Orders, and blocks delivery. A Delivered Order cannot be cancelled in version 1.
+There is no direct command to set `Confirmed`, `InProduction`, or `Ready`. Rust derives them. A Manager can edit fulfillment notes only. This edit cannot change the accepted commercial snapshot. A Manager can cancel an undelivered Order. Cancellation cancels its Planned or In Progress Work Order, preserves completed Work Orders, and blocks delivery. A Delivered Order cannot be cancelled in version 1.
 
 ### Work-order state
 

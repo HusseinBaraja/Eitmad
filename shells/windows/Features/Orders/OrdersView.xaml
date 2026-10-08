@@ -34,6 +34,10 @@
             <controls:PageHeader Grid.Row="0" Title="الطلبات" Subtitle="{Binding ListSubtitle}"></controls:PageHeader>
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                 <StackPanel Margin="32,22,32,30">
+                    <StackPanel Visibility="{Binding IsLive, Converter={StaticResource BooleanToVisibility}}" Margin="0,0,0,12">
+                        <controls:FeedbackNotice Message="{Binding PendingNotice}" Visibility="{Binding HasPending, Converter={StaticResource BooleanToVisibility}}"/>
+                        <Button Content="تأكيد العملية المعلقة" Click="RetryOrderClick" IsEnabled="{Binding CanRetry}" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,8,0,0" AutomationProperties.Name="إعادة محاولة عملية الطلب المعلقة"/>
+                    </StackPanel>
                     <layout:AdaptiveFieldsPanel MinItemWidth="220" Margin="0,0,0,16">
                         <controls:FormField Label="البحث">
                             <TextBox x:Name="OrderSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" automation:AutomationProperties.Name="{Binding SearchName}" controls:ControlOptions.Placeholder="{Binding SearchName}" Style="{StaticResource SearchInput}" />
@@ -202,10 +206,37 @@
                                 </StackPanel>
                             </WrapPanel>
                             <Border Visibility="{Binding IsManager, Converter={StaticResource BooleanToVisibility}}" Grid.Row="1" Background="#F7F3EF" CornerRadius="7" Padding="12,8" Margin="0,8,0,0">
-                                <TextBlock Text="للمراجعة فقط · تُدار مهام الورشة في أوامر العمل" Foreground="#745A43" FontSize="10" />
+                                <TextBlock Text="الأسعار وبيانات العميل محفوظة كما اعتُمدت في عرض السعر" Foreground="#745A43" FontSize="10" />
                             </Border>
                         </Grid>
                     </Border>
+                    <StackPanel Visibility="{Binding IsLive, Converter={StaticResource BooleanToVisibility}}" IsEnabled="{Binding ActionsAvailable}" Margin="0,0,0,16">
+                        <controls:FeedbackNotice Message="{Binding ActionNotice}"/>
+                        <TextBlock Text="{Binding SelectedOrder.WorkSummary}" FlowDirection="LeftToRight" TextAlignment="Right" TextWrapping="Wrap" Margin="0,8,0,8"/>
+                        <TextBlock Text="{Binding SelectedOrder.FulfillmentLabel}" TextWrapping="Wrap"/>
+                        <StackPanel Visibility="{Binding SelectedOrder.CanEditFulfillment, Converter={StaticResource BooleanToVisibility}}">
+                            <TextBlock Text="ملاحظات التنفيذ" Margin="0,8,0,4"/>
+                            <TextBox Text="{Binding FulfillmentNote, UpdateSourceTrigger=PropertyChanged}" MaxLength="240" Style="{StaticResource TextInput}" AutomationProperties.Name="ملاحظات تنفيذ الطلب"/>
+                            <Button Content="حفظ ملاحظات التنفيذ" Click="SaveFulfillmentClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,8,0,8" AutomationProperties.Name="حفظ ملاحظات تنفيذ الطلب"/>
+                        </StackPanel>
+                        <StackPanel Visibility="{Binding SelectedOrder.CanCancel, Converter={StaticResource BooleanToVisibility}}">
+                            <TextBlock Text="سبب إلغاء الطلب"/><TextBox Text="{Binding CancellationReason, UpdateSourceTrigger=PropertyChanged}" MaxLength="240" Style="{StaticResource TextInput}" AutomationProperties.Name="سبب إلغاء الطلب"/>
+                            <Button Content="إلغاء الطلب" Click="CancelOrderClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,8,0,8" AutomationProperties.Name="إلغاء الطلب قبل التسليم"/>
+                        </StackPanel>
+                        <StackPanel Visibility="{Binding SelectedOrder.CanDeliver, Converter={StaticResource BooleanToVisibility}}">
+                            <TextBlock Text="اسم المستلم"/><TextBox Text="{Binding Recipient, UpdateSourceTrigger=PropertyChanged}" MaxLength="240" Style="{StaticResource TextInput}" AutomationProperties.Name="اسم مستلم الطلب"/>
+                            <ComboBox ItemsSource="{Binding Methods}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding DeliveryMethod}" Style="{StaticResource SelectInput}" Margin="0,8,0,0" AutomationProperties.Name="طريقة قبول التسليم"/>
+                            <TextBlock Text="ملاحظات التسليم" Margin="0,8,0,4"/><TextBox Text="{Binding DeliveryNote, UpdateSourceTrigger=PropertyChanged}" MaxLength="240" Style="{StaticResource TextInput}" AutomationProperties.Name="ملاحظات تسليم الطلب"/>
+                            <Button Content="تسجيل التسليم" Click="DeliverOrderClick" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Right" Margin="0,8,0,8" AutomationProperties.Name="تأكيد تسليم الطلب"/>
+                        </StackPanel>
+                        <StackPanel Visibility="{Binding SelectedOrder.CanStartWork, Converter={StaticResource BooleanToVisibility}}">
+                            <TextBlock Text="موعد إنجاز أمر العمل"/><DatePicker SelectedDate="{Binding DueDate}" AutomationProperties.Name="موعد إنجاز أمر العمل"/>
+                            <TextBlock Text="إسناد أمر العمل"/><TextBox Text="{Binding Assignment, UpdateSourceTrigger=PropertyChanged}" MaxLength="240" Style="{StaticResource TextInput}" AutomationProperties.Name="إسناد أمر العمل"/>
+                            <Button Content="بدء أمر العمل" Click="StartWorkClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,8,0,8" AutomationProperties.Name="بدء أمر العمل المؤكد"/>
+                        </StackPanel>
+                        <Button Content="إكمال أمر العمل" Click="CompleteWorkClick" Visibility="{Binding SelectedOrder.CanCompleteWork, Converter={StaticResource BooleanToVisibility}}" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,8,0,8" AutomationProperties.Name="تأكيد اكتمال أمر العمل"/>
+                        <Button Content="تأكيد العملية المعلقة" Click="RetryOrderClick" IsEnabled="{Binding CanRetry}" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" AutomationProperties.Name="تأكيد نتيجة عملية الطلب"/>
+                    </StackPanel>
                     <StackPanel Visibility="{Binding IsManager, Converter={StaticResource BooleanToVisibility}}" Margin="0,16,0,0">
                         <Border Style="{StaticResource Card}" Padding="16" Visibility="{Binding SelectedOrder.CanShowProduction, Converter={StaticResource BooleanToVisibility}}">
                             <StackPanel>

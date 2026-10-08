@@ -30,6 +30,9 @@
     "confirm_discount_approval": {
       "$ref": "#/definitions/ConfirmDiscountApproval"
     },
+    "confirm_order": {
+      "$ref": "#/definitions/ConfirmOrder"
+    },
     "confirm_price": {
       "$ref": "#/definitions/ConfirmPrice"
     },
@@ -93,6 +96,9 @@
     "read_discount_approvals": {
       "$ref": "#/definitions/ReadDiscountApprovals"
     },
+    "read_orders": {
+      "$ref": "#/definitions/ReadOrders"
+    },
     "read_published_prices": {
       "$ref": "#/definitions/ReadPublishedPrices"
     },
@@ -149,6 +155,8 @@
     }
   },
   "required": [
+    "confirm_order",
+    "read_orders",
     "confirm_quotation",
     "read_quotations",
     "confirm_discount_approval",
@@ -199,6 +207,43 @@
     "catalog"
   ],
   "definitions": {
+    "AcceptQuotation": {
+      "type": "object",
+      "properties": {
+        "draftId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "method": {
+          "$ref": "#/definitions/AcceptanceMethod"
+        },
+        "note": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "draftId",
+        "expectedRevision",
+        "method"
+      ]
+    },
+    "AcceptanceMethod": {
+      "type": "string",
+      "enum": [
+        "inPerson",
+        "phone",
+        "written"
+      ]
+    },
     "AccountPassword": {
       "description": "A secret-bearing password value. Debug output is always redacted.",
       "type": "string"
@@ -404,6 +449,29 @@
       },
       "required": [
         "usages"
+      ]
+    },
+    "CancelOrder": {
+      "type": "object",
+      "properties": {
+        "expectedRevision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "orderId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "orderId",
+        "expectedRevision",
+        "reason"
       ]
     },
     "CancelQuotation": {
@@ -930,6 +998,118 @@
     "Command": {
       "description": "Authoritative state-changing requests.",
       "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.order.convert.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ConvertQuotation"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.order.cancel.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/CancelOrder"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.order.fulfillment.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/EditOrderFulfillment"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.order.deliver.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/RecordOrderDelivery"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.order.work-start.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/TransitionOrderWork"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.order.work-complete.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/TransitionOrderWork"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.quotation.accept.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/AcceptQuotation"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
         {
           "type": "object",
           "properties": {
@@ -1541,6 +1721,22 @@
     },
     "CommandResult": {
       "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "order"
+            },
+            "payload": {
+              "$ref": "#/definitions/OrderRecord"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
         {
           "type": "object",
           "properties": {
@@ -2278,6 +2474,27 @@
         "action"
       ]
     },
+    "ConfirmOrder": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "$ref": "#/definitions/OrderAction"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "idempotencyKey",
+        "action"
+      ]
+    },
     "ConfirmPrice": {
       "description": "Authenticated engine-to-server proposal. The server assigns revision and time.",
       "type": "object",
@@ -2404,6 +2621,25 @@
         "parameters",
         "retry",
         "correlationId"
+      ]
+    },
+    "ConvertQuotation": {
+      "type": "object",
+      "properties": {
+        "draftId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "draftId",
+        "expectedRevision"
       ]
     },
     "CostedUsage": {
@@ -3224,6 +3460,31 @@
         "image"
       ]
     },
+    "EditOrderFulfillment": {
+      "type": "object",
+      "properties": {
+        "expectedRevision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "note": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "orderId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "orderId",
+        "expectedRevision"
+      ]
+    },
     "EffectivePermission": {
       "type": "object",
       "properties": {
@@ -3741,6 +4002,22 @@
             },
             "payload": {
               "$ref": "#/definitions/AuthorizationPolicyChangeNotice"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.order.changed.event.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/OrderNotice"
             }
           },
           "required": [
@@ -4413,6 +4690,19 @@
       "required": [
         "reference",
         "forNewWork"
+      ]
+    },
+    "GetOrder": {
+      "type": "object",
+      "properties": {
+        "orderId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "orderId"
       ]
     },
     "GetPartComposition": {
@@ -5225,6 +5515,27 @@
       },
       "required": [
         "term",
+        "limit"
+      ]
+    },
+    "ListOrders": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "limit": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
         "limit"
       ]
     },
@@ -6047,6 +6358,379 @@
         "integer",
         "identifier",
         "text"
+      ]
+    },
+    "OrderAction": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "convert"
+            },
+            "payload": {
+              "$ref": "#/definitions/ConvertQuotation"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "cancel"
+            },
+            "payload": {
+              "$ref": "#/definitions/CancelOrder"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "editFulfillment"
+            },
+            "payload": {
+              "$ref": "#/definitions/EditOrderFulfillment"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "deliver"
+            },
+            "payload": {
+              "$ref": "#/definitions/RecordOrderDelivery"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "startWork"
+            },
+            "payload": {
+              "$ref": "#/definitions/TransitionOrderWork"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "completeWork"
+            },
+            "payload": {
+              "$ref": "#/definitions/TransitionOrderWork"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "payload"
+          ]
+        }
+      ]
+    },
+    "OrderChanges": {
+      "type": "object",
+      "additionalProperties": false
+    },
+    "OrderDelivery": {
+      "type": "object",
+      "properties": {
+        "actor": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "deliveredAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "method": {
+          "$ref": "#/definitions/AcceptanceMethod"
+        },
+        "note": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "recipient": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "recipient",
+        "method",
+        "deliveredAt",
+        "actor"
+      ]
+    },
+    "OrderNotice": {
+      "type": "object",
+      "properties": {
+        "orderId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "required": [
+        "scope",
+        "orderId",
+        "revision"
+      ]
+    },
+    "OrderPage": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/OrderRecord"
+          }
+        },
+        "next": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "pending": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/OrderPending"
+          }
+        },
+        "serverAvailable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "serverAvailable",
+        "items"
+      ]
+    },
+    "OrderPending": {
+      "type": "object",
+      "properties": {
+        "rejectedCode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "request": {
+          "$ref": "#/definitions/ConfirmOrder"
+        }
+      },
+      "required": [
+        "request"
+      ]
+    },
+    "OrderPermittedAction": {
+      "type": "string",
+      "enum": [
+        "cancel",
+        "deliver",
+        "editFulfillment",
+        "startWork",
+        "completeWork"
+      ]
+    },
+    "OrderRecord": {
+      "type": "object",
+      "properties": {
+        "cancellationReason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "changedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "changedBy": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "createdAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "delivery": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/OrderDelivery"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fulfillmentNote": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "number": {
+          "type": "string"
+        },
+        "organizationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "permittedActions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/OrderPermittedAction"
+          }
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        },
+        "source": {
+          "description": "Exact accepted quotation, including its issued prices and customer snapshot.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/QuotationRecord"
+            }
+          ]
+        },
+        "state": {
+          "$ref": "#/definitions/OrderState"
+        },
+        "work": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/OrderWork"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "scope",
+        "organizationId",
+        "revision",
+        "number",
+        "state",
+        "source",
+        "work",
+        "createdAt",
+        "changedAt",
+        "changedBy",
+        "permittedActions"
+      ]
+    },
+    "OrderState": {
+      "type": "string",
+      "enum": [
+        "confirmed",
+        "inProduction",
+        "ready",
+        "delivered",
+        "cancelled"
+      ]
+    },
+    "OrderWork": {
+      "type": "object",
+      "properties": {
+        "assignment": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "dueAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "lineIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "number": {
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/definitions/WorkState"
+        }
+      },
+      "required": [
+        "id",
+        "number",
+        "state",
+        "lineIds"
       ]
     },
     "Part": {
@@ -7176,6 +7860,38 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "eitmad.order.list.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ListOrders"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.order.get.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/GetOrder"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "eitmad.quotation.list.v1"
             },
             "payload": {
@@ -7790,6 +8506,22 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "orders"
+            },
+            "payload": {
+              "$ref": "#/definitions/OrderPage"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "quotations"
             },
             "payload": {
@@ -8315,6 +9047,39 @@
         }
       ]
     },
+    "QuotationAcceptance": {
+      "type": "object",
+      "properties": {
+        "acceptedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "actor": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "documentRevision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "method": {
+          "$ref": "#/definitions/AcceptanceMethod"
+        },
+        "note": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "documentRevision",
+        "method",
+        "actor",
+        "acceptedAt"
+      ]
+    },
     "QuotationAction": {
       "oneOf": [
         {
@@ -8326,6 +9091,23 @@
             },
             "payload": {
               "$ref": "#/definitions/IssueQuotation"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "accept"
+            },
+            "payload": {
+              "$ref": "#/definitions/AcceptQuotation"
             }
           },
           "additionalProperties": false,
@@ -8784,6 +9566,8 @@
         "edit",
         "requestApproval",
         "issue",
+        "accept",
+        "convert",
         "manageValidity",
         "revise",
         "cancel",
@@ -8793,6 +9577,17 @@
     "QuotationRecord": {
       "type": "object",
       "properties": {
+        "acceptance": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/QuotationAcceptance"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "approvalFingerprint": {
           "type": [
             "string",
@@ -8895,6 +9690,8 @@
         "draft",
         "pendingApproval",
         "issued",
+        "accepted",
+        "converted",
         "expired",
         "cancelled"
       ]
@@ -8904,6 +9701,29 @@
       "properties": {
         "query": {
           "$ref": "#/definitions/ListDiscountApprovals"
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "query"
+      ]
+    },
+    "ReadOrders": {
+      "type": "object",
+      "properties": {
+        "orderId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "query": {
+          "$ref": "#/definitions/ListOrders"
         },
         "scope": {
           "$ref": "#/definitions/ScopeRef"
@@ -9038,6 +9858,39 @@
         "operation",
         "revision",
         "changedAt"
+      ]
+    },
+    "RecordOrderDelivery": {
+      "type": "object",
+      "properties": {
+        "expectedRevision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "method": {
+          "$ref": "#/definitions/AcceptanceMethod"
+        },
+        "note": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "orderId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "recipient": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "orderId",
+        "expectedRevision",
+        "recipient",
+        "method"
       ]
     },
     "RegisterBranchRequest": {
@@ -10710,6 +11563,22 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "eitmad.order.changed.subscribe.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/OrderChanges"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "eitmad.quotation.changed.subscribe.v1"
             },
             "payload": {
@@ -11753,6 +12622,43 @@
         "records"
       ]
     },
+    "TransitionOrderWork": {
+      "type": "object",
+      "properties": {
+        "assignment": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "dueAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "orderId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "workId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "orderId",
+        "expectedRevision",
+        "workId"
+      ]
+    },
     "UnitDimension": {
       "type": "string",
       "enum": [
@@ -12234,6 +13140,15 @@
         "scope",
         "reference",
         "base64"
+      ]
+    },
+    "WorkState": {
+      "type": "string",
+      "enum": [
+        "planned",
+        "inProgress",
+        "completed",
+        "cancelled"
       ]
     }
   }

@@ -100,7 +100,8 @@ impl AuthenticatedHttpClient {
             && actor.scope.id.value() == actor.tenant_id.value()
             || actor.scope.kind.as_str() == "branch"
                 && (route.starts_with("/v1/quotation-approvals/")
-                    || route.starts_with("/v1/quotations/")))
+                    || route.starts_with("/v1/quotations/")
+                    || route.starts_with("/v1/orders/")))
         {
             return Err(HttpError::Denied);
         }
@@ -143,6 +144,7 @@ impl AuthenticatedHttpClient {
         let maximum = if route == "/v1/pricing/read"
             || route.starts_with("/v1/quotation-approvals/")
             || route.starts_with("/v1/quotations/")
+            || route.starts_with("/v1/orders/")
         {
             4 * 1024 * 1024
         } else {

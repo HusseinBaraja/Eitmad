@@ -274,7 +274,7 @@ impl eitmad_pricing::QuotationServer for DirectDiscountApprovalClient {
             self.secrets.clone(),
             self.credential.clone(),
             "eitmad.capability.quotation-lifecycle.v1",
-            21,
+            22,
         );
         let mut value: eitmad_contracts::quotation_lifecycle::QuotationRecord = http
             .request(
@@ -299,7 +299,7 @@ impl eitmad_pricing::QuotationServer for DirectDiscountApprovalClient {
             self.secrets.clone(),
             self.credential.clone(),
             "eitmad.capability.quotation-lifecycle.v1",
-            21,
+            22,
         );
         let mut page: eitmad_contracts::quotation_lifecycle::QuotationPage = http
             .request(
@@ -335,7 +335,7 @@ impl eitmad_pricing::QuotationServer for DirectDiscountApprovalClient {
             },
             eitmad_pricing::QUOTATION_LIFECYCLE_SCHEMA,
             "eitmad.capability.quotation-lifecycle.v1",
-            21,
+            22,
         )
         .map_err(quotation_error)
     }
@@ -372,5 +372,107 @@ fn quotation_http_error(e: HttpError) -> eitmad_pricing::QuotationError {
         HttpError::StalePrice => eitmad_pricing::QuotationError::StalePrice,
         HttpError::ApprovalRequired => eitmad_pricing::QuotationError::ApprovalRequired,
         e => quotation_error(error(e)),
+    }
+}
+
+impl eitmad_orders::OrderServer for DirectDiscountApprovalClient {
+    fn transition(
+        &self,
+        actor: &AuthorizationContext,
+        input: &eitmad_contracts::order::ConfirmOrder,
+        deadline: UnixMillis,
+    ) -> Result<eitmad_contracts::order::OrderRecord, eitmad_orders::OrderError> {
+        let mut input = input.clone();
+        input.scope = self.remote(actor).map_err(order_error)?;
+        let http = AuthenticatedHttpClient::from_config(
+            self.config.clone(),
+            self.secrets.clone(),
+            self.credential.clone(),
+            "eitmad.capability.orders.v1",
+            22,
+        );
+        let mut value: eitmad_contracts::order::OrderRecord = http
+            .request(
+                actor,
+                "/v1/orders/transition",
+                &input,
+                budget(deadline).map_err(order_error)?,
+            )
+            .map_err(|e| order_error(error(e)))?;
+        Self::localize_order(actor, &mut value);
+        Ok(value)
+    }
+    fn orders(
+        &self,
+        actor: &AuthorizationContext,
+        query: &eitmad_contracts::order::ListOrders,
+        order_id: Option<uuid::Uuid>,
+        deadline: UnixMillis,
+    ) -> Result<eitmad_contracts::order::OrderPage, eitmad_orders::OrderError> {
+        let http = AuthenticatedHttpClient::from_config(
+            self.config.clone(),
+            self.secrets.clone(),
+            self.credential.clone(),
+            "eitmad.capability.orders.v1",
+            22,
+        );
+        let mut page: eitmad_contracts::order::OrderPage = http
+            .request(
+                actor,
+                "/v1/orders/read",
+                &eitmad_contracts::order::ReadOrders {
+                    scope: self.remote(actor).map_err(order_error)?,
+                    query: query.clone(),
+                    order_id,
+                },
+                budget(deadline).map_err(order_error)?,
+            )
+            .map_err(|e| order_error(error(e)))?;
+        for value in &mut page.items {
+            Self::localize_order(actor, value);
+        }
+        Ok(page)
+    }
+    fn watch(
+        &self,
+        actor: &AuthorizationContext,
+        cancel: &AtomicBool,
+        notify: &mut dyn FnMut(eitmad_contracts::order::OrderNotice),
+    ) -> Result<(), eitmad_orders::OrderError> {
+        self.watch_domain(
+            actor,
+            cancel,
+            &mut |n| {
+                notify(eitmad_contracts::order::OrderNotice {
+                    scope: n.scope,
+                    order_id: n.draft_id.value(),
+                    revision: n.revision,
+                });
+            },
+            eitmad_orders::ORDER_SCHEMA,
+            "eitmad.capability.orders.v1",
+            22,
+        )
+        .map_err(order_error)
+    }
+}
+impl DirectDiscountApprovalClient {
+    fn localize_order(
+        actor: &AuthorizationContext,
+        value: &mut eitmad_contracts::order::OrderRecord,
+    ) {
+        if actor.scope.kind.as_str() == "branch" {
+            value.scope = actor.scope.clone();
+        }
+        Self::localize_quotation(actor, &mut value.source);
+    }
+}
+fn order_error(e: E) -> eitmad_orders::OrderError {
+    use eitmad_orders::OrderError as O;
+    match e {
+        E::Denied => O::Denied,
+        E::Invalid => O::Invalid,
+        E::Conflict => O::Conflict,
+        E::Unavailable => O::Unavailable,
     }
 }

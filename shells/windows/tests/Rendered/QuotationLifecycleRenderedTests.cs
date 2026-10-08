@@ -32,6 +32,17 @@ public sealed class QuotationLifecycleRenderedTests
                 issue.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Finish(view.ViewModel.LastLifecycleAction);
                 Assert.AreEqual("QT-2026-00001", view.ViewModel.SelectedQuotation!.Number); Assert.IsFalse(view.ViewModel.SelectedQuotation.CanConvert);
                 Finish(view.ViewModel.DeactivateDraftsAsync());
+                fixture.Record.PermittedActions = [QuotationPermittedAction.Accept, QuotationPermittedAction.Print];
+                Finish(view.ViewModel.ActivateDraftsAsync()); view.ViewModel.OpenQuotation(view.ViewModel.VisibleQuotations.Single());
+                WpfTestHost.CompleteLayout(window);
+                var acceptance = WpfTestHost.FindByAutomationName<ComboBox>(view, "طريقة قبول عرض السعر");
+                acceptance.BringIntoView(); WpfTestHost.CompleteLayout(window); Assert.IsTrue(acceptance.Focus());
+                acceptance.IsDropDownOpen = true; WpfTestHost.CompleteLayout(window); Assert.IsTrue(acceptance.IsDropDownOpen); acceptance.IsDropDownOpen = false;
+                var acceptanceNote = WpfTestHost.FindByAutomationName<TextBox>(view, "ملاحظة قبول العميل"); Assert.IsTrue(acceptanceNote.Focus());
+                var accept = WpfTestHost.FindByAutomationName<Button>(view, "تأكيد قبول العميل لعرض السعر");
+                accept.BringIntoView(); WpfTestHost.CompleteLayout(window); Assert.IsTrue(accept.IsVisible); Assert.IsTrue(accept.Focus());
+                WpfTestHost.Capture(window, $"quotation-accept-reception-{width}");
+                Finish(view.ViewModel.DeactivateDraftsAsync());
                 fixture.Record.PermittedActions = [QuotationPermittedAction.Revise, QuotationPermittedAction.Cancel, QuotationPermittedAction.Print];
                 view = new QuotationsView(); view.ViewModel.AttachDraftClient(client); Finish(view.ViewModel.ActivateDraftsAsync());
                 view.ViewModel.OpenQuotation(view.ViewModel.VisibleQuotations.Single()); window.Content = view; WpfTestHost.CompleteLayout(window);

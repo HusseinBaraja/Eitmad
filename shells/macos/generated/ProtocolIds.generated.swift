@@ -4,7 +4,7 @@ import Foundation
 public enum ProtocolIds {
     public enum Version {
         public static let major = 1
-        public static let minor = 21
+        public static let minor = 22
     }
 
     public enum IpcMessages {
@@ -30,6 +30,13 @@ public enum ProtocolIds {
     }
 
     public enum Commands {
+        public static let eitmadOrderConvertV1 = "eitmad.order.convert.v1"
+        public static let eitmadOrderCancelV1 = "eitmad.order.cancel.v1"
+        public static let eitmadOrderFulfillmentV1 = "eitmad.order.fulfillment.v1"
+        public static let eitmadOrderDeliverV1 = "eitmad.order.deliver.v1"
+        public static let eitmadOrderWorkStartV1 = "eitmad.order.work-start.v1"
+        public static let eitmadOrderWorkCompleteV1 = "eitmad.order.work-complete.v1"
+        public static let eitmadQuotationAcceptV1 = "eitmad.quotation.accept.v1"
         public static let eitmadQuotationIssueV1 = "eitmad.quotation.issue.v1"
         public static let eitmadQuotationValidityV1 = "eitmad.quotation.validity.v1"
         public static let eitmadQuotationReviseV1 = "eitmad.quotation.revise.v1"
@@ -62,6 +69,8 @@ public enum ProtocolIds {
 
     public enum Queries {
         public static let eitmadQuotationDraftGetV1 = "eitmad.quotation-draft.get.v1"
+        public static let eitmadOrderListV1 = "eitmad.order.list.v1"
+        public static let eitmadOrderGetV1 = "eitmad.order.get.v1"
         public static let eitmadQuotationListV1 = "eitmad.quotation.list.v1"
         public static let eitmadQuotationApprovalListV1 = "eitmad.quotation-approval.list.v1"
         public static let eitmadQuotationDraftListV1 = "eitmad.quotation-draft.list.v1"
@@ -101,6 +110,7 @@ public enum ProtocolIds {
         public static let eitmadConfigChangedSubscribeV1 = "eitmad.config.changed.subscribe.v1"
         public static let eitmadPermissionsChangedSubscribeV1 = "eitmad.permissions.changed.subscribe.v1"
         public static let eitmadAuthorizationPolicyChangedSubscribeV1 = "eitmad.authorization.policy.changed.subscribe.v1"
+        public static let eitmadOrderChangedSubscribeV1 = "eitmad.order.changed.subscribe.v1"
         public static let eitmadQuotationChangedSubscribeV1 = "eitmad.quotation.changed.subscribe.v1"
         public static let eitmadQuotationApprovalChangedSubscribeV1 = "eitmad.quotation-approval.changed.subscribe.v1"
         public static let eitmadQuotationDraftChangedSubscribeV1 = "eitmad.quotation-draft.changed.subscribe.v1"
@@ -116,6 +126,7 @@ public enum ProtocolIds {
         public static let eitmadConfigChangedEventV1 = "eitmad.config.changed.event.v1"
         public static let eitmadPermissionsChangedEventV1 = "eitmad.permissions.changed.event.v1"
         public static let eitmadAuthorizationPolicyChangedEventV1 = "eitmad.authorization.policy.changed.event.v1"
+        public static let eitmadOrderChangedEventV1 = "eitmad.order.changed.event.v1"
         public static let eitmadQuotationChangedEventV1 = "eitmad.quotation.changed.event.v1"
         public static let eitmadQuotationApprovalChangedEventV1 = "eitmad.quotation-approval.changed.event.v1"
         public static let eitmadQuotationDraftChangedEventV1 = "eitmad.quotation-draft.changed.event.v1"
@@ -154,6 +165,7 @@ public enum ProtocolIds {
     }
 
     public enum Capabilities {
+        public static let eitmadCapabilityOrdersV1 = "eitmad.capability.orders.v1"
         public static let eitmadCapabilityQuotationLifecycleV1 = "eitmad.capability.quotation-lifecycle.v1"
         public static let eitmadCapabilityQuotationApprovalV1 = "eitmad.capability.quotation-approval.v1"
         public static let eitmadCapabilityQuotationDraftV1 = "eitmad.capability.quotation-draft.v1"
@@ -188,6 +200,13 @@ public enum ProtocolIds {
     }
 
     public enum Permissions {
+        public static let eitmadPermissionWorkOrderTransitionV1 = "eitmad.permission.work-order.transition.v1"
+        public static let eitmadPermissionDeliveryRecordV1 = "eitmad.permission.delivery.record.v1"
+        public static let eitmadPermissionOrderFulfillmentWriteV1 = "eitmad.permission.order.fulfillment.write.v1"
+        public static let eitmadPermissionOrderCancelV1 = "eitmad.permission.order.cancel.v1"
+        public static let eitmadPermissionOrderReadV1 = "eitmad.permission.order.read.v1"
+        public static let eitmadPermissionQuotationConvertV1 = "eitmad.permission.quotation.convert.v1"
+        public static let eitmadPermissionQuotationAcceptV1 = "eitmad.permission.quotation.accept.v1"
         public static let eitmadPermissionQuotationReadV1 = "eitmad.permission.quotation.read.v1"
         public static let eitmadPermissionQuotationIssueV1 = "eitmad.permission.quotation.issue.v1"
         public static let eitmadPermissionQuotationValidityManageV1 = "eitmad.permission.quotation.validity.manage.v1"
@@ -256,6 +275,7 @@ public enum ProtocolIds {
     }
 
     public enum SchemaIds {
+        public static let eitmadSchemaOrderV1 = "eitmad.schema.order.v1"
         public static let eitmadSchemaQuotationLifecycleV1 = "eitmad.schema.quotation-lifecycle.v1"
         public static let eitmadSchemaQuotationApprovalV1 = "eitmad.schema.quotation-approval.v1"
         public static let eitmadSchemaQuotationDraftV1 = "eitmad.schema.quotation-draft.v1"
@@ -273,6 +293,9 @@ public enum ProtocolIds {
     }
 
     public enum ErrorCodes {
+        public static let eitmadErrorOrderUnavailableV1 = "eitmad.error.order-unavailable.v1"
+        public static let eitmadErrorOrderConflictV1 = "eitmad.error.order-conflict.v1"
+        public static let eitmadErrorOrderInvalidV1 = "eitmad.error.order-invalid.v1"
         public static let eitmadErrorQuotationStateConflictV1 = "eitmad.error.quotation-state-conflict.v1"
         public static let eitmadErrorQuotationStalePriceV1 = "eitmad.error.quotation-stale-price.v1"
         public static let eitmadErrorQuotationApprovalRequiredV1 = "eitmad.error.quotation-approval-required.v1"
@@ -366,6 +389,9 @@ public enum ProtocolIds {
     }
 
     public enum MessageIds {
+        public static let eitmadMessageOrderUnavailableV1 = "eitmad.message.order-unavailable.v1"
+        public static let eitmadMessageOrderConflictV1 = "eitmad.message.order-conflict.v1"
+        public static let eitmadMessageOrderInvalidV1 = "eitmad.message.order-invalid.v1"
         public static let eitmadMessageQuotationStateConflictV1 = "eitmad.message.quotation-state-conflict.v1"
         public static let eitmadMessageQuotationStalePriceV1 = "eitmad.message.quotation-stale-price.v1"
         public static let eitmadMessageQuotationApprovalRequiredV1 = "eitmad.message.quotation-approval-required.v1"

@@ -9,7 +9,7 @@ public static class ProtocolIds
     public static class Version
     {
         public const long Major = 1;
-        public const long Minor = 21;
+        public const long Minor = 22;
     }
 
     public static class IpcMessages
@@ -37,6 +37,13 @@ public static class ProtocolIds
 
     public static class Commands
     {
+        public const string EitmadOrderConvertV1 = "eitmad.order.convert.v1";
+        public const string EitmadOrderCancelV1 = "eitmad.order.cancel.v1";
+        public const string EitmadOrderFulfillmentV1 = "eitmad.order.fulfillment.v1";
+        public const string EitmadOrderDeliverV1 = "eitmad.order.deliver.v1";
+        public const string EitmadOrderWorkStartV1 = "eitmad.order.work-start.v1";
+        public const string EitmadOrderWorkCompleteV1 = "eitmad.order.work-complete.v1";
+        public const string EitmadQuotationAcceptV1 = "eitmad.quotation.accept.v1";
         public const string EitmadQuotationIssueV1 = "eitmad.quotation.issue.v1";
         public const string EitmadQuotationValidityV1 = "eitmad.quotation.validity.v1";
         public const string EitmadQuotationReviseV1 = "eitmad.quotation.revise.v1";
@@ -70,6 +77,8 @@ public static class ProtocolIds
     public static class Queries
     {
         public const string EitmadQuotationDraftGetV1 = "eitmad.quotation-draft.get.v1";
+        public const string EitmadOrderListV1 = "eitmad.order.list.v1";
+        public const string EitmadOrderGetV1 = "eitmad.order.get.v1";
         public const string EitmadQuotationListV1 = "eitmad.quotation.list.v1";
         public const string EitmadQuotationApprovalListV1 = "eitmad.quotation-approval.list.v1";
         public const string EitmadQuotationDraftListV1 = "eitmad.quotation-draft.list.v1";
@@ -110,6 +119,7 @@ public static class ProtocolIds
         public const string EitmadConfigChangedSubscribeV1 = "eitmad.config.changed.subscribe.v1";
         public const string EitmadPermissionsChangedSubscribeV1 = "eitmad.permissions.changed.subscribe.v1";
         public const string EitmadAuthorizationPolicyChangedSubscribeV1 = "eitmad.authorization.policy.changed.subscribe.v1";
+        public const string EitmadOrderChangedSubscribeV1 = "eitmad.order.changed.subscribe.v1";
         public const string EitmadQuotationChangedSubscribeV1 = "eitmad.quotation.changed.subscribe.v1";
         public const string EitmadQuotationApprovalChangedSubscribeV1 = "eitmad.quotation-approval.changed.subscribe.v1";
         public const string EitmadQuotationDraftChangedSubscribeV1 = "eitmad.quotation-draft.changed.subscribe.v1";
@@ -126,6 +136,7 @@ public static class ProtocolIds
         public const string EitmadConfigChangedEventV1 = "eitmad.config.changed.event.v1";
         public const string EitmadPermissionsChangedEventV1 = "eitmad.permissions.changed.event.v1";
         public const string EitmadAuthorizationPolicyChangedEventV1 = "eitmad.authorization.policy.changed.event.v1";
+        public const string EitmadOrderChangedEventV1 = "eitmad.order.changed.event.v1";
         public const string EitmadQuotationChangedEventV1 = "eitmad.quotation.changed.event.v1";
         public const string EitmadQuotationApprovalChangedEventV1 = "eitmad.quotation-approval.changed.event.v1";
         public const string EitmadQuotationDraftChangedEventV1 = "eitmad.quotation-draft.changed.event.v1";
@@ -167,6 +178,7 @@ public static class ProtocolIds
 
     public static class Capabilities
     {
+        public const string EitmadCapabilityOrdersV1 = "eitmad.capability.orders.v1";
         public const string EitmadCapabilityQuotationLifecycleV1 = "eitmad.capability.quotation-lifecycle.v1";
         public const string EitmadCapabilityQuotationApprovalV1 = "eitmad.capability.quotation-approval.v1";
         public const string EitmadCapabilityQuotationDraftV1 = "eitmad.capability.quotation-draft.v1";
@@ -202,6 +214,13 @@ public static class ProtocolIds
 
     public static class Permissions
     {
+        public const string EitmadPermissionWorkOrderTransitionV1 = "eitmad.permission.work-order.transition.v1";
+        public const string EitmadPermissionDeliveryRecordV1 = "eitmad.permission.delivery.record.v1";
+        public const string EitmadPermissionOrderFulfillmentWriteV1 = "eitmad.permission.order.fulfillment.write.v1";
+        public const string EitmadPermissionOrderCancelV1 = "eitmad.permission.order.cancel.v1";
+        public const string EitmadPermissionOrderReadV1 = "eitmad.permission.order.read.v1";
+        public const string EitmadPermissionQuotationConvertV1 = "eitmad.permission.quotation.convert.v1";
+        public const string EitmadPermissionQuotationAcceptV1 = "eitmad.permission.quotation.accept.v1";
         public const string EitmadPermissionQuotationReadV1 = "eitmad.permission.quotation.read.v1";
         public const string EitmadPermissionQuotationIssueV1 = "eitmad.permission.quotation.issue.v1";
         public const string EitmadPermissionQuotationValidityManageV1 = "eitmad.permission.quotation.validity.manage.v1";
@@ -273,6 +292,7 @@ public static class ProtocolIds
 
     public static class SchemaIds
     {
+        public const string EitmadSchemaOrderV1 = "eitmad.schema.order.v1";
         public const string EitmadSchemaQuotationLifecycleV1 = "eitmad.schema.quotation-lifecycle.v1";
         public const string EitmadSchemaQuotationApprovalV1 = "eitmad.schema.quotation-approval.v1";
         public const string EitmadSchemaQuotationDraftV1 = "eitmad.schema.quotation-draft.v1";
@@ -291,6 +311,9 @@ public static class ProtocolIds
 
     public static class ErrorCodes
     {
+        public const string EitmadErrorOrderUnavailableV1 = "eitmad.error.order-unavailable.v1";
+        public const string EitmadErrorOrderConflictV1 = "eitmad.error.order-conflict.v1";
+        public const string EitmadErrorOrderInvalidV1 = "eitmad.error.order-invalid.v1";
         public const string EitmadErrorQuotationStateConflictV1 = "eitmad.error.quotation-state-conflict.v1";
         public const string EitmadErrorQuotationStalePriceV1 = "eitmad.error.quotation-stale-price.v1";
         public const string EitmadErrorQuotationApprovalRequiredV1 = "eitmad.error.quotation-approval-required.v1";
@@ -385,6 +408,9 @@ public static class ProtocolIds
 
     public static class MessageIds
     {
+        public const string EitmadMessageOrderUnavailableV1 = "eitmad.message.order-unavailable.v1";
+        public const string EitmadMessageOrderConflictV1 = "eitmad.message.order-conflict.v1";
+        public const string EitmadMessageOrderInvalidV1 = "eitmad.message.order-invalid.v1";
         public const string EitmadMessageQuotationStateConflictV1 = "eitmad.message.quotation-state-conflict.v1";
         public const string EitmadMessageQuotationStalePriceV1 = "eitmad.message.quotation-stale-price.v1";
         public const string EitmadMessageQuotationApprovalRequiredV1 = "eitmad.message.quotation-approval-required.v1";

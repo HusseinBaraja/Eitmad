@@ -1,11 +1,11 @@
 ---
 title: "Extend the order review flow safely"
-description: "Understand the Arabic-first order list, read-only detail, status and date filters, tests, and Rust ownership boundary."
+description: "Understand the Arabic-first order list, server-confirmed conversion, fulfillment, delivery, recovery, tests, and Rust ownership boundary."
 audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Order capability maintainers"
-last_verified: "2026-09-19"
+last_verified: "2026-10-08"
 review_triggers:
   - "Order contracts, lifecycle rules, or Windows order UI behavior change"
 keywords:
@@ -19,58 +19,50 @@ keywords:
   - "YER"
 ---
 
-# Extend the order review flow safely
+# Extend the order workflow safely
 
-The Windows **الطلبات** page gives managers and receptionists a synthetic order list and a read-only detail view. It includes navigation to the source quotation and manufacturing preview, without a direct order status action.
+The Manager and Receptionist **الطلبات** screens read the same Rust-owned, server-confirmed orders. Receptionists record quotation acceptance and convert an eligible accepted quotation. Managers can edit fulfillment notes, cancel an undelivered order, and progress its work. Receptionists record delivery of a Ready order. Source quotation navigation uses the retained accepted document.
 
-Production conversion, derived status, cancellation, numbering, visibility, permission, delivery, and offline behavior is accepted in the [Manager and Receptionist workflow specification](manager-receptionist-workflows.md). This page describes the current preview only.
+The [accepted lifecycle and scope rules](manager-receptionist-workflows.md#order-work-order-and-delivery-lifecycles) remain the domain authority. Commercial content cannot be edited after conversion. Fulfillment-note editing is the only order edit permission.
 
-## Ownership and current boundary
+## Ownership and contracts
 
-`shells/windows/Features/Orders/OrdersView.xaml` owns the native RTL list, filters, detail surface, focus target, and Arabic accessibility names. `OrdersViewModel.cs` owns synthetic rows, Arabic-normalized order-number and customer search, status and relative-date filters, and selected detail state. `OrderModels.cs` owns line totals, subtotal, discount, final total, status labels, and display formatting. `MainWindow.xaml` owns the **الطلبات** destination.
+`crates/orders` owns transition validation, derived status and action permissions. `crates/contracts/src/order.rs` owns typed requests and results. Protocol `1.22` registers `eitmad.capability.orders.v1` and `eitmad.schema.order.v1`. Commands accept intent, expected revision and the IPC idempotency key. Lists use UUID cursors with a limit from 1 through 100; details and subscriptions use the same scoped authorization.
 
-Rust does not yet provide an order capability. The preview has no order command, query, subscription, capability, authorization check, scope, audit record, durable storage, or synchronization. Do not add these responsibilities to WPF.
+`server/sync-plane/src/orders.rs` owns central transactions. `crates/server-connection` supplies authenticated TLS HTTP and the shared WebSocket subscription transport. `crates/engine-runtime/src/orders.rs` authorizes local commands and queries, stages uncertain requests, caches confirmed results and publishes durable notifications. WPF projects Rust results and permitted actions; it does not assign numbers, calculate commercial totals or advance order state.
 
-## Manager workflow
+## Conversion and fulfillment
 
-The list shows **رقم الطلب**, **العميل**, **التاريخ**, **الإجمالي**, **الحالة**, and **فتح**. Search matches the order number and customer after Arabic normalization. Status filters expose **جديد**, **قيد الإنتاج**, **جاهز**, **تم التسليم**, and **ملغي**. Date filters cover **اليوم**, **آخر 7 أيام**, and **آخر 30 يوماً**.
+Acceptance records the issued document revision, method, optional note, authenticated actor and server time. Conversion checks Accepted state, expected revision and validity on the server. The server reserves organization/year `OR` and optional `WO` numbers. One tenant transaction then serializes against quotation changes, copies the accepted snapshot, retains the order and Furniture-only work, and marks the quotation Converted. A Products-only order has no work and is Ready.
 
-Opening an order shows its metadata and each product line with variant, dimensions, color, handle, quantity, and selling price. The read-only detail then shows subtotal, discount, and final total. Amounts display **ر.ي** inside explicit LTR boundaries within the Arabic layout, following the [currency display rule](manager-receptionist-workflows.md#money).
+A unique `(tenant_id, draft_id)` constraint prevents a second order. Competing valid conversion requests return the winner. Principal-bound receipt hashes reject changed intent under a reused key. Exact retries return their retained result even after subsequent transitions. Official number counters commit in an independent short reservation before conversion, so rollback can leave gaps but cannot recycle a number. Order history, receipts, audit and shared sync publications commit together.
 
-**عرض السعر الأصلي** opens the source quotation document and is disabled when no source exists. The **أوامر العمل** section shows the linked work-order number and status. **فتح أمر العمل** opens that detail and moves keyboard focus to its back action. When no work order exists for eligible furniture, **بدء أمر عمل تجريبي** creates a temporary fixture. Ready-made Products are excluded. Manufacturing progression remains on the Work Orders page. The composed main window shares synthetic order snapshots between both role views.
+Managers start Planned work with assignment and due date, then complete In Progress work. Rust derives Confirmed, In Production and Ready. Cancellation requires a reason, cancels unfinished work and retains completed work. Delivered and Cancelled are terminal. Delivery requires a recipient and acceptance method, permits a note, and uses server time. A unique delivery constraint and revision check prevent another delivery. Fulfillment notes cannot change customer, items, quantities, prices, discount or acceptance.
 
-## Receptionist workflow
+## Scope, projection and durability
 
-The receptionist home card and sidebar open a separate `OrdersView` configured with `ConfigureReceptionist`. This reuses the shared page header, filters, operations table, status badges, feedback notice, catalog illustrations, amount display, and print preview. Both configurations reuse the same source-quotation action.
+Every server read and transition checks current relationships under tenant RLS. Receptionists read assigned branches; Managers read their organization. Receptionist work projections omit assignments. The shared domain handler rejects local writes and filters history and snapshot pages before transport. Order reads contain public commercial data and readiness summaries, without catalog costs or Parts.
 
-Search also matches synthetic phone numbers with Arabic or Latin digits. All five status filters compose with date and search. The customer detail shows furniture and ready-made Products with images or synthetic catalog illustrations, variants, quantities, and selling prices. Only furniture shows dimensions, color, and handle. Subtotal, discount, and final total follow the items. Production costing, raw materials, and Parts are absent.
+PostgreSQL migration `0014_orders.sql` adds immutable order, work, delivery and receipt history, with forced tenant RLS and transactional number counters. Earlier migration files remain unchanged. SQLite migration 27, `orders.confirmed-cache.v1`, retains exact tenant/scope confirmed history and principal-bound pending intent. Cached actions are empty and work assignments are removed. Offline Managers therefore see readiness summaries until the server supplies full work detail again. Cache history, redacted audit and publication commit atomically. Replaying an identical revision does not publish another event.
 
-A Ready order shows **الطلب جاهز** above the actions and metadata. **طباعة** opens the shared native print preview using `OrderCustomerDocument`, an explicit customer-only projection. **عرض السعر الأصلي** opens the linked quotation fixture with its own number, date, items, and prices. The action is disabled if no original quotation is supplied. The preview does not provide a customer-contact action. Closing a document returns focus to its action; returning to the list preserves filters and focuses search.
+Before transport, Rust persists the exact request. A lost reply remains pending through restart. The shell retries the original command and key. Quotation conversion retains that pair per quotation until a definitive result or session cleanup; changing selection or refreshing revisions does not replace an uncertain request. After restart, use the Orders pending-operation retry. A definitive rejection is retained and shown separately from confirmed order state. Pending reads return at most 100 requests for the authenticated tenant, principal and scope. Unresolved requests come before rejected requests, and each group is ordered by request key. This keeps a full rejected-history page from hiding retryable intent. The shell shows **بانتظار تأكيد الخادم** for uncertain results and **غير متصل** for cached reads. It never presents an unconfirmed delivery or cancellation as success. The shared subscription reconnects and replays durable server events, then the shell reloads authorized results.
 
-The Home **طلبات جاهزة حديثاً** section lists unreviewed notices from work completed in this preview session. Opening a notice selects the exact order. The detail identifies the completed work order and offers **تمت مراجعة التنبيه**. Acknowledgement removes the notice but preserves Ready status. The Home ready count reads the current sample orders; repeat completion cannot add a duplicate notice.
+## Native workflow
 
-The quotation conversion preview opens this customer detail, and the existing converted quotation opens the matching Ready order fixture. All records remain synthetic; these links are not a production relationship or authorization implementation.
+Both role screens use the existing RTL list, Arabic search, date/status filters and detail. Metadata and the source quotation appear before state-changing actions. Managers see **حفظ ملاحظات التنفيذ**, **إلغاء الطلب**, and permitted work actions. Receptionists see **تسجيل التسليم** only when Rust returns delivery permission. An order confirmed from a quotation opens its exact detail. The manufacturing preview is unavailable for live orders; work transitions use the confirmed order actions.
 
-## Failure and recovery
+**عرض السعر الأصلي** opens the retained accepted quotation. Printing uses the customer-only document. Sign-out clears protected rows, selected detail and pending presentation, and fences late replies. Loading, denial, conflict and unavailability have explicit Arabic states. Preview fixtures remain available only when no engine client is attached.
 
-Use the detail back action to return to the list. Closing the shell discards the synthetic state because no order data is durable. Production status changes in the composed preview come from the linked work-order fixture. They are not evidence of manufacturing completion outside this session.
+## Focused verification
 
-A production order capability must return typed Rust-owned denial, validation, conflict, retry, and audit outcomes for every state-changing operation; the shell must not infer them from local state.
-
-## Tests and verification
-
-Run the focused shell checks:
+Use the [disposable database and TLS setup](../../operations/run-server-authority.md#run-the-direct-desktop-connection-test). Run the live scenario on a fresh database:
 
 ```powershell
-dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --filter "FullyQualifiedName~Orders"
+rustup run 1.85.1 cargo test --locked -p eitmad-server-connection --test direct_route orders_cross_client -- --ignored
 ```
 
-`OrdersPresentationTests` covers Arabic search, status and date filter composition, all visible status labels, calculated totals, and list/detail transitions. `OrdersRenderedTests` creates the real WPF window at standard and compact sizes and checks the list, read-only detail, focus, required fields, scrolling, and absence of direct order status actions. `PreviewHandoffRenderedTests` verifies order-to-work-order navigation, return focus, exclusion of ready-made Products, completion notices, and acknowledgement without losing Ready status.
+Domain tests cover derived readiness, immutable commercial terms and invalid transitions. Storage tests cover migration from version 26, immutable history, exact retry, tenant/principal/scope isolation, restart and publication rollback. `OrderAuthorityTests` covers lost replies, durable pending projection, denied reads, missing work items and sign-out fencing. `QuotationConversionTests` checks exact retry across selection and revision refresh, definitive rejection and session cleanup. `OrderAuthorityRenderedTests` renders both roles at requested full-screen, default and minimum sizes and checks new input focus and delivery method popup access.
 
-`ReceptionOrdersRenderedTests` covers receptionist navigation, Arabic-digit phone search with status and date filters, Ready visibility, mixed item types, document opening and return focus, and a compact detail. It captures synthetic screens under the temporary `eitmad-reception-orders` directory. Physical printer output and OS high-contrast mode are not verified by these checks.
+The local display is 1920 × 1080 at 125% scaling. The maximized window measured 1550.4 × 830.4 DIP; the default window measured 1338.4 × 752.8 DIP and the minimum measured 720 × 560 DIP. Rendered captures use the WPF DIP raster. The required 100% scaling baseline remains unverified. OS high contrast and physical printer output are not verified by these checks.
 
-## Future Rust vertical
-
-When orders become authoritative, implement the accepted workflow specification, define versioned typed order commands, queries, and subscriptions in Rust, and generate or validate native bindings. Rust must own order lifecycle, relationships to customers and furniture, relationship-based authorization, explicit scope, atomic mutation and audit, durable storage, idempotency, synchronization, and typed recovery. Keep production operations in the Work Orders vertical and preserve the read-only review boundary here.
-
-Return to the [Windows shell subsystem guide](windows-native-shell.md) for shared layout and trust-boundary rules.
+Return to [the Windows shell guide](windows-native-shell.md) for shared native layout rules.

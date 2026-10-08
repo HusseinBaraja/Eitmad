@@ -122,6 +122,22 @@ For failures, use [server authentication and sync failures](../troubleshooting/s
 
 ## Run the direct desktop connection test
 
+For a local Windows setup, dot-source the repository helper. It downloads the pinned PostgreSQL 17.11-3 Windows x64 archive from [EDB](https://www.enterprisedb.com/download-postgresql-binaries), checks SHA-256 `4B8DB0930C38F6EF845DB919551DEDDA3B6B845AEB0927B3D79A6E8E9E4537CF`, initializes a private cluster, starts it on loopback port 55432, creates a fresh disposable database and generates TLS certificates.
+
+```powershell
+. ./tools/dev-database.ps1 -Action NewDatabase
+```
+
+The helper sets `EITMAD_DIRECT_TEST_*` in the current PowerShell session. Run the test in that same session. Each invocation creates a new database; use one per live scenario. The test role is `eitmad_test`, without superuser, `BYPASSRLS`, role creation or database creation rights. Random credentials, the cluster, archive and logs remain under ignored `target/direct-order-test`, restricted to the current Windows account. TLS files remain under ignored `target/direct-route-cert`; no system trust store is modified. Do not print or commit credentials, connection URLs, certificates or keys. The helper starts a local process, not a Windows service.
+
+Stop that test cluster when it is no longer needed:
+
+```powershell
+./tools/dev-database.ps1 -Action Stop
+```
+
+Stopping preserves the cluster and databases for inspection. No product database is reset or removed. If PostgreSQL or certificates already exist elsewhere, use the manual setup below.
+
 Use a new, empty, disposable PostgreSQL database that the test role can migrate. The test bootstraps one synthetic Arabic tenant and must not run against product data. The local certificate tool creates a seven-day CA, a `localhost` server certificate and key, and an unrelated CA for the rejection check. It writes only to the ignored `target/direct-route-cert` directory. Do not commit those files.
 
 ```powershell
@@ -150,3 +166,13 @@ cargo test --locked -p eitmad-server-connection --test direct_route catalog_reac
 ```
 
 This scenario checks dependency interruption, separate Manager and Receptionist clients, public field omission, tenant RLS, private-stream denial, filtered Product history/snapshots, Furniture image references, a failed snapshot commit, server and client restart, exact cost dependencies, and archive propagation. It does not verify native rendering. Restore the same authorized route after interruption; do not delete checkpoints, history, or transfer work. See [catalog replication](../developer/subsystems/synchronization.md#catalog-replication).
+
+## Verify quotation-to-order recovery
+
+Create a fresh disposable database with the helper above, then run:
+
+```powershell
+rustup run 1.85.1 cargo test --locked -p eitmad-server-connection --test direct_route orders_cross_client -- --ignored
+```
+
+The test covers competing Receptionist conversions, principal-bound exact retry, changed-key rejection, immutable accepted prices, Furniture-only work, Products-only readiness, Manager notes and cancellation, delivery uniqueness, invalid transitions, direct role/scope denials, forced tenant RLS, migration reapplication and server restart. Native pending/rejected rendering is checked separately by `OrderAuthorityTests` and `OrderAuthorityRenderedTests`.

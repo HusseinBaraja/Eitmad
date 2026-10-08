@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+reviews:
+  pre_merge_checks:
+    docstrings:
+      mode: "off"
+    custom_checks:
+      - name: "Required behavior documentation"
+        mode: "error"
+        instructions: |
+          Apply the Code documentation section of
+          docs/developer/contributing/documentation-standard.md to changed code.
+          Fail only when a changed function or interface lacks an explanation
+          needed to use or modify it safely: a public contract, non-obvious
+          invariant, authorization or data-integrity rule, side effect, ordering
+          requirement, retry or idempotency rule, or failure and recovery behavior
+          that is not clear from its name, types, and implementation.
+          Accept accurate existing documentation at the owning boundary, including
+          a linked canonical page; do not demand duplicate comments on helpers.
+          Do not require comments on self-explanatory constructors, accessors,
+          simple delegation, event handlers, or tests. Do not use a documentation
+          percentage or function count. For each failure, identify the exact
+          function or interface and the missing behavior that needs explanation.

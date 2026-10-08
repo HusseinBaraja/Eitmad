@@ -10,6 +10,7 @@ use crate::{
 };
 
 pub const CAPABILITIES: &[&str] = &[
+    "eitmad.capability.orders.v1",
     "eitmad.capability.quotation-lifecycle.v1",
     "eitmad.capability.quotation-approval.v1",
     "eitmad.capability.quotation-draft.v1",
@@ -69,6 +70,13 @@ pub const UPDATE_MANIFEST_PUBLISH_PERMISSION: &str =
     "eitmad.permission.server.update-manifest.publish.v1";
 
 pub const PERMISSIONS: &[&str] = &[
+    "eitmad.permission.work-order.transition.v1",
+    "eitmad.permission.delivery.record.v1",
+    "eitmad.permission.order.fulfillment.write.v1",
+    "eitmad.permission.order.cancel.v1",
+    "eitmad.permission.order.read.v1",
+    "eitmad.permission.quotation.convert.v1",
+    "eitmad.permission.quotation.accept.v1",
     "eitmad.permission.quotation.read.v1",
     "eitmad.permission.quotation.issue.v1",
     "eitmad.permission.quotation.validity.manage.v1",
@@ -125,6 +133,9 @@ pub const PERMISSIONS: &[&str] = &[
 ];
 
 pub const ERROR_CODES: &[&str] = &[
+    "eitmad.error.order-unavailable.v1",
+    "eitmad.error.order-conflict.v1",
+    "eitmad.error.order-invalid.v1",
     "eitmad.error.quotation-state-conflict.v1",
     "eitmad.error.quotation-stale-price.v1",
     "eitmad.error.quotation-approval-required.v1",
@@ -218,6 +229,9 @@ pub const ERROR_CODES: &[&str] = &[
 ];
 
 pub const MESSAGE_IDS: &[&str] = &[
+    "eitmad.message.order-unavailable.v1",
+    "eitmad.message.order-conflict.v1",
+    "eitmad.message.order-invalid.v1",
     "eitmad.message.quotation-state-conflict.v1",
     "eitmad.message.quotation-stale-price.v1",
     "eitmad.message.quotation-approval-required.v1",
@@ -330,6 +344,7 @@ pub const RELATIONS: &[&str] = &[
     "eitmad.relation.organization.owner.v1",
 ];
 pub const DOMAIN_SCHEMA_IDS: &[&str] = &[
+    "eitmad.schema.order.v1",
     "eitmad.schema.quotation-lifecycle.v1",
     "eitmad.schema.quotation-approval.v1",
     "eitmad.schema.quotation-draft.v1",

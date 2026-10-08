@@ -217,6 +217,8 @@ pub fn router(state: ServerState) -> Router {
         )
         .route("/v1/quotations/transition", post(quotation_transition))
         .route("/v1/quotations/read", post(quotation_read))
+        .route("/v1/orders/transition", post(order_transition))
+        .route("/v1/orders/read", post(order_read))
         .route(
             "/v1/quotation-approvals/read",
             post(quotation_approval_read),
@@ -1043,6 +1045,14 @@ enum ApprovalCursor {
     Subscribed(Option<eitmad_contracts::transport::EventCursor>),
 }
 
+fn live_ordered_schema(schema: &str) -> bool {
+    matches!(
+        schema,
+        eitmad_orders::ORDER_SCHEMA
+            | eitmad_pricing::DISCOUNT_APPROVAL_SCHEMA
+            | eitmad_pricing::QUOTATION_LIFECYCLE_SCHEMA
+    )
+}
 async fn stream_session(
     mut socket: WebSocket,
     state: ServerState,
@@ -1052,10 +1062,7 @@ async fn stream_session(
     schema_version: u32,
 ) {
     let StreamContext { token, session } = context;
-    let approval_stream = matches!(
-        schema_id.as_str(),
-        eitmad_pricing::DISCOUNT_APPROVAL_SCHEMA | eitmad_pricing::QUOTATION_LIFECYCLE_SCHEMA
-    );
+    let approval_stream = live_ordered_schema(schema_id.as_str());
     let mut approval_listener = if approval_stream {
         if let Ok(listener) = state.approval_notifications().await {
             Some(listener)
@@ -1167,13 +1174,16 @@ async fn accept_stream_hello(
     let NegotiationOutcome::Accepted(session) = negotiate(&state.server_hello, &hello.peer) else {
         return Err(incompatible());
     };
+    let orders = schema == eitmad_orders::ORDER_SCHEMA;
     let lifecycle = schema == eitmad_pricing::QUOTATION_LIFECYCLE_SCHEMA;
-    let live = lifecycle || schema == eitmad_pricing::DISCOUNT_APPROVAL_SCHEMA;
+    let live = orders || lifecycle || schema == eitmad_pricing::DISCOUNT_APPROVAL_SCHEMA;
     if live
-        && (session.protocol.minor < if lifecycle { 21 } else { 20 }
+        && (session.protocol.minor < if orders || lifecycle { 22 } else { 20 }
             || !session.capabilities.iter().any(|c| {
                 c.as_str()
-                    == if lifecycle {
+                    == if orders {
+                        "eitmad.capability.orders.v1"
+                    } else if lifecycle {
                         "eitmad.capability.quotation-lifecycle.v1"
                     } else {
                         "eitmad.capability.quotation-approval.v1"
@@ -1260,6 +1270,7 @@ async fn handle_stream_message(
                     context.schema_id.as_str(),
                     eitmad_pricing::DISCOUNT_APPROVAL_SCHEMA
                         | eitmad_pricing::QUOTATION_LIFECYCLE_SCHEMA
+                        | eitmad_orders::ORDER_SCHEMA
                 ) =>
         {
             let mut cursor = request.resume_after;
@@ -1564,19 +1575,21 @@ async fn authenticate_negotiated(
         .and_then(|value| URL_SAFE_NO_PAD.decode(value).ok())
         .and_then(|value| serde_json::from_slice::<PeerHello>(&value).ok())
         .ok_or_else(|| ApiError::bad_request("eitmad.error.server-client-incompatible.v1"))?;
-    let minimum_minor =
-        if required_capability.as_str() == "eitmad.capability.quotation-lifecycle.v1" {
-            21
-        } else if required_capability.as_str() == "eitmad.capability.quotation-approval.v1" {
-            20
-        } else if matches!(
-            required_capability.as_str(),
-            "eitmad.capability.pricing.v1" | "eitmad.capability.catalog-revisions.v1"
-        ) {
-            17
-        } else {
-            5
-        };
+    let minimum_minor = if matches!(
+        required_capability.as_str(),
+        "eitmad.capability.orders.v1" | "eitmad.capability.quotation-lifecycle.v1"
+    ) {
+        22
+    } else if required_capability.as_str() == "eitmad.capability.quotation-approval.v1" {
+        20
+    } else if matches!(
+        required_capability.as_str(),
+        "eitmad.capability.pricing.v1" | "eitmad.capability.catalog-revisions.v1"
+    ) {
+        17
+    } else {
+        5
+    };
     let mut boundary = state.server_hello.clone();
     boundary.required_capabilities = vec![required_capability];
     let NegotiationOutcome::Accepted(negotiated) = negotiate(&boundary, &peer) else {
@@ -1637,6 +1650,7 @@ async fn revalidate_stream(
 /// Advertises supported schemas and capabilities while requiring only shared transport foundations.
 fn server_hello(schemas: Vec<SchemaSupport>) -> PeerHello {
     let capabilities = [
+        "eitmad.capability.orders.v1",
         "eitmad.capability.quotation-lifecycle.v1",
         "eitmad.capability.quotation-approval.v1",
         "eitmad.capability.sync.v1",
@@ -1667,7 +1681,8 @@ fn server_hello(schemas: Vec<SchemaSupport>) -> PeerHello {
             .filter(|c| {
                 !matches!(
                     c.as_str(),
-                    "eitmad.capability.quotation-lifecycle.v1"
+                    "eitmad.capability.orders.v1"
+                        | "eitmad.capability.quotation-lifecycle.v1"
                         | "eitmad.capability.quotation-approval.v1"
                         | "eitmad.capability.catalog-image.v1"
                         | "eitmad.capability.pricing.v1"
@@ -1871,6 +1886,47 @@ fn map_quotation(e: eitmad_pricing::QuotationError) -> ApiError {
     ApiError::new(status, eitmad_pricing::quotation_error_code(e))
 }
 
+async fn order_transition(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(input): Json<eitmad_contracts::order::ConfirmOrder>,
+) -> Result<Json<eitmad_contracts::order::OrderRecord>, ApiError> {
+    let actor = authenticate_negotiated(&state, &headers, "eitmad.capability.orders.v1").await?;
+    state
+        .sync
+        .orders()
+        .transition(&actor, &input, new_correlation_id(), unix_millis_now())
+        .await
+        .map(Json)
+        .map_err(map_order)
+}
+async fn order_read(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(input): Json<eitmad_contracts::order::ReadOrders>,
+) -> Result<Json<eitmad_contracts::order::OrderPage>, ApiError> {
+    let actor = authenticate_negotiated(&state, &headers, "eitmad.capability.orders.v1").await?;
+    state
+        .sync
+        .orders()
+        .list(&actor, &input)
+        .await
+        .map(Json)
+        .map_err(map_order)
+}
+fn map_order(e: eitmad_orders::OrderError) -> ApiError {
+    use eitmad_orders::OrderError as E;
+    ApiError::new(
+        match e {
+            E::Denied => StatusCode::FORBIDDEN,
+            E::Invalid => StatusCode::BAD_REQUEST,
+            E::Conflict => StatusCode::CONFLICT,
+            E::Unavailable => StatusCode::SERVICE_UNAVAILABLE,
+        },
+        eitmad_orders::error_code(e),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1981,6 +2037,37 @@ mod tests {
             .await
             .unwrap_err();
         assert_eq!(error.status, StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn quotation_lifecycle_rejects_old_protocol_before_authentication() {
+        let state = test_state();
+        for (minor, status) in [
+            (21, StatusCode::BAD_REQUEST),
+            (22, StatusCode::UNAUTHORIZED),
+        ] {
+            let mut peer = server_hello(Vec::new());
+            peer.peer_kind = PeerKind::Engine;
+            peer.protocols[0].minimum_minor = minor;
+            peer.protocols[0].maximum_minor = minor;
+            let encoded = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&peer).unwrap());
+            let mut headers = HeaderMap::new();
+            headers.insert("x-eitmad-peer-hello", encoded.parse().unwrap());
+            let error = authenticate_negotiated(
+                &state,
+                &headers,
+                "eitmad.capability.quotation-lifecycle.v1",
+            )
+            .await
+            .unwrap_err();
+            assert_eq!(error.status, status);
+            if minor == 21 {
+                assert_eq!(
+                    error.code.as_str(),
+                    "eitmad.error.server-client-incompatible.v1"
+                );
+            }
+        }
     }
 
     #[tokio::test]

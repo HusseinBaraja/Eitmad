@@ -341,7 +341,10 @@ mod tests {
         let connection = Connection::open(store.path()).unwrap();
         connection
             .execute_batch(
-                "DROP TABLE quotation_confirmed_history;
+                "DROP TABLE order_confirmed_history;
+                 DROP TABLE order_pending;
+                 DELETE FROM schema_migrations WHERE version = 27;
+                 DROP TABLE quotation_confirmed_history;
                  DELETE FROM schema_migrations WHERE version = 26;
                  DROP TABLE quotation_draft_outbox;
                  DROP TABLE quotation_drafts;

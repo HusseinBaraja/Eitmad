@@ -107,7 +107,7 @@ public sealed partial class QuotationsViewModel
         var value = draft.Snapshot.Evaluation; var customer = value.Customer;
         return new(draft.Snapshot.Id, lifecycle?.Number ?? "غير مرقم", customer.Name,
             DateOnly.FromDateTime(DateTimeOffset.FromUnixTimeMilliseconds(draft.UpdatedAt).LocalDateTime),
-            lifecycle?.State switch { Eitmad.Contracts.QuotationState.Issued => QuotationStatus.Active, Eitmad.Contracts.QuotationState.Expired => QuotationStatus.Expired, Eitmad.Contracts.QuotationState.Cancelled => QuotationStatus.Cancelled, _ => draft.Snapshot.Cancelled == true ? QuotationStatus.Cancelled : QuotationStatus.Draft }, value.Totals.DiscountYer,
+            lifecycle?.State switch { Eitmad.Contracts.QuotationState.Converted => QuotationStatus.Converted, Eitmad.Contracts.QuotationState.Accepted => QuotationStatus.Active, Eitmad.Contracts.QuotationState.Issued => QuotationStatus.Active, Eitmad.Contracts.QuotationState.Expired => QuotationStatus.Expired, Eitmad.Contracts.QuotationState.Cancelled => QuotationStatus.Cancelled, _ => draft.Snapshot.Cancelled == true ? QuotationStatus.Cancelled : QuotationStatus.Draft }, value.Totals.DiscountYer,
             value.Lines.Select(line => new QuotationLineItem(line.Name, line.VariantName, line.ColorName ?? "—", line.HandleName ?? "—", (int)line.Quantity, line.Price.UnitPriceYer) {
                 EvaluatedTotal = line.Price.TotalYer, IsFurniture = line.Dimensions is not null,
                 Dimensions = line.Dimensions is { } d ? SalesCatalogViewModel.DimensionsLabel(d) : "",

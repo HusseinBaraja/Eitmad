@@ -35,6 +35,7 @@ fn quotation_issue_binds_approval_revision_validity_and_frozen_contact() {
         changed_at: now,
         changed_by: approval.requester,
         cancellation_reason: None,
+        acceptance: None,
         permitted_actions: vec![],
     };
     assert_eq!(
@@ -267,6 +268,7 @@ fn issued_cache_record(
         changed_at: UnixMillis(811),
         changed_by: actor.identity.principal_id,
         cancellation_reason: None,
+        acceptance: None,
         permitted_actions: vec![A::Print],
     }
 }
