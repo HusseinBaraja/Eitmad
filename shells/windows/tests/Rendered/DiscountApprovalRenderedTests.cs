@@ -43,7 +43,7 @@ public sealed class DiscountApprovalRenderedTests
                 reject.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Finish(view.ViewModel.LastApprovalDecision);
                 Assert.IsFalse(view.ViewModel.CanDecideApproval); authority.Publish(reception); Finish(QuotationDraftTests.WaitFor(() => editor.IsDiscountRejected));
                 window.Content = quotation; WpfTestHost.CompleteLayout(window); scroll.ScrollToBottom(); WpfTestHost.CompleteLayout(window);
-                Assert.IsFalse(editor.CanSaveQuotation); WpfTestHost.Capture(window, $"discount-rejected-reception-{width}");
+                Assert.IsFalse(editor.CanIssueQuotation); WpfTestHost.Capture(window, $"discount-rejected-reception-{width}");
             } finally {
                 if (view is not null) Finish(view.ViewModel.DeactivateDraftsAsync()); if (editor is not null) Finish(editor.DeactivateCatalogAsync());
                 Finish(receptionDrafts.DisposeAsync().AsTask()); Finish(managerDrafts.DisposeAsync().AsTask()); Finish(catalog.DisposeAsync().AsTask()); Finish(reception.DisposeAsync().AsTask()); Finish(manager.DisposeAsync().AsTask());

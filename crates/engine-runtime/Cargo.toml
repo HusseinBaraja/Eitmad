@@ -25,7 +25,6 @@ eitmad-pricing = { path = "../pricing" }
 eitmad-furniture = { path = "../furniture" }
 eitmad-observability-audit = { path = "../observability-audit" }
 eitmad-storage = { path = "../storage" }
-eitmad-sync = { path = "../sync" }
 fs2 = "=0.4.3"
 semver = "=1.0.27"
 serde = "=1.0.228"

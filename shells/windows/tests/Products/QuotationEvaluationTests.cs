@@ -43,10 +43,10 @@ public sealed class QuotationEvaluationTests
         Task Block() { entered.TrySetResult(); return release.Task; }
         engine.QueryHandler = q => q.AsQuotationEvaluate() is { } input ? Evaluation(input, input.DiscountBasisPoints == 600 ? 1 : 900, approval: true) : SalesCatalogAuthorityTests.Handle(q, entry);
         model.DiscountInput = "6"; var old = model.LastQuotationEvaluation;
-        Assert.AreEqual("—", model.FinalTotalLabel); Assert.IsFalse(model.CanSaveQuotation);
+        Assert.AreEqual("—", model.FinalTotalLabel); Assert.IsFalse(model.CanIssueQuotation);
         await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
         model.DiscountInput = "7"; await model.LastQuotationEvaluation;
-        Assert.AreEqual(900m, model.FinalTotal); Assert.IsTrue(model.RequiresDiscountApproval); Assert.IsFalse(model.CanSaveQuotation);
+        Assert.AreEqual(900m, model.FinalTotal); Assert.IsTrue(model.RequiresDiscountApproval); Assert.IsFalse(model.CanIssueQuotation);
         release.SetResult(); await old;
         Assert.AreEqual(900m, model.FinalTotal); Assert.IsFalse(model.IsDiscountApproved);
         model.DiscountInput = "5.001"; Assert.IsFalse(model.IsDiscountValid); Assert.IsNull(model.Evaluation);

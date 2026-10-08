@@ -265,13 +265,6 @@ public sealed partial class SalesCatalogViewModel
         Raise(nameof(CustomerNameError)); Raise(nameof(PhoneError));
         QuotationNotice = "تحقق من اسم العميل ورقم الهاتف للمتابعة"; return false;
     }
-    public bool ReviewSave()
-    {
-        if (!CheckRequiredFields()) return false;
-        if (!CanSaveQuotation) { QuotationNotice = DiscountError.Length > 0 ? DiscountError : "إصدار عرض السعر غير متاح بعد، ولم يُحفظ عرض السعر"; return false; }
-        PublishPreview?.Invoke(this, false);
-        QuotationNotice = "المعاينة مكتملة — حفظ عرض السعر غير متاح بعد، ولم يُحفظ عرض السعر"; return true;
-    }
     public bool CheckRequiredFields()
     {
         var customerValid = CheckCustomer();
@@ -283,7 +276,7 @@ public sealed partial class SalesCatalogViewModel
         }
         return true;
     }
-    public bool CanPreviewCustomer => !IsLiveQuotation && CanSaveQuotation && !IsQuotationEmpty;
+    public bool CanPreviewCustomer => !IsLiveQuotation && CanIssueQuotation && !IsQuotationEmpty;
     private void RefreshQuotation()
     {
         if (applyingDraft) return;

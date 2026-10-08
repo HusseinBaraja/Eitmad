@@ -25,7 +25,7 @@ public sealed class SalesCatalogPresentationTests
         model.RequestDiscountApproval();
         Assert.IsTrue(model.ReviewDraftSave());
         Assert.IsFalse(model.IsDiscountPending);
-        Assert.IsFalse(model.ReviewSave());
+        Assert.IsFalse(model.CanIssueQuotation);
     }
 
     [TestMethod]
@@ -37,17 +37,14 @@ public sealed class SalesCatalogPresentationTests
         model.DiscountInput = "٥";
         Assert.AreEqual(600m, model.Discount);
         Assert.AreEqual(11_400m, model.FinalTotal);
-        Assert.IsFalse(model.ReviewSave());
         model.DiscountInput = "٥٫٥";
         Assert.AreEqual(660m, model.Discount);
         Assert.IsFalse(model.CanRequestDiscountApproval);
-        Assert.IsFalse(model.ReviewSave());
         model.RequestDiscountApproval();
         Assert.IsFalse(model.IsDiscountPending);
         Assert.IsFalse(model.CanRequestDiscountApproval);
         Assert.IsTrue(model.ReviewDraftSave());
         Assert.IsFalse(model.IsDiscountPending);
-        Assert.IsFalse(model.ReviewSave());
         model.DuplicateLine(model.QuotationLines[0]);
         Assert.IsFalse(model.IsDiscountPending);
         Assert.AreEqual(1320m, model.Discount);
@@ -57,14 +54,14 @@ public sealed class SalesCatalogPresentationTests
         foreach (var invalid in new[] { "", "abc", "-1", "101", "1,5" })
         {
             model.DiscountInput = invalid;
-            Assert.IsFalse(model.CanSaveQuotation);
+            Assert.IsFalse(model.CanIssueQuotation);
             Assert.IsFalse(model.ReviewDraftSave());
             Assert.IsFalse(model.CanRequestDiscountApproval);
             Assert.AreEqual("—", model.FinalTotalLabel);
         }
         model.DiscountInput = "0";
         Assert.AreEqual(model.Subtotal, model.FinalTotal);
-        Assert.IsFalse(model.ReviewSave());
+        Assert.IsFalse(model.CanIssueQuotation);
     }
 
     [TestMethod]
@@ -91,7 +88,7 @@ public sealed class SalesCatalogPresentationTests
         Assert.AreNotEqual(model.QuotationLines[0].Id, model.QuotationLines[1].Id);
         Assert.AreEqual(420_000m, model.FinalTotal);
         model.QuotationLines.Remove(model.QuotationLines[0]);
-        Assert.IsFalse(model.ReviewSave());
+        Assert.IsFalse(model.CheckRequiredFields());
         model.AttachCustomer(new PreviewCustomer("عميل تجريبي", "000000000", "عنوان تجريبي", ""));
         model.BeginNewCustomer();
         Assert.IsFalse(await model.SaveNewCustomerAsync());
@@ -100,8 +97,7 @@ public sealed class SalesCatalogPresentationTests
         model.BeginNewCustomer();
         model.CustomerName = "عميل معاينة جديد"; model.Phone = "000000001";
         Assert.IsTrue(await model.SaveNewCustomerAsync());
-        Assert.IsFalse(model.ReviewSave());
-        Assert.IsTrue(model.QuotationNotice.Contains("لم يُحفظ عرض السعر"));
+        Assert.IsFalse(await model.IssueQuotationAsync());
     }
 
     [TestMethod]

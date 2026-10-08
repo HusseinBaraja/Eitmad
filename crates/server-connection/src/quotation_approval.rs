@@ -197,11 +197,8 @@ impl DirectDiscountApprovalClient {
         let mut credential = driver
             .load_credential(&self.credential)
             .map_err(|_| E::Denied)?;
-        if credential
-            .user_id
-            .map(eitmad_contracts::identity::UserId::value)
-            != Some(actor.identity.principal_id.value())
-            || credential.tenant_id != Some(actor.tenant_id)
+        if credential.user_id.value() != actor.identity.principal_id.value()
+            || credential.tenant_id != actor.tenant_id
         {
             return Err(E::Denied);
         }
