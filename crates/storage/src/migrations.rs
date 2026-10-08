@@ -109,16 +109,13 @@ impl Migration {
     }
 
     fn checksum(self) -> String {
-        let digest = Sha256::digest(
-            [
-                self.id.as_bytes(),
-                &[0],
-                self.feature.as_bytes(),
-                &[0],
-                self.sql.as_bytes(),
-            ]
-            .concat(),
-        );
+        let mut hasher = Sha256::new();
+        hasher.update(self.id.as_bytes());
+        hasher.update([0]);
+        hasher.update(self.feature.as_bytes());
+        hasher.update([0]);
+        hasher.update(self.sql.as_bytes());
+        let digest = hasher.finalize();
         digest
             .iter()
             .fold(String::with_capacity(64), |mut value, byte| {
@@ -339,13 +336,10 @@ fn verify_history(
     for row in rows {
         let stored = row.map_err(|_| StorageError)?;
         let expected = migrations.get(applied).ok_or(StorageError)?;
-        if stored
-            != (
-                expected.version,
-                expected.id.to_owned(),
-                expected.feature.to_owned(),
-                expected.checksum(),
-            )
+        if stored.0 != expected.version
+            || stored.1 != expected.id
+            || stored.2 != expected.feature
+            || stored.3 != expected.checksum()
         {
             return Err(StorageError);
         }
@@ -465,6 +459,20 @@ mod tests {
     use rusqlite::Connection;
 
     use super::*;
+
+    #[test]
+    fn checksum_preserves_the_persisted_byte_format() {
+        let migration = Migration::new(
+            1,
+            "test.first.v1",
+            "test",
+            "CREATE TABLE first(value TEXT);",
+        );
+        assert_eq!(
+            migration.checksum(),
+            "363ee83b93debcaeb5f083bf642bde9efd3cf023b706c007e86a186a7e4710ce"
+        );
+    }
 
     #[test]
     fn migrates_legacy_history_and_preserves_configuration() {
