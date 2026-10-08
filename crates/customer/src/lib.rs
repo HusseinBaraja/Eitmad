@@ -203,18 +203,6 @@ impl CustomerService {
             .map_err(|_| CustomerError::Unavailable)
     }
 
-    /// Confirms one exact delivered customer change.
-    ///
-    /// # Errors
-    ///
-    /// Returns an unavailable error when the scoped change is absent.
-    pub fn confirm_sync(&self, scope: &ScopeRef, change_id: ChangeId) -> Result<(), CustomerError> {
-        validate_scope(scope)?;
-        self.store
-            .confirm_customer_sync(scope, change_id)
-            .map_err(|_| CustomerError::Unavailable)
-    }
-
     /// Projects a server-confirmed change into the scoped customer read model.
     /// Replaying a confirmed change after restart is safe.
     ///
@@ -1046,7 +1034,7 @@ mod tests {
         let sync = service.sync_batch(&authorization.scope, 10).unwrap();
         assert_eq!(sync.len(), 1);
         service
-            .confirm_sync(&authorization.scope, sync[0].change_id)
+            .project_confirmed(&authorization, &sync[0], context.correlation_id)
             .unwrap();
         assert!(
             service

@@ -349,58 +349,6 @@ impl AuthorityStore {
             })
             .collect()
     }
-
-    /// Confirms one delivered customer change and marks its record current when
-    /// no later change remains queued.
-    ///
-    /// # Errors
-    ///
-    /// Returns a sanitized error when the exact scoped change is unavailable.
-    pub fn confirm_customer_sync(
-        &self,
-        scope: &ScopeRef,
-        change_id: ChangeId,
-    ) -> Result<(), StorageError> {
-        self.write_transaction(|transaction| {
-            let (scope_kind, scope_id) = scope_parts(scope);
-            let customer_id = transaction
-                .query_row(
-                    "SELECT customer_id FROM customer_sync_outbox
-                     WHERE change_id = ?1 AND scope_kind = ?2 AND scope_id = ?3",
-                    params![change_id.value().to_string(), scope_kind, scope_id],
-                    |row| row.get::<_, String>(0),
-                )
-                .optional()
-                .map_err(|_| StorageError)?
-                .ok_or(StorageError)?;
-            transaction
-                .execute(
-                    "DELETE FROM customer_sync_outbox WHERE change_id = ?1",
-                    [change_id.value().to_string()],
-                )
-                .map_err(|_| StorageError)?;
-            let has_later_change = transaction
-                .query_row(
-                    "SELECT 1 FROM customer_sync_outbox
-                     WHERE scope_kind = ?1 AND scope_id = ?2 AND customer_id = ?3 LIMIT 1",
-                    params![scope_kind, scope_id, customer_id],
-                    |_| Ok(()),
-                )
-                .optional()
-                .map_err(|_| StorageError)?
-                .is_some();
-            if !has_later_change {
-                transaction
-                    .execute(
-                        "UPDATE customers SET sync_state = 'confirmed'
-                         WHERE scope_kind = ?1 AND scope_id = ?2 AND customer_id = ?3",
-                        params![scope_kind, scope_id, customer_id],
-                    )
-                    .map_err(|_| StorageError)?;
-            }
-            Ok(())
-        })
-    }
 }
 
 fn commit_customer_on(
