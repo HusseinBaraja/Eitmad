@@ -121,11 +121,11 @@ pub enum SupportAction {
     VerifyBackup,
     RetryMigration,
     DisconnectRelaySession {
-        #[serde(rename = "relaySessionId", alias = "relay_session_id")]
+        #[serde(rename = "relaySessionId")]
         relay_session_id: crate::relay::RelaySessionId,
     },
     RevokeDeviceSessions {
-        #[serde(rename = "deviceId", alias = "device_id")]
+        #[serde(rename = "deviceId")]
         device_id: DeviceId,
     },
 }
@@ -167,7 +167,7 @@ mod tests {
     use uuid::Uuid;
 
     #[test]
-    fn support_action_writes_camel_case_and_reads_legacy_field_names() {
+    fn support_action_uses_camel_case_field_names() {
         let action = SupportAction::DisconnectRelaySession {
             relay_session_id: crate::relay::RelaySessionId::new(Uuid::from_u128(1)),
         };
@@ -177,12 +177,15 @@ mod tests {
             Uuid::from_u128(1).to_string()
         );
 
-        let legacy = serde_json::json!({
-            "disconnectRelaySession": { "relay_session_id": Uuid::from_u128(1) }
-        });
         assert_eq!(
-            serde_json::from_value::<SupportAction>(legacy).unwrap(),
+            serde_json::from_value::<SupportAction>(encoded).unwrap(),
             action
+        );
+        assert!(
+            serde_json::from_value::<SupportAction>(serde_json::json!({
+                "disconnectRelaySession": { "relay_session_id": Uuid::from_u128(1) }
+            }))
+            .is_err()
         );
     }
 }
