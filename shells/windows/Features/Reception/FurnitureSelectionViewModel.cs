@@ -20,9 +20,7 @@ public sealed class FurnitureSelectionViewModel : ObservableObject
     private string widthCm = "", heightCm = "", depthCm = "";
     public event EventHandler? Changed;
     public Eitmad.Contracts.SalesConfiguration? Configuration => configuration;
-    /// <summary>Uses Rust-confirmed totals and availability to enable the current unsaved furniture configuration.</summary>
     public void Apply(Eitmad.Contracts.SalesConfiguration value) { configuration = value; validationMessage = SalesCatalogViewModel.Availability(value.ServerAvailable); RaiseState(); }
-    /// <summary>Clears checked configuration state and disables addition while showing the recovery message.</summary>
     public void Fail(string message) { configuration = null; validationMessage = message; RaiseState(); }
     public bool CanCustomize => SelectedSize?.Entry?.Customization is not null;
     public string WidthCm { get => widthCm; set { if (Set(ref widthCm, value)) Refresh(); } }
@@ -30,7 +28,6 @@ public sealed class FurnitureSelectionViewModel : ObservableObject
     public string DepthCm { get => depthCm; set { if (Set(ref depthCm, value)) Refresh(); } }
     public string MinimumDimensionsLabel => SelectedSize?.Entry?.Customization is { } c ? SalesCatalogViewModel.DimensionsLabel(c.Minimum) : "";
     public string MaximumDimensionsLabel => SelectedSize?.Entry?.Customization is { } c ? SalesCatalogViewModel.DimensionsLabel(c.Maximum) : "";
-    /// <summary>Collects selected public references and exact dimensions for Rust-owned configuration validation.</summary>
     public Eitmad.Contracts.CheckSalesConfiguration? ConfigurationInput()
     {
         if (SelectedSize?.Entry is not { } e) return null;
@@ -48,7 +45,6 @@ public sealed class FurnitureSelectionViewModel : ObservableObject
     private SalesOption? selectedColor;
     private SalesOption? selectedHandle;
     private int quantity = 1;
-    /// <summary>Stages unsaved furniture choices from the supplied sizes and option lists.</summary>
     public FurnitureSelectionViewModel(SalesCatalogItem item, IReadOnlyList<SalesSize> sizes,
         IReadOnlyList<SalesOption> colors, IReadOnlyList<SalesOption> handles)
     {
@@ -106,7 +102,6 @@ public sealed class FurnitureSelectionViewModel : ObservableObject
         if (Item.Entry is not null) { configuration = null; validationMessage = "اختر المقاس والخيارات للتحقق من الأثاث."; }
         RaiseState(); Changed?.Invoke(this, EventArgs.Empty);
     }
-    /// <summary>Updates bound price labels, validation guidance, and addition availability after a state change.</summary>
     private void RaiseState()
     {
         foreach (var name in new[] { nameof(CanAdd), nameof(Guidance), nameof(BasePriceLabel), nameof(AdditionsLabel), nameof(UnitPrice), nameof(LineTotal), nameof(UnitPriceLabel), nameof(LineTotalLabel) }) Raise(name);

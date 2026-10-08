@@ -25,7 +25,6 @@ public partial class MainWindow : Window
 
     public event EventHandler<SessionEndReason?>? AccountSessionCleared;
 
-    /// <summary>Initializes the dashboard preview and its transient interactions.</summary>
     public MainWindow(
         IDesktopSessionController? sessions = null,
         bool showSignIn = true,
@@ -101,7 +100,6 @@ public partial class MainWindow : Window
         Title = showSignIn ? "الاعتماد · تسجيل الدخول" : "الاعتماد · لوحة التحكم";
     }
 
-    /// <summary>Shows the shell surface allowed by Rust-returned effective permissions.</summary>
     private async void SessionSignedIn(object sender, AuthenticatedSurface surface)
     {
         SignInSurface.Visibility = Visibility.Collapsed;
@@ -124,14 +122,11 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>Allows sign-out and account switching only during an active user session.</summary>
     private void CanSwitchAccount(object sender, CanExecuteRoutedEventArgs eventArgs) =>
         eventArgs.CanExecute = sessionActive && !switchingAccount && sessions is not null;
 
-    /// <summary>Handles the Alt+K account-switch shortcut.</summary>
     private void SwitchAccountExecuted(object sender, ExecutedRoutedEventArgs eventArgs) => _ = SwitchAccountAsync();
 
-    /// <summary>Handles the receptionist header account switch.</summary>
     private void ReceptionistAccountSwitchRequested(object? sender, EventArgs eventArgs) => _ = SwitchAccountAsync();
 
     private void ManagerTitleBarAccountSwitchRequested(object? sender, EventArgs eventArgs) => _ = SwitchAccountAsync();
@@ -202,7 +197,6 @@ public partial class MainWindow : Window
     private void SessionEnded(object? sender, SessionEndedEventArgs eventArgs) =>
         Dispatcher.Invoke(() => _ = CompleteSessionEndAsync(eventArgs.Reason));
 
-    /// <summary>Clears session-owned views and projections before returning to sign-in.</summary>
     private async Task CompleteSessionEndAsync(SessionEndReason reason)
     {
         SignInSurface.IsEnabled = false;
@@ -229,7 +223,6 @@ public partial class MainWindow : Window
         AccountSessionCleared?.Invoke(this, reason);
     }
 
-    /// <summary>Hides account pages and clears their cached state when the desktop session ends.</summary>
     private void HideAccountSurfaces()
     {
         OrdersSurface.ViewModel.ClearOrders(); ReceptionistSurface.PreviewOrders.ViewModel.ClearOrders();
@@ -245,21 +238,18 @@ public partial class MainWindow : Window
         InteractionPanel.Visibility = Visibility.Collapsed;
     }
 
-    /// <summary>Opens the raw-material list from the dashboard shortcut.</summary>
     private void OpenRawMaterialsFromActionClick(object sender, RoutedEventArgs eventArgs)
     {
         ManagerSidebar.SelectDestination("الخامات");
         ShowDestination("الخامات");
     }
 
-    /// <summary>Opens the parts list from the dashboard shortcut.</summary>
     private void OpenPartsFromActionClick(object sender, RoutedEventArgs eventArgs)
     {
         ManagerSidebar.SelectDestination("القطع");
         ShowDestination("القطع");
     }
 
-    /// <summary>Switches between the dashboard preview and dedicated management pages.</summary>
     private void ShowDestination(string destination)
     {
         if (destination == "عروض الأسعار") QuotationsSurface.ViewModel.ApprovalsOnly = false;
@@ -315,11 +305,9 @@ public partial class MainWindow : Window
         Dispatcher.BeginInvoke(CustomerNameBox.Focus, DispatcherPriority.Input);
     }
 
-    /// <summary>Closes the quotation preview panel without saving state.</summary>
     private void ClosePreviewPanelClick(object sender, RoutedEventArgs eventArgs) =>
         InteractionPanel.Visibility = Visibility.Collapsed;
 
-    /// <summary>Validates the preview customer name without creating a quotation.</summary>
     private void PreviewSubmitClick(object sender, RoutedEventArgs eventArgs)
     {
         if (string.IsNullOrWhiteSpace(CustomerNameBox.Text))
@@ -333,7 +321,6 @@ public partial class MainWindow : Window
         ShowToast("تم فحص المسودة محلياً؛ الحفظ معطل في وضع المعاينة");
     }
 
-    /// <summary>Shows transient preview feedback.</summary>
     private void ShowToast(string message)
     {
         InteractionToast.Message = message;

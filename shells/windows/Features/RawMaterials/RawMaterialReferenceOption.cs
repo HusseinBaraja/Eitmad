@@ -2,7 +2,6 @@ using Eitmad.Contracts;
 
 namespace Eitmad.WindowsShell.Features.RawMaterials;
 
-/// <summary>Projects one immutable Rust category or unit.</summary>
 public sealed record RawMaterialReferenceOption(string Name, Guid Id, long Revision,
     string ShortName = "", UnitDimension Dimension = UnitDimension.Count,
     long Numerator = 1, long Denominator = 1, bool IsArchived = false)

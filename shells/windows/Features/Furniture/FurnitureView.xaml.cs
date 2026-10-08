@@ -27,7 +27,6 @@ public partial class FurnitureView : UserControl
     private void FurnitureRowInvoked(object sender, RowInvokedEventArgs eventArgs) =>
         OpenEditor((FurnitureListItem)eventArgs.Item);
 
-    /// <summary>Resolves immutable references before staging an edit and requesting Rust review.</summary>
     private async void OpenEditor(FurnitureListItem item)
     {
         if (!await PrepareEditorAsync(item)) return;
@@ -37,7 +36,6 @@ public partial class FurnitureView : UserControl
         await Dispatcher.BeginInvoke(FurnitureNameBox.Focus, DispatcherPriority.Input);
     }
 
-    /// <summary>Loads picker references before opening an unsaved definition.</summary>
     private async void AddFurnitureClick(object sender, RoutedEventArgs eventArgs)
     {
         if (!await PrepareEditorAsync()) return;
@@ -95,7 +93,6 @@ public partial class FurnitureView : UserControl
         }
     }
 
-    /// <summary>Resolves the source references before opening an unsaved duplicate.</summary>
     private async void DuplicateFurnitureClick(object sender, RoutedEventArgs eventArgs)
     {
         if (FurnitureFromMenuItem(sender) is { } item)
@@ -108,7 +105,6 @@ public partial class FurnitureView : UserControl
         }
     }
 
-    /// <summary>Resolves saved references before submitting an archive revision.</summary>
     private async void ArchiveFurnitureClick(object sender, RoutedEventArgs eventArgs)
     {
         if (FurnitureFromMenuItem(sender) is { } item)
@@ -167,14 +163,12 @@ public partial class FurnitureView : UserControl
 
     private void CancelEditorClick(object sender, RoutedEventArgs eventArgs) => ViewModel.CancelEditor();
 
-    /// <summary>Submits a draft through the authority and displays its result.</summary>
     private async void SaveDraftClick(object sender, RoutedEventArgs eventArgs)
     {
         await SaveAsync(Eitmad.Contracts.FurnitureState.Draft);
         RestartFeedbackTimer();
     }
 
-    /// <summary>Submits a complete private definition through the authority.</summary>
     private async void SaveDefinitionClick(object sender, RoutedEventArgs eventArgs)
     {
         await SaveAsync(Eitmad.Contracts.FurnitureState.Active);
@@ -237,7 +231,6 @@ public partial class FurnitureView : UserControl
         }
     }
 
-    /// <summary>Stages exact variant input and reports unsupported numeric values.</summary>
     private void SaveVariantClick(object sender, RoutedEventArgs eventArgs)
     {
         if (FindInvalidTextBox(VariantDialog) is { } invalid) { ViewModel.Fail("صحّح المقاس غير الصالح."); invalid.Focus(); return; }

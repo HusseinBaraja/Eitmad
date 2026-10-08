@@ -63,7 +63,6 @@ pub struct UpdateCustomer {
 }
 
 tagged_contract! {
-    /// Authoritative state-changing requests.
     pub enum Command {
         ConvertQuotation(crate::order::ConvertQuotation) => "eitmad.order.convert.v1",
         CancelOrder(crate::order::CancelOrder) => "eitmad.order.cancel.v1",

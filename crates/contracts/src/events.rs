@@ -28,7 +28,6 @@ pub struct CustomerChanges {}
 pub struct MaterialChanges {}
 
 tagged_contract! {
-    /// Resumable streams requested by clients.
     pub enum Subscription {
         Prices(crate::pricing::PriceChanges) => "eitmad.pricing.changed.subscribe.v1",
         Configuration(ConfigurationChanges) => "eitmad.config.changed.subscribe.v1",
@@ -47,7 +46,6 @@ tagged_contract! {
 }
 
 tagged_contract! {
-    /// Ordered values emitted by subscriptions.
     pub enum Event {
         PriceChanged(crate::pricing::PriceChangeNotice) => "eitmad.pricing.changed.event.v1",
         ConfigurationChanged(ConfigSnapshot) => "eitmad.config.changed.event.v1",
@@ -76,7 +74,6 @@ impl Event {
         )
     }
 
-    /// Maps a typed event to its subscription route, including Furniture changes.
     #[must_use]
     pub const fn subscription_kind(&self) -> &'static str {
         match self {

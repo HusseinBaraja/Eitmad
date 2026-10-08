@@ -12,7 +12,6 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 [TestClass]
 public sealed class SalesCatalogAuthorityRenderedTests
 {
-    /// <summary>Verifies rendered public choices, keyboard paths, and isolated mixed-direction values at the configured window sizes.</summary>
     [TestMethod]
     [DataRow(1920, 1080)]
     [DataRow(1338, 753)]

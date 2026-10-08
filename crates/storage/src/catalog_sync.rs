@@ -1,4 +1,3 @@
-//! Durable catalog transfer work and atomic, scoped read-model projection.
 use crate::{
     AuthorityStore, DurablePublication, StorageError, insert_audit, insert_publication,
     migrations::Migration, scope_parts,
@@ -532,7 +531,6 @@ fn import_history(
     }
     Ok(())
 }
-/// Projects exact usage and option identities with the imported definition transaction.
 fn import_relations(
     tx: &rusqlite::Connection,
     record: &CatalogRevision,

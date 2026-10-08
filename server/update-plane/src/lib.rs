@@ -1,5 +1,3 @@
-//! Signed update manifest publication and channel distribution.
-
 use std::{
     collections::BTreeSet,
     fs,

@@ -1,5 +1,3 @@
-//! Customer contact contracts.
-
 use schemars::JsonSchema;
 use serde::{Deserialize, Deserializer, Serialize};
 
@@ -293,7 +291,6 @@ pub struct Customer {
     pub sync_state: CustomerSyncState,
 }
 
-/// Version 1 contact payload carried by the shared sync protocol.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CustomerSyncPayload {

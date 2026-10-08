@@ -1,5 +1,3 @@
-//! Durable raw material definitions and versioned reference administration.
-
 use eitmad_authorization::{
     AuthorizationError, AuthorizationService, MATERIAL_READ_PERMISSION,
     MATERIAL_UNIT_MANAGE_PERMISSION, MATERIAL_WRITE_PERMISSION, MutationContext,

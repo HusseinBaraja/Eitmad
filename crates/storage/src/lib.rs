@@ -1,5 +1,3 @@
-//! Rust-owned `SQLite` access, migrations, transactions, and scoped repositories.
-
 mod audit;
 mod authorization;
 mod catalog_image;

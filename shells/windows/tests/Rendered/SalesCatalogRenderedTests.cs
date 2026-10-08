@@ -236,7 +236,6 @@ public sealed class SalesCatalogRenderedTests
         });
     }
 
-    /// <summary>Verifies fixed-size furniture options, displayed totals, and native navigation through the temporary selection workflow.</summary>
     [TestMethod]
     public void FurnitureSelectionRendersOptionsTotalsAndKeepsCatalogFlow()
     {

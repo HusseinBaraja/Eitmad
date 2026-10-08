@@ -16,7 +16,6 @@ public sealed record MaterialResult<T>(T? Value, MaterialFailureKind Failure)
 
 public sealed record MaterialSnapshot(MaterialReferences References, IReadOnlyList<Material> Materials);
 
-/// <summary>Thin typed IPC adapter for material definitions and change notifications.</summary>
 public sealed class MaterialClient : IAsyncDisposable
 {
     private readonly IEngineShellBridge engine;

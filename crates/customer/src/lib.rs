@@ -1,5 +1,3 @@
-//! Branch-scoped customer contact capability.
-
 mod sync;
 pub use sync::{CustomerSyncCycle, CustomerSyncError};
 

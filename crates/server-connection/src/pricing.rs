@@ -1,4 +1,3 @@
-//! Server-confirmed price publication through stored credentials and pinned TLS.
 use crate::{
     DirectServerConfig,
     authenticated_http::{AuthenticatedHttpClient, HttpError},
@@ -11,7 +10,6 @@ use eitmad_contracts::{
 };
 use eitmad_pricing::{PriceConfirmation, PricingError};
 use std::time::{Duration, Instant};
-/// Uses authenticated HTTPS for immutable catalog transfer and price confirmation.
 pub struct DirectPriceClient {
     http: AuthenticatedHttpClient,
 }
@@ -64,7 +62,6 @@ pub(crate) fn remap_catalog_scope(
     Ok(())
 }
 impl DirectPriceClient {
-    /// Configures pinned HTTPS and stored credentials for the protocol 1.17 pricing boundary.
     #[must_use]
     pub fn from_config(
         config: DirectServerConfig,

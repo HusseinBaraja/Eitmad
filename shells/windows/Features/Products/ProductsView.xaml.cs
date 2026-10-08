@@ -23,7 +23,6 @@ public partial class ProductsView : UserControl
     private bool activated;
     private SaveProductCategory? pendingCategoryInput;
     private readonly CatalogImages.CatalogImageThumbnails thumbnails = new();
-    /// <summary>Connects Rust-owned product data and subscribes to presentation search changes.</summary>
     public void Attach(IEngineShellBridge engine) { engineBridge = engine; CreateClient(); ViewModel.SearchChanged += (_, _) => _ = RefreshAsync(debounce: true); }
     /// <summary>Connects invalidation before refresh so restricted cached fields are removed immediately.</summary>
     private void CreateClient()
@@ -36,7 +35,6 @@ public partial class ProductsView : UserControl
     public async Task ActivateAsync() { if (client is null) { ViewModel.Unavailable("بيانات المنتجات غير متاحة."); return; } activated = true; await client.ActivateAsync(); await RefreshAsync(); }
     /// <summary>Invalidates late completions and replaces the client so retry payloads cannot cross account sessions.</summary>
     public void ClearSession() { pendingCategoryInput = null; activated = false; ClearRestrictedData(); if (client is { } previous) { _ = previous.DisposeAsync(); CreateClient(); } }
-    /// <summary>Cancels page queries and releases the scoped subscription when its host closes.</summary>
     public async ValueTask DisposeAsync() { refreshCancellation?.Cancel(); refreshCancellation?.Dispose(); thumbnails.Clear(); if (client is not null) await client.DisposeAsync(); }
     /// <summary>Applies only the latest query result; canceled or invalidated results cannot restore an old projection.</summary>
     private async Task RefreshAsync(bool debounce = false)
@@ -123,7 +121,6 @@ public partial class ProductsView : UserControl
         finally { if (session == sessionVersion) ViewModel.IsBusy = false; }
     }
 
-    /// <summary>Clears all retained product fields and invalidates pending loads and saves before reauthorization.</summary>
     private void ClearRestrictedData()
     {
         ++sessionVersion;
@@ -134,7 +131,6 @@ public partial class ProductsView : UserControl
         ViewModel.ClearSession();
     }
 
-    /// <summary>Finds rendered inputs so invalid purchase-cost fields can receive focus before submission.</summary>
     private static IEnumerable<T> VisualDescendants<T>(DependencyObject parent) where T : DependencyObject
     {
         for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
@@ -219,14 +215,12 @@ public partial class ProductsView : UserControl
         }
     }
 
-    /// <summary>Submits the current editor through the asynchronous product save path.</summary>
     private async void SaveProductClick(object sender, RoutedEventArgs args) => await SaveAsync(false);
 
     private void CancelEditorClick(object sender, RoutedEventArgs eventArgs) => ViewModel.CancelEditor();
 
     private void ArchiveFromEditorClick(object sender, RoutedEventArgs eventArgs) => ViewModel.RequestArchiveFromEditor();
 
-    /// <summary>Submits the retained product revision after archive confirmation.</summary>
     private async void ConfirmArchiveClick(object sender, RoutedEventArgs args) => await SaveAsync(true);
 
     private void CancelArchiveClick(object sender, RoutedEventArgs eventArgs) => ViewModel.CancelArchive();
@@ -269,7 +263,6 @@ public partial class ProductsView : UserControl
         }
     }
 
-    /// <summary>Submits the selected category revision through the category retry path.</summary>
     private async void ArchiveCategoryClick(object sender, RoutedEventArgs eventArgs)
     {
         if (sender is Button { DataContext: ProductCategoryOption category })
@@ -279,7 +272,6 @@ public partial class ProductsView : UserControl
         }
     }
 
-    /// <summary>Submits staged category fields through the asynchronous category save path.</summary>
     private async void SaveCategoryClick(object sender, RoutedEventArgs args) => await SaveCategoryAsync(ViewModel.CategoryInput());
 
     private void CancelCategoryClick(object sender, RoutedEventArgs eventArgs) => ViewModel.CancelCategoryEditor();

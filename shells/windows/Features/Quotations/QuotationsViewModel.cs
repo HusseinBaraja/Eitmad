@@ -3,7 +3,6 @@ using System.Globalization;
 
 namespace Eitmad.WindowsShell.Features.Quotations;
 
-/// <summary>Presents authorized drafts, details, and isolated approval fixtures.</summary>
 public sealed partial class QuotationsViewModel : ObservableObject
 {
     public const string AllStatuses = "كل الحالات";

@@ -1,4 +1,3 @@
-//! Quotation lifecycle rules. Server time and retained approvals define issuance.
 use crate::{approval_fingerprint, same_commercial_terms};
 use eitmad_contracts::{
     identity::TenantId,
@@ -154,7 +153,6 @@ pub fn quotation_actions(record: &QuotationRecord, reception: bool, manager: boo
     actions
 }
 
-/// Authenticated Rust transport for commercial quotations.
 pub trait QuotationServer: Send + Sync {
     /// # Errors
     /// Requires current server authority and exact retry identity.

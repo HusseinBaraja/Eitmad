@@ -3,7 +3,6 @@ using Eitmad.Contracts;
 
 namespace Eitmad.WindowsShell.Features.CatalogImages;
 
-/// <summary>Retains at most 128 decoded thumbnails within one authorized view session.</summary>
 internal sealed class CatalogImageThumbnails
 {
     private readonly Dictionary<(Guid Id, string Sha256), ImageSource> cache = [];
@@ -13,7 +12,6 @@ internal sealed class CatalogImageThumbnails
     /// <summary>Invalidates cached and in-flight images when session authority changes.</summary>
     public void Clear() { ++generation; cache.Clear(); }
 
-    /// <summary>Applies cached images first and loads distinct misses with two worker slots.</summary>
     public async Task ApplyAsync(
         CatalogImageClient images,
         IEnumerable<(Guid RecordId, CatalogImageRef Reference)> records,

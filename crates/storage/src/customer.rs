@@ -1,5 +1,3 @@
-//! Durable customer contact state and bounded local-first sync work.
-
 use eitmad_contracts::{
     customer::{
         Customer, CustomerAddress, CustomerId, CustomerMutationResult, CustomerName, CustomerNotes,

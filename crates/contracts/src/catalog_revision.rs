@@ -1,4 +1,3 @@
-//! Immutable catalog revisions transferred before server price confirmation.
 use crate::{
     furniture::{Furniture, FurnitureCategory},
     identity::ScopeRef,
@@ -25,7 +24,6 @@ pub enum CatalogRevision {
 }
 
 impl CatalogRevision {
-    /// Returns the immutable storage identity and its explicit organization scope.
     #[must_use]
     pub fn identity(&self) -> (&'static str, uuid::Uuid, u64, &ScopeRef) {
         match self {

@@ -14,7 +14,6 @@ use eitmad_product::ProductService;
 use tempfile::TempDir;
 use uuid::Uuid;
 
-/// Applies a decoded public stream page to a separate client through the real atomic projection.
 fn project_sales(
     store: &AuthorityStore,
     reader: &AuthorizationContext,
@@ -75,7 +74,6 @@ fn project_sales(
         .unwrap();
 }
 
-/// Creates a real manager definition and a confirmed public receipt.
 fn published_product_entry() -> eitmad_contracts::catalog_revision::CatalogEntry {
     use eitmad_contracts::catalog_revision::CatalogRevision;
     let manager_dir = TempDir::new().unwrap();
@@ -101,7 +99,6 @@ fn published_product_entry() -> eitmad_contracts::catalog_revision::CatalogEntry
     public_entry(&CatalogRevision::Product(Box::new(saved)), &receipt).unwrap()
 }
 
-/// Verifies scoped Arabic search, public prices, stale revisions, and withdrawal across separate manager and receptionist stores.
 #[test]
 fn sales_catalog_separate_client_search_pages_prices_and_withdrawal_are_public_only() {
     use eitmad_contracts::sales_catalog::{
@@ -205,7 +202,6 @@ fn sales_catalog_separate_client_search_pages_prices_and_withdrawal_are_public_o
     );
 }
 
-/// Verifies sparse filtering and continuation cross bounded storage batches without losing matching entries.
 #[test]
 fn sales_catalog_sparse_pages_cross_storage_batches_without_gaps() {
     use eitmad_contracts::sales_catalog::ListSalesCatalog;
@@ -253,7 +249,6 @@ fn sales_catalog_sparse_pages_cross_storage_batches_without_gaps() {
     );
 }
 
-/// Publishes the manager Furniture fixture with explicit customization bounds.
 fn published_furniture_entry() -> eitmad_contracts::catalog_revision::CatalogEntry {
     use eitmad_contracts::{
         catalog_revision::CatalogRevision,
@@ -300,7 +295,6 @@ fn published_furniture_entry() -> eitmad_contracts::catalog_revision::CatalogEnt
     public_entry(&CatalogRevision::Furniture(Box::new(saved)), &receipt).unwrap()
 }
 
-/// Verifies public furniture configuration rejects invalid bounds, incompatible options, invalid quantity, and arithmetic overflow.
 #[test]
 fn sales_catalog_furniture_checks_dimensions_compatible_options_quantity_and_overflow() {
     use eitmad_contracts::sales_catalog::CheckSalesConfiguration;
@@ -370,7 +364,6 @@ fn sales_catalog_furniture_checks_dimensions_compatible_options_quantity_and_ove
         Err(PricingError::Invalid)
     );
 }
-/// Creates a deterministic synthetic user and organization authorization context.
 fn actor(principal: u128, organization: u128) -> AuthorizationContext {
     AuthorizationContext {
         session_id: SessionId::new(Uuid::from_u128(principal + 1_000)),
@@ -388,7 +381,6 @@ fn actor(principal: u128, organization: u128) -> AuthorizationContext {
         },
     }
 }
-/// Creates deterministic audit and retry metadata for a synthetic operation.
 fn mutation(actor: AuthorizationContext, key: u128) -> MutationContext {
     MutationContext {
         authorization: actor,
@@ -398,7 +390,6 @@ fn mutation(actor: AuthorizationContext, key: u128) -> MutationContext {
         occurred_at: UnixMillis(i64::try_from(key).unwrap()),
     }
 }
-/// Bootstraps isolated authority storage with Manager and Receptionist relationships.
 fn setup(
     dir: &TempDir,
 ) -> (
@@ -450,7 +441,6 @@ fn setup(
     )
 }
 
-/// Creates a synthetic active category and an unsaved product with fixed supplier options.
 fn fixture(service: &ProductService, manager: &AuthorizationContext) -> SaveProduct {
     let category = service
         .save_category(
@@ -502,7 +492,6 @@ struct Confirmed {
     receipts: std::sync::Mutex<Vec<(ConfirmPrice, PublishedPrice)>>,
 }
 impl PriceConfirmation for Confirmed {
-    /// Stages a complete batch, rejects altered revisions, and validates dependencies before acceptance.
     fn synchronize_catalog(
         &self,
         _: &AuthorizationContext,
@@ -563,7 +552,6 @@ impl PriceConfirmation for Confirmed {
             next: None,
         })
     }
-    /// Replays exact receipts or validates the stored catalog basis before advancing the price revision.
     fn confirm(
         &self,
         _: &AuthorizationContext,
@@ -1020,7 +1008,6 @@ fn fixtures(
     )
 }
 
-/// Creates the default Furniture test fixture.
 fn furniture_fixture(
     store: &AuthorityStore,
     service: &FurnitureService,
@@ -1083,7 +1070,6 @@ fn furniture_fixture(
         confirm_below_cost: false,
     }
 }
-/// Builds fixed dimensions in millimetres for domain tests.
 fn dims(width: u32) -> FurnitureDimensions {
     FurnitureDimensions {
         width_mm: width,
@@ -1170,7 +1156,6 @@ fn manufactured_cost_options_and_selling_prices_use_part_revisions_and_exact_who
     );
 }
 
-/// Checks that accepted supplier costs govern publication and cannot be replaced through revision replay.
 #[test]
 fn server_catalog_rejects_forged_product_cost_and_changed_immutable_revision() {
     use eitmad_contracts::catalog_revision::{CatalogRevision, SynchronizeCatalogRevisions};
@@ -1231,7 +1216,6 @@ fn server_catalog_rejects_forged_product_cost_and_changed_immutable_revision() {
     assert_eq!(server.receipts.lock().unwrap().len(), 2);
 }
 
-/// Checks the Material-to-Part-to-Furniture cost chain against forged totals and foreign dependencies.
 #[test]
 fn server_catalog_recalculates_part_and_furniture_costs_and_rejects_foreign_dependencies() {
     use eitmad_contracts::catalog_revision::CatalogRevision;
@@ -1304,7 +1288,6 @@ fn server_catalog_recalculates_part_and_furniture_costs_and_rejects_foreign_depe
     }
 }
 
-/// Rejects latest-Part aliases and mismatched identities in immutable Furniture dependencies.
 #[test]
 fn server_catalog_requires_exact_furniture_part_references() {
     use eitmad_contracts::catalog_revision::CatalogRevision;
@@ -1362,7 +1345,6 @@ fn server_catalog_requires_exact_furniture_part_references() {
     }
 }
 
-/// Checks bounded price pages and recovery from a lost confirmation without another publication.
 #[test]
 fn bounded_variant_pages_and_cache_first_retry_complete_without_duplicate_revisions() {
     let dir = TempDir::new().unwrap();
@@ -1525,7 +1507,6 @@ fn variant_pages_fill_across_definitions_and_filtered_batches_without_gaps() {
     assert_eq!(actual, expected);
 }
 
-/// Checks that refreshing a newer price preserves the original intent and its exact retry receipt.
 #[test]
 fn original_confirmed_intent_survives_newer_price_refresh_before_retry() {
     let dir = TempDir::new().unwrap();

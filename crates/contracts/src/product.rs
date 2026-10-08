@@ -1,4 +1,3 @@
-//! Ready-made definitions, fixed supplier options, and immutable historical references.
 use crate::{identity::ScopeRef, transport::UnixMillis};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};

@@ -15,17 +15,13 @@ public sealed class ProductSelectionViewModel : ObservableObject
     private string validationMessage = "";
     public event EventHandler? Changed;
     public Eitmad.Contracts.SalesConfiguration? Configuration => configuration;
-    /// <summary>Uses Rust-confirmed totals and availability to enable the current unsaved product configuration.</summary>
     public void Apply(Eitmad.Contracts.SalesConfiguration value) { configuration = value; validationMessage = SalesCatalogViewModel.Availability(value.ServerAvailable); RaiseState(); }
-    /// <summary>Clears checked product configuration state and displays the validation or recovery message.</summary>
     public void Fail(string message) { configuration = null; validationMessage = message; RaiseState(); }
-    /// <summary>Sends the selected public variant, quantity, and expected price revision for Rust validation.</summary>
     public Eitmad.Contracts.CheckSalesConfiguration? ConfigurationInput() => SelectedVariant?.Entry is { } e ? new()
     { Selection = new() { Target = e.Price.Target, PriceRevision = e.Price.Revision, Quantity = Quantity }, Dimensions = null! } : null;
     private SalesProductVariant? selectedVariant;
     private int quantity = 1;
 
-    /// <summary>Stages unsaved product choices from the supplied published variants.</summary>
     public ProductSelectionViewModel(SalesCatalogItem item, IReadOnlyList<SalesProductVariant> variants)
     {
         Item = item;
@@ -68,7 +64,6 @@ public sealed class ProductSelectionViewModel : ObservableObject
         if (Item.Entry is not null) { configuration = null; validationMessage = "اختر النوع / المقاس للتحقق من المنتج."; }
         RaiseState(); Changed?.Invoke(this, EventArgs.Empty);
     }
-    /// <summary>Updates bound product prices, validation guidance, and addition availability.</summary>
     private void RaiseState()
     {
         foreach (var name in new[] { nameof(UnitPrice), nameof(LineTotal), nameof(CanAdd), nameof(UnitPriceLabel), nameof(LineTotalLabel), nameof(Guidance) }) Raise(name);

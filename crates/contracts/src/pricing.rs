@@ -1,4 +1,3 @@
-//! Whole-YER pricing, separate catalog references, and server-confirmed revisions.
 use crate::{
     furniture::FurnitureReference,
     identity::ScopeRef,

@@ -1,5 +1,3 @@
-//! Composition root for the initially combined Eitmad server.
-
 mod config;
 mod http;
 mod planes;

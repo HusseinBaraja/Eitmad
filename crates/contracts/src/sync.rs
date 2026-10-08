@@ -270,7 +270,6 @@ pub struct BatchAcknowledgement {
     pub accepted_records: u32,
 }
 
-/// One local-first change submitted over the shared authenticated route.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct LocalChangeSubmission {

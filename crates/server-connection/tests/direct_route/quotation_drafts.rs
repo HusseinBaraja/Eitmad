@@ -1,4 +1,3 @@
-//! Real draft server delivery, lost acknowledgement, isolation, and competing offline edits.
 #[path = "quotation_lifecycle.rs"]
 mod lifecycle;
 #[path = "orders.rs"]

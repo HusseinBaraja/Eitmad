@@ -1,4 +1,3 @@
-//! Commercial lifecycle proof through real TLS transport and two clients.
 use super::*;
 use eitmad_contracts::quotation_lifecycle::*;
 use eitmad_pricing::{DiscountApprovalServer, QuotationError as E, QuotationServer};

@@ -29,8 +29,6 @@ pub struct ScopedObject {
     pub id: ObjectId,
 }
 
-/// A tuple subject is either an authenticated principal or another scoped
-/// object such as a role, team, or parent record.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", content = "value", rename_all = "camelCase")]
 pub enum TupleSubject {
@@ -38,7 +36,6 @@ pub enum TupleSubject {
     Object(ScopedObject),
 }
 
-/// Optional request attributes used by a tuple condition.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "operator", rename_all = "camelCase")]
 pub enum AttributeCondition {

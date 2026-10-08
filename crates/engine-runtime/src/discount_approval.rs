@@ -24,7 +24,6 @@ impl Drop for ApprovalWatch {
 }
 
 impl ProductDispatcher {
-    /// Attaches the authenticated Rust server boundary.
     #[must_use]
     pub fn with_discount_approvals(mut self, server: Arc<dyn DiscountApprovalServer>) -> Self {
         self.approval_server = Some(server);

@@ -1,4 +1,3 @@
-//! Atomic, scoped order conversion, fulfillment, delivery, receipts and publication.
 use crate::{database::tenant_transaction, quotation_approval as approvals, quotation_lifecycle};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use eitmad_contracts::{

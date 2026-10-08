@@ -6,23 +6,17 @@ using Eitmad.Platform.Windows.Shell;
 namespace Eitmad.WindowsShell.Features.Furniture;
 
 public enum FurnitureFailureKind { None, Validation, Reference, Conflict, Denied, Unavailable }
-/// <summary>Carries a typed IPC value or a failure category for presentation recovery.</summary>
 public sealed record FurnitureResult<T>(T? Value, FurnitureFailureKind Failure)
 {
     public bool Succeeded => Failure == FurnitureFailureKind.None && Value is not null;
-    /// <summary>Wraps a received authority value as a successful presentation result.</summary>
     public static FurnitureResult<T> Success(T value) => new(value, FurnitureFailureKind.None);
-    /// <summary>Creates a failed presentation result without inventing an authority value.</summary>
     public static FurnitureResult<T> Failed(FurnitureFailureKind failure) => new(default, failure);
 }
 
-/// <summary>Groups paged authority records with the management and cost-access flags used by the page.</summary>
 public sealed record FurnitureSnapshot(FurnitureCategories Categories, IReadOnlyList<Eitmad.Contracts.Furniture> Furniture, bool CanManage, bool CanReadCosts, IReadOnlyList<Part> Parts, IReadOnlyList<PartCategory> PartCategories, IReadOnlyList<Part> Compositions);
 
-/// <summary>Contains editor references without reloading the Furniture list.</summary>
 public sealed record FurnitureEditorSnapshot(IReadOnlyList<Part> Parts, IReadOnlyList<PartCategory> Categories, IReadOnlyList<Part> Compositions);
 
-/// <summary>Thin typed IPC adapter for ready-made definitions and separate furniture categories.</summary>
 public sealed class FurnitureClient : IAsyncDisposable
 {
     private sealed class SaveRetry
@@ -64,7 +58,6 @@ public sealed class FurnitureClient : IAsyncDisposable
     /// <summary>Requests immediate removal of cached data before any replacement query completes.</summary>
     public event EventHandler? ProjectionInvalidated;
 
-    /// <summary>Loads scoped furnitures and categories through paged Rust queries; cancellation propagates.</summary>
     public async Task<FurnitureResult<FurnitureSnapshot>> LoadAsync(string term, CancellationToken cancellationToken = default, bool reloadCategories = true)
     {
         if (!engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityFurnitureV1))
@@ -162,7 +155,6 @@ public sealed class FurnitureClient : IAsyncDisposable
         loadedProjectionEpoch = projectionEpoch;
     }
 
-    /// <summary>Queries Rust for matching Part choices without reloading Furniture or its categories.</summary>
     public async Task<FurnitureResult<IReadOnlyList<Part>>> SearchPartsAsync(string term, CancellationToken cancellationToken = default)
     {
         try {
@@ -180,7 +172,6 @@ public sealed class FurnitureClient : IAsyncDisposable
         catch (Exception error) when (error is IOException or InvalidOperationException or ObjectDisposedException) { return FurnitureResult<IReadOnlyList<Part>>.Failed(FurnitureFailureKind.Unavailable); }
     }
 
-    /// <summary>Requests Rust cost and validation results for staged editor fields.</summary>
     public async Task<FurnitureResult<FurnitureReview>> ReviewAsync(SaveFurniture input, CancellationToken cancellationToken = default)
     {
         try {
@@ -193,10 +184,8 @@ public sealed class FurnitureClient : IAsyncDisposable
         catch (Exception error) when (error is IOException or InvalidOperationException or ObjectDisposedException) { return FurnitureResult<FurnitureReview>.Failed(FurnitureFailureKind.Unavailable); }
     }
 
-    /// <summary>Submits a typed save with the retry state reserved for its record kind.</summary>
     public Task<FurnitureFailureKind> SaveAsync(SaveFurniture input, CancellationToken cancellationToken = default) =>
         SubmitAsync(Command.ForFurnitureSave(input), furnitureRetry, cancellationToken);
-    /// <summary>Submits a typed save with the retry state reserved for its record kind.</summary>
     public Task<FurnitureFailureKind> SaveAsync(SaveFurnitureCategory input, CancellationToken cancellationToken = default) =>
         SubmitAsync(Command.ForFurnitureCategorySave(input), categoryRetry, cancellationToken);
 
@@ -271,7 +260,6 @@ public sealed class FurnitureClient : IAsyncDisposable
         finally { loadGate.Release(); }
     }
 
-    /// <summary>Maps typed failure categories to Arabic recovery text without displaying transport diagnostics.</summary>
     public static string ArabicMessage(FurnitureFailureKind failure) => failure switch
     {
         FurnitureFailureKind.Validation => "تحقق من الأجزاء والمقاسات والخيارات والأسعار.",
@@ -281,7 +269,6 @@ public sealed class FurnitureClient : IAsyncDisposable
         _ => "تعذر الاتصال ببيانات الأثاث. حاول مرة أخرى.",
     };
 
-    /// <summary>Classifies Rust error identifiers; unknown or transport failures remain unavailable.</summary>
     private static FurnitureFailureKind MapFailure(string? code) => code switch
     {
         ProtocolIds.ErrorCodes.EitmadErrorFurnitureInvalidV1 or ProtocolIds.ErrorCodes.EitmadErrorContractInvalidV1 => FurnitureFailureKind.Validation,

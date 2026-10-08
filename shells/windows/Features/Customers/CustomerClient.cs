@@ -24,7 +24,6 @@ public sealed record CustomerResult<T>(T? Value, CustomerFailureKind Failure, IR
         new(null, failure, fields ?? new HashSet<string>());
 }
 
-/// <summary>Thin typed adapter over Rust-owned customer commands, queries, and change events.</summary>
 public sealed class CustomerClient : IAsyncDisposable
 {
     public const long SearchLimit = 20;

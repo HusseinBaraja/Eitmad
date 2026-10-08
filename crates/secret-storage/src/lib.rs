@@ -74,7 +74,6 @@ impl SecretMaterial {
         Ok(Self(value))
     }
 
-    /// Exposes the value only to the Rust capability that must use it.
     #[must_use]
     pub fn expose_secret(&self) -> &[u8] {
         &self.0

@@ -2,7 +2,6 @@ using System.Globalization;
 
 namespace Eitmad.WindowsShell.Features.RawMaterials;
 
-/// <summary>Projects one immutable Rust material row.</summary>
 public sealed record RawMaterialListItem(Guid Id, string Name, string Category, string Unit,
     decimal CurrentCost, bool IsArchived, Guid CategoryId, Guid UnitId, long Revision)
 {

@@ -27,7 +27,6 @@ pub struct SnapshotBundle {
     pub chunks: Vec<SnapshotChunk>,
 }
 
-/// One authorized snapshot or compaction target.
 #[derive(Clone, Copy, Debug)]
 pub struct SnapshotRequest<'a> {
     pub session: &'a AuthenticatedServerSession,

@@ -1,5 +1,3 @@
-//! One authorization and audit gate for every Rust-owned execution boundary.
-
 use eitmad_contracts::{
     authorization::AuthorizationRequest,
     identity::AuthorizationContext,

@@ -1,4 +1,3 @@
-//! Server-owned commercial quotation revisions and permitted actions.
 use crate::{
     identity::{PrincipalId, ScopeRef},
     quotation_approval::DiscountRequestId,

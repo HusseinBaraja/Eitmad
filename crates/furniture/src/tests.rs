@@ -15,7 +15,6 @@ use eitmad_contracts::{
     transport::{CorrelationId, IdempotencyKey, UnixMillis},
 };
 use tempfile::TempDir;
-/// Creates a deterministic synthetic user and organization authorization context.
 fn actor(principal: u128, organization: u128) -> AuthorizationContext {
     AuthorizationContext {
         session_id: SessionId::new(Uuid::from_u128(principal + 1_000)),
@@ -33,7 +32,6 @@ fn actor(principal: u128, organization: u128) -> AuthorizationContext {
         },
     }
 }
-/// Creates deterministic audit and retry metadata for a synthetic operation.
 fn mutation(actor: AuthorizationContext, key: u128) -> MutationContext {
     MutationContext {
         authorization: actor,
@@ -43,7 +41,6 @@ fn mutation(actor: AuthorizationContext, key: u128) -> MutationContext {
         occurred_at: UnixMillis(i64::try_from(key).unwrap()),
     }
 }
-/// Bootstraps isolated authority storage with Manager and Receptionist relationships.
 fn setup(
     dir: &TempDir,
 ) -> (
@@ -97,7 +94,6 @@ fn setup(
 
 use eitmad_material::MaterialService;
 use eitmad_part::PartService;
-/// Builds a disposable store with scoped Manager and Part references.
 fn fixtures(
     store: &AuthorityStore,
     service: &PartService,
@@ -192,7 +188,6 @@ fn fixtures(
     )
 }
 
-/// Creates the default Furniture test fixture.
 fn fixture(
     store: &AuthorityStore,
     service: &FurnitureService,
@@ -255,7 +250,6 @@ fn fixture(
         confirm_below_cost: false,
     }
 }
-/// Builds fixed dimensions in millimetres for domain tests.
 fn dims(width: u32) -> FurnitureDimensions {
     FurnitureDimensions {
         width_mm: width,
@@ -263,7 +257,6 @@ fn dims(width: u32) -> FurnitureDimensions {
         depth_mm: 550,
     }
 }
-/// Builds an authorized query context for the synthetic organization.
 fn query(p: &Furniture, new: bool) -> GetFurnitureRevision {
     GetFurnitureRevision {
         reference: FurnitureReference {
@@ -276,7 +269,6 @@ fn query(p: &Furniture, new: bool) -> GetFurnitureRevision {
         for_new_work: new,
     }
 }
-/// Builds the default bounded Furniture list request.
 fn list() -> ListFurnitures {
     ListFurnitures {
         term: String::new(),
@@ -285,7 +277,6 @@ fn list() -> ListFurnitures {
         selectable_only: false,
     }
 }
-/// Verifies definition restarts retries and preserves snapshots and archive.
 #[test]
 fn definition_restarts_retries_and_preserves_snapshots_and_archive() {
     let dir = TempDir::new().unwrap();
@@ -356,7 +347,6 @@ fn definition_restarts_retries_and_preserves_snapshots_and_archive() {
             .is_err()
     );
 }
-/// Verifies invalid relationships quantities bounds options and money are rejected.
 #[test]
 fn invalid_relationships_quantities_bounds_options_and_money_are_rejected() {
     let dir = TempDir::new().unwrap();
@@ -418,7 +408,6 @@ fn invalid_relationships_quantities_bounds_options_and_money_are_rejected() {
     confirmed.confirm_below_cost = true;
     assert!(service.save(&mutation(manager, 200), &confirmed).is_ok());
 }
-/// Verifies selection checks customization option compatibility and stale revisions.
 #[test]
 fn selection_checks_customization_option_compatibility_and_stale_revisions() {
     let dir = TempDir::new().unwrap();
@@ -467,7 +456,6 @@ fn selection_checks_customization_option_compatibility_and_stale_revisions() {
     selection.dimensions = dims(1200);
     assert!(service.selection(&manager, &selection).is_ok());
 }
-/// Verifies manager only writes reads and audit failure roll back.
 #[test]
 fn manager_only_writes_reads_and_audit_failure_roll_back() {
     let dir = TempDir::new().unwrap();
@@ -504,7 +492,6 @@ fn manager_only_writes_reads_and_audit_failure_roll_back() {
     );
 }
 
-/// Verifies part changes preserve composition and archived option identities.
 #[test]
 fn part_changes_preserve_composition_and_archived_option_identities() {
     let dir = TempDir::new().unwrap();

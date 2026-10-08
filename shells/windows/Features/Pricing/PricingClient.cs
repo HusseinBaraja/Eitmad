@@ -12,7 +12,6 @@ public sealed record PricingResult<T>(T? Value, PricingFailure Failure) where T 
     public bool Succeeded => Failure == PricingFailure.None && Value is not null;
 }
 
-/// <summary>Typed IPC projection. The shell cannot confirm or calculate a price.</summary>
 public sealed class PricingClient : IAsyncDisposable
 {
     private readonly IEngineShellBridge engine;

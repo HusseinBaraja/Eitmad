@@ -1,4 +1,3 @@
-//! Catalog dependency transfer and independent price-basis validation.
 use crate::{PricingError, PricingService, Source};
 use eitmad_contracts::{
     catalog_revision::CatalogRevision,
@@ -10,7 +9,6 @@ use uuid::Uuid;
 
 type RevisionKey = (&'static str, Uuid, u64);
 
-/// Returns the existing capability schema that owns a private revision.
 #[must_use]
 pub fn revision_schema(record: &CatalogRevision) -> &'static str {
     match record {
@@ -34,7 +32,6 @@ pub fn revision_record_id(record: &CatalogRevision) -> Uuid {
     catalog_record_id(&format!("{kind}:{id}:{revision}"))
 }
 
-/// Derives a scoped record key without introducing a transport-specific identity.
 #[must_use]
 pub fn catalog_record_id(identity: &str) -> Uuid {
     use sha2::{Digest as _, Sha256};
@@ -263,7 +260,6 @@ pub fn validate_server_proposal(
     Ok(())
 }
 
-/// Rejects unsafe or unbounded catalog labels at the transfer boundary.
 fn name(value: &str) -> Result<(), PricingError> {
     if value.is_empty() || value.len() > 200 || value.trim() != value
         || value.chars().any(|c| c.is_control() || matches!(c, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}' | '\u{200e}' | '\u{200f}'))
@@ -348,7 +344,6 @@ impl PricingService {
     }
 }
 
-/// Checks the Part snapshot against its immutable cost and identity constraints.
 fn validate_part(
     v: &eitmad_contracts::part::Part,
     scope: &eitmad_contracts::identity::ScopeRef,
@@ -379,7 +374,6 @@ fn validate_part(
     Ok(())
 }
 
-/// Checks the Product snapshot against its immutable cost and identity constraints.
 fn validate_product(v: &eitmad_contracts::product::Product) -> Result<(), PricingError> {
     name(&v.name)?;
     if v.variants.is_empty() || v.variants.len() > 100 {
@@ -399,7 +393,6 @@ fn validate_product(v: &eitmad_contracts::product::Product) -> Result<(), Pricin
     Ok(())
 }
 
-/// Checks the Furniture snapshot against its immutable cost and identity constraints.
 fn validate_furniture(
     v: &eitmad_contracts::furniture::Furniture,
     scope: &eitmad_contracts::identity::ScopeRef,

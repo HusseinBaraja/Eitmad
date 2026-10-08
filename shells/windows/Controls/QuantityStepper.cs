@@ -5,7 +5,6 @@ using UserControl = System.Windows.Controls.UserControl;
 
 namespace Eitmad.WindowsShell.Controls;
 
-/// <summary>Keyboard-accessible bounded integer stepper for native selection pages.</summary>
 public sealed class QuantityStepper : UserControl
 {
     public static readonly DependencyProperty ValueProperty = DependencyProperty.Register(nameof(Value), typeof(int), typeof(QuantityStepper),

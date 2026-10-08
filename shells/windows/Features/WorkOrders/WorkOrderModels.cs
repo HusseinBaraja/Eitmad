@@ -17,13 +17,11 @@ public enum FurnitureIllustration
     Bed,
 }
 
-/// <summary>Represents one required Part in the transient work-order preview.</summary>
 public sealed record WorkOrderPart(string Name, int Quantity)
 {
     public string QuantityLabel => Quantity.ToString(CultureInfo.InvariantCulture);
 }
 
-/// <summary>Represents one furniture specification in the transient work-order preview.</summary>
 public sealed record WorkOrderFurnitureItem(
     string Name,
     string Variant,
@@ -42,7 +40,6 @@ public sealed record WorkOrderFurnitureItem(
     public bool IsBed => Illustration == FurnitureIllustration.Bed;
 }
 
-/// <summary>Represents one synthetic manager work order and its observable preview status.</summary>
 public sealed class WorkOrderListItem : ObservableObject
 {
     private static readonly string[] ArabicMonths =

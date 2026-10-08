@@ -1,4 +1,3 @@
-//! Real TLS/PostgreSQL catalog delivery between isolated Manager and Receptionist authorities.
 use super::*;
 use base64::engine::general_purpose::STANDARD;
 use eitmad_contracts::{
@@ -12,7 +11,6 @@ use eitmad_contracts::{
     sales_catalog::{CheckSalesConfiguration, GetSalesCatalogItem, ListSalesCatalog},
 };
 use eitmad_pricing::{CatalogReplication, PriceConfirmation, PricingError, PricingService};
-/// Creates synthetic mutation metadata without reusing an intent key.
 fn mutation(actor: &AuthorizationContext) -> MutationContext {
     MutationContext {
         authorization: actor.clone(),
@@ -22,7 +20,6 @@ fn mutation(actor: &AuthorizationContext) -> MutationContext {
         occurred_at: eitmad_authorization::now(),
     }
 }
-/// Builds the real TLS catalog client against an isolated local authority and credential store.
 fn replication(
     directory: &Path,
     store: AuthorityStore,
@@ -67,7 +64,6 @@ async fn cycle(
     .await
     .unwrap()
 }
-/// Registers and authenticates a synthetic Receptionist with an organization relationship.
 async fn receptionist(database: &str, server: &ProvisionedServer) -> AuthenticationResult {
     let pool = SyncDatabase::connect(database, 2).await.unwrap().pool();
     let user = UserId::new(Uuid::new_v4());
@@ -111,7 +107,6 @@ async fn receptionist(database: &str, server: &ProvisionedServer) -> Authenticat
         .await
         .unwrap()
 }
-/// Creates an isolated local store with Receptionist permissions and no Manager access.
 fn receptionist_authority(
     directory: &Path,
     session: &AuthenticatedServerSession,
@@ -147,7 +142,6 @@ fn receptionist_authority(
     .unwrap();
     (store, owner)
 }
-/// Saves a Part with real material and unit cost dependencies for delivery and history checks.
 fn part_fixture(store: &AuthorityStore, actor: &AuthorizationContext) -> (Part, Material) {
     let auth = AuthorizationService::new(store.clone());
     let materials = eitmad_material::MaterialService::new(store.clone(), auth.clone());
@@ -225,7 +219,6 @@ fn part_fixture(store: &AuthorityStore, actor: &AuthorizationContext) -> (Part, 
         .unwrap();
     (part, material)
 }
-/// Saves an active Furniture definition with exact Part revisions, sales options, and a retained image.
 fn furniture_fixture(
     store: &AuthorityStore,
     actor: &AuthorizationContext,
@@ -279,7 +272,6 @@ fn furniture_fixture(
     let furniture = furnitures.save(&mutation(actor), &input).unwrap();
     (furniture, input)
 }
-/// Saves a ready-made Product with internal notes and purchase cost for redaction checks.
 fn product_fixture(store: &AuthorityStore, actor: &AuthorizationContext) -> Product {
     let auth = AuthorizationService::new(store.clone());
     let products = eitmad_product::ProductService::new(store.clone(), auth);
@@ -316,7 +308,6 @@ fn product_fixture(store: &AuthorityStore, actor: &AuthorizationContext) -> Prod
         )
         .unwrap()
 }
-/// Queries Pricing through current local authorization rather than inspecting private projection tables.
 fn page(store: &AuthorityStore, actor: &AuthorizationContext) -> PricePage {
     PricingService::new(store.clone(), AuthorizationService::new(store.clone()))
         .list(
@@ -329,7 +320,6 @@ fn page(store: &AuthorityStore, actor: &AuthorizationContext) -> PricePage {
         )
         .unwrap()
 }
-/// Verifies real delivery, privacy, failure recovery, revision repair, and archive propagation across isolated stores.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires disposable PostgreSQL and trusted development certificates"]
 async fn catalog_reaches_separate_receptionist_and_recovers_without_private_fields() {
@@ -376,7 +366,6 @@ struct CatalogScenario {
     fetched: Option<eitmad_contracts::catalog_image::CatalogImageChunk>,
 }
 impl CatalogScenario {
-    /// Provisions the disposable TLS server, separate authorities, catalog definitions, and authenticated clients.
     async fn new() -> Self {
         let database = env::var("EITMAD_DIRECT_TEST_DATABASE_URL").unwrap();
         let certificate = required_path("EITMAD_DIRECT_TEST_CERTIFICATE");
@@ -477,7 +466,6 @@ impl CatalogScenario {
             fetched: None,
         }
     }
-    /// Proves dependencies can arrive separately before a complete Furniture definition is transferred.
     async fn transfer_dependencies(&mut self) {
         cycle(self.reception_client.clone(), self.reception.clone())
             .await
@@ -546,7 +534,6 @@ impl CatalogScenario {
                 .is_empty()
         );
     }
-    /// Publishes Product and Furniture prices through authenticated server cost validation.
     async fn publish_prices(&mut self) {
         for (target, selling_price_yer) in [
             (self.furniture_target.clone(), 5000),
@@ -574,7 +561,6 @@ impl CatalogScenario {
             .await
             .unwrap();
     }
-    /// Checks Receptionist sales projections and image access without disclosing internal catalog fields.
     async fn verify_public(&mut self) {
         let service = self.read_media.clone();
         let reader = self.reception.clone();
@@ -663,7 +649,6 @@ impl CatalogScenario {
         );
         self.fetched = Some(fetched);
     }
-    /// Checks forced tenant RLS and denies Receptionist reads of private catalog streams.
     async fn verify_isolation(&mut self) {
         let pool = SyncDatabase::connect(&self.database, 2)
             .await
@@ -716,7 +701,6 @@ impl CatalogScenario {
             );
         }
     }
-    /// Backfills valid references under forced tenant RLS and isolates malformed public payloads.
     async fn verify_image_reference_migration(&self) {
         let database = SyncDatabase::connect(&self.database, 2).await.unwrap();
         let pool = database.pool();
@@ -831,7 +815,6 @@ impl CatalogScenario {
                     .all(|record| product_batch.records.contains(record))
         );
     }
-    /// Creates competing category history and a full page of deferred dependent Products.
     async fn prepare_rejected_category(&self) -> ProductCategory {
         let products = eitmad_product::ProductService::new(
             self.manager_store.clone(),
@@ -893,7 +876,6 @@ impl CatalogScenario {
         category
     }
 
-    /// Exercises a terminal rejection, more than one blocked page, and revision-based repair.
     async fn verify_rejection_progress(&mut self) {
         let category = self.prepare_rejected_category().await;
         let products = eitmad_product::ProductService::new(
@@ -988,7 +970,6 @@ impl CatalogScenario {
                 .is_empty()
         );
     }
-    /// Injects a failed local audit and verifies the old checkpoint and confirmed price remain intact.
     async fn interrupt_snapshot(&mut self) {
         // A local audit failure after receiving an updated server page cannot move its cursor or price.
         let service = self.pricing.clone();
@@ -1073,7 +1054,6 @@ impl CatalogScenario {
             self.fetched.clone().unwrap()
         );
     }
-    /// Reopens receiver authority and reconnects to the restarted server without losing confirmed history.
     async fn restart_receiver(&mut self) {
         let database = SyncDatabase::connect(&self.database, 4).await.unwrap();
         let control = ControlPlane::new(
@@ -1126,7 +1106,6 @@ impl CatalogScenario {
             2
         );
     }
-    /// Changes current cost without changing the immutable Part inputs used by historical Furniture.
     async fn change_material_cost(&self) {
         eitmad_material::MaterialService::new(
             self.manager_store.clone(),
@@ -1149,7 +1128,6 @@ impl CatalogScenario {
             .await
             .unwrap();
     }
-    /// Checks immutable costing and withdraws archived sales definitions from a separate receiver.
     async fn verify_history_and_archive(&mut self) {
         // A new Manager device resolves exact Parts and historical cost inputs after restart.
         let other_directory = tempfile::tempdir().unwrap();
@@ -1249,7 +1227,6 @@ impl CatalogScenario {
             .graceful_shutdown(Some(Duration::from_secs(1)));
     }
 }
-/// Imports and uploads a synthetic Furniture asset before its definition can reference it.
 async fn upload_image(
     directory: &Path,
     store: &AuthorityStore,
@@ -1293,7 +1270,6 @@ async fn upload_image(
     );
     image
 }
-/// Creates the authenticated Receptionist image client using the real scoped server transfer route.
 fn reader_media(
     directory: &Path,
     store: &AuthorityStore,
@@ -1317,7 +1293,6 @@ fn reader_media(
         ))),
     )
 }
-/// Creates exact Product and Furniture variant references from saved synthetic revisions.
 fn price_targets(
     scope: &ScopeRef,
     furniture: &Furniture,

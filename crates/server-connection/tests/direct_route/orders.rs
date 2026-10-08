@@ -1,4 +1,3 @@
-//! Real TLS order conversion, competing requests, permissions and restart recovery.
 use super::*;
 use eitmad_contracts::{order::*, quotation_lifecycle::*};
 use eitmad_orders::{OrderError as E, OrderServer};

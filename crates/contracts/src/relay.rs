@@ -1,5 +1,3 @@
-//! Versioned metadata for authenticated WAN relay coordination.
-
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 

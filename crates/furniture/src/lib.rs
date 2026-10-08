@@ -1,4 +1,3 @@
-//! Scoped Furniture production definitions and immutable revisions.
 use eitmad_authorization::{
     AuthorizationService, FURNITURE_READ_PERMISSION, FURNITURE_WRITE_PERMISSION, MutationContext,
 };
@@ -35,7 +34,6 @@ pub enum FurnitureError {
     Unavailable,
 }
 impl From<StorageError> for FurnitureError {
-    /// Converts storage failures to a redacted unavailable result at the domain boundary.
     fn from(_: StorageError) -> Self {
         Self::Unavailable
     }
@@ -47,7 +45,6 @@ pub struct FurnitureService {
     authorization: AuthorizationService,
 }
 impl FurnitureService {
-    /// Composes scoped storage and authorization without granting access until each operation is checked.
     #[must_use]
     pub const fn new(store: AuthorityStore, authorization: AuthorizationService) -> Self {
         Self {
@@ -55,7 +52,6 @@ impl FurnitureService {
             authorization,
         }
     }
-    /// Requires organization scope and an authorized furniture-read relationship.
     fn read(&self, context: &AuthorizationContext) -> Result<(), FurnitureError> {
         if context.scope.kind.as_str() != "organization" {
             return Err(FurnitureError::Denied);
@@ -64,7 +60,6 @@ impl FurnitureService {
             .authorize(context, FURNITURE_READ_PERMISSION)
             .map_err(map_authorization)
     }
-    /// Requires Manager write permission and records denied attempts without furniture payloads.
     fn write(&self, context: &MutationContext, operation: &str) -> Result<(), FurnitureError> {
         match self
             .authorization
@@ -147,7 +142,6 @@ impl FurnitureService {
             })?
     }
 
-    /// Checks the exact scoped Furniture asset before retaining a new definition revision.
     fn validate_image(
         &self,
         context: &MutationContext,
@@ -392,7 +386,6 @@ impl FurnitureService {
             })
     }
 }
-/// Checks byte bounds, required content, whitespace, and unsafe direction controls without rewriting text.
 fn validate_text(value: &str, max: usize, empty: bool) -> Result<(), FurnitureError> {
     if (!empty && value.is_empty())
         || value.len() > max
@@ -427,11 +420,9 @@ fn next_revision(actual: Option<u64>) -> Result<u64, FurnitureError> {
         .filter(|v| i64::try_from(*v).is_ok())
         .ok_or(FurnitureError::Invalid)
 }
-/// Preserves expected and actual revisions for typed conflict reporting.
 fn conflict(expected: Option<u64>, actual: Option<u64>) -> FurnitureError {
     FurnitureError::RevisionConflict { expected, actual }
 }
-/// Preserves explicit denials while redacting authorization-store failures as unavailable.
 fn map_authorization(e: eitmad_authorization::AuthorizationError) -> FurnitureError {
     match e {
         eitmad_authorization::AuthorizationError::Denied
@@ -500,7 +491,6 @@ fn reject<T>(
     tx.audit(&audit(context, operation, Some(id)).with_outcome(outcome, Some(code.into())))?;
     Ok(Err(error))
 }
-/// Builds redacted mutation evidence with scope, actor, causation, and retry correlation.
 fn audit(context: &MutationContext, operation: &str, id: Option<Uuid>) -> MutationAuditRecord {
     let mut record = MutationAuditRecord::from_authorization(
         &context.authorization,
@@ -517,7 +507,6 @@ fn audit(context: &MutationContext, operation: &str, id: Option<Uuid>) -> Mutati
     record.changed_identifiers = vec!["definition".into()];
     record
 }
-/// Builds a compact scoped notice without furniture names, notes, or costs.
 fn publication(
     context: &MutationContext,
     id: Uuid,
@@ -565,7 +554,6 @@ fn retain_options(input: &[FurnitureOption], old: &[FurnitureOption]) -> Vec<Fur
     }
     result
 }
-/// Validates fixed sizes, explicit customization bounds, stable identities, and compatible option references.
 fn validate_variants(
     tx: &FurnitureTransaction<'_>,
     scope: &ScopeRef,
@@ -662,7 +650,6 @@ fn validate_dimensions(
         Err(FurnitureError::Invalid)
     }
 }
-/// Checks each dimension against its inclusive permitted bounds.
 fn within(
     d: &eitmad_contracts::furniture::FurnitureDimensions,
     min: &eitmad_contracts::furniture::FurnitureDimensions,
@@ -779,7 +766,6 @@ fn validate_composition(
     })
 }
 
-/// Checks stable option identities, visuals, archived history, and money inputs.
 fn validate_options(
     tx: &FurnitureTransaction<'_>,
     scope: &ScopeRef,
@@ -951,7 +937,6 @@ impl FurnitureService {
     }
 }
 
-/// Builds one immutable definition from the validated request and retained archived options.
 fn definition(
     context: &MutationContext,
     input: &SaveFurniture,
@@ -988,7 +973,6 @@ fn definition(
     }
 }
 
-/// Indexes the current definition name and its fixed variant names for Arabic search.
 fn search_name(record: &Furniture) -> String {
     normalize_search(&format!(
         "{} {}",

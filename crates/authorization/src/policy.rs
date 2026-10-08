@@ -1,5 +1,3 @@
-//! Policy-v2 relationship graph evaluation for scoped product objects.
-
 use std::collections::{BTreeSet, VecDeque};
 
 use eitmad_contracts::{
@@ -139,8 +137,6 @@ impl RelationshipPolicy {
         denied()
     }
 
-    /// Evaluates the canonical `can(actor, action, object)` decision with
-    /// optional request attributes for conditional tuples.
     #[must_use]
     pub fn can(
         &self,

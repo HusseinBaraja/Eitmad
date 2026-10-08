@@ -4,7 +4,6 @@ using Eitmad.Contracts;
 
 namespace Eitmad.WindowsShell.Features.Pricing;
 
-/// <summary>Owns temporary input and projects Rust-returned costs, margins, and prices.</summary>
 public sealed class PricingViewModel : ObservableObject
 {
     public const string AllCategories = "كل الفئات";

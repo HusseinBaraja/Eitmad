@@ -2,7 +2,6 @@ using System.Windows;
 
 namespace Eitmad.WindowsShell.Layout;
 
-/// <summary>Names the width bands used by responsive Windows shell pages.</summary>
 public enum ResponsiveLayoutMode
 {
     Compact,

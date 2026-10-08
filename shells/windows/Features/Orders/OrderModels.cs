@@ -11,7 +11,6 @@ public enum OrderStatus
     Cancelled,
 }
 
-/// <summary>Represents one furniture line in a synthetic manager order.</summary>
 public sealed record OrderLineItem(
     string Product,
     string Variant,
@@ -34,7 +33,6 @@ public sealed record OrderLineItem(
     private static string FormatMoney(decimal value) => $"{value.ToString("N0", CultureInfo.InvariantCulture)} ر.ي";
 }
 
-/// <summary>Represents one read-only synthetic order for the manager preview.</summary>
 public sealed record OrderListItem(
     Guid Id,
     string Number,

@@ -1,5 +1,3 @@
-//! Least-privilege administration, diagnostics, and support workflows.
-
 use std::sync::Arc;
 
 use async_trait::async_trait;

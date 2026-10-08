@@ -1,4 +1,3 @@
-//! Ready-made product definitions and immutable supplier-variant revisions.
 use eitmad_authorization::{
     AuthorizationService, MutationContext, PRODUCT_COST_READ_PERMISSION, PRODUCT_READ_PERMISSION,
     PRODUCT_WRITE_PERMISSION,
@@ -34,7 +33,6 @@ pub enum ProductError {
     Unavailable,
 }
 impl From<StorageError> for ProductError {
-    /// Converts storage failures to a redacted unavailable result at the domain boundary.
     fn from(_: StorageError) -> Self {
         Self::Unavailable
     }
@@ -46,7 +44,6 @@ pub struct ProductService {
     authorization: AuthorizationService,
 }
 impl ProductService {
-    /// Composes scoped storage and authorization without granting access until each operation is checked.
     #[must_use]
     pub const fn new(store: AuthorityStore, authorization: AuthorizationService) -> Self {
         Self {
@@ -54,7 +51,6 @@ impl ProductService {
             authorization,
         }
     }
-    /// Requires organization scope and an authorized product-read relationship.
     fn read(&self, context: &AuthorizationContext) -> Result<(), ProductError> {
         if context.scope.kind.as_str() != "organization" {
             return Err(ProductError::Denied);
@@ -63,7 +59,6 @@ impl ProductService {
             .authorize(context, PRODUCT_READ_PERMISSION)
             .map_err(map_authorization)
     }
-    /// Requires Manager write permission and records denied attempts without product payloads.
     fn write(&self, context: &MutationContext, operation: &str) -> Result<(), ProductError> {
         match self
             .authorization
@@ -146,7 +141,6 @@ impl ProductService {
             })?
     }
 
-    /// Checks the exact scoped Product asset before retaining a new definition revision.
     fn validate_image(
         &self,
         context: &MutationContext,
@@ -394,7 +388,6 @@ impl ProductService {
         }
     }
 }
-/// Checks byte bounds, required content, whitespace, and unsafe direction controls without rewriting text.
 fn validate_text(value: &str, max: usize, empty: bool) -> Result<(), ProductError> {
     if (!empty && value.is_empty())
         || value.len() > max
@@ -425,11 +418,9 @@ fn next_revision(actual: Option<u64>) -> Result<u64, ProductError> {
         .filter(|v| i64::try_from(*v).is_ok())
         .ok_or(ProductError::Invalid)
 }
-/// Preserves expected and actual revisions for typed conflict reporting.
 fn conflict(expected: Option<u64>, actual: Option<u64>) -> ProductError {
     ProductError::RevisionConflict { expected, actual }
 }
-/// Preserves explicit denials while redacting authorization-store failures as unavailable.
 fn map_authorization(e: eitmad_authorization::AuthorizationError) -> ProductError {
     match e {
         eitmad_authorization::AuthorizationError::Denied
@@ -498,7 +489,6 @@ fn reject<T>(
     tx.audit(&audit(context, operation, Some(id)).with_outcome(outcome, Some(code.into())))?;
     Ok(Err(error))
 }
-/// Builds redacted mutation evidence with scope, actor, causation, and retry correlation.
 fn audit(context: &MutationContext, operation: &str, id: Option<Uuid>) -> MutationAuditRecord {
     let mut record = MutationAuditRecord::from_authorization(
         &context.authorization,
@@ -515,7 +505,6 @@ fn audit(context: &MutationContext, operation: &str, id: Option<Uuid>) -> Mutati
     record.changed_identifiers = vec!["definition".into()];
     record
 }
-/// Builds a compact scoped notice without product names, notes, or costs.
 fn publication(
     context: &MutationContext,
     id: Uuid,
@@ -537,7 +526,6 @@ fn publication(
 #[cfg(test)]
 mod tests;
 
-/// Allows multiline descriptions while rejecting excessive size and unsafe direction controls.
 fn validate_description(value: &str) -> Result<(), ProductError> {
     if value.len() > 4096
         || value.chars().any(|c| {

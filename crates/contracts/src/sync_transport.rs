@@ -46,7 +46,6 @@ impl SyncTransportPayload {
     }
 }
 
-/// One transport-independent sync frame used by simulation, LAN, and WAN links.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SyncTransportFrame {

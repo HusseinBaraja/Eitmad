@@ -1,4 +1,3 @@
-//! Parts transactions and immutable composition storage.
 use crate::{
     AuthorityStore, DurableIdempotency, DurablePublication, StorageError, insert_audit,
     insert_idempotency, insert_publication, load_idempotency, migrations::Migration, scope_parts,

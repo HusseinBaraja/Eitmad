@@ -1,4 +1,3 @@
-//! Server-confirmed quotation history, expiry, CAS transitions, numbering, and receipts.
 use crate::{database::tenant_transaction, quotation_approval as approvals};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use eitmad_contracts::{

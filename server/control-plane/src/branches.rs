@@ -1,5 +1,3 @@
-//! Tenant-owner branch registration for scoped product records.
-
 use eitmad_contracts::{
     identity::{ScopeKind, ScopeRef},
     server::{AuthenticatedServerSession, RegisterBranchRequest, RegisteredBranch},

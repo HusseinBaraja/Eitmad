@@ -1,5 +1,3 @@
-//! Versioned, redacted contracts for least-privilege server administration.
-
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 

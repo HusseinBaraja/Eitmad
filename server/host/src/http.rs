@@ -358,7 +358,6 @@ async fn refresh(
         .map_err(ApiError::authentication)
 }
 
-/// Authenticates a bounded catalog transfer before writing immutable price dependencies.
 async fn synchronize_catalog_revisions(
     State(state): State<ServerState>,
     headers: HeaderMap,
@@ -389,7 +388,6 @@ async fn synchronize_catalog_revisions(
         })
 }
 
-/// Negotiates discount support and authenticates the exact server transition.
 async fn quotation_approval_transition(
     State(state): State<ServerState>,
     headers: HeaderMap,
@@ -435,7 +433,6 @@ fn map_approval(e: eitmad_pricing::ApprovalError) -> ApiError {
     )
 }
 
-/// Negotiates pricing support and authenticates the public organization read.
 async fn read_prices(
     State(state): State<ServerState>,
     headers: HeaderMap,
@@ -524,7 +521,6 @@ async fn upload_catalog_image(
         .map(Json)
         .map_err(map_image)
 }
-/// Authenticates and negotiates media reads before requesting an authorized bounded chunk.
 async fn read_catalog_image(
     State(state): State<ServerState>,
     headers: HeaderMap,
@@ -540,7 +536,6 @@ async fn read_catalog_image(
         .map(Json)
         .map_err(map_image)
 }
-/// Projects redacted image failures into the HTTP boundary's registered error categories.
 fn map_image(error: eitmad_catalog_image::ImageError) -> ApiError {
     match error {
         eitmad_catalog_image::ImageError::Denied => {
@@ -2106,7 +2101,6 @@ mod tests {
             assert_eq!(response.status(), StatusCode::UNAUTHORIZED, "{uri}");
         }
     }
-    /// Checks that pricing and catalog routes reject missing authentication or capability negotiation.
     #[tokio::test]
     async fn pricing_http_denies_unauthenticated_and_incompatible_requests_before_storage() {
         use eitmad_contracts::{

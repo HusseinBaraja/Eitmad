@@ -47,7 +47,6 @@ pub struct CatalogSyncHandler {
     schema: &'static str,
 }
 impl CatalogSyncHandler {
-    /// Registers private local-first and public server-authoritative schemas with one catalog owner.
     #[must_use]
     pub fn handlers(pool: &PgPool) -> Vec<std::sync::Arc<dyn DomainSyncHandler>> {
         [
@@ -104,7 +103,6 @@ pub(super) fn decode(
     }
     Ok(record)
 }
-/// Encodes one typed domain value under its owning schema without exposing transport secrets.
 pub(super) fn payload(
     schema: &str,
     value: &impl serde::Serialize,
@@ -117,7 +115,6 @@ pub(super) fn payload(
 }
 #[async_trait]
 impl DomainSyncHandler for CatalogSyncHandler {
-    /// Declares the catalog schema range and its immutable local-first or server-authoritative mode.
     fn descriptor(&self) -> DomainDescriptor {
         DomainDescriptor {
             schema_id: SchemaId::parse(self.schema).expect("static catalog schema"),

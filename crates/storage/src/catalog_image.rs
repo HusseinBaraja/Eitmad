@@ -1,4 +1,3 @@
-//! Immutable scoped image blobs, committed with redacted mutation audit.
 use crate::{
     AuthorityStore, DurableIdempotency, StorageError, insert_audit, insert_idempotency,
     load_idempotency, migrations::Migration, scope_parts,

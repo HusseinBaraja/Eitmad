@@ -1,5 +1,3 @@
-//! One bounded draft outbox and incremental download cycle.
-
 use std::time::{Duration, Instant};
 
 use eitmad_authorization::{BoundaryAuditContext, now};
@@ -54,7 +52,6 @@ pub struct QuotationDraftSyncCycle<'a, T: SyncTransport> {
     pub engine: &'a mut SyncEngine,
     pub transport: &'a mut T,
     pub actor: &'a AuthorizationContext,
-    /// Server branch selected by an authenticated Manager enrollment.
     pub server_catalog_scope: &'a ScopeRef,
     pub server_scope: &'a ScopeRef,
     pub request: &'a AuthorizationRequest,

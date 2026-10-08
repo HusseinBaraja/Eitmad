@@ -1,4 +1,3 @@
-//! Scoped parts and immutable composition references for commercial snapshots.
 use crate::{
     identity::ScopeRef,
     material::{Material, MaterialId, MaterialQuantity, MaterialUnit, MaterialUnitId},

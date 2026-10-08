@@ -1,6 +1,3 @@
-//! Local-first operation ingestion with idempotency, conflict durability,
-//! and event publication.
-
 use std::sync::Arc;
 
 use sha2::{Digest as _, Sha256};
@@ -68,15 +65,19 @@ impl From<DomainValidationError> for OperationError {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum OperationResult {
-    /// The operation received a new authoritative revision.
-    Applied { change: Box<ChangeRecord> },
+    Applied {
+        change: Box<ChangeRecord>,
+    },
     /// An exact duplicate; the stored authoritative result is replayed.
-    Replayed { change: Box<ChangeRecord> },
+    Replayed {
+        change: Box<ChangeRecord>,
+    },
     /// A stale base revision created a durable open conflict.
-    ConflictRecorded { conflict_id: ConflictId },
+    ConflictRecorded {
+        conflict_id: ConflictId,
+    },
 }
 
-/// One authorized request for a page of retained synchronization history.
 pub struct PullPageRequest<'a> {
     pub session: &'a AuthenticatedServerSession,
     pub scope: &'a ScopeRef,
@@ -88,7 +89,6 @@ pub struct PullPageRequest<'a> {
     pub now: UnixMillis,
 }
 
-/// One authorized device-checkpoint acknowledgement.
 pub struct AcknowledgeRequest<'a> {
     pub session: &'a AuthenticatedServerSession,
     pub scope: &'a ScopeRef,
@@ -219,7 +219,6 @@ impl SyncCoordinator {
         crate::PricingServer::new(self.pool.clone())
     }
     #[must_use]
-    /// Uses the configured sync database for authorized catalog assets without publishing definitions.
     pub fn catalog_images(&self) -> crate::CatalogImageServer {
         crate::CatalogImageServer::new(self.pool.clone())
     }

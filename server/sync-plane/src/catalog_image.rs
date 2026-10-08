@@ -1,4 +1,3 @@
-//! Authenticated organization image transfer, independent of catalog publication.
 use crate::database::tenant_transaction;
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use eitmad_catalog_image::{ImageError, validate_asset};
@@ -24,7 +23,6 @@ pub struct CatalogImageServer {
     pool: PgPool,
 }
 impl CatalogImageServer {
-    /// Uses the sync database for tenant-isolated retained assets and mutation audit.
     #[must_use]
     pub const fn new(pool: PgPool) -> Self {
         Self { pool }
@@ -202,7 +200,6 @@ impl CatalogImageServer {
         })
     }
 }
-/// Uses the storage discriminator for the owning catalog capability.
 fn kind(kind: CatalogImageKind) -> &'static str {
     match kind {
         CatalogImageKind::Product => "product",

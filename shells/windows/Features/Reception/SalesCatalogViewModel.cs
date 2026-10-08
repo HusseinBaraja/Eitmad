@@ -6,7 +6,6 @@ using Eitmad.WindowsShell.Features.Products;
 
 namespace Eitmad.WindowsShell.Features.Reception;
 
-/// <summary>Formats the Rust public catalog for native cards and temporary selections.</summary>
 public sealed record SalesCatalogItem(Guid Id, string Name, string Category, string Description,
     string VariantSummary, decimal Price, bool HasStartingPrice, string ThumbnailKind, ImageSource? Image)
 {
@@ -16,7 +15,6 @@ public sealed record SalesCatalogItem(Guid Id, string Name, string Category, str
     public string SelectionName => "اختيار " + Name;
 }
 
-/// <summary>Stages unsaved selections; live search, availability, and validation are Rust-owned.</summary>
 public sealed partial class SalesCatalogViewModel : ObservableObject
 {
     private readonly FurnitureViewModel furniture;
@@ -26,7 +24,6 @@ public sealed partial class SalesCatalogViewModel : ObservableObject
     private string selectedCategory = "الكل";
     private string selectionNotice = string.Empty;
 
-    /// <summary>Creates temporary quotation presentation state; attaching a catalog client replaces preview catalog data.</summary>
     public SalesCatalogViewModel(FurnitureViewModel furniture, ProductsViewModel products,
         Features.Customers.CustomerClient? customerClient = null)
     {
@@ -52,7 +49,6 @@ public sealed partial class SalesCatalogViewModel : ObservableObject
         set { if (Set(ref selectedCategory, value ?? "الكل")) { if (catalogClient is null) Refresh(); else if (!applyingCatalog) QueueCatalogLoad(); } }
     }
 
-    /// <summary>Requests a new public page for a live session, or refreshes the isolated preview fixture.</summary>
     public void Reload()
     {
         if (catalogClient is not null) { QueueCatalogLoad(); return; }
@@ -99,7 +95,6 @@ public sealed partial class SalesCatalogViewModel : ObservableObject
         return true;
     }
 
-    /// <summary>Opens only an item from the visible page and uses Rust details for live selections.</summary>
     public void Select(SalesCatalogItem item)
     {
         if (!VisibleItems.Contains(item)) return;

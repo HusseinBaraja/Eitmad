@@ -1,5 +1,3 @@
-//! Typed desktop-account administration contracts.
-
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 

@@ -1,5 +1,3 @@
-//! Typed local request/response transport for native shell adapters.
-
 mod subscriptions;
 
 pub use subscriptions::{
@@ -1281,7 +1279,6 @@ fn tokens_equal(expected: &str, actual: &str) -> bool {
     expected.len() == actual.len() && bool::from(expected.as_bytes().ct_eq(actual.as_bytes()))
 }
 
-/// Advertises the engine protocol range, capabilities, and schema versions for negotiation.
 fn default_engine_hello() -> PeerHello {
     PeerHello {
         peer_kind: PeerKind::Engine,
@@ -2202,7 +2199,6 @@ mod tests {
         assert!(task.await.unwrap_err().is_cancelled());
     }
 
-    /// Verifies policy changes close product streams even when definition-read access remains.
     #[tokio::test]
     async fn policy_change_invalidates_product_projection_with_read_access_retained() {
         for subscription in [

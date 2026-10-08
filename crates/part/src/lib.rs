@@ -1,4 +1,3 @@
-//! Manager-owned parts, exact costing, and immutable composition revisions.
 use eitmad_authorization::{
     AuthorizationService, MutationContext, PART_READ_PERMISSION, PART_WRITE_PERMISSION,
 };
@@ -38,7 +37,6 @@ pub enum PartError {
     Unavailable,
 }
 impl From<StorageError> for PartError {
-    /// Converts storage failures to a redacted unavailable result at the domain boundary.
     fn from(_: StorageError) -> Self {
         Self::Unavailable
     }
@@ -50,7 +48,6 @@ pub struct PartService {
     authorization: AuthorizationService,
 }
 impl PartService {
-    /// Composes scoped storage and authorization without granting access until each operation is checked.
     #[must_use]
     pub const fn new(store: AuthorityStore, authorization: AuthorizationService) -> Self {
         Self {
@@ -58,7 +55,6 @@ impl PartService {
             authorization,
         }
     }
-    /// Requires an organization scope and the Manager part-read relationship.
     fn read(&self, context: &AuthorizationContext) -> Result<(), PartError> {
         if context.scope.kind.as_str() != "organization" {
             return Err(PartError::Denied);
@@ -67,7 +63,6 @@ impl PartService {
             .authorize(context, PART_READ_PERMISSION)
             .map_err(map_authorization)
     }
-    /// Requires Manager write permission and records denied attempts without product payloads.
     fn write(&self, context: &MutationContext, operation: &str) -> Result<(), PartError> {
         if context.authorization.scope.kind.as_str() != "organization" {
             return Err(PartError::Denied);
@@ -470,7 +465,6 @@ fn round(value: &BigRational) -> Result<i64, PartError> {
         .to_i64()
         .ok_or(PartError::Invalid)
 }
-/// Rejects untrimmed, oversized, control-bearing, or direction-control text at the Rust boundary.
 fn validate_text(value: &str, max: usize, empty: bool) -> Result<(), PartError> {
     if (!empty && value.is_empty())
         || value.len() > max
@@ -485,7 +479,6 @@ fn validate_text(value: &str, max: usize, empty: bool) -> Result<(), PartError> 
         Ok(())
     }
 }
-/// Bounds part pages and validates search text before storage access.
 fn validate_query(query: &ListParts) -> Result<(), PartError> {
     if !(1..=100).contains(&query.limit) {
         return Err(PartError::Invalid);
@@ -508,11 +501,9 @@ fn next_revision(actual: Option<u64>) -> Result<u64, PartError> {
         .filter(|v| i64::try_from(*v).is_ok())
         .ok_or(PartError::Invalid)
 }
-/// Preserves expected and actual revisions for typed conflict reporting.
 fn conflict(expected: Option<u64>, actual: Option<u64>) -> PartError {
     PartError::RevisionConflict { expected, actual }
 }
-/// Preserves explicit denials while redacting authorization-store failures as unavailable.
 fn map_authorization(e: eitmad_authorization::AuthorizationError) -> PartError {
     match e {
         eitmad_authorization::AuthorizationError::Denied
@@ -581,7 +572,6 @@ fn reject<T>(
     tx.audit(&audit(context, operation, Some(id)).with_outcome(outcome, Some(code.into())))?;
     Ok(Err(error))
 }
-/// Builds redacted mutation evidence with scope, actor, causation, and retry correlation.
 fn audit(context: &MutationContext, operation: &str, id: Option<Uuid>) -> MutationAuditRecord {
     let mut record = MutationAuditRecord::from_authorization(
         &context.authorization,
@@ -598,7 +588,6 @@ fn audit(context: &MutationContext, operation: &str, id: Option<Uuid>) -> Mutati
     record.changed_identifiers = vec!["composition".into()];
     record
 }
-/// Builds a compact scoped notice without material names, quantities, or costs.
 fn publication(
     context: &MutationContext,
     id: Uuid,
@@ -620,7 +609,6 @@ fn publication(
 #[cfg(test)]
 mod tests;
 
-/// Allows multiline descriptions while rejecting excessive size and unsafe direction controls.
 fn validate_description(value: &str) -> Result<(), PartError> {
     if value.len() > 4096
         || value.chars().any(|c| {

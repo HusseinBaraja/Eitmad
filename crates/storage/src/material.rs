@@ -1,5 +1,3 @@
-//! Atomic, organization-scoped material definitions and references.
-
 use eitmad_contracts::{
     identity::ScopeRef,
     material::{

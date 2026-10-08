@@ -12,7 +12,6 @@ public partial class ReceptionistHomeView : UserControl
     private Eitmad.Platform.Windows.Shell.IEngineShellBridge? quotationEngine;
     private Features.Quotations.QuotationDraftClient? draftClient;
     private long editorSession;
-    /// <summary>Connects the receptionist catalog view model to the public engine query adapter.</summary>
     public void AttachCatalog(Eitmad.Platform.Windows.Shell.IEngineShellBridge engine)
     {
         quotationEngine = engine;
@@ -41,16 +40,13 @@ public partial class ReceptionistHomeView : UserControl
         if (session != editorSession) { await editor.DisposeEditorAsync(); return null; }
         return editor;
     }
-    /// <summary>Starts catalog loading after the receptionist session becomes active.</summary>
     public Task ActivateCatalogAsync() => ((SalesCatalogViewModel)CatalogContent.DataContext).ActivateCatalogAsync();
-    /// <summary>Clears catalog and temporary quotation state before the session is replaced.</summary>
     public async Task DeactivateCatalogAsync()
     {
         ++editorSession;
         ReceptionQuotations.CloseEditors();
         await ((SalesCatalogViewModel)CatalogContent.DataContext).DeactivateCatalogAsync();
     }
-    /// <summary>Stops the catalog session and releases its change feed when the home view closes.</summary>
     public async ValueTask DisposeCatalogAsync() { await DeactivateCatalogAsync(); if (catalogClient is not null) await catalogClient.DisposeAsync(); }
     private CancellationTokenSource? customerLoadCancellation;
     private string customerReturnDestination = "الطلبات";

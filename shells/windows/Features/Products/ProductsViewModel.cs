@@ -4,10 +4,6 @@ using System.Globalization;
 
 namespace Eitmad.WindowsShell.Features.Products;
 
-/// <summary>
-/// Projects Rust ready-made definitions and holds unsaved editor fields.
-/// Durable validation, authorization, audit, storage, and synchronization remain Rust responsibilities.
-/// </summary>
 public sealed class ProductsViewModel : ObservableObject
 {
     public const string AllCategories = "كل الفئات";
@@ -37,9 +33,7 @@ public sealed class ProductsViewModel : ObservableObject
     public CatalogImageRef? EditorImageReference => editorImageReference;
     private System.Windows.Media.ImageSource? productImage;
     public System.Windows.Media.ImageSource? ProductImage { get => productImage; private set => Set(ref productImage,value); }
-    /// <summary>Stages the confirmed reference and its transient preview for the next definition save.</summary>
     public void SetImportedImage(CatalogImageRef? reference, System.Windows.Media.ImageSource? image) { editorImageReference = reference; ProductImage = image; }
-    /// <summary>Updates only the currently projected row identified by the authorized result.</summary>
     public void ApplyImage(Guid id, System.Windows.Media.ImageSource? image) { var row=products.FirstOrDefault(p=>p.Id==id); if(row is not null) row.Image=image; }
     private ProductListItem? editingProduct;
     private Product? editingRecord, pendingArchiveRecord;
@@ -67,7 +61,6 @@ public sealed class ProductsViewModel : ObservableObject
     private string categoryName = string.Empty;
     private string categoryError = string.Empty;
 
-    /// <summary>Initializes empty authority projections and Arabic product filters before the first load.</summary>
     public ProductsViewModel()
     {
         Categories = []; ActiveCategories = []; CategoryOptions = [AllCategories];
@@ -102,7 +95,6 @@ public sealed class ProductsViewModel : ObservableObject
     }
     /// <summary>Shows a load failure and clears visible rows while retaining unsaved edits for transport recovery.</summary>
     public void Unavailable(string message) { AvailabilityMessage = message; products.Clear(); RefreshVisibleProducts(); }
-    /// <summary>Removes cached records, restricted fields, staged requests, and management flags after invalidation.</summary>
     public void ClearSession()
     {
         ++ImageEditVersion; SetImportedImage(null,null);
@@ -110,11 +102,8 @@ public sealed class ProductsViewModel : ObservableObject
         editingRecord = null; pendingArchiveRecord = null; editorCategoryId = null; editingProduct = null; pendingArchiveProduct = null; editingCategory = null; EditorName = ""; EditorCategory = ""; ShortDescription = ""; Notes = ""; PurchaseCost = 0; Variants.Clear(); CategoryName = ""; CategoryError = ""; EditorError = ""; FeedbackMessage = "";
         searchText = ""; Raise(nameof(SearchText)); SelectedCategory = AllCategories; SelectedStatus = AllStatuses; CategoryOptions = [AllCategories]; Raise(nameof(CategoryOptions)); CanManage = false; CanReadCosts = false; records.Clear(); Categories.Clear(); ActiveCategories.Clear(); Unavailable("جار تحميل المنتجات…");
     }
-    /// <summary>Keeps the product editor open and displays the current save failure.</summary>
     public void Fail(string message) => EditorError = message;
-    /// <summary>Keeps the category editor open and displays the current save failure.</summary>
     public void FailCategory(string message) => CategoryError = message;
-    /// <summary>Closes product dialogs and clears pending-save state after Rust confirms the mutation.</summary>
     public void Saved() { IsEditorOpen = false; IsArchiveConfirmationOpen = false; pendingArchiveProduct = null; SavePending = false; EditorError = ""; FeedbackMessage = "حُفظ المنتج محلياً مع سجل التدقيق."; }
     /// <summary>Selects a newly created category; renaming or archiving keeps the product's selected ID.</summary>
     public void CategorySaved(SaveProductCategory input)
@@ -129,9 +118,7 @@ public sealed class ProductsViewModel : ObservableObject
     public ObservableCollection<ProductListItem> VisibleProducts { get; }
 
     // Selling-price publication and sales selection remain owned by pricing/catalog.
-    /// <summary>Leaves new sales selections empty until Pricing publishes these definitions.</summary>
     public IEnumerable<Reception.SalesCatalogItem> GetSalesCatalogItems() => [];
-    /// <summary>Withholds selection details for definitions that have no published selling price.</summary>
     public Reception.ProductSelectionViewModel? GetSalesSelection(Guid id) => null;
 
     public ObservableCollection<ProductVariant> Variants { get; }
@@ -326,7 +313,6 @@ public sealed class ProductsViewModel : ObservableObject
 
     public bool HasCategoryError => !string.IsNullOrEmpty(CategoryError);
 
-    /// <summary>Starts a new unsaved definition only when management is allowed and no exact retry is pending.</summary>
     public void BeginCreate()
     {
         if (SavePending || !CanManage) return;
@@ -375,7 +361,6 @@ public sealed class ProductsViewModel : ObservableObject
         IsEditorOpen = true;
     }
 
-    /// <summary>Copies active options into a new definition with new product and option identities.</summary>
     public void BeginDuplicate(ProductListItem product)
     {
         if (SavePending || !CanManage) return;
@@ -389,7 +374,6 @@ public sealed class ProductsViewModel : ObservableObject
         EditorName = $"{product.Name} — نسخة";
     }
 
-    /// <summary>Closes unsaved editing only when no unknown save outcome requires an exact retry.</summary>
     public void CancelEditor()
     {
         ++ImageEditVersion;
@@ -398,7 +382,6 @@ public sealed class ProductsViewModel : ObservableObject
         EditorError = string.Empty;
     }
 
-    /// <summary>Stages a new supplier option with a fresh identity and the current purchase cost.</summary>
     public void AddVariant()
     {
         HasVariants = true;
@@ -413,7 +396,6 @@ public sealed class ProductsViewModel : ObservableObject
         else Variants.Remove(variant);
     }
 
-    /// <summary>Builds a typed request from staged fields using the reviewed revision and stable category identity.</summary>
     public SaveProduct SaveInput()
     {
         var current = editingRecord;
@@ -441,7 +423,6 @@ public sealed class ProductsViewModel : ObservableObject
             Variants = p.Variants.Select(v => new SaveProductVariant { Id = v.Id, Name = v.Name, PurchaseCostYer = v.PurchaseCostYer ?? 0, Archived = v.Archived }).ToArray()
         };
     }
-    /// <summary>Retains the record for archive confirmation without changing the authority projection.</summary>
     public void RequestArchive(ProductListItem product)
     {
         ArgumentNullException.ThrowIfNull(product);
@@ -465,7 +446,6 @@ public sealed class ProductsViewModel : ObservableObject
         }
     }
 
-    /// <summary>Dismisses archive confirmation only when no unknown outcome requires the retained request.</summary>
     public void CancelArchive()
     {
         if (SavePending) return;
@@ -476,7 +456,6 @@ public sealed class ProductsViewModel : ObservableObject
 
     public void ClearFeedback() => FeedbackMessage = string.Empty;
 
-    /// <summary>Starts a new category draft without changing the open product selection.</summary>
     public void BeginAddCategory()
     {
         if (SavePending || !CanManage) return;
@@ -489,7 +468,6 @@ public sealed class ProductsViewModel : ObservableObject
         Raise(nameof(CategoryEditorTitle));
     }
 
-    /// <summary>Opens category management only when editing is permitted and no retry is pending.</summary>
     public void BeginManageCategories()
     {
         if (SavePending || !CanManage) return;
@@ -497,7 +475,6 @@ public sealed class ProductsViewModel : ObservableObject
         IsCategoryManagerOpen = true;
     }
 
-    /// <summary>Stages the category revision and remembers whether to return to category management.</summary>
     public void BeginEditCategory(ProductCategoryOption category)
     {
         if (SavePending || !CanManage) return;
@@ -511,12 +488,9 @@ public sealed class ProductsViewModel : ObservableObject
         Raise(nameof(CategoryEditorTitle));
     }
 
-    /// <summary>Builds a category request with its reviewed identity, revision, and archive state.</summary>
     public SaveProductCategory CategoryInput() => new() { Id = editingCategory?.Id, ExpectedRevision = editingCategory?.Revision, Name = CategoryName, Archived = editingCategory?.IsArchived ?? false };
-    /// <summary>Builds an archive request for the selected category revision.</summary>
     public SaveProductCategory ArchiveCategoryInput(ProductCategoryOption category) => new() { Id = category.Id, ExpectedRevision = category.Revision, Name = category.Name, Archived = true };
 
-    /// <summary>Returns to category management when appropriate while preserving an unresolved retry.</summary>
     public void CancelCategoryEditor()
     {
         if (SavePending) return;
@@ -528,10 +502,8 @@ public sealed class ProductsViewModel : ObservableObject
         }
     }
 
-    /// <summary>Closes category management only after any unknown save outcome is resolved.</summary>
     public void CloseCategoryManager() { if (!SavePending) IsCategoryManagerOpen = false; }
 
-    /// <summary>Filters the current authority projection by category and archive state for the visible list.</summary>
     private void RefreshVisibleProducts()
     {
         var matches = products.Where(product =>

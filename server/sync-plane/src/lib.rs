@@ -1,5 +1,3 @@
-//! Server synchronization-plane authority.
-
 mod catalog_image;
 mod catalog_revision;
 mod catalog_sync;

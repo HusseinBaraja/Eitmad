@@ -1,5 +1,3 @@
-//! Runtime ownership and diagnostic health for the `SQLite` authority store.
-
 use std::{
     path::PathBuf,
     sync::{Arc, Mutex},

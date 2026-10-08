@@ -1,4 +1,3 @@
-//! Receptionist-safe confirmed catalog browsing and configuration checks.
 use crate::{
     catalog_revision::CatalogEntry,
     furniture::FurnitureDimensions,
