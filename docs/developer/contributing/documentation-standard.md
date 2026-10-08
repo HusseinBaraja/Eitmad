@@ -72,7 +72,7 @@ Link to the canonical definition instead of copying it. Use synthetic Arabic UI 
 
 Require code documentation when a reader needs an explanation to use or modify a function or interface safely. Document public contracts, non-obvious invariants, authorization or data-integrity rules, side effects, ordering requirements, retry or idempotency rules, and failure or recovery behavior when the name, types, and implementation do not make them clear.
 
-Put the explanation at the owning boundary. Reuse accurate existing documentation and link to canonical pages when they contain the required detail. Do not repeat it on each helper. Self-explanatory constructors, accessors, simple delegation, event handlers, and tests do not need comments that restate their code.
+Put the explanation at the owning boundary. Reuse accurate existing documentation and link to canonical pages when they contain the required detail. Do not repeat it on each helper. Self-explanatory constructors, accessors, simple delegation, event handlers, and tests do not need comments that restate their code. Docstrings can supply CLI help or generated schema descriptions. Preserve needed help and regenerate affected contract outputs when descriptions change.
 
 There is no docstring coverage percentage or function-count target. CodeRabbit disables its built-in coverage check and uses the required behavior documentation check in `.coderabbit.yaml`. A failure must identify the exact function or interface and the missing behavior that needs explanation.
 
