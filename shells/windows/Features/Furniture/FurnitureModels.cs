@@ -37,14 +37,12 @@ public sealed record FurnitureListItem(
     public string StatusLabel => IsArchived ? "مؤرشف" : IsDraft ? "مسودة" : "نشط";
 }
 
-/// <summary>Describes one selectable furniture part in the transient picker.</summary>
 public sealed record FurniturePartOption(Guid Id, string Name, string Category, decimal UnitCost)
 {
     public Eitmad.Contracts.CompositionReference? Reference { get; init; }
     public string UnitCostLabel => UnitCost.ToString("N0", CultureInfo.InvariantCulture);
 }
 
-/// <summary>Owns the local quantity and calculated row total for a selected part.</summary>
 public sealed class FurniturePartUsage : ObservableObject
 {
     private decimal quantity;
@@ -75,7 +73,6 @@ public sealed class FurniturePartUsage : ObservableObject
     }
 
     public decimal TotalCost { get; private set; }
-    /// <summary>Displays a row cost supplied by Rust and updates bound labels.</summary>
     public void ApplyRowCost(decimal value) { TotalCost = value; Raise(nameof(TotalCost)); Raise(nameof(TotalCostLabel)); }
 
     public string UnitCostLabel => Part.UnitCost.ToString("N0", CultureInfo.InvariantCulture);
@@ -84,7 +81,6 @@ public sealed class FurniturePartUsage : ObservableObject
 
 }
 
-/// <summary>Represents one fixed manager-defined furniture size in the preview.</summary>
 public sealed class FurnitureVariant : ObservableObject
 {
     private decimal sellingPrice;
@@ -93,7 +89,6 @@ public sealed class FurnitureVariant : ObservableObject
     public Guid[] ColorIds { get; set; } = [];
     public Guid[] HandleIds { get; set; } = [];
     public bool IsArchived { get; set; }
-    /// <summary>Displays Rust cost and margin results without calculating domain values.</summary>
     public void ApplyReview(decimal cost, decimal margin) { CalculatedCost=cost; reviewedMargin=margin; Raise(nameof(CalculatedCostLabel)); Raise(nameof(MarginLabel)); Raise(nameof(HasNegativeMargin)); Raise(nameof(MarginCaption)); }
 
     public FurnitureVariant(
@@ -182,7 +177,6 @@ public sealed class FurnitureVariant : ObservableObject
     private static string Format(decimal value) => value.ToString("0.##", CultureInfo.InvariantCulture);
 }
 
-/// <summary>Represents one selectable furniture color in the transient options preview.</summary>
 public sealed class FurnitureColorOption : ObservableObject
 {
     private bool isActive;
@@ -233,7 +227,6 @@ public sealed class FurnitureColorOption : ObservableObject
 
 }
 
-/// <summary>Represents one selectable furniture handle in the transient options preview.</summary>
 public sealed class FurnitureHandleOption : ObservableObject
 {
     private bool isActive;
@@ -294,5 +287,4 @@ public sealed class FurnitureHandleOption : ObservableObject
 
     public string ToggleActionLabel => IsActive ? "تعطيل" : "تفعيل";
 
-    /// <summary>Copies unsaved presentation values without committing a record.</summary>
 }

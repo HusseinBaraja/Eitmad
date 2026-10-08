@@ -1,5 +1,3 @@
-//! Rust-owned configuration registry, validation, persistence, and interchange.
-
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,

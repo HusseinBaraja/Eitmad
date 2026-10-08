@@ -29,7 +29,6 @@ use eitmad_sync::{
 };
 use std::collections::BTreeMap;
 
-/// Uses the existing simulated protocol transport and real `SQLite` authority.
 struct DraftSyncFixture {
     _directory: TempDir,
     store: AuthorityStore,
@@ -191,7 +190,6 @@ impl DraftSyncFixture {
     }
 }
 
-/// Replies on the same stream, with deterministic server history checkpoints.
 struct DraftServer {
     transport: SimulatedTransport,
     records: Vec<ChangeRecord>,

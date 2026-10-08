@@ -1,4 +1,3 @@
-//! Bounded authenticated HTTP transfer for catalog images.
 use super::{DirectServerDriver, remaining_io};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use eitmad_catalog_image::{CatalogImageTransfer, ImageError};

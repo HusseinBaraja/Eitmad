@@ -19,7 +19,6 @@ public enum DiscountApprovalDecision
     Rejected,
 }
 
-/// <summary>Represents one furniture line in a synthetic manager quotation.</summary>
 public sealed record QuotationLineItem(
     string FurnitureName,
     string Variant,
@@ -44,7 +43,6 @@ public sealed record QuotationLineItem(
     private static string FormatMoney(decimal value) => $"{value.ToString("N0", CultureInfo.InvariantCulture)} ر.ي";
 }
 
-/// <summary>Represents one quotation row and its transient approval preview state.</summary>
 public sealed class QuotationListItem : ObservableObject
 {
     public Eitmad.Contracts.QuotationRecord? Lifecycle { get; init; }

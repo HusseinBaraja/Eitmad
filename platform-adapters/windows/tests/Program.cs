@@ -117,7 +117,6 @@ internal sealed class SupervisionScenarios
         Assert.Equal(newer.Cursor, subscription.ProcessedCursor, "processed cursor remains monotonic");
     }
 
-    /// <summary>Verifies a supervised subscription resumes after its engine connection is replaced.</summary>
     public async Task SupervisedSubscriptionSurvivesReattach()
     {
         await using var supervised = new SupervisedEngineSubscription(
@@ -169,7 +168,6 @@ internal sealed class SupervisionScenarios
         Assert.Equal(replacementEvent.Cursor, (await ReadOne(supervised)).Cursor, "replacement event after overflow");
     }
 
-    /// <summary>Verifies a supervised consumer receives a session-change failure after policy invalidation.</summary>
     public async Task SupervisedSubscriptionReportsProjectionInvalidation()
     {
         await using var supervised = new SupervisedEngineSubscription(
@@ -336,7 +334,6 @@ internal sealed class SupervisionScenarios
         Assert.Equal(EngineSupervisionState.Stopped, fixture.Supervisor.Snapshot.State, "failed termination stop state");
     }
 
-    /// <summary>Exercises real-engine lifecycle, product persistence, retries, events, and policy invalidation.</summary>
     public async Task RealEngineStartsAndStopsCleanly(string enginePath)
     {
         var runtimeDirectory = Path.Combine(Path.GetTempPath(), $"eitmad-supervision-{Guid.NewGuid():N}");
@@ -505,7 +502,6 @@ internal sealed class SupervisionScenarios
         }
     }
 
-    /// <summary>Uses real negotiated IPC to prove draft reads, events, validation, and role denial use the branch context.</summary>
     private static async Task VerifyQuotationDraftBranchBoundary(EngineSupervisor supervisor, Customer customer)
     {
         Assert.True(supervisor.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityQuotationDraftV1), "draft capability negotiated");
@@ -579,7 +575,6 @@ internal sealed class SupervisionScenarios
         }
     }
 
-    /// <summary>Builds the synthetic definition used to verify durable Furniture IPC.</summary>
     private static async Task<Furniture> SaveFurnitureDefinition(EngineSupervisor supervisor, Part part, string directory)
     {
         var categorySave = await supervisor.SubmitCommandAsync(Command.ForFurnitureCategorySave(new SaveFurnitureCategory { Name="غرف النوم" }),Guid.NewGuid());
@@ -615,7 +610,6 @@ internal sealed class SupervisionScenarios
         await supervisor.SignOutAsync();await supervisor.SignInAsync("admin","admin");return value;
     }
 
-    /// <summary>Verifies real-engine public queries exclude unpublished manager definitions and reject unavailable targets.</summary>
     private static async Task VerifyReceptionistCatalogBoundary(EngineSupervisor supervisor, Furniture furniture)
     {
         var response = await supervisor.QueryAsync(Query.ForSalesCatalogList(new ListSalesCatalog { Term = "خزانة", Limit = 30 }));
@@ -652,7 +646,6 @@ internal sealed class SupervisionScenarios
         return imported.Outcome.Payload.AsCatalogImageImported()!;
     }
 
-    /// <summary>Exercises real Product saves, retries, committed events, and policy projection invalidation.</summary>
     private static async Task<Product> SaveSupplierProduct(EngineSupervisor supervisor, CatalogImageRef image)
     {
         var categoryResponse = await supervisor.SubmitCommandAsync(
@@ -714,7 +707,6 @@ internal sealed class SupervisionScenarios
         return product;
     }
 
-    /// <summary>Exercises real-engine typed category and multi-material saves with exact retry and change delivery.</summary>
     private static async Task<Part> SaveMultiMaterialPart(EngineSupervisor supervisor)
     {
         Assert.True(supervisor.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityPartV1),"real part capability negotiated");

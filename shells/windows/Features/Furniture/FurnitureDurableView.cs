@@ -18,7 +18,6 @@ public partial class FurnitureView
     private SaveFurnitureCategory? pendingCategory;
     private readonly CatalogImages.CatalogImageThumbnails thumbnails = new();
 
-    /// <summary>Connects presentation requests to the engine bridge and scoped refresh flow.</summary>
     public void Attach(IEngineShellBridge engine)
     {
         bridge = engine; CreateClient();
@@ -26,7 +25,6 @@ public partial class FurnitureView
         ViewModel.PartSearchChanged += (_, _) => { if (activated) _ = RefreshPartChoicesAsync(); };
         ViewModel.ReviewRequested += (_, _) => { if (activated) _ = ReviewAsync(false); };
     }
-    /// <summary>Creates a session-local client and attaches projection invalidation handlers.</summary>
     private void CreateClient()
     {
         client = new FurnitureClient(bridge!);
@@ -34,7 +32,6 @@ public partial class FurnitureView
         client.PartsChanged += (_, _) => { if (activated && ViewModel.IsEditorOpen && ViewModel.CanEditFields) _ = PrepareEditorAsync(); };
         client.ProjectionInvalidated += (_, _) => ClearRestrictedData();
     }
-    /// <summary>Starts subscriptions and loads the authorized Furniture list.</summary>
     public async Task ActivateAsync()
     {
         if (client is null) { ViewModel.Unavailable("بيانات الأثاث غير متاحة."); return; }
@@ -47,13 +44,11 @@ public partial class FurnitureView
         refreshCancellation?.Cancel(); reviewCancellation?.Cancel(); pendingCategory=null; ViewModel.ClearSession();
         thumbnails.Clear();
     }
-    /// <summary>Removes restricted records, costs, retry input, and editor fields when authority ends.</summary>
     public void ClearSession()
     {
         activated = false; ClearRestrictedData();
         if (client is { } previous) { _ = previous.DisposeAsync(); CreateClient(); }
     }
-    /// <summary>Cancels outstanding view requests and releases the Furniture subscriptions.</summary>
     public async ValueTask DisposeAsync()
     {
         refreshCancellation?.Cancel(); reviewCancellation?.Cancel(); partSearchCancellation?.Cancel();
@@ -119,7 +114,6 @@ public partial class FurnitureView
         }
         catch (OperationCanceledException) when (cancel.IsCancellationRequested) { }
     }
-    /// <summary>Requests Rust cost and validation results for staged editor fields.</summary>
     private async Task<bool> ReviewAsync(bool showError)
     {
         if (client is null || !ViewModel.IsEditorOpen || !ViewModel.CanEditFields) return false;
@@ -138,7 +132,6 @@ public partial class FurnitureView
         catch (Exception error) when (error is OverflowException or FormatException) { if (showError) ViewModel.Fail("أدخل مقاسات دقيقة وكميات وأسعاراً دون كسور غير مسموحة."); }
         return false;
     }
-    /// <summary>Submits staged or archived input and retains the exact request after an unknown outcome.</summary>
     private async Task SaveAsync(FurnitureState state, FurnitureListItem? archive = null)
     {
         if (client is null || !ViewModel.CanSubmit) { ViewModel.Fail("بيانات الأثاث غير متاحة."); return; }
@@ -161,7 +154,6 @@ public partial class FurnitureView
         catch (Exception error) when (error is OverflowException or FormatException) { ViewModel.Fail("أدخل المقاسات بمنزلة عشرية واحدة والكميات والأسعار دون كسور."); }
         finally { if (session == sessionVersion) ViewModel.IsBusy = false; }
     }
-    /// <summary>Saves the typed category and retains its request for an exact unavailable-outcome retry.</summary>
     private async void SaveCategoryClick(object sender, RoutedEventArgs e)
     {
         if (client is null || !ViewModel.CanSubmit) return;

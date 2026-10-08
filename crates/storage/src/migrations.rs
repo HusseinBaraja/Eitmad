@@ -125,7 +125,6 @@ impl Migration {
     }
 }
 
-/// Combines capability migrations into the ordered authority-store migration registry.
 fn registry() -> Vec<Migration> {
     configuration::MIGRATIONS
         .iter()

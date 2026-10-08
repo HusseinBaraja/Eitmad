@@ -3,9 +3,6 @@ using Eitmad.Contracts;
 
 namespace Eitmad.WindowsShell.Features.RawMaterials;
 
-/// <summary>
-/// Owns list and unsaved editor presentation state; Rust owns durable definitions.
-/// </summary>
 public sealed class RawMaterialsViewModel : ObservableObject
 {
     public const string AllCategories = "كل الفئات";

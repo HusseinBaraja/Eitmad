@@ -38,7 +38,6 @@ pub struct DirectCatalogSyncClient {
     worker: std::sync::Mutex<()>,
 }
 impl DirectCatalogSyncClient {
-    /// Composes scoped catalog storage with the pinned server route and Rust-owned credential reference.
     #[must_use]
     pub fn from_config(
         config: DirectServerConfig,
@@ -509,7 +508,6 @@ impl CatalogReplication for DirectCatalogSyncClient {
         Ok(count)
     }
 }
-/// Builds redacted mutation evidence without catalog payloads or transport credentials.
 fn audit(actor: &AuthorizationContext, operation: &str) -> MutationAuditRecord {
     MutationAuditRecord::from_authorization(
         actor,
@@ -522,7 +520,6 @@ fn audit(actor: &AuthorizationContext, operation: &str) -> MutationAuditRecord {
         },
     )
 }
-/// Rebinds a validated remote price reference to its authenticated local organization scope.
 fn remap_price(
     price: &mut eitmad_contracts::pricing::PublishedPrice,
     scope: &eitmad_contracts::identity::ScopeRef,

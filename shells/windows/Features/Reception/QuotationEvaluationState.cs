@@ -12,7 +12,6 @@ public sealed partial class SalesCatalogViewModel
     internal Task LastQuotationEvaluation { get; private set; } = Task.CompletedTask;
     public string SubtotalLabel => catalogClient is not null && evaluation?.Totals is null ? "—" : Subtotal.ToString("N0", CultureInfo.InvariantCulture);
 
-    /// <summary>Discards protected evaluation state when its catalog session is cleared.</summary>
     private void ClearQuotationEvaluation()
     {
         ++evaluationVersion; evaluationCancellation?.Cancel(); evaluation = null; RaiseEvaluation();
@@ -78,7 +77,6 @@ public sealed partial class SalesCatalogViewModel
         applyingDraft = false;
     }
 
-    /// <summary>Formats typed field failures without raw diagnostics or a shell-owned pricing decision.</summary>
     private static string EvaluationMessage(QuotationFieldError error) => error.Field switch {
         QuotationField.Customer => "اختر عميلاً محفوظاً من نتائج البحث.",
         QuotationField.CustomerRevision => "تغيرت بيانات العميل. اختر العميل مجدداً.",

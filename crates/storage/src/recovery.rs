@@ -333,7 +333,6 @@ mod tests {
         assert_eq!(store.path(), directory.path().join(DATABASE_FILE_NAME));
     }
 
-    /// Verifies an older database receives a validated recovery artifact before pending migrations run.
     #[test]
     fn pending_migration_creates_validated_recovery_artifact_first() {
         let directory = TempDir::new().unwrap();

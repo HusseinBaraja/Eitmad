@@ -1,4 +1,3 @@
-//! Rust authority for durable, optional catalog image assets.
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use eitmad_authorization::{AuthorizationService, MutationContext};
 use eitmad_contracts::{
@@ -27,13 +26,11 @@ pub enum ImageError {
     Unavailable,
 }
 impl From<eitmad_storage::StorageError> for ImageError {
-    /// Exposes only retryable unavailability at the image boundary, without storage details.
     fn from(_: eitmad_storage::StorageError) -> Self {
         Self::Unavailable
     }
 }
 
-/// Bounded transport implemented by the authenticated Rust server client.
 pub trait CatalogImageTransfer: Send + Sync {
     /// Uploads an immutable validated asset. Exact retries must be safe.
     /// # Errors
@@ -71,14 +68,12 @@ impl CatalogImageService {
             transfer: None,
         }
     }
-    /// Attaches the authenticated Rust transfer adapter without changing local persistence.
     #[must_use]
     pub fn with_transfer(mut self, transfer: Arc<dyn CatalogImageTransfer>) -> Self {
         self.transfer = Some(transfer);
         self
     }
 
-    /// Requires the owning capability permission in an organization scope before accessing bytes.
     fn authorize(
         &self,
         actor: &AuthorizationContext,
@@ -319,7 +314,6 @@ pub fn normalize(bytes: &[u8]) -> Result<Vec<u8>, ImageError> {
     normalize_before(bytes, UnixMillis(i64::MAX))
 }
 
-/// Checks the request budget between bounded decoder, resize, and encoder stages.
 fn normalize_before(bytes: &[u8], deadline: UnixMillis) -> Result<Vec<u8>, ImageError> {
     check_deadline(deadline)?;
     let image = decode(bytes)?;
@@ -349,7 +343,6 @@ pub fn check_deadline(deadline: UnixMillis) -> Result<(), ImageError> {
     }
 }
 
-/// Applies independent codec, input, side, pixel, and allocation bounds before decoding.
 fn decode(bytes: &[u8]) -> Result<image::DynamicImage, ImageError> {
     if bytes.is_empty() || bytes.len() > MAX_IMAGE_BYTES {
         return Err(ImageError::Invalid);

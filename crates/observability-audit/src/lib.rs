@@ -1,5 +1,3 @@
-//! Privacy-preserving diagnostics and mutation audit records.
-
 mod diagnostics;
 
 pub use diagnostics::{

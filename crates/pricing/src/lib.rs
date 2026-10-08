@@ -1,4 +1,3 @@
-//! Rust-authoritative prices with distinct ready-made and manufactured references.
 mod approval;
 mod lifecycle;
 pub use lifecycle::{

@@ -1,4 +1,3 @@
-//! Server-confirmed order intent and immutable commercial snapshots.
 use crate::{
     identity::{PrincipalId, ScopeRef},
     quotation_draft::QuotationDraftId,

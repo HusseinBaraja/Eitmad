@@ -996,7 +996,6 @@
       ]
     },
     "Command": {
-      "description": "Authoritative state-changing requests.",
       "oneOf": [
         {
           "type": "object",
@@ -3943,7 +3942,6 @@
       ]
     },
     "Event": {
-      "description": "Ordered values emitted by subscriptions.",
       "oneOf": [
         {
           "type": "object",
@@ -5870,7 +5868,6 @@
       ]
     },
     "LocalChangeSubmission": {
-      "description": "One local-first change submitted over the shared authenticated route.",
       "type": "object",
       "properties": {
         "change": {
@@ -7837,7 +7834,6 @@
       ]
     },
     "Query": {
-      "description": "Authorized read-only requests.",
       "oneOf": [
         {
           "type": "object",
@@ -9894,7 +9890,6 @@
       ]
     },
     "RegisterBranchRequest": {
-      "description": "Rust-owned branch identity registered by a tenant owner.",
       "type": "object",
       "properties": {
         "branchId": {
@@ -11492,7 +11487,6 @@
       ]
     },
     "Subscription": {
-      "description": "Resumable streams requested by clients.",
       "oneOf": [
         {
           "type": "object",
@@ -12472,7 +12466,6 @@
       ]
     },
     "SyncTransportFrame": {
-      "description": "One transport-independent sync frame used by simulation, LAN, and WAN links.",
       "type": "object",
       "properties": {
         "correlationId": {

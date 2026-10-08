@@ -1,4 +1,3 @@
-//! Audited immutable catalog authority used by server price validation.
 use crate::{
     database::tenant_transaction,
     pricing::{PricingServer, manager_allowed},
@@ -374,7 +373,6 @@ pub(super) async fn validate_price(
     eitmad_pricing::validate_server_proposal(input, &record)
 }
 
-/// Records catalog mutation outcomes without definitions, quantities, costs, or margin values.
 async fn evidence(
     tx: &mut Transaction<'_, Postgres>,
     actor: &AuthenticatedServerSession,

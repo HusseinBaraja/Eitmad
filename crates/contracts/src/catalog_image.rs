@@ -27,7 +27,6 @@ pub struct ImportCatalogImage {
     pub source_path: String,
 }
 impl std::fmt::Debug for ImportCatalogImage {
-    /// Keeps the selected private filesystem path out of diagnostics.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ImportCatalogImage")
             .field("kind", &self.kind)
@@ -51,7 +50,6 @@ pub struct CatalogImageChunk {
     pub base64: String,
 }
 impl std::fmt::Debug for CatalogImageChunk {
-    /// Includes chunk coordinates without exposing encoded image content.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CatalogImageChunk")
             .field("reference", &self.reference)
@@ -69,7 +67,6 @@ pub struct UploadCatalogImage {
     pub base64: String,
 }
 impl std::fmt::Debug for UploadCatalogImage {
-    /// Omits encoded bytes while retaining safe transfer metadata.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("UploadCatalogImage")
             .field("scope", &self.scope)

@@ -6,20 +6,15 @@ using Eitmad.Platform.Windows.Shell;
 namespace Eitmad.WindowsShell.Features.Products;
 
 public enum ProductFailureKind { None, Validation, Reference, Conflict, Denied, Unavailable }
-/// <summary>Carries a typed IPC value or a failure category for presentation recovery.</summary>
 public sealed record ProductResult<T>(T? Value, ProductFailureKind Failure)
 {
     public bool Succeeded => Failure == ProductFailureKind.None && Value is not null;
-    /// <summary>Wraps a received authority value as a successful presentation result.</summary>
     public static ProductResult<T> Success(T value) => new(value, ProductFailureKind.None);
-    /// <summary>Creates a failed presentation result without inventing an authority value.</summary>
     public static ProductResult<T> Failed(ProductFailureKind failure) => new(default, failure);
 }
 
-/// <summary>Groups paged authority records with the management and cost-access flags used by the page.</summary>
 public sealed record ProductSnapshot(ProductCategories Categories, IReadOnlyList<Product> Products, bool CanManage, bool CanReadCosts);
 
-/// <summary>Thin typed IPC adapter for ready-made definitions and separate product categories.</summary>
 public sealed class ProductClient : IAsyncDisposable
 {
     private sealed class SaveRetry
@@ -47,7 +42,6 @@ public sealed class ProductClient : IAsyncDisposable
     /// <summary>Requests immediate removal of cached data before any replacement query completes.</summary>
     public event EventHandler? ProjectionInvalidated;
 
-    /// <summary>Loads scoped products and categories through paged Rust queries; cancellation propagates.</summary>
     public async Task<ProductResult<ProductSnapshot>> LoadAsync(string term, CancellationToken cancellationToken = default)
     {
         if (!engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityProductV1))
@@ -89,10 +83,8 @@ public sealed class ProductClient : IAsyncDisposable
         { return ProductResult<ProductSnapshot>.Failed(ProductFailureKind.Unavailable); }
     }
 
-    /// <summary>Submits a typed save with the retry state reserved for its record kind.</summary>
     public Task<ProductFailureKind> SaveAsync(SaveProduct input, CancellationToken cancellationToken = default) =>
         SubmitAsync(Command.ForProductSave(input), productRetry, cancellationToken);
-    /// <summary>Submits a typed save with the retry state reserved for its record kind.</summary>
     public Task<ProductFailureKind> SaveAsync(SaveProductCategory input, CancellationToken cancellationToken = default) =>
         SubmitAsync(Command.ForProductCategorySave(input), categoryRetry, cancellationToken);
 
@@ -155,7 +147,6 @@ public sealed class ProductClient : IAsyncDisposable
         await changes.DisposeAsync();
     }
 
-    /// <summary>Maps typed failure categories to Arabic recovery text without displaying transport diagnostics.</summary>
     public static string ArabicMessage(ProductFailureKind failure) => failure switch
     {
         ProductFailureKind.Validation => "تحقق من الاسم وتكلفة الشراء والبيانات المطلوبة.",
@@ -165,7 +156,6 @@ public sealed class ProductClient : IAsyncDisposable
         _ => "تعذر الاتصال ببيانات المنتجات. حاول مرة أخرى.",
     };
 
-    /// <summary>Classifies Rust error identifiers; unknown or transport failures remain unavailable.</summary>
     private static ProductFailureKind MapFailure(string? code) => code switch
     {
         ProtocolIds.ErrorCodes.EitmadErrorProductInvalidV1 or ProtocolIds.ErrorCodes.EitmadErrorContractInvalidV1 => ProductFailureKind.Validation,

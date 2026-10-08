@@ -1,4 +1,3 @@
-//! Furniture production definitions, permitted selections, and immutable references.
 use crate::{identity::ScopeRef, transport::UnixMillis};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};

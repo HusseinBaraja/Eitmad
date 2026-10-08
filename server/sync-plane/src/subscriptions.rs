@@ -42,7 +42,6 @@ pub struct SubscriptionPage {
     pub has_more: bool,
 }
 
-/// One authorized request for a page of durable subscription events.
 pub struct SubscriptionPageRequest<'a> {
     pub session: &'a AuthenticatedServerSession,
     pub scope: &'a ScopeRef,

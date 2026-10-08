@@ -3,7 +3,6 @@ using System.Globalization;
 
 namespace Eitmad.WindowsShell.Features.Orders;
 
-/// <summary>Presents Rust-confirmed orders, list filters, and preview fixtures.</summary>
 public sealed partial class OrdersViewModel : ObservableObject
 {
     public const string AllStatuses = "كل الحالات";

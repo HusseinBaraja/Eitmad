@@ -1,4 +1,3 @@
-//! Products transactions and immutable revision storage.
 use crate::{
     AuthorityStore, DurableIdempotency, DurablePublication, StorageError, insert_audit,
     insert_idempotency, insert_publication, load_idempotency, migrations::Migration, scope_parts,
@@ -67,7 +66,6 @@ impl AuthorityStore {
         self.transact_products_with(rusqlite::TransactionBehavior::Deferred, operation)
     }
 
-    /// Runs one consistent product transaction with the requested lock behavior and commits only on success.
     fn transact_products_with<T, E: From<StorageError>>(
         &self,
         behavior: rusqlite::TransactionBehavior,

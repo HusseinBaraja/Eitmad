@@ -1,5 +1,3 @@
-//! Headless and diagnostic entry point for the Rust engine.
-
 use std::{
     io::{self, Write as _},
     path::PathBuf,
@@ -328,7 +326,6 @@ fn configured_quotations(
     Ok(dispatcher)
 }
 
-/// Drains durable work with a bounded delay and ends when engine shutdown cancels the worker.
 fn start_media_uploads(
     dispatcher: Arc<ProductDispatcher>,
     mut cancel: watch::Receiver<bool>,

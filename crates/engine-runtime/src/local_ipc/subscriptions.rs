@@ -1,5 +1,3 @@
-//! Scoped, bounded event replay for local IPC subscriptions.
-
 use std::{
     collections::VecDeque,
     sync::{Arc, Mutex},
@@ -99,7 +97,6 @@ impl EventBroker {
         }
     }
 
-    /// Signals active subscriptions to reauthorize against committed policy.
     pub fn policy_changed(&self, scope: ScopeRef) {
         let _ = self.inner.policy_changes.send(scope);
     }
@@ -314,7 +311,6 @@ fn now() -> UnixMillis {
     UnixMillis(i64::try_from(millis).unwrap_or(i64::MAX))
 }
 
-/// Extracts the authorization scope from events that can be delivered to scoped subscribers.
 fn event_scope(event: &Event) -> Option<&ScopeRef> {
     match event {
         Event::ConfigurationChanged(snapshot) => Some(&snapshot.scope),

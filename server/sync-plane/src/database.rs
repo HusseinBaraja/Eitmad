@@ -151,7 +151,6 @@ impl SyncDatabase {
             .map_err(SyncDatabaseError::Unavailable)
     }
 
-    /// Wraps an already-connected pool, for composed or diagnostic hosts.
     #[must_use]
     pub fn from_pool(pool: PgPool) -> Self {
         Self { pool }

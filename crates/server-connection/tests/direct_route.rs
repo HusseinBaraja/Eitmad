@@ -1862,7 +1862,6 @@ fn pricing_test_client(
     eitmad_server_connection::DirectPriceClient::from_config(config, secrets, credential)
 }
 
-/// Creates the catalog authority fixture separately from its price proposal.
 fn pricing_catalog_fixture(
     input: &eitmad_contracts::pricing::ConfirmPrice,
 ) -> eitmad_contracts::catalog_revision::SynchronizeCatalogRevisions {
@@ -1909,7 +1908,6 @@ fn pricing_catalog_fixture(
     }
 }
 
-/// Exercises the real `PostgreSQL` cost authority, immutable replay, and missing-catalog rejection.
 async fn check_server_catalog_cost_policy(
     database: &str,
     server: &ProvisionedServer,
@@ -1969,7 +1967,6 @@ async fn check_server_catalog_cost_policy(
         Err(PricingError::Reference)
     );
 }
-/// Checks server authorization for Receptionist publication, catalog transfer, and scoped price reads.
 async fn deny_receptionist_price_publication(
     database: &str,
     server: &ProvisionedServer,
@@ -2045,7 +2042,6 @@ async fn deny_receptionist_price_publication(
             .is_err()
     );
 }
-/// Exercises durable catalog costs, receipt recovery, revision conflicts, and denial over real TLS.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires disposable PostgreSQL and trusted development certificates"]
 async fn pricing_tls_confirmation_persists_retries_conflicts_and_denies_receptionists() {

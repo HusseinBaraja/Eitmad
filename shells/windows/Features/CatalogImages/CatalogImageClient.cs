@@ -7,7 +7,6 @@ using Eitmad.Platform.Windows.Shell;
 
 namespace Eitmad.WindowsShell.Features.CatalogImages;
 
-/// <summary>Native presentation adapter. Rust imports, validates, authorizes, and stores each image.</summary>
 public sealed class CatalogImageClient(IEngineShellBridge engine)
 {
     /// <summary>Submits the native picker path to Rust and returns only a confirmed immutable reference.</summary>

@@ -1,5 +1,3 @@
-//! Unified local-first and server-authoritative synchronization protocol.
-
 mod engine;
 mod transport;
 

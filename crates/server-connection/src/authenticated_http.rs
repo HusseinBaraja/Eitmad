@@ -1,4 +1,3 @@
-//! Shared authenticated bounded HTTP mechanics for images and pricing.
 use super::{
     DirectServerDriver, URL_SAFE_NO_PAD, connect_tls, device_proof, host_header,
     parse_http_response, remaining_io,
@@ -30,7 +29,6 @@ pub(crate) struct AuthenticatedHttpClient {
     remote_scope: ScopeRef,
 }
 impl AuthenticatedHttpClient {
-    /// Binds image requests to a configured driver and native-store credential identifier.
     #[must_use]
     pub fn new(driver: DirectServerDriver, credential_id: SecretId) -> Self {
         Self {
@@ -79,7 +77,6 @@ impl AuthenticatedHttpClient {
         )
     }
 
-    /// Resolves the registered server organization without accepting a shell-supplied scope.
     pub(crate) fn remote_scope(&self) -> ScopeRef {
         self.remote_scope.clone()
     }

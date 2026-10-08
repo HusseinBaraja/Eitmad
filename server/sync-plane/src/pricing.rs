@@ -1,4 +1,3 @@
-//! Server CAS and immutable whole-YER price confirmation, with tenant isolation.
 use crate::database::tenant_transaction;
 use eitmad_contracts::{
     pricing::{ConfirmPrice, PublishedPrice},
@@ -289,7 +288,6 @@ fn request_hash(
     )
     .to_vec())
 }
-/// Checks the authenticated user's Manager relationship to an organization in the current tenant.
 pub(super) async fn manager_allowed(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     actor: &AuthenticatedServerSession,

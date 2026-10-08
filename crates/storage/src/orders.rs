@@ -1,4 +1,3 @@
-//! Immutable scoped confirmed orders and atomic audit/publication cache.
 use crate::{
     AuthorityStore, DurablePublication, PricingTransaction, StorageError, insert_audit,
     insert_publication, migrations::Migration, scope_parts,

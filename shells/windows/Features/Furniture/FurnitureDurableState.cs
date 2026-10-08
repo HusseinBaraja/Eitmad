@@ -74,7 +74,6 @@ public sealed partial class FurnitureViewModel
         partCategories.FirstOrDefault(c => c.Id == part.CategoryId)?.Name ?? "", part.Cost.TotalCostYer)
         { Reference = part.Composition };
 
-    /// <summary>Returns the authority record whose references must resolve before opening an editor.</summary>
     internal Definition? RecordFor(FurnitureListItem? item) => item is null ? null : records.GetValueOrDefault(item.Id);
 
     /// <summary>Updates picker data and saved usages without changing unsaved editor fields or revisions.</summary>
@@ -85,7 +84,6 @@ public sealed partial class FurnitureViewModel
         ApplyPartChoices(snapshot.Parts);
     }
 
-    /// <summary>Replaces picker choices using Rust search results and projected category names.</summary>
     public void ApplyPartChoices(IReadOnlyList<Part> parts)
     {
         availableParts.Clear();
@@ -104,11 +102,8 @@ public sealed partial class FurnitureViewModel
         EditorName = ""; ShortDescription = ""; InternalNotes = ""; ProductImage = null; ProductImageName = ""; EditorCategory = "";
         CancelEditor(); reviewedCost = 0; RefreshPartsState(); RefreshVisibleFurniture();
     }
-    /// <summary>Shows an editor recovery message without changing staged input.</summary>
     public void Fail(string text) => EditorError = text;
-    /// <summary>Disables management when authoritative Furniture data cannot be loaded.</summary>
     public void Unavailable(string text) { IsLoading=false; CanManage = false; DataStateText=text; FeedbackMessage = text; }
-    /// <summary>Closes the editor only after a confirmed save and shows local persistence feedback.</summary>
     public void Saved(bool draft)
     {
         pendingSave = null; CancelEditor();
@@ -125,7 +120,6 @@ public sealed partial class FurnitureViewModel
     internal static long WholeMoney(decimal value) => value == decimal.Truncate(value) ? checked((long)value) : throw new FormatException();
     /// <summary>Converts centimetres exactly and rejects unsupported precision or overflow.</summary>
     internal static uint ToMillimetres(decimal cm) => cm * 10m == decimal.Truncate(cm * 10m) ? checked((uint)(cm * 10m)) : throw new FormatException();
-    /// <summary>Creates the Rust dimension DTO from exact presentation values.</summary>
     internal static FurnitureDimensions Dimensions(decimal w, decimal h, decimal d) => new() { WidthMm = ToMillimetres(w), HeightMm = ToMillimetres(h), DepthMm = ToMillimetres(d) };
     /// <summary>Builds a typed save or returns frozen retry input; reports an unsaved category separately.</summary>
     public SaveFurniture SaveInput(FurnitureState state)
@@ -144,14 +138,12 @@ public sealed partial class FurnitureViewModel
             Handles = Handles.Select(h => new FurnitureOption { Id = h.Id, Name = h.Name, Visual = h.HandleKind, PriceAdjustmentYer = WholeMoney(h.PriceAdjustment), Archived = !h.IsActive }).ToArray(),
         };
     }
-    /// <summary>Stages the saved definition for an audited archive revision.</summary>
     public SaveFurniture ArchiveInput(FurnitureListItem item)
     {
         BeginEdit(item);
         var input = SaveInput(FurnitureState.Archived);
         return input;
     }
-    /// <summary>Displays Rust cost and margin results without calculating domain values.</summary>
     public void ApplyReview(FurnitureReview review)
     {
         reviewedCost = review.PartsCostYer;
@@ -159,7 +151,6 @@ public sealed partial class FurnitureViewModel
         for (var i = 0; i < Variants.Count && i < review.MarginsYer.Length; i++) Variants[i].ApplyReview(review.PartsCostYer, review.MarginsYer[i]);
         RefreshPartsState();
     }
-    /// <summary>Stages permitted bounds and named options for a variant dialog.</summary>
     private void PrepareVariantChoices(FurnitureVariant? v)
     {
         AllowCustomization = v?.Customization is not null;

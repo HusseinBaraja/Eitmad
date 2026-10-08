@@ -4,7 +4,6 @@ using Brush = System.Windows.Media.Brush;
 
 namespace Eitmad.WindowsShell.Controls;
 
-/// <summary>Presentation options for the shell's native WPF control templates.</summary>
 public static class ControlOptions
 {
     // Templates bind this to the Windows resource so theme changes update existing controls.

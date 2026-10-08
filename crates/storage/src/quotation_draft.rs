@@ -1,4 +1,3 @@
-//! Atomic quotation draft snapshots, replay results, and local-first publication work.
 use crate::{
     AuthorityStore, DurableIdempotency, DurablePublication, PricingTransaction, StorageError,
     insert_audit, insert_idempotency, insert_publication, load_idempotency, migrations::Migration,

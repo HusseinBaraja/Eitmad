@@ -17,7 +17,6 @@ public sealed partial class SalesCatalogViewModel
     public string CatalogStatus { get => catalogStatus; private set => Set(ref catalogStatus, value); }
     public bool HasNextPage => nextCatalogPage is not null;
     internal Task LastCatalogOperation { get; private set; } = Task.CompletedTask;
-    /// <summary>Attaches public catalog notifications and clears preview data before live reads.</summary>
     public void AttachCatalogClient(SalesCatalogClient client)
     {
         catalogClient = client;
@@ -25,7 +24,6 @@ public sealed partial class SalesCatalogViewModel
         client.ProjectionInvalidated += CatalogInvalidated;
         ClearCatalog();
     }
-    /// <summary>Starts the session change feed and loads the first authorized public catalog page.</summary>
     public async Task ActivateCatalogAsync()
     {
         if (catalogClient is null) return;
@@ -39,7 +37,6 @@ public sealed partial class SalesCatalogViewModel
         catalogActive = false; ClearCatalog(); QuotationLines.Clear(); ClearDraftSession();
         if (catalogClient is not null) await catalogClient.DeactivateAsync();
     }
-    /// <summary>Invalidates outstanding replies and clears selections, filters, thumbnails, and pagination state.</summary>
     private void ClearCatalog()
     {
         ++catalogVersion; ++selectionVersion; ++checkVersion;
@@ -53,7 +50,6 @@ public sealed partial class SalesCatalogViewModel
         nextCatalogPage = null; Raise(nameof(HasNextPage)); IsCatalogLoading = false;
         CatalogStatus = "بيانات الكتالوج غير متاحة."; Raise(nameof(IsEmpty));
     }
-    /// <summary>Removes the public projection and unsaved lines after session or authorization invalidation.</summary>
     private void CatalogInvalidated(object? sender, EventArgs args) { catalogActive = false; ClearCatalog(); QuotationLines.Clear(); ClearDraftSession(); }
     /// <summary>Revokes checked selection state and refreshes the page while preserving existing quotation snapshots.</summary>
     private void CatalogChanged(object? sender, EventArgs args)
@@ -64,11 +60,8 @@ public sealed partial class SalesCatalogViewModel
         ProductSelection?.Fail("تغير الكتالوج أو الاتصال. حدّث الصنف للتحقق من الاختيار.");
         if (catalogActive) QueueCatalogLoad();
     }
-    /// <summary>Debounces filter changes only while the catalog session is active.</summary>
     private void QueueCatalogLoad() { if (catalogActive) LastCatalogOperation = LoadCatalogAsync(debounce: true); }
-    /// <summary>Replaces the visible page using the continuation returned by Rust.</summary>
     public Task NextPageAsync() => HasNextPage ? LoadCatalogAsync(nextCatalogPage) : Task.CompletedTask;
-    /// <summary>Reloads current definitions for the open item so the user can review changed choices and prices.</summary>
     public Task RefreshSelectionAsync() => (Selection?.Item ?? ProductSelection?.Item) is { } item ? SelectAsync(item) : Task.CompletedTask;
     /// <summary>Loads a bounded page and its thumbnails while discarding replies from replaced requests.</summary>
     private async Task LoadCatalogAsync(Guid? after = null, bool debounce = false)
@@ -112,9 +105,7 @@ public sealed partial class SalesCatalogViewModel
     }
     /// <summary>Labels server-confirmed data or a cached projection whose prices and availability may be stale.</summary>
     internal static string Availability(bool online) => online ? "كتالوج مؤكد من الخادم" : "الخادم غير متصل — آخر كتالوج مؤكد؛ التوفر والأسعار قد تكون قديمة";
-    /// <summary>Extracts the definition identity used to group public variants into catalog cards.</summary>
     private static Guid ItemId(CatalogEntry entry) => SalesCatalogClient.Target(entry).AsProduct()?.ProductId ?? SalesCatalogClient.Target(entry).AsFurniture()!.FurnitureId;
-    /// <summary>Formats a public entry as a card while retaining its Rust-owned configuration reference.</summary>
     private static SalesCatalogItem Item(CatalogEntry entry, bool starting = false) => new(ItemId(entry), entry.Name, entry.CategoryName,
         entry.Description, entry.VariantName, entry.Price.SellingPriceYer, starting, "", null) { Entry = entry };
     /// <summary>Loads current public variants and opens unchecked choices, discarding replies for an obsolete selection.</summary>
@@ -151,7 +142,6 @@ public sealed partial class SalesCatalogViewModel
     }
     /// <summary>Formats millimetres as centimetres with invariant numeric values for display inside the Arabic layout.</summary>
     internal static string DimensionsLabel(FurnitureDimensions d) => FormattableString.Invariant($"{d.WidthMm / 10m:0.#} × {d.HeightMm / 10m:0.#} × {d.DepthMm / 10m:0.#} سم");
-    /// <summary>Schedules Rust validation after an unsaved configuration input changes.</summary>
     private void QueueConfigurationCheck() => LastCatalogOperation = CheckConfigurationAsync();
     /// <summary>Debounces Rust validation and applies results only to the current session and unchanged selection.</summary>
     private async Task CheckConfigurationAsync()

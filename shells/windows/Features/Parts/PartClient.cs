@@ -9,7 +9,6 @@ using Eitmad.WindowsShell.Features.RawMaterials;
 
 public sealed record PartSnapshot(PartCategories Categories, IReadOnlyList<PartProjection> Parts, MaterialSnapshot Materials);
 
-/// <summary>Thin typed IPC adapter for parts and their material references.</summary>
 public sealed class PartClient : IAsyncDisposable
 {
     private readonly MaterialClient materials;
@@ -36,7 +35,6 @@ public sealed class PartClient : IAsyncDisposable
 
     public event EventHandler? Changed;
 
-    /// <summary>Loads scoped parts, categories, and material references through paged Rust queries; cancellation propagates.</summary>
     public async Task<MaterialResult<PartSnapshot>> LoadAsync(string term, CancellationToken cancellationToken = default)
     {
         if (!engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityPartV1))
@@ -72,13 +70,10 @@ public sealed class PartClient : IAsyncDisposable
         { return MaterialResult<PartSnapshot>.Failed(MaterialFailureKind.Unavailable); }
     }
 
-    /// <summary>Submits a typed save with the retry state reserved for its record kind.</summary>
     public Task<MaterialFailureKind> SaveAsync(SavePart input, CancellationToken cancellationToken = default) =>
         SubmitAsync(Command.ForPartSave(input), partRetry, cancellationToken);
-    /// <summary>Passes search text to Rust so the shell does not duplicate Arabic matching rules.</summary>
     public Task<MaterialResult<MaterialSnapshot>> SearchMaterialsAsync(string term, CancellationToken cancellationToken = default) =>
         materials.LoadAsync(term,cancellationToken);
-    /// <summary>Submits a typed save with the retry state reserved for its record kind.</summary>
     public Task<MaterialFailureKind> SaveAsync(SavePartCategory input, CancellationToken cancellationToken = default) =>
         SubmitAsync(Command.ForPartCategorySave(input), categoryRetry, cancellationToken);
 
@@ -144,7 +139,6 @@ public sealed class PartClient : IAsyncDisposable
         await changes.DisposeAsync();
     }
 
-    /// <summary>Maps typed failure categories to Arabic recovery text without displaying transport diagnostics.</summary>
     public static string ArabicMessage(MaterialFailureKind failure) => failure switch
     {
         MaterialFailureKind.Validation => "تحقق من الاسم والكميات والبيانات المطلوبة.",
@@ -154,7 +148,6 @@ public sealed class PartClient : IAsyncDisposable
         _ => "تعذر الاتصال ببيانات الأجزاء. حاول مرة أخرى.",
     };
 
-    /// <summary>Classifies Rust error identifiers; unknown or transport failures remain unavailable.</summary>
     private static MaterialFailureKind MapFailure(string? code) => code switch
     {
         ProtocolIds.ErrorCodes.EitmadErrorPartInvalidV1 or ProtocolIds.ErrorCodes.EitmadErrorContractInvalidV1 => MaterialFailureKind.Validation,

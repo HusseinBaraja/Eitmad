@@ -3,7 +3,6 @@ using Eitmad.WindowsShell.Controls;
 
 namespace Eitmad.WindowsShell;
 
-/// <summary>Existing synthetic dashboard preview rows, with typed table sort values.</summary>
 public sealed record DashboardQuotationPreview(string Number, string Customer, string Product,
     string StatusLabel, PresentationTone Tone, decimal Total, DateOnly Date)
 {

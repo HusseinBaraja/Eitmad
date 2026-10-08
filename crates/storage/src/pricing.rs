@@ -1,4 +1,3 @@
-//! Scoped, immutable confirmed prices and durable unresolved publication intents.
 use crate::{
     AuthorityStore, DurableIdempotency, DurablePublication, FurnitureTransaction,
     ProductTransaction, StorageError, insert_audit, insert_idempotency, insert_publication,

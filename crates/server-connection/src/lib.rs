@@ -1,5 +1,3 @@
-//! Authenticated direct connection from the Rust desktop engine to the server.
-
 mod authenticated_http;
 mod catalog_image;
 mod catalog_sync;

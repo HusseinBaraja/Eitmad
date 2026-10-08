@@ -1,4 +1,3 @@
-//! Atomic server requests, decisions, invalidation, audit, replay, and scoped publication.
 use crate::{
     DomainDescriptor, DomainSyncHandler, DomainValidationError, LocalOperationDraft, SyncIntent,
     database::tenant_transaction,

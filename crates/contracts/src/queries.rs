@@ -75,7 +75,6 @@ impl<'de> Deserialize<'de> for ListScopeRelationships {
 }
 
 tagged_contract! {
-    /// Authorized read-only requests.
     pub enum Query {
         QuotationDraft(crate::quotation_draft::GetQuotationDraft) => "eitmad.quotation-draft.get.v1",
         Orders(crate::order::ListOrders) => "eitmad.order.list.v1",

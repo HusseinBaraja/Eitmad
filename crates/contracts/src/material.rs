@@ -1,5 +1,3 @@
-//! Organization-scoped raw material definitions and stable reference records.
-
 use schemars::JsonSchema;
 use serde::{Deserialize, Deserializer, Serialize};
 

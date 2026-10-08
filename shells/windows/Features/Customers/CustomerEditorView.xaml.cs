@@ -4,7 +4,6 @@ using UserControl = System.Windows.Controls.UserControl;
 
 namespace Eitmad.WindowsShell.Features.Customers;
 
-/// <summary>Stages unsaved input and submits it through the typed Rust customer command.</summary>
 public partial class CustomerEditorView : UserControl
 {
     private Customer? customer;

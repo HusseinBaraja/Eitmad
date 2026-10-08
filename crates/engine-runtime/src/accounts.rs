@@ -1,5 +1,3 @@
-//! Manager-only desktop account lifecycle authority.
-
 use argon2::{Argon2, PasswordHasher as _, password_hash::SaltString};
 use eitmad_authorization::{
     AuthorizationError, AuthorizationService, DESKTOP_ACCOUNTS_MANAGE_PERMISSION, MutationContext,

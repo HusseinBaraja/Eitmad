@@ -25,13 +25,11 @@ public sealed record ProductListItem(
     public string StatusLabel => IsArchived ? "مؤرشف" : "نشط";
 }
 
-/// <summary>Represents one supplier-defined ready-made option and its purchase cost.</summary>
 public sealed class ProductVariant : ObservableObject
 {
     private string name;
     private decimal purchaseCost;
 
-    /// <summary>Stages a supplier option with its stable identity and whole-YER purchase cost.</summary>
     public ProductVariant(Guid id, string name, decimal purchaseCost)
     {
         Id = id;

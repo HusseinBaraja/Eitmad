@@ -4,7 +4,6 @@ using Eitmad.WindowsShell.Features.Reception;
 
 namespace Eitmad.WindowsShell.Features.Customers;
 
-/// <summary>Projects one Rust-owned customer with the existing synthetic sales-history presentation.</summary>
 public sealed class CustomerPreview(Customer customer, IReadOnlyList<CustomerHistoryItem> quotations,
     IReadOnlyList<CustomerHistoryItem> orders) : ObservableObject
 {
@@ -66,7 +65,6 @@ public static class CustomerHistoryProjection
         && string.Equals(phone, customer.Phone, StringComparison.Ordinal);
 }
 
-/// <summary>Read-only summary of a synthetic quotation or order; no domain calculations.</summary>
 public sealed record CustomerHistoryItem(string Number, DateOnly Date, string Items, string Status, string Total)
 {
     public string DateLabel => Date.ToString("yyyy/MM/dd", CultureInfo.InvariantCulture);

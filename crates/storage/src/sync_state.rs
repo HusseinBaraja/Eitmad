@@ -1,5 +1,3 @@
-//! Durable opaque state for the Rust-owned synchronization vertical.
-
 use eitmad_contracts::identity::ScopeRef;
 use eitmad_observability_audit::{AuditOutcome, MutationAuditRecord};
 use rusqlite::{OptionalExtension as _, params};

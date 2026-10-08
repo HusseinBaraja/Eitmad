@@ -12,7 +12,6 @@ public sealed record DraftResult<T>(T? Value, DraftFailure Failure, QuotationFie
     public bool Succeeded => Value is not null && Failure == DraftFailure.None;
 }
 
-/// <summary>Generated draft contracts only; Rust owns persistence, evaluation, scope, and sync.</summary>
 public sealed class QuotationDraftClient : IAsyncDisposable
 {
     private readonly IEngineShellBridge engine;

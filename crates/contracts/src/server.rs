@@ -1,5 +1,3 @@
-//! Versioned contracts for the remote Eitmad server boundary.
-
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -86,7 +84,6 @@ impl std::fmt::Display for ServerIdentifierError {
 
 impl std::error::Error for ServerIdentifierError {}
 
-/// Rust-owned branch identity registered by a tenant owner.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct RegisterBranchRequest {

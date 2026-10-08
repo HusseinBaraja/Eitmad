@@ -1,4 +1,3 @@
-//! Authenticated discount commands and live resumable server subscriptions.
 use crate::{
     DirectServerConfig,
     authenticated_http::{AuthenticatedHttpClient, HttpError},
@@ -28,7 +27,6 @@ pub struct DirectDiscountApprovalClient {
     branch: ScopeRef,
 }
 impl DirectDiscountApprovalClient {
-    /// Configures the enrolled branch and organization, independent of shell role flags.
     #[must_use]
     pub fn from_config(
         config: DirectServerConfig,

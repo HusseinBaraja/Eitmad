@@ -4,7 +4,6 @@ using Eitmad.Contracts;
 
 namespace Eitmad.WindowsShell.Features.Pricing;
 
-/// <summary>Formats only Rust-returned price and internal projections.</summary>
 public sealed class PricingListItem(PriceItem record)
 {
     public PriceItem Record { get; } = record;

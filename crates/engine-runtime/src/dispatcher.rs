@@ -1,5 +1,3 @@
-//! Engine composition dispatcher for Rust-owned product verticals.
-
 use std::sync::Arc;
 #[path = "discount_approval.rs"]
 mod discount_approval;
@@ -99,7 +97,6 @@ impl ProductDispatcher {
         Self::with_event_publisher(store, Arc::new(events))
     }
 
-    /// Attaches the committed-event publisher used by mutation dispatch.
     fn with_event_publisher(store: AuthorityStore, events: Arc<dyn ProductEventPublisher>) -> Self {
         let authorization = AuthorizationService::new(store.clone());
         let configuration = ConfigurationService::new(store.clone(), authorization.clone());
@@ -143,7 +140,6 @@ impl ProductDispatcher {
     pub const fn authorization(&self) -> &AuthorizationService {
         &self.authorization
     }
-    /// Attaches the Rust-owned catalog worker used by price queries and background retries.
     #[must_use]
     pub fn with_catalog_replication(
         mut self,
@@ -191,7 +187,6 @@ impl ProductDispatcher {
     }
 
     #[must_use]
-    /// Configures one authenticated transfer path shared by image queries and the upload worker.
     pub fn with_catalog_image_transfer(
         mut self,
         transfer: Arc<dyn eitmad_catalog_image::CatalogImageTransfer>,
@@ -270,7 +265,6 @@ impl ProductDispatcher {
         .map_err(|e| pricing_error(e, context))
     }
 
-    /// Routes public catalog queries to their bounded refresh path and retains existing authorized pricing routes.
     async fn pricing_query(
         &self,
         context: &DispatchContext,
@@ -565,7 +559,6 @@ impl ProductDispatcher {
         Ok(CommandResult::MaterialSaved(saved))
     }
 
-    /// Negotiates protocol 1.11, delegates authorization and persistence to Parts, and publishes the committed outbox.
     fn dispatch_part_command(
         &self,
         context: &DispatchContext,
@@ -589,7 +582,6 @@ impl ProductDispatcher {
         Ok(result)
     }
 
-    /// Negotiates protocol 1.11 and delegates scoped part reads and cost review to the Rust authority.
     fn dispatch_part_query(
         &self,
         context: &DispatchContext,
@@ -617,7 +609,6 @@ impl ProductDispatcher {
         .map_err(|error| Box::new(part_error(error, context)))
     }
 
-    /// Negotiates protocol 1.12, delegates authorization and persistence to Products, and publishes the committed outbox.
     fn dispatch_product_command(
         &self,
         context: &DispatchContext,
@@ -641,7 +632,6 @@ impl ProductDispatcher {
         Ok(result)
     }
 
-    /// Negotiates protocol 1.12 and delegates scoped product reads and cost review to the Rust authority.
     fn dispatch_product_query(
         &self,
         context: &DispatchContext,
@@ -697,7 +687,6 @@ impl ProductDispatcher {
         Ok(())
     }
 
-    /// Negotiates protocol 1.13, delegates authorization and persistence to Furnitures, and publishes the committed outbox.
     fn dispatch_furniture_command(
         &self,
         context: &DispatchContext,
@@ -721,7 +710,6 @@ impl ProductDispatcher {
         Ok(result)
     }
 
-    /// Negotiates protocol 1.13 and delegates scoped furniture reads and cost review to the Rust authority.
     fn dispatch_furniture_query(
         &self,
         context: &DispatchContext,
@@ -753,7 +741,6 @@ impl ProductDispatcher {
         .map_err(|error| Box::new(furniture_error(error, context)))
     }
 
-    /// Checks protocol support, creates the audited account, and publishes its committed event.
     fn create_desktop_account(
         &self,
         context: &DispatchContext,
@@ -861,7 +848,6 @@ impl ProductDispatcher {
 
 #[async_trait]
 impl CommandDispatcher for ProductDispatcher {
-    /// Checks protocol support and routes typed commands through their Rust authority.
     async fn dispatch_command(
         &self,
         context: DispatchContext,
@@ -963,7 +949,6 @@ impl CommandDispatcher for ProductDispatcher {
 
 #[async_trait]
 impl QueryDispatcher for ProductDispatcher {
-    /// Checks protocol support and routes typed queries through their Rust authority.
     async fn dispatch_query(
         &self,
         context: DispatchContext,
@@ -1300,7 +1285,6 @@ fn material_error(value: MaterialError, context: &DispatchContext) -> ContractEr
     contract_error(code, message, context.correlation_id, retry, detail)
 }
 
-/// Maps domain failures to redacted versioned errors with revision details and safe retry disposition.
 fn part_error(value: PartError, context: &DispatchContext) -> ContractError {
     let (code, message, retry, detail) = match value {
         PartError::Denied => (
@@ -1346,7 +1330,6 @@ fn part_error(value: PartError, context: &DispatchContext) -> ContractError {
     contract_error(code, message, context.correlation_id, retry, detail)
 }
 
-/// Maps product failures to stable contract errors without exposing internal storage details.
 fn product_error(value: ProductError, context: &DispatchContext) -> ContractError {
     let (code, message, retry, detail) = match value {
         ProductError::Denied => (
@@ -1392,7 +1375,6 @@ fn product_error(value: ProductError, context: &DispatchContext) -> ContractErro
     contract_error(code, message, context.correlation_id, retry, detail)
 }
 
-/// Maps Furniture failures to stable contract errors without exposing stored values.
 fn furniture_error(value: FurnitureError, context: &DispatchContext) -> ContractError {
     let (code, message, retry, detail) = match value {
         FurnitureError::Denied => (
@@ -2203,7 +2185,6 @@ mod tests {
         );
     }
 
-    /// Exercises typed material and part routes, committed notices, and Receptionist write denial.
     #[tokio::test]
     async fn routes_material_and_part_mutations_and_denies_receptionist_write() {
         let (_directory, dispatcher, broker) = dispatcher();
@@ -2303,7 +2284,6 @@ mod tests {
         assert_part_routes(&dispatcher, &broker, &material, &unit).await;
     }
 
-    /// Checks part category and composition saves, scoped search, current costs, and write denial through dispatch.
     async fn assert_part_routes(
         dispatcher: &ProductDispatcher,
         broker: &EventBroker,
@@ -2697,7 +2677,6 @@ mod tests {
                 .is_err()
         );
     }
-    /// Proves transient sync failures cannot strand other actors or committed notifications.
     #[tokio::test]
     async fn catalog_retry_continues_other_actors_and_drains_after_failure() {
         use eitmad_observability_audit::{AuditTarget, MutationAuditRecord};
@@ -2802,7 +2781,6 @@ mod tests {
 
     struct TestPriceServer;
     impl eitmad_pricing::PriceConfirmation for TestPriceServer {
-        /// Accepts catalog transfer so dispatcher tests can isolate routing and receipt handling.
         fn synchronize_catalog(
             &self,
             _: &AuthorizationContext,
@@ -2853,7 +2831,6 @@ mod tests {
     }
     struct SlowPriceServer;
     impl eitmad_pricing::PriceConfirmation for SlowPriceServer {
-        /// Accepts catalog transfer without adding latency to the simulated slow price read.
         fn synchronize_catalog(
             &self,
             _: &AuthorizationContext,
@@ -3069,7 +3046,6 @@ mod tests {
             schema_version: 1,
         })
     }
-    /// Projects a synthetic server-confirmed public revision into the separate receptionist client store.
     fn project_catalog_entry(
         receiver: &ProductDispatcher,
         entry: &eitmad_contracts::catalog_revision::CatalogEntry,
@@ -3118,7 +3094,6 @@ mod tests {
             .unwrap();
     }
 
-    /// Verifies receptionist reads and configuration checks work from another client publication without private definitions.
     #[tokio::test]
     async fn sales_catalog_dispatch_reads_another_client_publication_without_private_definitions() {
         use eitmad_contracts::{
