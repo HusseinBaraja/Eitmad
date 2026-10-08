@@ -10,6 +10,7 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies]
+eitmad-orders = { path = "../orders" }
 eitmad-material = { path = "../material" }
 sha2 = "=0.10.9"
 eitmad-authorization = { path = "../authorization" }

@@ -14,6 +14,7 @@ public partial class MainWindow : Window
     private readonly IDesktopSessionController? sessions;
     private readonly Features.Customers.CustomerClient? customerClient;
     private readonly Features.Quotations.QuotationDraftClient? quotationDraftClient;
+    private readonly Features.Orders.OrderClient? orderClient;
     private bool sessionActive;
     private bool switchingAccount;
 
@@ -56,6 +57,7 @@ public partial class MainWindow : Window
             _ = PricingSurface.DisposeAsync();
             _ = ReceptionistSurface.DisposeCatalogAsync();
             if (quotationDraftClient is not null) _ = quotationDraftClient.DisposeAsync();
+            if (orderClient is not null) _ = orderClient.DisposeAsync();
         };
         ReceptionistSurface.SetCatalogSources(FurnitureSurface.ViewModel, ProductsSurface.ViewModel);
         if (engine is not null) ReceptionistSurface.AttachCatalog(engine);
@@ -68,6 +70,12 @@ public partial class MainWindow : Window
         }
         var receptionOrders = ReceptionistSurface.PreviewOrders.ViewModel;
         OrdersSurface.ViewModel.UsePreviewOrders(receptionOrders.PreviewOrders);
+        if (engine is not null) {
+            orderClient = new(engine);
+            OrdersSurface.ViewModel.Attach(orderClient); receptionOrders.Attach(orderClient);
+            ReceptionistSurface.ReceptionQuotations.ViewModel.AttachOrders(orderClient);
+            ReceptionistSurface.ReceptionQuotations.ViewModel.OrderConfirmed += order => ReceptionistSurface.OpenConfirmedOrder(order);
+        }
         WorkOrdersSurface.ViewModel.UseOrderFixtures(receptionOrders.PreviewOrders);
         OrdersSurface.ViewModel.FindProduction = WorkOrdersSurface.ViewModel.ForOrder;
         OrdersSurface.ProductionRequested += order =>
@@ -101,6 +109,8 @@ public partial class MainWindow : Window
         ShowAccount(surface);
         if (surface == AuthenticatedSurface.Manager) await QuotationsSurface.ViewModel.ActivateDraftsAsync();
         else await ReceptionistSurface.ReceptionQuotations.ViewModel.ActivateDraftsAsync();
+        if (surface == AuthenticatedSurface.Manager) await OrdersSurface.ViewModel.ActivateAsync();
+        else await ReceptionistSurface.PreviewOrders.ViewModel.ActivateAsync();
         if (surface != AuthenticatedSurface.Receptionist) return;
         try
         {
@@ -222,6 +232,8 @@ public partial class MainWindow : Window
     /// <summary>Hides account pages and clears their cached state when the desktop session ends.</summary>
     private void HideAccountSurfaces()
     {
+        OrdersSurface.ViewModel.ClearOrders(); ReceptionistSurface.PreviewOrders.ViewModel.ClearOrders();
+        if (orderClient is not null) _ = orderClient.DeactivateAsync();
         QuotationsSurface.ViewModel.ClearDrafts();
         ReceptionistSurface.ReceptionQuotations.ViewModel.ClearDrafts();
         PartsSurface.ClearSession();

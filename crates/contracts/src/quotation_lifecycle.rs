@@ -14,6 +14,8 @@ pub enum QuotationState {
     Draft,
     PendingApproval,
     Issued,
+    Accepted,
+    Converted,
     Expired,
     Cancelled,
 }
@@ -24,6 +26,8 @@ pub enum QuotationPermittedAction {
     Edit,
     RequestApproval,
     Issue,
+    Accept,
+    Convert,
     ManageValidity,
     Revise,
     Cancel,
@@ -72,6 +76,8 @@ pub struct QuotationRecord {
     pub changed_at: UnixMillis,
     pub changed_by: PrincipalId,
     pub cancellation_reason: Option<String>,
+    #[serde(default)]
+    pub acceptance: Option<crate::order::QuotationAcceptance>,
     /// Derived from the authenticated actor and current server state, never client role flags.
     pub permitted_actions: Vec<QuotationPermittedAction>,
 }
@@ -112,6 +118,7 @@ pub struct QuotationNotice {
 )]
 pub enum QuotationAction {
     Issue(IssueQuotation),
+    Accept(crate::order::AcceptQuotation),
     SetValidity(SetQuotationValidity),
     Revise(SetQuotationValidity),
     Cancel(CancelQuotation),
@@ -121,6 +128,7 @@ impl QuotationAction {
     pub const fn draft_id(&self) -> QuotationDraftId {
         match self {
             Self::Issue(c) => c.draft_id,
+            Self::Accept(c) => c.draft_id,
             Self::SetValidity(c) | Self::Revise(c) => c.draft_id,
             Self::Cancel(c) => c.draft_id,
         }
@@ -129,6 +137,7 @@ impl QuotationAction {
     pub const fn expected_revision(&self) -> u64 {
         match self {
             Self::Issue(c) => c.expected_revision,
+            Self::Accept(c) => c.expected_revision,
             Self::SetValidity(c) | Self::Revise(c) => c.expected_revision,
             Self::Cancel(c) => c.expected_revision,
         }

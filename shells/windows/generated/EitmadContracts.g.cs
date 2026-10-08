@@ -277,6 +277,30 @@ namespace Eitmad.Contracts
         public SaveMaterialUnit CommandMaterialUnitSave { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Command_OrderCancel")]
+        public CancelOrder CommandOrderCancel { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Command_OrderConvert")]
+        public ConvertQuotation CommandOrderConvert { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Command_OrderDeliver")]
+        public RecordOrderDelivery CommandOrderDeliver { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Command_OrderFulfillment")]
+        public EditOrderFulfillment CommandOrderFulfillment { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Command_OrderWorkComplete")]
+        public TransitionOrderWork CommandOrderWorkComplete { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Command_OrderWorkStart")]
+        public TransitionOrderWork CommandOrderWorkStart { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Command_PartCategorySave")]
         public SavePartCategory CommandPartCategorySave { get; set; }
 
@@ -295,6 +319,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Command_ProductSave")]
         public SaveProduct CommandProductSave { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Command_QuotationAccept")]
+        public AcceptQuotation CommandQuotationAccept { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Command_QuotationApprovalDecide")]
@@ -385,6 +413,10 @@ namespace Eitmad.Contracts
         public MaterialUnit CommandResultMaterialUnitSaved { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("CommandResult_Order")]
+        public OrderRecord CommandResultOrder { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("CommandResult_PartCategorySaved")]
         public PartCategory CommandResultPartCategorySaved { get; set; }
 
@@ -443,6 +475,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Event_MaterialChangedEvent")]
         public MaterialChangeNotice EventMaterialChangedEvent { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Event_OrderChangedEvent")]
+        public OrderNotice EventOrderChangedEvent { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Event_PartChangedEvent")]
@@ -549,6 +585,30 @@ namespace Eitmad.Contracts
         public UnsubscribeResponse IpcServerMessageIpcUnsubscribeResponse { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("OrderAction_Cancel")]
+        public CancelOrder OrderActionCancel { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("OrderAction_CompleteWork")]
+        public TransitionOrderWork OrderActionCompleteWork { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("OrderAction_Convert")]
+        public ConvertQuotation OrderActionConvert { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("OrderAction_Deliver")]
+        public RecordOrderDelivery OrderActionDeliver { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("OrderAction_EditFulfillment")]
+        public EditOrderFulfillment OrderActionEditFulfillment { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("OrderAction_StartWork")]
+        public TransitionOrderWork OrderActionStartWork { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("PriceTarget_Furniture")]
         public FurnitureReference PriceTargetFurniture { get; set; }
 
@@ -607,6 +667,14 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Query_MaterialReferenceList")]
         public Dictionary<string, object> QueryMaterialReferenceList { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Query_OrderGet")]
+        public GetOrder QueryOrderGet { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Query_OrderList")]
+        public ListOrders QueryOrderList { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Query_PartCategoryList")]
@@ -749,6 +817,10 @@ namespace Eitmad.Contracts
         public MaterialPage QueryResultMaterials { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("QueryResult_Orders")]
+        public OrderPage QueryResultOrders { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_PartCategories")]
         public PartCategories QueryResultPartCategories { get; set; }
 
@@ -839,6 +911,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Subscription_MaterialChangedSubscribe")]
         public Dictionary<string, object> SubscriptionMaterialChangedSubscribe { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Subscription_OrderChangedSubscribe")]
+        public OrderChanges SubscriptionOrderChangedSubscribe { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Subscription_PartChangedSubscribe")]
@@ -1247,6 +1323,75 @@ namespace Eitmad.Contracts
         public string Symbol { get; set; }
     }
 
+    public partial class CancelOrder
+    {
+        [JsonPropertyName("expectedRevision")]
+        public long ExpectedRevision { get; set; }
+
+        [JsonPropertyName("orderId")]
+        public Guid OrderId { get; set; }
+
+        [JsonPropertyName("reason")]
+        public string Reason { get; set; }
+    }
+
+    public partial class ConvertQuotation
+    {
+        [JsonPropertyName("draftId")]
+        public Guid DraftId { get; set; }
+
+        [JsonPropertyName("expectedRevision")]
+        public long ExpectedRevision { get; set; }
+    }
+
+    public partial class RecordOrderDelivery
+    {
+        [JsonPropertyName("expectedRevision")]
+        public long ExpectedRevision { get; set; }
+
+        [JsonPropertyName("method")]
+        public AcceptanceMethod Method { get; set; }
+
+        [JsonPropertyName("note")]
+        public string Note { get; set; }
+
+        [JsonPropertyName("orderId")]
+        public Guid OrderId { get; set; }
+
+        [JsonPropertyName("recipient")]
+        public string Recipient { get; set; }
+    }
+
+    public partial class EditOrderFulfillment
+    {
+        [JsonPropertyName("expectedRevision")]
+        public long ExpectedRevision { get; set; }
+
+        [JsonPropertyName("note")]
+        public string Note { get; set; }
+
+        [JsonPropertyName("orderId")]
+        public Guid OrderId { get; set; }
+    }
+
+    public partial class TransitionOrderWork
+    {
+        [JsonPropertyName("assignment")]
+        public string Assignment { get; set; }
+
+        [JsonPropertyName("dueAt")]
+        public long? DueAt { get; set; }
+
+        [JsonPropertyName("expectedRevision")]
+        public long ExpectedRevision { get; set; }
+
+        [JsonPropertyName("orderId")]
+        public Guid OrderId { get; set; }
+
+        [JsonPropertyName("workId")]
+        public Guid WorkId { get; set; }
+    }
+
     public partial class SavePartCategory
     {
         [JsonPropertyName("archived")]
@@ -1377,6 +1522,21 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("purchaseCostYer")]
         public long PurchaseCostYer { get; set; }
+    }
+
+    public partial class AcceptQuotation
+    {
+        [JsonPropertyName("draftId")]
+        public Guid DraftId { get; set; }
+
+        [JsonPropertyName("expectedRevision")]
+        public long ExpectedRevision { get; set; }
+
+        [JsonPropertyName("method")]
+        public AcceptanceMethod Method { get; set; }
+
+        [JsonPropertyName("note")]
+        public string Note { get; set; }
     }
 
     public partial class DecideDiscountApproval
@@ -2020,6 +2180,177 @@ namespace Eitmad.Contracts
         public long UpdatedAt { get; set; }
     }
 
+    public partial class OrderRecord
+    {
+        [JsonPropertyName("cancellationReason")]
+        public string CancellationReason { get; set; }
+
+        [JsonPropertyName("changedAt")]
+        public long ChangedAt { get; set; }
+
+        [JsonPropertyName("changedBy")]
+        public Guid ChangedBy { get; set; }
+
+        [JsonPropertyName("createdAt")]
+        public long CreatedAt { get; set; }
+
+        [JsonPropertyName("delivery")]
+        public OrderDelivery Delivery { get; set; }
+
+        [JsonPropertyName("fulfillmentNote")]
+        public string FulfillmentNote { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("number")]
+        public string Number { get; set; }
+
+        [JsonPropertyName("organizationId")]
+        public Guid OrganizationId { get; set; }
+
+        [JsonPropertyName("permittedActions")]
+        public OrderPermittedAction[] PermittedActions { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+
+        /// <summary>
+        /// Exact accepted quotation, including its issued prices and customer snapshot.
+        /// </summary>
+        [JsonPropertyName("source")]
+        public QuotationRecord Source { get; set; }
+
+        [JsonPropertyName("state")]
+        public OrderState State { get; set; }
+
+        [JsonPropertyName("work")]
+        public OrderWork[] Work { get; set; }
+    }
+
+    public partial class OrderDelivery
+    {
+        [JsonPropertyName("actor")]
+        public Guid Actor { get; set; }
+
+        [JsonPropertyName("deliveredAt")]
+        public long DeliveredAt { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("method")]
+        public AcceptanceMethod Method { get; set; }
+
+        [JsonPropertyName("note")]
+        public string Note { get; set; }
+
+        [JsonPropertyName("recipient")]
+        public string Recipient { get; set; }
+    }
+
+    /// <summary>
+    /// Exact accepted quotation, including its issued prices and customer snapshot.
+    /// </summary>
+    public partial class QuotationRecord
+    {
+        [JsonPropertyName("acceptance")]
+        public QuotationAcceptance Acceptance { get; set; }
+
+        [JsonPropertyName("approvalFingerprint")]
+        public string ApprovalFingerprint { get; set; }
+
+        [JsonPropertyName("approvalRequestId")]
+        public Guid? ApprovalRequestId { get; set; }
+
+        [JsonPropertyName("cancellationReason")]
+        public string CancellationReason { get; set; }
+
+        [JsonPropertyName("changedAt")]
+        public long ChangedAt { get; set; }
+
+        [JsonPropertyName("changedBy")]
+        public Guid ChangedBy { get; set; }
+
+        [JsonPropertyName("documentRevision")]
+        public long DocumentRevision { get; set; }
+
+        [JsonPropertyName("issuedAt")]
+        public long? IssuedAt { get; set; }
+
+        [JsonPropertyName("number")]
+        public string Number { get; set; }
+
+        [JsonPropertyName("organizationId")]
+        public Guid OrganizationId { get; set; }
+
+        /// <summary>
+        /// Derived from the authenticated actor and current server state, never client role flags.
+        /// </summary>
+        [JsonPropertyName("permittedActions")]
+        public QuotationPermittedAction[] PermittedActions { get; set; }
+
+        [JsonPropertyName("quotation")]
+        public QuotationDraftSnapshot Quotation { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+
+        [JsonPropertyName("state")]
+        public QuotationState State { get; set; }
+
+        [JsonPropertyName("validityDays")]
+        public long ValidityDays { get; set; }
+
+        [JsonPropertyName("validUntil")]
+        public long? ValidUntil { get; set; }
+    }
+
+    public partial class QuotationAcceptance
+    {
+        [JsonPropertyName("acceptedAt")]
+        public long AcceptedAt { get; set; }
+
+        [JsonPropertyName("actor")]
+        public Guid Actor { get; set; }
+
+        [JsonPropertyName("documentRevision")]
+        public long DocumentRevision { get; set; }
+
+        [JsonPropertyName("method")]
+        public AcceptanceMethod Method { get; set; }
+
+        [JsonPropertyName("note")]
+        public string Note { get; set; }
+    }
+
+    public partial class OrderWork
+    {
+        [JsonPropertyName("assignment")]
+        public string Assignment { get; set; }
+
+        [JsonPropertyName("dueAt")]
+        public long? DueAt { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("lineIds")]
+        public Guid[] LineIds { get; set; }
+
+        [JsonPropertyName("number")]
+        public string Number { get; set; }
+
+        [JsonPropertyName("state")]
+        public WorkState State { get; set; }
+    }
+
     public partial class PartCategory
     {
         [JsonPropertyName("archived")]
@@ -2187,60 +2518,6 @@ namespace Eitmad.Contracts
         /// </summary>
         [JsonPropertyName("purchaseCostYer")]
         public long? PurchaseCostYer { get; set; }
-    }
-
-    public partial class QuotationRecord
-    {
-        [JsonPropertyName("approvalFingerprint")]
-        public string ApprovalFingerprint { get; set; }
-
-        [JsonPropertyName("approvalRequestId")]
-        public Guid? ApprovalRequestId { get; set; }
-
-        [JsonPropertyName("cancellationReason")]
-        public string CancellationReason { get; set; }
-
-        [JsonPropertyName("changedAt")]
-        public long ChangedAt { get; set; }
-
-        [JsonPropertyName("changedBy")]
-        public Guid ChangedBy { get; set; }
-
-        [JsonPropertyName("documentRevision")]
-        public long DocumentRevision { get; set; }
-
-        [JsonPropertyName("issuedAt")]
-        public long? IssuedAt { get; set; }
-
-        [JsonPropertyName("number")]
-        public string Number { get; set; }
-
-        [JsonPropertyName("organizationId")]
-        public Guid OrganizationId { get; set; }
-
-        /// <summary>
-        /// Derived from the authenticated actor and current server state, never client role flags.
-        /// </summary>
-        [JsonPropertyName("permittedActions")]
-        public QuotationPermittedAction[] PermittedActions { get; set; }
-
-        [JsonPropertyName("quotation")]
-        public QuotationDraftSnapshot Quotation { get; set; }
-
-        [JsonPropertyName("revision")]
-        public long Revision { get; set; }
-
-        [JsonPropertyName("scope")]
-        public ScopeRef Scope { get; set; }
-
-        [JsonPropertyName("state")]
-        public QuotationState State { get; set; }
-
-        [JsonPropertyName("validityDays")]
-        public long ValidityDays { get; set; }
-
-        [JsonPropertyName("validUntil")]
-        public long? ValidUntil { get; set; }
     }
 
     public partial class QuotationDraft
@@ -2419,6 +2696,18 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("kind")]
         public MaterialRecordKind Kind { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+    }
+
+    public partial class OrderNotice
+    {
+        [JsonPropertyName("orderId")]
+        public Guid OrderId { get; set; }
 
         [JsonPropertyName("revision")]
         public long Revision { get; set; }
@@ -3242,6 +3531,21 @@ namespace Eitmad.Contracts
         public string Term { get; set; }
     }
 
+    public partial class GetOrder
+    {
+        [JsonPropertyName("orderId")]
+        public Guid OrderId { get; set; }
+    }
+
+    public partial class ListOrders
+    {
+        [JsonPropertyName("after")]
+        public Guid? After { get; set; }
+
+        [JsonPropertyName("limit")]
+        public long Limit { get; set; }
+    }
+
     public partial class ListPartCategories
     {
         [JsonPropertyName("after")]
@@ -3480,6 +3784,43 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("next")]
         public Guid? Next { get; set; }
+    }
+
+    public partial class OrderPage
+    {
+        [JsonPropertyName("items")]
+        public OrderRecord[] Items { get; set; }
+
+        [JsonPropertyName("next")]
+        public Guid? Next { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("pending")]
+        public OrderPending[] Pending { get; set; }
+
+        [JsonPropertyName("serverAvailable")]
+        public bool ServerAvailable { get; set; }
+    }
+
+    public partial class OrderPending
+    {
+        [JsonPropertyName("rejectedCode")]
+        public string RejectedCode { get; set; }
+
+        [JsonPropertyName("request")]
+        public ConfirmOrder Request { get; set; }
+    }
+
+    public partial class ConfirmOrder
+    {
+        [JsonPropertyName("action")]
+        public Dictionary<string, object> Action { get; set; }
+
+        [JsonPropertyName("idempotencyKey")]
+        public Guid IdempotencyKey { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
     }
 
     public partial class PartCategories
@@ -3769,6 +4110,10 @@ namespace Eitmad.Contracts
         public string Term { get; set; }
     }
 
+    public partial class OrderChanges
+    {
+    }
+
     public partial class DiscountApprovalChanges
     {
     }
@@ -3813,6 +4158,8 @@ namespace Eitmad.Contracts
 
     public enum UnitDimension { Area, Count, Length, Mass, Volume };
 
+    public enum AcceptanceMethod { InPerson, Phone, Written };
+
     public enum DiscountDecision { Approve, Reject };
 
     public enum RestartRequirement { Application, Engine, None };
@@ -3827,9 +4174,15 @@ namespace Eitmad.Contracts
 
     public enum DiscountApprovalState { Approved, Invalidated, Pending, Rejected };
 
-    public enum QuotationPermittedAction { Cancel, Edit, Issue, ManageValidity, Print, RequestApproval, Revise };
+    public enum OrderPermittedAction { Cancel, CompleteWork, Deliver, EditFulfillment, StartWork };
 
-    public enum QuotationState { Cancelled, Draft, Expired, Issued, PendingApproval };
+    public enum QuotationPermittedAction { Accept, Cancel, Convert, Edit, Issue, ManageValidity, Print, RequestApproval, Revise };
+
+    public enum QuotationState { Accepted, Cancelled, Converted, Draft, Expired, Issued, PendingApproval };
+
+    public enum OrderState { Cancelled, Confirmed, Delivered, InProduction, Ready };
+
+    public enum WorkState { Cancelled, Completed, InProgress, Planned };
 
     public enum MergeStrategy { DomainMerge, KeepLocal, KeepRemote };
 
@@ -3918,8 +4271,12 @@ namespace Eitmad.Contracts
                 DiscountApprovalStateConverter.Singleton,
                 FurnitureStateConverter.Singleton,
                 UnitDimensionConverter.Singleton,
+                AcceptanceMethodConverter.Singleton,
+                OrderPermittedActionConverter.Singleton,
                 QuotationPermittedActionConverter.Singleton,
                 QuotationStateConverter.Singleton,
+                OrderStateConverter.Singleton,
+                WorkStateConverter.Singleton,
                 MergeStrategyConverter.Singleton,
                 ChangeOperationConverter.Singleton,
                 PrincipalKindConverter.Singleton,
@@ -4936,6 +5293,94 @@ namespace Eitmad.Contracts
         public static readonly UnitDimensionConverter Singleton = new UnitDimensionConverter();
     }
 
+    internal class AcceptanceMethodConverter : JsonConverter<AcceptanceMethod>
+    {
+        public override bool CanConvert(Type t) => t == typeof(AcceptanceMethod);
+
+        public override AcceptanceMethod Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "inPerson":
+                    return AcceptanceMethod.InPerson;
+                case "phone":
+                    return AcceptanceMethod.Phone;
+                case "written":
+                    return AcceptanceMethod.Written;
+            }
+            throw new Exception("Cannot unmarshal type AcceptanceMethod");
+        }
+
+        public override void Write(Utf8JsonWriter writer, AcceptanceMethod value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case AcceptanceMethod.InPerson:
+                    JsonSerializer.Serialize(writer, "inPerson", options);
+                    return;
+                case AcceptanceMethod.Phone:
+                    JsonSerializer.Serialize(writer, "phone", options);
+                    return;
+                case AcceptanceMethod.Written:
+                    JsonSerializer.Serialize(writer, "written", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type AcceptanceMethod");
+        }
+
+        public static readonly AcceptanceMethodConverter Singleton = new AcceptanceMethodConverter();
+    }
+
+    internal class OrderPermittedActionConverter : JsonConverter<OrderPermittedAction>
+    {
+        public override bool CanConvert(Type t) => t == typeof(OrderPermittedAction);
+
+        public override OrderPermittedAction Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "cancel":
+                    return OrderPermittedAction.Cancel;
+                case "completeWork":
+                    return OrderPermittedAction.CompleteWork;
+                case "deliver":
+                    return OrderPermittedAction.Deliver;
+                case "editFulfillment":
+                    return OrderPermittedAction.EditFulfillment;
+                case "startWork":
+                    return OrderPermittedAction.StartWork;
+            }
+            throw new Exception("Cannot unmarshal type OrderPermittedAction");
+        }
+
+        public override void Write(Utf8JsonWriter writer, OrderPermittedAction value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case OrderPermittedAction.Cancel:
+                    JsonSerializer.Serialize(writer, "cancel", options);
+                    return;
+                case OrderPermittedAction.CompleteWork:
+                    JsonSerializer.Serialize(writer, "completeWork", options);
+                    return;
+                case OrderPermittedAction.Deliver:
+                    JsonSerializer.Serialize(writer, "deliver", options);
+                    return;
+                case OrderPermittedAction.EditFulfillment:
+                    JsonSerializer.Serialize(writer, "editFulfillment", options);
+                    return;
+                case OrderPermittedAction.StartWork:
+                    JsonSerializer.Serialize(writer, "startWork", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type OrderPermittedAction");
+        }
+
+        public static readonly OrderPermittedActionConverter Singleton = new OrderPermittedActionConverter();
+    }
+
     internal class QuotationPermittedActionConverter : JsonConverter<QuotationPermittedAction>
     {
         public override bool CanConvert(Type t) => t == typeof(QuotationPermittedAction);
@@ -4945,8 +5390,12 @@ namespace Eitmad.Contracts
             var value = reader.GetString();
             switch (value)
             {
+                case "accept":
+                    return QuotationPermittedAction.Accept;
                 case "cancel":
                     return QuotationPermittedAction.Cancel;
+                case "convert":
+                    return QuotationPermittedAction.Convert;
                 case "edit":
                     return QuotationPermittedAction.Edit;
                 case "issue":
@@ -4967,8 +5416,14 @@ namespace Eitmad.Contracts
         {
             switch (value)
             {
+                case QuotationPermittedAction.Accept:
+                    JsonSerializer.Serialize(writer, "accept", options);
+                    return;
                 case QuotationPermittedAction.Cancel:
                     JsonSerializer.Serialize(writer, "cancel", options);
+                    return;
+                case QuotationPermittedAction.Convert:
+                    JsonSerializer.Serialize(writer, "convert", options);
                     return;
                 case QuotationPermittedAction.Edit:
                     JsonSerializer.Serialize(writer, "edit", options);
@@ -5004,8 +5459,12 @@ namespace Eitmad.Contracts
             var value = reader.GetString();
             switch (value)
             {
+                case "accepted":
+                    return QuotationState.Accepted;
                 case "cancelled":
                     return QuotationState.Cancelled;
+                case "converted":
+                    return QuotationState.Converted;
                 case "draft":
                     return QuotationState.Draft;
                 case "expired":
@@ -5022,8 +5481,14 @@ namespace Eitmad.Contracts
         {
             switch (value)
             {
+                case QuotationState.Accepted:
+                    JsonSerializer.Serialize(writer, "accepted", options);
+                    return;
                 case QuotationState.Cancelled:
                     JsonSerializer.Serialize(writer, "cancelled", options);
+                    return;
+                case QuotationState.Converted:
+                    JsonSerializer.Serialize(writer, "converted", options);
                     return;
                 case QuotationState.Draft:
                     JsonSerializer.Serialize(writer, "draft", options);
@@ -5042,6 +5507,99 @@ namespace Eitmad.Contracts
         }
 
         public static readonly QuotationStateConverter Singleton = new QuotationStateConverter();
+    }
+
+    internal class OrderStateConverter : JsonConverter<OrderState>
+    {
+        public override bool CanConvert(Type t) => t == typeof(OrderState);
+
+        public override OrderState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "cancelled":
+                    return OrderState.Cancelled;
+                case "confirmed":
+                    return OrderState.Confirmed;
+                case "delivered":
+                    return OrderState.Delivered;
+                case "inProduction":
+                    return OrderState.InProduction;
+                case "ready":
+                    return OrderState.Ready;
+            }
+            throw new Exception("Cannot unmarshal type OrderState");
+        }
+
+        public override void Write(Utf8JsonWriter writer, OrderState value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case OrderState.Cancelled:
+                    JsonSerializer.Serialize(writer, "cancelled", options);
+                    return;
+                case OrderState.Confirmed:
+                    JsonSerializer.Serialize(writer, "confirmed", options);
+                    return;
+                case OrderState.Delivered:
+                    JsonSerializer.Serialize(writer, "delivered", options);
+                    return;
+                case OrderState.InProduction:
+                    JsonSerializer.Serialize(writer, "inProduction", options);
+                    return;
+                case OrderState.Ready:
+                    JsonSerializer.Serialize(writer, "ready", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type OrderState");
+        }
+
+        public static readonly OrderStateConverter Singleton = new OrderStateConverter();
+    }
+
+    internal class WorkStateConverter : JsonConverter<WorkState>
+    {
+        public override bool CanConvert(Type t) => t == typeof(WorkState);
+
+        public override WorkState Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "cancelled":
+                    return WorkState.Cancelled;
+                case "completed":
+                    return WorkState.Completed;
+                case "inProgress":
+                    return WorkState.InProgress;
+                case "planned":
+                    return WorkState.Planned;
+            }
+            throw new Exception("Cannot unmarshal type WorkState");
+        }
+
+        public override void Write(Utf8JsonWriter writer, WorkState value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case WorkState.Cancelled:
+                    JsonSerializer.Serialize(writer, "cancelled", options);
+                    return;
+                case WorkState.Completed:
+                    JsonSerializer.Serialize(writer, "completed", options);
+                    return;
+                case WorkState.InProgress:
+                    JsonSerializer.Serialize(writer, "inProgress", options);
+                    return;
+                case WorkState.Planned:
+                    JsonSerializer.Serialize(writer, "planned", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type WorkState");
+        }
+
+        public static readonly WorkStateConverter Singleton = new WorkStateConverter();
     }
 
     internal class MergeStrategyConverter : JsonConverter<MergeStrategy>

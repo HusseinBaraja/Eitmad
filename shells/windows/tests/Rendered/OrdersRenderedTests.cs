@@ -20,7 +20,7 @@ public sealed class OrdersRenderedTests
             var view = WpfTestHost.Descendants<OrdersView>(window).Single();
             Assert.AreEqual(Visibility.Visible, view.Visibility);
             Assert.AreEqual("البحث برقم الطلب أو العميل", AutomationProperties.GetName(WpfTestHost.FindByName<TextBox>(view, "OrderSearchBox")));
-            Assert.AreEqual(2, WpfTestHost.Descendants<ComboBox>(view).Count());
+            Assert.AreEqual(2, WpfTestHost.Descendants<ComboBox>(view).Count(control => control.IsVisible));
             Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(view).Any(text => text.Text == "الطلبات"));
             Assert.IsTrue(view.ViewModel.VisibleOrders.Select(item => item.StatusLabel).Contains("قيد الإنتاج"));
 

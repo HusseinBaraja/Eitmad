@@ -15,6 +15,10 @@ public sealed partial class QuotationsViewModel
     public bool LifecycleAvailable => !lifecycleBusy;
     public bool CanRetryLifecycle => lifecycleRetry is not null && !lifecycleBusy;
     public Task LastLifecycleAction { get; private set; } = Task.CompletedTask;
+    public string AcceptanceNote { get; set; } = "";
+    public AcceptanceMethod AcceptanceMethod { get; set; } = AcceptanceMethod.InPerson;
+    public IReadOnlyList<Features.Orders.AcceptanceChoice> AcceptanceMethods { get; } = [new("حضورياً", AcceptanceMethod.InPerson), new("هاتفياً", AcceptanceMethod.Phone), new("كتابياً", AcceptanceMethod.Written)];
+    public void Accept() => LastLifecycleAction = ActAsync(QuotationPermittedAction.Accept);
     public void Issue() => LastLifecycleAction = ActAsync(QuotationPermittedAction.Issue);
     public void Revise() => LastLifecycleAction = ActAsync(QuotationPermittedAction.Revise);
     public void SetValidity() => LastLifecycleAction = ActAsync(QuotationPermittedAction.ManageValidity);
@@ -29,7 +33,8 @@ public sealed partial class QuotationsViewModel
         if (action == QuotationPermittedAction.Cancel && record?.Number is null && row.Draft is { } draft)
             lifecycleRetry = Command.ForQuotationDraftCancel(new() { DraftId = row.Id, ExpectedRevision = draft.Snapshot.Revision });
         else if (record is not null) {
-            if (action == QuotationPermittedAction.Issue) lifecycleRetry = Command.ForQuotationIssue(new() { DraftId = row.Id, ExpectedRevision = record.Revision, ExpectedDraftRevision = record.Quotation.Revision });
+            if (action == QuotationPermittedAction.Accept) lifecycleRetry = Command.ForQuotationAccept(new() { DraftId = row.Id, ExpectedRevision = record.Revision, Method = AcceptanceMethod, Note = AcceptanceNote });
+            else if (action == QuotationPermittedAction.Issue) lifecycleRetry = Command.ForQuotationIssue(new() { DraftId = row.Id, ExpectedRevision = record.Revision, ExpectedDraftRevision = record.Quotation.Revision });
             else if (action == QuotationPermittedAction.Cancel) lifecycleRetry = Command.ForQuotationCancel(new() { DraftId = row.Id, ExpectedRevision = record.Revision, Reason = CancellationReason });
             else {
                 if (!uint.TryParse(PreviewText.NormalizeNumericInput(ValidityInput), NumberStyles.None, CultureInfo.InvariantCulture, out var days)) { LifecycleNotice = "أدخل مدة الصلاحية بالأيام."; return; }

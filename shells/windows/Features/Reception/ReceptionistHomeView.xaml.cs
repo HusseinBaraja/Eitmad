@@ -155,6 +155,7 @@ public partial class ReceptionistHomeView : UserControl
         ReceptionistSidebar.SelectDestination(destination);
     }
 
+    public void OpenConfirmedOrder(Features.Orders.OrderListItem order) { Navigate("الطلبات"); PreviewOrders.ViewModel.OpenOrder(order); PreviewOrders.BackToOrdersButton.Focus(); }
     private async Task OpenQuotationCustomerAsync(Guid id)
     {
         var quotation = ReceptionQuotations.ViewModel.PreviewQuotations.FirstOrDefault(item => item.Id == id);

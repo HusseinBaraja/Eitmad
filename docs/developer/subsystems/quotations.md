@@ -158,3 +158,7 @@ dotnet run --project platform-adapters/windows/tests/Eitmad.Platform.Windows.Tes
 Standalone fixture tests still cover print preview and conversion presentation. Fixtures cannot request or decide approval. Those tests do not establish production authority.
 
 Return to the [Windows shell subsystem guide](windows-native-shell.md) for shared layout and trust-boundary rules.
+
+## Acceptance and order conversion
+
+Protocol `1.22` adds server-confirmed acceptance of a valid Issued document. Receptionists record the acceptance method and optional note; Rust retains the actor, server time and document revision. Accepted quotations expose conversion to their assigned Receptionist. Successful conversion marks the quotation Converted and opens the confirmed order. The retained accepted commercial snapshot remains available from the order. See [orders](orders.md) for numbering, competing conversion, permissions, fulfillment and durable retry.

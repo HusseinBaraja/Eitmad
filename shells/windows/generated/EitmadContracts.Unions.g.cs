@@ -14,6 +14,62 @@ public partial class Command
     [JsonPropertyName("payload")]
     public object? Payload { get; set; }
 
+    public const string OrderConvertKind = "eitmad.order.convert.v1";
+
+    public static Command ForOrderConvert(ConvertQuotation payload) =>
+        new() { Kind = OrderConvertKind, Payload = payload };
+
+    public ConvertQuotation? AsOrderConvert() =>
+        Kind == OrderConvertKind ? PayloadAs<ConvertQuotation>() : null;
+
+    public const string OrderCancelKind = "eitmad.order.cancel.v1";
+
+    public static Command ForOrderCancel(CancelOrder payload) =>
+        new() { Kind = OrderCancelKind, Payload = payload };
+
+    public CancelOrder? AsOrderCancel() =>
+        Kind == OrderCancelKind ? PayloadAs<CancelOrder>() : null;
+
+    public const string OrderFulfillmentKind = "eitmad.order.fulfillment.v1";
+
+    public static Command ForOrderFulfillment(EditOrderFulfillment payload) =>
+        new() { Kind = OrderFulfillmentKind, Payload = payload };
+
+    public EditOrderFulfillment? AsOrderFulfillment() =>
+        Kind == OrderFulfillmentKind ? PayloadAs<EditOrderFulfillment>() : null;
+
+    public const string OrderDeliverKind = "eitmad.order.deliver.v1";
+
+    public static Command ForOrderDeliver(RecordOrderDelivery payload) =>
+        new() { Kind = OrderDeliverKind, Payload = payload };
+
+    public RecordOrderDelivery? AsOrderDeliver() =>
+        Kind == OrderDeliverKind ? PayloadAs<RecordOrderDelivery>() : null;
+
+    public const string OrderWorkStartKind = "eitmad.order.work-start.v1";
+
+    public static Command ForOrderWorkStart(TransitionOrderWork payload) =>
+        new() { Kind = OrderWorkStartKind, Payload = payload };
+
+    public TransitionOrderWork? AsOrderWorkStart() =>
+        Kind == OrderWorkStartKind ? PayloadAs<TransitionOrderWork>() : null;
+
+    public const string OrderWorkCompleteKind = "eitmad.order.work-complete.v1";
+
+    public static Command ForOrderWorkComplete(TransitionOrderWork payload) =>
+        new() { Kind = OrderWorkCompleteKind, Payload = payload };
+
+    public TransitionOrderWork? AsOrderWorkComplete() =>
+        Kind == OrderWorkCompleteKind ? PayloadAs<TransitionOrderWork>() : null;
+
+    public const string QuotationAcceptKind = "eitmad.quotation.accept.v1";
+
+    public static Command ForQuotationAccept(AcceptQuotation payload) =>
+        new() { Kind = QuotationAcceptKind, Payload = payload };
+
+    public AcceptQuotation? AsQuotationAccept() =>
+        Kind == QuotationAcceptKind ? PayloadAs<AcceptQuotation>() : null;
+
     public const string QuotationIssueKind = "eitmad.quotation.issue.v1";
 
     public static Command ForQuotationIssue(IssueQuotation payload) =>
@@ -255,6 +311,14 @@ public partial class CommandResult
     [JsonPropertyName("payload")]
     public object? Payload { get; set; }
 
+    public const string OrderKind = "order";
+
+    public static CommandResult ForOrder(OrderRecord payload) =>
+        new() { Kind = OrderKind, Payload = payload };
+
+    public OrderRecord? AsOrder() =>
+        Kind == OrderKind ? PayloadAs<OrderRecord>() : null;
+
     public const string QuotationKind = "quotation";
 
     public static CommandResult ForQuotation(QuotationRecord payload) =>
@@ -487,6 +551,14 @@ public partial class Event
 
     public AuthorizationPolicyChangeNotice? AsAuthorizationPolicyChangedEvent() =>
         Kind == AuthorizationPolicyChangedEventKind ? PayloadAs<AuthorizationPolicyChangeNotice>() : null;
+
+    public const string OrderChangedEventKind = "eitmad.order.changed.event.v1";
+
+    public static Event ForOrderChangedEvent(OrderNotice payload) =>
+        new() { Kind = OrderChangedEventKind, Payload = payload };
+
+    public OrderNotice? AsOrderChangedEvent() =>
+        Kind == OrderChangedEventKind ? PayloadAs<OrderNotice>() : null;
 
     public const string QuotationChangedEventKind = "eitmad.quotation.changed.event.v1";
 
@@ -746,6 +818,71 @@ public partial class IpcServerMessage
     };
 }
 
+public partial class OrderAction
+{
+    [JsonPropertyName("kind")]
+    public string Kind { get; set; } = string.Empty;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("payload")]
+    public object? Payload { get; set; }
+
+    public const string ConvertKind = "convert";
+
+    public static OrderAction ForConvert(ConvertQuotation payload) =>
+        new() { Kind = ConvertKind, Payload = payload };
+
+    public ConvertQuotation? AsConvert() =>
+        Kind == ConvertKind ? PayloadAs<ConvertQuotation>() : null;
+
+    public const string CancelKind = "cancel";
+
+    public static OrderAction ForCancel(CancelOrder payload) =>
+        new() { Kind = CancelKind, Payload = payload };
+
+    public CancelOrder? AsCancel() =>
+        Kind == CancelKind ? PayloadAs<CancelOrder>() : null;
+
+    public const string EditFulfillmentKind = "editFulfillment";
+
+    public static OrderAction ForEditFulfillment(EditOrderFulfillment payload) =>
+        new() { Kind = EditFulfillmentKind, Payload = payload };
+
+    public EditOrderFulfillment? AsEditFulfillment() =>
+        Kind == EditFulfillmentKind ? PayloadAs<EditOrderFulfillment>() : null;
+
+    public const string DeliverKind = "deliver";
+
+    public static OrderAction ForDeliver(RecordOrderDelivery payload) =>
+        new() { Kind = DeliverKind, Payload = payload };
+
+    public RecordOrderDelivery? AsDeliver() =>
+        Kind == DeliverKind ? PayloadAs<RecordOrderDelivery>() : null;
+
+    public const string StartWorkKind = "startWork";
+
+    public static OrderAction ForStartWork(TransitionOrderWork payload) =>
+        new() { Kind = StartWorkKind, Payload = payload };
+
+    public TransitionOrderWork? AsStartWork() =>
+        Kind == StartWorkKind ? PayloadAs<TransitionOrderWork>() : null;
+
+    public const string CompleteWorkKind = "completeWork";
+
+    public static OrderAction ForCompleteWork(TransitionOrderWork payload) =>
+        new() { Kind = CompleteWorkKind, Payload = payload };
+
+    public TransitionOrderWork? AsCompleteWork() =>
+        Kind == CompleteWorkKind ? PayloadAs<TransitionOrderWork>() : null;
+
+    internal T? PayloadAs<T>() => Payload switch
+    {
+        T typed => typed,
+        JsonElement element => element.Deserialize<T>(Converter.Settings),
+        _ => default,
+    };
+}
+
 public partial class PriceTarget
 {
     [JsonPropertyName("kind")]
@@ -795,6 +932,22 @@ public partial class Query
 
     public GetQuotationDraft? AsQuotationDraftGet() =>
         Kind == QuotationDraftGetKind ? PayloadAs<GetQuotationDraft>() : null;
+
+    public const string OrderListKind = "eitmad.order.list.v1";
+
+    public static Query ForOrderList(ListOrders payload) =>
+        new() { Kind = OrderListKind, Payload = payload };
+
+    public ListOrders? AsOrderList() =>
+        Kind == OrderListKind ? PayloadAs<ListOrders>() : null;
+
+    public const string OrderGetKind = "eitmad.order.get.v1";
+
+    public static Query ForOrderGet(GetOrder payload) =>
+        new() { Kind = OrderGetKind, Payload = payload };
+
+    public GetOrder? AsOrderGet() =>
+        Kind == OrderGetKind ? PayloadAs<GetOrder>() : null;
 
     public const string QuotationListKind = "eitmad.quotation.list.v1";
 
@@ -1068,6 +1221,14 @@ public partial class QueryResult
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("payload")]
     public object? Payload { get; set; }
+
+    public const string OrdersKind = "orders";
+
+    public static QueryResult ForOrders(OrderPage payload) =>
+        new() { Kind = OrdersKind, Payload = payload };
+
+    public OrderPage? AsOrders() =>
+        Kind == OrdersKind ? PayloadAs<OrderPage>() : null;
 
     public const string QuotationsKind = "quotations";
 
@@ -1382,6 +1543,14 @@ public partial class Subscription
     public AuthorizationPolicyChanges? AsAuthorizationPolicyChangedSubscribe() =>
         Kind == AuthorizationPolicyChangedSubscribeKind ? PayloadAs<AuthorizationPolicyChanges>() : null;
 
+    public const string OrderChangedSubscribeKind = "eitmad.order.changed.subscribe.v1";
+
+    public static Subscription ForOrderChangedSubscribe(OrderChanges payload) =>
+        new() { Kind = OrderChangedSubscribeKind, Payload = payload };
+
+    public OrderChanges? AsOrderChangedSubscribe() =>
+        Kind == OrderChangedSubscribeKind ? PayloadAs<OrderChanges>() : null;
+
     public const string QuotationChangedSubscribeKind = "eitmad.quotation.changed.subscribe.v1";
 
     public static Subscription ForQuotationChangedSubscribe(QuotationChanges payload) =>
@@ -1491,6 +1660,10 @@ public partial class ListMaterialReferences
 }
 
 public partial class MaterialChanges
+{
+}
+
+public partial class OrderChanges
 {
 }
 

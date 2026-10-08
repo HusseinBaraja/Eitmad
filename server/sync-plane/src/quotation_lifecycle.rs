@@ -231,6 +231,21 @@ impl QuotationLifecycleServer {
                     value.approval_fingerprint = Some(a.fingerprint);
                 }
             }
+            QuotationAction::Accept(c) => {
+                if value.state != S::Issued || value.valid_until.is_none_or(|v| now.0 > v.0) {
+                    return Err(E::Conflict);
+                }
+                eitmad_orders::validate_text(c.note.as_deref().unwrap_or(""), false)
+                    .map_err(|_| E::Invalid)?;
+                value.acceptance = Some(eitmad_contracts::order::QuotationAcceptance {
+                    document_revision: value.document_revision,
+                    method: c.method,
+                    note: c.note.clone(),
+                    actor: PrincipalId::new(actor.user_id.value()),
+                    accepted_at: now,
+                });
+                value.state = S::Accepted;
+            }
             QuotationAction::SetValidity(c) => {
                 if !matches!(value.state, S::Draft | S::PendingApproval) {
                     return Err(E::Conflict);
@@ -263,7 +278,7 @@ impl QuotationLifecycleServer {
                 revise_draft(tx, actor, value, now).await?;
             }
             QuotationAction::Cancel(c) => {
-                if value.state != S::Issued {
+                if !matches!(value.state, S::Issued | S::Accepted) {
                     return Err(E::Conflict);
                 }
                 let reason = c.reason.trim();
@@ -438,7 +453,10 @@ async fn authorize_action(
     input: &ConfirmQuotation,
     value: &QuotationRecord,
 ) -> Result<(), E> {
-    let issuing = matches!(input.action, QuotationAction::Issue(_));
+    let issuing = matches!(
+        input.action,
+        QuotationAction::Issue(_) | QuotationAction::Accept(_)
+    );
     let org = approvals::authorize(tx, actor, &input.scope, issuing, !issuing)
         .await
         .map_err(map_approval)?;
@@ -577,6 +595,7 @@ pub(super) async fn draft_changed(
             changed_at: now,
             changed_by: PrincipalId::new(actor.user_id.value()),
             cancellation_reason: None,
+            acceptance: None,
             permitted_actions: vec![],
         }
     };
@@ -672,7 +691,7 @@ async fn expire(
     )
     .await
 }
-async fn persist(
+pub(super) async fn persist(
     tx: &mut Transaction<'_, Postgres>,
     actor: &AuthenticatedServerSession,
     value: &QuotationRecord,
@@ -739,6 +758,7 @@ async fn evidence(
     result: Result<(), E>,
 ) -> Result<(), E> {
     let operation = match input.action {
+        QuotationAction::Accept(_) => "eitmad.quotation.accept.v1",
         QuotationAction::Issue(_) => "eitmad.quotation.issue.v1",
         QuotationAction::SetValidity(_) => "eitmad.quotation.validity.v1",
         QuotationAction::Revise(_) => "eitmad.quotation.revise.v1",

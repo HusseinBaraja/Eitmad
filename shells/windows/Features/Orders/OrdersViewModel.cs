@@ -3,11 +3,11 @@ using System.Globalization;
 
 namespace Eitmad.WindowsShell.Features.Orders;
 
-/// <summary>Owns synthetic manager-order list, filters, and read-only detail state.</summary>
-public sealed class OrdersViewModel : ObservableObject
+/// <summary>Presents Rust-confirmed orders, list filters, and preview fixtures.</summary>
+public sealed partial class OrdersViewModel : ObservableObject
 {
     public const string AllStatuses = "كل الحالات";
-    public const string NewStatus = "جديد";
+    public const string NewStatus = "مؤكد";
     public const string InProductionStatus = "قيد الإنتاج";
     public const string ReadyStatus = "جاهز";
     public const string DeliveredStatus = "تم التسليم";
@@ -138,9 +138,9 @@ public sealed class OrdersViewModel : ObservableObject
 
     public bool IsReceptionist { get; }
     public bool IsManager => !IsReceptionist;
-    public string ListSubtitle => IsReceptionist ? "بيانات تجريبية للمعاينة فقط" : "راجع طلبات العملاء وتقدمها من مكان واحد";
+    public string ListSubtitle => IsLive ? ListState : IsReceptionist ? "بيانات تجريبية للمعاينة فقط" : "راجع طلبات العملاء وتقدمها من مكان واحد";
     public string SearchName => IsReceptionist ? "البحث برقم الطلب أو العميل أو رقم الهاتف" : "البحث برقم الطلب أو العميل";
-    public string DetailSubtitle => IsReceptionist ? "بيانات تجريبية للمعاينة فقط" : "مراجعة بيانات الطلب وبنود الأثاث";
+    public string DetailSubtitle => IsLive ? "بيانات الطلب المؤكدة من الخادم" : IsReceptionist ? "بيانات تجريبية للمعاينة فقط" : "مراجعة بيانات الطلب وبنود الأثاث";
 
     public IReadOnlyList<string> StatusOptions { get; }
 
@@ -191,6 +191,7 @@ public sealed class OrdersViewModel : ObservableObject
         {
             if (Set(ref selectedOrder, value))
             {
+                FulfillmentNote = value?.Record?.FulfillmentNote ?? "";
                 Raise(nameof(ProductionAction)); Raise(nameof(ProductionSummary)); Raise(nameof(ProductionNumber));
                 Raise(nameof(IsListVisible));
                 Raise(nameof(IsDetailVisible));

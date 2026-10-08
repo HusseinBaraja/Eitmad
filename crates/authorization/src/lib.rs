@@ -77,7 +77,28 @@ const REVOKE_RELATIONSHIP_OPERATION: &str = "eitmad.authorization.relationship.r
 const ORGANIZATION_SCOPE: &str = "organization";
 const BRANCH_SCOPE: &str = "branch";
 
+pub const QUOTATION_ACCEPT_PERMISSION: &str = "eitmad.permission.quotation.accept.v1";
+
+pub const QUOTATION_CONVERT_PERMISSION: &str = "eitmad.permission.quotation.convert.v1";
+
+pub const ORDER_READ_PERMISSION: &str = "eitmad.permission.order.read.v1";
+
+pub const ORDER_CANCEL_PERMISSION: &str = "eitmad.permission.order.cancel.v1";
+
+pub const ORDER_FULFILLMENT_PERMISSION: &str = "eitmad.permission.order.fulfillment.write.v1";
+
+pub const DELIVERY_RECORD_PERMISSION: &str = "eitmad.permission.delivery.record.v1";
+
+pub const WORK_TRANSITION_PERMISSION: &str = "eitmad.permission.work-order.transition.v1";
+
 const POLICY_PERMISSIONS: &[&str] = &[
+    WORK_TRANSITION_PERMISSION,
+    DELIVERY_RECORD_PERMISSION,
+    ORDER_FULFILLMENT_PERMISSION,
+    ORDER_CANCEL_PERMISSION,
+    ORDER_READ_PERMISSION,
+    QUOTATION_CONVERT_PERMISSION,
+    QUOTATION_ACCEPT_PERMISSION,
     QUOTATION_READ_PERMISSION,
     QUOTATION_ISSUE_PERMISSION,
     QUOTATION_VALIDITY_PERMISSION,
@@ -246,13 +267,21 @@ impl AuthorizationService {
                     }
                     DISCOUNT_REQUEST_PERMISSION
                     | QUOTATION_DRAFT_WRITE_PERMISSION
+                    | QUOTATION_ACCEPT_PERMISSION
+                    | QUOTATION_CONVERT_PERMISSION
+                    | DELIVERY_RECORD_PERMISSION
                     | QUOTATION_ISSUE_PERMISSION => receptionist && branch_scope,
                     DISCOUNT_DECIDE_PERMISSION
                     | QUOTATION_VALIDITY_PERMISSION
+                    | ORDER_CANCEL_PERMISSION
+                    | ORDER_FULFILLMENT_PERMISSION
+                    | WORK_TRANSITION_PERMISSION
                     | QUOTATION_CANCEL_PERMISSION => {
                         manager && (branch_scope || organization_scope)
                     }
-                    DISCOUNT_READ_PERMISSION | QUOTATION_READ_PERMISSION => {
+                    ORDER_READ_PERMISSION
+                    | DISCOUNT_READ_PERMISSION
+                    | QUOTATION_READ_PERMISSION => {
                         (manager && (branch_scope || organization_scope))
                             || (receptionist && branch_scope)
                     }

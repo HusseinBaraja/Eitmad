@@ -1,6 +1,8 @@
 //! Real draft server delivery, lost acknowledgement, isolation, and competing offline edits.
 #[path = "quotation_lifecycle.rs"]
 mod lifecycle;
+#[path = "orders.rs"]
+mod orders;
 use super::*;
 use eitmad_contracts::{
     quotation::{EvaluateQuotation, QuotationCustomerIntent, QuotationLineIntent},
@@ -745,6 +747,7 @@ async fn lifecycle_clients(
         reception: reception_connection,
         manager: manager_connection,
         manager_actor,
+        manager_auth,
         pure_reception,
         pure_actor,
         pricing: scenario.pricing.clone(),
@@ -753,6 +756,7 @@ async fn lifecycle_clients(
 }
 
 struct ApprovalClients {
+    manager_auth: AuthenticationResult,
     pricing: PricingService,
     pricing_actor: AuthorizationContext,
     reception: Arc<eitmad_server_connection::DirectDiscountApprovalClient>,

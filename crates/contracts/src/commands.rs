@@ -65,6 +65,13 @@ pub struct UpdateCustomer {
 tagged_contract! {
     /// Authoritative state-changing requests.
     pub enum Command {
+        ConvertQuotation(crate::order::ConvertQuotation) => "eitmad.order.convert.v1",
+        CancelOrder(crate::order::CancelOrder) => "eitmad.order.cancel.v1",
+        EditOrderFulfillment(crate::order::EditOrderFulfillment) => "eitmad.order.fulfillment.v1",
+        RecordOrderDelivery(crate::order::RecordOrderDelivery) => "eitmad.order.deliver.v1",
+        StartOrderWork(crate::order::TransitionOrderWork) => "eitmad.order.work-start.v1",
+        CompleteOrderWork(crate::order::TransitionOrderWork) => "eitmad.order.work-complete.v1",
+        AcceptQuotation(crate::order::AcceptQuotation) => "eitmad.quotation.accept.v1",
         IssueQuotation(crate::quotation_lifecycle::IssueQuotation) => "eitmad.quotation.issue.v1",
         SetQuotationValidity(crate::quotation_lifecycle::SetQuotationValidity) => "eitmad.quotation.validity.v1",
         ReviseQuotation(crate::quotation_lifecycle::SetQuotationValidity) => "eitmad.quotation.revise.v1",
@@ -99,6 +106,7 @@ tagged_contract! {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", content = "payload", rename_all = "camelCase")]
 pub enum CommandResult {
+    Order(Box<crate::order::OrderRecord>),
     Quotation(Box<crate::quotation_lifecycle::QuotationRecord>),
     DiscountApproval(Box<crate::quotation_approval::DiscountApproval>),
     PricePublished(crate::pricing::PublishedPrice),

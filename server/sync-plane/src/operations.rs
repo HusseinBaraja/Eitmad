@@ -203,6 +203,10 @@ const fn validation_audit(error: DomainValidationError) -> (ServerAuditOutcome, 
 
 impl SyncCoordinator {
     #[must_use]
+    pub fn orders(&self) -> crate::OrderServer {
+        crate::OrderServer::new(self.pool.clone())
+    }
+    #[must_use]
     pub fn quotations(&self) -> crate::QuotationLifecycleServer {
         crate::QuotationLifecycleServer::new(self.pool.clone())
     }

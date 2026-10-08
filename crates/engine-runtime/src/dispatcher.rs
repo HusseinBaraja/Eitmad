@@ -3,6 +3,8 @@
 use std::sync::Arc;
 #[path = "discount_approval.rs"]
 mod discount_approval;
+#[path = "orders.rs"]
+mod orders;
 #[path = "quotation_lifecycle.rs"]
 mod quotation_lifecycle;
 
@@ -44,6 +46,8 @@ pub struct ProductDispatcher {
     configuration: ConfigurationService,
     customers: CustomerService,
     drafts: eitmad_pricing::QuotationDraftService,
+    order_server: Option<Arc<dyn eitmad_orders::OrderServer>>,
+    order_watch: Arc<std::sync::Mutex<Option<orders::OrderWatch>>>,
     quotation_server: Option<Arc<dyn eitmad_pricing::QuotationServer>>,
     quotation_watch: Arc<std::sync::Mutex<Option<quotation_lifecycle::QuotationWatch>>>,
     approval_server: Option<Arc<dyn eitmad_pricing::DiscountApprovalServer>>,
@@ -116,6 +120,8 @@ impl ProductDispatcher {
             configuration,
             customers,
             drafts,
+            order_server: None,
+            order_watch: Arc::new(std::sync::Mutex::new(None)),
             quotation_server: None,
             quotation_watch: Arc::new(std::sync::Mutex::new(None)),
             approval_server: None,
@@ -828,6 +834,31 @@ impl ProductDispatcher {
     }
 }
 
+impl ProductDispatcher {
+    async fn import_catalog_image(
+        &self,
+        context: &DispatchContext,
+        mutation: &MutationContext,
+        input: eitmad_contracts::catalog_image::ImportCatalogImage,
+    ) -> Result<CommandResult, ContractError> {
+        let permit = Arc::clone(&self.image_workers)
+            .try_acquire_owned()
+            .map_err(|_| image_error(eitmad_catalog_image::ImageError::Unavailable, context))?;
+        let images = self.images.clone();
+        let mutation = mutation.clone();
+        let deadline = context.deadline;
+        tokio::task::spawn_blocking(move || {
+            // The permit survives IPC timeout until the actual worker exits.
+            let _permit = permit;
+            images.import(&mutation, &input, deadline)
+        })
+        .await
+        .map_err(|_| image_error(eitmad_catalog_image::ImageError::Unavailable, context))?
+        .map(CommandResult::CatalogImageImported)
+        .map_err(|e| image_error(e, context))
+    }
+}
+
 #[async_trait]
 impl CommandDispatcher for ProductDispatcher {
     /// Checks protocol support and routes typed commands through their Rust authority.
@@ -839,23 +870,7 @@ impl CommandDispatcher for ProductDispatcher {
         let mutation = Self::mutation_context(&context).map_err(|error| *error)?;
         match command {
             Command::ImportCatalogImage(input) => {
-                let permit = Arc::clone(&self.image_workers)
-                    .try_acquire_owned()
-                    .map_err(|_| {
-                        image_error(eitmad_catalog_image::ImageError::Unavailable, &context)
-                    })?;
-                let images = self.images.clone();
-                let mutation = mutation.clone();
-                let deadline = context.deadline;
-                tokio::task::spawn_blocking(move || {
-                    // The permit survives IPC timeout until the actual worker exits.
-                    let _permit = permit;
-                    images.import(&mutation, &input, deadline)
-                })
-                .await
-                .map_err(|_| image_error(eitmad_catalog_image::ImageError::Unavailable, &context))?
-                .map(CommandResult::CatalogImageImported)
-                .map_err(|e| image_error(e, &context))
+                self.import_catalog_image(&context, &mutation, input).await
             }
             Command::UpdateConfiguration(command) => {
                 let outcome = self
@@ -888,7 +903,16 @@ impl CommandDispatcher for ProductDispatcher {
             @ (Command::RequestDiscountApproval(_) | Command::DecideDiscountApproval(_)) => {
                 self.approval_command(&context, &mutation, command).await
             }
-            command @ (Command::IssueQuotation(_)
+            command @ (Command::ConvertQuotation(_)
+            | Command::CancelOrder(_)
+            | Command::EditOrderFulfillment(_)
+            | Command::RecordOrderDelivery(_)
+            | Command::StartOrderWork(_)
+            | Command::CompleteOrderWork(_)) => {
+                self.order_command(&context, &mutation, command).await
+            }
+            command @ (Command::AcceptQuotation(_)
+            | Command::IssueQuotation(_)
             | Command::SetQuotationValidity(_)
             | Command::ReviseQuotation(_)
             | Command::CancelQuotation(_)) => {
@@ -980,6 +1004,7 @@ impl QueryDispatcher for ProductDispatcher {
                 .list_relationships(&context.authorization, &query)
                 .map(QueryResult::ScopeRelationships)
                 .map_err(|error| authorization_error(error, &context)),
+            query @ (Query::Orders(_) | Query::Order(_)) => self.order_query(&context, query).await,
             Query::Quotations(query) => self.quotation_list(&context, query).await,
             Query::DiscountApprovals(query) => self.approval_list(&context, query).await,
             query @ (Query::QuotationDraft(_) | Query::QuotationDrafts(_)) => {
@@ -1052,6 +1077,7 @@ impl QueryDispatcher for ProductDispatcher {
             Subscription::Configuration(_) => CONFIG_READ_PERMISSION,
             Subscription::Permissions(_) => PERMISSIONS_READ_PERMISSION,
             Subscription::Customers(_) => CUSTOMER_READ_PERMISSION,
+            Subscription::Orders(_) => eitmad_authorization::ORDER_READ_PERMISSION,
             Subscription::Quotations(_) => eitmad_authorization::QUOTATION_READ_PERMISSION,
             Subscription::DiscountApprovals(_) => eitmad_authorization::DISCOUNT_READ_PERMISSION,
             Subscription::QuotationDrafts(_) => {
@@ -1067,6 +1093,18 @@ impl QueryDispatcher for ProductDispatcher {
         self.authorization
             .authorize(&context.authorization, permission)
             .map_err(|error| authorization_contract_error(error, context.correlation_id, None))?;
+        if matches!(subscription, Subscription::Orders(_)) {
+            self.start_order_watch(&context.authorization)
+                .map_err(|e| {
+                    contract_error(
+                        eitmad_orders::error_code(e),
+                        "eitmad.message.order-unavailable.v1",
+                        context.correlation_id,
+                        RetryDisposition::SafeAfterDelay(1000),
+                        None,
+                    )
+                })?;
+        }
         if matches!(subscription, Subscription::Quotations(_)) {
             self.start_quotation_watch(&context.authorization)
                 .map_err(|e| {
@@ -1651,6 +1689,7 @@ fn image_error(
 
 #[cfg(test)]
 mod tests {
+    mod orders;
     use std::sync::atomic::{AtomicBool, Ordering};
 
     use eitmad_contracts::{

@@ -3,7 +3,7 @@ use super::*;
 use eitmad_contracts::quotation_lifecycle::*;
 use eitmad_pricing::{DiscountApprovalServer, QuotationError as E, QuotationServer};
 
-fn current(
+pub(super) fn current(
     client: &dyn QuotationServer,
     actor: &AuthorizationContext,
     id: QuotationDraftId,
@@ -23,7 +23,7 @@ fn current(
         .find(|q| q.quotation.id == id)
         .unwrap()
 }
-fn issue_request(record: &QuotationRecord, scope: &ScopeRef) -> ConfirmQuotation {
+pub(super) fn issue_request(record: &QuotationRecord, scope: &ScopeRef) -> ConfirmQuotation {
     ConfirmQuotation {
         scope: scope.clone(),
         idempotency_key: IdempotencyKey::new(Uuid::new_v4()),
@@ -451,7 +451,7 @@ fn verify_expiry_and_history(
     );
 }
 
-fn assert_frozen(
+pub(super) fn assert_frozen(
     actual: &eitmad_contracts::quotation_draft::QuotationDraftSnapshot,
     expected: &eitmad_contracts::quotation_draft::QuotationDraftSnapshot,
 ) {

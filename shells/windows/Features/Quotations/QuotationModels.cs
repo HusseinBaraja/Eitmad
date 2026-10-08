@@ -58,7 +58,8 @@ public sealed class QuotationListItem : ObservableObject
     public bool ShowCancellationReason => CanCancel && Lifecycle?.Number is not null;
     public bool CanPrintPreview => IsPreview && CanPrint;
     public bool CanPrintConfirmed => Lifecycle is not null && CanPrint;
-    public bool CanConvert => Draft is null && Lifecycle is null && CanPrint;
+    public bool CanAccept => Permits(Eitmad.Contracts.QuotationPermittedAction.Accept);
+    public bool CanConvert => Permits(Eitmad.Contracts.QuotationPermittedAction.Convert) || Draft is null && Lifecycle is null && CanPrint;
     public string ValidityLabel => Lifecycle is { } q ? $"الإصدار {q.DocumentRevision} · الصلاحية {q.ValidityDays} يوماً" + (q.ValidUntil is { } until ? " · ينتهي " + DateTimeOffset.FromUnixTimeMilliseconds(until).ToOffset(TimeSpan.FromHours(3)).ToString("yyyy/MM/dd", CultureInfo.InvariantCulture) : "") : "";
     public Eitmad.Contracts.QuotationDraft? Draft { get; init; }
     public Eitmad.Contracts.DiscountApproval? Approval { get; init; }
@@ -149,7 +150,7 @@ public sealed class QuotationListItem : ObservableObject
 
     public string FinalTotalLabel => FormatMoney(FinalTotal);
 
-    public string StatusLabel => Lifecycle is not null ? Lifecycle.State switch { Eitmad.Contracts.QuotationState.Issued => "صادر", Eitmad.Contracts.QuotationState.Expired => "منتهي", Eitmad.Contracts.QuotationState.Cancelled => "ملغي", Eitmad.Contracts.QuotationState.PendingApproval => "بانتظار الموافقة", _ => "مسودة" } : Approval is not null ? QuotationDraftClient.ApprovalLabel(Approval) : HasApprovalDecision ? (ApprovalDecision == DiscountApprovalDecision.Approved ? "الخصم مقبول" : "الخصم مرفوض") : HasPendingDiscountApproval ? "بانتظار الموافقة" : Status switch
+    public string StatusLabel => Lifecycle is not null ? Lifecycle.State switch { Eitmad.Contracts.QuotationState.Accepted => "مقبول", Eitmad.Contracts.QuotationState.Converted => "محوّل", Eitmad.Contracts.QuotationState.Issued => "صادر", Eitmad.Contracts.QuotationState.Expired => "منتهي", Eitmad.Contracts.QuotationState.Cancelled => "ملغي", Eitmad.Contracts.QuotationState.PendingApproval => "بانتظار الموافقة", _ => "مسودة" } : Approval is not null ? QuotationDraftClient.ApprovalLabel(Approval) : HasApprovalDecision ? (ApprovalDecision == DiscountApprovalDecision.Approved ? "الخصم مقبول" : "الخصم مرفوض") : HasPendingDiscountApproval ? "بانتظار الموافقة" : Status switch
     {
         QuotationStatus.Draft => "مسودة",
         QuotationStatus.Active => "نشط",

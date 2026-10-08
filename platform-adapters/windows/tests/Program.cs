@@ -385,6 +385,7 @@ internal sealed class SupervisionScenarios
                 "unwired update capability is not negotiated");
             Assert.True(desktopSession.CustomerAuthorization?.Scope.Kind == "branch",
                 "engine-issued customer branch scope");
+            await VerifyOrderBoundary(supervisor);
             await using var customerSubscription = await supervisor.SubscribeAsync(
                 Subscription.ForCustomerChangedSubscribe(new CustomerChanges()));
             var createdResponse = await supervisor.SubmitCommandAsync(
@@ -450,6 +451,7 @@ internal sealed class SupervisionScenarios
             await supervisor.StartAsync(request);
             await Eventually(() => supervisor.IpcConnected, TimeSpan.FromSeconds(10));
             await supervisor.SignInAsync("admin", "admin");
+            await VerifyOrderBoundary(supervisor);
             var reopenedProducts = await supervisor.QueryAsync(Query.ForProductList(new ListProducts { Term = "مرتبة", Limit = 100 }));
             var reopenedProduct = reopenedProducts.Outcome.Payload.AsProducts()!.Items.Single();
             Assert.Equal(persistedProduct.Id, reopenedProduct.Id, "product identity survives engine restart");
@@ -529,6 +531,7 @@ internal sealed class SupervisionScenarios
         Assert.Equal(DesktopAccountRole.Receptionist, reception.AccountRole, "Rust receptionist role");
         Assert.Equal("branch", reception.CustomerAuthorization?.Scope.Kind, "Rust receptionist branch");
         await VerifyQuotationLifecycleBoundary(supervisor, manager: false);
+        await VerifyOrderBoundary(supervisor, manager: false);
         var approvalDenied = await supervisor.SubmitCommandAsync(Command.ForQuotationApprovalDecide(new() {
             DraftId = Guid.NewGuid(), RequestId = Guid.NewGuid(), QuotationRevision = 1, ExpectedRevision = 1,
             Fingerprint = "synthetic-forged", Decision = DiscountDecision.Approve,
@@ -542,6 +545,21 @@ internal sealed class SupervisionScenarios
         Assert.Equal(ProtocolIds.ErrorCodes.EitmadErrorQuotationDraftInvalidV1, failed.Outcome.Payload.Code, "Receptionist reaches draft field validation in branch");
         Assert.Equal(DetailKind.QuotationDraftValidation, failed.Outcome.Payload.Detail.Kind, "typed draft errors reach native client");
         Assert.True(failed.Outcome.Payload.Detail.Payload.Errors.Any(error => error.Field == QuotationField.Lines), "empty lines rejected by Rust");
+    }
+
+    private static async Task VerifyOrderBoundary(EngineSupervisor supervisor, bool manager = true)
+    {
+        Assert.True(supervisor.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityOrdersV1), "order capability negotiated");
+        var response = await supervisor.QueryAsync(Query.ForOrderList(new() { Limit = 100 }));
+        Assert.Equal(CommandOutcomeStatus.Succeeded, response.Outcome.Status, "authorized order cache read through IPC");
+        var page = response.Outcome.Payload.AsOrders()!;
+        Assert.False(page.ServerAvailable, "unconfigured order server is unavailable");
+        Assert.Equal(0, page.Items.Length, "offline engine does not invent confirmed orders");
+        var command = manager
+            ? Command.ForOrderConvert(new() { DraftId = Guid.NewGuid(), ExpectedRevision = 1 })
+            : Command.ForOrderCancel(new() { OrderId = Guid.NewGuid(), ExpectedRevision = 1, Reason = "إلغاء تجريبي" });
+        var denied = await supervisor.SubmitCommandAsync(command, Guid.NewGuid());
+        Assert.Equal(ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1, denied.Outcome.Payload.Code, "order role denial through direct IPC");
     }
 
     private static async Task VerifyQuotationLifecycleBoundary(EngineSupervisor supervisor, bool manager)

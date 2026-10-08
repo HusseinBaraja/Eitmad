@@ -12,6 +12,7 @@ members = [
     "crates/part",
     "crates/product",
     "crates/pricing",
+    "crates/orders",
     "crates/furniture",
     "crates/observability-audit",
     "crates/secret-storage",
