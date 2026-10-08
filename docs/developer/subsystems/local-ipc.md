@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust engine and Windows platform maintainers"
-last_verified: "2026-10-02"
+last_verified: "2026-10-08"
 review_triggers:
   - "local IPC framing, authentication, dispatch, timeout, payload, or shutdown behavior changes"
 keywords:
@@ -54,7 +54,7 @@ sequenceDiagram
     IPC-->>Shell: ordered EventEnvelope
 ```
 
-The handshake is mandatory. The engine and Windows shell negotiate protocol `1.13` only. The process handshake proves possession of the supervised launch token and returns a Rust-owned device principal without user permissions. Desktop-account management requires `eitmad.capability.desktop-account-management.v1`; customer operations require `eitmad.capability.customer.v1`. Rust verifies a provisioned account password before returning a distinct user context and session expiry. Commands, queries, and subscriptions require that exact connection-bound user context and a live durable session. Sign-out, expiry, account deactivation, or a role-changing session revocation blocks later dispatch. The shell keeps the user context in memory and never stores credentials or tokens.
+The handshake is mandatory. The engine and Windows shell negotiate only the current protocol declared by Rust’s `PROTOCOL_VERSION`. The process handshake proves possession of the supervised launch token and returns a Rust-owned device principal without user permissions. Desktop-account management requires `eitmad.capability.desktop-account-management.v1`; customer operations require `eitmad.capability.customer.v1`. Rust verifies a provisioned account password before returning a distinct user context and session expiry. Commands, queries, and subscriptions require that exact connection-bound user context and a live durable session. Sign-out, expiry, account deactivation, or a role-changing session revocation blocks later dispatch. The shell keeps the user context in memory and never stores credentials or tokens.
 
 A desktop session transition is also a client isolation boundary. Before sign-in or sign-out, the Windows adapter fails pending account requests, completes and removes active subscription queues, removes early-event buffers, and clears supervisor subscription registrations. The shell then clears account-specific snapshots before another surface becomes visible. A late response from the prior authorization is ignored because its pending request registration no longer exists. The next account creates fresh queries and subscriptions with its own Rust-returned authorization context.
 
@@ -72,7 +72,7 @@ Subscription authorization remains deny-by-default and is rechecked before deliv
 
 An accepted subscription receives an opaque stream cursor and a new subscription ID. Events are ordered by engine publish order within that subscription; `sequence` starts at `1` and is contiguous for delivered events. Replay is delivered before live events without a gap. No order is promised across subscriptions or between a command response and an event caused by that command.
 
-Replay is in-memory and valid only for the current engine generation. The broker retains at most 1,024 entries and 16 MiB globally. Delivery is at least once from the last cursor acknowledged after shell processing, so consumers must apply state by revision or otherwise tolerate duplicates. If a coalescible cursor is evicted during live lag, the existing feed resumes with the newest retained value and does not require a fresh query. An unreplayable discrete gap closes with `backpressure`; recovery must subscribe first, buffer the new live feed, query the authoritative current state, and then apply only events buffered after that fresh subscription. Engine restart or a mismatched resume cursor follows the same subscribe-first query sequence because in-memory replay cannot prove continuity.
+Replay is in-memory and valid only for the current engine generation. The broker retains at most 1,024 entries and 16 MiB globally. Replay and live queues share immutable event payloads; each feed copies a payload only after its scope and stream match. Delivery is at least once from the last cursor acknowledged after shell processing, so consumers must apply state by revision or otherwise tolerate duplicates. If a coalescible cursor is evicted during live lag, the existing feed resumes with the newest retained value and does not require a fresh query. An unreplayable discrete gap closes with `backpressure`; recovery must subscribe first, buffer the new live feed, query the authoritative current state, and then apply only events buffered after that fresh subscription. Engine restart or a mismatched resume cursor follows the same subscribe-first query sequence because in-memory replay cannot prove continuity.
 
 ## Backpressure and drop policy
 

@@ -949,7 +949,6 @@ dependencies = [
  "eitmad-pricing",
  "eitmad-product",
  "eitmad-storage",
- "eitmad-sync",
  "fs2",
  "rusqlite",
  "semver",

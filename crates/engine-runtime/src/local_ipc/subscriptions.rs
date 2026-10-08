@@ -26,6 +26,8 @@ pub struct PublishedEvent {
     pub event: Event,
 }
 
+type EventReplay = VecDeque<Arc<PublishedEvent>>;
+
 #[derive(Clone)]
 pub struct EventBroker {
     inner: Arc<BrokerInner>,
@@ -33,7 +35,7 @@ pub struct EventBroker {
 
 struct BrokerInner {
     state: Mutex<BrokerState>,
-    live: broadcast::Sender<PublishedEvent>,
+    live: broadcast::Sender<Arc<PublishedEvent>>,
     policy_changes: broadcast::Sender<ScopeRef>,
 }
 
@@ -49,7 +51,7 @@ struct ReplayEntry {
     scope: ScopeRef,
     stream_kind: &'static str,
     encoded_bytes: usize,
-    event: Option<PublishedEvent>,
+    event: Option<Arc<PublishedEvent>>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -72,8 +74,8 @@ pub struct SubscriptionFeed {
     broker: EventBroker,
     scope: ScopeRef,
     subscription: Subscription,
-    replay: VecDeque<PublishedEvent>,
-    live: broadcast::Receiver<PublishedEvent>,
+    replay: EventReplay,
+    live: broadcast::Receiver<Arc<PublishedEvent>>,
     last_cursor: EventCursor,
 }
 
@@ -119,16 +121,20 @@ impl EventBroker {
     /// # Panics
     ///
     /// Panics when another broker operation poisoned the internal lock.
-    pub fn publish(&self, scope: ScopeRef, event: Event) -> Result<PublishedEvent, PublishError> {
+    pub fn publish(
+        &self,
+        scope: ScopeRef,
+        event: Event,
+    ) -> Result<Arc<PublishedEvent>, PublishError> {
         if event_scope(&event).is_some_and(|event_scope| event_scope != &scope) {
             return Err(PublishError::ScopeMismatch);
         }
-        let published = PublishedEvent {
+        let published = Arc::new(PublishedEvent {
             cursor: EventCursor::new(Uuid::new_v4()),
             scope: scope.clone(),
             occurred_at: now(),
             event,
-        };
+        });
         let encoded_bytes = serde_json::to_vec(&published.event).map_or(0, |encoded| encoded.len());
         let mut state = self.inner.state.lock().expect("event broker lock");
         state.push(ReplayEntry {
@@ -136,9 +142,9 @@ impl EventBroker {
             scope,
             stream_kind: published.event.subscription_kind(),
             encoded_bytes,
-            event: Some(published.clone()),
+            event: Some(Arc::clone(&published)),
         });
-        let _ = self.inner.live.send(published.clone());
+        let _ = self.inner.live.send(Arc::clone(&published));
         Ok(published)
     }
 
@@ -215,13 +221,7 @@ impl EventBroker {
         scope: &ScopeRef,
         subscription: &Subscription,
         after: EventCursor,
-    ) -> Result<
-        (
-            VecDeque<PublishedEvent>,
-            broadcast::Receiver<PublishedEvent>,
-        ),
-        FeedError,
-    > {
+    ) -> Result<(EventReplay, broadcast::Receiver<Arc<PublishedEvent>>), FeedError> {
         let state = self.inner.state.lock().expect("event broker lock");
         let live = self.inner.live.subscribe();
         let stream_kind = subscription.kind();
@@ -277,7 +277,7 @@ impl SubscriptionFeed {
         loop {
             if let Some(event) = self.replay.pop_front() {
                 self.last_cursor = event.cursor;
-                return Ok(event);
+                return Ok(event.as_ref().clone());
             }
             match self.live.recv().await {
                 Ok(event)
@@ -285,7 +285,7 @@ impl SubscriptionFeed {
                         && event.event.subscription_kind() == self.subscription.kind() =>
                 {
                     self.last_cursor = event.cursor;
-                    return Ok(event);
+                    return Ok(event.as_ref().clone());
                 }
                 Ok(_) => {}
                 Err(broadcast::error::RecvError::Lagged(_)) => {
