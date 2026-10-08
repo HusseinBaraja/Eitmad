@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using Eitmad.Contracts;
 using Eitmad.WindowsShell.Controls;
 using Eitmad.WindowsShell.Features.Customers;
@@ -36,9 +37,20 @@ public sealed class CustomersRenderedTests
     [TestMethod]
     public void ReceptionRecordsOpenRustCustomerAndRestoreFocus()
     {
-        var order = new OrdersViewModel(true).VisibleOrders.First();
-        var engine = new FakeEngine();
-        engine.Customers.Add(ContractCustomer(order.Customer, order.Phone, scope: engine.CustomerBranch));
+        var record = new Orders.OrderAuthorityTests.Fixture().Order;
+        var engine = new FakeEngine { SupportedCapabilities = new HashSet<string> {
+            ProtocolIds.Capabilities.EitmadCapabilityCustomerV1, ProtocolIds.Capabilities.EitmadCapabilityOrdersV1,
+        } };
+        var source = record.Source.Quotation.Evaluation.Customer;
+        var customerRecord = ContractCustomer(source.Name, source.Phone, scope: engine.CustomerBranch);
+        customerRecord.Id = source.Id; engine.Customers.Add(customerRecord);
+        record.Scope = engine.CustomerBranch;
+        engine.QueryHandler = query => new() { Outcome = new() { Status = CommandOutcomeStatus.Succeeded, Payload = query.Kind switch {
+            Query.OrderListKind => QueryResult.ForOrders(new() { Items = [record], Pending = [], ServerAvailable = true }),
+            Query.CustomerGetKind => QueryResult.ForCustomer(engine.Customers.Single(c => c.Id == query.AsCustomerGet()!.CustomerId)),
+            Query.CustomerSearchKind => QueryResult.ForCustomers(new() { Items = engine.Customers.ToArray() }),
+            _ => throw new InvalidOperationException("Unexpected customer navigation query."),
+        } } };
         WpfTestHost.Run(1338, 900, window =>
         {
             var reception = WpfTestHost.FindByName<ReceptionistHomeView>(window, "ReceptionistSurface");
@@ -48,7 +60,9 @@ public sealed class CustomersRenderedTests
             WpfTestHost.FindByName<Button>(reception, "OrdersNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
             var orders = WpfTestHost.Descendants<OrdersView>(reception).Single();
-            orders.ViewModel.OpenOrder(orders.ViewModel.VisibleOrders.Single(item => item.Id == order.Id));
+            Finish(orders.ViewModel.ActivateAsync());
+            var order = orders.ViewModel.VisibleOrders.Single(item => item.Id == record.Id);
+            orders.ViewModel.OpenOrder(order);
             WpfTestHost.CompleteLayout(window);
             var open = WpfTestHost.FindByAutomationName<Button>(orders, "فتح تفاصيل عميل الطلب");
             open.Focus();
@@ -64,6 +78,17 @@ public sealed class CustomersRenderedTests
             WpfTestHost.CompleteLayout(window);
             Assert.IsTrue(open.IsKeyboardFocusWithin);
         }, engine: engine);
+    }
+
+    private static void Finish(Task task)
+    {
+        task = task.WaitAsync(TimeSpan.FromSeconds(15));
+        if (!task.IsCompleted) {
+            var frame = new DispatcherFrame(); var dispatcher = Dispatcher.CurrentDispatcher;
+            _ = task.ContinueWith(_ => dispatcher.BeginInvoke(new Action(() => frame.Continue = false)), TaskScheduler.Default);
+            Dispatcher.PushFrame(frame);
+        }
+        task.GetAwaiter().GetResult();
     }
 
     [TestMethod]
