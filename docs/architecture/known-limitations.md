@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "reference"
 status: "active"
 owner: "architecture maintainers"
-last_verified: "2026-10-03"
+last_verified: "2026-10-10"
 review_triggers:
   - "a listed limitation is implemented, removed, split, or becomes release-critical"
 keywords:
@@ -16,7 +16,7 @@ keywords:
 
 # Known application limitations
 
-The Windows app has Rust-owned Customers, Materials, Parts, Furniture, Products, and account administration. Quotations, orders, and several dashboard surfaces still use labelled preview fixtures. See the [workflow authority](../developer/subsystems/manager-receptionist-workflows.md) before treating a preview as persisted product behavior.
+The Windows app has Rust-owned Customers, Materials, Parts, Furniture, Products, account administration, quotations and confirmed orders. Isolated preview fixtures remain available for UI development, including dashboard surfaces. Saved customer documents require authorized Rust reads. See the [workflow authority](../developer/subsystems/manager-receptionist-workflows.md) before treating a preview as persisted product behavior.
 
 ## Identity and synchronization
 
@@ -41,7 +41,7 @@ The Windows app has Rust-owned Customers, Materials, Parts, Furniture, Products,
 ## Evidence limits
 
 - Automated WPF fixtures cover the current Arabic and RTL surfaces. Product-level screen-reader, keyboard, high-contrast, text-scaling, printing, and physical-device evidence must match each changed workflow.
-- Business document generation, reports, PDF output, and spreadsheet export are not implemented.
+- Saved quotation and confirmed order customer documents have an authorized Windows native preview and print path. Standalone PDF generation, reports and spreadsheet export are not implemented. See the [saved-document boundary and device evidence](../developer/subsystems/quotations.md#saved-customer-documents).
 - No production load profile, long-session soak result, or measured server capacity baseline exists.
 - Native secret lifecycle tests require an isolated platform test account. Branch protection and production secret-manager policy are external controls.
 

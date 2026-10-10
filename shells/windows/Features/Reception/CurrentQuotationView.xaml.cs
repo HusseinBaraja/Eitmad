@@ -47,11 +47,18 @@ public partial class CurrentQuotationView : UserControl
         FrameworkElement target = Model.IsQuotationEmpty ? ContinueButton : Model.CustomerNameError.Length > 0 ? CustomerNameInput : Model.PhoneError.Length > 0 ? PhoneInput : DiscountInput;
         target.BringIntoView(); target.Focus();
     }
-    private void PrintPreviewClick(object sender, RoutedEventArgs e)
+    private async void PrintPreviewClick(object sender, RoutedEventArgs e)
     {
         if (!Model.CanPreviewCustomer) return;
-        if (!Model.CheckRequiredFields()) { FocusMissingField(); return; }
-        var preview = new Controls.PrintPreview { Document = QuotationCustomerDocument.Create(Model, DateTime.Today) };
+        var model = Model;
+        var saved = model.IsLiveQuotation ? await model.ReadDocumentAsync() : null;
+        if (model.IsLiveQuotation && saved is null) return;
+        if (!model.IsLiveQuotation && !model.CheckRequiredFields()) { FocusMissingField(); return; }
+        var preview = new Controls.PrintPreview { Document = saved is not null ? QuotationCustomerDocument.CreateSaved(saved) : QuotationCustomerDocument.Create(model, DateTime.Today), CanPrint = saved?.CanPrint == true };
+        if (model.IsLiveQuotation) preview.AuthorizePrint = async () => {
+            if (await model.ReadDocumentAsync() is not { CanPrint: true } current) return false;
+            preview.Document = QuotationCustomerDocument.CreateSaved(current); return true;
+        };
         var window = new Window
         {
             Title = "معاينة عرض السعر", Content = preview, Owner = Window.GetWindow(this),
@@ -59,8 +66,11 @@ public partial class CurrentQuotationView : UserControl
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             FlowDirection = System.Windows.FlowDirection.RightToLeft, Language = Language,
         };
+        EventHandler invalidated = (_, _) => window.Close();
+        model.DocumentInvalidated += invalidated;
+        window.Closed += (_, _) => model.DocumentInvalidated -= invalidated;
         preview.BackRequested += (_, _) => window.Close();
-        window.Loaded += (_, _) => preview.PrintButton.Focus();
+        window.Loaded += (_, _) => { if (preview.CanPrint) preview.PrintButton.Focus(); else preview.BackButton.Focus(); };
         window.Closed += (_, _) => { PrintPreviewButton.BringIntoView(); PrintPreviewButton.Focus(); };
         window.ShowDialog();
     }

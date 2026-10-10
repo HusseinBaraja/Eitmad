@@ -5,6 +5,18 @@ namespace Eitmad.WindowsShell.Features.Reception;
 
 public sealed partial class SalesCatalogViewModel
 {
+    public event EventHandler? DocumentInvalidated;
+    public async Task<CustomerDocument?> ReadDocumentAsync()
+    {
+        if (draftClient is null || savedDraft is null) return null;
+        var session = draftSession; var id = savedDraft.Snapshot.Id;
+        QuotationNotice = "جارٍ تحميل المستند المحفوظ...";
+        var result = await draftClient.DocumentAsync(id);
+        if (session != draftSession || savedDraft?.Snapshot.Id != id) return null;
+        QuotationNotice = result.Succeeded ? "المستند من النسخة المحفوظة" : result.Failure == DraftFailure.Denied ? "ليس لديك صلاحية لعرض المستند أو طباعته." : "المستند المحفوظ غير متاح. أعد المحاولة.";
+        if (result.Failure == DraftFailure.Denied) DocumentInvalidated?.Invoke(this, EventArgs.Empty);
+        return result.Value;
+    }
     private QuotationRecord? quotationLifecycle;
     private Command? issueRetry;
     private Guid issueKey;

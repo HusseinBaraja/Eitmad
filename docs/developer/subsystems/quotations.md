@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Quotation capability maintainers"
-last_verified: "2026-10-08"
+last_verified: "2026-10-10"
 review_triggers:
   - "Quotation contracts, approval rules, or Windows quotation UI behavior change"
 keywords:
@@ -136,6 +136,18 @@ Receptionists cancel unnumbered drafts through an audited local-first terminal r
 The engine retains confirmed scoped history in SQLite. An unavailable server returns a cache page with `server_available = false` and no server-authoritative actions. Local Rust can still permit branch draft edits and cancellation. Confirmed immutable issued snapshots can still be printed. The shell labels the cache as offline. A server denial cannot fall back to cached content. Confirmed Manager revisions project into Receptionist drafts through the existing conflict-preserving projection. Unknown command responses retain the original intent and key; session changes fence late replies.
 
 The Windows role lists use **صادر**, **منتهي**, and **ملغي**, display the official number in an LTR boundary, and show the applied validity and document revision. The Receptionist editor uses **إصدار عرض السعر** only when Rust permits issue. Printed customer documents use the retained customer, line, price, discount, and validity snapshot. Accepted quotations can be converted into confirmed orders through the workflow below.
+
+## Saved customer documents
+
+Protocol `1.24` adds `eitmad.capability.customer-documents.v1`. `eitmad.quotation.customer-document.v1` reads the exact saved draft or retained issued record under `quotation.read` and the record scope. Rust projects only public customer details, saved line descriptions and options, dimensions, quantities, prices, discounts, totals, document identity, dates and status. It never reevaluates the current catalog. Unsaved editor changes do not enter this result. Incomplete saved evaluations cannot produce a document. Approval identities, decisions, fingerprints, purchase costs and internal notes are excluded from the document contract.
+
+Saved drafts show **مسودة محفوظة**, have no official number and cannot print or export. Issued records use Rust's print permission. Both roles can print in scope, including from the confirmed offline cache. Server denial does not fall back to retained content. The shell closes protected previews on session cleanup or denial, discards obsolete replies, and reads Rust again before opening the native print dialog and before submitting its output. Virtual printers use the same gate. There is no separate file-export command.
+
+`QuotationCustomerDocument.CreateSaved` renders the public read model. `CustomerDocumentPages` supplies the same vector pagination to the native preview and print adapter. The preview retains searchable glyphs in an in-memory XPS package, which closes with the preview; it does not create a customer file. Documents use portrait A4 at 96 DIP per inch, 48-DIP side and bottom margins, and a 100-DIP top content inset for the repeated document heading and continuation column headings. Pages advance in reading order and show the current page and page count. WPF wraps table content, and rows can continue across a page boundary. Continuation pages repeat the document number and column headings. The totals block stays together. There is no signature field in these document types. Printer output uses the selected device's printable area without scaling the complete document. Arabic is `ar-YE`, and technical values have separate LTR runs. Output remains legible in monochrome.
+
+`CustomerDocumentsRenderedTests` checks both document types and draft restrictions at the three baseline window sizes, rejects the viewer's native print command through the Rust gate, and renders a multi-page native XPS output. Inspect the page images as well as their text. `QuotationLifecycleTests` checks denial and late-reply fencing; Pricing's `customer_document` regression checks saved values and totals after catalog edits. The adapter scenario below checks capability negotiation and missing-document failures through real IPC. A physical printer and PDF printer are separate device checks; native XPS evidence does not establish PDF conformance.
+
+The local display is 1920 × 1080 at 125% scaling. Actual windows measured 1550.4 × 830.4 DIP maximized, 1338.4 × 752.8 DIP default, and 720 × 560 DIP minimum. The 100% scaling baseline remains unverified.
 
 ## Verification
 

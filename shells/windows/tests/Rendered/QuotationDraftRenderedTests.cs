@@ -40,7 +40,7 @@ public sealed class QuotationDraftRenderedTests
                 save.Focus(); Assert.IsTrue(save.IsKeyboardFocused);
                 save.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Finish(QuotationDraftTests.WaitFor(() => !model.IsDraftBusy));
                 Assert.IsNotNull(authority.Draft); Assert.IsTrue(model.DraftState.Contains("محلياً"));
-                Assert.IsFalse(WpfTestHost.FindByName<Button>(review, "PrintPreviewButton").IsEnabled);
+                Assert.IsTrue(WpfTestHost.FindByName<Button>(review, "PrintPreviewButton").IsEnabled);
                 WpfTestHost.CompleteLayout(window); WpfTestHost.Capture(window, $"quotation-draft-saved-{width}");
                 var snapshot = authority.Draft.Snapshot;
                 model.DiscountInput = "6"; Finish(model.LastQuotationEvaluation); Finish(model.OpenDraftAsync(snapshot.Id));

@@ -272,3 +272,68 @@ fn issued_cache_record(
         permitted_actions: vec![A::Print],
     }
 }
+
+#[test]
+fn customer_document_preserves_saved_totals_and_contacts_after_catalog_edits() {
+    use eitmad_contracts::quotation_draft::{QuotationDraftId, QuotationDraftSnapshot};
+    use eitmad_contracts::quotation_lifecycle::QuotationPermittedAction;
+    let (_dir, store, service, actor, input, mut entry) = fixture_evaluation();
+    let saved = service.evaluate_quotation(&actor, &input).unwrap();
+    let record = QuotationRecord {
+        scope: actor.scope.clone(),
+        organization_id: actor.tenant_id.value(),
+        revision: 2,
+        document_revision: 1,
+        state: QuotationState::Issued,
+        quotation: QuotationDraftSnapshot {
+            cancelled: false,
+            id: QuotationDraftId::new(Uuid::new_v4()),
+            revision: 1,
+            intent: input.clone(),
+            evaluation: saved,
+        },
+        number: Some("QT-2026-00001".into()),
+        validity_days: 30,
+        issued_at: Some(UnixMillis(1)),
+        valid_until: Some(UnixMillis(1000)),
+        approval_request_id: None,
+        approval_fingerprint: Some("INTERNAL_APPROVAL".into()),
+        changed_at: UnixMillis(1),
+        changed_by: actor.identity.principal_id,
+        cancellation_reason: Some("INTERNAL_REASON".into()),
+        acceptance: None,
+        permitted_actions: vec![QuotationPermittedAction::Print],
+    };
+    let before = crate::customer_document(&record).unwrap();
+    assert_eq!(
+        (before.subtotal_yer, before.discount_yer, before.total_yer),
+        (1010, 51, 959)
+    );
+    assert_eq!(before.lines[0].total_yer, 1010);
+    assert!(before.can_print);
+    entry.name = "اسم جديد".into();
+    entry.price.selling_price_yer = 5000;
+    entry.price.revision += 1;
+    let mut catalog_actor = actor.clone();
+    catalog_actor.scope = entry.price.target.scope().clone();
+    project_sales(&store, &catalog_actor, vec![(1, 2, Some(entry))]);
+    assert_eq!(crate::customer_document(&record).unwrap(), before);
+    let json = serde_json::to_string(&before).unwrap();
+    for forbidden in [
+        "INTERNAL_APPROVAL",
+        "INTERNAL_REASON",
+        "approvalRequired",
+        "costYer",
+        "snapshot",
+        "intent",
+    ] {
+        assert!(!json.contains(forbidden));
+    }
+    let mut draft = record.clone();
+    draft.state = QuotationState::Draft;
+    let document = crate::customer_document(&draft).unwrap();
+    assert!(document.is_draft);
+    assert!(!document.can_print);
+    draft.quotation.evaluation.totals = None;
+    assert_eq!(crate::customer_document(&draft), Err(E::Invalid));
+}

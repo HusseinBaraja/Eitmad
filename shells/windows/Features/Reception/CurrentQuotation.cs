@@ -276,7 +276,7 @@ public sealed partial class SalesCatalogViewModel
         }
         return true;
     }
-    public bool CanPreviewCustomer => !IsLiveQuotation && CanIssueQuotation && !IsQuotationEmpty;
+    public bool CanPreviewCustomer => IsLiveQuotation ? savedDraft?.Snapshot.Evaluation.Totals is not null && !IsDraftBusy : CanIssueQuotation && !IsQuotationEmpty;
     private void RefreshQuotation()
     {
         if (applyingDraft) return;

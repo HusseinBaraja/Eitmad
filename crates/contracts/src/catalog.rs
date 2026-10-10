@@ -13,6 +13,7 @@ pub const CAPABILITIES: &[&str] = &[
     "eitmad.capability.work-orders.v1",
     "eitmad.capability.orders.v1",
     "eitmad.capability.quotation-lifecycle.v1",
+    "eitmad.capability.customer-documents.v1",
     "eitmad.capability.quotation-approval.v1",
     "eitmad.capability.quotation-draft.v1",
     "eitmad.capability.quotation-evaluation.v1",

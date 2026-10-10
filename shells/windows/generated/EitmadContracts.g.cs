@@ -669,12 +669,20 @@ namespace Eitmad.Contracts
         public Dictionary<string, object> QueryMaterialReferenceList { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Query_OrderCustomerDocument")]
+        public GetOrder QueryOrderCustomerDocument { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Query_OrderGet")]
         public GetOrder QueryOrderGet { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Query_OrderList")]
         public ListOrders QueryOrderList { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Query_OrderQuotationDocument")]
+        public GetOrder QueryOrderQuotationDocument { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Query_PartCategoryList")]
@@ -729,6 +737,10 @@ namespace Eitmad.Contracts
         public ListDiscountApprovals QueryQuotationApprovalList { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Query_QuotationCustomerDocument")]
+        public GetQuotationDraft QueryQuotationCustomerDocument { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Query_QuotationDraftGet")]
         public GetQuotationDraft QueryQuotationDraftGet { get; set; }
 
@@ -771,6 +783,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_Customer")]
         public Customer QueryResultCustomer { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("QueryResult_CustomerDocument")]
+        public CustomerDocument QueryResultCustomerDocument { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_Customers")]
@@ -3702,6 +3718,88 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("totalBytes")]
         public long TotalBytes { get; set; }
+    }
+
+    /// <summary>
+    /// Customer-only saved document. Internal intent, price policy and approval data are
+    /// excluded.
+    /// </summary>
+    public partial class CustomerDocument
+    {
+        [JsonPropertyName("canPrint")]
+        public bool CanPrint { get; set; }
+
+        [JsonPropertyName("customer")]
+        public QuotationCustomerSnapshot Customer { get; set; }
+
+        [JsonPropertyName("discountBasisPoints")]
+        public long DiscountBasisPoints { get; set; }
+
+        [JsonPropertyName("discountYer")]
+        public long DiscountYer { get; set; }
+
+        [JsonPropertyName("documentRevision")]
+        public long DocumentRevision { get; set; }
+
+        [JsonPropertyName("isDraft")]
+        public bool IsDraft { get; set; }
+
+        [JsonPropertyName("issuedAt")]
+        public long? IssuedAt { get; set; }
+
+        [JsonPropertyName("lines")]
+        public CustomerDocumentLine[] Lines { get; set; }
+
+        [JsonPropertyName("number")]
+        public string Number { get; set; }
+
+        [JsonPropertyName("savedAt")]
+        public long SavedAt { get; set; }
+
+        [JsonPropertyName("status")]
+        public string Status { get; set; }
+
+        [JsonPropertyName("subtotalYer")]
+        public long SubtotalYer { get; set; }
+
+        [JsonPropertyName("totalYer")]
+        public long TotalYer { get; set; }
+
+        [JsonPropertyName("validityDays")]
+        public long? ValidityDays { get; set; }
+
+        [JsonPropertyName("validUntil")]
+        public long? ValidUntil { get; set; }
+    }
+
+    public partial class CustomerDocumentLine
+    {
+        [JsonPropertyName("colorName")]
+        public string ColorName { get; set; }
+
+        [JsonPropertyName("description")]
+        public string Description { get; set; }
+
+        [JsonPropertyName("dimensions")]
+        public FurnitureDimensions Dimensions { get; set; }
+
+        [JsonPropertyName("handleName")]
+        public string HandleName { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("quantity")]
+        public long Quantity { get; set; }
+
+        [JsonPropertyName("totalYer")]
+        public long TotalYer { get; set; }
+
+        [JsonPropertyName("unitPriceYer")]
+        public long UnitPriceYer { get; set; }
+
+        [JsonPropertyName("variantName")]
+        public string VariantName { get; set; }
     }
 
     public partial class CustomerPage

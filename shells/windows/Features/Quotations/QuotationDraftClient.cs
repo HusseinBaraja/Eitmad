@@ -75,6 +75,11 @@ public sealed class QuotationDraftClient : IAsyncDisposable
             var r = await engine.SubmitCommandAsync(command, key, token);
             return Result(r.Outcome.Status, r.Outcome.Payload.AsDiscountApproval(), r.Outcome.Payload.Code, r.Outcome.Payload.Detail);
         }, token);
+    public Task<DraftResult<CustomerDocument>> DocumentAsync(Guid id) => RequestAsync(async () => {
+        if (!engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityCustomerDocumentsV1)) return new DraftResult<CustomerDocument>(null, DraftFailure.Unavailable, []);
+        var r = await engine.QueryAsync(Query.ForQuotationCustomerDocument(new() { DraftId = id }));
+        return Result(r.Outcome.Status, r.Outcome.Payload.AsCustomerDocument(), r.Outcome.Payload.Code, r.Outcome.Payload.Detail);
+    }, CancellationToken.None);
     public Task<DraftResult<QuotationPage>> QuotationsAsync(Guid? after, CancellationToken token = default) =>
         RequestAsync(async () => {
             if (!SupportsLifecycle) return new DraftResult<QuotationPage>(null, DraftFailure.Unavailable, []);

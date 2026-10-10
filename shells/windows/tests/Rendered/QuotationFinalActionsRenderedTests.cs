@@ -75,7 +75,8 @@ public sealed class QuotationFinalActionsRenderedTests
                 {
                     WpfTestHost.CompleteLayout(modal);
                     var preview = (PrintPreview)modal.Content;
-                    Assert.IsTrue(WpfTestHost.FindByName<Button>(preview, "PrintButton").IsKeyboardFocusWithin);
+                    Assert.IsFalse(preview.CanPrint);
+                    Assert.IsTrue(preview.BackButton.IsKeyboardFocusWithin);
                     var text = new TextRange(preview.Document.ContentStart, preview.Document.ContentEnd).Text;
                     Assert.IsFalse(text.Contains(model.Notes));
                     Assert.IsTrue(text.Contains(model.FinalTotal.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) + " ر.ي"));

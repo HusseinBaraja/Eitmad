@@ -172,6 +172,12 @@ impl ProductDispatcher {
         query: eitmad_contracts::queries::Query,
     ) -> Result<QueryResult, ContractError> {
         match query {
+            eitmad_contracts::queries::Query::OrderCustomerDocument(query) => {
+                self.order_document(context, query, false).await
+            }
+            eitmad_contracts::queries::Query::OrderQuotationCustomerDocument(query) => {
+                self.order_document(context, query, true).await
+            }
             eitmad_contracts::queries::Query::WorkOrders(query) => {
                 self.work_order_list(context, query).await
             }
@@ -336,5 +342,62 @@ impl ProductDispatcher {
             })
             .map_err(|_| E::Unavailable)?;
         Ok(())
+    }
+}
+
+impl ProductDispatcher {
+    pub(super) async fn order_document(
+        &self,
+        context: &DispatchContext,
+        query: eitmad_contracts::order::GetOrder,
+        source: bool,
+    ) -> Result<QueryResult, ContractError> {
+        let QueryResult::Orders(page) = self
+            .order_list(
+                context,
+                ListOrders {
+                    after: None,
+                    limit: 1,
+                },
+                Some(query.order_id),
+            )
+            .await?
+        else {
+            return Err(failure(E::Unavailable, context));
+        };
+        self.authorization
+            .authorize(
+                &context.authorization,
+                eitmad_authorization::ORDER_READ_PERMISSION,
+            )
+            .map_err(|_| failure(E::Denied, context))?;
+        let record = page
+            .items
+            .iter()
+            .find(|r| r.id == query.order_id)
+            .ok_or_else(|| failure(E::Invalid, context))?;
+        let mut document = eitmad_pricing::customer_document(&record.source)
+            .map_err(|_| failure(E::Invalid, context))?;
+        if document.is_draft || document.number.is_none() {
+            return Err(failure(E::Invalid, context));
+        }
+        document.can_print = true;
+        if !source {
+            document.number = Some(record.number.clone());
+            document.document_revision = record.revision;
+            document.status = match record.state {
+                eitmad_contracts::order::OrderState::Confirmed => "مؤكد",
+                eitmad_contracts::order::OrderState::InProduction => "قيد الإنتاج",
+                eitmad_contracts::order::OrderState::Ready => "جاهز",
+                eitmad_contracts::order::OrderState::Delivered => "تم التسليم",
+                eitmad_contracts::order::OrderState::Cancelled => "ملغي",
+            }
+            .into();
+            document.saved_at = record.changed_at;
+            document.issued_at = Some(record.created_at);
+            document.valid_until = None;
+            document.validity_days = None;
+        }
+        Ok(QueryResult::CustomerDocument(Box::new(document)))
     }
 }

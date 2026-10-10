@@ -103,7 +103,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
                 ProtocolVersion = SessionProtocol(client),
                 RequestId = requestId,
                 CorrelationId = Guid.NewGuid(),
-                Authorization = query.Kind is Query.OrderListKind or Query.OrderGetKind or Query.QuotationApprovalListKind or Query.QuotationListKind ? client.AuthorizationForApprovals : query.Kind is Query.CustomerGetKind or Query.CustomerSearchKind or Query.QuotationEvaluateKind or Query.QuotationDraftGetKind or Query.QuotationDraftListKind
+                Authorization = query.Kind is Query.OrderListKind or Query.OrderGetKind or Query.OrderCustomerDocumentKind or Query.OrderQuotationDocumentKind or Query.QuotationCustomerDocumentKind or Query.QuotationApprovalListKind or Query.QuotationListKind ? client.AuthorizationForApprovals : query.Kind is Query.CustomerGetKind or Query.CustomerSearchKind or Query.QuotationEvaluateKind or Query.QuotationDraftGetKind or Query.QuotationDraftListKind
                     ? client.AuthorizationForCustomer : client.Authorization,
                 Deadline = DeadlineAfter(requestTimeout),
                 Query = ToPayloadDictionary(query),
@@ -695,6 +695,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
                 ProtocolIds.Capabilities.EitmadCapabilityQuotationDraftV1,
                 ProtocolIds.Capabilities.EitmadCapabilityQuotationApprovalV1,
                 ProtocolIds.Capabilities.EitmadCapabilityQuotationLifecycleV1,
+                ProtocolIds.Capabilities.EitmadCapabilityCustomerDocumentsV1,
                 ProtocolIds.Capabilities.EitmadCapabilityOrdersV1,
                 ProtocolIds.Capabilities.EitmadCapabilityWorkOrdersV1,
                 ProtocolIds.Capabilities.EitmadCapabilityPricingV1,

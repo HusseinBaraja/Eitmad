@@ -9,7 +9,7 @@ public static class ProtocolIds
     public static class Version
     {
         public const long Major = 1;
-        public const long Minor = 23;
+        public const long Minor = 24;
     }
 
     public static class IpcMessages
@@ -76,6 +76,9 @@ public static class ProtocolIds
 
     public static class Queries
     {
+        public const string EitmadQuotationCustomerDocumentV1 = "eitmad.quotation.customer-document.v1";
+        public const string EitmadOrderCustomerDocumentV1 = "eitmad.order.customer-document.v1";
+        public const string EitmadOrderQuotationDocumentV1 = "eitmad.order.quotation-document.v1";
         public const string EitmadWorkOrderListV1 = "eitmad.work-order.list.v1";
         public const string EitmadQuotationDraftGetV1 = "eitmad.quotation-draft.get.v1";
         public const string EitmadOrderListV1 = "eitmad.order.list.v1";
@@ -182,6 +185,7 @@ public static class ProtocolIds
         public const string EitmadCapabilityWorkOrdersV1 = "eitmad.capability.work-orders.v1";
         public const string EitmadCapabilityOrdersV1 = "eitmad.capability.orders.v1";
         public const string EitmadCapabilityQuotationLifecycleV1 = "eitmad.capability.quotation-lifecycle.v1";
+        public const string EitmadCapabilityCustomerDocumentsV1 = "eitmad.capability.customer-documents.v1";
         public const string EitmadCapabilityQuotationApprovalV1 = "eitmad.capability.quotation-approval.v1";
         public const string EitmadCapabilityQuotationDraftV1 = "eitmad.capability.quotation-draft.v1";
         public const string EitmadCapabilityQuotationEvaluationV1 = "eitmad.capability.quotation-evaluation.v1";

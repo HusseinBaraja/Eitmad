@@ -750,6 +750,9 @@ public enum PriceTarget: Codable, Sendable {
     }
 }
 public enum Query: Codable, Sendable {
+    case quotationCustomerDocument(GetQuotationDraft)
+    case orderCustomerDocument(GetOrder)
+    case orderQuotationDocument(GetOrder)
     case workOrderList(ListWorkOrders)
     case quotationDraftGet(GetQuotationDraft)
     case orderList(ListOrders)
@@ -788,6 +791,9 @@ public enum Query: Codable, Sendable {
     case desktopAccountList(ListDesktopAccounts)
 
     private enum Kind: String, Codable, Sendable {
+        case quotationCustomerDocument = "eitmad.quotation.customer-document.v1"
+        case orderCustomerDocument = "eitmad.order.customer-document.v1"
+        case orderQuotationDocument = "eitmad.order.quotation-document.v1"
         case workOrderList = "eitmad.work-order.list.v1"
         case quotationDraftGet = "eitmad.quotation-draft.get.v1"
         case orderList = "eitmad.order.list.v1"
@@ -834,6 +840,9 @@ public enum Query: Codable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         switch try container.decode(Kind.self, forKey: .kind) {
+        case .quotationCustomerDocument: self = .quotationCustomerDocument(try container.decode(GetQuotationDraft.self, forKey: .payload))
+        case .orderCustomerDocument: self = .orderCustomerDocument(try container.decode(GetOrder.self, forKey: .payload))
+        case .orderQuotationDocument: self = .orderQuotationDocument(try container.decode(GetOrder.self, forKey: .payload))
         case .workOrderList: self = .workOrderList(try container.decode(ListWorkOrders.self, forKey: .payload))
         case .quotationDraftGet: self = .quotationDraftGet(try container.decode(GetQuotationDraft.self, forKey: .payload))
         case .orderList: self = .orderList(try container.decode(ListOrders.self, forKey: .payload))
@@ -876,6 +885,15 @@ public enum Query: Codable, Sendable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
+        case .quotationCustomerDocument(let payload):
+            try container.encode(Kind.quotationCustomerDocument, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .orderCustomerDocument(let payload):
+            try container.encode(Kind.orderCustomerDocument, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .orderQuotationDocument(let payload):
+            try container.encode(Kind.orderQuotationDocument, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
         case .workOrderList(let payload):
             try container.encode(Kind.workOrderList, forKey: .kind)
             try container.encode(payload, forKey: .payload)
@@ -988,6 +1006,7 @@ public enum Query: Codable, Sendable {
     }
 }
 public enum QueryResult: Codable, Sendable {
+    case customerDocument(CustomerDocument)
     case workOrders(WorkOrderPage)
     case orders(OrderPage)
     case quotations(QuotationPage)
@@ -1025,6 +1044,7 @@ public enum QueryResult: Codable, Sendable {
     case desktopAccounts(DesktopAccountPage)
 
     private enum Kind: String, Codable, Sendable {
+        case customerDocument = "customerDocument"
         case workOrders = "workOrders"
         case orders = "orders"
         case quotations = "quotations"
@@ -1070,6 +1090,7 @@ public enum QueryResult: Codable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         switch try container.decode(Kind.self, forKey: .kind) {
+        case .customerDocument: self = .customerDocument(try container.decode(CustomerDocument.self, forKey: .payload))
         case .workOrders: self = .workOrders(try container.decode(WorkOrderPage.self, forKey: .payload))
         case .orders: self = .orders(try container.decode(OrderPage.self, forKey: .payload))
         case .quotations: self = .quotations(try container.decode(QuotationPage.self, forKey: .payload))
@@ -1111,6 +1132,9 @@ public enum QueryResult: Codable, Sendable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
+        case .customerDocument(let payload):
+            try container.encode(Kind.customerDocument, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
         case .workOrders(let payload):
             try container.encode(Kind.workOrders, forKey: .kind)
             try container.encode(payload, forKey: .payload)

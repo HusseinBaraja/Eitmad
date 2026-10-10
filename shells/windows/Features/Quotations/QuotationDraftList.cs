@@ -13,6 +13,19 @@ public sealed partial class QuotationsViewModel
     private string listState = "المسودات غير متاحة.";
     public string ListState { get => listState; private set { Set(ref listState, value); Raise(nameof(ListSubtitle)); } }
     internal Task LastDraftLoad { get; private set; } = Task.CompletedTask;
+    public bool HasDocumentAuthority => draftClient is not null;
+    public event EventHandler? DocumentsInvalidated;
+    public async Task<CustomerDocument?> ReadDocumentAsync()
+    {
+        if (draftClient is null || !draftsActive || SelectedQuotation is not { } row) return null;
+        var session = approvalSession;
+        ListState = "جارٍ تحميل المستند المحفوظ...";
+        var result = await draftClient.DocumentAsync(row.Id);
+        if (!draftsActive || session != approvalSession || SelectedQuotation?.Id != row.Id) return null;
+        ListState = result.Succeeded ? "" : result.Failure == DraftFailure.Denied ? "ليس لديك صلاحية لعرض المستند أو طباعته." : "المستند المحفوظ غير متاح. أعد المحاولة.";
+        if (result.Failure == DraftFailure.Denied) DocumentsInvalidated?.Invoke(this, EventArgs.Empty);
+        return result.Value;
+    }
     public void AttachDraftClient(QuotationDraftClient client)
     {
         draftClient = client;
@@ -35,6 +48,7 @@ public sealed partial class QuotationsViewModel
     public void ClearDrafts()
     {
         if (draftClient is null) return;
+        DocumentsInvalidated?.Invoke(this, EventArgs.Empty);
         ClearLifecycle(); ++approvalSession; decisionIntent = null; decisionKey = Guid.Empty; ApprovalReason = ""; DecisionNotice = ""; isApprovalBusy = false; Raise(nameof(CanDecideApproval));
         draftsActive = false; ++loadVersion; draftLoad?.Cancel();
         CloseQuotation(); quotations.Clear(); RefreshVisibleQuotations(); ListState = "المسودات غير متاحة.";

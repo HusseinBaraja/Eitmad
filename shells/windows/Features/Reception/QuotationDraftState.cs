@@ -51,6 +51,7 @@ public sealed partial class SalesCatalogViewModel
     }
     private void ClearDraftSession()
     {
+        DocumentInvalidated?.Invoke(this, EventArgs.Empty);
         quotationLifecycle = null; issueRetry = null; issueKey = Guid.Empty; lifecycleOnline = false; ++lifecycleRead;
         ++draftSession; ++approvalReadVersion; savedDraft = null; serverApproval = null; approvalCommand = null; approvalKey = Guid.Empty; retryCommand = null; retryFingerprint = null; draftConflict = uncertainSave = false; hasUnsavedEdits = true;
         SelectedCustomer = null; applyingCustomer = true; CustomerName = Phone = Address = Notes = ""; applyingCustomer = false;

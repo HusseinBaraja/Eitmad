@@ -1,8 +1,8 @@
 mod approval;
 mod lifecycle;
 pub use lifecycle::{
-    QUOTATION_LIFECYCLE_SCHEMA, QuotationError, QuotationServer, issuance_snapshot,
-    quotation_actions, quotation_error_code, quotation_expiry,
+    QUOTATION_LIFECYCLE_SCHEMA, QuotationError, QuotationServer, customer_document,
+    issuance_snapshot, quotation_actions, quotation_error_code, quotation_expiry,
 };
 mod catalog;
 mod money;

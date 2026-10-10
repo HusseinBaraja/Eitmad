@@ -142,6 +142,8 @@ impl ProductDispatcher {
                         && matches!(
                             value.state,
                             eitmad_contracts::quotation_lifecycle::QuotationState::Issued
+                                | eitmad_contracts::quotation_lifecycle::QuotationState::Accepted
+                                | eitmad_contracts::quotation_lifecycle::QuotationState::Converted
                                 | eitmad_contracts::quotation_lifecycle::QuotationState::Expired
                                 | eitmad_contracts::quotation_lifecycle::QuotationState::Cancelled
                         )
@@ -248,4 +250,92 @@ fn failure(e: E, context: &DispatchContext) -> ContractError {
         },
         None,
     )
+}
+
+impl ProductDispatcher {
+    pub(super) async fn quotation_document(
+        &self,
+        context: &DispatchContext,
+        query: eitmad_contracts::quotation_draft::GetQuotationDraft,
+    ) -> Result<QueryResult, ContractError> {
+        let mut after = None;
+        loop {
+            let QueryResult::Quotations(page) = self
+                .quotation_list(context, ListQuotations { after, limit: 100 })
+                .await?
+            else {
+                return Err(failure(E::Unavailable, context));
+            };
+            if let Some(record) = page.items.iter().find(|r| r.quotation.id == query.draft_id) {
+                self.authorization
+                    .authorize(
+                        &context.authorization,
+                        eitmad_authorization::QUOTATION_READ_PERMISSION,
+                    )
+                    .map_err(|_| failure(E::Denied, context))?;
+                let mut saved = record.clone();
+                if matches!(
+                    saved.state,
+                    eitmad_contracts::quotation_lifecycle::QuotationState::Draft
+                        | eitmad_contracts::quotation_lifecycle::QuotationState::PendingApproval
+                ) && context.authorization.scope.kind.as_str() == "branch"
+                {
+                    if let Ok(draft) = self.drafts.get(&context.authorization, &query) {
+                        if draft.snapshot.revision >= saved.quotation.revision {
+                            saved.quotation = draft.snapshot;
+                            saved.changed_at = draft.updated_at;
+                        }
+                    }
+                }
+                return eitmad_pricing::customer_document(&saved)
+                    .map(|d| QueryResult::CustomerDocument(Box::new(d)))
+                    .map_err(|e| failure(e, context));
+            }
+            match page.next {
+                Some(next) if Some(next) != after => after = Some(next),
+                _ => return self.local_draft_document(context, &query).map_err(|e| *e),
+            }
+        }
+    }
+    fn local_draft_document(
+        &self,
+        context: &DispatchContext,
+        query: &eitmad_contracts::quotation_draft::GetQuotationDraft,
+    ) -> Result<QueryResult, Box<ContractError>> {
+        self.authorization
+            .authorize(
+                &context.authorization,
+                eitmad_authorization::QUOTATION_READ_PERMISSION,
+            )
+            .map_err(|_| Box::new(failure(E::Denied, context)))?;
+        let draft = self
+            .drafts
+            .get(&context.authorization, query)
+            .map_err(|_| Box::new(failure(E::Invalid, context)))?;
+        let record = eitmad_contracts::quotation_lifecycle::QuotationRecord {
+            scope: draft.scope,
+            organization_id: uuid::Uuid::nil(),
+            revision: draft.snapshot.revision,
+            document_revision: 1,
+            state: eitmad_contracts::quotation_lifecycle::QuotationState::Draft,
+            quotation: draft.snapshot,
+            number: None,
+            validity_days: 30,
+            issued_at: None,
+            valid_until: None,
+            approval_request_id: None,
+            approval_fingerprint: None,
+            changed_at: draft.updated_at,
+            changed_by: context.authorization.identity.principal_id,
+            cancellation_reason: None,
+            acceptance: None,
+            permitted_actions: vec![],
+        };
+        let mut document = eitmad_pricing::customer_document(&record)
+            .map_err(|e| Box::new(failure(e, context)))?;
+        // Local drafts have no server-confirmed validity policy or document revision.
+        document.validity_days = None;
+        document.document_revision = record.quotation.revision;
+        Ok(QueryResult::CustomerDocument(Box::new(document)))
+    }
 }

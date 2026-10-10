@@ -53,6 +53,14 @@ Both role screens use the existing RTL list, Arabic search, date/status filters 
 
 **عرض السعر الأصلي** opens the retained accepted quotation. Printing uses the customer-only document. Sign-out clears protected rows, selected detail and pending presentation, and fences late replies. Loading, denial, conflict and unavailability have explicit Arabic states. Preview fixtures remain available only when no engine client is attached.
 
+## Saved customer documents
+
+Protocol `1.24` adds `eitmad.order.customer-document.v1` and `eitmad.order.quotation-document.v1`, under `eitmad.capability.customer-documents.v1`. Both require `order.read` for the confirmed source order. Rust returns a customer-only projection of the retained accepted commercial snapshot. The order document uses its saved order number, revision, status and dates. **عرض السعر الأصلي** preserves the accepted quotation's own number, revision, validity, status and dates. Customer contacts, configured lines, dimensions, prices, discounts and totals come from that retained snapshot, even after catalog or customer edits.
+
+Both roles can print an authorized confirmed order or its retained source quotation. Offline confirmed reads remain available; a server denial never falls back to cache. Drafts and unconfirmed orders cannot enter this path. The document contract excludes fulfillment notes, work assignments, delivery evidence, approval data and purchase costs. Session changes close previews and fence delayed reads. The native print dialog and virtual-printer output require fresh Rust authorization. See [saved quotation documents](quotations.md#saved-customer-documents) for the shared Arabic layout, pagination, print/export policy and rendering evidence.
+
+`OrderAuthorityTests` checks Rust document replies, denial and late-session fencing. Runtime document tests verify confirmed cached order and source quotation totals, cross-scope denial and server-denial behavior. `CustomerDocumentsRenderedTests` inspects synthetic mixed Arabic/Latin contacts, configured Furniture dimensions and saved totals through the native preview and XPS output.
+
 ## Focused verification
 
 Use the [disposable database and TLS setup](../../operations/run-server-authority.md#run-the-direct-desktop-connection-test). Run the live scenario on a fresh database:

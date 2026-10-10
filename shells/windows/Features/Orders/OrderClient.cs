@@ -28,6 +28,11 @@ public sealed class OrderClient : IAsyncDisposable
         return Result(result.Outcome.Status, result.Outcome.Payload.AsWorkOrders(), result.Outcome.Payload.Code);
     });
     public ValueTask DisposeAsync() => changes.DisposeAsync();
+    public Task<DraftResult<CustomerDocument>> DocumentAsync(Guid id, bool source) => Request(async () => {
+        if (!engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityCustomerDocumentsV1)) return new DraftResult<CustomerDocument>(null, DraftFailure.Unavailable, []);
+        var r = await engine.QueryAsync(source ? Query.ForOrderQuotationDocument(new() { OrderId = id }) : Query.ForOrderCustomerDocument(new() { OrderId = id }));
+        return Result(r.Outcome.Status, r.Outcome.Payload.AsCustomerDocument(), r.Outcome.Payload.Code);
+    });
     public Task<DraftResult<OrderPage>> ListAsync(Guid? after = null, Guid? orderId = null) => Request(async () => {
         var result = await engine.QueryAsync(orderId is { } id ? Query.ForOrderGet(new() { OrderId = id }) : Query.ForOrderList(new() { After = after, Limit = 100 }));
         return Result(result.Outcome.Status, result.Outcome.Payload.AsOrders(), result.Outcome.Payload.Code);

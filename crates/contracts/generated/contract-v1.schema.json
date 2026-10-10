@@ -2825,6 +2825,154 @@
     "CustomerChanges": {
       "type": "object"
     },
+    "CustomerDocument": {
+      "description": "Customer-only saved document. Internal intent, price policy and approval data are excluded.",
+      "type": "object",
+      "properties": {
+        "canPrint": {
+          "type": "boolean"
+        },
+        "customer": {
+          "$ref": "#/definitions/QuotationCustomerSnapshot"
+        },
+        "discountBasisPoints": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "discountYer": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "documentRevision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "isDraft": {
+          "type": "boolean"
+        },
+        "issuedAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "lines": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CustomerDocumentLine"
+          }
+        },
+        "number": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "savedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "status": {
+          "type": "string"
+        },
+        "subtotalYer": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "totalYer": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "validUntil": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "validityDays": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "documentRevision",
+        "status",
+        "isDraft",
+        "canPrint",
+        "savedAt",
+        "customer",
+        "lines",
+        "discountBasisPoints",
+        "subtotalYer",
+        "discountYer",
+        "totalYer"
+      ]
+    },
+    "CustomerDocumentLine": {
+      "type": "object",
+      "properties": {
+        "colorName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "description": {
+          "type": "string"
+        },
+        "dimensions": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/FurnitureDimensions"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "handleName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "quantity": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "totalYer": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "unitPriceYer": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "variantName": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "description",
+        "variantName",
+        "quantity",
+        "unitPriceYer",
+        "totalYer"
+      ]
+    },
     "CustomerMutationResult": {
       "type": "object",
       "properties": {
@@ -7872,6 +8020,54 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "eitmad.quotation.customer-document.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/GetQuotationDraft"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.order.customer-document.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/GetOrder"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.order.quotation-document.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/GetOrder"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "eitmad.work-order.list.v1"
             },
             "payload": {
@@ -8545,6 +8741,22 @@
     },
     "QueryResult": {
       "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "customerDocument"
+            },
+            "payload": {
+              "$ref": "#/definitions/CustomerDocument"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
         {
           "type": "object",
           "properties": {

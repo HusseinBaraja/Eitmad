@@ -925,6 +925,30 @@ public partial class Query
     [JsonPropertyName("payload")]
     public object? Payload { get; set; }
 
+    public const string QuotationCustomerDocumentKind = "eitmad.quotation.customer-document.v1";
+
+    public static Query ForQuotationCustomerDocument(GetQuotationDraft payload) =>
+        new() { Kind = QuotationCustomerDocumentKind, Payload = payload };
+
+    public GetQuotationDraft? AsQuotationCustomerDocument() =>
+        Kind == QuotationCustomerDocumentKind ? PayloadAs<GetQuotationDraft>() : null;
+
+    public const string OrderCustomerDocumentKind = "eitmad.order.customer-document.v1";
+
+    public static Query ForOrderCustomerDocument(GetOrder payload) =>
+        new() { Kind = OrderCustomerDocumentKind, Payload = payload };
+
+    public GetOrder? AsOrderCustomerDocument() =>
+        Kind == OrderCustomerDocumentKind ? PayloadAs<GetOrder>() : null;
+
+    public const string OrderQuotationDocumentKind = "eitmad.order.quotation-document.v1";
+
+    public static Query ForOrderQuotationDocument(GetOrder payload) =>
+        new() { Kind = OrderQuotationDocumentKind, Payload = payload };
+
+    public GetOrder? AsOrderQuotationDocument() =>
+        Kind == OrderQuotationDocumentKind ? PayloadAs<GetOrder>() : null;
+
     public const string WorkOrderListKind = "eitmad.work-order.list.v1";
 
     public static Query ForWorkOrderList(ListWorkOrders payload) =>
@@ -1229,6 +1253,14 @@ public partial class QueryResult
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("payload")]
     public object? Payload { get; set; }
+
+    public const string CustomerDocumentKind = "customerDocument";
+
+    public static QueryResult ForCustomerDocument(CustomerDocument payload) =>
+        new() { Kind = CustomerDocumentKind, Payload = payload };
+
+    public CustomerDocument? AsCustomerDocument() =>
+        Kind == CustomerDocumentKind ? PayloadAs<CustomerDocument>() : null;
 
     public const string WorkOrdersKind = "workOrders";
 
