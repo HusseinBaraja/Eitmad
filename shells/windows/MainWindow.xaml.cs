@@ -71,22 +71,24 @@ public partial class MainWindow : Window
         OrdersSurface.ViewModel.UsePreviewOrders(receptionOrders.PreviewOrders);
         if (engine is not null) {
             orderClient = new(engine);
-            OrdersSurface.ViewModel.Attach(orderClient); receptionOrders.Attach(orderClient);
+            OrdersSurface.ViewModel.Attach(orderClient); receptionOrders.Attach(orderClient); WorkOrdersSurface.ViewModel.Attach(orderClient);
             ReceptionistSurface.ReceptionQuotations.ViewModel.AttachOrders(orderClient);
             ReceptionistSurface.ReceptionQuotations.ViewModel.OrderConfirmed += order => ReceptionistSurface.OpenConfirmedOrder(order);
         }
-        WorkOrdersSurface.ViewModel.UseOrderFixtures(receptionOrders.PreviewOrders);
+        if (engine is null) WorkOrdersSurface.ViewModel.UseOrderFixtures(receptionOrders.PreviewOrders);
         OrdersSurface.ViewModel.FindProduction = WorkOrdersSurface.ViewModel.ForOrder;
-        OrdersSurface.ProductionRequested += order =>
+        OrdersSurface.ProductionRequested += async order =>
         {
             WorkOrdersSurface.ViewModel.OpenOrderProduction(order);
             ManagerSidebar.SelectDestination("أوامر العمل");
             ShowDestination("أوامر العمل");
-            Dispatcher.BeginInvoke(WorkOrdersSurface.BackToWorkOrdersButton.Focus, DispatcherPriority.Input);
+            await WorkOrdersSurface.ViewModel.LastLoad;
+            if (WorkOrdersSurface.IsVisible && WorkOrdersSurface.ViewModel.IsDetailVisible)
+                await Dispatcher.InvokeAsync(WorkOrdersSurface.BackToWorkOrdersButton.Focus, DispatcherPriority.Input);
         };
         WorkOrdersSurface.OrderRequested += number =>
         {
-            var order = receptionOrders.PreviewOrders.FirstOrDefault(item => item.Number == number);
+            var order = (engine is null ? receptionOrders : OrdersSurface.ViewModel).PreviewOrders.FirstOrDefault(item => item.Number == number);
             if (order is null) return;
             OrdersSurface.ViewModel.OpenOrder(order);
             ManagerSidebar.SelectDestination("الطلبات");
@@ -107,7 +109,7 @@ public partial class MainWindow : Window
         ShowAccount(surface);
         if (surface == AuthenticatedSurface.Manager) await QuotationsSurface.ViewModel.ActivateDraftsAsync();
         else await ReceptionistSurface.ReceptionQuotations.ViewModel.ActivateDraftsAsync();
-        if (surface == AuthenticatedSurface.Manager) await OrdersSurface.ViewModel.ActivateAsync();
+        if (surface == AuthenticatedSurface.Manager) { await OrdersSurface.ViewModel.ActivateAsync(); await WorkOrdersSurface.ViewModel.ActivateAsync(); }
         else await ReceptionistSurface.PreviewOrders.ViewModel.ActivateAsync();
         if (surface != AuthenticatedSurface.Receptionist) return;
         try
@@ -225,6 +227,7 @@ public partial class MainWindow : Window
 
     private void HideAccountSurfaces()
     {
+        WorkOrdersSurface.ViewModel.ClearWorkOrders();
         OrdersSurface.ViewModel.ClearOrders(); ReceptionistSurface.PreviewOrders.ViewModel.ClearOrders();
         if (orderClient is not null) _ = orderClient.DeactivateAsync();
         QuotationsSurface.ViewModel.ClearDrafts();

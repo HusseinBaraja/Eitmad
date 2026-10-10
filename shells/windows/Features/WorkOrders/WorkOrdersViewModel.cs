@@ -3,11 +3,11 @@ using System.Globalization;
 
 namespace Eitmad.WindowsShell.Features.WorkOrders;
 
-/// <summary>Owns synthetic work-order list filters, detail selection, and local status preview.</summary>
-public sealed class WorkOrdersViewModel : ObservableObject
+/// <summary>Projects manufacturing state, filters, and detail selection; fixtures remain isolated from live authority.</summary>
+public sealed partial class WorkOrdersViewModel : ObservableObject
 {
     public const string AllStatuses = "كل الحالات";
-    public const string NewStatus = "جديد";
+    public const string NewStatus = "مخطط";
     public const string InProgressStatus = "قيد التنفيذ";
     public const string CompletedStatus = "مكتمل";
     public const string CancelledStatus = "ملغي";
@@ -133,6 +133,7 @@ public sealed class WorkOrdersViewModel : ObservableObject
     public WorkOrderListItem? ForOrder(string number) => workOrders.FirstOrDefault(item => item.OrderNumber == number);
     public void OpenOrderProduction(Features.Orders.OrderListItem order)
     {
+        if (IsLive) { LastLoad = OpenProductionAsync(order.Id); return; }
         if (!order.CanShowProduction) return;
         var item = ForOrder(order.Number);
         if (item is null)
@@ -229,6 +230,10 @@ public sealed class WorkOrdersViewModel : ObservableObject
     public void OpenWorkOrder(WorkOrderListItem workOrder)
     {
         FeedbackMessage = string.Empty;
+        if (workOrder.Record is { } value) {
+            Assignment = value.Assignment ?? "";
+            DueDate = value.DueAt is { } at ? DateTimeOffset.FromUnixTimeMilliseconds(at).ToOffset(TimeSpan.FromHours(3)).Date : DateTime.Today.AddDays(7);
+        }
         SelectedWorkOrder = workOrder;
     }
 
@@ -240,6 +245,7 @@ public sealed class WorkOrdersViewModel : ObservableObject
 
     public bool AdvanceSelectedStatus()
     {
+        if (IsLive) { LastAction = AdvanceAsync(); return true; }
         if (SelectedWorkOrder is null || !SelectedWorkOrder.AdvanceStatus())
         {
             return false;

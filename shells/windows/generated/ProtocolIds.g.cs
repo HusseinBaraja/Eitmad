@@ -9,7 +9,7 @@ public static class ProtocolIds
     public static class Version
     {
         public const long Major = 1;
-        public const long Minor = 22;
+        public const long Minor = 23;
     }
 
     public static class IpcMessages
@@ -76,6 +76,7 @@ public static class ProtocolIds
 
     public static class Queries
     {
+        public const string EitmadWorkOrderListV1 = "eitmad.work-order.list.v1";
         public const string EitmadQuotationDraftGetV1 = "eitmad.quotation-draft.get.v1";
         public const string EitmadOrderListV1 = "eitmad.order.list.v1";
         public const string EitmadOrderGetV1 = "eitmad.order.get.v1";
@@ -178,6 +179,7 @@ public static class ProtocolIds
 
     public static class Capabilities
     {
+        public const string EitmadCapabilityWorkOrdersV1 = "eitmad.capability.work-orders.v1";
         public const string EitmadCapabilityOrdersV1 = "eitmad.capability.orders.v1";
         public const string EitmadCapabilityQuotationLifecycleV1 = "eitmad.capability.quotation-lifecycle.v1";
         public const string EitmadCapabilityQuotationApprovalV1 = "eitmad.capability.quotation-approval.v1";
@@ -214,6 +216,7 @@ public static class ProtocolIds
 
     public static class Permissions
     {
+        public const string EitmadPermissionWorkOrderReadV1 = "eitmad.permission.work-order.read.v1";
         public const string EitmadPermissionWorkOrderTransitionV1 = "eitmad.permission.work-order.transition.v1";
         public const string EitmadPermissionDeliveryRecordV1 = "eitmad.permission.delivery.record.v1";
         public const string EitmadPermissionOrderFulfillmentWriteV1 = "eitmad.permission.order.fulfillment.write.v1";
@@ -293,6 +296,7 @@ public static class ProtocolIds
     public static class SchemaIds
     {
         public const string EitmadSchemaOrderV1 = "eitmad.schema.order.v1";
+        public const string EitmadSchemaWorkOrderV1 = "eitmad.schema.work-order.v1";
         public const string EitmadSchemaQuotationLifecycleV1 = "eitmad.schema.quotation-lifecycle.v1";
         public const string EitmadSchemaQuotationApprovalV1 = "eitmad.schema.quotation-approval.v1";
         public const string EitmadSchemaQuotationDraftV1 = "eitmad.schema.quotation-draft.v1";

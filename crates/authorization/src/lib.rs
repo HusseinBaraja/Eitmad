@@ -88,8 +88,10 @@ pub const ORDER_FULFILLMENT_PERMISSION: &str = "eitmad.permission.order.fulfillm
 pub const DELIVERY_RECORD_PERMISSION: &str = "eitmad.permission.delivery.record.v1";
 
 pub const WORK_TRANSITION_PERMISSION: &str = "eitmad.permission.work-order.transition.v1";
+pub const WORK_READ_PERMISSION: &str = "eitmad.permission.work-order.read.v1";
 
 const POLICY_PERMISSIONS: &[&str] = &[
+    WORK_READ_PERMISSION,
     WORK_TRANSITION_PERMISSION,
     DELIVERY_RECORD_PERMISSION,
     ORDER_FULFILLMENT_PERMISSION,
@@ -273,6 +275,7 @@ impl AuthorizationService {
                     | ORDER_CANCEL_PERMISSION
                     | ORDER_FULFILLMENT_PERMISSION
                     | WORK_TRANSITION_PERMISSION
+                    | WORK_READ_PERMISSION
                     | QUOTATION_CANCEL_PERMISSION => {
                         manager && (branch_scope || organization_scope)
                     }

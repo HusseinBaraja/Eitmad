@@ -925,6 +925,14 @@ public partial class Query
     [JsonPropertyName("payload")]
     public object? Payload { get; set; }
 
+    public const string WorkOrderListKind = "eitmad.work-order.list.v1";
+
+    public static Query ForWorkOrderList(ListWorkOrders payload) =>
+        new() { Kind = WorkOrderListKind, Payload = payload };
+
+    public ListWorkOrders? AsWorkOrderList() =>
+        Kind == WorkOrderListKind ? PayloadAs<ListWorkOrders>() : null;
+
     public const string QuotationDraftGetKind = "eitmad.quotation-draft.get.v1";
 
     public static Query ForQuotationDraftGet(GetQuotationDraft payload) =>
@@ -1221,6 +1229,14 @@ public partial class QueryResult
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("payload")]
     public object? Payload { get; set; }
+
+    public const string WorkOrdersKind = "workOrders";
+
+    public static QueryResult ForWorkOrders(WorkOrderPage payload) =>
+        new() { Kind = WorkOrdersKind, Payload = payload };
+
+    public WorkOrderPage? AsWorkOrders() =>
+        Kind == WorkOrdersKind ? PayloadAs<WorkOrderPage>() : null;
 
     public const string OrdersKind = "orders";
 

@@ -56,7 +56,7 @@ public sealed record OrderListItem(
     public string ReadyFromWorkOrder { get; init; } = "";
     public bool IsNewlyReady => ReadyFromWorkOrder.Length > 0;
     public string ReadyNotice => "جاهز حديثاً — اكتمل التصنيع. راجع الطلب للتواصل مع العميل. معاينة فقط.";
-    public bool CanShowProduction => Record is null && Items.Any(item => item.IsFurniture) && Status is not OrderStatus.Cancelled and not OrderStatus.Delivered;
+    public bool CanShowProduction => Record is { } value ? value.Work.Length > 0 : Items.Any(item => item.IsFurniture) && Status is not OrderStatus.Cancelled and not OrderStatus.Delivered;
     public bool HasOriginalQuotation => OriginalQuotation is not null;
 
     public decimal Subtotal => Record?.Source.Quotation.Evaluation.Totals.SubtotalYer ?? Items.Sum(item => item.Total);

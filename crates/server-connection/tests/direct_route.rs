@@ -393,6 +393,9 @@ fn direct_test_domains(sync_database: &SyncDatabase) -> DomainRegistry {
     handlers.push(Arc::new(eitmad_sync_plane::QuotationApprovalServer::new(
         sync_database.pool(),
     )));
+    handlers.push(Arc::new(eitmad_sync_plane::WorkOrderServer::new(
+        sync_database.pool(),
+    )));
     handlers.push(Arc::new(eitmad_sync_plane::OrderServer::new(
         sync_database.pool(),
     )));

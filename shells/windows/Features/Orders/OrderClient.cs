@@ -22,6 +22,11 @@ public sealed class OrderClient : IAsyncDisposable
     }
     public Task ActivateAsync() => changes.ActivateAsync();
     public Task DeactivateAsync() => changes.DeactivateAsync();
+    public Task<DraftResult<WorkOrderPage>> WorkOrdersAsync(Guid? after = null, Guid? orderId = null) => Request(async () => {
+        if (!engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityWorkOrdersV1)) return new DraftResult<WorkOrderPage>(null, DraftFailure.Unavailable, []);
+        var result = await engine.QueryAsync(Query.ForWorkOrderList(new() { After = after, OrderId = orderId, Limit = 100 }));
+        return Result(result.Outcome.Status, result.Outcome.Payload.AsWorkOrders(), result.Outcome.Payload.Code);
+    });
     public ValueTask DisposeAsync() => changes.DisposeAsync();
     public Task<DraftResult<OrderPage>> ListAsync(Guid? after = null, Guid? orderId = null) => Request(async () => {
         var result = await engine.QueryAsync(orderId is { } id ? Query.ForOrderGet(new() { OrderId = id }) : Query.ForOrderList(new() { After = after, Limit = 100 }));

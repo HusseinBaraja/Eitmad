@@ -128,7 +128,7 @@ impl OrderServer {
         }
     }
 }
-async fn authorize(
+pub(super) async fn authorize(
     tx: &mut Transaction<'_, Postgres>,
     actor: &AuthenticatedServerSession,
     scope: &ScopeRef,
@@ -392,6 +392,8 @@ async fn persist(
     value: &OrderRecord,
     now: UnixMillis,
 ) -> Result<(), E> {
+    eitmad_orders::validate_production(value)?;
+    crate::work_orders::persist(tx, actor, value, now).await?;
     let mut retained = value.clone();
     retained.permitted_actions.clear();
     let json = serde_json::to_vec(&retained).map_err(|_| E::Unavailable)?;

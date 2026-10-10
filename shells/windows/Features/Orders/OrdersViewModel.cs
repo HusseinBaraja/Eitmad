@@ -97,9 +97,9 @@ public sealed partial class OrdersViewModel : ObservableObject
     }
 
     public Func<string, Features.WorkOrders.WorkOrderListItem?>? FindProduction { get; set; }
-    public string ProductionAction => SelectedOrder is { } order && FindProduction?.Invoke(order.Number) is not null ? "فتح أمر العمل" : "بدء أمر عمل تجريبي";
-    public string ProductionNumber => SelectedOrder is { } order ? FindProduction?.Invoke(order.Number)?.Number ?? "" : "";
-    public string ProductionSummary => SelectedOrder is { } order && FindProduction?.Invoke(order.Number) is { } work ? work.StatusLabel : "لا يوجد أمر عمل لهذا الطلب في المعاينة";
+    public string ProductionAction => SelectedOrder is { } order && FindProduction?.Invoke(order.Number) is not null ? "فتح أمر العمل" : IsLive ? "فتح أمر العمل" : "بدء أمر عمل تجريبي";
+    public string ProductionNumber => SelectedOrder is { } order ? IsLive ? string.Join(" · ", order.Record?.Work.Select(w => w.Number) ?? []) : FindProduction?.Invoke(order.Number)?.Number ?? "" : "";
+    public string ProductionSummary => IsLive ? SelectedOrder?.WorkSummary ?? "" : SelectedOrder is { } order && FindProduction?.Invoke(order.Number) is { } work ? work.StatusLabel : "لا يوجد أمر عمل لهذا الطلب في المعاينة";
     public ObservableCollection<OrderListItem> PreviewOrders => orders;
     public ObservableCollection<OrderListItem> NewReadyOrders { get; } = [];
     public int ReadyCount => orders.Count(order => order.IsReady);

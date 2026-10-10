@@ -37,9 +37,13 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <controls:PageHeader Grid.Row="0" Title="أوامر العمل" Subtitle="الأثاث المطلوب تصنيعه ومسؤولية إنجازه" />
+            <controls:PageHeader Grid.Row="0" Title="أوامر العمل" Subtitle="{Binding ListState}" />
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                 <StackPanel Margin="32,22,32,30">
+                    <StackPanel Visibility="{Binding IsLive, Converter={StaticResource BooleanToVisibility}}" Margin="0,0,0,12">
+                        <TextBlock Text="{Binding PendingNotice}" TextWrapping="Wrap"/><TextBlock Text="{Binding ActionNotice}" TextWrapping="Wrap"/>
+                        <Button Content="تأكيد نتيجة العملية السابقة" Visibility="{Binding HasPending, Converter={StaticResource BooleanToVisibility}}" IsEnabled="{Binding CanRetry}" Click="RetryClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" automation:AutomationProperties.Name="إعادة محاولة عملية الإنتاج"/>
+                    </StackPanel>
                     <layout:AdaptiveFieldsPanel MinItemWidth="220" Margin="0,0,0,8">
                         <controls:FormField Label="البحث">
                             <TextBox x:Name="WorkOrderSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" automation:AutomationProperties.Name="البحث في أوامر العمل" Style="{StaticResource SearchInput}" />
@@ -56,7 +60,7 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Text="معاينة محلية — لا يتم حفظ تغييرات الحالة" Foreground="#8A531F" FontSize="10" />
+                        <TextBlock Visibility="{Binding IsPreview, Converter={StaticResource BooleanToVisibility}}" Text="معاينة محلية — لا يتم حفظ تغييرات الحالة" Foreground="#8A531F" FontSize="10" />
                         <TextBlock Grid.Column="1" Text="{Binding VisibleCountLabel}" Foreground="{StaticResource MutedBrush}" FontSize="10" />
                     </Grid>
                     <Border Style="{StaticResource Card}" ClipToBounds="True">
@@ -389,7 +393,15 @@
                             </StackPanel>
                         </Grid>
                     </Border>
-                    <Border Style="{StaticResource Card}" Margin="0,16,0,0" Padding="20">
+                    <StackPanel Visibility="{Binding IsLive, Converter={StaticResource BooleanToVisibility}}" Margin="0,16,0,0">
+                        <layout:AdaptiveFieldsPanel MinItemWidth="200" IsEnabled="{Binding ActionsAvailable}" Visibility="{Binding SelectedWorkOrder.Record.CanStart, Converter={StaticResource BooleanToVisibility}}">
+                            <controls:FormField Label="مسند إلى"><TextBox Text="{Binding Assignment, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" automation:AutomationProperties.Name="مسؤول تنفيذ أمر العمل"/></controls:FormField>
+                            <controls:FormField Label="موعد التسليم"><DatePicker SelectedDate="{Binding DueDate}" automation:AutomationProperties.Name="موعد تسليم أمر العمل"/></controls:FormField>
+                        </layout:AdaptiveFieldsPanel>
+                        <TextBlock Text="{Binding PendingNotice}" TextWrapping="Wrap"/><TextBlock Text="{Binding ActionNotice}" TextWrapping="Wrap" Margin="0,8,0,8"/>
+                        <Button Content="تأكيد نتيجة العملية السابقة" Visibility="{Binding HasPending, Converter={StaticResource BooleanToVisibility}}" IsEnabled="{Binding CanRetry}" Click="RetryClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" automation:AutomationProperties.Name="تأكيد نتيجة عملية الإنتاج السابقة"/>
+                    </StackPanel>
+                    <Border Style="{StaticResource Card}" Margin="0,16,0,0" Padding="20" IsEnabled="{Binding ActionsAvailable}">
                         <Grid FlowDirection="LeftToRight">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
@@ -398,7 +410,7 @@
                             <Button x:Name="AdvanceStatusButton" Grid.Column="0" Content="{Binding SelectedWorkOrder.NextStatusActionLabel}" Style="{StaticResource PrimaryButton}" Height="43" MinWidth="145" IsEnabled="{Binding SelectedWorkOrder.CanAdvance}" Click="AdvanceStatusClick" automation:AutomationProperties.Name="تغيير حالة أمر العمل" />
                             <StackPanel Grid.Column="1" FlowDirection="RightToLeft" HorizontalAlignment="Right" Margin="20,0,0,0">
                                 <TextBlock Text="حالة العمل" FontSize="15" FontWeight="Bold" />
-                                <TextBlock Text="جديد  ←  قيد التنفيذ  ←  مكتمل" FlowDirection="RightToLeft" Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,5,0,0" />
+                                <TextBlock Text="مخطط  ←  قيد التنفيذ  ←  مكتمل" FlowDirection="RightToLeft" Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,5,0,0" />
                             </StackPanel>
                         </Grid>
                     </Border>

@@ -57,5 +57,6 @@ public partial class WorkOrdersView : UserControl
 
         Feedback.RestartDuration();
     }
+    private void RetryClick(object sender, RoutedEventArgs e) => ViewModel.Retry();
     private void FeedbackDismissed(object sender, RoutedEventArgs e) => ViewModel.ClearFeedback();
 }

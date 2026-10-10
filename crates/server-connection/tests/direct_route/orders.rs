@@ -1,4 +1,5 @@
 use super::*;
+use eitmad_contracts::work_order::{ListWorkOrders, ReadWorkOrders};
 use eitmad_contracts::{order::*, quotation_lifecycle::*};
 use eitmad_orders::{OrderError as E, OrderServer};
 use eitmad_pricing::{DiscountApprovalServer, QuotationServer};
@@ -34,6 +35,7 @@ async fn orders_cross_client_conversion_transitions_and_restart() {
     let auth = scenario.server.authentication.clone();
     let endpoint = scenario.endpoint.clone();
     let trust = scenario.trust.clone();
+    let ready_made = product.clone();
     let (mut reception, clients, actor, accepted) = tokio::task::spawn_blocking(move || {
         let mut reception =
             DraftTestClient::new(reception, auth, [11; 32], (&endpoint, &trust, &catalog));
@@ -43,6 +45,7 @@ async fn orders_cross_client_conversion_transitions_and_restart() {
             customer.id,
             furniture,
             Some(dimensions),
+            Some(ready_made),
             &clients,
         );
         (reception, clients, actor, accepted)
@@ -74,6 +77,7 @@ async fn orders_cross_client_conversion_transitions_and_restart() {
         watches.wait(final_order.id, final_order.revision);
         watches.stop();
         ready_and_cancelled(&mut reception, customer.id, product, &clients);
+        manufacturing_cancellation(&mut reception, customer.id, &clients, &final_order);
         (clients, actor, final_order, request)
     })
     .await
@@ -165,7 +169,7 @@ async fn verify_restart(
         &scenario.key,
     )
     .await;
-    // Reopen encrypted client credentials rather than reusing an in-memory session after restart.
+    // Recreate the client after the server reloads its durable history and receipts.
     let restarted = approval_connection(
         manager_directory,
         clients.manager_auth.clone(),
@@ -188,6 +192,21 @@ async fn verify_restart(
             )
             .unwrap();
         assert_eq!(page.items[0].state, OrderState::Delivered);
+        let work = restarted
+            .work_orders(
+                &clients.manager_actor,
+                &ListWorkOrders {
+                    after: None,
+                    limit: 100,
+                    order_id: Some(final_order.id),
+                },
+                UnixMillis(i64::MAX),
+            )
+            .unwrap();
+        assert_eq!(work.items.len(), 1);
+        assert_eq!(work.items[0].state, WorkState::Completed);
+        assert_eq!(work.items[0].id, final_order.work[0].id);
+
         lifecycle::assert_frozen(
             &page.items[0].source.quotation,
             &final_order.source.quotation,
@@ -229,10 +248,14 @@ fn accept(
     customer: CustomerId,
     target: PriceTarget,
     dimensions: Option<eitmad_contracts::furniture::FurnitureDimensions>,
+    additional_product: Option<PriceTarget>,
     clients: &ApprovalClients,
 ) -> QuotationRecord {
     let mut intent = draft_intent(customer, target);
     intent.lines[0].configuration.dimensions = dimensions;
+    if let Some(product) = additional_product {
+        intent.lines.extend(draft_intent(customer, product).lines);
+    }
     let original = reception
         .drafts
         .create(
@@ -343,13 +366,7 @@ fn competing_conversion(
     assert_eq!(a.work.len(), 1);
     assert_eq!(
         a.work[0].line_ids,
-        accepted
-            .quotation
-            .intent
-            .lines
-            .iter()
-            .map(|l| l.id)
-            .collect::<Vec<_>>()
+        vec![accepted.quotation.intent.lines[0].id]
     );
     assert_eq!(send(&*clients.reception, actor, &request).unwrap().id, a.id);
     let changed = ConfirmOrder {
@@ -375,6 +392,12 @@ fn fulfillment(
     mut order: OrderRecord,
 ) -> OrderRecord {
     let commercial = order.source.quotation.clone();
+    let query = ListWorkOrders {
+        after: None,
+        limit: 100,
+        order_id: Some(order.id),
+    };
+    let frozen = manufacturing_snapshot(clients, &order, &query).furniture;
     let cancel = request(
         &actor.scope,
         OrderAction::Cancel(CancelOrder {
@@ -401,24 +424,17 @@ fn fulfillment(
         send(&*clients.reception, actor, &delivery),
         Err(E::Conflict)
     );
-    let mut work = TransitionOrderWork {
+    let (started, winning) = start_production(clients, &order);
+    order = started;
+    assert_eq!(order.state, OrderState::InProduction);
+    assert_reception_state(clients, actor, &order);
+    let work = TransitionOrderWork {
         order_id: order.id,
         expected_revision: order.revision,
         work_id: order.work[0].id,
-        due_at: Some(UnixMillis(eitmad_authorization::now().0 + 86_400_000)),
-        assignment: Some("ورشة تجريبية".into()),
+        assignment: None,
+        due_at: None,
     };
-    let start = request(
-        &clients.manager_actor.scope,
-        OrderAction::StartWork(work.clone()),
-    );
-    assert_eq!(
-        send(&*clients.pure_reception, &clients.pure_actor, &start),
-        Err(E::Denied)
-    );
-    order = send(&*clients.manager, &clients.manager_actor, &start).unwrap();
-    assert_eq!(order.state, OrderState::InProduction);
-    work.expected_revision = order.revision;
     order = send(
         &*clients.manager,
         &clients.manager_actor,
@@ -429,6 +445,25 @@ fn fulfillment(
     )
     .unwrap();
     assert_eq!(order.state, OrderState::Ready);
+    assert_reception_state(clients, actor, &order);
+    let completed = clients
+        .manager
+        .work_orders(&clients.manager_actor, &query, UnixMillis(i64::MAX))
+        .unwrap()
+        .items
+        .remove(0);
+    assert_eq!(completed.furniture, frozen);
+    assert!(!completed.can_start);
+    assert!(!completed.can_complete);
+    assert_eq!(completed.state, WorkState::Completed);
+    // Recover a lost earlier reply without repeating a transition or rewinding current state.
+    assert_eq!(
+        send(&*clients.manager, &clients.manager_actor, &winning)
+            .unwrap()
+            .state,
+        OrderState::InProduction
+    );
+    assert_reception_state(clients, actor, &order);
     let edit = request(
         &clients.manager_actor.scope,
         OrderAction::EditFulfillment(EditOrderFulfillment {
@@ -455,6 +490,205 @@ fn fulfillment(
     );
     lifecycle::assert_frozen(&order.source.quotation, &commercial);
     deliver(clients, actor, order)
+}
+fn manufacturing_snapshot(
+    clients: &ApprovalClients,
+    order: &OrderRecord,
+    query: &ListWorkOrders,
+) -> eitmad_contracts::work_order::WorkOrderRecord {
+    assert_eq!(
+        clients
+            .pure_reception
+            .work_orders(&clients.pure_actor, query, UnixMillis(i64::MAX)),
+        Err(E::Denied)
+    );
+    let planned = clients
+        .manager
+        .work_orders(&clients.manager_actor, query, UnixMillis(i64::MAX))
+        .unwrap()
+        .items
+        .remove(0);
+    assert_eq!(planned.id, order.work[0].id);
+    assert!(planned.can_start);
+    assert!(!planned.can_complete);
+    assert!(!planned.furniture[0].parts.is_empty());
+    assert_eq!(
+        planned.furniture[0].dimensions,
+        order.source.quotation.evaluation.lines[0]
+            .dimensions
+            .clone()
+            .unwrap()
+    );
+    planned
+}
+fn start_production(clients: &ApprovalClients, order: &OrderRecord) -> (OrderRecord, ConfirmOrder) {
+    let work = TransitionOrderWork {
+        order_id: order.id,
+        expected_revision: order.revision,
+        work_id: order.work[0].id,
+        due_at: Some(UnixMillis(eitmad_authorization::now().0 + 86_400_000)),
+        assignment: Some("ورشة تجريبية".into()),
+    };
+    let start = request(
+        &clients.manager_actor.scope,
+        OrderAction::StartWork(work.clone()),
+    );
+    assert_eq!(
+        send(&*clients.pure_reception, &clients.pure_actor, &start),
+        Err(E::Denied)
+    );
+    let competing = ConfirmOrder {
+        idempotency_key: IdempotencyKey::new(Uuid::new_v4()),
+        ..start.clone()
+    };
+    let (first, second) = std::thread::scope(|threads| {
+        let first = threads.spawn(|| send(&*clients.manager, &clients.manager_actor, &start));
+        let second = threads.spawn(|| send(&*clients.manager, &clients.manager_actor, &competing));
+        (first.join().unwrap(), second.join().unwrap())
+    });
+    assert!(matches!(
+        (&first, &second),
+        (Ok(_), Err(E::Conflict)) | (Err(E::Conflict), Ok(_))
+    ));
+    let winning = if first.is_ok() { start } else { competing };
+    let order = first.or(second).unwrap();
+    assert_eq!(
+        send(&*clients.manager, &clients.manager_actor, &winning)
+            .unwrap()
+            .revision,
+        order.revision
+    );
+
+    (order, winning)
+}
+fn assert_reception_state(
+    clients: &ApprovalClients,
+    actor: &AuthorizationContext,
+    order: &OrderRecord,
+) {
+    let page = clients
+        .reception
+        .orders(
+            actor,
+            &ListOrders {
+                after: None,
+                limit: 1,
+            },
+            Some(order.id),
+            UnixMillis(i64::MAX),
+        )
+        .unwrap();
+    assert_eq!(page.items[0].state, order.state);
+    assert_eq!(page.items[0].revision, order.revision);
+    let page = clients
+        .pure_reception
+        .orders(
+            &clients.pure_actor,
+            &ListOrders {
+                after: None,
+                limit: 1,
+            },
+            Some(order.id),
+            UnixMillis(i64::MAX),
+        )
+        .unwrap();
+    assert_eq!(page.items[0].state, order.state);
+    assert!(page.items[0].work.iter().all(|w| w.assignment.is_none()));
+}
+fn manufacturing_cancellation(
+    reception: &mut DraftTestClient,
+    customer: CustomerId,
+    clients: &ApprovalClients,
+    source: &OrderRecord,
+) {
+    for started in [false, true] {
+        let line = &source.source.quotation.intent.lines[0];
+        let accepted = accept(
+            reception,
+            customer,
+            line.configuration.selection.target.clone(),
+            line.configuration.dimensions.clone(),
+            None,
+            clients,
+        );
+        let actor = &reception.client.actor;
+        let mut value = send(
+            &*clients.reception,
+            actor,
+            &request(
+                &actor.scope,
+                OrderAction::Convert(ConvertQuotation {
+                    draft_id: accepted.quotation.id,
+                    expected_revision: accepted.revision,
+                }),
+            ),
+        )
+        .unwrap();
+        if started {
+            value = send(
+                &*clients.manager,
+                &clients.manager_actor,
+                &request(
+                    &clients.manager_actor.scope,
+                    OrderAction::StartWork(TransitionOrderWork {
+                        order_id: value.id,
+                        expected_revision: value.revision,
+                        work_id: value.work[0].id,
+                        assignment: Some("ورشة".into()),
+                        due_at: Some(UnixMillis(eitmad_authorization::now().0 + 86_400_000)),
+                    }),
+                ),
+            )
+            .unwrap();
+        }
+        let before = clients
+            .manager
+            .work_orders(
+                &clients.manager_actor,
+                &ListWorkOrders {
+                    after: None,
+                    limit: 100,
+                    order_id: Some(value.id),
+                },
+                UnixMillis(i64::MAX),
+            )
+            .unwrap()
+            .items
+            .remove(0);
+        value = send(
+            &*clients.manager,
+            &clients.manager_actor,
+            &request(
+                &clients.manager_actor.scope,
+                OrderAction::Cancel(CancelOrder {
+                    order_id: value.id,
+                    expected_revision: value.revision,
+                    reason: "إلغاء تجريبي".into(),
+                }),
+            ),
+        )
+        .unwrap();
+        assert_eq!(value.work[0].state, WorkState::Cancelled);
+        assert_reception_state(clients, actor, &value);
+        let after = clients
+            .manager
+            .work_orders(
+                &clients.manager_actor,
+                &ListWorkOrders {
+                    after: None,
+                    limit: 100,
+                    order_id: Some(value.id),
+                },
+                UnixMillis(i64::MAX),
+            )
+            .unwrap()
+            .items
+            .remove(0);
+        assert_eq!(after.furniture, before.furniture);
+        assert_eq!(after.state, WorkState::Cancelled);
+        assert!(!after.can_start);
+        assert!(!after.can_complete);
+    }
 }
 fn deliver(
     clients: &ApprovalClients,
@@ -508,7 +742,7 @@ fn ready_and_cancelled(
     target: PriceTarget,
     clients: &ApprovalClients,
 ) {
-    let accepted = accept(reception, customer, target, None, clients);
+    let accepted = accept(reception, customer, target, None, None, clients);
     let actor = &reception.client.actor;
     let order = send(
         &*clients.reception,
@@ -577,6 +811,29 @@ async fn verify_database(
         order_id: None,
     };
     assert_eq!(server.list(actor, &foreign).await, Err(E::Denied));
+    let work_server = eitmad_sync_plane::WorkOrderServer::new(pool.clone());
+    assert_eq!(
+        work_server
+            .list(
+                actor,
+                &ReadWorkOrders {
+                    scope: foreign.scope,
+                    query: ListWorkOrders {
+                        after: None,
+                        limit: 100,
+                        order_id: None
+                    }
+                }
+            )
+            .await,
+        Err(E::Denied)
+    );
+    let unscoped_work: i64 = sqlx::query_scalar("SELECT count(*) FROM sync.work_order_history")
+        .fetch_one(pool)
+        .await
+        .unwrap();
+    assert_eq!(unscoped_work, 0);
+
     let unscoped: i64 = sqlx::query_scalar("SELECT count(*) FROM sync.orders")
         .fetch_one(pool)
         .await
@@ -777,6 +1034,36 @@ async fn verify_sync_projection(
     use base64::Engine as _;
     let database = SyncDatabase::from_pool(pool.clone());
     let coordinator = SyncCoordinator::new(&database, direct_test_domains(&database));
+    let work_schema = SchemaId::parse(eitmad_orders::WORK_ORDER_SCHEMA).unwrap();
+    assert!(
+        coordinator
+            .pull(eitmad_sync_plane::PullPageRequest {
+                session: reception,
+                scope: branch,
+                schema_id: &work_schema,
+                schema_version: 1,
+                after: None,
+                maximum_records: 100,
+                correlation_id: CorrelationId::new(Uuid::new_v4()),
+                now: eitmad_authorization::now()
+            })
+            .await
+            .is_err()
+    );
+    let private = coordinator
+        .pull(eitmad_sync_plane::PullPageRequest {
+            session: manager,
+            scope: organization,
+            schema_id: &work_schema,
+            schema_version: 1,
+            after: None,
+            maximum_records: 100,
+            correlation_id: CorrelationId::new(Uuid::new_v4()),
+            now: eitmad_authorization::now(),
+        })
+        .await
+        .unwrap();
+    assert!(!private.records.is_empty());
     let schema = SchemaId::parse(eitmad_orders::ORDER_SCHEMA).unwrap();
     for (actor, scope, private) in [(reception, branch, false), (manager, organization, true)] {
         let page = coordinator

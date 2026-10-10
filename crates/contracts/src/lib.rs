@@ -43,5 +43,6 @@ pub mod sync_transport;
 pub mod transport;
 pub mod updates;
 pub mod versioning;
+pub mod work_order;
 
 pub use transport::PROTOCOL_VERSION;

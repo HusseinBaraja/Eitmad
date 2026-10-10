@@ -12,6 +12,70 @@ use eitmad_orders::{OrderError as E, OrderServer};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 impl ProductDispatcher {
+    async fn work_order_list(
+        &self,
+        context: &DispatchContext,
+        query: eitmad_contracts::work_order::ListWorkOrders,
+    ) -> Result<QueryResult, ContractError> {
+        self.require_approval(context, eitmad_authorization::WORK_READ_PERMISSION)
+            .map_err(|e| *e)?;
+        if !(1..=100).contains(&query.limit) {
+            return Err(failure(E::Invalid, context));
+        }
+        let actor = context.authorization.clone();
+        let deadline = context.deadline;
+        let copy = query.clone();
+        let result = if let Some(server) = self.order_server.clone() {
+            tokio::task::spawn_blocking(move || server.work_orders(&actor, &copy, deadline))
+                .await
+                .map_err(|_| failure(E::Unavailable, context))?
+        } else {
+            Err(E::Unavailable)
+        };
+        self.authorization
+            .authorize(
+                &context.authorization,
+                eitmad_authorization::WORK_READ_PERMISSION,
+            )
+            .map_err(|_| failure(E::Denied, context))?;
+        let mut page = match result {
+            Ok(page) => {
+                for value in &page.items {
+                    if context.authorization.scope.kind.as_str() == "branch"
+                        && value.scope != context.authorization.scope
+                    {
+                        return Err(failure(E::Denied, context));
+                    }
+                    let audit = MutationAuditRecord::from_authorization(
+                        &context.authorization,
+                        eitmad_authorization::now(),
+                        context.correlation_id,
+                        "eitmad.work-order.cache.v1",
+                        AuditTarget {
+                            kind: "work-order".into(),
+                            identifiers: vec![value.id.to_string()],
+                        },
+                    );
+                    self.store
+                        .transact_pricing(true, |tx| tx.cache_work_order(value, &audit))
+                        .map_err(|_| failure(E::Unavailable, context))?;
+                }
+                self.drain_pending_publications()
+                    .map_err(|_| failure(E::Unavailable, context))?;
+                page
+            }
+            Err(E::Unavailable) => self
+                .store
+                .cached_work_orders(&context.authorization, &query)
+                .map_err(|_| failure(E::Unavailable, context))?,
+            Err(e) => return Err(failure(e, context)),
+        };
+        page.pending = self
+            .store
+            .pending_orders(&context.authorization)
+            .map_err(|_| failure(E::Unavailable, context))?;
+        Ok(QueryResult::WorkOrders(page))
+    }
     #[must_use]
     pub fn with_orders(mut self, server: Arc<dyn OrderServer>) -> Self {
         self.order_server = Some(server);
@@ -108,6 +172,9 @@ impl ProductDispatcher {
         query: eitmad_contracts::queries::Query,
     ) -> Result<QueryResult, ContractError> {
         match query {
+            eitmad_contracts::queries::Query::WorkOrders(query) => {
+                self.work_order_list(context, query).await
+            }
             eitmad_contracts::queries::Query::Orders(query) => {
                 self.order_list(context, query, None).await
             }

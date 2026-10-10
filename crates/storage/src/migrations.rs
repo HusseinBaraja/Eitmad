@@ -150,6 +150,7 @@ fn registry() -> Vec<Migration> {
         .chain(sync_state::DOMAIN_MIGRATIONS)
         .chain(crate::quotation_lifecycle::MIGRATIONS)
         .chain(crate::orders::MIGRATIONS)
+        .chain(crate::work_orders::MIGRATIONS)
         .copied()
         .collect()
 }
@@ -486,7 +487,7 @@ mod tests {
             )
             .unwrap();
         apply(&mut connection).unwrap();
-        assert_eq!(read_version(&connection).unwrap(), 27);
+        assert_eq!(read_version(&connection).unwrap(), CURRENT_STORAGE_VERSION);
         let snapshot: Vec<u8> = connection
             .query_row(
                 "SELECT record_json FROM quotation_confirmed_history",
@@ -504,6 +505,32 @@ mod tests {
         assert!(
             connection
                 .execute("DELETE FROM order_confirmed_history", [])
+                .is_err()
+        );
+        apply(&mut connection).unwrap();
+    }
+
+    #[test]
+    fn work_orders_migration_preserves_confirmed_orders_and_pending_transitions() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        apply_registry(&mut connection, &registry()[..27]).unwrap();
+        connection.execute("INSERT INTO order_confirmed_history VALUES('tenant','branch','scope','order',1,?1)", [b"accepted snapshot".as_slice()]).unwrap();
+        connection.execute("INSERT INTO order_pending VALUES('tenant','principal','branch','scope','key',?1,NULL)", [b"exact transition".as_slice()]).unwrap();
+        apply(&mut connection).unwrap();
+        let retained: Vec<u8> = connection
+            .query_row("SELECT record_json FROM order_confirmed_history", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(retained, b"accepted snapshot");
+        let pending: Vec<u8> = connection
+            .query_row("SELECT request_json FROM order_pending", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(pending, b"exact transition");
+        connection.execute("INSERT INTO work_order_confirmed_history VALUES('tenant','branch','scope','work','order',1,?1)", [b"production snapshot".as_slice()]).unwrap();
+        assert!(
+            connection
+                .execute("UPDATE work_order_confirmed_history SET revision=2", [])
                 .is_err()
         );
         apply(&mut connection).unwrap();
