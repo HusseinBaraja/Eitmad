@@ -3899,47 +3899,121 @@ namespace Eitmad.Contracts
         public Guid? Next { get; set; }
     }
 
+    /// <summary>
+    /// Independently authorized home sources, not an atomic cross-source snapshot.
+    /// See `docs/developer/subsystems/manager-receptionist-workflows.md#connected-home-screens`.
+    /// </summary>
     public partial class HomeSnapshot
     {
+        /// <summary>
+        /// Pending approval count without search filtering or item rows; requires server
+        /// confirmation.
+        /// </summary>
         [JsonPropertyName("approvals")]
         public HomeSection Approvals { get; set; }
 
+        /// <summary>
+        /// Public organization catalog search results from the authorized confirmed cache.
+        /// </summary>
         [JsonPropertyName("catalog")]
         public HomeSection Catalog { get; set; }
 
+        /// <summary>
+        /// Branch customer search results from local authority; organization-wide search is
+        /// unavailable.
+        /// </summary>
         [JsonPropertyName("customers")]
         public HomeSection Customers { get; set; }
 
+        /// <summary>
+        /// Recent or matching orders, with active and Ready counts independent of the search term.
+        /// </summary>
         [JsonPropertyName("orders")]
         public HomeSection Orders { get; set; }
 
+        /// <summary>
+        /// Recent or matching quotations, with open counts independent of the search term.
+        /// </summary>
         [JsonPropertyName("quotations")]
         public HomeSection Quotations { get; set; }
 
+        /// <summary>
+        /// At most eight Ready orders from the visited order pages, independent of the search term.
+        /// Sorted by `changed_at` descending, then UUID ascending. Uses orders' completeness and
+        /// freshness;
+        /// empty when orders are denied or unavailable. Length is not the full Ready-order count.
+        /// </summary>
         [JsonPropertyName("readyOrders")]
         public HomeItem[] ReadyOrders { get; set; }
     }
 
+    /// <summary>
+    /// Pending approval count without search filtering or item rows; requires server
+    /// confirmation.
+    ///
+    /// One authorized source; counts, freshness and rows have independent meanings.
+    /// See
+    /// `docs/developer/subsystems/manager-receptionist-workflows.md#connected-home-screens`.
+    ///
+    /// Public organization catalog search results from the authorized confirmed cache.
+    ///
+    /// Branch customer search results from local authority; organization-wide search is
+    /// unavailable.
+    ///
+    /// Recent or matching orders, with active and Ready counts independent of the search term.
+    ///
+    /// Recent or matching quotations, with open counts independent of the search term.
+    /// </summary>
     public partial class HomeSection
     {
+        /// <summary>
+        /// Denied or unavailable sections contain no rows; their zero counts mean unknown.
+        /// </summary>
         [JsonPropertyName("availability")]
         public HomeAvailability Availability { get; set; }
 
         /// <summary>
-        /// False means counts and recent/search results cover a bounded subset only.
+        /// Whether source pagination ended within the read bounds. False means counts are lower
+        /// bounds
+        /// and rows cover a subset. True does not remove the eight-row limit or prove server
+        /// freshness.
         /// </summary>
         [JsonPropertyName("complete")]
         public bool Complete { get; set; }
 
+        /// <summary>
+        /// Unfiltered count within visited records: open quotations (Draft, `PendingApproval`,
+        /// Issued,
+        /// Accepted, including non-cancelled local drafts), active orders (not Delivered or
+        /// Cancelled),
+        /// or Pending approvals. Customer and catalog sections leave this zero, not a match total.
+        /// </summary>
         [JsonPropertyName("count")]
         public long Count { get; set; }
 
+        /// <summary>
+        /// At most eight rows. Quotations and orders sort by `changed_at` descending, then UUID
+        /// ascending.
+        /// Customers retain ascending customer UUID order; catalog retains its sales-entry cursor
+        /// order.
+        /// Approvals have no rows. Empty searches omit customer/catalog rows; other rows match the
+        /// term.
+        /// </summary>
         [JsonPropertyName("items")]
         public HomeItem[] Items { get; set; }
 
+        /// <summary>
+        /// Unfiltered Ready-order count within visited records; zero for every other section.
+        /// </summary>
         [JsonPropertyName("secondaryCount")]
         public long SecondaryCount { get; set; }
 
+        /// <summary>
+        /// For quotations and orders, every visited page was server-confirmed; for catalog, refresh
+        /// succeeded. False permits cached data without current-server confirmation. Approvals
+        /// require
+        /// a successful server read. Customers are local reads: true does not prove synchronization.
+        /// </summary>
         [JsonPropertyName("serverAvailable")]
         public bool ServerAvailable { get; set; }
     }
@@ -4537,6 +4611,9 @@ namespace Eitmad.Contracts
     /// </summary>
     public enum SubscriptionCloseReason { AuthorizationRevoked, Backpressure, ClientRequested, EngineStopping, ProjectionInvalidated };
 
+    /// <summary>
+    /// Denied or unavailable sections contain no rows; their zero counts mean unknown.
+    /// </summary>
     public enum HomeAvailability { Available, Denied, Unavailable };
 
     public enum HomeDestination { Catalog, Customer, Order, Quotation };

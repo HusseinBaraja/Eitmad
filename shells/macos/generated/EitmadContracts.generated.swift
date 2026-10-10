@@ -4231,10 +4231,26 @@ public struct FurniturePage: Codable, Sendable {
     }
 }
 
+/// Independently authorized home sources, not an atomic cross-source snapshot.
+/// See `docs/developer/subsystems/manager-receptionist-workflows.md#connected-home-screens`.
 // MARK: - HomeSnapshot
 public struct HomeSnapshot: Codable, Sendable {
-    public let approvals, catalog, customers, orders: HomeSection
+    /// Pending approval count without search filtering or item rows; requires server
+    /// confirmation.
+    public let approvals: HomeSection
+    /// Public organization catalog search results from the authorized confirmed cache.
+    public let catalog: HomeSection
+    /// Branch customer search results from local authority; organization-wide search is
+    /// unavailable.
+    public let customers: HomeSection
+    /// Recent or matching orders, with active and Ready counts independent of the search term.
+    public let orders: HomeSection
+    /// Recent or matching quotations, with open counts independent of the search term.
     public let quotations: HomeSection
+    /// At most eight Ready orders from the visited order pages, independent of the search term.
+    /// Sorted by `changed_at` descending, then UUID ascending. Uses orders' completeness and
+    /// freshness;
+    /// empty when orders are denied or unavailable. Length is not the full Ready-order count.
     public let readyOrders: [HomeItem]
 
     public init(approvals: HomeSection, catalog: HomeSection, customers: HomeSection, orders: HomeSection, quotations: HomeSection, readyOrders: [HomeItem]) {
@@ -4247,14 +4263,49 @@ public struct HomeSnapshot: Codable, Sendable {
     }
 }
 
+/// Pending approval count without search filtering or item rows; requires server
+/// confirmation.
+///
+/// One authorized source; counts, freshness and rows have independent meanings.
+/// See
+/// `docs/developer/subsystems/manager-receptionist-workflows.md#connected-home-screens`.
+///
+/// Public organization catalog search results from the authorized confirmed cache.
+///
+/// Branch customer search results from local authority; organization-wide search is
+/// unavailable.
+///
+/// Recent or matching orders, with active and Ready counts independent of the search term.
+///
+/// Recent or matching quotations, with open counts independent of the search term.
 // MARK: - HomeSection
 public struct HomeSection: Codable, Sendable {
+    /// Denied or unavailable sections contain no rows; their zero counts mean unknown.
     public let availability: HomeAvailability
-    /// False means counts and recent/search results cover a bounded subset only.
+    /// Whether source pagination ended within the read bounds. False means counts are lower
+    /// bounds
+    /// and rows cover a subset. True does not remove the eight-row limit or prove server
+    /// freshness.
     public let complete: Bool
+    /// Unfiltered count within visited records: open quotations (Draft, `PendingApproval`,
+    /// Issued,
+    /// Accepted, including non-cancelled local drafts), active orders (not Delivered or
+    /// Cancelled),
+    /// or Pending approvals. Customer and catalog sections leave this zero, not a match total.
     public let count: Int
+    /// At most eight rows. Quotations and orders sort by `changed_at` descending, then UUID
+    /// ascending.
+    /// Customers retain ascending customer UUID order; catalog retains its sales-entry cursor
+    /// order.
+    /// Approvals have no rows. Empty searches omit customer/catalog rows; other rows match the
+    /// term.
     public let items: [HomeItem]
+    /// Unfiltered Ready-order count within visited records; zero for every other section.
     public let secondaryCount: Int
+    /// For quotations and orders, every visited page was server-confirmed; for catalog, refresh
+    /// succeeded. False permits cached data without current-server confirmation. Approvals
+    /// require
+    /// a successful server read. Customers are local reads: true does not prove synchronization.
     public let serverAvailable: Bool
 
     public init(availability: HomeAvailability, complete: Bool, count: Int, items: [HomeItem], secondaryCount: Int, serverAvailable: Bool) {
@@ -4267,6 +4318,7 @@ public struct HomeSection: Codable, Sendable {
     }
 }
 
+/// Denied or unavailable sections contain no rows; their zero counts mean unknown.
 public enum HomeAvailability: String, Codable, Sendable {
     case available = "available"
     case denied = "denied"

@@ -5180,32 +5180,42 @@
       ]
     },
     "HomeSection": {
+      "description": "One authorized source; counts, freshness and rows have independent meanings.\nSee `docs/developer/subsystems/manager-receptionist-workflows.md#connected-home-screens`.",
       "type": "object",
       "properties": {
         "availability": {
-          "$ref": "#/definitions/HomeAvailability"
+          "description": "Denied or unavailable sections contain no rows; their zero counts mean unknown.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/HomeAvailability"
+            }
+          ]
         },
         "complete": {
-          "description": "False means counts and recent/search results cover a bounded subset only.",
+          "description": "Whether source pagination ended within the read bounds. False means counts are lower bounds\nand rows cover a subset. True does not remove the eight-row limit or prove server freshness.",
           "type": "boolean"
         },
         "count": {
+          "description": "Unfiltered count within visited records: open quotations (Draft, `PendingApproval`, Issued,\nAccepted, including non-cancelled local drafts), active orders (not Delivered or Cancelled),\nor Pending approvals. Customer and catalog sections leave this zero, not a match total.",
           "type": "integer",
           "format": "uint32",
           "minimum": 0
         },
         "items": {
+          "description": "At most eight rows. Quotations and orders sort by `changed_at` descending, then UUID ascending.\nCustomers retain ascending customer UUID order; catalog retains its sales-entry cursor order.\nApprovals have no rows. Empty searches omit customer/catalog rows; other rows match the term.",
           "type": "array",
           "items": {
             "$ref": "#/definitions/HomeItem"
           }
         },
         "secondaryCount": {
+          "description": "Unfiltered Ready-order count within visited records; zero for every other section.",
           "type": "integer",
           "format": "uint32",
           "minimum": 0
         },
         "serverAvailable": {
+          "description": "For quotations and orders, every visited page was server-confirmed; for catalog, refresh\nsucceeded. False permits cached data without current-server confirmation. Approvals require\na successful server read. Customers are local reads: true does not prove synchronization.",
           "type": "boolean"
         }
       },
@@ -5219,24 +5229,51 @@
       ]
     },
     "HomeSnapshot": {
+      "description": "Independently authorized home sources, not an atomic cross-source snapshot.\nSee `docs/developer/subsystems/manager-receptionist-workflows.md#connected-home-screens`.",
       "type": "object",
       "properties": {
         "approvals": {
-          "$ref": "#/definitions/HomeSection"
+          "description": "Pending approval count without search filtering or item rows; requires server confirmation.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/HomeSection"
+            }
+          ]
         },
         "catalog": {
-          "$ref": "#/definitions/HomeSection"
+          "description": "Public organization catalog search results from the authorized confirmed cache.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/HomeSection"
+            }
+          ]
         },
         "customers": {
-          "$ref": "#/definitions/HomeSection"
+          "description": "Branch customer search results from local authority; organization-wide search is unavailable.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/HomeSection"
+            }
+          ]
         },
         "orders": {
-          "$ref": "#/definitions/HomeSection"
+          "description": "Recent or matching orders, with active and Ready counts independent of the search term.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/HomeSection"
+            }
+          ]
         },
         "quotations": {
-          "$ref": "#/definitions/HomeSection"
+          "description": "Recent or matching quotations, with open counts independent of the search term.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/HomeSection"
+            }
+          ]
         },
         "readyOrders": {
+          "description": "At most eight Ready orders from the visited order pages, independent of the search term.\nSorted by `changed_at` descending, then UUID ascending. Uses orders' completeness and freshness;\nempty when orders are denied or unavailable. Length is not the full Ready-order count.",
           "type": "array",
           "items": {
             "$ref": "#/definitions/HomeItem"
