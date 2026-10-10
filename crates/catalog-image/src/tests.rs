@@ -252,7 +252,9 @@ fn import_survives_source_removal_upgrade_restart_and_exact_retry_without_path_d
     let connection = rusqlite::Connection::open(store.path()).unwrap();
     connection
         .execute_batch(
-            "DROP TABLE order_confirmed_history;
+            "DROP TABLE work_order_confirmed_history;
+        DELETE FROM schema_migrations WHERE version=28;
+        DROP TABLE order_confirmed_history;
         DROP TABLE order_pending;
         DELETE FROM schema_migrations WHERE version=27;
         DROP TABLE quotation_confirmed_history;
