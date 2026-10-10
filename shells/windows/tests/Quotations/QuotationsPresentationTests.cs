@@ -8,7 +8,7 @@ public sealed class QuotationsPresentationTests
     [TestMethod]
     public void ReceptionPreviewPreservesSourceAndApprovalBoundary()
     {
-        var model = new QuotationsViewModel(true);
+        var model = new QuotationsViewModel(true, preview: true);
         var furniture = Eitmad.WindowsShell.Tests.Furniture.FurnitureFixtures.SalesModel();
         var products = new Features.Products.ProductsViewModel();
         foreach (var row in model.VisibleQuotations.Where(row => row.CanEdit))
@@ -34,7 +34,7 @@ public sealed class QuotationsPresentationTests
     [DataRow("ٱلـمَهَا")]
     public void SearchStatusAndDateFiltersComposeAcrossManagerRows(string search)
     {
-        var viewModel = new QuotationsViewModel();
+        var viewModel = new QuotationsViewModel(preview: true);
 
         viewModel.SearchText = search;
         Assert.HasCount(1, viewModel.VisibleQuotations);
@@ -52,7 +52,7 @@ public sealed class QuotationsPresentationTests
     [TestMethod]
     public void DetailCalculatesTotalsAndLimitsActionsToRequiredDiscountApproval()
     {
-        var viewModel = new QuotationsViewModel();
+        var viewModel = new QuotationsViewModel(preview: true);
         var pendingApproval = viewModel.VisibleQuotations[0];
 
         viewModel.OpenQuotation(pendingApproval);
@@ -70,7 +70,7 @@ public sealed class QuotationsPresentationTests
         Assert.IsFalse(pendingApproval.HasPendingDiscountApproval);
         Assert.AreEqual("", pendingApproval.ApprovalDecisionLabel);
 
-        var rejectionPreview = new QuotationsViewModel();
+        var rejectionPreview = new QuotationsViewModel(preview: true);
         rejectionPreview.OpenQuotation(rejectionPreview.VisibleQuotations[0]);
         rejectionPreview.RejectDiscount();
         Assert.AreEqual(DiscountApprovalDecision.None, rejectionPreview.SelectedQuotation!.ApprovalDecision);

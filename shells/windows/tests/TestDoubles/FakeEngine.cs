@@ -10,7 +10,7 @@ namespace Eitmad.WindowsShell.Tests.TestDoubles;
 
 internal sealed class FakeEngine : IEngineShellBridge
 {
-    private readonly Dictionary<string, FakeSubscription> subscriptions = [];
+    private readonly Dictionary<string, List<FakeSubscription>> subscriptions = [];
     private readonly HashSet<string> queriedKinds = [];
     private readonly object stateLock = new();
     private EngineSupervisionSnapshot snapshot = new(
@@ -50,7 +50,7 @@ internal sealed class FakeEngine : IEngineShellBridge
         {
             lock (stateLock)
             {
-                return subscriptions.Count;
+                return subscriptions.Values.Sum(items => items.Count);
             }
         }
     }
@@ -410,13 +410,16 @@ internal sealed class FakeEngine : IEngineShellBridge
         {
             lock (stateLock)
             {
-                if (subscriptions.TryGetValue(subscription.Kind, out var current) && ReferenceEquals(current, item))
-                    subscriptions.Remove(subscription.Kind);
+                if (subscriptions.TryGetValue(subscription.Kind, out var current)) {
+                    current.Remove(item!);
+                    if (current.Count == 0) subscriptions.Remove(subscription.Kind);
+                }
             }
         });
         lock (stateLock)
         {
-            subscriptions.Add(subscription.Kind, item);
+            if (!subscriptions.TryGetValue(subscription.Kind, out var current)) subscriptions.Add(subscription.Kind, current = []);
+            current.Add(item);
         }
 
         SubscribeHook?.Invoke(subscription, item);
@@ -470,24 +473,24 @@ internal sealed class FakeEngine : IEngineShellBridge
 
     public void SignalResync(string kind)
     {
-        FakeSubscription subscription;
+        FakeSubscription[] current;
         lock (stateLock)
         {
-            subscription = subscriptions[kind];
+            current = subscriptions[kind].ToArray();
         }
 
-        subscription.SignalResync();
+        foreach (var subscription in current) subscription.SignalResync();
     }
 
     public void Publish(string kind, EventEnvelope envelope)
     {
-        FakeSubscription subscription;
+        FakeSubscription[] current;
         lock (stateLock)
         {
-            subscription = subscriptions[kind];
+            current = subscriptions[kind].ToArray();
         }
 
-        subscription.Publish(envelope);
+        foreach (var subscription in current) subscription.Publish(envelope);
     }
 
     public async ValueTask DisposeAsync()
@@ -495,7 +498,7 @@ internal sealed class FakeEngine : IEngineShellBridge
         FakeSubscription[] currentSubscriptions;
         lock (stateLock)
         {
-            currentSubscriptions = subscriptions.Values.ToArray();
+            currentSubscriptions = subscriptions.Values.SelectMany(items => items).ToArray();
         }
 
         foreach (var subscription in currentSubscriptions)

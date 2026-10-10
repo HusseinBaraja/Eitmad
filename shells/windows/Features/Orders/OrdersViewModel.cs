@@ -22,9 +22,11 @@ public sealed partial class OrdersViewModel : ObservableObject
     private string selectedDate = AllDates;
     private OrderListItem? selectedOrder;
 
-    public OrdersViewModel(bool isReceptionist = false)
+    public OrdersViewModel(bool isReceptionist = false, bool preview = false)
     {
         IsReceptionist = isReceptionist;
+        orders = [];
+        if (preview) {
         var today = DateOnly.FromDateTime(DateTime.Today);
         orders =
         [
@@ -74,7 +76,7 @@ public sealed partial class OrdersViewModel : ObservableObject
         ];
 
         {
-            var quotations = new Features.Quotations.QuotationsViewModel(true).VisibleQuotations;
+            var quotations = new Features.Quotations.QuotationsViewModel(true, preview: true).VisibleQuotations;
             for (var index = 0; index < orders.Count; index++)
             {
                 var order = orders[index];
@@ -90,6 +92,7 @@ public sealed partial class OrdersViewModel : ObservableObject
                 new("مرتبة الراحة", "مزدوج", "", "", "", 2, 45_000m, false, "Mattress")] };
         }
 
+        }
         StatusOptions = [AllStatuses, NewStatus, InProductionStatus, ReadyStatus, DeliveredStatus, CancelledStatus];
         DateOptions = [AllDates, Today, LastSevenDays, LastThirtyDays];
         VisibleOrders = [];

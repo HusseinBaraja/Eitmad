@@ -17,7 +17,7 @@ public sealed class CustomersRenderedTests
     [TestMethod]
     public void HistoryProjectionUsesRustIdentityAcrossRepublishedQuotation()
     {
-        var orders = new OrdersViewModel(true).VisibleOrders;
+        var orders = new OrdersViewModel(true, preview: true).VisibleOrders;
         var sourceOrder = orders.First(order => order.OriginalQuotation is not null);
         var original = sourceOrder.OriginalQuotation!;
         var customer = ContractCustomer(sourceOrder.Customer, sourceOrder.Phone);
@@ -77,6 +77,16 @@ public sealed class CustomersRenderedTests
             WpfTestHost.FindByName<Button>(detail, "BackButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
             Assert.IsTrue(open.IsKeyboardFocusWithin);
+            open.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            WpfTestHost.FindByAutomationName<Button>(detail, "تعديل بيانات العميل").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            var editor = WpfTestHost.FindByName<CustomerEditorView>(detail, "Editor");
+            Assert.IsTrue(editor.Dialog.IsOpen);
+            reception.ClearHomeSession();
+            Assert.IsNull(detail.DataContext);
+            Assert.AreEqual(Visibility.Collapsed, detail.Visibility);
+            Assert.IsFalse(editor.Dialog.IsOpen);
+            Assert.AreEqual("", editor.NameInput.Text);
         }, engine: engine);
     }
 

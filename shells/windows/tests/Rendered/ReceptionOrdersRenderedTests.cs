@@ -121,7 +121,7 @@ public sealed class ReceptionOrdersRenderedTests
         WpfTestHost.Run(780, 745, window =>
         {
             var view = new OrdersView();
-            view.ConfigureReceptionist();
+            view.ConfigureReceptionist(preview: true);
             window.Content = view;
             view.ViewModel.OpenOrder(view.ViewModel.VisibleOrders.Single(row => row.IsReady));
             WpfTestHost.CompleteLayout(window);

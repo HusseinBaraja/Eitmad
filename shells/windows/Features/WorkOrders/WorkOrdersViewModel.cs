@@ -23,8 +23,10 @@ public sealed partial class WorkOrdersViewModel : ObservableObject
     private WorkOrderListItem? selectedWorkOrder;
     private string feedbackMessage = string.Empty;
 
-    public WorkOrdersViewModel()
+    public WorkOrdersViewModel(bool preview = false)
     {
+        workOrders = [];
+        if (preview) {
         var today = DateOnly.FromDateTime(DateTime.Today);
         workOrders =
         [
@@ -96,6 +98,7 @@ public sealed partial class WorkOrdersViewModel : ObservableObject
                 "راجع فتحة الكهرباء في القسم الأوسط قبل القص."),
         ];
 
+        }
         StatusOptions = [AllStatuses, NewStatus, InProgressStatus, CompletedStatus, CancelledStatus];
         DueDateOptions = [AllDueDates, Overdue, DueToday, NextSevenDays];
         VisibleWorkOrders = [];

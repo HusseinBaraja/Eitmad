@@ -5127,6 +5127,131 @@
         "unhealthy"
       ]
     },
+    "HomeAvailability": {
+      "type": "string",
+      "enum": [
+        "available",
+        "denied",
+        "unavailable"
+      ]
+    },
+    "HomeDestination": {
+      "type": "string",
+      "enum": [
+        "quotation",
+        "order",
+        "customer",
+        "catalog"
+      ]
+    },
+    "HomeItem": {
+      "type": "object",
+      "properties": {
+        "changedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "destination": {
+          "$ref": "#/definitions/HomeDestination"
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "number": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "state": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "destination",
+        "title",
+        "state",
+        "changedAt"
+      ]
+    },
+    "HomeSection": {
+      "type": "object",
+      "properties": {
+        "availability": {
+          "$ref": "#/definitions/HomeAvailability"
+        },
+        "complete": {
+          "description": "False means counts and recent/search results cover a bounded subset only.",
+          "type": "boolean"
+        },
+        "count": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/HomeItem"
+          }
+        },
+        "secondaryCount": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "serverAvailable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "availability",
+        "complete",
+        "serverAvailable",
+        "count",
+        "secondaryCount",
+        "items"
+      ]
+    },
+    "HomeSnapshot": {
+      "type": "object",
+      "properties": {
+        "approvals": {
+          "$ref": "#/definitions/HomeSection"
+        },
+        "catalog": {
+          "$ref": "#/definitions/HomeSection"
+        },
+        "customers": {
+          "$ref": "#/definitions/HomeSection"
+        },
+        "orders": {
+          "$ref": "#/definitions/HomeSection"
+        },
+        "quotations": {
+          "$ref": "#/definitions/HomeSection"
+        },
+        "readyOrders": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/HomeItem"
+          }
+        }
+      },
+      "required": [
+        "quotations",
+        "orders",
+        "approvals",
+        "customers",
+        "catalog",
+        "readyOrders"
+      ]
+    },
     "ImportCatalogImage": {
       "type": "object",
       "properties": {
@@ -8020,6 +8145,22 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "eitmad.home.read.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ReadHome"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "eitmad.quotation.customer-document.v1"
             },
             "payload": {
@@ -8741,6 +8882,22 @@
     },
     "QueryResult": {
       "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "home"
+            },
+            "payload": {
+              "$ref": "#/definitions/HomeSnapshot"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
         {
           "type": "object",
           "properties": {
@@ -9982,6 +10139,18 @@
       "required": [
         "scope",
         "query"
+      ]
+    },
+    "ReadHome": {
+      "type": "object",
+      "properties": {
+        "term": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "term"
       ]
     },
     "ReadOrders": {

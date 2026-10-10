@@ -24,11 +24,13 @@ public partial class OrdersView : UserControl
         if (ViewModel.IsReceptionist && ViewModel.SelectedOrder is { } order) CustomerRequested?.Invoke(order.Id);
     }
 
-    public void ConfigureReceptionist()
+    public void ConfigureReceptionist(bool preview = false)
     {
-        ViewModel = new OrdersViewModel(true);
+        ViewModel = new OrdersViewModel(true, preview);
         DataContext = ViewModel;
     }
+
+    public void UsePreviewFixtures() { ViewModel = new OrdersViewModel(preview: true); DataContext = ViewModel; }
 
     public event Action<OrderListItem>? ProductionRequested;
     private void ProductionClick(object sender, RoutedEventArgs e)

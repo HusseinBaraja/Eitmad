@@ -43,12 +43,19 @@ public partial class QuotationsView : UserControl
         finally { openingEditor = false; }
     }
 
-    public void ConfigureReceptionist(Func<QuotationListItem?, Features.Reception.SalesCatalogViewModel> factory)
+    public void ConfigureReceptionist(Func<QuotationListItem?, Features.Reception.SalesCatalogViewModel>? factory = null)
     {
         createPreview = factory;
         DetailStatusBadge.HorizontalAlignment = System.Windows.HorizontalAlignment.Left;
         QuotationTable.Columns.Single(column => (string)column.Header == "الخصم").Visibility = Visibility.Collapsed;
-        ViewModel = new QuotationsViewModel(true);
+        ViewModel = new QuotationsViewModel(true, preview: factory is not null);
+        ViewModel.DocumentsInvalidated += (_, _) => CloseEditors();
+        DataContext = ViewModel;
+    }
+
+    public void UsePreviewFixtures()
+    {
+        ViewModel = new QuotationsViewModel(preview: true);
         ViewModel.DocumentsInvalidated += (_, _) => CloseEditors();
         DataContext = ViewModel;
     }
@@ -60,10 +67,13 @@ public partial class QuotationsView : UserControl
             ShowPreviewWindow(new Features.Reception.SalesCatalogView { DataContext = createPreview(null), ShowQuotationHeader = true }, "عرض سعر جديد — معاينة فقط");
     }
 
+    public Task NewQuotationAsync() => OpenLiveEditorAsync(null);
+
     private async void EditQuotationClick(object sender, RoutedEventArgs e)
     {
-        if (!ViewModel.IsReceptionist || ViewModel.SelectedQuotation is not { CanEdit: true } quotation || createPreview is null) return;
+        if (!ViewModel.IsReceptionist || ViewModel.SelectedQuotation is not { CanEdit: true } quotation) return;
         if (LiveEditorFactory is not null) { await OpenLiveEditorAsync(quotation); return; }
+        if (createPreview is null) return;
         ShowPreviewWindow(new Features.Reception.SalesCatalogView { DataContext = createPreview(quotation), ShowQuotationHeader = true }, "تعديل عرض السعر — معاينة فقط");
     }
 
@@ -104,7 +114,7 @@ public partial class QuotationsView : UserControl
         ConversionDialog.IsOpen = false;
         if (quotation.Lifecycle is not null) { await ViewModel.ConvertAsync(); BackToQuotationsButton.Focus(); return; }
         var view = new Features.Orders.OrdersView();
-        view.ConfigureReceptionist();
+        view.ConfigureReceptionist(preview: true);
         view.CustomerRequested += _ => CustomerRequested?.Invoke(quotation.Id);
         view.ViewModel.OpenOrder(new(Guid.NewGuid(), "معاينة غير محفوظة", quotation.Customer,
             DateOnly.FromDateTime(DateTime.Today), Features.Orders.OrderStatus.New, quotation.Discount,
@@ -117,7 +127,7 @@ public partial class QuotationsView : UserControl
         if (!ViewModel.IsReceptionist || ViewModel.SelectedQuotation is not { IsConverted: true } quotation) return;
         if (quotation.Lifecycle is not null) { await ViewModel.OpenLinkedOrderAsync(); return; }
         var view = new Features.Orders.OrdersView();
-        view.ConfigureReceptionist();
+        view.ConfigureReceptionist(preview: true);
         view.CustomerRequested += _ => CustomerRequested?.Invoke(quotation.Id);
         view.ViewModel.OpenOrder(view.ViewModel.VisibleOrders.Single(order => order.OriginalQuotation?.Id == quotation.Id));
         ShowPreviewWindow(view, "الطلب المرتبط — بيانات تجريبية");

@@ -95,7 +95,7 @@ public sealed class MainWindowRenderedTests
     }
 
     [TestMethod]
-    public void NavigationAndPreviewActionsUpdateVisibleStateAndFocus()
+    public void NavigationAndApprovalActionOpenWorkingDestinationAndFocus()
     {
         WpfTestHost.Run(1338, 753, window =>
         {
@@ -108,14 +108,14 @@ public sealed class MainWindowRenderedTests
 
             var homeButton = WpfTestHost.FindByName<Button>(window, "HomeNavButton");
             homeButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            var newQuote = WpfTestHost.Descendants<Button>(window)
-                .First(button => Equals(button.Tag, "عرض سعر جديد"));
-            newQuote.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            var approvals = WpfTestHost.Descendants<Button>(window)
+                .First(button => Equals(button.Tag, "الموافقات") && button.IsVisible);
+            approvals.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.PumpDispatcher();
 
-            Assert.AreEqual(Visibility.Visible, WpfTestHost.FindByName<FrameworkElement>(window, "InteractionPanel").Visibility);
-            var customerName = WpfTestHost.FindByName<TextBox>(window, "CustomerNameBox");
-            Assert.IsTrue(customerName.IsKeyboardFocusWithin);
+            Assert.IsTrue(window.QuotationsSurface.IsVisible);
+            Assert.IsTrue(window.QuotationsSurface.ViewModel.ApprovalsOnly);
+            Assert.IsTrue(window.QuotationsSurface.QuotationSearchBox.IsKeyboardFocusWithin);
         });
     }
 

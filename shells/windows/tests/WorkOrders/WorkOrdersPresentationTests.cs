@@ -10,7 +10,7 @@ public sealed class WorkOrdersPresentationTests
     [DataRow("خَـزٱنه")]
     public void SearchStatusAndDueDateFiltersComposeAcrossProductionRows(string search)
     {
-        var viewModel = new WorkOrdersViewModel();
+        var viewModel = new WorkOrdersViewModel(preview: true);
 
         viewModel.SearchText = search;
         Assert.HasCount(2, viewModel.VisibleWorkOrders);
@@ -33,7 +33,7 @@ public sealed class WorkOrdersPresentationTests
     [TestMethod]
     public void DetailExposesBuildSpecificationAndAdvancesOnlyActiveStatuses()
     {
-        var viewModel = new WorkOrdersViewModel();
+        var viewModel = new WorkOrdersViewModel(preview: true);
         var workOrder = viewModel.VisibleWorkOrders.Single(item => item.Number == "WO-024");
 
         viewModel.OpenWorkOrder(workOrder);
@@ -57,6 +57,6 @@ public sealed class WorkOrdersPresentationTests
 
         CollectionAssert.AreEquivalent(
             new[] { "جديد", "قيد التنفيذ", "مكتمل", "ملغي" },
-            new WorkOrdersViewModel().VisibleWorkOrders.Select(item => item.StatusLabel).Distinct().ToArray());
+            new WorkOrdersViewModel(preview: true).VisibleWorkOrders.Select(item => item.StatusLabel).Distinct().ToArray());
     }
 }

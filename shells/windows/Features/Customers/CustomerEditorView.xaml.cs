@@ -41,6 +41,13 @@ public partial class CustomerEditorView : UserControl
         ClearTarget();
     }
 
+    public void ClearSession()
+    {
+        saveCancellation?.Cancel(); Dialog.IsOpen = false; ClearTarget();
+        NameInput.Text = PhoneInput.Text = AddressInput.Text = NotesInput.Text = "";
+        NameField.ErrorText = PhoneField.ErrorText = EditorError.Text = "";
+    }
+
     private async void ApplyClick(object sender, RoutedEventArgs e)
     {
         if (customer is null || client is null) return;
@@ -71,6 +78,7 @@ public partial class CustomerEditorView : UserControl
         {
             return;
         }
+        if (cancellation.IsCancellationRequested || !ReferenceEquals(saveCancellation, cancellation)) return;
         ApplyButton.IsEnabled = true;
         if (result.Succeeded)
         {

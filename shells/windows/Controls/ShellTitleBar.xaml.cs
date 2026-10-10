@@ -10,6 +10,7 @@ namespace Eitmad.WindowsShell.Controls;
 public partial class ShellTitleBar : UserControl
 {
     public static readonly DependencyProperty TitleProperty = DependencyProperty.Register(nameof(Title), typeof(string), typeof(ShellTitleBar), new PropertyMetadata("لوحة التحكم"));
+    public static readonly DependencyProperty ApprovalCountProperty = DependencyProperty.Register(nameof(ApprovalCount), typeof(string), typeof(ShellTitleBar), new PropertyMetadata("—"));
     public static readonly DependencyProperty SearchPlaceholderProperty = DependencyProperty.Register(nameof(SearchPlaceholder), typeof(string), typeof(ShellTitleBar), new PropertyMetadata("ابحث عن عروض أسعار، عملاء، منتجات، أو أوامر عمل..."));
     public static readonly DependencyProperty PrimaryActionLabelProperty = DependencyProperty.Register(nameof(PrimaryActionLabel), typeof(string), typeof(ShellTitleBar), new PropertyMetadata("عرض سعر جديد"));
     public static readonly DependencyProperty SwitchAccountHintProperty = DependencyProperty.Register(nameof(SwitchAccountHint), typeof(string), typeof(ShellTitleBar), new PropertyMetadata("تبديل الحساب · Alt+K"));
@@ -17,6 +18,7 @@ public partial class ShellTitleBar : UserControl
     public ShellTitleBar() => InitializeComponent();
 
     public string Title { get => (string)GetValue(TitleProperty); set => SetValue(TitleProperty, value); }
+    public string ApprovalCount { get => (string)GetValue(ApprovalCountProperty); set => SetValue(ApprovalCountProperty, value); }
     public string SearchPlaceholder { get => (string)GetValue(SearchPlaceholderProperty); set => SetValue(SearchPlaceholderProperty, value); }
     public string PrimaryActionLabel { get => (string)GetValue(PrimaryActionLabelProperty); set => SetValue(PrimaryActionLabelProperty, value); }
     public string SwitchAccountHint { get => (string)GetValue(SwitchAccountHintProperty); set => SetValue(SwitchAccountHintProperty, value); }

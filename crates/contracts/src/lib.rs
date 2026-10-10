@@ -19,6 +19,7 @@ pub mod customer;
 pub mod errors;
 pub mod events;
 pub mod furniture;
+pub mod home;
 pub mod identity;
 pub mod ipc;
 pub mod material;

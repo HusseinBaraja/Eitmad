@@ -661,6 +661,10 @@ namespace Eitmad.Contracts
         public CheckFurnitureSelection QueryFurnitureSelectionCheck { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Query_HomeRead")]
+        public ReadHome QueryHomeRead { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Query_MaterialList")]
         public ListMaterials QueryMaterialList { get; set; }
 
@@ -827,6 +831,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_FurnitureSelection")]
         public FurnitureSelection QueryResultFurnitureSelection { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("QueryResult_Home")]
+        public HomeSnapshot QueryResultHome { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_MaterialReferences")]
@@ -3543,6 +3551,12 @@ namespace Eitmad.Contracts
         public FurnitureReference Reference { get; set; }
     }
 
+    public partial class ReadHome
+    {
+        [JsonPropertyName("term")]
+        public string Term { get; set; }
+    }
+
     public partial class ListMaterials
     {
         [JsonPropertyName("after")]
@@ -3872,6 +3886,72 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("next")]
         public Guid? Next { get; set; }
+    }
+
+    public partial class HomeSnapshot
+    {
+        [JsonPropertyName("approvals")]
+        public HomeSection Approvals { get; set; }
+
+        [JsonPropertyName("catalog")]
+        public HomeSection Catalog { get; set; }
+
+        [JsonPropertyName("customers")]
+        public HomeSection Customers { get; set; }
+
+        [JsonPropertyName("orders")]
+        public HomeSection Orders { get; set; }
+
+        [JsonPropertyName("quotations")]
+        public HomeSection Quotations { get; set; }
+
+        [JsonPropertyName("readyOrders")]
+        public HomeItem[] ReadyOrders { get; set; }
+    }
+
+    public partial class HomeSection
+    {
+        [JsonPropertyName("availability")]
+        public HomeAvailability Availability { get; set; }
+
+        /// <summary>
+        /// False means counts and recent/search results cover a bounded subset only.
+        /// </summary>
+        [JsonPropertyName("complete")]
+        public bool Complete { get; set; }
+
+        [JsonPropertyName("count")]
+        public long Count { get; set; }
+
+        [JsonPropertyName("items")]
+        public HomeItem[] Items { get; set; }
+
+        [JsonPropertyName("secondaryCount")]
+        public long SecondaryCount { get; set; }
+
+        [JsonPropertyName("serverAvailable")]
+        public bool ServerAvailable { get; set; }
+    }
+
+    public partial class HomeItem
+    {
+        [JsonPropertyName("changedAt")]
+        public long ChangedAt { get; set; }
+
+        [JsonPropertyName("destination")]
+        public HomeDestination Destination { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("number")]
+        public string Number { get; set; }
+
+        [JsonPropertyName("state")]
+        public string State { get; set; }
+
+        [JsonPropertyName("title")]
+        public string Title { get; set; }
     }
 
     public partial class MaterialReferences
@@ -4446,6 +4526,10 @@ namespace Eitmad.Contracts
     /// </summary>
     public enum SubscriptionCloseReason { AuthorizationRevoked, Backpressure, ClientRequested, EngineStopping, ProjectionInvalidated };
 
+    public enum HomeAvailability { Available, Denied, Unavailable };
+
+    public enum HomeDestination { Catalog, Customer, Order, Quotation };
+
     public partial struct ErrorParameterValueValue
     {
         public long? Integer;
@@ -4527,6 +4611,8 @@ namespace Eitmad.Contracts
                 RequiredByConverter.Singleton,
                 HandshakeOutcomeStatusConverter.Singleton,
                 SubscriptionCloseReasonConverter.Singleton,
+                HomeAvailabilityConverter.Singleton,
+                HomeDestinationConverter.Singleton,
                 new DateOnlyConverter(),
                 new TimeOnlyConverter(),
                 IsoDateTimeOffsetConverter.Singleton
@@ -6420,6 +6506,89 @@ namespace Eitmad.Contracts
         }
 
         public static readonly SubscriptionCloseReasonConverter Singleton = new SubscriptionCloseReasonConverter();
+    }
+
+    internal class HomeAvailabilityConverter : JsonConverter<HomeAvailability>
+    {
+        public override bool CanConvert(Type t) => t == typeof(HomeAvailability);
+
+        public override HomeAvailability Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "available":
+                    return HomeAvailability.Available;
+                case "denied":
+                    return HomeAvailability.Denied;
+                case "unavailable":
+                    return HomeAvailability.Unavailable;
+            }
+            throw new Exception("Cannot unmarshal type HomeAvailability");
+        }
+
+        public override void Write(Utf8JsonWriter writer, HomeAvailability value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case HomeAvailability.Available:
+                    JsonSerializer.Serialize(writer, "available", options);
+                    return;
+                case HomeAvailability.Denied:
+                    JsonSerializer.Serialize(writer, "denied", options);
+                    return;
+                case HomeAvailability.Unavailable:
+                    JsonSerializer.Serialize(writer, "unavailable", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type HomeAvailability");
+        }
+
+        public static readonly HomeAvailabilityConverter Singleton = new HomeAvailabilityConverter();
+    }
+
+    internal class HomeDestinationConverter : JsonConverter<HomeDestination>
+    {
+        public override bool CanConvert(Type t) => t == typeof(HomeDestination);
+
+        public override HomeDestination Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "catalog":
+                    return HomeDestination.Catalog;
+                case "customer":
+                    return HomeDestination.Customer;
+                case "order":
+                    return HomeDestination.Order;
+                case "quotation":
+                    return HomeDestination.Quotation;
+            }
+            throw new Exception("Cannot unmarshal type HomeDestination");
+        }
+
+        public override void Write(Utf8JsonWriter writer, HomeDestination value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case HomeDestination.Catalog:
+                    JsonSerializer.Serialize(writer, "catalog", options);
+                    return;
+                case HomeDestination.Customer:
+                    JsonSerializer.Serialize(writer, "customer", options);
+                    return;
+                case HomeDestination.Order:
+                    JsonSerializer.Serialize(writer, "order", options);
+                    return;
+                case HomeDestination.Quotation:
+                    JsonSerializer.Serialize(writer, "quotation", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type HomeDestination");
+        }
+
+        public static readonly HomeDestinationConverter Singleton = new HomeDestinationConverter();
     }
 
     public class DateOnlyConverter : JsonConverter<DateOnly>

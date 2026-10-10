@@ -79,6 +79,20 @@ The authorization implementation must use scoped ReBAC objects. It must not trus
 
 Search and subscriptions enforce the same scope as direct reads. Counts, suggestions, customer matching, exports, notifications, and offline caches must not reveal records outside the authorized result set.
 
+### Connected home screens
+
+The Manager dashboard and Receptionist home use `eitmad.home.read.v1` under `eitmad.capability.home.v1`. Rust contracts in `crates/contracts/src/home.rs` define the projection; `crates/engine-runtime/src/home.rs` composes existing authorized quotation, order, approval, customer, and public catalog reads. The Windows adapter uses the Rust-issued organization context for Managers and branch context for Receptionists. Rust derives the public catalog organization from the authenticated tenant.
+
+Open quotations include Draft, Pending Approval, Issued, and Accepted records. Active orders exclude Delivered and Cancelled records. Ready orders and pending approvals have separate counts. Recent activity contains the latest changed quotation and order records, rather than a complete audit history. Search matches authorized quotation/order numbers, customer names and phones, branch customers, and public catalog items. No internal approval notes, production details, costs, or authorization data enter the home DTO.
+
+Each quotation, local draft, order, or approval source reads at most ten pages of 100 records. The response contains at most eight recent or matching rows per source and eight ready orders. Customer and catalog searches return at most eight matches. When a source has more pages, the UI marks the result as partial and prefixes its count with `≥`; the full destination list remains available. A cached result shows its freshness limitation. Denied and unavailable sources show unknown counts and no rows. The current customer authority supports exact branch reads only: organization-wide customer search on the Manager home is explicitly unavailable.
+
+Quotation, local draft, approval, order, customer, and pricing subscriptions invalidate the home projection. A reconnect or resync reads it again; restarting the application reconstructs it from authorized Rust state. Signing out clears rows, counts, search, pending reads, and open customer details and editor input. A failed customer refresh clears its protected view. Fixtures and shared in-memory handoffs require an explicit preview or test entry point. Normal startup uses authenticated account selection and no local role switch.
+
+Manager shortcuts open approvals, pricing, Furniture, orders, Parts, and Raw Materials. Receptionist shortcuts open the durable quotation editor, quotations, orders, and public catalog. Recent quotation and order rows open their saved detail; ready rows open the order delivery flow. Receptionist customer matches open the customer detail and catalog matches open the public item configuration. Payments, inventory, installation, messaging, department reports, tasks, and settings remain unavailable. Their controls or labels identify that state.
+
+Focused proof uses the runtime `home_` tests, Windows `HomeStateTests` and `HomeRenderedTests`, and the adapter real-engine scenario. They cover branch isolation, denied and failed reads, cached and partial labels, subscription/resync refresh, restart reconstruction, authenticated IPC routing, and home navigation. Rendered verification uses synthetic Arabic data; record the actual display size when the full-screen baseline is unavailable.
+
 ## Action and permission matrix
 
 The table defines the required versioned permission identifiers. The Rust contract catalog must register each identifier before its operation is implemented.

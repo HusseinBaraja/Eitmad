@@ -53,7 +53,21 @@ public sealed partial class OrdersViewModel
     public async Task ActivateAsync()
     {
         if (client is null) return;
-        active = true; await client.ActivateAsync(); LastLoad = LoadAsync(); await LastLoad;
+        var session = generation;
+        active = true; await client.ActivateAsync();
+        if (!active || session != generation) return;
+        LastLoad = LoadAsync(); await LastLoad;
+    }
+    public async Task OpenByIdAsync(Guid id)
+    {
+        if (client is null) return;
+        var session = generation;
+        if (!active) await ActivateAsync();
+        if (!active || session != generation) return;
+        var result = await client.ListAsync(orderId: id);
+        if (!active || session != generation) return;
+        if (result.Succeeded && result.Value!.Items.FirstOrDefault(o => o.Id == id) is { } record) OpenOrder(Project(record));
+        else { CloseOrder(); ActionNotice = result.Succeeded ? "الطلب غير متاح ضمن صلاحيات الحساب." : OrderClient.Message(result.Failure); }
     }
     public void ClearOrders()
     {

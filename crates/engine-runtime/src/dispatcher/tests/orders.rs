@@ -472,7 +472,10 @@ async fn customer_documents_read_confirmed_cache_and_server_denial_never_falls_b
 
 fn cache_document_order(dispatcher: &ProductDispatcher, value: &OrderRecord) {
     let audit = eitmad_observability_audit::MutationAuditRecord::from_authorization(
-        &branch_authorization(),
+        &AuthorizationContext {
+            scope: value.scope.clone(),
+            ..branch_authorization()
+        },
         UnixMillis(3),
         CorrelationId::new(Uuid::new_v4()),
         "eitmad.order.cache.v1",
@@ -485,4 +488,124 @@ fn cache_document_order(dispatcher: &ProductDispatcher, value: &OrderRecord) {
         .store
         .transact_pricing(true, |tx| tx.cache_order(value, &audit))
         .unwrap();
+}
+
+#[tokio::test]
+async fn home_scopes_counts_search_and_ready_records_and_restores_confirmed_activity() {
+    use eitmad_contracts::{home::*, order::OrderState};
+    let (directory, dispatcher, _) = dispatcher();
+    receptionist(&dispatcher);
+    let source = document_source();
+    dispatcher
+        .drafts
+        .cache_quotation(
+            &branch_authorization(),
+            &source,
+            CorrelationId::new(Uuid::new_v4()),
+        )
+        .unwrap();
+    let mut order = OrderRecord {
+        id: Uuid::new_v4(),
+        scope: source.scope.clone(),
+        organization_id: source.organization_id,
+        revision: 1,
+        number: "OR-2026-00001".into(),
+        state: OrderState::Ready,
+        source,
+        work: vec![],
+        delivery: None,
+        fulfillment_note: Some("INTERNAL_NOTE".into()),
+        cancellation_reason: None,
+        created_at: UnixMillis(2),
+        changed_at: UnixMillis(3),
+        changed_by: branch_authorization().identity.principal_id,
+        permitted_actions: vec![],
+    };
+    cache_document_order(&dispatcher, &order);
+    // A different branch is present in the same durable database, but not in the result.
+    let mut foreign = order.clone();
+    foreign.id = Uuid::new_v4();
+    foreign.scope.id = ScopeId::new(Uuid::new_v4());
+    foreign.source.scope = foreign.scope.clone();
+    foreign.number = "FOREIGN_ORDER".into();
+    cache_document_order(&dispatcher, &foreign);
+    let QueryResult::Home(home) = dispatcher
+        .dispatch_query(branch_context(1200), Query::Home(ReadHome::default()))
+        .await
+        .unwrap()
+    else {
+        panic!("home result");
+    };
+    assert_eq!(home.orders.count, 1);
+    assert_eq!(home.orders.secondary_count, 1);
+    assert_eq!(home.ready_orders.len(), 1);
+    assert_eq!(home.quotations.count, 1);
+    assert!(home.orders.complete);
+    assert!(!home.orders.server_available);
+    let encoded = serde_json::to_string(&home).unwrap();
+    assert!(!encoded.contains("FOREIGN_ORDER"));
+    assert!(!encoded.contains("INTERNAL_NOTE"));
+    assert!(!encoded.contains("INTERNAL_APPROVAL"));
+    let QueryResult::Home(search) = dispatcher
+        .dispatch_query(
+            branch_context(1201),
+            Query::Home(ReadHome {
+                term: "٧٧٧١٢٣٤٥٦".into(),
+            }),
+        )
+        .await
+        .unwrap()
+    else {
+        panic!("home result");
+    };
+    assert_eq!(search.orders.items.len(), 1);
+    // A committed cross-client update replaces readiness and survives engine reconstruction.
+    order.revision = 2;
+    order.state = OrderState::Delivered;
+    order.changed_at = UnixMillis(4);
+    cache_document_order(&dispatcher, &order);
+    drop(dispatcher);
+    let dispatcher = ProductDispatcher::new(
+        AuthorityStore::open(directory.path()).unwrap(),
+        EventBroker::new(),
+    );
+    let QueryResult::Home(home) = dispatcher
+        .dispatch_query(branch_context(1202), Query::Home(ReadHome::default()))
+        .await
+        .unwrap()
+    else {
+        panic!("home result");
+    };
+    assert_eq!(home.orders.count, 0);
+    assert_eq!(home.orders.secondary_count, 0);
+    assert!(home.ready_orders.is_empty());
+    assert_eq!(home.orders.items[0].state, "تم التسليم");
+}
+
+#[tokio::test]
+async fn home_denies_unknown_principals_without_rows_or_counts() {
+    use eitmad_contracts::home::*;
+    let (_directory, dispatcher, _) = dispatcher();
+    receptionist(&dispatcher);
+    let mut denied = branch_context(1203);
+    denied.authorization.identity.principal_id = PrincipalId::new(Uuid::new_v4());
+    let QueryResult::Home(home) = dispatcher
+        .dispatch_query(
+            denied,
+            Query::Home(ReadHome {
+                term: "عميل".into(),
+            }),
+        )
+        .await
+        .unwrap()
+    else {
+        panic!("home result");
+    };
+    assert_eq!(home.orders.availability, HomeAvailability::Denied);
+    assert!(home.orders.items.is_empty());
+    assert!(home.ready_orders.is_empty());
+    assert_eq!(home.quotations.availability, HomeAvailability::Denied);
+    assert!(home.quotations.items.is_empty());
+    assert_eq!(home.customers.availability, HomeAvailability::Denied);
+    assert!(home.customers.items.is_empty());
 }
