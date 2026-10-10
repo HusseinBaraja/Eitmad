@@ -143,8 +143,10 @@ public sealed class MainWindowRenderedTests
         Assert.IsTrue(background.GradientStops.All(stop => ContrastAgainstWhite(stop.Color) >= 4.5));
 
         Assert.IsTrue(VisualStateManager.GoToState(button, "MouseOver", false));
-        WpfTestHost.PumpDispatcher();
         var hoverShade = (Border)button.Template.FindName("HoverShade", button);
+        var deadline = System.Diagnostics.Stopwatch.StartNew();
+        while (hoverShade.Opacity != 1d && deadline.Elapsed < TimeSpan.FromSeconds(1))
+            WpfTestHost.PumpDispatcher();
         var hoverColor = ((SolidColorBrush)hoverShade.Background).Color;
         Assert.AreEqual(1d, hoverShade.Opacity);
         Assert.AreNotEqual(0, hoverColor.A);
