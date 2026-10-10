@@ -5,6 +5,12 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ReadHome {
+    /// Search input, limited to 256 UTF-8 bytes before trimming and without Unicode control characters.
+    /// Invalid input returns `eitmad.error.contract-invalid.v1` with retry disposition `Never`.
+    /// Quotation and order matching uses the trimmed Arabic-normalized search form.
+    /// Customer and catalog authorities receive the trimmed input and apply their own normalization.
+    /// Empty or whitespace-only input selects recent activity without customer or catalog search.
+    /// See `docs/developer/subsystems/manager-receptionist-workflows.md#connected-home-screens`.
     pub term: String,
 }
 

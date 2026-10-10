@@ -3553,6 +3553,17 @@ namespace Eitmad.Contracts
 
     public partial class ReadHome
     {
+        /// <summary>
+        /// Search input, limited to 256 UTF-8 bytes before trimming and without Unicode control
+        /// characters.
+        /// Invalid input returns `eitmad.error.contract-invalid.v1` with retry disposition `Never`.
+        /// Quotation and order matching uses the trimmed Arabic-normalized search form.
+        /// Customer and catalog authorities receive the trimmed input and apply their own
+        /// normalization.
+        /// Empty or whitespace-only input selects recent activity without customer or catalog
+        /// search.
+        /// See `docs/developer/subsystems/manager-receptionist-workflows.md#connected-home-screens`.
+        /// </summary>
         [JsonPropertyName("term")]
         public string Term { get; set; }
     }
