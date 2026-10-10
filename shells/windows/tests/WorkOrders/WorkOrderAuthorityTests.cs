@@ -30,6 +30,21 @@ public sealed class WorkOrderAuthorityTests
         }
     }
     [TestMethod]
+    public async Task SelectedDueDateIncludesTheWholeDayInYemenTime()
+    {
+        var fixture = new Fixture(); await using var engine = fixture.Engine; await using var client = new OrderClient(engine);
+        var model = new WorkOrdersViewModel(); model.Attach(client); await model.ActivateAsync(); model.OpenWorkOrder(model.VisibleWorkOrders.Single());
+        model.Assignment = "ورشة تجريبية"; model.DueDate = new DateTime(2026, 10, 10);
+        engine.CommandHandler = command => {
+            var dueAt = DateTimeOffset.FromUnixTimeMilliseconds(command.AsOrderWorkStart()!.DueAt!.Value);
+            Assert.AreEqual(new DateTimeOffset(2026, 10, 10, 23, 59, 59, 999, TimeSpan.FromHours(3)), dueAt);
+            Assert.IsTrue(dueAt > new DateTimeOffset(2026, 10, 10, 16, 30, 0, TimeSpan.FromHours(3)));
+            return new() { Outcome = new() { Status = CommandOutcomeStatus.Succeeded, Payload = CommandResult.ForOrder(QuotationDraftTests.Copy(fixture.Order)) } };
+        };
+        model.AdvanceSelectedStatus(); await model.LastAction;
+        Assert.IsNotNull(engine.LastCommand); model.ClearWorkOrders();
+    }
+    [TestMethod]
     public async Task LostProductionReplyRetainsExactWorkAndRevisionAcrossRestart()
     {
         var fixture = new Fixture(); await using var engine = fixture.Engine; await using var client = new OrderClient(engine);
