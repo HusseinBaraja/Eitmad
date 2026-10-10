@@ -559,6 +559,10 @@ internal sealed class SupervisionScenarios
         var page = response.Outcome.Payload.AsOrders()!;
         Assert.False(page.ServerAvailable, "unconfigured order server is unavailable");
         Assert.Equal(0, page.Items.Length, "offline engine does not invent confirmed orders");
+        foreach (var query in new[] { Query.ForOrderCustomerDocument(new() { OrderId = Guid.NewGuid() }), Query.ForOrderQuotationDocument(new() { OrderId = Guid.NewGuid() }) }) {
+            var missing = await supervisor.QueryAsync(query);
+            Assert.Equal(ProtocolIds.ErrorCodes.EitmadErrorOrderInvalidV1, missing.Outcome.Payload.Code, "missing saved order document fails closed through real IPC");
+        }
         var command = manager
             ? Command.ForOrderConvert(new() { DraftId = Guid.NewGuid(), ExpectedRevision = 1 })
             : Command.ForOrderCancel(new() { OrderId = Guid.NewGuid(), ExpectedRevision = 1, Reason = "إلغاء تجريبي" });
@@ -569,6 +573,9 @@ internal sealed class SupervisionScenarios
     private static async Task VerifyQuotationLifecycleBoundary(EngineSupervisor supervisor, bool manager)
     {
         Assert.True(supervisor.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityQuotationLifecycleV1), "lifecycle capability negotiated");
+        Assert.True(supervisor.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityCustomerDocumentsV1), "customer document capability negotiated");
+        var missingDocument = await supervisor.QueryAsync(Query.ForQuotationCustomerDocument(new() { DraftId = Guid.NewGuid() }));
+        Assert.Equal(ProtocolIds.ErrorCodes.EitmadErrorQuotationInvalidV1, missingDocument.Outcome.Payload.Code, "missing saved quotation fails closed through real IPC");
         var page = await supervisor.QueryAsync(Query.ForQuotationList(new() { Limit = 100 }));
         Assert.Equal(CommandOutcomeStatus.Succeeded, page.Outcome.Status, "authorized confirmed cache read");
         Assert.True(!page.Outcome.Payload.AsQuotations()!.ServerAvailable, "unconfigured server is unavailable");

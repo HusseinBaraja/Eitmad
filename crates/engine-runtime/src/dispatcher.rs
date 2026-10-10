@@ -822,6 +822,27 @@ impl ProductDispatcher {
 }
 
 impl ProductDispatcher {
+    async fn catalog_image_query(
+        &self,
+        context: &DispatchContext,
+        input: eitmad_contracts::catalog_image::GetCatalogImage,
+    ) -> Result<QueryResult, ContractError> {
+        let permit = Arc::clone(&self.image_workers)
+            .try_acquire_owned()
+            .map_err(|_| image_error(eitmad_catalog_image::ImageError::Unavailable, context))?;
+        let images = self.images.clone();
+        let actor = context.authorization.clone();
+        let deadline = context.deadline;
+        tokio::task::spawn_blocking(move || {
+            let _permit = permit;
+            images.get(&actor, &input, deadline)
+        })
+        .await
+        .map_err(|_| image_error(eitmad_catalog_image::ImageError::Unavailable, context))?
+        .map(QueryResult::CatalogImage)
+        .map_err(|e| image_error(e, context))
+    }
+
     async fn import_catalog_image(
         &self,
         context: &DispatchContext,
@@ -956,24 +977,7 @@ impl QueryDispatcher for ProductDispatcher {
     ) -> Result<QueryResult, ContractError> {
         let operation = query.kind();
         let result = match query {
-            Query::CatalogImage(input) => {
-                let permit = Arc::clone(&self.image_workers)
-                    .try_acquire_owned()
-                    .map_err(|_| {
-                        image_error(eitmad_catalog_image::ImageError::Unavailable, &context)
-                    })?;
-                let images = self.images.clone();
-                let actor = context.authorization.clone();
-                let deadline = context.deadline;
-                tokio::task::spawn_blocking(move || {
-                    let _permit = permit;
-                    images.get(&actor, &input, deadline)
-                })
-                .await
-                .map_err(|_| image_error(eitmad_catalog_image::ImageError::Unavailable, &context))?
-                .map(QueryResult::CatalogImage)
-                .map_err(|e| image_error(e, &context))
-            }
+            Query::CatalogImage(input) => self.catalog_image_query(&context, input).await,
             Query::Configuration(_) => self
                 .configuration
                 .snapshot(&context.authorization)
@@ -989,8 +993,13 @@ impl QueryDispatcher for ProductDispatcher {
                 .list_relationships(&context.authorization, &query)
                 .map(QueryResult::ScopeRelationships)
                 .map_err(|error| authorization_error(error, &context)),
-            query @ (Query::Orders(_) | Query::Order(_) | Query::WorkOrders(_)) => {
-                self.order_query(&context, query).await
+            query @ (Query::Orders(_)
+            | Query::Order(_)
+            | Query::WorkOrders(_)
+            | Query::OrderCustomerDocument(_)
+            | Query::OrderQuotationCustomerDocument(_)) => self.order_query(&context, query).await,
+            Query::QuotationCustomerDocument(query) => {
+                self.quotation_document(&context, query).await
             }
             Query::Quotations(query) => self.quotation_list(&context, query).await,
             Query::DiscountApprovals(query) => self.approval_list(&context, query).await,

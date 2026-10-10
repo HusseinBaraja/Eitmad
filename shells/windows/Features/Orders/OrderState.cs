@@ -14,6 +14,18 @@ public sealed partial class OrdersViewModel
     private Command? retryCommand;
     private Guid retryKey;
     private IReadOnlyList<OrderPending> pending = [];
+    public event EventHandler? DocumentsInvalidated;
+    public async Task<CustomerDocument?> ReadDocumentAsync(bool source)
+    {
+        if (client is null || !active || SelectedOrder is not { } row) return null;
+        var session = generation;
+        ActionNotice = "جارٍ تحميل المستند المحفوظ...";
+        var result = await client.DocumentAsync(row.Id, source);
+        if (!active || session != generation || SelectedOrder?.Id != row.Id) return null;
+        ActionNotice = result.Succeeded ? "" : result.Failure == DraftFailure.Denied ? "ليس لديك صلاحية لعرض المستند أو طباعته." : "المستند المحفوظ غير متاح. أعد المحاولة.";
+        if (result.Failure == DraftFailure.Denied) DocumentsInvalidated?.Invoke(this, EventArgs.Empty);
+        return result.Value;
+    }
     public bool IsLive => client is not null;
     public string ListState { get => listState; private set { Set(ref listState, value); Raise(nameof(ListSubtitle)); } }
     public string ActionNotice { get => actionNotice; private set => Set(ref actionNotice, value); }
@@ -46,6 +58,7 @@ public sealed partial class OrdersViewModel
     public void ClearOrders()
     {
         if (client is null) return;
+        DocumentsInvalidated?.Invoke(this, EventArgs.Empty);
         active = false; ++generation; ++loadVersion; busy = false; retryCommand = null; pending = [];
         CloseOrder(); orders.Clear(); RefreshVisibleOrders(); ListState = "الطلبات غير متاحة."; ActionNotice = "";
         Recipient = ""; DeliveryNote = ""; FulfillmentNote = ""; CancellationReason = ""; Assignment = ""; RaiseActions();

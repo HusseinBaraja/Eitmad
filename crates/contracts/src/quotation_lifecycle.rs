@@ -157,3 +157,37 @@ pub struct ReadQuotations {
     pub scope: ScopeRef,
     pub query: ListQuotations,
 }
+
+/// Customer-only saved document. Internal intent, price policy and approval data are excluded.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomerDocument {
+    pub number: Option<String>,
+    pub document_revision: u64,
+    pub status: String,
+    pub is_draft: bool,
+    pub can_print: bool,
+    pub saved_at: UnixMillis,
+    pub issued_at: Option<UnixMillis>,
+    pub valid_until: Option<UnixMillis>,
+    pub validity_days: Option<u32>,
+    pub customer: crate::quotation::QuotationCustomerSnapshot,
+    pub lines: Vec<CustomerDocumentLine>,
+    pub discount_basis_points: u32,
+    pub subtotal_yer: i64,
+    pub discount_yer: i64,
+    pub total_yer: i64,
+}
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomerDocumentLine {
+    pub name: String,
+    pub description: String,
+    pub variant_name: String,
+    pub color_name: Option<String>,
+    pub handle_name: Option<String>,
+    pub dimensions: Option<crate::furniture::FurnitureDimensions>,
+    pub quantity: u32,
+    pub unit_price_yer: i64,
+    pub total_yer: i64,
+}

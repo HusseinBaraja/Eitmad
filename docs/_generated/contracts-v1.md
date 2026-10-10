@@ -81,6 +81,9 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Queries
 
+- `eitmad.quotation.customer-document.v1`
+- `eitmad.order.customer-document.v1`
+- `eitmad.order.quotation-document.v1`
 - `eitmad.work-order.list.v1`
 - `eitmad.quotation-draft.get.v1`
 - `eitmad.order.list.v1`
@@ -182,6 +185,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.capability.work-orders.v1`
 - `eitmad.capability.orders.v1`
 - `eitmad.capability.quotation-lifecycle.v1`
+- `eitmad.capability.customer-documents.v1`
 - `eitmad.capability.quotation-approval.v1`
 - `eitmad.capability.quotation-draft.v1`
 - `eitmad.capability.quotation-evaluation.v1`

@@ -69,7 +69,8 @@ public sealed class ReceptionOrdersRenderedTests
                     try
                     {
                         var preview = (PrintPreview)child.Content;
-                        Assert.IsTrue(WpfTestHost.FindByName<Button>(preview, "PrintButton").IsKeyboardFocusWithin);
+                        Assert.IsFalse(preview.CanPrint);
+                        Assert.IsTrue(preview.BackButton.IsKeyboardFocusWithin);
                         Assert.AreEqual(jobName, preview.JobName);
                         Assert.IsTrue(new TextRange(preview.Document.ContentStart, preview.Document.ContentEnd).Text.Contains(number));
                         inspected = true;

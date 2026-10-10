@@ -106,4 +106,25 @@ public sealed class QuotationLifecycleTests
         } finally { await editor.DeactivateCatalogAsync(); }
     }
 
+    [TestMethod]
+    public async Task QuotationDocumentsUseSavedReplyAndRejectDeniedOrLateReads()
+    {
+        var fixture = new Fixture();
+        ((HashSet<string>)fixture.Engine.SupportedCapabilities!).Add(ProtocolIds.Capabilities.EitmadCapabilityCustomerDocumentsV1);
+        await using var engine = fixture.Engine; await using var client = new QuotationDraftClient(engine);
+        var model = new QuotationsViewModel(true); model.AttachDraftClient(client); await model.ActivateDraftsAsync(); model.OpenQuotation(model.VisibleQuotations.Single());
+        var saved = Rendered.CustomerDocumentsRenderedTests.Saved();
+        engine.QueryHandler = query => {
+            Assert.AreEqual(fixture.Draft.Snapshot.Id, query.AsQuotationCustomerDocument()!.DraftId);
+            return SalesCatalogAuthorityTests.Response(QueryResult.ForCustomerDocument(saved));
+        };
+        Assert.AreSame(saved, await model.ReadDocumentAsync());
+        engine.QueryHandler = _ => new() { Outcome = new() { Status = CommandOutcomeStatus.Failed, Payload = new() { Code = ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1 } } };
+        Assert.IsNull(await model.ReadDocumentAsync()); Assert.IsTrue(model.ListState.Contains("صلاحية"));
+        engine.QueryHandler = _ => SalesCatalogAuthorityTests.Response(QueryResult.ForCustomerDocument(saved));
+        var barrier = new TaskCompletionSource(); engine.QueryBarrier = _ => barrier.Task;
+        var read = model.ReadDocumentAsync(); model.ClearDrafts(); barrier.SetResult();
+        Assert.IsNull(await read); await model.DeactivateDraftsAsync();
+    }
+
 }

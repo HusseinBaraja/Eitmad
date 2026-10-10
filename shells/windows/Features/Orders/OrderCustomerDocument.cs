@@ -9,6 +9,9 @@ namespace Eitmad.WindowsShell.Features.Orders;
 // A customer-only print projection of synthetic fixtures, never a screenshot of the shell.
 public static class OrderCustomerDocument
 {
+    public static FlowDocument CreateSaved(Eitmad.Contracts.CustomerDocument saved, bool source = false) =>
+        Features.Reception.QuotationCustomerDocument.CreateSaved(saved, source ? "عرض السعر الأصلي" : "الطلب");
+
     public static FlowDocument Create(OrderListItem order) => Build(order, "الطلب", true);
 
     public static FlowDocument CreateQuotation(QuotationListItem quotation) => Build(new(
@@ -20,6 +23,7 @@ public static class OrderCustomerDocument
 
     private static FlowDocument Build(OrderListItem order, string title, bool showStatus)
     {
+        if (order.Record is not null) throw new InvalidOperationException("A saved Rust document is required.");
         var document = new FlowDocument
         {
             FlowDirection = FlowDirection.RightToLeft,

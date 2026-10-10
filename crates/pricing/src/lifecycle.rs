@@ -179,3 +179,63 @@ pub trait QuotationServer: Send + Sync {
         notify: &mut dyn FnMut(eitmad_contracts::quotation_lifecycle::QuotationNotice),
     ) -> Result<(), QuotationError>;
 }
+
+/// Projects saved commercial values only. The caller must authorize the source read.
+/// # Errors
+/// Rejects an incomplete saved evaluation instead of inventing amounts or customer data.
+pub fn customer_document(
+    record: &QuotationRecord,
+) -> Result<eitmad_contracts::quotation_lifecycle::CustomerDocument, QuotationError> {
+    use eitmad_contracts::quotation_lifecycle::{CustomerDocument, CustomerDocumentLine};
+    let e = &record.quotation.evaluation;
+    let totals = e
+        .totals
+        .as_ref()
+        .filter(|_| e.errors.is_empty())
+        .ok_or(QuotationError::Invalid)?;
+    let customer = e.customer.clone().ok_or(QuotationError::Invalid)?;
+    let is_draft =
+        matches!(record.state, S::Draft | S::PendingApproval) || record.issued_at.is_none();
+    Ok(CustomerDocument {
+        number: record.number.clone(),
+        document_revision: record.document_revision,
+        status: match record.state {
+            S::Draft => "مسودة",
+            S::PendingApproval => "بانتظار الموافقة",
+            S::Issued => "صادر",
+            S::Accepted => "مقبول",
+            S::Converted => "محوّل",
+            S::Expired => "منتهي",
+            S::Cancelled => "ملغي",
+        }
+        .into(),
+        is_draft,
+        can_print: !is_draft
+            && record.number.is_some()
+            && record.permitted_actions.contains(&A::Print),
+        saved_at: record.changed_at,
+        issued_at: record.issued_at,
+        valid_until: record.valid_until,
+        validity_days: Some(record.validity_days),
+        customer,
+        lines: e
+            .lines
+            .iter()
+            .map(|l| CustomerDocumentLine {
+                name: l.name.clone(),
+                description: l.description.clone(),
+                variant_name: l.variant_name.clone(),
+                color_name: l.color_name.clone(),
+                handle_name: l.handle_name.clone(),
+                dimensions: l.dimensions.clone(),
+                quantity: l.quantity,
+                unit_price_yer: l.price.unit_price_yer,
+                total_yer: l.price.total_yer,
+            })
+            .collect(),
+        discount_basis_points: e.discount_basis_points,
+        subtotal_yer: totals.subtotal_yer,
+        discount_yer: totals.discount_yer,
+        total_yer: totals.total_yer,
+    })
+}

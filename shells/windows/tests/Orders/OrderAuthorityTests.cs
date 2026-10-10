@@ -91,4 +91,27 @@ public sealed class OrderAuthorityTests
         Assert.HasCount(0, model.VisibleOrders); Assert.IsFalse(model.IsDetailVisible); Assert.IsFalse(model.HasPending);
         await model.DeactivateAsync();
     }
+    [TestMethod]
+    public async Task DocumentsUseRustReplyDenyAccessAndFenceLateReads()
+    {
+        var fixture = new Fixture();
+        ((HashSet<string>)fixture.Engine.SupportedCapabilities!).Add(ProtocolIds.Capabilities.EitmadCapabilityCustomerDocumentsV1);
+        await using var engine = fixture.Engine; await using var client = new OrderClient(engine);
+        var model = new OrdersViewModel(true); model.Attach(client); await model.ActivateAsync(); model.OpenOrder(model.VisibleOrders.Single());
+        var saved = Rendered.CustomerDocumentsRenderedTests.Saved(true);
+        engine.QueryHandler = query => {
+            Assert.AreEqual(fixture.Order.Id, query.AsOrderCustomerDocument()?.OrderId ?? query.AsOrderQuotationDocument()?.OrderId);
+            return SalesCatalogAuthorityTests.Response(QueryResult.ForCustomerDocument(saved));
+        };
+        Assert.AreSame(saved, await model.ReadDocumentAsync(false));
+        Assert.AreSame(saved, await model.ReadDocumentAsync(true));
+        engine.QueryHandler = _ => new() { Outcome = new() { Status = CommandOutcomeStatus.Failed, Payload = new() { Code = ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1 } } };
+        var invalidated = false; model.DocumentsInvalidated += (_, _) => invalidated = true;
+        Assert.IsNull(await model.ReadDocumentAsync(false)); Assert.IsTrue(invalidated); Assert.IsTrue(model.ActionNotice.Contains("صلاحية"));
+        engine.QueryHandler = _ => SalesCatalogAuthorityTests.Response(QueryResult.ForCustomerDocument(saved));
+        var barrier = new TaskCompletionSource(); engine.QueryBarrier = _ => barrier.Task;
+        var read = model.ReadDocumentAsync(false); model.ClearOrders(); barrier.SetResult();
+        Assert.IsNull(await read); await model.DeactivateAsync();
+    }
+
 }

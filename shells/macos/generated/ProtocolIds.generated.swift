@@ -4,7 +4,7 @@ import Foundation
 public enum ProtocolIds {
     public enum Version {
         public static let major = 1
-        public static let minor = 23
+        public static let minor = 24
     }
 
     public enum IpcMessages {
@@ -68,6 +68,9 @@ public enum ProtocolIds {
     }
 
     public enum Queries {
+        public static let eitmadQuotationCustomerDocumentV1 = "eitmad.quotation.customer-document.v1"
+        public static let eitmadOrderCustomerDocumentV1 = "eitmad.order.customer-document.v1"
+        public static let eitmadOrderQuotationDocumentV1 = "eitmad.order.quotation-document.v1"
         public static let eitmadWorkOrderListV1 = "eitmad.work-order.list.v1"
         public static let eitmadQuotationDraftGetV1 = "eitmad.quotation-draft.get.v1"
         public static let eitmadOrderListV1 = "eitmad.order.list.v1"
@@ -169,6 +172,7 @@ public enum ProtocolIds {
         public static let eitmadCapabilityWorkOrdersV1 = "eitmad.capability.work-orders.v1"
         public static let eitmadCapabilityOrdersV1 = "eitmad.capability.orders.v1"
         public static let eitmadCapabilityQuotationLifecycleV1 = "eitmad.capability.quotation-lifecycle.v1"
+        public static let eitmadCapabilityCustomerDocumentsV1 = "eitmad.capability.customer-documents.v1"
         public static let eitmadCapabilityQuotationApprovalV1 = "eitmad.capability.quotation-approval.v1"
         public static let eitmadCapabilityQuotationDraftV1 = "eitmad.capability.quotation-draft.v1"
         public static let eitmadCapabilityQuotationEvaluationV1 = "eitmad.capability.quotation-evaluation.v1"

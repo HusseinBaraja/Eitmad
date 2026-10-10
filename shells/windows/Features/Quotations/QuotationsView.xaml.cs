@@ -13,6 +13,7 @@ public partial class QuotationsView : UserControl
     {
         InitializeComponent();
         ViewModel = new QuotationsViewModel();
+        ViewModel.DocumentsInvalidated += (_, _) => CloseEditors();
         DataContext = ViewModel;
     }
 
@@ -48,6 +49,7 @@ public partial class QuotationsView : UserControl
         DetailStatusBadge.HorizontalAlignment = System.Windows.HorizontalAlignment.Left;
         QuotationTable.Columns.Single(column => (string)column.Header == "الخصم").Visibility = Visibility.Collapsed;
         ViewModel = new QuotationsViewModel(true);
+        ViewModel.DocumentsInvalidated += (_, _) => CloseEditors();
         DataContext = ViewModel;
     }
 
@@ -65,13 +67,20 @@ public partial class QuotationsView : UserControl
         ShowPreviewWindow(new Features.Reception.SalesCatalogView { DataContext = createPreview(quotation), ShowQuotationHeader = true }, "تعديل عرض السعر — معاينة فقط");
     }
 
-    private void PrintQuotationClick(object sender, RoutedEventArgs e)
+    private async void PrintQuotationClick(object sender, RoutedEventArgs e)
     {
         if (ViewModel.SelectedQuotation is not { CanPrint: true } quotation) return;
-        var document = quotation.Lifecycle is { Number: not null } record ? Features.Reception.QuotationCustomerDocument.CreateIssued(record)
-            : quotation.Lifecycle is not null ? null
-            : createPreview is not null ? Features.Reception.QuotationCustomerDocument.CreateExistingPreview(createPreview(quotation), quotation.Date.ToDateTime(TimeOnly.MinValue)) : null;
-        if (document is not null) ShowPreviewWindow(new PrintPreview { Document = document }, "معاينة عرض السعر");
+        if (ViewModel.HasDocumentAuthority) {
+            if (await ViewModel.ReadDocumentAsync() is not { } saved) return;
+            var preview = new PrintPreview { Document = Features.Reception.QuotationCustomerDocument.CreateSaved(saved), CanPrint = saved.CanPrint };
+            preview.AuthorizePrint = async () => {
+                if (await ViewModel.ReadDocumentAsync() is not { CanPrint: true } current) return false;
+                preview.Document = Features.Reception.QuotationCustomerDocument.CreateSaved(current); return true;
+            };
+            ShowPreviewWindow(preview, "معاينة عرض السعر");
+        } else if (createPreview is not null) {
+            ShowPreviewWindow(new PrintPreview { Document = Features.Reception.QuotationCustomerDocument.CreateExistingPreview(createPreview(quotation), quotation.Date.ToDateTime(TimeOnly.MinValue)) }, "معاينة عرض السعر");
+        }
     }
     private async void AcceptClick(object sender, RoutedEventArgs e) { ViewModel.Accept(); await ViewModel.LastLifecycleAction; BackToQuotationsButton.Focus(); }
     private async void IssueClick(object sender, RoutedEventArgs e) { ViewModel.Issue(); await ViewModel.LastLifecycleAction; BackToQuotationsButton.Focus(); }
@@ -122,7 +131,7 @@ public partial class QuotationsView : UserControl
         if (content is PrintPreview print) print.BackRequested += (_, _) => window.Close();
         window.Loaded += (_, _) =>
         {
-            if (content is PrintPreview printContent) printContent.PrintButton.Focus();
+            if (content is PrintPreview printContent) if (printContent.CanPrint) printContent.PrintButton.Focus(); else printContent.BackButton.Focus();
             if (content is Features.Reception.SalesCatalogView catalog)
             {
                 if (((Features.Reception.SalesCatalogViewModel)catalog.DataContext).IsReviewingQuotation) catalog.RestoreQuotationFocus();

@@ -2,11 +2,11 @@
  <DockPanel Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
   <StackPanel DockPanel.Dock="Top" Margin="20,12">
    <WrapPanel>
-    <Button x:Name="PrintButton" Content="طباعة" Style="{DynamicResource PrimaryButton}" Click="PrintClick" AutomationProperties.Name="طباعة"/>
-    <Button Content="رجوع" Style="{DynamicResource SecondaryButton}" Margin="12,0,0,0" Click="BackClick" AutomationProperties.Name="رجوع"/>
+    <Button x:Name="PrintButton" IsEnabled="False" Content="طباعة" Style="{DynamicResource PrimaryButton}" Click="PrintClick" AutomationProperties.Name="طباعة"/>
+    <Button x:Name="BackButton" Content="رجوع" Style="{DynamicResource SecondaryButton}" Margin="12,0,0,0" Click="BackClick" AutomationProperties.Name="رجوع"/>
    </WrapPanel>
    <TextBlock x:Name="PrintStatus" TextWrapping="Wrap" Margin="0,8,0,0" AutomationProperties.LiveSetting="Assertive"/>
   </StackPanel>
-  <FlowDocumentPageViewer x:Name="Pages" AutomationProperties.Name="معاينة المستند"/>
+  <DocumentViewer x:Name="Pages" AutomationProperties.Name="معاينة المستند"/>
  </DockPanel>
 </UserControl>

@@ -169,7 +169,7 @@
                     <StackPanel>
                         <controls:FeedbackNotice x:Name="ReadyOrderNotice" Message="الطلب جاهز" Tone="Success" FontSize="26" FontWeight="Bold" Padding="20" Margin="0,0,0,16" Visibility="{Binding SelectedOrder.IsReady, Converter={StaticResource BooleanToVisibility}}" />
                         <WrapPanel Margin="0,0,0,16">
-                            <Button x:Name="PrintOrderButton" Visibility="{Binding IsReceptionist, Converter={StaticResource BooleanToVisibility}}" Content="طباعة" Style="{StaticResource SecondaryButton}" Click="PrintOrderClick" AutomationProperties.Name="طباعة الطلب" Margin="0,0,8,8"/>
+                            <Button x:Name="PrintOrderButton" Content="طباعة" Style="{StaticResource SecondaryButton}" Click="PrintOrderClick" AutomationProperties.Name="طباعة الطلب" Margin="0,0,8,8"/>
                             <Button x:Name="OriginalQuotationButton" Content="عرض السعر الأصلي" Style="{StaticResource SecondaryButton}" Click="OriginalQuotationClick" IsEnabled="{Binding SelectedOrder.HasOriginalQuotation}" AutomationProperties.Name="عرض السعر الأصلي" Margin="0,0,0,8"/>
                         </WrapPanel>
                     </StackPanel>

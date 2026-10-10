@@ -95,7 +95,7 @@
     <controls:AmountDisplay AmountText="{Binding FinalTotalLabel}" UnitText="ر.ي" FontSize="36" FontWeight="Bold" HorizontalAlignment="Left" Margin="0,8,0,18"/>
     <WrapPanel HorizontalAlignment="Left">
      <Button Content="إصدار عرض السعر" Style="{StaticResource PrimaryButton}" Click="SaveQuotationClick" IsEnabled="{Binding CanIssueQuotation}" AutomationProperties.Name="إصدار عرض السعر"/>
-     <Button x:Name="PrintPreviewButton" Content="طباعة" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="PrintPreviewClick" IsEnabled="{Binding CanPreviewCustomer}" AutomationProperties.Name="طباعة"/>
+     <Button x:Name="PrintPreviewButton" Content="معاينة المستند المحفوظ" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="PrintPreviewClick" IsEnabled="{Binding CanPreviewCustomer}" AutomationProperties.Name="معاينة المستند المحفوظ"/>
      <Button x:Name="SaveDraftButton" Content="حفظ كمسودة" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="SaveDraftClick" IsEnabled="{Binding CanSaveDraft}" AutomationProperties.Name="حفظ كمسودة"/>
     </WrapPanel>
     <Button Content="إعادة فتح النسخة المحفوظة" Click="ReloadDraftClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,12,0,0" IsEnabled="{Binding CanReloadDraft}" Visibility="{Binding IsLiveQuotation, Converter={StaticResource BooleanToVisibility}}" AutomationProperties.Name="إعادة فتح النسخة المحفوظة"/>

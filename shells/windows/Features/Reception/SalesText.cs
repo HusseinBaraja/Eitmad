@@ -19,13 +19,17 @@ public static partial class SalesText
         if (target is not TextBlock text) return;
         text.Inlines.Clear();
         var value = args.NewValue as string ?? "";
+        Append(text.Inlines, value);
+    }
+    internal static void Append(InlineCollection inlines, string value)
+    {
         var offset = 0;
         foreach (Match match in TechnicalRuns().Matches(value))
         {
-            if (match.Index > offset) text.Inlines.Add(new Run(value[offset..match.Index]));
-            text.Inlines.Add(new Run(match.Value) { FlowDirection = System.Windows.FlowDirection.LeftToRight });
+            if (match.Index > offset) inlines.Add(new Run(value[offset..match.Index]));
+            inlines.Add(new Run(match.Value) { FlowDirection = System.Windows.FlowDirection.LeftToRight });
             offset = match.Index + match.Length;
         }
-        if (offset < value.Length) text.Inlines.Add(new Run(value[offset..]));
+        if (offset < value.Length) inlines.Add(new Run(value[offset..]));
     }
 }
