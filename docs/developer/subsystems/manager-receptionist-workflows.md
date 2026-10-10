@@ -79,6 +79,36 @@ The authorization implementation must use scoped ReBAC objects. It must not trus
 
 Search and subscriptions enforce the same scope as direct reads. Counts, suggestions, customer matching, exports, notifications, and offline caches must not reveal records outside the authorized result set.
 
+### Connected home screens
+
+The Manager dashboard and Receptionist home use `eitmad.home.read.v1` under `eitmad.capability.home.v1`. Rust contracts in `crates/contracts/src/home.rs` define the projection; `crates/engine-runtime/src/home.rs` composes existing authorized quotation, order, approval, customer, and public catalog reads. The Windows adapter uses the Rust-issued organization context for Managers and branch context for Receptionists. Rust derives the public catalog organization from the authenticated tenant.
+
+`ReadHome.term` accepts at most 256 UTF-8 bytes before trimming and must not contain Unicode control characters. Rust rejects invalid input before reading any source with `eitmad.error.contract-invalid.v1` and retry disposition `Never`; the caller must correct the input. Quotation and order matching uses `eitmad_material::normalize_search` on the trimmed term, including Arabic letter and digit normalization. Customer and catalog searches receive the trimmed original term and apply their own authority's normalization. Empty or whitespace-only input selects recent quotation and order activity without customer or catalog search. Approval counts are not filtered by the search term. Search normalization does not rewrite stored display text.
+
+Open quotations include Draft, Pending Approval, Issued, and Accepted records. Active orders exclude Delivered and Cancelled records. Ready orders and pending approvals have separate counts. Recent activity contains the latest changed quotation and order records, rather than a complete audit history. Search matches authorized quotation/order numbers, customer names and phones, branch customers, and public catalog items. No internal approval notes, production details, costs, or authorization data enter the home DTO.
+
+Each quotation, local draft, order, or approval source reads at most ten pages of 100 records. The response contains at most eight recent or matching rows per source and eight ready orders. Customer and catalog searches return at most eight matches. When a source has more pages, the UI marks the result as partial and prefixes its count with `≥`; the full destination list remains available. A cached result shows its freshness limitation. Denied and unavailable sources show unknown counts and no rows. The current customer authority supports exact branch reads only: organization-wide customer search on the Manager home is explicitly unavailable.
+
+`HomeSnapshot` combines independent reads, not one atomic cross-source snapshot. Interpret each `HomeSection` using this mapping:
+
+| Snapshot field | `count` within visited records | `secondary_count` | `items` order and content |
+| --- | --- | --- | --- |
+| `quotations` | Open quotations after merging confirmed records and local drafts; non-cancelled local drafts count as open | Zero | Up to eight recent or matching rows, descending `changed_at`, then ascending UUID |
+| `orders` | Active orders | Ready orders | Up to eight recent or matching rows, descending `changed_at`, then ascending UUID |
+| `approvals` | Pending approvals | Zero | Always empty; this section supplies a count only |
+| `customers` | Zero; no match total is supplied | Zero | Up to eight branch matches in ascending customer UUID order; empty without a search term |
+| `catalog` | Zero; no match total is supplied | Zero | Up to eight public matches in the catalog authority's ascending sales-entry cursor order; empty without a search term |
+
+Counts do not use the search term and need not equal the number of returned rows. `complete` means the source pagination ended within its read bounds. When false, counts are lower bounds and recent/search rows cover only visited records. When true, the eight-row output limit still applies; completeness does not establish server freshness. `ready_orders` contains up to eight Ready records from the visited order pages, independent of search, in descending `changed_at` and ascending UUID order. It uses `orders.complete` and `orders.server_available`, and is empty if orders are denied or unavailable. Its length is not the Ready-order total.
+
+For available quotation and order sections, `server_available` is true only if every visited source page reports server confirmation; local quotation drafts can still be present. For an available catalog section with a search term, it reports whether the catalog refresh succeeded. False means cached data may be shown but does not confirm current server state. Approvals require a successful server read. Customer matches come from local authority; their true flag does not prove synchronization with the server. Empty customer/catalog searches perform no source read, so their initial true flag does not prove connectivity. Denied or unavailable sections set `complete` and `server_available` false, clear rows, and use zero count fields as unknown values. Consumers must check `availability` before showing a count.
+
+Quotation, local draft, approval, order, customer, and pricing subscriptions invalidate the home projection. A reconnect or resync reads it again; restarting the application reconstructs it from authorized Rust state. Signing out clears rows, counts, search, pending reads, and open customer details and editor input. A failed customer refresh clears its protected view. Fixtures and shared in-memory handoffs require an explicit preview or test entry point. Normal startup uses authenticated account selection and no local role switch.
+
+Manager shortcuts open approvals, pricing, Furniture, orders, Parts, and Raw Materials. Receptionist shortcuts open the durable quotation editor, quotations, orders, and public catalog. Recent quotation and order rows open their saved detail; ready rows open the order delivery flow. Receptionist customer matches open the customer detail and catalog matches open the public item configuration. Payments, inventory, installation, messaging, department reports, tasks, and settings remain unavailable. Their controls or labels identify that state.
+
+Focused proof uses the runtime `home_` tests, Windows `HomeStateTests` and `HomeRenderedTests`, and the adapter real-engine scenario. They cover branch isolation, denied and failed reads, cached and partial labels, subscription/resync refresh, restart reconstruction, authenticated IPC routing, and home navigation. Rendered verification uses synthetic Arabic data; record the actual display size when the full-screen baseline is unavailable.
+
 ## Action and permission matrix
 
 The table defines the required versioned permission identifiers. The Rust contract catalog must register each identifier before its operation is implemented.

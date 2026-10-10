@@ -21,9 +21,11 @@ public sealed partial class QuotationsViewModel : ObservableObject
     private string selectedDate = AllDates;
     private QuotationListItem? selectedQuotation;
 
-    public QuotationsViewModel(bool isReceptionist = false)
+    public QuotationsViewModel(bool isReceptionist = false, bool preview = false)
     {
         IsReceptionist = isReceptionist;
+        quotations = [];
+        if (preview) {
         var today = DateOnly.FromDateTime(DateTime.Today);
         quotations =
         [
@@ -77,6 +79,7 @@ public sealed partial class QuotationsViewModel : ObservableObject
             quotations.Add(new(Guid.Parse("7d438102-f09d-4e1a-b0e5-d4f72d540143"), "QT-2026-0143", "عميل تجريبي للموافقة", today,
                 QuotationStatus.WaitingApproval, 12_000m,
                 [new("طاولة ضيافة", "طقم 6 مقاعد", "جوزي", "نحاسي", 1, 100_000m)], requiresDiscountApproval: true, phone: "000000043"));
+        }
         StatusOptions = isReceptionist
             ? [AllStatuses, DraftStatus, ActiveStatus, "بانتظار الموافقة", ConvertedStatus, ClosedStatus]
             : [AllStatuses, "بانتظار الموافقة", DraftStatus, ActiveStatus, ConvertedStatus, ClosedStatus];

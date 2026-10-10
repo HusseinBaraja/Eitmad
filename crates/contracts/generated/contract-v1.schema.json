@@ -5127,6 +5127,168 @@
         "unhealthy"
       ]
     },
+    "HomeAvailability": {
+      "type": "string",
+      "enum": [
+        "available",
+        "denied",
+        "unavailable"
+      ]
+    },
+    "HomeDestination": {
+      "type": "string",
+      "enum": [
+        "quotation",
+        "order",
+        "customer",
+        "catalog"
+      ]
+    },
+    "HomeItem": {
+      "type": "object",
+      "properties": {
+        "changedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "destination": {
+          "$ref": "#/definitions/HomeDestination"
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "number": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "state": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "destination",
+        "title",
+        "state",
+        "changedAt"
+      ]
+    },
+    "HomeSection": {
+      "description": "One authorized source; counts, freshness and rows have independent meanings.\nSee `docs/developer/subsystems/manager-receptionist-workflows.md#connected-home-screens`.",
+      "type": "object",
+      "properties": {
+        "availability": {
+          "description": "Denied or unavailable sections contain no rows; their zero counts mean unknown.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/HomeAvailability"
+            }
+          ]
+        },
+        "complete": {
+          "description": "Whether source pagination ended within the read bounds. False means counts are lower bounds\nand rows cover a subset. True does not remove the eight-row limit or prove server freshness.",
+          "type": "boolean"
+        },
+        "count": {
+          "description": "Unfiltered count within visited records: open quotations (Draft, `PendingApproval`, Issued,\nAccepted, including non-cancelled local drafts), active orders (not Delivered or Cancelled),\nor Pending approvals. Customer and catalog sections leave this zero, not a match total.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "items": {
+          "description": "At most eight rows. Quotations and orders sort by `changed_at` descending, then UUID ascending.\nCustomers retain ascending customer UUID order; catalog retains its sales-entry cursor order.\nApprovals have no rows. Empty searches omit customer/catalog rows; other rows match the term.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/HomeItem"
+          }
+        },
+        "secondaryCount": {
+          "description": "Unfiltered Ready-order count within visited records; zero for every other section.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "serverAvailable": {
+          "description": "For quotations and orders, every visited page was server-confirmed; for catalog, refresh\nsucceeded. False permits cached data without current-server confirmation. Approvals require\na successful server read. Customers are local reads: true does not prove synchronization.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "availability",
+        "complete",
+        "serverAvailable",
+        "count",
+        "secondaryCount",
+        "items"
+      ]
+    },
+    "HomeSnapshot": {
+      "description": "Independently authorized home sources, not an atomic cross-source snapshot.\nSee `docs/developer/subsystems/manager-receptionist-workflows.md#connected-home-screens`.",
+      "type": "object",
+      "properties": {
+        "approvals": {
+          "description": "Pending approval count without search filtering or item rows; requires server confirmation.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/HomeSection"
+            }
+          ]
+        },
+        "catalog": {
+          "description": "Public organization catalog search results from the authorized confirmed cache.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/HomeSection"
+            }
+          ]
+        },
+        "customers": {
+          "description": "Branch customer search results from local authority; organization-wide search is unavailable.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/HomeSection"
+            }
+          ]
+        },
+        "orders": {
+          "description": "Recent or matching orders, with active and Ready counts independent of the search term.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/HomeSection"
+            }
+          ]
+        },
+        "quotations": {
+          "description": "Recent or matching quotations, with open counts independent of the search term.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/HomeSection"
+            }
+          ]
+        },
+        "readyOrders": {
+          "description": "At most eight Ready orders from the visited order pages, independent of the search term.\nSorted by `changed_at` descending, then UUID ascending. Uses orders' completeness and freshness;\nempty when orders are denied or unavailable. Length is not the full Ready-order count.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/HomeItem"
+          }
+        }
+      },
+      "required": [
+        "quotations",
+        "orders",
+        "approvals",
+        "customers",
+        "catalog",
+        "readyOrders"
+      ]
+    },
     "ImportCatalogImage": {
       "type": "object",
       "properties": {
@@ -8020,6 +8182,22 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "eitmad.home.read.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ReadHome"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "eitmad.quotation.customer-document.v1"
             },
             "payload": {
@@ -8741,6 +8919,22 @@
     },
     "QueryResult": {
       "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "home"
+            },
+            "payload": {
+              "$ref": "#/definitions/HomeSnapshot"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
         {
           "type": "object",
           "properties": {
@@ -9982,6 +10176,19 @@
       "required": [
         "scope",
         "query"
+      ]
+    },
+    "ReadHome": {
+      "type": "object",
+      "properties": {
+        "term": {
+          "description": "Search input, limited to 256 UTF-8 bytes before trimming and without Unicode control characters.\nInvalid input returns `eitmad.error.contract-invalid.v1` with retry disposition `Never`.\nQuotation and order matching uses the trimmed Arabic-normalized search form.\nCustomer and catalog authorities receive the trimmed input and apply their own normalization.\nEmpty or whitespace-only input selects recent activity without customer or catalog search.\nSee `docs/developer/subsystems/manager-receptionist-workflows.md#connected-home-screens`.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "term"
       ]
     },
     "ReadOrders": {

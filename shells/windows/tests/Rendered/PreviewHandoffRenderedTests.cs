@@ -74,7 +74,7 @@ public sealed class PreviewHandoffRenderedTests
     }
 
     [TestMethod]
-    public void OrderProductionLinksAndReadyNoticeUseTheSamePreviewOrder()
+    public void OrderProductionLinksPreserveTheExplicitPreviewOrder()
     {
         WpfTestHost.Run(1338, 900, window =>
         {
@@ -119,10 +119,8 @@ public sealed class PreviewHandoffRenderedTests
             reception.Visibility = Visibility.Visible;
             WpfTestHost.CompleteLayout(window);
             Assert.IsTrue(reception.IsVisible);
-            WpfTestHost.Capture(window, "handoff-ready-home");
-            var ready = WpfTestHost.FindByAutomationName<Button>(reception, $"مراجعة الطلب الجاهز {order.Number}");
-            Assert.IsTrue(ready.Focus());
-            ready.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.FindByName<Button>(reception, "OrdersAction").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            reception.PreviewOrders.ViewModel.OpenOrder(notice);
             WpfTestHost.CompleteLayout(window);
             Assert.AreEqual(order.Id, reception.PreviewOrders.ViewModel.SelectedOrder!.Id);
             WpfTestHost.Capture(window, "handoff-newly-ready-order");

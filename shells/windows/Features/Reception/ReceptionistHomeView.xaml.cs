@@ -12,6 +12,22 @@ public partial class ReceptionistHomeView : UserControl
     private Eitmad.Platform.Windows.Shell.IEngineShellBridge? quotationEngine;
     private Features.Quotations.QuotationDraftClient? draftClient;
     private long editorSession;
+    private Features.Home.HomeViewModel? home;
+    public void AttachHome(Features.Home.HomeViewModel state)
+    {
+        home = state; ReceptionHome.DataContext = state;
+        ReceptionHome.OpenRequested += row => _ = OpenHomeItemAsync(row);
+        ReceptionistTitleBar.SetBinding(Controls.ShellTitleBar.ApprovalCountProperty,
+            new System.Windows.Data.Binding(nameof(Features.Home.HomeViewModel.ApprovalCount)) { Source = state });
+        state.Invalidated += (_, _) => ClearHomeSession();
+    }
+    public void ClearHomeSession()
+    {
+        ++editorSession; customerLoadCancellation?.Cancel();
+        CustomerDetail.Editor.ClearSession(); CustomerDetail.DataContext = null;
+        customerReturnFocus = null; ReceptionistNotice.Message = "";
+        ReceptionistTitleBar.SearchBox.Clear(); Navigate("الرئيسية");
+    }
     public void AttachCatalog(Eitmad.Platform.Windows.Shell.IEngineShellBridge engine)
     {
         quotationEngine = engine;
@@ -77,39 +93,61 @@ public partial class ReceptionistHomeView : UserControl
 
     public Task DeactivateCustomersAsync() => customerClient?.DeactivateAsync() ?? Task.CompletedTask;
 
-    public void SetCatalogSources(Features.Furniture.FurnitureViewModel furniture, Features.Products.ProductsViewModel products)
+    public void SetCatalogSources(Features.Furniture.FurnitureViewModel furniture, Features.Products.ProductsViewModel products, bool preview = false)
     {
         var catalog = new SalesCatalogViewModel(furniture, products, customerClient);
         CatalogContent.DataContext = catalog;
         ((Button)ReceptionistSidebar.FindName("QuotationsNavButton")).Visibility = Visibility.Visible;
-        ReceptionQuotations.ConfigureReceptionist(quotation =>
-        {
-            var editor = QuotationPreviewProjection.Create(quotation, furniture, products);
-            if (customerClient is not null) editor.AttachCustomerClient(customerClient);
-            return Handoffs.Attach(editor);
-        });
-        Handoffs = new(ReceptionQuotations.ViewModel.PreviewQuotations);
-        ReceptionQuotations.ViewModel.UsePreviewQuotations(Handoffs.Quotations);
-        Handoffs.Attach(catalog);
+        if (preview) {
+            ReceptionQuotations.ConfigureReceptionist(quotation =>
+            {
+                var editor = QuotationPreviewProjection.Create(quotation, furniture, products);
+                if (customerClient is not null) editor.AttachCustomerClient(customerClient);
+                return Handoffs.Attach(editor);
+            });
+            Handoffs = new(ReceptionQuotations.ViewModel.PreviewQuotations);
+            ReceptionQuotations.ViewModel.UsePreviewQuotations(Handoffs.Quotations);
+            Handoffs.Attach(catalog);
+        } else ReceptionQuotations.ConfigureReceptionist();
         PreviewOrders = new Features.Orders.OrdersView();
-        PreviewOrders.ConfigureReceptionist();
+        PreviewOrders.ConfigureReceptionist(preview);
         PreviewOrders.CustomerRequested += id => _ = OpenOrderCustomerAsync(id);
         ReceptionOrders.Content = PreviewOrders;
-        ReadyOrdersList.ItemsSource = PreviewOrders.ViewModel.NewReadyOrders;
-        ReadyCountLabel.SetBinding(System.Windows.Controls.TextBlock.TextProperty,
-            new System.Windows.Data.Binding(nameof(Features.Orders.OrdersViewModel.ReadyCount)) { Source = PreviewOrders.ViewModel });
         ReceptionistTitleBar.PrimaryActionButton.Width = 220;
         System.Windows.Automation.AutomationProperties.SetName(ReceptionistTitleBar.PrimaryActionButton, "فتح عرض السعر");
         ReceptionistTitleBar.SetBinding(Controls.ShellTitleBar.PrimaryActionLabelProperty,
             new System.Windows.Data.Binding(nameof(SalesCatalogViewModel.QuotationLabel)) { Source = catalog });
     }
 
-    private void OpenReadyOrderClick(object sender, RoutedEventArgs e)
+    private async Task OpenHomeItemAsync(Features.Home.HomeRow row)
     {
-        if (sender is not Button { DataContext: Features.Orders.OrderListItem order }) return;
-        Navigate("الطلبات");
-        PreviewOrders.ViewModel.OpenOrder(order);
-        Dispatcher.BeginInvoke(PreviewOrders.BackToOrdersButton.Focus, System.Windows.Threading.DispatcherPriority.Input);
+        var session = editorSession;
+        switch (row.Item.Destination) {
+            case Eitmad.Contracts.HomeDestination.Quotation:
+                Navigate("عروض الأسعار"); await ReceptionQuotations.ViewModel.ActivateDraftsAsync();
+                if (session != editorSession) return;
+                var quotation = ReceptionQuotations.ViewModel.PreviewQuotations.FirstOrDefault(q => q.Id == row.Item.Id);
+                if (quotation is null) { ShowNotice("عرض السعر غير متاح. أعد تحميل البيانات."); return; }
+                ReceptionQuotations.ViewModel.OpenQuotation(quotation); ReceptionQuotations.BackToQuotationsButton.Focus();
+                break;
+            case Eitmad.Contracts.HomeDestination.Order:
+                Navigate("الطلبات"); await PreviewOrders.ViewModel.OpenByIdAsync(row.Item.Id);
+                if (session == editorSession) PreviewOrders.BackToOrdersButton.Focus();
+                break;
+            case Eitmad.Contracts.HomeDestination.Customer:
+                await OpenCustomerAsync(row.Item.Id, "", "", "الرئيسية");
+                break;
+            case Eitmad.Contracts.HomeDestination.Catalog:
+                Navigate("المنتجات");
+                var catalog = (SalesCatalogViewModel)CatalogContent.DataContext;
+                catalog.SearchText = row.Title;
+                await catalog.LastCatalogOperation;
+                if (session != editorSession) return;
+                var item = catalog.VisibleItems.FirstOrDefault(i => i.Id == row.Item.Id);
+                if (item is not null) { catalog.Select(item); await catalog.LastCatalogOperation; }
+                CatalogContent.RestoreCatalogFocus();
+                break;
+        }
     }
 
     private void SharedAccountSwitchRequested(object? sender, EventArgs eventArgs) =>
@@ -127,8 +165,10 @@ public partial class ReceptionistHomeView : UserControl
         ShowPreviewFeedback(eventArgs.Action);
     }
 
-    private void TitleBarSearchSubmitted(object? sender, Controls.ShellSearchEventArgs eventArgs) =>
-        ShowNotice($"نتائج المعاينة عن: {eventArgs.Query}");
+    private void TitleBarSearchSubmitted(object? sender, Controls.ShellSearchEventArgs eventArgs)
+    {
+        Navigate("الرئيسية"); home?.Search(eventArgs.Query);
+    }
 
     private void SidebarNavigationRequested(object? sender, Controls.NavigationRequestedEventArgs eventArgs) =>
         Navigate(eventArgs.Destination);
@@ -137,7 +177,7 @@ public partial class ReceptionistHomeView : UserControl
     {
         if (destination is not ("المنتجات" or "الرئيسية" or "عروض الأسعار" or "الطلبات"))
         {
-            ShowNotice($"تم اختيار {destination} في وضع المعاينة");
+            ShowNotice("هذه الميزة غير متاحة ضمن سير العمل الحالي.");
             return;
         }
         var catalog = destination == "المنتجات";
@@ -149,6 +189,7 @@ public partial class ReceptionistHomeView : UserControl
         HomeContent.Visibility = destination == "الرئيسية" ? Visibility.Visible : Visibility.Collapsed;
         ReceptionistTitleBar.Title = destination;
         ReceptionistSidebar.SelectDestination(destination);
+        if (destination == "الرئيسية") home?.Search("");
     }
 
     public void OpenConfirmedOrder(Features.Orders.OrderListItem order) { Navigate("الطلبات"); PreviewOrders.ViewModel.OpenOrder(order); PreviewOrders.BackToOrdersButton.Focus(); }
@@ -177,10 +218,11 @@ public partial class ReceptionistHomeView : UserControl
         customerLoadCancellation?.Dispose();
         customerLoadCancellation = new CancellationTokenSource();
         var cancellationToken = customerLoadCancellation.Token;
+        var session = editorSession;
         var result = customerId is { } id
             ? await customerClient.GetAsync(id, cancellationToken)
             : await FindExactCustomerAsync(name, phone, cancellationToken);
-        if (cancellationToken.IsCancellationRequested) return;
+        if (cancellationToken.IsCancellationRequested || session != editorSession) return;
         if (!result.Succeeded)
         {
             ShowNotice(result.Failure == Features.Customers.CustomerFailureKind.NotFound
@@ -194,6 +236,8 @@ public partial class ReceptionistHomeView : UserControl
         customerReturnFocus = System.Windows.Input.Keyboard.FocusedElement;
         ReceptionOrders.Visibility = Visibility.Collapsed;
         ReceptionQuotations.Visibility = Visibility.Collapsed;
+        HomeContent.Visibility = Visibility.Collapsed;
+        CatalogContent.Visibility = Visibility.Collapsed;
         CustomerDetail.DataContext = customer;
         CustomerDetail.Visibility = Visibility.Visible;
         ReceptionistTitleBar.Title = "تفاصيل العميل";
@@ -224,8 +268,11 @@ public partial class ReceptionistHomeView : UserControl
     private async Task RefreshOpenCustomerAsync(Guid customerId)
     {
         if (customerClient is null) return;
+        var session = editorSession;
         var result = await customerClient.GetAsync(customerId);
-        if (result.Succeeded && CustomerDetail.DataContext is Features.Customers.CustomerPreview current
+        if (session != editorSession) return;
+        if (!result.Succeeded) { ClearHomeSession(); ShowNotice(Features.Customers.CustomerClient.ArabicMessage(result.Failure)); return; }
+        if (CustomerDetail.DataContext is Features.Customers.CustomerPreview current
             && current.Id == customerId) current.Observe(result.Value!);
     }
 
@@ -251,6 +298,7 @@ public partial class ReceptionistHomeView : UserControl
         if (action is "المنتجات" or "عروض الأسعار" or "الطلبات") { Navigate(action); return; }
         if (action == "عرض سعر جديد")
         {
+            if (draftClient is not null) { _ = ReceptionQuotations.NewQuotationAsync(); return; }
             Navigate("المنتجات");
             var catalog = (SalesCatalogViewModel)CatalogContent.DataContext;
             catalog.CloseSelection();
@@ -258,7 +306,8 @@ public partial class ReceptionistHomeView : UserControl
             CatalogContent.RestoreCatalogFocus();
             return;
         }
-        ShowNotice($"تم اختيار {action} في وضع المعاينة");
+        if (action == "التنبيهات") { Navigate("الرئيسية"); return; }
+        ShowNotice("هذه الميزة غير متاحة ضمن سير العمل الحالي.");
     }
 
     private void ShowNotice(string message)

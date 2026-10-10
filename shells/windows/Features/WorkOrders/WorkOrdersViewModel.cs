@@ -23,8 +23,10 @@ public sealed partial class WorkOrdersViewModel : ObservableObject
     private WorkOrderListItem? selectedWorkOrder;
     private string feedbackMessage = string.Empty;
 
-    public WorkOrdersViewModel()
+    public WorkOrdersViewModel(bool preview = false)
     {
+        workOrders = [];
+        if (preview) {
         var today = DateOnly.FromDateTime(DateTime.Today);
         workOrders =
         [
@@ -96,6 +98,7 @@ public sealed partial class WorkOrdersViewModel : ObservableObject
                 "راجع فتحة الكهرباء في القسم الأوسط قبل القص."),
         ];
 
+        }
         StatusOptions = [AllStatuses, NewStatus, InProgressStatus, CompletedStatus, CancelledStatus];
         DueDateOptions = [AllDueDates, Overdue, DueToday, NextSevenDays];
         VisibleWorkOrders = [];
@@ -105,6 +108,8 @@ public sealed partial class WorkOrdersViewModel : ObservableObject
     public event Action<WorkOrderListItem>? PreviewStatusChanged;
     public void UseOrderFixtures(IEnumerable<Features.Orders.OrderListItem> orders)
     {
+        if (workOrders.Count < 5)
+            throw new InvalidOperationException("Order fixtures require at least five preview work orders.");
         var partsByOrder = new[] { workOrders[0].Parts, workOrders[2].Parts, workOrders[1].Parts,
             (IReadOnlyList<WorkOrderPart>)[], workOrders[4].Parts };
         workOrders.Clear();

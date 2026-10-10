@@ -53,20 +53,17 @@
             </Border>
             <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="16,0,0,0" VerticalAlignment="Center">
                 <Grid Margin="0,0,12,0">
-                    <Button Style="{StaticResource IconButton}" Tag="التنبيهات" Click="ActionClick">
+                    <Button Style="{StaticResource IconButton}" Tag="التنبيهات" Click="ActionClick" automation:AutomationProperties.Name="الموافقات والطلبات الجاهزة">
                         <Path Data="{StaticResource IconBell}" Style="{StaticResource ToolbarVectorIcon}" />
                     </Button>
                     <Border IsHitTestVisible="False" Background="#703A08" CornerRadius="10" MinWidth="19" Height="19" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-4,-4,0">
-                        <TextBlock Text="7" Foreground="White" FontSize="9" TextAlignment="Center" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding ApprovalCount, RelativeSource={RelativeSource AncestorType=controls:ShellTitleBar}}" Foreground="White" FontSize="9" TextAlignment="Center" VerticalAlignment="Center" FlowDirection="LeftToRight" />
                     </Border>
                 </Grid>
                 <Grid Margin="0,0,12,0">
-                    <Button Style="{StaticResource IconButton}" Tag="الرسائل" Click="ActionClick">
+                    <Button Style="{StaticResource IconButton}" IsEnabled="False" ToolTip="الرسائل غير متاحة" automation:AutomationProperties.Name="الرسائل غير متاحة" Tag="الرسائل" Click="ActionClick">
                         <Path Data="{StaticResource IconMessage}" Style="{StaticResource ToolbarVectorIcon}" />
                     </Button>
-                    <Border IsHitTestVisible="False" Background="#703A08" CornerRadius="10" MinWidth="19" Height="19" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-4,-4,0">
-                        <TextBlock Text="3" Foreground="White" FontSize="9" TextAlignment="Center" VerticalAlignment="Center" />
-                    </Border>
                 </Grid>
                 <Button x:Name="SwitchAccountButton" Style="{StaticResource IconButton}" Tag="{Binding SwitchAccountHint, RelativeSource={RelativeSource AncestorType=controls:ShellTitleBar}}" Click="SwitchAccountClick" automation:AutomationProperties.Name="{Binding SwitchAccountHint, RelativeSource={RelativeSource AncestorType=controls:ShellTitleBar}}">
                     <Path Data="{StaticResource IconUsers}" Style="{StaticResource ToolbarVectorIcon}" />

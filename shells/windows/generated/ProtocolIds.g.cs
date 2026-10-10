@@ -76,6 +76,7 @@ public static class ProtocolIds
 
     public static class Queries
     {
+        public const string EitmadHomeReadV1 = "eitmad.home.read.v1";
         public const string EitmadQuotationCustomerDocumentV1 = "eitmad.quotation.customer-document.v1";
         public const string EitmadOrderCustomerDocumentV1 = "eitmad.order.customer-document.v1";
         public const string EitmadOrderQuotationDocumentV1 = "eitmad.order.quotation-document.v1";
@@ -182,6 +183,7 @@ public static class ProtocolIds
 
     public static class Capabilities
     {
+        public const string EitmadCapabilityHomeV1 = "eitmad.capability.home.v1";
         public const string EitmadCapabilityWorkOrdersV1 = "eitmad.capability.work-orders.v1";
         public const string EitmadCapabilityOrdersV1 = "eitmad.capability.orders.v1";
         public const string EitmadCapabilityQuotationLifecycleV1 = "eitmad.capability.quotation-lifecycle.v1";

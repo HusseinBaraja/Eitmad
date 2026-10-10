@@ -15,6 +15,8 @@ public partial class MainWindow : Window
     private readonly Features.Customers.CustomerClient? customerClient;
     private readonly Features.Quotations.QuotationDraftClient? quotationDraftClient;
     private readonly Features.Orders.OrderClient? orderClient;
+    private readonly Features.Home.HomeViewModel? home;
+    private long accountGeneration;
     private bool sessionActive;
     private bool switchingAccount;
 
@@ -28,9 +30,13 @@ public partial class MainWindow : Window
     public MainWindow(
         IDesktopSessionController? sessions = null,
         bool showSignIn = true,
-        IEngineShellBridge? engine = null)
+        IEngineShellBridge? engine = null,
+        bool preview = false)
     {
         InitializeComponent();
+        if (preview && engine is null) {
+            QuotationsSurface.UsePreviewFixtures(); OrdersSurface.UsePreviewFixtures(); WorkOrdersSurface.UsePreviewFixtures();
+        }
         this.sessions = sessions;
         if (engine is not null)
         {
@@ -42,6 +48,12 @@ public partial class MainWindow : Window
             PricingSurface.Attach(engine);
             customerClient = new Features.Customers.CustomerClient(engine);
             ReceptionistSurface.AttachCustomerClient(customerClient);
+            home = new(engine);
+            ManagerHome.DataContext = home;
+            ReceptionistSurface.AttachHome(home);
+            ManagerHome.OpenRequested += row => _ = OpenHomeItemAsync(row);
+            ManagerTitleBar.SetBinding(Controls.ShellTitleBar.ApprovalCountProperty,
+                new System.Windows.Data.Binding(nameof(Features.Home.HomeViewModel.ApprovalCount)) { Source = home });
         }
         if (sessions is not null) SignInSurface.AuthenticateAsync = sessions.SignInAsync;
         if (sessions is not null) sessions.SessionEnded += SessionEnded;
@@ -57,25 +69,26 @@ public partial class MainWindow : Window
             _ = ReceptionistSurface.DisposeCatalogAsync();
             if (quotationDraftClient is not null) _ = quotationDraftClient.DisposeAsync();
             if (orderClient is not null) _ = orderClient.DisposeAsync();
+            if (home is not null) _ = home.DisposeAsync();
         };
-        ReceptionistSurface.SetCatalogSources(FurnitureSurface.ViewModel, ProductsSurface.ViewModel);
+        ReceptionistSurface.SetCatalogSources(FurnitureSurface.ViewModel, ProductsSurface.ViewModel, preview && engine is null);
         if (engine is not null) ReceptionistSurface.AttachCatalog(engine);
-        if (engine is null) QuotationsSurface.ViewModel.UsePreviewQuotations(ReceptionistSurface.Handoffs.Quotations);
-        else
+        if (engine is null && preview) QuotationsSurface.ViewModel.UsePreviewQuotations(ReceptionistSurface.Handoffs.Quotations);
+        else if (engine is not null)
         {
             quotationDraftClient = new(engine);
             ReceptionistSurface.AttachDraftClient(quotationDraftClient);
             QuotationsSurface.ViewModel.AttachDraftClient(quotationDraftClient);
         }
         var receptionOrders = ReceptionistSurface.PreviewOrders.ViewModel;
-        OrdersSurface.ViewModel.UsePreviewOrders(receptionOrders.PreviewOrders);
+        if (engine is null && preview) OrdersSurface.ViewModel.UsePreviewOrders(receptionOrders.PreviewOrders);
         if (engine is not null) {
             orderClient = new(engine);
             OrdersSurface.ViewModel.Attach(orderClient); receptionOrders.Attach(orderClient); WorkOrdersSurface.ViewModel.Attach(orderClient);
             ReceptionistSurface.ReceptionQuotations.ViewModel.AttachOrders(orderClient);
             ReceptionistSurface.ReceptionQuotations.ViewModel.OrderConfirmed += order => ReceptionistSurface.OpenConfirmedOrder(order);
         }
-        if (engine is null) WorkOrdersSurface.ViewModel.UseOrderFixtures(receptionOrders.PreviewOrders);
+        if (engine is null && preview) WorkOrdersSurface.ViewModel.UseOrderFixtures(receptionOrders.PreviewOrders);
         OrdersSurface.ViewModel.FindProduction = WorkOrdersSurface.ViewModel.ForOrder;
         OrdersSurface.ProductionRequested += async order =>
         {
@@ -86,16 +99,22 @@ public partial class MainWindow : Window
             if (WorkOrdersSurface.IsVisible && WorkOrdersSurface.ViewModel.IsDetailVisible)
                 await Dispatcher.InvokeAsync(WorkOrdersSurface.BackToWorkOrdersButton.Focus, DispatcherPriority.Input);
         };
-        WorkOrdersSurface.OrderRequested += number =>
+        WorkOrdersSurface.OrderRequested += async number =>
         {
+            if (engine is not null && WorkOrdersSurface.ViewModel.SelectedWorkOrder?.Record is { } record) {
+                OpenManagerDestination("الطلبات");
+                await OrdersSurface.ViewModel.OpenByIdAsync(record.OrderId);
+                if (OrdersSurface.IsVisible) OrdersSurface.BackToOrdersButton.Focus();
+                return;
+            }
             var order = (engine is null ? receptionOrders : OrdersSurface.ViewModel).PreviewOrders.FirstOrDefault(item => item.Number == number);
             if (order is null) return;
             OrdersSurface.ViewModel.OpenOrder(order);
             ManagerSidebar.SelectDestination("الطلبات");
             ShowDestination("الطلبات");
-            Dispatcher.BeginInvoke(OrdersSurface.BackToOrdersButton.Focus, DispatcherPriority.Input);
+            _ = Dispatcher.BeginInvoke(OrdersSurface.BackToOrdersButton.Focus, DispatcherPriority.Input);
         };
-        WorkOrdersSurface.ViewModel.PreviewStatusChanged += work => receptionOrders.PreviewProductionStatus(work.OrderNumber,
+        if (preview && engine is null) WorkOrdersSurface.ViewModel.PreviewStatusChanged += work => receptionOrders.PreviewProductionStatus(work.OrderNumber,
             work.IsCompleted ? Features.Orders.OrderStatus.Ready : Features.Orders.OrderStatus.InProduction, work.Number);
         SignInSurface.Visibility = showSignIn ? Visibility.Visible : Visibility.Collapsed;
         ResponsiveRoot.Visibility = showSignIn ? Visibility.Collapsed : Visibility.Visible;
@@ -106,15 +125,21 @@ public partial class MainWindow : Window
     {
         SignInSurface.Visibility = Visibility.Collapsed;
         sessionActive = true;
+        var session = ++accountGeneration;
         ShowAccount(surface);
+        if (home is not null) await home.ActivateAsync();
+        if (session != accountGeneration) return;
         if (surface == AuthenticatedSurface.Manager) await QuotationsSurface.ViewModel.ActivateDraftsAsync();
         else await ReceptionistSurface.ReceptionQuotations.ViewModel.ActivateDraftsAsync();
-        if (surface == AuthenticatedSurface.Manager) { await OrdersSurface.ViewModel.ActivateAsync(); await WorkOrdersSurface.ViewModel.ActivateAsync(); }
+        if (session != accountGeneration) return;
+        if (surface == AuthenticatedSurface.Manager) { await OrdersSurface.ViewModel.ActivateAsync(); if (session != accountGeneration) return; await WorkOrdersSurface.ViewModel.ActivateAsync(); }
         else await ReceptionistSurface.PreviewOrders.ViewModel.ActivateAsync();
+        if (session != accountGeneration) return;
         if (surface != AuthenticatedSurface.Receptionist) return;
         try
         {
             await ReceptionistSurface.ActivateCustomersAsync();
+            if (session != accountGeneration) return;
             await ReceptionistSurface.ActivateCatalogAsync();
         }
         catch (Exception error) when (error is Eitmad.Platform.Windows.LocalIpc.EngineIpcException
@@ -138,17 +163,14 @@ public partial class MainWindow : Window
 
     private void ManagerTitleBarActionRequested(object? sender, Controls.ShellActionEventArgs eventArgs)
     {
-        if (eventArgs.IsPrimary)
-        {
-            OpenPreviewPanel(eventArgs.Action);
-            return;
-        }
-
-        ShowToast($"تم اختيار {eventArgs.Action}");
+        if (eventArgs.IsPrimary || eventArgs.Action == "التنبيهات") OpenManagerDestination("الموافقات");
+        else ShowToast("الرسائل غير متاحة ضمن سير العمل الحالي.");
     }
 
-    private void ManagerTitleBarSearchSubmitted(object? sender, Controls.ShellSearchEventArgs eventArgs) =>
-        ShowToast($"نتائج المعاينة عن: {eventArgs.Query}");
+    private void ManagerTitleBarSearchSubmitted(object? sender, Controls.ShellSearchEventArgs eventArgs)
+    {
+        OpenManagerDestination("الرئيسية"); home?.Search(eventArgs.Query);
+    }
 
     /// <summary>Clears receptionist projections and stops session adapters before switching accounts.</summary>
     private async Task SwitchAccountAsync()
@@ -162,6 +184,7 @@ public partial class MainWindow : Window
         HideAccountSurfaces();
         try
         {
+            if (home is not null) await home.DeactivateAsync();
             await ReceptionistSurface.DeactivateCustomersAsync();
             await ReceptionistSurface.DeactivateCatalogAsync();
             if (quotationDraftClient is not null) await quotationDraftClient.DeactivateAsync();
@@ -188,7 +211,6 @@ public partial class MainWindow : Window
 
         if (!showManager)
         {
-            InteractionPanel.Visibility = Visibility.Collapsed;
             return;
         }
 
@@ -204,6 +226,8 @@ public partial class MainWindow : Window
         SignInSurface.IsEnabled = false;
         try
         {
+            HideAccountSurfaces();
+            if (home is not null) await home.DeactivateAsync();
             await ReceptionistSurface.DeactivateCustomersAsync();
             await ReceptionistSurface.DeactivateCatalogAsync();
             if (quotationDraftClient is not null) await quotationDraftClient.DeactivateAsync();
@@ -227,6 +251,9 @@ public partial class MainWindow : Window
 
     private void HideAccountSurfaces()
     {
+        ++accountGeneration;
+        home?.Clear();
+        ManagerTitleBar.SearchBox.Clear(); ReceptionistSurface.ClearHomeSession();
         WorkOrdersSurface.ViewModel.ClearWorkOrders();
         OrdersSurface.ViewModel.ClearOrders(); ReceptionistSurface.PreviewOrders.ViewModel.ClearOrders();
         if (orderClient is not null) _ = orderClient.DeactivateAsync();
@@ -238,7 +265,6 @@ public partial class MainWindow : Window
         PricingSurface.ClearSession();
         ResponsiveRoot.Visibility = Visibility.Collapsed;
         ReceptionistSurface.Visibility = Visibility.Collapsed;
-        InteractionPanel.Visibility = Visibility.Collapsed;
     }
 
     private void OpenRawMaterialsFromActionClick(object sender, RoutedEventArgs eventArgs)
@@ -255,6 +281,8 @@ public partial class MainWindow : Window
 
     private void ShowDestination(string destination)
     {
+        if (destination is not ("الرئيسية" or "الخامات" or "القطع" or "الأثاث" or "التسعير" or "المنتجات" or "عروض الأسعار" or "الموافقات" or "الطلبات" or "المستخدمون" or "أوامر العمل"))
+        { ShowToast("هذه الميزة غير متاحة ضمن سير العمل الحالي."); return; }
         if (destination == "عروض الأسعار") QuotationsSurface.ViewModel.ApprovalsOnly = false;
         var showRawMaterials = destination == "الخامات";
         var showParts = destination == "القطع";
@@ -283,45 +311,49 @@ public partial class MainWindow : Window
         if (!showUsers && !showRawMaterials && !showParts && !showFurniture && !showPricing && !showProducts && !showQuotations && !showOrders && !showWorkOrders)
         {
             ManagerTitleBar.Title = destination == "الرئيسية" ? "لوحة التحكم" : destination;
-            ShowToast($"تم فتح {destination} في وضع المعاينة");
+            home?.Search("");
         }
     }
 
-    private void PreviewActionClick(object sender, RoutedEventArgs eventArgs)
+    private void HomeActionClick(object sender, RoutedEventArgs eventArgs)
     {
         if (sender is not Button { Tag: string action }) return;
-        if (action == "الموافقات")
-        {
-            QuotationsSurface.ViewModel.OpenApprovals();
-            ManagerSidebar.SelectDestination("عروض الأسعار");
-            ShowDestination("الموافقات");
-            Dispatcher.BeginInvoke(QuotationsSurface.QuotationSearchBox.Focus, DispatcherPriority.Input);
-            return;
-        }
-        ShowToast($"تم اختيار {action}");
+        OpenManagerDestination(action);
     }
 
-    private void OpenPreviewPanel(string title)
+    private void OpenManagerDestination(string destination)
     {
-        PreviewPanelTitle.Text = title;
-        InteractionPanel.Visibility = Visibility.Visible;
-        Dispatcher.BeginInvoke(CustomerNameBox.Focus, DispatcherPriority.Input);
+        if (destination == "الموافقات") QuotationsSurface.ViewModel.OpenApprovals();
+        ManagerSidebar.SelectDestination(destination == "الموافقات" ? "عروض الأسعار" : destination);
+        ShowDestination(destination);
+        if (destination is "عروض الأسعار" or "الموافقات") Dispatcher.BeginInvoke(QuotationsSurface.QuotationSearchBox.Focus, DispatcherPriority.Input);
     }
 
-    private void ClosePreviewPanelClick(object sender, RoutedEventArgs eventArgs) =>
-        InteractionPanel.Visibility = Visibility.Collapsed;
-
-    private void PreviewSubmitClick(object sender, RoutedEventArgs eventArgs)
+    private async Task OpenHomeItemAsync(Features.Home.HomeRow row)
     {
-        if (string.IsNullOrWhiteSpace(CustomerNameBox.Text))
-        {
-            ShowToast("أدخل اسم العميل للمتابعة");
-            CustomerNameBox.Focus();
-            return;
+        var session = accountGeneration;
+        switch (row.Item.Destination) {
+            case Eitmad.Contracts.HomeDestination.Quotation:
+                OpenManagerDestination("عروض الأسعار");
+                await QuotationsSurface.ViewModel.ActivateDraftsAsync();
+                if (session != accountGeneration) return;
+                var quotation = QuotationsSurface.ViewModel.PreviewQuotations.FirstOrDefault(q => q.Id == row.Item.Id);
+                if (quotation is null) { ShowToast("عرض السعر غير متاح. أعد تحميل البيانات."); return; }
+                QuotationsSurface.ViewModel.OpenQuotation(quotation);
+                QuotationsSurface.BackToQuotationsButton.Focus();
+                break;
+            case Eitmad.Contracts.HomeDestination.Order:
+                OpenManagerDestination("الطلبات");
+                await OrdersSurface.ViewModel.OpenByIdAsync(row.Item.Id);
+                if (session == accountGeneration) OrdersSurface.BackToOrdersButton.Focus();
+                break;
+            case Eitmad.Contracts.HomeDestination.Customer:
+                ShowToast("البحث الشامل في عملاء المؤسسة غير متاح حالياً.");
+                break;
+            case Eitmad.Contracts.HomeDestination.Catalog:
+                OpenManagerDestination("التسعير"); PricingSurface.ViewModel.SearchText = row.Title;
+                break;
         }
-
-        InteractionPanel.Visibility = Visibility.Collapsed;
-        ShowToast("تم فحص المسودة محلياً؛ الحفظ معطل في وضع المعاينة");
     }
 
     private void ShowToast(string message)

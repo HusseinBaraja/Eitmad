@@ -95,7 +95,7 @@ public sealed class MainWindowRenderedTests
     }
 
     [TestMethod]
-    public void NavigationAndPreviewActionsUpdateVisibleStateAndFocus()
+    public void NavigationAndApprovalActionOpenWorkingDestinationAndFocus()
     {
         WpfTestHost.Run(1338, 753, window =>
         {
@@ -108,14 +108,14 @@ public sealed class MainWindowRenderedTests
 
             var homeButton = WpfTestHost.FindByName<Button>(window, "HomeNavButton");
             homeButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            var newQuote = WpfTestHost.Descendants<Button>(window)
-                .First(button => Equals(button.Tag, "عرض سعر جديد"));
-            newQuote.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            var approvals = WpfTestHost.Descendants<Button>(window)
+                .First(button => Equals(button.Tag, "الموافقات") && button.IsVisible);
+            approvals.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.PumpDispatcher();
 
-            Assert.AreEqual(Visibility.Visible, WpfTestHost.FindByName<FrameworkElement>(window, "InteractionPanel").Visibility);
-            var customerName = WpfTestHost.FindByName<TextBox>(window, "CustomerNameBox");
-            Assert.IsTrue(customerName.IsKeyboardFocusWithin);
+            Assert.IsTrue(window.QuotationsSurface.IsVisible);
+            Assert.IsTrue(window.QuotationsSurface.ViewModel.ApprovalsOnly);
+            Assert.IsTrue(window.QuotationsSurface.QuotationSearchBox.IsKeyboardFocusWithin);
         });
     }
 
@@ -143,8 +143,10 @@ public sealed class MainWindowRenderedTests
         Assert.IsTrue(background.GradientStops.All(stop => ContrastAgainstWhite(stop.Color) >= 4.5));
 
         Assert.IsTrue(VisualStateManager.GoToState(button, "MouseOver", false));
-        WpfTestHost.PumpDispatcher();
         var hoverShade = (Border)button.Template.FindName("HoverShade", button);
+        var deadline = System.Diagnostics.Stopwatch.StartNew();
+        while (hoverShade.Opacity != 1d && deadline.Elapsed < TimeSpan.FromSeconds(1))
+            WpfTestHost.PumpDispatcher();
         var hoverColor = ((SolidColorBrush)hoverShade.Background).Color;
         Assert.AreEqual(1d, hoverShade.Opacity);
         Assert.AreNotEqual(0, hoverColor.A);

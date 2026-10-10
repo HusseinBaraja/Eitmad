@@ -1,6 +1,8 @@
 use std::sync::Arc;
 #[path = "discount_approval.rs"]
 mod discount_approval;
+#[path = "home.rs"]
+mod home;
 #[path = "orders.rs"]
 mod orders;
 #[path = "quotation_lifecycle.rs"]
@@ -977,6 +979,7 @@ impl QueryDispatcher for ProductDispatcher {
     ) -> Result<QueryResult, ContractError> {
         let operation = query.kind();
         let result = match query {
+            Query::Home(input) => self.home(&context, input).await,
             Query::CatalogImage(input) => self.catalog_image_query(&context, input).await,
             Query::Configuration(_) => self
                 .configuration

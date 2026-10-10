@@ -68,6 +68,7 @@ public enum ProtocolIds {
     }
 
     public enum Queries {
+        public static let eitmadHomeReadV1 = "eitmad.home.read.v1"
         public static let eitmadQuotationCustomerDocumentV1 = "eitmad.quotation.customer-document.v1"
         public static let eitmadOrderCustomerDocumentV1 = "eitmad.order.customer-document.v1"
         public static let eitmadOrderQuotationDocumentV1 = "eitmad.order.quotation-document.v1"
@@ -169,6 +170,7 @@ public enum ProtocolIds {
     }
 
     public enum Capabilities {
+        public static let eitmadCapabilityHomeV1 = "eitmad.capability.home.v1"
         public static let eitmadCapabilityWorkOrdersV1 = "eitmad.capability.work-orders.v1"
         public static let eitmadCapabilityOrdersV1 = "eitmad.capability.orders.v1"
         public static let eitmadCapabilityQuotationLifecycleV1 = "eitmad.capability.quotation-lifecycle.v1"

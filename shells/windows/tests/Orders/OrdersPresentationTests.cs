@@ -10,7 +10,7 @@ public sealed class OrdersPresentationTests
     [DataRow("ٱلـمَهَا")]
     public void SearchStatusAndDateFiltersComposeAcrossManagerRows(string search)
     {
-        var viewModel = new OrdersViewModel();
+        var viewModel = new OrdersViewModel(preview: true);
 
         viewModel.SearchText = search;
         Assert.HasCount(1, viewModel.VisibleOrders);
@@ -27,7 +27,7 @@ public sealed class OrdersPresentationTests
     [TestMethod]
     public void DetailCalculatesReviewTotalsAndExposesEveryRequiredStatus()
     {
-        var viewModel = new OrdersViewModel();
+        var viewModel = new OrdersViewModel(preview: true);
         var order = viewModel.VisibleOrders[0];
 
         viewModel.OpenOrder(order);

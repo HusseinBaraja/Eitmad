@@ -925,6 +925,14 @@ public partial class Query
     [JsonPropertyName("payload")]
     public object? Payload { get; set; }
 
+    public const string HomeReadKind = "eitmad.home.read.v1";
+
+    public static Query ForHomeRead(ReadHome payload) =>
+        new() { Kind = HomeReadKind, Payload = payload };
+
+    public ReadHome? AsHomeRead() =>
+        Kind == HomeReadKind ? PayloadAs<ReadHome>() : null;
+
     public const string QuotationCustomerDocumentKind = "eitmad.quotation.customer-document.v1";
 
     public static Query ForQuotationCustomerDocument(GetQuotationDraft payload) =>
@@ -1253,6 +1261,14 @@ public partial class QueryResult
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("payload")]
     public object? Payload { get; set; }
+
+    public const string HomeKind = "home";
+
+    public static QueryResult ForHome(HomeSnapshot payload) =>
+        new() { Kind = HomeKind, Payload = payload };
+
+    public HomeSnapshot? AsHome() =>
+        Kind == HomeKind ? PayloadAs<HomeSnapshot>() : null;
 
     public const string CustomerDocumentKind = "customerDocument";
 

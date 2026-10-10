@@ -49,7 +49,6 @@ public sealed class OperationsTableRenderedTests
                 WpfTestHost.CompleteLayout(window);
                 WpfTestHost.Capture(window, $"table-{name}-{width}");
             }
-            Check("dashboard");
             foreach (var page in new[] { "Materials", "Parts", "Furniture", "Pricing", "Products", "Quotations", "Orders", "WorkOrders" })
             {
                 WpfTestHost.FindByName<Button>(window, page + "NavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));

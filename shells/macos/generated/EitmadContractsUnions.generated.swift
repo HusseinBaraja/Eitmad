@@ -750,6 +750,7 @@ public enum PriceTarget: Codable, Sendable {
     }
 }
 public enum Query: Codable, Sendable {
+    case homeRead(ReadHome)
     case quotationCustomerDocument(GetQuotationDraft)
     case orderCustomerDocument(GetOrder)
     case orderQuotationDocument(GetOrder)
@@ -791,6 +792,7 @@ public enum Query: Codable, Sendable {
     case desktopAccountList(ListDesktopAccounts)
 
     private enum Kind: String, Codable, Sendable {
+        case homeRead = "eitmad.home.read.v1"
         case quotationCustomerDocument = "eitmad.quotation.customer-document.v1"
         case orderCustomerDocument = "eitmad.order.customer-document.v1"
         case orderQuotationDocument = "eitmad.order.quotation-document.v1"
@@ -840,6 +842,7 @@ public enum Query: Codable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         switch try container.decode(Kind.self, forKey: .kind) {
+        case .homeRead: self = .homeRead(try container.decode(ReadHome.self, forKey: .payload))
         case .quotationCustomerDocument: self = .quotationCustomerDocument(try container.decode(GetQuotationDraft.self, forKey: .payload))
         case .orderCustomerDocument: self = .orderCustomerDocument(try container.decode(GetOrder.self, forKey: .payload))
         case .orderQuotationDocument: self = .orderQuotationDocument(try container.decode(GetOrder.self, forKey: .payload))
@@ -885,6 +888,9 @@ public enum Query: Codable, Sendable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
+        case .homeRead(let payload):
+            try container.encode(Kind.homeRead, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
         case .quotationCustomerDocument(let payload):
             try container.encode(Kind.quotationCustomerDocument, forKey: .kind)
             try container.encode(payload, forKey: .payload)
@@ -1006,6 +1012,7 @@ public enum Query: Codable, Sendable {
     }
 }
 public enum QueryResult: Codable, Sendable {
+    case home(HomeSnapshot)
     case customerDocument(CustomerDocument)
     case workOrders(WorkOrderPage)
     case orders(OrderPage)
@@ -1044,6 +1051,7 @@ public enum QueryResult: Codable, Sendable {
     case desktopAccounts(DesktopAccountPage)
 
     private enum Kind: String, Codable, Sendable {
+        case home = "home"
         case customerDocument = "customerDocument"
         case workOrders = "workOrders"
         case orders = "orders"
@@ -1090,6 +1098,7 @@ public enum QueryResult: Codable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         switch try container.decode(Kind.self, forKey: .kind) {
+        case .home: self = .home(try container.decode(HomeSnapshot.self, forKey: .payload))
         case .customerDocument: self = .customerDocument(try container.decode(CustomerDocument.self, forKey: .payload))
         case .workOrders: self = .workOrders(try container.decode(WorkOrderPage.self, forKey: .payload))
         case .orders: self = .orders(try container.decode(OrderPage.self, forKey: .payload))
@@ -1132,6 +1141,9 @@ public enum QueryResult: Codable, Sendable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
+        case .home(let payload):
+            try container.encode(Kind.home, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
         case .customerDocument(let payload):
             try container.encode(Kind.customerDocument, forKey: .kind)
             try container.encode(payload, forKey: .payload)

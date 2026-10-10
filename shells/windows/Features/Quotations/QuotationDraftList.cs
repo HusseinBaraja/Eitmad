@@ -41,8 +41,10 @@ public sealed partial class QuotationsViewModel
     public async Task ActivateDraftsAsync()
     {
         if (draftClient is null) return;
+        var session = approvalSession;
         draftsActive = true;
         await draftClient.ActivateAsync();
+        if (!draftsActive || session != approvalSession) return;
         LastDraftLoad = LoadDraftsAsync(); await LastDraftLoad;
     }
     public void ClearDrafts()

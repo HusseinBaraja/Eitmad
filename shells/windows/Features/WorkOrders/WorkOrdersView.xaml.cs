@@ -16,7 +16,8 @@ public partial class WorkOrdersView : UserControl
         DataContext = ViewModel;
     }
 
-    public WorkOrdersViewModel ViewModel { get; }
+    public WorkOrdersViewModel ViewModel { get; private set; }
+    public void UsePreviewFixtures() { ViewModel = new WorkOrdersViewModel(preview: true); DataContext = ViewModel; }
 
     public event Action<string>? OrderRequested;
     private void OpenOrderClick(object sender, RoutedEventArgs e)

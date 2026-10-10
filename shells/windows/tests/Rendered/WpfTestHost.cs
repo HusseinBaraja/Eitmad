@@ -26,7 +26,8 @@ internal static class WpfTestHost
             var window = new MainWindow(
                 showSignIn ? new RenderedSessionController() : null,
                 showSignIn: showSignIn,
-                engine: engine)
+                engine: engine,
+                preview: engine is null)
             {
                 Width = width,
                 Height = height,

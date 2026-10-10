@@ -528,6 +528,9 @@ internal sealed class SupervisionScenarios
         Assert.Equal("branch", reception.CustomerAuthorization?.Scope.Kind, "Rust receptionist branch");
         await VerifyQuotationLifecycleBoundary(supervisor, manager: false);
         await VerifyOrderBoundary(supervisor, manager: false);
+        var homeSearch = await supervisor.QueryAsync(Query.ForHomeRead(new() { Term = "تجريبي" }));
+        Assert.Equal(customer.Id, homeSearch.Outcome.Payload.AsHome()!.Customers.Items.Single().Id,
+            "Receptionist home searches the persisted authorized customer after restart");
         var approvalDenied = await supervisor.SubmitCommandAsync(Command.ForQuotationApprovalDecide(new() {
             DraftId = Guid.NewGuid(), RequestId = Guid.NewGuid(), QuotationRevision = 1, ExpectedRevision = 1,
             Fingerprint = "synthetic-forged", Decision = DiscountDecision.Approve,
@@ -559,6 +562,7 @@ internal sealed class SupervisionScenarios
         var page = response.Outcome.Payload.AsOrders()!;
         Assert.False(page.ServerAvailable, "unconfigured order server is unavailable");
         Assert.Equal(0, page.Items.Length, "offline engine does not invent confirmed orders");
+        await VerifyHomeBoundary(supervisor, manager);
         foreach (var query in new[] { Query.ForOrderCustomerDocument(new() { OrderId = Guid.NewGuid() }), Query.ForOrderQuotationDocument(new() { OrderId = Guid.NewGuid() }) }) {
             var missing = await supervisor.QueryAsync(query);
             Assert.Equal(ProtocolIds.ErrorCodes.EitmadErrorOrderInvalidV1, missing.Outcome.Payload.Code, "missing saved order document fails closed through real IPC");
@@ -568,6 +572,22 @@ internal sealed class SupervisionScenarios
             : Command.ForOrderCancel(new() { OrderId = Guid.NewGuid(), ExpectedRevision = 1, Reason = "إلغاء تجريبي" });
         var denied = await supervisor.SubmitCommandAsync(command, Guid.NewGuid());
         Assert.Equal(ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1, denied.Outcome.Payload.Code, "order role denial through direct IPC");
+    }
+
+    private static async Task VerifyHomeBoundary(EngineSupervisor supervisor, bool manager)
+    {
+        Assert.True(supervisor.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityHomeV1), "home capability negotiated");
+        var response = await supervisor.QueryAsync(Query.ForHomeRead(new() { Term = "تجريبي" }));
+        Assert.Equal(CommandOutcomeStatus.Succeeded, response.Outcome.Status, "real home read succeeds");
+        var home = response.Outcome.Payload.AsHome()!;
+        Assert.Equal(HomeAvailability.Available, home.Orders.Availability, "home order scope uses authenticated role");
+        Assert.Equal(HomeAvailability.Available, home.Quotations.Availability, "Manager organization reads do not require branch drafts");
+        Assert.Equal(HomeAvailability.Available, home.Catalog.Availability, "catalog organization is derived by Rust for both roles");
+        Assert.Equal(manager ? HomeAvailability.Unavailable : HomeAvailability.Available, home.Customers.Availability,
+            "unsupported organization customer search is explicit");
+        Assert.Equal(0u, home.Orders.Count, "offline home does not invent orders");
+        Assert.False(home.Orders.ServerAvailable, "offline home retains freshness state");
+        Assert.Equal(HomeAvailability.Unavailable, home.Approvals.Availability, "offline approvals are unknown rather than zero");
     }
 
     private static async Task VerifyQuotationLifecycleBoundary(EngineSupervisor supervisor, bool manager)
