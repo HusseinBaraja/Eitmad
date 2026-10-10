@@ -260,6 +260,33 @@ fn cancellation_preserves_completed_work_and_blocks_delivery_and_stale_edits() {
 }
 
 #[test]
+fn production_due_date_errors_are_invalid_input_without_mutation() {
+    let original = order(vec![planned()]);
+    let input = TransitionOrderWork {
+        order_id: original.id,
+        expected_revision: original.revision,
+        work_id: original.work[0].id,
+        assignment: Some("ورشة تجريبية".into()),
+        due_at: Some(UnixMillis(10)),
+    };
+    for due_at in [None, Some(UnixMillis(9))] {
+        let mut value = original.clone();
+        let action = OrderAction::StartWork(TransitionOrderWork {
+            due_at,
+            ..input.clone()
+        });
+        assert_eq!(
+            apply(&mut value, &action, UnixMillis(10)),
+            Err(OrderError::Invalid)
+        );
+        assert_eq!(value, original);
+    }
+    let mut value = original;
+    apply(&mut value, &OrderAction::StartWork(input), UnixMillis(10)).unwrap();
+    assert_eq!(value.work[0].state, WorkState::InProgress);
+}
+
+#[test]
 fn production_rejects_missing_duplicate_and_incomplete_furniture_before_mutation() {
     let original = order(vec![planned(), planned()]);
     for defect in 0..3 {

@@ -34,6 +34,8 @@ Full snapshots are persisted in the Order transaction. Existing confirmed Order 
 
 A Manager starts `Planned` work with an assignment and due date, then completes `InProgress` work. Completed and Cancelled work cannot advance. There is no independent work cancellation command: cancellation of an undelivered Order cancels Planned and In Progress work and preserves Completed work. The retained accepted commercial document remains unchanged.
 
+The native date input maps to 23:59:59.999 at UTC+3 on the selected day. Rust rejects a missing deadline or one earlier than server time with `eitmad.error.order-invalid.v1`, so the shell asks the Manager to check the input. Stale revisions and incompatible work states remain `eitmad.error.order-conflict.v1`. A rejected deadline does not change the Order or Work Order.
+
 Rust requires each accepted Furniture line to belong to exactly one nonempty Work Order, with matching accepted specifications. Readiness considers all applicable work: all Completed means Ready; any In Progress means In Production; otherwise the Order remains Confirmed. Products-only Orders are Ready at conversion. The model supports multiple Work Orders without changing these rules, although version 1 conversion creates at most one.
 
 ## Scope, durability, and recovery

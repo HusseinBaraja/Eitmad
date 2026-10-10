@@ -221,8 +221,11 @@ pub fn apply(
                 .find(|w| w.id == c.work_id)
                 .ok_or(OrderError::Conflict)?;
             if starting {
-                if work.state != WorkState::Planned || c.due_at.is_none_or(|d| d.0 < now.0) {
+                if work.state != WorkState::Planned {
                     return Err(OrderError::Conflict);
+                }
+                if c.due_at.is_none_or(|d| d.0 < now.0) {
+                    return Err(OrderError::Invalid);
                 }
                 validate_text(c.assignment.as_deref().unwrap_or(""), true)?;
                 work.due_at = c.due_at;
