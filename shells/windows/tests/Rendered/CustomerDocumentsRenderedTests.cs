@@ -80,11 +80,11 @@ public sealed class CustomerDocumentsRenderedTests
             var document = QuotationCustomerDocument.CreateSaved(saved);
             var paginator = ((IDocumentPaginatorSource)document).DocumentPaginator; paginator.ComputePageCount();
             Assert.IsTrue(paginator.PageCount > 1);
-            ExportPages(document, "saved-quotation-multipage", true, "427,500");
+            ExportPages(document, "saved-quotation-multipage", true, "427,500", "خزانة تجريبية");
         });
     }
 
-    private static void ExportPages(FlowDocument document, string name, bool capture, string expectedTotal)
+    private static void ExportPages(FlowDocument document, string name, bool capture, string expectedTotal, string? expectedArabic = null)
     {
         if (!capture) return;
         var captureDirectory = Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR");
@@ -106,6 +106,7 @@ public sealed class CustomerDocumentsRenderedTests
             using var stream = File.Create(Path.Combine(directory, $"{name}-{index + 1}.png")); encoder.Save(stream);
         }
         Assert.IsTrue(exportedText.Contains(expectedTotal), "Native export must retain the saved final total, not only the page decorations.");
+        if (expectedArabic is not null) Assert.IsTrue(exportedText.Contains(expectedArabic), "Native export must retain Arabic text.");
         output.Close();
         if (string.IsNullOrEmpty(captureDirectory)) { File.Delete(path); Directory.Delete(directory); }
     }

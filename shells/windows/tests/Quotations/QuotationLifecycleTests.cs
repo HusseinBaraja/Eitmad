@@ -107,6 +107,45 @@ public sealed class QuotationLifecycleTests
     }
 
     [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task EditorSavedDocumentSurvivesCatalogDenialAndFencesSessionChanges(bool denialDuringRead)
+    {
+        var authority = new QuotationDraftTests.Authority(); await using var engine = authority.Engine();
+        ((HashSet<string>)engine.SupportedCapabilities!).Add(ProtocolIds.Capabilities.EitmadCapabilityCustomerDocumentsV1);
+        await using var catalog = new Eitmad.WindowsShell.Features.Reception.SalesCatalogClient(engine); await using var client = new QuotationDraftClient(engine);
+        var editor = await QuotationDraftTests.Editor(catalog, client);
+        try {
+            Assert.IsTrue(await editor.SaveDraftAsync());
+            var saved = Rendered.CustomerDocumentsRenderedTests.Saved(); saved.IsDraft = true; saved.CanPrint = false; saved.Number = null!;
+            var original = engine.QueryHandler!;
+            engine.QueryHandler = query => {
+                if (query.AsSalesCatalogList() is not null) return new() { Outcome = new() { Status = CommandOutcomeStatus.Failed, Payload = new() { Code = ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1 } } };
+                if (query.AsQuotationCustomerDocument() is { } document) {
+                    Assert.AreEqual(authority.Draft!.Snapshot.Id, document.DraftId);
+                    return SalesCatalogAuthorityTests.Response(QueryResult.ForCustomerDocument(saved));
+                }
+                return original(query);
+            };
+            var release = new TaskCompletionSource();
+            engine.QueryBarrier = query => query.AsQuotationCustomerDocument() is not null ? release.Task : Task.CompletedTask;
+            var read = denialDuringRead ? editor.ReadDocumentAsync() : null;
+            await editor.ActivateCatalogAsync();
+            Assert.IsTrue(editor.CatalogStatus.Contains("صلاحية")); Assert.HasCount(0, editor.VisibleItems);
+            Assert.IsTrue(editor.CanPreviewCustomer, "The saved snapshot must remain previewable without catalog access.");
+            read ??= editor.ReadDocumentAsync(); release.SetResult();
+            Assert.AreSame(saved, await read); Assert.IsFalse(saved.CanPrint);
+            var invalidated = 0; editor.DocumentInvalidated += (_, _) => invalidated++;
+            engine.QueryHandler = _ => new() { Outcome = new() { Status = CommandOutcomeStatus.Failed, Payload = new() { Code = ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1 } } };
+            Assert.IsNull(await editor.ReadDocumentAsync()); Assert.AreEqual(1, invalidated);
+            engine.QueryHandler = _ => SalesCatalogAuthorityTests.Response(QueryResult.ForCustomerDocument(saved));
+            release = new TaskCompletionSource(); read = editor.ReadDocumentAsync();
+            await editor.DeactivateCatalogAsync(); release.SetResult();
+            Assert.IsNull(await read); Assert.IsFalse(editor.CanPreviewCustomer);
+        } finally { await editor.DeactivateCatalogAsync(); }
+    }
+
+    [TestMethod]
     public async Task QuotationDocumentsUseSavedReplyAndRejectDeniedOrLateReads()
     {
         var fixture = new Fixture();
