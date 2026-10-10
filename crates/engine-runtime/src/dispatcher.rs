@@ -989,7 +989,9 @@ impl QueryDispatcher for ProductDispatcher {
                 .list_relationships(&context.authorization, &query)
                 .map(QueryResult::ScopeRelationships)
                 .map_err(|error| authorization_error(error, &context)),
-            query @ (Query::Orders(_) | Query::Order(_)) => self.order_query(&context, query).await,
+            query @ (Query::Orders(_) | Query::Order(_) | Query::WorkOrders(_)) => {
+                self.order_query(&context, query).await
+            }
             Query::Quotations(query) => self.quotation_list(&context, query).await,
             Query::DiscountApprovals(query) => self.approval_list(&context, query).await,
             query @ (Query::QuotationDraft(_) | Query::QuotationDrafts(_)) => {

@@ -98,6 +98,9 @@ async fn execute() -> Result<(), MainError> {
     handlers.push(Arc::new(eitmad_sync_plane::QuotationDraftSyncHandler::new(
         sync_database.pool(),
     )) as Arc<dyn DomainSyncHandler>);
+    handlers.push(Arc::new(eitmad_sync_plane::WorkOrderServer::new(
+        sync_database.pool(),
+    )));
     handlers.push(Arc::new(eitmad_sync_plane::OrderServer::new(
         sync_database.pool(),
     )));

@@ -47,6 +47,7 @@ use uuid::Uuid;
 struct ContractSchemaRoot {
     confirm_order: eitmad_contracts::order::ConfirmOrder,
     read_orders: eitmad_contracts::order::ReadOrders,
+    read_work_orders: eitmad_contracts::work_order::ReadWorkOrders,
     confirm_quotation: eitmad_contracts::quotation_lifecycle::ConfirmQuotation,
     read_quotations: eitmad_contracts::quotation_lifecycle::ReadQuotations,
     confirm_discount_approval: eitmad_contracts::quotation_approval::ConfirmDiscountApproval,

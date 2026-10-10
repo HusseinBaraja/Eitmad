@@ -757,6 +757,10 @@ namespace Eitmad.Contracts
         public ListSalesCatalog QuerySalesCatalogList { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Query_WorkOrderList")]
+        public ListWorkOrders QueryWorkOrderList { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_CatalogImage")]
         public CatalogImageChunk QueryResultCatalogImage { get; set; }
 
@@ -891,6 +895,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_SellingPrice")]
         public SellingPrice QueryResultSellingPrice { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("QueryResult_WorkOrders")]
+        public WorkOrderPage QueryResultWorkOrders { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Subscription_AuthorizationPolicyChangedSubscribe")]
@@ -4089,6 +4097,123 @@ namespace Eitmad.Contracts
         public ScopeRelationship[] Relationships { get; set; }
     }
 
+    public partial class WorkOrderPage
+    {
+        [JsonPropertyName("items")]
+        public WorkOrderRecord[] Items { get; set; }
+
+        [JsonPropertyName("next")]
+        public Guid? Next { get; set; }
+
+        [JsonPropertyName("pending")]
+        public OrderPending[] Pending { get; set; }
+
+        [JsonPropertyName("serverAvailable")]
+        public bool ServerAvailable { get; set; }
+    }
+
+    public partial class WorkOrderRecord
+    {
+        [JsonPropertyName("assignment")]
+        public string Assignment { get; set; }
+
+        [JsonPropertyName("canComplete")]
+        public bool CanComplete { get; set; }
+
+        [JsonPropertyName("canStart")]
+        public bool CanStart { get; set; }
+
+        [JsonPropertyName("customer")]
+        public string Customer { get; set; }
+
+        [JsonPropertyName("dueAt")]
+        public long? DueAt { get; set; }
+
+        [JsonPropertyName("furniture")]
+        public WorkOrderFurniture[] Furniture { get; set; }
+
+        [JsonPropertyName("id")]
+        public Guid Id { get; set; }
+
+        [JsonPropertyName("note")]
+        public string Note { get; set; }
+
+        [JsonPropertyName("number")]
+        public string Number { get; set; }
+
+        [JsonPropertyName("orderId")]
+        public Guid OrderId { get; set; }
+
+        [JsonPropertyName("orderNumber")]
+        public string OrderNumber { get; set; }
+
+        [JsonPropertyName("organizationId")]
+        public Guid OrganizationId { get; set; }
+
+        /// <summary>
+        /// Order aggregate revision used by all production commands.
+        /// </summary>
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+
+        [JsonPropertyName("state")]
+        public WorkState State { get; set; }
+    }
+
+    public partial class WorkOrderFurniture
+    {
+        [JsonPropertyName("colorId")]
+        public Guid? ColorId { get; set; }
+
+        [JsonPropertyName("colorName")]
+        public string ColorName { get; set; }
+
+        [JsonPropertyName("dimensions")]
+        public FurnitureDimensions Dimensions { get; set; }
+
+        [JsonPropertyName("handleId")]
+        public Guid? HandleId { get; set; }
+
+        [JsonPropertyName("handleName")]
+        public string HandleName { get; set; }
+
+        [JsonPropertyName("lineId")]
+        public Guid LineId { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("parts")]
+        public WorkOrderPart[] Parts { get; set; }
+
+        [JsonPropertyName("quantity")]
+        public long Quantity { get; set; }
+
+        [JsonPropertyName("reference")]
+        public FurnitureReference Reference { get; set; }
+
+        [JsonPropertyName("variantName")]
+        public string VariantName { get; set; }
+    }
+
+    public partial class WorkOrderPart
+    {
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        /// <summary>
+        /// Total count for this accepted Furniture line, calculated in Rust.
+        /// </summary>
+        [JsonPropertyName("quantity")]
+        public long Quantity { get; set; }
+
+        [JsonPropertyName("reference")]
+        public CompositionReference Reference { get; set; }
+    }
+
     public partial class GetSalesCatalogItem
     {
         [JsonPropertyName("target")]
@@ -4108,6 +4233,18 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("term")]
         public string Term { get; set; }
+    }
+
+    public partial class ListWorkOrders
+    {
+        [JsonPropertyName("after")]
+        public Guid? After { get; set; }
+
+        [JsonPropertyName("limit")]
+        public long Limit { get; set; }
+
+        [JsonPropertyName("orderId")]
+        public Guid? OrderId { get; set; }
     }
 
     public partial class OrderChanges

@@ -17,7 +17,7 @@ public enum FurnitureIllustration
     Bed,
 }
 
-public sealed record WorkOrderPart(string Name, int Quantity)
+public sealed record WorkOrderPart(string Name, long Quantity)
 {
     public string QuantityLabel => Quantity.ToString(CultureInfo.InvariantCulture);
 }
@@ -56,7 +56,7 @@ public sealed class WorkOrderListItem : ObservableObject
         string orderNumber,
         string customer,
         string assignedTo,
-        DateOnly dueDate,
+        DateOnly? dueDate,
         WorkOrderStatus status,
         IReadOnlyList<WorkOrderFurnitureItem> furniture,
         IReadOnlyList<WorkOrderPart> parts,
@@ -84,7 +84,9 @@ public sealed class WorkOrderListItem : ObservableObject
 
     public string AssignedTo { get; }
 
-    public DateOnly DueDate { get; }
+    public DateOnly? DueDate { get; }
+
+    public Eitmad.Contracts.WorkOrderRecord? Record { get; init; }
 
     public IReadOnlyList<WorkOrderFurnitureItem> Furniture { get; }
 
@@ -116,7 +118,7 @@ public sealed class WorkOrderListItem : ObservableObject
 
     public string DetailNumberLabel => $"#{Number[3..]}";
 
-    public string FurnitureSummary => Furniture.Count == 1
+    public string FurnitureSummary => Furniture.Count == 0 ? "—" : Furniture.Count == 1
         ? Furniture[0].Name
         : $"{Furniture[0].Name} +{(Furniture.Count - 1).ToString(CultureInfo.InvariantCulture)}";
 
@@ -125,11 +127,11 @@ public sealed class WorkOrderListItem : ObservableObject
     public int TotalQuantity => Furniture.Sum(item => item.Quantity);
     public string QuantityLabel => TotalQuantity.ToString(CultureInfo.InvariantCulture);
 
-    public string DueDateLabel => $"{DueDate.Day.ToString(CultureInfo.InvariantCulture)} {ArabicMonths[DueDate.Month - 1]} {DueDate.Year.ToString(CultureInfo.InvariantCulture)}";
+    public string DueDateLabel => DueDate is { } date ? $"{date.Day.ToString(CultureInfo.InvariantCulture)} {ArabicMonths[date.Month - 1]} {date.Year.ToString(CultureInfo.InvariantCulture)}" : "لم يحدد";
 
     public string StatusLabel => Status switch
     {
-        WorkOrderStatus.New => "جديد",
+        WorkOrderStatus.New => Record is null ? "جديد" : "مخطط",
         WorkOrderStatus.InProgress => "قيد التنفيذ",
         WorkOrderStatus.Completed => "مكتمل",
         WorkOrderStatus.Cancelled => "ملغي",
@@ -144,7 +146,7 @@ public sealed class WorkOrderListItem : ObservableObject
 
     public bool IsCancelled => Status == WorkOrderStatus.Cancelled;
 
-    public bool CanAdvance => Status is WorkOrderStatus.New or WorkOrderStatus.InProgress;
+    public bool CanAdvance => Record is { } value ? value.CanStart || value.CanComplete : Status is WorkOrderStatus.New or WorkOrderStatus.InProgress;
 
     public string NextStatusActionLabel => Status switch
     {
@@ -157,6 +159,7 @@ public sealed class WorkOrderListItem : ObservableObject
 
     public bool AdvanceStatus()
     {
+        if (Record is not null) return false;
         var next = Status switch
         {
             WorkOrderStatus.New => WorkOrderStatus.InProgress,

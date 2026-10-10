@@ -76,6 +76,7 @@ impl<'de> Deserialize<'de> for ListScopeRelationships {
 
 tagged_contract! {
     pub enum Query {
+        WorkOrders(crate::work_order::ListWorkOrders) => "eitmad.work-order.list.v1",
         QuotationDraft(crate::quotation_draft::GetQuotationDraft) => "eitmad.quotation-draft.get.v1",
         Orders(crate::order::ListOrders) => "eitmad.order.list.v1",
         Order(crate::order::GetOrder) => "eitmad.order.get.v1",
@@ -117,6 +118,7 @@ tagged_contract! {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", content = "payload", rename_all = "camelCase")]
 pub enum QueryResult {
+    WorkOrders(crate::work_order::WorkOrderPage),
     Orders(crate::order::OrderPage),
     Quotations(crate::quotation_lifecycle::QuotationPage),
     DiscountApprovals(crate::quotation_approval::DiscountApprovalPage),

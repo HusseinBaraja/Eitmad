@@ -4,7 +4,7 @@ import Foundation
 public enum ProtocolIds {
     public enum Version {
         public static let major = 1
-        public static let minor = 22
+        public static let minor = 23
     }
 
     public enum IpcMessages {
@@ -68,6 +68,7 @@ public enum ProtocolIds {
     }
 
     public enum Queries {
+        public static let eitmadWorkOrderListV1 = "eitmad.work-order.list.v1"
         public static let eitmadQuotationDraftGetV1 = "eitmad.quotation-draft.get.v1"
         public static let eitmadOrderListV1 = "eitmad.order.list.v1"
         public static let eitmadOrderGetV1 = "eitmad.order.get.v1"
@@ -165,6 +166,7 @@ public enum ProtocolIds {
     }
 
     public enum Capabilities {
+        public static let eitmadCapabilityWorkOrdersV1 = "eitmad.capability.work-orders.v1"
         public static let eitmadCapabilityOrdersV1 = "eitmad.capability.orders.v1"
         public static let eitmadCapabilityQuotationLifecycleV1 = "eitmad.capability.quotation-lifecycle.v1"
         public static let eitmadCapabilityQuotationApprovalV1 = "eitmad.capability.quotation-approval.v1"
@@ -200,6 +202,7 @@ public enum ProtocolIds {
     }
 
     public enum Permissions {
+        public static let eitmadPermissionWorkOrderReadV1 = "eitmad.permission.work-order.read.v1"
         public static let eitmadPermissionWorkOrderTransitionV1 = "eitmad.permission.work-order.transition.v1"
         public static let eitmadPermissionDeliveryRecordV1 = "eitmad.permission.delivery.record.v1"
         public static let eitmadPermissionOrderFulfillmentWriteV1 = "eitmad.permission.order.fulfillment.write.v1"
@@ -276,6 +279,7 @@ public enum ProtocolIds {
 
     public enum SchemaIds {
         public static let eitmadSchemaOrderV1 = "eitmad.schema.order.v1"
+        public static let eitmadSchemaWorkOrderV1 = "eitmad.schema.work-order.v1"
         public static let eitmadSchemaQuotationLifecycleV1 = "eitmad.schema.quotation-lifecycle.v1"
         public static let eitmadSchemaQuotationApprovalV1 = "eitmad.schema.quotation-approval.v1"
         public static let eitmadSchemaQuotationDraftV1 = "eitmad.schema.quotation-draft.v1"

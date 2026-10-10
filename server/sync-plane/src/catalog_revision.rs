@@ -328,7 +328,7 @@ pub(super) async fn publish_entry(
 }
 
 /// Loads an exact immutable dependency, or the latest revision when revision is zero.
-async fn load(
+pub(super) async fn load(
     tx: &mut Transaction<'_, Postgres>,
     actor: &AuthenticatedServerSession,
     scope: &ScopeRef,

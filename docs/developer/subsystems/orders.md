@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Order capability maintainers"
-last_verified: "2026-10-08"
+last_verified: "2026-10-10"
 review_triggers:
   - "Order contracts, lifecycle rules, or Windows order UI behavior change"
 keywords:
@@ -49,7 +49,7 @@ Before transport, Rust persists the exact request. A lost reply remains pending 
 
 ## Native workflow
 
-Both role screens use the existing RTL list, Arabic search, date/status filters and detail. Metadata and the source quotation appear before state-changing actions. Managers see **حفظ ملاحظات التنفيذ**, **إلغاء الطلب**, and permitted work actions. Receptionists see **تسجيل التسليم** only when Rust returns delivery permission. An order confirmed from a quotation opens its exact detail. The manufacturing preview is unavailable for live orders; work transitions use the confirmed order actions.
+Both role screens use the existing RTL list, Arabic search, date/status filters and detail. Metadata and the source quotation appear before state-changing actions. Managers see **حفظ ملاحظات التنفيذ**, **إلغاء الطلب**, and permitted work actions. Receptionists see **تسجيل التسليم** only when Rust returns delivery permission. An order confirmed from a quotation opens its exact detail. **فتح أمر العمل** opens the [confirmed manufacturing screen](work-orders.md); its related Order link returns to the Manager detail. Both screens use the same confirmed Order aggregate and shared change feed.
 
 **عرض السعر الأصلي** opens the retained accepted quotation. Printing uses the customer-only document. Sign-out clears protected rows, selected detail and pending presentation, and fences late replies. Loading, denial, conflict and unavailability have explicit Arabic states. Preview fixtures remain available only when no engine client is attached.
 

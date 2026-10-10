@@ -374,6 +374,38 @@ fn quotation_http_error(e: HttpError) -> eitmad_pricing::QuotationError {
 }
 
 impl eitmad_orders::OrderServer for DirectDiscountApprovalClient {
+    fn work_orders(
+        &self,
+        actor: &AuthorizationContext,
+        query: &eitmad_contracts::work_order::ListWorkOrders,
+        deadline: UnixMillis,
+    ) -> Result<eitmad_contracts::work_order::WorkOrderPage, eitmad_orders::OrderError> {
+        let http = AuthenticatedHttpClient::from_config(
+            self.config.clone(),
+            self.secrets.clone(),
+            self.credential.clone(),
+            "eitmad.capability.work-orders.v1",
+            23,
+        );
+        let mut page: eitmad_contracts::work_order::WorkOrderPage = http
+            .request(
+                actor,
+                "/v1/work-orders/read",
+                &eitmad_contracts::work_order::ReadWorkOrders {
+                    scope: self.remote(actor).map_err(order_error)?,
+                    query: query.clone(),
+                },
+                budget(deadline).map_err(order_error)?,
+            )
+            .map_err(|e| order_error(error(e)))?;
+        for value in &mut page.items {
+            if actor.scope.kind.as_str() == "branch" {
+                value.scope = actor.scope.clone();
+            }
+        }
+        Ok(page)
+    }
+
     fn transition(
         &self,
         actor: &AuthorizationContext,

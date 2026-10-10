@@ -546,6 +546,14 @@ internal sealed class SupervisionScenarios
     private static async Task VerifyOrderBoundary(EngineSupervisor supervisor, bool manager = true)
     {
         Assert.True(supervisor.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityOrdersV1), "order capability negotiated");
+        Assert.True(supervisor.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityWorkOrdersV1), "manufacturing capability negotiated");
+        var production = await supervisor.QueryAsync(Query.ForWorkOrderList(new() { Limit = 100 }));
+        if (manager) {
+            Assert.Equal(CommandOutcomeStatus.Succeeded, production.Outcome.Status, "Manager production read through real IPC");
+            Assert.False(production.Outcome.Payload.AsWorkOrders()!.ServerAvailable, "offline production has no confirmed action");
+        } else {
+            Assert.Equal(ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1, production.Outcome.Payload.Code, "Receptionist cannot read manufacturing through real IPC");
+        }
         var response = await supervisor.QueryAsync(Query.ForOrderList(new() { Limit = 100 }));
         Assert.Equal(CommandOutcomeStatus.Succeeded, response.Outcome.Status, "authorized order cache read through IPC");
         var page = response.Outcome.Payload.AsOrders()!;

@@ -11,6 +11,7 @@ use eitmad_contracts::{
 };
 
 pub const ORDER_SCHEMA: &str = "eitmad.schema.order.v1";
+pub const WORK_ORDER_SCHEMA: &str = "eitmad.schema.work-order.v1";
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum OrderError {
     Denied,
@@ -102,6 +103,65 @@ pub fn derived_state(work: &[OrderWork]) -> OrderState {
         OrderState::Confirmed
     }
 }
+/// Validates complete Furniture coverage and the accepted manufacturing specifications.
+/// # Errors
+/// Rejects missing, duplicate, or ready-made lines and incomplete accepted specifications.
+pub fn validate_production(value: &OrderRecord) -> Result<(), OrderError> {
+    use eitmad_contracts::pricing::PriceTarget;
+    let source = &value.source.quotation;
+    let required: Vec<_> = source
+        .intent
+        .lines
+        .iter()
+        .filter(|l| matches!(l.configuration.selection.target, PriceTarget::Furniture(_)))
+        .map(|l| l.id)
+        .collect();
+    let mut included = std::collections::HashSet::new();
+    let mut work_ids = std::collections::HashSet::new();
+    for work in &value.work {
+        if work.line_ids.is_empty() || !work_ids.insert(work.id) {
+            return Err(OrderError::Conflict);
+        }
+        for id in &work.line_ids {
+            if !required.contains(id) || !included.insert(*id) {
+                return Err(OrderError::Conflict);
+            }
+            let line = source
+                .evaluation
+                .lines
+                .iter()
+                .find(|l| l.id == *id)
+                .ok_or(OrderError::Conflict)?;
+            let intent = source
+                .intent
+                .lines
+                .iter()
+                .find(|l| l.id == *id)
+                .ok_or(OrderError::Conflict)?;
+            let selection = &intent.configuration.selection;
+            if line.quantity != selection.quantity
+                || line.dimensions != intent.configuration.dimensions
+                || line.color_id != selection.color_id
+                || line.handle_id != selection.handle_id
+                || line.price.snapshot.target != selection.target
+            {
+                return Err(OrderError::Conflict);
+            }
+            if line.quantity == 0
+                || line
+                    .dimensions
+                    .as_ref()
+                    .is_none_or(|d| [d.width_mm, d.height_mm, d.depth_mm].contains(&0))
+            {
+                return Err(OrderError::Conflict);
+            }
+        }
+    }
+    if included.len() != required.len() {
+        return Err(OrderError::Conflict);
+    }
+    Ok(())
+}
 /// Applies authorized fulfillment intent without changing accepted commercial content.
 /// # Errors
 /// Rejects stale revisions, terminal states, invalid text and invalid work/delivery transitions.
@@ -114,6 +174,12 @@ pub fn apply(
         || matches!(value.state, OrderState::Delivered | OrderState::Cancelled)
     {
         return Err(OrderError::Conflict);
+    }
+    if matches!(
+        action,
+        OrderAction::StartWork(_) | OrderAction::CompleteWork(_) | OrderAction::Deliver(_)
+    ) {
+        validate_production(value)?;
     }
     match action {
         OrderAction::Convert(_) => return Err(OrderError::Invalid),
@@ -155,8 +221,11 @@ pub fn apply(
                 .find(|w| w.id == c.work_id)
                 .ok_or(OrderError::Conflict)?;
             if starting {
-                if work.state != WorkState::Planned || c.due_at.is_none_or(|d| d.0 < now.0) {
+                if work.state != WorkState::Planned {
                     return Err(OrderError::Conflict);
+                }
+                if c.due_at.is_none_or(|d| d.0 < now.0) {
+                    return Err(OrderError::Invalid);
                 }
                 validate_text(c.assignment.as_deref().unwrap_or(""), true)?;
                 work.due_at = c.due_at;
@@ -180,6 +249,15 @@ pub fn apply(
 }
 /// Authenticated server transport; every write requires central confirmation.
 pub trait OrderServer: Send + Sync {
+    /// Reads full production details only for an authorized Manager.
+    /// # Errors
+    /// Rejects foreign scopes, denied actors, and invalid bounds.
+    fn work_orders(
+        &self,
+        actor: &AuthorizationContext,
+        query: &eitmad_contracts::work_order::ListWorkOrders,
+        deadline: UnixMillis,
+    ) -> Result<eitmad_contracts::work_order::WorkOrderPage, OrderError>;
     /// # Errors
     /// Denies unauthorized or invalid requests; uncertain outcomes remain retryable.
     fn transition(

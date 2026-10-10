@@ -173,6 +173,16 @@ Produce screenshots, videos, traces, or other verification artifacts only when t
 
 Applicable checks must pass without new warnings. Fix the cause; do not silence it. After failure, rerun the failed check and its direct dependent check, not the complete suite. Stop verification when the available evidence is sufficient to show that the requested behavior is correct. Do not continue only to increase confidence marginally. Do not claim an application run, platform, RTL, visual, or accessibility state that was not verified.
 
+### Build cache and disk space
+
+* Reuse `target` for normal development. When toolchain isolation is required, reuse one stable output directory per required toolchain. Do not create a new compiler cache for each feature, audit, or pull request.
+* For one-off verification builds, set `CARGO_INCREMENTAL=0` for that invocation unless repeated builds need the cache. Keep incremental compilation available for normal development and restore any temporary environment changes.
+* If a task needs an isolated temporary build directory, record its exact path and remove only that task's compiler output after required checks and needed artifacts are complete. Do not remove shared development caches as routine task cleanup.
+* Keep new test databases, runtime data, certificates, review notes, and saved screenshots outside compiler-output directories. Preserve existing data and saved work; move or delete them only within the user's authorized scope.
+* Check free disk space before large verification runs. During recurring build work, check relevant cache sizes when space is low and remove only verified disposable output within the authorized scope.
+* Before deleting compiler output, verify that resolved paths stay inside the intended output directory, check for reparse points, and confirm that no build or application uses it. Preserve source, databases, and saved work. Git ignore status alone does not prove that a file is disposable. Do not delete the complete `target` tree or every directory named `bin`.
+* Keep all required tests and publication checks. Control disk use through cache reuse and scoped cleanup.
+
 ### Before publishing a pull request
 
 Before creating a pull request or pushing new commits to an existing pull request, complete these local checks. This requirement applies to every pull request, including documentation changes. Read [Mandatory validation](.github/workflows/mandatory-validation.yml) and [Contract compatibility](.github/workflows/contracts.yml) first. Use their current toolchain versions and commands; the commands below use Rust 1.85.1, Node.js 22, and .NET 8.

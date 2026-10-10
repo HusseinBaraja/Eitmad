@@ -105,6 +105,9 @@
     "read_quotations": {
       "$ref": "#/definitions/ReadQuotations"
     },
+    "read_work_orders": {
+      "$ref": "#/definitions/ReadWorkOrders"
+    },
     "register_branch_request": {
       "$ref": "#/definitions/RegisterBranchRequest"
     },
@@ -157,6 +160,7 @@
   "required": [
     "confirm_order",
     "read_orders",
+    "read_work_orders",
     "confirm_quotation",
     "read_quotations",
     "confirm_discount_approval",
@@ -5750,6 +5754,34 @@
         "limit"
       ]
     },
+    "ListWorkOrders": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "limit": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "orderId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "limit"
+      ]
+    },
     "LocalChangeDisposition": {
       "oneOf": [
         {
@@ -7840,6 +7872,22 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "eitmad.work-order.list.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ListWorkOrders"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "eitmad.quotation-draft.get.v1"
             },
             "payload": {
@@ -8497,6 +8545,22 @@
     },
     "QueryResult": {
       "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "workOrders"
+            },
+            "payload": {
+              "$ref": "#/definitions/WorkOrderPage"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
         {
           "type": "object",
           "properties": {
@@ -9759,6 +9823,22 @@
       "properties": {
         "query": {
           "$ref": "#/definitions/ListQuotations"
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "query"
+      ]
+    },
+    "ReadWorkOrders": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "$ref": "#/definitions/ListWorkOrders"
         },
         "scope": {
           "$ref": "#/definitions/ScopeRef"
@@ -13133,6 +13213,210 @@
         "scope",
         "reference",
         "base64"
+      ]
+    },
+    "WorkOrderFurniture": {
+      "type": "object",
+      "properties": {
+        "colorId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "colorName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "dimensions": {
+          "$ref": "#/definitions/FurnitureDimensions"
+        },
+        "handleId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "handleName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "lineId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/WorkOrderPart"
+          }
+        },
+        "quantity": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "reference": {
+          "$ref": "#/definitions/FurnitureReference"
+        },
+        "variantName": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "lineId",
+        "reference",
+        "name",
+        "variantName",
+        "dimensions",
+        "quantity",
+        "parts"
+      ]
+    },
+    "WorkOrderPage": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/WorkOrderRecord"
+          }
+        },
+        "next": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "pending": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/OrderPending"
+          }
+        },
+        "serverAvailable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "serverAvailable",
+        "items",
+        "pending"
+      ]
+    },
+    "WorkOrderPart": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "quantity": {
+          "description": "Total count for this accepted Furniture line, calculated in Rust.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "reference": {
+          "$ref": "#/definitions/CompositionReference"
+        }
+      },
+      "required": [
+        "reference",
+        "name",
+        "quantity"
+      ]
+    },
+    "WorkOrderRecord": {
+      "type": "object",
+      "properties": {
+        "assignment": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "canComplete": {
+          "type": "boolean"
+        },
+        "canStart": {
+          "type": "boolean"
+        },
+        "customer": {
+          "type": "string"
+        },
+        "dueAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "furniture": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/WorkOrderFurniture"
+          }
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "note": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "number": {
+          "type": "string"
+        },
+        "orderId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "orderNumber": {
+          "type": "string"
+        },
+        "organizationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "revision": {
+          "description": "Order aggregate revision used by all production commands.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        },
+        "state": {
+          "$ref": "#/definitions/WorkState"
+        }
+      },
+      "required": [
+        "id",
+        "scope",
+        "organizationId",
+        "orderId",
+        "orderNumber",
+        "revision",
+        "number",
+        "customer",
+        "state",
+        "furniture",
+        "canStart",
+        "canComplete"
       ]
     },
     "WorkState": {

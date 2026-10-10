@@ -10,6 +10,7 @@ use crate::{
 };
 
 pub const CAPABILITIES: &[&str] = &[
+    "eitmad.capability.work-orders.v1",
     "eitmad.capability.orders.v1",
     "eitmad.capability.quotation-lifecycle.v1",
     "eitmad.capability.quotation-approval.v1",
@@ -70,6 +71,7 @@ pub const UPDATE_MANIFEST_PUBLISH_PERMISSION: &str =
     "eitmad.permission.server.update-manifest.publish.v1";
 
 pub const PERMISSIONS: &[&str] = &[
+    "eitmad.permission.work-order.read.v1",
     "eitmad.permission.work-order.transition.v1",
     "eitmad.permission.delivery.record.v1",
     "eitmad.permission.order.fulfillment.write.v1",
@@ -345,6 +347,7 @@ pub const RELATIONS: &[&str] = &[
 ];
 pub const DOMAIN_SCHEMA_IDS: &[&str] = &[
     "eitmad.schema.order.v1",
+    "eitmad.schema.work-order.v1",
     "eitmad.schema.quotation-lifecycle.v1",
     "eitmad.schema.quotation-approval.v1",
     "eitmad.schema.quotation-draft.v1",

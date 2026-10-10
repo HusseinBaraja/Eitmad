@@ -81,6 +81,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Queries
 
+- `eitmad.work-order.list.v1`
 - `eitmad.quotation-draft.get.v1`
 - `eitmad.order.list.v1`
 - `eitmad.order.get.v1`
@@ -178,6 +179,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Capabilities
 
+- `eitmad.capability.work-orders.v1`
 - `eitmad.capability.orders.v1`
 - `eitmad.capability.quotation-lifecycle.v1`
 - `eitmad.capability.quotation-approval.v1`
@@ -213,6 +215,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Permissions
 
+- `eitmad.permission.work-order.read.v1`
 - `eitmad.permission.work-order.transition.v1`
 - `eitmad.permission.delivery.record.v1`
 - `eitmad.permission.order.fulfillment.write.v1`
@@ -289,6 +292,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 ## Schema identifiers
 
 - `eitmad.schema.order.v1`
+- `eitmad.schema.work-order.v1`
 - `eitmad.schema.quotation-lifecycle.v1`
 - `eitmad.schema.quotation-approval.v1`
 - `eitmad.schema.quotation-draft.v1`

@@ -219,6 +219,7 @@ pub fn router(state: ServerState) -> Router {
         .route("/v1/quotations/read", post(quotation_read))
         .route("/v1/orders/transition", post(order_transition))
         .route("/v1/orders/read", post(order_read))
+        .route("/v1/work-orders/read", post(work_order_read))
         .route(
             "/v1/quotation-approvals/read",
             post(quotation_approval_read),
@@ -1044,6 +1045,7 @@ fn live_ordered_schema(schema: &str) -> bool {
     matches!(
         schema,
         eitmad_orders::ORDER_SCHEMA
+            | eitmad_orders::WORK_ORDER_SCHEMA
             | eitmad_pricing::DISCOUNT_APPROVAL_SCHEMA
             | eitmad_pricing::QUOTATION_LIFECYCLE_SCHEMA
     )
@@ -1169,23 +1171,26 @@ async fn accept_stream_hello(
     let NegotiationOutcome::Accepted(session) = negotiate(&state.server_hello, &hello.peer) else {
         return Err(incompatible());
     };
-    let orders = schema == eitmad_orders::ORDER_SCHEMA;
-    let lifecycle = schema == eitmad_pricing::QUOTATION_LIFECYCLE_SCHEMA;
-    let live = orders || lifecycle || schema == eitmad_pricing::DISCOUNT_APPROVAL_SCHEMA;
-    if live
-        && (session.protocol.minor < if orders || lifecycle { 22 } else { 20 }
-            || !session.capabilities.iter().any(|c| {
-                c.as_str()
-                    == if orders {
-                        "eitmad.capability.orders.v1"
-                    } else if lifecycle {
-                        "eitmad.capability.quotation-lifecycle.v1"
-                    } else {
-                        "eitmad.capability.quotation-approval.v1"
-                    }
-            }))
-    {
-        return Err(incompatible());
+    let boundary = match schema {
+        eitmad_orders::WORK_ORDER_SCHEMA => Some((23, "eitmad.capability.work-orders.v1")),
+        eitmad_orders::ORDER_SCHEMA => Some((22, "eitmad.capability.orders.v1")),
+        eitmad_pricing::QUOTATION_LIFECYCLE_SCHEMA => {
+            Some((22, "eitmad.capability.quotation-lifecycle.v1"))
+        }
+        eitmad_pricing::DISCOUNT_APPROVAL_SCHEMA => {
+            Some((20, "eitmad.capability.quotation-approval.v1"))
+        }
+        _ => None,
+    };
+    if let Some((minimum_minor, capability)) = boundary {
+        if session.protocol.minor < minimum_minor
+            || !session
+                .capabilities
+                .iter()
+                .any(|c| c.as_str() == capability)
+        {
+            return Err(incompatible());
+        }
     }
     send_server_message(socket, &ServerMessage::Hello(state.server_hello.clone()))
         .await
@@ -1266,6 +1271,7 @@ async fn handle_stream_message(
                     eitmad_pricing::DISCOUNT_APPROVAL_SCHEMA
                         | eitmad_pricing::QUOTATION_LIFECYCLE_SCHEMA
                         | eitmad_orders::ORDER_SCHEMA
+                        | eitmad_orders::WORK_ORDER_SCHEMA
                 ) =>
         {
             let mut cursor = request.resume_after;
@@ -1570,7 +1576,9 @@ async fn authenticate_negotiated(
         .and_then(|value| URL_SAFE_NO_PAD.decode(value).ok())
         .and_then(|value| serde_json::from_slice::<PeerHello>(&value).ok())
         .ok_or_else(|| ApiError::bad_request("eitmad.error.server-client-incompatible.v1"))?;
-    let minimum_minor = if matches!(
+    let minimum_minor = if required_capability.as_str() == "eitmad.capability.work-orders.v1" {
+        23
+    } else if matches!(
         required_capability.as_str(),
         "eitmad.capability.orders.v1" | "eitmad.capability.quotation-lifecycle.v1"
     ) {
@@ -1646,6 +1654,7 @@ async fn revalidate_stream(
 fn server_hello(schemas: Vec<SchemaSupport>) -> PeerHello {
     let capabilities = [
         "eitmad.capability.orders.v1",
+        "eitmad.capability.work-orders.v1",
         "eitmad.capability.quotation-lifecycle.v1",
         "eitmad.capability.quotation-approval.v1",
         "eitmad.capability.sync.v1",
@@ -1677,6 +1686,7 @@ fn server_hello(schemas: Vec<SchemaSupport>) -> PeerHello {
                 !matches!(
                     c.as_str(),
                     "eitmad.capability.orders.v1"
+                        | "eitmad.capability.work-orders.v1"
                         | "eitmad.capability.quotation-lifecycle.v1"
                         | "eitmad.capability.quotation-approval.v1"
                         | "eitmad.capability.catalog-image.v1"
@@ -1904,6 +1914,21 @@ async fn order_read(
     state
         .sync
         .orders()
+        .list(&actor, &input)
+        .await
+        .map(Json)
+        .map_err(map_order)
+}
+async fn work_order_read(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(input): Json<eitmad_contracts::work_order::ReadWorkOrders>,
+) -> Result<Json<eitmad_contracts::work_order::WorkOrderPage>, ApiError> {
+    let actor =
+        authenticate_negotiated(&state, &headers, "eitmad.capability.work-orders.v1").await?;
+    state
+        .sync
+        .work_orders()
         .list(&actor, &input)
         .await
         .map(Json)

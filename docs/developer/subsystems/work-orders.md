@@ -1,62 +1,72 @@
 ---
-title: "Extend the Work Orders review flow safely"
-description: "Understand the Arabic-first manufacturing work-order list, multi-furniture detail, local status preview, tests, and Rust ownership boundary."
+title: "Extend confirmed Work Orders safely"
+description: "Understand Furniture manufacturing snapshots, production transitions, readiness, scoped synchronization, native screens, and recovery checks."
 audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Work Orders capability maintainers"
-last_verified: "2026-09-19"
+last_verified: "2026-10-10"
 review_triggers:
   - "Work Order contracts, manufacturing lifecycle rules, or Windows Work Orders UI behavior change"
 keywords:
   - "WorkOrdersView"
-  - "WorkOrdersViewModel"
-  - "WorkOrderListItem"
+  - "WorkOrdersState"
+  - "work_order_history"
   - "أوامر العمل"
-  - "ملاحظات الطلب"
+  - "مخطط"
   - "قيد التنفيذ"
   - "الأجزاء المطلوبة"
-  - "WO-024"
 ---
 
-# Extend the Work Orders review flow safely
+# Extend confirmed Work Orders safely
 
-The Windows **أوامر العمل** page gives a manager a synthetic manufacturing review list and a detail view for production staff. One Work Order can contain multiple Furniture items. The page does not show selling price, cost, profit, or margin.
+The Manager **أوامر العمل** screen reads Rust-owned manufacturing work and sends server-confirmed transitions. Receptionists see authorized progress in the related Order. The [accepted workflow specification](manager-receptionist-workflows.md#order-work-order-and-delivery-lifecycles) defines the production rules.
 
-Production creation, `Planned → InProgress → Completed` transitions, cancellation, numbering, permission, Order derivation, and server-confirmation behavior is accepted in the [Manager and Receptionist workflow specification](manager-receptionist-workflows.md). This page describes the current preview only.
+## Ownership and snapshots
 
-## Ownership and current boundary
+`crates/orders` owns transition validation, exact Furniture-line coverage, derived Order readiness, and the authenticated confirmation interface. `crates/contracts/src/work_order.rs` owns the manufacturing read projection. Protocol `1.23` registers `eitmad.capability.work-orders.v1`, `eitmad.schema.work-order.v1`, and `eitmad.work-order.list.v1`. Work start and completion use the existing typed Order commands and aggregate revision. Lists use UUID cursors with limits from 1 through 100.
 
-`shells/windows/Features/WorkOrders/WorkOrdersView.xaml` owns the native RTL list, filters, specification cards, detail surface, status action, focus target, and Arabic accessibility names. `WorkOrdersViewModel.cs` owns synthetic rows, Arabic-normalized search, status and due-date filters, selected detail state, and local feedback. `WorkOrderModels.cs` owns Furniture specifications, required Parts, status transitions, and display formatting. `MainWindow.xaml` owns the **أوامر العمل** destination.
+`server/sync-plane/src/work_orders.rs` owns full manufacturing reads, snapshots, and its registered shared-sync handler. Conversion creates one initial Work Order containing all Furniture lines. Products never enter manufacturing. The snapshot retains accepted quantities, dimensions, color, handle, Furniture and variant references, and names. Parts come from the exact accepted Furniture revision and exact referenced Part revisions. Required Part quantities multiply usage by accepted Furniture quantity in Rust. Later transitions reuse the retained composition; current catalog edits cannot rewrite it. No selling price, cost, profit, or margin appears in the manufacturing projection.
 
-Rust does not yet provide a Work Orders capability. The preview has no work-order command, query, subscription, capability, authorization check, scope, audit record, durable storage, or synchronization. Ready-made Products never enter this list.
+Full snapshots are persisted in the Order transaction. Existing confirmed Order records can reconstruct their first manufacturing snapshot from immutable catalog revisions; missing historical authority fails the read or transition. It does not invent a specification.
 
-## Manager workflow
+## Transitions and readiness
 
-The scan-first list shows **رقم أمر العمل**, **العميل / الطلب**, a Furniture summary, total **الكمية**, **مسند إلى**, **موعد التسليم**, **الحالة**, and **فتح**. Search matches the work-order number, related order, customer, Furniture, and assigned carpenter after Arabic normalization. Status filters expose **جديد**, **قيد التنفيذ**, **مكتمل**, and **ملغي**. Due-date filters cover **متأخر**, **اليوم**, and **خلال 7 أيام**.
+A Manager starts `Planned` work with an assignment and due date, then completes `InProgress` work. Completed and Cancelled work cannot advance. There is no independent work cancellation command: cancellation of an undelivered Order cancels Planned and In Progress work and preserves Completed work. The retained accepted commercial document remains unchanged.
 
-The composed main window pairs each work-order fixture with a customer order. Furniture specifications come from that order; Parts remain synthetic fixtures. Newly created work previews have no prepared Parts and state this in their notes. The **الطلب المرتبط** number opens the exact manager order detail and moves focus to its back action.
+The native date input maps to 23:59:59.999 at UTC+3 on the selected day. Rust rejects a missing deadline or one earlier than server time with `eitmad.error.order-invalid.v1`, so the shell asks the Manager to check the input. Stale revisions and incompatible work states remain `eitmad.error.order-conflict.v1`. A rejected deadline does not change the Order or Work Order.
 
-Opening a row shows the related order, customer, carpenter, due date, and one illustrated specification card for every Furniture item. Each card includes fixed dimensions, color, handle, and item quantity. The detail then shows the required **الأجزاء المطلوبة** and prominent **ملاحظات الطلب**.
+Rust requires each accepted Furniture line to belong to exactly one nonempty Work Order, with matching accepted specifications. Readiness considers all applicable work: all Completed means Ready; any In Progress means In Production; otherwise the Order remains Confirmed. Products-only Orders are Ready at conversion. The model supports multiple Work Orders without changing these rules, although version 1 conversion creates at most one.
 
-The one status action advances **جديد** → **قيد التنفيذ** → **مكتمل**. It reports **المعاينة المحلية فقط** and does not authorize, audit, persist, or synchronize a production change. Completed and cancelled rows cannot advance. In this single-work-order-per-order fixture, starting work displays In Production on the customer order. Completing it displays Ready and adds a receptionist Home notice. This is temporary presentation state, not a production readiness rule. Multiple work orders, inspection, delivery requirements, and authoritative completion still require Rust-owned contracts and behavior.
+## Scope, durability, and recovery
 
-## Failure and recovery
+Every full read and transition checks current Manager relationships under tenant RLS. Managers can read branches in their organization. Receptionists cannot read the full manufacturing projection or advance production; their Order summary omits assignments and Parts. The sync handler authorizes reads, checks projected organization and branch, and rejects client writes.
 
-Use the detail back action to return to the list. Closing the shell discards local status state. If cost or selling-price fields appear, or a ready-made Product enters the list, inspect the Work Orders view and model: those are ownership-boundary regressions. A production status failure must preserve the typed Rust denial, validation, conflict, retry, and audit outcome.
+PostgreSQL migration `0015_work_orders.sql` adds immutable manufacturing history with forced tenant RLS and Order/branch links. SQLite migration 28, `work-orders.confirmed-cache.v1`, adds immutable tenant/scope confirmation history. Earlier migrations are unchanged. SQLite cache, redacted audit, and durable publication commit together. Cached actions are disabled and scoped reads cannot cross a tenant or branch.
 
-## Tests and verification
+Order revision checks serialize competing production actions. Principal-bound idempotency receipts retain the exact confirmed result. Order state, manufacturing history, audit, receipt, and shared sync publications commit in one server transaction. Shared Order notices wake both role screens; reconnect replays durable changes and reloads current authorized state. A notification can be repeated without repeating the production mutation.
 
-Run the focused shell checks:
+Before sending, Rust stores the exact pending Order intent and key. A lost reply remains retryable after restart. The shell retries that pair and never advances a local confirmed row. An exact receipt replay after a later transition does not rewind the latest stored revision. Definitive denial, invalid input, and competing revision rejection remain distinct from uncertainty. Sign-out clears protected presentation and fences late replies.
+
+## Native workflow
+
+The existing RTL list provides Arabic-normalized search, status/date filters, customer and Order links, assignment, due date, and multi-Furniture details. **مخطط**, **قيد التنفيذ**, **مكتمل**, and **ملغي** reflect Rust state. Planned work exposes assignment and date inputs before **تغيير حالة أمر العمل**. The related Order link opens the exact Manager Order; **فتح أمر العمل** returns to production.
+
+Loading, empty, denied, offline, conflict, and pending-confirmation states use explicit Arabic messages. Retry controls appear for pending operations. Offline rows show the last confirmed state with disabled transitions. Synthetic preview state is available only without an attached engine client and remains clearly labeled.
+
+## Focused verification
+
+Use the [disposable PostgreSQL and TLS setup](../../operations/run-server-authority.md#run-the-direct-desktop-connection-test), then run:
 
 ```powershell
-dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --filter "FullyQualifiedName~WorkOrders"
+rustup run 1.85.1 cargo test --locked -p eitmad-orders
+rustup run 1.85.1 cargo test --locked -p eitmad-storage work_orders
+rustup run 1.85.1 cargo test --locked -p eitmad-server-connection --test direct_route orders_cross_client -- --ignored
+dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --configuration Release --filter "FullyQualifiedName~WorkOrderAuthority|FullyQualifiedName~WorkOrders|FullyQualifiedName~OrderAuthority"
 ```
 
-`WorkOrdersPresentationTests` covers Arabic search, status and due-date filter composition, multi-Furniture detail projection, required Parts, status progression, and terminal-state gating. `WorkOrdersRenderedTests` creates the real WPF window at standard and compact sizes and checks manufacturing content, Arabic accessible names, scrollable wide tables, detail focus, and the absence of costing fields. `PreviewHandoffRenderedTests` checks the linked order and receptionist completion notice; see the [Order review guide](orders.md) for that path.
+Domain checks cover partial completion, exact Furniture coverage, retained terms, and cancellation. Storage checks cover migration from version 27 with preserved Order/pending bytes, immutable history, scope isolation, restart, and publication rollback. The live scenario covers mixed Furniture/Product conversion, Manager progression and Receptionist reads/subscriptions on separate clients, competing revisions, exact receipt replay, cancellation, server restart, shared sync authorization, and forced tenant RLS. Native tests cover durable retry, denial, offline actions, session fencing, Arabic controls, focus, and date popup access. The Windows adapter test with `--engine target/debug/eitmad-engine-cli.exe` verifies Work Orders capability negotiation and Manager/Receptionist read boundaries through real IPC.
 
-## Future Rust vertical
+Rendered checks request 1920 × 1080, 1338 × 753, and 720 × 560 windows. The available physical display is 1920 × 1080 at 125% scaling; the maximized WPF window is 1550.4 × 830.4 DIP. The required 100% scaling baseline and OS high contrast remain unverified. Use synthetic Arabic data for future captures.
 
-When Work Orders become authoritative, implement the accepted workflow specification, define versioned typed commands, queries, and subscriptions in Rust, and generate or validate native bindings. Rust must own the order-to-work-order relationship, Furniture and Parts projections, relationship-based authorization, explicit record scope, atomic status mutation and audit, durable storage, idempotency, synchronization, and typed recovery. Preserve multi-Furniture cards, the separation from Products and Orders, and the Arabic mixed-direction layout in the shell adapter.
-
-Return to the [Windows shell subsystem guide](windows-native-shell.md) for shared layout and trust-boundary rules.
+Return to the [Order guide](orders.md) for conversion and delivery, or the [Windows shell guide](windows-native-shell.md) for shared native layout rules.

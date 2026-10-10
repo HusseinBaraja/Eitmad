@@ -10,6 +10,15 @@ struct Server {
     calls: AtomicUsize,
 }
 impl OrderServer for Server {
+    fn work_orders(
+        &self,
+        _: &AuthorizationContext,
+        _: &eitmad_contracts::work_order::ListWorkOrders,
+        _: UnixMillis,
+    ) -> Result<eitmad_contracts::work_order::WorkOrderPage, E> {
+        Err(E::Unavailable)
+    }
+
     fn transition(
         &self,
         _: &AuthorizationContext,
@@ -181,6 +190,18 @@ async fn orders_dispatch_denies_unassigned_queries_and_invalid_bounds() {
         .unwrap_err();
     assert_eq!(error.code.as_str(), "eitmad.error.authorization-denied.v1");
     receptionist(&dispatcher);
+    let denied = dispatcher
+        .dispatch_query(
+            branch_context(999),
+            Query::WorkOrders(eitmad_contracts::work_order::ListWorkOrders {
+                after: None,
+                limit: 10,
+                order_id: None,
+            }),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(denied.code.as_str(), "eitmad.error.authorization-denied.v1");
     let error = dispatcher
         .dispatch_query(
             branch_context(996),
