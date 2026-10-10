@@ -108,6 +108,8 @@ public sealed partial class WorkOrdersViewModel : ObservableObject
     public event Action<WorkOrderListItem>? PreviewStatusChanged;
     public void UseOrderFixtures(IEnumerable<Features.Orders.OrderListItem> orders)
     {
+        if (workOrders.Count < 5)
+            throw new InvalidOperationException("Order fixtures require at least five preview work orders.");
         var partsByOrder = new[] { workOrders[0].Parts, workOrders[2].Parts, workOrders[1].Parts,
             (IReadOnlyList<WorkOrderPart>)[], workOrders[4].Parts };
         workOrders.Clear();
