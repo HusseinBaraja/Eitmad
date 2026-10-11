@@ -311,6 +311,7 @@ impl QuotationDraftService {
                 )
             })
             .map_err(QuotationDraftError::from)?;
+        self.confirm_cached_draft(actor, value, correlation)?;
         if actor.scope.kind.as_str() == "branch"
             && value.scope == actor.scope
             && value.document_revision > 1
@@ -341,6 +342,40 @@ impl QuotationDraftService {
                 }),
             };
             self.project_confirmed(actor, &change, correlation)?;
+        }
+        Ok(())
+    }
+
+    fn confirm_cached_draft(
+        &self,
+        actor: &AuthorizationContext,
+        value: &eitmad_contracts::quotation_lifecycle::QuotationRecord,
+        correlation: CorrelationId,
+    ) -> Result<(), QuotationDraftError> {
+        if actor.scope.kind.as_str() != "branch" || value.scope != actor.scope {
+            return Ok(());
+        }
+        // An authoritative quotation proves delivery of its exact saved draft, even after
+        // issuance. Never resend that draft as an edit to an issued or accepted quotation.
+        for change in self.store.quotation_draft_sync_batch(&actor.scope, 50)? {
+            if change.record_id.value() != value.quotation.id.value()
+                || change.revision != value.quotation.revision
+            {
+                continue;
+            }
+            let payload = change
+                .payload
+                .as_ref()
+                .ok_or(QuotationDraftError::Unavailable)?;
+            let snapshot: QuotationDraftSnapshot = serde_json::from_slice(
+                &STANDARD
+                    .decode(&payload.base64)
+                    .map_err(|_| QuotationDraftError::Unavailable)?,
+            )
+            .map_err(|_| QuotationDraftError::Unavailable)?;
+            if snapshot == value.quotation {
+                self.project_confirmed(actor, &change, correlation)?;
+            }
         }
         Ok(())
     }

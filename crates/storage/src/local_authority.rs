@@ -71,6 +71,57 @@ impl StoredLocalAuthority {
 }
 
 impl AuthorityStore {
+    /// Initializes an empty installation from a server-verified tenant and registered device.
+    /// The caller must authenticate the server account before calling this import boundary.
+    /// Existing installations must match exactly; their identity and work are never replaced.
+    ///
+    /// # Errors
+    /// Fails for invalid identifiers, a different existing identity, or failed atomic audit.
+    pub fn initialize_server_installation(
+        &self,
+        tenant: TenantId,
+        organization: OrganizationId,
+        device: DeviceId,
+        branch: ScopeId,
+        now: UnixMillis,
+    ) -> Result<AuthorizationContext, StorageError> {
+        if now.0 < 0
+            || [
+                tenant.value(),
+                organization.value(),
+                device.value(),
+                branch.value(),
+            ]
+            .iter()
+            .any(Uuid::is_nil)
+        {
+            return Err(StorageError);
+        }
+        self.write_transaction(|connection| {
+            let existing: bool = connection.query_row(
+                "SELECT EXISTS(SELECT 1 FROM local_installation_authority)", [], |r| r.get(0)
+            ).map_err(|_| StorageError)?;
+            if !existing {
+                let authority = StoredLocalAuthority {
+                    tenant, organization, device,
+                    user: UserId::new(Uuid::new_v4()),
+                    account: AccountId::new(Uuid::new_v4()),
+                };
+                persist_authority(connection, &authority, now)?;
+                ensure_branch(connection, &authority, branch.value().to_string(), now)?;
+            }
+            let matches: bool = connection.query_row(
+                "SELECT EXISTS(SELECT 1 FROM local_installation_authority l
+                 JOIN local_desktop_branch b ON b.tenant_id=l.tenant_id
+                 WHERE l.tenant_id=?1 AND l.organization_id=?2 AND l.device_id=?3 AND b.branch_id=?4)",
+                params![tenant.value().to_string(), organization.value().to_string(),
+                    device.value().to_string(), branch.value().to_string()], |r| r.get(0)
+            ).map_err(|_| StorageError)?;
+            matches.then_some(()).ok_or(StorageError)
+        })?;
+        self.existing_local_authorization_context()
+    }
+
     /// Reads the existing installation identity without bootstrap or repair.
     ///
     /// # Errors
@@ -182,7 +233,15 @@ fn ensure_local_branch(
     if existing.is_some() {
         return Ok(());
     }
-    let branch = Uuid::new_v4().to_string();
+    ensure_branch(connection, authority, Uuid::new_v4().to_string(), now)
+}
+
+fn ensure_branch(
+    connection: &rusqlite::Connection,
+    authority: &StoredLocalAuthority,
+    branch: String,
+    now: UnixMillis,
+) -> Result<(), StorageError> {
     connection.execute(
         "INSERT INTO authorization_scopes (scope_kind, scope_id, policy_schema_version, policy_version)
          VALUES ('branch', ?1, 1, 1)", [&branch],
@@ -246,7 +305,16 @@ fn create(
         organization: OrganizationId::new(Uuid::new_v4()),
         device: DeviceId::new(Uuid::new_v4()),
     };
-    insert_identity_rows(connection, &authority, now)?;
+    persist_authority(connection, &authority, now)?;
+    Ok(authority)
+}
+
+fn persist_authority(
+    connection: &rusqlite::Connection,
+    authority: &StoredLocalAuthority,
+    now: UnixMillis,
+) -> Result<(), StorageError> {
+    insert_identity_rows(connection, authority, now)?;
 
     let scope_id = authority.tenant.value().to_string();
     let relationship_id = Uuid::new_v4();
@@ -304,7 +372,7 @@ fn create(
             crate::insert_audit(connection, &audit).map_err(|_| rusqlite::Error::InvalidQuery)
         })
         .map_err(|_| StorageError)?;
-    Ok(authority)
+    Ok(())
 }
 
 fn insert_identity_rows(
@@ -426,6 +494,49 @@ mod tests {
     use tempfile::tempdir;
 
     use super::*;
+
+    #[test]
+    fn server_installation_rejects_replacement_and_retains_identity_after_restart() {
+        let directory = tempdir().unwrap();
+        let store = AuthorityStore::open(directory.path()).unwrap();
+        let tenant = TenantId::new(Uuid::new_v4());
+        let organization = OrganizationId::new(Uuid::new_v4());
+        let device = DeviceId::new(Uuid::new_v4());
+        let branch = ScopeId::new(Uuid::new_v4());
+        let original = store
+            .initialize_server_installation(tenant, organization, device, branch, UnixMillis(100))
+            .unwrap();
+        for (t, o, d, b) in [
+            (TenantId::new(Uuid::new_v4()), organization, device, branch),
+            (tenant, OrganizationId::new(Uuid::new_v4()), device, branch),
+            (tenant, organization, DeviceId::new(Uuid::new_v4()), branch),
+            (tenant, organization, device, ScopeId::new(Uuid::new_v4())),
+        ] {
+            assert!(
+                store
+                    .initialize_server_installation(t, o, d, b, UnixMillis(200))
+                    .is_err()
+            );
+        }
+        let audit_count = |store: &AuthorityStore| {
+            rusqlite::Connection::open(store.path())
+                .unwrap()
+                .query_row("SELECT COUNT(*) FROM mutation_audit", [], |r| {
+                    r.get::<_, i64>(0)
+                })
+                .unwrap()
+        };
+        assert_eq!(audit_count(&store), 2);
+        drop(store);
+        let reopened = AuthorityStore::open(directory.path()).unwrap();
+        let recovered = reopened
+            .initialize_server_installation(tenant, organization, device, branch, UnixMillis(300))
+            .unwrap();
+        assert_eq!(recovered.identity, original.identity);
+        assert_eq!(recovered.tenant_id, original.tenant_id);
+        assert_eq!(reopened.local_organization_id().unwrap(), organization);
+        assert_eq!(audit_count(&reopened), 2);
+    }
 
     #[test]
     fn bootstrap_is_stable_and_persists_a_real_owner_relation() {

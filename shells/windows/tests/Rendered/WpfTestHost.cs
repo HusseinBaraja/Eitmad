@@ -19,12 +19,13 @@ internal static class WpfTestHost
         double height,
         Action<MainWindow> test,
         bool showSignIn = false,
-        IEngineShellBridge? engine = null)
+        IEngineShellBridge? engine = null,
+        IDesktopSessionController? sessions = null)
     {
         TestDispatcher.Value.Invoke(() =>
         {
             var window = new MainWindow(
-                showSignIn ? new RenderedSessionController() : null,
+                sessions ?? (showSignIn ? new RenderedSessionController() : null),
                 showSignIn: showSignIn,
                 engine: engine,
                 preview: engine is null)

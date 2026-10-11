@@ -1548,7 +1548,8 @@ fn catalog_image_client(
         SecretKind::parse("catalog-image-test").unwrap(),
         SecretReferenceId::new(Uuid::new_v4()),
     );
-    store_session(&secrets, &credential, authentication, seed).unwrap();
+    eitmad_server_connection::store_account_session(&secrets, &credential, authentication, seed)
+        .unwrap();
     let config = DirectServerConfig::new(
         endpoint,
         remote_scope.clone(),
@@ -1979,7 +1980,7 @@ fn pricing_test_client(
         SecretKind::parse("pricing-test").unwrap(),
         SecretReferenceId::new(Uuid::new_v4()),
     );
-    store_session(
+    eitmad_server_connection::store_account_session(
         &secrets,
         &credential,
         server.authentication.clone(),

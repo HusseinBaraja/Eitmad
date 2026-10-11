@@ -277,6 +277,8 @@ pub async fn run(
     if let (Some(certificate), Some(private_key)) =
         (&config.tls_certificate, &config.tls_private_key)
     {
+        // Dependency feature unification can enable both Rustls providers.
+        let _ = rustls::crypto::ring::default_provider().install_default();
         let tls =
             axum_server::tls_rustls::RustlsConfig::from_pem_file(certificate, private_key).await?;
         let handle = axum_server::Handle::new();

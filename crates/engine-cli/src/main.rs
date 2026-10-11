@@ -6,6 +6,8 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+mod customer_sync;
+
 #[cfg(debug_assertions)]
 use argon2::{Argon2, PasswordHasher as _, password_hash::SaltString};
 use clap::{Parser, Subcommand, ValueEnum};
@@ -277,12 +279,33 @@ fn seed_development_account(
     store.provision_desktop_account(installer, &account, username, now)
 }
 
-/// Requires a complete trusted media route before attaching the Rust transfer adapter.
+struct ConfiguredDispatcher {
+    dispatcher: Arc<ProductDispatcher>,
+    media_enabled: bool,
+    customers: Option<Arc<eitmad_server_connection::DirectCustomerSyncClient>>,
+}
+
+impl ConfiguredDispatcher {
+    fn start_workers(&self, cancel: &watch::Receiver<bool>) -> Vec<tokio::task::JoinHandle<()>> {
+        [
+            self.media_enabled
+                .then(|| start_media_uploads(self.dispatcher.clone(), cancel.clone())),
+            self.customers.as_ref().map(|client| {
+                customer_sync::start(client.clone(), self.dispatcher.clone(), cancel.clone())
+            }),
+        ]
+        .into_iter()
+        .flatten()
+        .collect()
+    }
+}
+
+/// Requires complete trusted routes before attaching Rust transfer adapters.
 fn configured_dispatcher(
     store: &AuthorityStore,
     directory: &std::path::Path,
     event_broker: &EventBroker,
-) -> Result<(Arc<ProductDispatcher>, bool), ()> {
+) -> Result<ConfiguredDispatcher, ()> {
     let mut dispatcher = ProductDispatcher::new(store.clone(), event_broker.clone());
     let media_endpoint = std::env::var_os("EITMAD_MEDIA_SERVER");
     let media_enabled =
@@ -355,7 +378,11 @@ fn configured_dispatcher(
         ));
     }
     dispatcher = configured_quotations(dispatcher, directory)?;
-    Ok((Arc::new(dispatcher), media_enabled))
+    Ok(ConfiguredDispatcher {
+        dispatcher: Arc::new(dispatcher),
+        media_enabled,
+        customers: customer_sync::configure(store, directory)?,
+    })
 }
 
 fn configured_quotations(
@@ -482,13 +509,13 @@ async fn run(
     let _ipc_shutdown_guard = ipc_shutdown_sender.clone();
     let (ipc_cancel_sender, ipc_cancel_receiver) = watch::channel(false);
     let event_broker = EventBroker::new();
-    let Ok((dispatcher, media_enabled)) = configured_dispatcher(&store, &directory, &event_broker)
-    else {
+    let Ok(configured) = configured_dispatcher(&store, &directory, &event_broker) else {
         emit_failure(&RuntimeFailure::component_unavailable());
         let _ = runtime.shutdown(ShutdownReason::Explicit).await;
         let _ = emitter.await;
         return ExitCode::from(EXIT_RUNTIME_FAILURE);
     };
+    let dispatcher = configured.dispatcher.clone();
     if dispatcher.drain_pending_publications().is_err() {
         emit_operational_failure(
             "eitmad.observation.event-publication-recovery-failed.v1",
@@ -517,8 +544,7 @@ async fn run(
                 return ExitCode::from(EXIT_RUNTIME_FAILURE);
             }
         };
-    let media_task =
-        media_enabled.then(|| start_media_uploads(dispatcher.clone(), ipc_cancel_receiver.clone()));
+    let sync_tasks = configured.start_workers(&ipc_cancel_receiver);
     let ipc_task = ipc_configuration.map(|configuration| {
         tokio::spawn(
             LocalIpcServer::new(configuration, dispatcher, ipc_shutdown_sender.clone())
@@ -531,7 +557,7 @@ async fn run(
     let reason = wait_for_shutdown(mode, &mut ipc_shutdown_receiver).await;
     let _ = ipc_cancel_sender.send(true);
     let ipc_stopped_cleanly = await_local_ipc(ipc_task).await;
-    if let Some(task) = media_task {
+    for task in sync_tasks {
         let _ = task.await;
     }
     let outcome = runtime.shutdown(reason).await;

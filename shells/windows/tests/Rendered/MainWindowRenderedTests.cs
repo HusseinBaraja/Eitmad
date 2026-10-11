@@ -50,6 +50,9 @@ public sealed class MainWindowRenderedTests
             Assert.AreEqual(ModifierKeys.Alt, shortcut.Modifiers);
             MainWindow.SwitchAccountCommand.Execute(null, window);
             WpfTestHost.CompleteLayout(window);
+            Assert.IsTrue(window.AccountSwitchDialog.IsOpen);
+            window.ConfirmAccountSwitchButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
 
             Assert.AreEqual(Visibility.Collapsed, WpfTestHost.FindByName<FrameworkElement>(window, "ReceptionistSurface").Visibility);
             Assert.AreEqual(Visibility.Collapsed, WpfTestHost.FindByName<Grid>(window, "ResponsiveRoot").Visibility);

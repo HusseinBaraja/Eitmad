@@ -102,17 +102,12 @@ impl AuthenticatedHttpClient {
         {
             return Err(HttpError::Denied);
         }
-        let mut credential = driver
-            .load_credential(&self.credential_id)
-            .map_err(|_| HttpError::Denied)?;
-        driver
-            .refresh_if_due(&self.credential_id, &mut credential, budget)
-            .map_err(|_| HttpError::Unavailable)?;
-        if actor.identity.principal_id.value() != credential.user_id.value()
-            || actor.tenant_id != credential.tenant_id
-        {
-            return Err(HttpError::Denied);
-        }
+        let (_, credential) = driver
+            .account_credential(&self.credential_id, actor, budget)
+            .map_err(|failure| match failure.kind {
+                eitmad_sync::TransportFailureKind::AuthenticationFailed => HttpError::Denied,
+                _ => HttpError::Unavailable,
+            })?;
         remaining_io(budget).map_err(|_| HttpError::Unavailable)?;
         let mut url = driver.config.endpoint.clone();
         url.set_path(route);

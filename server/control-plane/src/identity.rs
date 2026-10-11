@@ -14,6 +14,9 @@ use crate::authentication::{
     AuthenticationError, TokenCodec, TokenKey, canonical_username, is_direction_control,
 };
 
+mod workflow_accounts;
+pub use workflow_accounts::{AccountInvitation, WorkflowRole};
+
 const OWNER_RELATION: &str = "eitmad.relation.organization.owner.v1";
 const BOOTSTRAP_LOCK_KEY: i64 = 1_163_158_102;
 
@@ -42,6 +45,8 @@ pub struct IdentityService {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum IdentityError {
+    #[error("identity operation is denied")]
+    Denied,
     #[error("server bootstrap is already complete")]
     AlreadyBootstrapped,
     #[error("identity input is invalid")]

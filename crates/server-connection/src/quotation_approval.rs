@@ -192,21 +192,16 @@ impl DirectDiscountApprovalClient {
             minor,
         );
         let mut driver = http.driver.lock().map_err(|_| E::Unavailable)?;
-        let mut credential = driver
-            .load_credential(&self.credential)
-            .map_err(|_| E::Denied)?;
-        if credential.user_id.value() != actor.identity.principal_id.value()
-            || credential.tenant_id != actor.tenant_id
-        {
-            return Err(E::Denied);
-        }
-        driver
-            .refresh_if_due(
+        let (_, credential) = driver
+            .account_credential(
                 &self.credential,
-                &mut credential,
+                actor,
                 Instant::now() + Duration::from_secs(10),
             )
-            .map_err(|_| E::Unavailable)?;
+            .map_err(|failure| match failure.kind {
+                eitmad_sync::TransportFailureKind::AuthenticationFailed => E::Denied,
+                _ => E::Unavailable,
+            })?;
         driver
             .open_socket(&credential)
             .map_err(|_| E::Unavailable)?;

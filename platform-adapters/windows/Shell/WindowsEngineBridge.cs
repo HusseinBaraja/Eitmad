@@ -53,6 +53,15 @@ public sealed class WindowsEngineBridge : IEngineShellBridge
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Eitmad",
             "engine");
+        var runtimeArgument = arguments
+            .Select((value, index) => (value, index))
+            .FirstOrDefault(item => item.value == "--runtime-directory");
+        if (runtimeArgument.value is not null)
+        {
+            if (runtimeArgument.index + 1 >= arguments.Count)
+                throw new ArgumentException("--runtime-directory requires a path.");
+            runtimeDirectory = Path.GetFullPath(arguments[runtimeArgument.index + 1]);
+        }
         return new WindowsEngineBridge(
             new EngineSupervisor(),
             new EngineLaunchRequest(ResolveEnginePath(arguments), runtimeDirectory));

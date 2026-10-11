@@ -109,5 +109,22 @@
         <authentication:SignInView x:Name="SignInSurface"
                                    Panel.ZIndex="50"
                                    SignedIn="SessionSignedIn" />
+        <controls:DialogHost x:Name="AccountSwitchDialog" Panel.ZIndex="60" Title="تبديل الحساب"
+                             PreferredWidth="460" FlowDirection="RightToLeft"
+                             InitialFocusTarget="{Binding ElementName=CancelAccountSwitchButton}"
+                             CloseRequested="CancelAccountSwitchClick">
+            <StackPanel>
+                <TextBlock Text="احفظ تعديلاتك قبل تبديل الحساب. ستُمسح الحقول غير المحفوظة، وتبقى الأعمال المحفوظة."
+                           TextWrapping="Wrap" />
+                <WrapPanel Margin="0,20,0,0">
+                    <Button x:Name="CancelAccountSwitchButton" Content="إلغاء" Click="CancelAccountSwitchClick"
+                            Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"
+                            AutomationProperties.Name="إلغاء تبديل الحساب" />
+                    <Button x:Name="ConfirmAccountSwitchButton" Content="تسجيل الخروج" Click="ConfirmAccountSwitchClick"
+                            Style="{StaticResource PrimaryButton}"
+                            AutomationProperties.Name="تسجيل الخروج وتبديل الحساب" />
+                </WrapPanel>
+            </StackPanel>
+        </controls:DialogHost>
     </Grid>
 </Window>

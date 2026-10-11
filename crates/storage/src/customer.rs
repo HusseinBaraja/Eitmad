@@ -3,7 +3,7 @@ use eitmad_contracts::{
         Customer, CustomerAddress, CustomerId, CustomerMutationResult, CustomerName, CustomerNotes,
         CustomerPage, CustomerPhone, CustomerStatus, CustomerSyncState,
     },
-    identity::ScopeRef,
+    identity::{AuthorizationContext, ScopeRef},
     sync::{ChangeId, ChangeRecord},
     transport::UnixMillis,
 };
@@ -99,6 +99,93 @@ pub struct CustomerSyncProjection<'a> {
 }
 
 impl AuthorityStore {
+    /// Recovers original customer authors from the audit committed with each outbox entry.
+    /// Returns distinct author contexts only for successful customer create/update audits.
+    /// Excludes customers with sync exceptions; the caller must check current authority.
+    /// # Errors
+    /// Returns an error if storage or matched audit evidence cannot be read or decoded.
+    pub fn pending_customer_actors(&self) -> Result<Vec<AuthorizationContext>, StorageError> {
+        let connection = self.open_connection()?;
+        let mut statement = connection
+            .prepare(
+                "SELECT DISTINCT json_object(
+                'sessionId', a.session_id, 'tenantId', a.tenant_id,
+                'workspaceId', a.workspace_id,
+                'identity', json_object('principalId', a.principal_id,
+                    'principalKind', json(a.principal_kind), 'deviceId', a.device_id,
+                    'serviceId', NULL),
+                'scope', json_object('kind', a.scope_kind, 'id', a.scope_id))
+             FROM customer_sync_outbox o JOIN mutation_audit a
+               ON a.scope_kind = o.scope_kind AND a.scope_id = o.scope_id
+               AND a.idempotency_key = json_extract(CAST(o.change_json AS TEXT), '$.idempotencyKey')
+               AND a.operation IN ('eitmad.customer.create.v1', 'eitmad.customer.update.v1')
+               AND a.outcome = '\"succeeded\"'
+             WHERE NOT EXISTS (SELECT 1 FROM customer_sync_exceptions e
+               WHERE e.scope_kind = o.scope_kind AND e.scope_id = o.scope_id
+                 AND e.customer_id = o.customer_id)",
+            )
+            .map_err(|_| StorageError)?;
+        statement
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(|_| StorageError)?
+            .map(|row| {
+                serde_json::from_str(&row.map_err(|_| StorageError)?).map_err(|_| StorageError)
+            })
+            .collect()
+    }
+
+    /// Loads pending changes for their original author, including work retained after sign-out.
+    /// Matches the scope and successful create/update audit's tenant, principal ID/kind, and device
+    /// exactly (including an absent device), without requiring the original session ID.
+    /// Excludes customers with sync exceptions and selects only each customer's earliest
+    /// pending entry, in insertion order, with at most 50 records. The caller authorizes access.
+    /// # Errors
+    /// Returns an error for malformed durable work.
+    pub fn customer_sync_batch_for_author(
+        &self,
+        actor: &AuthorizationContext,
+    ) -> Result<Vec<ChangeRecord>, StorageError> {
+        let connection = self.open_connection()?;
+        let (kind, id) = scope_parts(&actor.scope);
+        let principal_kind =
+            serde_json::to_string(&actor.identity.principal_kind).map_err(|_| StorageError)?;
+        let mut statement = connection.prepare(
+            "SELECT o.change_json FROM customer_sync_outbox o
+             WHERE o.scope_kind = ?1 AND o.scope_id = ?2
+               AND NOT EXISTS (SELECT 1 FROM customer_sync_outbox earlier
+                 WHERE earlier.scope_kind = o.scope_kind AND earlier.scope_id = o.scope_id
+                   AND earlier.customer_id = o.customer_id AND earlier.rowid < o.rowid)
+               AND NOT EXISTS (SELECT 1 FROM customer_sync_exceptions e
+                 WHERE e.scope_kind = o.scope_kind AND e.scope_id = o.scope_id
+                   AND e.customer_id = o.customer_id)
+               AND EXISTS (SELECT 1 FROM mutation_audit a
+                 WHERE a.scope_kind = o.scope_kind AND a.scope_id = o.scope_id
+                   AND a.idempotency_key = json_extract(CAST(o.change_json AS TEXT), '$.idempotencyKey')
+                   AND a.operation IN ('eitmad.customer.create.v1', 'eitmad.customer.update.v1')
+                   AND a.outcome = '\"succeeded\"'
+                   AND a.tenant_id = ?3 AND a.principal_id = ?4
+                   AND a.principal_kind = ?5 AND a.device_id IS ?6)
+             ORDER BY o.rowid LIMIT 50"
+        ).map_err(|_| StorageError)?;
+        statement
+            .query_map(
+                params![
+                    kind,
+                    id,
+                    actor.tenant_id.value().to_string(),
+                    actor.identity.principal_id.value().to_string(),
+                    principal_kind,
+                    actor.identity.device_id.map(|id| id.value().to_string())
+                ],
+                |row| row.get::<_, Vec<u8>>(0),
+            )
+            .map_err(|_| StorageError)?
+            .map(|row| {
+                serde_json::from_slice(&row.map_err(|_| StorageError)?).map_err(|_| StorageError)
+            })
+            .collect()
+    }
+
     /// Projects one server-confirmed contact without overwriting a later local edit.
     /// This is idempotent so a shared-sync checkpoint can be replayed after a crash.
     ///

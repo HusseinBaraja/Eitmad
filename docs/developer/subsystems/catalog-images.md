@@ -48,19 +48,19 @@ Image transfer does not publish or synchronize Product or Furniture definitions.
 
 ## Configure the engine transfer route
 
-Before enabling transfer, register the installation organization and authenticate the engine user/device with the existing Rust server-connection flow. Persist that authenticated session through `eitmad_server_connection::store_session` in native secret storage. The stored credential's principal and tenant must match local authority. This change adds no server account provisioning UI.
+Before enabling transfer, register the installation organization and authenticate each engine user/device with the existing Rust server-connection flow. Persist each authenticated session through `eitmad_server_connection::store_account_session` in native secret storage, using the same route reference. Each request derives its credential reference from the route and actor. The stored user, tenant, and device must match before refresh or transfer. This change adds no server account provisioning UI.
 
 | Engine setting | Value |
 | --- | --- |
 | `EITMAD_MEDIA_SERVER` | Trusted HTTPS server origin |
 | `EITMAD_MEDIA_TRUST_PEM` | Local PEM trust anchor path, used only by Rust |
-| `EITMAD_MEDIA_CREDENTIAL_ID` | JSON-serialized Rust `SecretId` for the stored authenticated session; never a bearer token |
+| `EITMAD_MEDIA_CREDENTIAL_ID` | JSON-serialized Rust `SecretId` route reference used by `store_account_session`; never a bearer token |
 
 Without `EITMAD_MEDIA_SERVER`, local images work and uploads remain queued. A configured route requires all three values and native secret storage. Invalid configuration fails engine startup with a redacted component error. Valid configuration with an unavailable server retains work for retry. Credentials refresh through the existing authenticated device flow. The worker attempts one upload at a time, drains acknowledged work, and waits 30 seconds when no upload succeeds. Denied, invalid, or missing items receive an audited 60-second deferral; untouched rows sort ahead of deferred retries. The worker continues past rejected items within its 16-row page. A transient unavailable result stops the current batch and retains its work. It stops with the engine.
 
 ## Resolve missing thumbnails or stalled uploads
 
-If text loads but an image is missing, check the current owning read permission and server organization relationship. Private Product and Furniture images require Manager or Owner access. Receptionists need an active published sales entry that references the exact image. Do not add permission identifiers to relationship tuples. If image uploads stop during a server outage, restore the configured route and wait for the background retry. A rejected or revoked item stays retained locally and is deferred; later eligible work continues. Do not delete local assets or credentials to clear the queue. Stored credentials require both user and tenant identity from `store_session`; incomplete credentials fail authentication and require a new authenticated session. Token refresh must preserve that exact user, tenant, account, and device.
+If text loads but an image is missing, check the current owning read permission and server organization relationship. Private Product and Furniture images require Manager or Owner access. Receptionists need an active published sales entry that references the exact image. Do not add permission identifiers to relationship tuples. If image uploads stop during a server outage, restore the configured route and wait for the background retry. A rejected or revoked item stays retained locally and is deferred; later eligible work continues. Do not delete local assets or credentials to clear the queue. Stored credentials require the exact actor identity from `store_account_session`; incomplete credentials fail authentication and require a new authenticated session. Token refresh must preserve that exact user, tenant, account, and device. Background retries select the saved actor's credentials, including after an account switch.
 
 ## Verify and extend
 

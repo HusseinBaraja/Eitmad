@@ -275,7 +275,9 @@ impl LocalIpcServer {
     where
         S: AsyncRead + AsyncWrite + Unpin,
     {
-        let (mut reader, mut writer) = tokio::io::split(stream);
+        let (reader, mut writer) = tokio::io::split(stream);
+        // Keep partial frame reads alive when a response or subscription wins select.
+        let mut incoming = Box::pin(read_next_client_message(reader));
         let mut session = None;
         let mut pending = tokio::task::JoinSet::new();
         let (event_sender, mut event_receiver) = mpsc::channel::<SubscriptionDelivery>(256);
@@ -295,7 +297,9 @@ impl LocalIpcServer {
                         return Ok(());
                     }
                 }
-                result = read_client_message(&mut reader), if pending.len() < MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION => {
+                result = &mut incoming, if pending.len() < MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION => {
+                    let (reader, result) = result;
+                    incoming = Box::pin(read_next_client_message(reader));
                     let message = match result? {
                         ClientRead::Message(message) => message,
                         ClientRead::CloseWith(response) => {
@@ -1527,6 +1531,14 @@ enum FrameReadError {
 enum ClientRead {
     Message(IpcClientMessage),
     CloseWith(IpcServerMessage),
+}
+
+async fn read_next_client_message<R>(mut reader: R) -> (R, io::Result<ClientRead>)
+where
+    R: AsyncRead + Unpin,
+{
+    let result = read_client_message(&mut reader).await;
+    (reader, result)
 }
 
 async fn read_client_message<R>(reader: &mut R) -> io::Result<ClientRead>
@@ -3322,6 +3334,83 @@ mod tests {
             read_frame::<_, IpcClientMessage>(&mut right).await,
             Err(FrameReadError::PayloadTooLarge)
         ));
+    }
+
+    #[tokio::test]
+    async fn response_delivery_preserves_a_partially_read_request_frame() {
+        for fragment in [2, 12] {
+            assert_fragment_survives_response(fragment).await;
+        }
+    }
+
+    async fn assert_fragment_survives_response(fragment: usize) {
+        let (entered, mut receiving) = mpsc::unbounded_channel();
+        let permits = Arc::new(tokio::sync::Semaphore::new(0));
+        let (shutdown, _) = mpsc::channel(1);
+        let service = LocalIpcServer::new(
+            configuration(Some("token")),
+            Arc::new(BlockingDispatcher {
+                entered,
+                permits: permits.clone(),
+            }),
+            shutdown,
+        );
+        // One buffered byte makes fragment consumption observable before a response wakes select.
+        let (mut client, server) = tokio::io::duplex(1);
+        let (cancel, cancellation) = watch::channel(false);
+        let serving =
+            tokio::spawn(async move { service.serve_connection(server, cancellation).await });
+        write_frame(
+            &mut client,
+            &IpcClientMessage::Handshake(handshake(PROTOCOL_VERSION, "token")),
+        )
+        .await
+        .unwrap();
+        let IpcServerMessage::Handshake(response) = read_frame(&mut client).await.unwrap() else {
+            panic!("handshake")
+        };
+        let HandshakeOutcome::Accepted(accepted) = response.outcome else {
+            panic!("accepted")
+        };
+        let query = IpcClientMessage::Query(fixture_query(accepted.authorization));
+        write_frame(&mut client, &query).await.unwrap();
+        receiving.recv().await.unwrap();
+        let payload = serde_json::to_vec(&query).unwrap();
+        let length = u32::try_from(payload.len()).unwrap().to_le_bytes();
+        let bytes = [length.as_slice(), &payload].concat();
+        client.write_all(&bytes[..fragment]).await.unwrap();
+        permits.add_permits(1);
+        assert!(matches!(
+            tokio::time::timeout(
+                Duration::from_secs(2),
+                read_frame::<_, IpcServerMessage>(&mut client)
+            )
+            .await
+            .unwrap()
+            .unwrap(),
+            IpcServerMessage::Query(_)
+        ));
+        tokio::time::timeout(Duration::from_secs(2), client.write_all(&bytes[fragment..]))
+            .await
+            .expect("remaining request bytes must be consumed")
+            .unwrap();
+        tokio::time::timeout(Duration::from_secs(2), receiving.recv())
+            .await
+            .expect("fragmented request must reach dispatch")
+            .unwrap();
+        permits.add_permits(1);
+        assert!(matches!(
+            tokio::time::timeout(
+                Duration::from_secs(2),
+                read_frame::<_, IpcServerMessage>(&mut client)
+            )
+            .await
+            .unwrap()
+            .unwrap(),
+            IpcServerMessage::Query(_)
+        ));
+        cancel.send(true).unwrap();
+        serving.await.unwrap().unwrap();
     }
 
     #[tokio::test]

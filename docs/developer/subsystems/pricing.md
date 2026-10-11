@@ -84,7 +84,7 @@ Before enabling publication, register the engine organization and store an authe
 | --- | --- |
 | `EITMAD_PRICING_SERVER` | HTTPS server endpoint |
 | `EITMAD_PRICING_TRUST_PEM` | Path to the approved TLS trust certificate |
-| `EITMAD_PRICING_CREDENTIAL_ID` | Serialized native `SecretId` reference, never token contents |
+| `EITMAD_PRICING_CREDENTIAL_ID` | Serialized native `SecretId` route reference used by Rust `store_account_session`; requests select the actor's user and device credentials, never token contents |
 
 The stored session must match the active Rust principal and tenant. The configured organization is the registered local organization. Missing or invalid companion configuration prevents startup; an absent endpoint permits confirmed-cache reads but cannot confirm a publication. Keep credentials and these settings outside WPF. See [direct server connection](server-authority.md) for authentication and trust mechanics.
 

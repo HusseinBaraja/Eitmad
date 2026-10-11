@@ -1,7 +1,9 @@
 mod authenticated_http;
 mod catalog_image;
 mod catalog_sync;
+mod customer_sync;
 pub use catalog_sync::DirectCatalogSyncClient;
+pub use customer_sync::DirectCustomerSyncClient;
 mod pricing;
 mod quotation_approval;
 pub use catalog_image::DirectCatalogImageClient;
@@ -9,11 +11,12 @@ pub use pricing::DirectPriceClient;
 pub use quotation_approval::DirectDiscountApprovalClient;
 
 use std::{
+    collections::HashMap,
     io::{Read, Write},
     net::{SocketAddr, TcpStream, ToSocketAddrs},
     path::Path,
     sync::{
-        Arc,
+        Arc, Mutex, OnceLock, Weak,
         atomic::{AtomicUsize, Ordering},
         mpsc,
     },
@@ -58,6 +61,22 @@ const POLL_TIMEOUT: Duration = Duration::from_millis(250);
 const MAX_WIRE_BYTES: usize = 1024 * 1024;
 const MAX_AUTH_RESPONSE_BYTES: usize = 16 * 1024;
 const REFRESH_MARGIN_MS: i64 = 30_000;
+type CredentialGate = Arc<Mutex<()>>;
+static CREDENTIAL_GATES: OnceLock<Mutex<HashMap<SecretId, Weak<Mutex<()>>>>> = OnceLock::new();
+
+fn credential_gate(id: &SecretId) -> Result<CredentialGate, TransportFailure> {
+    let mut gates = CREDENTIAL_GATES
+        .get_or_init(Mutex::default)
+        .lock()
+        .map_err(|_| unavailable(FailurePhase::Authentication))?;
+    gates.retain(|_, gate| gate.strong_count() != 0);
+    if let Some(gate) = gates.get(id).and_then(Weak::upgrade) {
+        return Ok(gate);
+    }
+    let gate = Arc::new(Mutex::new(()));
+    gates.insert(id.clone(), Arc::downgrade(&gate));
+    Ok(gate)
+}
 
 type TlsStream = StreamOwned<ClientConnection, DeadlineSocket>;
 
@@ -187,9 +206,12 @@ impl DirectServerConfig {
         for certificate in certificates {
             roots.add(certificate).map_err(|_| encryption_failure())?;
         }
-        let tls = ClientConfig::builder()
-            .with_root_certificates(roots)
-            .with_no_client_auth();
+        let tls =
+            ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
+                .with_safe_default_protocol_versions()
+                .map_err(|_| encryption_failure())?
+                .with_root_certificates(roots)
+                .with_no_client_auth();
         Ok(Self {
             endpoint,
             scope,
@@ -263,6 +285,43 @@ pub fn store_session(
         .map_err(|_| authentication_failure())
 }
 
+/// Derives a credential reference for one user on a configured device route.
+/// References contain no token material and remain stable across account switches.
+#[must_use]
+pub fn account_credential_id(
+    route: &SecretId,
+    user: eitmad_contracts::identity::PrincipalId,
+) -> SecretId {
+    use sha2::{Digest as _, Sha256};
+    let mut hash = Sha256::new();
+    hash.update(b"eitmad.account-route.v1");
+    hash.update(route.canonical_key().as_bytes());
+    hash.update(user.value().as_bytes());
+    let mut bytes = [0; 16];
+    bytes.copy_from_slice(&hash.finalize()[..16]);
+    SecretId::new(
+        route.kind().clone(),
+        eitmad_contracts::config::SecretReferenceId::new(Uuid::from_bytes(bytes)),
+    )
+}
+
+/// Stores a server-authenticated session for actor-based desktop routes.
+///
+/// # Errors
+/// Returns a sanitized authentication failure if session persistence fails.
+pub fn store_account_session(
+    store: &SecretStore,
+    route: &SecretId,
+    result: AuthenticationResult,
+    signing_seed: [u8; 32],
+) -> Result<(), TransportFailure> {
+    let id = account_credential_id(
+        route,
+        eitmad_contracts::identity::PrincipalId::new(result.session.user_id.value()),
+    );
+    store_session(store, &id, result, signing_seed)
+}
+
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct StoredCredential {
@@ -320,6 +379,31 @@ impl DirectServerDriver {
             .map_err(|_| authentication_failure())?
             .ok_or_else(authentication_failure)?;
         serde_json::from_slice(material.expose_secret()).map_err(|_| authentication_failure())
+    }
+
+    fn account_credential(
+        &self,
+        route: &SecretId,
+        actor: &eitmad_contracts::identity::AuthorizationContext,
+        deadline: Instant,
+    ) -> Result<(SecretId, StoredCredential), TransportFailure> {
+        let id = account_credential_id(route, actor.identity.principal_id);
+        // Different HTTP clients and subscriptions share one rotating token pair.
+        // A busy refresh returns retryable unavailability without consuming an old token.
+        let gate = credential_gate(&id)?;
+        let _refresh = gate
+            .try_lock()
+            .map_err(|_| unavailable(FailurePhase::Authentication))?;
+        let mut credential = self.load_credential(&id)?;
+        if actor.identity.principal_kind != eitmad_contracts::identity::PrincipalKind::User
+            || credential.user_id.value() != actor.identity.principal_id.value()
+            || credential.tenant_id != actor.tenant_id
+            || Some(credential.device_id) != actor.identity.device_id
+        {
+            return Err(authentication_failure());
+        }
+        self.refresh_if_due(&id, &mut credential, deadline)?;
+        Ok((id, credential))
     }
 
     fn refresh_if_due(
@@ -505,6 +589,10 @@ impl ConnectionDriver for DirectServerDriver {
             ) if endpoint == self.config.endpoint.as_str() => (*account_id, *device_id, credential),
             _ => return Err(authentication_failure()),
         };
+        let gate = credential_gate(id)?;
+        let refresh = gate
+            .try_lock()
+            .map_err(|_| unavailable(FailurePhase::Authentication))?;
         let mut credential = self.load_credential(id)?;
         if credential.account_id != account_id || credential.device_id != device_id {
             return Err(authentication_failure());
@@ -514,6 +602,7 @@ impl ConnectionDriver for DirectServerDriver {
             &mut credential,
             Instant::now() + CONNECT_TIMEOUT + IO_TIMEOUT,
         )?;
+        drop(refresh);
         let start = Instant::now();
         let remote_hello = self.open_socket(&credential).inspect_err(|failure| {
             if failure.kind == TransportFailureKind::AuthenticationFailed {

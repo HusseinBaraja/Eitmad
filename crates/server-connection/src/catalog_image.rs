@@ -197,6 +197,101 @@ mod tests {
     }
 
     #[test]
+    fn account_routes_retain_the_author_and_reject_foreign_identity() {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+        let directory = tempfile::TempDir::new().unwrap();
+        let store =
+            SecretStore::open(directory.path(), Some(FallbackEncryptionKey::new([7; 32]))).unwrap();
+        let route = SecretId::new(
+            SecretKind::parse("account-route-test").unwrap(),
+            SecretReferenceId::new(Uuid::new_v4()),
+        );
+        let tenant = TenantId::new(Uuid::new_v4());
+        let device = eitmad_contracts::identity::DeviceId::new(Uuid::new_v4());
+        let scope = ScopeRef {
+            kind: ScopeKind::parse("organization").unwrap(),
+            id: ScopeId::new(tenant.value()),
+        };
+        let actors = [Uuid::new_v4(), Uuid::new_v4()].map(|user| {
+            let mut value = credential(false, user, tenant);
+            value.device_id = device;
+            let actor = AuthorizationContext {
+                session_id: SessionId::new(Uuid::new_v4()),
+                tenant_id: tenant,
+                workspace_id: None,
+                scope: scope.clone(),
+                identity: AuthenticatedIdentity {
+                    principal_id: PrincipalId::new(user),
+                    principal_kind: PrincipalKind::User,
+                    device_id: Some(device),
+                    service_id: None,
+                },
+            };
+            let id = crate::account_credential_id(&route, actor.identity.principal_id);
+            store
+                .set(
+                    &id,
+                    SecretMaterial::new(serde_json::to_vec(&value).unwrap()).unwrap(),
+                )
+                .unwrap();
+            actor
+        });
+        let client = test_client(
+            url::Url::parse("https://127.0.0.1:1/").unwrap(),
+            scope,
+            store.clone(),
+            route.clone(),
+        );
+        let driver = client.http.driver.lock().unwrap();
+        // A saved operation must still select its original author after another user's request.
+        for actor in [&actors[0], &actors[1], &actors[0]] {
+            let (_, value) = driver
+                .account_credential(&route, actor, Instant::now() + Duration::from_secs(1))
+                .unwrap();
+            assert_eq!(value.user_id.value(), actor.identity.principal_id.value());
+            assert_eq!(value.device_id, device);
+        }
+        for change in [0, 1, 2] {
+            let mut foreign = actors[0].clone();
+            match change {
+                0 => foreign.tenant_id = TenantId::new(Uuid::new_v4()),
+                1 => {
+                    foreign.identity.device_id =
+                        Some(eitmad_contracts::identity::DeviceId::new(Uuid::new_v4()));
+                }
+                _ => foreign.identity.principal_id = PrincipalId::new(Uuid::new_v4()),
+            }
+            assert!(
+                driver
+                    .account_credential(&route, &foreign, Instant::now() + Duration::from_secs(1))
+                    .is_err()
+            );
+        }
+        // A credential filed under another user must not reach refresh or the server.
+        let id = crate::account_credential_id(&route, actors[0].identity.principal_id);
+        let wrong = credential(true, actors[1].identity.principal_id.value(), tenant);
+        store
+            .set(
+                &id,
+                SecretMaterial::new(serde_json::to_vec(&wrong).unwrap()).unwrap(),
+            )
+            .unwrap();
+        assert!(
+            driver
+                .account_credential(&route, &actors[0], Instant::now() + Duration::from_secs(1))
+                .is_err()
+        );
+        for actor in actors {
+            store
+                .delete(&crate::account_credential_id(
+                    &route,
+                    actor.identity.principal_id,
+                ))
+                .unwrap();
+        }
+    }
+
+    #[test]
     fn catalog_image_hello_negotiates_with_a_minor_14_server() {
         use eitmad_contracts::versioning::{
             NegotiationOutcome, PeerKind, SupportedProtocol, negotiate,
@@ -242,102 +337,128 @@ mod tests {
         ));
     }
 
+    fn stall_tls_peer(
+        listener: TcpListener,
+    ) -> (
+        mpsc::Receiver<()>,
+        mpsc::Sender<()>,
+        std::thread::JoinHandle<()>,
+    ) {
+        let (entered, accepted) = mpsc::channel();
+        let (release, waiting) = mpsc::channel();
+        let peer = std::thread::spawn(move || {
+            let (_socket, _) = listener.accept().unwrap();
+            entered.send(()).unwrap();
+            let _ = waiting.recv_timeout(Duration::from_secs(3));
+        });
+        (accepted, release, peer)
+    }
+
     #[test]
     fn stalled_media_and_credential_refresh_release_transfer_admission() {
         let _ = rustls::crypto::ring::default_provider().install_default();
         for refresh in [false, true] {
-            let directory = tempfile::TempDir::new().unwrap();
-            let store =
-                SecretStore::open(directory.path(), Some(FallbackEncryptionKey::new([7; 32])))
-                    .unwrap();
-            let id = SecretId::new(
-                SecretKind::parse("image-deadline-test").unwrap(),
-                SecretReferenceId::new(Uuid::new_v4()),
-            );
-            let user = Uuid::new_v4();
-            let tenant = TenantId::new(Uuid::new_v4());
-            let credential = credential(refresh, user, tenant);
-            store
-                .set(
-                    &id,
-                    SecretMaterial::new(serde_json::to_vec(&credential).unwrap()).unwrap(),
-                )
+            assert_stalled_transfer_admission(refresh);
+        }
+    }
+
+    fn assert_stalled_transfer_admission(refresh: bool) {
+        let directory = tempfile::TempDir::new().unwrap();
+        let store =
+            SecretStore::open(directory.path(), Some(FallbackEncryptionKey::new([7; 32]))).unwrap();
+        let id = SecretId::new(
+            SecretKind::parse("image-deadline-test").unwrap(),
+            SecretReferenceId::new(Uuid::new_v4()),
+        );
+        let user = Uuid::new_v4();
+        let tenant = TenantId::new(Uuid::new_v4());
+        let credential = credential(refresh, user, tenant);
+        let credential_id = crate::account_credential_id(&id, PrincipalId::new(user));
+        store
+            .set(
+                &credential_id,
+                SecretMaterial::new(serde_json::to_vec(&credential).unwrap()).unwrap(),
+            )
+            .unwrap();
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let endpoint =
+            url::Url::parse(&format!("https://{}/", listener.local_addr().unwrap())).unwrap();
+        let (accepted, release, peer) = stall_tls_peer(listener);
+        let scope = ScopeRef {
+            kind: ScopeKind::parse("organization").unwrap(),
+            id: ScopeId::new(tenant.value()),
+        };
+        let other_client = test_client(endpoint.clone(), scope.clone(), store.clone(), id.clone());
+        let client = test_client(endpoint, scope.clone(), store.clone(), id.clone());
+        let actor = AuthorizationContext {
+            session_id: SessionId::new(Uuid::new_v4()),
+            tenant_id: tenant,
+            workspace_id: None,
+            scope: scope.clone(),
+            identity: AuthenticatedIdentity {
+                principal_id: PrincipalId::new(user),
+                principal_kind: PrincipalKind::User,
+                device_id: Some(credential.device_id),
+                service_id: None,
+            },
+        };
+        let image = CatalogImageRef {
+            id: Uuid::new_v4(),
+            kind: CatalogImageKind::Product,
+            sha256: "00".repeat(32),
+        };
+        let worker = Arc::clone(&client);
+        let worker_actor = actor.clone();
+        let worker_image = image.clone();
+        let (finished, completed) = mpsc::channel();
+        let deadline = UnixMillis(super::super::unix_millis_now().0 + 500);
+        let work = std::thread::spawn(move || {
+            finished
+                .send(worker.download(&worker_actor, &worker_image, deadline))
                 .unwrap();
-            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-            let (entered, accepted) = mpsc::channel();
-            let (release, waiting) = mpsc::channel();
-            let endpoint =
-                url::Url::parse(&format!("https://{}/", listener.local_addr().unwrap())).unwrap();
-            let peer = std::thread::spawn(move || {
-                let (_socket, _) = listener.accept().unwrap();
-                entered.send(()).unwrap();
-                let _ = waiting.recv_timeout(Duration::from_secs(3));
-            });
-            let scope = ScopeRef {
-                kind: ScopeKind::parse("organization").unwrap(),
-                id: ScopeId::new(tenant.value()),
-            };
-            let client = test_client(endpoint, scope.clone(), store.clone(), id.clone());
-            let actor = AuthorizationContext {
-                session_id: SessionId::new(Uuid::new_v4()),
-                tenant_id: tenant,
-                workspace_id: None,
-                scope: scope.clone(),
-                identity: AuthenticatedIdentity {
-                    principal_id: PrincipalId::new(user),
-                    principal_kind: PrincipalKind::User,
-                    device_id: None,
-                    service_id: None,
-                },
-            };
-            let image = CatalogImageRef {
-                id: Uuid::new_v4(),
-                kind: CatalogImageKind::Product,
-                sha256: "00".repeat(32),
-            };
-            let worker = Arc::clone(&client);
-            let worker_actor = actor.clone();
-            let worker_image = image.clone();
-            let (finished, completed) = mpsc::channel();
-            let deadline = UnixMillis(super::super::unix_millis_now().0 + 500);
-            let work = std::thread::spawn(move || {
-                finished
-                    .send(worker.download(&worker_actor, &worker_image, deadline))
-                    .unwrap();
-            });
-            accepted.recv_timeout(Duration::from_secs(2)).unwrap();
-            let admission_start = Instant::now();
+        });
+        accepted.recv_timeout(Duration::from_secs(2)).unwrap();
+        let admission_start = Instant::now();
+        assert_eq!(
+            client.remote_scope(),
+            scope,
+            "Scope reads must not wait behind network I/O"
+        );
+        assert_eq!(
+            client.download(
+                &actor,
+                &image,
+                UnixMillis(super::super::unix_millis_now().0 + 50)
+            ),
+            Err(ImageError::Unavailable)
+        );
+        if refresh {
             assert_eq!(
-                client.remote_scope(),
-                scope,
-                "Scope reads must not wait behind network I/O"
-            );
-            assert_eq!(
-                client.download(
+                other_client.download(
                     &actor,
                     &image,
                     UnixMillis(super::super::unix_millis_now().0 + 50)
                 ),
                 Err(ImageError::Unavailable)
             );
-            assert!(
-                admission_start.elapsed() < Duration::from_millis(200),
-                "Scope reads and busy admission must not wait for the stalled peer"
-            );
-            assert_eq!(
-                completed.recv_timeout(Duration::from_secs(2)).unwrap(),
-                Err(ImageError::Unavailable)
-            );
-            assert!(
-                client.http.driver.try_lock().is_ok(),
-                "An expired transfer must release its admission before the peer exits"
-            );
-            // A timed-out refresh must retain the credential for a later retry.
-            assert!(store.get(&id).unwrap().is_some());
-            release.send(()).unwrap();
-            peer.join().unwrap();
-            work.join().unwrap();
-            store.delete(&id).unwrap();
         }
+        assert!(
+            admission_start.elapsed() < Duration::from_millis(200),
+            "Scope reads and busy admission must not wait for the stalled peer"
+        );
+        assert_eq!(
+            completed.recv_timeout(Duration::from_secs(2)).unwrap(),
+            Err(ImageError::Unavailable)
+        );
+        assert!(
+            client.http.driver.try_lock().is_ok(),
+            "An expired transfer must release its admission before the peer exits"
+        );
+        // A timed-out refresh must retain the credential for a later retry.
+        assert!(store.get(&credential_id).unwrap().is_some());
+        release.send(()).unwrap();
+        peer.join().unwrap();
+        work.join().unwrap();
+        store.delete(&credential_id).unwrap();
     }
 }

@@ -121,7 +121,23 @@ public partial class MainWindow : Window
         Title = showSignIn ? "الاعتماد · تسجيل الدخول" : "الاعتماد · لوحة التحكم";
     }
 
+    internal Task AccountActivation { get; private set; } = Task.CompletedTask;
+
     private async void SessionSignedIn(object sender, AuthenticatedSurface surface)
+    {
+        AccountActivation = ActivateAccountAsync(surface);
+        try
+        {
+            await AccountActivation;
+        }
+        catch (Exception error) when (error is Eitmad.Platform.Windows.LocalIpc.EngineIpcException
+            or IOException or ObjectDisposedException)
+        {
+            ShowToast(Features.Customers.CustomerClient.ArabicMessage(Features.Customers.CustomerFailureKind.Unavailable));
+        }
+    }
+
+    private async Task ActivateAccountAsync(AuthenticatedSurface surface)
     {
         SignInSurface.Visibility = Visibility.Collapsed;
         sessionActive = true;
@@ -152,11 +168,31 @@ public partial class MainWindow : Window
     private void CanSwitchAccount(object sender, CanExecuteRoutedEventArgs eventArgs) =>
         eventArgs.CanExecute = sessionActive && !switchingAccount && sessions is not null;
 
-    private void SwitchAccountExecuted(object sender, ExecutedRoutedEventArgs eventArgs) => _ = SwitchAccountAsync();
+    private void SwitchAccountExecuted(object sender, ExecutedRoutedEventArgs eventArgs) => RequestAccountSwitch();
 
-    private void ReceptionistAccountSwitchRequested(object? sender, EventArgs eventArgs) => _ = SwitchAccountAsync();
+    private void ReceptionistAccountSwitchRequested(object? sender, EventArgs eventArgs) => RequestAccountSwitch();
 
-    private void ManagerTitleBarAccountSwitchRequested(object? sender, EventArgs eventArgs) => _ = SwitchAccountAsync();
+    private void ManagerTitleBarAccountSwitchRequested(object? sender, EventArgs eventArgs) => RequestAccountSwitch();
+
+    private void RequestAccountSwitch()
+    {
+        if (sessionActive && !switchingAccount && sessions is not null) AccountSwitchDialog.IsOpen = true;
+    }
+
+    private void CancelAccountSwitchClick(object sender, RoutedEventArgs eventArgs)
+    {
+        AccountSwitchDialog.IsOpen = false;
+        eventArgs.Handled = true;
+    }
+
+    internal Task AccountTransition { get; private set; } = Task.CompletedTask;
+
+    private async void ConfirmAccountSwitchClick(object sender, RoutedEventArgs eventArgs)
+    {
+        AccountSwitchDialog.IsOpen = false;
+        AccountTransition = SwitchAccountAsync();
+        await AccountTransition;
+    }
 
     private void ManagerSidebarNavigationRequested(object? sender, Controls.NavigationRequestedEventArgs eventArgs) =>
         ShowDestination(eventArgs.Destination);
@@ -184,10 +220,12 @@ public partial class MainWindow : Window
         HideAccountSurfaces();
         try
         {
+            await AwaitActivationEndAsync();
             if (home is not null) await home.DeactivateAsync();
             await ReceptionistSurface.DeactivateCustomersAsync();
             await ReceptionistSurface.DeactivateCatalogAsync();
             if (quotationDraftClient is not null) await quotationDraftClient.DeactivateAsync();
+            if (orderClient is not null) await orderClient.DeactivateAsync();
             await sessions.SignOutAsync();
             ShowSignIn();
         }
@@ -218,6 +256,19 @@ public partial class MainWindow : Window
         ShowDestination("الرئيسية");
     }
 
+    private async Task AwaitActivationEndAsync()
+    {
+        try
+        {
+            await AccountActivation;
+        }
+        catch (Exception error) when (error is Eitmad.Platform.Windows.LocalIpc.EngineIpcException
+            or IOException or ObjectDisposedException)
+        {
+            // Sign-in reports activation failures; they must not prevent cleanup or sign-out.
+        }
+    }
+
     private void SessionEnded(object? sender, SessionEndedEventArgs eventArgs) =>
         Dispatcher.Invoke(() => _ = CompleteSessionEndAsync(eventArgs.Reason));
 
@@ -227,10 +278,12 @@ public partial class MainWindow : Window
         try
         {
             HideAccountSurfaces();
+            await AwaitActivationEndAsync();
             if (home is not null) await home.DeactivateAsync();
             await ReceptionistSurface.DeactivateCustomersAsync();
             await ReceptionistSurface.DeactivateCatalogAsync();
             if (quotationDraftClient is not null) await quotationDraftClient.DeactivateAsync();
+            if (orderClient is not null) await orderClient.DeactivateAsync();
         }
         finally
         {
@@ -252,11 +305,11 @@ public partial class MainWindow : Window
     private void HideAccountSurfaces()
     {
         ++accountGeneration;
+        AccountSwitchDialog.IsOpen = false;
         home?.Clear();
         ManagerTitleBar.SearchBox.Clear(); ReceptionistSurface.ClearHomeSession();
         WorkOrdersSurface.ViewModel.ClearWorkOrders();
         OrdersSurface.ViewModel.ClearOrders(); ReceptionistSurface.PreviewOrders.ViewModel.ClearOrders();
-        if (orderClient is not null) _ = orderClient.DeactivateAsync();
         QuotationsSurface.ViewModel.ClearDrafts();
         ReceptionistSurface.ReceptionQuotations.ViewModel.ClearDrafts();
         PartsSurface.ClearSession();
