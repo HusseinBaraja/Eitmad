@@ -59,12 +59,14 @@ pub struct CustomerSyncCycle<'a, T: SyncTransport> {
 
 impl<T: SyncTransport> CustomerSyncCycle<'_, T> {
     /// Delivers up to 50 local changes and downloads all available 50-record pages.
+    /// Returns the number of submitted changes confirmed as applied or replayed.
+    /// Rejected and conflicted changes remain in the outbox and do not count as progress.
     ///
     /// # Errors
     ///
     /// Preserves local work and the last durable checkpoint on transport,
     /// storage, authorization, or projection failure.
-    pub fn run(&mut self) -> Result<(), CustomerSyncError> {
+    pub fn run(&mut self) -> Result<usize, CustomerSyncError> {
         let pending = self.customers.sync_batch_for_author(self.actor)?;
         for change in &pending {
             self.engine.stage_committed_local_change(
@@ -85,7 +87,7 @@ impl<T: SyncTransport> CustomerSyncCycle<'_, T> {
     fn run_connected(
         &mut self,
         pending: &[eitmad_contracts::sync::ChangeRecord],
-    ) -> Result<(), CustomerSyncError> {
+    ) -> Result<usize, CustomerSyncError> {
         let session = self.transport.connect(now())?;
         let schema = NegotiatedSchema {
             schema_id: SchemaId::parse(CUSTOMER_SCHEMA_ID).expect("static customer schema"),
@@ -99,6 +101,7 @@ impl<T: SyncTransport> CustomerSyncCycle<'_, T> {
             SyncMode::LocalFirst,
             &schema,
         )?;
+        let mut confirmed = 0;
         for change in pending {
             let mut server_change = change.clone();
             server_change.scope = self.server_scope.clone();
@@ -123,6 +126,7 @@ impl<T: SyncTransport> CustomerSyncCycle<'_, T> {
                     {
                         return Err(CustomerSyncError::UnexpectedResponse);
                     }
+                    confirmed += 1;
                     None
                 }
                 LocalChangeDisposition::Conflicted { .. } => Some(CustomerSyncState::Conflicted),
@@ -176,7 +180,7 @@ impl<T: SyncTransport> CustomerSyncCycle<'_, T> {
                 break;
             }
         }
-        Ok(())
+        Ok(confirmed)
     }
 
     fn apply_batch(&mut self, batch: &ChangeBatch) -> Result<(), CustomerSyncError> {

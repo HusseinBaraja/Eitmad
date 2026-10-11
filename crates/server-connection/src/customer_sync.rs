@@ -78,7 +78,8 @@ impl DirectCustomerSyncClient {
 
     /// Runs one serialized customer cycle on a Rust worker thread.
     /// The actor must belong to the configured branch and have current customer write
-    /// permission. Returns the decrease in the author's eligible pending batch size.
+    /// permission. Returns the number of submitted changes confirmed as applied or replayed;
+    /// rejected and conflicted changes remain pending and do not count as progress.
     /// # Errors
     /// Returns `Denied` for a wrong branch, missing permission, or rejected credentials;
     /// other failures return `Unavailable`. Durable work remains pending on failure.
@@ -92,7 +93,6 @@ impl DirectCustomerSyncClient {
             .authorize(actor, eitmad_customer::CUSTOMER_WRITE_PERMISSION)
             .map_err(|_| CustomerError::Denied)?;
         let customers = CustomerService::new(self.store.clone(), authorization);
-        let before = customers.sync_batch_for_author(actor)?.len();
         let (request, policy) = self.policy(actor)?;
         let audit = BoundaryAuditContext {
             kind: BoundaryKind::Sync,
@@ -127,8 +127,7 @@ impl DirectCustomerSyncClient {
             audit: &audit,
         }
         .run()
-        .map_err(|_| CustomerError::Unavailable)?;
-        Ok(before.saturating_sub(customers.sync_batch_for_author(actor)?.len()))
+        .map_err(|_| CustomerError::Unavailable)
     }
 
     fn policy(

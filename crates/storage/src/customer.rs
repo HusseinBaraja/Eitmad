@@ -135,7 +135,7 @@ impl AuthorityStore {
     }
 
     /// Loads pending changes for their original author, including work retained after sign-out.
-    /// Matches the scope and successful create/update audit's tenant, principal, and device
+    /// Matches the scope and successful create/update audit's tenant, principal ID/kind, and device
     /// exactly (including an absent device), without requiring the original session ID.
     /// Excludes customers with sync exceptions and selects only each customer's earliest
     /// pending entry, in insertion order, with at most 50 records. The caller authorizes access.
@@ -147,6 +147,8 @@ impl AuthorityStore {
     ) -> Result<Vec<ChangeRecord>, StorageError> {
         let connection = self.open_connection()?;
         let (kind, id) = scope_parts(&actor.scope);
+        let principal_kind =
+            serde_json::to_string(&actor.identity.principal_kind).map_err(|_| StorageError)?;
         let mut statement = connection.prepare(
             "SELECT o.change_json FROM customer_sync_outbox o
              WHERE o.scope_kind = ?1 AND o.scope_id = ?2
@@ -161,7 +163,8 @@ impl AuthorityStore {
                    AND a.idempotency_key = json_extract(CAST(o.change_json AS TEXT), '$.idempotencyKey')
                    AND a.operation IN ('eitmad.customer.create.v1', 'eitmad.customer.update.v1')
                    AND a.outcome = '\"succeeded\"'
-                   AND a.tenant_id = ?3 AND a.principal_id = ?4 AND a.device_id IS ?5)
+                   AND a.tenant_id = ?3 AND a.principal_id = ?4
+                   AND a.principal_kind = ?5 AND a.device_id IS ?6)
              ORDER BY o.rowid LIMIT 50"
         ).map_err(|_| StorageError)?;
         statement
@@ -171,6 +174,7 @@ impl AuthorityStore {
                     id,
                     actor.tenant_id.value().to_string(),
                     actor.identity.principal_id.value().to_string(),
+                    principal_kind,
                     actor.identity.device_id.map(|id| id.value().to_string())
                 ],
                 |row| row.get::<_, Vec<u8>>(0),

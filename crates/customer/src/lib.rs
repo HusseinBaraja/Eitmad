@@ -605,6 +605,8 @@ fn normalize_phone_search(value: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    mod sync_cycle;
+
     use eitmad_authorization::{MANAGER_RELATION, RECEPTIONIST_RELATION};
     use eitmad_contracts::{
         authorization::{RelationId, RelationshipSubject},
@@ -695,6 +697,36 @@ mod tests {
             phone: CustomerPhone::parse(phone).unwrap(),
             address: Some(CustomerAddress::parse("عدن، المنصورة").unwrap()),
             notes: Some(CustomerNotes::parse("الاتصال قبل التسليم").unwrap()),
+        }
+    }
+
+    #[test]
+    fn pending_customer_changes_match_the_principal_kind() {
+        let directory = TempDir::new().unwrap();
+        let (store, customers, actor) = authorized_service(&directory, 41, 51, MANAGER_RELATION);
+        customers
+            .create(
+                &mutation(actor.clone(), 301, 4),
+                &create_command("عميل اختبار", "777123456"),
+            )
+            .unwrap();
+        let mut resumed = actor.clone();
+        resumed.session_id = SessionId::new(Uuid::new_v4());
+        assert_eq!(
+            store
+                .customer_sync_batch_for_author(&resumed)
+                .unwrap()
+                .len(),
+            1
+        );
+        for kind in [PrincipalKind::Device, PrincipalKind::Service] {
+            resumed.identity.principal_kind = kind;
+            assert!(
+                store
+                    .customer_sync_batch_for_author(&resumed)
+                    .unwrap()
+                    .is_empty()
+            );
         }
     }
 
