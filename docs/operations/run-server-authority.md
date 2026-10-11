@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "server platform maintainers"
-last_verified: "2026-10-05"
+last_verified: "2026-10-11"
 review_triggers:
   - "server configuration, CLI, migrations, health routes, TLS, backup, or recovery changes"
 keywords:
@@ -165,7 +165,7 @@ Use the direct-route certificate settings above and a new disposable PostgreSQL 
 cargo test --locked -p eitmad-server-connection --test direct_route catalog_reaches_separate -- --ignored
 ```
 
-This scenario checks dependency interruption, separate Manager and Receptionist clients, public field omission, tenant RLS, private-stream denial, filtered Product history/snapshots, Furniture image references, a failed snapshot commit, server and client restart, exact cost dependencies, and archive propagation. It does not verify native rendering. Restore the same authorized route after interruption; do not delete checkpoints, history, or transfer work. See [catalog replication](../developer/subsystems/synchronization.md#catalog-replication).
+This scenario checks dependency interruption, separate Manager and Receptionist clients, public field omission, tenant RLS, private-stream denial, denied Product definition history/snapshots, published image references, a failed snapshot commit, server and client restart, exact cost dependencies, and archive propagation. It does not verify native rendering. Restore the same authorized route after interruption; do not delete checkpoints, history, or transfer work. See [catalog replication](../developer/subsystems/synchronization.md#catalog-replication).
 
 ## Verify quotation-to-order recovery
 
@@ -175,4 +175,14 @@ Create a fresh disposable database with the helper above, then run:
 rustup run 1.85.1 cargo test --locked -p eitmad-server-connection --test direct_route orders_cross_client -- --ignored
 ```
 
-The test covers competing Receptionist conversions, principal-bound exact retry, changed-key rejection, immutable accepted prices, Furniture-only work, Products-only readiness, Manager notes and cancellation, delivery uniqueness, invalid transitions, direct role/scope denials, forced tenant RLS, migration reapplication and server restart. Native pending/rejected rendering is checked separately by `OrderAuthorityTests` and `OrderAuthorityRenderedTests`.
+The test covers competing Receptionist conversions, principal-bound exact retry, changed-key rejection, immutable accepted prices, Furniture-only work, Products-only readiness, Manager notes and cancellation, delivery uniqueness, invalid transitions, direct role/scope denials, restricted production fields and documents, active subscription role revocation, forced tenant RLS, migration reapplication and server restart. Native pending/rejected rendering is checked separately by `OrderAuthorityTests` and `OrderAuthorityRenderedTests`.
+
+## Verify established-session revocation
+
+Use another fresh disposable database and the same certificate settings:
+
+```powershell
+rustup run 1.85.1 cargo test --locked -p eitmad-server-connection --test direct_route revoked_session_cannot_submit -- --ignored
+```
+
+The test establishes a real TLS WebSocket, revokes its durable server session, and submits a customer mutation before the periodic session check. The server must return an authentication failure without a sync result or customer record. This verifies per-request enforcement on an existing connection.

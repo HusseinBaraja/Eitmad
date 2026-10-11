@@ -18,7 +18,7 @@ use sqlx::PgPool;
 
 pub const PUBLIC_SCHEMA: &str = "eitmad.schema.catalog-public.v1";
 
-/// Extracts only a valid public Furniture image reference when its record is written.
+/// Extracts only a valid public image reference when its record is written.
 /// Malformed retained payloads grant no image access and never break unrelated chunk reads.
 pub(super) fn public_image_reference(change: &ChangeRecord) -> Option<(uuid::Uuid, String)> {
     if change.operation != ChangeOperation::Upsert {
@@ -30,17 +30,19 @@ pub(super) fn public_image_reference(change: &ChangeRecord) -> Option<(uuid::Uui
     }
     let entry: eitmad_contracts::catalog_revision::CatalogEntry =
         serde_json::from_slice(&STANDARD.decode(&encoded.base64).ok()?).ok()?;
-    if entry.price.target.scope() != &change.scope
-        || !matches!(
-            entry.price.target,
-            eitmad_contracts::pricing::PriceTarget::Furniture(_)
-        )
-    {
+    if entry.price.target.scope() != &change.scope {
         return None;
     }
     let image = entry.image?;
-    (image.kind == eitmad_contracts::catalog_image::CatalogImageKind::Furniture)
-        .then_some((image.id, image.sha256))
+    let expected = match entry.price.target {
+        eitmad_contracts::pricing::PriceTarget::Furniture(_) => {
+            eitmad_contracts::catalog_image::CatalogImageKind::Furniture
+        }
+        eitmad_contracts::pricing::PriceTarget::Product(_) => {
+            eitmad_contracts::catalog_image::CatalogImageKind::Product
+        }
+    };
+    (image.kind == expected).then_some((image.id, image.sha256))
 }
 pub struct CatalogSyncHandler {
     pool: PgPool,
@@ -141,10 +143,7 @@ impl DomainSyncHandler for CatalogSyncHandler {
         else {
             return false;
         };
-        let public = matches!(
-            self.schema,
-            PUBLIC_SCHEMA | "eitmad.schema.product.v1" | "eitmad.schema.pricing.v1"
-        );
+        let public = matches!(self.schema, PUBLIC_SCHEMA | "eitmad.schema.pricing.v1");
         if intent == SyncIntent::Read && public {
             return reader_allowed(&mut tx, actor, scope).await.unwrap_or(false);
         }
@@ -189,48 +188,26 @@ impl DomainSyncHandler for CatalogSyncHandler {
                 _ => OperationError::Invalid,
             })
     }
-    /// Checks Manager access once in the existing transaction and strips private Product fields for readers.
+    /// Rechecks the current reader in the page transaction before returning any payload.
     async fn project_page(
         &self,
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         actor: &AuthenticatedServerSession,
         scope: &ScopeRef,
-        mut changes: Vec<ChangeRecord>,
+        changes: Vec<ChangeRecord>,
     ) -> Result<Vec<ChangeRecord>, OperationError> {
         if changes.iter().any(|change| &change.scope != scope) {
             return Err(OperationError::Denied);
         }
-        if self.schema != "eitmad.schema.product.v1" || changes.is_empty() {
-            return Ok(changes);
-        }
-        if crate::pricing::manager_allowed(tx, actor, scope.id.value())
-            .await
-            .map_err(|_| OperationError::Unavailable)?
-        {
-            return Ok(changes);
-        }
-        for change in &mut changes {
-            let Some(payload_value) = &change.payload else {
-                continue;
-            };
-            let mut record: CatalogRevision = serde_json::from_slice(
-                &STANDARD
-                    .decode(&payload_value.base64)
-                    .map_err(|_| OperationError::Invalid)?,
-            )
-            .map_err(|_| OperationError::Invalid)?;
-            let CatalogRevision::Product(p) = &mut record else {
-                // Never pass an unexpected private payload through a public product stream.
-                if matches!(record, CatalogRevision::ProductCategory(_)) {
-                    continue;
-                }
-                return Err(OperationError::Invalid);
-            };
-            p.notes.clear();
-            for v in &mut p.variants {
-                v.purchase_cost_yer = None;
-            }
-            change.payload = Some(payload(self.schema, &record)?);
+        let allowed = if matches!(self.schema, PUBLIC_SCHEMA | "eitmad.schema.pricing.v1") {
+            reader_allowed(tx, actor, scope).await?
+        } else {
+            crate::pricing::manager_allowed(tx, actor, scope.id.value())
+                .await
+                .map_err(|_| OperationError::Unavailable)?
+        };
+        if !allowed {
+            return Err(OperationError::Denied);
         }
         Ok(changes)
     }

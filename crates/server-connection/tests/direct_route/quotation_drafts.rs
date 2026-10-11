@@ -71,8 +71,8 @@ fn authorize_draft_writer(client: &mut CustomerTestClient, tenant: TenantId) {
         },
     )
     .unwrap();
-    client.actor.tenant_id = tenant;
-    client.request.object.tenant_id = tenant;
+    assert_eq!(client.actor.tenant_id, tenant);
+    assert_eq!(client.request.object.tenant_id, tenant);
     client.restart_engine();
 }
 fn draft_engine(client: &CustomerTestClient) -> SyncEngine {

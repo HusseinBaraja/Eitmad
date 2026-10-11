@@ -33,8 +33,8 @@ impl CatalogImageServer {
         &self,
         actor: &AuthenticatedServerSession,
         scope: &ScopeRef,
-        kind: CatalogImageKind,
-        write: bool,
+        _kind: CatalogImageKind,
+        _write: bool,
     ) -> Result<sqlx::Transaction<'_, sqlx::Postgres>, ImageError> {
         if scope.kind.as_str() != "organization" {
             return Err(ImageError::Denied);
@@ -42,17 +42,10 @@ impl CatalogImageServer {
         let mut tx = tenant_transaction(&self.pool, actor.tenant_id)
             .await
             .map_err(|_| ImageError::Unavailable)?;
-        let relations: &[&str] = match (kind, write) {
-            (CatalogImageKind::Product, false) => &[
-                "eitmad.relation.organization.manager.v1",
-                "eitmad.relation.organization.owner.v1",
-                "eitmad.relation.organization.receptionist.v1",
-            ],
-            _ => &[
-                "eitmad.relation.organization.manager.v1",
-                "eitmad.relation.organization.owner.v1",
-            ],
-        };
+        let relations: &[&str] = &[
+            "eitmad.relation.organization.manager.v1",
+            "eitmad.relation.organization.owner.v1",
+        ];
         let allowed: bool = sqlx::query_scalar("SELECT EXISTS (
             SELECT 1 FROM control.organizations o JOIN control.relationship_tuples r ON r.tenant_id=o.tenant_id
             WHERE o.tenant_id=$1 AND o.organization_id=$2 AND r.subject_principal_id=$3 AND r.subject_kind='user'
@@ -159,10 +152,7 @@ impl CatalogImageServer {
         let image = &input.image.reference;
         let mut tx = match self.authorize(actor, &input.scope, image.kind, false).await {
             Ok(tx) => tx,
-            Err(ImageError::Denied)
-                if image.kind == CatalogImageKind::Furniture
-                    && input.scope.kind.as_str() == "organization" =>
-            {
+            Err(ImageError::Denied) if input.scope.kind.as_str() == "organization" => {
                 let mut tx = tenant_transaction(&self.pool, actor.tenant_id)
                     .await
                     .map_err(|_| ImageError::Unavailable)?;

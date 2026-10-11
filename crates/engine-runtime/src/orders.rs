@@ -219,6 +219,8 @@ impl ProductDispatcher {
         } else {
             Err(E::Unavailable)
         };
+        self.require_approval(context, eitmad_authorization::ORDER_READ_PERMISSION)
+            .map_err(|e| *e)?;
         let mut page = match result {
             Ok(page) => {
                 for value in &page.items {

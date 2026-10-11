@@ -110,6 +110,8 @@ impl ProductDispatcher {
         } else {
             Err(E::Unavailable)
         };
+        self.require_approval(context, eitmad_authorization::QUOTATION_READ_PERMISSION)
+            .map_err(|e| *e)?;
         match result {
             Ok(page) => {
                 for value in &page.items {

@@ -152,11 +152,14 @@ impl ProductDispatcher {
             .ok_or_else(|| approval_error(ApprovalError::Unavailable, context))?;
         let actor = context.authorization.clone();
         let deadline = context.deadline;
-        tokio::task::spawn_blocking(move || server.list(&actor, &query, deadline))
+        let result = tokio::task::spawn_blocking(move || server.list(&actor, &query, deadline))
             .await
             .map_err(|_| approval_error(ApprovalError::Unavailable, context))?
             .map(QueryResult::DiscountApprovals)
-            .map_err(|e| approval_error(e, context))
+            .map_err(|e| approval_error(e, context));
+        self.require_approval(context, eitmad_authorization::DISCOUNT_READ_PERMISSION)
+            .map_err(|e| *e)?;
+        result
     }
     pub(super) async fn save_approval_draft(
         &self,

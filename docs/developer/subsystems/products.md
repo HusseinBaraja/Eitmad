@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Products capability maintainers"
-last_verified: "2026-10-05"
+last_verified: "2026-10-11"
 review_triggers:
   - "Product contracts, category ownership, pricing rules, or Windows Products UI behavior change"
 keywords:
@@ -25,7 +25,7 @@ The Windows **المنتجات** page stores Manager-created ready-made Product 
 
 `crates/product/` owns validation, scoped authorization, archive selection, immutable history, and mutation audit orchestration. `crates/contracts/src/product.rs` owns the typed contracts. `crates/storage/src/product.rs` owns migration 17 and atomic persistence. The engine dispatcher composes these boundaries; WPF uses generated C# bindings through `ProductClient`.
 
-Every record is organization-scoped. Rust checks authenticated identity and relationships on each operation. Managers receive `product.read`, `product.write`, and `product.cost.read` permissions. Receptionists receive definition read permission only. These names have the `eitmad.permission.` prefix and `.v1` suffix. An organization Owner must also have an explicit Manager relationship to edit Products, as with Parts and raw materials.
+Every record is organization-scoped. Rust checks authenticated identity and relationships on each operation. Managers receive `product.read`, `product.write`, and `product.cost.read` permissions. Receptionists have no definition, category, history, or definition-subscription access. They read only active published entries through the public sales catalog. These names have the `eitmad.permission.` prefix and `.v1` suffix. An organization Owner must also have an explicit Manager relationship to edit Products, as with Parts and raw materials.
 
 All current and historical read projections omit purchase-cost fields and internal notes without cost permission. Mutation results containing costs require that permission too. Change events contain only scope, record ID, revision, category flag, and time. Audit never contains names, costs, descriptions, or notes. The Windows projection uses Rust-supplied management and cost-access flags, clears internal editor values on loss of permission, and clears all account state on session end.
 
@@ -51,7 +51,7 @@ Protocol `1.12` advertises `eitmad.capability.product.v1` and `eitmad.schema.pro
 
 List queries use UUID cursors and limits from 1 to 100. Search terms are bounded to 256 UTF-8 bytes; Rust normalizes Arabic only for matching. Names preserve supplied text and reject unsafe direction controls. Descriptions and internal notes are bounded to 4096 bytes. Native text and numbers remain in RTL layouts with LTR money input and display.
 
-One immediate SQLite transaction writes current state, immutable Product history, stable option ownership, audit, exact retry response, and a compact publication outbox event. A mandatory write failure rolls back every write. Retry hashes bind actor, scope, operation, and input; a changed request cannot reuse a saved retry key. The runtime publishes committed events and recovers the outbox after restart. The [catalog sync cycle](synchronization.md#catalog-replication) transfers immutable definitions and categories through the real route. Server reads and snapshots omit purchase costs and internal notes for Receptionists. The confirmed sales projection exposes only priced active variants.
+One immediate SQLite transaction writes current state, immutable Product history, stable option ownership, audit, exact retry response, and a compact publication outbox event. A mandatory write failure rolls back every write. Retry hashes bind actor, scope, operation, and input; a changed request cannot reuse a saved retry key. The runtime publishes committed events and recovers the outbox after restart. The [catalog sync cycle](synchronization.md#catalog-replication) transfers immutable definitions and categories through the real route. Server definition reads, snapshots, and subscriptions deny Receptionists before returning any draft identities or payloads. The confirmed sales projection exposes only priced active variants.
 
 The shell keeps Rust records for list loading and creates editable copies only when an editor opens. List rows are immutable display projections.
 

@@ -197,11 +197,28 @@ impl AuthorizationService {
             .ok_or(AuthorizationError::Denied)
     }
 
+    fn validate_scope_tenant(
+        &self,
+        context: &AuthorizationContext,
+    ) -> Result<(), AuthorizationError> {
+        validate_context_scope(context)?;
+        if context.scope.kind.as_str() == BRANCH_SCOPE
+            && self
+                .store
+                .authorization_scope_tenant(&context.scope)
+                .map_err(|_| AuthorizationError::Unavailable)?
+                != Some(context.tenant_id)
+        {
+            return Err(AuthorizationError::Denied);
+        }
+        Ok(())
+    }
+
     fn evaluate_permissions(
         &self,
         context: &AuthorizationContext,
     ) -> Result<EffectivePermissions, AuthorizationError> {
-        validate_context_scope(context)?;
+        self.validate_scope_tenant(context)?;
         let subject = RelationshipSubject {
             principal_id: context.identity.principal_id,
             principal_kind: context.identity.principal_kind,
@@ -245,10 +262,9 @@ impl AuthorizationService {
                     CONFIG_READ_PERMISSION | PERMISSIONS_READ_PERMISSION => {
                         member && organization_scope
                     }
-                    PRODUCT_READ_PERMISSION | CATALOG_READ_PERMISSION => {
-                        (manager || receptionist) && organization_scope
-                    }
+                    CATALOG_READ_PERMISSION => (manager || receptionist) && organization_scope,
                     PRICING_WRITE_PERMISSION
+                    | PRODUCT_READ_PERMISSION
                     | PRICING_COST_READ_PERMISSION
                     | PRODUCT_WRITE_PERMISSION
                     | PRODUCT_COST_READ_PERMISSION
