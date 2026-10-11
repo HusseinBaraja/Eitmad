@@ -16,57 +16,109 @@ public sealed class WorkflowEnvironmentTests
 {
     [TestMethod]
     [TestCategory("WorkflowEnvironment")]
-    public void BothAccountsSignInThroughRealWpfAndReadServerConfirmedWork()
+    public void OneDesktopSwitchesAccountsAndRetainsServerConfirmedWork()
     {
         var root = Environment.GetEnvironmentVariable("EITMAD_E2E_ROOT");
         if (string.IsNullOrWhiteSpace(root)) Assert.Inconclusive("Run tools/workflow-environment.ps1 Start -VerifySignIn.");
         var enginePath = Environment.GetEnvironmentVariable("EITMAD_E2E_ENGINE");
         Assert.IsFalse(string.IsNullOrWhiteSpace(enginePath));
         using var secrets = JsonDocument.Parse(File.ReadAllText(Path.Combine(root!, "secrets.json")));
-        foreach (var (name, expected) in new[] { ("manager", AuthenticatedSurface.Manager), ("receptionist", AuthenticatedSurface.Receptionist) })
+        var directory = Path.Combine(root!, "receptionist");
+        var credential = File.ReadAllText(Path.Combine(directory, "route.json"));
+        foreach (var prefix in new[] { "MEDIA", "PRICING", "QUOTATION" })
+            Environment.SetEnvironmentVariable($"EITMAD_{prefix}_CREDENTIAL_ID", credential);
+        var bridge = WindowsEngineBridge.Create(["--engine", enginePath!, "--runtime-directory", directory]);
+        var sessions = new DesktopSessionController(bridge);
+        try
         {
-            var directory = Path.Combine(root!, name);
-            var credential = File.ReadAllText(Path.Combine(directory, "route.json"));
-            foreach (var prefix in new[] { "MEDIA", "PRICING", "QUOTATION" })
-                Environment.SetEnvironmentVariable($"EITMAD_{prefix}_CREDENTIAL_ID", credential);
-            var bridge = WindowsEngineBridge.Create(["--engine", enginePath!, "--runtime-directory", directory]);
-            var sessions = new DesktopSessionController(bridge);
-            try
+            WpfTestHost.Run(1338, 753, window =>
             {
-                WpfTestHost.Run(1338, 753, window =>
+                Finish(sessions.StartAsync());
+                Finish(WaitForConnection(bridge));
+                var generation = bridge.Snapshot.Generation;
+                Dictionary<Guid, string>? retainedDrafts = null;
+                foreach (var (name, expected) in Enumerable.Range(0, 3).SelectMany(_ => new[] { ("manager", AuthenticatedSurface.Manager), ("receptionist", AuthenticatedSurface.Receptionist) }))
                 {
-                    Finish(sessions.StartAsync());
-                    Finish(WaitForConnection(bridge));
-                    var signIn = WpfTestHost.FindByName<Features.Authentication.SignInView>(window, "SignInSurface");
-                    var signedIn = new TaskCompletionSource<AuthenticatedSurface>();
-                    signIn.SignedIn += (_, surface) => signedIn.TrySetResult(surface);
-                    WpfTestHost.FindByName<TextBox>(window, "UsernameBox").Text = name;
-                    WpfTestHost.FindByName<PasswordBox>(window, "PasswordInput").Password = secrets.RootElement.GetProperty($"{name}_password").GetString()!;
-                    WpfTestHost.FindByName<Button>(window, "SignInButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-                    try { Finish(signedIn.Task); }
-                    catch (TimeoutException)
-                    {
-                        Assert.Fail($"{name} sign-in did not complete: {WpfTestHost.FindByName<TextBlock>(window, "SignInError").Text}");
-                    }
-                    Assert.AreEqual(expected, signedIn.Task.Result);
-                    Assert.AreEqual(Visibility.Collapsed, signIn.Visibility);
-                    Finish(window.AccountActivation);
-                    var quotations = bridge.QueryAsync(Query.ForQuotationList(new() { Limit = 100 }));
-                    Finish(quotations);
-                    Assert.AreEqual(CommandOutcomeStatus.Succeeded, quotations.Result.Outcome.Status);
-                    Assert.IsTrue(quotations.Result.Outcome.Payload.AsQuotations()!.ServerAvailable);
-                    Assert.IsTrue(quotations.Result.Outcome.Payload.AsQuotations()!.Items.Length >= 5);
-                    var orders = bridge.QueryAsync(Query.ForOrderList(new() { Limit = 100 }));
-                    Finish(orders);
-                    Assert.AreEqual(CommandOutcomeStatus.Succeeded, orders.Result.Outcome.Status);
-                    Assert.IsTrue(orders.Result.Outcome.Payload.AsOrders()!.ServerAvailable);
-                    Assert.IsTrue(orders.Result.Outcome.Payload.AsOrders()!.Items.Length >= 1);
-                    CheckAcceptedWork(root!, orders.Result.Outcome.Payload.AsOrders()!.Items);
-                    Finish(sessions.StopAsync());
-                }, showSignIn: true, engine: bridge, sessions: sessions);
-            }
-            finally { sessions.DisposeAsync().AsTask().GetAwaiter().GetResult(); }
+                    SignIn(window, name, secrets.RootElement.GetProperty($"{name}_password").GetString()!, expected);
+                    ReadConfirmedWork(bridge, root!);
+                    var drafts = bridge.QueryAsync(Query.ForQuotationDraftList(new() { Limit = 100 }));
+                    Finish(drafts);
+                    Assert.AreEqual(CommandOutcomeStatus.Succeeded, drafts.Result.Outcome.Status);
+                    var current = drafts.Result.Outcome.Payload.AsQuotationDrafts()!.Items.ToDictionary(
+                        draft => draft.Snapshot.Id, draft => JsonSerializer.Serialize(draft.Snapshot));
+                    Assert.IsTrue(current.Count >= 5);
+                    retainedDrafts ??= current;
+                    foreach (var (id, original) in retainedDrafts)
+                        Assert.IsTrue(current.TryGetValue(id, out var retained) && retained == original, "A saved draft changed during account switching.");
+                    SwitchAccount(window, bridge);
+                    Assert.AreEqual(generation, bridge.Snapshot.Generation, "Account switching restarted the engine.");
+                }
+                Finish(sessions.StopAsync());
+            }, showSignIn: true, engine: bridge, sessions: sessions);
         }
+        finally { sessions.DisposeAsync().AsTask().GetAwaiter().GetResult(); }
+    }
+
+    private static void SignIn(MainWindow window, string name, string password, AuthenticatedSurface expected)
+    {
+        var signIn = window.SignInSurface;
+        var signedIn = new TaskCompletionSource<AuthenticatedSurface>();
+        void Observe(object? sender, AuthenticatedSurface surface) => signedIn.TrySetResult(surface);
+        signIn.SignedIn += Observe;
+        try
+        {
+            WpfTestHost.FindByName<TextBox>(window, "UsernameBox").Text = name;
+            WpfTestHost.FindByName<PasswordBox>(window, "PasswordInput").Password = password;
+            WpfTestHost.FindByName<Button>(window, "SignInButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            try { Finish(signedIn.Task); }
+            catch (TimeoutException)
+            {
+                Assert.Fail($"{name} sign-in did not complete: {WpfTestHost.FindByName<TextBlock>(window, "SignInError").Text}");
+            }
+            Assert.AreEqual(expected, signedIn.Task.Result);
+            Assert.AreEqual(Visibility.Collapsed, signIn.Visibility);
+            Finish(window.AccountActivation);
+            Assert.AreEqual(expected == AuthenticatedSurface.Manager ? Visibility.Visible : Visibility.Collapsed, window.ResponsiveRoot.Visibility);
+            Assert.AreEqual(expected == AuthenticatedSurface.Receptionist ? Visibility.Visible : Visibility.Collapsed, window.ReceptionistSurface.Visibility);
+        }
+        finally { signIn.SignedIn -= Observe; }
+    }
+
+    private static void ReadConfirmedWork(IEngineShellBridge bridge, string root)
+    {
+        var quotations = bridge.QueryAsync(Query.ForQuotationList(new() { Limit = 100 }));
+        Finish(quotations);
+        Assert.AreEqual(CommandOutcomeStatus.Succeeded, quotations.Result.Outcome.Status);
+        Assert.IsTrue(quotations.Result.Outcome.Payload.AsQuotations()!.ServerAvailable);
+        Assert.IsTrue(quotations.Result.Outcome.Payload.AsQuotations()!.Items.Length >= 5);
+        var orders = bridge.QueryAsync(Query.ForOrderList(new() { Limit = 100 }));
+        Finish(orders);
+        Assert.AreEqual(CommandOutcomeStatus.Succeeded, orders.Result.Outcome.Status);
+        Assert.IsTrue(orders.Result.Outcome.Payload.AsOrders()!.ServerAvailable);
+        Assert.IsTrue(orders.Result.Outcome.Payload.AsOrders()!.Items.Length >= 1);
+        CheckAcceptedWork(root, orders.Result.Outcome.Payload.AsOrders()!.Items);
+    }
+
+    private static void SwitchAccount(MainWindow window, IEngineShellBridge bridge)
+    {
+        MainWindow.SwitchAccountCommand.Execute(null, window);
+        WpfTestHost.CompleteLayout(window);
+        Assert.IsTrue(window.AccountSwitchDialog.IsOpen);
+        window.CancelAccountSwitchButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Assert.IsFalse(window.AccountSwitchDialog.IsOpen);
+        Assert.AreEqual(Visibility.Collapsed, window.SignInSurface.Visibility);
+        MainWindow.SwitchAccountCommand.Execute(null, window);
+        WpfTestHost.CompleteLayout(window);
+        window.ConfirmAccountSwitchButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Finish(window.AccountTransition);
+        Assert.AreEqual(Visibility.Visible, window.SignInSurface.Visibility);
+        Assert.AreEqual("", WpfTestHost.FindByName<PasswordBox>(window, "PasswordInput").Password);
+        Assert.AreEqual("", WpfTestHost.FindByName<TextBox>(window, "UsernameBox").Text);
+        Assert.AreEqual(Visibility.Collapsed, window.ReceptionistSurface.Visibility);
+        Assert.AreEqual(Visibility.Collapsed, window.ResponsiveRoot.Visibility);
+        var signedOut = bridge.QueryAsync(Query.ForOrderList(new() { Limit = 1 }));
+        Finish(signedOut);
+        Assert.AreEqual(CommandOutcomeStatus.Failed, signedOut.Result.Outcome.Status);
     }
 
     private static void CheckAcceptedWork(string root, OrderRecord[] orders)

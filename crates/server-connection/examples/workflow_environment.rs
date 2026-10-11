@@ -22,7 +22,7 @@ use eitmad_engine_runtime::DesktopAuthenticator;
 use eitmad_secret_storage::SecretStore;
 use eitmad_server_connection::{
     DirectCatalogSyncClient, DirectDiscountApprovalClient, DirectPriceClient, DirectServerConfig,
-    store_session,
+    account_credential_id, store_account_session,
 };
 use eitmad_storage::{AuthorityStore, DesktopAccount, DesktopRole};
 use serde::{Deserialize, Serialize};
@@ -187,8 +187,8 @@ async fn prepare() -> Result<()> {
     {
         return Err("receptionist provisioning denial");
     }
-    let manager_client = local_client(&root, &settings, &journal, manager, true)?;
-    let reception_client = local_client(&root, &settings, &journal, reception, false)?;
+    let manager_client = local_client(&root, &settings, &journal, manager, true, false)?;
+    let reception_client = local_client(&root, &settings, &journal, reception, false, false)?;
     let seeded = journal.seeded;
     checked(
         tokio::task::spawn_blocking(move || {
@@ -201,7 +201,42 @@ async fn prepare() -> Result<()> {
         "seed worker",
     )??;
     journal.seeded = true;
-    save(&root, &journal)
+    save(&root, &journal)?;
+    prepare_shared_desktop(&root, &settings, &journal, &control).await
+}
+
+async fn prepare_shared_desktop(
+    root: &Path,
+    settings: &Settings,
+    journal: &Journal,
+    control: &ControlPlane,
+) -> Result<()> {
+    // Retain the existing Receptionist database, including local drafts and audit history.
+    // Register both accounts on its device through the normal authenticated server operation.
+    let manager = authenticate(
+        control,
+        "manager",
+        &settings.manager_password,
+        settings.receptionist_device,
+        &settings.receptionist_seed,
+        None,
+    )
+    .await?;
+    let reception = authenticate(
+        control,
+        "receptionist",
+        &settings.receptionist_password,
+        settings.receptionist_device,
+        &settings.receptionist_seed,
+        None,
+    )
+    .await?;
+    let manager = local_client(root, settings, journal, manager, true, true)?;
+    let reception = local_client(root, settings, journal, reception, false, true)?;
+    checked(
+        tokio::task::spawn_blocking(move || seed::verify(&manager, &reception)).await,
+        "shared desktop verification worker",
+    )?
 }
 
 async fn load_or_bootstrap(root: &Path, control: &ControlPlane) -> Result<Journal> {
@@ -372,6 +407,7 @@ fn local_client(
     journal: &Journal,
     authentication: AuthenticationResult,
     manager: bool,
+    shared: bool,
 ) -> Result<Client> {
     let (name, password, seed, role) = if manager {
         (
@@ -388,7 +424,12 @@ fn local_client(
             DesktopRole::Receptionist,
         )
     };
-    let directory = root.join(name);
+    let seed = if shared {
+        settings.receptionist_seed
+    } else {
+        seed
+    };
+    let directory = root.join(if shared { "receptionist" } else { name });
     let (store, actor, branch) =
         import_account(&directory, journal, &authentication, name, password, role)?;
     let secrets = checked(
@@ -402,7 +443,7 @@ fn local_client(
     let account = authentication.session.account_id;
     let device = authentication.session.device_id;
     checked(
-        store_session(&secrets, &credential, authentication, seed),
+        store_account_session(&secrets, &credential, authentication, seed),
         "persist authenticated route",
     )?;
     checked(
@@ -425,6 +466,7 @@ fn local_client(
         ),
         "TLS route",
     )?;
+    let customer_credential = account_credential_id(&credential, actor.identity.principal_id);
     Ok(Client {
         store: store.clone(),
         actor,
@@ -460,7 +502,7 @@ fn local_client(
             "customer TLS route",
         )?,
         secrets,
-        credential,
+        credential: customer_credential,
         account,
         device,
     })

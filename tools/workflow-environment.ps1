@@ -270,18 +270,17 @@ try {
         $env:EITMAD_E2E_ENGINE = $engine
         Run-Tool 'dotnet' @('test', 'shells/windows/tests/Eitmad.WindowsShell.Tests.csproj', '--configuration', 'Release', '--nologo', '-m:1', '--filter', 'FullyQualifiedName~WorkflowEnvironmentTests')
     }
-    foreach ($name in 'manager', 'receptionist') {
-        $directory = Join-Path $root $name
-        $credential = Get-Content -LiteralPath (Join-Path $directory 'route.json') -Raw
-        foreach ($prefix in 'MEDIA', 'PRICING', 'QUOTATION') {
-            [Environment]::SetEnvironmentVariable("EITMAD_${prefix}_SERVER", $settings.endpoint, 'Process')
-            [Environment]::SetEnvironmentVariable("EITMAD_${prefix}_TRUST_PEM", (Join-Path $certificates 'trusted-ca.pem'), 'Process')
-            [Environment]::SetEnvironmentVariable("EITMAD_${prefix}_CREDENTIAL_ID", $credential, 'Process')
-        }
-        $client = Start-Owned $shell @('--engine', $engine, '--runtime-directory', $directory) $name -Visible
-        Record-Process $client $name $shell
+    # Both imported accounts use one persistent desktop and one supervised engine.
+    $directory = Join-Path $root 'receptionist'
+    $credential = Get-Content -LiteralPath (Join-Path $directory 'route.json') -Raw
+    foreach ($prefix in 'MEDIA', 'PRICING', 'QUOTATION') {
+        [Environment]::SetEnvironmentVariable("EITMAD_${prefix}_SERVER", $settings.endpoint, 'Process')
+        [Environment]::SetEnvironmentVariable("EITMAD_${prefix}_TRUST_PEM", (Join-Path $certificates 'trusted-ca.pem'), 'Process')
+        [Environment]::SetEnvironmentVariable("EITMAD_${prefix}_CREDENTIAL_ID", $credential, 'Process')
     }
-    Write-Host "Two real WPF clients started. Sign-in names: manager and receptionist."
+    $client = Start-Owned $shell @('--engine', $engine, '--runtime-directory', $directory) 'desktop' -Visible
+    Record-Process $client 'desktop' $shell
+    Write-Host "One real WPF client started. Sign-in names: manager and receptionist. Use Alt+K to switch accounts."
     Write-Host "Read the generated passwords locally from the protected file: $secretsFile"
     Write-Host "Disposable state is retained at: $root"
 } finally {

@@ -1,6 +1,6 @@
 ---
 title: "Run the Manager and Receptionist end-to-end test environment"
-description: "Start two real WPF clients with authenticated Rust server routes and persistent, isolated PostgreSQL test state."
+description: "Start one real WPF client for Manager and Receptionist with authenticated Rust routes and persistent, isolated PostgreSQL test state."
 audience: "developer"
 page_type: "task"
 status: "active"
@@ -18,7 +18,7 @@ keywords:
 
 # Run the Manager and Receptionist end-to-end test environment
 
-Use `tools/workflow-environment.ps1` to start a dedicated PostgreSQL cluster, the real `eitmad-server` TLS host, and two real WPF clients. Each client supervises its own Rust engine and uses its own runtime directory. Stop and restart use the same state; neither action resets a database or a directory.
+Use `tools/workflow-environment.ps1` to start a dedicated PostgreSQL cluster, the real `eitmad-server` TLS host, and one real WPF client with one supervised Rust engine. Sign in as Manager or Receptionist in the same window. Rust returns the account role and authorizes its operations. Stop and restart use the same state; neither action resets a database or a directory.
 
 ## Prerequisites
 
@@ -37,17 +37,21 @@ Supply the PostgreSQL binary directory on the first launch. For an installation 
 pwsh -File .\tools\workflow-environment.ps1 Start -PostgresBin 'C:\Program Files\PostgreSQL\17\bin' -VerifySignIn
 ```
 
-The command builds the server, engine, provisioning example, and WPF shell. It uses the stable `target/toolchain-1.85.1` Rust cache to isolate the required compiler from other installed toolchains. Server readiness is checked over TLS with the generated CA trust anchor. `-VerifySignIn` runs the focused real-WPF integration test before it opens the two interactive clients. This test enters the generated credentials through the real sign-in controls, checks the role-specific surface, and reads server-confirmed quotations and orders through IPC and TLS. No preview engine or fake confirmation is used.
+The command builds the server, engine, provisioning example, and WPF shell. It uses the stable `target/toolchain-1.85.1` Rust cache to isolate the required compiler from other installed toolchains. Server readiness is checked over TLS with the generated CA trust anchor. `-VerifySignIn` runs the focused real-WPF integration test before it opens the interactive client. The test alternates Manager and Receptionist sign-ins for three rounds without restarting the engine. It checks role routing, sign-out denial, cleared controls, retained drafts, and server-confirmed quotations and orders through IPC and TLS. No preview engine or fake confirmation is used.
 
-Sign in to the two windows with the usernames `manager` and `receptionist`. The passwords are generated independently. Open `tests/engine-integration/artifacts/workflow-e2e/secrets.json` locally to read the `manager_password` and `receptionist_password` fields. Do not print this file to a terminal, include it in logs, commit it, or paste its contents into a support report. Passwords, device signing seeds, and the server token key are retained only in this ACL-protected, ignored directory. Authenticated client token pairs use Rust-owned Windows Credential Manager entries with separate device-based references.
+Sign in with username `manager` or `receptionist`. The passwords are generated independently. Open `tests/engine-integration/artifacts/workflow-e2e/secrets.json` locally to read the matching `manager_password` or `receptionist_password` value. Enter only the value, without JSON quotes or commas. Do not print this file to a terminal, include it in logs, commit it, or paste its contents into a support report. Passwords, device signing seeds, and the server token key are retained only in this ACL-protected, ignored directory. Authenticated token pairs use Rust-owned Windows Credential Manager entries derived from the route and user identity.
+
+Use **Alt+K** or the account button to switch accounts. The **تبديل الحساب** dialog opens with **إلغاء** focused. Cancel keeps the current account and form input. Confirm **تسجيل الخروج** only after saving unfinished input. Unsaved form fields are cleared. Saved drafts and accepted work remain in storage. Rust closes the desktop session; the shell waits for account activation and subscription shutdown, clears account screens and credentials, and returns to sign-in. The application retains one visible window and the same engine.
+
+Each direct request and subscription resolves credentials from its author, tenant, and device. Rust checks that identity before refreshing tokens or sending traffic. A saved background operation retains its original author; account switching does not reassign it to the next user. Revoked or unavailable authority leaves work pending or denied instead of inventing server confirmation. A shared desktop cannot test simultaneous users or cross-device sync; use separate isolated test environments when those behaviors are the test target.
 
 The default state is explicitly identified as disposable test state by `disposable-eitmad-e2e`. Its layout is:
 
 | Path under the state directory | Purpose |
 | --- | --- |
 | `postgres/` | Dedicated PostgreSQL cluster; database `eitmad_workflow_test` |
-| `manager/` | Manager SQLite authority, audit, checkpoints, and non-secret credential reference |
-| `receptionist/` | Separate Receptionist SQLite authority, audit, checkpoints, and credential reference |
+| `manager/` | Retained provisioning authority and original Manager data; no interactive client starts here |
+| `receptionist/` | Shared interactive desktop authority for both accounts, including saved Receptionist drafts, audit, checkpoints, and route reference |
 | `certificates/` | Private test TLS key and explicit CA trust anchor; renewed at startup |
 | `secrets.json`, `provision.json` | Private settings and resumable provisioning journal |
 | `processes.json` | Process IDs, executable paths, and start times used to identify owned processes |
@@ -75,13 +79,15 @@ Images are not seeded. These records contain synthetic Arabic text only. The env
 
 Seed mutations use stable idempotency keys. After successful seeding, later starts authenticate both accounts and verify the retained catalog and workflows without recreating the fixtures. Existing accepted work is not replaced. A failure preserves local outboxes, journals, audits, and PostgreSQL state.
 
+For existing two-window environments, the launcher retains both directories and uses the existing `receptionist/` database as the shared desktop. It registers Manager on that device through authenticated server login, imports the verified account, and transfers catalog definitions through the supported authenticated catalog operations. Receptionist drafts and server-accepted work stay in place. Original Manager-only local data remains in `manager/`; this is not a general database merge or restore tool.
+
 ## Stop, restart, and inspect
 
 ```powershell
 pwsh -File .\tools\workflow-environment.ps1 Stop
 ```
 
-Stop identifies each owned process by PID, executable path, and start time. It ends the WPF dispatchers and their supervised engine process groups, stops the server, and performs a PostgreSQL fast shutdown. In-flight, uncommitted server transactions can roll back; accepted transactions and local committed work remain durable. For a normal manual client shutdown, use **إنهاء الاعتماد** in each system tray menu, then run `Stop` for the services.
+Stop identifies each owned process by PID, executable path, and start time. It ends the WPF dispatcher and its supervised engine process group, stops the server, and performs a PostgreSQL fast shutdown. It also stops owned clients from earlier two-window runs. In-flight, uncommitted server transactions can roll back; accepted transactions and local committed work remain durable. For a normal manual client shutdown, use **إنهاء الاعتماد** in the system tray menu, then run `Stop` for the services.
 
 Restart and repeat the sign-in proof:
 
@@ -116,5 +122,9 @@ Supply the same `-StateDirectory` to `Stop`, `Status`, and subsequent `Start` co
 Run `Status`, inspect the stage-specific error, and stop this environment before retrying. A failed launch can leave PostgreSQL or the server running so the evidence and accepted work remain available. Correct the prerequisite or service failure, then restart with the same directory.
 
 If provisioning committed in PostgreSQL but its local journal could not be saved, setup fails closed. Preserve that environment for diagnosis. Use a new named disposable environment for a fresh test; do not hand-edit business tables or delete the old state. Keep the Windows credential store and the private state directory together under the same user. Moving only SQLite files to another account does not transfer authentication.
+
+If sign-in reports **بيانات الدخول غير صحيحة أو انتهت صلاحية الحساب.**, use `manager` or `receptionist` with its matching field value from the same environment's protected file. `admin` is not an account in this environment. Stop the old launch and start the current script so both accounts are imported into the shared runtime. A server-route failure must be diagnosed separately from local credential rejection; do not replace tokens, weaken authentication, or reset data to hide it.
+
+If valid sign-in briefly opens an account screen and then returns to sign-in, check the engine connection state separately from credential rejection. The IPC reader must retain a partial frame while responses and events are delivered; cancelling that read caused intermittent startup disconnects. Rebuild the current source and use `-VerifySignIn` after stopping the environment. See [IPC framing and concurrency](../developer/subsystems/local-ipc.md#framing-concurrency-and-large-payloads) for the regression and safe reader behavior.
 
 Return to [operations](index.md) or inspect [server authority](../developer/subsystems/server-authority.md) and [Windows supervision](../developer/subsystems/windows-process-supervision.md) when changing this path.

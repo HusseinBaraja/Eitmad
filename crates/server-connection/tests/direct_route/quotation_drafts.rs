@@ -1103,7 +1103,8 @@ fn approval_connection(
         SecretKind::parse("approval-test-session").unwrap(),
         SecretReferenceId::new(Uuid::new_v4()),
     );
-    store_session(&secrets, &credential, authentication, seed).unwrap();
+    eitmad_server_connection::store_account_session(&secrets, &credential, authentication, seed)
+        .unwrap();
     let config = DirectServerConfig::new(
         &scenario.endpoint,
         scenario.server.scope.clone(),

@@ -107,7 +107,7 @@ Configure the enrolled Rust engine through these settings:
 | --- | --- |
 | `EITMAD_QUOTATION_SERVER` | HTTPS server endpoint |
 | `EITMAD_QUOTATION_TRUST_PEM` | Approved TLS trust certificate path |
-| `EITMAD_QUOTATION_CREDENTIAL_ID` | Native `SecretId` reference for the authenticated account and device; never token contents |
+| `EITMAD_QUOTATION_CREDENTIAL_ID` | Native `SecretId` route reference used by Rust `store_account_session`; requests and subscriptions select credentials for the exact actor and device, never token contents |
 | `EITMAD_QUOTATION_ORGANIZATION_ID` | Enrolled server organization UUID |
 | `EITMAD_QUOTATION_BRANCH_ID` | Enrolled server branch UUID |
 

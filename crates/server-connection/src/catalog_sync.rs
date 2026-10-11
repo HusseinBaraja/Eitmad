@@ -138,25 +138,20 @@ impl DirectCatalogSyncClient {
             }],
         };
         let driver = DirectServerDriver::new(config.clone(), self.secrets.clone(), hello.clone());
-        let mut credential = driver
-            .load_credential(&self.credential)
-            .map_err(|_| PricingError::Denied)?;
-        driver
-            .refresh_if_due(
+        let (credential_id, credential) = driver
+            .account_credential(
                 &self.credential,
-                &mut credential,
+                actor,
                 Instant::now()
                     + Duration::from_millis(
                         u64::try_from(deadline.0.saturating_sub(now().0))
                             .map_err(|_| PricingError::Unconfirmed)?,
                     ),
             )
-            .map_err(|_| PricingError::Unconfirmed)?;
-        if credential.user_id.value() != actor.identity.principal_id.value()
-            || credential.tenant_id != actor.tenant_id
-        {
-            return Err(PricingError::Denied);
-        }
+            .map_err(|failure| match failure.kind {
+                eitmad_sync::TransportFailureKind::AuthenticationFailed => PricingError::Denied,
+                _ => PricingError::Unconfirmed,
+            })?;
         WanAdapter::new(
             config.wan_endpoint(),
             driver,
@@ -164,7 +159,7 @@ impl DirectCatalogSyncClient {
             TransportAuthentication::AccountDevice {
                 account_id: credential.account_id,
                 device_id: credential.device_id,
-                credential: self.credential.clone(),
+                credential: credential_id,
             },
             RetryPolicy::default(),
         )

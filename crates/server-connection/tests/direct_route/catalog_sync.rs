@@ -38,7 +38,8 @@ fn replication(
         SecretKind::parse("catalog-sync-test").unwrap(),
         SecretReferenceId::new(Uuid::new_v4()),
     );
-    store_session(&secrets, &credential, authentication, seed).unwrap();
+    eitmad_server_connection::store_account_session(&secrets, &credential, authentication, seed)
+        .unwrap();
     let config = DirectServerConfig::new(
         endpoint,
         scope.clone(),
