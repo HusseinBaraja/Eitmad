@@ -187,9 +187,12 @@ impl DirectServerConfig {
         for certificate in certificates {
             roots.add(certificate).map_err(|_| encryption_failure())?;
         }
-        let tls = ClientConfig::builder()
-            .with_root_certificates(roots)
-            .with_no_client_auth();
+        let tls =
+            ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
+                .with_safe_default_protocol_versions()
+                .map_err(|_| encryption_failure())?
+                .with_root_certificates(roots)
+                .with_no_client_auth();
         Ok(Self {
             endpoint,
             scope,

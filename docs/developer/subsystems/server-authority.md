@@ -19,6 +19,8 @@ keywords:
 
 # Extend the modular server authority safely
 
+For a persistent local test with real accounts and WPF clients, use the [Manager and Receptionist test environment](../../operations/run-workflow-test-environment.md). The control-plane `IdentityService` exposes owner-authorized `invite_workflow_account` and `grant_workflow_role` Rust operations. Both check the active session, organization owner relationship, and registered branch and commit role changes with mandatory server audit. Invitations require normal activation; these APIs do not replace the account authentication route.
+
 `eitmad-server` is the initial combined deployment for the control, sync, relay, update, and administration planes. The five planes are library crates; `server/host` owns the server executable. The Rust crates keep explicit ownership seams so a plane can move to a separate service later without moving product authority into a shell.
 
 ## Purpose and current scope

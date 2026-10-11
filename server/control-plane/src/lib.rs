@@ -15,7 +15,10 @@ pub use access::{AccessError, AccessRequirement, ServerAccessService};
 pub use authentication::{AuthenticationError, AuthenticationService, TokenKey, unix_millis_now};
 pub use branches::{BranchError, BranchService};
 pub use database::{ControlDatabase, ControlDatabaseError};
-pub use identity::{BootstrapInput, BootstrapResult, IdentityError, IdentityService};
+pub use identity::{
+    AccountInvitation, BootstrapInput, BootstrapResult, IdentityError, IdentityService,
+    WorkflowRole,
+};
 pub use update_assignment::{UpdateAssignmentError, UpdateAssignmentService};
 
 use sqlx::PgPool;

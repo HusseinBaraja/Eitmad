@@ -121,7 +121,15 @@ public partial class MainWindow : Window
         Title = showSignIn ? "الاعتماد · تسجيل الدخول" : "الاعتماد · لوحة التحكم";
     }
 
+    internal Task AccountActivation { get; private set; } = Task.CompletedTask;
+
     private async void SessionSignedIn(object sender, AuthenticatedSurface surface)
+    {
+        AccountActivation = ActivateAccountAsync(surface);
+        await AccountActivation;
+    }
+
+    private async Task ActivateAccountAsync(AuthenticatedSurface surface)
     {
         SignInSurface.Visibility = Visibility.Collapsed;
         sessionActive = true;
