@@ -10,6 +10,7 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies]
+eitmad-customer = { path = "../customer" }
 eitmad-orders = { path = "../orders" }
 eitmad-material = { path = "../material" }
 sha2 = "=0.10.9"
@@ -44,7 +45,6 @@ async-trait = "=0.1.89"
 axum-server = { version = "=0.8.0", features = ["tls-rustls"] }
 eitmad-admin-plane = { path = "../../server/admin-plane" }
 eitmad-control-plane = { path = "../../server/control-plane" }
-eitmad-customer = { path = "../customer" }
 eitmad-postgres-support = { path = "../../server/postgres-support" }
 eitmad-server = { path = "../../server/host" }
 eitmad-server-audit = { path = "../../server/audit" }

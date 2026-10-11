@@ -65,7 +65,7 @@ impl<T: SyncTransport> CustomerSyncCycle<'_, T> {
     /// Preserves local work and the last durable checkpoint on transport,
     /// storage, authorization, or projection failure.
     pub fn run(&mut self) -> Result<(), CustomerSyncError> {
-        let pending = self.customers.sync_batch(&self.actor.scope, 50)?;
+        let pending = self.customers.sync_batch_for_author(self.actor)?;
         for change in &pending {
             self.engine.stage_committed_local_change(
                 self.actor,

@@ -21,8 +21,8 @@ use eitmad_control_plane::{BootstrapInput, ControlDatabase, ControlPlane, TokenK
 use eitmad_engine_runtime::DesktopAuthenticator;
 use eitmad_secret_storage::SecretStore;
 use eitmad_server_connection::{
-    DirectCatalogSyncClient, DirectDiscountApprovalClient, DirectPriceClient, DirectServerConfig,
-    account_credential_id, store_account_session,
+    DirectCatalogSyncClient, DirectCustomerSyncClient, DirectDiscountApprovalClient,
+    DirectPriceClient, DirectServerConfig, store_account_session,
 };
 use eitmad_storage::{AuthorityStore, DesktopAccount, DesktopRole};
 use serde::{Deserialize, Serialize};
@@ -36,6 +36,9 @@ use uuid::Uuid;
 mod customers;
 #[path = "workflow_environment/seed.rs"]
 mod seed;
+#[cfg(test)]
+#[path = "workflow_environment/tests.rs"]
+mod tests;
 
 type Result<T> = std::result::Result<T, &'static str>;
 fn checked<T, E>(value: std::result::Result<T, E>, stage: &'static str) -> Result<T> {
@@ -122,6 +125,9 @@ async fn prepare() -> Result<()> {
         checked(TokenKey::from_base64(&settings.token_key), "token key")?,
     );
     let mut journal = load_or_bootstrap(&root, &control).await?;
+    if journal.seeded {
+        return prepare_shared_desktop(&root, &settings, &journal, &control, false).await;
+    }
     let manager = authenticate(
         &control,
         "manager",
@@ -202,7 +208,7 @@ async fn prepare() -> Result<()> {
     )??;
     journal.seeded = true;
     save(&root, &journal)?;
-    prepare_shared_desktop(&root, &settings, &journal, &control).await
+    prepare_shared_desktop(&root, &settings, &journal, &control, true).await
 }
 
 async fn prepare_shared_desktop(
@@ -210,6 +216,7 @@ async fn prepare_shared_desktop(
     settings: &Settings,
     journal: &Journal,
     control: &ControlPlane,
+    verify: bool,
 ) -> Result<()> {
     // Retain the existing Receptionist database, including local drafts and audit history.
     // Register both accounts on its device through the normal authenticated server operation.
@@ -231,6 +238,27 @@ async fn prepare_shared_desktop(
         None,
     )
     .await?;
+    if !verify {
+        let directory = root.join("receptionist");
+        for (authentication, name, password, role) in [
+            (
+                manager,
+                "manager",
+                &settings.manager_password,
+                DesktopRole::Manager,
+            ),
+            (
+                reception,
+                "receptionist",
+                &settings.receptionist_password,
+                DesktopRole::Receptionist,
+            ),
+        ] {
+            import_account(&directory, journal, &authentication, name, password, role)?;
+            persist_route(&directory, authentication, settings.receptionist_seed)?;
+        }
+        return Ok(());
+    }
     let manager = local_client(root, settings, journal, manager, true, true)?;
     let reception = local_client(root, settings, journal, reception, false, true)?;
     checked(
@@ -395,11 +423,7 @@ struct Client {
     catalog: Arc<DirectCatalogSyncClient>,
     prices: Arc<DirectPriceClient>,
     workflow: DirectDiscountApprovalClient,
-    secrets: SecretStore,
-    credential: SecretId,
-    customer_config: DirectServerConfig,
-    account: eitmad_contracts::identity::AccountId,
-    device: DeviceId,
+    customers: DirectCustomerSyncClient,
 }
 fn local_client(
     root: &Path,
@@ -430,29 +454,10 @@ fn local_client(
         seed
     };
     let directory = root.join(if shared { "receptionist" } else { name });
-    let (store, actor, branch) =
+    let (store, installer) =
         import_account(&directory, journal, &authentication, name, password, role)?;
-    let secrets = checked(
-        SecretStore::open(&directory, None),
-        "Windows credential store",
-    )?;
-    let credential = SecretId::new(
-        checked(SecretKind::parse("workflow-e2e"), "credential kind")?,
-        SecretReferenceId::new(authentication.session.device_id.value()),
-    );
-    let account = authentication.session.account_id;
-    let device = authentication.session.device_id;
-    checked(
-        store_account_session(&secrets, &credential, authentication, seed),
-        "persist authenticated route",
-    )?;
-    checked(
-        fs::write(
-            directory.join("route.json"),
-            checked(serde_json::to_vec(&credential), "credential reference")?,
-        ),
-        "write non-secret route reference",
-    )?;
+    let (actor, branch) = sign_in(&store, installer, name, password)?;
+    let (secrets, credential) = persist_route(&directory, authentication, seed)?;
     let config = checked(
         DirectServerConfig::new(
             &settings.endpoint,
@@ -466,7 +471,6 @@ fn local_client(
         ),
         "TLS route",
     )?;
-    let customer_credential = account_credential_id(&credential, actor.identity.principal_id);
     Ok(Client {
         store: store.clone(),
         actor,
@@ -475,7 +479,7 @@ fn local_client(
             config.clone(),
             secrets.clone(),
             credential.clone(),
-            store,
+            store.clone(),
         )),
         prices: Arc::new(DirectPriceClient::from_config(
             config.clone(),
@@ -488,24 +492,52 @@ fn local_client(
             credential.clone(),
             scope("branch", journal.branch.value())?,
         ),
-        customer_config: checked(
-            DirectServerConfig::new(
-                &settings.endpoint,
-                scope("branch", journal.branch.value())?,
-                checked(
-                    SchemaId::parse("eitmad.schema.customer.v1"),
-                    "customer schema",
-                )?,
-                1,
-                &root.join("certificates/trusted-ca.pem"),
-            ),
-            "customer TLS route",
-        )?,
-        secrets,
-        credential: customer_credential,
-        account,
-        device,
+        customers: DirectCustomerSyncClient::from_config(
+            checked(
+                DirectServerConfig::new(
+                    &settings.endpoint,
+                    scope("branch", journal.branch.value())?,
+                    checked(
+                        SchemaId::parse("eitmad.schema.customer.v1"),
+                        "customer schema",
+                    )?,
+                    1,
+                    &root.join("certificates/trusted-ca.pem"),
+                ),
+                "customer TLS route",
+            )?,
+            secrets,
+            credential,
+            store,
+        ),
     })
+}
+
+fn persist_route(
+    directory: &Path,
+    authentication: AuthenticationResult,
+    seed: [u8; 32],
+) -> Result<(SecretStore, SecretId)> {
+    let secrets = checked(
+        SecretStore::open(directory, None),
+        "Windows credential store",
+    )?;
+    let credential = SecretId::new(
+        checked(SecretKind::parse("workflow-e2e"), "credential kind")?,
+        SecretReferenceId::new(authentication.session.device_id.value()),
+    );
+    checked(
+        store_account_session(&secrets, &credential, authentication, seed),
+        "persist authenticated route",
+    )?;
+    checked(
+        fs::write(
+            directory.join("route.json"),
+            checked(serde_json::to_vec(&credential), "credential reference")?,
+        ),
+        "write non-secret route reference",
+    )?;
+    Ok((secrets, credential))
 }
 
 fn import_account(
@@ -515,7 +547,7 @@ fn import_account(
     name: &str,
     password: &str,
     role: DesktopRole,
-) -> Result<(AuthorityStore, AuthorizationContext, AuthorizationContext)> {
+) -> Result<(AuthorityStore, AuthorizationContext)> {
     let store = checked(AuthorityStore::open(directory), "open client authority")?;
     let installer = checked(
         store.initialize_server_installation(
@@ -527,6 +559,35 @@ fn import_account(
         ),
         "import server installation",
     )?;
+    import_missing_account(&store, &installer, authentication, name, password, role)?;
+    Ok((store, installer))
+}
+
+fn import_missing_account(
+    store: &AuthorityStore,
+    installer: &AuthorizationContext,
+    authentication: &AuthenticationResult,
+    name: &str,
+    password: &str,
+    role: DesktopRole,
+) -> Result<()> {
+    let accounts = checked(
+        store.list_desktop_accounts(installer.tenant_id),
+        "read imported accounts",
+    )?;
+    if let Some(existing) = accounts
+        .accounts
+        .iter()
+        .find(|a| a.account_id == authentication.session.account_id || a.username == name)
+    {
+        if existing.account_id != authentication.session.account_id
+            || existing.user_id != authentication.session.user_id
+            || existing.username != name
+        {
+            return Err("imported account identity mismatch");
+        }
+        return Ok(());
+    }
     let salt = checked(
         SaltString::encode_b64(Uuid::new_v4().as_bytes()),
         "password salt",
@@ -538,12 +599,15 @@ fn import_account(
     .to_string();
     checked(
         store.provision_desktop_account(
-            &installer,
+            installer,
             &DesktopAccount {
                 account_id: authentication.session.account_id,
                 user_id: authentication.session.user_id,
-                tenant_id: journal.tenant,
-                organization_id: journal.organization,
+                tenant_id: installer.tenant_id,
+                organization_id: checked(
+                    store.local_organization_id(),
+                    "installation organization",
+                )?,
                 password_hash: hash,
                 role,
             },
@@ -551,10 +615,24 @@ fn import_account(
             now(),
         ),
         "import verified account",
-    )?;
+    )
+}
+
+fn sign_in(
+    store: &AuthorityStore,
+    installer: AuthorizationContext,
+    name: &str,
+    password: &str,
+) -> Result<(AuthorizationContext, AuthorizationContext)> {
     let mut process = installer;
     process.identity.principal_kind = PrincipalKind::Device;
-    process.identity.principal_id = PrincipalId::new(authentication.session.device_id.value());
+    process.identity.principal_id = PrincipalId::new(
+        process
+            .identity
+            .device_id
+            .ok_or("installation device")?
+            .value(),
+    );
     let signed_in = checked(
         DesktopAuthenticator::new(store.clone()).sign_in(
             &process,
@@ -569,7 +647,7 @@ fn import_account(
     let branch = signed_in
         .customer_authorization
         .ok_or("desktop branch authorization")?;
-    Ok((store, actor, branch))
+    Ok((actor, branch))
 }
 
 fn load_settings() -> Result<(PathBuf, Settings)> {

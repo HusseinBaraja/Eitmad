@@ -158,10 +158,10 @@ $names = @('PGPASSWORD', 'CARGO_INCREMENTAL', 'CARGO_TARGET_DIR', 'EITMAD_E2E_RO
     'EITMAD_SERVER_DATABASE_URL', 'EITMAD_SERVER_TOKEN_KEY', 'EITMAD_SERVER_LISTEN',
     'EITMAD_SERVER_TLS_CERTIFICATE', 'EITMAD_SERVER_TLS_PRIVATE_KEY', 'EITMAD_SERVER_UPDATE_MANIFEST_DIRECTORY',
     'EITMAD_SERVER_UPDATE_OPERATOR_TENANT_ID', 'EITMAD_SERVER_UPDATE_KEY_ID', 'EITMAD_SERVER_UPDATE_PUBLIC_KEY')
-foreach ($prefix in 'MEDIA', 'PRICING', 'QUOTATION') {
+foreach ($prefix in 'MEDIA', 'PRICING', 'QUOTATION', 'CUSTOMER') {
     $names += @("EITMAD_${prefix}_SERVER", "EITMAD_${prefix}_TRUST_PEM", "EITMAD_${prefix}_CREDENTIAL_ID")
 }
-$names += @('EITMAD_QUOTATION_ORGANIZATION_ID', 'EITMAD_QUOTATION_BRANCH_ID', 'EITMAD_E2E_ENGINE')
+$names += @('EITMAD_QUOTATION_ORGANIZATION_ID', 'EITMAD_QUOTATION_BRANCH_ID', 'EITMAD_CUSTOMER_BRANCH_ID', 'EITMAD_E2E_ENGINE')
 $names = @($names | Select-Object -Unique)
 foreach ($name in $names) { $previous[$name] = [Environment]::GetEnvironmentVariable($name, 'Process'); [Environment]::SetEnvironmentVariable($name, $null, 'Process') }
 Push-Location $workspace
@@ -258,12 +258,13 @@ try {
     $journal = Get-Content -LiteralPath (Join-Path $root 'provision.json') -Raw | ConvertFrom-Json
     $env:EITMAD_QUOTATION_ORGANIZATION_ID = $journal.organization
     $env:EITMAD_QUOTATION_BRANCH_ID = $journal.branch
+    $env:EITMAD_CUSTOMER_BRANCH_ID = $journal.branch
     # The thin shell and its supervised engine receive route references, never server secrets.
     foreach ($name in 'PGPASSWORD', 'EITMAD_SERVER_DATABASE_URL', 'EITMAD_SERVER_TOKEN_KEY') {
         [Environment]::SetEnvironmentVariable($name, $null, 'Process')
     }
     if ($VerifySignIn) {
-        foreach ($prefix in 'MEDIA', 'PRICING', 'QUOTATION') {
+        foreach ($prefix in 'MEDIA', 'PRICING', 'QUOTATION', 'CUSTOMER') {
             [Environment]::SetEnvironmentVariable("EITMAD_${prefix}_SERVER", $settings.endpoint, 'Process')
             [Environment]::SetEnvironmentVariable("EITMAD_${prefix}_TRUST_PEM", (Join-Path $certificates 'trusted-ca.pem'), 'Process')
         }
@@ -273,7 +274,7 @@ try {
     # Both imported accounts use one persistent desktop and one supervised engine.
     $directory = Join-Path $root 'receptionist'
     $credential = Get-Content -LiteralPath (Join-Path $directory 'route.json') -Raw
-    foreach ($prefix in 'MEDIA', 'PRICING', 'QUOTATION') {
+    foreach ($prefix in 'MEDIA', 'PRICING', 'QUOTATION', 'CUSTOMER') {
         [Environment]::SetEnvironmentVariable("EITMAD_${prefix}_SERVER", $settings.endpoint, 'Process')
         [Environment]::SetEnvironmentVariable("EITMAD_${prefix}_TRUST_PEM", (Join-Path $certificates 'trusted-ca.pem'), 'Process')
         [Environment]::SetEnvironmentVariable("EITMAD_${prefix}_CREDENTIAL_ID", $credential, 'Process')

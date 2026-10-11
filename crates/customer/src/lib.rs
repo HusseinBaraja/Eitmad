@@ -201,6 +201,22 @@ impl CustomerService {
             .map_err(|_| CustomerError::Unavailable)
     }
 
+    /// Loads only changes committed by this actor, under its current write permission.
+    /// # Errors
+    /// Rejects revoked authority or unreadable durable work.
+    pub fn sync_batch_for_author(
+        &self,
+        actor: &AuthorizationContext,
+    ) -> Result<Vec<ChangeRecord>, CustomerError> {
+        validate_scope(&actor.scope)?;
+        self.authorization
+            .authorize(actor, CUSTOMER_WRITE_PERMISSION)
+            .map_err(map_authorization_error)?;
+        self.store
+            .customer_sync_batch_for_author(actor)
+            .map_err(|_| CustomerError::Unavailable)
+    }
+
     /// Projects a server-confirmed change into the scoped customer read model.
     /// Replaying a confirmed change after restart is safe.
     ///
@@ -680,6 +696,108 @@ mod tests {
             address: Some(CustomerAddress::parse("عدن، المنصورة").unwrap()),
             notes: Some(CustomerNotes::parse("الاتصال قبل التسليم").unwrap()),
         }
+    }
+
+    #[test]
+    fn pending_sync_preserves_each_author_after_restart_and_rechecks_permission() {
+        let directory = tempfile::tempdir().unwrap();
+        let (store, customers, first) =
+            authorized_service(&directory, 41, 51, eitmad_authorization::MANAGER_RELATION);
+        let mut second = first.clone();
+        second.identity.principal_id = PrincipalId::new(Uuid::from_u128(42));
+        let authorization = AuthorizationService::new(store.clone());
+        let grant = authorization
+            .grant_relationship(
+                &mutation(first.clone(), 300, 3),
+                &GrantScopeRelationship {
+                    expected_policy_version: 2,
+                    subject: RelationshipSubject {
+                        principal_id: second.identity.principal_id,
+                        principal_kind: PrincipalKind::User,
+                    },
+                    relation: RelationId::parse(eitmad_authorization::RECEPTIONIST_RELATION)
+                        .unwrap(),
+                },
+            )
+            .unwrap();
+        customers
+            .create(
+                &mutation(first.clone(), 301, 4),
+                &create_command("عميل أول", "777123456"),
+            )
+            .unwrap();
+        customers
+            .create(
+                &mutation(second.clone(), 302, 5),
+                &create_command("عميل ثان", "777654321"),
+            )
+            .unwrap();
+        let reopened = AuthorityStore::open(directory.path()).unwrap();
+        let actors = reopened.pending_customer_actors().unwrap();
+        assert_eq!(actors.len(), 2);
+        assert!(actors.contains(&first));
+        assert!(actors.contains(&second));
+        let customers = CustomerService::new(reopened, authorization.clone());
+        assert_eq!(
+            customers.sync_batch_for_author(&first).unwrap()[0].idempotency_key,
+            IdempotencyKey::new(Uuid::from_u128(301))
+        );
+        assert_eq!(customers.sync_batch_for_author(&second).unwrap().len(), 1);
+        authorization
+            .revoke_relationship(
+                &mutation(first, 303, 6),
+                &eitmad_contracts::commands::RevokeScopeRelationship {
+                    expected_policy_version: 3,
+                    relationship_id: grant.relationship.relationship_id,
+                },
+            )
+            .unwrap();
+        assert_eq!(
+            customers.sync_batch_for_author(&second),
+            Err(CustomerError::Denied)
+        );
+        assert_eq!(customers.sync_batch(&second.scope, 50).unwrap().len(), 2);
+    }
+
+    #[test]
+    fn sync_delivers_earlier_customer_revisions_before_another_author_device() {
+        let directory = tempfile::tempdir().unwrap();
+        let (_, customers, first) =
+            authorized_service(&directory, 61, 71, eitmad_authorization::MANAGER_RELATION);
+        let mut second = first.clone();
+        second.identity.device_id = Some(eitmad_contracts::identity::DeviceId::new(
+            Uuid::from_u128(72),
+        ));
+        let created = customers
+            .create(
+                &mutation(first.clone(), 401, 4),
+                &create_command("عميل اختبار", "777123456"),
+            )
+            .unwrap();
+        customers
+            .update(
+                &mutation(second.clone(), 402, 5),
+                &UpdateCustomer {
+                    customer_id: created.customer.id,
+                    expected_revision: 1,
+                    name: CustomerName::parse("عميل معدل").unwrap(),
+                    phone: created.customer.phone,
+                    address: None,
+                    notes: None,
+                },
+            )
+            .unwrap();
+        let pending = customers.sync_batch_for_author(&first).unwrap();
+        assert_eq!(pending.len(), 1);
+        assert_eq!(pending[0].revision, 1);
+        assert!(customers.sync_batch_for_author(&second).unwrap().is_empty());
+        customers
+            .project_confirmed(&first, &pending[0], CorrelationId::new(Uuid::new_v4()))
+            .unwrap();
+        assert!(customers.sync_batch_for_author(&first).unwrap().is_empty());
+        let next = customers.sync_batch_for_author(&second).unwrap();
+        assert_eq!(next.len(), 1);
+        assert_eq!(next[0].revision, 2);
     }
 
     #[test]

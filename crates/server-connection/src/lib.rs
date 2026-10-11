@@ -1,7 +1,9 @@
 mod authenticated_http;
 mod catalog_image;
 mod catalog_sync;
+mod customer_sync;
 pub use catalog_sync::DirectCatalogSyncClient;
+pub use customer_sync::DirectCustomerSyncClient;
 mod pricing;
 mod quotation_approval;
 pub use catalog_image::DirectCatalogImageClient;

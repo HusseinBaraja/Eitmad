@@ -163,15 +163,13 @@ fn quotation_confirmed_issue_and_revision_projection_preserve_competing_local_wo
             },
         )
         .unwrap();
-    let change = service.sync_batch(&actor, 50).unwrap().remove(0);
-    service
-        .project_confirmed(&actor, &change, CorrelationId::new(Uuid::new_v4()))
-        .unwrap();
+    assert_eq!(service.sync_batch(&actor, 50).unwrap().len(), 1);
     let mut record = issued_cache_record(&actor, &draft.snapshot);
     let correlation = CorrelationId::new(Uuid::new_v4());
     service
         .cache_quotation(&actor, &record, correlation)
         .unwrap();
+    assert!(service.sync_batch(&actor, 50).unwrap().is_empty());
     assert!(
         service
             .get(
