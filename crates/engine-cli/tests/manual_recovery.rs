@@ -105,6 +105,7 @@ fn manual_recovery_authorizes_preserves_and_rejects_unsafe_overwrites() {
     assert_eq!(artifacts[0].kind, RecoveryArtifactKind::PreRestore);
     AuthorityStore::validate_backup(&artifacts[0].path).unwrap();
     AuthorityStore::check_compatible(directory.path()).unwrap();
+    assert_restore_session_evidence(directory.path(), &artifacts[0].path);
     let live = directory.path().join(eitmad_storage::DATABASE_FILE_NAME);
     assert!(
         !recovery(directory.path(), "restore", &live, MANAGER)
@@ -112,6 +113,111 @@ fn manual_recovery_authorizes_preserves_and_rejects_unsafe_overwrites() {
             .success()
     );
     assert_eq!(std::fs::read(&backup).unwrap(), original);
+    assert_recovered_engine_ready(directory.path());
+}
+
+fn assert_restore_session_evidence(directory: &Path, previous: &Path) {
+    let live =
+        rusqlite::Connection::open(directory.join(eitmad_storage::DATABASE_FILE_NAME)).unwrap();
+    let session: String = live.query_row(
+        "SELECT session_id FROM mutation_audit WHERE operation = 'eitmad.storage.restore.v1' AND outcome = '\"succeeded\"'",
+        [], |row| row.get(0),
+    ).unwrap();
+    let attribution: (String, String, i64) = live.query_row(
+        "SELECT s.user_id, s.account_id, s.closed_at FROM identity_sessions s
+         JOIN identity_accounts a ON a.account_id=s.account_id AND a.user_id=s.user_id AND a.tenant_id=s.tenant_id
+         JOIN identity_users u ON u.user_id=s.user_id WHERE s.session_id=?1",
+        [&session], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+    ).unwrap();
+    let old = rusqlite::Connection::open(previous).unwrap();
+    let original: (String, String, Option<i64>) = old
+        .query_row(
+            "SELECT user_id, account_id, closed_at FROM identity_sessions WHERE session_id=?1",
+            [&session],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .unwrap();
+    assert_eq!((&attribution.0, &attribution.1), (&original.0, &original.1));
+    assert_eq!(original.2, None);
+    let sign_in = |connection: &rusqlite::Connection| -> Vec<rusqlite::types::Value> {
+        connection.query_row(
+            "SELECT * FROM mutation_audit WHERE session_id=?1 AND operation='eitmad.desktop.session.sign-in.v1'",
+            [&session], |row| (0..row.as_ref().column_count()).map(|column| row.get(column)).collect(),
+        ).unwrap()
+    };
+    assert_eq!(sign_in(&live), sign_in(&old));
+}
+
+#[test]
+fn manual_recovery_preserves_new_operator_evidence_without_new_credentials_or_permissions() {
+    use argon2::{Argon2, PasswordHasher as _, password_hash::SaltString};
+    use eitmad_contracts::{
+        identity::{AccountId, UserId},
+        transport::UnixMillis,
+    };
+    use eitmad_storage::{DesktopAccount, DesktopRole};
+    use uuid::Uuid;
+
+    let directory = TempDir::new().unwrap();
+    seed(directory.path());
+    let backup = directory.path().join("before-operator.sqlite3");
+    assert!(
+        recovery(directory.path(), "backup", &backup, MANAGER)
+            .status
+            .success()
+    );
+    let store = AuthorityStore::open(directory.path()).unwrap();
+    let owner = store.local_authorization_context(UnixMillis(1)).unwrap();
+    let salt = SaltString::encode_b64(b"synthetic-recovery").unwrap();
+    let account = DesktopAccount {
+        account_id: AccountId::new(Uuid::new_v4()),
+        user_id: UserId::new(Uuid::new_v4()),
+        tenant_id: owner.tenant_id,
+        organization_id: store.local_organization_id().unwrap(),
+        password_hash: Argon2::default()
+            .hash_password(b"synthetic recovery password", &salt)
+            .unwrap()
+            .to_string(),
+        role: DesktopRole::Manager,
+    };
+    store
+        .provision_desktop_account(&owner, &account, "operator", UnixMillis(2))
+        .unwrap();
+    let restored = recovery(
+        directory.path(),
+        "restore",
+        &backup,
+        br#"{"username":"operator","password":"synthetic recovery password"}"#,
+    );
+    assert!(
+        restored.status.success(),
+        "{}",
+        String::from_utf8_lossy(&restored.stderr)
+    );
+    let artifacts = AuthorityStore::recovery_artifacts(directory.path()).unwrap();
+    assert_restore_session_evidence(directory.path(), &artifacts[0].path);
+    let connection = rusqlite::Connection::open(store.path()).unwrap();
+    let credentials: i64 = connection
+        .query_row(
+            "SELECT COUNT(*) FROM desktop_accounts WHERE account_id=?1",
+            [account.account_id.value().to_string()],
+            |row| row.get(0),
+        )
+        .unwrap();
+    let permissions: i64 = connection
+        .query_row(
+            "SELECT COUNT(*) FROM scope_relationships WHERE principal_id=?1",
+            [account.user_id.value().to_string()],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!((credentials, permissions), (0, 0));
+    assert!(
+        store
+            .desktop_account(owner.tenant_id, "operator")
+            .unwrap()
+            .is_none()
+    );
     assert_recovered_engine_ready(directory.path());
 }
 

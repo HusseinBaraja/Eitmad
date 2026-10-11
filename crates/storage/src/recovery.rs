@@ -144,7 +144,8 @@ impl AuthorityStore {
         restore(runtime_directory.as_ref(), source.as_ref(), None)
     }
 
-    /// Restores a candidate with the recovery audit committed before installation.
+    /// Restores a candidate with the recovery audit and closed operator session evidence
+    /// committed before installation. Newer credentials and permissions are not restored.
     /// The caller must hold exclusive stopped-engine authority and authorize the request.
     ///
     /// # Errors
@@ -251,7 +252,16 @@ fn restore(
             }
             let mut connection = staged.open_connection()?;
             crate::migrations::apply(&mut connection)?;
-            crate::insert_audit(&connection, audit)?;
+            connection
+                .execute(
+                    "ATTACH DATABASE ?1 AS recovery_live",
+                    [live.to_str().ok_or(StorageError)?],
+                )
+                .map_err(|_| StorageError)?;
+            let transaction = connection.transaction().map_err(|_| StorageError)?;
+            crate::identity::preserve_recovery_session(&transaction, audit)?;
+            crate::insert_audit(&transaction, audit)?;
+            transaction.commit().map_err(|_| StorageError)?;
             drop(connection);
             checkpoint(&candidate)?;
             AuthorityStore::validate_backup(&candidate)

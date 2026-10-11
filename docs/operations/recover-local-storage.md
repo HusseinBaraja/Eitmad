@@ -71,7 +71,11 @@ Inspect exit `0` and the JSON `status: succeeded` before continuing. The backup 
 
 Restore authenticates against current credentials and relationships, not the selected backup. It rejects another installation, changed tenant/scope topology, the live database as source, corrupt or incompatible candidates, unsafe database-family paths, and an active engine. Rust verifies identity again on its private staged copy and commits the restore audit there before installation. The original backup is unchanged. The previous database and its companions remain under `eitmad.pre-restore-<uuid>.sqlite3` in the runtime directory.
 
+The staged restore transaction also preserves the operator's persisted session, its referenced identity-directory records, and its unchanged sign-in/sign-out audit evidence. It closes the maintenance session at restore time. This keeps account and user attribution available even when the operator was created after the backup. It does not copy newer desktop credentials, roles, or permission relationships; those remain at the selected backup point.
+
 Both commands report only success with elapsed milliseconds or a stable sanitized error code. Exit `1` is failure. `eitmad.error.engine-already-running.v1` requires stopping the engine; `eitmad.error.authorization-denied.v1` requires a current authorized account; `eitmad.error.storage-recovery-unsafe-source.v1` requires a valid matching recovery point; `eitmad.error.storage-recovery-failed.v1` requires checking private permissions, space, and the filesystem. Do not retry by deleting files.
+
+An account-read or session-write failure during sign-in reports `eitmad.error.storage-recovery-failed.v1`. Invalid credentials report `eitmad.error.authorization-denied.v1`. A storage failure does not mean the supplied credential was rejected.
 
 After restore, run diagnostics, then a clean engine start and stop. Keep credentials, certificates, secret-store files, and encryption keys from the same installation: a SQLite backup does not back up OS credentials or files outside SQLite. SQLite backups are owner-private but not encrypted. Use only synthetic contents for this step.
 
@@ -125,7 +129,7 @@ The script creates a new source database, private TLS certificates, and an owner
 cargo test --locked -p eitmad-server-connection --test direct_route manual_two_client_recovery -- --ignored --nocapture
 ```
 
-The drill uses existing synthetic domain fixtures and real TLS routes. It restores two SQLite client databases and a complete PostgreSQL archive into a new database. It compares every SQLite table with the backup, permitting only the new restore audit, and compares all non-system PostgreSQL table row digests. It checks confirmed customers, catalog dependencies and sales data, quotations, orders, audit history, and pending customer, draft, catalog, and order work. An accepted order edit loses its local reply before backup; after restore, replay must return its original result without a second revision. Pending synchronization must reach the server and remain confirmed after another reconnect.
+The drill uses existing synthetic domain fixtures and real TLS routes. It restores two SQLite client databases and a complete PostgreSQL archive into a new database. It supplies trusted Rust authorization contexts directly, without credential sign-in. It compares every SQLite table with the backup, permitting only the new restore audit, and compares all non-system PostgreSQL table row digests. The credential-based CLI regression tests separately check operator session evidence and closure, including an operator created after backup without restoring its credentials or permissions. The drill checks confirmed customers, catalog dependencies and sales data, quotations, orders, audit history, and pending customer, draft, catalog, and order work. An accepted order edit loses its local reply before backup; after restore, replay must return its original result without a second revision. Pending synchronization must reach the server and remain confirmed after another reconnect.
 
 `result.json` records sanitized results and recovery milliseconds from the stopped server through backup, restore, restart, and reconnect verification. Both PostgreSQL databases and private backup artifacts remain available. No existing user database is reset or overwritten. Native credential replacement, encrypted off-device storage, complete device-loss recovery, scheduling, and retention remain outside this synthetic procedure.
 
@@ -136,7 +140,7 @@ The completed Windows drill used PostgreSQL 17.11 and `rustc 1.85.1`. The instal
 | Actual command | Result |
 | --- | --- |
 | `./tools/run-manual-recovery-drill.ps1` | Passed; two client databases restored; PostgreSQL table rowsets identical before reconnect; source database preserved |
-| `rustup run 1.85.1 cargo test --locked -p eitmad-storage -p eitmad-engine-runtime -p eitmad-engine-cli recovery -- --nocapture` | Passed: eight storage recovery cases, two coordinator cases, and one CLI case |
+| `rustup run 1.85.1 cargo test --locked -p eitmad-storage -p eitmad-engine-runtime -p eitmad-engine-cli recovery -- --nocapture` | Passed: eight storage cases, three coordinator cases, and two CLI cases, including credential-based audit attribution and storage failure classification |
 | `rustup run 1.85.1 cargo test --locked -p eitmad-authorization` | Passed: 13 tests |
 | `rustup run 1.85.1 cargo test --locked -p eitmad-engine-cli --test process_modes authority_lock_blocks_concurrent_process_and_allows_replacement -- --nocapture` | Passed: manual backup and restore refused while the engine held authority |
 | `rustup run 1.85.1 cargo test --locked -p eitmad-engine-cli --test manual_recovery -- --nocapture` | Passed: credential/role checks, foreign-source and overwrite refusal, preserved state, diagnostics, restored engine `ready`, and clean stop |

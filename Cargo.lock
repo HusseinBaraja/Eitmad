@@ -923,6 +923,7 @@ dependencies = [
  "eitmad-secret-storage",
  "eitmad-server-connection",
  "eitmad-storage",
+ "rusqlite",
  "serde",
  "serde_json",
  "tempfile",

@@ -13,7 +13,7 @@ use eitmad_storage::AuthorityStore;
 use uuid::Uuid;
 
 use crate::{
-    DesktopAuthenticator, RuntimeBuilder,
+    DesktopAuthenticationError, DesktopAuthenticator, RuntimeBuilder,
     authority::{AuthorityLock, AuthorityLockError},
 };
 
@@ -92,7 +92,10 @@ impl ManualRecovery {
                 CorrelationId::new(Uuid::new_v4()),
                 now,
             )
-            .map_err(|_| RecoveryError::Denied)?
+            .map_err(|error| match error {
+                DesktopAuthenticationError::Failed => RecoveryError::Denied,
+                DesktopAuthenticationError::Unavailable => RecoveryError::Unavailable,
+            })?
             .authorization
             .ok_or(RecoveryError::Denied)
     }
@@ -215,6 +218,52 @@ mod tests {
         identity::{ScopeId, TenantId},
         transport::IdempotencyKey,
     };
+
+    fn provision_operator(store: &AuthorityStore) {
+        use argon2::{Argon2, PasswordHasher as _, password_hash::SaltString};
+        use eitmad_contracts::identity::{AccountId, UserId};
+        use eitmad_storage::{DesktopAccount, DesktopRole};
+
+        let owner = store.local_authorization_context(UnixMillis(1)).unwrap();
+        let salt = SaltString::encode_b64(b"synthetic-recovery").unwrap();
+        let account = DesktopAccount {
+            account_id: AccountId::new(Uuid::new_v4()),
+            user_id: UserId::new(Uuid::new_v4()),
+            tenant_id: owner.tenant_id,
+            organization_id: store.local_organization_id().unwrap(),
+            password_hash: Argon2::default()
+                .hash_password(b"synthetic recovery password", &salt)
+                .unwrap()
+                .to_string(),
+            role: DesktopRole::Manager,
+        };
+        store
+            .provision_desktop_account(&owner, &account, "operator", UnixMillis(2))
+            .unwrap();
+    }
+
+    #[test]
+    fn recovery_sign_in_distinguishes_denial_from_account_read_and_session_write_failures() {
+        let directory = tempfile::tempdir().unwrap();
+        let store = AuthorityStore::open(directory.path()).unwrap();
+        provision_operator(&store);
+        let recovery = ManualRecovery::acquire(directory.path()).unwrap();
+        assert_eq!(
+            recovery.sign_in("operator", "incorrect password", UnixMillis(3)),
+            Err(RecoveryError::Denied)
+        );
+        let connection = rusqlite::Connection::open(store.path()).unwrap();
+        connection.execute_batch("CREATE TRIGGER fail_recovery_session BEFORE INSERT ON identity_sessions BEGIN SELECT RAISE(ABORT, 'synthetic session failure'); END;").unwrap();
+        assert_eq!(
+            recovery.sign_in("operator", "synthetic recovery password", UnixMillis(3)),
+            Err(RecoveryError::Unavailable)
+        );
+        connection.execute_batch("DROP TRIGGER fail_recovery_session; ALTER TABLE desktop_accounts RENAME TO unavailable_accounts;").unwrap();
+        assert_eq!(
+            recovery.sign_in("operator", "synthetic recovery password", UnixMillis(3)),
+            Err(RecoveryError::Unavailable)
+        );
+    }
 
     #[test]
     fn maintenance_does_not_initialize_or_migrate_storage() {
