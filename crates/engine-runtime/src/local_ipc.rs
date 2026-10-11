@@ -285,7 +285,7 @@ impl LocalIpcServer {
                 biased;
                 completed = pending.join_next(), if !pending.is_empty() => {
                     if let Some(Ok(response)) = completed {
-                        if !write_frame_or_close(&mut writer, &response).await? {
+                        if !write_pending_response(&mut writer, response, self.desktop_auth.as_ref(), session.as_ref()).await? {
                             return Ok(());
                         }
                     }
@@ -316,11 +316,7 @@ impl LocalIpcServer {
 
                     match message {
                         IpcClientMessage::DesktopSignOut(_) | IpcClientMessage::DesktopSignIn(_) | IpcClientMessage::Handshake(_) if session.is_some() => {
-                            // Fence replies for the previous account before changing its session.
-                            pending.abort_all();
-                            if !close_all_subscriptions(&mut writer, &mut subscriptions).await? { return Ok(()); }
-                            let response = self.handle_message(message, &mut session).await;
-                            if !write_frame_or_close(&mut writer, &response).await? { return Ok(()); }
+                            if !self.transition_session(&mut writer, &mut pending, &mut subscriptions, &mut session, message).await? { return Ok(()); }
                         }
                         IpcClientMessage::Subscribe(request) if session.is_some() => {
                             let response = self.subscribe(
@@ -342,7 +338,7 @@ impl LocalIpcServer {
                             if !close_all_subscriptions(&mut writer, &mut subscriptions).await? {
                                 return Ok(());
                             }
-                            if !drain_pending(&mut writer, &mut pending).await? {
+                            if !drain_pending(&mut writer, &mut pending, self.desktop_auth.as_ref(), session.as_ref()).await? {
                                 return Ok(());
                             }
                             let response = IpcServerMessage::Shutdown(ShutdownResponse {
@@ -372,6 +368,23 @@ impl LocalIpcServer {
                 }
             }
         }
+    }
+
+    /// Discards completed replies as well as running requests before changing accounts.
+    async fn transition_session<W: AsyncWrite + Unpin>(
+        &self,
+        writer: &mut W,
+        pending: &mut tokio::task::JoinSet<PendingResponse>,
+        subscriptions: &mut HashMap<SubscriptionId, ActiveSubscription>,
+        session: &mut Option<Session>,
+        message: IpcClientMessage,
+    ) -> io::Result<bool> {
+        pending.shutdown().await;
+        if !close_all_subscriptions(writer, subscriptions).await? {
+            return Ok(false);
+        }
+        let response = self.handle_message(message, session).await;
+        write_frame_or_close(writer, &response).await
     }
 
     async fn handle_message(
@@ -680,8 +693,13 @@ impl LocalIpcServer {
     }
 }
 
+struct PendingResponse {
+    authorization: AuthorizationContext,
+    message: IpcServerMessage,
+}
+
 fn spawn_request(
-    pending: &mut tokio::task::JoinSet<IpcServerMessage>,
+    pending: &mut tokio::task::JoinSet<PendingResponse>,
     dispatcher: &Arc<dyn IpcDispatcher>,
     desktop_auth: Option<&DesktopAuthenticator>,
     session: Option<&Session>,
@@ -693,15 +711,18 @@ fn spawn_request(
             let active_session = session.cloned();
             let desktop_auth = desktop_auth.cloned();
             pending.spawn(async move {
-                IpcServerMessage::Command(
-                    dispatch_command(
-                        dispatcher,
-                        desktop_auth.as_ref(),
-                        active_session.as_ref(),
-                        request,
-                    )
-                    .await,
-                )
+                PendingResponse {
+                    authorization: request.authorization.clone(),
+                    message: IpcServerMessage::Command(
+                        dispatch_command(
+                            dispatcher,
+                            desktop_auth.as_ref(),
+                            active_session.as_ref(),
+                            request,
+                        )
+                        .await,
+                    ),
+                }
             });
             None
         }
@@ -710,15 +731,18 @@ fn spawn_request(
             let active_session = session.cloned();
             let desktop_auth = desktop_auth.cloned();
             pending.spawn(async move {
-                IpcServerMessage::Query(
-                    dispatch_query(
-                        dispatcher,
-                        desktop_auth.as_ref(),
-                        active_session.as_ref(),
-                        request,
-                    )
-                    .await,
-                )
+                PendingResponse {
+                    authorization: request.authorization.clone(),
+                    message: IpcServerMessage::Query(
+                        dispatch_query(
+                            dispatcher,
+                            desktop_auth.as_ref(),
+                            active_session.as_ref(),
+                            request,
+                        )
+                        .await,
+                    ),
+                }
             });
             None
         }
@@ -926,7 +950,7 @@ where
             biased;
             policy = active.policy_changes.recv(), if monitor_policy => {
                 let must_reauthorize = match policy {
-                    Ok(scope) => scope == active.context.authorization.scope,
+                    Ok(scope) => policy_affects_session(&scope, &active.context.authorization),
                     Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => true,
                     Err(tokio::sync::broadcast::error::RecvError::Closed) => {
                         monitor_policy = false;
@@ -977,7 +1001,7 @@ async fn pump_subscription(mut pump: SubscriptionPump) {
             biased;
             policy = pump.policy_changes.recv() => {
                 let must_reauthorize = match policy {
-                    Ok(scope) => scope == pump.context.authorization.scope,
+                    Ok(scope) => policy_affects_session(&scope, &pump.context.authorization),
                     Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => true,
                     Err(tokio::sync::broadcast::error::RecvError::Closed) => return,
                 };
@@ -1059,6 +1083,16 @@ async fn pump_subscription(mut pump: SubscriptionPump) {
             Err(FeedError::Closed) => return,
         }
     }
+}
+
+// Account updates revoke sessions through their organization, including branch subscriptions.
+fn policy_affects_session(
+    scope: &eitmad_contracts::identity::ScopeRef,
+    authorization: &AuthorizationContext,
+) -> bool {
+    scope == &authorization.scope
+        || (scope.kind.as_str() == "organization"
+            && scope.id.value() == authorization.tenant_id.value())
 }
 
 async fn reauthorize_subscription(pump: &SubscriptionPump) -> bool {
@@ -1562,16 +1596,52 @@ where
     write_serialized_frame_or_close(writer, &value.redacted_for_external_boundary()).await
 }
 
+/// Withholds queued successes if the account or durable session changed before delivery.
+async fn write_pending_response<W: AsyncWrite + Unpin>(
+    writer: &mut W,
+    mut response: PendingResponse,
+    desktop_auth: Option<&DesktopAuthenticator>,
+    session: Option<&Session>,
+) -> io::Result<bool> {
+    let expected = session.and_then(|session| {
+        if desktop_auth.is_some() {
+            session.user_authorization.as_ref()
+        } else {
+            Some(&session.authorization)
+        }
+    });
+    if !authorization_matches(expected, &response.authorization)
+        || desktop_auth.is_some_and(|auth| auth.active(&response.authorization, now()) != Ok(true))
+    {
+        match &mut response.message {
+            IpcServerMessage::Command(envelope)
+                if matches!(envelope.outcome, CommandOutcome::Succeeded(_)) =>
+            {
+                envelope.outcome = CommandOutcome::Failed(session_invalid(envelope.correlation_id));
+            }
+            IpcServerMessage::Query(envelope)
+                if matches!(envelope.outcome, QueryOutcome::Succeeded(_)) =>
+            {
+                envelope.outcome = QueryOutcome::Failed(session_invalid(envelope.correlation_id));
+            }
+            _ => {}
+        }
+    }
+    write_frame_or_close(writer, &response.message).await
+}
+
 async fn drain_pending<W>(
     writer: &mut W,
-    pending: &mut tokio::task::JoinSet<IpcServerMessage>,
+    pending: &mut tokio::task::JoinSet<PendingResponse>,
+    desktop_auth: Option<&DesktopAuthenticator>,
+    session: Option<&Session>,
 ) -> io::Result<bool>
 where
     W: AsyncWrite + Unpin,
 {
     while let Some(result) = pending.join_next().await {
         if let Ok(response) = result {
-            if !write_frame_or_close(writer, &response).await? {
+            if !write_pending_response(writer, response, desktop_auth, session).await? {
                 return Ok(false);
             }
         }
@@ -1997,6 +2067,175 @@ mod tests {
             panic!("revoked session returned data")
         };
         assert_eq!(error.code.as_str(), "eitmad.error.ipc-session-invalid.v1");
+    }
+
+    #[tokio::test]
+    async fn session_transition_discards_completed_and_running_replies() {
+        let (_directory, _store, _, _, service, mut connection) = signed_in_service_fixture();
+        let user = fixture_sign_in(&service, &mut connection).await;
+        let response = service
+            .query(connection.as_ref(), fixture_query(user.clone()))
+            .await;
+        assert!(matches!(response.outcome, QueryOutcome::Succeeded(_)));
+        let mut pending = tokio::task::JoinSet::new();
+        let completed = pending.spawn(async move {
+            PendingResponse {
+                authorization: user,
+                message: IpcServerMessage::Query(response),
+            }
+        });
+        while !completed.is_finished() {
+            tokio::task::yield_now().await;
+        }
+        let running = pending.spawn(std::future::pending::<PendingResponse>());
+        let (mut writer, mut reader) = tokio::io::duplex(8192);
+        assert!(
+            service
+                .transition_session(
+                    &mut writer,
+                    &mut pending,
+                    &mut HashMap::new(),
+                    &mut connection,
+                    IpcClientMessage::DesktopSignOut(DesktopSessionRequest {
+                        request_id: RequestId::new(uuid::Uuid::new_v4()),
+                        correlation_id: CorrelationId::new(uuid::Uuid::new_v4()),
+                    }),
+                )
+                .await
+                .unwrap()
+        );
+        assert!(pending.is_empty());
+        assert!(running.is_finished());
+        assert!(matches!(
+            read_frame::<_, IpcServerMessage>(&mut reader)
+                .await
+                .unwrap(),
+            IpcServerMessage::DesktopSession(_)
+        ));
+        drop(writer);
+        assert!(
+            read_frame::<_, IpcServerMessage>(&mut reader)
+                .await
+                .is_err()
+        );
+    }
+
+    #[tokio::test]
+    async fn revoked_session_withholds_completed_replies_at_delivery() {
+        let (_directory, store, _, _, service, mut connection) = signed_in_service_fixture();
+        let user = fixture_sign_in(&service, &mut connection).await;
+        let request = fixture_query(user.clone());
+        let response = service.query(connection.as_ref(), request).await;
+        let QueryOutcome::Succeeded(QueryResult::Configuration(snapshot)) = &response.outcome
+        else {
+            panic!("query must succeed before revocation")
+        };
+        let command = IpcServerMessage::Command(CommandResponseEnvelope {
+            request_id: response.request_id,
+            correlation_id: response.correlation_id,
+            outcome: CommandOutcome::Succeeded(CommandResult::ConfigurationUpdated(
+                snapshot.clone(),
+            )),
+        });
+        let mut pending = tokio::task::JoinSet::new();
+        for message in [IpcServerMessage::Query(response), command] {
+            let authorization = user.clone();
+            pending.spawn(async move {
+                PendingResponse {
+                    authorization,
+                    message,
+                }
+            });
+        }
+        tokio::task::yield_now().await;
+        store
+            .close_desktop_session(&user, now(), CorrelationId::new(uuid::Uuid::new_v4()))
+            .unwrap();
+        let (mut writer, mut reader) = tokio::io::duplex(8192);
+        assert!(
+            drain_pending(
+                &mut writer,
+                &mut pending,
+                service.desktop_auth.as_ref(),
+                connection.as_ref()
+            )
+            .await
+            .unwrap()
+        );
+        for _ in 0..2 {
+            let (IpcServerMessage::Command(CommandResponseEnvelope {
+                outcome: CommandOutcome::Failed(error),
+                ..
+            })
+            | IpcServerMessage::Query(QueryResponseEnvelope {
+                outcome: QueryOutcome::Failed(error),
+                ..
+            })) = read_frame::<_, IpcServerMessage>(&mut reader)
+                .await
+                .unwrap()
+            else {
+                panic!("queued success survived revocation");
+            };
+            assert_eq!(error.code.as_str(), "eitmad.error.ipc-session-invalid.v1");
+        }
+    }
+
+    #[tokio::test]
+    async fn branch_event_write_stops_on_organization_session_revocation() {
+        let (_directory, store, _, _, service, mut connection) = signed_in_service_fixture();
+        let user = fixture_sign_in(&service, &mut connection).await;
+        let branch = service
+            .desktop_auth
+            .as_ref()
+            .unwrap()
+            .session_state(&user)
+            .unwrap()
+            .customer_authorization
+            .unwrap();
+        let broker = EventBroker::new();
+        let task = tokio::spawn(std::future::pending::<()>());
+        let mut active = active_subscription_fixture(
+            task.abort_handle(),
+            CorrelationId::new(uuid::Uuid::new_v4()),
+            None,
+        );
+        active.context.authorization = branch.clone();
+        active.desktop_auth = service.desktop_auth.clone();
+        active.policy_changes = broker.subscribe_policy_changes();
+        let message = IpcServerMessage::Event(EventEnvelope {
+            subscription_id: SubscriptionId::new(uuid::Uuid::new_v4()),
+            correlation_id: active.correlation_id,
+            sequence: 1,
+            cursor: EventCursor::new(uuid::Uuid::new_v4()),
+            occurred_at: now(),
+            event: eitmad_contracts::events::Event::ConfigurationChanged(ConfigSnapshot {
+                schema_version: 1,
+                revision: 1,
+                scope: branch.scope,
+                entries: vec![],
+            }),
+        });
+        let (mut writer, mut reader) = tokio::io::duplex(1);
+        let writing = tokio::spawn(async move {
+            write_authorized_subscription_event(&mut writer, &message, &mut active)
+                .await
+                .unwrap()
+        });
+        // The first frame byte proves the authorization check passed and the write is blocked.
+        assert!(reader.read_u8().await.is_ok());
+        assert!(!writing.is_finished());
+        store
+            .close_desktop_session(&user, now(), CorrelationId::new(uuid::Uuid::new_v4()))
+            .unwrap();
+        broker.policy_changed(user.scope);
+        assert!(matches!(
+            tokio::time::timeout(Duration::from_secs(1), writing)
+                .await
+                .unwrap()
+                .unwrap(),
+            AuthorizedEventWrite::RevokedDuringWrite
+        ));
+        task.abort();
     }
 
     #[tokio::test]

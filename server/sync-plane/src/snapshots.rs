@@ -169,10 +169,24 @@ impl SyncCoordinator {
             .registry
             .get(schema_id, request.schema_version)
             .map_err(|_| SnapshotError::Domain)?;
-        let projected = handler
-            .project_page(&mut transaction, session, scope, records)
-            .await
-            .map_err(|_| SnapshotError::Unavailable)?;
+        let audit = snapshot_audit(
+            request,
+            "eitmad.server.sync.create-snapshot.v1",
+            ServerAuditOutcome::Succeeded,
+            correlation_id,
+            now,
+            None,
+        );
+        let (mut transaction, projected) = crate::boundary_audit::project_page(
+            &self.pool,
+            transaction,
+            handler.as_ref(),
+            session,
+            scope,
+            records,
+            audit.clone(),
+        )
+        .await?;
         let snapshot = store_snapshot(
             &mut transaction,
             &SnapshotScope {
@@ -187,19 +201,9 @@ impl SyncCoordinator {
             valid_for_ms,
         )
         .await?;
-        append_audit(
-            &mut transaction,
-            &snapshot_audit(
-                request,
-                "eitmad.server.sync.create-snapshot.v1",
-                ServerAuditOutcome::Succeeded,
-                correlation_id,
-                now,
-                None,
-            ),
-        )
-        .await
-        .map_err(|_| SnapshotError::Unavailable)?;
+        append_audit(&mut transaction, &audit)
+            .await
+            .map_err(|_| SnapshotError::Unavailable)?;
         transaction
             .commit()
             .await
@@ -303,8 +307,11 @@ fn checksum(value: &(impl Serialize + ?Sized)) -> Result<String, SnapshotError> 
 }
 
 impl From<OperationError> for SnapshotError {
-    fn from(_value: OperationError) -> Self {
-        Self::Unavailable
+    fn from(value: OperationError) -> Self {
+        match value {
+            OperationError::Denied => Self::Denied,
+            _ => Self::Unavailable,
+        }
     }
 }
 

@@ -70,6 +70,8 @@ use eitmad_sync_plane::{
 use uuid::Uuid;
 #[path = "direct_route/catalog_sync.rs"]
 mod catalog_sync;
+#[path = "direct_route/projection_audit.rs"]
+mod projection_audit;
 
 struct TestDomain;
 

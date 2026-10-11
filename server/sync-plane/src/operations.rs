@@ -501,9 +501,16 @@ impl SyncCoordinator {
             .map(|row| serde_json::from_value::<ChangeRecord>(row.get("change_json")))
             .collect::<Result<Vec<_>, _>>()
             .map_err(|_| OperationError::Unavailable)?;
-        let projected = handler
-            .project_page(&mut transaction, session, scope, records)
-            .await?;
+        let (mut transaction, projected) = crate::boundary_audit::project_page(
+            &self.pool,
+            transaction,
+            handler.as_ref(),
+            session,
+            scope,
+            records,
+            audit.envelope(ServerAuditOutcome::Succeeded, None),
+        )
+        .await?;
         let batch = ChangeBatch::new(
             DeliveryId::new(Uuid::new_v4()),
             IdempotencyKey::new(Uuid::new_v4()),
