@@ -71,6 +71,36 @@ impl StoredLocalAuthority {
 }
 
 impl AuthorityStore {
+    /// Reads the existing installation identity without bootstrap or repair.
+    ///
+    /// # Errors
+    /// Fails closed when maintenance has no persisted installation authority.
+    pub fn existing_local_authorization_context(
+        &self,
+    ) -> Result<AuthorizationContext, StorageError> {
+        self.read_transaction(|connection| {
+            let values = connection
+                .query_row(
+                    "SELECT tenant_id, user_id, account_id, organization_id, device_id
+                 FROM local_installation_authority WHERE singleton = 1",
+                    [],
+                    |row| {
+                        Ok((
+                            row.get::<_, String>(0)?,
+                            row.get::<_, String>(1)?,
+                            row.get::<_, String>(2)?,
+                            row.get::<_, String>(3)?,
+                            row.get::<_, String>(4)?,
+                        ))
+                    },
+                )
+                .map_err(|_| StorageError)?;
+            let authority = decode(&values)?;
+            verify(connection, &authority)?;
+            authority.authorization_context()
+        })
+    }
+
     /// Returns the installation organization after local identity bootstrap.
     ///
     /// # Errors

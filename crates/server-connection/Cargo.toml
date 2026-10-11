@@ -33,6 +33,7 @@ uuid = { version = "=1.23.4", features = ["v4"] }
 zeroize = "=1.8.1"
 
 [dev-dependencies]
+eitmad-engine-runtime = { path = "../engine-runtime" }
 eitmad-part = { path = "../part" }
 eitmad-product = { path = "../product" }
 eitmad-furniture = { path = "../furniture" }

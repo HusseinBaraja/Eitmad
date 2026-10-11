@@ -6,6 +6,7 @@ use std::{
     time::Duration,
 };
 
+use eitmad_observability_audit::MutationAuditRecord;
 use rusqlite::{Connection, OpenFlags, backup::Backup};
 use uuid::Uuid;
 
@@ -74,7 +75,9 @@ impl AuthorityStore {
         fs::create_dir_all(parent).map_err(|_| StorageError)?;
         let temporary = parent.join(format!(".eitmad-backup-{}.sqlite3", Uuid::new_v4()));
         let result = create_validated_backup(&self.path, &temporary)
-            .and_then(|()| fs::rename(&temporary, destination).map_err(|_| StorageError));
+            .and_then(|()| fs::hard_link(&temporary, destination).map_err(|_| StorageError));
+        // Publishing a hard link fails atomically if the destination appeared meanwhile.
+        let _ = fs::remove_file(&temporary);
         if result.is_err() {
             let _ = fs::remove_file(&temporary);
         }
@@ -138,48 +141,176 @@ impl AuthorityStore {
         runtime_directory: impl AsRef<Path>,
         source: impl AsRef<Path>,
     ) -> Result<RestoreOutcome, StorageError> {
-        let directory = runtime_directory.as_ref();
-        let source = source.as_ref();
-        validate_database_file(source)?;
-        fs::create_dir_all(directory).map_err(|_| StorageError)?;
-        make_directory_private(directory)?;
+        restore(runtime_directory.as_ref(), source.as_ref(), None)
+    }
 
-        let live = directory.join(DATABASE_FILE_NAME);
-        let token = Uuid::new_v4();
-        let candidate = directory.join(format!("eitmad.restore-{token}.sqlite3"));
-        create_validated_backup(source, &candidate)?;
+    /// Restores a candidate with the recovery audit and closed operator session evidence
+    /// committed before installation. Newer credentials and permissions are not restored.
+    /// The caller must hold exclusive stopped-engine authority and authorize the request.
+    ///
+    /// # Errors
+    /// Returns a sanitized error without replacing the live database if staging or audit fails.
+    pub fn restore_from_backup_with_audit(
+        runtime_directory: impl AsRef<Path>,
+        source: impl AsRef<Path>,
+        audit: &MutationAuditRecord,
+    ) -> Result<RestoreOutcome, StorageError> {
+        restore(runtime_directory.as_ref(), source.as_ref(), Some(audit))
+    }
 
-        let previous = live
-            .is_file()
-            .then(|| directory.join(format!("eitmad.pre-restore-{token}.sqlite3")));
-        if let Some(previous) = &previous {
-            checkpoint(&live)?;
-            move_database_family(&live, previous)?;
+    /// Checks installation identity and scope topology without changing the candidate.
+    ///
+    /// # Errors
+    /// Returns a sanitized error for unreadable or incomplete identity state.
+    pub fn backup_matches_authority(&self, source: impl AsRef<Path>) -> Result<bool, StorageError> {
+        let source = Connection::open_with_flags(source.as_ref(), OpenFlags::SQLITE_OPEN_READ_ONLY)
+            .map_err(|_| StorageError)?;
+        self.read_transaction(|live| Ok(recovery_identity(live)? == recovery_identity(&source)?))
+    }
+
+    /// Lists every tenant root affected by a whole-database recovery operation.
+    ///
+    /// # Errors
+    /// Fails closed if persisted scope attribution cannot be read.
+    pub fn recovery_tenants(
+        &self,
+    ) -> Result<Vec<eitmad_contracts::identity::TenantId>, StorageError> {
+        self.read_transaction(|connection| {
+            let mut statement = connection.prepare(
+                "SELECT tenant_id FROM identity_tenants
+                 UNION SELECT scope_id FROM authorization_scopes WHERE scope_kind='organization'
+                 UNION SELECT tenant_id FROM mutation_audit WHERE tenant_id IS NOT NULL AND outcome='\"succeeded\"'"
+            ).map_err(|_| StorageError)?;
+            statement.query_map([], |row| row.get::<_, String>(0)).map_err(|_| StorageError)?
+                .map(|row| {
+                    let value = row.map_err(|_| StorageError)?;
+                    Ok(eitmad_contracts::identity::TenantId::new(Uuid::parse_str(&value).map_err(|_| StorageError)?))
+                }).collect()
+        })
+    }
+}
+
+fn recovery_identity(connection: &Connection) -> Result<Vec<Vec<String>>, StorageError> {
+    let mut identity = Vec::new();
+    for query in [
+        "SELECT tenant_id, organization_id, device_id FROM local_installation_authority ORDER BY singleton",
+        "SELECT scope_kind, scope_id FROM authorization_scopes ORDER BY scope_kind, scope_id",
+        "SELECT tenant_id, branch_id FROM local_desktop_branch ORDER BY singleton",
+        "SELECT tenant_id FROM identity_tenants ORDER BY tenant_id",
+    ] {
+        let mut statement = connection.prepare(query).map_err(|_| StorageError)?;
+        let columns = statement.column_count();
+        let rows = statement
+            .query_map([], |row| {
+                (0..columns)
+                    .map(|column| row.get::<_, String>(column))
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .map_err(|_| StorageError)?;
+        identity.push(vec![query.to_owned()]);
+        for row in rows {
+            identity.push(row.map_err(|_| StorageError)?);
         }
-        if move_database_family(&candidate, &live).is_err() {
-            if let Some(previous) = &previous {
-                let _ = move_database_family(previous, &live);
+    }
+    Ok(identity)
+}
+
+fn restore(
+    directory: &Path,
+    source: &Path,
+    audit: Option<&MutationAuditRecord>,
+) -> Result<RestoreOutcome, StorageError> {
+    let live = directory.join(DATABASE_FILE_NAME);
+    for path in database_family_paths(&live) {
+        match fs::symlink_metadata(&path) {
+            Ok(metadata) if !metadata.file_type().is_file() => return Err(StorageError),
+            Ok(_) => {}
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            Err(_) => return Err(StorageError),
+        }
+    }
+    if source.canonicalize().map_err(|_| StorageError)?
+        == live.canonicalize().unwrap_or(live.clone())
+    {
+        return Err(StorageError);
+    }
+    validate_database_file(source)?;
+    fs::create_dir_all(directory).map_err(|_| StorageError)?;
+    make_directory_private(directory)?;
+
+    let token = Uuid::new_v4();
+    let candidate = directory.join(format!("eitmad.restore-{token}.sqlite3"));
+    create_validated_backup(source, &candidate)?;
+    if let Some(audit) = audit {
+        let staged = AuthorityStore {
+            path: candidate.clone(),
+        };
+        let result = (|| {
+            // Check the private staged copy, so a changed source cannot bypass identity checks.
+            if !(AuthorityStore { path: live.clone() }).backup_matches_authority(&candidate)? {
+                return Err(StorageError);
             }
-            let _ = fs::remove_file(&candidate);
+            let mut connection = staged.open_connection()?;
+            crate::migrations::apply(&mut connection)?;
+            connection
+                .execute(
+                    "ATTACH DATABASE ?1 AS recovery_live",
+                    [live.to_str().ok_or(StorageError)?],
+                )
+                .map_err(|_| StorageError)?;
+            let transaction = connection.transaction().map_err(|_| StorageError)?;
+            crate::identity::preserve_recovery_session(&transaction, audit)?;
+            crate::insert_audit(&transaction, audit)?;
+            transaction.commit().map_err(|_| StorageError)?;
+            drop(connection);
+            checkpoint(&candidate)?;
+            AuthorityStore::validate_backup(&candidate)
+        })();
+        if result.is_err() {
+            for path in database_family_paths(&candidate) {
+                let _ = fs::remove_file(path);
+            }
             return Err(StorageError);
         }
+    }
 
-        match AuthorityStore::open(directory) {
-            Ok(store) => Ok(RestoreOutcome {
-                store,
-                previous_database: previous,
-            }),
-            Err(error) => {
-                let failed = directory.join(format!("eitmad.failed-restore-{token}.sqlite3"));
-                if move_database_family(&live, &failed).is_ok() {
-                    if let Some(previous) = &previous {
-                        if move_database_family(previous, &live).is_err() {
-                            let _ = move_database_family(&failed, &live);
-                        }
+    let previous = live
+        .is_file()
+        .then(|| directory.join(format!("eitmad.pre-restore-{token}.sqlite3")));
+    if let Some(previous) = &previous {
+        if checkpoint(&live)
+            .and_then(|()| move_database_family(&live, previous))
+            .is_err()
+        {
+            for path in database_family_paths(&candidate) {
+                let _ = fs::remove_file(path);
+            }
+            return Err(StorageError);
+        }
+    }
+    if move_database_family(&candidate, &live).is_err() {
+        if let Some(previous) = &previous {
+            let _ = move_database_family(previous, &live);
+        }
+        let _ = fs::remove_file(&candidate);
+        return Err(StorageError);
+    }
+
+    match AuthorityStore::open(directory) {
+        Ok(store) => Ok(RestoreOutcome {
+            store,
+            previous_database: previous,
+        }),
+        Err(error) => {
+            let failed = directory.join(format!("eitmad.failed-restore-{token}.sqlite3"));
+            if move_database_family(&live, &failed).is_ok() {
+                if let Some(previous) = &previous {
+                    if move_database_family(previous, &live).is_err() {
+                        let _ = move_database_family(&failed, &live);
                     }
                 }
-                Err(error)
             }
+            Err(error)
         }
     }
 }
@@ -216,22 +347,44 @@ fn backup_database(source: &Path, destination: &Path) -> Result<(), StorageError
         OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
     )
     .map_err(|_| StorageError)?;
-    let mut destination = Connection::open(destination).map_err(|_| StorageError)?;
-    let backup = Backup::new(&source, &mut destination).map_err(|_| StorageError)?;
+    let mut output = Connection::open(destination).map_err(|_| StorageError)?;
+    // A new private snapshot has no previous state to recover. Keep its rollback
+    // journal in memory so a public destination directory cannot expose sidecars.
+    output
+        .execute_batch("PRAGMA journal_mode=MEMORY;")
+        .map_err(|_| StorageError)?;
+    let backup = Backup::new(&source, &mut output).map_err(|_| StorageError)?;
     backup
         .run_to_completion(100, Duration::from_millis(5), None)
+        .map_err(|_| StorageError)?;
+    drop(backup);
+    drop(output);
+    OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(destination)
+        .map_err(|_| StorageError)?
+        .sync_all()
         .map_err(|_| StorageError)
 }
 
 fn checkpoint(path: &Path) -> Result<(), StorageError> {
     let connection = Connection::open(path).map_err(|_| StorageError)?;
-    connection
-        .execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")
-        .map_err(|_| StorageError)
+    let busy: i64 = connection
+        .query_row("PRAGMA wal_checkpoint(TRUNCATE);", [], |row| row.get(0))
+        .map_err(|_| StorageError)?;
+    if busy == 0 { Ok(()) } else { Err(StorageError) }
 }
 
 fn move_database_family(source: &Path, destination: &Path) -> Result<(), StorageError> {
-    move_database_family_with(source, destination, |from, to| fs::rename(from, to))
+    move_database_family_with(source, destination, |from, to| {
+        fs::hard_link(from, to)?;
+        if let Err(error) = fs::remove_file(from) {
+            let _ = fs::remove_file(to);
+            return Err(error);
+        }
+        Ok(())
+    })
 }
 
 fn move_database_family_with(
@@ -292,6 +445,80 @@ mod tests {
     use tempfile::TempDir;
 
     use super::*;
+
+    #[test]
+    fn restore_checkpoint_failure_removes_candidate_and_preserves_live_database() {
+        let directory = TempDir::new().unwrap();
+        let store = AuthorityStore::open(directory.path()).unwrap();
+        store
+            .local_authorization_context(eitmad_contracts::transport::UnixMillis(1))
+            .unwrap();
+        let backup = directory.path().join("checkpoint-backup.sqlite3");
+        store.backup_to(&backup).unwrap();
+        let reader = Connection::open(store.path()).unwrap();
+        reader
+            .execute_batch("BEGIN; SELECT * FROM mutation_audit;")
+            .unwrap();
+        let writer = Connection::open(store.path()).unwrap();
+        writer
+            .execute_batch("UPDATE local_installation_authority SET device_id=device_id;")
+            .unwrap();
+        let before = fs::read(store.path()).unwrap();
+        let wal = path_with_suffix(store.path(), "-wal");
+        let before_wal = fs::read(&wal).unwrap();
+        assert!(AuthorityStore::restore_from_backup(directory.path(), &backup).is_err());
+        assert_eq!(fs::read(store.path()).unwrap(), before);
+        assert_eq!(fs::read(&wal).unwrap(), before_wal);
+        assert!(fs::read_dir(directory.path()).unwrap().all(|entry| {
+            !entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with("eitmad.restore-")
+        }));
+        assert!(
+            AuthorityStore::recovery_artifacts(directory.path())
+                .unwrap()
+                .is_empty()
+        );
+        reader.execute_batch("ROLLBACK;").unwrap();
+        drop(writer);
+        drop(reader);
+        store.verify_integrity(CorruptionCheck::Full).unwrap();
+        AuthorityStore::validate_backup(&backup).unwrap();
+    }
+
+    #[test]
+    fn failed_restore_audit_cannot_replace_the_live_database() {
+        let directory = TempDir::new().unwrap();
+        let store = AuthorityStore::open(directory.path()).unwrap();
+        let actor = store
+            .local_authorization_context(eitmad_contracts::transport::UnixMillis(1))
+            .unwrap();
+        let backup = directory.path().join("audit-backup.sqlite3");
+        store.backup_to(&backup).unwrap();
+        let before = fs::read(store.path()).unwrap();
+        let invalid = MutationAuditRecord::from_authorization(
+            &actor,
+            eitmad_contracts::transport::UnixMillis(2),
+            eitmad_contracts::transport::CorrelationId::new(Uuid::new_v4()),
+            "",
+            eitmad_observability_audit::AuditTarget {
+                kind: "local-authority".into(),
+                identifiers: vec![],
+            },
+        );
+        assert!(
+            AuthorityStore::restore_from_backup_with_audit(directory.path(), &backup, &invalid)
+                .is_err()
+        );
+        assert!(before == fs::read(store.path()).unwrap());
+        assert!(
+            AuthorityStore::recovery_artifacts(directory.path())
+                .unwrap()
+                .is_empty()
+        );
+    }
 
     #[test]
     fn backup_captures_committed_wal_data_and_restore_preserves_previous_database() {

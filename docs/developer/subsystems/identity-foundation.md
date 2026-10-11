@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust identity and storage maintainers"
-last_verified: "2026-10-03"
+last_verified: "2026-10-11"
 review_triggers:
   - "identity topology, session lifecycle, tenant isolation, offline policy, or audit attribution changes"
 keywords:
@@ -41,6 +41,8 @@ Manager and Receptionist relationships produce distinct effective permissions. A
 ## Audit attribution
 
 Mutation audit records keep the principal and scope and now also preserve optional `SessionId` and `DeviceId`. Configuration and authorization mutation builders populate both from `AuthorizationContext`. Session rows retain the account, user, tenant, organization, workspace, and offline snapshot needed to investigate attribution without placing personal display data in the audit row. Audit rows remain append-only and do not depend on a session foreign key, so closing or later retaining sessions cannot erase historical attribution IDs.
+
+Manual restore preserves the operator's authentication evidence in the staged audit transaction and closes its maintenance session. See [manual SQLite recovery](../../operations/recover-local-storage.md#manual-sqlite-backup-and-restore) for the evidence retained and the credential and permission state restored from the backup.
 
 ## Arabic and mixed-direction data
 

@@ -5,7 +5,8 @@ use eitmad_contracts::{
     },
     transport::UnixMillis,
 };
-use rusqlite::{OptionalExtension as _, params};
+use eitmad_observability_audit::MutationAuditRecord;
+use rusqlite::{Connection, OptionalExtension as _, params};
 
 use crate::{AuthorityStore, StorageError, migrations::Migration};
 
@@ -173,6 +174,90 @@ type StoredSessionRow = (
     i64,
     Option<i64>,
 );
+
+/// Copies attribution from the attached `recovery_live` database inside the staged
+/// restore transaction. Closure is part of the restore mutation and its audit.
+pub(crate) fn preserve_recovery_session(
+    connection: &Connection,
+    audit: &MutationAuditRecord,
+) -> Result<(), StorageError> {
+    let session = audit.session_id.value().to_string();
+    let exists: bool = connection
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM recovery_live.identity_sessions WHERE session_id=?1)",
+            [&session],
+            |row| row.get(0),
+        )
+        .map_err(|_| StorageError)?;
+    // Trusted Rust maintenance callers may supply a context without a desktop session.
+    if !exists {
+        return Ok(());
+    }
+    let matches: bool = connection
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM recovery_live.identity_sessions
+         WHERE session_id=?1 AND principal_id=?2 AND principal_kind=?3
+           AND device_id IS ?4 AND tenant_id=?5 AND workspace_id IS ?6 AND issued_at<=?7)",
+            params![
+                session,
+                audit.principal_id.value().to_string(),
+                serde_json::to_string(&audit.principal_kind).map_err(|_| StorageError)?,
+                audit.device_id.map(|id| id.value().to_string()),
+                audit.tenant_id.value().to_string(),
+                audit.workspace_id.map(|id| id.value().to_string()),
+                audit.occurred_at.0
+            ],
+            |row| row.get(0),
+        )
+        .map_err(|_| StorageError)?;
+    if !matches {
+        return Err(StorageError);
+    }
+    preserve_session_directory(connection, &session)?;
+    connection.execute(
+        "INSERT INTO identity_sessions
+         SELECT session_id, principal_id, principal_kind, device_id, user_id, account_id,
+                tenant_id, organization_id, workspace_id, issued_at, expires_at, last_seen_at,
+                offline, COALESCE(closed_at, ?2)
+         FROM recovery_live.identity_sessions WHERE session_id=?1
+         ON CONFLICT(session_id) DO UPDATE SET closed_at=COALESCE(identity_sessions.closed_at, excluded.closed_at)",
+        params![session, audit.occurred_at.0],
+    ).map_err(|_| StorageError)?;
+    connection.execute(
+        "INSERT INTO mutation_audit SELECT a.* FROM recovery_live.mutation_audit a
+         WHERE a.session_id=?1 AND a.operation IN
+           ('eitmad.desktop.session.sign-in.v1', 'eitmad.desktop.session.sign-out.v1')
+           AND NOT EXISTS(SELECT 1 FROM mutation_audit existing WHERE existing.audit_id=a.audit_id)",
+        [&session],
+    ).map_err(|_| StorageError)?;
+    Ok(())
+}
+
+fn preserve_session_directory(connection: &Connection, session: &str) -> Result<(), StorageError> {
+    // Only identity references are carried forward. Credential and relationship
+    // projections must remain exactly at the chosen recovery point.
+    for (table, key) in [
+        ("identity_devices", "device_id"),
+        ("identity_users", "user_id"),
+        ("identity_tenants", "tenant_id"),
+        ("identity_accounts", "account_id"),
+        ("identity_organizations", "organization_id"),
+        ("identity_workspaces", "workspace_id"),
+    ] {
+        connection
+            .execute(
+                &format!(
+                    "INSERT INTO {table} SELECT d.* FROM recovery_live.{table} d
+                 JOIN recovery_live.identity_sessions s ON s.{key}=d.{key}
+                 WHERE s.session_id=?1
+                 AND NOT EXISTS(SELECT 1 FROM {table} existing WHERE existing.{key}=d.{key})"
+                ),
+                [session],
+            )
+            .map_err(|_| StorageError)?;
+    }
+    Ok(())
+}
 
 fn decode_session(
     tenant_id: TenantId,

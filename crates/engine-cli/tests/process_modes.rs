@@ -128,6 +128,22 @@ fn authority_lock_blocks_concurrent_process_and_allows_replacement() {
     assert_eq!(next_state(&first_output), "starting");
     assert_eq!(next_state(&first_output), "ready");
 
+    for (operation, option) in [("backup", "--destination"), ("restore", "--source")] {
+        let denied = Command::new(binary())
+            .args([operation, "--runtime-directory"])
+            .arg(directory.path())
+            .arg(option)
+            .arg(directory.path().join("locked-backup.sqlite3"))
+            .output()
+            .unwrap();
+        assert_eq!(denied.status.code(), Some(1));
+        assert_eq!(
+            serde_json::from_slice::<Value>(&denied.stderr).unwrap()["code"],
+            "eitmad.error.engine-already-running.v1"
+        );
+        assert!(!directory.path().join("locked-backup.sqlite3").exists());
+    }
+
     let (mut duplicate, duplicate_output) = spawn_supervised(directory.path(), true);
     assert_eq!(next_state(&duplicate_output), "starting");
     let duplicate_failure = duplicate_output
