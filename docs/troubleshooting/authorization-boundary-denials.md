@@ -5,7 +5,7 @@ audience: "support"
 page_type: "troubleshooting"
 status: "active"
 owner: "authorization, security, and audit maintainers"
-last_verified: "2026-08-19"
+last_verified: "2026-10-11"
 review_triggers:
   - "authorization decisions, scope context, boundary gates, error identifiers, or audit persistence changes"
 keywords:
@@ -45,6 +45,9 @@ keywords:
 | Evidence | Cause | Resolution | Verify |
 | --- | --- | --- | --- |
 | Actor tenant differs from object tenant | Cross-tenant request or confused deputy | Stop and correct the caller's object/context binding; do not copy a tuple across tenants | The original cross-tenant request remains denied |
+| Matching branch UUID denies under another tenant | Local branch attribution differs from the actor tenant | Use the Rust-issued account and branch context; do not rewrite the tenant on an existing context | Direct reads, home counts, and subscriptions disclose no foreign records |
+| Receptionist Product definition, category, or history request denies | The definition belongs to the private Manager catalog | Use the active published sales catalog projection | Public payloads contain no purchase costs, margins, or private definitions |
+| Old IPC context fails after account switching or a role change | The durable desktop session was closed | Sign in again and rebuild account queries and subscriptions; clear prior account state | Pending old replies and queued events are withheld |
 | Workspace target differs from actor workspace | Cross-workspace request | Use the authorized workspace or a separately reviewed tenant-wide object | Same-workspace synthetic request follows policy; crossed request denies |
 | No action/object-kind rule | Capability was never modeled | Add a versioned rule with owner review, tests, and documentation | Missing rule denies; new rule grants only named relations |
 | Role has object relation but actor lacks role membership | Incomplete delegation | Add/recover the authorized membership through the owning workflow | Actor without membership still denies |

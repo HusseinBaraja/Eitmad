@@ -647,6 +647,9 @@ internal sealed class SupervisionScenarios
 
     private static async Task VerifyReceptionistCatalogBoundary(EngineSupervisor supervisor, Furniture furniture)
     {
+        var privateProducts = await supervisor.QueryAsync(Query.ForProductList(new ListProducts { Term = "", Limit = 100 }));
+        Assert.Equal(CommandOutcomeStatus.Failed, privateProducts.Outcome.Status, "Receptionist private Product request fails through named-pipe IPC");
+        Assert.Equal(ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1, privateProducts.Outcome.Payload.Code, "private Product definitions are absent from the response");
         var response = await supervisor.QueryAsync(Query.ForSalesCatalogList(new ListSalesCatalog { Term = "خزانة", Limit = 30 }));
         Assert.Equal(CommandOutcomeStatus.Succeeded, response.Outcome.Status, "public catalog typed IPC succeeds");
         var page = response.Outcome.Payload.AsSalesCatalog()!;

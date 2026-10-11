@@ -316,8 +316,9 @@ impl LocalIpcServer {
 
                     match message {
                         IpcClientMessage::DesktopSignOut(_) | IpcClientMessage::DesktopSignIn(_) | IpcClientMessage::Handshake(_) if session.is_some() => {
+                            // Fence replies for the previous account before changing its session.
+                            pending.abort_all();
                             if !close_all_subscriptions(&mut writer, &mut subscriptions).await? { return Ok(()); }
-                            if !drain_pending(&mut writer, &mut pending).await? { return Ok(()); }
                             let response = self.handle_message(message, &mut session).await;
                             if !write_frame_or_close(&mut writer, &response).await? { return Ok(()); }
                         }
@@ -659,6 +660,7 @@ impl LocalIpcServer {
                                     correlation_id: request.correlation_id,
                                     last_delivered_cursor: None,
                                     dispatcher: Arc::clone(&self.dispatcher),
+                                    desktop_auth: self.desktop_auth.clone(),
                                     context,
                                     subscription,
                                     policy_changes: delivery_policy_changes,
@@ -787,6 +789,7 @@ struct ActiveSubscription {
     correlation_id: CorrelationId,
     last_delivered_cursor: Option<EventCursor>,
     dispatcher: Arc<dyn IpcDispatcher>,
+    desktop_auth: Option<DesktopAuthenticator>,
     context: SubscriptionContext,
     subscription: Subscription,
     policy_changes: tokio::sync::broadcast::Receiver<eitmad_contracts::identity::ScopeRef>,
@@ -903,10 +906,14 @@ where
     W: AsyncWrite + Unpin,
 {
     if active
-        .dispatcher
-        .authorize_subscription(active.context.clone(), &active.subscription)
-        .await
-        .is_err()
+        .desktop_auth
+        .as_ref()
+        .is_some_and(|auth| auth.active(&active.context.authorization, now()) != Ok(true))
+        || active
+            .dispatcher
+            .authorize_subscription(active.context.clone(), &active.subscription)
+            .await
+            .is_err()
     {
         return Ok(AuthorizedEventWrite::RevokedBeforeWrite);
     }
@@ -927,10 +934,12 @@ where
                     }
                 };
                 if must_reauthorize
-                    && active.dispatcher
+                    && (active.desktop_auth.as_ref().is_some_and(|auth| {
+                        auth.active(&active.context.authorization, now()) != Ok(true)
+                    }) || active.dispatcher
                         .authorize_subscription(active.context.clone(), &active.subscription)
                         .await
-                        .is_err()
+                        .is_err())
                 {
                     return Ok(AuthorizedEventWrite::RevokedDuringWrite);
                 }
@@ -1112,7 +1121,7 @@ async fn dispatch_command(
         CommandOutcome::Failed(error)
     } else {
         let context = DispatchContext {
-            authorization: request.authorization,
+            authorization: request.authorization.clone(),
             correlation_id: request.correlation_id,
             causation_id: request.causation_id,
             idempotency_key: Some(request.idempotency_key),
@@ -1126,7 +1135,15 @@ async fn dispatch_command(
         )
         .await
         {
-            Ok(Ok(result)) => CommandOutcome::Succeeded(result),
+            Ok(Ok(result)) => {
+                if desktop_auth
+                    .is_some_and(|auth| auth.active(&request.authorization, now()) != Ok(true))
+                {
+                    CommandOutcome::Failed(session_invalid(request.correlation_id))
+                } else {
+                    CommandOutcome::Succeeded(result)
+                }
+            }
             Ok(Err(error)) => CommandOutcome::Failed(error),
             Err(_) => {
                 CommandOutcome::Failed(deadline_exceeded(request.correlation_id, request.deadline))
@@ -1158,7 +1175,7 @@ async fn dispatch_query(
         QueryOutcome::Failed(error)
     } else {
         let context = DispatchContext {
-            authorization: request.authorization,
+            authorization: request.authorization.clone(),
             correlation_id: request.correlation_id,
             causation_id: request.causation_id,
             idempotency_key: None,
@@ -1169,7 +1186,15 @@ async fn dispatch_query(
         match tokio::time::timeout(remaining, dispatcher.dispatch_query(context, request.query))
             .await
         {
-            Ok(Ok(result)) => QueryOutcome::Succeeded(result),
+            Ok(Ok(result)) => {
+                if desktop_auth
+                    .is_some_and(|auth| auth.active(&request.authorization, now()) != Ok(true))
+                {
+                    QueryOutcome::Failed(session_invalid(request.correlation_id))
+                } else {
+                    QueryOutcome::Succeeded(result)
+                }
+            }
             Ok(Err(error)) => QueryOutcome::Failed(error),
             Err(_) => {
                 QueryOutcome::Failed(deadline_exceeded(request.correlation_id, request.deadline))
@@ -1808,6 +1833,7 @@ mod tests {
         let broker = EventBroker::new();
         ActiveSubscription {
             handle,
+            desktop_auth: None,
             correlation_id,
             last_delivered_cursor,
             dispatcher: Arc::new(TestDispatcher),
@@ -1908,6 +1934,326 @@ mod tests {
             user_authorization: None,
         });
         (directory, store, owner, user_id, service, connection)
+    }
+
+    async fn fixture_sign_in(
+        service: &LocalIpcServer,
+        connection: &mut Option<Session>,
+    ) -> AuthorizationContext {
+        let response = service
+            .handle_message(
+                IpcClientMessage::DesktopSignIn(DesktopSignInRequest {
+                    request_id: RequestId::new(uuid::Uuid::new_v4()),
+                    correlation_id: CorrelationId::new(uuid::Uuid::new_v4()),
+                    username: "استقبال".into(),
+                    password: "synthetic correct horse battery".into(),
+                }),
+                connection,
+            )
+            .await;
+        let IpcServerMessage::DesktopSession(DesktopSessionResponse {
+            state: Some(state), ..
+        }) = response
+        else {
+            panic!("sign in")
+        };
+        state.authorization.unwrap()
+    }
+
+    fn fixture_query(user: AuthorizationContext) -> eitmad_contracts::transport::QueryEnvelope {
+        eitmad_contracts::transport::QueryEnvelope {
+            protocol_version: PROTOCOL_VERSION,
+            request_id: RequestId::new(uuid::Uuid::new_v4()),
+            correlation_id: CorrelationId::new(uuid::Uuid::new_v4()),
+            causation_id: None,
+            authorization: user,
+            deadline: UnixMillis(now().0 + 30_000),
+            query: Query::Configuration(GetConfiguration {}),
+        }
+    }
+
+    #[tokio::test]
+    async fn revoked_session_withholds_in_flight_ipc_query_result() {
+        let (_directory, store, _, _, service, mut connection) = signed_in_service_fixture();
+        let user = fixture_sign_in(&service, &mut connection).await;
+        let request = fixture_query(user.clone());
+        let (entered, mut receiving) = mpsc::unbounded_channel();
+        let permits = Arc::new(tokio::sync::Semaphore::new(0));
+        let dispatcher = Arc::new(BlockingDispatcher {
+            entered,
+            permits: permits.clone(),
+        });
+        let auth = service.desktop_auth.clone();
+        let pending = tokio::spawn(async move {
+            dispatch_query(dispatcher, auth.as_ref(), connection.as_ref(), request).await
+        });
+        receiving.recv().await.unwrap();
+        store
+            .close_desktop_session(&user, now(), CorrelationId::new(uuid::Uuid::new_v4()))
+            .unwrap();
+        permits.add_permits(1);
+        let response = pending.await.unwrap();
+        let QueryOutcome::Failed(error) = response.outcome else {
+            panic!("revoked session returned data")
+        };
+        assert_eq!(error.code.as_str(), "eitmad.error.ipc-session-invalid.v1");
+    }
+
+    #[tokio::test]
+    async fn revoked_session_withholds_already_queued_ipc_event() {
+        assert_session_change_withholds_event(false).await;
+        assert_session_change_withholds_event(true).await;
+    }
+
+    async fn assert_session_change_withholds_event(role_change: bool) {
+        let (_directory, store, owner, _, service, mut connection) = signed_in_service_fixture();
+        let user = fixture_sign_in(&service, &mut connection).await;
+        let subscription_id = SubscriptionId::new(uuid::Uuid::new_v4());
+        let correlation_id = CorrelationId::new(uuid::Uuid::new_v4());
+        let task = tokio::spawn(std::future::pending::<()>());
+        let mut active = active_subscription_fixture(task.abort_handle(), correlation_id, None);
+        active.context.authorization = user.clone();
+        active.desktop_auth = service.desktop_auth.clone();
+        let mut subscriptions = HashMap::from([(subscription_id, active)]);
+        let delivery = SubscriptionDelivery {
+            subscription_id,
+            message: Some(IpcServerMessage::Event(EventEnvelope {
+                subscription_id,
+                correlation_id,
+                sequence: 1,
+                cursor: EventCursor::new(uuid::Uuid::new_v4()),
+                occurred_at: now(),
+                event: eitmad_contracts::events::Event::ConfigurationChanged(ConfigSnapshot {
+                    schema_version: 1,
+                    revision: 1,
+                    scope: user.scope.clone(),
+                    entries: vec![],
+                }),
+            })),
+            closed: false,
+            delivered_cursor: Some(EventCursor::new(uuid::Uuid::new_v4())),
+            terminate_connection: false,
+        };
+        if role_change {
+            let authorization = eitmad_authorization::AuthorizationService::new(store.clone());
+            let mutation = eitmad_authorization::MutationContext {
+                authorization: owner.clone(),
+                correlation_id,
+                causation_id: None,
+                idempotency_key: IdempotencyKey::new(uuid::Uuid::new_v4()),
+                occurred_at: now(),
+            };
+            authorization
+                .grant_relationship(
+                    &mutation,
+                    &eitmad_contracts::commands::GrantScopeRelationship {
+                        expected_policy_version: store.policy_version(&owner.scope).unwrap(),
+                        subject: eitmad_contracts::authorization::RelationshipSubject {
+                            principal_id: owner.identity.principal_id,
+                            principal_kind: PrincipalKind::User,
+                        },
+                        relation: eitmad_contracts::authorization::RelationId::parse(
+                            eitmad_authorization::MANAGER_RELATION,
+                        )
+                        .unwrap(),
+                    },
+                )
+                .unwrap();
+            let account = store
+                .list_desktop_accounts(owner.tenant_id)
+                .unwrap()
+                .accounts
+                .into_iter()
+                .find(|account| account.user_id.value() == user.identity.principal_id.value())
+                .unwrap();
+            crate::accounts::DesktopAccountService::new(store.clone(), authorization)
+                .update(
+                    &eitmad_authorization::MutationContext {
+                        idempotency_key: IdempotencyKey::new(uuid::Uuid::new_v4()),
+                        ..mutation
+                    },
+                    &eitmad_contracts::accounts::UpdateDesktopAccount {
+                        account_id: account.account_id,
+                        expected_revision: account.revision,
+                        display_name: account.display_name,
+                        role: eitmad_contracts::accounts::DesktopAccountRole::Manager,
+                    },
+                )
+                .unwrap();
+        } else {
+            store
+                .close_desktop_session(&user, now(), correlation_id)
+                .unwrap();
+        }
+        let (mut writer, mut reader) = tokio::io::duplex(8192);
+        assert!(
+            write_subscription_delivery(&mut writer, Some(delivery), &mut subscriptions)
+                .await
+                .unwrap()
+        );
+        drop(writer);
+        let IpcServerMessage::SubscriptionClosed(closed) = read_frame(&mut reader).await.unwrap()
+        else {
+            panic!("revoked event was written")
+        };
+        assert_eq!(closed.reason, SubscriptionCloseReason::AuthorizationRevoked);
+        assert!(
+            read_frame::<_, IpcServerMessage>(&mut reader)
+                .await
+                .is_err()
+        );
+        assert!(subscriptions.is_empty());
+    }
+
+    #[tokio::test]
+    async fn account_switch_rejects_previous_session_and_branch_context() {
+        let (_directory, store, owner, _, service, mut connection) = signed_in_service_fixture();
+        let previous = fixture_sign_in(&service, &mut connection).await;
+        let old_branch = service
+            .desktop_auth
+            .as_ref()
+            .unwrap()
+            .session_state(&previous)
+            .unwrap()
+            .customer_authorization
+            .unwrap();
+        let original = store
+            .desktop_account(owner.tenant_id, "استقبال")
+            .unwrap()
+            .unwrap();
+        store
+            .provision_desktop_account(
+                &owner,
+                &DesktopAccount {
+                    account_id: eitmad_contracts::identity::AccountId::new(uuid::Uuid::new_v4()),
+                    user_id: eitmad_contracts::identity::UserId::new(uuid::Uuid::new_v4()),
+                    tenant_id: owner.tenant_id,
+                    organization_id: original.organization_id,
+                    password_hash: original.password_hash,
+                    role: DesktopRole::Manager,
+                },
+                "مدير",
+                now(),
+            )
+            .unwrap();
+        let IpcServerMessage::DesktopSession(DesktopSessionResponse {
+            state: Some(current),
+            ..
+        }) = service
+            .handle_message(
+                IpcClientMessage::DesktopSignIn(DesktopSignInRequest {
+                    request_id: RequestId::new(uuid::Uuid::new_v4()),
+                    correlation_id: CorrelationId::new(uuid::Uuid::new_v4()),
+                    username: "مدير".into(),
+                    password: "synthetic correct horse battery".into(),
+                }),
+                &mut connection,
+            )
+            .await
+        else {
+            panic!("second account")
+        };
+        let current = current.authorization.unwrap();
+        assert_ne!(previous.session_id, current.session_id);
+        assert_ne!(
+            previous.identity.principal_id,
+            current.identity.principal_id
+        );
+        assert_eq!(
+            DesktopAuthenticator::new(store).active(&previous, now()),
+            Ok(false)
+        );
+        let response = service
+            .query(connection.as_ref(), fixture_query(previous))
+            .await;
+        assert!(matches!(response.outcome, QueryOutcome::Failed(_)));
+        assert!(matches!(
+            service
+                .query(connection.as_ref(), fixture_query(old_branch))
+                .await
+                .outcome,
+            QueryOutcome::Failed(_)
+        ));
+        assert!(matches!(
+            service
+                .query(connection.as_ref(), fixture_query(current))
+                .await
+                .outcome,
+            QueryOutcome::Succeeded(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn ipc_session_switch_cancels_blocked_previous_account_reply() {
+        let (_directory, _store, _, _, mut service, _) = signed_in_service_fixture();
+        let (entered, mut receiving) = mpsc::unbounded_channel();
+        let permits = Arc::new(tokio::sync::Semaphore::new(0));
+        service.dispatcher = Arc::new(BlockingDispatcher {
+            entered,
+            permits: permits.clone(),
+        });
+        let (mut client, server) = tokio::io::duplex(65536);
+        let (cancel, cancellation) = watch::channel(false);
+        let serving = tokio::spawn(async move {
+            service
+                .serve_connection(server, cancellation)
+                .await
+                .unwrap();
+        });
+        write_frame(
+            &mut client,
+            &IpcClientMessage::Handshake(handshake(PROTOCOL_VERSION, "token")),
+        )
+        .await
+        .unwrap();
+        assert!(matches!(
+            read_frame::<_, IpcServerMessage>(&mut client)
+                .await
+                .unwrap(),
+            IpcServerMessage::Handshake(_)
+        ));
+        let sign_in = || {
+            IpcClientMessage::DesktopSignIn(DesktopSignInRequest {
+                request_id: RequestId::new(uuid::Uuid::new_v4()),
+                correlation_id: CorrelationId::new(uuid::Uuid::new_v4()),
+                username: "استقبال".into(),
+                password: "synthetic correct horse battery".into(),
+            })
+        };
+        write_frame(&mut client, &sign_in()).await.unwrap();
+        let IpcServerMessage::DesktopSession(DesktopSessionResponse {
+            state: Some(state), ..
+        }) = read_frame(&mut client).await.unwrap()
+        else {
+            panic!("session")
+        };
+        write_frame(
+            &mut client,
+            &IpcClientMessage::Query(fixture_query(state.authorization.unwrap())),
+        )
+        .await
+        .unwrap();
+        receiving.recv().await.unwrap();
+        write_frame(&mut client, &sign_in()).await.unwrap();
+        let switched = tokio::time::timeout(
+            Duration::from_secs(5),
+            read_frame::<_, IpcServerMessage>(&mut client),
+        )
+        .await
+        .expect("switch must not wait for previous query")
+        .unwrap();
+        assert!(matches!(switched, IpcServerMessage::DesktopSession(_)));
+        permits.add_permits(1);
+        assert!(
+            tokio::time::timeout(
+                Duration::from_millis(100),
+                read_frame::<_, IpcServerMessage>(&mut client)
+            )
+            .await
+            .is_err()
+        );
+        cancel.send(true).unwrap();
+        serving.await.unwrap();
     }
 
     #[tokio::test]
@@ -2339,6 +2685,7 @@ mod tests {
             subscription_id,
             ActiveSubscription {
                 handle: task.abort_handle(),
+                desktop_auth: None,
                 correlation_id,
                 last_delivered_cursor: Some(last_written),
                 dispatcher: Arc::new(RevocableDispatcher {
@@ -2413,6 +2760,7 @@ mod tests {
             subscription_id,
             ActiveSubscription {
                 handle: pump.abort_handle(),
+                desktop_auth: None,
                 correlation_id,
                 last_delivered_cursor: None,
                 dispatcher: Arc::new(RevocableDispatcher {

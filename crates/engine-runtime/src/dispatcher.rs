@@ -1685,6 +1685,7 @@ fn image_error(
 
 #[cfg(test)]
 mod tests {
+    mod authorization;
     mod orders;
     use std::sync::atomic::{AtomicBool, Ordering};
 

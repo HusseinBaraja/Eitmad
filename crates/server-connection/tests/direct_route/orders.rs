@@ -83,6 +83,7 @@ async fn orders_cross_client_conversion_transitions_and_restart() {
     .await
     .unwrap();
     verify_database(&pool, &scenario.server.authentication.session, &final_order).await;
+    verify_live_role_revocation(&pool, &scenario, &clients).await;
     verify_sync_projection(
         &pool,
         &scenario.reception_auth.session,
@@ -104,6 +105,70 @@ async fn orders_cross_client_conversion_transitions_and_restart() {
         .server
         .handle
         .graceful_shutdown(Some(Duration::from_millis(200)));
+}
+
+async fn verify_live_role_revocation(
+    pool: &sqlx::PgPool,
+    scenario: &CatalogScenario,
+    clients: &ApprovalClients,
+) {
+    let client = clients.pure_reception.clone();
+    let actor = clients.pure_actor.clone();
+    let cancel = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let stop = cancel.clone();
+    let (send, receive) = std::sync::mpsc::channel();
+    let watch = std::thread::spawn(move || {
+        OrderServer::watch(&*client, &actor, &stop, &mut |notice| {
+            send.send(notice).unwrap();
+        })
+    });
+    let receive = tokio::task::spawn_blocking(move || {
+        receive
+            .recv_timeout(Duration::from_secs(10))
+            .expect("authorized replay establishes the stream");
+        while receive.recv_timeout(Duration::from_millis(200)).is_ok() {}
+        receive
+    })
+    .await
+    .unwrap();
+    let session = &scenario.reception_auth.session;
+    let mut tx = pool.begin().await.unwrap();
+    sqlx::query("SELECT set_config('eitmad.tenant_id',$1,true)")
+        .bind(session.tenant_id.value().to_string())
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    let removed = sqlx::query("DELETE FROM control.relationship_tuples WHERE tenant_id=$1 AND subject_principal_id=$2 AND relation='eitmad.relation.organization.receptionist.v1' AND object_kind='branch' AND object_id=$3")
+        .bind(session.tenant_id.value()).bind(session.user_id.value()).bind(scenario.server.branch_scope.id.value()).execute(&mut *tx).await.unwrap();
+    assert_eq!(removed.rows_affected(), 1);
+    sqlx::query("INSERT INTO sync.subscription_events(event_id,tenant_id,scope_kind,scope_id,schema_id,event_json,occurred_at) SELECT $3,tenant_id,scope_kind,scope_id,schema_id,event_json,$4 FROM sync.subscription_events WHERE tenant_id=$1 AND scope_id=$2 AND schema_id='eitmad.schema.order.v1' ORDER BY cursor DESC LIMIT 1")
+        .bind(session.tenant_id.value()).bind(scenario.server.branch_scope.id.value()).bind(Uuid::new_v4()).bind(eitmad_authorization::now().0).execute(&mut *tx).await.unwrap();
+    sqlx::query("SELECT pg_notify('eitmad_quotation_approvals','changed')")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
+    tokio::task::spawn_blocking(move || {
+        assert!(
+            matches!(
+                receive.recv_timeout(Duration::from_secs(10)),
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected)
+            ),
+            "revoked stream must close without another event"
+        );
+        assert_eq!(watch.join().unwrap(), Err(E::Denied));
+    })
+    .await
+    .unwrap();
+    let mut tx = pool.begin().await.unwrap();
+    sqlx::query("SELECT set_config('eitmad.tenant_id',$1,true)")
+        .bind(session.tenant_id.value().to_string())
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO control.relationship_tuples(tenant_id,subject_principal_id,subject_kind,relation,object_kind,object_id,created_at) VALUES($1,$2,'user','eitmad.relation.organization.receptionist.v1','branch',$3,$4)")
+        .bind(session.tenant_id.value()).bind(session.user_id.value()).bind(scenario.server.branch_scope.id.value()).bind(eitmad_authorization::now().0).execute(&mut *tx).await.unwrap();
+    tx.commit().await.unwrap();
 }
 async fn order_reception(scenario: &CatalogScenario) -> CustomerTestClient {
     let tenant = scenario.server.authentication.session.tenant_id;

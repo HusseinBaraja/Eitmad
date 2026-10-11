@@ -62,6 +62,37 @@ pub struct RelationshipPageData {
 }
 
 impl AuthorityStore {
+    /// Resolves the tenant from desktop branch registration or the first successful scope audit.
+    ///
+    /// # Errors
+    /// Fails closed when the immutable scope attribution cannot be read.
+    pub fn authorization_scope_tenant(
+        &self,
+        scope: &ScopeRef,
+    ) -> Result<Option<eitmad_contracts::identity::TenantId>, StorageError> {
+        self.read_transaction(|connection| {
+            let (kind, id) = scope_parts(scope);
+            let tenant: Option<String> = connection
+                .query_row(
+                    "SELECT tenant_id FROM local_desktop_branch WHERE ?1='branch' AND branch_id=?2
+                 UNION ALL SELECT tenant_id FROM (SELECT tenant_id FROM mutation_audit
+                 WHERE scope_kind=?1 AND scope_id=?2 AND outcome='\"succeeded\"'
+                 AND tenant_id IS NOT NULL ORDER BY rowid LIMIT 1) LIMIT 1",
+                    params![kind, id],
+                    |row| row.get(0),
+                )
+                .optional()
+                .map_err(|_| StorageError)?;
+            tenant
+                .map(|value| {
+                    Uuid::parse_str(&value)
+                        .map(eitmad_contracts::identity::TenantId::new)
+                        .map_err(|_| StorageError)
+                })
+                .transpose()
+        })
+    }
+
     /// Reads direct relationships for one principal in one exact scope.
     ///
     /// # Errors

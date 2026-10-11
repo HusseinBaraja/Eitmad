@@ -1129,17 +1129,20 @@ async fn stream_session(
             negotiated = Some(session);
             continue;
         }
-        let request_context = StreamRequestContext {
-            session: &session,
-            scope: &scope,
-            schema_id: &schema_id,
-            schema_version,
-            negotiated: negotiated.as_ref().expect("hello negotiated"),
-        };
+        if let Err(error) = revalidate_stream(&state, &token, &session).await {
+            let _ = send_failure(&mut socket, error.code.as_str()).await;
+            break;
+        }
         let result = handle_stream_message(
             &mut socket,
             &state,
-            &request_context,
+            &StreamRequestContext {
+                session: &session,
+                scope: &scope,
+                schema_id: &schema_id,
+                schema_version,
+                negotiated: negotiated.as_ref().expect("hello negotiated"),
+            },
             message,
             &mut approval_cursor,
         )

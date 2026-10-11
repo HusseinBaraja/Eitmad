@@ -272,7 +272,11 @@ fn furniture_fixture(
     let furniture = furnitures.save(&mutation(actor), &input).unwrap();
     (furniture, input)
 }
-fn product_fixture(store: &AuthorityStore, actor: &AuthorizationContext) -> Product {
+fn product_fixture(
+    store: &AuthorityStore,
+    actor: &AuthorizationContext,
+    image: eitmad_contracts::catalog_image::CatalogImageRef,
+) -> Product {
     let auth = AuthorizationService::new(store.clone());
     let products = eitmad_product::ProductService::new(store.clone(), auth);
     let category = products
@@ -290,7 +294,7 @@ fn product_fixture(store: &AuthorityStore, actor: &AuthorizationContext) -> Prod
         .save(
             &mutation(actor),
             &SaveProduct {
-                image: None,
+                image: Some(Box::new(image)),
                 id: None,
                 expected_revision: None,
                 name: "مرتبة اختبار".into(),
@@ -376,7 +380,7 @@ impl CatalogScenario {
         let manager_directory = tempfile::tempdir().unwrap();
         let (manager_store, manager) =
             catalog_local_authority(manager_directory.path(), &server.authentication.session);
-        let image = upload_image(
+        let (image, product_image) = upload_images(
             manager_directory.path(),
             &manager_store,
             &manager,
@@ -388,7 +392,7 @@ impl CatalogScenario {
         let (part, material) = part_fixture(&manager_store, &manager);
         let (furniture, furniture_input) =
             furniture_fixture(&manager_store, &manager, part, image.clone());
-        let product = product_fixture(&manager_store, &manager);
+        let product = product_fixture(&manager_store, &manager, product_image.clone());
         let reception_auth = receptionist(&database, &server).await;
         let reception_directory = tempfile::tempdir().unwrap();
         let (reception_store, reception) =
@@ -561,7 +565,36 @@ impl CatalogScenario {
             .await
             .unwrap();
     }
+    async fn verify_product_image(&self) {
+        let service = self.read_media.clone();
+        let reader = self.reception.clone();
+        let reference = self
+            .reception_store
+            .catalog_sales(&reader.scope)
+            .unwrap()
+            .into_iter()
+            .find(|entry| entry.price.target == self.product_target)
+            .unwrap()
+            .image
+            .unwrap();
+        let expected = reference.clone();
+        let product = tokio::task::spawn_blocking(move || {
+            service.get(
+                &reader,
+                &eitmad_contracts::catalog_image::GetCatalogImage {
+                    reference: *reference,
+                    offset: 0,
+                },
+                UnixMillis(eitmad_authorization::now().0 + 30_000),
+            )
+        })
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(product.reference, *expected);
+    }
     async fn verify_public(&mut self) {
+        self.verify_product_image().await;
         let service = self.read_media.clone();
         let reader = self.reception.clone();
         let q = self.query.clone();
@@ -748,7 +781,7 @@ impl CatalogScenario {
             .bind(self.reception_auth.session.tenant_id.value()).bind(self.server.scope.id.value()).bind("eitmad.schema.catalog-public.v1").bind(id).bind(original).execute(&mut *tx).await.unwrap();
         tx.commit().await.unwrap();
     }
-    /// Checks Product history and snapshot redaction with only one available pool connection.
+    /// Checks Product history and snapshot denial with only one available pool connection.
     async fn verify_product_projection(&mut self) {
         // A page and snapshot must complete while their only pool connection is held.
         let pool = SyncDatabase::connect(&self.database, 1)
@@ -763,7 +796,7 @@ impl CatalogScenario {
         // Restriction applies to raw history and chunked snapshots, before network serialization.
         let schema = SchemaId::parse("eitmad.schema.product.v1").unwrap();
 
-        let product_batch = tokio::time::timeout_at(
+        let denied = tokio::time::timeout_at(
             deadline,
             sync.pull(eitmad_sync_plane::PullPageRequest {
                 session: &self.reception_auth.session,
@@ -778,18 +811,8 @@ impl CatalogScenario {
         )
         .await
         .expect("product pull must not acquire a second pool connection")
-        .unwrap();
-        for record in &product_batch.records {
-            let payload = record.payload.as_ref().unwrap();
-            let decoded = STANDARD.decode(&payload.base64).unwrap();
-            let json = String::from_utf8(decoded).unwrap();
-            assert!(
-                !json.contains("90000")
-                    && !json.contains("restricted-product-note")
-                    && !json.contains("purchaseCostYer")
-                    && !json.contains("\"notes\"")
-            );
-        }
+        .unwrap_err();
+        assert_eq!(denied, eitmad_sync_plane::OperationError::Denied);
         let snapshot = tokio::time::timeout_at(
             deadline,
             sync.create_snapshot(
@@ -806,14 +829,8 @@ impl CatalogScenario {
         )
         .await
         .expect("product snapshot must not acquire a second pool connection")
-        .unwrap();
-        assert!(
-            snapshot.chunks[0].records.len() == product_batch.records.len()
-                && snapshot.chunks[0]
-                    .records
-                    .iter()
-                    .all(|record| product_batch.records.contains(record))
-        );
+        .unwrap_err();
+        assert!(matches!(snapshot, eitmad_sync_plane::SnapshotError::Denied));
     }
     async fn prepare_rejected_category(&self) -> ProductCategory {
         let products = eitmad_product::ProductService::new(
@@ -1227,6 +1244,41 @@ impl CatalogScenario {
             .graceful_shutdown(Some(Duration::from_secs(1)));
     }
 }
+async fn upload_images(
+    directory: &Path,
+    store: &AuthorityStore,
+    actor: &AuthorizationContext,
+    server: &ProvisionedServer,
+    endpoint: &str,
+    trust: &Path,
+) -> (
+    eitmad_contracts::catalog_image::CatalogImageRef,
+    eitmad_contracts::catalog_image::CatalogImageRef,
+) {
+    use eitmad_contracts::catalog_image::CatalogImageKind;
+    let furniture = upload_image(
+        directory,
+        store,
+        actor,
+        server,
+        endpoint,
+        trust,
+        CatalogImageKind::Furniture,
+    )
+    .await;
+    let product = upload_image(
+        directory,
+        store,
+        actor,
+        server,
+        endpoint,
+        trust,
+        CatalogImageKind::Product,
+    )
+    .await;
+    (furniture, product)
+}
+
 async fn upload_image(
     directory: &Path,
     store: &AuthorityStore,
@@ -1234,6 +1286,7 @@ async fn upload_image(
     server: &ProvisionedServer,
     endpoint: &str,
     trust: &Path,
+    kind: eitmad_contracts::catalog_image::CatalogImageKind,
 ) -> eitmad_contracts::catalog_image::CatalogImageRef {
     let image_transfer = Arc::new(catalog_image_client(
         directory,
@@ -1256,7 +1309,7 @@ async fn upload_image(
         .import(
             &mutation(actor),
             &eitmad_contracts::catalog_image::ImportCatalogImage {
-                kind: eitmad_contracts::catalog_image::CatalogImageKind::Furniture,
+                kind,
                 source_path: source.to_str().unwrap().into(),
             },
             UnixMillis(eitmad_authorization::now().0 + 30_000),

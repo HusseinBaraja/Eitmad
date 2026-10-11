@@ -97,7 +97,7 @@ impl CatalogImageService {
             })
     }
 
-    /// Allows Furniture image reads through an active public sale when private access is denied.
+    /// Allows image reads through an active public sale when private access is denied.
     /// The caller still needs catalog-read permission and an exact scoped image reference.
     fn authorize_read(
         &self,
@@ -106,7 +106,7 @@ impl CatalogImageService {
     ) -> Result<(), ImageError> {
         match self.authorize(actor, image.kind, false) {
             Ok(()) => (),
-            Err(ImageError::Denied) if image.kind == CatalogImageKind::Furniture => {
+            Err(ImageError::Denied) => {
                 self.authorization
                     .authorize(actor, eitmad_authorization::CATALOG_READ_PERMISSION)
                     .map_err(|_| ImageError::Denied)?;

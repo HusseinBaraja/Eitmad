@@ -980,6 +980,97 @@ fn customer_test_transport(
     .unwrap()
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires disposable PostgreSQL and trusted development certificates"]
+async fn revoked_session_cannot_submit_on_an_established_websocket() {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let database = env::var("EITMAD_DIRECT_TEST_DATABASE_URL").unwrap();
+    let server = provision_server(
+        &database,
+        &required_path("EITMAD_DIRECT_TEST_CERTIFICATE"),
+        &required_path("EITMAD_DIRECT_TEST_PRIVATE_KEY"),
+    )
+    .await;
+    let directory = tempfile::tempdir().unwrap();
+    let transport = customer_test_transport(
+        directory.path(),
+        server.authentication.clone(),
+        server.device_id,
+        [11; 32],
+        &server.branch_scope,
+        &format!("https://localhost:{}/", server.address.port()),
+        &required_path("EITMAD_DIRECT_TEST_TRUSTED_CERTIFICATE"),
+    );
+    let mut transport = tokio::task::spawn_blocking(move || {
+        let mut transport = transport;
+        transport.connect(eitmad_authorization::now()).unwrap();
+        transport
+    })
+    .await
+    .unwrap();
+    let pool = SyncDatabase::connect(&database, 2).await.unwrap().pool();
+    let actor = &server.authentication.session;
+    let mut tx = pool.begin().await.unwrap();
+    sqlx::query("SELECT set_config('eitmad.tenant_id',$1,true)")
+        .bind(actor.tenant_id.value().to_string())
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE control.sessions SET revoked_at=$3 WHERE tenant_id=$1 AND session_id=$2")
+        .bind(actor.tenant_id.value())
+        .bind(actor.session_id.value())
+        .bind(eitmad_authorization::now().0)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
+    let customer = CustomerId::new(Uuid::new_v4());
+    let change = customer_change(&server.branch_scope, customer, "عميل لا يجب حفظه", None);
+    tokio::task::spawn_blocking(move || {
+        let mut request = frame(transport.negotiated_session().unwrap().protocol);
+        request.payload = SyncTransportPayload::Message(Box::new(SyncMessage::SubmitLocal(
+            LocalChangeSubmission { change },
+        )));
+        transport
+            .send(&request, eitmad_authorization::now())
+            .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            assert!(
+                Instant::now() < deadline,
+                "revocation must apply before the periodic session check"
+            );
+            match transport.receive(eitmad_authorization::now()) {
+                Ok(ReceiveOutcome::NoFrame) => {}
+                Err(error) => {
+                    assert_eq!(error.phase, eitmad_sync::FailurePhase::Authentication);
+                    break;
+                }
+                Ok(_) => panic!("revoked session received a success frame"),
+            }
+        }
+    })
+    .await
+    .unwrap();
+    let mut tx = pool.begin().await.unwrap();
+    sqlx::query("SELECT set_config('eitmad.tenant_id',$1,true)")
+        .bind(actor.tenant_id.value().to_string())
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    let count: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM sync.records WHERE tenant_id=$1 AND record_id=$2")
+            .bind(actor.tenant_id.value())
+            .bind(customer.value())
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
+    assert_eq!(count, 0);
+    server
+        .handle
+        .graceful_shutdown(Some(Duration::from_millis(200)));
+}
+
 impl CustomerTestClient {
     fn new(
         authentication: AuthenticationResult,
@@ -1003,7 +1094,7 @@ impl CustomerTestClient {
                 device_id: Some(device_id),
                 service_id: None,
             },
-            tenant_id: eitmad_contracts::identity::TenantId::new(Uuid::new_v4()),
+            tenant_id: authentication.session.tenant_id,
             workspace_id: None,
             scope: local_branch,
         };
@@ -1310,6 +1401,7 @@ async fn assert_server_customer_isolation(
             )
             .await
     );
+    assert_receptionist_customer_branches(database.pool(), &handler, provisioned).await;
     let mut other_tenant = database.pool().begin().await.unwrap();
     sqlx::query("SELECT set_config('eitmad.tenant_id', $1, true)")
         .bind(Uuid::new_v4().to_string())
@@ -1330,6 +1422,40 @@ async fn assert_server_customer_isolation(
             .await
             .unwrap();
     assert_eq!(invisible_branches, 0);
+}
+
+async fn assert_receptionist_customer_branches(
+    pool: sqlx::PgPool,
+    handler: &CustomerSyncHandler,
+    provisioned: &ProvisionedServer,
+) {
+    let mut actor = provisioned.authentication.session.clone();
+    actor.user_id = eitmad_contracts::identity::UserId::new(Uuid::new_v4());
+    let mut tx = pool.begin().await.unwrap();
+    sqlx::query("SELECT set_config('eitmad.tenant_id',$1,true)")
+        .bind(actor.tenant_id.value().to_string())
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO control.relationship_tuples(tenant_id,subject_principal_id,subject_kind,relation,object_kind,object_id,created_at) VALUES($1,$2,'user','eitmad.relation.organization.receptionist.v1','branch',$3,1)")
+        .bind(actor.tenant_id.value()).bind(actor.user_id.value()).bind(provisioned.branch_scope.id.value()).execute(&mut *tx).await.unwrap();
+    tx.commit().await.unwrap();
+    assert!(
+        handler
+            .authorize(&actor, &provisioned.branch_scope, SyncIntent::Read)
+            .await
+    );
+    let foreign = ScopeRef {
+        kind: ScopeKind::parse("branch").unwrap(),
+        id: ScopeId::new(Uuid::new_v4()),
+    };
+    assert!(!handler.authorize(&actor, &foreign, SyncIntent::Read).await);
+    actor.tenant_id = TenantId::new(Uuid::new_v4());
+    assert!(
+        !handler
+            .authorize(&actor, &provisioned.branch_scope, SyncIntent::Read)
+            .await
+    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -1362,7 +1488,8 @@ async fn two_isolated_customer_engines_recover_and_preserve_conflicts() {
         &trusted_certificate,
     );
     assert_ne!(first.directory.path(), second.directory.path());
-    assert_ne!(first.actor.tenant_id, second.actor.tenant_id);
+    assert_eq!(first.actor.tenant_id, tenant_id);
+    assert_eq!(second.actor.tenant_id, tenant_id);
     assert_ne!(first.actor.scope, second.actor.scope);
     second = tokio::task::spawn_blocking(move || {
         second.run();
@@ -1605,7 +1732,10 @@ async fn receptionist_catalog_image_access(
             offset: 0,
         },
     };
-    assert!(media.download(&receptionist, &query).await.is_ok());
+    assert_eq!(
+        media.download(&receptionist, &query).await,
+        Err(ImageError::Denied)
+    );
     assert_eq!(
         media
             .upload(

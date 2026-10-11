@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust authorization, security, and audit maintainers"
-last_verified: "2026-09-17"
+last_verified: "2026-10-11"
 review_triggers:
   - "an actor, tuple, relation, permission rule, boundary, scope, audit field, or extension point changes"
 keywords:
@@ -78,6 +78,10 @@ State-changing product code may use `authorize` for the decision but must keep m
 
 Subscriptions reauthorize before delivery. Protocol `1.2` policy-change behavior remains: a revoked `1.2+` stream closes with `authorizationRevoked`, while older peers terminate without receiving an unknown close reason.
 
+The [Manager and Receptionist matrix](manager-receptionist-workflows.md#action-and-permission-matrix) controls product permissions. Manager relationships do not grant Receptionist mutations. Private Product definitions, categories, and history require Manager access; Receptionists use active published sales entries. Local branch decisions bind the requested tenant to durable desktop branch registration or the first successful scope audit. Reusing a branch UUID under another tenant denies before product reads, counts, or subscriptions.
+
+Local IPC checks the durable desktop session again before returning successful command/query results and before writing subscription events. Account transitions cancel pending replies and close old subscriptions. Remote quotation, approval, and order reads recheck local authorization after awaiting the server. An established server WebSocket revalidates its session before each inbound request, in addition to notification and timer checks.
+
 ## Mandatory audit envelope
 
 Every new audit record contains:
@@ -119,5 +123,7 @@ On `eitmad.error.authorization-denied.v1`, verify authenticated tenant/workspace
 ## Tests and safe extension
 
 Tests cover direct allow/deny, role relationships, inherited permissions, attribute conditions, tenant/workspace isolation, cross-scope tuple rejection, unauthorized commands/queries, sync rejection, external-adapter rejection, plugin rejection, audit completeness/redaction, append-only persistence, storage migration, direct policy decisions, last-owner protection, and subscription revocation.
+
+Runtime tests in `crates/engine-runtime/src/dispatcher/tests/authorization.rs` enforce role-separated commercial mutations, account administration, private catalog reads and subscriptions, and foreign-tenant branch requests. Local IPC tests cover revoked in-flight results, queued events, role-changing account updates, and cancellation of blocked replies during account switching. The [real server scenarios](../../operations/run-server-authority.md) cover customer isolation, private catalog denial and public payloads, pricing, discount approval, quotation issue, conversion, production, documents, live role revocation, and requests on an already connected revoked WebSocket. Synthetic audit failures must withhold reads or roll back authoritative mutations.
 
 Run focused authorization/audit/storage/runtime tests, full workspace tests, strict Clippy, generated contract verification, C# conformance, and an engine diagnostic plus clean start/stop. Before adding a relation or condition, document its product meaning, authoritative attributes, scope, denial behavior, Arabic UX, tuple lifecycle, migration, and revocation bound. Review [ADR-0023](../../decisions/0023-scoped-relationship-authorization-and-audit.md), [authorization authority](authorization.md), and the [contract reference](../../api/index.md).

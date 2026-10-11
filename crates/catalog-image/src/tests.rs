@@ -328,6 +328,58 @@ fn import_survives_source_removal_upgrade_restart_and_exact_retry_without_path_d
 }
 
 #[test]
+fn receptionist_cannot_read_known_private_product_or_furniture_images() {
+    let dir = TempDir::new().unwrap();
+    let (store, service, manager) = authority(&dir);
+    let mut receptionist = manager.clone();
+    receptionist.identity.principal_id = PrincipalId::new(uuid::Uuid::from_u128(99));
+    AuthorizationService::new(store)
+        .grant_relationship(
+            &mutation(&manager, 1002),
+            &eitmad_contracts::commands::GrantScopeRelationship {
+                expected_policy_version: 2,
+                subject: RelationshipSubject {
+                    principal_id: receptionist.identity.principal_id,
+                    principal_kind: PrincipalKind::User,
+                },
+                relation: eitmad_contracts::authorization::RelationId::parse(
+                    eitmad_authorization::RECEPTIONIST_RELATION,
+                )
+                .unwrap(),
+            },
+        )
+        .unwrap();
+    let path = dir.path().join("private.png");
+    std::fs::write(&path, png(3, 2)).unwrap();
+    for (key, kind) in [
+        (110, CatalogImageKind::Product),
+        (111, CatalogImageKind::Furniture),
+    ] {
+        let saved = service
+            .import(
+                &mutation(&manager, key),
+                &ImportCatalogImage {
+                    kind,
+                    source_path: path.to_str().unwrap().into(),
+                },
+                UnixMillis(i64::MAX),
+            )
+            .unwrap();
+        assert_eq!(
+            service.get(
+                &receptionist,
+                &GetCatalogImage {
+                    reference: saved,
+                    offset: 0
+                },
+                UnixMillis(i64::MAX),
+            ),
+            Err(ImageError::Denied)
+        );
+    }
+}
+
+#[test]
 fn invalid_images_bounds_forged_references_and_unauthorized_reads_fail() {
     assert_eq!(normalize(b"not an image"), Err(ImageError::Invalid));
     assert_eq!(

@@ -265,7 +265,7 @@ fn restart_retry_and_history_preserve_fixed_supplier_references() {
     );
 }
 #[test]
-fn denied_changes_cost_redaction_cross_scope_and_revocation() {
+fn denied_changes_private_definitions_cross_scope_and_revocation() {
     let dir = TempDir::new().unwrap();
     let (store, service, manager, receptionist) = setup(&dir);
     let input = fixture(&service, &manager);
@@ -288,24 +288,24 @@ fn denied_changes_cost_redaction_cross_scope_and_revocation() {
         ),
         Err(ProductError::Denied)
     );
-    for value in [
-        service
-            .list(&receptionist, &list())
-            .unwrap()
-            .items
-            .remove(0),
-        service
-            .revision(&receptionist, &reference(&saved, 0, false))
-            .unwrap(),
-    ] {
-        assert!(value.variants.iter().all(|v| v.purchase_cost_yer.is_none()));
-        assert!(value.notes.is_empty());
-        assert!(
-            !serde_json::to_string(&value)
-                .unwrap()
-                .contains("purchaseCostYer")
-        );
-    }
+    assert_eq!(
+        service.list(&receptionist, &list()),
+        Err(ProductError::Denied)
+    );
+    assert_eq!(
+        service.revision(&receptionist, &reference(&saved, 0, false)),
+        Err(ProductError::Denied)
+    );
+    assert_eq!(
+        service.categories(
+            &receptionist,
+            &ListProductCategories {
+                after: None,
+                limit: 10
+            }
+        ),
+        Err(ProductError::Denied)
+    );
     let mut other = manager.clone();
     other.scope = actor(100, 51).scope;
     other.tenant_id = actor(100, 51).tenant_id;

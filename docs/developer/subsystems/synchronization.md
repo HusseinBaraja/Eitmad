@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust synchronization maintainers"
-last_verified: "2026-10-05"
+last_verified: "2026-10-11"
 review_triggers:
   - "sync contracts, reconciliation, transport, persistence, authorization, cache, or conflict behavior changes"
 keywords:
@@ -53,7 +53,7 @@ Manager price queries return up to 50 scoped `CatalogSyncIssue` identities and n
 
 The public `eitmad.schema.catalog-public.v1` and Pricing streams are server-authoritative. Price confirmation commits a complete public definition/variant and its receipt in one server transaction. A changed current definition or archived category withdraws its sales entry in that same accepted mutation. Historical definitions and prices remain retained. An accepted private edit does not publish its proposed price.
 
-Server handlers enforce tenant RLS and organization relationships. Material, Part, and private Furniture reads require Manager. Product reads permit Receptionist access with purchase costs and internal notes removed before history or snapshot serialization. Field projection runs once per page inside the existing tenant transaction. The public entry type contains no costs, margins, Part compositions, or internal notes. A Branch Receptionist can read the owning organization's public catalog. See each capability's accepted authority policy.
+Server handlers enforce tenant RLS and organization relationships. Material, Part, Product, and private Furniture definition reads require Manager. Receptionists cannot read their history, snapshots, or subscriptions. Catalog page projection rechecks current access inside the existing tenant transaction. The public entry type contains no costs, margins, Part compositions, or internal notes. A Branch Receptionist can read the owning organization's public catalog. See each capability's accepted authority policy.
 
 The receiving engine decodes an entire page before committing its read model, checkpoint, audit, immutable price history, and price-change outbox. Private streams finish in dependency order before Furniture projection. A stale checkpoint uses the existing manifest/chunk/completion route. The client stages the complete snapshot, checks identities, counts, per-chunk and whole checksums, expiry, and bounded size, then commits once. No received prefix becomes a confirmed sales entry. Restart retains the old confirmed projection and resumes or repeats the interrupted transfer. The Rust worker retries every registered actor even when an earlier actor fails, drains committed events, and then reports the first failure. Worker-lock contention or a slow actor cannot prevent later actors from being attempted or strand notifications from committed pages. Native shells use existing subscriptions.
 
