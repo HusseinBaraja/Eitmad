@@ -278,8 +278,15 @@ fn restore(
         .is_file()
         .then(|| directory.join(format!("eitmad.pre-restore-{token}.sqlite3")));
     if let Some(previous) = &previous {
-        checkpoint(&live)?;
-        move_database_family(&live, previous)?;
+        if checkpoint(&live)
+            .and_then(|()| move_database_family(&live, previous))
+            .is_err()
+        {
+            for path in database_family_paths(&candidate) {
+                let _ = fs::remove_file(path);
+            }
+            return Err(StorageError);
+        }
     }
     if move_database_family(&candidate, &live).is_err() {
         if let Some(previous) = &previous {
@@ -438,6 +445,48 @@ mod tests {
     use tempfile::TempDir;
 
     use super::*;
+
+    #[test]
+    fn restore_checkpoint_failure_removes_candidate_and_preserves_live_database() {
+        let directory = TempDir::new().unwrap();
+        let store = AuthorityStore::open(directory.path()).unwrap();
+        store
+            .local_authorization_context(eitmad_contracts::transport::UnixMillis(1))
+            .unwrap();
+        let backup = directory.path().join("checkpoint-backup.sqlite3");
+        store.backup_to(&backup).unwrap();
+        let reader = Connection::open(store.path()).unwrap();
+        reader
+            .execute_batch("BEGIN; SELECT * FROM mutation_audit;")
+            .unwrap();
+        let writer = Connection::open(store.path()).unwrap();
+        writer
+            .execute_batch("UPDATE local_installation_authority SET device_id=device_id;")
+            .unwrap();
+        let before = fs::read(store.path()).unwrap();
+        let wal = path_with_suffix(store.path(), "-wal");
+        let before_wal = fs::read(&wal).unwrap();
+        assert!(AuthorityStore::restore_from_backup(directory.path(), &backup).is_err());
+        assert_eq!(fs::read(store.path()).unwrap(), before);
+        assert_eq!(fs::read(&wal).unwrap(), before_wal);
+        assert!(fs::read_dir(directory.path()).unwrap().all(|entry| {
+            !entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with("eitmad.restore-")
+        }));
+        assert!(
+            AuthorityStore::recovery_artifacts(directory.path())
+                .unwrap()
+                .is_empty()
+        );
+        reader.execute_batch("ROLLBACK;").unwrap();
+        drop(writer);
+        drop(reader);
+        store.verify_integrity(CorruptionCheck::Full).unwrap();
+        AuthorityStore::validate_backup(&backup).unwrap();
+    }
 
     #[test]
     fn failed_restore_audit_cannot_replace_the_live_database() {

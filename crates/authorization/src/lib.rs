@@ -69,6 +69,9 @@ pub const DISCOUNT_READ_PERMISSION: &str = "eitmad.permission.quotation.approval
 pub const QUOTATION_DRAFT_READ_PERMISSION: &str = "eitmad.permission.quotation.draft.read.v1";
 pub const QUOTATION_DRAFT_WRITE_PERMISSION: &str = "eitmad.permission.quotation.draft.write.v1";
 pub const DESKTOP_ACCOUNTS_MANAGE_PERMISSION: &str = "eitmad.permission.desktop-accounts.manage.v1";
+/// Allows manual backup/restore for an owner or manager relationship in organization scope.
+/// Whole-database callers must authorize the actor and each affected tenant's organization root.
+/// See the [recovery procedure](../../../docs/operations/recover-local-storage.md).
 pub const STORAGE_RECOVERY_PERMISSION: &str = "eitmad.permission.storage.recovery.v1";
 
 const GRANT_RELATIONSHIP_OPERATION: &str = "eitmad.authorization.relationship.grant.v1";

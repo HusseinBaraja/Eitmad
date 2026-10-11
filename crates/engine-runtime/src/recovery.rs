@@ -17,14 +17,24 @@ use crate::{
     authority::{AuthorityLock, AuthorityLockError},
 };
 
+/// Stable, sanitized maintenance failures. No variant exposes credentials or storage details.
+/// See the [recovery procedure](../../../docs/operations/recover-local-storage.md).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RecoveryError {
+    /// Another engine or maintenance operation holds exclusive runtime-directory authority.
     AlreadyRunning,
+    /// Credentials are invalid or the actor lacks recovery permission for an affected tenant.
     Denied,
+    /// The restore source is invalid, unsafe, or belongs to a different installation/topology.
     UnsafeSource,
+    /// Authority, storage, audit, or session persistence could not complete.
+    /// A backup may already be published when its subsequent audit or session closure fails.
     Unavailable,
 }
 
+/// Manual maintenance of existing storage with exclusive authority held for this object's lifetime.
+/// Each operation checks the actor and every affected tenant root for organization-scope owner
+/// or manager recovery permission. See the [recovery procedure](../../../docs/operations/recover-local-storage.md).
 pub struct ManualRecovery {
     _authority: AuthorityLock,
     directory: PathBuf,
@@ -101,36 +111,58 @@ impl ManualRecovery {
     }
 
     /// Creates a validated private backup at a new destination.
+    /// Requires owner or manager recovery permission for the actor and every affected tenant root.
+    /// Appends the backup audit to live storage only after publication, then closes the operator's
+    /// session with an audit record. Failed and denied attempts also close the session.
+    /// See the [recovery procedure](../../../docs/operations/recover-local-storage.md).
     ///
     /// # Errors
-    /// Denies non-managers and returns sanitized failures without overwriting a destination.
+    /// Returns `Denied` for missing permission or `Unavailable` for storage, audit, or session
+    /// failures. Never overwrites a destination; a published backup survives a later audit failure.
     pub fn backup(
         &self,
         actor: &AuthorizationContext,
         destination: impl AsRef<Path>,
         now: UnixMillis,
     ) -> Result<(), RecoveryError> {
-        let audit = self.authorize(actor, "eitmad.storage.backup.v1", now)?;
-        self.store
-            .backup_to(destination)
-            .map_err(|_| self.failed(&audit))?;
-        self.store
-            .append_audit(&audit)
-            .map_err(|_| RecoveryError::Unavailable)
+        let result = (|| {
+            let audit = self.authorize(actor, "eitmad.storage.backup.v1", now)?;
+            self.store
+                .backup_to(destination)
+                .map_err(|_| self.failed(&audit))?;
+            self.store
+                .append_audit(&audit)
+                .map_err(|_| RecoveryError::Unavailable)
+        })();
+        let closed = self.close_session(actor, now);
+        result.and(closed)
     }
 
     /// Restores the same installation and preserves the previous database family.
     /// The lock stays held through staging, audit, replacement, and normal reopen.
+    /// Requires owner or manager recovery permission for the actor and every affected tenant root.
+    /// Stages the restore audit and preserves/closes the operator session before replacement.
+    /// Credentials and permission relationships return to the backup point; newer ones are not copied.
+    /// Failed and denied attempts close the operator session in live storage with an audit record.
+    /// See the [recovery procedure](../../../docs/operations/recover-local-storage.md).
     ///
     /// # Errors
-    /// Denies non-managers, foreign identities, and unsafe or invalid sources.
+    /// Returns `Denied` for missing permission, `UnsafeSource` for invalid or foreign sources,
+    /// or `Unavailable` for storage, audit, or session failures. Preserves the original failure
+    /// if session closure also fails. Storage attempts rollback if installation or reopen fails.
     pub fn restore(
         &mut self,
         actor: &AuthorizationContext,
         source: impl AsRef<Path>,
         now: UnixMillis,
     ) -> Result<(), RecoveryError> {
-        let audit = self.authorize(actor, "eitmad.storage.restore.v1", now)?;
+        let audit = match self.authorize(actor, "eitmad.storage.restore.v1", now) {
+            Ok(audit) => audit,
+            Err(error) => {
+                let _ = self.close_session(actor, now);
+                return Err(error);
+            }
+        };
         let source = source.as_ref();
         let result = (|| {
             AuthorityStore::validate_backup(source).map_err(|_| RecoveryError::UnsafeSource)?;
@@ -149,9 +181,20 @@ impl ManualRecovery {
         })();
         if let Err(error) = result {
             self.failed(&audit);
+            let _ = self.close_session(actor, now);
             return Err(error);
         }
         Ok(())
+    }
+
+    fn close_session(
+        &self,
+        actor: &AuthorizationContext,
+        now: UnixMillis,
+    ) -> Result<(), RecoveryError> {
+        self.store
+            .close_desktop_session(actor, now, CorrelationId::new(Uuid::new_v4()))
+            .map_err(|_| RecoveryError::Unavailable)
     }
 
     fn authorize(
@@ -240,6 +283,61 @@ mod tests {
         store
             .provision_desktop_account(&owner, &account, "operator", UnixMillis(2))
             .unwrap();
+    }
+
+    #[test]
+    fn recovery_backup_and_failed_restore_close_operator_sessions_with_audit() {
+        let directory = tempfile::tempdir().unwrap();
+        let store = AuthorityStore::open(directory.path()).unwrap();
+        provision_operator(&store);
+        let mut recovery = ManualRecovery::acquire(directory.path()).unwrap();
+        let backup = directory.path().join("manual.sqlite3");
+        let unsafe_source = directory.path().join("invalid.sqlite3");
+        std::fs::write(&unsafe_source, b"not sqlite").unwrap();
+        for (operation, expected) in [
+            ("backup", Ok(())),
+            ("backup", Err(RecoveryError::Unavailable)),
+            ("restore", Err(RecoveryError::UnsafeSource)),
+            ("backup", Err(RecoveryError::Denied)),
+            ("restore", Err(RecoveryError::Denied)),
+        ] {
+            let actor = recovery
+                .sign_in("operator", "synthetic recovery password", UnixMillis(3))
+                .unwrap();
+            if expected == Err(RecoveryError::Denied) {
+                rusqlite::Connection::open(store.path())
+                    .unwrap()
+                    .execute(
+                        "DELETE FROM scope_relationships WHERE principal_id=?1",
+                        [actor.identity.principal_id.value().to_string()],
+                    )
+                    .unwrap();
+            }
+            let result = match operation {
+                "backup" => recovery.backup(&actor, &backup, UnixMillis(4)),
+                _ => recovery.restore(&actor, &unsafe_source, UnixMillis(4)),
+            };
+            assert_eq!(result, expected);
+            let connection = rusqlite::Connection::open(store.path()).unwrap();
+            let session = actor.session_id.value().to_string();
+            let closed_at: i64 = connection
+                .query_row(
+                    "SELECT closed_at FROM identity_sessions WHERE session_id=?1",
+                    [&session],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert_eq!(closed_at, 4);
+            let sign_outs: i64 = connection
+                .query_row(
+                    "SELECT COUNT(*) FROM mutation_audit WHERE session_id=?1
+                 AND operation='eitmad.desktop.session.sign-out.v1' AND outcome='\"succeeded\"'",
+                    [&session],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert_eq!(sign_outs, 1);
+        }
     }
 
     #[test]

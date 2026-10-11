@@ -73,6 +73,8 @@ Restore authenticates against current credentials and relationships, not the sel
 
 The staged restore transaction also preserves the operator's persisted session, its referenced identity-directory records, and its unchanged sign-in/sign-out audit evidence. It closes the maintenance session at restore time. This keeps account and user attribution available even when the operator was created after the backup. It does not copy newer desktop credentials, roles, or permission relationships; those remain at the selected backup point.
 
+Backup attempts and failed or denied restore attempts close the maintenance session in the live database with a sign-out audit record. If the operation and session closure both fail, the original operation error is returned. A published backup remains available if the later audit or session closure fails. A live checkpoint or pre-restore move failure removes the staged candidate and its companion files before returning failure; the live database remains in place.
+
 Both commands report only success with elapsed milliseconds or a stable sanitized error code. Exit `1` is failure. `eitmad.error.engine-already-running.v1` requires stopping the engine; `eitmad.error.authorization-denied.v1` requires a current authorized account; `eitmad.error.storage-recovery-unsafe-source.v1` requires a valid matching recovery point; `eitmad.error.storage-recovery-failed.v1` requires checking private permissions, space, and the filesystem. Do not retry by deleting files.
 
 An account-read or session-write failure during sign-in reports `eitmad.error.storage-recovery-failed.v1`. Invalid credentials report `eitmad.error.authorization-denied.v1`. A storage failure does not mean the supplied credential was rejected.
