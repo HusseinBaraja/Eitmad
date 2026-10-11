@@ -126,7 +126,15 @@ public partial class MainWindow : Window
     private async void SessionSignedIn(object sender, AuthenticatedSurface surface)
     {
         AccountActivation = ActivateAccountAsync(surface);
-        await AccountActivation;
+        try
+        {
+            await AccountActivation;
+        }
+        catch (Exception error) when (error is Eitmad.Platform.Windows.LocalIpc.EngineIpcException
+            or IOException or ObjectDisposedException)
+        {
+            ShowToast(Features.Customers.CustomerClient.ArabicMessage(Features.Customers.CustomerFailureKind.Unavailable));
+        }
     }
 
     private async Task ActivateAccountAsync(AuthenticatedSurface surface)
@@ -212,7 +220,7 @@ public partial class MainWindow : Window
         HideAccountSurfaces();
         try
         {
-            await AccountActivation;
+            await AwaitActivationEndAsync();
             if (home is not null) await home.DeactivateAsync();
             await ReceptionistSurface.DeactivateCustomersAsync();
             await ReceptionistSurface.DeactivateCatalogAsync();
@@ -248,6 +256,19 @@ public partial class MainWindow : Window
         ShowDestination("الرئيسية");
     }
 
+    private async Task AwaitActivationEndAsync()
+    {
+        try
+        {
+            await AccountActivation;
+        }
+        catch (Exception error) when (error is Eitmad.Platform.Windows.LocalIpc.EngineIpcException
+            or IOException or ObjectDisposedException)
+        {
+            // Sign-in reports activation failures; they must not prevent cleanup or sign-out.
+        }
+    }
+
     private void SessionEnded(object? sender, SessionEndedEventArgs eventArgs) =>
         Dispatcher.Invoke(() => _ = CompleteSessionEndAsync(eventArgs.Reason));
 
@@ -257,7 +278,7 @@ public partial class MainWindow : Window
         try
         {
             HideAccountSurfaces();
-            await AccountActivation;
+            await AwaitActivationEndAsync();
             if (home is not null) await home.DeactivateAsync();
             await ReceptionistSurface.DeactivateCustomersAsync();
             await ReceptionistSurface.DeactivateCatalogAsync();

@@ -100,8 +100,10 @@ pub struct CustomerSyncProjection<'a> {
 
 impl AuthorityStore {
     /// Recovers original customer authors from the audit committed with each outbox entry.
+    /// Returns distinct author contexts only for successful customer create/update audits.
+    /// Excludes customers with sync exceptions; the caller must check current authority.
     /// # Errors
-    /// Fails closed for missing or malformed mandatory evidence.
+    /// Returns an error if storage or matched audit evidence cannot be read or decoded.
     pub fn pending_customer_actors(&self) -> Result<Vec<AuthorizationContext>, StorageError> {
         let connection = self.open_connection()?;
         let mut statement = connection
@@ -133,6 +135,10 @@ impl AuthorityStore {
     }
 
     /// Loads pending changes for their original author, including work retained after sign-out.
+    /// Matches the scope and successful create/update audit's tenant, principal, and device
+    /// exactly (including an absent device), without requiring the original session ID.
+    /// Excludes customers with sync exceptions and selects only each customer's earliest
+    /// pending entry, in insertion order, with at most 50 records. The caller authorizes access.
     /// # Errors
     /// Returns an error for malformed durable work.
     pub fn customer_sync_batch_for_author(

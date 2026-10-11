@@ -20,6 +20,8 @@ pub struct AccountInvitation {
     pub activation_token: String,
 }
 
+/// Assigns an operational role within one organization and its registered branch.
+/// Invitation and role updates grant the role's relationship at both scopes atomically.
 pub struct WorkflowRole {
     pub organization: OrganizationId,
     pub branch: ScopeId,
