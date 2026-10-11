@@ -105,7 +105,7 @@ public sealed class WorkflowEnvironmentTests
             // route is retryable; retain the key so an accepted request cannot be duplicated.
             var retryUntil = DateTime.UtcNow.AddSeconds(15);
             while (confirmed.Outcome.Status == CommandOutcomeStatus.Failed
-                && confirmed.Outcome.Payload.Code == "eitmad.error.quotation-approval-unavailable.v1"
+                && confirmed.Outcome.Payload.Code == ProtocolIds.ErrorCodes.EitmadErrorQuotationApprovalUnavailableV1
                 && DateTime.UtcNow < retryUntil)
             {
                 await Task.Delay(100);
