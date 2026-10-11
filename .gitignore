@@ -1,5 +1,6 @@
 /target/
 /dist/
+/tests/engine-integration/artifacts/
 __pycache__/
 node_modules/
 /tests/contract-compatibility/csharp/bin/

@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust storage maintainers"
-last_verified: "2026-10-08"
+last_verified: "2026-10-11"
 review_triggers:
   - "database setup, migration history/window, transaction, integrity, backup, restore, export, or schema verification changes"
 keywords:
@@ -50,7 +50,7 @@ The supported read path is authenticated IPC, Rust dispatcher, ReBAC authorizati
 
 `AuthorityStore::validate_backup` is read-only. `AuthorityStore::restore_from_backup` requires the caller to hold exclusive engine authority. It validates and privately stages the candidate first, checkpoints the stopped live database, preserves the previous database under a unique `eitmad.pre-restore-*.sqlite3` name, installs the candidate, and reopens it through normal migration and drift checks. Database-family moves preflight the main, WAL, and shared-memory paths and roll back completed renames after a companion failure. Failed installation attempts restore the previous database when possible and preserve a failed candidate for investigation.
 
-These are Rust library hooks, not IPC, shell, scheduling, retention, or production operator workflows. A future coordinator must define permission, audit, retention, disk-space, encryption, and update-preflight policy before exposing them.
+`eitmad-engine-runtime::ManualRecovery` exposes these primitives through the manual engine CLI for isolated synthetic installations. It owns the exclusive engine lock, checks the recovery permission for every affected tenant root, refuses foreign installation/scope topology, and stages the restore audit before replacement. See the [manual procedure and PostgreSQL drill](../../operations/recover-local-storage.md#manual-sqlite-backup-and-restore). Recovery UI, scheduling, retention, encryption, and production device-loss recovery remain unimplemented.
 
 `AuthorityStore::recovery_artifacts` classifies preserved pre-migration, pre-restore, and failed-restore files without opening or deleting them. `CorruptionCheck::Quick` supports readiness diagnostics; `Full` is required for backup/restore validation and explicit maintenance. Follow [recover and export local storage](../../operations/recover-local-storage.md).
 

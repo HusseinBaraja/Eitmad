@@ -113,6 +113,28 @@ pub struct PendingPublication {
 type StoredIdempotency = ([u8; 32], Vec<u8>);
 
 impl AuthorityStore {
+    /// Opens current storage for manual maintenance without creating or migrating it.
+    ///
+    /// # Errors
+    /// Returns a sanitized error for missing, unsafe, non-current, or invalid storage.
+    pub fn open_existing(runtime_directory: impl AsRef<Path>) -> Result<Self, StorageError> {
+        let path = runtime_directory.as_ref().join(DATABASE_FILE_NAME);
+        if !fs::symlink_metadata(&path)
+            .map_err(|_| StorageError)?
+            .file_type()
+            .is_file()
+        {
+            return Err(StorageError);
+        }
+        validate_database_file_with(&path, CorruptionCheck::Full)?;
+        let connection = Connection::open_with_flags(&path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+            .map_err(|_| StorageError)?;
+        if migrations::read_version(&connection)? != CURRENT_STORAGE_VERSION {
+            return Err(StorageError);
+        }
+        Ok(Self { path })
+    }
+
     /// Opens and migrates the Rust-owned authority database.
     ///
     /// # Errors

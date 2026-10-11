@@ -1170,6 +1170,7 @@ dependencies = [
  "eitmad-contracts",
  "eitmad-control-plane",
  "eitmad-customer",
+ "eitmad-engine-runtime",
  "eitmad-furniture",
  "eitmad-material",
  "eitmad-observability-audit",

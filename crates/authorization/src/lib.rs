@@ -69,6 +69,7 @@ pub const DISCOUNT_READ_PERMISSION: &str = "eitmad.permission.quotation.approval
 pub const QUOTATION_DRAFT_READ_PERMISSION: &str = "eitmad.permission.quotation.draft.read.v1";
 pub const QUOTATION_DRAFT_WRITE_PERMISSION: &str = "eitmad.permission.quotation.draft.write.v1";
 pub const DESKTOP_ACCOUNTS_MANAGE_PERMISSION: &str = "eitmad.permission.desktop-accounts.manage.v1";
+pub const STORAGE_RECOVERY_PERMISSION: &str = "eitmad.permission.storage.recovery.v1";
 
 const GRANT_RELATIONSHIP_OPERATION: &str = "eitmad.authorization.relationship.grant.v1";
 const REVOKE_RELATIONSHIP_OPERATION: &str = "eitmad.authorization.relationship.revoke.v1";
@@ -131,6 +132,7 @@ const POLICY_PERMISSIONS: &[&str] = &[
     QUOTATION_DRAFT_READ_PERMISSION,
     QUOTATION_DRAFT_WRITE_PERMISSION,
     DESKTOP_ACCOUNTS_MANAGE_PERMISSION,
+    STORAGE_RECOVERY_PERMISSION,
 ];
 
 #[derive(Clone, Debug)]
@@ -255,6 +257,7 @@ impl AuthorizationService {
                 permission: permission_id(permission),
                 decision: if match *permission {
                     AUTHORIZATION_MANAGE_PERMISSION => owner,
+                    STORAGE_RECOVERY_PERMISSION => (owner || manager) && organization_scope,
 
                     CONFIG_WRITE_PERMISSION
                     | CONFIG_IMPORT_PERMISSION
