@@ -1,0 +1,775 @@
+[
+  {
+    "id": "UI-01",
+    "title": "Sign-in form is clipped at the minimum window size",
+    "priority": "P1",
+    "kind": "Defect",
+    "screen": "Sign-in / تسجيل الدخول",
+    "sources": [
+      "Features/Authentication/SignInView.xaml"
+    ],
+    "reproduce": "Open the sign-in screen at 720 × 560.",
+    "observed": "The two-column layout keeps the photo panel at a minimum width of 285 DIP and the form panel at 390 DIP. The form itself has Width=420 plus 48-DIP side margins. The screenshot cuts off the logo, heading, field labels, and the right side of the credential inputs. Vertical scrolling cannot recover the missing horizontal content.",
+    "done": "Replace the fixed-width form arrangement with an adaptive native WPF layout. At the minimum size, show the complete form with readable labels and reachable controls. Reduce or collapse the decorative photo when needed. Preserve the spacious two-panel design at larger sizes. Wrap connection errors and guidance within the form.",
+    "images": [
+      "audit-sign-in-720.png",
+      "audit-sign-in-failure-720.png"
+    ]
+  },
+  {
+    "id": "UI-02",
+    "title": "Operational text is too small compared with the page chrome",
+    "priority": "P2",
+    "kind": "Design improvement",
+    "screen": "All manager lists and shared form controls",
+    "sources": [
+      "Resources/OperationsControls.xaml"
+    ],
+    "reproduce": "Open the materials, parts, products, pricing, orders, and quotations lists at the default size.",
+    "observed": "Large headings and the sidebar dominate the view, while table values, headers, metadata, help, and errors are much smaller and often pale. TableBody is 11 DIP; several headers, metadata labels, and actions are 10 DIP. Important operational data is harder to scan than navigation.",
+    "done": "Redesign the shared text hierarchy using the existing Arabic font and visual system. Make primary row data, meaningful labels, and errors comfortably readable. Use secondary styling only for secondary information. Adjust row heights and spacing with the text sizes. Check affected tables and forms for clipping. Do not shrink the whole page.",
+    "images": [
+      "material-durable-list-1338x753.png",
+      "products-list-1338x753.png"
+    ]
+  },
+  {
+    "id": "UI-03",
+    "title": "Checkbox text overwhelms dialog labels and controls",
+    "priority": "P2",
+    "kind": "Design improvement",
+    "screen": "Furniture variant dialog and pricing editor",
+    "sources": [
+      "Features/Furniture/FurnitureView.xaml",
+      "Features/Pricing/PricingView.xaml"
+    ],
+    "reproduce": "Edit a furniture size, then open a below-cost price confirmation.",
+    "observed": "Checkbox labels render much larger than nearby field labels and help text. In the furniture dialog, long compatibility instructions become dominant multi-line headings with tiny checkbox squares. The below-cost acknowledgement similarly competes with the dialog title.",
+    "done": "Apply a suitable native checkbox style to the affected choices. Match the form text hierarchy, keep the checkbox and label aligned in RTL, and wrap long labels without reducing the hit area. Keep all choices, acknowledgements, and Rust-owned permission rules intact.",
+    "images": [
+      "audit-furniture-variant-dialog-720.png",
+      "pricing-warning-720x560-125percent.png"
+    ]
+  },
+  {
+    "id": "UI-04",
+    "title": "Compact tables hide key values and row actions",
+    "priority": "P2",
+    "kind": "Design improvement",
+    "screen": "Manager lists, composition editors, and customer history tables",
+    "sources": [
+      "Controls/OperationsTable.cs",
+      "Resources/OperationsControls.xaml",
+      "Features/Parts/PartsView.xaml",
+      "Features/Users/UsersView.xaml",
+      "Features/Customers/CustomerDetailView.xaml"
+    ],
+    "reproduce": "Open the users list or parts materials step at 720 × 560.",
+    "observed": "The sum of fixed column minimum widths exceeds the available content width. Users need horizontal scrolling to reach row actions; the parts materials editor cuts off cost columns. The page can also have an outer vertical scrollbar. Native horizontal scrolling is available, but the everyday compact workflow is difficult to scan and operate.",
+    "done": "Redesign the affected compact table layouts using native WPF behavior. Keep record identity and the main action discoverable. Move secondary fields into an appropriate detail presentation or choose justified compact column widths. Keep numeric values readable and preserve native sorting, selection, editing, and keyboard behavior. Do not remove information or reduce all text to make it fit.",
+    "images": [
+      "audit-users-list-720.png",
+      "part-materials-720x560.png"
+    ]
+  },
+  {
+    "id": "UI-05",
+    "title": "Users empty state is vertically clipped",
+    "priority": "P2",
+    "kind": "Defect",
+    "screen": "Users / المستخدمون",
+    "sources": [
+      "Features/Users/UsersView.xaml",
+      "Resources/OperationsControls.xaml"
+    ],
+    "reproduce": "At 720 × 560, search for لا يوجد in a populated users list.",
+    "observed": "Only fragments of the empty-state text appear below the table header. The filter area consumes height, and the empty table does not give its EmptyContent enough usable space. The message is not readable in the captured minimum-size view.",
+    "done": "Ensure the complete heading and guidance remain readable when the result set is empty. Let the appropriate parent scroll or reserve enough measured height for the empty state. Verify this specific filtered-empty state with the filters visible. Preserve populated-row scrolling.",
+    "images": [
+      "audit-users-empty-720.png"
+    ]
+  },
+  {
+    "id": "UI-06",
+    "title": "Repeated page titles consume space in reception flows",
+    "priority": "P3",
+    "kind": "Design improvement",
+    "screen": "Reception catalog and manager home",
+    "sources": [
+      "Features/Reception/SalesCatalogView.xaml",
+      "Features/Reception/ReceptionistHomeView.xaml",
+      "MainWindow.xaml",
+      "Controls/ShellTitleBar.xaml"
+    ],
+    "reproduce": "Open the receptionist products page or manager dashboard.",
+    "observed": "The shell title and the inner page title repeat المنتجات or لوحة التحكم in two separate horizontal bands. The extra heading adds height without more context. At minimum width, the toolbar already uses two rows.",
+    "done": "Give each affected screen one clear title hierarchy. Keep global search and shell actions where they belong, and use the content heading only when it adds distinct context. Redesign this in the existing native visual system. Check role-specific navigation and compact height.",
+    "images": [
+      "catalog-normal.png",
+      "audit-manager-home-top-720.png"
+    ]
+  },
+  {
+    "id": "UI-07",
+    "title": "Unavailable sidebar destinations add noise to daily navigation",
+    "priority": "P3",
+    "kind": "Design improvement",
+    "screen": "Manager sidebar, including reports / التقارير",
+    "sources": [
+      "Controls/ShellSidebar.xaml"
+    ],
+    "reproduce": "Open the manager shell and inspect the lower sidebar.",
+    "observed": "المهام, التقارير, and الإعدادات are disabled destinations mixed with active destinations. They consume vertical space and look similar to usable navigation, although their tooltips explain that they are unavailable. The audit found no implemented reports page to open.",
+    "done": "Redesign the presentation of unavailable destinations so active daily routes are easy to scan. You may hide, group, or clearly separate unavailable items using the best native solution. Keep the current capability boundaries truthful. This prompt does not authorize implementing reports, tasks, or settings, or making disabled routes appear functional.",
+    "images": [
+      "products-list-1338x753.png"
+    ]
+  },
+  {
+    "id": "UI-08",
+    "title": "The compact manager primary action uses a misleading plus icon",
+    "priority": "P2",
+    "kind": "Design improvement",
+    "screen": "Manager shell toolbar",
+    "sources": [
+      "Controls/ShellTitleBar.xaml",
+      "Controls/ShellTitleBar.xaml.cs",
+      "MainWindow.xaml.cs"
+    ],
+    "reproduce": "Resize the manager dashboard to 720 × 560.",
+    "observed": "The manager action is approvals, but the button always uses IconPlus. In compact mode its text is hidden, leaving a plus with no visible indication that it opens approvals. The same shared action has a different meaning for the receptionist quotation flow.",
+    "done": "Use an icon and compact presentation that match the current action. Bind an explicit Arabic accessible name to PrimaryActionButton. Keep the receptionist quotation action and its item count understandable in compact mode. Preserve the existing click routes and permission rules.",
+    "images": [
+      "audit-manager-home-top-720.png",
+      "shared-chrome-manager.png"
+    ]
+  },
+  {
+    "id": "UI-09",
+    "title": "Account switching is not clear from the toolbar icon",
+    "priority": "P3",
+    "kind": "Design improvement",
+    "screen": "Shared shell toolbar and account-switch dialog",
+    "sources": [
+      "Controls/ShellTitleBar.xaml",
+      "Controls/ShellTitleBar.xaml.cs"
+    ],
+    "reproduce": "Inspect the two-person toolbar button, then open تبديل الحساب.",
+    "observed": "The two-person icon can read as a users-management action, while it actually opens account switching and then sign-out. SwitchAccountHint is bound to Tag and the automation name, but the button has no explicit visible label or tooltip. The next dialog is the first clear explanation of the action.",
+    "done": "Make account switching understandable before activation. Use an appropriate icon, an Arabic tooltip, and a visible label where space allows. Keep the existing warning about unsaved changes and the sign-out behavior. Do not add account policy or authentication logic to the shell.",
+    "images": [
+      "shared-chrome-manager.png",
+      "account-switch-720x560.png"
+    ]
+  },
+  {
+    "id": "UI-10",
+    "title": "Manager dashboard lacks a clear operational hierarchy",
+    "priority": "P3",
+    "kind": "Design improvement",
+    "screen": "Manager home / لوحة التحكم",
+    "sources": [
+      "MainWindow.xaml",
+      "Features/Home/HomeView.xaml"
+    ],
+    "reproduce": "Open the manager dashboard at the default and minimum sizes.",
+    "observed": "Six small quick links, a long availability paragraph, refresh text, metric cards, ready orders, and activity form a mostly flat vertical stack. The small links and large empty regions do not help the manager identify what needs action first.",
+    "done": "Redesign the dashboard using the best layout for the existing data. Give pending approvals and ready orders a clear place, make quick routes compact and consistent, and separate data availability from operational content. Use only the existing Rust-provided state. Keep all supported destinations and partial-data explanations.",
+    "images": [
+      "audit-manager-home-top-1338.png",
+      "audit-manager-home-top-720.png"
+    ]
+  },
+  {
+    "id": "UI-11",
+    "title": "Metric values and labels sit on opposite edges of each card",
+    "priority": "P3",
+    "kind": "Design improvement",
+    "screen": "Manager and receptionist home metric cards",
+    "sources": [
+      "Features/Home/HomeView.xaml"
+    ],
+    "reproduce": "Open either home screen with populated metrics.",
+    "observed": "The Arabic label is on the right of each wide card, while its count is on the far left. HomeCount changes FlowDirection to LeftToRight and sets HorizontalAlignment=Right; the resulting physical placement separates the value from its label. The association becomes weak in the two-column layout.",
+    "done": "Keep each count visually close to its label with a clear Arabic reading order. Isolate the numeric text as LTR without moving it to an unrelated physical edge. Choose a restrained native metric-card layout and keep unavailable dashes and partial counts distinct.",
+    "images": [
+      "audit-manager-home-top-1338.png",
+      "home-reception-1338.png"
+    ]
+  },
+  {
+    "id": "UI-12",
+    "title": "Unavailable home data also shows empty-result messages",
+    "priority": "P2",
+    "kind": "Defect",
+    "screen": "Manager and receptionist home failure states",
+    "sources": [
+      "Features/Home/HomeView.xaml",
+      "Features/Home/HomeViewModel.cs"
+    ],
+    "reproduce": "Load home data successfully, then make the fake engine query fail; also inspect a partially denied response.",
+    "observed": "The top notice says data is unavailable, but the ready-orders and activity sections also say that there are no records. IsEmpty and HasNoReadyOrders depend only on collection counts. This makes an unavailable query look like a confirmed empty result.",
+    "done": "Render distinct available-empty, denied, unavailable, and partial-result section states from the existing authority result. Keep a clear retry action. Do not show a confirmed-empty message for a section whose data could not be obtained. Add a focused presentation-state regression check; Rust remains the authority.",
+    "images": [
+      "audit-home-unavailable-1338.png",
+      "audit-home-partial-denied-1338.png"
+    ]
+  },
+  {
+    "id": "UI-13",
+    "title": "Home search has no clear query context or reset action",
+    "priority": "P2",
+    "kind": "Design improvement",
+    "screen": "Global search results in home",
+    "sources": [
+      "Features/Home/HomeView.xaml",
+      "Features/Home/HomeViewModel.cs",
+      "Controls/ShellTitleBar.xaml.cs"
+    ],
+    "reproduce": "Use global search for عميل and inspect the resulting home section.",
+    "observed": "The activity heading changes to نتائج البحث, but the result area does not show the active term or a clear return-to-all action. The capture has filtered data beneath dashboard metrics and quick links. The user can lose the distinction between a filtered view and normal activity.",
+    "done": "Show the active search term and a clear Arabic action to clear it and return to normal activity. Reuse the existing search behavior and query authority. Make the result state understandable after scrolling and after refresh. Keep identifiers directionally isolated.",
+    "images": [
+      "audit-home-search-1338.png"
+    ]
+  },
+  {
+    "id": "UI-14",
+    "title": "Reception home pushes daily status below oversized action cards",
+    "priority": "P3",
+    "kind": "Design improvement",
+    "screen": "Receptionist home / الرئيسية",
+    "sources": [
+      "Features/Reception/ReceptionistHomeView.xaml"
+    ],
+    "reproduce": "Open receptionist home at 720 × 560.",
+    "observed": "The 176-DIP new-quotation hero is followed by three 142-DIP navigation cards that become one column in compact mode. Status metrics and ready orders appear far below these navigation choices. The default view also gives a large share of the page to decorative action surfaces.",
+    "done": "Redesign reception home to support fast daily work. Keep new quotation prominent, make secondary routes compact, and bring relevant status and ready orders nearer the first viewport. Preserve Arabic-first native layout and the available home data. Choose the best design within the existing visual system.",
+    "images": [
+      "home-reception-720.png",
+      "catalog-home.png"
+    ]
+  },
+  {
+    "id": "UI-15",
+    "title": "Raw-material editor actions fall below the minimum viewport",
+    "priority": "P2",
+    "kind": "Design improvement",
+    "screen": "Raw-material add/edit screen / الخامات",
+    "sources": [
+      "Features/RawMaterials/RawMaterialsView.xaml"
+    ],
+    "reproduce": "Edit a material at 720 × 560.",
+    "observed": "The form shows name, category, unit, and cost, but Save and Cancel are below the initial viewport. This differs from the visible fixed action area in the furniture and products editors. The user must scroll past the last field just to find the main action.",
+    "done": "Keep Save and Cancel clearly reachable in the minimum-size editor. Choose a native action area or a more compact measured form. Keep the cost field and its validation visible when an error occurs, and preserve the existing persistence commands.",
+    "images": [
+      "material-durable-editor-720x560.png"
+    ]
+  },
+  {
+    "id": "UI-16",
+    "title": "Unit conversion inputs lack clear visible meaning",
+    "priority": "P2",
+    "kind": "Design improvement",
+    "screen": "Raw-material unit editor / إضافة وحدة جديدة",
+    "sources": [
+      "Features/RawMaterials/RawMaterialsView.xaml"
+    ],
+    "reproduce": "Open the unit editor from the material unit selector.",
+    "observed": "The exact conversion is presented as two bare numbers separated by a slash. Only the whole group has a small caption; numerator and denominator names exist as automation names, not visible labels. The form does not make the direction of conversion easy to understand.",
+    "done": "Give both values clear visible Arabic labels and explain the conversion direction in a short, accurate example based on the selected dimension and existing unit authority. Keep exact rational input; do not replace it with shell-side floating-point calculation. Make the full group usable when scrolled at minimum size.",
+    "images": [
+      "material-durable-unit-1338x753.png",
+      "material-durable-unit-720x560.png"
+    ]
+  },
+  {
+    "id": "UI-17",
+    "title": "Pending part costs look like ordinary amount fields",
+    "priority": "P3",
+    "kind": "Design improvement",
+    "screen": "Parts wizard, materials step / القطع",
+    "sources": [
+      "Features/Parts/PartsView.xaml",
+      "Features/Parts/PartsViewModel.cs"
+    ],
+    "reproduce": "Add materials and quantities in the second wizard step before entering review.",
+    "observed": "The UI explains in small help text that cost is calculated during review, but row totals and the prominent part-cost area still display amount-style placeholders. A dash beside ر.ي is visually similar to a missing financial value rather than a deliberate pending evaluation.",
+    "done": "Show a clear Arabic pending-evaluation state where no authority-calculated cost exists. Keep the guidance near the totals and keep confirmed amounts visually distinct after review. Reuse Rust calculation and existing evaluation timing; do not calculate domain costs in C#.",
+    "images": [
+      "part-materials-1338x753.png",
+      "part-review-1338x753.png"
+    ]
+  },
+  {
+    "id": "UI-18",
+    "title": "Furniture image dominates the first wizard step at minimum size",
+    "priority": "P2",
+    "kind": "Design improvement",
+    "screen": "Furniture wizard, information step / الأثاث",
+    "sources": [
+      "Features/Furniture/FurnitureView.xaml"
+    ],
+    "reproduce": "Open furniture add/edit at 720 × 560 before scrolling.",
+    "observed": "The first viewport below the header and step strip is occupied by the image section. Name and category fields are below it, so the user cannot see the main product information while starting the form.",
+    "done": "Redesign the information step so the main identifying fields are visible first at minimum size. Reduce, move, or collapse the decorative image area while keeping image selection and preview easy to use. Preserve the larger-size composition and the pinned wizard actions.",
+    "images": [
+      "audit-furniture-step-1-720.png",
+      "furniture-information-1338x753.png"
+    ]
+  },
+  {
+    "id": "UI-19",
+    "title": "Furniture progress strip is too dense for the compact editor",
+    "priority": "P3",
+    "kind": "Design improvement",
+    "screen": "Furniture six-step wizard",
+    "sources": [
+      "Features/Furniture/FurnitureView.xaml",
+      "Controls/StepIndicator.cs",
+      "Resources/OperationsControls.xaml"
+    ],
+    "reproduce": "Open any furniture editor step at 720 × 560.",
+    "observed": "All six step labels and number badges occupy one narrow row. The labels are much smaller than the page title and compete with similarly styled pill controls. Raising the general text size alone will make this strip harder to fit.",
+    "done": "Redesign the compact progress presentation with clear current-step context and a readable position such as current step plus total, or another suitable native pattern. Preserve all six steps and the existing forward/back rules. Keep the full progress view at wider sizes if it remains useful.",
+    "images": [
+      "audit-furniture-step-1-720.png",
+      "audit-furniture-step-5-720.png"
+    ]
+  },
+  {
+    "id": "UI-20",
+    "title": "Variant compatibility choices need clearer grouping",
+    "priority": "P3",
+    "kind": "Design improvement",
+    "screen": "Furniture size/variant editor dialog",
+    "sources": [
+      "Features/Furniture/FurnitureView.xaml"
+    ],
+    "reproduce": "Edit a size that has color and handle compatibility choices.",
+    "observed": "Name, three dimensions, custom-size permission, compatible colors, and compatible handles form one unstructured stack. Long instructions are repeated in the section labels. The lower choices require scrolling at minimum size, while the grouping does not make their relationship clear.",
+    "done": "Redesign this dialog with clear groups for identification/dimensions, custom sizing, and compatible options. Put short instructions in help text and keep the actual choice labels short. Preserve empty-selection semantics and all values. Coordinate checkbox styling with UI-03 without requiring that fix first.",
+    "images": [
+      "audit-furniture-variant-dialog-1338.png",
+      "audit-furniture-variant-dialog-720.png"
+    ]
+  },
+  {
+    "id": "UI-21",
+    "title": "Furniture price controls appear before the variant identity",
+    "priority": "P2",
+    "kind": "Design improvement",
+    "screen": "Furniture wizard, pricing step",
+    "sources": [
+      "Features/Furniture/FurnitureView.xaml"
+    ],
+    "reproduce": "Go to the fifth furniture wizard step at 720 × 560.",
+    "observed": "In the compact card, cost, selling-price input, and margin appear above the size name and dimensions. The financial fields have stronger visual weight than the identity below them. With several variants, it is easy to edit the wrong size's price.",
+    "done": "Place the size name and dimensions at the start of each pricing group, followed by its cost, editable price, and margin. Keep each group visually contained in RTL. Verify several variants and long names. Do not infer a numeric truncation defect from this screenshot: the supplemental driver scrolled inner controls.",
+    "images": [
+      "audit-furniture-step-5-720.png",
+      "audit-furniture-step-5-1338.png"
+    ]
+  },
+  {
+    "id": "UI-22",
+    "title": "Furniture color and handle sections use inconsistent layouts",
+    "priority": "P3",
+    "kind": "Design improvement",
+    "screen": "Furniture wizard, options step",
+    "sources": [
+      "Features/Furniture/FurnitureView.xaml"
+    ],
+    "reproduce": "Open the fourth furniture wizard step with colors and handles.",
+    "observed": "Colors appear in a table with one set of alignment rules, while handles use a different card-like presentation and action placement. The two similar option collections have different visual density and make price adjustments harder to compare.",
+    "done": "Redesign the two collections as related option groups with consistent identity, preview, adjustment amount, and edit/remove action placement. Choose the best native layout for wide and compact widths. Preserve their distinct data and supported behavior; this is a presentation change.",
+    "images": [
+      "furniture-options-1338x753.png",
+      "furniture-options-720x560.png"
+    ]
+  },
+  {
+    "id": "UI-23",
+    "title": "Color selection exposes raw hex codes instead of a useful swatch",
+    "priority": "P3",
+    "kind": "Design improvement",
+    "screen": "Furniture color editor / إضافة لون",
+    "sources": [
+      "Features/Furniture/FurnitureView.xaml"
+    ],
+    "reproduce": "Open إضافة لون and inspect اللون المعروض.",
+    "observed": "The color choice displays a technical hex string such as #F7F4EF in a generic selector. A workshop user cannot easily judge the displayed color from the code. The neighboring price-adjustment input also lacks a visible currency annotation.",
+    "done": "Redesign the color choice around a visible swatch with an Arabic name or clear label. Keep technical codes secondary if useful. Mark the adjustment amount as ر.ي and clarify that it is a price difference. Preserve the existing allowed values and Rust-owned price behavior; use native vector resources.",
+    "images": [
+      "dialog-furniture-color-780.png"
+    ]
+  },
+  {
+    "id": "UI-24",
+    "title": "Product image area becomes a large blank section",
+    "priority": "P3",
+    "kind": "Design improvement",
+    "screen": "Manager product editor / تعديل المنتج",
+    "sources": [
+      "Features/Products/ProductsView.xaml"
+    ],
+    "reproduce": "Edit a product without an image and scroll to الصورة.",
+    "observed": "The image section shows a large white region when there is no image. Its choose/remove buttons are much farther down the form, so the blank area looks incomplete rather than an intentional empty state.",
+    "done": "Show a compact, clear empty-image state with image selection next to it. Give an existing image a bounded preview and show removal only when useful. Keep the name/category form efficient at minimum width and preserve the existing image authority and upload path.",
+    "images": [
+      "products-editor-1338x753.png",
+      "products-variants-1338x753.png"
+    ]
+  },
+  {
+    "id": "UI-25",
+    "title": "Variant archive controls dominate product editing rows",
+    "priority": "P3",
+    "kind": "Design improvement",
+    "screen": "Manager product editor, variant table",
+    "sources": [
+      "Features/Products/ProductsView.xaml"
+    ],
+    "reproduce": "Edit a product with several ready-made size/type variants.",
+    "observed": "Each row shows a large outlined أرشفة button beside the name and purchase-cost fields. The destructive actions have more visual weight than the editable values, and repeated borders make the section look like separate forms rather than one coherent table.",
+    "done": "Redesign variant rows so identity and cost are primary and archive is a secondary, clearly named action. Align field heights, row spacing, and status. Keep keyboard access and the current archive behavior; do not silently delete variants or change persistence rules.",
+    "images": [
+      "products-variants-1338x753.png",
+      "table-product-variants-780.png"
+    ]
+  },
+  {
+    "id": "UI-26",
+    "title": "Invalid price input leaves a stale margin and confirmation visible",
+    "priority": "P2",
+    "kind": "Defect",
+    "screen": "Pricing editor / تعديل سعر البيع",
+    "sources": [
+      "Features/Pricing/PricingView.xaml",
+      "Features/Pricing/PricingViewModel.cs"
+    ],
+    "reproduce": "Obtain a below-cost evaluation, then change the price to an invalid fractional value such as 220000.5.",
+    "observed": "The input error is visible, but the calculated margin still shows -10,000 ر.ي from the earlier valid input, and the below-cost confirmation remains displayed. Those values no longer describe the current input.",
+    "done": "Invalidate or clearly mark the old presentation evaluation when the price text is invalid or differs from the evaluated value. Do not show the old margin as current, and do not offer a stale below-cost acknowledgement. Keep save availability and authority evaluation consistent. Add a focused state regression test.",
+    "images": [
+      "pricing-warning-720x560-125percent.png"
+    ]
+  },
+  {
+    "id": "UI-27",
+    "title": "Catalog cards waste compact width and reveal little useful content",
+    "priority": "P3",
+    "kind": "Design improvement",
+    "screen": "Reception sales catalog / المنتجات",
+    "sources": [
+      "Features/Reception/SalesCatalogView.xaml"
+    ],
+    "reproduce": "Open the catalog at 720 × 560.",
+    "observed": "Cards have a fixed 290-DIP width. In the minimum-size capture, one card sits on the right with a large empty area to its left, and its 188-DIP image area takes most of the list viewport. Product details and the select action fall below the visible portion.",
+    "done": "Redesign the compact catalog to use its available width and show useful identity, price, availability context, and selection affordance sooner. Choose a native list/card arrangement suited to frequent lookup. Keep category filters, paging, image fallback, and authority-backed availability truthful.",
+    "images": [
+      "sales-catalog-live-720.png",
+      "catalog-compact.png"
+    ]
+  },
+  {
+    "id": "UI-28",
+    "title": "Sales selection pages put essential actions below oversized previews",
+    "priority": "P2",
+    "kind": "Design improvement",
+    "screen": "Reception furniture and ready-made product selection",
+    "sources": [
+      "Features/Reception/FurnitureSelectionView.xaml",
+      "Features/Reception/ProductSelectionView.xaml"
+    ],
+    "reproduce": "Select a furniture item and a ready-made product at 720 × 560.",
+    "observed": "A fixed 250-DIP image panel, large title, separate persistence notice, back button, and refresh action consume the top of the page. Quantity, total, and Add require further scrolling. The user cannot readily review the current selection and commit the local line.",
+    "done": "Redesign both selection pages for efficient native input. Keep item identity, current options, quantity, total, and Add easy to find together. Reduce the compact preview and group supporting actions. Preserve explicit local-only state and later save confirmation. Do not imply that adding a line saves it.",
+    "images": [
+      "sales-furniture-live-720.png",
+      "sales-product-live-720.png"
+    ]
+  },
+  {
+    "id": "UI-29",
+    "title": "Custom furniture dimensions use unstyled narrow inputs",
+    "priority": "P2",
+    "kind": "Design improvement",
+    "screen": "Reception furniture selection, custom dimensions",
+    "sources": [
+      "Features/Reception/FurnitureSelectionView.xaml"
+    ],
+    "reproduce": "Select a furniture variant that allows custom dimensions at minimum size.",
+    "observed": "The custom width/height/depth fields use small native text boxes that look different from the rounded application inputs. Labels and numeric text sit tightly on the field edges. The inputs have less visual affordance than the large option cards immediately above.",
+    "done": "Apply suitable existing native field styling and lay out the three dimensions with clear Arabic labels and سم units. Keep LTR numeric editing and ensure readable invalid/pending states. Preserve the actual allowed ranges and Rust evaluation; do not move dimension validation or price rules into the shell.",
+    "images": [
+      "sales-furniture-live-720.png",
+      "catalog-selection-compact.png"
+    ]
+  },
+  {
+    "id": "UI-30",
+    "title": "Customer search results appear far from the customer inputs",
+    "priority": "P2",
+    "kind": "Design improvement",
+    "screen": "Current quotation, customer selection / بيانات العميل",
+    "sources": [
+      "Features/Reception/CurrentQuotationView.xaml"
+    ],
+    "reproduce": "Start a quotation and search for الاعتماد as the customer name at the default size.",
+    "observed": "Name and phone fields sit on the right, while the matching-customer button and + عميل جديد sit on the far left of the wide form. The gap makes the result look unrelated to the search inputs. The full-width form also gives short data fields excessive horizontal travel.",
+    "done": "Keep matching customers and the new-customer action next to the customer search fields in a clear bounded section. Show selected versus typed customer state clearly, including phone. Use native RTL layout with LTR phone text. Preserve customer identity, existing-record selection, and save behavior.",
+    "images": [
+      "customers-selection-1338x753.png",
+      "customers-selection-720x560.png"
+    ]
+  },
+  {
+    "id": "UI-31",
+    "title": "Quotation summary separates labels, values, and discount input",
+    "priority": "P2",
+    "kind": "Design improvement",
+    "screen": "Current quotation, totals and discount section",
+    "sources": [
+      "Features/Reception/CurrentQuotationView.xaml"
+    ],
+    "reproduce": "Scroll to the totals section of a populated quotation at the default size.",
+    "observed": "Subtotal and discount labels sit at the far right, their amounts at the far left, and the discount field also sits left. The final total returns to the right. A large empty middle makes the financial summary difficult to scan and compare.",
+    "done": "Redesign this as a clear bounded financial summary with aligned label/value pairs, a nearby discount input, and one prominent final total. Make it work at minimum width without long eye travel. Keep the displayed amounts from Rust evaluation and preserve Arabic labels, LTR amounts, and rounding behavior.",
+    "images": [
+      "quotation-evaluation-summary-1338.png",
+      "quotation-evaluation-summary-720.png"
+    ]
+  },
+  {
+    "id": "UI-32",
+    "title": "Draft-save failure has weak visual priority and mixed status messages",
+    "priority": "P2",
+    "kind": "Design improvement",
+    "screen": "Current quotation, failed save / حفظ كمسودة",
+    "sources": [
+      "Features/Reception/CurrentQuotationView.xaml",
+      "Features/Reception/QuotationDraftState.cs"
+    ],
+    "reproduce": "Load a saved draft, edit it, then simulate save failure.",
+    "observed": "The bottom area contains several plain paragraphs: a saved-local/pending-sync message, workflow guidance, and a failure telling the user to retry. The failure is not visually distinct from routine guidance, and the distinction between the saved version and current unsaved edits is easy to miss.",
+    "done": "Give the active save failure a clear Arabic error presentation and nearby retry action using existing UI controls. Clearly distinguish the previously saved draft from current unsaved edits. Preserve all edits on failure and make document/issue action availability truthful. Do not claim synchronization or persistence before authority confirms it.",
+    "images": [
+      "quotation-draft-failed-save-720.png",
+      "quotation-draft-failed-save-1338.png"
+    ]
+  },
+  {
+    "id": "UI-33",
+    "title": "Quotation lifecycle actions appear as a flat form above the record",
+    "priority": "P3",
+    "kind": "Design improvement",
+    "screen": "Saved quotation detail, issue/reissue/cancel/accept states",
+    "sources": [
+      "Features/Quotations/QuotationsView.xaml"
+    ],
+    "reproduce": "Open an issued quotation and a receptionist acceptance view.",
+    "observed": "Validity days, cancellation reason, issue-new-version, cancel, and print appear above the main record metadata. They are presented as a flat form, so a high-impact action is not clearly associated with its purpose or prerequisites.",
+    "done": "Redesign lifecycle actions into clear context-specific native groups. Put the current record identity and state before the relevant action form. Separate cancellation from ordinary issue/print actions and explain disabled actions locally. Preserve Rust-owned lifecycle rules, role permissions, and confirmation behavior.",
+    "images": [
+      "quotation-issued-manager-720.png",
+      "quotation-accept-reception-720.png"
+    ]
+  },
+  {
+    "id": "UI-34",
+    "title": "Discount approval panel does not support a clear decision review",
+    "priority": "P2",
+    "kind": "Design improvement",
+    "screen": "Manager quotation discount approval",
+    "sources": [
+      "Features/Quotations/QuotationsView.xaml"
+    ],
+    "reproduce": "Open a quotation from the discount approval inbox at 720 × 560.",
+    "observed": "The requested percentage and amount sit on the left of a largely right-aligned panel. The explanation is shown in a thin text field, followed by small rejection guidance and approve/reject buttons. It is difficult to identify the request, reason, and required response as one decision.",
+    "done": "Redesign the approval panel with a clear request summary, readable reason, and distinct approve/reject action area. Label the rejection reason explicitly and show its requirement only when relevant. Keep amounts and authority state unchanged, and keep the quotation details available for review.",
+    "images": [
+      "discount-review-manager-720.png",
+      "discount-review-manager-1338.png"
+    ]
+  },
+  {
+    "id": "UI-35",
+    "title": "Order detail places action forms before the ordered items",
+    "priority": "P3",
+    "kind": "Design improvement",
+    "screen": "Manager and receptionist order detail / تفاصيل الطلب",
+    "sources": [
+      "Features/Orders/OrdersView.xaml"
+    ],
+    "reproduce": "Open a manager order and a ready receptionist order.",
+    "observed": "The status banner and metadata are followed by full-width note/cancellation or delivery forms. Ordered items and production context are farther down. Ordinary notes, delivery, and cancellation have similar visual weight despite different purposes.",
+    "done": "Redesign order detail around a readable identity/status summary, ordered items, production context, and a focused action area for the current role and state. Give cancellation a clearly separate treatment. Keep all current data, fields, authority gates, and confirmation paths.",
+    "images": [
+      "order-confirmed-manager-1338.png",
+      "order-ready-reception-720.png",
+      "reception-orders-mixed-items.png"
+    ]
+  },
+  {
+    "id": "UI-36",
+    "title": "Work-order date picker is much smaller than its neighboring input",
+    "priority": "P2",
+    "kind": "Design improvement",
+    "screen": "Work-order detail, assignment and due date",
+    "sources": [
+      "Features/WorkOrders/WorkOrdersView.xaml"
+    ],
+    "reproduce": "Open a planned work order and scroll to مسند إلى and موعد التسليم.",
+    "observed": "The assignee input uses the application's 44-DIP rounded field, while the adjacent DatePicker appears as a thin system text field with a tiny calendar button. Their baselines, height, border, and input affordance do not match.",
+    "done": "Style the native WPF DatePicker to fit the existing form field system while keeping its native date entry, calendar, keyboard behavior, and Arabic metadata. Keep the date value directionally safe. Verify the popup near screen edges and at minimum size. Do not replace it with a web-style calendar.",
+    "images": [
+      "work-confirmed-action-720.png",
+      "audit-work-calendar-popup-720.png"
+    ]
+  },
+  {
+    "id": "UI-37",
+    "title": "An empty work-order note is shown as a warning card",
+    "priority": "P3",
+    "kind": "Design improvement",
+    "screen": "Work-order detail / ملاحظات الطلب",
+    "sources": [
+      "Features/WorkOrders/WorkOrdersView.xaml"
+    ],
+    "reproduce": "Open a work order with no order notes.",
+    "observed": "A large yellow callout with a gold vertical stripe displays only an em dash. The visual treatment suggests a warning even though there is no note, and it uses substantial vertical space before the assignment fields.",
+    "done": "Use a neutral, compact no-notes state or omit the empty card with a suitable nearby label. Reserve warning treatment for a real actionable warning. Keep non-empty notes clearly readable and wrapped, and preserve the note text supplied by the authority.",
+    "images": [
+      "work-confirmed-action-720.png"
+    ]
+  },
+  {
+    "id": "UI-38",
+    "title": "Customer sync conflict is too easy to miss and gives no next step",
+    "priority": "P2",
+    "kind": "Design improvement",
+    "screen": "Customer detail / تفاصيل العميل",
+    "sources": [
+      "Features/Customers/CustomerDetailView.xaml",
+      "Features/Customers/CustomerDetailView.xaml.cs",
+      "Features/Customers/CustomerPreview.cs"
+    ],
+    "reproduce": "Open the existing synthetic customer conflict state.",
+    "observed": "The conflict appears only as a small gray تعارض يحتاج مراجعة subtitle. The Edit button is disabled, but the page gives no clear explanation of that restriction or next available action. It looks close to an ordinary muted sync status.",
+    "done": "Show conflict as a clear text-and-icon status with an accurate explanation for the disabled editor. Provide only a recovery action that the current authority supports; if no resolution workflow exists, state that limitation clearly rather than inventing one. Keep the last known contact and history data readable.",
+    "images": [
+      "customers-sync-conflict-720x560.png",
+      "customers-sync-conflict-1338x753.png"
+    ]
+  },
+  {
+    "id": "UI-39",
+    "title": "Users list and deactivation dialog omit the login identity",
+    "priority": "P2",
+    "kind": "Design improvement",
+    "screen": "Users list and deactivate confirmation",
+    "sources": [
+      "Features/Users/UsersView.xaml",
+      "Features/Users/UsersViewModel.cs"
+    ],
+    "reproduce": "Open users with a display name that could be shared by another account, then choose deactivate.",
+    "observed": "The list displays only Name, role, and status. Username is present in UserPreview and searchable but not visible. The deactivation dialog also identifies the account only by display name. Similar names are difficult to distinguish before a high-impact action.",
+    "done": "Show the username as secondary LTR identity in each user row and in deactivation confirmation. Keep the Arabic display name primary. Verify two accounts with the same display name and different usernames. Preserve existing account IDs, roles, authorization, and deactivation behavior.",
+    "images": [
+      "audit-users-list-1338.png",
+      "audit-users-deactivate-720.png"
+    ]
+  },
+  {
+    "id": "UI-40",
+    "title": "Password validation is displayed under the user's name",
+    "priority": "P2",
+    "kind": "Defect",
+    "screen": "Create-user form / إضافة مستخدم",
+    "sources": [
+      "Features/Users/UsersView.xaml",
+      "Features/Users/UsersViewModel.cs"
+    ],
+    "reproduce": "Fill a valid display name and username, leave the temporary password empty or too short, and save.",
+    "observed": "The combined error tells the user to enter name, username, role, and a password of at least 12 characters. It appears under the valid name because EditorError is bound only to that FormField. The actual invalid password field has no local error or prior length guidance.",
+    "done": "Present input guidance and errors at the relevant fields, with a suitable form-level summary for authority failures. For the reproduced short-password case, identify the temporary password field without falsely marking the valid name. Preserve entered values and Rust-owned validation; keep any shell checks limited to existing input presentation behavior.",
+    "images": [
+      "audit-users-validation-720.png"
+    ]
+  },
+  {
+    "id": "UI-41",
+    "title": "Users refresh failure leaves normal-looking stale rows with no retry action",
+    "priority": "P2",
+    "kind": "Design improvement",
+    "screen": "Users list, load failure",
+    "sources": [
+      "Features/Users/UsersView.xaml",
+      "Features/Users/UsersViewModel.cs"
+    ],
+    "reproduce": "Load users successfully, then make the next list query fail.",
+    "observed": "The list keeps its previous rows while a small red error appears above the filters. Nothing near the table marks the rows as last known data, and the view has no direct reload button despite asking the user to try again.",
+    "done": "Make the failed load and retained data state explicit, and add a clear retry using the existing LoadAsync path. Keep last known rows if useful, but label them accurately. Ensure action availability respects existing session and authority results. Do not infer that the stale account status is current.",
+    "images": [
+      "audit-users-unavailable-1338.png",
+      "audit-users-unavailable-720.png"
+    ]
+  },
+  {
+    "id": "UI-42",
+    "title": "Print preview opens wider than the available viewport",
+    "priority": "P2",
+    "kind": "Defect",
+    "screen": "Saved quotation, order, and draft print preview",
+    "sources": [
+      "Controls/PrintPreview.xaml",
+      "Controls/PrintPreview.xaml.cs"
+    ],
+    "reproduce": "Open a saved quotation preview at 720 × 560.",
+    "observed": "The A4 page opens at a zoom that exceeds the viewport. The left header identifier is clipped and the document requires horizontal scrolling before the user can inspect it. The page does not initially fit the usable width.",
+    "done": "Choose a suitable initial fit-width or fit-page mode after layout. Keep native zoom controls and allow the user to change zoom. Handle viewport resize without repeatedly overriding a user's chosen zoom. Verify quotation, order, and draft previews, including a multipage document. Preserve print authorization and pagination.",
+    "images": [
+      "saved-document-quotation-720.png",
+      "saved-document-order-720.png"
+    ]
+  },
+  {
+    "id": "UI-43",
+    "title": "Print viewer search and chrome are not fully Arabic",
+    "priority": "P2",
+    "kind": "Design improvement",
+    "screen": "Shared print preview",
+    "sources": [
+      "Controls/PrintPreview.xaml",
+      "Controls/PrintPreview.xaml.cs"
+    ],
+    "reproduce": "Inspect the bottom search bar of a saved-document preview.",
+    "observed": "The embedded DocumentViewer displays the English placeholder Type text to find inside the Arabic-first screen. The built-in icon toolbar is visually separate from the application's Arabic Print/Back actions.",
+    "done": "Localize the exposed preview search and commands using an appropriate native WPF solution. Give relevant icon controls Arabic accessible names and tooltips. Preserve native text selection, search, page navigation, zoom, and the existing intercepted print authorization path. Do not duplicate an unrestricted print route.",
+    "images": [
+      "saved-document-quotation-720.png",
+      "saved-document-quotation-1338.png"
+    ]
+  },
+  {
+    "id": "UI-44",
+    "title": "Customer print documents need a stronger professional hierarchy",
+    "priority": "P3",
+    "kind": "Design improvement",
+    "screen": "Printed quotation, order, and draft documents",
+    "sources": [
+      "Features/Reception/QuotationCustomerDocument.cs",
+      "Features/Orders/OrderCustomerDocument.cs",
+      "Controls/CustomerDocumentPages.cs"
+    ],
+    "reproduce": "Inspect the saved quotation and order pages at full page size.",
+    "observed": "The document has a small repeated header, a large title, and a long right-aligned stack of metadata before the items table. Much of the upper-left page is unused. The result is readable but visually plain, with weak grouping between document identity, customer information, and commercial terms.",
+    "done": "Redesign the customer document layout using the existing brand and native FlowDocument/vector facilities. Create clear document/customer/terms groups and a balanced item table with aligned financial totals. Use only existing printable fields; do not invent legal text, addresses, or contact details. Preserve draft labeling, snapshots, Arabic shaping, LTR identifiers, pagination, repeated table headers, and page numbers. Check the existing four-page quotation after the redesign.",
+    "images": [
+      "saved-quotation-1.png",
+      "saved-order-1.png",
+      "saved-quotation-multipage-2.png"
+    ]
+  }
+]
