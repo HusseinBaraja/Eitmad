@@ -16,10 +16,7 @@
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <StackPanel>
-            <TextBlock Text="المنتجات" FontSize="28" FontWeight="Bold" Style="{StaticResource CatalogText}"/>
-            <TextBlock Text="{Binding CatalogStatus}" Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" Margin="0,4,0,16" Style="{StaticResource CatalogText}" AutomationProperties.LiveSetting="Polite"/>
-        </StackPanel>
+        <TextBlock Text="{Binding CatalogStatus}" Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" Margin="0,0,0,16" Style="{StaticResource CatalogText}" AutomationProperties.LiveSetting="Polite"/>
         <TextBox Grid.Row="1" x:Name="CatalogSearch" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SearchInput}" controls:ControlOptions.Placeholder="ابحث عن منتج..." AutomationProperties.Name="ابحث عن منتج"/>
         <ListBox Grid.Row="2" ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}" BorderThickness="0" Background="Transparent" Margin="0,14,0,16" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="فئات المنتجات">
             <ListBox.ItemsPanel>

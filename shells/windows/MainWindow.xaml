@@ -74,7 +74,6 @@
                 ActionRequested="ManagerTitleBarActionRequested" SearchSubmitted="ManagerTitleBarSearchSubmitted"/>
             <ScrollViewer Grid.Row="1" Style="{StaticResource ResponsivePageMargin}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel>
-                    <TextBlock Text="لوحة التحكم" FontSize="25" FontWeight="Bold" Margin="0,0,0,16"/>
                     <UniformGrid x:Name="QuickActionsGrid" Style="{StaticResource ResponsiveQuickActionsGrid}" Margin="-6,0">
                         <Button Content="الموافقات" Style="{StaticResource QuickActionButton}" Margin="6" Padding="12" Tag="الموافقات" Click="HomeActionClick" AutomationProperties.Name="فتح موافقات الخصم"/>
                         <Button Content="قائمة الأسعار" Style="{StaticResource QuickActionButton}" Margin="6" Padding="12" Tag="التسعير" Click="HomeActionClick"/>

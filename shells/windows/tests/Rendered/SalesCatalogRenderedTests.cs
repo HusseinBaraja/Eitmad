@@ -176,9 +176,12 @@ public sealed class SalesCatalogRenderedTests
     }
 
     [TestMethod]
-    public void ReceptionCatalogSupportsNavigationSearchClearAndKeyboardSelection()
+    [DataRow(1536, 864)]
+    [DataRow(1338, 753)]
+    [DataRow(720, 560)]
+    public void ReceptionCatalogSupportsNavigationSearchClearAndKeyboardSelection(int width, int height)
     {
-        WpfTestHost.Run(1338, 900, window =>
+        WpfTestHost.Run(width, height, window =>
         {
             var reception = WpfTestHost.FindByName<ReceptionistHomeView>(window, "ReceptionistSurface");
             reception.Visibility = Visibility.Visible;
@@ -190,7 +193,9 @@ public sealed class SalesCatalogRenderedTests
             Assert.IsTrue(catalog.IsVisible);
             Assert.AreEqual(FlowDirection.RightToLeft, catalog.FlowDirection);
             Assert.AreEqual("الكل", WpfTestHost.FindByAutomationName<ListBox>(catalog, "فئات المنتجات").SelectedItem);
-            WpfTestHost.Capture(window, "catalog-normal");
+            var dpi = VisualTreeHelper.GetDpi(window);
+            Console.WriteLine($"catalog: requested {width} x {height}; window {window.ActualWidth} x {window.ActualHeight}; display {SystemParameters.PrimaryScreenWidth} x {SystemParameters.PrimaryScreenHeight}; scaling {dpi.DpiScaleX * 100}%");
+            WpfTestHost.Capture(window, $"catalog-{width}x{height}");
             var search = WpfTestHost.FindByName<TextBox>(catalog, "CatalogSearch");
             search.Focus();
             Assert.IsTrue(search.IsKeyboardFocusWithin);

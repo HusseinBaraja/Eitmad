@@ -93,6 +93,7 @@ public sealed class HomeRenderedTests
             window.ManagerHome.DataContext = state.Model;
             window.ManagerTitleBar.ApprovalCount = state.Model.ApprovalCount;
             WpfTestHost.CompleteLayout(window);
+            WpfTestHost.Capture(window, $"home-manager-top-{width}");
             Verify(window, window.ManagerHome, "manager", width);
             if (width == 1338) {
                 ControlOptions.SetHighContrast(window.DashboardSurface, true); WpfTestHost.CompleteLayout(window);
@@ -120,7 +121,7 @@ public sealed class HomeRenderedTests
     private static void Verify(MainWindow window, HomeView view, string role, int baseline)
     {
         var dpi = VisualTreeHelper.GetDpi(window);
-        Console.WriteLine($"{role}: baseline {baseline}; window {window.ActualWidth} x {window.ActualHeight}; scaling {dpi.DpiScaleX * 100}%");
+        Console.WriteLine($"{role}: baseline {baseline}; window {window.ActualWidth} x {window.ActualHeight}; display {SystemParameters.PrimaryScreenWidth} x {SystemParameters.PrimaryScreenHeight}; scaling {dpi.DpiScaleX * 100}%");
         view.BringIntoView(); WpfTestHost.CompleteLayout(window);
         Assert.AreEqual(FlowDirection.RightToLeft, view.FlowDirection);
         var button = WpfTestHost.Descendants<Button>(view).First(b => b.DataContext is HomeRow);
