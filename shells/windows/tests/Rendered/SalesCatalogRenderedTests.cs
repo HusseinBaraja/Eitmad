@@ -176,7 +176,7 @@ public sealed class SalesCatalogRenderedTests
     }
 
     [TestMethod]
-    [DataRow(1536, 864)]
+    [DataRow(1920, 1080)]
     [DataRow(1338, 753)]
     [DataRow(720, 560)]
     public void ReceptionCatalogSupportsNavigationSearchClearAndKeyboardSelection(int width, int height)
@@ -196,6 +196,7 @@ public sealed class SalesCatalogRenderedTests
             var dpi = VisualTreeHelper.GetDpi(window);
             Console.WriteLine($"catalog: requested {width} x {height}; window {window.ActualWidth} x {window.ActualHeight}; display {SystemParameters.PrimaryScreenWidth} x {SystemParameters.PrimaryScreenHeight}; scaling {dpi.DpiScaleX * 100}%");
             WpfTestHost.Capture(window, $"catalog-{width}x{height}");
+            AssertFirstCatalogRowFits(catalog);
             var search = WpfTestHost.FindByName<TextBox>(catalog, "CatalogSearch");
             search.Focus();
             Assert.IsTrue(search.IsKeyboardFocusWithin);
@@ -239,6 +240,23 @@ public sealed class SalesCatalogRenderedTests
             WpfTestHost.CompleteLayout(window);
             WpfTestHost.Capture(window, "catalog-system-colors");
         });
+    }
+
+    internal static void AssertFirstCatalogRowFits(SalesCatalogView catalog)
+    {
+        var viewport = WpfTestHost.FindByName<ScrollViewer>(catalog, "CatalogResults");
+        var row = WpfTestHost.Descendants<Border>(viewport).First(element => element.Name == "CatalogRow");
+        Assert.AreEqual(viewport.ViewportWidth, row.ActualWidth, 1, "The lookup row must use the available viewport width.");
+        var item = (SalesCatalogItem)row.DataContext;
+        var price = WpfTestHost.Descendants<TextBlock>(row).Single(element => element.Text == item.PriceLabel);
+        var select = WpfTestHost.FindByAutomationName<Button>(row, item.SelectionName);
+        foreach (var element in new FrameworkElement[] { row, price, select })
+        {
+            var bounds = element.TransformToAncestor(viewport).TransformBounds(new Rect(element.RenderSize));
+            Assert.IsTrue(bounds.Left >= 0 && bounds.Top >= 0 && bounds.Right <= viewport.ActualWidth + 1
+                && bounds.Bottom <= viewport.ActualHeight + 1,
+                $"The first result, its price, and its selection action must be visible without scrolling: {element.GetType().Name} bounds {bounds}, viewport {viewport.ActualWidth}x{viewport.ActualHeight}.");
+        }
     }
 
     [TestMethod]

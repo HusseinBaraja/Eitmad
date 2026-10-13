@@ -30,34 +30,35 @@
                 </Style>
             </ListBox.ItemContainerStyle>
         </ListBox>
-        <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-            <ItemsControl ItemsSource="{Binding VisibleItems}">
+        <ScrollViewer Grid.Row="3" x:Name="CatalogResults" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <ItemsControl ItemsSource="{Binding VisibleItems}" HorizontalContentAlignment="Stretch">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
-                        <WrapPanel/>
+                        <StackPanel/>
                     </ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Border Style="{StaticResource Card}" Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" BorderBrush="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}" Width="290" Margin="0,0,16,18" Padding="0" Effect="{x:Null}">
-                            <StackPanel>
-                                <Grid Height="188" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
-                                    <ContentControl Content="{Binding}" Focusable="False" IsHitTestVisible="False" Style="{StaticResource CatalogIllustration}">
-
-                                    </ContentControl>
+                        <Border x:Name="CatalogRow" Style="{StaticResource Card}" Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" BorderBrush="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}" Margin="0,0,0,10" Padding="10" Effect="{x:Null}">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="96"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <Grid Height="96" VerticalAlignment="Top" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
+                                    <ContentControl Content="{Binding}" Focusable="False" IsHitTestVisible="False" Style="{StaticResource CatalogIllustration}"/>
                                     <Image Source="{Binding Image}" Stretch="Uniform" FlowDirection="LeftToRight"/>
                                 </Grid>
-                                <StackPanel Margin="18,14,18,18">
-                                    <TextBlock reception:SalesText.Value="{Binding Name}" FontSize="20" FontWeight="SemiBold" MinHeight="36" Style="{StaticResource CatalogText}"/>
-                                    <TextBlock reception:SalesText.Value="{Binding Description}" Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" FontSize="12" MinHeight="50" Margin="0,5,0,6" Style="{StaticResource CatalogText}"/>
-                                    <TextBlock reception:SalesText.Value="{Binding VariantSummary}" FontSize="14" Margin="0,0,0,10" Style="{StaticResource CatalogText}"/>
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
-                                        <TextBlock Text="{Binding PricePrefix}" VerticalAlignment="Center" Margin="0,0,8,0" Style="{StaticResource CatalogText}"/>
-                                        <TextBlock Text="{Binding PriceLabel}" FlowDirection="LeftToRight" FontSize="18" FontWeight="SemiBold" Style="{StaticResource CatalogText}"/>
-                                    </StackPanel>
-                                    <Button Content="اختيار" Style="{StaticResource PrimaryButton}" MinHeight="44" Click="SelectClick" AutomationProperties.Name="{Binding SelectionName}"/>
+                                <StackPanel Grid.Column="1" Margin="14,0">
+                                    <TextBlock reception:SalesText.Value="{Binding Name}" FontSize="18" FontWeight="SemiBold" Style="{StaticResource CatalogText}"/>
+                                    <TextBlock reception:SalesText.Value="{Binding VariantSummary}" FontSize="14" Style="{StaticResource CatalogText}"/>
+                                    <TextBlock reception:SalesText.Value="{Binding Description}" Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" FontSize="12" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Style="{StaticResource CatalogText}"/>
                                 </StackPanel>
-                            </StackPanel>
+                                <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                                        <TextBlock Text="{Binding PricePrefix}" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0" Style="{StaticResource CatalogText}"/>
+                                        <TextBlock Text="{Binding PriceLabel}" FlowDirection="LeftToRight" FontSize="16" FontWeight="SemiBold" Style="{StaticResource CatalogText}"/>
+                                    </StackPanel>
+                                    <Button Content="اختيار" Style="{StaticResource PrimaryButton}" MinHeight="44" Margin="0,4,0,0" Click="SelectClick" AutomationProperties.Name="{Binding SelectionName}"/>
+                                </StackPanel>
+                            </Grid>
                         </Border>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>

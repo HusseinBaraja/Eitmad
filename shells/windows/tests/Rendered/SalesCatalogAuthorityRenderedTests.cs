@@ -32,13 +32,14 @@ public sealed class SalesCatalogAuthorityRenderedTests
             {
                 Finish(model.ActivateCatalogAsync()); WpfTestHost.CompleteLayout(window);
                 var dpi = VisualTreeHelper.GetDpi(window);
-                Console.WriteLine($"Catalog requested {width}x{height}; actual {window.ActualWidth}x{window.ActualHeight} DIP; scale {dpi.DpiScaleX * 100:0}%");
+                Console.WriteLine($"Catalog requested {width}x{height}; actual {window.ActualWidth}x{window.ActualHeight} DIP; display {SystemParameters.PrimaryScreenWidth}x{SystemParameters.PrimaryScreenHeight}; scale {dpi.DpiScaleX * 100:0}%");
                 Assert.AreEqual(FlowDirection.RightToLeft, catalog.FlowDirection);
                 var search = WpfTestHost.FindByName<TextBox>(catalog, "CatalogSearch"); search.Focus(); Assert.IsTrue(search.IsKeyboardFocusWithin);
                 Assert.IsTrue(search.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next)));
                 var categories = WpfTestHost.FindByAutomationName<ListBox>(catalog, "فئات المنتجات"); categories.SelectedItem = entry.CategoryName;
                 Finish(model.LastCatalogOperation); WpfTestHost.CompleteLayout(window);
                 Assert.AreEqual(entry.CategoryName, model.SelectedCategory); Assert.AreEqual(entry.CategoryName, categories.SelectedItem);
+                SalesCatalogRenderedTests.AssertFirstCatalogRowFits(catalog);
                 WpfTestHost.Capture(window, $"sales-catalog-live-{width}");
                 var select = WpfTestHost.FindByAutomationName<Button>(catalog, "اختيار خزانة تجريبية"); select.Focus(); select.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Finish(model.LastCatalogOperation); WpfTestHost.CompleteLayout(window);
