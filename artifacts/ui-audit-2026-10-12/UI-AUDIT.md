@@ -1,8 +1,8 @@
 # Eitmad UI audit and individual fix prompts
 
-Audit date: 2026-10-12. Repository snapshot: recorded in [provenance](./provenance/verification.md).
+Audit dates: 2026-10-12 and 2026-10-13. Repository snapshot: recorded in [provenance](./provenance/verification.md).
 
-This file contains **44 individual fix prompts** from a rendered audit of the implemented Windows app. It covers all **18 feature XAML views**, the manager home composition, shared shell and dialogs, and all three customer document types. Product source was not changed.
+This file contains **45 individual fix prompts** from a rendered audit of the implemented Windows app. It covers all **18 feature XAML views**, the manager home composition, shared shell and dialogs, and all three customer document types. Product source was not changed.
 
 ## Use this file
 
@@ -12,27 +12,21 @@ P1 means a blocked essential workflow. P2 means a defect or material usability p
 
 ## Audit evidence and limits
 
-The audit used native WPF rendering with synthetic Arabic fixtures, including authority-shaped fake-engine responses. It inspected 404 PNG captures through contact sheets and full-size checks of the affected details. This is a rendered UI audit, not a live server or physical-printer end-to-end test. Successful tests do not mean visual quality passed: the screenshots show issues that the existing assertions do not detect.
+The initial audit inspected 404 native WPF captures with synthetic Arabic fixtures. The follow-up inspected another 404 captures at **100% display scaling**, 12 screens backed by the isolated real Rust engine/server, and native popup, tray-menu, and Windows print-dialog captures. All feature views and implemented quotation/order/draft documents remain covered. See [follow-up evidence and verification](../ui-audit-2026-10-13/FOLLOW-UP.md).
 
-The display reported **125% scaling**. Requests for a 1920 × 1080 window were constrained by the available desktop. Captures are WPF client visuals rendered at 96 DPI, not physical desktop screenshots. Representative measurements are below; exact PNG dimensions are in [the capture manifest](./capture-manifest.json). Some focused tests render a standalone view, use 780-DIP width, or maximize the client area; their image names describe the test request, not a promise of exact outer-window geometry.
+The follow-up measured all three requested outer-window baselines at 100%: **1920 × 1080**, **1338 × 753**, and **720 × 560 DIP**. The initial 125% captures remain attached because they show the reported defects clearly. Initial large-window measurements were desktop-constrained; the follow-up closes that rendering gap. Some focused tests maximize to the Windows work-area geometry rather than the requested outer size; filenames alone are not geometry proof.
 
-| Requested baseline | Actual WPF window measurement | Scaling |
-| --- | --- | --- |
-| 1920 × 1080 | 1553.6 × 881.6 DIP, desktop-constrained | 125% |
-| 1338 × 753 | 1338.4 × 752.8 DIP | 125% |
-| 720 × 560 | 720 × 560 DIP | 125% |
-
-Exact 1920 × 1080 full-screen rendering at 100% scaling was **not verified**. The audit did not change the user's display configuration. Existing system-color and large-text fixture captures were inspected, but a native OS high-contrast session, screen-reader use, and manual keyboard/focus testing of every workflow were not performed. Popup content was inspected where captures exist; separately rendered popup images do not prove physical screen placement.
+Native category/unit dropdowns, the work-order calendar, and the product row menu were inspected with their parent windows, including bottom-edge placement. The actual tray-menu implementation was rendered with synthetic no-op callbacks. The Windows print dialog opened from the app preview and was cancelled; no physical print job was sent. Accessibility testing and accessibility fix requests are **excluded at the user's request**. Successful tests do not mean visual quality passed: the screenshots show issues the assertions do not detect.
 
 Black strips at the bottom/right of some images are capture boundaries, not findings. Two all-black product-menu captures were excluded as evidence; the usable default-size menu capture was inspected. Some tests deliberately scroll a control into view, so an absent title in a scrolled capture is not itself a bug. The supplemental bottom-scroll driver also scrolls nested controls; the shortened furniture price in UI-21 is not reported as a numeric defect.
 
-The **reports destination is disabled and has no implemented page**. Its absence is recorded, and the implemented quotation/order/draft print documents were audited separately. A global customer list is also not implemented; customer detail/editor and quotation customer selection are covered. Tasks, settings, and messages have no active page. The system-tray menu was inspected in source only; its native OS rendering and the Windows print dialog were not captured.
+The **reports destination is disabled and has no implemented page**. Its absence is recorded, and the implemented quotation/order/draft print documents were audited separately. A global customer list is also not implemented; customer detail/editor and quotation customer selection are covered. Tasks, settings, and messages have no active page. The tray menu and Windows print dialog are included in the follow-up native evidence. No separate report page can be audited until that capability exists.
 
 ## Screen coverage
 
 | Screen or surface | States/surfaces inspected | Findings | Representative evidence |
 | --- | --- | --- | --- |
-| Sign-in | Default, busy, connection failure; compact clipping | 01 | [Image](C:/Users/Hussein/Desktop/SWProjects/Eitmad/artifacts/ui-audit-2026-10-12/captures/audit-sign-in-720.png) |
+| Sign-in | Default, busy, connection failure; compact clipping, visible help text | 01, 45 | [Image](C:/Users/Hussein/Desktop/SWProjects/Eitmad/artifacts/ui-audit-2026-10-12/captures/audit-sign-in-720.png) |
 | Manager home + shared HomeView | Metrics, ready orders, activity, search, denied/partial/unavailable | 06, 10–13 | [Image](C:/Users/Hussein/Desktop/SWProjects/Eitmad/artifacts/ui-audit-2026-10-12/captures/audit-manager-home-top-1338.png) |
 | Receptionist home | Default/unavailable, metrics, navigation cards, compact | 11, 12, 14 | [Image](C:/Users/Hussein/Desktop/SWProjects/Eitmad/artifacts/ui-audit-2026-10-12/captures/home-reception-720.png) |
 | Raw materials | List, editor, category/unit dropdowns, reference manager, reference editor | 02, 04, 15, 16 | [Image](C:/Users/Hussein/Desktop/SWProjects/Eitmad/artifacts/ui-audit-2026-10-12/captures/material-durable-list-1338x753.png) |
@@ -104,6 +98,7 @@ The **reports destination is disabled and has no implemented page**. Its absence
 | UI-42 | P2 | Defect | [Print preview opens wider than the available viewport](#ui-42) |
 | UI-43 | P2 | Design improvement | [Print viewer search and chrome are not fully Arabic](#ui-43) |
 | UI-44 | P3 | Design improvement | [Customer print documents need a stronger professional hierarchy](#ui-44) |
+| UI-45 | P3 | Design improvement | [Sign-in help exposes an implementation detail](#ui-45) |
 
 ## Fix prompts
 
@@ -123,7 +118,7 @@ Reproduce: Open the sign-in screen at 720 × 560. Inspect the attached screensho
 
 Done state: Replace the fixed-width form arrangement with an adaptive native WPF layout. At the minimum size, show the complete form with readable labels and reachable controls. Reduce or collapse the decorative photo when needed. Preserve the spacious two-panel design at larger sizes. Wrap connection errors and guidance within the form.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -146,7 +141,7 @@ Reproduce: Open the materials, parts, products, pricing, orders, and quotations 
 
 Done state: Redesign the shared text hierarchy using the existing Arabic font and visual system. Make primary row data, meaningful labels, and errors comfortably readable. Use secondary styling only for secondary information. Adjust row heights and spacing with the text sizes. Check affected tables and forms for clipping. Do not shrink the whole page.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -169,7 +164,7 @@ Reproduce: Edit a furniture size, then open a below-cost price confirmation. Ins
 
 Done state: Apply a suitable native checkbox style to the affected choices. Match the form text hierarchy, keep the checkbox and label aligned in RTL, and wrap long labels without reducing the hit area. Keep all choices, acknowledgements, and Rust-owned permission rules intact.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -192,7 +187,7 @@ Reproduce: Open the users list or parts materials step at 720 × 560. Inspect th
 
 Done state: Redesign the affected compact table layouts using native WPF behavior. Keep record identity and the main action discoverable. Move secondary fields into an appropriate detail presentation or choose justified compact column widths. Keep numeric values readable and preserve native sorting, selection, editing, and keyboard behavior. Do not remove information or reduce all text to make it fit.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -215,7 +210,7 @@ Reproduce: At 720 × 560, search for لا يوجد in a populated users list. In
 
 Done state: Ensure the complete heading and guidance remain readable when the result set is empty. Let the appropriate parent scroll or reserve enough measured height for the empty state. Verify this specific filtered-empty state with the filters visible. Preserve populated-row scrolling.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -236,7 +231,7 @@ Reproduce: Open the receptionist products page or manager dashboard. Inspect the
 
 Done state: Give each affected screen one clear title hierarchy. Keep global search and shell actions where they belong, and use the content heading only when it adds distinct context. Redesign this in the existing native visual system. Check role-specific navigation and compact height.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -259,7 +254,7 @@ Reproduce: Open the manager shell and inspect the lower sidebar. Inspect the att
 
 Done state: Redesign the presentation of unavailable destinations so active daily routes are easy to scan. You may hide, group, or clearly separate unavailable items using the best native solution. Keep the current capability boundaries truthful. This prompt does not authorize implementing reports, tasks, or settings, or making disabled routes appear functional.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -278,9 +273,9 @@ The manager action is approvals, but the button always uses IconPlus. In compact
 
 Reproduce: Resize the manager dashboard to 720 × 560. Inspect the attached screenshots at full size. Start with `C:/Users/Hussein/Desktop/SWProjects/Eitmad/shells/windows/Controls/ShellTitleBar.xaml`, `C:/Users/Hussein/Desktop/SWProjects/Eitmad/shells/windows/Controls/ShellTitleBar.xaml.cs`, `C:/Users/Hussein/Desktop/SWProjects/Eitmad/shells/windows/MainWindow.xaml.cs` and their direct callers/view models.
 
-Done state: Use an icon and compact presentation that match the current action. Bind an explicit Arabic accessible name to PrimaryActionButton. Keep the receptionist quotation action and its item count understandable in compact mode. Preserve the existing click routes and permission rules.
+Done state: Use an icon and compact presentation that match the current action. Keep the receptionist quotation action and its item count understandable in compact mode. Preserve the existing click routes and permission rules.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -303,7 +298,7 @@ Reproduce: Inspect the two-person toolbar button, then open تبديل الحس�
 
 Done state: Make account switching understandable before activation. Use an appropriate icon, an Arabic tooltip, and a visible label where space allows. Keep the existing warning about unsaved changes and the sign-out behavior. Do not add account policy or authentication logic to the shell.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -326,7 +321,7 @@ Reproduce: Open the manager dashboard at the default and minimum sizes. Inspect 
 
 Done state: Redesign the dashboard using the best layout for the existing data. Give pending approvals and ready orders a clear place, make quick routes compact and consistent, and separate data availability from operational content. Use only the existing Rust-provided state. Keep all supported destinations and partial-data explanations.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -349,7 +344,7 @@ Reproduce: Open either home screen with populated metrics. Inspect the attached 
 
 Done state: Keep each count visually close to its label with a clear Arabic reading order. Isolate the numeric text as LTR without moving it to an unrelated physical edge. Choose a restrained native metric-card layout and keep unavailable dashes and partial counts distinct.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -372,7 +367,7 @@ Reproduce: Load home data successfully, then make the fake engine query fail; al
 
 Done state: Render distinct available-empty, denied, unavailable, and partial-result section states from the existing authority result. Keep a clear retry action. Do not show a confirmed-empty message for a section whose data could not be obtained. Add a focused presentation-state regression check; Rust remains the authority.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -395,7 +390,7 @@ Reproduce: Use global search for عميل and inspect the resulting home section
 
 Done state: Show the active search term and a clear Arabic action to clear it and return to normal activity. Reuse the existing search behavior and query authority. Make the result state understandable after scrolling and after refresh. Keep identifiers directionally isolated.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -416,7 +411,7 @@ Reproduce: Open receptionist home at 720 × 560. Inspect the attached screenshot
 
 Done state: Redesign reception home to support fast daily work. Keep new quotation prominent, make secondary routes compact, and bring relevant status and ready orders nearer the first viewport. Preserve Arabic-first native layout and the available home data. Choose the best design within the existing visual system.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -439,7 +434,7 @@ Reproduce: Edit a material at 720 × 560. Inspect the attached screenshots at fu
 
 Done state: Keep Save and Cancel clearly reachable in the minimum-size editor. Choose a native action area or a more compact measured form. Keep the cost field and its validation visible when an error occurs, and preserve the existing persistence commands.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -460,7 +455,7 @@ Reproduce: Open the unit editor from the material unit selector. Inspect the att
 
 Done state: Give both values clear visible Arabic labels and explain the conversion direction in a short, accurate example based on the selected dimension and existing unit authority. Keep exact rational input; do not replace it with shell-side floating-point calculation. Make the full group usable when scrolled at minimum size.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -483,7 +478,7 @@ Reproduce: Add materials and quantities in the second wizard step before enterin
 
 Done state: Show a clear Arabic pending-evaluation state where no authority-calculated cost exists. Keep the guidance near the totals and keep confirmed amounts visually distinct after review. Reuse Rust calculation and existing evaluation timing; do not calculate domain costs in C#.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -506,7 +501,7 @@ Reproduce: Open furniture add/edit at 720 × 560 before scrolling. Inspect the a
 
 Done state: Redesign the information step so the main identifying fields are visible first at minimum size. Reduce, move, or collapse the decorative image area while keeping image selection and preview easy to use. Preserve the larger-size composition and the pinned wizard actions.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -529,7 +524,7 @@ Reproduce: Open any furniture editor step at 720 × 560. Inspect the attached sc
 
 Done state: Redesign the compact progress presentation with clear current-step context and a readable position such as current step plus total, or another suitable native pattern. Preserve all six steps and the existing forward/back rules. Keep the full progress view at wider sizes if it remains useful.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -552,7 +547,7 @@ Reproduce: Edit a size that has color and handle compatibility choices. Inspect 
 
 Done state: Redesign this dialog with clear groups for identification/dimensions, custom sizing, and compatible options. Put short instructions in help text and keep the actual choice labels short. Preserve empty-selection semantics and all values. Coordinate checkbox styling with UI-03 without requiring that fix first.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -575,7 +570,7 @@ Reproduce: Go to the fifth furniture wizard step at 720 × 560. Inspect the atta
 
 Done state: Place the size name and dimensions at the start of each pricing group, followed by its cost, editable price, and margin. Keep each group visually contained in RTL. Verify several variants and long names. Do not infer a numeric truncation defect from this screenshot: the supplemental driver scrolled inner controls.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -598,7 +593,7 @@ Reproduce: Open the fourth furniture wizard step with colors and handles. Inspec
 
 Done state: Redesign the two collections as related option groups with consistent identity, preview, adjustment amount, and edit/remove action placement. Choose the best native layout for wide and compact widths. Preserve their distinct data and supported behavior; this is a presentation change.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -621,7 +616,7 @@ Reproduce: Open إضافة لون and inspect اللون المعروض. Inspect
 
 Done state: Redesign the color choice around a visible swatch with an Arabic name or clear label. Keep technical codes secondary if useful. Mark the adjustment amount as ر.ي and clarify that it is a price difference. Preserve the existing allowed values and Rust-owned price behavior; use native vector resources.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -642,7 +637,7 @@ Reproduce: Edit a product without an image and scroll to الصورة. Inspect t
 
 Done state: Show a compact, clear empty-image state with image selection next to it. Give an existing image a bounded preview and show removal only when useful. Keep the name/category form efficient at minimum width and preserve the existing image authority and upload path.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -665,7 +660,7 @@ Reproduce: Edit a product with several ready-made size/type variants. Inspect th
 
 Done state: Redesign variant rows so identity and cost are primary and archive is a secondary, clearly named action. Align field heights, row spacing, and status. Keep keyboard access and the current archive behavior; do not silently delete variants or change persistence rules.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -688,7 +683,7 @@ Reproduce: Obtain a below-cost evaluation, then change the price to an invalid f
 
 Done state: Invalidate or clearly mark the old presentation evaluation when the price text is invalid or differs from the evaluated value. Do not show the old margin as current, and do not offer a stale below-cost acknowledgement. Keep save availability and authority evaluation consistent. Add a focused state regression test.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -709,7 +704,7 @@ Reproduce: Open the catalog at 720 × 560. Inspect the attached screenshots at f
 
 Done state: Redesign the compact catalog to use its available width and show useful identity, price, availability context, and selection affordance sooner. Choose a native list/card arrangement suited to frequent lookup. Keep category filters, paging, image fallback, and authority-backed availability truthful.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -732,7 +727,7 @@ Reproduce: Select a furniture item and a ready-made product at 720 × 560. Inspe
 
 Done state: Redesign both selection pages for efficient native input. Keep item identity, current options, quantity, total, and Add easy to find together. Reduce the compact preview and group supporting actions. Preserve explicit local-only state and later save confirmation. Do not imply that adding a line saves it.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -755,7 +750,7 @@ Reproduce: Select a furniture variant that allows custom dimensions at minimum s
 
 Done state: Apply suitable existing native field styling and lay out the three dimensions with clear Arabic labels and سم units. Keep LTR numeric editing and ensure readable invalid/pending states. Preserve the actual allowed ranges and Rust evaluation; do not move dimension validation or price rules into the shell.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -778,7 +773,7 @@ Reproduce: Start a quotation and search for الاعتماد as the customer nam
 
 Done state: Keep matching customers and the new-customer action next to the customer search fields in a clear bounded section. Show selected versus typed customer state clearly, including phone. Use native RTL layout with LTR phone text. Preserve customer identity, existing-record selection, and save behavior.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -801,7 +796,7 @@ Reproduce: Scroll to the totals section of a populated quotation at the default 
 
 Done state: Redesign this as a clear bounded financial summary with aligned label/value pairs, a nearby discount input, and one prominent final total. Make it work at minimum width without long eye travel. Keep the displayed amounts from Rust evaluation and preserve Arabic labels, LTR amounts, and rounding behavior.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -824,7 +819,7 @@ Reproduce: Load a saved draft, edit it, then simulate save failure. Inspect the 
 
 Done state: Give the active save failure a clear Arabic error presentation and nearby retry action using existing UI controls. Clearly distinguish the previously saved draft from current unsaved edits. Preserve all edits on failure and make document/issue action availability truthful. Do not claim synchronization or persistence before authority confirms it.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -847,7 +842,7 @@ Reproduce: Open an issued quotation and a receptionist acceptance view. Inspect 
 
 Done state: Redesign lifecycle actions into clear context-specific native groups. Put the current record identity and state before the relevant action form. Separate cancellation from ordinary issue/print actions and explain disabled actions locally. Preserve Rust-owned lifecycle rules, role permissions, and confirmation behavior.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -870,7 +865,7 @@ Reproduce: Open a quotation from the discount approval inbox at 720 × 560. Insp
 
 Done state: Redesign the approval panel with a clear request summary, readable reason, and distinct approve/reject action area. Label the rejection reason explicitly and show its requirement only when relevant. Keep amounts and authority state unchanged, and keep the quotation details available for review.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -893,7 +888,7 @@ Reproduce: Open a manager order and a ready receptionist order. Inspect the atta
 
 Done state: Redesign order detail around a readable identity/status summary, ordered items, production context, and a focused action area for the current role and state. Give cancellation a clearly separate treatment. Keep all current data, fields, authority gates, and confirmation paths.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -918,7 +913,7 @@ Reproduce: Open a planned work order and scroll to مسند إلى and موعد 
 
 Done state: Style the native WPF DatePicker to fit the existing form field system while keeping its native date entry, calendar, keyboard behavior, and Arabic metadata. Keep the date value directionally safe. Verify the popup near screen edges and at minimum size. Do not replace it with a web-style calendar.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -941,7 +936,7 @@ Reproduce: Open a work order with no order notes. Inspect the attached screensho
 
 Done state: Use a neutral, compact no-notes state or omit the empty card with a suitable nearby label. Reserve warning treatment for a real actionable warning. Keep non-empty notes clearly readable and wrapped, and preserve the note text supplied by the authority.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -962,7 +957,7 @@ Reproduce: Open the existing synthetic customer conflict state. Inspect the atta
 
 Done state: Show conflict as a clear text-and-icon status with an accurate explanation for the disabled editor. Provide only a recovery action that the current authority supports; if no resolution workflow exists, state that limitation clearly rather than inventing one. Keep the last known contact and history data readable.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -985,7 +980,7 @@ Reproduce: Open users with a display name that could be shared by another accoun
 
 Done state: Show the username as secondary LTR identity in each user row and in deactivation confirmation. Keep the Arabic display name primary. Verify two accounts with the same display name and different usernames. Preserve existing account IDs, roles, authorization, and deactivation behavior.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -1008,7 +1003,7 @@ Reproduce: Fill a valid display name and username, leave the temporary password 
 
 Done state: Present input guidance and errors at the relevant fields, with a suitable form-level summary for authority failures. For the reproduced short-password case, identify the temporary password field without falsely marking the valid name. Preserve entered values and Rust-owned validation; keep any shell checks limited to existing input presentation behavior.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -1029,7 +1024,7 @@ Reproduce: Load users successfully, then make the next list query fail. Inspect 
 
 Done state: Make the failed load and retained data state explicit, and add a clear retry using the existing LoadAsync path. Keep last known rows if useful, but label them accurately. Ensure action availability respects existing session and authority results. Do not infer that the stale account status is current.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -1052,7 +1047,7 @@ Reproduce: Open a saved quotation preview at 720 × 560. Inspect the attached sc
 
 Done state: Choose a suitable initial fit-width or fit-page mode after layout. Keep native zoom controls and allow the user to change zoom. Handle viewport resize without repeatedly overriding a user's chosen zoom. Verify quotation, order, and draft previews, including a multipage document. Preserve print authorization and pagination.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -1073,9 +1068,9 @@ The embedded DocumentViewer displays the English placeholder Type text to find i
 
 Reproduce: Inspect the bottom search bar of a saved-document preview. Inspect the attached screenshots at full size. Start with `C:/Users/Hussein/Desktop/SWProjects/Eitmad/shells/windows/Controls/PrintPreview.xaml`, `C:/Users/Hussein/Desktop/SWProjects/Eitmad/shells/windows/Controls/PrintPreview.xaml.cs` and their direct callers/view models.
 
-Done state: Localize the exposed preview search and commands using an appropriate native WPF solution. Give relevant icon controls Arabic accessible names and tooltips. Preserve native text selection, search, page navigation, zoom, and the existing intercepted print authorization path. Do not duplicate an unrestricted print route.
+Done state: Localize the exposed preview search and commands using an appropriate native WPF solution. Give relevant icon controls useful Arabic tooltips. Preserve native text selection, search, page navigation, zoom, and the existing intercepted print authorization path. Do not duplicate an unrestricted print route.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -1098,7 +1093,7 @@ Reproduce: Inspect the saved quotation and order pages at full page size. Inspec
 
 Done state: Redesign the customer document layout using the existing brand and native FlowDocument/vector facilities. Create clear document/customer/terms groups and a balanced item table with aligned financial totals. Use only existing printable fields; do not invent legal text, addresses, or contact details. Preserve draft labeling, snapshots, Arabic shaping, LTR identifiers, pagination, repeated table headers, and page numbers. Check the existing four-page quotation after the redesign.
 
-Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Check keyboard/focus and Arabic accessible names for changed interactions; check system colors/text scaling if styling changes. Report any unavailable verification.
+Keep the change within this UI concern and follow AGENTS.md. Use native WPF controls, the existing Eitmad visual system, Arabic labels, and LTR isolation for technical values. Keep Rust as the product authority. Build the affected shell and perform focused rendered checks of the changed state at default, minimum, and available large size. Accessibility changes are outside this request. Report any unavailable verification.
 
 Evidence to attach:
 
@@ -1107,6 +1102,25 @@ Evidence to attach:
 ![UI-44: saved-order-1.png](C:/Users/Hussein/Desktop/SWProjects/Eitmad/artifacts/ui-audit-2026-10-12/captures/saved-order-1.png)
 
 ![UI-44: saved-quotation-multipage-2.png](C:/Users/Hussein/Desktop/SWProjects/Eitmad/artifacts/ui-audit-2026-10-12/captures/saved-quotation-multipage-2.png)
+
+<a id="ui-45"></a>
+### UI-45 — Sign-in help exposes an implementation detail
+
+**P3 · Design improvement · Sign-in / تسجيل الدخول**
+
+[$frontend-design](C:/Users/Hussein/Desktop/SWProjects/Eitmad/.agents/skills/frontend-design/SKILL.md) Can you fix this UI issue: **Sign-in help exposes an implementation detail**? It appears in **Sign-in / تسجيل الدخول** in the Eitmad Windows app at `C:/Users/Hussein/Desktop/SWProjects/Eitmad`.
+
+The prominent helper strip says تُرسل بيانات الدخول مباشرة إلى محرك Rust ولا يحفظها التطبيق. The Rust engine name is an internal implementation detail. It adds technical noise to an otherwise simple sign-in form and gives no instruction that helps a workshop user sign in or recover from a connection failure.
+
+Reproduce: Open the sign-in screen at the default window size and inspect the help strip below the submit button. Inspect the attached screenshot at full size. Start with `C:/Users/Hussein/Desktop/SWProjects/Eitmad/shells/windows/Features/Authentication/SignInView.xaml` (the helper TextBlock near line 146) and its direct callers/view model.
+
+Done state: Redesign or remove this helper strip using the best solution for the existing sign-in layout. If guidance remains, use short useful Arabic copy that helps the user complete the current task. Do not invent security, privacy, support, or account-recovery claims. Preserve the existing authentication route, busy state, connection errors, and Rust-owned behavior. Keep this task separate from UI-01 compact-layout repair.
+
+Keep the change within this UI concern and follow AGENTS.md. Use the existing native WPF visual system and Arabic labels. Build the affected shell and inspect the rendered sign-in screen at 1920 × 1080, 1338 × 753, and 720 × 560 with 100% display scaling. Accessibility changes are outside this request. Report unavailable verification.
+
+Evidence to attach:
+
+![UI-45: live-sign-in-0.png](C:/Users/Hussein/Desktop/SWProjects/Eitmad/artifacts/ui-audit-2026-10-13/native/live-sign-in-0.png)
 
 ## Reproduction and retained evidence
 

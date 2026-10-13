@@ -1,0 +1,8 @@
+Synthetic workflow environment capture verification, 2026-10-13
+Command: tools/workflow-environment.ps1 -Action Start -StateDirectory tests/engine-integration/artifacts/ui-audit-20261013 -DatabasePort 55449 -ServerPort 58449 -SkipBuild -VerifySignIn
+Capture output: artifacts/ui-audit-2026-10-13/live
+Result: Passed! Failed: 0, Passed: 2, Skipped: 0, Total: 2; Duration: 2 m 7 s.
+Tests: WorkflowEnvironmentTests.OneDesktopSwitchesAccountsAndRetainsServerConfirmedWork; WorkflowEnvironmentTestsUiAudit.CaptureRealEngineAndServerScreens.
+Screens: 10 manager destinations and 2 receptionist destinations; synthetic data only.
+Cleanup: workflow-environment.ps1 -Action Stop completed; accepted synthetic work retained.
+Raw logs and provisioned credentials are retained in the protected ignored test-state directory, outside this audit deliverable.

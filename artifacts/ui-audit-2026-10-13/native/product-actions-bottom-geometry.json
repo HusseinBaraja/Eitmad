@@ -1,0 +1,18 @@
+[
+  {
+    "height": 415,
+    "id": "screenshot-0",
+    "originX": 37,
+    "originY": 665,
+    "width": 1324,
+    "zIndex": 0
+  },
+  {
+    "height": 123,
+    "id": "screenshot-1",
+    "originX": 114,
+    "originY": 909,
+    "width": 154,
+    "zIndex": 1
+  }
+]

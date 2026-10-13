@@ -138,7 +138,7 @@
     ],
     "reproduce": "Resize the manager dashboard to 720 × 560.",
     "observed": "The manager action is approvals, but the button always uses IconPlus. In compact mode its text is hidden, leaving a plus with no visible indication that it opens approvals. The same shared action has a different meaning for the receptionist quotation flow.",
-    "done": "Use an icon and compact presentation that match the current action. Bind an explicit Arabic accessible name to PrimaryActionButton. Keep the receptionist quotation action and its item count understandable in compact mode. Preserve the existing click routes and permission rules.",
+    "done": "Use an icon and compact presentation that match the current action. Keep the receptionist quotation action and its item count understandable in compact mode. Preserve the existing click routes and permission rules.",
     "images": [
       "audit-manager-home-top-720.png",
       "shared-chrome-manager.png"
@@ -746,7 +746,7 @@
     ],
     "reproduce": "Inspect the bottom search bar of a saved-document preview.",
     "observed": "The embedded DocumentViewer displays the English placeholder Type text to find inside the Arabic-first screen. The built-in icon toolbar is visually separate from the application's Arabic Print/Back actions.",
-    "done": "Localize the exposed preview search and commands using an appropriate native WPF solution. Give relevant icon controls Arabic accessible names and tooltips. Preserve native text selection, search, page navigation, zoom, and the existing intercepted print authorization path. Do not duplicate an unrestricted print route.",
+    "done": "Localize the exposed preview search and commands using an appropriate native WPF solution. Give relevant icon controls useful Arabic tooltips. Preserve native text selection, search, page navigation, zoom, and the existing intercepted print authorization path. Do not duplicate an unrestricted print route.",
     "images": [
       "saved-document-quotation-720.png",
       "saved-document-quotation-1338.png"
@@ -770,6 +770,23 @@
       "saved-quotation-1.png",
       "saved-order-1.png",
       "saved-quotation-multipage-2.png"
+    ]
+  },
+  {
+    "id": "UI-45",
+    "title": "Sign-in help exposes an implementation detail",
+    "priority": "P3",
+    "kind": "Design improvement",
+    "screen": "Sign-in / تسجيل الدخول",
+    "sources": [
+      "Features/Authentication/SignInView.xaml"
+    ],
+    "reproduce": "Open the sign-in screen at the default window size and inspect the help strip below the submit button.",
+    "observed": "The prominent helper strip says تُرسل بيانات الدخول مباشرة إلى محرك Rust ولا يحفظها التطبيق. The Rust engine name is an internal implementation detail. It adds technical noise to an otherwise simple sign-in form and gives no instruction that helps a workshop user sign in or recover from a connection failure.",
+    "done": "Redesign or remove this helper strip using the best solution for the existing sign-in layout. If guidance remains, use short useful Arabic copy that helps the user complete the current task. Do not invent security, privacy, support, or account-recovery claims. Preserve the existing authentication route, busy state, connection errors, and Rust-owned behavior. Keep this task separate from UI-01 compact-layout repair.",
+    "image_root": "../ui-audit-2026-10-13/native",
+    "images": [
+      "live-sign-in-0.png"
     ]
   }
 ]

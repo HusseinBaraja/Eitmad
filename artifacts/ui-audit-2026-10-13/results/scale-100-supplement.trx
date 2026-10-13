@@ -1,0 +1,232 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="05396e91-0608-426b-b7a4-aa1e8600db9d" name="Hussein@DESKTOP-EIG6O0F 2026-10-13 10:23:01" runUser="DESKTOP-EIG6O0F\Hussein" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-13T10:23:01.9103681+03:00" queuing="2026-10-13T10:23:01.9103687+03:00" start="2026-10-13T10:22:58.5608230+03:00" finish="2026-10-13T10:23:19.1363945+03:00" />
+  <TestSettings name="default" id="6431aba2-3dce-4275-b7be-91938fe8a84f">
+    <Deployment runDeploymentRoot="Hussein_DESKTOP-EIG6O0F_2026-10-13_10_23_01" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="1d7c8707-827b-4229-b0da-5e31f5a6e6d1" testId="10b56df2-310a-8f54-bafb-7e44377eca70" testName="WorkCalendar (720,560)" computerName="DESKTOP-EIG6O0F" duration="00:00:00.7877078" startTime="2026-10-13T10:23:18.1750796+03:00" endTime="2026-10-13T10:23:18.9680090+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1d7c8707-827b-4229-b0da-5e31f5a6e6d1">
+      <Output>
+        <StdOut>work-calendar-context: actual 720x560 DIP; scale 100%</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="bb44c821-0087-41a2-bbcd-f3660447d97e" testId="11b88387-6b84-874a-8e79-a44fdd0beab2" testName="FurnitureSteps (1338,753)" computerName="DESKTOP-EIG6O0F" duration="00:00:02.1472154" startTime="2026-10-13T10:23:10.7688294+03:00" endTime="2026-10-13T10:23:12.9162961+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="bb44c821-0087-41a2-bbcd-f3660447d97e">
+      <Output>
+        <StdOut>furniture-step-1: actual 1338x753 DIP; scale 100%&#xD;
+furniture-step-1-bottom: actual 1338x753 DIP; scale 100%&#xD;
+furniture-step-2: actual 1338x753 DIP; scale 100%&#xD;
+furniture-step-2-bottom: actual 1338x753 DIP; scale 100%&#xD;
+furniture-step-3: actual 1338x753 DIP; scale 100%&#xD;
+furniture-step-3-bottom: actual 1338x753 DIP; scale 100%&#xD;
+furniture-step-4: actual 1338x753 DIP; scale 100%&#xD;
+furniture-step-4-bottom: actual 1338x753 DIP; scale 100%&#xD;
+furniture-step-5: actual 1338x753 DIP; scale 100%&#xD;
+furniture-step-5-bottom: actual 1338x753 DIP; scale 100%&#xD;
+furniture-step-6: actual 1338x753 DIP; scale 100%&#xD;
+furniture-step-6-bottom: actual 1338x753 DIP; scale 100%&#xD;
+furniture-variant-dialog: actual 1338x753 DIP; scale 100%</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="89227cb6-eb2f-4405-950d-3da5e389155a" testId="1aa53240-49a9-83cd-b0fe-5757a8f72082" testName="HomeSearchAndFailure (1338,753)" computerName="DESKTOP-EIG6O0F" duration="00:00:00.7688580" startTime="2026-10-13T10:23:15.7939315+03:00" endTime="2026-10-13T10:23:16.5629855+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="89227cb6-eb2f-4405-950d-3da5e389155a">
+      <Output>
+        <StdOut>manager-home-top: actual 1338x753 DIP; scale 100%&#xD;
+home-search: actual 1338x753 DIP; scale 100%&#xD;
+home-partial-denied: actual 1338x753 DIP; scale 100%&#xD;
+home-unavailable: actual 1338x753 DIP; scale 100%</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="206260be-7998-43b8-80f0-3140f7d9b22b" testId="1c68da62-5fcc-854e-99ba-e70e012e1918" testName="WorkCalendar (1338,753)" computerName="DESKTOP-EIG6O0F" duration="00:00:01.0035948" startTime="2026-10-13T10:23:17.1711887+03:00" endTime="2026-10-13T10:23:18.1750002+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="206260be-7998-43b8-80f0-3140f7d9b22b">
+      <Output>
+        <StdOut>work-calendar-context: actual 1338x753 DIP; scale 100%</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="898c215b-2768-4a68-805f-fc8f15286cd6" testId="1422f4c5-669d-80fd-94c0-b01077a5547b" testName="HomeSearchAndFailure (720,560)" computerName="DESKTOP-EIG6O0F" duration="00:00:00.6078765" startTime="2026-10-13T10:23:16.5630477+03:00" endTime="2026-10-13T10:23:17.1711130+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="898c215b-2768-4a68-805f-fc8f15286cd6">
+      <Output>
+        <StdOut>manager-home-top: actual 720x560 DIP; scale 100%&#xD;
+home-search: actual 720x560 DIP; scale 100%&#xD;
+home-partial-denied: actual 720x560 DIP; scale 100%&#xD;
+home-unavailable: actual 720x560 DIP; scale 100%</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="2984f288-0222-418c-9255-b99e848da11e" testId="13ae189d-a961-8e8c-b9f7-fb27d19ecb5a" testName="UserStates (1920,1080)" computerName="DESKTOP-EIG6O0F" duration="00:00:01.8579684" startTime="2026-10-13T10:23:03.1735459+03:00" endTime="2026-10-13T10:23:05.0317759+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2984f288-0222-418c-9255-b99e848da11e">
+      <Output>
+        <StdOut>users-list: actual 1920x1080 DIP; scale 100%&#xD;
+users-deactivate: actual 1920x1080 DIP; scale 100%&#xD;
+users-create: actual 1920x1080 DIP; scale 100%&#xD;
+users-create-bottom: actual 1920x1080 DIP; scale 100%&#xD;
+users-validation: actual 1920x1080 DIP; scale 100%&#xD;
+users-empty: actual 1920x1080 DIP; scale 100%&#xD;
+users-unavailable: actual 1920x1080 DIP; scale 100%</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="ff6cb11d-8564-4f4e-8fc2-0f3500492de0" testId="16175a07-ef52-85eb-a421-9c5b682e24a8" testName="FurnitureSteps (1920,1080)" computerName="DESKTOP-EIG6O0F" duration="00:00:03.1456608" startTime="2026-10-13T10:23:07.6222087+03:00" endTime="2026-10-13T10:23:10.7681893+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ff6cb11d-8564-4f4e-8fc2-0f3500492de0">
+      <Output>
+        <StdOut>furniture-step-1: actual 1920x1080 DIP; scale 100%&#xD;
+furniture-step-1-bottom: actual 1920x1080 DIP; scale 100%&#xD;
+furniture-step-2: actual 1920x1080 DIP; scale 100%&#xD;
+furniture-step-2-bottom: actual 1920x1080 DIP; scale 100%&#xD;
+furniture-step-3: actual 1920x1080 DIP; scale 100%&#xD;
+furniture-step-3-bottom: actual 1920x1080 DIP; scale 100%&#xD;
+furniture-step-4: actual 1920x1080 DIP; scale 100%&#xD;
+furniture-step-4-bottom: actual 1920x1080 DIP; scale 100%&#xD;
+furniture-step-5: actual 1920x1080 DIP; scale 100%&#xD;
+furniture-step-5-bottom: actual 1920x1080 DIP; scale 100%&#xD;
+furniture-step-6: actual 1920x1080 DIP; scale 100%&#xD;
+furniture-step-6-bottom: actual 1920x1080 DIP; scale 100%&#xD;
+furniture-variant-dialog: actual 1920x1080 DIP; scale 100%</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="f58d6afc-bb26-4196-be67-b4f6c553d967" testId="1a67bff1-03e0-834d-ba2d-b6ab3571811a" testName="FurnitureSteps (720,560)" computerName="DESKTOP-EIG6O0F" duration="00:00:01.6828352" startTime="2026-10-13T10:23:12.9169045+03:00" endTime="2026-10-13T10:23:14.5999900+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f58d6afc-bb26-4196-be67-b4f6c553d967">
+      <Output>
+        <StdOut>furniture-step-1: actual 720x560 DIP; scale 100%&#xD;
+furniture-step-1-bottom: actual 720x560 DIP; scale 100%&#xD;
+furniture-step-2: actual 720x560 DIP; scale 100%&#xD;
+furniture-step-2-bottom: actual 720x560 DIP; scale 100%&#xD;
+furniture-step-3: actual 720x560 DIP; scale 100%&#xD;
+furniture-step-3-bottom: actual 720x560 DIP; scale 100%&#xD;
+furniture-step-4: actual 720x560 DIP; scale 100%&#xD;
+furniture-step-4-bottom: actual 720x560 DIP; scale 100%&#xD;
+furniture-step-5: actual 720x560 DIP; scale 100%&#xD;
+furniture-step-5-bottom: actual 720x560 DIP; scale 100%&#xD;
+furniture-step-6: actual 720x560 DIP; scale 100%&#xD;
+furniture-step-6-bottom: actual 720x560 DIP; scale 100%&#xD;
+furniture-variant-dialog: actual 720x560 DIP; scale 100%</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="dbab0fd9-cefe-4f6d-a077-83bb01479d03" testId="198343a9-a06b-8da7-be73-601fa618177a" testName="HomeSearchAndFailure (1920,1080)" computerName="DESKTOP-EIG6O0F" duration="00:00:01.1930382" startTime="2026-10-13T10:23:14.6005806+03:00" endTime="2026-10-13T10:23:15.7938719+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="dbab0fd9-cefe-4f6d-a077-83bb01479d03">
+      <Output>
+        <StdOut>manager-home-top: actual 1920x1080 DIP; scale 100%&#xD;
+home-search: actual 1920x1080 DIP; scale 100%&#xD;
+home-partial-denied: actual 1920x1080 DIP; scale 100%&#xD;
+home-unavailable: actual 1920x1080 DIP; scale 100%</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="b48e447d-02df-46e0-b2a4-ad31336a73f3" testId="12c7f650-a610-8656-964d-04ae86394f3d" testName="AuthenticationStates (1920,1080)" computerName="DESKTOP-EIG6O0F" duration="00:00:01.9732536" startTime="2026-10-13T10:22:59.1065210+03:00" endTime="2026-10-13T10:23:01.1018985+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b48e447d-02df-46e0-b2a4-ad31336a73f3">
+      <Output>
+        <StdOut>sign-in: actual 1920x1080 DIP; scale 100%&#xD;
+sign-in-failure: actual 1920x1080 DIP; scale 100%&#xD;
+sign-in-failure-bottom: actual 1920x1080 DIP; scale 100%&#xD;
+sign-in-busy: actual 1920x1080 DIP; scale 100%</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="0933e41a-1cd3-412f-81ef-3d13076df086" testId="14f9e4e6-90d1-8ec4-ac6b-83cd20d528bf" testName="UserStates (720,560)" computerName="DESKTOP-EIG6O0F" duration="00:00:01.1889763" startTime="2026-10-13T10:23:06.4329794+03:00" endTime="2026-10-13T10:23:07.6221554+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="0933e41a-1cd3-412f-81ef-3d13076df086">
+      <Output>
+        <StdOut>users-list: actual 720x560 DIP; scale 100%&#xD;
+users-deactivate: actual 720x560 DIP; scale 100%&#xD;
+users-create: actual 720x560 DIP; scale 100%&#xD;
+users-create-bottom: actual 720x560 DIP; scale 100%&#xD;
+users-validation: actual 720x560 DIP; scale 100%&#xD;
+users-empty: actual 720x560 DIP; scale 100%&#xD;
+users-unavailable: actual 720x560 DIP; scale 100%</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="9edee38f-64b3-418c-93cc-d381fdfed7dd" testId="1183e5a2-7cb6-8c5f-a581-2dd0f478ff4f" testName="UserStates (1338,753)" computerName="DESKTOP-EIG6O0F" duration="00:00:01.3997069" startTime="2026-10-13T10:23:05.0328849+03:00" endTime="2026-10-13T10:23:06.4328963+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9edee38f-64b3-418c-93cc-d381fdfed7dd">
+      <Output>
+        <StdOut>users-list: actual 1338x753 DIP; scale 100%&#xD;
+users-deactivate: actual 1338x753 DIP; scale 100%&#xD;
+users-create: actual 1338x753 DIP; scale 100%&#xD;
+users-create-bottom: actual 1338x753 DIP; scale 100%&#xD;
+users-validation: actual 1338x753 DIP; scale 100%&#xD;
+users-empty: actual 1338x753 DIP; scale 100%&#xD;
+users-unavailable: actual 1338x753 DIP; scale 100%</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="12b08d1c-72c3-487c-9e10-4dbd7251367a" testId="1d9d23f0-0dfb-8f53-b17a-f23f36371166" testName="AuthenticationStates (1338,753)" computerName="DESKTOP-EIG6O0F" duration="00:00:01.3295826" startTime="2026-10-13T10:23:01.1071212+03:00" endTime="2026-10-13T10:23:02.4372839+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="12b08d1c-72c3-487c-9e10-4dbd7251367a">
+      <Output>
+        <StdOut>sign-in: actual 1338x753 DIP; scale 100%&#xD;
+sign-in-failure: actual 1338x753 DIP; scale 100%&#xD;
+sign-in-failure-bottom: actual 1338x753 DIP; scale 100%&#xD;
+sign-in-busy: actual 1338x753 DIP; scale 100%</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="89dfd59c-9161-4d79-8503-770d3124c2a0" testId="106873c5-b920-8591-afe5-e9d5a3c933bd" testName="AuthenticationStates (720,560)" computerName="DESKTOP-EIG6O0F" duration="00:00:00.7353444" startTime="2026-10-13T10:23:02.4378577+03:00" endTime="2026-10-13T10:23:03.1734163+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="89dfd59c-9161-4d79-8503-770d3124c2a0">
+      <Output>
+        <StdOut>sign-in: actual 720x560 DIP; scale 100%&#xD;
+sign-in-failure: actual 720x560 DIP; scale 100%&#xD;
+sign-in-failure-bottom: actual 720x560 DIP; scale 100%&#xD;
+sign-in-busy: actual 720x560 DIP; scale 100%</StdOut>
+      </Output>
+    </UnitTestResult>
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="UserStates (1338,753)" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="1183e5a2-7cb6-8c5f-a581-2dd0f478ff4f">
+      <Execution id="9edee38f-64b3-418c-93cc-d381fdfed7dd" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.UiAuditCaptureTests" name="UserStates" />
+    </UnitTest>
+    <UnitTest name="AuthenticationStates (1920,1080)" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="12c7f650-a610-8656-964d-04ae86394f3d">
+      <Execution id="b48e447d-02df-46e0-b2a4-ad31336a73f3" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.UiAuditCaptureTests" name="AuthenticationStates" />
+    </UnitTest>
+    <UnitTest name="HomeSearchAndFailure (1920,1080)" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="198343a9-a06b-8da7-be73-601fa618177a">
+      <Execution id="dbab0fd9-cefe-4f6d-a077-83bb01479d03" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.UiAuditCaptureTests" name="HomeSearchAndFailure" />
+    </UnitTest>
+    <UnitTest name="WorkCalendar (1338,753)" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="1c68da62-5fcc-854e-99ba-e70e012e1918">
+      <Execution id="206260be-7998-43b8-80f0-3140f7d9b22b" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.UiAuditCaptureTests" name="WorkCalendar" />
+    </UnitTest>
+    <UnitTest name="HomeSearchAndFailure (720,560)" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="1422f4c5-669d-80fd-94c0-b01077a5547b">
+      <Execution id="898c215b-2768-4a68-805f-fc8f15286cd6" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.UiAuditCaptureTests" name="HomeSearchAndFailure" />
+    </UnitTest>
+    <UnitTest name="FurnitureSteps (1338,753)" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="11b88387-6b84-874a-8e79-a44fdd0beab2">
+      <Execution id="bb44c821-0087-41a2-bbcd-f3660447d97e" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.UiAuditCaptureTests" name="FurnitureSteps" />
+    </UnitTest>
+    <UnitTest name="HomeSearchAndFailure (1338,753)" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="1aa53240-49a9-83cd-b0fe-5757a8f72082">
+      <Execution id="89227cb6-eb2f-4405-950d-3da5e389155a" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.UiAuditCaptureTests" name="HomeSearchAndFailure" />
+    </UnitTest>
+    <UnitTest name="UserStates (1920,1080)" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="13ae189d-a961-8e8c-b9f7-fb27d19ecb5a">
+      <Execution id="2984f288-0222-418c-9255-b99e848da11e" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.UiAuditCaptureTests" name="UserStates" />
+    </UnitTest>
+    <UnitTest name="WorkCalendar (720,560)" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="10b56df2-310a-8f54-bafb-7e44377eca70">
+      <Execution id="1d7c8707-827b-4229-b0da-5e31f5a6e6d1" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.UiAuditCaptureTests" name="WorkCalendar" />
+    </UnitTest>
+    <UnitTest name="FurnitureSteps (1920,1080)" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="16175a07-ef52-85eb-a421-9c5b682e24a8">
+      <Execution id="ff6cb11d-8564-4f4e-8fc2-0f3500492de0" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.UiAuditCaptureTests" name="FurnitureSteps" />
+    </UnitTest>
+    <UnitTest name="AuthenticationStates (720,560)" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="106873c5-b920-8591-afe5-e9d5a3c933bd">
+      <Execution id="89dfd59c-9161-4d79-8503-770d3124c2a0" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.UiAuditCaptureTests" name="AuthenticationStates" />
+    </UnitTest>
+    <UnitTest name="AuthenticationStates (1338,753)" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="1d9d23f0-0dfb-8f53-b17a-f23f36371166">
+      <Execution id="12b08d1c-72c3-487c-9e10-4dbd7251367a" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.UiAuditCaptureTests" name="AuthenticationStates" />
+    </UnitTest>
+    <UnitTest name="UserStates (720,560)" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="14f9e4e6-90d1-8ec4-ac6b-83cd20d528bf">
+      <Execution id="0933e41a-1cd3-412f-81ef-3d13076df086" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.UiAuditCaptureTests" name="UserStates" />
+    </UnitTest>
+    <UnitTest name="FurnitureSteps (720,560)" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="1a67bff1-03e0-834d-ba2d-b6ab3571811a">
+      <Execution id="f58d6afc-bb26-4196-be67-b4f6c553d967" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.UiAuditCaptureTests" name="FurnitureSteps" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="10b56df2-310a-8f54-bafb-7e44377eca70" executionId="1d7c8707-827b-4229-b0da-5e31f5a6e6d1" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="11b88387-6b84-874a-8e79-a44fdd0beab2" executionId="bb44c821-0087-41a2-bbcd-f3660447d97e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1aa53240-49a9-83cd-b0fe-5757a8f72082" executionId="89227cb6-eb2f-4405-950d-3da5e389155a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1c68da62-5fcc-854e-99ba-e70e012e1918" executionId="206260be-7998-43b8-80f0-3140f7d9b22b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1422f4c5-669d-80fd-94c0-b01077a5547b" executionId="898c215b-2768-4a68-805f-fc8f15286cd6" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="13ae189d-a961-8e8c-b9f7-fb27d19ecb5a" executionId="2984f288-0222-418c-9255-b99e848da11e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="16175a07-ef52-85eb-a421-9c5b682e24a8" executionId="ff6cb11d-8564-4f4e-8fc2-0f3500492de0" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1a67bff1-03e0-834d-ba2d-b6ab3571811a" executionId="f58d6afc-bb26-4196-be67-b4f6c553d967" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="198343a9-a06b-8da7-be73-601fa618177a" executionId="dbab0fd9-cefe-4f6d-a077-83bb01479d03" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="12c7f650-a610-8656-964d-04ae86394f3d" executionId="b48e447d-02df-46e0-b2a4-ad31336a73f3" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="14f9e4e6-90d1-8ec4-ac6b-83cd20d528bf" executionId="0933e41a-1cd3-412f-81ef-3d13076df086" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1183e5a2-7cb6-8c5f-a581-2dd0f478ff4f" executionId="9edee38f-64b3-418c-93cc-d381fdfed7dd" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1d9d23f0-0dfb-8f53-b17a-f23f36371166" executionId="12b08d1c-72c3-487c-9e10-4dbd7251367a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="106873c5-b920-8591-afe5-e9d5a3c933bd" executionId="89dfd59c-9161-4d79-8503-770d3124c2a0" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="14" executed="14" passed="14" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+  </ResultSummary>
+</TestRun>

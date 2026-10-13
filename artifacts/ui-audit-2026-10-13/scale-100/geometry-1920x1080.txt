@@ -1,0 +1,1 @@
+Window: 1920 x 1080 DIPs; display scaling: 100%.

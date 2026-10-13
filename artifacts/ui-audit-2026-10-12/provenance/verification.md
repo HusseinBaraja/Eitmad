@@ -1,4 +1,6 @@
-# Audit verification and reproduction
+# Initial audit verification and reproduction
+
+This page records the 2026-10-12 capture run. The [2026-10-13 follow-up](../../ui-audit-2026-10-13/FOLLOW-UP.md) supersedes the open visual verification gaps below and adds UI-45. The current prompt file excludes accessibility changes at the user's request.
 
 The audit reviewed the Windows shell at Git revision `234bce32642e92f10e1070b5e8a86cfa6b70f20b` on 2026-10-12. The starting branch was `main` and the worktree was clean. This deliverable changes only dated audit artifacts.
 
@@ -43,7 +45,7 @@ Native OS high contrast, screen-reader output, all manual keyboard/focus paths, 
 
 The [coverage inventory](../coverage.json) maps all 18 feature XAML views to rendered evidence. The main report also covers the manager home composition, shared shell/dialogs, and print surfaces. Reports, tasks, settings, and messages are disabled or absent capabilities in this revision. No report view or report template was found; this is stated explicitly rather than treated as a rendered report.
 
-The final artifact validation checks every finding's source paths and images, all Markdown file/image links, the PNG manifest dimensions, all 18 feature-view mappings, the 44 prompt sections, and the three passing TRX results. This is an artifact integrity check. It does not substitute for visual inspection.
+The final artifact validation checks every finding's source paths and images, all Markdown file/image links, the PNG manifest dimensions, all 18 feature-view mappings, the current 45 prompt sections, and the three passing TRX results. This is an artifact integrity check. It does not substitute for visual inspection.
 
 ```powershell
 & 'C:/Users/Hussein/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe' artifacts/ui-audit-2026-10-12/provenance/check_artifact.py

@@ -1,0 +1,77 @@
+using System.IO;
+using System.Windows;
+using System.Windows.Input;
+using System.Windows.Automation;
+using System.Windows.Controls;
+using System.Windows.Media;
+
+namespace Eitmad.WindowsShell.Tests.Rendered;
+
+// Temporary interactive audit host. No persistence or real account authority.
+[TestClass]
+public sealed class UiGapNativePreviewTests
+{
+    [TestMethod]
+    public void InspectSyntheticPreviewWithNativeKeyboard()
+    {
+        var directory = Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR")!;
+        Directory.CreateDirectory(directory);
+        WpfTestHost.Run(1338,753,window => {
+            Platform.TrayIcon? auditTray = null;
+            if(Environment.GetEnvironmentVariable("EITMAD_AUDIT_ROLE") == "products") {
+                var view = new Features.Products.ProductsView();
+                view.ViewModel.ApplyDurableData(Products.ProductsPresentationTests.Data());
+                window.Content = view;
+            }
+            if(Environment.GetEnvironmentVariable("EITMAD_AUDIT_ROLE") == "receptionist") WpfTestHost.SignIn(window,"receptionist");
+            if(Environment.GetEnvironmentVariable("EITMAD_AUDIT_ROLE") == "print") {
+                window.Content = new Controls.PrintPreview {
+                    Document = Features.Reception.QuotationCustomerDocument.CreateSaved(CustomerDocumentsRenderedTests.Saved()),
+                    CanPrint = true,
+                    AuthorizePrint = () => Task.FromResult(true),
+                };
+            }
+            if(Environment.GetEnvironmentVariable("EITMAD_AUDIT_ROLE") == "calendar") {
+                var fixture = new WorkOrders.WorkOrderAuthorityTests.Fixture();
+                var view = new Features.WorkOrders.WorkOrdersView();
+                var client = new Features.Orders.OrderClient(fixture.Engine);
+                view.ViewModel.Attach(client);
+                var load = view.ViewModel.ActivateAsync();
+                while(!load.IsCompleted) WpfTestHost.PumpDispatcher();
+                load.GetAwaiter().GetResult();
+                window.Content = view;
+                view.ViewModel.OpenWorkOrder(view.ViewModel.VisibleWorkOrders.Single());
+            }
+            if(Environment.GetEnvironmentVariable("EITMAD_AUDIT_ROLE") == "tray") {
+                auditTray = new Platform.TrayIcon(()=>{},()=>{});
+                auditTray.Show();
+                var open = new Button { Content = "فتح قائمة شريط النظام — معاينة تجريبية", Margin = new Thickness(40), Height = 60 };
+                open.Click += (_,_) => {
+                    var field = typeof(Platform.TrayIcon).GetField("icon",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!;
+                    var icon = (System.Windows.Forms.NotifyIcon)field.GetValue(auditTray)!;
+                    icon.ContextMenuStrip!.Show(new System.Drawing.Point(1880,990));
+                };
+                window.Content = open;
+            }
+            window.Left=30; window.Top=30; window.ShowInTaskbar=true;
+            window.Title="Eitmad UI audit - synthetic preview";
+            window.Activate(); WpfTestHost.CompleteLayout(window);
+            if(Environment.GetEnvironmentVariable("EITMAD_AUDIT_ROLE") == "calendar") {
+                var picker = WpfTestHost.FindByAutomationName<DatePicker>(window,"موعد تسليم أمر العمل");
+                picker.BringIntoView(); WpfTestHost.CompleteLayout(window);
+            }
+            WpfTestHost.Capture(window,"native-preview-start");
+            File.WriteAllText(Path.Combine(directory,"geometry.txt"),$"{window.Left},{window.Top}; {window.ActualWidth}x{window.ActualHeight}; scale {VisualTreeHelper.GetDpi(window).DpiScaleX*100}%; high contrast {SystemParameters.HighContrast}");
+            var log=Path.Combine(directory,"native-focus.txt");
+            Keyboard.AddGotKeyboardFocusHandler(window,(_,e)=> {
+                if(e.NewFocus is FrameworkElement element) File.AppendAllText(log,$"{DateTime.UtcNow:O} {element.GetType().Name} {element.Name} [{AutomationProperties.GetName(element)}]\n");
+            });
+            Console.WriteLine($"Native preview: {window.ActualWidth}x{window.ActualHeight} DIP; scale {VisualTreeHelper.GetDpi(window).DpiScaleX*100}%; contrast {SystemParameters.HighContrast}");
+            var end=DateTime.UtcNow.AddMinutes(20);
+            while(window.IsVisible && DateTime.UtcNow<end && !File.Exists(Path.Combine(directory,"native-driver.stop"))) {
+                WpfTestHost.PumpDispatcher(); Thread.Sleep(20);
+            }
+            auditTray?.Dispose();
+        });
+    }
+}
