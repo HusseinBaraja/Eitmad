@@ -64,10 +64,10 @@
                                             <DataGridTemplateColumn Header="اسم الجزء" Width="2*" MinWidth="160" SortMemberPath="Name">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
-                                                        <Border x:Name="RowSurface" MinHeight="64" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White">
+                                                        <Border x:Name="RowSurface" MinHeight="78" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White">
                                                             <StackPanel VerticalAlignment="Center" Margin="18,8" FlowDirection="LeftToRight">
-                                                                <TextBlock x:Name="ContrastCell0" Text="{Binding Name}" FontSize="13" FontWeight="SemiBold" TextAlignment="Right" TextWrapping="NoWrap" />
-                                                                <TextBlock x:Name="ContrastCell1" Text="جزء أثاث" Foreground="{StaticResource MutedBrush}" FontSize="9" TextAlignment="Right" Margin="0,3,0,0" />
+                                                                <TextBlock x:Name="ContrastCell0" Text="{Binding Name}" FontSize="14" FontWeight="SemiBold" TextAlignment="Right" TextWrapping="Wrap" />
+                                                                <TextBlock x:Name="ContrastCell1" Text="جزء أثاث" Foreground="{StaticResource MutedBrush}" FontSize="13" TextAlignment="Right" Margin="0,3,0,0" />
                                                             </StackPanel>
                                                         </Border>
                                                         <DataTemplate.Triggers>
@@ -90,7 +90,7 @@
                                             <DataGridTemplateColumn Header="الفئة" Width="1.2*" MinWidth="120" SortMemberPath="Category">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
-                                                        <Border x:Name="RowSurface" MinHeight="64" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White">
+                                                        <Border x:Name="RowSurface" MinHeight="78" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White">
                                                             <TextBlock x:Name="ContrastCell0" Text="{Binding Category}" Style="{StaticResource TableBody}" />
                                                         </Border>
                                                         <DataTemplate.Triggers>
@@ -112,7 +112,7 @@
                                             <DataGridTemplateColumn Header="التكلفة" Width="1.1*" MinWidth="120" SortMemberPath="Cost">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
-                                                        <Border x:Name="RowSurface" MinHeight="64" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White">
+                                                        <Border x:Name="RowSurface" MinHeight="78" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White">
                                                             <controls:AmountDisplay HorizontalAlignment="Center" AmountText="{Binding CostAmountLabel}" UnitText="{Binding CurrencyLabel}" UnitPlacement="After" />
                                                         </Border>
                                                         <DataTemplate.Triggers>
@@ -133,7 +133,7 @@
                                             <DataGridTemplateColumn Header="مستخدم في" Width="1*" MinWidth="120" SortMemberPath="UsedInCount">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
-                                                        <Border x:Name="RowSurface" MinHeight="64" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White">
+                                                        <Border x:Name="RowSurface" MinHeight="78" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White">
                                                             <TextBlock x:Name="ContrastCell0" Text="—" Style="{StaticResource TableBody}" FlowDirection="LeftToRight" />
                                                         </Border>
                                                         <DataTemplate.Triggers>
@@ -155,7 +155,7 @@
                                             <DataGridTemplateColumn Header="الحالة" Width="0.9*" MinWidth="100" SortMemberPath="StatusLabel">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
-                                                        <Border x:Name="RowSurface" MinHeight="64" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White">
+                                                        <Border x:Name="RowSurface" MinHeight="78" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White">
                                                             <controls:StatusBadge x:Name="StatusPill" Padding="10,4" HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding StatusLabel}" Tone="Success"></controls:StatusBadge>
                                                         </Border>
                                                         <DataTemplate.Triggers>
@@ -178,7 +178,7 @@
                                             <DataGridTemplateColumn Header="الإجراءات" Width="0.55*" MinWidth="70" CanUserSort="False">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
-                                                        <Border x:Name="RowSurface" MinHeight="64" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White">
+                                                        <Border x:Name="RowSurface" MinHeight="78" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White">
                                                             <Button HorizontalAlignment="Center" VerticalAlignment="Center" Style="{StaticResource RowActionButton}" Content="⋮" Click="OpenRowMenuClick" automation:AutomationProperties.Name="إجراءات الجزء">
                                                                 <Button.ContextMenu>
                                                                     <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}" FlowDirection="LeftToRight" Style="{StaticResource ActionMenu}" Placement="MousePoint">
@@ -210,7 +210,7 @@
                                 </Grid>
                             </Grid>
                             <Border Grid.Row="2" Background="#FCFAF8" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,1,0,0" Padding="16,9">
-                                <TextBlock Text="{Binding VisibleCountLabel}" Foreground="{StaticResource MutedBrush}" FontSize="10" />
+                                <TextBlock Text="{Binding VisibleCountLabel}" Foreground="{StaticResource MutedBrush}" FontSize="13" />
                             </Border>
                         </Grid>
                     </Border>
@@ -257,7 +257,7 @@
                         </Border.Style>
                         <StackPanel>
                             <TextBlock Text="معلومات الجزء" FontSize="22" FontWeight="Bold" />
-                            <TextBlock Text="عرّف الجزء الآن. ستختار المواد الخام المستخدمة في الخطوة التالية." Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,6,0,24" />
+                            <TextBlock Text="عرّف الجزء الآن. ستختار المواد الخام المستخدمة في الخطوة التالية." Foreground="{StaticResource MutedBrush}" FontSize="13" Margin="0,6,0,24" />
                             <controls:FormField Label="اسم الجزء">
                                 <TextBox x:Name="EditorNameBox" Text="{Binding EditorName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" Margin="0,0,0,18" automation:AutomationProperties.Name="اسم الجزء" />
                             </controls:FormField>
@@ -306,7 +306,7 @@
                                 <Button Grid.Column="0" Height="42" Style="{StaticResource SecondaryButton}" Click="OpenMaterialPickerClick" automation:AutomationProperties.Name="إضافة مادة خام" Content="إضافة مادة خام" controls:ControlOptions.Icon="{StaticResource IconPlus}" />
                                 <StackPanel Grid.Column="1" HorizontalAlignment="Right" FlowDirection="RightToLeft" Margin="20,0,0,0">
                                     <TextBlock Text="المواد الخام المستخدمة" FontSize="22" FontWeight="Bold" />
-                                    <TextBlock Text="أدخل الكميات والوحدات. تُحسب التكلفة في المراجعة، وتُقرب مرة واحدة بعد جمع القيم الدقيقة." Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,5,0,0" />
+                                    <TextBlock Text="أدخل الكميات والوحدات. تُحسب التكلفة في المراجعة، وتُقرب مرة واحدة بعد جمع القيم الدقيقة." Foreground="{StaticResource MutedBrush}" FontSize="13" Margin="0,5,0,0" />
                                 </StackPanel>
                             </Grid>
                             <Border Margin="0,22,0,0" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="9" ClipToBounds="True">
@@ -416,11 +416,11 @@
                             </Border>
                             <Border Background="#FCF5EC" BorderBrush="#D8B38D" BorderThickness="1" CornerRadius="10" Padding="22,16" HorizontalAlignment="Left" MinWidth="280" Margin="0,18,0,0">
                                 <StackPanel>
-                                    <TextBlock Text="تكلفة الجزء" Foreground="#714216" FontSize="11" FontWeight="SemiBold" />
+                                    <TextBlock Text="تكلفة الجزء" Foreground="#714216" FontSize="14" FontWeight="SemiBold" />
                                     <controls:AmountDisplay Margin="0,4,0,0" FontSize="27" FontWeight="Bold" Foreground="#6D390A" AmountText="{Binding TotalPartCostLabel}" UnitText="ر.ي" UnitPlacement="After"></controls:AmountDisplay>
                                 </StackPanel>
                             </Border>
-                            <TextBlock Text="{Binding EditorError}" Foreground="{StaticResource DangerBrush}" FontSize="11" Margin="0,10,0,0" Visibility="{Binding HasEditorError, Converter={StaticResource BooleanToVisibility}}" />
+                            <TextBlock Text="{Binding EditorError}" Foreground="{StaticResource DangerBrush}" FontSize="14" Margin="0,10,0,0" Visibility="{Binding HasEditorError, Converter={StaticResource BooleanToVisibility}}" />
                             <Grid Margin="0,24,0,0" FlowDirection="LeftToRight">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
@@ -447,7 +447,7 @@
                         </Border.Style>
                         <StackPanel>
                             <TextBlock Text="مراجعة الجزء" FontSize="22" FontWeight="Bold" />
-                            <TextBlock Text="تحقّق من المعلومات والتكلفة قبل الحفظ. استخدم «السابق» لإجراء أي تعديل." Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,5,0,16" />
+                            <TextBlock Text="تحقّق من المعلومات والتكلفة قبل الحفظ. استخدم «السابق» لإجراء أي تعديل." Foreground="{StaticResource MutedBrush}" FontSize="13" Margin="0,5,0,16" />
                             <Grid Margin="0,0,0,16">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition />
@@ -456,13 +456,13 @@
                                 </Grid.ColumnDefinitions>
                                 <Border Grid.Column="0" Background="#FAF7F4" CornerRadius="8" Padding="14,10">
                                     <StackPanel>
-                                        <TextBlock Text="اسم الجزء" Foreground="{StaticResource MutedBrush}" FontSize="10" />
+                                        <TextBlock Text="اسم الجزء" Foreground="{StaticResource MutedBrush}" FontSize="13" />
                                         <TextBlock Text="{Binding EditorName}" FontSize="14" FontWeight="SemiBold" Margin="0,4,0,0" />
                                     </StackPanel>
                                 </Border>
                                 <Border Grid.Column="2" Background="#FAF7F4" CornerRadius="8" Padding="14,10">
                                     <StackPanel>
-                                        <TextBlock Text="الفئة" Foreground="{StaticResource MutedBrush}" FontSize="10" />
+                                        <TextBlock Text="الفئة" Foreground="{StaticResource MutedBrush}" FontSize="13" />
                                         <TextBlock Text="{Binding EditorCategoryLabel}" FontSize="14" FontWeight="SemiBold" Margin="0,4,0,0" />
                                     </StackPanel>
                                 </Border>
@@ -525,7 +525,7 @@
                             </Border>
                             <Border Background="#F5E8D9" BorderBrush="#C99563" BorderThickness="1.2" CornerRadius="11" Padding="20,13" HorizontalAlignment="Left" MinWidth="315" Margin="0,16,0,0">
                                 <StackPanel>
-                                    <TextBlock Text="إجمالي تكلفة الجزء" Foreground="#6D390A" FontSize="12" FontWeight="SemiBold" />
+                                    <TextBlock Text="إجمالي تكلفة الجزء" Foreground="#6D390A" FontSize="14" FontWeight="SemiBold" />
                                     <controls:AmountDisplay Margin="0,3,0,0" FontSize="29" FontWeight="Bold" Foreground="#5C2D05" AmountText="{Binding TotalPartCostLabel}" UnitText="ر.ي" UnitPlacement="After"></controls:AmountDisplay>
                                 </StackPanel>
                             </Border>
@@ -558,7 +558,7 @@
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="1" HorizontalAlignment="Right" FlowDirection="RightToLeft" Margin="18,0,0,0">
-                            <TextBlock Text="ابحث، ثم اختر مادة لإضافتها إلى الجزء." Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,4,0,0" />
+                            <TextBlock Text="ابحث، ثم اختر مادة لإضافتها إلى الجزء." Foreground="{StaticResource MutedBrush}" FontSize="13" Margin="0,4,0,0" />
                         </StackPanel>
                     </Grid>
                     <TextBox x:Name="MaterialSearchBox" Text="{Binding MaterialSearchText, UpdateSourceTrigger=PropertyChanged}" automation:AutomationProperties.Name="البحث في المواد الخام" Grid.Row="1" Margin="0,20,0,14" Style="{StaticResource SearchInput}" />
@@ -577,8 +577,8 @@
                                                 <StackPanel Grid.Column="1" HorizontalAlignment="Right" FlowDirection="RightToLeft" Margin="16,0,0,0">
                                                     <TextBlock Text="{Binding Name}" FlowDirection="LeftToRight" FontWeight="SemiBold" TextAlignment="Right" />
                                                     <StackPanel Orientation="Horizontal" FlowDirection="LeftToRight" HorizontalAlignment="Right" Margin="0,4,0,0">
-                                                        <TextBlock Text="{Binding UnitCostLabel}" Foreground="{StaticResource MutedBrush}" FontFamily="Segoe UI" FontSize="10" />
-                                                        <TextBlock Text="ر.ي" Foreground="{StaticResource MutedBrush}" FontFamily="Segoe UI" FontSize="10" Margin="4,0,0,0" />
+                                                        <TextBlock Text="{Binding UnitCostLabel}" Foreground="{StaticResource MutedBrush}" FontFamily="Segoe UI" FontSize="13" />
+                                                        <TextBlock Text="ر.ي" Foreground="{StaticResource MutedBrush}" FontFamily="Segoe UI" FontSize="13" Margin="4,0,0,0" />
                                                     </StackPanel>
                                                 </StackPanel>
                                             </Grid>
@@ -603,6 +603,6 @@
                 </Grid>
             </controls:DialogHost>
         </Grid>
-        <controls:FeedbackNotice x:Name="Feedback" Message="{Binding FeedbackMessage}" Tone="Success" IsFloating="True" FontSize="11" DisplayDuration="00:00:02.5" Dismissed="FeedbackDismissed" Margin="28" Panel.ZIndex="20" HorizontalAlignment="Left" VerticalAlignment="Bottom" />
+        <controls:FeedbackNotice x:Name="Feedback" Message="{Binding FeedbackMessage}" Tone="Success" IsFloating="True" FontSize="13" DisplayDuration="00:00:02.5" Dismissed="FeedbackDismissed" Margin="28" Panel.ZIndex="20" HorizontalAlignment="Left" VerticalAlignment="Bottom" />
     </Grid>
 </UserControl>

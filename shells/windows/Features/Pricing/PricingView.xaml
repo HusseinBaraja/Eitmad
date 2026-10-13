@@ -40,7 +40,7 @@
                                         <DataGridTemplateColumn Header="المنتج" Width="1.55*" MinWidth="160" SortMemberPath="Product">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="68">
+                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="78">
                                                         <TextBlock x:Name="ContrastCell0" Text="{Binding Product}" Style="{StaticResource TableBody}" FontWeight="SemiBold" FlowDirection="RightToLeft" />
                                                     </Border>
                                                     <DataTemplate.Triggers>
@@ -55,7 +55,7 @@
                                         <DataGridTemplateColumn Header="المقاس" Width="1.05*" MinWidth="120" SortMemberPath="Variant">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="68">
+                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="78">
                                                         <TextBlock x:Name="ContrastCell0" Text="{Binding Variant}" Style="{StaticResource TableBody}" FlowDirection="RightToLeft" />
                                                     </Border>
                                                     <DataTemplate.Triggers>
@@ -70,8 +70,8 @@
                                         <DataGridTemplateColumn Header="التكلفة" Width="1.12*" MinWidth="120" SortMemberPath="Cost">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="68">
-                                                        <TextBlock x:Name="ContrastCell0" Text="{Binding CostLabel}" Style="{StaticResource TableBody}" Foreground="{StaticResource MutedBrush}" FlowDirection="LeftToRight" />
+                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="78">
+                                                        <TextBlock x:Name="ContrastCell0" Text="{Binding CostLabel}" Style="{StaticResource TableBody}" FlowDirection="LeftToRight" />
                                                     </Border>
                                                     <DataTemplate.Triggers>
                                                         <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
@@ -85,7 +85,7 @@
                                         <DataGridTemplateColumn Header="سعر البيع" Width="1.42*" MinWidth="120" SortMemberPath="SellingPrice">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="68">
+                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="78">
                                                         <Border x:Name="ContrastCell2" Background="#FFF8F0" CornerRadius="9" Margin="10,9" BorderBrush="#EAD3BC" BorderThickness="1">
                                                             <TextBlock x:Name="ContrastCell0" Text="{Binding SellingPriceLabel}" Style="{StaticResource TableBody}" FontSize="15" FontWeight="Bold" Foreground="#713B08" FlowDirection="LeftToRight" />
                                                         </Border>
@@ -103,7 +103,7 @@
                                         <DataGridTemplateColumn Header="الهامش" Width="1.12*" MinWidth="120" SortMemberPath="Margin">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="68">
+                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="78">
                                                         <TextBlock x:Name="ContrastCell0" Text="{Binding MarginLabel}" FlowDirection="LeftToRight">
                                                             <TextBlock.Style>
                                                                 <Style TargetType="TextBlock" BasedOn="{StaticResource TableBody}">
@@ -129,7 +129,7 @@
                                         <DataGridTemplateColumn Header="الحالة" Width="0.9*" MinWidth="100" SortMemberPath="StatusLabel">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell0" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="68">
+                                                    <Border x:Name="ContrastCell0" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="78">
                                                         <controls:StatusBadge Padding="11,3" HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding StatusLabel}">
                                                             <controls:StatusBadge.Style>
                                                                 <Style TargetType="controls:StatusBadge" BasedOn="{StaticResource {x:Type controls:StatusBadge}}">
@@ -154,7 +154,7 @@
                                         <DataGridTemplateColumn Header="تعديل" Width="0.78*" MinWidth="70" CanUserSort="False">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell0" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="68">
+                                                    <Border x:Name="ContrastCell0" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="78">
                                                         <Button Content="تعديل" Style="{StaticResource InlineActionButton}" Click="EditPriceClick" IsEnabled="{Binding DataContext.CanEdit, RelativeSource={RelativeSource AncestorType=UserControl}}" HorizontalAlignment="Center" VerticalAlignment="Center" automation:AutomationProperties.Name="تعديل سعر البيع" />
                                                     </Border>
                                                     <DataTemplate.Triggers>
@@ -170,7 +170,7 @@
                             </Grid>
                         </Grid>
                         <StackPanel Grid.Row="2" Margin="18,12" Orientation="Horizontal">
-                            <TextBlock Text="{Binding VisibleCountLabel}" Foreground="{StaticResource MutedBrush}" FontSize="11" />
+                            <TextBlock Text="{Binding VisibleCountLabel}" Foreground="{StaticResource MutedBrush}" FontSize="13" />
                         </StackPanel>
                     </Grid>
                 </Border>
@@ -185,14 +185,14 @@
                 </StackPanel>
             </controls:DialogHost.Footer>
             <StackPanel>
-                <TextBlock Text="النشر يتطلب تأكيد الخادم لهذا المقاس" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,5,0,21" />
+                <TextBlock Text="النشر يتطلب تأكيد الخادم لهذا المقاس" Foreground="{StaticResource MutedBrush}" FontSize="13" Margin="0,5,0,21" />
                 <Grid Margin="0,0,0,9">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition />
                         <ColumnDefinition Width="110" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="{Binding EditorProduct}" Grid.Column="0" FontSize="14" FontWeight="SemiBold" />
-                    <TextBlock Text="المنتج" Grid.Column="1" Foreground="{StaticResource MutedBrush}" FontSize="12" />
+                    <TextBlock Text="المنتج" Grid.Column="1" Foreground="{StaticResource MutedBrush}" FontSize="13" />
                 </Grid>
                 <Grid Margin="0,0,0,9">
                     <Grid.ColumnDefinitions>
@@ -200,7 +200,7 @@
                         <ColumnDefinition Width="110" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="{Binding EditorVariant}" Grid.Column="0" FontSize="13" />
-                    <TextBlock Text="المقاس" Grid.Column="1" Foreground="{StaticResource MutedBrush}" FontSize="12" />
+                    <TextBlock Text="المقاس" Grid.Column="1" Foreground="{StaticResource MutedBrush}" FontSize="13" />
                 </Grid>
                 <Grid Margin="0,0,0,17">
                     <Grid.ColumnDefinitions>
@@ -208,7 +208,7 @@
                         <ColumnDefinition Width="110" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="{Binding EditorCost}" Grid.Column="0" FontSize="13" FlowDirection="LeftToRight" TextAlignment="Right" />
-                    <TextBlock Text="التكلفة" Grid.Column="1" Foreground="{StaticResource MutedBrush}" FontSize="12" />
+                    <TextBlock Text="التكلفة" Grid.Column="1" Foreground="{StaticResource MutedBrush}" FontSize="13" />
                 </Grid>
                 <controls:FormField Label="سعر البيع" Margin="0,0,0,0" ErrorText="{Binding EditorError}">
                     <Grid FlowDirection="LeftToRight">
@@ -217,7 +217,7 @@
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <Border Grid.Column="0" Background="#F2ECE6" CornerRadius="9,0,0,9" BorderBrush="#D8CFC6" BorderThickness="1,1,0,1">
-                            <TextBlock Text="ر.ي" FontSize="11" FontWeight="SemiBold" Foreground="#704A2A" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <TextBlock Text="ر.ي" FontSize="14" FontWeight="SemiBold" Foreground="#704A2A" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <TextBox x:Name="PriceInput" Grid.Column="1" controls:ControlOptions.CornerRadius="0,9,9,0" IsEnabled="{Binding CanEdit}" Text="{Binding EditorSellingPrice, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" FlowDirection="LeftToRight" TextAlignment="Right" FontSize="17" FontWeight="SemiBold" automation:AutomationProperties.Name="سعر البيع الجديد" />
                     </Grid>
@@ -241,7 +241,7 @@
                                 </Style>
                             </TextBlock.Style>
                         </TextBlock>
-                        <TextBlock Text="الهامش المحسوب" Grid.Column="1" Foreground="{StaticResource MutedBrush}" FontSize="12" VerticalAlignment="Center" />
+                        <TextBlock Text="الهامش المحسوب" Grid.Column="1" Foreground="{StaticResource MutedBrush}" FontSize="13" VerticalAlignment="Center" />
                     </Grid>
                 </Border>
             </StackPanel>

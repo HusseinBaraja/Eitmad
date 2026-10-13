@@ -3,18 +3,18 @@
     <sys:Double x:Key="PageHeaderTitleSize">27</sys:Double>
     <sys:Double x:Key="PageHeaderDescriptionSize">12</sys:Double>
     <Style x:Key="FieldLabel" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
-        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontSize" Value="14" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Margin" Value="0,0,0,7" />
     </Style>
     <Style x:Key="TextInput" TargetType="TextBox">
         <Setter Property="controls:ControlOptions.HighContrast" Value="{DynamicResource {x:Static SystemParameters.HighContrastKey}}" />
-        <Setter Property="MinHeight" Value="44" />
+        <Setter Property="MinHeight" Value="48" />
         <Setter Property="FontFamily" Value="Noto Kufi Arabic, Segoe UI" />
         <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
         <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Hidden" />
         <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
-        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontSize" Value="14" />
         <Setter Property="Background" Value="White" />
         <Setter Property="BorderBrush" Value="#DED6CE" />
         <Setter Property="BorderThickness" Value="1" />
@@ -130,9 +130,9 @@
     </Style>
     <Style x:Key="SelectInput" TargetType="ComboBox">
         <Setter Property="controls:ControlOptions.HighContrast" Value="{DynamicResource {x:Static SystemParameters.HighContrastKey}}" />
-        <Setter Property="MinHeight" Value="44" />
+        <Setter Property="MinHeight" Value="48" />
         <Setter Property="FontFamily" Value="Noto Kufi Arabic, Segoe UI" />
-        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontSize" Value="14" />
         <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
         <Setter Property="Background" Value="White" />
         <Setter Property="BorderBrush" Value="#DED6CE" />
@@ -265,7 +265,7 @@
     <Style x:Key="ActionMenuItem" TargetType="MenuItem">
         <Setter Property="controls:ControlOptions.HighContrast" Value="{DynamicResource {x:Static SystemParameters.HighContrastKey}}" />
         <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
-        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontSize" Value="14" />
         <Setter Property="Padding" Value="13,9" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FlowDirection" Value="RightToLeft" />
@@ -316,7 +316,7 @@
         </Setter>
     </Style>
     <Style x:Key="TableBody" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
-        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontSize" Value="14" />
         <Setter Property="VerticalAlignment" Value="Center" />
         <Setter Property="TextAlignment" Value="Center" />
         <Setter Property="TextWrapping" Value="NoWrap" />
@@ -336,7 +336,7 @@
         <Setter Property="controls:ControlOptions.HoverBorderBrush" Value="#B9824D" />
     </Style>
     <Style x:Key="InlineActionButton" TargetType="Button" BasedOn="{StaticResource ActionButton}">
-        <Setter Property="Height" Value="33" />
+        <Setter Property="MinHeight" Value="40" />
         <Setter Property="MinWidth" Value="62" />
         <Setter Property="Padding" Value="12,5" />
         <Setter Property="Background" Value="#F7EEE5" />
@@ -344,21 +344,21 @@
         <Setter Property="BorderBrush" Value="#DAB997" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="FontFamily" Value="Noto Kufi Arabic, Segoe UI" />
-        <Setter Property="FontSize" Value="10" />
+        <Setter Property="FontSize" Value="13" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="controls:ControlOptions.HoverBackground" Value="#EFE0D1" />
         <Setter Property="controls:ControlOptions.HoverBorderBrush" Value="#B9824D" />
     </Style>
     <Style x:Key="DropdownActionButton" TargetType="Button" BasedOn="{StaticResource ActionButton}">
-        <Setter Property="Height" Value="35" />
+        <Setter Property="MinHeight" Value="40" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Foreground" Value="#7B410F" />
         <Setter Property="HorizontalContentAlignment" Value="Right" />
         <Setter Property="Padding" Value="11,6" />
         <Setter Property="FontFamily" Value="Noto Kufi Arabic, Segoe UI" />
-        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontSize" Value="13" />
         <Setter Property="Cursor" Value="Hand" />
     </Style>
     <Style x:Key="SearchInput" TargetType="TextBox" BasedOn="{StaticResource TextInput}">
@@ -368,13 +368,13 @@
         <Setter Property="controls:ControlOptions.Placeholder" Value="{Binding Path=(automation:AutomationProperties.Name), RelativeSource={RelativeSource Self}}" />
     </Style>
     <Style x:Key="CompactButton" TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
-        <Setter Property="MinHeight" Value="34" />
+        <Setter Property="MinHeight" Value="40" />
         <Setter Property="Padding" Value="11,5" />
-        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontSize" Value="13" />
     </Style>
     <Style x:Key="MetadataLabel" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
         <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
-        <Setter Property="FontSize" Value="10" />
+        <Setter Property="FontSize" Value="13" />
     </Style>
     <Style x:Key="MetadataValue" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
         <Setter Property="FontSize" Value="14" />
@@ -382,7 +382,7 @@
         <Setter Property="Margin" Value="0,5,0,0" />
     </Style>
     <Style x:Key="SummaryLabel" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
-        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontSize" Value="14" />
         <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
@@ -394,7 +394,7 @@
     </Style>
     <Style x:Key="ChoiceRadio" TargetType="RadioButton">
         <Setter Property="FontFamily" Value="Noto Kufi Arabic, Segoe UI" />
-        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontSize" Value="14" />
         <Setter Property="Margin" Value="0,0,16,0" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
@@ -456,7 +456,7 @@
                         </Trigger>
                         <Trigger Property="ButtonType" Value="Inline">
                             <Setter TargetName="HeaderButton" Property="Style" Value="{StaticResource InlineActionButton}" />
-                            <Setter TargetName="HeaderButton" Property="FontSize" Value="10" />
+                            <Setter TargetName="HeaderButton" Property="FontSize" Value="13" />
                         </Trigger>
 
                         <Trigger Property="Subtitle" Value="">
@@ -546,7 +546,7 @@
         <Setter Property="BorderBrush" Value="#DED8D2" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Padding" Value="10,4" />
-        <Setter Property="FontSize" Value="10" />
+        <Setter Property="FontSize" Value="13" />
         <Setter Property="HorizontalAlignment" Value="Center" />
         <Setter Property="VerticalAlignment" Value="Center" />
         <Setter Property="Template">
@@ -596,7 +596,7 @@
             </Trigger>
             <Trigger Property="IsCompact" Value="True">
                 <Setter Property="Padding" Value="6,2" />
-                <Setter Property="FontSize" Value="9" />
+                <Setter Property="FontSize" Value="13" />
             </Trigger>
             <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource Self}}" Value="True">
                 <Setter Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
@@ -606,7 +606,7 @@
         </Style.Triggers>
     </Style>
     <Style TargetType="controls:FeedbackNotice">
-        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontSize" Value="14" />
         <Setter Property="controls:ControlOptions.HighContrast" Value="{DynamicResource {x:Static SystemParameters.HighContrastKey}}" />
         <Setter Property="Background" Value="#EEF4FA" />
         <Setter Property="Foreground" Value="#254B70" />
@@ -725,15 +725,15 @@
             <Setter.Value>
                 <ControlTemplate TargetType="controls:FormField">
                     <StackPanel x:Name="ContrastBacking">
-                        <Label automation:AutomationProperties.Name="{TemplateBinding Label}" x:Name="PART_Label" Padding="0" Margin="0,0,0,7" Target="{TemplateBinding LabelTarget}" FontSize="12" FontWeight="SemiBold">
+                        <Label automation:AutomationProperties.Name="{TemplateBinding Label}" x:Name="PART_Label" Padding="0" Margin="0,0,0,7" Target="{TemplateBinding LabelTarget}" FontSize="14" FontWeight="SemiBold">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock x:Name="ContrastPart0" Text="{TemplateBinding Label}" TextWrapping="Wrap" />
                                 <TextBlock x:Name="Required" Text=" *" Visibility="Collapsed" automation:AutomationProperties.Name="مطلوب" />
                             </StackPanel>
                         </Label>
                         <ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" />
-                        <TextBlock x:Name="Help" Text="{TemplateBinding HelpText}" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,7,0,0" />
-                        <TextBlock x:Name="Error" Text="{TemplateBinding ErrorText}" TextWrapping="Wrap" Foreground="{DynamicResource DangerBrush}" FontSize="11" Margin="0,7,0,0" automation:AutomationProperties.LiveSetting="Assertive" />
+                        <TextBlock x:Name="Help" Text="{TemplateBinding HelpText}" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" FontSize="13" Margin="0,8,0,0" />
+                        <TextBlock x:Name="Error" Text="{TemplateBinding ErrorText}" TextWrapping="Wrap" Foreground="{DynamicResource DangerBrush}" FontSize="14" Margin="0,8,0,0" automation:AutomationProperties.LiveSetting="Assertive" />
                     </StackPanel>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsRequired" Value="True">
@@ -833,10 +833,9 @@
         <Setter Property="RowBackground" Value="Transparent" />
         <Setter Property="HeadersVisibility" Value="Column" />
         <Setter Property="GridLinesVisibility" Value="None" />
-        <Setter Property="ColumnHeaderHeight" Value="48" />
-        <Setter Property="MinRowHeight" Value="48" />
+        <Setter Property="MinRowHeight" Value="56" />
         <Setter Property="FontFamily" Value="Noto Kufi Arabic, Segoe UI" />
-        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontSize" Value="14" />
         <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
         <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto" />
         <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
@@ -855,11 +854,12 @@
                     <Setter Property="Focusable" Value="True" />
                     <Setter Property="IsTabStop" Value="True" />
                     <Setter Property="Background" Value="#F7F3EF" />
-                    <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
                     <Setter Property="HorizontalContentAlignment" Value="Center" />
+                    <Setter Property="MinHeight" Value="56" />
                     <Setter Property="Padding" Value="10,8" />
                     <Setter Property="FontWeight" Value="SemiBold" />
-                    <Setter Property="FontSize" Value="10" />
+                    <Setter Property="FontSize" Value="13" />
                     <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
                     <Setter Property="BorderThickness" Value="0,0,0,1" />
                     <Style.Triggers>

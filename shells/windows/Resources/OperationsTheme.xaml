@@ -5,7 +5,7 @@
     <Color x:Key="MutedColor">#746E69</Color>
     <Color x:Key="LineColor">#E7E2DD</Color>
     <Color x:Key="CopperColor">#A35E1E</Color>
-    <Color x:Key="DangerColor">#E33F3F</Color>
+    <Color x:Key="DangerColor">#9B2920</Color>
     <SolidColorBrush x:Key="CanvasBrush" Color="{StaticResource CanvasColor}" />
     <SolidColorBrush x:Key="PanelBrush" Color="{StaticResource PanelColor}" />
     <SolidColorBrush x:Key="InkBrush" Color="{StaticResource InkColor}" />
@@ -46,7 +46,7 @@
         <Setter Property="FlowDirection" Value="RightToLeft" />
         <Setter Property="controls:ControlOptions.HighContrast" Value="{DynamicResource {x:Static SystemParameters.HighContrastKey}}" />
         <Setter Property="FontFamily" Value="Noto Kufi Arabic, Segoe UI" />
-        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontSize" Value="14" />
         <Setter Property="Padding" Value="14,8" />
         <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
@@ -229,7 +229,7 @@
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Foreground" Value="#1F579D" />
         <Setter Property="FontFamily" Value="Noto Kufi Arabic, Segoe UI" />
-        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontSize" Value="14" />
         <Setter Property="HorizontalContentAlignment" Value="Right" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Padding" Value="0" />
