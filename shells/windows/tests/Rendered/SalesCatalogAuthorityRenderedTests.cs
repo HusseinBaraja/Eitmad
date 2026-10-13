@@ -17,6 +17,89 @@ public sealed class SalesCatalogAuthorityRenderedTests
     [DataRow(1920, 1080)]
     [DataRow(1338, 753)]
     [DataRow(720, 560)]
+    public void CustomDimensionsFitTogetherAndKeepPendingAndInvalidGuidance(int width, int height)
+    {
+        WpfTestHost.Run(width, height, window =>
+        {
+            if (width == 1920) window.WindowState = WindowState.Maximized;
+            var reception = WpfTestHost.FindByName<ReceptionistHomeView>(window, "ReceptionistSurface");
+            reception.Visibility = Visibility.Visible;
+            WpfTestHost.FindByName<Grid>(window, "ResponsiveRoot").Visibility = Visibility.Collapsed;
+            WpfTestHost.CompleteLayout(window);
+            WpfTestHost.FindByName<Button>(reception, "ProductsAction").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var catalog = WpfTestHost.FindByName<SalesCatalogView>(reception, "CatalogContent");
+            var model = (SalesCatalogViewModel)catalog.DataContext;
+            var entry = SalesCatalogAuthorityTests.Entry(true);
+            var engine = new FakeEngine { QueryHandler = q => SalesCatalogAuthorityTests.Handle(q, entry) };
+            var client = new SalesCatalogClient(engine);
+            model.AttachCatalogClient(client);
+            try
+            {
+                Finish(model.ActivateCatalogAsync());
+                model.Select(model.VisibleItems[0]); Finish(model.LastCatalogOperation);
+                model.Selection!.SelectedSize = model.Selection.Sizes[0]; Finish(model.LastCatalogOperation);
+                WpfTestHost.CompleteLayout(window);
+                var detail = WpfTestHost.FindByName<FurnitureSelectionView>(catalog, "SelectionView");
+                RecordGeometry(window, detail, width, height, "ui29");
+                var inputs = new[] { "العرض بالسنتيمتر", "الارتفاع بالسنتيمتر", "العمق بالسنتيمتر" }
+                    .Select(name => WpfTestHost.FindByAutomationName<TextBox>(detail, name)).ToArray();
+                var options = WpfTestHost.FindByName<ScrollViewer>(detail, "SelectionOptions");
+                inputs[0].BringIntoView(); WpfTestHost.CompleteLayout(window);
+                foreach (var input in inputs)
+                {
+                    var bounds = input.TransformToAncestor(options).TransformBounds(new Rect(input.RenderSize));
+                    Assert.IsTrue(bounds.Left >= 0 && bounds.Right <= options.ActualWidth + 1
+                        && bounds.Top >= 0 && bounds.Bottom <= options.ActualHeight + 1,
+                        $"All three dimension inputs must fit together in the option viewport: {bounds}.");
+                    Assert.AreEqual(FlowDirection.LeftToRight, input.FlowDirection);
+                }
+                WpfTestHost.Capture(window, $"ui29-dimensions-{width}x{height}");
+
+                var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                var pending = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                engine.QueryBarrier = q =>
+                {
+                    if (q.AsSalesCatalogCheck() is null) return Task.CompletedTask;
+                    entered.TrySetResult(); return pending.Task;
+                };
+                inputs[0].Text = "١٣٠٫٥";
+                var operation = model.LastCatalogOperation;
+                Finish(entered.Task); WpfTestHost.CompleteLayout(window);
+                Assert.IsFalse(detail.AddButton.IsEnabled);
+                Assert.IsFalse(string.IsNullOrWhiteSpace(detail.SelectionGuidance.Text));
+                WpfTestHost.Capture(window, $"ui29-dimensions-pending-{width}x{height}");
+                pending.SetResult(); Finish(operation);
+                Assert.IsTrue(model.Selection.CanAdd);
+                Assert.AreEqual(1305, model.Selection.Configuration!.Dimensions.WidthMm);
+
+                inputs[0].Text = "invalid"; Finish(model.LastCatalogOperation); WpfTestHost.CompleteLayout(window);
+                Assert.IsFalse(detail.AddButton.IsEnabled);
+                Assert.AreEqual(model.Selection.Guidance, detail.SelectionGuidance.Text);
+                var guidance = detail.SelectionGuidance.TransformToAncestor(detail)
+                    .TransformBounds(new Rect(detail.SelectionGuidance.RenderSize));
+                Assert.IsTrue(guidance.Left >= 0 && guidance.Right <= detail.ActualWidth + 1
+                    && guidance.Bottom <= detail.ActualHeight + 1, "Invalid guidance must remain visible.");
+                WpfTestHost.Capture(window, $"ui29-dimensions-invalid-{width}x{height}");
+                if (width == 1338)
+                {
+                    detail.Resources[SystemParameters.HighContrastKey] = true;
+                    detail.Resources[SystemColors.WindowBrushKey] = Brushes.Black;
+                    detail.Resources[SystemColors.WindowTextBrushKey] = Brushes.White;
+                    detail.Resources[SystemColors.ControlBrushKey] = Brushes.Black;
+                    detail.Resources[SystemColors.ControlTextBrushKey] = Brushes.White;
+                    WpfTestHost.CompleteLayout(window);
+                    WpfTestHost.Capture(window, "ui29-dimensions-high-contrast");
+                }
+            }
+            finally { Finish(model.DeactivateCatalogAsync()); Finish(client.DisposeAsync().AsTask()); Finish(engine.DisposeAsync().AsTask()); }
+        });
+    }
+
+    [TestMethod]
+    [DataRow(1920, 1080)]
+    [DataRow(1338, 753)]
+    [DataRow(720, 560)]
     public void SelectionReviewStaysVisibleWhileOptionsScrollInReceptionShell(int width, int height)
     {
         WpfTestHost.Run(width, height, window =>
@@ -96,7 +179,7 @@ public sealed class SalesCatalogAuthorityRenderedTests
         Assert.IsTrue(add.IsEnabled, "The validated selection must remain available to add locally.");
     }
 
-    private static void RecordGeometry(Window window, FrameworkElement selection, int width, int height)
+    private static void RecordGeometry(Window window, FrameworkElement selection, int width, int height, string prefix = "ui28")
     {
         var dpi = VisualTreeHelper.GetDpi(window);
         var geometry = $"Requested {width}x{height}; actual window {window.ActualWidth}x{window.ActualHeight} DIP; "
@@ -107,7 +190,7 @@ public sealed class SalesCatalogAuthorityRenderedTests
         if (Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR") is { Length: > 0 } directory)
         {
             Directory.CreateDirectory(directory);
-            File.WriteAllText(Path.Combine(directory, $"ui28-{width}x{height}.txt"), geometry);
+            File.WriteAllText(Path.Combine(directory, $"{prefix}-{width}x{height}.txt"), geometry);
         }
     }
 
