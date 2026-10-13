@@ -94,6 +94,8 @@ public sealed class WorkOrderListItem : ObservableObject
 
     public string Notes { get; }
 
+    public bool HasNotes => !string.IsNullOrWhiteSpace(Notes);
+
     public WorkOrderStatus Status
     {
         get => status;

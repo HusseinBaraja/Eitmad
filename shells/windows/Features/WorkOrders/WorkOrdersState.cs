@@ -111,5 +111,5 @@ public sealed partial class WorkOrdersViewModel
         value.Assignment ?? "غير مسند", value.DueAt is { } at ? DateOnly.FromDateTime(DateTimeOffset.FromUnixTimeMilliseconds(at).ToOffset(TimeSpan.FromHours(3)).DateTime) : null,
         value.State switch { WorkState.InProgress => WorkOrderStatus.InProgress, WorkState.Completed => WorkOrderStatus.Completed, WorkState.Cancelled => WorkOrderStatus.Cancelled, _ => WorkOrderStatus.New },
         value.Furniture.Select(l => new WorkOrderFurnitureItem(l.Name, l.VariantName, Features.Reception.SalesCatalogViewModel.DimensionsLabel(l.Dimensions), l.ColorName ?? "—", l.HandleName ?? "—", (int)l.Quantity, FurnitureIllustration.Wardrobe)).ToArray(),
-        value.Furniture.SelectMany(l => l.Parts).Select(p => new WorkOrderPart(p.Name, p.Quantity)).ToArray(), value.Note ?? "—") { Record = value };
+        value.Furniture.SelectMany(l => l.Parts).Select(p => new WorkOrderPart(p.Name, p.Quantity)).ToArray(), value.Note ?? "") { Record = value };
 }

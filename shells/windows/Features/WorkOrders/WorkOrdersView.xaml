@@ -437,19 +437,50 @@
                             </StackPanel>
                         </Grid>
                     </Border>
-                    <Border Margin="0,16,0,0" Background="#FFF8E7" BorderBrush="#E7C878" BorderThickness="1" CornerRadius="11" Padding="20">
-                        <Grid FlowDirection="LeftToRight">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="5" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <Border Grid.Column="0" Background="#C78A21" CornerRadius="3" />
-                            <StackPanel Grid.Column="1" FlowDirection="RightToLeft" Margin="16,0,0,0">
-                                <TextBlock Text="ملاحظات الطلب" FontSize="16" FontWeight="Bold" Foreground="#654713" />
-                                <TextBlock Text="{Binding SelectedWorkOrder.Notes}" FontSize="12" LineHeight="22" Margin="0,8,0,0" Foreground="#584A32" />
-                            </StackPanel>
-                        </Grid>
-                    </Border>
+                    <Grid x:Name="NotesSection" Margin="0,16,0,0" controls:ControlOptions.HighContrast="{DynamicResource {x:Static SystemParameters.HighContrastKey}}">
+                        <Grid.Resources>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), ElementName=NotesSection}" Value="True">
+                                        <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Grid.Resources>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="ملاحظات الطلب" FontSize="14" FontWeight="SemiBold" />
+                        <TextBlock x:Name="EmptyNotesText" Grid.Column="1" Text="لا توجد ملاحظات" FontSize="12" Margin="12,0,0,0" VerticalAlignment="Center">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                    <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SelectedWorkOrder.HasNotes}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <TextBlock x:Name="NotesText" Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding SelectedWorkOrder.Notes}" TextWrapping="Wrap" FontSize="13" LineHeight="24" Margin="0,6,0,0">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SelectedWorkOrder.HasNotes}" Value="False">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Grid>
                     <StackPanel Visibility="{Binding IsLive, Converter={StaticResource BooleanToVisibility}}" Margin="0,16,0,0">
                         <layout:AdaptiveFieldsPanel MinItemWidth="200" IsEnabled="{Binding ActionsAvailable}" Visibility="{Binding SelectedWorkOrder.Record.CanStart, Converter={StaticResource BooleanToVisibility}}">
                             <controls:FormField Label="مسند إلى"><TextBox Text="{Binding Assignment, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" automation:AutomationProperties.Name="مسؤول تنفيذ أمر العمل"/></controls:FormField>
