@@ -181,13 +181,6 @@
                                Visibility="Collapsed" Foreground="{StaticResource MutedBrush}" FontSize="11"
                                Margin="0,12,0,0" TextAlignment="Center"
                                automation:AutomationProperties.LiveSetting="Polite" />
-                    <Border Margin="0,22,0,0" Padding="12,9" Background="#F6EEE6" CornerRadius="8">
-                        <TextBlock Text="تُرسل بيانات الدخول مباشرة إلى محرك Rust ولا يحفظها التطبيق."
-                                   TextWrapping="Wrap"
-                                   Foreground="#704019"
-                                   FontSize="10"
-                                   TextAlignment="Center" />
-                    </Border>
                 </StackPanel>
             </Grid>
         </ScrollViewer>
