@@ -31,9 +31,20 @@
        <Button x:Name="EditButton" Content="تعديل" Click="EditClick" IsEnabled="{Binding CanEdit}" Style="{StaticResource SecondaryButton}" AutomationProperties.Name="تعديل بيانات العميل" Margin="0,0,20,0"/>
        <StackPanel Grid.Column="1" FlowDirection="RightToLeft">
         <TextBlock Text="{Binding Name}" FontSize="23" FontWeight="SemiBold" Foreground="{DynamicResource InkBrush}" TextWrapping="Wrap"/>
-        <TextBlock Text="{Binding SyncStateLabel}" FontSize="13" Foreground="{DynamicResource MutedBrush}" Margin="0,6,0,0"/>
+        <TextBlock Text="{Binding SyncStateLabel}" FontSize="13" Foreground="{DynamicResource MutedBrush}" Margin="0,6,0,0">
+         <TextBlock.Style>
+          <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+           <Style.Triggers><DataTrigger Binding="{Binding HasSyncConflict}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers>
+          </Style>
+         </TextBlock.Style>
+        </TextBlock>
+        <controls:StatusBadge x:Name="ConflictStatus" Text="{Binding SyncStateLabel}" Tone="Warning" HorizontalAlignment="Left" Margin="0,8,0,0" Visibility="{Binding HasSyncConflict, Converter={StaticResource BooleanToVisibility}}">
+         <controls:StatusBadge.Icon><Path Data="{StaticResource IconAlert}" Width="18" Height="18" Stretch="Uniform" Margin="0,0,8,0" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=controls:StatusBadge}}"/></controls:StatusBadge.Icon>
+        </controls:StatusBadge>
        </StackPanel>
       </Grid>
+      <controls:FeedbackNotice x:Name="ConflictNotice" Tone="Warning" Margin="0,0,0,18" Visibility="{Binding HasSyncConflict, Converter={StaticResource BooleanToVisibility}}"
+       Message="التعديل متوقف بسبب تعارض في المزامنة. حل التعارض غير متاح في هذا الإصدار.&#10;يمكنك مراجعة بيانات الاتصال وسجل عروض الأسعار والطلبات أدناه، أو العودة إلى الصفحة السابقة."/>
       <layout:AdaptiveFieldsPanel MinItemWidth="240">
        <controls:FormField Label="رقم الهاتف"><TextBlock Text="{Binding Phone}" FlowDirection="LeftToRight" TextAlignment="Right" Style="{StaticResource ContactValue}"/></controls:FormField>
        <controls:FormField Label="العنوان"><TextBlock Text="{Binding Address}" Style="{StaticResource ContactValue}"/></controls:FormField>

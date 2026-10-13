@@ -63,7 +63,7 @@ Creating and editing use the generated `CreateCustomer` and `UpdateCustomer` con
 
 `eitmad.customer.changed.subscribe.v1` refreshes an open customer detail by UUID and refreshes relevant search suggestions. The compact event contains no contact text. Order and quotation fixtures can open the existing detail view only after a scoped Rust lookup identifies one exact name and phone or a temporary quotation carries the selected customer UUID. This preserves the accepted navigation and appearance without adding a Customers destination.
 
-The detail view reads `Customer.syncState` from Rust. It shows `بانتظار المزامنة`, `مؤكد من الخادم`, `رُفضت المزامنة`, or `تعارض يحتاج مراجعة`. Rejected and conflicted records remain visible and cannot be edited from that view until a domain resolution path exists.
+The detail view reads `Customer.syncState` from Rust. It shows `بانتظار المزامنة`, `مؤكد من الخادم`, `رُفضت المزامنة`, or `تعارض يحتاج مراجعة`. Rejected and conflicted records remain visible and cannot be edited from that view until a domain resolution path exists. A conflict has a warning badge with an alert icon and a persistent notice that explains the edit restriction and states that this version cannot resolve the conflict. The user can read the last known contact and quotation/order history or return to the previous page; the shell offers no retry or resolution action.
 
 ## Arabic-name and phone search
 

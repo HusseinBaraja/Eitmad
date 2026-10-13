@@ -265,13 +265,19 @@ public sealed class CustomersRenderedTests
             "عدن، المنصورة — عنوان تجريبي", "الاتصال قبل التسليم");
         WpfTestHost.Run(width, height, window =>
         {
-            var preview = new CustomerPreview(contract, [], []);
+            var preview = new CustomerPreview(contract,
+                [new("QUO-2026-0084", new(2026, 9, 12), "سرير وادي ظهر", "محوّل", "345,000 ر.ي")],
+                [new("ORD-2026-0084", new(2026, 9, 13), "سرير وادي ظهر", "قيد الإنتاج", "345,000 ر.ي")]);
             var view = new CustomerDetailView { DataContext = preview };
             window.Content = view;
             WpfTestHost.CompleteLayout(window);
             var edit = WpfTestHost.FindByName<Button>(view, "EditButton");
+            var status = WpfTestHost.FindByName<StatusBadge>(view, "ConflictStatus");
+            var notice = WpfTestHost.FindByName<FeedbackNotice>(view, "ConflictNotice");
             Assert.AreEqual("بانتظار المزامنة", preview.SyncStateLabel);
             Assert.IsTrue(edit.IsEnabled);
+            Assert.IsFalse(status.IsVisible);
+            Assert.IsFalse(notice.IsVisible);
 
             contract.SyncState = SyncState.Confirmed;
             preview.Observe(contract);
@@ -284,13 +290,67 @@ public sealed class CustomersRenderedTests
             WpfTestHost.CompleteLayout(window);
             Assert.AreEqual("رُفضت المزامنة", preview.SyncStateLabel);
             Assert.IsFalse(edit.IsEnabled);
+            Assert.IsFalse(status.IsVisible);
+            Assert.IsFalse(notice.IsVisible);
 
             contract.SyncState = SyncState.Conflicted;
             preview.Observe(contract);
             WpfTestHost.CompleteLayout(window);
             Assert.AreEqual("تعارض يحتاج مراجعة", preview.SyncStateLabel);
             Assert.IsFalse(edit.IsEnabled);
+            Assert.IsTrue(status.IsVisible);
+            Assert.IsTrue(notice.IsVisible);
+            var scroll = WpfTestHost.Ancestor<ScrollViewer>(notice);
+            foreach (var element in new FrameworkElement[] { status, notice })
+            {
+                var bounds = element.TransformToAncestor(scroll).TransformBounds(new Rect(element.RenderSize));
+                Assert.IsTrue(bounds.Left >= 0 && bounds.Right <= scroll.ActualWidth + 1
+                    && bounds.Top >= 0 && bounds.Bottom <= scroll.ActualHeight + 1,
+                    $"The conflict and edit restriction must be visible without scrolling: {bounds}.");
+            }
+            Assert.AreEqual(contract.Phone, preview.Phone);
+            var dpi = VisualTreeHelper.GetDpi(window);
+            var geometry = $"Requested {width}x{height}; actual window {window.ActualWidth}x{window.ActualHeight} DIP; "
+                + $"primary display {SystemParameters.PrimaryScreenWidth}x{SystemParameters.PrimaryScreenHeight} DIP; scaling {dpi.DpiScaleX * 100}%; "
+                + "WPF RenderTargetBitmap at 96 DPI; synthetic customer conflict and history; no display settings changed.";
+            Console.WriteLine(geometry);
+            if (Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR") is { Length: > 0 } directory)
+            {
+                Directory.CreateDirectory(directory);
+                File.WriteAllText(Path.Combine(directory, $"ui38-{width}x{height}.txt"), geometry);
+            }
             WpfTestHost.Capture(window, $"customers-sync-conflict-{width}x{height}");
+            foreach (var table in WpfTestHost.Descendants<OperationsTable>(view))
+            {
+                table.BringIntoView();
+                WpfTestHost.CompleteLayout(window);
+                Assert.AreEqual(1, table.Items.Count, "Conflict must keep the last known history readable.");
+                Assert.AreEqual(0, ((ScrollViewer)table.Template.FindName("DG_ScrollViewer", table)).ScrollableWidth, 1);
+                WpfTestHost.Capture(window, $"ui38-conflict-{table.Name}-{width}x{height}");
+            }
+            scroll.ScrollToTop();
+            if (width == 720)
+            {
+                ControlOptions.SetHighContrast(status, true);
+                ControlOptions.SetHighContrast(notice, true);
+                WpfTestHost.CompleteLayout(window);
+                WpfTestHost.Capture(window, "ui38-conflict-high-contrast-720x560");
+                ControlOptions.SetHighContrast(status, false);
+                ControlOptions.SetHighContrast(notice, false);
+                status.FontSize = 18;
+                notice.FontSize = 18;
+                WpfTestHost.CompleteLayout(window);
+                var bounds = notice.TransformToAncestor(scroll).TransformBounds(new Rect(notice.RenderSize));
+                Assert.IsTrue(bounds.Right <= scroll.ActualWidth + 1 && bounds.Bottom <= scroll.ActualHeight + 1,
+                    "Larger conflict text must keep the edit restriction in the viewport.");
+                WpfTestHost.Capture(window, "ui38-conflict-larger-text-720x560");
+            }
+            contract.SyncState = SyncState.Confirmed;
+            preview.Observe(contract);
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsFalse(status.IsVisible, "A Rust state refresh must remove a resolved conflict warning.");
+            Assert.IsFalse(notice.IsVisible);
+            Assert.IsTrue(edit.IsEnabled);
         });
     }
 
