@@ -1,0 +1,92 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="cbd9def8-139b-489b-ab8f-598757c060f9" name="Hussein@DESKTOP-EIG6O0F 2026-10-13 18:33:00" runUser="DESKTOP-EIG6O0F\CodexSandboxOffline" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-13T18:33:00.0538958+03:00" queuing="2026-10-13T18:33:00.0538963+03:00" start="2026-10-13T18:32:56.5586408+03:00" finish="2026-10-13T18:33:07.4270370+03:00" />
+  <TestSettings name="default" id="c4ca2ce2-290d-43ca-b70c-d357051dd4a1">
+    <Deployment runDeploymentRoot="Hussein_DESKTOP-EIG6O0F_2026-10-13_18_33_00" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="209f1a82-b6e1-4573-8251-2d7326f6ef0e" testId="1c09e062-d34a-8438-bfb7-354b9c094b6b" testName="AuthenticatedReceptionistOpensReceptionSurfaceAndSwitchReturnsToSignIn" computerName="DESKTOP-EIG6O0F" duration="00:00:00.8767532" startTime="2026-10-13T18:32:59.5691626+03:00" endTime="2026-10-13T18:33:00.4462672+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="209f1a82-b6e1-4573-8251-2d7326f6ef0e" />
+    <UnitTestResult executionId="5eec04eb-8329-44d3-9257-065be9052883" testId="128e222f-7e17-838e-8ff0-410d862c4167" testName="ManagerAndReceptionistUseMatchingSharedChromeGeometry" computerName="DESKTOP-EIG6O0F" duration="00:00:00.7350180" startTime="2026-10-13T18:33:00.9613736+03:00" endTime="2026-10-13T18:33:01.6965026+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5eec04eb-8329-44d3-9257-065be9052883" />
+    <UnitTestResult executionId="6f2e214f-9f43-40da-8a5f-1fadcd90a612" testId="18ab935c-ba1a-8ec8-998d-11679bd92f89" testName="ReceptionistActionsStackAtCompactWindowWidth" computerName="DESKTOP-EIG6O0F" duration="00:00:00.5144247" startTime="2026-10-13T18:33:00.4467021+03:00" endTime="2026-10-13T18:33:00.9612215+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6f2e214f-9f43-40da-8a5f-1fadcd90a612" />
+    <UnitTestResult executionId="8f010582-6196-4cce-8d05-772a0eb7965d" testId="1dadf099-abb7-8a70-8506-777c21f9e3ba" testName="ManagerNavigation (720,560)" computerName="DESKTOP-EIG6O0F" duration="00:00:00.7165030" startTime="2026-10-13T18:33:06.5547820+03:00" endTime="2026-10-13T18:33:07.2734725+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8f010582-6196-4cce-8d05-772a0eb7965d">
+      <Output>
+        <StdOut>UI-07: window 720x560 DIP; scaling 125%; sidebar scroll range 90.39999999999998 DIP; routes الرئيسية, عروض الأسعار, الطلبات, الخامات, القطع, الأثاث, التسعير, المنتجات, أوامر العمل, المستخدمون</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="45b735e2-0de0-422b-bb88-09d550d1c040" testId="12366533-572c-8486-94c4-cd7ed974408c" testName="ManagerNavigation (1338,753)" computerName="DESKTOP-EIG6O0F" duration="00:00:00.7622663" startTime="2026-10-13T18:33:05.7923592+03:00" endTime="2026-10-13T18:33:06.5547388+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="45b735e2-0de0-422b-bb88-09d550d1c040">
+      <Output>
+        <StdOut>UI-07: window 1338.4x752.8 DIP; scaling 125%; sidebar scroll range 0 DIP; routes الرئيسية, عروض الأسعار, الطلبات, الخامات, القطع, الأثاث, التسعير, المنتجات, أوامر العمل, المستخدمون</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="5425698e-41ca-4a89-948a-b2c6d57c7ccd" testId="1d60bbf0-c768-8fe3-913d-40522f4eb0ec" testName="ManagerNavigation (1536,816)" computerName="DESKTOP-EIG6O0F" duration="00:00:00.7769893" startTime="2026-10-13T18:33:05.0136865+03:00" endTime="2026-10-13T18:33:05.7921931+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5425698e-41ca-4a89-948a-b2c6d57c7ccd">
+      <Output>
+        <StdOut>UI-07: window 1536x816 DIP; scaling 125%; sidebar scroll range 0 DIP; routes الرئيسية, عروض الأسعار, الطلبات, الخامات, القطع, الأثاث, التسعير, المنتجات, أوامر العمل, المستخدمون</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="e4b5f230-c565-4abc-98f9-d684867cf11a" testId="13cac937-ef0f-80a0-879c-fc3ec32c3b3c" testName="StandardAndCompactSizesResolveResponsiveLayout" computerName="DESKTOP-EIG6O0F" duration="00:00:01.4850480" startTime="2026-10-13T18:33:03.5270921+03:00" endTime="2026-10-13T18:33:05.0136307+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e4b5f230-c565-4abc-98f9-d684867cf11a" />
+    <UnitTestResult executionId="76ea6c67-6d11-4660-b21e-ade2afdfd9c7" testId="175c869c-4290-8ae0-8a7f-30555ec612e7" testName="SelectedNavigationUsesAContrastingSurfaceAndContent" computerName="DESKTOP-EIG6O0F" duration="00:00:01.0654157" startTime="2026-10-13T18:33:02.4615073+03:00" endTime="2026-10-13T18:33:03.5270136+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="76ea6c67-6d11-4660-b21e-ade2afdfd9c7" />
+    <UnitTestResult executionId="e9acba1b-e4e9-42d0-83dc-b24f35f9acc9" testId="13e64ff3-de13-852c-93e0-30bebbd748d7" testName="NavigationAndApprovalActionOpenWorkingDestinationAndFocus" computerName="DESKTOP-EIG6O0F" duration="00:00:00.7647619" startTime="2026-10-13T18:33:01.6965693+03:00" endTime="2026-10-13T18:33:02.4614560+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e9acba1b-e4e9-42d0-83dc-b24f35f9acc9" />
+    <UnitTestResult executionId="61d7cb2b-e30b-4bbd-9069-55657c2fbc33" testId="18b0ffb9-9aca-8f91-a6a9-d59f9acf4e52" testName="RootResolvesArabicRtlAndNativeWindowChrome" computerName="DESKTOP-EIG6O0F" duration="00:00:02.2992852" startTime="2026-10-13T18:32:57.2490618+03:00" endTime="2026-10-13T18:32:59.5655169+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="61d7cb2b-e30b-4bbd-9069-55657c2fbc33" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="ManagerNavigation (720,560)" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="1dadf099-abb7-8a70-8506-777c21f9e3ba">
+      <Execution id="8f010582-6196-4cce-8d05-772a0eb7965d" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.Ui07CaptureTests" name="ManagerNavigation" />
+    </UnitTest>
+    <UnitTest name="NavigationAndApprovalActionOpenWorkingDestinationAndFocus" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="13e64ff3-de13-852c-93e0-30bebbd748d7">
+      <Execution id="e9acba1b-e4e9-42d0-83dc-b24f35f9acc9" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.MainWindowRenderedTests" name="NavigationAndApprovalActionOpenWorkingDestinationAndFocus" />
+    </UnitTest>
+    <UnitTest name="StandardAndCompactSizesResolveResponsiveLayout" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="13cac937-ef0f-80a0-879c-fc3ec32c3b3c">
+      <Execution id="e4b5f230-c565-4abc-98f9-d684867cf11a" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.MainWindowRenderedTests" name="StandardAndCompactSizesResolveResponsiveLayout" />
+    </UnitTest>
+    <UnitTest name="RootResolvesArabicRtlAndNativeWindowChrome" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="18b0ffb9-9aca-8f91-a6a9-d59f9acf4e52">
+      <Execution id="61d7cb2b-e30b-4bbd-9069-55657c2fbc33" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.MainWindowRenderedTests" name="RootResolvesArabicRtlAndNativeWindowChrome" />
+    </UnitTest>
+    <UnitTest name="ManagerNavigation (1338,753)" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="12366533-572c-8486-94c4-cd7ed974408c">
+      <Execution id="45b735e2-0de0-422b-bb88-09d550d1c040" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.Ui07CaptureTests" name="ManagerNavigation" />
+    </UnitTest>
+    <UnitTest name="ManagerNavigation (1536,816)" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="1d60bbf0-c768-8fe3-913d-40522f4eb0ec">
+      <Execution id="5425698e-41ca-4a89-948a-b2c6d57c7ccd" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.Ui07CaptureTests" name="ManagerNavigation" />
+    </UnitTest>
+    <UnitTest name="ReceptionistActionsStackAtCompactWindowWidth" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="18ab935c-ba1a-8ec8-998d-11679bd92f89">
+      <Execution id="6f2e214f-9f43-40da-8a5f-1fadcd90a612" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.MainWindowRenderedTests" name="ReceptionistActionsStackAtCompactWindowWidth" />
+    </UnitTest>
+    <UnitTest name="ManagerAndReceptionistUseMatchingSharedChromeGeometry" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="128e222f-7e17-838e-8ff0-410d862c4167">
+      <Execution id="5eec04eb-8329-44d3-9257-065be9052883" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.MainWindowRenderedTests" name="ManagerAndReceptionistUseMatchingSharedChromeGeometry" />
+    </UnitTest>
+    <UnitTest name="AuthenticatedReceptionistOpensReceptionSurfaceAndSwitchReturnsToSignIn" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="1c09e062-d34a-8438-bfb7-354b9c094b6b">
+      <Execution id="209f1a82-b6e1-4573-8251-2d7326f6ef0e" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.MainWindowRenderedTests" name="AuthenticatedReceptionistOpensReceptionSurfaceAndSwitchReturnsToSignIn" />
+    </UnitTest>
+    <UnitTest name="SelectedNavigationUsesAContrastingSurfaceAndContent" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="175c869c-4290-8ae0-8a7f-30555ec612e7">
+      <Execution id="76ea6c67-6d11-4660-b21e-ade2afdfd9c7" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.MainWindowRenderedTests" name="SelectedNavigationUsesAContrastingSurfaceAndContent" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="1c09e062-d34a-8438-bfb7-354b9c094b6b" executionId="209f1a82-b6e1-4573-8251-2d7326f6ef0e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="128e222f-7e17-838e-8ff0-410d862c4167" executionId="5eec04eb-8329-44d3-9257-065be9052883" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="18ab935c-ba1a-8ec8-998d-11679bd92f89" executionId="6f2e214f-9f43-40da-8a5f-1fadcd90a612" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1dadf099-abb7-8a70-8506-777c21f9e3ba" executionId="8f010582-6196-4cce-8d05-772a0eb7965d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="12366533-572c-8486-94c4-cd7ed974408c" executionId="45b735e2-0de0-422b-bb88-09d550d1c040" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1d60bbf0-c768-8fe3-913d-40522f4eb0ec" executionId="5425698e-41ca-4a89-948a-b2c6d57c7ccd" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="13cac937-ef0f-80a0-879c-fc3ec32c3b3c" executionId="e4b5f230-c565-4abc-98f9-d684867cf11a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="175c869c-4290-8ae0-8a7f-30555ec612e7" executionId="76ea6c67-6d11-4660-b21e-ade2afdfd9c7" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="13e64ff3-de13-852c-93e0-30bebbd748d7" executionId="e9acba1b-e4e9-42d0-83dc-b24f35f9acc9" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="18b0ffb9-9aca-8f91-a6a9-d59f9acf4e52" executionId="61d7cb2b-e30b-4bbd-9069-55657c2fbc33" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="10" executed="10" passed="10" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+  </ResultSummary>
+</TestRun>
