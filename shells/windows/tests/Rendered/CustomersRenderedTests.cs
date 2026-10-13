@@ -1,6 +1,8 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
+using System.Windows.Media;
+using System.IO;
 using Eitmad.Contracts;
 using Eitmad.WindowsShell.Controls;
 using Eitmad.WindowsShell.Features.Customers;
@@ -111,17 +113,91 @@ public sealed class CustomersRenderedTests
         engine.Customers.Add(ContractCustomer("مؤسسة الاعتماد للأثاث", "+967 777 123 456", "صنعاء", "", engine.CustomerBranch));
         WpfTestHost.Run(width, height, window =>
         {
+            if (width == 1920) window.WindowState = WindowState.Maximized;
             var reception = WpfTestHost.FindByName<ReceptionistHomeView>(window, "ReceptionistSurface");
             reception.Visibility = Visibility.Visible;
             WpfTestHost.FindByName<Grid>(window, "ResponsiveRoot").Visibility = Visibility.Collapsed;
             var catalog = (SalesCatalogView)reception.FindName("CatalogContent");
             catalog.Visibility = Visibility.Visible;
-            ((SalesCatalogViewModel)catalog.DataContext).IsReviewingQuotation = true;
+            var model = (SalesCatalogViewModel)catalog.DataContext;
+            model.IsReviewingQuotation = true;
             WpfTestHost.CompleteLayout(window);
             WpfTestHost.FindByName<TextBox>(catalog, "CustomerNameInput").Text = "الاعتماد";
+            Finish(model.LastCustomerSearch);
+            var review = WpfTestHost.Descendants<CurrentQuotationView>(catalog).Single();
+            var section = WpfTestHost.FindByName<Border>(review, "CustomerSection");
+            var state = WpfTestHost.FindByName<TextBlock>(review, "CustomerSelectionState");
+            var typedState = state.Text;
+            var phone = WpfTestHost.FindByName<TextBox>(review, "PhoneInput");
+            var scroll = WpfTestHost.Descendants<ScrollViewer>(review).First();
             WpfTestHost.CompleteLayout(window);
-            Assert.IsNotNull(WpfTestHost.FindByAutomationName<Button>(catalog, "اختيار العميل مؤسسة الاعتماد للأثاث"));
+            scroll.ScrollToVerticalOffset(scroll.VerticalOffset + section.TranslatePoint(new Point(), scroll).Y);
+            WpfTestHost.CompleteLayout(window);
+            var match = WpfTestHost.FindByAutomationName<Button>(catalog, "اختيار العميل مؤسسة الاعتماد للأثاث");
+            var create = WpfTestHost.FindByAutomationName<Button>(catalog, "عميل جديد");
+            foreach (var element in new FrameworkElement[] { phone, match, create })
+            {
+                var bounds = element.TransformToAncestor(scroll).TransformBounds(new Rect(element.RenderSize));
+                Assert.IsTrue(bounds.Left >= 0 && bounds.Right <= scroll.ActualWidth + 1
+                    && bounds.Top >= 0 && bounds.Bottom <= scroll.ActualHeight + 1,
+                    $"Customer phone, match and new-customer action must fit in the viewport: {bounds}.");
+                var local = element.TransformToAncestor(section).TransformBounds(new Rect(element.RenderSize));
+                Assert.IsTrue(local.Left >= 0 && local.Right <= section.ActualWidth + 1,
+                    "Customer controls must remain within the bounded section.");
+            }
+            Assert.IsTrue(section.ActualWidth <= 600);
+            Assert.AreEqual(0, scroll.ScrollableWidth);
+            Assert.AreEqual(FlowDirection.LeftToRight, phone.FlowDirection);
+            var dpi = VisualTreeHelper.GetDpi(window);
+            var geometry = $"Requested {width}x{height}; actual window {window.ActualWidth}x{window.ActualHeight} DIP; "
+                + $"primary display {SystemParameters.PrimaryScreenWidth}x{SystemParameters.PrimaryScreenHeight} DIP; scaling {dpi.DpiScaleX * 100}%; "
+                + "WPF RenderTargetBitmap at 96 DPI; synthetic customer search response; customer section scrolled into view.";
+            Console.WriteLine(geometry);
+            if (Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR") is { Length: > 0 } directory)
+            {
+                Directory.CreateDirectory(directory);
+                File.WriteAllText(Path.Combine(directory, $"ui30-{width}x{height}.txt"), geometry);
+            }
             WpfTestHost.Capture(window, $"customers-selection-{width}x{height}");
+            match.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual(engine.Customers[0].Id, model.SelectedCustomer!.Id);
+            Assert.AreEqual(engine.Customers[0].Phone, phone.Text);
+            Assert.AreNotEqual(typedState, state.Text);
+            var selectedState = state.Text;
+            WpfTestHost.Capture(window, $"ui30-customer-selected-{width}x{height}");
+            phone.Text = "777000001";
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsNull(model.SelectedCustomer);
+            Assert.AreEqual(typedState, state.Text, "Editing a contact must remove the selected-record indication.");
+            model.AttachCustomer(PreviewCustomer.FromContract(engine.Customers[0]));
+            create.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsTrue(model.IsNewCustomer);
+            Assert.IsNull(model.SelectedCustomer);
+            Assert.AreEqual("", phone.Text);
+            Assert.AreNotEqual(typedState, state.Text);
+            Assert.AreNotEqual(selectedState, state.Text);
+            WpfTestHost.Capture(window, $"ui30-customer-new-{width}x{height}");
+            WpfTestHost.FindByAutomationName<Button>(review, "إلغاء العميل الجديد").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual(engine.Customers[0].Id, model.SelectedCustomer!.Id);
+            Assert.AreEqual(engine.Customers[0].Phone, phone.Text);
+            Assert.AreEqual(selectedState, state.Text);
+            if (width == 720)
+            {
+                foreach (var text in WpfTestHost.Descendants<TextBlock>(section)) text.FontSize = Math.Max(text.FontSize, 18);
+                foreach (var input in WpfTestHost.Descendants<TextBox>(section)) input.FontSize = 18;
+                WpfTestHost.CompleteLayout(window);
+                foreach (var element in new FrameworkElement[] { phone, create })
+                {
+                    var bounds = element.TransformToAncestor(scroll).TransformBounds(new Rect(element.RenderSize));
+                    Assert.IsTrue(bounds.Left >= 0 && bounds.Right <= scroll.ActualWidth + 1
+                        && bounds.Top >= 0 && bounds.Bottom <= scroll.ActualHeight + 1,
+                        "Larger customer text must retain the phone and new-customer action in view.");
+                }
+                WpfTestHost.Capture(window, "ui30-customer-larger-text-720x560");
+            }
         }, engine: engine);
     }
 

@@ -38,26 +38,37 @@
     </Border>
    </DataTemplate></ItemsControl.ItemTemplate>
   </ItemsControl></controls:FormField>
-  <StackPanel Margin="0,28,0,0">
+  <Border x:Name="CustomerSection" MaxWidth="600" HorizontalAlignment="Left" Margin="0,28,0,0" Padding="16" Style="{StaticResource Card}" Effect="{x:Null}" Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" BorderBrush="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}">
+  <StackPanel>
    <TextBlock Text="بيانات العميل" FontSize="23" FontWeight="Bold"/>
    <TextBlock Text="الاسم ورقم الهاتف مطلوبان عند حفظ عرض السعر" Margin="0,6,0,12" TextWrapping="Wrap"/>
-   <Button Content="+ عميل جديد" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Click="NewCustomerClick" AutomationProperties.Name="عميل جديد"/>
-   <TextBlock Text="عميل جديد" FontSize="18" FontWeight="Bold" Margin="0,12" Visibility="{Binding IsNewCustomer, Converter={StaticResource BooleanToVisibility}}"/>
-   <WrapPanel Margin="0,12,0,0">
-    <controls:FormField Label="اسم العميل" IsRequired="True" ErrorText="{Binding CustomerNameError}" Width="300" Margin="0,0,0,12"><TextBox x:Name="CustomerNameInput" Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" AutomationProperties.Name="اسم العميل"/></controls:FormField>
-    <controls:FormField Label="رقم الهاتف" IsRequired="True" ErrorText="{Binding PhoneError}" Width="260" Margin="12,0,0,12"><TextBox x:Name="PhoneInput" Text="{Binding Phone, UpdateSourceTrigger=PropertyChanged}" FlowDirection="LeftToRight" Style="{StaticResource TextInput}" AutomationProperties.Name="رقم الهاتف"/></controls:FormField>
+   <TextBlock x:Name="CustomerSelectionState" TextWrapping="Wrap" Margin="0,0,0,12" FontWeight="SemiBold">
+    <TextBlock.Style>
+     <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+      <Setter Property="Text" Value="عميل محدد من السجل"/>
+      <Style.Triggers>
+       <DataTrigger Binding="{Binding SelectedCustomer}" Value="{x:Null}"><Setter Property="Text" Value="لم يُحدد عميل. ابحث بالاسم أو الهاتف ثم اختر من النتائج."/></DataTrigger>
+       <DataTrigger Binding="{Binding IsNewCustomer}" Value="True"><Setter Property="Text" Value="بيانات عميل جديد. احفظه لاختياره."/></DataTrigger>
+      </Style.Triggers>
+     </Style>
+    </TextBlock.Style>
+   </TextBlock>
+   <WrapPanel>
+    <controls:FormField Label="اسم العميل" IsRequired="True" ErrorText="{Binding CustomerNameError}" Width="280" Margin="0,0,0,12"><TextBox x:Name="CustomerNameInput" Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" AutomationProperties.Name="اسم العميل"/></controls:FormField>
+    <controls:FormField Label="رقم الهاتف" IsRequired="True" ErrorText="{Binding PhoneError}" Width="220" Margin="12,0,0,12"><TextBox x:Name="PhoneInput" Text="{Binding Phone, UpdateSourceTrigger=PropertyChanged}" FlowDirection="LeftToRight" Style="{StaticResource TextInput}" AutomationProperties.Name="رقم الهاتف"/></controls:FormField>
    </WrapPanel>
    <ItemsControl ItemsSource="{Binding CustomerMatches}"><ItemsControl.ItemTemplate><DataTemplate>
-    <Button HorizontalAlignment="Right" Style="{StaticResource SecondaryButton}" Click="AttachCustomerClick" AutomationProperties.Name="{Binding Name, StringFormat=اختيار العميل {0}}" Margin="0,0,0,8">
-     <StackPanel Orientation="Horizontal" FlowDirection="RightToLeft">
+    <Button HorizontalAlignment="Left" HorizontalContentAlignment="Left" Style="{StaticResource SecondaryButton}" Click="AttachCustomerClick" AutomationProperties.Name="{Binding Name, StringFormat=اختيار العميل {0}}" Margin="0,0,0,8">
+     <WrapPanel FlowDirection="RightToLeft">
       <TextBlock Text="{Binding Name}"/>
       <TextBlock Text=" — " />
       <TextBlock Text="{Binding Phone}" FlowDirection="LeftToRight"/>
-     </StackPanel>
+     </WrapPanel>
     </Button>
    </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
    <TextBlock Text="جارٍ البحث…" Visibility="{Binding IsCustomerBusy, Converter={StaticResource BooleanToVisibility}}" Margin="0,0,0,8" AutomationProperties.LiveSetting="Polite"/>
    <TextBlock Text="{Binding CustomerOperationError}" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" Margin="0,0,0,8" AutomationProperties.LiveSetting="Assertive"/>
+   <Button Content="+ عميل جديد" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,0,0,16" Click="NewCustomerClick" AutomationProperties.Name="عميل جديد"/>
    <controls:FormField Label="العنوان (اختياري)" Margin="0,0,0,12"><TextBox Text="{Binding Address, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="{Binding AreCustomerDetailsReadOnly}" Style="{StaticResource TextInput}" AutomationProperties.Name="العنوان"/></controls:FormField>
    <controls:FormField Label="ملاحظات (اختياري)"><TextBox Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="{Binding AreCustomerDetailsReadOnly}" Style="{StaticResource TextInput}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="72" AutomationProperties.Name="ملاحظات"/></controls:FormField>
    <TextBlock Text="العنوان والملاحظات من سجل العميل. عدّلهما من تفاصيل العميل؛ لا تُحفظ ملاحظات خاصة في المسودة." TextWrapping="Wrap" Margin="0,8,0,0" Visibility="{Binding IsLiveQuotation, Converter={StaticResource BooleanToVisibility}}"/>
@@ -76,6 +87,7 @@
     <Button Content="إلغاء" Style="{StaticResource SecondaryButton}" Click="CancelCustomerClick" AutomationProperties.Name="إلغاء العميل الجديد" Margin="8,0,0,0"/>
    </WrapPanel>
   </StackPanel>
+  </Border>
   <Border BorderBrush="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}" BorderThickness="0,2,0,0" Padding="0,20" Margin="0,28,0,0">
    <StackPanel>
     <Grid Margin="0,0,0,16" FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Grid.Column="1" Text="المجموع الفرعي" FlowDirection="RightToLeft" FontSize="18"/><controls:AmountDisplay AmountText="{Binding SubtotalLabel}" UnitText="ر.ي" FontSize="20" HorizontalAlignment="Left"/></Grid>

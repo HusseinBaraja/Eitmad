@@ -71,7 +71,8 @@ public sealed partial class SalesCatalogViewModel
     private bool isCustomerSaveBusy;
     private string customerOperationError = string.Empty;
     private IReadOnlySet<string> invalidCustomerFields = new HashSet<string>();
-    public PreviewCustomer? SelectedCustomer { get; private set; }
+    private PreviewCustomer? selectedCustomer;
+    public PreviewCustomer? SelectedCustomer { get => selectedCustomer; private set => Set(ref selectedCustomer, value); }
     public ObservableCollection<PreviewCustomer> CustomerMatches { get; } = [];
     private string quotationNumber = "";
     public string QuotationNumber { get => quotationNumber; set { if (Set(ref quotationNumber, value)) Raise(nameof(QuotationHeading)); } }
