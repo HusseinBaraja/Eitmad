@@ -160,7 +160,44 @@ public sealed class ProductsRenderedTests
             var variants = WpfTestHost.FindByName<StackPanel>(view, "VariantsPricing"); variants.BringIntoView(); WpfTestHost.CompleteLayout(window);
             var variantName = WpfTestHost.FindByAutomationName<TextBox>(view, "اسم خيار المنتج"); variantName.Focus(); Assert.IsTrue(variantName.IsKeyboardFocusWithin);
             WpfTestHost.Capture(window, $"products-variants-{width}x{height}");
-            if (width == 1338) { foreach (var input in WpfTestHost.Descendants<TextBox>(view)) ControlOptions.SetHighContrast(input, true); foreach (var table in WpfTestHost.Descendants<OperationsTable>(view)) ControlOptions.SetHighContrast(table, true); WpfTestHost.CompleteLayout(window); WpfTestHost.Capture(window, "products-editor-system-colors"); foreach (var input in WpfTestHost.Descendants<TextBox>(view)) ControlOptions.SetHighContrast(input, false); foreach (var table in WpfTestHost.Descendants<OperationsTable>(view)) ControlOptions.SetHighContrast(table, false); }
+            if (width == 1338)
+            {
+                foreach (var control in WpfTestHost.Descendants<Control>(variants)) ControlOptions.SetHighContrast(control, true);
+                WpfTestHost.CompleteLayout(window);
+                WpfTestHost.Capture(window, "products-editor-system-colors");
+                foreach (var control in WpfTestHost.Descendants<Control>(variants)) control.ClearValue(ControlOptions.HighContrastProperty);
+            }
+            if (width == 720)
+            {
+                foreach (var control in WpfTestHost.Descendants<Control>(variants)) control.FontSize = 18;
+                foreach (var text in WpfTestHost.Descendants<TextBlock>(variants)) text.FontSize = 18;
+                WpfTestHost.CompleteLayout(window); variants.BringIntoView(); WpfTestHost.CompleteLayout(window);
+                WpfTestHost.Capture(window, "products-variants-larger-text-720x560");
+                foreach (var control in WpfTestHost.Descendants<Control>(variants)) control.ClearValue(Control.FontSizeProperty);
+                foreach (var text in WpfTestHost.Descendants<TextBlock>(variants)) text.ClearValue(TextBlock.FontSizeProperty);
+                WpfTestHost.CompleteLayout(window);
+            }
+            var archiveVariant = WpfTestHost.FindByAutomationName<Button>(variants, "أرشفة خيار المنتج");
+            variantName.Focus();
+            // Native DataGrid traversal includes cell focus stops as well as field controls.
+            for (var step = 0; step < 16 && !archiveVariant.IsKeyboardFocused; step++)
+            {
+                Assert.IsTrue(System.Windows.Input.Keyboard.FocusedElement is UIElement focused &&
+                    focused.MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.Next)));
+            }
+            Assert.IsTrue(archiveVariant.IsKeyboardFocused);
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual(Visibility.Visible, ((Border)archiveVariant.Template.FindName("FocusRing", archiveVariant)).Visibility);
+            WpfTestHost.Capture(window, $"products-variant-archive-focus-{width}x{height}");
+            var archivedVariant = view.ViewModel.Variants[0];
+            archiveVariant.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); WpfTestHost.CompleteLayout(window);
+            Assert.HasCount(2, view.ViewModel.Variants);
+            Assert.IsTrue(archivedVariant.IsArchived);
+            Assert.IsFalse(archiveVariant.IsEnabled);
+            Assert.IsFalse(variantName.IsEnabled);
+            Assert.IsTrue(view.ViewModel.SaveInput().Variants.Single(item => item.Id == archivedVariant.Id).Archived);
+            Assert.IsNull(engine.LastCommand);
+            WpfTestHost.Capture(window, $"products-variant-archived-{width}x{height}");
             category.BringIntoView(); category.IsDropDownOpen = true; WpfTestHost.CompleteLayout(window);
             var popup = (Popup)category.Template.FindName("PART_Popup", category); Assert.IsNotNull(WpfTestHost.FindByAutomationName<Button>(popup.Child, "إضافة فئة جديدة")); WpfTestHost.Capture((FrameworkElement)popup.Child, $"products-categories-{width}x{height}"); category.IsDropDownOpen = false;
             view.ViewModel.CancelEditor(); view.ViewModel.RequestArchive(view.ViewModel.VisibleProducts.Single()); WpfTestHost.CompleteLayout(window); Assert.IsNotNull(WpfTestHost.FindByAutomationName<Button>(view, "تأكيد أرشفة المنتج")); WpfTestHost.Capture(window, $"products-archive-{width}x{height}");

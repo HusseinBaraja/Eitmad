@@ -5,6 +5,15 @@
             <Setter Property="MinHeight" Value="46" />
             <Setter Property="Padding" Value="12,4" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="ProductVariantArchiveButton" TargetType="Button" BasedOn="{StaticResource InlineActionButton}">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
         <DataTemplate x:Key="CategoryActionsTemplate">
             <StackPanel Margin="5,3,5,2">
@@ -370,42 +379,33 @@
                                             <RowDefinition Height="0" />
                                             <RowDefinition Height="Auto" />
                                         </Grid.RowDefinitions>
-                                        <controls:OperationsTable Grid.Row="1" ItemsSource="{Binding Variants}" MaxHeight="460" automation:AutomationProperties.Name="اسم الخيار">
+                                        <controls:OperationsTable Grid.Row="1" ItemsSource="{Binding Variants}" MaxHeight="460" GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="{StaticResource LineBrush}" automation:AutomationProperties.Name="اسم الخيار">
                                             <DataGrid.Columns>
                                                 <DataGridTemplateColumn Header="اسم الخيار" Width="1.45*" MinWidth="160" SortMemberPath="Name">
                                                     <DataGridTemplateColumn.CellTemplate>
                                                         <DataTemplate>
-                                                            <Border x:Name="ContrastCell0" MinHeight="78" BorderBrush="{StaticResource LineBrush}" BorderThickness="0">
+                                                            <Border MinHeight="64">
                                                                 <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsActive}" Style="{StaticResource ProductVariantInput}" Margin="8" automation:AutomationProperties.Name="اسم خيار المنتج" />
                                                             </Border>
-                                                            <DataTemplate.Triggers>
-                                                                <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True"></DataTrigger>
-                                                            </DataTemplate.Triggers>
                                                         </DataTemplate>
                                                     </DataGridTemplateColumn.CellTemplate>
                                                 </DataGridTemplateColumn>
                                                 <DataGridTemplateColumn Header="تكلفة الشراء" controls:OperationsTable.IsCompactDetail="True" Width="1.1*" MinWidth="120" SortMemberPath="PurchaseCost">
                                                     <DataGridTemplateColumn.CellTemplate>
                                                         <DataTemplate>
-                                                            <Border x:Name="ContrastCell0" MinHeight="78" BorderBrush="{StaticResource LineBrush}" BorderThickness="0">
+                                                            <Border MinHeight="64">
                                                                 <TextBox Text="{Binding PurchaseCost, UpdateSourceTrigger=LostFocus, ValidatesOnExceptions=True}" IsEnabled="{Binding IsActive}" Style="{StaticResource ProductVariantInput}" Margin="8" FlowDirection="LeftToRight" TextAlignment="Right" automation:AutomationProperties.Name="تكلفة شراء الخيار" />
                                                             </Border>
-                                                            <DataTemplate.Triggers>
-                                                                <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True"></DataTrigger>
-                                                            </DataTemplate.Triggers>
                                                         </DataTemplate>
                                                     </DataGridTemplateColumn.CellTemplate>
                                                 </DataGridTemplateColumn>
-                                                <DataGridTextColumn Header="الحالة" Binding="{Binding StatusLabel}" Width="100" IsReadOnly="True" />
-                                                <DataGridTemplateColumn Header="أرشفة" Width="100" MinWidth="80" CanUserSort="False">
+                                                <DataGridTextColumn Header="الحالة" Binding="{Binding StatusLabel}" ElementStyle="{StaticResource TableBody}" Width="100" IsReadOnly="True" />
+                                                <DataGridTemplateColumn Header="إجراءات" Width="100" MinWidth="80" CanUserSort="False">
                                                     <DataGridTemplateColumn.CellTemplate>
                                                         <DataTemplate>
-                                                            <Border x:Name="ContrastCell0" MinHeight="78" BorderBrush="{StaticResource LineBrush}" BorderThickness="0">
-                                                                <Button Content="أرشفة" Style="{StaticResource CompactButton}" Foreground="#A13B27" IsEnabled="{Binding IsActive}" Click="RemoveVariantClick" automation:AutomationProperties.Name="أرشفة خيار المنتج" />
+                                                            <Border MinHeight="64">
+                                                                <Button Content="أرشفة" Style="{StaticResource ProductVariantArchiveButton}" IsEnabled="{Binding IsActive}" Click="RemoveVariantClick" automation:AutomationProperties.Name="أرشفة خيار المنتج" />
                                                             </Border>
-                                                            <DataTemplate.Triggers>
-                                                                <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True"></DataTrigger>
-                                                            </DataTemplate.Triggers>
                                                         </DataTemplate>
                                                     </DataGridTemplateColumn.CellTemplate>
                                                 </DataGridTemplateColumn>
