@@ -41,7 +41,15 @@ public sealed class PartsRenderedTests
             WpfTestHost.CompleteLayout(view);
             Assert.IsTrue(editorName.IsKeyboardFocusWithin);
             Assert.AreEqual(1, view.ViewModel.CurrentStep);
-            Console.WriteLine($"Parts rendered window: {window.ActualWidth}x{window.ActualHeight} DIP; display scaling {VisualTreeHelper.GetDpi(window).DpiScaleX * 100}%.");
+            var geometry = $"Requested: {width}x{height}; actual window: {window.ActualWidth}x{window.ActualHeight} DIP; "
+                + $"display scaling {VisualTreeHelper.GetDpi(window).DpiScaleX * 100}%; "
+                + $"available display: {SystemParameters.PrimaryScreenWidth}x{SystemParameters.PrimaryScreenHeight} DIP.";
+            Console.WriteLine(geometry);
+            if (Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR") is { Length: > 0 } directory)
+            {
+                System.IO.Directory.CreateDirectory(directory);
+                System.IO.File.WriteAllText(System.IO.Path.Combine(directory, $"part-geometry-{width}x{height}.txt"), geometry);
+            }
             WpfTestHost.Capture(window,$"part-information-{width}x{height}");
 
             editorName.Text = "جانب خزانة";
@@ -74,6 +82,8 @@ public sealed class PartsRenderedTests
             unitSelector.IsDropDownOpen = true; WpfTestHost.CompleteLayout(window);
             Assert.IsTrue(unitSelector.IsDropDownOpen);
             unitSelector.IsDropDownOpen = false;
+            var materialsStep = WpfTestHost.FindByName<Border>(view, "MaterialsStep");
+            AssertCostPresentation(materialsStep, pending: true);
             WpfTestHost.Capture(window,$"part-materials-{width}x{height}");
             var materialRows = WpfTestHost.FindByName<Controls.OperationsTable>(view, "MaterialRows");
             var unitCost = WpfTestHost.Descendants<Controls.AmountDisplay>(materialRows)
@@ -85,13 +95,52 @@ public sealed class PartsRenderedTests
             Assert.AreEqual(0, ((ScrollViewer)materialRows.Template.FindName("DG_ScrollViewer", materialRows)).ScrollableWidth, 1);
             WpfTestHost.Capture(window, $"ui04-material-costs-{width}x{height}");
 
+            if (width == 720)
+            {
+                WpfTestHost.Descendants<TextBlock>(materialsStep)
+                    .Single(text => text.Text == "تُحسب التكلفة عند الانتقال إلى المراجعة.").BringIntoView();
+                WpfTestHost.CompleteLayout(window);
+                WpfTestHost.Capture(window, $"part-materials-total-{width}x{height}");
+            }
+            if (width == 1338)
+            {
+                var costText = WpfTestHost.Descendants<TextBlock>(materialsStep)
+                    .Where(text => text.Text is "بانتظار المراجعة" or "تُحسب التكلفة عند الانتقال إلى المراجعة.")
+                    .Select(text => (Text: text, Size: text.FontSize)).ToArray();
+                foreach (var item in costText) item.Text.FontSize = item.Size * 1.25;
+                WpfTestHost.CompleteLayout(window);
+                WpfTestHost.Capture(window, "part-materials-enlarged-cost-text-1338x753");
+                foreach (var item in costText) item.Text.FontSize = item.Size;
+                WpfTestHost.CompleteLayout(window);
+            }
+
             WpfTestHost.FindByAutomationName<Button>(view, "التالي إلى المراجعة")
                 .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(view);
             Assert.AreEqual(3, view.ViewModel.CurrentStep);
             Assert.AreEqual("9,450",view.ViewModel.TotalPartCostLabel);
+            AssertCostPresentation(WpfTestHost.FindByName<Border>(view, "ReviewStep"), pending: false);
             WpfTestHost.Capture(window,$"part-review-{width}x{height}");
+            if (width == 720)
+            {
+                WpfTestHost.Descendants<Controls.AmountDisplay>(view)
+                    .First(amount => amount.IsVisible && amount.AmountText == "9,450").BringIntoView();
+                WpfTestHost.CompleteLayout(window);
+                WpfTestHost.Capture(window, $"part-review-total-{width}x{height}");
+            }
             Assert.AreEqual(Visibility.Visible, WpfTestHost.FindByName<Border>(view, "ReviewStep").Visibility);
+
+            view.ViewModel.MoveToPreviousStep();
+            WpfTestHost.CompleteLayout(window);
+            AssertCostPresentation(materialsStep, pending: false);
+            view.ViewModel.SelectedMaterials[0].Quantity = "1.200";
+            WpfTestHost.CompleteLayout(window);
+            AssertCostPresentation(materialsStep, pending: true);
+            view.ViewModel.SelectedMaterials[0].Quantity = "1.2";
+            WpfTestHost.FindByAutomationName<Button>(view, "التالي إلى المراجعة")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual(3, view.ViewModel.CurrentStep);
 
             if (width == 1338)
             {
@@ -135,6 +184,21 @@ public sealed class PartsRenderedTests
             Assert.HasCount(2,view.ViewModel.SelectedMaterials);
             Assert.AreEqual("1.2",view.ViewModel.SelectedMaterials[0].Quantity);
         }, engine: engine);
+    }
+
+    private static void AssertCostPresentation(Border step, bool pending)
+    {
+        var pendingLabels = WpfTestHost.Descendants<TextBlock>(step)
+            .Where(text => text.Text == "بانتظار المراجعة" && text.IsVisible).ToArray();
+        Assert.HasCount(pending ? 3 : 0, pendingLabels);
+        var amounts = WpfTestHost.Descendants<Controls.AmountDisplay>(step).Where(amount => amount.IsVisible).ToArray();
+        Assert.IsFalse(amounts.Any(amount => amount.AmountText == "—"));
+        if (!pending)
+        {
+            Assert.IsTrue(amounts.Any(amount => amount.AmountText == "9,450"));
+            Assert.IsTrue(amounts.Any(amount => amount.AmountText == "8,700"));
+            Assert.IsTrue(amounts.Any(amount => amount.AmountText == "750"));
+        }
     }
 
     [TestMethod]
