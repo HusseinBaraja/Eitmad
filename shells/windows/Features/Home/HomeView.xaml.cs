@@ -15,6 +15,13 @@ public partial class HomeView : UserControl
     public HomeView() => InitializeComponent();
     public event Action<HomeRow>? OpenRequested;
     public event Action? ApprovalsRequested;
+    public event Action? SearchCleared;
+    private void ClearSearchClick(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not HomeViewModel home) return;
+        home.Search("");
+        SearchCleared?.Invoke();
+    }
     private void ApprovalsClick(object sender, RoutedEventArgs e) => ApprovalsRequested?.Invoke();
     private void RefreshClick(object sender, RoutedEventArgs e) { if (DataContext is HomeViewModel home) home.Refresh(); }
     private void OpenClick(object sender, RoutedEventArgs e) { if (sender is Button { DataContext: HomeRow row }) OpenRequested?.Invoke(row); }

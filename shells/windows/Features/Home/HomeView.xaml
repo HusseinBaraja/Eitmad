@@ -93,6 +93,11 @@
   </StackPanel>
   <Border Grid.Row="3" Style="{StaticResource Card}" Padding="16" Margin="0,16,0,0"><StackPanel>
    <TextBlock Text="{Binding ActivityTitle, FallbackValue=آخر نشاط}" Style="{StaticResource SectionTitle}"/>
+   <StackPanel x:Name="SearchContext" Margin="0,8,0,4" Visibility="{Binding HasSearchTerm, Converter={StaticResource BooleanToVisibility}, FallbackValue=Collapsed}">
+    <TextBlock Text="عبارة البحث:" Foreground="{StaticResource MutedBrush}"/>
+    <TextBlock x:Name="ActiveSearchTerm" Text="{Binding SearchTerm}" FlowDirection="LeftToRight" TextAlignment="Right" TextWrapping="Wrap" FontWeight="SemiBold" Margin="0,4,0,0"/>
+    <Button x:Name="ClearSearchButton" Content="مسح البحث وعرض آخر نشاط" Style="{StaticResource LinkButton}" Click="ClearSearchClick" HorizontalAlignment="Left" Margin="0,8,0,0" AutomationProperties.Name="مسح البحث وعرض آخر نشاط"/>
+   </StackPanel>
    <TextBlock x:Name="ActivityMessage" Text="{Binding ActivityMessage, FallbackValue=تعذر تحميل النشاط. أعد تحميل البيانات.}" Style="{StaticResource HomeSectionMessage}"/>
    <ItemsControl ItemsSource="{Binding Activity}"><ItemsControl.ItemTemplate><DataTemplate>
     <Button Style="{StaticResource ActionButton}" Margin="0,5" Padding="12" Click="OpenClick" HorizontalContentAlignment="Stretch" AutomationProperties.Name="{Binding OpenName}">

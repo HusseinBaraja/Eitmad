@@ -19,6 +19,42 @@ public sealed class HomeStateTests
         QueryHandler = q => { Assert.IsNotNull(q.AsHomeRead()); return SalesCatalogAuthorityTests.Response(QueryResult.ForHome(data)); },
     };
     [TestMethod]
+    public async Task SearchContextUpdatesBeforeRepliesAndResetDiscardsPendingSearch()
+    {
+        var data = Data(); var filtered = Data(); filtered.Quotations.Items = [];
+        await using var engine = Engine(data); await using var model = new HomeViewModel(engine);
+        engine.QueryHandler = query => SalesCatalogAuthorityTests.Response(QueryResult.ForHome(
+            query.AsHomeRead()!.Term == "عميل" ? filtered : data));
+        var queries = new List<string>();
+        var pending = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        engine.QueryBarrier = query => {
+            var term = query.AsHomeRead()!.Term;
+            queries.Add(term);
+            return term == "عميل" ? pending.Task : Task.CompletedTask;
+        };
+        await model.ActivateAsync(); Assert.HasCount(1, model.Activity);
+        var changed = new List<string?>();
+        model.PropertyChanged += (_, args) => changed.Add(args.PropertyName);
+        model.Search(" عميل "); var search = model.LastLoad;
+        Assert.AreEqual("عميل", model.SearchTerm); Assert.IsTrue(model.HasSearchTerm);
+        Assert.AreEqual("نتائج البحث", model.ActivityTitle); Assert.HasCount(0, model.Activity);
+        Assert.AreEqual("جارٍ تحميل النشاط...", model.ActivityMessage);
+        CollectionAssert.Contains(changed, nameof(HomeViewModel.SearchTerm));
+        CollectionAssert.Contains(changed, nameof(HomeViewModel.HasSearchTerm));
+        model.Search(""); await model.LastLoad;
+        pending.SetResult(); await search;
+        Assert.AreEqual("", model.SearchTerm); Assert.IsFalse(model.HasSearchTerm);
+        Assert.AreEqual("آخر نشاط", model.ActivityTitle); Assert.HasCount(1, model.Activity);
+        CollectionAssert.AreEqual(new[] { "", "عميل", "" }, queries);
+        model.Search("عميل QT-2026-00001"); await model.LastLoad;
+        model.Refresh(); await model.LastLoad;
+        Assert.AreEqual(model.SearchTerm, queries[^1]);
+        engine.QueryHandler = _ => throw new System.IO.IOException("Synthetic unavailable");
+        model.Refresh(); await model.LastLoad;
+        Assert.AreEqual("عميل QT-2026-00001", model.SearchTerm); Assert.IsTrue(model.HasSearchTerm);
+        Assert.HasCount(0, model.Activity);
+    }
+    [TestMethod]
     public async Task SubscriptionAndReconnectRefreshRustStateAndReconstructionReadsAgain()
     {
         var data = Data(); await using var engine = Engine(data); engine.Connect();

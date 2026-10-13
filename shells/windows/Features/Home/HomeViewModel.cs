@@ -26,6 +26,7 @@ public sealed class HomeViewModel : ObservableObject, IAsyncDisposable
     private CancellationTokenSource? load;
     private SynchronizationContext? context;
     private bool active;
+    private bool loading;
     private long generation;
     private long sessionGeneration;
     private HomeSnapshot? snapshot;
@@ -47,13 +48,15 @@ public sealed class HomeViewModel : ObservableObject, IAsyncDisposable
     public ObservableCollection<HomeRow> Activity { get; } = [];
     public ObservableCollection<HomeRow> ReadyOrders { get; } = [];
     public string Notice { get => notice; private set => Set(ref notice, value); }
+    public string SearchTerm => term;
+    public bool HasSearchTerm => term.Length > 0;
     public string ActivityTitle => term.Length == 0 ? "آخر نشاط" : "نتائج البحث";
     public bool IsEmpty => snapshot is not null && Activity.Count == 0 && ActivitySections().All(s => Confirmed(s.Section));
     public bool HasNoReadyOrders => ReadyOrders.Count == 0 && Confirmed(snapshot?.Orders);
-    public string ActivityMessage => snapshot is null ? "تعذر تحميل النشاط. أعد تحميل البيانات."
+    public string ActivityMessage => snapshot is null ? loading ? "جارٍ تحميل النشاط..." : "تعذر تحميل النشاط. أعد تحميل البيانات."
         : IsEmpty ? "لا توجد سجلات ضمن النتائج المتاحة"
         : string.Join(" ", ActivitySections().Select(s => SectionNotice(s.Name, s.Section)).Where(m => m.Length > 0));
-    public string ReadyOrdersMessage => snapshot is null ? "تعذر تحميل الطلبات الجاهزة. أعد تحميل البيانات."
+    public string ReadyOrdersMessage => snapshot is null ? loading ? "جارٍ تحميل الطلبات الجاهزة..." : "تعذر تحميل الطلبات الجاهزة. أعد تحميل البيانات."
         : HasNoReadyOrders ? "لا توجد طلبات جاهزة ضمن النتائج المتاحة"
         : SectionNotice("الطلبات الجاهزة", snapshot.Orders);
     public string OpenCount => Count(snapshot?.Quotations);
@@ -91,13 +94,20 @@ public sealed class HomeViewModel : ObservableObject, IAsyncDisposable
         foreach (var feed in feeds) { await feed.ActivateAsync(); if (!active || session != sessionGeneration) return; }
         Refresh(); await LastLoad;
     }
-    public void Search(string query) { term = query.Trim(); Refresh(); }
+    public void Search(string query)
+    {
+        var next = query.Trim();
+        if (term != next) { term = next; Apply(null); }
+        Refresh();
+    }
     public void Refresh() { if (active) LastLoad = LoadAsync(); }
     private async Task LoadAsync()
     {
         load?.Cancel(); load?.Dispose(); load = new();
         var token = load.Token; var version = ++generation;
+        loading = true;
         Notice = "جارٍ تحميل البيانات...";
+        Raise(nameof(ActivityMessage)); Raise(nameof(ReadyOrdersMessage));
         try
         {
             if (!engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityHomeV1)) { Apply(null); return; }
@@ -111,6 +121,7 @@ public sealed class HomeViewModel : ObservableObject, IAsyncDisposable
     }
     private void Apply(HomeSnapshot? value)
     {
+        loading = false;
         snapshot = value; Activity.Clear(); ReadyOrders.Clear();
         if (value is null) Notice = "بيانات الرئيسية غير متاحة. تحقق من الاتصال ثم أعد التحميل.";
         else
@@ -130,6 +141,7 @@ public sealed class HomeViewModel : ObservableObject, IAsyncDisposable
         }
         Raise(nameof(OpenCount)); Raise(nameof(OrderCount)); Raise(nameof(ApprovalCount)); Raise(nameof(ReadyCount));
         Raise(nameof(IsEmpty)); Raise(nameof(HasNoReadyOrders)); Raise(nameof(ActivityTitle));
+        Raise(nameof(SearchTerm)); Raise(nameof(HasSearchTerm));
         Raise(nameof(ActivityMessage)); Raise(nameof(ReadyOrdersMessage));
     }
     private void Invalidate()

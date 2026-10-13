@@ -35,6 +35,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         ManagerHome.ApprovalsRequested += () => OpenManagerDestination("الموافقات");
+        ManagerHome.SearchCleared += () => { ManagerTitleBar.SearchBox.Clear(); ManagerTitleBar.SearchBox.Focus(); };
         if (preview && engine is null) {
             QuotationsSurface.UsePreviewFixtures(); OrdersSurface.UsePreviewFixtures(); WorkOrdersSurface.UsePreviewFixtures();
         }

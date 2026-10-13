@@ -73,6 +73,7 @@ public partial class ReceptionistHomeView : UserControl
     public ReceptionistHomeView()
     {
         InitializeComponent();
+        ReceptionHome.SearchCleared += () => { ReceptionistTitleBar.SearchBox.Clear(); ReceptionistTitleBar.SearchBox.Focus(); };
         ((Button)ReceptionistSidebar.FindName("OrdersNavButton")).Visibility = Visibility.Visible;
         ReceptionQuotations.CustomerRequested += id => _ = OpenQuotationCustomerAsync(id);
     }
