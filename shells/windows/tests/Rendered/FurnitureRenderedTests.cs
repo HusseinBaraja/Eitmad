@@ -14,6 +14,115 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 public sealed class FurnitureRenderedTests
 {
     [TestMethod]
+    [DataRow(720, 560)]
+    [DataRow(1338, 753)]
+    [DataRow(1920, 1080)]
+    public void PricingGroupsStartWithVariantIdentityAndContainLongNames(int width, int height)
+    {
+        var fixture = new FurnitureFixtures();
+        var saved = fixture.Seed();
+        saved.Variants = new[]
+        {
+            ("صغير", 1200L, 200000L),
+            ("متوسط بأبواب واسعة ورفوف داخلية إضافية مناسب لغرف النوم والخزائن الكبيرة", 1600L, 245000L),
+            ("كبير", 2000L, 300000L),
+        }.Select(v => new Eitmad.Contracts.FurnitureVariant
+        {
+            Id = Guid.NewGuid(), Name = v.Item1,
+            Dimensions = new FurnitureDimensions { WidthMm = v.Item2, HeightMm = 2000, DepthMm = 550 },
+            SellingPriceYer = v.Item3, ColorIds = [], HandleIds = [],
+        }).ToArray();
+        fixture.Review.MarginsYer = [181100, 226100, 281100];
+        WpfTestHost.Run(width, height, window =>
+        {
+            WpfTestHost.FindByName<Button>(window, "FurnitureNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var view = WpfTestHost.Descendants<FurnitureView>(window).Single();
+            var item = view.ViewModel.VisibleFurniture.Single();
+            Assert.IsTrue(view.PrepareEditorAsync(item).GetAwaiter().GetResult());
+            view.ViewModel.BeginEdit(item);
+            for (var step = 1; step < 5; step++) Next(view);
+            Assert.AreEqual(5, view.ViewModel.CurrentStep);
+            WpfTestHost.CompleteLayout(window);
+            var pricing = WpfTestHost.FindByName<StackPanel>(view, "PricingStep");
+            var groups = WpfTestHost.Descendants<Border>(pricing).Where(b => b.Name == "PricingGroup").ToArray();
+            Assert.HasCount(3, groups);
+            var scroll = WpfTestHost.Ancestor<ScrollViewer>(pricing);
+            var dpi = VisualTreeHelper.GetDpi(window);
+            var displays = string.Join("; ", System.Windows.Forms.Screen.AllScreens.Select(s => $"{s.Bounds.Width}x{s.Bounds.Height} pixels"));
+            var geometry = $"Requested: {width}x{height}; actual window: {window.ActualWidth}x{window.ActualHeight} DIP; "
+                + $"display scaling: {dpi.DpiScaleX * 100}%; available displays: {displays}; "
+                + "capture: off-screen WPF RenderTargetBitmap at 96 DPI; synthetic engine responses.";
+            Console.WriteLine(geometry);
+            if (Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR") is { Length: > 0 } directory)
+            {
+                Directory.CreateDirectory(directory);
+                File.WriteAllText(Path.Combine(directory, $"ui21-{width}x{height}.txt"), geometry);
+            }
+            scroll.ScrollToTop(); WpfTestHost.CompleteLayout(window);
+            WpfTestHost.Capture(window, $"ui21-pricing-top-{width}x{height}");
+            for (var index = 0; index < groups.Length; index++)
+            {
+                var group = groups[index];
+                var variant = view.ViewModel.Variants[index];
+                var name = WpfTestHost.Descendants<TextBlock>(group).Single(t => t.Text == variant.Name);
+                var dimensions = WpfTestHost.Descendants<TextBlock>(group).Single(t => t.Text == variant.DimensionsLabel);
+                var fields = WpfTestHost.Descendants<Layout.AdaptiveFieldsPanel>(group).Single();
+                var identityBounds = dimensions.TransformToAncestor(group).TransformBounds(new Rect(dimensions.RenderSize));
+                var fieldBounds = fields.TransformToAncestor(group).TransformBounds(new Rect(fields.RenderSize));
+                Assert.IsTrue(identityBounds.Bottom <= fieldBounds.Top, "The size identity must precede every financial field.");
+                foreach (var element in new FrameworkElement[] { name, dimensions, fields })
+                {
+                    var bounds = element.TransformToAncestor(group).TransformBounds(new Rect(element.RenderSize));
+                    Assert.IsTrue(bounds.Left >= -1 && bounds.Right <= group.ActualWidth + 1
+                        && bounds.Top >= -1 && bounds.Bottom <= group.ActualHeight + 1,
+                        $"Variant {index} content must remain inside its pricing group: {bounds}.");
+                }
+                Assert.AreEqual(FlowDirection.LeftToRight, dimensions.FlowDirection);
+                var price = WpfTestHost.FindByAutomationName<TextBox>(group, "سعر بيع المقاس");
+                Assert.AreSame(variant, price.DataContext, "Each price must belong to the identified variant.");
+                Assert.AreEqual(FlowDirection.LeftToRight, price.FlowDirection);
+                var cost = (FrameworkElement)fields.Children[0];
+                var selling = (FrameworkElement)fields.Children[1];
+                var margin = (FrameworkElement)fields.Children[2];
+                Assert.IsTrue(Precedes(cost, selling, group) && Precedes(selling, margin, group),
+                    "Financial fields must read as cost, selling price, then margin in RTL.");
+                if (index == 1 && width == 720)
+                    Assert.IsTrue(name.ActualHeight > 40, "The long variant name must wrap in the compact card.");
+                group.BringIntoView(); WpfTestHost.CompleteLayout(window);
+                WpfTestHost.Capture(window, $"ui21-pricing-variant-{index + 1}-{width}x{height}");
+            }
+            if (width == 720)
+            {
+                foreach (var text in WpfTestHost.Descendants<TextBlock>(pricing)) text.FontSize *= 1.5;
+                WpfTestHost.CompleteLayout(window);
+                groups[1].BringIntoView(); WpfTestHost.CompleteLayout(window);
+                var longName = WpfTestHost.Descendants<TextBlock>(groups[1]).Single(t => t.Text == saved.Variants[1].Name);
+                longName.BringIntoView(); WpfTestHost.CompleteLayout(window);
+                WpfTestHost.Capture(window, "ui21-pricing-enlarged-text-720x560");
+                foreach (var text in WpfTestHost.Descendants<TextBlock>(pricing)) text.ClearValue(TextBlock.FontSizeProperty);
+                view.Resources[SystemParameters.HighContrastKey] = true;
+                view.Resources[SystemColors.WindowBrushKey] = Brushes.Black;
+                view.Resources[SystemColors.WindowTextBrushKey] = Brushes.White;
+                view.Resources[SystemColors.ControlBrushKey] = Brushes.Black;
+                view.Resources[SystemColors.ControlTextBrushKey] = Brushes.White;
+                WpfTestHost.CompleteLayout(window);
+                groups[1].BringIntoView(); WpfTestHost.CompleteLayout(window);
+                longName.BringIntoView(); WpfTestHost.CompleteLayout(window);
+                WpfTestHost.Capture(window, "ui21-pricing-system-colors-720x560");
+            }
+        }, engine: fixture.Engine());
+    }
+
+    private static bool Precedes(FrameworkElement first, FrameworkElement second, FrameworkElement group)
+    {
+        var a = first.TransformToAncestor(group).TransformBounds(new Rect(first.RenderSize));
+        var b = second.TransformToAncestor(group).TransformBounds(new Rect(second.RenderSize));
+        // Ancestor-relative coordinates follow the group's RTL direction.
+        return a.Bottom <= b.Top + 1 || (a.Top < b.Bottom && b.Top < a.Bottom && a.Right <= b.Left + 1);
+    }
+
+    [TestMethod]
     [DataRow(720, 560, false)]
     [DataRow(720, 560, true)]
     [DataRow(1338, 753, false)]

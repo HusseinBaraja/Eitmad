@@ -823,26 +823,20 @@
                         <ItemsControl ItemsSource="{Binding Variants}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border Style="{StaticResource Card}" Padding="0" Margin="0,0,0,12" ClipToBounds="True">
-                                        <layout:AdaptiveFieldsPanel MinItemWidth="170" FlowDirection="LeftToRight">
-
-                                            <StackPanel Grid.Column="0" Margin="20,17" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding MarginCaption}" Foreground="{StaticResource MutedBrush}" FontSize="13" />
-                                                <controls:AmountDisplay Margin="0,6,0,0" FontSize="16" FontWeight="Bold" AmountText="{Binding MarginLabel}" UnitText="ر.ي" UnitPlacement="After">
-                                                    <controls:AmountDisplay.Style>
-                                                        <Style TargetType="controls:AmountDisplay" BasedOn="{StaticResource {x:Type controls:AmountDisplay}}">
-                                                            <Setter Property="Foreground" Value="#28733C" />
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding HasNegativeMargin}" Value="True">
-                                                                    <Setter Property="Foreground" Value="#A13B27" />
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </controls:AmountDisplay.Style>
-                                                </controls:AmountDisplay>
-                                            </StackPanel>
-                                            <Border Grid.Column="1" Background="#F7E9DA" BorderBrush="#D6B48F" BorderThickness="1,0" Padding="20,15">
+                                    <Border x:Name="PricingGroup" Style="{StaticResource Card}" Padding="0" Margin="0,0,0,12" ClipToBounds="True">
+                                        <StackPanel FlowDirection="RightToLeft">
+                                            <Border BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1" Padding="22,16">
                                                 <StackPanel>
+                                                    <TextBlock Text="{Binding Name}" TextWrapping="Wrap" FontSize="18" FontWeight="Bold" />
+                                                    <TextBlock Text="{Binding DimensionsLabel}" FlowDirection="LeftToRight" TextAlignment="Right" Foreground="{StaticResource MutedBrush}" FontSize="13" Margin="0,5,0,0" />
+                                                </StackPanel>
+                                            </Border>
+                                            <layout:AdaptiveFieldsPanel MinItemWidth="170">
+                                                <StackPanel Margin="20,17" VerticalAlignment="Center">
+                                                    <TextBlock Text="التكلفة" Foreground="{StaticResource MutedBrush}" FontSize="13" />
+                                                    <controls:AmountDisplay Margin="0,6,0,0" FontSize="15" FontWeight="SemiBold" Foreground="#51483F" AmountText="{Binding CalculatedCostLabel}" UnitText="ر.ي" UnitPlacement="After" />
+                                                </StackPanel>
+                                                <Border Background="#F7E9DA" BorderBrush="#D6B48F" BorderThickness="1,0" Padding="20,15">
                                                     <controls:FormField Label="سعر البيع">
                                                         <Grid FlowDirection="LeftToRight" Margin="0,7,0,0">
                                                             <Grid.ColumnDefinitions>
@@ -853,17 +847,24 @@
                                                             <TextBlock Grid.Column="1" Text="ر.ي" Foreground="#6F3B0D" FontSize="13" FontWeight="Bold" Margin="10,0,0,3" VerticalAlignment="Bottom" />
                                                         </Grid>
                                                     </controls:FormField>
+                                                </Border>
+                                                <StackPanel Margin="20,17" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding MarginCaption}" Foreground="{StaticResource MutedBrush}" FontSize="13" />
+                                                    <controls:AmountDisplay Margin="0,6,0,0" FontSize="16" FontWeight="Bold" AmountText="{Binding MarginLabel}" UnitText="ر.ي" UnitPlacement="After">
+                                                        <controls:AmountDisplay.Style>
+                                                            <Style TargetType="controls:AmountDisplay" BasedOn="{StaticResource {x:Type controls:AmountDisplay}}">
+                                                                <Setter Property="Foreground" Value="#28733C" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding HasNegativeMargin}" Value="True">
+                                                                        <Setter Property="Foreground" Value="#A13B27" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </controls:AmountDisplay.Style>
+                                                    </controls:AmountDisplay>
                                                 </StackPanel>
-                                            </Border>
-                                            <StackPanel Grid.Column="2" Margin="20,17" VerticalAlignment="Center">
-                                                <TextBlock Text="التكلفة" Foreground="{StaticResource MutedBrush}" FontSize="13" />
-                                                <controls:AmountDisplay Margin="0,6,0,0" FontSize="15" FontWeight="SemiBold" Foreground="#51483F" AmountText="{Binding CalculatedCostLabel}" UnitText="ر.ي" UnitPlacement="After"></controls:AmountDisplay>
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="3" FlowDirection="RightToLeft" Margin="22,16" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Name}" FontSize="18" FontWeight="Bold" />
-                                                <TextBlock Text="{Binding DimensionsLabel}" FlowDirection="LeftToRight" TextAlignment="Right" Foreground="{StaticResource MutedBrush}" FontSize="13" Margin="0,5,0,0" />
-                                            </StackPanel>
-                                        </layout:AdaptiveFieldsPanel>
+                                            </layout:AdaptiveFieldsPanel>
+                                        </StackPanel>
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
