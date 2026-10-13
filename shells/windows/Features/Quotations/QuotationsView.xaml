@@ -207,20 +207,37 @@
                     <controls:FeedbackNotice x:Name="DraftNotice" Message="{Binding SelectedQuotation.DraftNotice}" Visibility="{Binding SelectedQuotation.HasDraft, Converter={StaticResource BooleanToVisibility}}" Margin="0,0,0,12"/>
                     <Border x:Name="ApprovalSection" Style="{StaticResource Card}" Padding="20" Margin="0,0,0,16" Visibility="{Binding ShowManagerApproval, Converter={StaticResource BooleanToVisibility}}">
                         <StackPanel>
-                            <TextBlock Text="موافقة الخصم مطلوبة" FontSize="18" FontWeight="SemiBold"/>
-                            <TextBlock Text="طلب من الاستقبال — راجع البنود والإجماليات. يلزم تأكيد الخادم للقرار." TextWrapping="Wrap" Margin="0,6,0,8"/>
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                <TextBlock Text="{Binding SelectedQuotation.DiscountPercentLabel}" FlowDirection="LeftToRight" FontSize="18" FontWeight="SemiBold" Margin="0,0,12,0"/>
-                                <controls:AmountDisplay AmountText="{Binding SelectedQuotation.DiscountAmountLabel}" UnitText="ر.ي" FontSize="18" FontWeight="SemiBold"/>
-                            </StackPanel>
-                            <TextBox Text="{Binding ApprovalReason, UpdateSourceTrigger=PropertyChanged}" MaxLength="240" automation:AutomationProperties.Name="سبب رفض الخصم" Margin="0,8,0,0"/>
-                            <TextBlock Text="سبب الرفض مطلوب عند الرفض" TextWrapping="Wrap"/>
-                            <controls:FeedbackNotice Message="{Binding DecisionNotice}" Margin="0,8,0,0"/>
-                            <WrapPanel IsEnabled="{Binding CanDecideApproval}" Margin="0,12,0,0" Visibility="{Binding SelectedQuotation.HasPendingDiscountApproval, Converter={StaticResource BooleanToVisibility}}">
-                                <Button Content="موافقة" Style="{StaticResource PrimaryButton}" Click="ApproveDiscountClick" automation:AutomationProperties.Name="الموافقة على خصم عرض السعر" Margin="0,0,0,6"/>
-                                <Button Content="رفض" Style="{StaticResource SecondaryButton}" Click="RejectDiscountClick" automation:AutomationProperties.Name="رفض خصم عرض السعر" Margin="10,0,0,6"/>
+                            <TextBlock Text="مراجعة طلب الخصم" Style="{StaticResource SectionTitle}"/>
+                            <TextBlock Text="طلب من الاستقبال. راجع بنود عرض السعر والإجماليات قبل اتخاذ القرار." FontSize="14" TextWrapping="Wrap" Margin="0,6,0,16"/>
+                            <WrapPanel>
+                                <StackPanel Width="180" Margin="0,0,0,12">
+                                    <TextBlock Text="نسبة الخصم المطلوبة" Style="{StaticResource MetadataLabel}"/>
+                                    <TextBlock Text="{Binding SelectedQuotation.DiscountPercentLabel}" FlowDirection="LeftToRight" TextAlignment="Right" FontSize="20" FontWeight="SemiBold" Margin="0,4,0,0"/>
+                                </StackPanel>
+                                <StackPanel Width="200" Margin="0,0,0,12">
+                                    <TextBlock Text="قيمة الخصم" Style="{StaticResource MetadataLabel}"/>
+                                    <controls:AmountDisplay AmountText="{Binding SelectedQuotation.DiscountAmountLabel}" UnitText="ر.ي" HorizontalAlignment="Left" FontSize="20" FontWeight="SemiBold" Margin="0,4,0,0"/>
+                                </StackPanel>
                             </WrapPanel>
-                            <TextBlock Text="{Binding SelectedQuotation.ApprovalDecisionLabel}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                            <TextBlock Text="{Binding SelectedQuotation.ApprovalDecisionLabel}" Style="{StaticResource MetadataLabel}" Margin="0,0,0,16"/>
+                            <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0" Padding="0,16,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="قرار المدير" FontSize="16" FontWeight="SemiBold"/>
+                                    <TextBlock Text="يلزم تأكيد الخادم للقرار." Style="{StaticResource MetadataLabel}" Margin="0,4,0,12"/>
+                                    <StackPanel IsEnabled="{Binding CanDecideApproval}" Visibility="{Binding SelectedQuotation.HasPendingDiscountApproval, Converter={StaticResource BooleanToVisibility}}">
+                                        <Button Content="موافقة على الخصم" HorizontalAlignment="Left" Style="{StaticResource PrimaryButton}" Click="ApproveDiscountClick" automation:AutomationProperties.Name="الموافقة على خصم عرض السعر"/>
+                                        <Expander x:Name="DiscountRejection" Header="رفض الخصم" FontFamily="Noto Kufi Arabic, Segoe UI" FontSize="14" Margin="0,16,0,0" automation:AutomationProperties.Name="إظهار سبب رفض الخصم">
+                                            <StackPanel Margin="0,12,0,0">
+                                                <controls:FormField Label="سبب الرفض" IsRequired="True" HelpText="اكتب سبب الرفض قبل تأكيد القرار.">
+                                                    <TextBox Text="{Binding ApprovalReason, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" MinHeight="90" MaxHeight="160" TextWrapping="Wrap" AcceptsReturn="True" VerticalContentAlignment="Top" MaxLength="240" automation:AutomationProperties.Name="سبب رفض الخصم"/>
+                                                </controls:FormField>
+                                                <Button Content="تأكيد الرفض" HorizontalAlignment="Left" Style="{StaticResource SecondaryButton}" Click="RejectDiscountClick" automation:AutomationProperties.Name="رفض خصم عرض السعر" Margin="0,12,0,0"/>
+                                            </StackPanel>
+                                        </Expander>
+                                    </StackPanel>
+                                    <controls:FeedbackNotice Message="{Binding DecisionNotice}" Margin="0,12,0,0"/>
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
                     </Border>
                     <controls:FeedbackNotice Message="{Binding SelectedQuotation.ApprovalDecisionLabel}" Visibility="{Binding SelectedQuotation.HasApprovalDecision, Converter={StaticResource BooleanToVisibility}}" Margin="0,0,0,12"/>
