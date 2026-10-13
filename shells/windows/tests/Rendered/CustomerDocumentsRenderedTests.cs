@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Documents;
+using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -49,6 +50,7 @@ public sealed class CustomerDocumentsRenderedTests
                 var authorization = new TaskCompletionSource<bool>(); var requests = 0;
                 preview.AuthorizePrint = () => { requests++; return authorization.Task; };
                 var pages = WpfTestHost.FindByName<System.Windows.Controls.DocumentViewer>(preview, "Pages");
+                AssertFitsWidth(pages);
                 var nativePage = ((FixedDocumentSequence)pages.Document).DocumentPaginator.GetPage(0);
                 Assert.IsTrue(string.Concat(WpfTestHost.Descendants<Glyphs>(nativePage.Visual).Select(glyph => glyph.UnicodeString)).Contains("47,500"), "The preview must retain searchable saved text.");
                 WpfTestHost.Capture(window, $"saved-document-{(order ? "order" : "quotation")}-{width}");
@@ -66,22 +68,93 @@ public sealed class CustomerDocumentsRenderedTests
             var draftPreview = new PrintPreview { Document = QuotationCustomerDocument.CreateSaved(draft), CanPrint = draft.CanPrint };
             window.Content = draftPreview; WpfTestHost.CompleteLayout(window);
             Assert.IsFalse(draftPreview.CanPrint);
+            AssertFitsWidth(draftPreview.Pages);
             Assert.IsTrue(new TextRange(draftPreview.Document.ContentStart, draftPreview.Document.ContentEnd).Text.Contains("غير مرقم"));
             WpfTestHost.Capture(window, $"saved-document-draft-{width}");
         });
     }
 
     [TestMethod]
-    public void MultiPageNativeExportPreservesArabicAndTotals()
+    [DataRow(false)]
+    [DataRow(true)]
+    public void PreviewFitsOnResizeUntilTheUserChangesNativeZoom(bool percentage)
     {
-        WpfTestHost.Run(1338, 753, window => {
+        WpfTestHost.Run(720, 560, window => {
+            var preview = new PrintPreview { Document = QuotationCustomerDocument.CreateSaved(Saved()) };
+            window.Content = preview;
+            WpfTestHost.CompleteLayout(window);
+            AssertFitsWidth(preview.Pages);
+            var initialZoom = preview.Pages.Zoom;
+            window.Width = 1338;
+            // Arrange the native resize, then drain the preview's deferred fitting.
+            WpfTestHost.CompleteLayout(window);
+            WpfTestHost.CompleteLayout(window);
+            AssertFitsWidth(preview.Pages);
+            Assert.IsTrue(preview.Pages.Zoom > initialZoom, "Native fit-width mode must follow a larger viewport.");
+            window.Width = 720;
+            WpfTestHost.CompleteLayout(window);
+            WpfTestHost.CompleteLayout(window);
+            AssertFitsWidth(preview.Pages);
+            if (percentage) NavigationCommands.Zoom.Execute(125.0, preview.Pages);
+            else NavigationCommands.IncreaseZoom.Execute(null, preview.Pages);
+            WpfTestHost.CompleteLayout(window);
+            var chosenZoom = preview.Pages.Zoom;
+            Assert.IsTrue(chosenZoom > initialZoom);
+            window.Width = 1100;
+            WpfTestHost.CompleteLayout(window);
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual(chosenZoom, preview.Pages.Zoom, 0.01, "Resize must preserve the user's native zoom selection.");
+            preview.Document = OrderCustomerDocument.CreateSaved(Saved(true));
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual(chosenZoom, preview.Pages.Zoom, 0.01, "An authorization refresh must not reset the user's zoom.");
+        });
+    }
+
+    [TestMethod]
+    [DataRow(1920, 1080)]
+    [DataRow(1338, 753)]
+    [DataRow(720, 560)]
+    public void MultiPageNativeExportPreservesArabicAndTotals(int width, int height)
+    {
+        WpfTestHost.Run(width, height, window => {
+            if (width == 1920) { window.Left = 0; window.WindowState = WindowState.Maximized; }
             var saved = Saved(); saved.Lines = Enumerable.Range(0, 36).Select(i => new CustomerDocumentLine { Name = $"خزانة تجريبية A-{i}", Description = "نص عربي طويل لقياس التفاف السطر", VariantName = "بابان", Dimensions = new() { WidthMm = 1200, HeightMm = 1800, DepthMm = 600 }, Quantity = 1, UnitPriceYer = 12500, TotalYer = 12500 }).ToArray();
             saved.SubtotalYer = 450000; saved.DiscountYer = 22500; saved.TotalYer = 427500;
             var document = QuotationCustomerDocument.CreateSaved(saved);
             var paginator = ((IDocumentPaginatorSource)document).DocumentPaginator; paginator.ComputePageCount();
             Assert.IsTrue(paginator.PageCount > 1);
-            ExportPages(document, "saved-quotation-multipage", true, "427,500", "خزانة تجريبية");
+            var preview = new PrintPreview { Document = document };
+            window.Content = preview;
+            WpfTestHost.CompleteLayout(window);
+            AssertFitsWidth(preview.Pages);
+            Assert.AreEqual(paginator.PageCount, preview.Pages.PageCount);
+            WpfTestHost.Capture(window, $"saved-document-multipage-{width}");
+            preview.Pages.LastPage();
+            WpfTestHost.CompleteLayout(window);
+            AssertFitsWidth(preview.Pages);
+            Assert.AreEqual(preview.Pages.PageCount, preview.Pages.MasterPageNumber);
+            WpfTestHost.Capture(window, $"saved-document-multipage-last-{width}");
+            ExportPages(document, "saved-quotation-multipage", width == 1338, "427,500", "خزانة تجريبية");
         });
+    }
+
+    private static void AssertFitsWidth(DocumentViewer viewer)
+    {
+        var viewport = (ScrollViewer)viewer.Template.FindName("PART_ContentHost", viewer);
+        Assert.IsTrue(viewport.ViewportWidth > 0);
+        Assert.IsTrue(viewport.ScrollableWidth < 1, $"Page requires horizontal scrolling: {viewport.ScrollableWidth:0.00} DIP at {viewer.Zoom:0.00}%.");
+        foreach (var page in viewer.PageViews.Where(page => page.IsVisible)) {
+            var bounds = page.TransformToAncestor(viewport).TransformBounds(new Rect(page.RenderSize));
+            Assert.IsTrue(bounds.Left >= -1 && bounds.Right <= viewport.ActualWidth + 1, $"Page is clipped horizontally: {bounds}; viewport width {viewport.ActualWidth}.");
+        }
+        var window = Window.GetWindow(viewer);
+        var dpi = VisualTreeHelper.GetDpi(window);
+        var geometry = $"Display {SystemParameters.PrimaryScreenWidth * dpi.DpiScaleX:0}x{SystemParameters.PrimaryScreenHeight * dpi.DpiScaleY:0} px; actual window {window.ActualWidth:0.0}x{window.ActualHeight:0.0} DIP; scaling {dpi.DpiScaleX * 100:0}%; high contrast {SystemParameters.HighContrast}; viewport {viewport.ViewportWidth:0.0}x{viewport.ViewportHeight:0.0} DIP; zoom {viewer.Zoom:0.00}%; horizontal scroll {viewport.ScrollableWidth:0.00} DIP. Synthetic WPF fixture, RenderTargetBitmap at 96 DPI.";
+        Console.WriteLine(geometry);
+        if (Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR") is { Length: > 0 } directory) {
+            Directory.CreateDirectory(directory);
+            File.AppendAllText(Path.Combine(directory, "preview-geometry.txt"), geometry + Environment.NewLine);
+        }
     }
 
     private static void ExportPages(FlowDocument document, string name, bool capture, string expectedTotal, string? expectedArabic = null)
