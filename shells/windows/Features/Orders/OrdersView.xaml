@@ -166,13 +166,6 @@
             </controls:PageHeader>
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                 <StackPanel Margin="32,22,32,30">
-                    <StackPanel>
-                        <controls:FeedbackNotice x:Name="ReadyOrderNotice" Message="الطلب جاهز" Tone="Success" FontSize="26" FontWeight="Bold" Padding="20" Margin="0,0,0,16" Visibility="{Binding SelectedOrder.IsReady, Converter={StaticResource BooleanToVisibility}}" />
-                        <WrapPanel Margin="0,0,0,16">
-                            <Button x:Name="PrintOrderButton" Content="طباعة" Style="{StaticResource SecondaryButton}" Click="PrintOrderClick" AutomationProperties.Name="طباعة الطلب" Margin="0,0,8,8"/>
-                            <Button x:Name="OriginalQuotationButton" Content="عرض السعر الأصلي" Style="{StaticResource SecondaryButton}" Click="OriginalQuotationClick" IsEnabled="{Binding SelectedOrder.HasOriginalQuotation}" AutomationProperties.Name="عرض السعر الأصلي" Margin="0,0,0,8"/>
-                        </WrapPanel>
-                    </StackPanel>
                     <StackPanel Visibility="{Binding IsReceptionist, Converter={StaticResource BooleanToVisibility}}">
                         <StackPanel Visibility="{Binding SelectedOrder.IsNewlyReady, Converter={StaticResource BooleanToVisibility}}" Margin="0,0,0,16">
                             <controls:FeedbackNotice Message="{Binding SelectedOrder.ReadyNotice}" Tone="Success"/>
@@ -180,81 +173,55 @@
                             <Button Content="تمت مراجعة التنبيه" Click="AcknowledgeReadyClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,8,0,0" AutomationProperties.Name="تمت مراجعة تنبيه جاهزية الطلب"/>
                         </StackPanel>
                     </StackPanel>
-                    <Border Style="{StaticResource Card}" Padding="20">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
-                            <WrapPanel>
-                                <StackPanel Width="220" Margin="0,0,0,9">
+                    <Border x:Name="OrderIdentity" Style="{StaticResource Card}" Padding="20">
+                        <StackPanel>
+                            <layout:AdaptiveFieldsPanel MinItemWidth="180">
+                                <StackPanel>
                                     <TextBlock Text="رقم الطلب" Style="{StaticResource MetadataLabel}" />
                                     <TextBlock Text="{Binding SelectedOrder.Number}" Style="{StaticResource MetadataValue}" FlowDirection="LeftToRight" TextAlignment="Right" />
                                 </StackPanel>
-                                <StackPanel Width="180" Margin="0,0,0,9">
+                                <StackPanel>
                                     <TextBlock Text="الحالة الحالية" Style="{StaticResource MetadataLabel}" />
                                     <controls:StatusBadge DataContext="{Binding SelectedOrder}" Margin="0,5,0,0" Padding="12,3" HorizontalAlignment="Left" Text="{Binding StatusLabel}" Style="{StaticResource OrderStatusBadge}"></controls:StatusBadge>
                                 </StackPanel>
-                                <StackPanel Width="250" Margin="0,0,0,9">
+                                <StackPanel>
                                     <TextBlock Text="العميل" Style="{StaticResource MetadataLabel}" />
                                     <TextBlock Text="{Binding SelectedOrder.Customer}" Style="{StaticResource MetadataValue}" />
                                     <Button Content="تفاصيل العميل" Style="{StaticResource InlineActionButton}" HorizontalAlignment="Left" Click="CustomerClick" Visibility="{Binding IsReceptionist, Converter={StaticResource BooleanToVisibility}}" AutomationProperties.Name="فتح تفاصيل عميل الطلب"/>
                                 </StackPanel>
-                                <StackPanel Width="160" Margin="0,0,0,9">
+                                <StackPanel>
                                     <TextBlock Text="التاريخ" Style="{StaticResource MetadataLabel}" />
                                     <TextBlock Text="{Binding SelectedOrder.DateLabel}" Style="{StaticResource MetadataValue}" FlowDirection="LeftToRight" TextAlignment="Right" />
                                 </StackPanel>
-                            </WrapPanel>
-                            <Border Visibility="{Binding IsManager, Converter={StaticResource BooleanToVisibility}}" Grid.Row="1" Background="#F7F3EF" CornerRadius="7" Padding="12,8" Margin="0,8,0,0">
+                            </layout:AdaptiveFieldsPanel>
+                            <controls:FeedbackNotice x:Name="ReadyOrderNotice" Message="الطلب جاهز" Tone="Success" Padding="12,8" Margin="0,12,0,0" Visibility="{Binding SelectedOrder.IsReady, Converter={StaticResource BooleanToVisibility}}" />
+                            <Border Visibility="{Binding IsManager, Converter={StaticResource BooleanToVisibility}}" Background="#F7F3EF" CornerRadius="7" Padding="12,8" Margin="0,12,0,0">
                                 <TextBlock Text="الأسعار وبيانات العميل محفوظة كما اعتُمدت في عرض السعر" Foreground="#745A43" FontSize="13" />
                             </Border>
-                        </Grid>
+                            <WrapPanel Margin="0,12,0,0">
+                                <Button x:Name="PrintOrderButton" Content="طباعة" Style="{StaticResource SecondaryButton}" Click="PrintOrderClick" AutomationProperties.Name="طباعة الطلب" Margin="0,0,8,0"/>
+                                <Button x:Name="OriginalQuotationButton" Content="عرض السعر الأصلي" Style="{StaticResource SecondaryButton}" Click="OriginalQuotationClick" IsEnabled="{Binding SelectedOrder.HasOriginalQuotation}" AutomationProperties.Name="عرض السعر الأصلي"/>
+                            </WrapPanel>
+                        </StackPanel>
                     </Border>
-                    <StackPanel Visibility="{Binding IsLive, Converter={StaticResource BooleanToVisibility}}" IsEnabled="{Binding ActionsAvailable}" Margin="0,0,0,16">
-                        <controls:FeedbackNotice Message="{Binding ActionNotice}"/>
-                        <TextBlock Text="{Binding SelectedOrder.WorkSummary}" FlowDirection="LeftToRight" TextAlignment="Right" TextWrapping="Wrap" Margin="0,8,0,8"/>
-                        <TextBlock Text="{Binding SelectedOrder.FulfillmentLabel}" TextWrapping="Wrap"/>
-                        <StackPanel Visibility="{Binding SelectedOrder.CanEditFulfillment, Converter={StaticResource BooleanToVisibility}}">
-                            <TextBlock Text="ملاحظات التنفيذ" Margin="0,8,0,4"/>
-                            <TextBox Text="{Binding FulfillmentNote, UpdateSourceTrigger=PropertyChanged}" MaxLength="240" Style="{StaticResource TextInput}" AutomationProperties.Name="ملاحظات تنفيذ الطلب"/>
-                            <Button Content="حفظ ملاحظات التنفيذ" Click="SaveFulfillmentClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,8,0,8" AutomationProperties.Name="حفظ ملاحظات تنفيذ الطلب"/>
-                        </StackPanel>
-                        <StackPanel Visibility="{Binding SelectedOrder.CanCancel, Converter={StaticResource BooleanToVisibility}}">
-                            <TextBlock Text="سبب إلغاء الطلب"/><TextBox Text="{Binding CancellationReason, UpdateSourceTrigger=PropertyChanged}" MaxLength="240" Style="{StaticResource TextInput}" AutomationProperties.Name="سبب إلغاء الطلب"/>
-                            <Button Content="إلغاء الطلب" Click="CancelOrderClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,8,0,8" AutomationProperties.Name="إلغاء الطلب قبل التسليم"/>
-                        </StackPanel>
-                        <StackPanel Visibility="{Binding SelectedOrder.CanDeliver, Converter={StaticResource BooleanToVisibility}}">
-                            <TextBlock Text="اسم المستلم"/><TextBox Text="{Binding Recipient, UpdateSourceTrigger=PropertyChanged}" MaxLength="240" Style="{StaticResource TextInput}" AutomationProperties.Name="اسم مستلم الطلب"/>
-                            <ComboBox ItemsSource="{Binding Methods}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding DeliveryMethod}" Style="{StaticResource SelectInput}" Margin="0,8,0,0" AutomationProperties.Name="طريقة قبول التسليم"/>
-                            <TextBlock Text="ملاحظات التسليم" Margin="0,8,0,4"/><TextBox Text="{Binding DeliveryNote, UpdateSourceTrigger=PropertyChanged}" MaxLength="240" Style="{StaticResource TextInput}" AutomationProperties.Name="ملاحظات تسليم الطلب"/>
-                            <Button Content="تسجيل التسليم" Click="DeliverOrderClick" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Right" Margin="0,8,0,8" AutomationProperties.Name="تأكيد تسليم الطلب"/>
-                        </StackPanel>
-                        <StackPanel Visibility="{Binding SelectedOrder.CanStartWork, Converter={StaticResource BooleanToVisibility}}">
-                            <TextBlock Text="موعد إنجاز أمر العمل"/><DatePicker SelectedDate="{Binding DueDate}" AutomationProperties.Name="موعد إنجاز أمر العمل"/>
-                            <TextBlock Text="إسناد أمر العمل"/><TextBox Text="{Binding Assignment, UpdateSourceTrigger=PropertyChanged}" MaxLength="240" Style="{StaticResource TextInput}" AutomationProperties.Name="إسناد أمر العمل"/>
-                            <Button Content="بدء أمر العمل" Click="StartWorkClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,8,0,8" AutomationProperties.Name="بدء أمر العمل المؤكد"/>
-                        </StackPanel>
-                        <Button Content="إكمال أمر العمل" Click="CompleteWorkClick" Visibility="{Binding SelectedOrder.CanCompleteWork, Converter={StaticResource BooleanToVisibility}}" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,8,0,8" AutomationProperties.Name="تأكيد اكتمال أمر العمل"/>
-                        <Button Content="تأكيد العملية المعلقة" Click="RetryOrderClick" IsEnabled="{Binding CanRetry}" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" AutomationProperties.Name="تأكيد نتيجة عملية الطلب"/>
-                    </StackPanel>
-                    <StackPanel Visibility="{Binding IsManager, Converter={StaticResource BooleanToVisibility}}" Margin="0,16,0,0">
-                        <Border Style="{StaticResource Card}" Padding="16" Visibility="{Binding SelectedOrder.CanShowProduction, Converter={StaticResource BooleanToVisibility}}">
-                            <StackPanel>
-                                <TextBlock Text="أوامر العمل" FontSize="18" FontWeight="SemiBold"/>
-                                <WrapPanel Margin="0,6,0,0"><TextBlock Text="{Binding ProductionNumber}" FlowDirection="LeftToRight"/><TextBlock Text="{Binding ProductionSummary}" Margin="10,0,0,0"/></WrapPanel>
-                                <TextBlock Text="راجع تصنيع الأثاث المرتبط بهذا الطلب. المنتجات الجاهزة لا تحتاج إلى أمر عمل." TextWrapping="Wrap" Margin="0,6,0,10"/>
-                                <Button Content="{Binding ProductionAction}" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Click="ProductionClick" AutomationProperties.Name="فتح تصنيع الطلب"/>
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                    <Border Visibility="{Binding IsManager, Converter={StaticResource BooleanToVisibility}}" Style="{StaticResource Card}" ClipToBounds="True" Margin="0,16,0,0">
+                    <controls:FeedbackNotice Message="{Binding ActionNotice}" Margin="0,12,0,0">
+                        <controls:FeedbackNotice.Style>
+                            <Style TargetType="controls:FeedbackNotice" BasedOn="{StaticResource {x:Type controls:FeedbackNotice}}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsLive}" Value="False"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger>
+                                    <Trigger Property="Message" Value=""><Setter Property="Visibility" Value="Collapsed"/></Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </controls:FeedbackNotice.Style>
+                    </controls:FeedbackNotice>
+                    <Border x:Name="ManagerOrderItems" Visibility="{Binding IsManager, Converter={StaticResource BooleanToVisibility}}" Style="{StaticResource Card}" ClipToBounds="True" Margin="0,16,0,0">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
                             <Border Padding="20,15" BorderBrush="#EEE9E4" BorderThickness="0,0,0,1">
-                                <TextBlock Text="بنود الأثاث" FontSize="17" FontWeight="SemiBold" />
+                                <TextBlock Text="بنود الطلب" FontSize="17" FontWeight="SemiBold" />
                             </Border>
                             <Grid Grid.Row="1" FlowDirection="LeftToRight">
                                 <StackPanel FlowDirection="RightToLeft">
@@ -364,7 +331,8 @@
                             </Grid>
                         </Grid>
                     </Border>
-                    <ItemsControl ItemsSource="{Binding SelectedOrder.Items}" Visibility="{Binding IsReceptionist, Converter={StaticResource BooleanToVisibility}}" Margin="0,16,0,0">
+                    <TextBlock Text="بنود الطلب" Style="{StaticResource SectionTitle}" Visibility="{Binding IsReceptionist, Converter={StaticResource BooleanToVisibility}}" Margin="0,16,0,0"/>
+                    <ItemsControl x:Name="ReceptionOrderItems" ItemsSource="{Binding SelectedOrder.Items}" Visibility="{Binding IsReceptionist, Converter={StaticResource BooleanToVisibility}}" Margin="0,12,0,0">
                         <ItemsControl.ItemTemplate><DataTemplate>
                             <Border Style="{StaticResource Card}" Padding="20" Margin="0,0,0,12" Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" TextElement.Foreground="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}">
                                 <Grid>
@@ -422,6 +390,66 @@
                             </Grid>
                         </StackPanel>
                     </Border>
+                    <StackPanel x:Name="OrderProductionContext" Margin="0,16,0,0">
+                        <StackPanel Visibility="{Binding IsManager, Converter={StaticResource BooleanToVisibility}}">
+                            <Border Style="{StaticResource Card}" Padding="20" Visibility="{Binding SelectedOrder.CanShowProduction, Converter={StaticResource BooleanToVisibility}}">
+                                <StackPanel>
+                                    <TextBlock Text="أوامر العمل" FontSize="18" FontWeight="SemiBold"/>
+                                    <WrapPanel Margin="0,6,0,0"><TextBlock Text="{Binding ProductionNumber}" FlowDirection="LeftToRight"/><TextBlock Text="{Binding ProductionSummary}" Margin="10,0,0,0"/></WrapPanel>
+                                    <TextBlock Text="راجع تصنيع الأثاث المرتبط بهذا الطلب. المنتجات الجاهزة لا تحتاج إلى أمر عمل." TextWrapping="Wrap" Margin="0,6,0,10"/>
+                                    <Button Content="{Binding ProductionAction}" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Click="ProductionClick" AutomationProperties.Name="فتح تصنيع الطلب"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                        <StackPanel Visibility="{Binding IsLive, Converter={StaticResource BooleanToVisibility}}">
+                            <TextBlock Text="{Binding SelectedOrder.WorkSummary}" FlowDirection="LeftToRight" TextAlignment="Right" TextWrapping="Wrap" Margin="0,8,0,8" Visibility="{Binding IsReceptionist, Converter={StaticResource BooleanToVisibility}}"/>
+                            <TextBlock Text="{Binding SelectedOrder.FulfillmentLabel}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                        </StackPanel>
+                    </StackPanel>
+                    <StackPanel x:Name="OrderActions" Visibility="{Binding IsLive, Converter={StaticResource BooleanToVisibility}}" IsEnabled="{Binding ActionsAvailable}" MaxWidth="720" Margin="0,16,0,0">
+                        <Border x:Name="DeliverySection" Style="{StaticResource Card}" Padding="20" Visibility="{Binding SelectedOrder.CanDeliver, Converter={StaticResource BooleanToVisibility}}" Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="تسجيل التسليم" Style="{StaticResource SectionTitle}" Margin="0,0,0,12"/>
+                                <layout:AdaptiveFieldsPanel MinItemWidth="240">
+                                    <controls:FormField Label="اسم المستلم">
+                                        <TextBox Text="{Binding Recipient, UpdateSourceTrigger=PropertyChanged}" MaxLength="240" Style="{StaticResource TextInput}" AutomationProperties.Name="اسم مستلم الطلب"/>
+                                    </controls:FormField>
+                                    <controls:FormField Label="طريقة قبول التسليم">
+                                        <ComboBox ItemsSource="{Binding Methods}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding DeliveryMethod}" Style="{StaticResource SelectInput}" AutomationProperties.Name="طريقة قبول التسليم"/>
+                                    </controls:FormField>
+                                </layout:AdaptiveFieldsPanel>
+                                <controls:FormField Label="ملاحظات التسليم" Margin="0,12,0,0">
+                                    <TextBox Text="{Binding DeliveryNote, UpdateSourceTrigger=PropertyChanged}" MaxLength="240" Style="{StaticResource TextInput}" AutomationProperties.Name="ملاحظات تسليم الطلب"/>
+                                </controls:FormField>
+                                <Button Content="تسجيل التسليم" Click="DeliverOrderClick" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Right" Margin="0,12,0,0" AutomationProperties.Name="تأكيد تسليم الطلب"/>
+                            </StackPanel>
+                        </Border>
+                        <Border x:Name="FulfillmentSection" Style="{StaticResource Card}" Padding="20" Visibility="{Binding SelectedOrder.CanEditFulfillment, Converter={StaticResource BooleanToVisibility}}" Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="ملاحظات التنفيذ" Style="{StaticResource SectionTitle}" Margin="0,0,0,12"/>
+                                <TextBox Text="{Binding FulfillmentNote, UpdateSourceTrigger=PropertyChanged}" MaxLength="240" Style="{StaticResource TextInput}" AutomationProperties.Name="ملاحظات تنفيذ الطلب"/>
+                                <Button Content="حفظ ملاحظات التنفيذ" Click="SaveFulfillmentClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,12,0,0" AutomationProperties.Name="حفظ ملاحظات تنفيذ الطلب"/>
+                            </StackPanel>
+                        </Border>
+                        <StackPanel Visibility="{Binding SelectedOrder.CanStartWork, Converter={StaticResource BooleanToVisibility}}" Margin="0,0,0,16">
+                            <TextBlock Text="بدء أمر العمل" Style="{StaticResource SectionTitle}" Margin="0,0,0,12"/>
+                            <layout:AdaptiveFieldsPanel MinItemWidth="240">
+                                <controls:FormField Label="موعد إنجاز أمر العمل"><DatePicker SelectedDate="{Binding DueDate}" AutomationProperties.Name="موعد إنجاز أمر العمل"/></controls:FormField>
+                                <controls:FormField Label="إسناد أمر العمل"><TextBox Text="{Binding Assignment, UpdateSourceTrigger=PropertyChanged}" MaxLength="240" Style="{StaticResource TextInput}" AutomationProperties.Name="إسناد أمر العمل"/></controls:FormField>
+                            </layout:AdaptiveFieldsPanel>
+                            <Button Content="بدء أمر العمل" Click="StartWorkClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,12,0,0" AutomationProperties.Name="بدء أمر العمل المؤكد"/>
+                        </StackPanel>
+                        <Button Content="إكمال أمر العمل" Click="CompleteWorkClick" Visibility="{Binding SelectedOrder.CanCompleteWork, Converter={StaticResource BooleanToVisibility}}" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,0,0,16" AutomationProperties.Name="تأكيد اكتمال أمر العمل"/>
+                        <Button Content="تأكيد العملية المعلقة" Click="RetryOrderClick" IsEnabled="{Binding CanRetry}" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" AutomationProperties.Name="تأكيد نتيجة عملية الطلب"/>
+                        <Border x:Name="CancellationSection" BorderBrush="{DynamicResource DangerBrush}" BorderThickness="0,1,0,0" Padding="20" Margin="0,24,0,0" Visibility="{Binding SelectedOrder.CanCancel, Converter={StaticResource BooleanToVisibility}}">
+                            <StackPanel>
+                                <TextBlock Text="إلغاء الطلب" Style="{StaticResource SectionTitle}" Foreground="{DynamicResource DangerBrush}"/>
+                                <TextBlock Text="يوقف الإلغاء تنفيذ الطلب مع الاحتفاظ بسجله." Foreground="{DynamicResource MutedBrush}" Margin="0,4,0,12"/>
+                                <controls:FormField Label="سبب إلغاء الطلب"><TextBox Text="{Binding CancellationReason, UpdateSourceTrigger=PropertyChanged}" MaxLength="240" Style="{StaticResource TextInput}" AutomationProperties.Name="سبب إلغاء الطلب"/></controls:FormField>
+                                <Button Content="إلغاء الطلب" Click="CancelOrderClick" Style="{StaticResource SecondaryButton}" Foreground="{DynamicResource DangerBrush}" BorderBrush="{DynamicResource DangerBrush}" HorizontalAlignment="Right" Margin="0,12,0,0" AutomationProperties.Name="إلغاء الطلب قبل التسليم"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
                 </StackPanel>
             </ScrollViewer>
         </Grid>
