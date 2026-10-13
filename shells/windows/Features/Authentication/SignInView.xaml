@@ -3,16 +3,40 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
              xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls"
+             xmlns:layout="clr-namespace:Eitmad.WindowsShell.Layout"
+             layout:ResponsiveLayout.IsEnabled="True"
              FlowDirection="RightToLeft"
              Language="ar-YE"
              Background="{StaticResource CanvasBrush}">
     <Grid FlowDirection="LeftToRight">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="0.88*" MinWidth="285" />
-            <ColumnDefinition Width="1.12*" MinWidth="390" />
+            <ColumnDefinition>
+                <ColumnDefinition.Style>
+                    <Style TargetType="ColumnDefinition">
+                        <Setter Property="Width" Value="0.88*" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Path=(layout:ResponsiveLayout.Mode), RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                         Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
+                                <Setter Property="Width" Value="0" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ColumnDefinition.Style>
+            </ColumnDefinition>
+            <ColumnDefinition Width="1.12*" />
         </Grid.ColumnDefinitions>
 
         <Grid Grid.Column="0" ClipToBounds="True">
+            <Grid.Style>
+                <Style TargetType="Grid">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Path=(layout:ResponsiveLayout.Mode), RelativeSource={RelativeSource Self}}"
+                                     Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Grid.Style>
             <Grid.Background>
                 <ImageBrush ImageSource="/Eitmad.WindowsShell;component/Resources/ShowroomHero.png"
                             Stretch="UniformToFill"
@@ -47,9 +71,21 @@
                       VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Disabled"
                       PanningMode="VerticalOnly"
+                      VerticalContentAlignment="Stretch"
                       Background="#FFFDFC">
-            <Grid MinHeight="560" FlowDirection="RightToLeft">
-                <StackPanel Width="420" Margin="48,34" HorizontalAlignment="Center" VerticalAlignment="Center">
+            <Grid FlowDirection="RightToLeft">
+                <StackPanel MaxWidth="420" HorizontalAlignment="Stretch" VerticalAlignment="Center">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Margin" Value="48,34" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Path=(layout:ResponsiveLayout.Mode), RelativeSource={RelativeSource Self}}"
+                                             Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
+                                    <Setter Property="Margin" Value="24" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" FlowDirection="RightToLeft">
                         <Viewbox Width="46" Height="39" Stretch="Uniform">
                             <Canvas Width="76" Height="62">
@@ -66,6 +102,7 @@
 
                     <TextBlock Text="تسجيل الدخول" FontSize="30" FontWeight="Bold" Margin="0,30,0,0" />
                     <TextBlock Text="أدخل بيانات حسابك للانتقال إلى مساحة العمل."
+                               TextWrapping="Wrap"
                                Foreground="{StaticResource MutedBrush}"
                                FontSize="13"
                                Margin="0,8,0,25" />
@@ -123,6 +160,7 @@
                     </controls:FormField>
 
                     <TextBlock x:Name="SignInError"
+                               TextWrapping="Wrap"
                                Text="بيانات الدخول غير صحيحة."
                                Foreground="{StaticResource DangerBrush}"
                                FontSize="11"
@@ -139,11 +177,13 @@
                             Click="SignInClick"
                             automation:AutomationProperties.Name="تسجيل الدخول" />
                     <TextBlock x:Name="SignInProgress" Text="يتم التحقق من الحساب وإنشاء جلسة آمنة…"
+                               TextWrapping="Wrap"
                                Visibility="Collapsed" Foreground="{StaticResource MutedBrush}" FontSize="11"
                                Margin="0,12,0,0" TextAlignment="Center"
                                automation:AutomationProperties.LiveSetting="Polite" />
                     <Border Margin="0,22,0,0" Padding="12,9" Background="#F6EEE6" CornerRadius="8">
                         <TextBlock Text="تُرسل بيانات الدخول مباشرة إلى محرك Rust ولا يحفظها التطبيق."
+                                   TextWrapping="Wrap"
                                    Foreground="#704019"
                                    FontSize="10"
                                    TextAlignment="Center" />
