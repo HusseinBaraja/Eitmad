@@ -23,6 +23,12 @@ public partial class RawMaterialsView : UserControl
         InitializeComponent();
         ViewModel = new RawMaterialsViewModel();
         DataContext = ViewModel;
+        ViewModel.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(RawMaterialsViewModel.EditorError) && ViewModel.HasEditorError)
+                Dispatcher.BeginInvoke(new Action(() => EditorCostField.BringIntoView(
+                    new Rect(0, 0, EditorCostField.ActualWidth, EditorCostField.ActualHeight + 8))), DispatcherPriority.Loaded);
+        };
     }
 
     public RawMaterialsViewModel ViewModel { get; }

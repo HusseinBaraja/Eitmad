@@ -259,22 +259,22 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
             <controls:PageHeader Title="{Binding EditorTitle}" Subtitle="{Binding DataStatusLabel}">
                 <StackPanel Orientation="Horizontal">
                     <Button Style="{StaticResource SecondaryButton}" Content="العودة إلى القائمة" Click="CancelEditorClick" />
                 </StackPanel>
             </controls:PageHeader>
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <Grid Margin="28,24" MaxWidth="860" HorizontalAlignment="Stretch">
-                    <Border Style="{StaticResource Card}" Padding="28">
+            <ScrollViewer x:Name="EditorScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <Grid Margin="28,16" MaxWidth="860" HorizontalAlignment="Stretch">
+                    <Border Style="{StaticResource Card}" Padding="20">
                         <StackPanel>
-                            <TextBlock Text="تفاصيل المادة" Style="{StaticResource SectionTitle}" />
-                            <TextBlock Text="{Binding EditorHelpLabel}" Foreground="{StaticResource MutedBrush}" FontSize="13" Margin="0,5,0,24" />
+                            <TextBlock Text="{Binding EditorHelpLabel}" Foreground="{StaticResource MutedBrush}" FontSize="13" Margin="0,0,0,12" />
                             <controls:FormField Label="اسم المادة">
-                                <TextBox x:Name="EditorNameBox" Text="{Binding EditorName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" Margin="0,0,0,18" />
+                                <TextBox x:Name="EditorNameBox" Text="{Binding EditorName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" Margin="0,0,0,12" />
                             </controls:FormField>
-                            <Grid Margin="0,0,0,18">
+                            <Grid Margin="0,0,0,12">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition />
                                     <ColumnDefinition Width="16" />
@@ -291,19 +291,21 @@
                                     </controls:FormField>
                                 </StackPanel>
                             </Grid>
-                            <controls:FormField Label="التكلفة الحالية (ر.ي)" ErrorText="{Binding EditorError}">
+                            <controls:FormField x:Name="EditorCostField" Label="التكلفة الحالية (ر.ي)" ErrorText="{Binding EditorError}">
                                 <TextBox x:Name="EditorCostBox" Text="{Binding EditorCost, UpdateSourceTrigger=LostFocus}" Style="{StaticResource TextInput}" FontFamily="Segoe UI" FlowDirection="LeftToRight" TextAlignment="Right" automation:AutomationProperties.Name="التكلفة الحالية بالريال اليمني" />
                             </controls:FormField>
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,28,0,0" FlowDirection="LeftToRight">
-                                <Button Style="{StaticResource PrimaryButton}" Height="44" Click="SaveEditorClick">
-                                    <TextBlock Text="حفظ" Foreground="White" />
-                                </Button>
-                                <Button Content="إلغاء" Style="{StaticResource SecondaryButton}" Margin="10,0,0,0" Click="CancelEditorClick" />
-                            </StackPanel>
                         </StackPanel>
                     </Border>
                 </Grid>
             </ScrollViewer>
+            <Border Grid.Row="2" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0" Padding="28,13">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" FlowDirection="LeftToRight">
+                    <Button x:Name="SaveEditorButton" Style="{StaticResource PrimaryButton}" Height="44" Click="SaveEditorClick">
+                        <TextBlock Text="حفظ" Foreground="White" />
+                    </Button>
+                    <Button x:Name="CancelEditorButton" Content="إلغاء" Style="{StaticResource SecondaryButton}" Margin="10,0,0,0" Click="CancelEditorClick" />
+                </StackPanel>
+            </Border>
         </Grid>
         <controls:DialogHost Panel.ZIndex="30" IsOpen="{Binding IsReferenceManagerOpen}" Title="{Binding ReferenceManagerTitle}" PreferredWidth="520" FlowDirection="RightToLeft" CloseRequested="CloseReferenceManagerClick">
             <controls:DialogHost.Footer>
