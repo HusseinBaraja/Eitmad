@@ -6,6 +6,9 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using System.Windows.Input;
+using System.Windows.Automation.Peers;
+using System.Windows.Automation.Provider;
+using System.Windows.Automation.Text;
 using System.Windows.Xps.Packaging;
 using Eitmad.Contracts;
 using Eitmad.WindowsShell.Controls;
@@ -53,6 +56,7 @@ public sealed class CustomerDocumentsRenderedTests
                 AssertFitsWidth(pages);
                 var nativePage = ((FixedDocumentSequence)pages.Document).DocumentPaginator.GetPage(0);
                 Assert.IsTrue(string.Concat(WpfTestHost.Descendants<Glyphs>(nativePage.Visual).Select(glyph => glyph.UnicodeString)).Contains("47,500"), "The preview must retain searchable saved text.");
+                WpfTestHost.CompleteLayout(window);
                 WpfTestHost.Capture(window, $"saved-document-{(order ? "order" : "quotation")}-{width}");
                 ApplicationCommands.Print.Execute(null, pages);
                 ApplicationCommands.Print.Execute(null, pages);
@@ -134,8 +138,60 @@ public sealed class CustomerDocumentsRenderedTests
             AssertFitsWidth(preview.Pages);
             Assert.AreEqual(preview.Pages.PageCount, preview.Pages.MasterPageNumber);
             WpfTestHost.Capture(window, $"saved-document-multipage-last-{width}");
+            AssertNativePreviewCommands(window, preview, width);
             ExportPages(document, "saved-quotation-multipage", width == 1338, "427,500", "خزانة تجريبية");
         });
+    }
+
+    private static void AssertNativePreviewCommands(MainWindow window, PrintPreview preview, int width)
+    {
+        // Execute with the same explicit target as a native Button, rather than the test's focus.
+        void Invoke(RoutedCommand command)
+        {
+            var button = WpfTestHost.Descendants<Button>(preview).Single(item => item.Command == command);
+            Assert.IsTrue(button.IsEnabled);
+            Assert.IsTrue(button.Focus());
+            command.Execute(button.CommandParameter, button.CommandTarget);
+            WpfTestHost.CompleteLayout(window);
+        }
+        Invoke(NavigationCommands.FirstPage);
+        Assert.AreEqual(1, preview.Pages.MasterPageNumber);
+        Invoke(NavigationCommands.NextPage);
+        Assert.AreEqual(2, preview.Pages.MasterPageNumber);
+        Invoke(NavigationCommands.PreviousPage);
+        Assert.AreEqual(1, preview.Pages.MasterPageNumber);
+        var zoom = preview.Pages.Zoom;
+        Invoke(NavigationCommands.IncreaseZoom);
+        Assert.IsTrue(preview.Pages.Zoom > zoom);
+        Invoke(DocumentViewer.FitToMaxPagesAcrossCommand);
+        Assert.AreEqual(2, preview.Pages.MaxPagesAcross);
+        Invoke(DocumentViewer.FitToWidthCommand);
+        AssertFitsWidth(preview.Pages);
+        Invoke(ApplicationCommands.Find);
+        var search = WpfTestHost.FindByName<TextBox>(preview, "FindTextBox");
+        Assert.IsTrue(search.IsKeyboardFocusWithin, "Native Find must focus the localized field.");
+        search.Text = "خزانة";
+        WpfTestHost.FindByName<Button>(preview, "FindNextButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        WpfTestHost.CompleteLayout(window);
+        var peer = FrameworkElementAutomationPeer.CreatePeerForElement(preview.Pages);
+        var provider = (ITextProvider)peer.GetPattern(PatternInterface.Text);
+        Assert.IsTrue(provider.GetSelection().Any(range => range.GetText(-1).Contains("خزانة")), "Native search must select the Arabic result.");
+        var firstResult = provider.GetSelection()[0].Clone();
+        WpfTestHost.FindByName<Button>(preview, "FindNextButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        WpfTestHost.CompleteLayout(window);
+        Assert.IsTrue(provider.GetSelection()[0].CompareEndpoints(TextPatternRangeEndpoint.Start, firstResult, TextPatternRangeEndpoint.Start) > 0, "Next search must advance the native selection.");
+        WpfTestHost.FindByName<Button>(preview, "FindPreviousButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        WpfTestHost.CompleteLayout(window);
+        Assert.AreEqual(0, provider.GetSelection()[0].CompareEndpoints(TextPatternRangeEndpoint.Start, firstResult, TextPatternRangeEndpoint.Start), "Previous search must return to the preceding result.");
+        Assert.IsTrue(search.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next)));
+        Assert.IsTrue(WpfTestHost.FindByName<Button>(preview, "FindPreviousButton").IsKeyboardFocusWithin);
+        search.Text = string.Empty;
+        if (width == 720) {
+            preview.Resources[SystemParameters.HighContrastKey] = true;
+            WpfTestHost.CompleteLayout(window);
+            WpfTestHost.Capture(window, $"preview-high-contrast-{width}");
+            preview.Resources.Remove(SystemParameters.HighContrastKey);
+        }
     }
 
     private static void AssertFitsWidth(DocumentViewer viewer)
