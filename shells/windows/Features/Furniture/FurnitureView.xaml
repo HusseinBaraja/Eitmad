@@ -1202,11 +1202,32 @@
                 <controls:FormField Label="اسم اللون">
                     <TextBox x:Name="ColorNameBox" Text="{Binding ColorName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" automation:AutomationProperties.Name="اسم اللون" />
                 </controls:FormField>
-                <controls:FormField Label="تعديل السعر" Margin="0,17,0,0">
+                <controls:FormField Label="فرق السعر (ر.ي)" Margin="0,17,0,0">
                     <TextBox Text="{Binding ColorPriceAdjustment, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Style="{StaticResource TextInput}" FlowDirection="LeftToRight" automation:AutomationProperties.Name="تعديل سعر اللون" />
                 </controls:FormField>
                 <controls:FormField Label="اللون المعروض" Margin="0,17,0,0" ErrorText="{Binding EditorError}">
-                    <ComboBox ItemsSource="{Binding ColorSwatchOptions}" SelectedItem="{Binding ColorSwatchHex}" Style="{StaticResource SelectInput}" FlowDirection="LeftToRight" HorizontalContentAlignment="Left" automation:AutomationProperties.Name="درجة لون المنتج" />
+                    <ComboBox ItemsSource="{Binding ColorSwatchOptions}" SelectedValuePath="Hex" SelectedValue="{Binding ColorSwatchHex}" Style="{StaticResource SelectInput}" FlowDirection="RightToLeft" automation:AutomationProperties.Name="درجة لون المنتج">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" FlowDirection="RightToLeft">
+                                    <Border Width="30" Height="30" CornerRadius="5" Background="{Binding Hex}" BorderThickness="1" VerticalAlignment="Center">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="controls:ControlOptions.HighContrast" Value="{DynamicResource {x:Static SystemParameters.HighContrastKey}}" />
+                                                <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+                                                <Style.Triggers>
+                                                    <Trigger Property="controls:ControlOptions.HighContrast" Value="True">
+                                                        <Setter Property="BorderBrush" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                    </Border>
+                                    <TextBlock Text="{Binding Name}" Margin="10,0,0,0" FontWeight="SemiBold" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Control}}" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
                 </controls:FormField>
             </StackPanel>
         </controls:DialogHost>

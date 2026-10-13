@@ -17,6 +17,90 @@ public sealed class FurnitureRenderedTests
     [DataRow(720, 560)]
     [DataRow(1338, 753)]
     [DataRow(1920, 1080)]
+    public void ColorSelectorKeepsEveryAllowedVisualAndPriceDifference(int width, int height)
+    {
+        var fixture = new FurnitureFixtures();
+        fixture.Seed();
+        WpfTestHost.Run(width, height, window =>
+        {
+            WpfTestHost.FindByName<Button>(window, "FurnitureNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var view = WpfTestHost.Descendants<FurnitureView>(window).Single();
+            var item = view.ViewModel.VisibleFurniture.Single();
+            Assert.IsTrue(view.PrepareEditorAsync(item).GetAwaiter().GetResult());
+            view.ViewModel.BeginEdit(item);
+            for (var step = 1; step < 4; step++) Next(view);
+            view.ViewModel.BeginAddColor();
+            WpfTestHost.CompleteLayout(window);
+            var selector = WpfTestHost.FindByAutomationName<ComboBox>(view, "درجة لون المنتج");
+            var dpi = VisualTreeHelper.GetDpi(window);
+            var displays = string.Join("; ", System.Windows.Forms.Screen.AllScreens.Select(s => $"{s.Bounds.Width}x{s.Bounds.Height} pixels"));
+            var geometry = $"Requested: {width}x{height}; actual window: {window.ActualWidth}x{window.ActualHeight} DIP; "
+                + $"display scaling: {dpi.DpiScaleX * 100}%; available displays: {displays}; "
+                + "capture: off-screen WPF RenderTargetBitmap at 96 DPI; synthetic engine responses.";
+            Console.WriteLine(geometry);
+            if (Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR") is { Length: > 0 } directory)
+            {
+                Directory.CreateDirectory(directory);
+                File.WriteAllText(Path.Combine(directory, $"ui23-{width}x{height}.txt"), geometry);
+            }
+            WpfTestHost.Capture(window, $"ui23-color-dialog-{width}x{height}");
+            var popup = (Popup)selector.Template.FindName("PART_Popup", selector);
+            // Capture the contents without sampling the popup's fade transition.
+            popup.PopupAnimation = PopupAnimation.None;
+            selector.IsDropDownOpen = true;
+            WpfTestHost.CompleteLayout(window);
+            WpfTestHost.Capture((FrameworkElement)popup.Child, $"ui23-color-choices-{width}x{height}");
+            selector.IsDropDownOpen = false;
+            if (width == 720)
+            {
+                var name = WpfTestHost.Descendants<TextBlock>(selector).Single(t => t.Text == "أبيض عاجي");
+                name.FontSize *= 1.5;
+                WpfTestHost.CompleteLayout(window);
+                WpfTestHost.Capture(window, "ui23-color-enlarged-text-720x560");
+                name.ClearValue(TextBlock.FontSizeProperty);
+                view.Resources[SystemParameters.HighContrastKey] = true;
+                view.Resources[SystemColors.WindowBrushKey] = Brushes.Black;
+                view.Resources[SystemColors.WindowTextBrushKey] = Brushes.White;
+                view.Resources[SystemColors.ControlBrushKey] = Brushes.Black;
+                view.Resources[SystemColors.ControlTextBrushKey] = Brushes.White;
+                WpfTestHost.CompleteLayout(window);
+                WpfTestHost.Capture(window, "ui23-color-system-colors-720x560");
+                selector.IsDropDownOpen = true;
+                WpfTestHost.CompleteLayout(window);
+                WpfTestHost.Capture((FrameworkElement)popup.Child, "ui23-color-choices-system-colors-720x560");
+                selector.IsDropDownOpen = false;
+                view.Resources.Remove(SystemParameters.HighContrastKey);
+                view.Resources.Remove(SystemColors.WindowBrushKey);
+                view.Resources.Remove(SystemColors.WindowTextBrushKey);
+                view.Resources.Remove(SystemColors.ControlBrushKey);
+                view.Resources.Remove(SystemColors.ControlTextBrushKey);
+            }
+
+            string[] expectedVisuals = ["#F7F4EF", "#8B5A3C", "#4F2C1D", "#2E596B", "#B89A72"];
+            Assert.AreEqual(expectedVisuals.Length, selector.Items.Count);
+            for (var index = 0; index < expectedVisuals.Length; index++)
+            {
+                view.ViewModel.BeginAddColor();
+                selector.SelectedIndex = index;
+                WpfTestHost.CompleteLayout(window);
+                Assert.AreEqual(expectedVisuals[index], view.ViewModel.ColorSwatchHex);
+                view.ViewModel.ColorName = $"لون تجريبي {index + 1}";
+                var amount = WpfTestHost.FindByAutomationName<TextBox>(view, "تعديل سعر اللون");
+                amount.Text = "1500";
+                amount.GetBindingExpression(TextBox.TextProperty)!.UpdateSource();
+                Assert.IsTrue(view.ViewModel.SaveColor());
+                var input = view.ViewModel.SaveInput(FurnitureState.Draft).Colors.Last();
+                Assert.AreEqual(expectedVisuals[index], input.Visual);
+                Assert.AreEqual(1500L, input.PriceAdjustmentYer);
+            }
+        }, engine: fixture.Engine());
+    }
+
+    [TestMethod]
+    [DataRow(720, 560)]
+    [DataRow(1338, 753)]
+    [DataRow(1920, 1080)]
     public void OptionGroupsRenderAdjustmentsAndKeepTheirOwnActions(int width, int height)
     {
         var fixture = new FurnitureFixtures();

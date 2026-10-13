@@ -5,6 +5,8 @@ using MediaColorConverter = System.Windows.Media.ColorConverter;
 
 namespace Eitmad.WindowsShell.Features.Furniture;
 
+public sealed record FurnitureColorSwatch(string Hex, string Name);
+
 public sealed record FurnitureListItem(
     Guid Id,
     string Name,

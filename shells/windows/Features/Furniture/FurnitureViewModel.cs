@@ -126,13 +126,13 @@ public sealed partial class FurnitureViewModel : ObservableObject
 
     public ObservableCollection<FurnitureHandleOption> Handles { get; }
 
-    public IReadOnlyList<string> ColorSwatchOptions { get; } =
+    public IReadOnlyList<FurnitureColorSwatch> ColorSwatchOptions { get; } =
     [
-        "#F7F4EF",
-        "#8B5A3C",
-        "#4F2C1D",
-        "#2E596B",
-        "#B89A72",
+        new("#F7F4EF", "أبيض عاجي"),
+        new("#8B5A3C", "بني"),
+        new("#4F2C1D", "بني داكن"),
+        new("#2E596B", "أزرق داكن"),
+        new("#B89A72", "بيج"),
     ];
 
     public string SearchText
@@ -656,7 +656,7 @@ public sealed partial class FurnitureViewModel : ObservableObject
     {
         ColorName = string.Empty;
         ColorPriceAdjustment = 0m;
-        ColorSwatchHex = ColorSwatchOptions[0];
+        ColorSwatchHex = ColorSwatchOptions[0].Hex;
         EditorError = string.Empty;
         IsColorEditorOpen = true;
     }
