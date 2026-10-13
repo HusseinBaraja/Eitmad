@@ -55,5 +55,47 @@ public sealed class HomeStateTests
         await model.ActivateAsync(); Assert.AreEqual("≥ 2", model.OpenCount); Assert.IsTrue(model.Notice.Contains("نتائج جزئية")); Assert.IsTrue(model.Notice.Contains("غير متصل"));
         engine.QueryHandler = _ => throw new System.IO.IOException("Synthetic unavailable"); model.Refresh(); await model.LastLoad;
         Assert.AreEqual("—", model.OpenCount); Assert.HasCount(0, model.ReadyOrders); Assert.HasCount(0, model.Activity);
+        Assert.IsFalse(model.IsEmpty); Assert.IsFalse(model.HasNoReadyOrders);
+        Assert.IsTrue(model.ActivityMessage.Contains("تعذر تحميل")); Assert.IsTrue(model.ReadyOrdersMessage.Contains("تعذر تحميل"));
+    }
+    [TestMethod]
+    public async Task EmptyMessagesRequireObtainedCompleteCurrentSectionsAndRetryRestoresThem()
+    {
+        var data = new HomeSnapshot { Quotations = Section(), Orders = Section(), Approvals = Section(), Customers = Section(), Catalog = Section(), ReadyOrders = [] };
+        await using var engine = Engine(data); await using var model = new HomeViewModel(engine);
+        Assert.IsFalse(model.IsEmpty); Assert.IsFalse(model.HasNoReadyOrders);
+        await model.ActivateAsync(); Assert.IsTrue(model.IsEmpty); Assert.IsTrue(model.HasNoReadyOrders);
+        // Approvals supply a count only; omitted search sources do not qualify recent activity.
+        data.Approvals.Availability = HomeAvailability.Denied; data.Customers.Availability = HomeAvailability.Unavailable;
+        model.Refresh(); await model.LastLoad; Assert.IsTrue(model.IsEmpty);
+        model.Search("عميل"); await model.LastLoad;
+        Assert.IsFalse(model.IsEmpty); Assert.IsTrue(model.ActivityMessage.Contains("العملاء: غير متاح"));
+        model.Search(""); await model.LastLoad;
+        data.Orders.Complete = false; model.Refresh(); await model.LastLoad;
+        Assert.IsFalse(model.IsEmpty); Assert.IsFalse(model.HasNoReadyOrders);
+        Assert.IsTrue(model.ActivityMessage.Contains("نتائج جزئية")); Assert.IsTrue(model.ReadyOrdersMessage.Contains("نتائج جزئية"));
+        data.Orders.Complete = true; data.Orders.ServerAvailable = false; model.Refresh(); await model.LastLoad;
+        Assert.IsFalse(model.IsEmpty); Assert.IsFalse(model.HasNoReadyOrders);
+        Assert.IsTrue(model.ReadyOrdersMessage.Contains("آخر بيانات محفوظة"));
+        engine.QueryHandler = _ => throw new System.IO.IOException("Synthetic unavailable"); model.Refresh(); await model.LastLoad;
+        Assert.IsFalse(model.IsEmpty); Assert.IsFalse(model.HasNoReadyOrders);
+        data.Orders.ServerAvailable = true;
+        engine.QueryHandler = _ => SalesCatalogAuthorityTests.Response(QueryResult.ForHome(data)); model.Refresh(); await model.LastLoad;
+        Assert.IsTrue(model.IsEmpty); Assert.IsTrue(model.HasNoReadyOrders);
+    }
+    [TestMethod]
+    [DataRow(HomeAvailability.Denied, "ليس لديك صلاحية")]
+    [DataRow(HomeAvailability.Unavailable, "غير متاح")]
+    public async Task MissingSourceDoesNotConfirmEmptyAndDoesNotRemoveOtherAvailableRows(HomeAvailability availability, string message)
+    {
+        var data = Data(); data.Orders.Availability = availability;
+        await using var engine = Engine(data); await using var model = new HomeViewModel(engine);
+        await model.ActivateAsync();
+        Assert.HasCount(1, model.Activity); Assert.HasCount(0, model.ReadyOrders);
+        Assert.IsFalse(model.IsEmpty); Assert.IsFalse(model.HasNoReadyOrders);
+        Assert.IsTrue(model.ActivityMessage.Contains(message)); Assert.IsTrue(model.ReadyOrdersMessage.Contains(message));
+        data.Quotations.Availability = availability; model.Refresh(); await model.LastLoad;
+        Assert.HasCount(0, model.Activity); Assert.IsFalse(model.IsEmpty);
+        Assert.IsTrue(model.ActivityMessage.Contains(message));
     }
 }

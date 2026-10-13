@@ -19,6 +19,68 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 public sealed class HomeRenderedTests
 {
     [TestMethod]
+    [DataRow(1920, 1080)]
+    [DataRow(1338, 753)]
+    [DataRow(720, 560)]
+    public void HomeSectionResultsRenderWithoutFalseEmptyMessagesForBothRoles(int width, int height)
+    {
+        WpfTestHost.Run(width, height, window => {
+            var data = HomeStateTests.Data();
+            var engine = HomeStateTests.Engine(data);
+            var model = new HomeViewModel(engine);
+            try
+            {
+                Finish(model.ActivateAsync());
+                if (width == 1920) window.WindowState = WindowState.Maximized;
+                window.ManagerHome.DataContext = model;
+                window.ReceptionistSurface.AttachHome(model);
+                WpfTestHost.CompleteLayout(window);
+                var dpi = VisualTreeHelper.GetDpi(window);
+                Console.WriteLine($"UI-12: requested {width}x{height}; actual {window.ActualWidth}x{window.ActualHeight} DIP; display {SystemParameters.PrimaryScreenWidth}x{SystemParameters.PrimaryScreenHeight} DIP; scaling {dpi.DpiScaleX * 100}%.");
+                foreach (var role in new[] { "manager", "reception" })
+                {
+                    var manager = role == "manager";
+                    window.ResponsiveRoot.Visibility = manager ? Visibility.Visible : Visibility.Collapsed;
+                    window.ReceptionistSurface.Visibility = manager ? Visibility.Collapsed : Visibility.Visible;
+                    WpfTestHost.CompleteLayout(window);
+                    var home = manager ? window.ManagerHome : WpfTestHost.FindByName<HomeView>(window.ReceptionistSurface, "ReceptionHome");
+                    foreach (var result in new[] { "empty", "denied", "partial-denied", "unavailable" })
+                    {
+                        if (result != "unavailable") { data.Quotations = HomeStateTests.Section(); data.Orders = HomeStateTests.Section(); data.ReadyOrders = []; }
+                        if (result == "denied") { data.Quotations.Availability = HomeAvailability.Denied; data.Orders.Availability = HomeAvailability.Denied; }
+                        if (result == "partial-denied")
+                        {
+                            data.Quotations.Availability = HomeAvailability.Denied;
+                            data.Orders = HomeStateTests.Data().Orders; data.Orders.Complete = false; data.Orders.ServerAvailable = false;
+                            data.Orders.Items = HomeStateTests.Data().ReadyOrders; data.ReadyOrders = data.Orders.Items;
+                        }
+                        // First obtain rows, then fail the query, as in the reported defect.
+                        engine.QueryHandler = _ => SalesCatalogAuthorityTests.Response(QueryResult.ForHome(data));
+                        model.Refresh(); Finish(model.LastLoad);
+                        if (result == "unavailable")
+                        {
+                            engine.QueryHandler = _ => throw new System.IO.IOException("Synthetic unavailable");
+                            model.Refresh(); Finish(model.LastLoad);
+                        }
+                        WpfTestHost.CompleteLayout(window);
+                        var activity = WpfTestHost.FindByName<TextBlock>(home, "ActivityMessage");
+                        var ready = WpfTestHost.FindByName<TextBlock>(home, "ReadyOrdersMessage");
+                        Assert.AreEqual(model.ActivityMessage, activity.Text); Assert.AreEqual(model.ReadyOrdersMessage, ready.Text);
+                        Assert.AreEqual(result == "empty", activity.Text.Contains("لا توجد"));
+                        Assert.AreEqual(result == "empty", ready.Text.Contains("لا توجد"));
+                        Assert.AreEqual(result == "partial-denied" ? 1 : 0, model.ReadyOrders.Count);
+                        Assert.IsTrue(WpfTestHost.Descendants<Button>(home).Any(b => Equals(b.Content, "إعادة تحميل البيانات") && b.IsVisible));
+                        ready.BringIntoView(); WpfTestHost.CompleteLayout(window);
+                        WpfTestHost.Capture(window, $"ui12-home-{role}-{result}-{width}-ready");
+                        activity.BringIntoView(); WpfTestHost.CompleteLayout(window);
+                        WpfTestHost.Capture(window, $"ui12-home-{role}-{result}-{width}-activity");
+                    }
+                }
+            }
+            finally { Finish(model.DisposeAsync().AsTask()); Finish(engine.DisposeAsync().AsTask()); }
+        });
+    }
+    [TestMethod]
     public void HomeRowsOpenRustQuotationAndOrderDetailsWithoutSharedPreviewCollections()
     {
         var quote = new QuotationLifecycleTests.Fixture();

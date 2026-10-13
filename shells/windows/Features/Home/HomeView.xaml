@@ -22,6 +22,10 @@
   </Style>
   <!-- Alignment is relative to the RTL parent; keep LTR counts under their labels. -->
   <Style x:Key="HomeCount" TargetType="TextBlock"><Setter Property="FontSize" Value="25"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="FlowDirection" Value="LeftToRight"/><Setter Property="HorizontalAlignment" Value="Left"/><Setter Property="Margin" Value="0,8,0,0"/></Style>
+  <Style x:Key="HomeSectionMessage" TargetType="TextBlock">
+   <Setter Property="Margin" Value="0,8"/><Setter Property="TextWrapping" Value="Wrap"/>
+   <Style.Triggers><Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed"/></Trigger></Style.Triggers>
+  </Style>
  </UserControl.Resources>
  <Grid>
   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
@@ -75,7 +79,7 @@
      <StackPanel>
       <TextBlock Text="طلبات جاهزة للعميل" Style="{StaticResource SectionTitle}"/>
       <TextBlock Text="{Binding ReadyCount, FallbackValue=—}" Style="{StaticResource HomeCount}" Visibility="{Binding IsManagerDashboard, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BooleanToVisibility}}"/>
-      <TextBlock Text="لا توجد طلبات جاهزة ضمن النتائج المتاحة" Margin="0,8" TextWrapping="Wrap" Visibility="{Binding HasNoReadyOrders, Converter={StaticResource BooleanToVisibility}}"/>
+      <TextBlock x:Name="ReadyOrdersMessage" Text="{Binding ReadyOrdersMessage, FallbackValue=تعذر تحميل الطلبات الجاهزة. أعد تحميل البيانات.}" Style="{StaticResource HomeSectionMessage}"/>
       <ItemsControl ItemsSource="{Binding ReadyOrders}"><ItemsControl.ItemTemplate><DataTemplate>
        <Button Style="{StaticResource LinkButton}" Margin="0,8,0,0" Click="OpenClick" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" AutomationProperties.Name="{Binding OpenName}"><StackPanel><TextBlock Text="{Binding Number}" FlowDirection="LeftToRight" HorizontalAlignment="Right"/><TextBlock Text="{Binding Title}" TextWrapping="Wrap"/></StackPanel></Button>
       </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
@@ -89,7 +93,7 @@
   </StackPanel>
   <Border Grid.Row="3" Style="{StaticResource Card}" Padding="16" Margin="0,16,0,0"><StackPanel>
    <TextBlock Text="{Binding ActivityTitle, FallbackValue=آخر نشاط}" Style="{StaticResource SectionTitle}"/>
-   <TextBlock Text="لا توجد سجلات ضمن النتائج المتاحة" Margin="0,8" TextWrapping="Wrap" Visibility="{Binding IsEmpty, Converter={StaticResource BooleanToVisibility}}"/>
+   <TextBlock x:Name="ActivityMessage" Text="{Binding ActivityMessage, FallbackValue=تعذر تحميل النشاط. أعد تحميل البيانات.}" Style="{StaticResource HomeSectionMessage}"/>
    <ItemsControl ItemsSource="{Binding Activity}"><ItemsControl.ItemTemplate><DataTemplate>
     <Button Style="{StaticResource ActionButton}" Margin="0,5" Padding="12" Click="OpenClick" HorizontalContentAlignment="Stretch" AutomationProperties.Name="{Binding OpenName}">
      <StackPanel><TextBlock Text="{Binding Kind}" Foreground="{StaticResource MutedBrush}"/><TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock Text="{Binding Number}" FlowDirection="LeftToRight" HorizontalAlignment="Right"/><TextBlock Text="{Binding State}" TextWrapping="Wrap"/><TextBlock Text="{Binding Date}" FlowDirection="LeftToRight" HorizontalAlignment="Right" Foreground="{StaticResource MutedBrush}"/></StackPanel>

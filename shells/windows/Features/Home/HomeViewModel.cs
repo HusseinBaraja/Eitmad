@@ -48,8 +48,14 @@ public sealed class HomeViewModel : ObservableObject, IAsyncDisposable
     public ObservableCollection<HomeRow> ReadyOrders { get; } = [];
     public string Notice { get => notice; private set => Set(ref notice, value); }
     public string ActivityTitle => term.Length == 0 ? "آخر نشاط" : "نتائج البحث";
-    public bool IsEmpty => Activity.Count == 0;
-    public bool HasNoReadyOrders => ReadyOrders.Count == 0;
+    public bool IsEmpty => snapshot is not null && Activity.Count == 0 && ActivitySections().All(s => Confirmed(s.Section));
+    public bool HasNoReadyOrders => ReadyOrders.Count == 0 && Confirmed(snapshot?.Orders);
+    public string ActivityMessage => snapshot is null ? "تعذر تحميل النشاط. أعد تحميل البيانات."
+        : IsEmpty ? "لا توجد سجلات ضمن النتائج المتاحة"
+        : string.Join(" ", ActivitySections().Select(s => SectionNotice(s.Name, s.Section)).Where(m => m.Length > 0));
+    public string ReadyOrdersMessage => snapshot is null ? "تعذر تحميل الطلبات الجاهزة. أعد تحميل البيانات."
+        : HasNoReadyOrders ? "لا توجد طلبات جاهزة ضمن النتائج المتاحة"
+        : SectionNotice("الطلبات الجاهزة", snapshot.Orders);
     public string OpenCount => Count(snapshot?.Quotations);
     public string OrderCount => Count(snapshot?.Orders);
     public string ApprovalCount => Count(snapshot?.Approvals);
@@ -58,6 +64,25 @@ public sealed class HomeViewModel : ObservableObject, IAsyncDisposable
     public event EventHandler? Invalidated;
     private static string Count(HomeSection? section, bool secondary = false) => section?.Availability != HomeAvailability.Available ? "—"
         : (section.Complete ? "" : "≥ ") + (secondary ? section.SecondaryCount : section.Count).ToString("N0", CultureInfo.InvariantCulture);
+    private static bool Confirmed(HomeSection? section) => section is { Availability: HomeAvailability.Available, Complete: true, ServerAvailable: true };
+    private IEnumerable<(string Name, HomeSection Section)> ActivitySections()
+    {
+        if (snapshot is null) yield break;
+        yield return ("عروض الأسعار", snapshot.Quotations);
+        yield return ("الطلبات", snapshot.Orders);
+        if (term.Length == 0) yield break;
+        yield return ("العملاء", snapshot.Customers);
+        yield return ("الكتالوج", snapshot.Catalog);
+    }
+    private static string SectionNotice(string name, HomeSection section)
+    {
+        if (section.Availability == HomeAvailability.Denied) return name + ": ليس لديك صلاحية.";
+        if (section.Availability != HomeAvailability.Available) return name + ": غير متاح. أعد تحميل البيانات.";
+        var messages = new List<string>();
+        if (!section.Complete) messages.Add(name + ": نتائج جزئية؛ الأعداد حد أدنى. افتح القائمة للمتابعة.");
+        if (!section.ServerAvailable) messages.Add(name + ": غير متصل — آخر بيانات محفوظة، وليست حالة حالية مؤكدة.");
+        return string.Join(" ", messages);
+    }
 
     public async Task ActivateAsync()
     {
@@ -95,12 +120,8 @@ public sealed class HomeViewModel : ObservableObject, IAsyncDisposable
             var messages = new List<string>();
             foreach (var (name, section) in sections)
             {
-                if (section.Availability != HomeAvailability.Available) messages.Add(name + (section.Availability == HomeAvailability.Denied ? ": ليس لديك صلاحية." : ": غير متاح."));
-                else
-                {
-                    if (!section.Complete) messages.Add(name + ": نتائج جزئية؛ الأعداد حد أدنى. افتح القائمة للمتابعة.");
-                    if (!section.ServerAvailable) messages.Add(name + ": غير متصل — آخر بيانات محفوظة، وليست حالة حالية مؤكدة.");
-                }
+                var message = SectionNotice(name, section);
+                if (message.Length > 0) messages.Add(message);
             }
             foreach (var item in sections.Where(s => s.Item2.Availability == HomeAvailability.Available)
                 .SelectMany(s => s.Item2.Items).OrderByDescending(item => item.ChangedAt).ThenBy(item => item.Id)) Activity.Add(new(item));
@@ -109,6 +130,7 @@ public sealed class HomeViewModel : ObservableObject, IAsyncDisposable
         }
         Raise(nameof(OpenCount)); Raise(nameof(OrderCount)); Raise(nameof(ApprovalCount)); Raise(nameof(ReadyCount));
         Raise(nameof(IsEmpty)); Raise(nameof(HasNoReadyOrders)); Raise(nameof(ActivityTitle));
+        Raise(nameof(ActivityMessage)); Raise(nameof(ReadyOrdersMessage));
     }
     private void Invalidate()
     {
