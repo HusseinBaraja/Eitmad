@@ -19,6 +19,94 @@ public sealed class UsersPresentationTests
     }
 
     [TestMethod]
+    [DataRow(true)]
+    [DataRow(false)]
+    public async Task FailedRefreshRetainsLastKnownRowsBlocksChangesAndRetryReplacesThem(bool transportFailure)
+    {
+        var engine = Engine();
+        var vm = new UsersViewModel();
+        vm.Attach(engine);
+        Assert.IsTrue(await vm.LoadAsync());
+        vm.SearchText = "احمد";
+        var retained = vm.VisibleUsers.Single();
+        engine.ThrowQueries = transportFailure;
+        if (!transportFailure)
+            engine.QueryHandler = _ => new QueryResponseEnvelope
+            {
+                Outcome = new QueryOutcome { Status = CommandOutcomeStatus.Failed, Payload = new QueryResult() },
+            };
+
+        Assert.IsFalse(await vm.LoadAsync());
+        Assert.IsTrue(vm.HasLoadFailure);
+        Assert.IsTrue(vm.ShowTable);
+        Assert.AreEqual(retained, vm.VisibleUsers.Single());
+        Assert.IsFalse(vm.CanManageAccounts);
+        Assert.IsTrue(vm.CanRetry);
+        vm.BeginEdit(retained);
+        vm.BeginDeactivation(retained);
+        Assert.IsFalse(vm.IsEditorOpen);
+        Assert.IsFalse(vm.IsDeactivationOpen);
+        Assert.IsFalse(await vm.ApplyAsync("synthetic-password"));
+        Assert.IsFalse(await vm.DeactivateAsync());
+        Assert.IsNull(engine.LastCommand);
+        vm.CancelEditor();
+        Assert.IsTrue(vm.HasLoadFailure);
+
+        engine.ThrowQueries = false;
+        engine.QueryHandler = null;
+        engine.DesktopAccounts[1].Active = false;
+        var release = new TaskCompletionSource();
+        engine.QueryBarrier = _ => release.Task;
+        var retry = vm.LoadAsync();
+        Assert.IsTrue(vm.IsBusy);
+        Assert.IsFalse(vm.CanRetry);
+        Assert.IsFalse(vm.CanManageAccounts);
+        Assert.IsFalse(await vm.LoadAsync());
+        Assert.IsTrue(vm.HasLoadFailure);
+        release.SetResult();
+        Assert.IsTrue(await retry);
+        Assert.IsFalse(vm.HasLoadFailure);
+        Assert.IsTrue(vm.CanManageAccounts);
+        Assert.AreEqual("احمد", vm.SearchText);
+        Assert.IsFalse(vm.VisibleUsers.Single().IsActive);
+    }
+
+    [TestMethod]
+    public async Task InitialFailureDoesNotShowAnEmptyResultAndDenialRemovesRetainedAccounts()
+    {
+        var engine = Engine();
+        var vm = new UsersViewModel();
+        vm.Attach(engine);
+        engine.ThrowQueries = true;
+        Assert.IsFalse(await vm.LoadAsync());
+        Assert.IsFalse(vm.ShowTable);
+        Assert.IsFalse(vm.CanManageAccounts);
+        engine.ThrowQueries = false;
+        Assert.IsTrue(await vm.LoadAsync());
+        var previous = vm.VisibleUsers[0];
+        engine.QueryHandler = _ => new QueryResponseEnvelope
+        {
+            Outcome = new QueryOutcome
+            {
+                Status = CommandOutcomeStatus.Failed,
+                Payload = new QueryResult { Code = ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1 },
+            },
+        };
+        Assert.IsFalse(await vm.LoadAsync());
+        Assert.IsFalse(vm.ShowTable);
+        Assert.AreEqual(0, vm.VisibleUsers.Count);
+        Assert.IsFalse(vm.CanManageAccounts);
+        vm.SearchText = "";
+        Assert.AreEqual(0, vm.VisibleUsers.Count);
+        vm.BeginEdit(previous);
+        Assert.IsFalse(vm.IsEditorOpen);
+        engine.QueryHandler = null;
+        Assert.IsTrue(await vm.LoadAsync());
+        Assert.IsTrue(vm.ShowTable);
+        Assert.IsTrue(vm.CanManageAccounts);
+    }
+
+    [TestMethod]
     public async Task SearchAndFiltersUseRustReturnedAccounts()
     {
         var vm = new UsersViewModel();

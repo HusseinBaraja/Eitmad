@@ -19,6 +19,94 @@ public sealed class UsersRenderedTests
     }
 
     [TestMethod]
+    public void RefreshNoticeAndRetryFitWithEnlargedTextAndSystemColorsAtMinimumSize()
+    {
+        var engine = Engine();
+        WpfTestHost.Run(720, 560, window =>
+        {
+            WpfTestHost.FindByName<Button>(window, "UsersNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var view = WpfTestHost.Descendants<UsersView>(window).Single();
+            engine.ThrowQueries = true;
+            Assert.IsFalse(view.ViewModel.LoadAsync().GetAwaiter().GetResult());
+            view.Resources[SystemParameters.HighContrastKey] = true;
+            WpfTestHost.CompleteLayout(window);
+            var notice = WpfTestHost.FindByName<FeedbackNotice>(view, "UsersLoadNotice");
+            var retry = WpfTestHost.FindByName<Button>(view, "RetryUsersButton");
+            notice.FontSize *= 1.5;
+            retry.FontSize *= 1.5;
+            WpfTestHost.CompleteLayout(window);
+            AssertTextFitsView(WpfTestHost.Descendants<TextBlock>(notice).Single(text => text.Text == notice.Message), view);
+            var bounds = retry.TransformToAncestor(view).TransformBounds(new Rect(retry.RenderSize));
+            Assert.IsTrue(retry.IsVisible && retry.IsEnabled);
+            Assert.IsTrue(bounds.Left >= 0 && bounds.Right <= view.ActualWidth);
+            Assert.IsTrue(bounds.Top >= 0 && bounds.Bottom <= view.ActualHeight);
+            WpfTestHost.Capture(window, "ui41-users-refresh-system-colors-large-text-720");
+        }, engine: engine);
+    }
+
+    [TestMethod]
+    [DataRow(1920d, 1080d)]
+    [DataRow(1338d, 753d)]
+    [DataRow(720d, 560d)]
+    public void FailedRefreshLabelsRetainedRowsAndRetryRestoresCurrentState(double width, double height)
+    {
+        var engine = Engine();
+        WpfTestHost.Run(width, height, window =>
+        {
+            WpfTestHost.FindByName<Button>(window, "UsersNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            if (width == 1920) window.WindowState = WindowState.Maximized;
+            WpfTestHost.CompleteLayout(window);
+            var view = WpfTestHost.Descendants<UsersView>(window).Single();
+            var table = WpfTestHost.FindByName<OperationsTable>(view, "UsersTable");
+            Assert.AreEqual(2, table.Items.Count);
+            engine.ThrowQueries = true;
+            Assert.IsFalse(view.ViewModel.LoadAsync().GetAwaiter().GetResult());
+            WpfTestHost.CompleteLayout(window);
+
+            var dpi = System.Windows.Media.VisualTreeHelper.GetDpi(window);
+            var geometry = $"Requested {width}x{height}; actual window {window.ActualWidth}x{window.ActualHeight} DIP; primary display {SystemParameters.PrimaryScreenWidth}x{SystemParameters.PrimaryScreenHeight} DIP; scaling {dpi.DpiScaleX * 100:0}%; WPF RenderTargetBitmap at 96 DPI; synthetic account responses.";
+            Console.WriteLine(geometry);
+            if (Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR") is { Length: > 0 } directory)
+            {
+                System.IO.Directory.CreateDirectory(directory);
+                System.IO.File.WriteAllText(System.IO.Path.Combine(directory, $"ui41-{width}.txt"), geometry);
+            }
+            var notice = WpfTestHost.FindByName<FeedbackNotice>(view, "UsersLoadNotice");
+            var noticeText = WpfTestHost.Descendants<TextBlock>(notice).Single(text => text.Text == notice.Message);
+            AssertTextFitsView(noticeText, view);
+            Assert.AreEqual(2, table.Items.Count);
+            Assert.IsTrue(WpfTestHost.Descendants<StatusBadge>(table).All(badge => badge.Text == "غير مؤكد" && badge.Tone == PresentationTone.Neutral));
+            Assert.IsFalse(WpfTestHost.FindByAutomationName<Button>(view, "إضافة مستخدم").IsEnabled);
+            Assert.IsFalse(WpfTestHost.FindByAutomationName<Button>(view, "تعديل المستخدم محمد سالم").IsEnabled);
+            Assert.IsFalse(WpfTestHost.FindByAutomationName<Button>(view, "تعطيل المستخدم محمد سالم").IsEnabled);
+            var retry = WpfTestHost.FindByName<Button>(view, "RetryUsersButton");
+            Assert.IsTrue(retry.IsVisible && retry.IsEnabled);
+            var retryBounds = retry.TransformToAncestor(view).TransformBounds(new Rect(retry.RenderSize));
+            Assert.IsTrue(retryBounds.Left >= 0 && retryBounds.Right <= view.ActualWidth);
+            Assert.IsTrue(retryBounds.Top >= 0 && retryBounds.Bottom <= view.ActualHeight);
+            Assert.IsTrue(retry.Focus());
+            Assert.IsTrue(retry.IsKeyboardFocused);
+            WpfTestHost.Capture(window, $"ui41-users-refresh-failed-{width}");
+
+            // Another failed retry must keep the warning and last known rows.
+            retry.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsTrue(view.ViewModel.HasLoadFailure);
+            engine.ThrowQueries = false;
+            engine.DesktopAccounts[0].Active = false;
+            retry.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsFalse(view.ViewModel.HasLoadFailure);
+            Assert.IsFalse(notice.IsVisible);
+            Assert.IsFalse(retry.IsVisible);
+            Assert.IsTrue(WpfTestHost.FindByAutomationName<Button>(view, "تعديل المستخدم محمد سالم").IsEnabled);
+            Assert.IsFalse(WpfTestHost.FindByAutomationName<Button>(view, "تعطيل المستخدم محمد سالم").IsEnabled);
+            Assert.IsTrue(WpfTestHost.Descendants<StatusBadge>(table).Any(badge => badge.Text == "غير نشط"));
+        }, engine: engine);
+    }
+
+    [TestMethod]
     [DataRow(1920d, 1080d)]
     [DataRow(1338d, 753d)]
     [DataRow(720d, 560d)]

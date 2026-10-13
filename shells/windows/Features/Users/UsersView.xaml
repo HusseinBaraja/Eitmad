@@ -8,17 +8,21 @@
  <Grid x:Name="ListSurface" Visibility="{Binding IsListVisible, Converter={StaticResource BooleanToVisibility}}">
   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
   <controls:PageHeader Title="المستخدمون">
-   <Button Content="+ إضافة مستخدم" Style="{StaticResource PrimaryButton}" Click="AddClick" AutomationProperties.Name="إضافة مستخدم"/>
+   <Button Content="+ إضافة مستخدم" IsEnabled="{Binding CanManageAccounts}" Style="{StaticResource PrimaryButton}" Click="AddClick" AutomationProperties.Name="إضافة مستخدم"/>
   </controls:PageHeader>
   <Grid Grid.Row="1" Margin="28,22,28,28">
-   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
    <StackPanel Margin="0,0,0,16"><TextBlock Text="تدار الحسابات والصلاحيات من محرك الاعتماد." Foreground="{DynamicResource MutedBrush}" FontSize="12"/><TextBlock Text="{Binding EditorError}" Foreground="{DynamicResource DangerBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,6,0,0"/></StackPanel>
    <layout:AdaptiveFieldsPanel Grid.Row="1" MinItemWidth="170" Margin="0,0,0,18">
     <controls:FormField Label="البحث"><TextBox x:Name="UsersSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SearchInput}" controls:ControlOptions.Placeholder="ابحث باسم المستخدم" AutomationProperties.Name="البحث عن مستخدم"/></controls:FormField>
     <controls:FormField Label="الدور"><ComboBox ItemsSource="{Binding RoleOptions}" SelectedItem="{Binding SelectedRole}" Style="{StaticResource SelectInput}" AutomationProperties.Name="تصفية الدور"/></controls:FormField>
     <controls:FormField Label="الحالة"><ComboBox ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding SelectedStatus}" Style="{StaticResource SelectInput}" AutomationProperties.Name="تصفية الحالة"/></controls:FormField>
    </layout:AdaptiveFieldsPanel>
-   <controls:OperationsTable x:Name="UsersTable" Grid.Row="2" ItemsSource="{Binding VisibleUsers}" AutomationProperties.Name="قائمة المستخدمين" VerticalAlignment="Top" RowHeight="68">
+   <DockPanel Grid.Row="2" Margin="0,0,0,12" Visibility="{Binding HasLoadFailure, Converter={StaticResource BooleanToVisibility}}">
+    <Button x:Name="RetryUsersButton" DockPanel.Dock="Left" Content="إعادة التحميل" Style="{StaticResource SecondaryButton}" Click="RetryClick" IsEnabled="{Binding CanRetry}" VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="إعادة تحميل المستخدمين"/>
+    <controls:FeedbackNotice x:Name="UsersLoadNotice" Message="{Binding LoadNotice}" Tone="Warning"/>
+   </DockPanel>
+   <controls:OperationsTable x:Name="UsersTable" Grid.Row="3" ItemsSource="{Binding VisibleUsers}" Visibility="{Binding ShowTable, Converter={StaticResource BooleanToVisibility}}" AutomationProperties.Name="قائمة المستخدمين" VerticalAlignment="Top" RowHeight="68">
     <controls:OperationsTable.EmptyContent><controls:EmptyState Heading="لا يوجد مستخدمون مطابقون" Description="جرّب تغيير البحث أو عوامل التصفية."/></controls:OperationsTable.EmptyContent>
     <DataGrid.Columns>
      <DataGridTemplateColumn Header="المستخدم" SortMemberPath="Name" Width="2*" MinWidth="180">
@@ -32,13 +36,13 @@
      <DataGridTextColumn Header="الدور" controls:OperationsTable.IsCompactDetail="True" Binding="{Binding Role}" Width="*" MinWidth="160" ElementStyle="{StaticResource TableBody}"/>
      <DataGridTemplateColumn Header="الحالة" Width="*" MinWidth="115" SortMemberPath="Status">
       <DataGridTemplateColumn.CellTemplate><DataTemplate>
-       <controls:StatusBadge Text="{Binding Status}" HorizontalAlignment="Center" VerticalAlignment="Center">
-        <controls:StatusBadge.Style><Style TargetType="controls:StatusBadge" BasedOn="{StaticResource {x:Type controls:StatusBadge}}"><Setter Property="Tone" Value="Neutral"/><Style.Triggers><DataTrigger Binding="{Binding IsActive}" Value="True"><Setter Property="Tone" Value="Success"/></DataTrigger></Style.Triggers></Style></controls:StatusBadge.Style>
+       <controls:StatusBadge HorizontalAlignment="Center" VerticalAlignment="Center">
+        <controls:StatusBadge.Style><Style TargetType="controls:StatusBadge" BasedOn="{StaticResource {x:Type controls:StatusBadge}}"><Setter Property="Text" Value="{Binding Status}"/><Setter Property="Tone" Value="Neutral"/><Style.Triggers><DataTrigger Binding="{Binding IsActive}" Value="True"><Setter Property="Tone" Value="Success"/></DataTrigger><DataTrigger Binding="{Binding DataContext.HasLoadFailure, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True"><Setter Property="Text" Value="غير مؤكد"/><Setter Property="Tone" Value="Neutral"/></DataTrigger></Style.Triggers></Style></controls:StatusBadge.Style>
        </controls:StatusBadge>
       </DataTemplate></DataGridTemplateColumn.CellTemplate>
      </DataGridTemplateColumn>
      <DataGridTemplateColumn Header="الإجراءات" Width="*" MinWidth="175" CanUserSort="False">
-      <DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+      <DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" IsEnabled="{Binding DataContext.CanManageAccounts, RelativeSource={RelativeSource AncestorType=UserControl}}">
        <Button Content="تعديل" Style="{StaticResource InlineActionButton}" Click="EditClick" AutomationProperties.Name="{Binding Name, StringFormat=تعديل المستخدم {0}}"/>
        <Button Content="تعطيل" Style="{StaticResource InlineActionButton}" Margin="12,0,0,0" Click="DeactivateClick" IsEnabled="{Binding IsActive}" AutomationProperties.Name="{Binding Name, StringFormat=تعطيل المستخدم {0}}"/>
       </StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate>

@@ -19,6 +19,7 @@ public partial class UsersView : UserControl
     }
     public UsersViewModel ViewModel { get; } = new();
     public void Attach(IEngineShellBridge engine) => ViewModel.Attach(engine);
+    private async void RetryClick(object sender, RoutedEventArgs e) => await ViewModel.LoadAsync();
     private System.Windows.Controls.Control? editorReturnTarget;
     private void OpenEditor(object sender, UserPreview? user = null)
     {
