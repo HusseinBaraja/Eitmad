@@ -30,7 +30,12 @@ public sealed class QuotationDraftRenderedTests
                 if (width == 1920) window.WindowState = WindowState.Maximized;
                 WpfTestHost.CompleteLayout(window);
                 var dpi = VisualTreeHelper.GetDpi(window);
-                Console.WriteLine($"Draft requested {width}x{height}; actual {window.ActualWidth}x{window.ActualHeight} DIP; scale {dpi.DpiScaleX * 100:0}%");
+                var geometry = $"Draft requested {width}x{height}; actual {window.ActualWidth}x{window.ActualHeight} DIP; display {SystemParameters.PrimaryScreenWidth * dpi.DpiScaleX:0}x{SystemParameters.PrimaryScreenHeight * dpi.DpiScaleY:0} px; scale {dpi.DpiScaleX * 100:0}%; WPF RenderTargetBitmap at 96 DPI; synthetic Rust replies.";
+                Console.WriteLine(geometry);
+                if (Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR") is { Length: > 0 } directory) {
+                    System.IO.Directory.CreateDirectory(directory);
+                    System.IO.File.WriteAllText(System.IO.Path.Combine(directory, $"ui32-{width}.txt"), geometry);
+                }
                 Assert.AreEqual(FlowDirection.RightToLeft, view.FlowDirection);
                 WpfTestHost.Capture(window, $"quotation-draft-lines-{width}");
                 var review = WpfTestHost.Descendants<CurrentQuotationView>(view).Single();
@@ -58,9 +63,25 @@ public sealed class QuotationDraftRenderedTests
                 model.DiscountInput = "4"; Finish(model.LastQuotationEvaluation);
                 save.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Finish(QuotationDraftTests.WaitFor(() => !model.IsDraftBusy));
                 Assert.AreEqual("4", model.DiscountInput); Assert.AreEqual(500, snapshot.Intent.DiscountBasisPoints);
-                Assert.IsTrue(model.QuotationNotice.Contains("احتُفظ")); WpfTestHost.CompleteLayout(window);
+                Assert.IsTrue(model.HasDraftSaveFailure); Assert.IsTrue(model.DraftEditState.Contains("احتُفظ")); WpfTestHost.CompleteLayout(window);
+                scroll.ScrollToBottom(); WpfTestHost.CompleteLayout(window);
+                var failure = WpfTestHost.FindByName<Controls.FeedbackNotice>(review, "DraftSaveFailureNotice");
+                Assert.IsTrue(failure.IsVisible); Assert.IsTrue(save.IsEnabled); Assert.AreEqual("إعادة محاولة الحفظ", save.Content);
+                Assert.IsFalse(model.CanIssueQuotation); Assert.IsTrue(WpfTestHost.FindByName<Button>(review, "PrintPreviewButton").IsEnabled);
+                foreach (var element in new FrameworkElement[] { failure, save }) {
+                    var bounds = element.TransformToAncestor(scroll).TransformBounds(new Rect(element.RenderSize));
+                    Assert.IsTrue(new Rect(scroll.RenderSize).Contains(bounds), $"{element.Name} is outside the save viewport: {bounds}");
+                }
                 WpfTestHost.Capture(window, $"quotation-draft-failed-save-{width}");
+                if (width == 720) {
+                    review.Resources[SystemParameters.HighContrastKey] = true; WpfTestHost.CompleteLayout(window);
+                    WpfTestHost.Capture(window, "quotation-draft-failed-save-high-contrast-720");
+                    review.Resources.Remove(SystemParameters.HighContrastKey);
+                }
                 engine.CommandHandler = commandHandler;
+                save.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Finish(QuotationDraftTests.WaitFor(() => !model.IsDraftBusy));
+                Assert.IsFalse(model.HasDraftSaveFailure); Assert.AreEqual("4", model.DiscountInput);
+                Assert.AreEqual(400, authority.Draft!.Snapshot.Intent.DiscountBasisPoints);
                 var manager = new QuotationsView(); manager.ViewModel.AttachDraftClient(drafts); Finish(manager.ViewModel.ActivateDraftsAsync());
                 window.Content = manager; WpfTestHost.CompleteLayout(window);
                 Assert.AreEqual(snapshot.Id, manager.ViewModel.VisibleQuotations.Single().Id);

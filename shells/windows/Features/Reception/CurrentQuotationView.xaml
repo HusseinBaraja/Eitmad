@@ -117,15 +117,24 @@
     </StackPanel>
     </StackPanel>
    </Border>
-    <WrapPanel HorizontalAlignment="Left" Margin="0,16,0,0">
+    <StackPanel MaxWidth="600" HorizontalAlignment="Left" Margin="0,16,0,0" Visibility="{Binding IsLiveQuotation, Converter={StaticResource BooleanToVisibility}}">
+     <TextBlock Text="{Binding DraftState}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
+     <TextBlock Text="{Binding DraftEditState}" TextWrapping="Wrap" FontWeight="SemiBold" Margin="0,8,0,0">
+      <TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}"><Style.Triggers><Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed"/></Trigger></Style.Triggers></Style></TextBlock.Style>
+     </TextBlock>
+     <controls:FeedbackNotice x:Name="DraftSaveFailureNotice" Message="{Binding DraftSaveError}" Tone="Danger" FontSize="16" FontWeight="SemiBold" Margin="0,12,0,0"/>
+    </StackPanel>
+    <WrapPanel HorizontalAlignment="Left" Margin="0,12,0,0">
      <Button Content="إصدار عرض السعر" Style="{StaticResource PrimaryButton}" Click="SaveQuotationClick" IsEnabled="{Binding CanIssueQuotation}" AutomationProperties.Name="إصدار عرض السعر"/>
      <Button x:Name="PrintPreviewButton" Content="معاينة المستند المحفوظ" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="PrintPreviewClick" IsEnabled="{Binding CanPreviewCustomer}" AutomationProperties.Name="معاينة المستند المحفوظ"/>
-     <Button x:Name="SaveDraftButton" Content="حفظ كمسودة" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="SaveDraftClick" IsEnabled="{Binding CanSaveDraft}" AutomationProperties.Name="حفظ كمسودة"/>
+     <Button x:Name="SaveDraftButton" Content="{Binding DraftSaveAction}" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="SaveDraftClick" IsEnabled="{Binding CanSaveDraft}" AutomationProperties.Name="{Binding DraftSaveAction}"/>
     </WrapPanel>
     <Button Content="إعادة فتح النسخة المحفوظة" Click="ReloadDraftClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,12,0,0" IsEnabled="{Binding CanReloadDraft}" Visibility="{Binding IsLiveQuotation, Converter={StaticResource BooleanToVisibility}}" AutomationProperties.Name="إعادة فتح النسخة المحفوظة"/>
-    <TextBlock Text="{Binding DraftState}" TextWrapping="Wrap" Margin="0,12,0,0" Visibility="{Binding IsLiveQuotation, Converter={StaticResource BooleanToVisibility}}" AutomationProperties.LiveSetting="Polite"/>
-    <TextBlock Text="{Binding FutureActionsNotice}" TextWrapping="Wrap" Margin="0,8,0,0"/>
-    <TextBlock Text="{Binding QuotationNotice}" TextWrapping="Wrap" Margin="0,12,0,0" AutomationProperties.LiveSetting="Polite"/>
+    <StackPanel>
+     <StackPanel.Style><Style TargetType="StackPanel"><Style.Triggers><DataTrigger Binding="{Binding HasDraftSaveFailure}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></StackPanel.Style>
+     <TextBlock Text="{Binding FutureActionsNotice}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+     <TextBlock Text="{Binding QuotationNotice}" TextWrapping="Wrap" Margin="0,12,0,0" AutomationProperties.LiveSetting="Polite"/>
+    </StackPanel>
   </StackPanel>
  </StackPanel>
  </ScrollViewer>

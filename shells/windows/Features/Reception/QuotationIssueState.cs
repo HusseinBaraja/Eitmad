@@ -22,7 +22,7 @@ public sealed partial class SalesCatalogViewModel
     private Guid issueKey;
     private long lifecycleRead;
     private bool lifecycleOnline;
-    public bool CanIssueQuotation => draftClient?.SupportsLifecycle == true && !IsDraftBusy && !draftConflict
+    public bool CanIssueQuotation => draftClient?.SupportsLifecycle == true && !IsDraftBusy && !draftConflict && !HasDraftSaveFailure
         && (issueRetry is not null || !hasUnsavedEdits && lifecycleOnline && quotationLifecycle?.PermittedActions.Contains(QuotationPermittedAction.Issue) == true);
     private bool LifecycleEditable => issueRetry is null && savedDraft?.Snapshot.Cancelled != true
         && (savedDraft is null || savedDraft.PermittedActions?.Contains(QuotationPermittedAction.Edit) == true)

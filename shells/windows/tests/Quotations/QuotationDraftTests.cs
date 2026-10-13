@@ -104,13 +104,13 @@ public sealed class QuotationDraftTests
         var model = await Editor(catalog, drafts); var handler = engine.CommandHandler!;
         engine.CommandHandler = c => { handler(c); throw new IOException("Synthetic lost reply"); };
         Assert.IsFalse(await model.SaveDraftAsync()); var key = engine.LastIdempotencyKey; var id = authority.Draft!.Snapshot.Id;
-        Assert.IsTrue(model.DraftState.Contains("لم يُؤكد")); Assert.HasCount(2, model.QuotationLines);
-        model.DiscountInput = "6"; await model.LastQuotationEvaluation; engine.CommandHandler = handler;
+        Assert.IsTrue(model.DraftState.Contains("لم يُؤكد")); Assert.IsTrue(model.HasDraftSaveFailure); Assert.HasCount(2, model.QuotationLines);
+        model.DiscountInput = "6"; await model.LastQuotationEvaluation; Assert.IsTrue(model.HasDraftSaveFailure); engine.CommandHandler = handler;
         Assert.IsTrue(await model.SaveDraftAsync()); Assert.AreEqual(key, engine.LastIdempotencyKey); Assert.AreEqual(id, authority.Draft.Snapshot.Id);
-        Assert.AreEqual("6", model.DiscountInput); Assert.IsTrue(model.DraftState.Contains("غير محفوظة")); Assert.HasCount(1, authority.Replays);
+        Assert.AreEqual("6", model.DiscountInput); Assert.IsTrue(model.DraftEditState.Contains("غير محفوظة")); Assert.IsFalse(model.HasDraftSaveFailure); Assert.HasCount(1, authority.Replays);
         authority.Draft.Snapshot.Revision++;
         Assert.IsFalse(await model.SaveDraftAsync()); Assert.IsTrue(model.QuotationNotice.Contains("تغيرت المسودة")); Assert.AreEqual("6", model.DiscountInput); Assert.IsFalse(model.CanSaveDraft);
-        Assert.IsTrue(await model.ReloadDraftAsync()); Assert.AreEqual("5", model.DiscountInput); Assert.IsTrue(model.CanSaveDraft);
+        Assert.IsTrue(await model.ReloadDraftAsync()); Assert.AreEqual("5", model.DiscountInput); Assert.IsTrue(model.CanSaveDraft); Assert.IsFalse(model.HasDraftSaveFailure);
         await model.DeactivateCatalogAsync();
     }
     [TestMethod]
@@ -147,7 +147,35 @@ public sealed class QuotationDraftTests
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously); var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         engine.CommandBarrier = _ => { entered.SetResult(); return release.Task; }; engine.CommandHandler = _ => Failed(ProtocolIds.ErrorCodes.EitmadErrorQuotationDraftUnavailableV1);
         var pending = model.SaveDraftAsync(); await entered.Task;
-        await model.DeactivateCatalogAsync(); release.SetResult(); Assert.IsFalse(await pending); Assert.HasCount(0, model.QuotationLines); Assert.IsNull(model.SelectedCustomer);
+        await model.DeactivateCatalogAsync(); release.SetResult(); Assert.IsFalse(await pending); Assert.HasCount(0, model.QuotationLines); Assert.IsNull(model.SelectedCustomer); Assert.IsFalse(model.HasDraftSaveFailure);
+    }
+    [TestMethod]
+    public async Task UncertainSaveOfUnchangedDraftBlocksIssueUntilTheExactRetryIsConfirmed()
+    {
+        var authority = new Authority(); await using var engine = authority.Engine();
+        ((HashSet<string>)engine.SupportedCapabilities!).Add(ProtocolIds.Capabilities.EitmadCapabilityQuotationLifecycleV1);
+        var query = engine.QueryHandler!;
+        engine.QueryHandler = q => q.AsQuotationList() is null ? query(q)
+            : SalesCatalogAuthorityTests.Response(QueryResult.ForQuotations(new() { ServerAvailable = true, Items = [new() {
+                Scope = authority.Draft!.Scope, Quotation = Copy(authority.Draft.Snapshot), Revision = 1, DocumentRevision = 1,
+                State = QuotationState.Draft, ValidityDays = 30, ChangedAt = authority.Draft.UpdatedAt,
+                PermittedActions = [QuotationPermittedAction.Edit, QuotationPermittedAction.Issue],
+            }] }));
+        await using var catalog = new SalesCatalogClient(engine); await using var drafts = new QuotationDraftClient(engine);
+        var model = await Editor(catalog, drafts);
+        try
+        {
+            Assert.IsTrue(await model.SaveDraftAsync()); Assert.IsTrue(model.CanIssueQuotation);
+            var confirmed = model.DraftState; var handler = engine.CommandHandler!;
+            engine.CommandHandler = c => { handler(c); throw new IOException("Synthetic lost update reply"); };
+            Assert.IsFalse(await model.SaveDraftAsync()); var key = engine.LastIdempotencyKey;
+            Assert.IsTrue(model.HasDraftSaveFailure); Assert.IsFalse(model.CanIssueQuotation);
+            Assert.IsTrue(model.CanPreviewCustomer); Assert.AreEqual(confirmed, model.DraftState);
+            engine.CommandHandler = handler;
+            Assert.IsTrue(await model.SaveDraftAsync()); Assert.AreEqual(key, engine.LastIdempotencyKey);
+            Assert.IsFalse(model.HasDraftSaveFailure); Assert.AreEqual("", model.DraftEditState); Assert.IsTrue(model.CanIssueQuotation);
+        }
+        finally { await model.DeactivateCatalogAsync(); }
     }
     internal static async Task WaitFor(Func<bool> condition)
     {

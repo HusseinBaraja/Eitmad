@@ -14,11 +14,19 @@ public sealed partial class SalesCatalogViewModel
     private Command? retryCommand;
     private string? retryFingerprint;
     private Guid retryKey;
+    private string draftSaveError = "";
+    public string DraftSaveError => draftSaveError;
+    public bool HasDraftSaveFailure => draftSaveError.Length > 0;
+    public string DraftSaveAction => HasDraftSaveFailure ? "إعادة محاولة الحفظ" : "حفظ كمسودة";
     public bool IsLiveQuotation => catalogClient is not null;
     public bool AreCustomerDetailsReadOnly => IsLiveQuotation && !IsNewCustomer;
     public bool IsDraftBusy { get => isDraftBusy; private set { Set(ref isDraftBusy, value); RaiseDiscountState(); } }
     public bool CanReloadDraft => savedDraft is not null && !IsDraftBusy;
-    public string DraftState => savedDraft is null ? "تعديلات محلية — لم يُؤكد حفظ مسودة" : QuotationDraftClient.SyncLabel(savedDraft) + (hasUnsavedEdits ? " — تعديلات غير محفوظة" : "");
+    public string DraftState => savedDraft is null ? "لم يُؤكد حفظ مسودة" : "آخر نسخة مؤكدة الحفظ: " + QuotationDraftClient.SyncLabel(savedDraft);
+    public string DraftEditState => uncertainSave
+        ? "لم يُؤكد حفظ التعديلات الحالية. احتُفظ بها في هذه النافذة؛ أعد المحاولة لتأكيد النتيجة." + SavedDocumentNotice
+        : hasUnsavedEdits ? "التعديلات الحالية غير محفوظة. احتُفظ بها في هذه النافذة." + SavedDocumentNotice : "";
+    private string SavedDocumentNotice => savedDraft is not null ? " معاينة المستند تعتمد على النسخة المحفوظة من المحرك، لا على التعديلات في هذه النافذة." : "";
     public string FutureActionsNotice => IsLiveQuotation ? "احفظ المسودة ثم أصدر العرض بعد تأكيد الشروط. تحويل العرض إلى طلب غير متاح بعد." : "";
     public string QuotationEditorGuidance => IsLiveQuotation ? "التعديلات محلية حتى تأكيد حفظ المسودة. اختر عميلاً محفوظاً؛ الأسعار والإجمالي من المحرك." : "معاينة عرض السعر — بيانات العميل تُحفظ في محرك الاعتماد";
     public void AttachDraftClient(QuotationDraftClient client)
@@ -51,6 +59,7 @@ public sealed partial class SalesCatalogViewModel
     }
     private void ClearDraftSession()
     {
+        SetDraftSaveError("");
         DocumentInvalidated?.Invoke(this, EventArgs.Empty);
         quotationLifecycle = null; issueRetry = null; issueKey = Guid.Empty; lifecycleOnline = false; ++lifecycleRead;
         ++draftSession; ++approvalReadVersion; savedDraft = null; serverApproval = null; approvalCommand = null; approvalKey = Guid.Empty; retryCommand = null; retryFingerprint = null; draftConflict = uncertainSave = false; hasUnsavedEdits = true;
@@ -58,7 +67,13 @@ public sealed partial class SalesCatalogViewModel
         customerSearchCancellation?.Cancel(); ++customerSearchVersion; CustomerMatches.Clear();
         QuotationNumber = ""; RaiseDraftState();
     }
-    private void RaiseDraftState() { Raise(nameof(DraftState)); Raise(nameof(CanReloadDraft)); RaiseDiscountState(); }
+    private void SetDraftSaveError(string message)
+    {
+        draftSaveError = message;
+        Raise(nameof(DraftSaveError)); Raise(nameof(HasDraftSaveFailure)); Raise(nameof(DraftSaveAction));
+        Raise(nameof(CanIssueQuotation));
+    }
+    private void RaiseDraftState() { Raise(nameof(DraftState)); Raise(nameof(DraftEditState)); Raise(nameof(CanReloadDraft)); RaiseDiscountState(); }
     public async Task<bool> OpenDraftAsync(Guid id)
     {
         if (draftClient is null || IsDraftBusy) return false;
@@ -79,6 +94,7 @@ public sealed partial class SalesCatalogViewModel
         ClearQuotationEvaluation(); applyingDraft = true;
         savedDraft = draft; draftConflict = draft.SyncState is SyncState.Conflicted or SyncState.Rejected;
         retryCommand = null; retryFingerprint = null; uncertainSave = hasUnsavedEdits = false;
+        SetDraftSaveError("");
         QuotationLines.Clear();
         foreach (var intent in draft.Snapshot.Intent.Lines)
             QuotationLines.Add(new(intent, draft.Snapshot.Evaluation.Lines.Single(line => line.Id == intent.Id)));
@@ -118,6 +134,7 @@ public sealed partial class SalesCatalogViewModel
         if (!uncertainSave && retryFingerprint != fingerprint) { retryCommand = command; retryFingerprint = fingerprint; retryKey = Guid.NewGuid(); }
         var savingCurrentInput = retryFingerprint == fingerprint;
         var session = draftSession; var version = evaluationVersion;
+        SetDraftSaveError("");
         IsDraftBusy = true; QuotationNotice = "جارٍ حفظ المسودة...";
         try
         {
@@ -128,7 +145,10 @@ public sealed partial class SalesCatalogViewModel
                 uncertainSave = result.Failure == DraftFailure.Unavailable;
                 if (!uncertainSave) { retryCommand = null; retryFingerprint = null; }
                 if (result.Failure == DraftFailure.Conflict) draftConflict = true;
-                QuotationNotice = result.Errors.Length > 0 ? EvaluationMessage(result.Errors[0]) + " — لم تُحفظ تعديلاتك." : QuotationDraftClient.Message(result.Failure);
+                QuotationNotice = result.Errors.Length > 0 ? EvaluationMessage(result.Errors[0]) + " — لم تُحفظ تعديلاتك."
+                    : uncertainSave ? "تعذر تأكيد حفظ المسودة. أعد محاولة الحفظ لتأكيد النتيجة."
+                    : QuotationDraftClient.Message(result.Failure);
+                SetDraftSaveError(QuotationNotice);
                 if (result.Errors.Length > 0) { evaluation = null; RaiseEvaluation(); }
                 return false;
             }

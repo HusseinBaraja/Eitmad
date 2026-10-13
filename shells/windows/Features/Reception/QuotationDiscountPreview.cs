@@ -115,7 +115,7 @@ public sealed partial class SalesCatalogViewModel
     private void InvalidateDiscountRequest()
     {
         if (applyingDraft) return;
-        hasUnsavedEdits = true; Raise(nameof(DraftState));
+        hasUnsavedEdits = true; Raise(nameof(DraftState)); Raise(nameof(DraftEditState));
         if (approvalPreview is not null) System.ComponentModel.PropertyChangedEventManager.RemoveHandler(approvalPreview, ApprovalChanged, "");
         approvalPreview = null;
         previewDiscountOverride = null;

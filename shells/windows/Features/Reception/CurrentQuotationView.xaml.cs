@@ -35,7 +35,12 @@ public partial class CurrentQuotationView : UserControl
     }
     private void CancelCustomerClick(object sender, RoutedEventArgs e) { Model.CancelNewCustomer(); CustomerNameInput.Focus(); }
     private async void RequestApprovalClick(object sender, RoutedEventArgs e) { Model.RequestDiscountApproval(); await Model.LastApprovalRequest; if (Model.IsDiscountPending) SaveDraftButton.Focus(); else FocusMissingField(); }
-    private async void SaveDraftClick(object sender, RoutedEventArgs e) { if (!await Model.SaveDraftAsync()) FocusMissingField(); }
+    private async void SaveDraftClick(object sender, RoutedEventArgs e)
+    {
+        if (await Model.SaveDraftAsync()) return;
+        if (Model.HasDraftSaveFailure) { DraftSaveFailureNotice.BringIntoView(); SaveDraftButton.Focus(); }
+        else FocusMissingField();
+    }
     private async void ReloadDraftClick(object sender, RoutedEventArgs e)
     {
         if (System.Windows.MessageBox.Show(Window.GetWindow(this), "ستُستبدل التعديلات غير المحفوظة بالنسخة المحفوظة. هل تريد المتابعة؟", "إعادة فتح المسودة", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) != MessageBoxResult.Yes) return;
