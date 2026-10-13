@@ -20,7 +20,8 @@
     <DataTrigger Binding="{Binding IsManagerDashboard, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True"><Setter Property="Columns" Value="2"/></DataTrigger>
    </Style.Triggers>
   </Style>
-  <Style x:Key="HomeCount" TargetType="TextBlock"><Setter Property="FontSize" Value="25"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="FlowDirection" Value="LeftToRight"/><Setter Property="HorizontalAlignment" Value="Right"/><Setter Property="Margin" Value="0,8,0,0"/></Style>
+  <!-- Alignment is relative to the RTL parent; keep LTR counts under their labels. -->
+  <Style x:Key="HomeCount" TargetType="TextBlock"><Setter Property="FontSize" Value="25"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="FlowDirection" Value="LeftToRight"/><Setter Property="HorizontalAlignment" Value="Left"/><Setter Property="Margin" Value="0,8,0,0"/></Style>
  </UserControl.Resources>
  <Grid>
   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
