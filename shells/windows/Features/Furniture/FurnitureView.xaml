@@ -1126,7 +1126,7 @@
                 </Border>
             </Grid>
         </controls:DialogHost>
-        <controls:DialogHost x:Name="VariantDialog" IsEnabled="{Binding CanEditFields}" Panel.ZIndex="31" IsOpen="{Binding IsVariantEditorOpen}" Title="{Binding VariantEditorTitle}" PreferredWidth="520" FlowDirection="RightToLeft" CloseRequested="CancelVariantClick" InitialFocusTarget="{Binding ElementName=VariantNameBox}">
+        <controls:DialogHost x:Name="VariantDialog" IsEnabled="{Binding CanEditFields}" Panel.ZIndex="31" IsOpen="{Binding IsVariantEditorOpen}" Title="{Binding VariantEditorTitle}" PreferredWidth="640" Padding="20" FooterMargin="0,12,0,0" FlowDirection="RightToLeft" CloseRequested="CancelVariantClick" InitialFocusTarget="{Binding ElementName=VariantNameBox}">
             <controls:DialogHost.Footer>
                 <StackPanel Orientation="Horizontal" FlowDirection="LeftToRight" HorizontalAlignment="Left">
                     <Button Style="{StaticResource PrimaryButton}" Height="43" Click="SaveVariantClick" automation:AutomationProperties.Name="حفظ المقاس">
@@ -1136,47 +1136,83 @@
                 </StackPanel>
             </controls:DialogHost.Footer>
             <StackPanel TextElement.FontSize="14">
-                <TextBlock Text="هذا مقاس ثابت يختاره موظف الاستقبال كما هو." Foreground="{StaticResource MutedBrush}" FontSize="13" Margin="0,4,0,18" />
-                <controls:FormField Label="اسم المقاس">
-                    <TextBox x:Name="VariantNameBox" Text="{Binding VariantName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" automation:AutomationProperties.Name="اسم المقاس" />
-                </controls:FormField>
-                <UniformGrid Columns="3" Margin="-5,16,-5,0">
-                    <StackPanel Margin="5,0">
+                <TextBlock Text="المقاس الثابت" FontSize="16" FontWeight="SemiBold" Margin="0,8,0,8" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.5*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <controls:FormField Label="اسم المقاس" Margin="0,0,8,0">
+                        <TextBox x:Name="VariantNameBox" Text="{Binding VariantName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" automation:AutomationProperties.Name="اسم المقاس" />
+                    </controls:FormField>
+                    <StackPanel Grid.Column="1" Margin="0,0,8,0">
                         <controls:FormField Label="العرض (سم)">
                             <TextBox Text="{Binding VariantWidth, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Style="{StaticResource TextInput}" FlowDirection="LeftToRight" TextAlignment="Center" />
                         </controls:FormField>
                     </StackPanel>
-                    <StackPanel Margin="5,0">
+                    <StackPanel Grid.Column="2" Margin="0,0,8,0">
                         <controls:FormField Label="الارتفاع (سم)">
                             <TextBox Text="{Binding VariantHeight, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Style="{StaticResource TextInput}" FlowDirection="LeftToRight" TextAlignment="Center" />
                         </controls:FormField>
                     </StackPanel>
-                    <StackPanel Margin="5,0">
+                    <StackPanel Grid.Column="3">
                         <controls:FormField Label="العمق (سم)">
                             <TextBox Text="{Binding VariantDepth, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Style="{StaticResource TextInput}" FlowDirection="LeftToRight" TextAlignment="Center" />
                         </controls:FormField>
                     </StackPanel>
-                </UniformGrid>
-                <CheckBox Style="{StaticResource FormCheckBox}" Content="السماح بتخصيص المقاس" IsChecked="{Binding AllowCustomization}" Margin="0,14,0,8" automation:AutomationProperties.Name="السماح بتخصيص المقاس" />
+                </Grid>
+                <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0" Margin="0,12,0,0" Padding="0,8,0,0">
+                    <CheckBox Style="{StaticResource FormCheckBox}" Content="السماح بتخصيص المقاس" IsChecked="{Binding AllowCustomization}" automation:AutomationProperties.Name="السماح بتخصيص المقاس" />
+                </Border>
                 <StackPanel Visibility="{Binding AllowCustomization, Converter={StaticResource BooleanToVisibility}}">
+                    <UniformGrid Columns="3" Margin="0,6,0,4">
+                        <TextBlock Text="العرض" FontWeight="SemiBold" TextAlignment="Center" />
+                        <TextBlock Text="الارتفاع" FontWeight="SemiBold" TextAlignment="Center" />
+                        <TextBlock Text="العمق" FontWeight="SemiBold" TextAlignment="Center" />
+                    </UniformGrid>
                     <TextBlock Text="الحد الأدنى (سم)" />
-                    <UniformGrid Columns="3" Margin="0,4,0,8">
-                        <TextBox Text="{Binding MinWidth, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Style="{StaticResource TextInput}" FlowDirection="LeftToRight" automation:AutomationProperties.Name="أقل عرض" />
-                        <TextBox Text="{Binding MinHeight, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Style="{StaticResource TextInput}" FlowDirection="LeftToRight" automation:AutomationProperties.Name="أقل ارتفاع" />
-                        <TextBox Text="{Binding MinDepth, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Style="{StaticResource TextInput}" FlowDirection="LeftToRight" automation:AutomationProperties.Name="أقل عمق" />
+                    <UniformGrid Columns="3" Margin="-4,4,-4,8">
+                        <TextBox Text="{Binding MinWidth, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Style="{StaticResource TextInput}" Margin="4,0" FlowDirection="LeftToRight" TextAlignment="Center" automation:AutomationProperties.Name="أقل عرض" />
+                        <TextBox Text="{Binding MinHeight, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Style="{StaticResource TextInput}" Margin="4,0" FlowDirection="LeftToRight" TextAlignment="Center" automation:AutomationProperties.Name="أقل ارتفاع" />
+                        <TextBox Text="{Binding MinDepth, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Style="{StaticResource TextInput}" Margin="4,0" FlowDirection="LeftToRight" TextAlignment="Center" automation:AutomationProperties.Name="أقل عمق" />
                     </UniformGrid>
                     <TextBlock Text="الحد الأقصى (سم)" />
-                    <UniformGrid Columns="3" Margin="0,4,0,8">
-                        <TextBox Text="{Binding MaxWidth, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Style="{StaticResource TextInput}" FlowDirection="LeftToRight" automation:AutomationProperties.Name="أكبر عرض" />
-                        <TextBox Text="{Binding MaxHeight, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Style="{StaticResource TextInput}" FlowDirection="LeftToRight" automation:AutomationProperties.Name="أكبر ارتفاع" />
-                        <TextBox Text="{Binding MaxDepth, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Style="{StaticResource TextInput}" FlowDirection="LeftToRight" automation:AutomationProperties.Name="أكبر عمق" />
+                    <UniformGrid Columns="3" Margin="-4,4,-4,8">
+                        <TextBox Text="{Binding MaxWidth, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Style="{StaticResource TextInput}" Margin="4,0" FlowDirection="LeftToRight" TextAlignment="Center" automation:AutomationProperties.Name="أكبر عرض" />
+                        <TextBox Text="{Binding MaxHeight, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Style="{StaticResource TextInput}" Margin="4,0" FlowDirection="LeftToRight" TextAlignment="Center" automation:AutomationProperties.Name="أكبر ارتفاع" />
+                        <TextBox Text="{Binding MaxDepth, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Style="{StaticResource TextInput}" Margin="4,0" FlowDirection="LeftToRight" TextAlignment="Center" automation:AutomationProperties.Name="أكبر عمق" />
                     </UniformGrid>
                 </StackPanel>
-                <TextBlock Text="الألوان المتوافقة — اتركها دون تحديد للسماح بكل الألوان" TextWrapping="Wrap" Margin="0,10,0,4" />
-                <ItemsControl ItemsSource="{Binding VariantColorChoices}"><ItemsControl.ItemTemplate><DataTemplate><CheckBox Style="{StaticResource FormCheckBox}" Content="{Binding Name}" IsChecked="{Binding Selected}" automation:AutomationProperties.Name="{Binding Name}" /></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
-                <TextBlock Text="المقابض المتوافقة — اتركها دون تحديد للسماح بكل المقابض" TextWrapping="Wrap" Margin="0,10,0,4" />
-                <ItemsControl ItemsSource="{Binding VariantHandleChoices}"><ItemsControl.ItemTemplate><DataTemplate><CheckBox Style="{StaticResource FormCheckBox}" Content="{Binding Name}" IsChecked="{Binding Selected}" automation:AutomationProperties.Name="{Binding Name}" /></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
-                <TextBlock Text="{Binding EditorError}" Foreground="{StaticResource DangerBrush}" FontSize="14" Margin="0,10,0,0" />
+                <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0" Margin="0,12,0,0" Padding="0,10,0,0">
+                    <StackPanel>
+                        <TextBlock Text="الخيارات المتوافقة" FontSize="16" FontWeight="SemiBold" />
+                        <TextBlock Text="حدّد الخيارات المسموحة لهذا المقاس. دون تحديد في القائمة، تُسمح كل خياراتها." Foreground="{DynamicResource MutedBrush}" FontSize="13" Margin="0,4,0,8" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="الألوان" FontWeight="SemiBold" Margin="0,0,0,4" />
+                                <ItemsControl ItemsSource="{Binding VariantColorChoices}"><ItemsControl.ItemTemplate><DataTemplate><CheckBox Style="{StaticResource FormCheckBox}" Content="{Binding Name}" IsChecked="{Binding Selected}" automation:AutomationProperties.Name="{Binding Name}" /></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="المقابض" FontWeight="SemiBold" Margin="0,0,0,4" />
+                                <ItemsControl ItemsSource="{Binding VariantHandleChoices}"><ItemsControl.ItemTemplate><DataTemplate><CheckBox Style="{StaticResource FormCheckBox}" Content="{Binding Name}" IsChecked="{Binding Selected}" automation:AutomationProperties.Name="{Binding Name}" /></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+                <TextBlock Text="{Binding EditorError}" Foreground="{StaticResource DangerBrush}" FontSize="14" Margin="0,10,0,0">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                            <Style.Triggers><Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed" /></Trigger></Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
             </StackPanel>
         </controls:DialogHost>
         <controls:DialogHost Panel.ZIndex="32" IsOpen="{Binding IsColorEditorOpen}" Title="إضافة لون" PreferredWidth="500" FlowDirection="RightToLeft" CloseRequested="CancelColorClick" InitialFocusTarget="{Binding ElementName=ColorNameBox}">
