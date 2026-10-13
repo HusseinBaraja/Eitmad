@@ -75,6 +75,7 @@ public sealed class CustomerDocumentsRenderedTests
             AssertFitsWidth(draftPreview.Pages);
             Assert.IsTrue(new TextRange(draftPreview.Document.ContentStart, draftPreview.Document.ContentEnd).Text.Contains("غير مرقم"));
             WpfTestHost.Capture(window, $"saved-document-draft-{width}");
+            ExportPages(draftPreview.Document, "saved-draft", width == 1338, "47,500");
         });
     }
 
@@ -123,6 +124,8 @@ public sealed class CustomerDocumentsRenderedTests
         WpfTestHost.Run(width, height, window => {
             if (width == 1920) { window.Left = 0; window.WindowState = WindowState.Maximized; }
             var saved = Saved(); saved.Lines = Enumerable.Range(0, 36).Select(i => new CustomerDocumentLine { Name = $"خزانة تجريبية A-{i}", Description = "نص عربي طويل لقياس التفاف السطر", VariantName = "بابان", Dimensions = new() { WidthMm = 1200, HeightMm = 1800, DepthMm = 600 }, Quantity = 1, UnitPriceYer = 12500, TotalYer = 12500 }).ToArray();
+            // Keep the customer's technical identifier separate from the line-identity proof.
+            saved.Customer.Name = "شركة الأثاث التجريبية";
             saved.SubtotalYer = 450000; saved.DiscountYer = 22500; saved.TotalYer = 427500;
             var document = QuotationCustomerDocument.CreateSaved(saved);
             var paginator = ((IDocumentPaginatorSource)document).DocumentPaginator; paginator.ComputePageCount();
@@ -139,7 +142,8 @@ public sealed class CustomerDocumentsRenderedTests
             Assert.AreEqual(preview.Pages.PageCount, preview.Pages.MasterPageNumber);
             WpfTestHost.Capture(window, $"saved-document-multipage-last-{width}");
             AssertNativePreviewCommands(window, preview, width);
-            ExportPages(document, "saved-quotation-multipage", width == 1338, "427,500", "خزانة تجريبية");
+            ExportPages(document, "saved-quotation-multipage", width == 1338, "427,500", "خزانة تجريبية",
+                Enumerable.Range(0, saved.Lines.Length).Select(index => $"A-{index}").ToArray());
         });
     }
 
@@ -213,7 +217,7 @@ public sealed class CustomerDocumentsRenderedTests
         }
     }
 
-    private static void ExportPages(FlowDocument document, string name, bool capture, string expectedTotal, string? expectedArabic = null)
+    private static void ExportPages(FlowDocument document, string name, bool capture, string expectedTotal, string? expectedArabic = null, string[]? lineIdentifiers = null)
     {
         if (!capture) return;
         var captureDirectory = Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR");
@@ -224,10 +228,25 @@ public sealed class CustomerDocumentsRenderedTests
         using (var xps = new XpsDocument(path, FileAccess.ReadWrite)) XpsDocument.CreateXpsDocumentWriter(xps).Write(new CustomerDocumentPages(document));
         using var output = new XpsDocument(path, FileAccess.Read);
         var paginator = output.GetFixedDocumentSequence().DocumentPaginator; paginator.ComputePageCount();
+        Console.WriteLine($"Export {name}: {paginator.PageCount} pages, {document.PageWidth:0.0}x{document.PageHeight:0.0} DIP at 96 DPI.");
         var exportedText = "";
+        var exportedIdentifiers = new List<string>();
         for (var index = 0; index < paginator.PageCount; index++) {
             var page = paginator.GetPage(index); Assert.AreNotSame(DocumentPage.Missing, page);
-            exportedText += string.Concat(WpfTestHost.Descendants<Glyphs>(page.Visual).Select(glyph => glyph.UnicodeString));
+            var glyphText = WpfTestHost.Descendants<Glyphs>(page.Visual).Select(glyph => glyph.UnicodeString).ToArray();
+            var pageText = string.Concat(glyphText);
+            exportedText += pageText;
+            if (lineIdentifiers is not null) {
+                var identifiers = System.Text.RegularExpressions.Regex.Matches(pageText, @"A-\d+")
+                    .Select(match => match.Value).ToArray();
+                exportedIdentifiers.AddRange(identifiers);
+                if (index > 0 && identifiers.Length > 0)
+                    foreach (var header in new[] { "الصنف", "الخيارات المحددة", "الكمية", "سعر الوحدة", "الإجمالي" })
+                        Assert.IsTrue(pageText.Contains(header), $"Continuation page {index + 1} is missing item header {header}.");
+                if (pageText.Contains(expectedTotal))
+                    foreach (var label in new[] { "المجموع الفرعي", "نسبة الخصم", "الخصم", "الإجمالي النهائي" })
+                        Assert.IsTrue(pageText.Contains(label), "Financial totals must stay together on the final page.");
+            }
             if (string.IsNullOrEmpty(captureDirectory)) continue;
             var bitmap = new RenderTargetBitmap((int)Math.Ceiling(page.Size.Width), (int)Math.Ceiling(page.Size.Height), 96, 96, PixelFormats.Pbgra32);
             bitmap.Render(page.Visual);
@@ -235,6 +254,7 @@ public sealed class CustomerDocumentsRenderedTests
             using var stream = File.Create(Path.Combine(directory, $"{name}-{index + 1}.png")); encoder.Save(stream);
         }
         Assert.IsTrue(exportedText.Contains(expectedTotal), "Native export must retain the saved final total, not only the page decorations.");
+        if (lineIdentifiers is not null) CollectionAssert.AreEquivalent(lineIdentifiers, exportedIdentifiers.ToArray(), "Every saved line must appear exactly once in native export.");
         if (expectedArabic is not null) Assert.IsTrue(exportedText.Contains(expectedArabic), "Native export must retain Arabic text.");
         output.Close();
         if (string.IsNullOrEmpty(captureDirectory)) { File.Delete(path); Directory.Delete(directory); }
