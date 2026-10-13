@@ -33,6 +33,7 @@ public sealed class UsersViewModel : ObservableObject
     private bool isEditorOpen, isDeactivationOpen, isBusy;
     private string editorName = "", editorRole = "مدير", editorError = "", editorTitle = "", deactivationName = "";
     private string editorUsername = "";
+    private string deactivationUsername = "";
     private UserPreview? editing, deactivating;
 
     public IReadOnlyList<string> Roles { get; } = ["مدير", "موظف الاستقبال"];
@@ -53,6 +54,7 @@ public sealed class UsersViewModel : ObservableObject
     public string EditorError { get => editorError; private set => Set(ref editorError, value); }
     public string EditorTitle { get => editorTitle; private set => Set(ref editorTitle, value); }
     public string DeactivationName { get => deactivationName; private set => Set(ref deactivationName, value); }
+    public string DeactivationUsername { get => deactivationUsername; private set => Set(ref deactivationUsername, value); }
 
     public void Attach(IEngineShellBridge bridge) => engine = bridge;
 
@@ -160,6 +162,7 @@ public sealed class UsersViewModel : ObservableObject
         if (!users.Contains(user) || !user.IsActive) return;
         deactivating = user;
         DeactivationName = user.Name;
+        DeactivationUsername = user.Username;
         EditorError = "";
         IsDeactivationOpen = true;
     }

@@ -76,6 +76,37 @@ public sealed class UsersPresentationTests
     }
 
     [TestMethod]
+    public async Task SameDisplayNameKeepsDeactivationIdentityAndTargetDistinct()
+    {
+        var engine = Engine();
+        engine.DesktopAccounts[1].DisplayName = engine.DesktopAccounts[0].DisplayName;
+        var vm = new UsersViewModel();
+        vm.Attach(engine);
+        Assert.IsTrue(await vm.LoadAsync());
+        var first = vm.VisibleUsers[0];
+        var second = vm.VisibleUsers[1];
+
+        vm.BeginDeactivation(first);
+        Assert.AreEqual(first.Name, vm.DeactivationName);
+        Assert.AreEqual(first.Username, vm.DeactivationUsername);
+        vm.CancelDeactivation();
+        Assert.IsNull(engine.LastCommand);
+
+        vm.BeginDeactivation(second);
+        Assert.AreEqual(second.Name, vm.DeactivationName);
+        Assert.AreEqual(second.Username, vm.DeactivationUsername);
+        Assert.IsTrue(await vm.DeactivateAsync());
+        var command = engine.LastCommand?.AsDesktopAccountDeactivate();
+        Assert.IsNotNull(command);
+        Assert.AreEqual(second.AccountId, command.AccountId);
+        Assert.AreEqual(3L, command.ExpectedRevision);
+        Assert.IsTrue(vm.VisibleUsers.Single(user => user.AccountId == first.AccountId).IsActive);
+        Assert.IsFalse(vm.VisibleUsers.Single(user => user.AccountId == second.AccountId).IsActive);
+        Assert.AreEqual(first.Role, vm.VisibleUsers.Single(user => user.AccountId == first.AccountId).Role);
+        Assert.AreEqual(second.Role, vm.VisibleUsers.Single(user => user.AccountId == second.AccountId).Role);
+    }
+
+    [TestMethod]
     public async Task ValidationAndLastManagerFailureKeepTheEditorState()
     {
         var engine = Engine();

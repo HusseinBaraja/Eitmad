@@ -19,6 +19,74 @@ public sealed class UsersRenderedTests
     }
 
     [TestMethod]
+    [DataRow(1920d, 1080d)]
+    [DataRow(1338d, 753d)]
+    [DataRow(720d, 560d)]
+    public void SameDisplayNameShowsDistinctLoginIdentitiesInRowsAndConfirmation(double width, double height)
+    {
+        var engine = Engine();
+        engine.DesktopAccounts[1].DisplayName = engine.DesktopAccounts[0].DisplayName;
+        WpfTestHost.Run(width, height, window =>
+        {
+            WpfTestHost.FindByName<Button>(window, "UsersNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            if (width == 1920) window.WindowState = WindowState.Maximized;
+            WpfTestHost.CompleteLayout(window);
+            var view = WpfTestHost.Descendants<UsersView>(window).Single();
+            var table = WpfTestHost.FindByName<OperationsTable>(view, "UsersTable");
+            var dpi = System.Windows.Media.VisualTreeHelper.GetDpi(window);
+            var geometry = $"Requested {width}x{height}; actual window {window.ActualWidth}x{window.ActualHeight} DIP; primary display {SystemParameters.PrimaryScreenWidth}x{SystemParameters.PrimaryScreenHeight} DIP; scaling {dpi.DpiScaleX * 100:0}%; WPF RenderTargetBitmap at 96 DPI; synthetic account responses.";
+            Console.WriteLine(geometry);
+            if (Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR") is { Length: > 0 } directory)
+            {
+                System.IO.Directory.CreateDirectory(directory);
+                System.IO.File.WriteAllText(System.IO.Path.Combine(directory, $"ui39-{width}.txt"), geometry);
+            }
+
+            foreach (var user in view.ViewModel.VisibleUsers)
+            {
+                table.ScrollIntoView(user);
+                WpfTestHost.CompleteLayout(window);
+                var row = (DataGridRow)table.ItemContainerGenerator.ContainerFromItem(user);
+                Assert.IsNotNull(row);
+                Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(row).Any(text => text.IsVisible && text.Text == user.Name));
+                AssertIdentityFits(row, user.Username);
+                AssertIdentityFits(table, user.Username);
+                if (width == 720) WpfTestHost.Capture(window, $"ui39-users-list-{user.Username}-720");
+            }
+            WpfTestHost.Capture(window, $"ui39-users-list-{width}");
+            foreach (var user in view.ViewModel.VisibleUsers)
+            {
+                view.ViewModel.BeginDeactivation(user);
+                WpfTestHost.CompleteLayout(window);
+                var dialog = WpfTestHost.Descendants<DialogHost>(view).Single(host => host.IsOpen);
+                Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(dialog).Any(text => text.IsVisible && text.Text == user.Name));
+                AssertIdentityFits(dialog, user.Username);
+                WpfTestHost.Capture(window, $"ui39-users-deactivate-{user.Username}-{width}");
+                if (width == 720 && user.Username == "a.ali")
+                {
+                    view.Resources[SystemParameters.HighContrastKey] = true;
+                    view.Resources["MutedBrush"] = SystemColors.GrayTextBrush;
+                    WpfTestHost.CompleteLayout(window);
+                    AssertIdentityFits(dialog, user.Username);
+                    WpfTestHost.Capture(window, "ui39-users-deactivate-system-colors-720");
+                }
+                view.ViewModel.CancelDeactivation();
+                WpfTestHost.CompleteLayout(window);
+            }
+        }, engine: engine);
+    }
+
+    private static void AssertIdentityFits(FrameworkElement container, string username)
+    {
+        var identity = WpfTestHost.Descendants<TextBlock>(container).Single(text => text.IsVisible && text.Text == username);
+        Assert.AreEqual(FlowDirection.LeftToRight, identity.FlowDirection);
+        var bounds = identity.TransformToAncestor(container).TransformBounds(new Rect(identity.RenderSize));
+        Assert.IsTrue(identity.ActualWidth > 0 && identity.ActualHeight > 0);
+        Assert.IsTrue(bounds.Left >= -1 && bounds.Right <= container.ActualWidth + 1);
+        Assert.IsTrue(bounds.Top >= -1 && bounds.Bottom <= container.ActualHeight + 1);
+    }
+
+    [TestMethod]
     [DataRow(720d)]
     [DataRow(1338d)]
     public void EditorUsesAvailableWidthAndKeepsEnlargedControlsReachable(double width)

@@ -21,7 +21,14 @@
    <controls:OperationsTable x:Name="UsersTable" Grid.Row="2" ItemsSource="{Binding VisibleUsers}" AutomationProperties.Name="قائمة المستخدمين" VerticalAlignment="Top" RowHeight="68">
     <controls:OperationsTable.EmptyContent><controls:EmptyState Heading="لا يوجد مستخدمون مطابقون" Description="جرّب تغيير البحث أو عوامل التصفية."/></controls:OperationsTable.EmptyContent>
     <DataGrid.Columns>
-     <DataGridTextColumn Header="المستخدم" Binding="{Binding Name}" Width="2*" MinWidth="180" ElementStyle="{StaticResource TableBody}"/>
+     <DataGridTemplateColumn Header="المستخدم" SortMemberPath="Name" Width="2*" MinWidth="180">
+      <DataGridTemplateColumn.CellTemplate><DataTemplate>
+       <StackPanel VerticalAlignment="Center">
+        <TextBlock Text="{Binding Name}" Style="{StaticResource TableBody}"/>
+        <TextBlock Text="{Binding Username}" Style="{StaticResource TableBody}" FontSize="12" Foreground="{DynamicResource MutedBrush}" FlowDirection="LeftToRight" TextTrimming="CharacterEllipsis" ToolTip="{Binding Username}"/>
+       </StackPanel>
+      </DataTemplate></DataGridTemplateColumn.CellTemplate>
+     </DataGridTemplateColumn>
      <DataGridTextColumn Header="الدور" controls:OperationsTable.IsCompactDetail="True" Binding="{Binding Role}" Width="*" MinWidth="160" ElementStyle="{StaticResource TableBody}"/>
      <DataGridTemplateColumn Header="الحالة" Width="*" MinWidth="115" SortMemberPath="Status">
       <DataGridTemplateColumn.CellTemplate><DataTemplate>
@@ -80,7 +87,11 @@
   </ScrollViewer>
  </Grid>
   <controls:DialogHost Grid.RowSpan="2" IsOpen="{Binding IsDeactivationOpen}" Title="تعطيل المستخدم" PreferredWidth="460" Padding="28" CloseRequested="CancelDeactivateClick" InitialFocusTarget="{Binding ElementName=CancelDeactivateButton}">
-   <StackPanel><TextBlock Text="{Binding DeactivationName}" FontWeight="SemiBold" Margin="0,0,0,12"/><TextBlock Text="سيُمنع هذا المستخدم من تسجيل الدخول، وستنتهي جلساته المفتوحة. سيبقى الحساب في القائمة بحالة غير نشط." TextWrapping="Wrap"/></StackPanel>
+   <StackPanel>
+    <TextBlock Text="{Binding DeactivationName}" FontWeight="SemiBold"/>
+    <TextBlock Text="{Binding DeactivationUsername}" FontSize="12" Foreground="{DynamicResource MutedBrush}" FlowDirection="LeftToRight" TextAlignment="Right" TextWrapping="Wrap" Margin="0,0,0,12"/>
+    <TextBlock Text="سيُمنع هذا المستخدم من تسجيل الدخول، وستنتهي جلساته المفتوحة. سيبقى الحساب في القائمة بحالة غير نشط." TextWrapping="Wrap"/>
+   </StackPanel>
    <controls:DialogHost.Footer><StackPanel Orientation="Horizontal">
     <Button Content="تعطيل المستخدم" Style="{StaticResource PrimaryButton}" Click="ConfirmDeactivateClick" AutomationProperties.Name="تأكيد تعطيل المستخدم"/>
     <Button x:Name="CancelDeactivateButton" Content="إلغاء" Style="{StaticResource SecondaryButton}" Margin="10,0,0,0" Click="CancelDeactivateClick" AutomationProperties.Name="إلغاء تعطيل المستخدم"/>
