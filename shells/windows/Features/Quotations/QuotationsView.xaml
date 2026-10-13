@@ -1,5 +1,15 @@
 <UserControl x:Class="Eitmad.WindowsShell.Features.Quotations.QuotationsView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls" xmlns:layout="clr-namespace:Eitmad.WindowsShell.Layout" xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore" Language="ar-YE" FlowDirection="RightToLeft" Background="{StaticResource CanvasBrush}">
     <UserControl.Resources>
+        <Style x:Key="LifecycleBusyNotice" TargetType="controls:FeedbackNotice" BasedOn="{StaticResource {x:Type controls:FeedbackNotice}}">
+            <Setter Property="Message" Value="جارٍ تأكيد العملية. انتظر قبل تنفيذ إجراء آخر." />
+            <Setter Property="Margin" Value="0,0,0,12" />
+            <Setter Property="Visibility" Value="Collapsed" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding LifecycleAvailable}" Value="False">
+                    <Setter Property="Visibility" Value="Visible" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
         <Style x:Key="StatusBadge" TargetType="controls:StatusBadge" BasedOn="{StaticResource {x:Type controls:StatusBadge}}">
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsDraft}" Value="True">
@@ -173,6 +183,27 @@
             </controls:PageHeader>
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                 <StackPanel Margin="32,22,32,30">
+                    <Border x:Name="QuotationIdentity" Style="{StaticResource Card}" Padding="20" Margin="0,0,0,16">
+                        <WrapPanel>
+                            <StackPanel Width="220" Margin="0,0,0,9">
+                                <TextBlock Text="رقم عرض السعر" Style="{StaticResource MetadataLabel}" />
+                                <TextBlock Text="{Binding SelectedQuotation.Number}" Style="{StaticResource MetadataValue}" FlowDirection="LeftToRight" TextAlignment="Right" />
+                            </StackPanel>
+                            <StackPanel Width="180" Margin="0,0,0,9">
+                                <TextBlock Text="الحالة" Style="{StaticResource MetadataLabel}" />
+                                <controls:StatusBadge x:Name="DetailStatusBadge" DataContext="{Binding SelectedQuotation}" Margin="0,5,0,0" Padding="12,3" HorizontalAlignment="Left" Text="{Binding StatusLabel}" Style="{StaticResource StatusBadge}"></controls:StatusBadge>
+                            </StackPanel>
+                            <StackPanel Width="250" Margin="0,0,0,9">
+                                <TextBlock Text="العميل" Style="{StaticResource MetadataLabel}" />
+                                <TextBlock Text="{Binding SelectedQuotation.Customer}" Style="{StaticResource MetadataValue}" />
+                                <Button Content="تفاصيل العميل" Style="{StaticResource InlineActionButton}" HorizontalAlignment="Left" Click="CustomerClick" Visibility="{Binding IsReceptionist, Converter={StaticResource BooleanToVisibility}}" AutomationProperties.Name="فتح تفاصيل عميل عرض السعر"/>
+                            </StackPanel>
+                            <StackPanel Width="160" Margin="0,0,0,9">
+                                <TextBlock Text="التاريخ" Style="{StaticResource MetadataLabel}" />
+                                <TextBlock Text="{Binding SelectedQuotation.DateLabel}" Style="{StaticResource MetadataValue}" FlowDirection="LeftToRight" TextAlignment="Right" />
+                            </StackPanel>
+                        </WrapPanel>
+                    </Border>
                     <controls:FeedbackNotice x:Name="DraftNotice" Message="{Binding SelectedQuotation.DraftNotice}" Visibility="{Binding SelectedQuotation.HasDraft, Converter={StaticResource BooleanToVisibility}}" Margin="0,0,0,12"/>
                     <Border x:Name="ApprovalSection" Style="{StaticResource Card}" Padding="20" Margin="0,0,0,16" Visibility="{Binding ShowManagerApproval, Converter={StaticResource BooleanToVisibility}}">
                         <StackPanel>
@@ -193,28 +224,44 @@
                         </StackPanel>
                     </Border>
                     <controls:FeedbackNotice Message="{Binding SelectedQuotation.ApprovalDecisionLabel}" Visibility="{Binding SelectedQuotation.HasApprovalDecision, Converter={StaticResource BooleanToVisibility}}" Margin="0,0,0,12"/>
-                    <StackPanel Margin="0,0,0,16" IsEnabled="{Binding LifecycleAvailable}">
-                        <StackPanel Visibility="{Binding SelectedQuotation.CanAccept, Converter={StaticResource BooleanToVisibility}}">
-                            <TextBlock Text="طريقة قبول العميل"/>
-                            <ComboBox ItemsSource="{Binding AcceptanceMethods}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding AcceptanceMethod}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="طريقة قبول عرض السعر"/>
-                            <TextBlock Text="ملاحظة القبول" Margin="0,8,0,4"/>
-                            <TextBox Text="{Binding AcceptanceNote, UpdateSourceTrigger=PropertyChanged}" MaxLength="240" Style="{StaticResource TextInput}" automation:AutomationProperties.Name="ملاحظة قبول العميل"/>
-                            <Button Content="تسجيل قبول العميل" Click="AcceptClick" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Right" Margin="0,8,0,8" automation:AutomationProperties.Name="تأكيد قبول العميل لعرض السعر"/>
+                    <controls:FeedbackNotice Message="{Binding LifecycleNotice}" Margin="0,0,0,12"/>
+                    <Button Content="إعادة محاولة العملية" Click="RetryLifecycleClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,0,0,16" Visibility="{Binding CanRetryLifecycle, Converter={StaticResource BooleanToVisibility}}" automation:AutomationProperties.Name="إعادة محاولة عملية عرض السعر السابقة"/>
+                    <Border x:Name="AcceptanceSection" Style="{StaticResource Card}" Padding="20" Margin="0,0,0,16" Visibility="{Binding SelectedQuotation.CanAccept, Converter={StaticResource BooleanToVisibility}}">
+                        <StackPanel>
+                            <TextBlock Text="قبول العميل" Style="{StaticResource SectionTitle}"/>
+                            <TextBlock Text="سجّل قبول العميل لهذا الإصدار قبل تحويله إلى طلب." Foreground="{StaticResource MutedBrush}" Margin="0,6,0,12"/>
+                            <controls:FeedbackNotice Style="{StaticResource LifecycleBusyNotice}"/>
+                            <StackPanel IsEnabled="{Binding LifecycleAvailable}">
+                                <controls:FormField Label="طريقة قبول العميل" Margin="0,0,0,12">
+                                    <ComboBox ItemsSource="{Binding AcceptanceMethods}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding AcceptanceMethod}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="طريقة قبول عرض السعر"/>
+                                </controls:FormField>
+                                <controls:FormField Label="ملاحظة القبول (اختيارية)">
+                                    <TextBox Text="{Binding AcceptanceNote, UpdateSourceTrigger=PropertyChanged}" MaxLength="240" Style="{StaticResource TextInput}" automation:AutomationProperties.Name="ملاحظة قبول العميل"/>
+                                </controls:FormField>
+                                <Button Content="تسجيل قبول العميل" Click="AcceptClick" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Right" Margin="0,12,0,0" automation:AutomationProperties.Name="تأكيد قبول العميل لعرض السعر"/>
+                            </StackPanel>
                         </StackPanel>
-                        <StackPanel Visibility="{Binding SelectedQuotation.ShowValidityInput, Converter={StaticResource BooleanToVisibility}}"><TextBlock Text="مدة الصلاحية بالأيام" Margin="0,0,0,4"/>
-                        <TextBox Text="{Binding ValidityInput, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" TextAlignment="Right" automation:AutomationProperties.Name="مدة صلاحية عرض السعر بالأيام"/></StackPanel>
-                        <StackPanel Visibility="{Binding SelectedQuotation.ShowCancellationReason, Converter={StaticResource BooleanToVisibility}}"><TextBlock Text="سبب إلغاء العرض" Margin="0,8,0,4"/>
-                        <TextBox Text="{Binding CancellationReason, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" MaxLength="240" Margin="0,8,0,8" automation:AutomationProperties.Name="سبب إلغاء عرض السعر"/></StackPanel>
-                        <WrapPanel>
-                            <Button Content="إصدار عرض السعر" Click="IssueClick" Style="{StaticResource PrimaryButton}" Margin="0,0,8,8" Visibility="{Binding SelectedQuotation.CanIssue, Converter={StaticResource BooleanToVisibility}}" automation:AutomationProperties.Name="إصدار عرض السعر"/>
-                            <Button Content="تعديل الصلاحية" Click="ValidityClick" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" Visibility="{Binding SelectedQuotation.CanManageValidity, Converter={StaticResource BooleanToVisibility}}" automation:AutomationProperties.Name="تعديل صلاحية عرض السعر"/>
-                            <Button Content="إصدار جديد" Click="ReviseClick" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" Visibility="{Binding SelectedQuotation.CanRevise, Converter={StaticResource BooleanToVisibility}}" automation:AutomationProperties.Name="إنشاء إصدار جديد من عرض السعر"/>
-                            <Button Content="إلغاء العرض" Click="CancelQuotationClick" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" Visibility="{Binding SelectedQuotation.CanCancel, Converter={StaticResource BooleanToVisibility}}" automation:AutomationProperties.Name="إلغاء عرض السعر مع حفظ السجل"/>
-                            <Button Content="طباعة" Click="PrintQuotationClick" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" Visibility="{Binding SelectedQuotation.CanPrintConfirmed, Converter={StaticResource BooleanToVisibility}}" automation:AutomationProperties.Name="طباعة عرض السعر المؤكد"/>
-                            <Button Content="إعادة محاولة العملية" Click="RetryLifecycleClick" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" Visibility="{Binding CanRetryLifecycle, Converter={StaticResource BooleanToVisibility}}" automation:AutomationProperties.Name="إعادة محاولة عملية عرض السعر السابقة"/>
-                        </WrapPanel>
-                        <controls:FeedbackNotice Message="{Binding LifecycleNotice}"/>
-                    </StackPanel>
+                    </Border>
+                    <Border x:Name="DocumentActionsSection" Style="{StaticResource Card}" Padding="20" Margin="0,0,0,16" Visibility="{Binding SelectedQuotation.ShowDocumentActions, Converter={StaticResource BooleanToVisibility}}">
+                        <StackPanel>
+                            <TextBlock Text="إصدار العرض وطباعته" Style="{StaticResource SectionTitle}" Margin="0,0,0,12"/>
+                            <TextBlock Text="يُعتمد الإصدار بعد تأكيد الخادم، ثم تتاح طباعة النسخة المؤكدة." Foreground="{StaticResource MutedBrush}" Margin="0,0,0,12" Visibility="{Binding SelectedQuotation.CanIssue, Converter={StaticResource BooleanToVisibility}}"/>
+                            <TextBlock Text="يُنشئ الإصدار الجديد مسودة بالرقم نفسه. يلزم إصدارها مجدداً قبل استخدامها." Foreground="{StaticResource MutedBrush}" Margin="0,0,0,12" Visibility="{Binding SelectedQuotation.CanRevise, Converter={StaticResource BooleanToVisibility}}"/>
+                            <controls:FeedbackNotice Message="بانتظار موافقة المدير. تتاح الطباعة بعد إصدار العرض." Tone="Warning" Margin="0,0,0,12" Visibility="{Binding SelectedQuotation.IsWaitingApproval, Converter={StaticResource BooleanToVisibility}}"/>
+                            <controls:FeedbackNotice x:Name="DocumentBusyNotice" Style="{StaticResource LifecycleBusyNotice}"/>
+                            <StackPanel IsEnabled="{Binding LifecycleAvailable}">
+                                <controls:FormField Label="مدة الصلاحية بالأيام" Margin="0,0,0,12" Visibility="{Binding SelectedQuotation.ShowValidityInput, Converter={StaticResource BooleanToVisibility}}">
+                                    <TextBox Text="{Binding ValidityInput, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" FlowDirection="LeftToRight" TextAlignment="Right" automation:AutomationProperties.Name="مدة صلاحية عرض السعر بالأيام"/>
+                                </controls:FormField>
+                                <WrapPanel>
+                                    <Button Content="إصدار عرض السعر" Click="IssueClick" Style="{StaticResource PrimaryButton}" Margin="0,0,8,8" Visibility="{Binding SelectedQuotation.CanIssue, Converter={StaticResource BooleanToVisibility}}" automation:AutomationProperties.Name="إصدار عرض السعر"/>
+                                    <Button Content="تعديل الصلاحية" Click="ValidityClick" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" Visibility="{Binding SelectedQuotation.CanManageValidity, Converter={StaticResource BooleanToVisibility}}" automation:AutomationProperties.Name="تعديل صلاحية عرض السعر"/>
+                                    <Button Content="إصدار جديد" Click="ReviseClick" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" Visibility="{Binding SelectedQuotation.CanRevise, Converter={StaticResource BooleanToVisibility}}" automation:AutomationProperties.Name="إنشاء إصدار جديد من عرض السعر"/>
+                                    <Button Content="طباعة" Click="PrintQuotationClick" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" Visibility="{Binding SelectedQuotation.CanPrintConfirmed, Converter={StaticResource BooleanToVisibility}}" automation:AutomationProperties.Name="طباعة عرض السعر المؤكد"/>
+                                </WrapPanel>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
                     <StackPanel Visibility="{Binding IsReceptionist, Converter={StaticResource BooleanToVisibility}}" Margin="0,0,0,16">
                         <TextBlock Text="معاينة ببيانات تجريبية — الحفظ والتحويل غير متاحين بعد" Visibility="{Binding SelectedQuotation.IsPreview, Converter={StaticResource BooleanToVisibility}}" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,12"/>
                         <WrapPanel DataContext="{Binding SelectedQuotation}">
@@ -223,30 +270,21 @@
                             <Button Content="تحويل إلى طلب" Style="{StaticResource PrimaryButton}" Margin="0,0,8,8" Click="ConvertQuotationClick" Visibility="{Binding CanConvert, Converter={StaticResource BooleanToVisibility}}" automation:AutomationProperties.Name="تحويل عرض السعر إلى طلب"/>
                             <Button Content="فتح الطلب" Style="{StaticResource PrimaryButton}" Click="OpenLinkedOrderClick" Visibility="{Binding IsConverted, Converter={StaticResource BooleanToVisibility}}" automation:AutomationProperties.Name="فتح الطلب"/>
                         </WrapPanel>
-                        <controls:FeedbackNotice Message="بانتظار موافقة المدير. تتاح الطباعة بعد إصدار العرض." Tone="Warning" Visibility="{Binding SelectedQuotation.IsWaitingApproval, Converter={StaticResource BooleanToVisibility}}"/>
                         <controls:FeedbackNotice Message="تم التحويل إلى طلب" Tone="Information" Visibility="{Binding SelectedQuotation.IsConverted, Converter={StaticResource BooleanToVisibility}}"/>
                         <TextBlock x:Name="ReceptionActionNotice" TextWrapping="Wrap" automation:AutomationProperties.LiveSetting="Polite"/>
                     </StackPanel>
-                    <Border Style="{StaticResource Card}" Padding="20">
-                        <WrapPanel>
-                            <StackPanel Width="220" Margin="0,0,0,9">
-                                <TextBlock Text="رقم عرض السعر" Style="{StaticResource MetadataLabel}" />
-                                <TextBlock Text="{Binding SelectedQuotation.Number}" Style="{StaticResource MetadataValue}" FlowDirection="LeftToRight" TextAlignment="Right" />
+                    <Border x:Name="CancellationSection" Style="{StaticResource Card}" Padding="20" Margin="0,0,0,16" Visibility="{Binding SelectedQuotation.CanCancel, Converter={StaticResource BooleanToVisibility}}">
+                        <StackPanel>
+                            <TextBlock Text="إلغاء عرض السعر" Style="{StaticResource SectionTitle}"/>
+                            <TextBlock Text="يوقف الإلغاء استخدام العرض مع حفظ سجله. لا يمكن تعديله أو إعادة إصداره بعد الإلغاء." Foreground="{StaticResource MutedBrush}" Margin="0,6,0,12"/>
+                            <controls:FeedbackNotice Style="{StaticResource LifecycleBusyNotice}"/>
+                            <StackPanel IsEnabled="{Binding LifecycleAvailable}">
+                                <controls:FormField Label="سبب إلغاء العرض" HelpText="السبب مطلوب لإلغاء العرض الصادر." Margin="0,0,0,12" Visibility="{Binding SelectedQuotation.ShowCancellationReason, Converter={StaticResource BooleanToVisibility}}">
+                                    <TextBox Text="{Binding CancellationReason, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" MaxLength="240" automation:AutomationProperties.Name="سبب إلغاء عرض السعر"/>
+                                </controls:FormField>
+                                <Button Content="إلغاء العرض" Click="CancelQuotationClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" automation:AutomationProperties.Name="إلغاء عرض السعر مع حفظ السجل"/>
                             </StackPanel>
-                            <StackPanel Width="180" Margin="0,0,0,9">
-                                <TextBlock Text="الحالة" Style="{StaticResource MetadataLabel}" />
-                                <controls:StatusBadge x:Name="DetailStatusBadge" DataContext="{Binding SelectedQuotation}" Margin="0,5,0,0" Padding="12,3" HorizontalAlignment="Right" Text="{Binding StatusLabel}" Style="{StaticResource StatusBadge}"></controls:StatusBadge>
-                            </StackPanel>
-                            <StackPanel Width="250" Margin="0,0,0,9">
-                                <TextBlock Text="العميل" Style="{StaticResource MetadataLabel}" />
-                                <TextBlock Text="{Binding SelectedQuotation.Customer}" Style="{StaticResource MetadataValue}" />
-                                <Button Content="تفاصيل العميل" Style="{StaticResource InlineActionButton}" HorizontalAlignment="Left" Click="CustomerClick" Visibility="{Binding IsReceptionist, Converter={StaticResource BooleanToVisibility}}" AutomationProperties.Name="فتح تفاصيل عميل عرض السعر"/>
-                            </StackPanel>
-                            <StackPanel Width="160" Margin="0,0,0,9">
-                                <TextBlock Text="التاريخ" Style="{StaticResource MetadataLabel}" />
-                                <TextBlock Text="{Binding SelectedQuotation.DateLabel}" Style="{StaticResource MetadataValue}" FlowDirection="LeftToRight" TextAlignment="Right" />
-                            </StackPanel>
-                        </WrapPanel>
+                        </StackPanel>
                     </Border>
                     <Border Style="{StaticResource Card}" ClipToBounds="True" Margin="0,16,0,0">
                         <Grid>

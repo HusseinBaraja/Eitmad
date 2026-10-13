@@ -53,6 +53,7 @@ public sealed class QuotationListItem : ObservableObject
     public bool CanCancel => Permits(Eitmad.Contracts.QuotationPermittedAction.Cancel);
     public bool IsPreview => Draft is null && Lifecycle is null;
     public bool ShowValidityInput => CanManageValidity || CanRevise;
+    public bool ShowDocumentActions => CanIssue || ShowValidityInput || CanPrintConfirmed || HasPendingDiscountApproval;
     public bool ShowCancellationReason => CanCancel && Lifecycle?.Number is not null;
     public bool CanPrintPreview => IsPreview && CanPrint;
     public bool CanPrintConfirmed => Lifecycle is not null && CanPrint;
