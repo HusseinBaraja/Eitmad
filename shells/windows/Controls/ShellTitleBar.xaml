@@ -65,8 +65,29 @@
                         <Path Data="{StaticResource IconMessage}" Style="{StaticResource ToolbarVectorIcon}" />
                     </Button>
                 </Grid>
-                <Button x:Name="SwitchAccountButton" Style="{StaticResource IconButton}" Tag="{Binding SwitchAccountHint, RelativeSource={RelativeSource AncestorType=controls:ShellTitleBar}}" Click="SwitchAccountClick" automation:AutomationProperties.Name="{Binding SwitchAccountHint, RelativeSource={RelativeSource AncestorType=controls:ShellTitleBar}}">
-                    <Path Data="{StaticResource IconUsers}" Style="{StaticResource ToolbarVectorIcon}" />
+                <Button x:Name="SwitchAccountButton" Content="تبديل الحساب" controls:ControlOptions.Icon="{StaticResource IconSwitchAccount}" Tag="{Binding SwitchAccountHint, RelativeSource={RelativeSource AncestorType=controls:ShellTitleBar}}" Click="SwitchAccountClick" automation:AutomationProperties.Name="{Binding SwitchAccountHint, RelativeSource={RelativeSource AncestorType=controls:ShellTitleBar}}">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource IconButton}">
+                            <Setter Property="Width" Value="Auto" />
+                            <Setter Property="Padding" Value="12,0" />
+                            <Setter Property="FontSize" Value="13" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
+                                    <Setter Property="Width" Value="42" />
+                                    <Setter Property="Padding" Value="0" />
+                                    <Setter Property="controls:ControlOptions.ShowText" Value="False" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                    <Button.ToolTip>
+                        <ToolTip FlowDirection="RightToLeft" Language="ar-YE">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="تسجيل الخروج لتبديل الحساب" />
+                                <TextBlock Text="Alt+K" FlowDirection="LeftToRight" Margin="12,0,0,0" />
+                            </StackPanel>
+                        </ToolTip>
+                    </Button.ToolTip>
                 </Button>
             </StackPanel>
             <Button x:Name="PrimaryActionButton" Grid.Column="0" Height="44" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTip="{Binding PrimaryActionLabel, RelativeSource={RelativeSource AncestorType=controls:ShellTitleBar}}" Tag="{Binding PrimaryActionLabel, RelativeSource={RelativeSource AncestorType=controls:ShellTitleBar}}" Click="PrimaryActionClick">
