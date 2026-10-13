@@ -95,7 +95,7 @@ public partial class PricingView : UserControl
             await Task.Delay(150, cancellation.Token);
             var result = await client.ReviewAsync(input, cancellation.Token);
             if (version != reviewVersion || editor != ViewModel.EditorVersion || session != sessionVersion || !ViewModel.IsEditorOpen) return;
-            if (result.Succeeded) ViewModel.ApplyReview(result.Value!);
+            if (result.Succeeded) ViewModel.ApplyReview(input.SellingPriceYer, result.Value!);
             else if (result.Failure == PricingFailure.Denied) { ClearProjection(); _ = RefreshAsync(); }
             else ViewModel.Fail(PricingClient.ArabicMessage(result.Failure));
         }

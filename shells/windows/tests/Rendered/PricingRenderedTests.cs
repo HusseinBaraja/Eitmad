@@ -110,7 +110,10 @@ public sealed class PricingRenderedTests
         page.CatalogSyncIssues = [new CatalogSyncIssue { Kind = "product-category", Id = Guid.NewGuid(), Revision = 1, Name = "فئة المنتجات الجاهزة" }];
         var engine = new FakeEngine();
         engine.QueryHandler = query => new QueryResponseEnvelope { Outcome = new QueryOutcome { Status = CommandOutcomeStatus.Succeeded,
-            Payload = query.AsPricingList() is not null ? QueryResult.ForPrices(page) : QueryResult.ForPriceReview(new PriceReview { CostYer = 160_000, MarginYer = -10_000, BelowCost = true }) } };
+            Payload = query.AsPricingList() is not null ? QueryResult.ForPrices(page)
+                : QueryResult.ForPriceReview(query.AsPricingReview()!.SellingPriceYer == 150_000
+                    ? new PriceReview { CostYer = 160_000, MarginYer = -10_000, BelowCost = true }
+                    : new PriceReview { CostYer = 160_000, MarginYer = 60_000 }) } };
         engine.CommandHandler = command =>
         {
             var input = command.AsPricingPublish()!;
@@ -127,6 +130,7 @@ public sealed class PricingRenderedTests
             Assert.HasCount(2, view.ViewModel.VisiblePrices);
             Assert.IsTrue(WpfTestHost.FindByName<TextBlock>(view, "CatalogSyncIssueNotice").IsVisible);
             var dpi = System.Windows.Media.VisualTreeHelper.GetDpi(window);
+            Console.WriteLine($"Available display: {SystemParameters.PrimaryScreenWidth} x {SystemParameters.PrimaryScreenHeight} DIP; work area {SystemParameters.WorkArea.Width} x {SystemParameters.WorkArea.Height} DIP");
             Console.WriteLine($"Pricing render: {window.ActualWidth} x {window.ActualHeight} DIP; display scaling {dpi.DpiScaleX * 100}%");
 
             WpfTestHost.Capture(window, $"pricing-{Math.Round(window.ActualWidth)}x{Math.Round(window.ActualHeight)}-{dpi.DpiScaleX * 100}percent");
@@ -134,13 +138,13 @@ public sealed class PricingRenderedTests
             WpfTestHost.PumpDispatcher();
             var input = WpfTestHost.FindByName<TextBox>(view, "PriceInput");
             Assert.IsTrue(input.IsKeyboardFocusWithin);
-            input.Text = "220000.5";
-            WpfTestHost.FindByAutomationName<Button>(view, "حفظ سعر البيع").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            Assert.IsTrue(view.ViewModel.HasEditorError);
-            view.ViewModel.ApplyReview(new PriceReview { CostYer = 160_000, MarginYer = -10_000, BelowCost = true });
+            input.Text = "150000";
+            view.ViewModel.ApplyReview(150_000, new PriceReview { CostYer = 160_000, MarginYer = -10_000, BelowCost = true });
             WpfTestHost.CompleteLayout(view);
             var warning = WpfTestHost.FindByAutomationName<CheckBox>(view, "تأكيد نشر سعر أقل من التكلفة");
+            var save = WpfTestHost.FindByAutomationName<Button>(view, "حفظ سعر البيع");
             Assert.IsTrue(warning.IsVisible);
+            Assert.IsFalse(save.IsEnabled);
             input.Focus();
             input.MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.Next));
             Assert.IsTrue(warning.IsKeyboardFocusWithin);
@@ -152,6 +156,21 @@ public sealed class PricingRenderedTests
                 WpfTestHost.Capture(window, "pricing-warning-enlarged-text-720x560");
                 warning.ClearValue(Control.FontSizeProperty);
             }
+            warning.IsChecked = true;
+            Assert.IsTrue(save.IsEnabled);
+            input.Text = "220000.5";
+            view.ViewModel.ApplyReview(150_000, new PriceReview { CostYer = 160_000, MarginYer = -10_000, BelowCost = true });
+            WpfTestHost.CompleteLayout(view);
+            Assert.IsTrue(view.ViewModel.HasEditorError);
+            Assert.IsFalse(warning.IsVisible);
+            Assert.IsFalse(view.ViewModel.ConfirmBelowCost);
+            Assert.IsFalse(save.IsEnabled);
+            Assert.AreEqual("—", view.ViewModel.EditorMargin);
+            var margin = WpfTestHost.Descendants<TextBlock>(view).Single(text =>
+                System.Windows.Data.BindingOperations.GetBinding(text, TextBlock.TextProperty)?.Path.Path == nameof(PricingViewModel.EditorMargin));
+            Assert.AreEqual("—", margin.Text);
+            Assert.IsTrue(margin.IsVisible);
+            WpfTestHost.Capture(window, $"ui-26-invalid-price-{Math.Round(window.ActualWidth)}x{Math.Round(window.ActualHeight)}-{dpi.DpiScaleX * 100}percent");
             input.Text = "220000";
             WpfTestHost.FindByAutomationName<Button>(view, "حفظ سعر البيع").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(view);

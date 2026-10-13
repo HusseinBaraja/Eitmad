@@ -26,7 +26,9 @@ public sealed class PricingViewModel : ObservableObject
     public bool IsBusy { get => isBusy; set { Set(ref isBusy, value); Raise(nameof(CanEdit)); Raise(nameof(CanSave)); } }
     public bool SavePending { get => savePending; set { Set(ref savePending, value); Raise(nameof(CanEdit)); } }
     public bool CanEdit => CanManage && CanReadCosts && !IsBusy && !SavePending;
-    public bool CanSave => CanManage && CanReadCosts && !IsBusy;
+    public bool CanSave => CanManage && CanReadCosts && !IsBusy && IsEditorOpen
+        && TryParsePrice(EditorSellingPrice, out var price) && price > 0
+        && (!HasNegativeEditorMargin || ConfirmBelowCost);
     public string AvailabilityMessage { get => availabilityMessage; private set => Set(ref availabilityMessage, value); }
     public string SyncIssueMessage { get => syncIssueMessage; private set { Set(ref syncIssueMessage, value); Raise(nameof(HasSyncIssues)); } }
     public bool HasSyncIssues => SyncIssueMessage.Length > 0;
@@ -35,11 +37,18 @@ public sealed class PricingViewModel : ObservableObject
     public string EditorCost => PricingListItem.FormatMoney(review?.CostYer ?? editingPrice?.Cost);
     public string EditorMargin => PricingListItem.FormatMoney(review?.MarginYer);
     public bool HasNegativeEditorMargin => review?.BelowCost == true;
-    public bool ConfirmBelowCost { get => confirmBelowCost; set => Set(ref confirmBelowCost, value); }
+    public bool ConfirmBelowCost { get => confirmBelowCost; set { if (Set(ref confirmBelowCost, value)) Raise(nameof(CanSave)); } }
     public string EditorSellingPrice
     {
         get => editorSellingPrice;
-        set { if (!Set(ref editorSellingPrice, value ?? "")) return; review = null; ConfirmBelowCost = false; EditorError = ""; RaiseReview(); EditorPriceChanged?.Invoke(this, EventArgs.Empty); }
+        set
+        {
+            if (!Set(ref editorSellingPrice, value ?? "")) return;
+            review = null; ConfirmBelowCost = false;
+            EditorError = TryParsePrice(editorSellingPrice, out var price) && price > 0
+                ? "" : PricingClient.ArabicMessage(PricingFailure.Invalid);
+            RaiseReview(); EditorPriceChanged?.Invoke(this, EventArgs.Empty);
+        }
     }
     public string EditorError { get => editorError; private set { Set(ref editorError, value); Raise(nameof(HasEditorError)); } }
     public bool HasEditorError => EditorError.Length > 0;
@@ -93,7 +102,11 @@ public sealed class PricingViewModel : ObservableObject
     }
     public ReviewPrice? ReviewInput() => editingPrice is not null && TryParsePrice(EditorSellingPrice, out var price)
         ? new() { Target = editingPrice.Record.Target, SellingPriceYer = price } : null;
-    public void ApplyReview(PriceReview value) { review = value; RaiseReview(); }
+    public void ApplyReview(long sellingPriceYer, PriceReview value)
+    {
+        if (!IsEditorOpen || !TryParsePrice(EditorSellingPrice, out var price) || price != sellingPriceYer) return;
+        review = value; RaiseReview();
+    }
     public PublishPrice? SaveInput()
     {
         if (editingPrice is null || !TryParsePrice(EditorSellingPrice, out var price) || price <= 0) { Fail(PricingClient.ArabicMessage(PricingFailure.Invalid)); return null; }
@@ -103,7 +116,7 @@ public sealed class PricingViewModel : ObservableObject
     public void Saved() { SavePending = false; CancelEditor(force: true); FeedbackMessage = "نُشر سعر البيع بتأكيد الخادم وحُفظ سجل التغيير."; }
     public void Fail(string message) => EditorError = message;
     public void ClearFeedback() => FeedbackMessage = "";
-    private void RaiseReview() { Raise(nameof(EditorCost)); Raise(nameof(EditorMargin)); Raise(nameof(HasNegativeEditorMargin)); }
+    private void RaiseReview() { Raise(nameof(EditorCost)); Raise(nameof(EditorMargin)); Raise(nameof(HasNegativeEditorMargin)); Raise(nameof(CanSave)); }
     private void RefreshVisiblePrices()
     {
         VisiblePrices.Clear();

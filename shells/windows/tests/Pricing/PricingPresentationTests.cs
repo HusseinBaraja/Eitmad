@@ -45,7 +45,7 @@ public sealed class PricingPresentationTests
         model.EditorSellingPrice = "٢٢٠٬٠٠٠";
         Assert.AreEqual("—", model.EditorMargin);
         Assert.AreEqual(220_000L, model.SaveInput()!.SellingPriceYer);
-        model.ApplyReview(new PriceReview { CostYer = 160_000, MarginYer = 60_000 });
+        model.ApplyReview(220_000, new PriceReview { CostYer = 160_000, MarginYer = 60_000 });
         Assert.AreEqual("60,000 ر.ي", model.EditorMargin);
         Assert.AreEqual(200_000L, row.SellingPrice); // Staging and review cannot mutate a confirmed price.
         model.EditorSellingPrice = "220000.5";
@@ -56,13 +56,47 @@ public sealed class PricingPresentationTests
     {
         var data = Data(); data.Items[1].Published.SellingPriceYer = 200_000;
         var model = new PricingViewModel(); model.ApplyDurableData(data);
-        model.BeginEdit(model.VisiblePrices[0]); model.ApplyReview(new PriceReview { CostYer = 210_000, MarginYer = -10_000, BelowCost = true });
+        model.BeginEdit(model.VisiblePrices[0]); model.ApplyReview(200_000, new PriceReview { CostYer = 210_000, MarginYer = -10_000, BelowCost = true });
         Assert.IsNull(model.SaveInput()); model.ConfirmBelowCost = true; Assert.IsTrue(model.SaveInput()!.ConfirmBelowCost);
         model.CancelEditor(); model.BeginEdit(model.VisiblePrices[1]);
         Assert.AreEqual("—", model.EditorMargin); Assert.IsFalse(model.ConfirmBelowCost);
-        model.ApplyReview(new PriceReview { CostYer = 285_000, MarginYer = -85_000, BelowCost = true });
+        model.ApplyReview(200_000, new PriceReview { CostYer = 285_000, MarginYer = -85_000, BelowCost = true });
         Assert.AreEqual("-85,000 ر.ي", model.EditorMargin);
     }
+    [TestMethod]
+    public void ChangedPriceInvalidatesBelowCostReviewAndRejectsLateResults()
+    {
+        var model = new PricingViewModel(); model.ApplyDurableData(Data()); model.BeginEdit(model.VisiblePrices[0]);
+        model.EditorSellingPrice = "150000";
+        var belowCost = new PriceReview { CostYer = 160_000, MarginYer = -10_000, BelowCost = true };
+        model.ApplyReview(150_000, belowCost);
+        Assert.AreEqual("-10,000 ر.ي", model.EditorMargin);
+        Assert.IsTrue(model.HasNegativeEditorMargin);
+        Assert.IsFalse(model.CanSave);
+        model.ConfirmBelowCost = true;
+        Assert.IsTrue(model.CanSave);
+
+        model.EditorSellingPrice = "220000.5";
+        model.ApplyReview(150_000, belowCost);
+        Assert.AreEqual("—", model.EditorMargin);
+        Assert.IsFalse(model.HasNegativeEditorMargin);
+        Assert.IsFalse(model.ConfirmBelowCost);
+        Assert.IsFalse(model.CanSave);
+        Assert.IsTrue(model.HasEditorError);
+        Assert.IsNull(model.ReviewInput());
+        Assert.IsNull(model.SaveInput());
+
+        model.EditorSellingPrice = "220000";
+        model.ApplyReview(150_000, belowCost);
+        Assert.AreEqual("—", model.EditorMargin);
+        Assert.IsFalse(model.HasNegativeEditorMargin);
+        Assert.IsFalse(model.HasEditorError);
+        model.ApplyReview(220_000, new PriceReview { CostYer = 160_000, MarginYer = 60_000 });
+        Assert.AreEqual("60,000 ر.ي", model.EditorMargin);
+        Assert.IsTrue(model.CanSave);
+        Assert.IsFalse(model.SaveInput()!.ConfirmBelowCost);
+    }
+
     [TestMethod]
     public void ReceptionistProjectionAndSessionClearRemoveInternalFieldsAndEditing()
     {
